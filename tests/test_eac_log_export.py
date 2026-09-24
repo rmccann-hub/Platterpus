@@ -293,13 +293,13 @@ def test_every_published_pregap_action_is_classified_deliberately() -> None:
 def test_gap_row_is_unreported_for_a_log_from_another_ripper() -> None:
     """A non-cyanrip log's gap policy is not knowable from its parsed text.
 
-    The old code echoed whatever the field held — for a legacy whipper log that is
+    The old code echoed whatever the field held — for a legacy-format log that is
     a cdrdao version string, which is an engine name in a policy field.
     """
     log = _sample_log()
     other = replace(
         log,
-        log_creator="whipper 0.10.0",
+        log_creator="otherripper 0.10.0",
         ripping_info=replace(
             log.ripping_info, gap_detection="cdrdao version 1.2.4 from 2020"
         ),
@@ -568,8 +568,8 @@ def test_converged_flag_alone_renders_the_pair() -> None:
 
 
 def test_native_dual_read_crc_is_rendered_as_is() -> None:
-    # A backend that reports a genuinely distinct test_crc (whipper) is shown
-    # verbatim, not synthesized.
+    # A backend that reports a genuinely distinct test_crc (as the legacy log
+    # format does) is shown verbatim, not synthesized.
     text = render_eac_style_log(
         _rip_log(TrackResult(number=1, test_crc="11111111", copy_crc="22222222"))
     )
@@ -1586,9 +1586,9 @@ def test_two_agreeing_reads_EARN_the_EAC_Test_Copy_pair() -> None:
     Exactly 2 and exactly 1 are the two cases that separate the operators; a
     3-read track passes under either.
     """
-    # `test_crc=None` MATTERS: a track carrying a native `test_crc` (whipper's
-    # dual read) returns from the first branch of `_crc_lines` and never reaches
-    # the comparison under test. The sample's track 1 has one, so the obvious
+    # `test_crc=None` MATTERS: a track carrying a native `test_crc` (the legacy
+    # format's dual read) returns from the first branch of `_crc_lines` and never
+    # reaches the comparison under test. The sample's track 1 has one, so the obvious
     # fixture exercises a different function — "what does my stand-in do that the
     # real thing does not", caught here by the test failing for the wrong reason.
     two_reads = replace(

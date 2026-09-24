@@ -2,7 +2,7 @@ name: CI
 
 # Run the test suite on every push to main and every pull request, so
 # regressions are caught before they land. This is the same `pytest` that
-# passes locally — the suite needs no CD hardware (whipper/MusicBrainz/Qt are
+# passes locally — the suite needs no CD hardware (cyanrip/MusicBrainz/Qt are
 # all faked or run headless).
 
 on:
@@ -521,8 +521,8 @@ jobs:
       fail-fast: false
       matrix:
         # Test across the Python versions our users actually run. We've been
-        # bitten by version-specific breakage before (whipper's pkg_resources
-        # use vs Python 3.14); a matrix catches the GUI side of that class of
+        # bitten by version-specific breakage before (the previous ripper's
+        # pkg_resources use vs Python 3.14); a matrix catches the GUI side of that class of
         # problem early. 3.11 is the floor (pyproject `requires-python`); 3.14
         # (2025-10) is the newest — added 2026-07-02 (nothing the project uses
         # was removed in it; PySide6 6.11 supports it).

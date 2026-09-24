@@ -1,9 +1,11 @@
 """Tests for platterpus.parsers.rip_log.
 
-Primary fixture (`rip_log_real_whipper_0_7.log`) is whipper-team/whipper's
-own test fixture from master — i.e., a real log produced by whipper,
-not hand-authored. Source:
-https://github.com/whipper-team/whipper/blob/master/whipper/test/test_result_logger.log
+This is the LEGACY log format: the one written by the ripper Platterpus drove
+before cyanrip (KDD-18), still read so rips made before 2026-06-30 stay readable.
+
+Primary fixture (`rip_log_legacy_format.log`) is a real log in that format, not
+hand-authored — taken verbatim from the upstream project's own test suite (the
+attribution and source are in `tests/fixtures/README.md`).
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ from platterpus.parsers.rip_log import (
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
-REAL_LOG = "rip_log_real_whipper_0_7.log"
+REAL_LOG = "rip_log_legacy_format.log"
 
 
 def _read(name: str) -> str:
@@ -36,6 +38,7 @@ def _read(name: str) -> str:
 
 def test_parse_log_creator_and_creation_date() -> None:
     log = parse_rip_log(_read(REAL_LOG))
+    # The fixture's real, unedited creator line names the tool that wrote it.
     assert log.log_creator.startswith("whipper 0.7.4")
     assert log.creation_date == "2019-10-26T14:25:02Z"
 
@@ -147,7 +150,7 @@ def test_parse_empty_input_returns_empty_log() -> None:
 def test_parse_truncated_log_without_status_section() -> None:
     """A rip killed mid-write should still parse partial output."""
     text = (
-        "Log created by: whipper 0.10.0\n"
+        "Log created by: whipper 0.10.0\n"  # the legacy format's real header
         "\n"
         "Tracks:\n"
         "  1:\n"
@@ -295,7 +298,7 @@ def test_an_all_zero_local_crc_is_NOT_a_match_but_an_empty_one_is_no_evidence() 
     """`local_crc.strip("0Xx") == ""` — the three mutants each break one half.
 
     An all-zero CRC means the checksum was never computed, so a confidence beside
-    it is not a verification. An **empty** CRC is different: a whipper log can
+    it is not a verification. An **empty** CRC is different: a legacy-format log can
     carry a real match without one, and treating empty as zero silently discards
     genuine verifications — under-claiming, which this module's comment calls as
     much a bug as the over-claim.
@@ -502,7 +505,7 @@ def test_a_SECOND_tracks_header_cannot_rewrite_the_track_before_it() -> None:
     boundary is pinned rather than left to the near-equivalence.
     """
     log = (
-        "Log created by: whipper 0.10.0\n"
+        "Log created by: whipper 0.10.0\n"  # the legacy format's real header
         "Tracks:\n"
         "  1:\n"
         "    Filename: a.flac\n"
@@ -528,7 +531,7 @@ def test_the_boundary_flush_still_runs_for_an_ORDINARY_log() -> None:
     is still in the result, exactly once.
     """
     log = (
-        "Log created by: whipper 0.10.0\n"
+        "Log created by: whipper 0.10.0\n"  # the legacy format's real header
         "Tracks:\n"
         "  1:\n"
         "    Filename: a.flac\n"

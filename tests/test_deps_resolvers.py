@@ -117,7 +117,7 @@ def test_auto_installer_handles_missing_install_tool(
 
 
 def test_auto_installer_skips_items_with_no_install_command() -> None:
-    spec = _spec("whipper", Tier.AUTO, install_command=None)
+    spec = _spec("cyanrip", Tier.AUTO, install_command=None)
     item = MissingItem(spec=spec, probe=_absent_probe())
 
     installer = AutoInstaller(consent=lambda _: True)
@@ -172,7 +172,7 @@ def test_queued_installer_empty_selection_declines_all() -> None:
 
 
 def test_manual_prompt_invokes_dialog_per_item() -> None:
-    spec_a = _spec("whipper", Tier.MANUAL)
+    spec_a = _spec("cyanrip", Tier.MANUAL)
     spec_b = _spec("metaflac", Tier.MANUAL)
     items = [
         MissingItem(spec=spec_a, probe=_absent_probe()),
@@ -187,6 +187,6 @@ def test_manual_prompt_invokes_dialog_per_item() -> None:
     prompt = ManualPrompt(dialog_callback=record)
     results = prompt.resolve(items)
 
-    assert seen == ["whipper", "metaflac"]
+    assert seen == ["cyanrip", "metaflac"]
     assert all(not r.success for r in results)
     assert all("manual install required" in r.message for r in results)

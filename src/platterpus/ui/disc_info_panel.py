@@ -12,7 +12,7 @@ and re-usable.
 
 Fields displayed:
   Drive               — the device path of the currently-selected drive
-  MusicBrainz disc ID — from `whipper cd info`
+  MusicBrainz disc ID — from the ripper's disc probe (`cyanrip -I`)
   CDDB disc ID        — same source
   MusicBrainz match   — outcome of the MB lookup (or a status message)
   AccurateRip         — blank until a rip finishes, then the real outcome
@@ -92,9 +92,10 @@ class DiscInfoPanel(QWidget):
         )
         # Read-offset provenance: where this drive's offset came from and how
         # much to trust it (drive_profiles ledger). It's a trust line, not a
-        # setting — the offset whipper actually uses still lives in whipper.conf
-        # / the --offset override. A guard warning (collision/disagreement)
-        # shows here in text, never colour alone (accessibility principle #10).
+        # setting — the offset cyanrip actually uses is the GUI's own --offset
+        # override, passed as `-s` (offset_config.py). A guard warning
+        # (collision/disagreement) shows here in text, never colour alone
+        # (accessibility principle #10).
         self._offset_value: QLabel = self._value_label(
             _PLACEHOLDER, "Read offset provenance"
         )
@@ -202,7 +203,7 @@ class DiscInfoPanel(QWidget):
         else:
             self._accuraterip_value.setText(f"{matched} of {total} tracks matched")
 
-    # --- Disc info (from `whipper cd info`) ---------------------------------
+    # --- Disc info (from the ripper's disc probe, `cyanrip -I`) -------------
 
     def set_disc_info_loading(self) -> None:
         """Show 'reading disc…' while the disc_info subprocess runs."""

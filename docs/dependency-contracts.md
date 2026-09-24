@@ -59,7 +59,7 @@ rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
 | `-N` | disable cyanrip's own MusicBrainz lookup | **always** (Critical rule #5 — the GUI feeds tags via `-a`/`-t`, so cyanrip stays offline and never shows its interactive prompt) |
 | `-a <k=v:k=v…>` | album-level tags | from the GUI's fetched+edited metadata |
 | `-t <n=k=v:…>` | per-track tags (1-based) | from the GUI's metadata |
-| `-D <scheme>` / `-F <scheme>` | directory / filename naming scheme | translated from the whipper-style template (`scheme_from_template`) |
+| `-D <scheme>` / `-F <scheme>` | directory / filename naming scheme | translated from the Settings path template (`%A`/`%d`/`%t`-style tokens; `scheme_from_template`) |
 | `-G` | disable cover-art embedding | when cover art is not being embedded |
 | `-T <mode>` | filename-sanitation scheme applied to tag values before they become path segments | **always, pinned to `unicode`** (`SANITISE_MODE`). Never defaulted: we passed nothing here until 2026-08-23, so every rip inherited whatever default the build shipped while the naming preview and the overwrite guard predicted a two-glyph table — an unpredicted `<` → `‹` silently overwrote a finished 14-track rip. `unicode` is the fork's own default, so the pin is a no-op today and a fence tomorrow; the `os_*` modes substitute *fewer* characters (only those the build's OS forbids), so they are not a way to ask for the look-alikes |
 | `-c <n>/<m>` | disc number / total discs | whenever the release carries a usable disc position, including `-c 1/1` on a single disc. Range-checked in `_disc_args` before it becomes argv — cyanrip refuses the whole rip on a bad value |
@@ -207,7 +207,7 @@ that implied a `cache` field, one that said cyanrip prints no cache line at all)
 
 Two corrections to the paragraph above, both from the 2026-07-31 pass:
 
-- "extraction speed/quality" described the **whipper** log's fields, not
+- "extraction speed/quality" described the **legacy log format**'s fields, not
   cyanrip's. cyanrip 0.9.3 prints **no per-track speed, elapsed time or quality**
   at all (that is the §2.3 gap below), so `extraction_speed` /
   `extraction_quality` are `None` on every track of every committed cyanrip log.
@@ -395,8 +395,9 @@ list 2026-07-21: it's now the opt-in Settings "Overread" toggle → `-O` in the
 table above. Note the flag-letter correction made the same day: earlier
 versions of this doc called overread `-x` rather than `-O`, but `-x` did not exist in
 cyanrip's getopt at all — verified against the deployed 0.9.3.1 and
-upstream master **as of 2026-07-21**; the whipper-era flag really was
-`-x/--force-overread`, which is likely where the mix-up came from.)*
+upstream master **as of 2026-07-21**; the flag in the ripper Platterpus used
+before cyanrip really was `-x/--force-overread`, which is likely where the
+mix-up came from.)*
 
 > **⚠ `-x` EXISTS AGAIN, AND IT IS A DIFFERENT FLAG. Do not read the paragraph
 > above as current** (corrected 2026-08-07). The claim *"`-x` does not exist"* was
@@ -448,7 +449,7 @@ upstream master **as of 2026-07-21**; the whipper-era flag really was
 > |---|---|---|
 > | `-x` / `--cache-probe` | measure the drive's readback cache (prints `Cache probe:` lines) **and then rip the whole disc** — measured 2026-08-19; needs `-s 0` or it refuses to open the drive | the **fork**, from round 7 lap 1 |
 > | `-O` | overread into lead-in/lead-out | upstream + fork; **hangs the BDR-209D** |
-> | `-x` / `--force-overread` | overread | **whipper only** — never cyanrip |
+> | `-x` / `--force-overread` | overread | **the ripper used before cyanrip only** — never cyanrip |
 >
 > `Cache probe:` states are deliberately distinct, none of them means "the
 > cache was defeated", and they are **alternatives — exactly one is emitted**
@@ -622,13 +623,13 @@ never have a rip on another drive killed by a broad name match, #23):
 
 1. **`fuser -s -k <device>`** — device-scoped: kill whatever holds the drive
    node (never the GUI, which doesn't open the device).
-2. **Only if that caught nothing**, the name-matched host pkills:
-   `pkill -KILL -f 'whipper (cd|drive|offset|image|accurip|mblookup|rip)'`
-   (an **inert whipper-era seam** — kept anchored so it can never match the
-   GUI or the pkill wrapper) and
+2. **Only if that caught nothing**, the name-matched host pkill:
    `pkill -KILL 'cdparanoia|cd-paranoia|cdrdao|cyanrip'` — the readers, by
    process **name** (never `-f` — that would self-match). **cyanrip is its own
-   reader** (libcdio, no child), so it must be killed by its own name.
+   reader** (libcdio, no child), so it must be killed by its own name. (A
+   second, `-f`-anchored pattern for the ripper older versions drove sat here
+   as an inert seam until 2026-09-24, when it was removed: it matched a program
+   Platterpus no longer launches.)
 3. **In-container fallback** (only if the host saw nothing at all):
    **`distrobox enter ripping -- pkill …`** — the one user-approved exception
    to Critical rule #3, scoped strictly to force-stopping a cancelled rip.
@@ -641,4 +642,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.6.53.*
+*Last updated for Platterpus v0.6.58.*

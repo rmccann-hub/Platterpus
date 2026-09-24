@@ -374,9 +374,9 @@ def _render(
     )
     # The next three rows are asserted from how the ripper BEHAVES rather than
     # from anything in this particular log — so they may only be asserted when we
-    # know which ripper wrote it. Rendering a whipper (or hand-edited) log through
-    # this exporter must not inherit cyanrip's properties (review finding,
-    # 2026-07-28); it gets the honest label instead.
+    # know which ripper wrote it. Rendering a legacy-format (or hand-edited)
+    # log through this exporter must not inherit cyanrip's properties (review
+    # finding, 2026-07-28); it gets the honest label instead.
     #   • silent blocks — cyanrip writes what it reads, it never trims;
     #   • null samples — cyanrip's per-track CRC is the EAC-compatible CRC32, and
     #     it reproduced a real EAC log's CRCs exactly on 12 of 14 tracks of the
@@ -528,8 +528,8 @@ def _is_cyanrip(rip_log: RipLog) -> bool:
     Gates every row asserted from the ripper's *behaviour* rather than from the
     log's contents. `startswith`, not a substring test: cyanrip's banner is
     "cyanrip <version>", while a substring would let "not-cyanrip 1.0" or
-    "whipper (cyanrip-compatible)" inherit assertions that are not true of them
-    (review finding, 2026-07-28).
+    "other-ripper (cyanrip-compatible)" inherit assertions that are not true of
+    them (review finding, 2026-07-28).
     """
     return (rip_log.log_creator or "").casefold().startswith("cyanrip")
 
@@ -746,7 +746,7 @@ def _output_format_block(cyanrip: bool, info: RippingInfo) -> list[str]:
     if not cyanrip:
         # Every row below states something about cyanrip's encoder. For a log
         # another ripper wrote we know none of it — and claiming "cyanrip
-        # encodes in-process" about a whipper rip is the same leak the header
+        # encodes in-process" about a legacy-format rip is the same leak the header
         # rows were just hardened against (review finding, 2026-07-28).
         return [
             f"Used output format              : {_UNREPORTED}",
@@ -1411,11 +1411,11 @@ def _crc_lines(track: TrackResult) -> list[str]:
     what convergence means) plus an honest note naming how it was confirmed. A
     single-read track (``-Z`` off, or a clean track on the dynamic fast path)
     gets only a Copy CRC — we never fabricate a second "test" read that didn't
-    happen. A backend that natively reports a distinct ``test_crc`` (whipper's
-    dual read) is rendered as-is.
+    happen. A log that natively reports a distinct ``test_crc`` (the legacy
+    format's dual read) is rendered as-is.
     """
     out: list[str] = []
-    # Native dual-read backend (whipper): show whatever it actually reported.
+    # Native dual-read log (legacy format): show whatever it actually reported.
     if track.test_crc:
         out.append(f"     Test CRC {track.test_crc.upper()}")
         if track.copy_crc:

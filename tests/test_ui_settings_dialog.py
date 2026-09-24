@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtWidgets import QApplication, QDialogButtonBox
+from PySide6.QtWidgets import QApplication, QDialogButtonBox, QLabel
 
 from platterpus import goal_presets, naming, settings_validation
 from platterpus.config import SCHEMA_VERSION, Config
@@ -127,14 +126,28 @@ def test_initial_widget_state_matches_input_config(
     assert dialog._track_template_unknown_edit.text() == "unk-t"
     assert dialog._disc_template_unknown_edit.text() == "unk-d"
     assert dialog._metaflac_path_edit.text() == "/x/metaflac"
-    assert dialog._read_offset_spin.value() == 42
     assert dialog._auto_picard_check.isChecked() is True
 
 
-def test_read_offset_range_bounds(qapp: QApplication) -> None:
-    dialog = SettingsDialog(Config())
-    assert dialog._read_offset_spin.minimum() <= -1000
-    assert dialog._read_offset_spin.maximum() >= 1000
+def test_the_read_offset_is_shown_read_only_and_names_its_home(
+    qapp: QApplication,
+) -> None:
+    """Settings says what offset the next rip uses, and where it is set.
+
+    It used to be a spin box here as well as in the drive wizard, and OK once
+    wrote the stale copy over the one the wizard had saved. Now it is text: a
+    label, so no click or scroll in this window can change it.
+    """
+    applied = SettingsDialog(Config(read_offset=667, override_read_offset=True))
+    text = applied._offset_status_label.text()
+    assert "+667 samples, applied to every rip" in text
+    assert "Tools → Setup & Updates… → Set up drive…" in text
+    assert isinstance(applied._offset_status_label, QLabel)
+    assert applied._offset_status_label.textFormat() == Qt.TextFormat.PlainText
+
+    off = SettingsDialog(Config(read_offset=667, override_read_offset=False))
+    assert "not applied" in off._offset_status_label.text()
+    assert "+667" not in off._offset_status_label.text()
 
 
 # --- to_config -----------------------------------------------------------
@@ -148,6 +161,7 @@ def test_to_config_returns_unchanged_when_no_edits(
 
     out = dialog.to_config()
 
+    assert out == config
     assert out.read_offset == 667
     assert out.auto_launch_picard is True
 
@@ -161,7 +175,6 @@ def test_to_config_reflects_user_edits(qapp: QApplication) -> None:
     dialog._track_template_unknown_edit.setText("changed-unk-track")
     dialog._disc_template_unknown_edit.setText("changed-unk-disc")
     dialog._metaflac_path_edit.setText("/changed/metaflac")
-    dialog._read_offset_spin.setValue(-42)
     dialog._auto_picard_check.setChecked(True)
 
     out = dialog.to_config()
@@ -172,7 +185,6 @@ def test_to_config_reflects_user_edits(qapp: QApplication) -> None:
     assert out.track_template_unknown == "changed-unk-track"
     assert out.disc_template_unknown == "changed-unk-disc"
     assert out.metaflac_path == "/changed/metaflac"
-    assert out.read_offset == -42
     assert out.auto_launch_picard is True
 
 
@@ -186,49 +198,6 @@ def test_auto_eject_reflects_config_and_round_trips(qapp: QApplication) -> None:
     assert dialog2._auto_eject_check.isChecked() is False
     dialog2._auto_eject_check.setChecked(True)
     assert dialog2.to_config().auto_eject_after_rip is True
-
-
-def test_beta_channel_checkbox_reflects_config_and_round_trips(
-    qapp: QApplication,
-) -> None:
-    """The checkbox is the two-value view of the `update_channel` STRING.
-
-    Both directions are asserted because the mapping is not an identity: a bool
-    widget writing an enum field is exactly where an off state can silently write
-    the wrong string, and "off" must mean `stable` — the safe direction.
-    """
-    from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
-
-    # Default config → stable → unchecked.
-    default = SettingsDialog(Config())
-    assert default._beta_channel_check.isChecked() is False
-    assert default.to_config().update_channel == CHANNEL_STABLE
-
-    # Incoming beta config → checked.
-    on_beta = SettingsDialog(Config(update_channel=CHANNEL_BETA))
-    assert on_beta._beta_channel_check.isChecked() is True
-    assert on_beta.to_config().update_channel == CHANNEL_BETA
-
-    # Toggling on writes the beta channel; toggling back writes stable, not "".
-    dialog = SettingsDialog(Config())
-    dialog._beta_channel_check.setChecked(True)
-    assert dialog.to_config().update_channel == CHANNEL_BETA
-    dialog._beta_channel_check.setChecked(False)
-    assert dialog.to_config().update_channel == CHANNEL_STABLE
-
-
-def test_beta_channel_tooltip_warns_before_the_offer_does(
-    qapp: QApplication,
-) -> None:
-    """The consent point has to carry the warning too, not only the offer.
-
-    A user turning this on is deciding for every future check, so the risk belongs
-    where the decision is made — not solely in the dialog they will see later.
-    """
-    tip = SettingsDialog(Config())._beta_channel_check.toolTip().lower()
-    assert "pre-release" in tip
-    assert "bugs" in tip, "the tooltip does not say a beta may be broken"
-    assert "testing" in tip
 
 
 def test_ctdb_verify_reflects_config_and_round_trips(qapp: QApplication) -> None:
@@ -519,8 +488,11 @@ def test_ok_keeps_an_offset_saved_while_settings_was_open(
     dialog = SettingsDialog(live)
     live.read_offset = 6  # what `_set_read_offset_override` does to the live object
     assert dialog.user_edits_applied_to(live).read_offset == 6
-    dialog._read_offset_spin.setValue(12)  # a real edit still wins
-    assert dialog.user_edits_applied_to(live).read_offset == 12
+    # Since 2026-09-24 Settings cannot edit the offset at all, so this holds by
+    # construction; a real edit to a setting it DOES own still wins.
+    dialog._max_retries_spin.setValue(3)
+    saved = dialog.user_edits_applied_to(live)
+    assert (saved.read_offset, saved.max_retries) == (6, 3)
 
 
 # --- Accept / Cancel -----------------------------------------------------
@@ -548,21 +520,131 @@ def test_cancel_rejects_dialog(qapp: QApplication) -> None:
     assert dialog.result() == int(dialog.DialogCode.Rejected)
 
 
-def test_read_offset_editable_with_override(qapp: QApplication) -> None:
-    dialog = SettingsDialog(Config(read_offset=667, override_read_offset=True))
-    # Editable now (was read-only before the manual-offset feature).
-    assert dialog._read_offset_spin.isReadOnly() is False
-    assert dialog._read_offset_spin.value() == 667
-    assert dialog._override_offset_check.isChecked() is True
+def test_ok_apply_cancel_and_restore_defaults_are_all_offered(
+    qapp: QApplication,
+) -> None:
+    """KDE's convention, which the maintainer asked about on 2026-09-23."""
+    box = _button_box(SettingsDialog(Config()))
+    for which in (
+        QDialogButtonBox.StandardButton.Ok,
+        QDialogButtonBox.StandardButton.Apply,
+        QDialogButtonBox.StandardButton.Cancel,
+        QDialogButtonBox.StandardButton.RestoreDefaults,
+    ):
+        assert box.button(which) is not None, which
 
 
-def test_override_offset_round_trips(qapp: QApplication) -> None:
+def test_apply_is_enabled_only_while_there_is_something_to_apply(
+    qapp: QApplication,
+) -> None:
+    """How a user can tell an Apply has taken: the button goes grey again."""
     dialog = SettingsDialog(Config())
-    dialog._read_offset_spin.setValue(-12)
-    dialog._override_offset_check.setChecked(True)
+    apply = _button_box(dialog).button(QDialogButtonBox.StandardButton.Apply)
+    assert apply.isEnabled() is False, "Apply is lit with nothing changed"
+    dialog._max_retries_spin.setValue(3)
+    assert apply.isEnabled() is True
+    dialog._max_retries_spin.setValue(Config().max_retries)
+    assert apply.isEnabled() is False, "an edit undone by hand still reads as one"
+
+
+def test_apply_asks_the_window_to_save_and_keeps_the_dialog_open(
+    qapp: QApplication,
+) -> None:
+    dialog = SettingsDialog(Config())
+    asked: list[bool] = []
+    dialog.apply_requested.connect(lambda: asked.append(True))
+    dialog._max_retries_spin.setValue(3)
+    _button_box(dialog).button(QDialogButtonBox.StandardButton.Apply).click()
+    assert asked == [True]
+    assert dialog.result() == 0, "Apply closed the dialog"
+
+
+def test_apply_refuses_like_ok_does(qapp: QApplication) -> None:
+    """A hard error blocks Apply exactly as it blocks OK: shown, not saved."""
+    dialog = SettingsDialog(Config())
+    asked: list[bool] = []
+    dialog.apply_requested.connect(lambda: asked.append(True))
+    dialog._track_template_edit.setText("")
+    _button_box(dialog).button(QDialogButtonBox.StandardButton.Apply).click()
+    assert asked == [], "Apply saved over a hard validation error"
+    assert dialog._validation_label.isHidden() is False
+
+
+def test_after_apply_the_baseline_moves_so_ok_writes_only_later_edits(
+    qapp: QApplication,
+) -> None:
+    """`mark_applied` is what makes Cancel-after-Apply keep what was applied."""
+    dialog = SettingsDialog(Config())
+    dialog._max_retries_spin.setValue(3)
+    dialog.mark_applied()
+    assert dialog.has_unapplied_edits() is False
+    # Something else writes max_retries now; OK must not revert it, because the
+    # user has not touched it since the Apply.
+    live = Config(max_retries=7)
+    assert dialog.user_edits_applied_to(live).max_retries == 7
+
+
+def test_restore_defaults_resets_every_control_this_dialog_owns(
+    qapp: QApplication,
+) -> None:
+    """Every Settings-homed field, found through the home table.
+
+    Starts from a config where EVERY such field differs from its default, so a
+    field the reset missed cannot pass by already being at its default.
+    """
+    from platterpus.ui.setting_homes import SETTINGS, fields_homed_in
+
+    shipped = Config()
+    changed = Config(
+        output_dir="/elsewhere",
+        library_dir="/lib",
+        track_template="x/%n",
+        disc_template="x/%d",
+        track_template_unknown="u/%n",
+        disc_template_unknown="u/%d",
+        metaflac_path="/opt/metaflac",
+        output_format="mp3",
+        mp3_vbr_quality=4,
+        auto_launch_picard=not shipped.auto_launch_picard,
+        auto_eject_after_rip=not shipped.auto_eject_after_rip,
+        notify_on_completion=not shipped.notify_on_completion,
+        debug_logging=not shipped.debug_logging,
+        cover_art="file",
+        save_additional_art=not shipped.save_additional_art,
+        max_retries=9,
+        force_overread=not shipped.force_overread,
+        secure_rerip_matches=4,
+        rerip_offset_variant=not shipped.rerip_offset_variant,
+        secure_rerip_dynamic=not shipped.secure_rerip_dynamic,
+        read_speed_mode="fixed",
+        read_speed=8,
+        ctdb_verify_after_rip=not shipped.ctdb_verify_after_rip,
+        verify_flac_after_rip=not shipped.verify_flac_after_rip,
+        recompress_flac_after_rip=not shipped.recompress_flac_after_rip,
+        write_eac_log_after_rip=not shipped.write_eac_log_after_rip,
+        rip_goal=GOAL_CUSTOM,
+        # Homed elsewhere: must survive the reset untouched.
+        read_offset=667,
+        override_read_offset=True,
+        update_channel="beta",
+        test_script_autorun=True,
+    )
+    owned = fields_homed_in(SETTINGS)
+    not_differing = sorted(
+        f for f in owned if getattr(changed, f) == getattr(shipped, f)
+    )
+    assert not_differing == [], f"fixture leaves {not_differing} at their default"
+
+    dialog = SettingsDialog(changed)
+    dialog.restore_defaults()
     out = dialog.to_config()
-    assert out.read_offset == -12
-    assert out.override_read_offset is True
+    wrong = sorted(f for f in owned if getattr(out, f) != getattr(shipped, f))
+    assert wrong == [], f"Restore Defaults left {wrong} unchanged"
+    for kept in ("read_offset", "override_read_offset", "update_channel"):
+        assert getattr(out, kept) == getattr(changed, kept), kept
+    assert out.test_script_autorun is True
+    # Nothing is saved by the reset itself: it is an edit, waiting for OK.
+    assert dialog.has_unapplied_edits() is True
 
 
 # --- EAC parity-gap widgets ----------------------------------------------
@@ -695,25 +777,22 @@ def test_composite_row_fields_have_accessible_names(qapp: QApplication) -> None:
     dialog = SettingsDialog(Config())
     assert dialog._output_dir_edit.accessibleName() == "Output directory"
     assert dialog._metaflac_path_edit.accessibleName() == "metaflac path"
-    assert dialog._read_offset_spin.accessibleName()
+    assert dialog._offset_status_label.accessibleName() == "Read offset"
     browse_names = [
         b.accessibleName()
         for b in dialog.findChildren(QPushButton)
         if b.text() == "Browse…"
     ]
-    # Five Browse rows: output dir, working dir, library folder, metaflac path,
-    # and the unattended test script. The count is asserted rather than a lower
-    # bound so a new composite row cannot be added without someone reading this
-    # test and confirming its field got a name too.
-    # Four browse buttons since `working_dir` was removed on 2026-08-24 — it was
-    # a whipper-era scratch directory nothing read, documented to users as if it
-    # did something. Counted rather than listed so a row added without an
-    # accessible name still fails here.
-    assert len(browse_names) == 4
+    # Three Browse rows: output dir, library folder, metaflac path. The count is
+    # asserted rather than a lower bound so a new composite row cannot be added
+    # without someone reading this test and confirming its field got a name too.
+    # (Four until 2026-09-24, when the test script moved to the script console,
+    # its one home; five until `working_dir`, a directory left over from the
+    # previous backend that nothing read, was removed on 2026-08-24.)
+    assert len(browse_names) == 3
     # All named, all distinct — a screen reader can tell them apart.
     assert all(browse_names)
     assert len(set(browse_names)) == len(browse_names)
-    assert dialog._test_script_edit.accessibleName() == "Test script"
 
 
 def test_validation_banner_announces_once_per_distinct_text(
@@ -763,78 +842,6 @@ def test_library_dir_round_trips(qapp: QApplication) -> None:
     dialog._library_dir_edit.setText("/music/library")
     assert dialog.to_config().library_dir == "/music/library"
     assert "library_dir" in dialog._validated_widgets
-
-
-def test_every_documented_setting_has_a_tooltip(qapp: QApplication) -> None:
-    """Every user-facing setting the guide documents must also carry a tooltip
-    on its Settings control — the same info, on hover (real-user request,
-    2026-07-23).
-
-    Ties tooltip coverage to the guide-currency classification (the single
-    source of "which fields are user-facing"): a new setting can't ship with a
-    guide entry but no tooltip, and vice versa. Same enforcement shape as
-    test_user_guide_currency — a convention that's only trusted rots.
-    """
-    from test_user_guide_currency import _GUIDE_KEYWORDS
-
-    # Guide-documented user-facing field → the dialog widget that carries it.
-    field_to_widget: dict[str, str] = {
-        "output_dir": "_output_dir_edit",
-        "track_template": "_track_template_edit",
-        "disc_template": "_disc_template_edit",
-        "track_template_unknown": "_track_template_unknown_edit",
-        "disc_template_unknown": "_disc_template_unknown_edit",
-        "read_offset": "_read_offset_spin",
-        "override_read_offset": "_override_offset_check",
-        "auto_launch_picard": "_auto_picard_check",
-        "auto_eject_after_rip": "_auto_eject_check",
-        "notify_on_completion": "_notify_check",
-        "library_dir": "_library_dir_edit",
-        "debug_logging": "_debug_logging_check",
-        "update_channel": "_beta_channel_check",
-        "ripper_channel": "_ripper_beta_check",
-        "cover_art": "_cover_art_combo",
-        "save_additional_art": "_additional_art_check",
-        "max_retries": "_max_retries_spin",
-        "force_overread": "_force_overread_check",
-        "secure_rerip_matches": "_secure_rerip_spin",
-        "rerip_offset_variant": "_rerip_offset_variant_check",
-        "secure_rerip_dynamic": "_verify_every_track_check",
-        "read_speed_mode": "_read_speed_mode_combo",
-        "read_speed": "_read_speed_spin",
-        "ctdb_verify_after_rip": "_ctdb_verify_check",
-        "verify_flac_after_rip": "_verify_flac_check",
-        "recompress_flac_after_rip": "_recompress_flac_check",
-        "write_eac_log_after_rip": "_eac_log_check",
-        "output_format": "_format_combo",
-        "mp3_vbr_quality": "_mp3_quality_spin",
-        "rip_goal": "_goal_combo",
-        "test_script_path": "_test_script_edit",
-        "test_script_autorun": "_test_autorun_check",
-        "test_script_allow_unsafe": "_test_unsafe_check",
-    }
-    # Guide-documented fields that share another setting's single control (no
-    # dedicated widget of their own). Empty since secure_rerip_dynamic got its
-    # own "Verify every track" checkbox (KDD-30); kept as the seam.
-    no_dedicated_widget: set[str] = set()
-
-    documented = set(_GUIDE_KEYWORDS)
-    covered = set(field_to_widget) | no_dedicated_widget
-    missing = documented - covered
-    assert not missing, (
-        "guide-documented settings with no tooltip mapping: "
-        f"{sorted(missing)} — give each a tooltip on its control and add it to "
-        "field_to_widget, or list it in no_dedicated_widget."
-    )
-    extra = covered - documented
-    assert not extra, (
-        f"tooltip map references fields the guide doesn't document: {sorted(extra)}"
-    )
-
-    dialog = SettingsDialog(Config())
-    for field, attr in field_to_widget.items():
-        tip = getattr(dialog, attr).toolTip()
-        assert tip and tip.strip(), f"setting {field} ({attr}) has no tooltip"
 
 
 def test_rerip_offset_variant_round_trips(qapp: QApplication) -> None:
@@ -1009,105 +1016,50 @@ def test_the_opening_size_is_the_form_not_the_scroll_areas_own_hint(
     assert opened.width() >= content.width()
 
 
-# --- The built-in acceptance script ---------------------------------------
-#
-# The maintainer's ruling, 2026-08-28: *"this was supposed to be a no cli
-# program, not give me commands to use"* and *"i should just be able to run this
-# with an specific script file i can use with the settings window"*. Before this,
-# obtaining the acceptance test meant finding it on GitHub at the right commit;
-# an AppImage user had no copy at all. These pin the one-click replacement.
-
-
-def test_the_builtin_button_fills_the_field_with_a_script_that_exists(
+def test_settings_carries_over_everything_it_does_not_edit(
     qapp: QApplication,
 ) -> None:
-    """The whole point: no download, no path typed by hand.
+    """The relation behind `APP_STATE_FIELDS` and the home table, by behaviour.
 
-    Asserts the file is really there rather than that *some* text arrived — the
-    failure this replaces was a path nobody could open, so a test happy with any
-    non-empty string would be measuring the wrong thing.
+    `to_config` reads a widget for exactly the settings homed in Settings and
+    carries every other field through from the config it opened with: the app's
+    own bookkeeping, and each setting another window edits. If those two sets
+    drift, OK starts writing a value this window never showed.
     """
-    dialog = SettingsDialog(Config())
-    assert dialog._test_script_edit.text() == "", "fixture is not starting empty"
-
-    dialog._use_builtin_acceptance_script()
-
-    chosen = Path(dialog._test_script_edit.text())
-    assert chosen.is_file(), f"the button set a path that does not exist: {chosen}"
-    assert chosen.name == "fullacceptance.txt"
-    # A floor: an empty script would satisfy every assertion above.
-    assert len(chosen.read_text(encoding="utf-8").splitlines()) > 100
-
-
-def test_the_button_says_why_when_the_script_is_missing(
-    qapp: QApplication, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A build whose package data did not ship is a real failure mode — it is one
-    `pyproject.toml` line — and *"nothing happened when I clicked"* is the least
-    diagnosable way to report it. So the missing branch must surface a sentence
-    and must NOT leave a half-set field.
-    """
-    import platterpus.ui.settings_dialog as module
-
-    monkeypatch.setattr(
-        module, "builtin_acceptance_script", lambda: (None, "it is not in this build")
-    )
-    shown: list[str] = []
-    monkeypatch.setattr(
-        module.QMessageBox, "exec", lambda self: shown.append(self.text())
-    )
-
-    dialog = SettingsDialog(Config())
-    dialog._use_builtin_acceptance_script()
-
-    assert shown == ["it is not in this build"], "the reason was not shown to the user"
-    assert dialog._test_script_edit.text() == "", (
-        "the field was set even though the script is unavailable"
-    )
-
-
-def test_the_missing_branch_message_box_is_PlainText(
-    qapp: QApplication, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Critical rule #12, inbound half. The reason embeds a filesystem path, and
-    Qt's default ``AutoText`` auto-detects HTML — so a path containing ``<`` is
-    swallowed as an unknown tag and the user never learns text went missing."""
-    import platterpus.ui.settings_dialog as module
-
-    monkeypatch.setattr(
-        module,
-        "builtin_acceptance_script",
-        lambda: (None, "missing: /tmp/<odd>/fullacceptance.txt"),
-    )
-    formats: list[Qt.TextFormat] = []
-    monkeypatch.setattr(
-        module.QMessageBox, "exec", lambda self: formats.append(self.textFormat())
-    )
-
-    SettingsDialog(Config())._use_builtin_acceptance_script()
-
-    assert formats == [Qt.TextFormat.PlainText]
-
-
-def test_settings_carries_over_exactly_the_apps_own_state() -> None:
-    """The relation behind `APP_STATE_FIELDS`, read from the dialog's source.
-
-    `to_config` carries some fields over from the live config instead of reading
-    a widget. Those are the app's bookkeeping, and the acceptance-run restore
-    leaves the same set alone. If the two lists drift, one surface starts
-    treating a user setting as app state or the reverse.
-    """
-    import re
-    from pathlib import Path
+    import dataclasses
 
     from platterpus.config import APP_STATE_FIELDS
+    from platterpus.ui.setting_homes import SETTINGS, fields_homed_in
+    from platterpus.user_settings import user_setting_names
 
-    source = (
-        Path(__file__).resolve().parents[1] / "src/platterpus/ui/settings_dialog.py"
-    ).read_text(encoding="utf-8")
-    carried = set(re.findall(r"(\w+)=self\._config\.\1\b", source))
-    assert carried, "the carry-over pattern stopped matching"
-    assert carried == APP_STATE_FIELDS, (
-        f"Settings carries {sorted(carried)}; APP_STATE_FIELDS is "
-        f"{sorted(APP_STATE_FIELDS)}"
+    dialog = SettingsDialog(Config())
+    edited = set(dialog.widget_values())
+    assert edited == fields_homed_in(SETTINGS)
+    homed_elsewhere = set(user_setting_names()) - edited
+    carried = {f.name for f in dataclasses.fields(Config)} - edited
+    assert carried == set(APP_STATE_FIELDS) | homed_elsewhere
+    # And carried really means carried: a distinctive value survives untouched.
+    opened = Config(read_offset=321, update_channel="beta", host_setup_prompted=True)
+    out = SettingsDialog(opened).to_config()
+    assert (out.read_offset, out.update_channel, out.host_setup_prompted) == (
+        321,
+        "beta",
+        True,
     )
+
+
+def test_a_problem_with_a_setting_homed_elsewhere_does_not_block_ok(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """A startup script that has since been deleted is the console's to report.
+
+    Settings cannot show it or fix it, so refusing OK over it would be a trap:
+    the user would face an error about a control that is not in this window.
+    """
+    from PySide6.QtWidgets import QDialog
+
+    gone = tmp_path / "deleted-script.txt"
+    dialog = SettingsDialog(Config(test_script_path=str(gone)))
+    assert dialog._validation_label.isHidden() is True
+    dialog.accept()
+    assert dialog.result() == QDialog.DialogCode.Accepted

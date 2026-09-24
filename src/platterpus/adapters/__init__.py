@@ -5,7 +5,7 @@ dependency goes through a thin adapter so a future replacement is
 feasible without rewriting the GUI. The adapters in this package:
 
 - `cyanrip_backend` — wraps the host-exported `cyanrip` CLI; the sole
-  ripping backend since the whipper removal (KDD-18). It implements the
+  ripping backend since KDD-18. It implements the
   `RipBackend` ABC (`rip_backend`), the seam a future engine would slot
   into without rewriting the GUI.
 - `musicbrainz_client` — wraps `musicbrainzngs`. Replacement target:

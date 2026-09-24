@@ -420,7 +420,7 @@ def test_report_surfaces_v6_drive_and_track_diagnostics() -> None:
 
 
 def test_v6_diagnostics_absent_are_none() -> None:
-    """A log without the diagnostics (e.g. whipper) leaves the fields None,
+    """A log without the diagnostics (e.g. a legacy-format log) leaves the fields None,
     never crashes."""
     report = build_report(_sample_log())
     assert report["rip"]["speed_changeable"] is None
@@ -1033,7 +1033,7 @@ def test_cli_missing_file_returns_2(tmp_path: Path) -> None:
 
 
 def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
-    # An EAC log fed here would otherwise parse to an empty whipper RipLog and
+    # An EAC log fed here would otherwise parse to an empty legacy-format RipLog and
     # silently emit a 0-track report with exit 0 — refuse with a clear message.
     cli = _load_cli()
     eac = tmp_path / "eac.log"
@@ -1049,7 +1049,10 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_26() -> None:
+def test_schema_version_is_27() -> None:
+    # v27 added `environment.dependencies_measured_at`: when the dependency
+    # versions were measured, since a long session's can be hours old.
+    #
     # v26 added `album_loudness_covers`: what the album loudness figures were
     # measured over. cyanrip's "Album" rows cover whatever audio was read, and an
     # interrupted rip printed an album loudness for 40% of one track (the fork, round
@@ -1129,7 +1132,7 @@ def test_schema_version_is_26() -> None:
     # rather than folded into `checksums`, because a SHA256 mismatch after a
     # retag is expected while an audio-MD5 mismatch never is, and a reader must
     # not be able to confuse the two.
-    assert REPORT_SCHEMA_VERSION == 26
+    assert REPORT_SCHEMA_VERSION == 27
 
 
 def _issue_codes(report: dict) -> set[str]:
@@ -1532,9 +1535,9 @@ def test_the_ripper_resolved_release_id_is_recorded() -> None:
 
 
 def test_an_absent_ripper_release_id_is_null_not_a_finding() -> None:
-    """An unknown-disc rip sends no release id, a whipper log has no such line, and
-    neither does a build older than this row. All three are "no claim" — the report
-    must not manufacture a disagreement out of a field nobody filled."""
+    """An unknown-disc rip sends no release id, a legacy-format log has no such
+    line, and neither does a build older than this row. All three are "no claim" —
+    the report must not manufacture a disagreement out of a field nobody filled."""
     report = build_report(
         _sample_log(), disc={"unknown": True, "musicbrainz_release_id": None}
     )

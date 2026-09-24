@@ -107,9 +107,17 @@ def _rendered_labels() -> set[str]:
 
 
 def _saved(kind: str) -> list[tuple[str, str]]:
-    """(config key, widget) for every control whose value is persisted."""
+    """(config key, widget) for every control whose value is persisted.
+
+    Reads `widget_values`' dict entries (``"key": self._widget.kind()``), the one
+    place the dialog maps a control to a setting since 2026-09-24. The settings
+    homed in OTHER windows are held to the same wording rule by
+    `tests/test_setting_homes.py`, which follows the home table instead.
+    """
     src = SETTINGS.read_text(encoding="utf-8")
-    return re.findall(rf"^\s+(\w+)=self\.(_\w+)\.{kind}\(\)", src, re.MULTILINE)
+    return re.findall(
+        rf'^\s+"(\w+)":\s*(?:not\s+)?self\.(_\w+)\.{kind}\(\)', src, re.MULTILINE
+    )
 
 
 def test_the_sweep_actually_finds_the_settings() -> None:

@@ -18,8 +18,9 @@ is a live ``ValueError`` that no amount of regex care removes.
 (review finding, 2026-07-28). The fix and its pinned regression test
 (``test_parsers_property.test_an_absurdly_long_number_never_raises``) were
 scoped to that one parser — so **six identical holes in five other modules
-survived it**, in the EAC-log, cd-info and whipper-log parsers, the
-``whipper.conf`` offset scanner and the CTDB ``.cue`` reader. Every one of them
+survived it**, in the EAC-log, cd-info and legacy-format log parsers, the
+legacy ripper-config offset scanner (since removed) and the CTDB ``.cue``
+reader. Every one of them
 carried a docstring saying "never raises". Found by audit, 2026-07-31.
 
 That is the failure ``docs/testing.md`` §5.o names: *enforce a rule across the
@@ -50,7 +51,6 @@ import pytest
 
 from platterpus.adapters.cache_probe import parse_cache_analysis
 from platterpus.ctdb.toc import parse_cue_index01_sectors
-from platterpus.offset_config import read_drive_offsets
 from platterpus.parsers.cd_info import parse_cd_info
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
@@ -189,23 +189,6 @@ def test_a_long_digit_run_never_raises(
         )
 
 
-def test_the_whipper_conf_offset_scanner_never_raises(tmp_path: Path) -> None:
-    """The `whipper.conf` read-offset scan, which reads a file rather than a string.
-
-    Separate from the table above because its entry point takes a path. It backs a
-    *trust* check — "what offset will actually reach the ripper?" — so a crash here
-    would take out the Settings dialog and ``--doctor`` alike.
-    """
-    conf = tmp_path / "whipper.conf"
-    conf.write_text(
-        f"[drive:PIONEER%20BD-RW]\nread_offset = {OVER_THE_LIMIT}\n",
-        encoding="utf-8",
-    )
-    assert read_drive_offsets(conf) == [], (
-        "an unusable read_offset must be dropped, not reported as a real offset"
-    )
-
-
 def test_the_payload_is_actually_over_cpython_s_limit() -> None:
     """The floor for the table above: prove the payload still triggers the bug.
 
@@ -255,7 +238,6 @@ _PARSER_MODULES: tuple[str, ...] = (
     "ctdb/decode.py",
     "ctdb/toc.py",
     "drive_profiles.py",
-    "offset_config.py",
     "parity.py",
     "rip_timing.py",
     "safe_int.py",

@@ -1,10 +1,11 @@
-"""Parse whipper's cd-info FORMAT into a DiscInfo record.
+"""Parse the legacy disc-info FORMAT into a DiscInfo record.
 
-This parses the legacy `whipper cd info` output format; the current
-cyanrip backend gathers disc info via `-I -N` instead, so this parser is
-kept for old paths and test fixtures. Whipper emitted three lines for the
-`Info` command (verified against whipper-team/whipper master,
-command/cd.py):
+This parses the disc-info output of the ripper older versions used (the
+previous backend, before cyanrip — KDD-18); the current cyanrip backend
+gathers disc info via `-I -N` instead, so this parser is kept for old
+paths and test fixtures. That ripper emitted three lines for its `Info`
+command (verified against its upstream master branch; citation, kept because a
+source claim needs one: whipper-team/whipper, command/cd.py):
 
     CDDB disc id: 940A6A0B
     MusicBrainz disc id wzr8h2ssXg4...
@@ -48,7 +49,11 @@ _NUM_TRACKS = re.compile(r"(?P<value>\d{1,4})\s+audio\s+tracks")
 
 @dataclass(frozen=True)
 class DiscInfo:
-    """Output of `whipper cd info`."""
+    """What a disc probe reports — backend-neutral.
+
+    Returned alike by :func:`parse_cd_info` (the legacy format) and by
+    cyanrip's ``-I`` parser (``parsers/cyanrip_info.py``).
+    """
 
     cddb_disc_id: str = ""
     musicbrainz_disc_id: str = ""
@@ -57,10 +62,10 @@ class DiscInfo:
 
 
 def parse_cd_info(stdout: str) -> DiscInfo:
-    """Parse `whipper cd info` stdout into a DiscInfo.
+    """Parse legacy-format disc-info stdout into a DiscInfo.
 
     Missing fields default to empty strings. The parser tolerates extra
-    lines (whipper sometimes emits warnings or library noise) by
+    lines (that ripper sometimes emitted warnings or library noise) by
     matching on a per-line basis and ignoring anything that doesn't fit
     the known patterns.
     """

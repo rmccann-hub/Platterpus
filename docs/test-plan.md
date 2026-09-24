@@ -22,7 +22,7 @@
 > - **Single-feature cases (Test 1–14)** — the deep, individually-gated cases
 >   (CTDB verify CRC, PyPI go-live, the cyanrip parity run, and the
 >   multi-format output proof). Run one at a time and record the result.
->   The whipper-era cases were **rewritten for the cyanrip-only reality on
+>   The cases written for the previous backend were **rewritten for the cyanrip-only reality on
 >   2026-07-21** (maintainer-approved): Test 3 is now the wizard success-screens
 >   capture (absorbing Test 4, retired), Test 8 is the cyanrip parity record,
 >   Test 10 is retired (feature inert under the sole backend), A8 is retired
@@ -94,10 +94,12 @@ git pull
 bash uninstall.sh --full --yes
 ```
 *Expected:* removes the AppImage in `~/Applications`, menu/desktop entries, the
-`ripping` container, host-exported `whipper`/`metaflac`/`cyanrip`, `whipper.conf`,
-Picard, and the app's config + logs. **Never** your music. (No checkout? Use the
-app's **Tools → Uninstall Platterpus…** and tick both boxes — container +
-whipper.conf. The AppImage removes itself as part of the run when launched from one.)
+`ripping` container, host-exported `metaflac`/`cyanrip`, any leftovers from older
+versions (`~/.local/bin/whipper`, `~/.config/whipper/`), Picard, and the app's
+config + logs. **Never** your music. (No checkout? Use the app's **Tools →
+Uninstall Platterpus…** and tick both boxes — the container, and *leftover ripper
+settings from older versions*. The AppImage removes itself as part of the run when
+launched from one.)
 
 ### A2 — [ ] Confirm the slate is clean
 ```bash
@@ -106,7 +108,8 @@ ls ~/.local/bin/whipper ~/.local/bin/cyanrip 2>/dev/null; echo "---"
 distrobox list | grep ripping;                          echo "---"
 ls ~/.config/platterpus ~/.config/whipper 2>/dev/null
 ```
-*Expected:* only the `---` separators print (everything empty). Anything left →
+*Expected:* only the `---` separators print (everything empty; the `whipper` paths
+are leftovers from older versions and should be gone too). Anything left →
 `rm -rf` it (e.g. a stray `~/.config/whipper/whipper.conf.bak`) and note it.
 
 ### A3 — [ ] Fresh install (AppImage — the end-user path)
@@ -163,8 +166,8 @@ the full procedure, the per-track CRC baseline, and what "exact" means.
 
 ### A8 — retired (2026-07-21)
 
-*(Was "cyanrip backend rip" — a backend-switch step from when whipper was the
-default. cyanrip is the sole backend (KDD-18), so A6 **is** the cyanrip rip and
+*(Was "cyanrip backend rip" — a backend-switch step from when the previous
+ripper was the default. cyanrip is the sole backend (KDD-18), so A6 **is** the cyanrip rip and
 carries this step's expectations: cover art fetched from the Cover Art Archive,
 the cyanrip fidelity verdict. Number kept so A9+/Part C references stay valid;
 full text in git history. Parity checklist: **Test 8**.)*
@@ -175,7 +178,7 @@ full text in git history. Parity checklist: **Test 8**.)*
   picked. *Expected:* no MusicBrainz TTY prompt ever surfaces. (Picard
   auto-launch flow: **Test 6**.)
 - **CD-R (home-burned):** rips with no switch — cyanrip is CD-R-native (the
-  whipper-era "Continue on CD-R" toggle was removed with KDD-18).
+  previous backend's "Continue on CD-R" toggle was removed with KDD-18).
 
 ### A9b — [ ] Cancel / crash / new-disc edge cases (0.4.12, HARDWARE-GATED)
 - **New-disc auto-detect:** with the app idle (no rip running), eject and insert
@@ -219,7 +222,7 @@ matching CRCs. UI differences don't matter; the bytes do.
 
 **The per-track CRC32 baseline** (ground truth — a cyanrip rip of this disc
 must reproduce these EXACTLY; EAC's "Copy CRC" and cyanrip's "EAC CRC32" are
-the same algorithm, as was whipper's Test/Copy CRC historically). Disc: *The Police —
+the same algorithm, as was the previous backend's Test/Copy CRC historically). Disc: *The Police —
 Every Breath You Take: The Classics*, EAC V1.8 on a BDR-209D at offset +667:
 
 | Track | EAC CRC32 | | Track | EAC CRC32 |
@@ -259,14 +262,14 @@ assuming a bug:
   surrounding gap (most of a typical album) are unaffected either way.
 - **Lead-in/out overread** — EAC: **No** overread here. Keep "Force overread"
   off to match.
-- **Null samples in CRC** — EAC: **Yes**. (whipper/cyanrip CRC the decoded PCM,
+- **Null samples in CRC** — EAC: **Yes**. (cyanrip CRCs the decoded PCM,
   which includes nulls — consistent.)
 - **A genuine disc defect** — e.g. our reference disc's **track 5** mismatches in
   *every* tool (CTDB: "differs in 3 samples"). A track that differs everywhere is
   the disc, not the ripper — don't chase it.
 
 > **Known reference facts (banked from the EAC baseline):** track 3 rips *clean*
-> in EAC, so whipper's historical track-3 failure was its **>587-offset bug**,
+> in EAC, so the previous backend's historical track-3 failure was its **>587-offset bug**,
 > not disc damage — cyanrip should clear it. Track 5 is a real disc quirk.
 
 If every CRC matches → **output parity achieved** for this disc (the committed
@@ -303,7 +306,7 @@ recovers, never hangs or silently fails). One row = one test.
 
 | # | Force this | Expected behaviour | Recovery |
 |---|---|---|---|
-| D1 | **No drive / no disc** | Drive picker shows "(no drives found)"; *Tools → Diagnose drive access* explains why | insert disc / fix below |
+| D1 | **No drive / no disc** | Drive picker shows "(no drives found)"; *Tools → Setup & Updates… → Diagnose drive access…* explains why | insert disc / fix below |
 | D2 | **Drive not readable** (user not in the drive's group) | Diagnosis names the exact `sudo usermod -aG … $USER` fix | run it, log out/in |
 | D3 | **No FUSE** (minimal host) | AppImage won't mount | run `APPIMAGE_EXTRACT_AND_RUN=1 ./…AppImage` |
 | D4 | **podman/distrobox absent** | Wizard offers to install them (one polkit prompt) | accept |
@@ -464,8 +467,8 @@ the choice in `TASKS.md` / KDD-14.)
 
 ## Test 3 — [ ] Drive-setup wizard: success screens + auto-vs-manual offset (rewritten 2026-07-21)
 
-*(Successor to the whipper-era `drive analyze`/`offset find` string captures —
-whipper is gone (KDD-18) and cyanrip has no probe commands; the wizard fills
+*(Successor to the previous backend's `drive analyze`/`offset find` string
+captures — that backend is gone (KDD-18) and cyanrip has no probe commands; the wizard fills
 the offset from the bundled AccurateRip drive list, or takes manual entry.)*
 
 **Goal:** capture what wizard success actually looks like on real hardware —
@@ -490,7 +493,7 @@ the auto-filled offset matches an independent manual lookup.
 
 ## Test 4 — retired (2026-07-21)
 
-*(Was "`whipper offset find` success output" — merged into **Test 3**: the
+*(Was the previous backend's "`offset find` success output" — merged into **Test 3**: the
 auto-vs-manual offset comparison is its step 3. Number kept as a stable ID;
 full text in git history.)*
 
@@ -556,7 +559,7 @@ disc defect), proof in `output_reference/cyanrip_flac/`, pinned by
 `tests/test_parity.py`; a v0.4.13 re-rip reached **13/14** (T3 converged
 partial→exact). What remains open here is the deliberate `-Z` convergence
 re-rip below. *(The original test's backend-switch/wizard-install steps died
-with whipper — that install path is now covered by A4; text in git history.)*
+with the previous backend — that install path is now covered by A4; text in git history.)*
 
 **Goal:** prove on a marginal track that raising **Max reads to confirm a
 shaky track** (`-Z N`) converges a near-miss to the AccurateRip consensus.
@@ -585,7 +588,8 @@ version of A1/A2/A11; do it LAST in a session, or on a sacrificial setup.)
 **Steps**
 1. Note what exists first: `ls ~/.local/bin/{whipper,metaflac,cyanrip,platterpus}`,
    `distrobox list`, the app menu entries, `~/.config/whipper{,-gui}`,
-   `~/.local/share/platterpus`.
+   `~/.local/share/platterpus`. (The `whipper` paths are leftovers from older
+   versions; the uninstaller removes them if present.)
 2. Launch the **Uninstall Platterpus** menu entry (tests `--uninstall` mode),
    or Tools → Uninstall Platterpus… inside the app.
 3. Leave both checkboxes ticked → Uninstall → confirm. Watch the per-step log;
@@ -607,7 +611,7 @@ version of A1/A2/A11; do it LAST in a session, or on a sacrificial setup.)
 ## Test 10 — retired (2026-07-21)
 
 *(Was "FLAC re-compress: bit-perfect + metadata survives + smaller" — the
-opt-in re-encode existed for whipper's `-5` FLACs. cyanrip, the sole backend,
+opt-in re-encode existed for the previous backend's `-5` FLACs. cyanrip, the sole backend,
 already encodes at maximum compression, so the Settings toggle is permanently
 disabled and the post-rip step always skips it; the adapter is kept only as a
 seam for a future backend (unit-tested; `settings_dialog.py` tooltip explains).
@@ -897,4 +901,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.6.55.*
+*Last updated for Platterpus v0.6.58.*

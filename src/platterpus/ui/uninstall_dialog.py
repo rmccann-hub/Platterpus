@@ -2,8 +2,8 @@
 
 The GUI counterpart of ``uninstall.sh`` (current-plan item 4; standing user
 request): one dialog that removes the app's shortcuts, the host-exported
-binaries, the `ripping` container, optionally `whipper.conf` and the AppImage
-file, and the GUI's own settings + logs — while **always keeping
+binaries, the `ripping` container, optionally the leftovers of older versions
+and the AppImage file, and the GUI's own settings + logs — while **always keeping
 Distrobox/podman and all music**.
 
 Structure mirrors ``HostSetupDialog``: the engine
@@ -63,7 +63,7 @@ class UninstallDialog(CenteredDialog):
         parent: QWidget | None = None,
         build_teardown: Callable[[bool, bool], HostTeardown] | None = None,
     ) -> None:
-        """`build_teardown(remove_container, remove_whipper_config) ->
+        """`build_teardown(remove_container, remove_legacy_config) ->
         HostTeardown` is injectable for tests; production builds the real
         engine (SubprocessRunner + the running AppImage path, if any)."""
         super().__init__(parent)
@@ -82,7 +82,7 @@ class UninstallDialog(CenteredDialog):
         intro = QLabel(
             "This removes what Platterpus installed on this computer:\n\n"
             "• menu and desktop shortcuts\n"
-            "• whipper / metaflac / cyanrip from ~/.local/bin\n"
+            "• cyanrip / metaflac / flac from ~/.local/bin\n"
             "• the app's own settings and logs\n"
             "• the items ticked below\n\n"
             "<b>Never touched:</b> your music, and Distrobox/podman "
@@ -93,16 +93,23 @@ class UninstallDialog(CenteredDialog):
         root.addWidget(intro)
 
         self._container_check: QCheckBox = QCheckBox(
-            "Remove the 'ripping' container (whipper + cyanrip inside it)", self
+            "Remove the 'ripping' container (cyanrip and its tools inside it)", self
         )
         self._container_check.setChecked(True)
         root.addWidget(self._container_check)
 
-        self._whipper_conf_check: QCheckBox = QCheckBox(
-            "Remove the legacy whipper.conf (not used by Platterpus)", self
+        # Older versions drove a different ripper, which kept a config folder of
+        # its own. Nothing reads it now; the box removes it if it is still there.
+        self._legacy_config_check: QCheckBox = QCheckBox(
+            "Remove leftover ripper settings from older versions", self
         )
-        self._whipper_conf_check.setChecked(True)
-        root.addWidget(self._whipper_conf_check)
+        self._legacy_config_check.setToolTip(
+            "ON (default): deletes ~/.config/whipper, the folder the ripper older "
+            "Platterpus versions used kept its settings in. Nothing reads it any "
+            "more. OFF: the folder is left where it is."
+        )
+        self._legacy_config_check.setChecked(True)
+        root.addWidget(self._legacy_config_check)
 
         self._uninstall_button: QPushButton = QPushButton("&Uninstall…", self)
         self._uninstall_button.clicked.connect(self._on_uninstall_clicked)
@@ -149,11 +156,11 @@ class UninstallDialog(CenteredDialog):
 
         self._teardown = self._build_teardown(
             self._container_check.isChecked(),
-            self._whipper_conf_check.isChecked(),
+            self._legacy_config_check.isChecked(),
         )
         self._uninstall_button.setEnabled(False)
         self._container_check.setEnabled(False)
-        self._whipper_conf_check.setEnabled(False)
+        self._legacy_config_check.setEnabled(False)
         self._results.clear()
         self._progress.setVisible(True)
         self._status_label.setText("Uninstalling…")
@@ -225,7 +232,7 @@ class UninstallDialog(CenteredDialog):
                 )
             self._uninstall_button.setEnabled(True)
             self._container_check.setEnabled(True)
-            self._whipper_conf_check.setEnabled(True)
+            self._legacy_config_check.setEnabled(True)
         # Announce the final outcome — the run may have taken minutes (gap #4).
         announce(self._status_label, self._status_label.text())
         self._worker = None
@@ -257,7 +264,7 @@ class UninstallDialog(CenteredDialog):
 
 
 def _default_build_teardown(
-    remove_container: bool, remove_whipper_config: bool
+    remove_container: bool, remove_legacy_config: bool
 ) -> HostTeardown:
     """Production teardown: real runner + the running AppImage (if any)."""
     from platterpus.appimage_integration import appimage_path
@@ -266,6 +273,6 @@ def _default_build_teardown(
     return HostTeardown(
         runner=SubprocessRunner(),
         remove_container=remove_container,
-        remove_whipper_config=remove_whipper_config,
+        remove_legacy_config=remove_legacy_config,
         appimage=appimage_path(),
     )

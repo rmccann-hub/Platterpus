@@ -450,12 +450,11 @@ class RipMixin(MainWindowShared):
     def _on_rip_requested(self, params: RipParameters) -> None:
         """User clicked Start. Validate, then start the worker thread."""
         # A read offset is mandatory: an accurate offset is what makes the rip
-        # bit-perfect. If neither the legacy whipper.conf (still read for the
-        # trust display) nor our own --offset override has one, stop here and
-        # point the user at the drive-setup wizard rather
-        # than letting the rip start and fail. The wizard pre-fills the offset
-        # when the drive model is known; otherwise it's found from a CD that's
-        # in the AccurateRip database.
+        # bit-perfect. If our own --offset override has none (the one source a
+        # rip reads — see offset_config.py), stop here and point the user at
+        # the drive-setup wizard rather than letting the rip start and fail.
+        # The wizard pre-fills the offset when the drive model is known;
+        # otherwise it's found from a CD that's in the AccurateRip database.
         if (
             not is_offset_configured(self._config.override_read_offset)
             and not self._auto_apply_known_offset()
@@ -493,7 +492,7 @@ class RipMixin(MainWindowShared):
         # re-introduce the very silent-wrong-offset the ledger's own rule
         # (`reconcile_offset`) forbids, e.g. clobbering a measured +691 on one of
         # two same-model drives with the model-list +667. Only an untrusted/
-        # leftover value (a stale OFFSET_FIND, WHIPPER_CONF, or no provenance)
+        # leftover value (a stale OFFSET_FIND, LEGACY_CONFIG, or no provenance)
         # gets the offer.
         drive = self._drive_picker.current_drive()
         if self._config.override_read_offset and drive is not None:
@@ -800,8 +799,7 @@ class RipMixin(MainWindowShared):
         """Spin up the rip worker thread for `params`. Shared by the initial
         Start and the auto-heal retry, so both wire signals identically."""
         # Snapshot the track table (MB lookup result + user edits) into the
-        # params. whipper ignores it (it tags from --release-id itself);
-        # cyanrip is fed these tags directly so it never needs its own
+        # params. cyanrip is fed these tags directly so it never needs its own
         # MusicBrainz lookup (Critical Rule #5, KDD-18 metadata model).
         album = self._track_table.album_metadata()
         # Genre / disc number / per-track ISRC are MusicBrainz-only silent
@@ -1453,7 +1451,7 @@ class RipMixin(MainWindowShared):
                 "and the in-container reader may still hold the drive"
             )
 
-        # Autonomous heal (inert whipper-era seam): a ripper that does its own
+        # Autonomous heal (an inert pre-cyanrip seam): a ripper that does its own
         # online lookup can abort when it can't fetch metadata. cyanrip runs -N
         # and never does, so this never fires today, but the GUI already has the
         # metadata (its own host-side MusicBrainz lookup), so re-rip as unknown —
@@ -1809,8 +1807,8 @@ class RipMixin(MainWindowShared):
                 # re-read, or (loudly) that it never read clean at the floor.
                 self._append_read_speed_summary()
                 # The overall bar is driven from per-track progress, which caps
-                # at 95% by design (the last 5% was reserved for a whipper-only
-                # "length" phase that cyanrip never emits). On the sole supported
+                # at 95% by design (the last 5% was reserved for a "length" phase
+                # that only the previous backend emitted). On the sole supported
                 # backend it therefore froze at 95% under a status line reading
                 # "Done" — the textbook "works but feels broken" (audit finding,
                 # 2026-07-28). Only on success: a cancelled or failed rip SHOULD
@@ -1931,8 +1929,8 @@ class RipMixin(MainWindowShared):
             ):
                 save_file = True
             # Opt-in (off by default) FLAC re-compress — only for a backend that
-            # doesn't already max compression. whipper encodes at flac's default
-            # (`-5`), so re-encoding at `-8` can still shrink it; cyanrip already
+            # doesn't already max compression. The previous backend encoded at
+            # flac's default (`-5`), which `-8` could still shrink; cyanrip already
             # maxes, so it's skipped there. Folded into the post-rip thread (it
             # mutates the same FLACs as tag/cover, so it MUST run after them, not
             # concurrently) — see _start_post_rip_processing.
@@ -1997,10 +1995,10 @@ class RipMixin(MainWindowShared):
                 self._start_ctdb_verify(rip_dir, wait_for=post_rip_thread)
 
             # Opt-in (default on) FLAC encode-verify — only for a backend that
-            # doesn't already self-verify. whipper passes `flac --verify` during
-            # the rip, so it's skipped there; cyanrip (FFmpeg) doesn't, so this
-            # gives its rips the same decode==PCM guarantee. Off-thread, after
-            # any metaflac rewrites settle (wait_for), like CTDB.
+            # doesn't already self-verify. cyanrip (FFmpeg) doesn't, so this gives
+            # its rips the decode==PCM guarantee the previous backend got from
+            # `flac --verify` during the rip. Off-thread, after any metaflac
+            # rewrites settle (wait_for), like CTDB.
             if (
                 self._config.verify_flac_after_rip
                 and not self._backend.self_verifies_encode()
@@ -3955,6 +3953,13 @@ class RipMixin(MainWindowShared):
         dep_report = getattr(self, "_last_dependency_report", None)
         environment["dependencies"] = (
             build_info.dependency_summary(dep_report)
+            if dep_report is not None
+            else None
+        )
+        # And WHEN those versions were measured: the probe runs at launch and on
+        # request, so a long session's versions can be hours old (schema v27).
+        environment["dependencies_measured_at"] = (
+            getattr(dep_report, "measured_at", "") or None
             if dep_report is not None
             else None
         )

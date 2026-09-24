@@ -24,8 +24,9 @@
 #   * The flag that had never run on any drive, by anyone, was the FORK'S CACHE
 #     PROBE — also spelled `-x`, which is where the confusion came from. It is a
 #     different flag doing a different thing.
-#   * A third `-x` exists in the fossil record: whipper's `--force-overread`.
-#     That is where the mix-up originated. whipper has been gone since KDD-18.
+#   * A third `-x` exists in the fossil record: `--force-overread` in the
+#     ripper Platterpus used before cyanrip. That is where the mix-up
+#     originated. That ripper has been gone since KDD-18.
 #
 # `docs/dependency-contracts.md` carries the hazard table and calls this
 # confusion "a hardware hazard rather than a documentation nit". It was right.

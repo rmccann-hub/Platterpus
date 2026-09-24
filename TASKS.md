@@ -82,8 +82,31 @@ round 26 is open.
   found and fixed: duplicate Alt-keys in the script console, Setup & Updates and the
   Tools menu; a nameless search field; a checkbox cut off at 150% text; a picker
   that scrolled with screen to spare.
-- [ ] **Maintainer's question: acceptance tiers (quick / standard / full) and a fixed
-  starting baseline.** Recommendation given in chat; waiting on the answer before building.
+- [x] **Component inventory** (#36): `build_info.component_inventory` is the one list About,
+  Diagnostics, the rip report and the acceptance bundle (`COMPONENTS.json`) read, with the
+  probe's `measured_at` beside every version and **Check again** in About. **Deliberately NOT
+  done: re-probing at the start of every rip.** The probe enters the ripper's container while
+  the rip does, and a check that finds something missing can open a resolver dialog, which
+  would land over a live rip — the 2026-08-18 defect. The age on every surface makes a stale
+  version visible instead. Revisit only with a probe that can never raise a dialog.
+- [x] **Acceptance run sizes (Quick / Standard / Full) and a fixed starting baseline**
+  (maintainer: "do all this", 2026-09-24). One script, a `run-size` line at the top of every
+  section, nested by construction, and only Full counts as evidence. The preamble sets every
+  user setting to its default or `keep`s it with a reason, swept against `user_setting_names`.
+  The hard-coded 667 is gone: `set-drive-offset` / `expect-drive-offset` / `(offset)`.
+- [x] **One home per setting and action** (#37, maintainer: *"mostly they should be in one
+  place"*). `ui/setting_homes.py` names each setting's one window; a setting lives beside
+  what it steers. Moved: the read offset and its Apply tick-box to *Set up drive…* (Settings
+  shows it read-only), both update channels above their checks in Setup & Updates, the
+  startup script / autorun / unsafe verbs to the script console (its second unsafe box is
+  gone), and *Diagnose drive access…* from the Tools menu to Setup & Updates → Drive. Gate:
+  `tests/test_setting_homes.py` (every setting has a home; every value control in every
+  window is a home control or on an allowlist with a reason). Settings has **OK / Apply /
+  Cancel / Restore Defaults**. Found on the way and fixed: a Setup & Updates window left
+  open when a rip started kept every button live (`set_locked`), and the two channel
+  tooltips never said what OFF does. **Not moved, on purpose:** *Add app shortcut* and *Set
+  up drive…* are also steps inside *Run setup…*; each is still one action with one button,
+  and the wizard is a sequence of them rather than a second door.
 
 ## Round 26 — OPEN 2026-09-23 on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 
@@ -95,6 +118,24 @@ laps (ours rolls `FORK_PIN` to `df91ae7`, theirs is `+platterpus.16`). Opened BE
 by a recorded operator override of R8 point 3, because our acceptance run can only demand
 `.15` once a lap of theirs names it. Every mechanism claim in it checked against our tree.
 
+- [ ] **PLANNED FOR THE RELEASE AFTER 0.6.58 (maintainer, 2026-09-24): an open window follows a
+  setting changed elsewhere.** The gap as found: with the script console or Setup & Updates open,
+  a script's `set` changes the setting and saves it, but neither window's tick-boxes move, so
+  they show a value no longer in force until reopened. **Correction to what was said on
+  2026-09-24:** Setup & Updates does NOT follow a script `set` either — `ScriptRunner._do_set`
+  writes `_config` and saves without calling the window's `_refresh_setting_views`, and the test
+  named `test_a_script_set_reaches_an_open_setup_and_updates` drives `_save_user_setting`, not
+  the verb, so it pins the wrong path. The fix: (1) `_do_set` calls the window's
+  `_refresh_setting_views` after a successful save (one write path's side effect, not a copy
+  of it); (2) `_refresh_setting_views` also refreshes the console's `ScriptSettingsBox`, with a
+  `refresh_settings(config)` that blocks signals like Setup & Updates' does, so re-rendering can
+  never look like a click; (3) the misnamed test is renamed and a real one added that runs the
+  `set` verb against an open console and an open Setup & Updates, revert-probed. Small; no
+  behaviour change beyond the display.
+- [x] **Source citations that name the old ripper's repository stay** (maintainer, 2026-09-24:
+  "do your recommendation"): three docstrings cite the upstream files the legacy parsers and a
+  capability audit were checked against. A citation without its repository cannot be followed;
+  they are counted literals in `tests/test_no_previous_ripper_in_live_text.py`.
 - [x] **Filed their round 25 lap 5** (`bca120c0…`, `GO`) — round 25 CLOSED on both gates;
   approval record → round 25 (`3e01bb3`, 0.6.53), shared-hash exemption retired.
 - [x] **Filed their round 26 lap 1** and its provider contract (`8eda7661…`, at `df91ae7`);
@@ -154,9 +195,13 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **0.6.56 released 2026-09-24** (release run 154 on `56de3cf`; handshake, CI and changelog gates
   green; AppImage, `.sha256`, `.zsync` published; PyPI published). No round open, no override.
   It is the first release that installs `df91ae7` by default.
-- [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + **0.6.57** (released
-  before the round opened, so the test runs the new one-frame default); our answers first on
-  the `Accurip 450` wording and the album-loudness rows, ready below.
+- [x] **0.6.57 released 2026-09-24** (release run 155 on `8278b19`, after `main`'s CI run 898
+  was green; AppImage, `.sha256`, `.zsync` and install scripts published; PyPI published). No
+  round open, so no override. It re-reads one-frame matches by default.
+- [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + **0.6.58** (released
+  before the round opened, on the maintainer's word, so the test runs the new one-frame default
+  AND the run sizes: the maintainer runs it on 0.6.58); our answers first on the `Accurip 450`
+  wording and the album-loudness rows, ready below.
 - [x] **`Accurip 450` is one frame: OUR half done**, for the release after 0.6.56. Every screen,
   the help, the status line and the report sentence now say only one frame (frame 450) matched
   and the rest is unverified (`one_frame_match.py`, swept by `tests/test_one_frame_match.py`).
@@ -2524,7 +2569,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 ### 7. Boundary functions with no property test (23)
 
 - [ ] **`fuzz:adapters.cyanrip_backend._metadata_args`** (ungated, small) — Outbound -a/-t blob: control chars and newlines are only rejected on 4 of 11 metadata fields
-- [ ] **`fuzz:adapters.cyanrip_backend.scheme_from_template`** (ungated, small) — The whipper-template to cyanrip -D/-F translator has no property test
+- [ ] **`fuzz:adapters.cyanrip_backend.scheme_from_template`** (ungated, small) — The Settings path-template (`%A`/`%d`/`%t`…) to cyanrip -D/-F translator has no property test
 - [ ] **`fuzz:adapters.ripper_log_verify.verify_rip_log`** (partial, small) — The adapter that turns a ripper exit code into an accusation about an archival file is fuzzed on no axis
 - [ ] **`fuzz:ctdb.crc.ctdb_crc`** (partial, small) — The CTDB CRC's only property test can never reach the CRC — every draw returns None
 - [ ] **`fuzz:ctdb.crc.ctdb_crc_offset0_streaming`** (partial, small) — Streaming CRC equivalence is proven on one buffer with one chunking
@@ -2533,7 +2578,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 - [ ] **`fuzz:diagnostics.bounded_output`** (ungated, small) — The head-and-tail helper on every external-tool capture path has no test at all; the one test targets a duplicate
 - [ ] **`fuzz:eac_log_export.render_eac_style_log`** (ungated, small) — The EAC-compatible archival log emitter has no never-raises property test
 - [ ] **`fuzz:naming._sanitise_value`** (partial, small) — The preview's value sanitiser is covered by a never-raises property that never fuzzes the value
-- [ ] **`fuzz:offset_config.read_drive_offsets`** (partial, small) — The whipper.conf offset scanner is pinned at one boundary and otherwise unfuzzed
+- [x] ~~**`fuzz:offset_config.read_drive_offsets`**~~ — **retired 2026-09-24, nothing left to fuzz**: the scanner was removed when Platterpus stopped reading the old ripper's config file at all (the maintainer's call).
 - [ ] **`fuzz:parity.decode_log_bytes`** (partial, small) — The multi-encoding log decoder and cross-backend CRC extractor take arbitrary bytes with no property test
 - [ ] **`fuzz:ripper_identity._tag_matches`** (ungated, small) — Build-tag classification is cubic in hyphen count — 27 seconds on the GUI thread for a 2000-hyphen banner
 - [ ] **`fuzz:settings_validation.cross_fs_hazards`** (ungated, small) — Cross-filesystem hazard scan has no property test, and its %%-unfold runs before token blanking
@@ -4042,7 +4087,7 @@ The queue as set 2026-06-09 and worked down through 2026-07 — 11 of its 15 ite
 7. **✅ setup-host.sh `--cyanrip` parity — DONE 2026-06-09.** New `--cyanrip` flag: writes the same COPR stanza the wizard writes (positional-`"$1"` so `$releasever` stays literal; GPG-checked; container-only), `dnf install -y cyanrip`, exports `/usr/bin/cyanrip`. Smoke tests pin the stanza's version-genericity + gpgcheck. **Keep the script and `deps/host_setup.py` stanzas in sync.**
 8. **✅ CTDB verify — COMPLETE (GUI wiring 2026-06-17; CRC hardware-validated 2026-07-07, v0.4.20). This item is the canonical status home for CTDB verify.** GUI wiring (Test 1b): the verify runs off the GUI thread after a rip (joining the post-rip metaflac thread first so it never decodes a file mid-rewrite), gated by `Config.ctdb_verify_after_rip` (default on); the verdict renders under the AccurateRip table. **`toc=` wire format RESOLVED (0.4.5, verified against the live server — KDD-14).** **CRC hardware-validated (KDD-16):** a `--ctdb-calibrate` run on the real Police-disc rip reproduced a stored CTDB CRC at aligned offset 0; `crc.CRC_VALIDATED` flipped to `True` with the vector pinned as a regression fixture (`crc.CONFIRMED_VECTOR`) — a match now reads **verified**, and v0.4.23 removed the stale "experimental" caveats from the UI copy. The wizard has exported host `flac` for the decoder since v0.3.5. CTDB **repair** (L, .NET bundling question) stays parked — see the feasibility doc.
 9. **✅ Backend-independent cover art — M (elevated and SHIPPED 2026-06-13; the user's stated goal: "good music, good cover image, good everything").** As built: `adapters/cover_art.py` (CAA `/front` fetch, stdlib urllib, injectable fetcher, magic-byte image sniffing, never raises) + `MetaflacAdapter.embed_picture` (PICTURE block replace, no duplicates) + a post-rip daemon thread in MainWindow gated by `cover_art.plan_actions`. Outcome line lands in the rip log view. Hardware proof rides the next hardware session: a cyanrip rip of an identified disc should produce FLACs with embedded front covers. *Original problem statement (pre-fix, kept for the record — whipper was still a backend then):* cover art was whipper-only, because the cyanrip metadata model (-N + GUI-fed tags) deliberately skips cyanrip's own MB/CAA lookup, which is where its art came from. Fix at the right altitude: the GUI fetches the front cover itself from the **Cover Art Archive** (`coverartarchive.org/release/<MBID>/front`) using the release ID it already has — host-side, off-thread, cached per release — and embeds it in the ripped FLACs via the existing metaflac adapter (`--import-picture-from`), optionally also saving `cover.jpg` in the album folder. Works identically for BOTH backends; un-greys the cover-art Settings row under cyanrip; honors Critical Rule #5 (we query, never the ripper). Degrades silently when CAA has no art.
-10. **⬜ Remaining hardware-gated doc items — HW (user), S each.** Real-run confirmations: `setup-host.sh` / host wizard from scratch, the drive-setup wizard's "what success looks like" screens (the whipper-era `drive analyze`/`offset find` strings are gone — test-plan Tests 3–4 need re-scoping, see the Documentation backlog), README screenshots (Test 5), Picard UX (Test 6). *(PyPI Trusted-Publisher setup — Test 7 — is **DONE**: the package publishes automatically on every tagged release.)*
+10. **⬜ Remaining hardware-gated doc items — HW (user), S each.** Real-run confirmations: `setup-host.sh` / host wizard from scratch, the drive-setup wizard's "what success looks like" screens (the previous backend's `drive analyze`/`offset find` strings are gone — test-plan Tests 3–4 need re-scoping, see the Documentation backlog), README screenshots (Test 5), Picard UX (Test 6). *(PyPI Trusted-Publisher setup — Test 7 — is **DONE**: the package publishes automatically on every tagged release.)*
 11. **✅ MainWindow decomposition (KDD-19) — COMPLETE 2026-06-13 (user-requested "full refactor").** The 1707-line god-object was split into six cohesive **mixins** `MainWindow` inherits (so `window._x` test access + Qt signal wiring keep working): `main_window_helpers.py` (pure fns) + `UpdateMixin` / `RipMixin` / `ProvisioningMixin` / `DriveMixin` / `DependencyMixin`. `main_window.py` is now a ~460-line assembler (construction, menus, signal wiring, MusicBrainz slots, Settings). Every extraction was test-guarded (777 green, one concern per commit). **Lesson banked (docs/architecture.md §5, testing.md #8):** moving code between modules means moving its monkeypatch targets too. **Still open (separate from the MainWindow split):** assess the other large files (`whipper_backend`, `host_setup`, `rip_worker`, `settings_dialog`) for real seams, and a naming/comment/type-hint/import consistency sweep — see item 13.
 12. **✅ GUI-thread responsiveness sweep — DONE 2026-06-14 (started 2026-06-13).** The bug class behind the in-app-update freeze is *synchronous blocking calls on the Qt GUI thread*. Handled: `appimage_integration._default_refresh` (kbuildsycoca) and `_mark_trusted` (gio) → fire-and-forget `Popen`; **(a) launch dependency check now runs OFF the GUI thread — DONE 2026-06-14:** `run_dependency_check_async()` + `DependencyCheckWorker` probe on a worker thread, the report is applied on the GUI thread (where resolver dialogs live); `app.py` uses it at launch so a cold-container `whipper --version` can't freeze the just-shown window. The **lint/grep guard is also done** — `tests/test_gui_thread_discipline.py` (AST fitness test) fails the build on any `subprocess.run`/`urlopen`/`time.sleep` in `ui/`. **(b) `disc_info` now runs OFF the GUI thread too — DONE 2026-06-14:** `workers/disc_info_worker.py::DiscInfoWorker` probes the disc on a QThread per drive change; `_on_drive_changed` is split into the trigger (`_start_disc_info`) + `_on_disc_info_ready`/`_on_disc_info_failed` handlers — so selecting a drive (or the launch auto-select) never freezes the window. **(c) launch `list_drives` now runs OFF the GUI thread too — DONE 2026-06-14:** `workers/drive_list_worker.py::DriveListWorker` runs `list_drives` (whipper `drive list`, container entry) on a QThread; `refresh_drives` (launch + post-host-setup) populates the picker on the GUI thread via the new `DrivePicker.populate()`/`show_error()` split. The picker's own **Refresh button stays synchronous** (user-initiated). **Net: the entire launch path is now non-blocking** — all three container-entering probes (deps, drive list, disc info) are off-thread. **(d) post-rip metaflac tagging now runs OFF the GUI thread too — ✅ DONE 2026-06-17:** `_on_rip_finished` used to call `run_unknown_post_processing` synchronously, so a 16-track album froze the window for ~15-30s (a subprocess per file) right when the rip finished. Tagging and the post-rip cover-art embed both shell out to metaflac on the *same* FLAC files, so they now run **sequentially on ONE post-rip daemon thread** (`_start_post_rip_processing`: tag first, then cover art) — never concurrently, which would race two metaflac processes on one file → corrupted/lost tags or artwork. `run_unknown_post_processing` stays the synchronous worker body (tests call it directly); it's just invoked off-thread now. Behavioural regression test added (`test_unknown_rip_tagging_runs_off_the_gui_thread`: blocks metaflac on an Event, asserts the finish handler returns before tagging completes) — the AST fitness guard can't catch this one because the blocking subprocess is reached *indirectly* through the adapter. **This was the last remaining synchronous blocking call in the app — the responsiveness sweep is fully complete.**
 13. **✅ Codebase consistency sweep + large-file seam assessment — DONE 2026-06-13 (full code/doc audit).** (a) **Large files assessed → all single-responsibility, left intact** (cohesion over line count): `adapters/whipper_backend.py` (the whipper adapter: ABC + impl + handle + helpers), `deps/host_setup.py` (one idempotent bootstrap engine), `workers/rip_worker.py` (one cancellable off-thread rip + progress parsing), `ui/settings_dialog.py` (one Config-editing dialog). No real seams; splitting would hurt readability. (b) **Consistency pass:** fixed the type-hint gaps the audit found (`_default_open → http.client.HTTPResponse`, `_build_host_setup → HostSetup` via `TYPE_CHECKING`, `_show_dep_summary`'s `optional_missing → list[MissingItem] | None`, `_on_update_install_finished`'s `dialog → QProgressDialog`); fixed a CI-red `ruff format` lapse in `tests/test_ui_main_window.py`. Audit found **zero correctness bugs, zero dead code, no blocking-on-GUI-thread regressions.**
@@ -4095,7 +4140,7 @@ Prove each backend reproduces EAC bit-for-bit, and **commit the proof**. The EAC
 baseline (log + cue, *The Police — …: The Classics*, BDR-209D, offset +667) is
 banked at `output_reference/EAC_flac/`, and the checker is built:
 `scripts/eac_parity.py` (logic in `platterpus.parity`) diffs per-track `Copy CRC`
-across EAC/whipper/cyanrip logs and exits non-zero unless every track matches.
+across EAC, cyanrip and legacy-format logs and exits non-zero unless every track matches.
 
 **Each task = HW (user):** rip the baseline disc with cyanrip (the sole backend since 2026-06-30 — KDD-18) in that format,
 run `python3 scripts/eac_parity.py output_reference/EAC_flac/eac_baseline_police_classics.log <the rip's .log>`,
@@ -4966,11 +5011,11 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       entry almost nobody else shares". Do it as ONE predicate with N callers per
       `CLAUDE.md` (the verdict banner, the report JSON and the EAC export must not each
       compute it), and test the *relation*, not the sides.
-- **[ ] Record `CD-R detected` in the log.** whipper does (`result/logger.py:53`); it is
+- **[ ] Record `CD-R detected` in the log.** The previous backend did (its `result/logger.py:53`); it is
       an informational row on the real OPS rubric (deduction 0). We handle CD-Rs
       operationally but the fact never reaches the archival artifact — so an AccurateRip
       miss on a CD-R, which is *expected* rather than suspicious, reads as unexplained a
-      year later. ~15 lines. From the whipper audit, 2026-08-24.
+      year later. ~15 lines. From the audit of the previous backend's capabilities, 2026-08-24.
 - **[x] ASKED and ANSWERED** — `inbound/round-13-lap-01.md` §B3, *"Your Enhanced CD
   question — MEASURED, and it found a defect of ours"*. Original: ~~Ask the fork what
   cyanrip does with a two-session (Enhanced CD) TOC.~~ NOT a
@@ -4982,13 +5027,13 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       silently, across a whole class of discs. Cheap question, large downside; this is a
       "check where it could have failed" case.
 - **[ ] Assert the read offset is CORRECT, not merely applied.** Already ranked #3 in
-      `docs/eac-parity.md` Part D §4 and still open; the whipper audit re-surfaced it as
+      `docs/eac-parity.md` Part D §4 and still open; the audit of the previous backend re-surfaced it as
       the second-highest-value gap. We have the drive table
       (`adapters/accuraterip_offsets_data.py`); the log can say `+667 (matches the
       AccurateRip database for PIONEER BD-RW BDR-209D)`. Worth −5 on the real rubric, so
       it is a genuine quality row rather than cosmetics, and a wrong offset silently
-      corrupts every rip. Borrow whipper's *consensus* discipline
-      (`command/offset.py:168` — confirm across tracks 2..n−1, require agreement), **not**
+      corrupts every rip. Borrow the previous backend's *consensus* discipline
+      (its `command/offset.py:168` — confirm across tracks 2..n−1, require agreement), **not**
       its disc-based probe, which its own README calls "quite primitive" and which our
       adapter records failing on the BDR-209D with an in-database disc (KDD-31 stands).
 - **[ ] Use the per-track paranoia counts to strengthen `track_read_effort_flag`.**
@@ -5234,8 +5279,8 @@ Items that are technically achievable but represent significant effort, double t
 
 - **[ ] AcoustID fingerprint fallback.** Identify discs that MusicBrainz can't match by disc ID via audio fingerprinting (needs a personal AcoustID API key + `chromaprint`/`fpcalc`). Would route through the dependency subsystem; honors Critical Rule #5 (GUI resolves, not the ripper).
 - **[ ] Lyrics fetch + embed.** The guide tags `LYRICS=` from a file; we fetch none. A lyrics source behind a small adapter → embed via metaflac. Niche.
-- **[ ] Embed the cuesheet in FLAC metadata.** whipper writes a sidecar `.cue`; FLAC can hold the cuesheet in a metadata block (`--cuesheet`). Nice-to-have for single-image rips.
-- **[ ] WavPack hybrid (.wv/.wvc) output — evaluate only.** A lossy base + exact correction file is a clever archival/portability split, but it's orthogonal to the FLAC-primary thesis and neither whipper nor cyanrip targets it as cleanly. Note as an idea; likely **don't pursue**.
+- **[ ] Embed the cuesheet in FLAC metadata.** cyanrip writes a sidecar `.cue`; FLAC can hold the cuesheet in a metadata block (`--cuesheet`). Nice-to-have for single-image rips.
+- **[ ] WavPack hybrid (.wv/.wvc) output — evaluate only.** A lossy base + exact correction file is a clever archival/portability split, but it's orthogonal to the FLAC-primary thesis and cyanrip doesn't target it as cleanly. Note as an idea; likely **don't pursue**.
 
 **Graduated out of the multi-format design-of-record when it was archived (2026-08-06):**
 
@@ -5247,11 +5292,11 @@ Items that are technically achievable but represent significant effort, double t
 
 Listed here for clarity so they don't sneak in:
 
-- Replacing whipper itself with a from-scratch ripper. *(Note: forking/combining whipper + cyanrip and maintaining our own engine is **not** ruled out long-term — it's under research in [docs/cyanrip-fork.md](docs/cyanrip-fork.md), revisiting KDD-18. "Build our own from scratch" stays rejected.)*
-- **AccurateRip submission.** Policy-restricted, not technically impossible. AccurateRip's operators accept submissions only from EAC and dBpoweramp; any Linux tool implementing the upload protocol would have its submissions rejected. **AccurateRip *verification* IS in scope and already works** — whipper queries AccurateRip during every rip, the parser captures the v1/v2 confidence values, and the rip-progress widget renders them.
+- Writing a ripper from scratch. *(Maintaining our own engine is what the Platterpus fork of cyanrip is — see [docs/cyanrip-fork.md](docs/cyanrip-fork.md) and KDD-18. "Build our own from scratch" stays rejected.)*
+- **AccurateRip submission.** Policy-restricted, not technically impossible. AccurateRip's operators accept submissions only from EAC and dBpoweramp; any Linux tool implementing the upload protocol would have its submissions rejected. **AccurateRip *verification* IS in scope and already works** — cyanrip queries AccurateRip during every rip, the parser captures the v1/v2 confidence values, and the rip-progress widget renders them.
 - **CTDB submission.** Likely subject to the same trust-gate as AccurateRip submission.
-- **Tracker (RED/OPS/Orpheus) log acceptance — out of scope by design, not a gap.** Researched 2026-07: the gazelle logcheckers score by ripper identity (allow-list: EAC, XLD, whipper ≥ 0.7.3) before ever looking at audio quality, so an unrecognized ripper (cyanrip) scores 0 regardless of how clean the rip is — there is no honest partial score to chase. RED additionally requires a valid EAC checksum we refuse to forge. The alternative we invest in instead is the open-trust path (AccurateRip + CTDB + an honest unsigned log). See PLANNING.md **KDD-24** and `docs/eac-parity.md`. Only legitimate reopen routes: re-add whipper as an optional secondary backend for its native tracker-recognized log (reverses KDD-18, needs sign-off), or upstream advocacy to add cyanrip to a logchecker's allow-list — neither is being built.
-- **HTOA (hidden track one audio) — explicit scope note.** Not pursued. HTOA discs are rare in practice and neither backend gives a clean, low-effort extraction path today (whipper's HTOA accuracy edge cases, issues #75/#82, are moot now that whipper is removed as a backend, KDD-18). Revisit only on a concrete user request with a disc in hand.
+- **Tracker (RED/OPS/Orpheus) log acceptance — out of scope by design, not a gap.** Researched 2026-07: the gazelle logcheckers score by ripper identity (allow-list: EAC, XLD, and the ripper Platterpus used before cyanrip at ≥ 0.7.3) before ever looking at audio quality, so an unrecognized ripper (cyanrip) scores 0 regardless of how clean the rip is — there is no honest partial score to chase. RED additionally requires a valid EAC checksum we refuse to forge. The alternative we invest in instead is the open-trust path (AccurateRip + CTDB + an honest unsigned log). See PLANNING.md **KDD-24** and `docs/eac-parity.md`. Only legitimate reopen routes: re-add the previous backend as an optional secondary one for its tracker-recognized log (reverses KDD-18, needs sign-off), or upstream advocacy to add cyanrip to a logchecker's allow-list — neither is being built.
+- **HTOA (hidden track one audio) — explicit scope note.** Not pursued. HTOA discs are rare in practice and neither backend gives a clean, low-effort extraction path today (the previous backend's HTOA edge cases are moot since its removal, KDD-18). Revisit only on a concrete user request with a disc in hand.
 - Network features (NAS, Plex, Jellyfin, cloud)
 - Library/catalog database
 - DVD/Blu-ray support
@@ -5259,4 +5304,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.57.*
+*Last updated for Platterpus v0.6.58.*

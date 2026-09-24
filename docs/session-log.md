@@ -11,6 +11,152 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (night) — the old ripper's name, retired from live text
+
+**The ask:** *"we dont use whipper any more, so a sweep for any whipper references,
+file names, etc. we either need to replacement with our cyanrip fork designation, or
+make them neutral."* The inventory found about 2,000 mentions in 150 tracked files,
+three months after the backend was removed (KDD-18, 2026-06-30). Four answers from the
+maintainer shaped it, each the recommended option:
+- **whipper.conf:** stop reading it entirely.
+- **Old logs:** keep reading them, relabelled as the legacy log format.
+- **Uninstaller:** keep cleaning up leftovers, worded neutrally.
+- **History:** leave it as written.
+
+**Behaviour that changed:**
+- **The whipper.conf reader is gone.** That removes the reference line in Set up drive…
+  and `--doctor`, the disc-panel "disagrees" warning, and the step that seeded a drive's
+  offset history from the file. cyanrip never read it, so it could only ever show a
+  second number for one fact. Saved profiles keep loading: the enum member became
+  `LEGACY_CONFIG`, but its stored value stays `"whipper_conf"`, because renaming a
+  persisted string turns every such record into UNKNOWN.
+- **Force-stop's inert `pkill -f` pattern for the old ripper's CLI is removed.** It was
+  the only full-command-line kill left.
+- **The uninstaller's leftovers have neutral names.** Paths moved to
+  `paths.LEGACY_RIPPER_*`, with step id `legacy_config`, and the tests read the names
+  from `paths` rather than spelling them.
+- **The `--doctor` offset hint now names Set up drive….** It still sent people to
+  Settings, which this morning's change made wrong.
+
+**Wording:** comments, docstrings, test names, scripts and current docs now say cyanrip,
+"legacy log format", or "the ripper older versions used". Three helpers did this in
+parallel on disjoint file sets, and I reviewed each diff. Two of their calls were
+reversed:
+- They had stripped the upstream repository from three source citations. I restored
+  it: a citation says where a claim was read, and without the repository it cannot be
+  followed.
+- Three TASKS lines outside their scope were still live and false, e.g. "whipper queries
+  AccurateRip during every rip". I fixed those.
+
+The real legacy log fixture was renamed `rip_log_legacy_format.log`. Its content and
+attribution are unchanged, because an artifact edited to read neutrally is no longer
+real.
+
+**The gate** (`tests/test_no_previous_ripper_in_live_text.py`) scans every tracked text
+file:
+- **History** is exempt by path.
+- **Necessary literals** (on-disk names, the header regex, the persisted token,
+  citations, real artifacts, and the history inside mixed files like PLANNING and
+  TASKS) have exact counts that may only go down.
+- **Everything else** must have none.
+
+Revert-probed both ways: a name added to a comment, and a literal count grown. Both
+were detected.
+
+## 2026-09-24 (late) — one home per setting, and Settings gets Apply
+
+**Step 3's second half (#37).** The maintainer asked on 2026-09-23 for duplicate settings
+and actions to be flagged, *"mostly they should be in one place"*, and whether OK / Apply
+/ Cancel made sense. An offscreen inventory of every window's controls found seven
+settings with two editors, plus *Diagnose drive access…* sitting in the Tools menu apart
+from the rest of the drive. Each now has one home, recorded in `ui/setting_homes.py` under
+one rule: **a setting lives beside what it steers.**
+- The read offset and its Apply tick-box went to *Set up drive…*. Settings shows the
+  offset read-only and names that path.
+- Both beta channels went to Setup & Updates, above their checks.
+- The startup script, autorun and unsafe verbs went to the script console. Its second,
+  per-run unsafe box is gone, and the settings group is its own widget
+  (`dialogs/script_settings_box.py`), so the console stays about running a batch.
+- *Diagnose drive access…* went to a new Drive section of Setup & Updates.
+
+**Two write paths, one file.** `main_window_settings.py` holds Settings' OK and Apply,
+which write only what the user changed, and `_save_user_setting` for the controls that
+save as they change. The latter is validated by `settings_validation.field_error`, now
+shared with the `set` script verb rather than restated in the runner. It returns a
+`SettingWrite`, so a refused click puts the box back and shows the validator's sentence.
+Settings builds its config on the snapshot it opened with, so a field it does not edit can
+never look like an edit made there. For the same reason it no longer shows or blocks on
+validation for fields it cannot fix. A deleted startup script used to be able to lock
+Settings' OK.
+
+**The gate** (`tests/test_setting_homes.py`) builds all four windows and checks both
+directions. Every user setting has a home whose control exists. Every value control Qt
+reports in every window is either a home control or on an allowlist with a reason; one
+entry, the naming-scheme combo, which stores nothing of its own. Four revert probes all
+detected: the second offset editor coming back, the validation filter removed, Restore
+Defaults skipping a field, and the rip lock below.
+
+**Found by moving things.**
+- **Rip lock.** Moving *Diagnose drive access…* into Setup & Updates showed that the rip
+  lock greys the menu item that opens that window, not the window itself. One left open
+  kept *Set up drive… → Analyse cache* live during a rip. Fixed with `set_locked` and a
+  regression test.
+- **Channel tooltips.** The wording rule that follows the home table found both channel
+  tooltips never said what OFF does. The old Settings sweep missed them because their
+  mapping spanned two lines of source, which its regex could not read.
+
+**The screen-size gate caught my own layout.** The first full check failed five tests,
+two of them in `tests/test_ui_conformance.py`. On a Steam Deck at 150% with 150% text
+(853 × 533), the console's new settings group raised its minimum from 331 to 473 px
+against 469 available. That squeezed Choose… / Use built-in / Clear to 12 px. The drive
+wizard's two new rows clipped its own intro by 33 px.
+- **Console:** its intro and settings now sit in a `FitScrollArea`, with the editor and
+  transcript outside it.
+- **Drive wizard:** the legacy whipper.conf line shows only when there is one. The manual
+  paragraph lost a sentence that repeated the intro.
+
+I measured each change against the last commit before choosing it, rather than tuning
+until green.
+
+**Deliberately not moved:** *Add app shortcut* and *Set up drive…* are also steps inside
+*Run setup…*. Each is still one action with one button; the wizard is a sequence of them,
+not a second door. Not released; this goes to the next release with steps 2 and #36.
+
+## 2026-09-24 (evening) — 0.6.57 released; the acceptance run gets sizes, a baseline and the drive's own offset
+
+**0.6.57 went out before the fork opened round 27**, as the maintainer chose, so the
+round's real test runs the new one-frame default. I checked their branch three times,
+the last just before dispatch, and there was no lap. `main`'s CI on `8278b19` was green
+before the release workflow started.
+
+**Then step 2 of the plan: shorter hardware runs.** The acceptance script is now cut
+into three **run sizes**, all from the one file.
+- Quick is about 15 minutes, Standard about an hour, and Full 4 to 6 hours.
+- The app asks which size before anything is created or held.
+- Each section's first line declares the smallest size that runs it, so the sizes
+  nest by construction and nothing inherits a size.
+- A step the size leaves out is recorded as declined. It is the one skip `ok` forgives.
+- Only Full is evidence, and the transcript and report of any other size say so.
+
+**The hard-coded 667 is gone.** It was the BDR-209D's offset, written into a script
+that ships to every machine. `set-drive-offset` keeps the machine's own offset, or
+takes the AccurateRip list's, and fails naming the fix. `(offset)` carries the same
+value into the two `cyanrip -s` probes.
+
+**Two lessons came from the work itself.** First, a second copy of the sanitiser sweep, in
+`test_rig_check.py`, did not learn about the placeholder until it failed. That is
+§5.br's rule again, item 5: a second copy of a pattern does not learn. Second, the menu wiring had
+connected `triggered` straight to the method, so its `checked` bool would have landed
+in the new `size` parameter. A revert probe on the no-argument slot now catches that.
+
+**The run now starts from a baseline.** Each of the 34 user settings is set to its
+shipped default or `keep`s its current value. Every `keep` carries a written reason,
+and a sweep derived from `user_setting_names` enforces the rule.
+
+**The User Guide contradicted its own script.** It said to take the ripper offer only
+if it installs in one click, which is the advice the script's header records as wrong
+while a round is open. Fixed in passing.
+
 ## 2026-09-24 (small hours) — round-27 answers ready: one frame, not a pressing; loudness by coverage; READ
 
 The maintainer asked for our round-27 answers first, then 0.6.57. **Reading the fork's
@@ -7983,4 +8129,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.57.*
+*Last updated for Platterpus v0.6.58.*

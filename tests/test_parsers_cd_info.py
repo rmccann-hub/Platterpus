@@ -24,7 +24,8 @@ def test_parse_full_output() -> None:
 
 
 def test_parse_tolerates_surrounding_noise() -> None:
-    """Whipper occasionally emits log lines around the actual info output."""
+    """The legacy disc-info output occasionally carries log lines around the
+    actual info."""
     info = parse_cd_info(_read("cd_info_with_noise.txt"))
 
     assert info.cddb_disc_id == "12345678"
@@ -41,7 +42,7 @@ def test_parse_empty_input_returns_empty_fields() -> None:
 
 
 def test_parse_partial_input() -> None:
-    """If whipper only printed the MB disc id (e.g., CDDB lookup failed),
+    """If the output only carries the MB disc id (e.g., CDDB lookup failed),
     we still extract what's there."""
     info = parse_cd_info("MusicBrainz disc id partial-id-only\n")
 
@@ -62,8 +63,11 @@ def test_parse_num_tracks_defaults_zero_when_absent() -> None:
 
 
 def test_parse_num_tracks_from_real_unknown_disc_output() -> None:
-    """Whipper still prints the disc IDs + track count even when the disc
-    isn't in MusicBrainz (the output the adapter salvages on failure)."""
+    """The legacy disc-info output still carries the disc IDs + track count even
+    when the disc isn't in MusicBrainz (the output the adapter salvages on
+    failure)."""
+    # Verbatim real legacy output: the first line is the previous backend's own
+    # logger prefix, kept as the parser saw it.
     output = (
         "WARNING:whipper.common.program:release not found\n"
         "CDDB disc id: d30e9010\n"

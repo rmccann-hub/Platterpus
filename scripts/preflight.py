@@ -42,8 +42,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     # cyanrip is the sole backend (KDD-18), so there's nothing to override — the
-    # old `--backend whipper|cyanrip` flag set a Config attribute that no longer
-    # exists and was never read; it was removed.
+    # old `--backend` flag (which chose between cyanrip and the previous
+    # backend) set a Config attribute that no longer exists and was never
+    # read; it was removed.
     cfg = config_module.load()
     ctx = preflight.default_context(cfg)
     color = sys.stdout.isatty() and not args.no_color

@@ -1,7 +1,7 @@
 """Cover Art Archive adapter — backend-independent album cover fetching.
 
 Why this exists (2026-06-13, user goal: "good music, good cover image,
-good everything"): in the old whipper backend, cover art came from the
+good everything"): with the previous backend, cover art came from the
 ripper itself. With the cyanrip backend the GUI feeds the tags itself and
 deliberately skips cyanrip's own MusicBrainz lookup (Critical Rule #5 /
 KDD-18 metadata model) — but that lookup was where cyanrip's cover art
@@ -439,11 +439,12 @@ def plan_actions(
     """Decide what the GUI should do about cover art: (embed, save_file).
 
     `mode` is the Config.cover_art value — vocabulary inherited from the
-    old whipper backend, reused backend-independently: "" (off), "embed",
+    previous backend, reused backend-independently: "" (off), "embed",
     "file", "complete" (both). `ripper_fetches_art` is True when the ripper
-    handles art itself (the historical whipper-with-a-release-ID path, via
-    `--cover-art`) — then the GUI stays out of the way. No release ID means
-    the disc was never identified, so there is nothing to look up.
+    handles art itself (the previous backend did, given a release ID and
+    `--cover-art`; cyanrip never does, so the caller passes False) — then
+    the GUI stays out of the way. No release ID means the disc was never
+    identified, so there is nothing to look up.
     """
     if ripper_fetches_art or not (release_id or "").strip():
         return (False, False)

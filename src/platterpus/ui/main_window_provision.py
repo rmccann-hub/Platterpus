@@ -112,6 +112,8 @@ class ProvisioningMixin(MainWindowShared):
     _acceptance_inhibit_note: str = ""
     #: The packaged acceptance script this session runs.
     _acceptance_script: Path | None = None
+    #: The run size chosen for this session (Quick, Standard or Full).
+    _acceptance_run_size: str = "full"
     #: **The user's own settings, as they were when the session was armed.** The
     #: script writes settings as it tests them, and it used to end by resetting
     #: to the SHIPPED DEFAULTS — its own comment admitted it could do no better,
@@ -159,8 +161,8 @@ class ProvisioningMixin(MainWindowShared):
     def _maybe_offer_first_run_setup(self) -> None:
         """First-run offers, in dependency order.
 
-        The host stack (whipper in its container) must exist before anything
-        else works, so offer that first; only once whipper is present does the
+        The host stack (cyanrip in its container) must exist before anything
+        else works, so offer that first; only once cyanrip is present does the
         drive-calibration offer make sense. Deferred to the event loop, so in
         tests (no exec loop) neither fires — both are unit-tested directly.
 
@@ -503,7 +505,10 @@ class ProvisioningMixin(MainWindowShared):
                 "host_setup": self.open_host_setup_dialog,
                 "shortcut": self._on_add_app_shortcut,
                 "drive_setup": self._on_drive_setup,
+                "drive_diagnose": self._show_drive_access_diagnosis,
             },
+            config=self._config,
+            save_setting=self._save_user_setting,
         )
         self._setup_center = dialog
         dialog.show()
@@ -550,6 +555,8 @@ class ProvisioningMixin(MainWindowShared):
             self,
             script_path=cfg.test_script_path,
             allow_unsafe=cfg.test_script_allow_unsafe,
+            autorun=cfg.test_script_autorun,
+            save_setting=self._save_user_setting,
         )
         self._script_console = console
         console.show()
@@ -603,7 +610,7 @@ class ProvisioningMixin(MainWindowShared):
     # pane's live log view, and into the end-of-session dialog and the bundle's
     # own facts. Three surfaces, none of them a dialog racing the script.
 
-    def run_acceptance_session(self) -> bool:
+    def run_acceptance_session(self, size: str | None = None) -> bool:
         """Run the whole overnight acceptance session. Returns whether it started.
 
         The first half runs here, on the GUI thread, because it is a handful of
@@ -626,7 +633,12 @@ class ProvisioningMixin(MainWindowShared):
 
         Returns True when the session was armed. **A False is always accompanied
         by a message on screen** — a menu item that does nothing and says nothing
-        is the silent no-op this codebase keeps finding.
+        is the silent no-op this codebase keeps finding — except when the operator
+        cancelled the size choice, which is their own answer on screen.
+
+        ``size`` is the run size (`uiscript/run_sizes.py`). ``None`` asks, in the
+        one question this session puts BEFORE anything starts: once the batch is
+        going, no modal may appear. Tests pass it explicitly.
         """
         from datetime import UTC, datetime
         from pathlib import Path
@@ -653,6 +665,21 @@ class ProvisioningMixin(MainWindowShared):
         #    returns a sentence written for a person, whether it found the file or
         #    not — so the refusal below can name the path it looked for. An error
         #    that cannot say where it looked is not a diagnosis.
+        # 0. The size, asked first: nothing has been created or held yet, so a
+        #    Cancel here leaves nothing to undo.
+        from platterpus.uiscript import run_sizes
+
+        chosen = run_sizes.parse_size(size) if size is not None else None
+        if size is not None and chosen is None:
+            raise ValueError(f"unknown run size {size!r}")
+        if chosen is None:
+            chosen = self._ask_acceptance_run_size()
+            if chosen is None:
+                log.info(
+                    "acceptance session not started: the size choice was cancelled"
+                )
+                return False
+
         script, explanation = builtin_acceptance_script()
         if script is None:
             log.error("acceptance session refused: %s", explanation)
@@ -682,6 +709,7 @@ class ProvisioningMixin(MainWindowShared):
         self._acceptance_root = layout.root
         self._acceptance_started_at = time.time()
         self._acceptance_script = script
+        self._acceptance_run_size = chosen
         self._acceptance_user_config = dataclasses.replace(self._config)
         # THE RIPS STAY IN THE SESSION FOLDER TOO, and out of the user's library.
         # After the snapshot above, so the restore puts both settings back on
@@ -846,6 +874,7 @@ class ProvisioningMixin(MainWindowShared):
         # The run's transcript, report and screenshots go into the session folder,
         # and the runner builds no bundle of its own: the session builds the one.
         console.contain_next_run_in(layout.run_dir)
+        console.size_next_run(self._acceptance_run_size)
         # **The start is CHECKED, not assumed.** `run_now()` declines when a run
         # is already in flight — the operator triggered Tools → Run acceptance
         # test twice, or left a console running from earlier — and until it
@@ -936,6 +965,8 @@ class ProvisioningMixin(MainWindowShared):
         album_roots: list[Path] = []
         try:
             facts["sleep lock"] = self._acceptance_inhibit_note or "not determined"
+            # Which size ran. Only `full` is evidence, so the archive says which.
+            facts["run size"] = self._acceptance_run_size
             script = self._acceptance_script
             facts["acceptance script"] = str(script) if script else "(not recorded)"
             console = self._acceptance_console
@@ -1258,6 +1289,16 @@ class ProvisioningMixin(MainWindowShared):
         # have found none of this run's albums.
         roots: list[Path] = list(album_roots or [])
         since = self._acceptance_started_at
+        # Every component and its version, read here (plain reads, no probe) so
+        # the daemon closes over a string: the same inventory Help → About shows.
+        import json
+
+        from platterpus import build_info
+        from platterpus.deps import manager as dep_manager
+
+        components = json.dumps(
+            build_info.component_inventory(dep_manager.latest_report()), indent=2
+        )
 
         def work() -> None:
             result = BundleResult()
@@ -1289,6 +1330,7 @@ class ProvisioningMixin(MainWindowShared):
                             if settings_record
                             else {}
                         ),
+                        "COMPONENTS.json": components,
                     },
                 )
             except Exception as exc:  # noqa: BLE001 — must never crash the session
@@ -1438,6 +1480,45 @@ class ProvisioningMixin(MainWindowShared):
         )
         return changed
 
+    def _on_run_acceptance_action(self) -> None:
+        """Tools → Run acceptance test…: ask the size, then run the session."""
+        self.run_acceptance_session()
+
+    def _ask_acceptance_run_size(self) -> str | None:
+        """Which run size? ``None`` when the operator cancels. PlainText.
+
+        One question, asked before anything is created or held. The wording is
+        :data:`run_sizes.CHOICES`, the one place a size is described, and it says
+        which size counts as evidence, because a person choosing Quick to save the
+        evening should know what it will not prove.
+        """
+        from platterpus.uiscript import run_sizes
+
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setWindowTitle("Run acceptance test")
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        box.setText(
+            "Which run?\n\n"
+            + "\n".join(label for _size, label in run_sizes.CHOICES)
+            + "\n\nEvery size is cut from the same script. Only Full counts toward "
+            "a version or a handshake close; a smaller run marks each section it "
+            "leaves out."
+        )
+        buttons = [
+            (
+                box.addButton(
+                    "&" + label.split(" — ", 1)[0], QMessageBox.ButtonRole.AcceptRole
+                ),
+                size,
+            )
+            for size, label in run_sizes.CHOICES
+        ]
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.exec()
+        clicked = box.clickedButton()
+        return next((size for button, size in buttons if button is clicked), None)
+
     def _acceptance_message(
         self,
         icon: QMessageBox.Icon,
@@ -1504,7 +1585,7 @@ class ProvisioningMixin(MainWindowShared):
             self.close()
 
     def _on_host_setup_finished(self, ready: bool) -> None:
-        """After the wizard runs, re-probe the world if whipper now exists.
+        """After the wizard runs, re-probe the world if the ripper stack is ready.
 
         Refresh the drive list ONLY when no drive is selected yet — i.e. the
         FIRST time setup makes the stack usable. A later wizard run (e.g.

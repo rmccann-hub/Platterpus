@@ -1079,11 +1079,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # two files that must agree. Roughly two thirds of the +65 is comment, because
     # every one of these encodes a decision the fork and we made jointly and a
     # reader needs the reason, not the mechanics.
-    "uiscript/report.py": 428,
-    "adapters/accuraterip_offsets.py": 308,
+    # **428 -> 464** (2026-09-24): `run_size` and `counts_as_evidence` in the report, the not-evidence banner, and `ok` forgiving ONLY size-declined steps.
+    "uiscript/report.py": 464,
+    # **308 -> 314** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "adapters/accuraterip_offsets.py": 314,
     "adapters/accuraterip_offsets_data.py": 388,
     "adapters/cache_probe.py": 372,
-    "adapters/cover_art.py": 566,
+    # **566 -> 567** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "adapters/cover_art.py": 567,
     "adapters/ctdb_client.py": 332,
     # --- The 2026-09-09 log-verification race: eight files, one defect ------
     #
@@ -1153,7 +1156,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # API that reads like the fix and changes neither half of WM_CLASS on
     # xcb/6.11.2, so a reader who trusts its name deletes the line that is
     # actually holding the pairing up.
-    "app.py": 1373,
+    # **1373 -> 1374** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "app.py": 1374,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
@@ -1168,7 +1172,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `DEFAULT_RERIP_OFFSET_VARIANT`, the one default three places read, with the
     # evidence that turned it (a one-frame match passed wrong audio twice), and the
     # v8->v9 step that flips a saved False once. Migrations live here by design.
-    "config.py": 847,
+    # **847 -> 848** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "config.py": 848,
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
     "deps/checks.py": 437,
@@ -1352,7 +1357,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # not, so the launcher kept an entry pointing at a deleted AppImage — a
     # real-user screenshot. Most of the growth is that explanation, which is the
     # part that stops somebody "simplifying" it back to a step or to always-on.
-    "deps/host_teardown.py": 392,
+    # **392 -> 393** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "deps/host_teardown.py": 393,
     "deps/ripper_manifest.py": 608,
     # **777 -> 782 (2026-09-24)**: asks `current_test_pin()` / `retired_test_pins()`
     # instead of the raw constant, and says why in four lines (§5.bq).
@@ -1367,8 +1373,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # expressions of one number is exactly how the wait and the countdown
     # could stop agreeing; this file is the one whose docstring already
     # explains why the countdown exists at all.
-    "drive_control.py": 423,
-    "drive_profiles.py": 488,
+    # **423 -> 411** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
+    "drive_control.py": 411,
+    # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
+    "drive_profiles.py": 447,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
     # tri-state `_status_line` honesty fix: an EAC-format log must not print
     # "Copy OK" under a track whose own re-reads disagreed. The renderer is the
@@ -1511,7 +1519,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # session folder (maintainer: *"stop polluting my home folder, keep this all
     # contained to 1 folder"*). The guide says where that folder is.
     # **589 -> 591** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The glossary and the Settings bullet say what matched and name no cause.
-    "help_content.py": 591,
+    # **591 -> 605** (2026-09-24): the User Guide's acceptance section describes the three run sizes and the baseline, and corrects its old ripper advice.
+    # **605 -> 630** (2026-09-24, #37 one home per setting): the User Guide says where each moved setting now lives (Set up drive…, Setup & Updates, the console) and what OK/Apply/Cancel/Restore Defaults do.
+    # **630 -> 628** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
+    "help_content.py": 628,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1524,8 +1535,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # so a consumer cannot form a second opinion about the same sentence.
     # 2759 -> 2819 (2026-09-06): the dispatch fix. `looks_like_cyanrip_log`
     # read exactly the first non-blank line and sent a valid cyanrip log with
-    # one line of preamble to the whipper parser — zero tracks from fourteen.
-    # The growth is the bounded scan, the whipper discriminator it needs, the
+    # one line of preamble to the legacy-format parser — zero tracks from
+    # fourteen. The growth is the bounded scan, the legacy-format discriminator
+    # it needs, the
     # named group the completeness sweep requires, and why each exists. The
     # module is long because it is a line-by-line contract with another
     # project; splitting it is tracked separately and is not this change.
@@ -1548,22 +1560,26 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2937 -> 2973 (2026-09-24, round 26 lap 4)**: `finished_track` and
     # `partial_summary_denominator` are made public HERE so the rip worker and the
     # report stop keeping their own copies — the copies are what drifted.
-    "parsers/cyanrip_log.py": 2973,
+    # **2973 -> 2975** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "parsers/cyanrip_log.py": 2975,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
     # pure function would be the new-file-as-last-resort rule broken to satisfy
     # a line count.
     # **883 -> 884** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The `accuraterip_offset` comment corrected.
-    "parsers/rip_log.py": 884,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **884 -> 889** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "parsers/rip_log.py": 889,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
-    "preflight.py": 904,
+    # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
+    "preflight.py": 887,
     # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
     "read_speed_ladder.py": 370,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
-    "report_types.py": 690,
+    # **690 -> 712** (2026-09-24, #36): `ComponentInventory`, the one inventory type, and v27's `dependencies_measured_at`.
+    "report_types.py": 712,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1602,7 +1618,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2462 -> 2479 (2026-09-24, round 26 lap 4)**: the offset-variant sentence uses the
     # parser's denominator rule, and a rip that never finished is not called read-unstable.
     # **2479 -> 2490** (2026-09-24): schema v26 `album_loudness_covers` plus its history note.
-    "rip_report.py": 2490,
+    # **2490 -> 2494** (2026-09-24, #36): schema v27's history note.
+    # **2494 -> 2495** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "rip_report.py": 2495,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1626,7 +1644,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
     # rather than folded in with its sibling — a path and a version are two
     # shapes, and one check loose enough for both checks neither properly.
-    "settings_validation.py": 896,
+    # **896 -> 922** (2026-09-24, #37 one home per setting): `field_error`, the ONE single-setting predicate the `set` verb and every save-as-you-change control share; it moved here from the runner so neither can restate it.
+    "settings_validation.py": 922,
     "sleep_inhibit.py": 599,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
     # the single deletable directory every rig artifact of ours now lives under,
@@ -1650,6 +1669,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # so each rip's own bundle lands in the one session folder too.
     "test_session.py": 861,
     "ui/dialogs/pending_installs.py": 419,
+    # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
+    # channels (they live above the checks they steer), a Drive section holding
+    # the read offset's status, Set up drive… and Diagnose drive access…, and
+    # `set_locked`, the rip lock that reaches a window already open. Every action
+    # still delegates to the window; nothing here decides anything.
+    "ui/dialogs/setup_center.py": 448,
     # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
     # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
     # in the home directory. A save dialog only PROPOSES, which is why this was
@@ -1661,9 +1686,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # session folder (maintainer: *"stop polluting my home folder, keep this all
     # contained to 1 folder"*). The one-shot hand-off of that folder to the next
     # run, and why it is one-shot.
-    "ui/dialogs/script_console.py": 494,
-    "ui/disc_info_panel.py": 319,
-    "ui/drive_setup_dialog.py": 500,
+    # **494 -> 509** (2026-09-24): `size_next_run`, the one-shot run-size hand-off beside `contain_next_run_in`.
+    # **509 -> 548** (2026-09-24, #37 one home per setting): the console hosts its three test-script settings (in `script_settings_box.py`, split out so the console stays about running) and never replaces a typed batch when the startup script changes.
+    # **548 -> 565** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the intro and script settings scroll in a `FitScrollArea` so Run and the transcript keep their room on a Steam Deck at 150% text, where the new settings group squeezed three buttons to 12 px.
+    "ui/dialogs/script_console.py": 565,
+    # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "ui/disc_info_panel.py": 320,
+    # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy ripper-config offset line, both moved from Settings, with the tooltip the offset's control had there.
+    # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
+    # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
+    "ui/drive_setup_dialog.py": 561,
     "ui/host_setup_dialog.py": 341,
     # **1558 -> 1572 on 2026-09-08**: the `Help → Install a cyanrip build…`
     # action, plus the paragraph saying why a SECOND ripper entry exists — the
@@ -1693,17 +1725,25 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # suite; the check that would have caught it had been stopped.
     # **1601 -> 1609 (2026-09-24, the 0.6.55 acceptance bundle)**: the release picker and
     # Settings dialog are freed after use (four and two were left alive, hidden).
-    "ui/main_window.py": 1609,
+    # **1609 -> 1611** (2026-09-24): the acceptance menu item gets a no-argument slot, so `triggered`'s bool never lands in `size`.
+    # **1611 -> 1616** (2026-09-24, #36): the per-instance dependency-check listener list, and About gets its recheck hook.
+    # **1616 -> 1599** (2026-09-24, #37 one home per setting): down: Settings' opener moved to `main_window_settings.py`, and Diagnose drive access… left the Tools menu.
+    "ui/main_window.py": 1599,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
     # of the growth is the comment explaining the launch-time race, which is the
     # part a reader needs and the part a reviewer would otherwise have to
     # reconstruct from two other files.
-    "ui/main_window_deps.py": 693,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
-    "ui/main_window_drive.py": 555,
+    # **693 -> 722** (2026-09-24, #36): `_recheck_dependencies_for` and telling its listeners when the check lands.
+    # **722 -> 723** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "ui/main_window_deps.py": 723,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
+    # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
+    "ui/main_window_drive.py": 543,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
-    "ui/main_window_helpers.py": 512,
+    # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "ui/main_window_helpers.py": 515,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -1733,7 +1773,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # contained to 1 folder"*). Pointing the rips at the session folder
     # for the run, handing the runner its folder, and reading the album roots
     # before the restore.
-    "ui/main_window_provision.py": 1526,
+    # **1526 -> 1589** (2026-09-24): the run-size chooser, asked before anything starts, and its plumbing into the session.
+    # **1589 -> 1602** (2026-09-24, #36): the bundle's `COMPONENTS.json` and the run size in its facts.
+    # **1602 -> 1607** (2026-09-24, #37 one home per setting): Setup & Updates and the console are handed the window's single-setting writer and Diagnose drive access….
+    "ui/main_window_provision.py": 1607,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1785,7 +1828,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `generated_at` of the report it bundles.
     # **4696 -> 4710 (2026-09-24, the 0.6.55 acceptance bundle)**: the gates read the rip's
     # own outcome, and a rip's own bundle goes to the session folder while one runs.
-    "ui/main_window_rip.py": 4710,
+    # **4710 -> 4717** (2026-09-24, #36): the rip report records when its dependency versions were measured.
+    # **4717 -> 4715** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
+    "ui/main_window_rip.py": 4715,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -1798,7 +1843,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # methods the consolidated window calls on `self`, plus the two blocker
     # predicates. This file growing is the type seam doing its job: an undeclared
     # cross-mixin call is a mypy error, which is how the wiring gets checked.
-    "ui/main_window_shared.py": 427,
+    # **427 -> 428** (2026-09-24, #36): the listener list's declaration.
+    # **428 -> 441** (2026-09-24, #37 one home per setting): the seam declares SettingsMixin's methods and the open Setup & Updates window it refreshes.
+    "ui/main_window_shared.py": 441,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -1812,7 +1859,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # resolution of a missing required dependency because the window was not yet
     # visible.
     "ui/main_window_update.py": 1019,
-    "ui/rip_progress.py": 1658,
+    # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "ui/rip_progress.py": 1659,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
@@ -1839,7 +1887,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # now share, which paid for the theme-aware colour lines that had taken the
     # file to 1412.
     # **1382 -> 1381** (2026-09-24): shrank by one; recorded at its real length.
-    "ui/settings_dialog.py": 1381,
+    # **1381 -> 1335** (2026-09-24, #37 one home per setting): down: seven controls moved to their homes, net of OK/Apply/Cancel/Restore Defaults.
+    # **1335 -> 1336** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "ui/settings_dialog.py": 1336,
     "ui/track_table.py": 802,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
@@ -1950,8 +2000,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # headline picture was a hidden dialog at every step).
     # **4121 -> 4125**: the headline screenshot is chosen by the runner's own window
     # (identity), after the full suite showed a class-name match picking a leftover.
-    "uiscript/runner.py": 4125,  # +116: _do_expect_verification, the assertion section F never had,
-    "uiscript/script.py": 318,
+    # **4125 -> 4314** (2026-09-24): `run-size` (the dispatch check and its handler), `keep`, `set-drive-offset`, `expect-drive-offset` and the `(offset)` placeholder. Verb handlers live beside the other verb handlers; the pure halves are in `run_sizes.py` and `script.py`.
+    # **4314 -> 4297** (2026-09-24, #37 one home per setting): down: the setting validator moved to `settings_validation.field_error`.
+    "uiscript/runner.py": 4297,  # +116: _do_expect_verification, the assertion section F never had,
+    # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
+    "uiscript/script.py": 339,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
     # so a verb declared anywhere else would defeat the file. The comment is
@@ -1964,10 +2017,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # cannot live anywhere else, and the growth is the comment explaining why
     # `expect-rip-complete` could not state this claim (cyanrip is always invoked
     # `-o flac`, so its log is identical whether our transcode ran or not).
-    "uiscript/verbs.py": 759,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
+    # **759 -> 801** (2026-09-24): four verbs, `run-size`, `keep`, `set-drive-offset` and `expect-drive-offset`. The table is the vocabulary's security boundary, so a verb is an entry here by design.
+    "uiscript/verbs.py": 801,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
     "update_install.py": 304,
     # **521 -> 530** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The banner and the CTDB reconciliation say what matched.
-    "verdict.py": 530,
+    # **530 -> 531** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "verdict.py": 531,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.
@@ -1982,7 +2037,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # Platterpus did not send is explained (`ripper_exit`); the worker is the only
     # place that knows whether it sent one, so `_we_stopped_ripper` lives here.
     # **3463 -> 3462 (2026-09-24, round 26 lap 4)**: finished tracks are read through the parser, so its own copy of the pattern is gone.
-    "workers/rip_worker.py": 3462,
+    # **3462 -> 3464** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
+    "workers/rip_worker.py": 3464,
 }
 
 

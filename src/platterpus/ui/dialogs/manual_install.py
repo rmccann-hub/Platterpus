@@ -10,10 +10,10 @@ via `rpm-ostree install + reboot` on Bazzite). The dialog presents:
   - Primary action: Copy. Secondary action: Close.
 
 For dependencies the **setup wizard** provides (``spec.from_setup_wizard`` —
-whipper/metaflac/flac, installed into the container and exported), the user
-should NOT have to copy a search string: those get a primary **"Set it up
-automatically…"** button that opens the wizard (one click, no terminal). The
-copyable search string stays as a last-resort fallback.
+cyanrip/metaflac/flac/cd-paranoia, installed into the container and exported),
+the user should NOT have to copy a search string: those get a primary **"Set
+it up automatically…"** button that opens the wizard (one click, no terminal).
+The copyable search string stays as a last-resort fallback.
 
 No installation happens here for the search-string path — the user follows it
 to resolve manually and re-runs the dependency check.

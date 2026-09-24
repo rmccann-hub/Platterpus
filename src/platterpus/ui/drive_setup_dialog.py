@@ -16,6 +16,13 @@ was removed — so the button is hidden for it rather than offering a probe we
 don't trust. The ``DriveSetupWorker``/detection seam remains for a future
 measuring backend (or a re-vetted ``-f`` integration).
 
+**This is the read offset's ONE home** (2026-09-24). Settings used to carry a
+second copy — a spin box and the "Apply" tick-box — and two editors of one
+calibration value is how an OK in Settings once wrote a stale offset over the one
+this wizard had just saved. Settings now shows the offset read-only and names
+this window; `ui/setting_homes.py` records the placement and
+`tests/test_setting_homes.py` refuses a second editor anywhere else.
+
 The dialog owns the worker thread; `_on_finished` is a plain slot so tests can
 exercise the result rendering without a live event loop.
 """
@@ -26,6 +33,7 @@ import logging
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDialogButtonBox,
     QHBoxLayout,
     QLabel,
@@ -83,6 +91,13 @@ class DriveSetupDialog(CenteredDialog):
     # a view.
     detection_recorded = Signal(object)
 
+    # Emitted when the user ticks or unticks "Apply this read offset to every
+    # rip". Applied at once, like the offset's own Save: the window writes
+    # `override_read_offset` and saves, and this dialog says so in its status
+    # line. A tick-box that took effect only on some later button would be a
+    # change the user could believe they had made and had not.
+    offset_applied_changed = Signal(bool)
+
     def __init__(
         self,
         backend: RipBackend,
@@ -91,12 +106,14 @@ class DriveSetupDialog(CenteredDialog):
         current_offset: int = 0,
         known_offset: int | None = None,
         drive_label: str = "",
+        offset_applied: bool = True,
     ) -> None:
         """`known_offset`, when provided, is the AccurateRip read offset
         looked up by drive model (the primary, disc-free path). We prefill
         the manual field with it and call it out so the user can save it in
         one click — no disc or ripper probe required. `drive_label` is the
-        human drive name shown in that callout.
+        human drive name shown in that callout. `offset_applied` is the config's
+        ``override_read_offset``: whether rips pass the offset to cyanrip at all.
         """
         super().__init__(parent)
         self._backend: RipBackend = backend
@@ -237,12 +254,13 @@ class DriveSetupDialog(CenteredDialog):
         # CD-Rs (or an obscure pressing) can't run it. Let them enter the
         # offset by hand — every drive model's value is published at
         # AccurateRip's list, keyed by the exact drive the GUI already shows.
+        # One sentence, not two: the intro above already says the offset is saved
+        # in Platterpus's settings and applied to cyanrip on every rip, and saying
+        # it twice cost the line that clipped this dialog on a short screen.
         manual_intro = QLabel(
             "No AccurateRip disc handy? Look up your drive's offset at "
             '<a href="https://www.accuraterip.com/driveoffsets.htm">'
-            "accuraterip.com/driveoffsets.htm</a> and enter it here. It's "
-            "saved in Platterpus's own settings and passed to cyanrip at rip "
-            "time (cyanrip uses no config file of its own).",
+            "accuraterip.com/driveoffsets.htm</a> and enter it here.",
             self,
         )
         manual_intro.setWordWrap(True)
@@ -275,12 +293,37 @@ class DriveSetupDialog(CenteredDialog):
         self._offset_spin.setValue(
             known_offset if known_offset is not None else current_offset
         )
+        self._offset_spin.setToolTip(
+            "Your drive's read offset, in samples, signed (cyanrip's -s). Every "
+            "drive reads a fixed distance early or late; correcting for it is what "
+            "makes a rip bit-perfect and lets AccurateRip match. It is a property "
+            "of the DRIVE, not of the disc, so set it once. Typical values are "
+            "within a few hundred of zero; 0 means no correction, right only for "
+            "the rare drive that needs none. Press Save offset to use it."
+        )
         manual_row.addWidget(self._offset_spin)
         self._save_offset_button: QPushButton = QPushButton("&Save offset", self)
         self._save_offset_button.clicked.connect(self._on_save_offset_clicked)
         manual_row.addWidget(self._save_offset_button)
         manual_row.addStretch(1)
         root.addLayout(manual_row)
+
+        # Whether rips pass the offset at all (cyanrip's `-s`). Moved here from
+        # Settings with the offset itself, so the number and the switch that
+        # makes it count are edited in one place.
+        self._apply_offset_check: QCheckBox = QCheckBox(
+            "Apply this read offset to every rip", self
+        )
+        self._apply_offset_check.setChecked(offset_applied)
+        self._apply_offset_check.setToolTip(
+            "ON: every rip is corrected by the saved offset (cyanrip's -s). OFF: "
+            "no -s is passed at all and the drive's raw alignment is used, which "
+            "for most drives is NOT bit-perfect, so AccurateRip then fails to "
+            "match even a clean disc. Saving an offset turns this on. The change "
+            "takes effect as soon as you click it."
+        )
+        self._apply_offset_check.toggled.connect(self._on_apply_offset_toggled)
+        root.addWidget(self._apply_offset_check)
 
         # Close only — there's no "apply" step because the offset is saved to
         # Platterpus's own config the moment detection (or a manual save)
@@ -408,15 +451,33 @@ class DriveSetupDialog(CenteredDialog):
         """
         self._offset_spin.setEnabled(enabled)
         self._save_offset_button.setEnabled(enabled)
+        self._apply_offset_check.setEnabled(enabled)
 
     def _on_save_offset_clicked(self) -> None:
         """Persist a hand-entered offset via the main window (--offset path)."""
         value = self._offset_spin.value()
         self.manual_offset_saved.emit(value)
+        # Saving an offset turns it on (`_set_read_offset_override`), so the
+        # tick-box follows without emitting a second, redundant change.
+        self._apply_offset_check.blockSignals(True)
+        self._apply_offset_check.setChecked(True)
+        self._apply_offset_check.blockSignals(False)
         confirmation = f"Saved read offset {value:+d} — it will be used for rips."
         self._status_label.setText(confirmation)
         # The save confirmation lands in a passive label — announce it so a
         # screen-reader user hears that the click took effect (gap #4).
+        announce(self._status_label, confirmation)
+
+    def _on_apply_offset_toggled(self, applied: bool) -> None:
+        """Tell the window, and say what the next rip will now do."""
+        self.offset_applied_changed.emit(applied)
+        confirmation = (
+            "Rips will apply the saved read offset."
+            if applied
+            else "⚠ Rips will not apply any read offset — most drives are then "
+            "not bit-perfect."
+        )
+        self._status_label.setText(confirmation)
         announce(self._status_label, confirmation)
 
     # --- Lifecycle ----------------------------------------------------------

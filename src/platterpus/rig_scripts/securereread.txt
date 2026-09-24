@@ -82,15 +82,17 @@ snapshot identity
 # --- B. THE SETTINGS THAT MAKE THIS A T1 RUN -------------------------------
 # 667 is this drive's true read offset (the bundled AccurateRip table's sentinel,
 # the hardware checklist, and a rip verified byte-identical against the EAC
-# baseline on 12 of 14 tracks all agree). On any other drive, change it.
+# baseline on 12 of 14 tracks all agree). `set-drive-offset` takes this
+# machine's own offset, or the AccurateRip list's, so nothing here needs editing.
 #
 # `set rip_goal archival` applies the whole preset, as choosing it in Settings
 # does — uniform secure re-read and offset-variant matches re-read. Asserting the
 # two fields afterwards is the check that the label means what it says.
 
 log --- B. settings for a uniform secure re-read ---
-set read_offset 667
-expect read_offset 667
+set-drive-offset
+expect-drive-offset
+abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
 set output_format flac
 expect output_format flac
 set force_overread off
@@ -164,7 +166,7 @@ snapshot afterrigcheck
 
 # --- F. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
 # Uniform secure re-read doubles every future rip on this machine, so it goes
-# back. The read offset is NOT restored: 667 is correct for this drive and
+# back. The read offset is NOT restored: it is this drive's own offset and
 # putting it back to 0 would be the mis-configuration.
 
 log --- F. restoring ---
@@ -174,7 +176,7 @@ expect secure_rerip_dynamic on
 set write_eac_log_after_rip off
 set debug_logging off
 expect force_overread off
-expect read_offset 667
+expect-drive-offset
 expect-dialog none
 snapshot atend
 

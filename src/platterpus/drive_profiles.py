@@ -15,12 +15,11 @@ What this module is — and is NOT (the load-bearing boundary, KDD-23)
 This is a **record / display / guard ledger**. It remembers, per stable drive
 identity, what offset was learned, from where, with what confidence, and when —
 and it surfaces drift/collision warnings. It does **NOT** decide which offset a
-rip actually uses: ``whipper.conf`` stays whipper's sole authority, and the
-GUI's single global ``--offset`` override (``Config.read_offset`` /
-``Config.override_read_offset``) stays the only other authority. Making this
-ledger authoritative would mean either hand-authoring whipper.conf (forbidden,
-KDD-15) or forcing ``--offset`` from a possibly-stale cache — i.e. re-creating
-the very silent-wrong-offset bug the feature exists to prevent. Per-drive
+rip actually uses: the GUI's single global offset (``Config.read_offset`` /
+``Config.override_read_offset``, passed to cyanrip as ``-s``) is the only
+authority. Making this ledger authoritative would mean forcing ``-s`` from a
+possibly-stale cache — i.e. re-creating the very silent-wrong-offset bug the
+feature exists to prevent. Per-drive
 offset *application* is a separate, hardware-gated change (it needs a real
 two-drive rig to prove the right offset reaches the right drive).
 
@@ -33,14 +32,12 @@ lives in the sibling :mod:`platterpus.drive_profile_store`.
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
 from platterpus.adapters.accuraterip_offsets import (
     canonical_token,
-    normalize_combined,
     normalize_drive_name,
 )
 
@@ -60,8 +57,12 @@ class OffsetSource(StrEnum):
 
     # measured on THIS drive (a single offset-find reading)
     OFFSET_FIND = "offset_find"
-    # read live from whipper.conf (whipper measured it)
-    WHIPPER_CONF = "whipper_conf"
+    # read from a config file an older version of Platterpus consulted. Nothing
+    # records this any more (that file stopped being read on 2026-09-24), but a
+    # saved profile can still carry it, so the member stays and its STORED value
+    # keeps the exact token older versions wrote — renaming the string would
+    # turn every such record into UNKNOWN on load.
+    LEGACY_CONFIG = "whipper_conf"
     # looked up by model in the AccurateRip list — reliable, but not probed here
     ACCURATERIP_LIST = "accuraterip_list"
     # empirically confirmed on THIS drive by a rip that MATCHED AccurateRip at
@@ -120,15 +121,15 @@ _CONFIDENCE_ORDER: dict[Confidence, int] = {
 #     clobbered the correct AccurateRip-list value. cyanrip no longer produces
 #     these at all — see cyanrip_backend.find_offset — but the demotion is the
 #     durable fix for any future real detector.)
-#   * WHIPPER_CONF — a value read from a leftover config, not verified here →
-#     MEDIUM (whipper is no longer a backend, KDD-18).
+#   * LEGACY_CONFIG — a value an older version read from a leftover config,
+#     never verified here → MEDIUM.
 #   * MANUAL — a deliberate but unverified user entry → MEDIUM.
 #   * ACCURATERIP_LIST — reliable per *model*, never probed on this *unit* →
 #     MEDIUM.
 #   * UNKNOWN — least-trusted → LOW.
 _SOURCE_CONFIDENCE: dict[OffsetSource, Confidence] = {
     OffsetSource.OFFSET_FIND: Confidence.MEDIUM,
-    OffsetSource.WHIPPER_CONF: Confidence.MEDIUM,
+    OffsetSource.LEGACY_CONFIG: Confidence.MEDIUM,
     OffsetSource.MANUAL: Confidence.MEDIUM,
     OffsetSource.ACCURATERIP_LIST: Confidence.MEDIUM,
     # A single AccurateRip-matching rip is MEDIUM on its own; it earns HIGH only
@@ -153,7 +154,7 @@ def confidence_rank(confidence: Confidence) -> int:
 # Friendly, effect-first labels for each provenance source (UI display).
 _SOURCE_LABEL: dict[OffsetSource, str] = {
     OffsetSource.OFFSET_FIND: "measured once on this drive",
-    OffsetSource.WHIPPER_CONF: "from whipper.conf",
+    OffsetSource.LEGACY_CONFIG: "from an older version's config file",
     OffsetSource.ACCURATERIP_LIST: "from the AccurateRip list",
     OffsetSource.ACCURATERIP_CONFIRMED: "confirmed by an AccurateRip-matching rip",
     OffsetSource.MANUAL: "entered by hand",
@@ -247,7 +248,7 @@ class DriveProfile:
     serial: str = ""  # sysfs serial if exposed ("" otherwise)
     wwn: str = ""  # sysfs WWN if exposed ("" otherwise)
     offset: OffsetRecord | None = None
-    # learned cache fact; DISPLAY only (whipper.conf stays authoritative)
+    # learned cache fact; DISPLAY only (nothing reads it to decide how a rip runs)
     cache_defeat: bool | None = None
     cache_defeat_source: OffsetSource | None = None
     # e.g. "/dev/sr0" — advisory display only, NEVER part of the key
@@ -271,10 +272,10 @@ def compute_fingerprint(
     1. ``wwn:<wwn>`` — a World-Wide Name is globally unique; strongest.
     2. ``sn:<normalized vendor+model>:<serial>`` — serial scoped by model, so a
        short serial reused across different models can't collide.
-    3. ``vm:<normalized vendor+model>`` — the common case (whipper's ``drive
-       list`` and most optical drives in sysfs expose no serial/WWN). This is
-       the *same* key AccurateRip lookup and whipper.conf's ``[drive:...]``
-       section use, via the shared canonicalization, so they always agree.
+    3. ``vm:<normalized vendor+model>`` — the common case (most optical
+       drives in sysfs expose no serial/WWN, and the drive list carries
+       none). This is the *same* key the AccurateRip lookup uses, via the
+       shared canonicalization, so they always agree.
 
     Firmware (``release``) is deliberately NOT in any tier: a firmware update
     must not orphan a learned profile. Firmware change is surfaced by the swap
@@ -303,7 +304,7 @@ def read_drive_identity(
     """Return ``(serial, wwn)`` for `device` from sysfs; ``("", "")`` if absent.
 
     Reads ``/sys/block/<dev>/device/{serial,wwn}``. Optical drives frequently
-    expose neither (and whipper reports no serial at all), so empty strings are
+    expose neither (and the drive list carries no serial at all), so empty strings are
     the normal case, not an error. The `sys_block` root is injectable for tests
     — the same seam the cyanrip backend's drive scan uses. Never raises; these
     are sub-millisecond local reads.
@@ -330,7 +331,7 @@ def find_fingerprint_collisions(fingerprints: list[str]) -> set[str]:
 # --- Mismatch guard ---------------------------------------------------------
 #
 # Three checks, all WARN/INFO, never BLOCK. Blocking a rip over a record-layer
-# heuristic would be worse than the disease — and the offset whipper actually
+# heuristic would be worse than the disease — and the offset a rip actually
 # uses is unchanged by this module anyway. The point is to make a situation that
 # is silent today *visible* so the user can act.
 
@@ -352,32 +353,6 @@ class DriveWarning:
     severity: str  # SEVERITY_WARN | SEVERITY_INFO
 
 
-def conf_offset_for(
-    vendor: str, model: str, conf_offsets: Sequence[object]
-) -> int | None:
-    """The live whipper.conf offset for this drive, matched by canonical name.
-
-    `conf_offsets` is a list of objects with ``.drive`` (whipper's decoded
-    ``[drive:...]`` id) and ``.offset`` — i.e. ``offset_config.WhipperConfOffset``
-    (taken as ``object`` to avoid importing the Qt-free offset_config here and to
-    stay duck-typed). Returns None when whipper.conf has nothing for this drive.
-    """
-    target = normalize_drive_name(vendor, model)
-    for entry in conf_offsets:
-        drive = getattr(entry, "drive", None)
-        offset = getattr(entry, "offset", None)
-        if drive is None or offset is None:
-            continue
-        if normalize_combined(str(drive)) == target:
-            # Duck-typed input (list[object]); a non-int offset must not break
-            # the never-raises contract — skip it rather than raise.
-            try:
-                return int(offset)
-            except (TypeError, ValueError):
-                continue
-    return None
-
-
 def evaluate_drive_state(
     *,
     fingerprint: str,
@@ -385,7 +360,6 @@ def evaluate_drive_state(
     model: str,
     release: str,
     stored: DriveProfile | None,
-    conf_offsets: Sequence[object],
     collisions: set[str],
     accuraterip_value: int | None = None,
 ) -> list[DriveWarning]:
@@ -432,23 +406,9 @@ def evaluate_drive_state(
     # 3 & 4. Offset provenance checks (only when we have a recorded offset).
     if stored is not None and stored.offset is not None:
         stored_value = stored.offset.value
-        conf_value = conf_offset_for(vendor, model, conf_offsets)
         disagreement = False
 
-        # (a) whipper.conf disagrees with the stored/applied value.
-        if conf_value is not None and conf_value != stored_value:
-            disagreement = True
-            warnings.append(
-                DriveWarning(
-                    WARNING_DISAGREEMENT,
-                    f"whipper.conf has {conf_value:+d}, but Platterpus recorded "
-                    f"{stored_value:+d} ({describe_source(stored.offset.source)}). "
-                    "These disagree — re-open Set up drive to reconcile them.",
-                    SEVERITY_WARN,
-                )
-            )
-
-        # (b) The AccurateRip drive list disagrees — the classic silent
+        # (a) The AccurateRip drive list disagrees — the classic silent
         #     wrong-offset case. Name both values and which the rip will use.
         if accuraterip_value is not None and accuraterip_value != stored_value:
             disagreement = True
@@ -464,14 +424,13 @@ def evaluate_drive_state(
                 )
             )
 
-        # (c) Gentle nudge: the value isn't confirmed by agreement, and nothing
+        # (b) Gentle nudge: the value isn't confirmed by agreement, and nothing
         #     above either corroborated or contradicted it. Honest about cyanrip
         #     having no on-disc measurement — a rip that verifies against
         #     AccurateRip is what actually confirms the offset on your unit.
         if (
             not disagreement
             and stored.offset.confidence is not Confidence.HIGH
-            and conf_value is None
             and accuraterip_value is None
         ):
             warnings.append(

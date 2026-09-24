@@ -59,7 +59,7 @@ WavPack/MP3/WAV *output formats* now ship (KDD-22), but their per-backend parity
 | | FLAC (priority 1) | WAV (priority 2) | MP3 (priority 3) |
 |---|---|---|---|
 | **EAC** (baseline) | `EAC_flac/` ✅ committed | `EAC_wav/` 🟡 13/14; **WavPack not plain WAV** (see below) | `EAC_mp3/` 🟡 imperfect (12/14; see its README) |
-| **whipper** *(removed 2026-06-30, KDD-18 — historical row; no proof will be added)* | `whipper_flac/` — | `whipper_wav/` — | `whipper_mp3/` — |
+| **previous backend** *(removed 2026-06-30, KDD-18 — historical row; no proof will be added)* | — | — | — |
 | **cyanrip** | `cyanrip_flac/` 🟡 12/14 (T3+T5; see its README) | `cyanrip_wav/` ⬜ | `cyanrip_mp3/` 🟡 13/14 (T5 only; see its README) |
 
 The committed EAC baseline (`EAC_flac/eac_baseline_police_classics.log`) is the
@@ -157,11 +157,12 @@ the same verified samples. The extraction CRCs are the proof.
 Empty until a cyanrip WAV rip matches the baseline (WAV is lossless, so the target
 is the same per-track `Copy CRC`). Priority 2, after FLAC.
 
-### `whipper_flac/`, `whipper_wav/`, `whipper_mp3/` — historical, permanently empty
+### The previous backend's row — historical, permanently empty
 
-whipper was removed as a backend on **2026-06-30 (KDD-18)** before reaching any
-parity proof, so these will stay empty. Retained as the record of the
-originally-planned backend×format matrix.
+The ripper Platterpus used before cyanrip was removed as a backend on
+**2026-06-30 (KDD-18)** before reaching any parity proof, so its row will stay
+empty (its three planned directories were never created). Retained as the
+record of the originally-planned backend×format matrix.
 
 ### Replacing an imperfect rip
 
@@ -180,7 +181,7 @@ WavPack for the WAV slot is fine — the maintainer's call.
        path/to/the/backend/Album.log
    ```
    It prints a per-track PASS/FAIL table and exits 0 only on full parity. (It
-   auto-detects EAC / whipper / cyanrip log formats; the comparison logic is
+   auto-detects EAC, cyanrip and legacy-format logs; the comparison logic is
    `platterpus.parity`.)
 3. When it passes, drop the backend's `.log` (and `.cue`) into the matching
    directory above, and tick the task in `TASKS.md` with the date + result
@@ -194,4 +195,4 @@ That commit is the durable evidence the backend is bit-perfect against EAC.
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.6.58.*

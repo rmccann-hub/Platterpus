@@ -1,6 +1,7 @@
 """Tests for platterpus.parity and the scripts/eac_parity.py CLI.
 
-Covers the cross-format Copy-CRC dispatch (EAC / whipper / cyanrip), the
+Covers the cross-format Copy-CRC dispatch (EAC / cyanrip / the legacy log
+format), the
 baseline-vs-candidate comparison (match, mismatch, missing, extra), and a
 smoke test of the CLI against the committed EAC baseline.
 """
@@ -34,7 +35,9 @@ def _eac(crcs: dict[int, str]) -> str:
     return body
 
 
-def _whipper(crcs: dict[int, str]) -> str:
+def _legacy(crcs: dict[int, str]) -> str:
+    # The legacy log format's real header line: the parser dispatches on it, so
+    # it names the tool that wrote the format rather than a neutral stand-in.
     body = "Log created by: whipper 0.10.0\n\nTracks:\n"
     for n, crc in crcs.items():
         body += f"  {n}:\n    Copy CRC: {crc}\n"
@@ -58,8 +61,8 @@ def test_dispatch_reads_eac() -> None:
     }
 
 
-def test_dispatch_reads_whipper() -> None:
-    assert track_copy_crcs(_whipper({1: "aaaa1111"})) == {1: "AAAA1111"}  # upper-cased
+def test_dispatch_reads_the_legacy_format() -> None:
+    assert track_copy_crcs(_legacy({1: "aaaa1111"})) == {1: "AAAA1111"}  # upper-cased
 
 
 def test_dispatch_reads_cyanrip() -> None:
@@ -137,9 +140,9 @@ def test_identical_is_parity() -> None:
 
 
 def test_cross_format_same_crcs_is_parity() -> None:
-    # The whole point: EAC baseline vs a whipper rip with identical Copy CRCs.
+    # The whole point: EAC baseline vs a legacy-format rip with identical Copy CRCs.
     crcs = {1: "AAAA1111", 2: "BBBB2222"}
-    report = compare_logs(_eac(crcs), _whipper(crcs))
+    report = compare_logs(_eac(crcs), _legacy(crcs))
     assert report.ok is True
     assert report.matched == 2
 
@@ -157,7 +160,7 @@ def test_one_wrong_crc_fails_and_is_identified() -> None:
 
 def test_missing_track_in_candidate_fails() -> None:
     report = compare_logs(
-        _eac({1: "AAAA1111", 2: "BBBB2222"}), _whipper({1: "AAAA1111"})
+        _eac({1: "AAAA1111", 2: "BBBB2222"}), _legacy({1: "AAAA1111"})
     )
     assert report.ok is False
     track2 = next(t for t in report.tracks if t.number == 2)
@@ -167,14 +170,14 @@ def test_missing_track_in_candidate_fails() -> None:
 
 def test_extra_track_in_candidate_fails() -> None:
     report = compare_logs(
-        _eac({1: "AAAA1111"}), _whipper({1: "AAAA1111", 2: "BBBB2222"})
+        _eac({1: "AAAA1111"}), _legacy({1: "AAAA1111", 2: "BBBB2222"})
     )
     assert report.ok is False  # candidate has a track the baseline doesn't
     assert report.extra == (2,)
 
 
 def test_empty_baseline_is_never_parity() -> None:
-    report = compare_logs("nonsense", _whipper({1: "AAAA1111"}))
+    report = compare_logs("nonsense", _legacy({1: "AAAA1111"}))
     assert report.ok is False
     assert report.total == 0
 
@@ -199,7 +202,7 @@ def test_wav_rip_parities_against_the_committed_flac_baseline() -> None:
     flac_crcs = track_copy_crcs(base)
     # A WAV rip of the same disc yields the SAME per-track Copy CRCs (lossless),
     # so a WAV-rip log compares clean against the FLAC baseline.
-    wav_rip_log = _whipper(flac_crcs)
+    wav_rip_log = _legacy(flac_crcs)
     report = compare_logs(base, wav_rip_log)
     assert report.ok is True
     assert report.matched == report.total == 14
@@ -237,7 +240,7 @@ def test_decode_utf16be_bom() -> None:
 
 
 def test_decode_utf8_bom() -> None:
-    text = "Log created by: whipper 0.10.0\n"
+    text = "Log created by: whipper 0.10.0\n"  # the legacy format's real header
     assert decode_log_bytes(b"\xef\xbb\xbf" + text.encode("utf-8")) == text
 
 
@@ -298,7 +301,7 @@ def test_cli_exit_zero_when_candidate_matches_baseline(capsys) -> None:
 def test_cli_exit_one_on_mismatch(tmp_path: Path, capsys) -> None:
     cli = _load_cli()
     bad = tmp_path / "bad.log"
-    bad.write_text(_whipper({1: "DEADBEEF"}), encoding="utf-8")  # wrong CRCs
+    bad.write_text(_legacy({1: "DEADBEEF"}), encoding="utf-8")  # wrong CRCs
     rc = cli.main([str(_EAC_BASELINE), str(bad)])
     assert rc == 1
     assert "NOT parity" in capsys.readouterr().out
