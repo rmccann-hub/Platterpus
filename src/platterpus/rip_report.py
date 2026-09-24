@@ -237,7 +237,11 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     cover whatever audio was read, and an interrupted rip printed an "Album
 #     integrated loudness" for 40% of one track (the fork, round 26 lap 4). The
 #     figures are unchanged; the key says what they describe.
-REPORT_SCHEMA_VERSION: int = 26
+# v27: `environment.dependencies_measured_at` — when the dependency versions in
+#     `environment.dependencies` were measured. The probe runs at launch and on
+#     request, so in a long session they can be hours old, and a tool updated in
+#     between would otherwise read as the version that ripped the disc.
+REPORT_SCHEMA_VERSION: int = 27
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold

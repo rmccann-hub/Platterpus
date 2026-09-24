@@ -408,6 +408,9 @@ class MainWindow(
         # closeEvent. (DependencyMixin.run_dependency_check_async)
         self._dep_check_worker = None  # type on MainWindowShared
         self._dep_check_thread: QThread | None = None
+        #: Called once when the running dependency check lands — Help → About's
+        #: "Check again" waits on it. Per instance, never a shared class default.
+        self._dep_check_listeners: list[Callable[[], None]] = []
         # The GUI-backed DependencyManager for the in-flight async check. Stashed
         # so the finished handler can be a plain bound method (which Qt queues to
         # the GUI thread) instead of a lambda (which Qt delivers DIRECTLY on the
@@ -1549,7 +1552,9 @@ class MainWindow(
         """Help → About: version number and support-relevant info."""
         from platterpus.ui.help_dialogs import AboutDialog
 
-        AboutDialog(parent=self).exec()
+        dialog = AboutDialog(parent=self, recheck=self._recheck_dependencies_for)
+        dialog.exec()
+        dialog.deleteLater()
 
     def _on_show_diagnostics(self) -> None:
         """Help → Copy diagnostics: a selectable, copyable session report.

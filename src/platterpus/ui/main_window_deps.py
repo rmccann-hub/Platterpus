@@ -176,6 +176,26 @@ class DependencyMixin(MainWindowShared):
             self._dep_check_worker, self._dep_check_thread, self._dep_check_worker.run
         )
 
+    def _recheck_dependencies_for(
+        self, on_done: Callable[[], None]
+    ) -> Callable[[], None]:
+        """Run the dependency check and call ``on_done`` once when it lands.
+
+        For Help → About's **Check again**. The check is the app's own, off the
+        GUI thread; if one is already running, ``on_done`` waits for that one
+        rather than starting a second. Returns a function that forgets
+        ``on_done``, which the dialog calls when it closes, so a check that lands
+        after the dialog is gone never reaches a deleted widget.
+        """
+        self._dep_check_listeners.append(on_done)
+        self.run_dependency_check_async(show_summary=False)
+
+        def forget() -> None:
+            if on_done in self._dep_check_listeners:
+                self._dep_check_listeners.remove(on_done)
+
+        return forget
+
     def _on_dependency_check_done(self, report: DependencyReport | None) -> None:
         """Worker finished probing — apply the report on the GUI thread.
 
@@ -208,6 +228,15 @@ class DependencyMixin(MainWindowShared):
             from platterpus.deps import manager as _dep_manager
 
             _dep_manager.remember_report(self._last_dependency_report)
+        # Whoever asked to be told (About's "Check again"), told once, BEFORE the
+        # report is applied: applying it can open a resolver dialog, and the
+        # listener only re-reads the stored report.
+        listeners, self._dep_check_listeners = self._dep_check_listeners, []
+        for listener in listeners:
+            try:
+                listener()
+            except Exception:  # noqa: BLE001 — one listener must not stop the rest
+                log.exception("a dependency-check listener raised")
         # `show_summary` is True for the user-clicked Tools/Settings check and
         # False for the silent launch check; resolver dialogs surface for
         # genuinely-missing deps regardless.

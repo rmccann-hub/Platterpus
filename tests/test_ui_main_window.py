@@ -4803,6 +4803,7 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
         ok=[_NS(dep_id="cyanrip")],
         ok_versions={"cyanrip": (0, 9, 3)},
         ok_probes={"cyanrip": _NS(location="/home/u/.local/bin/cyanrip")},
+        measured_at="2026-09-24T17:00:00+00:00",
     )
     album_dir = tmp_path / "Artist" / "Album"
     album_dir.mkdir(parents=True)
@@ -4856,6 +4857,10 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
         "location": "/home/u/.local/bin/cyanrip",
         "min_version_met": True,
     }
+    # v27: and WHEN those versions were measured, off the same probe.
+    assert (
+        report["environment"]["dependencies_measured_at"] == "2026-09-24T17:00:00+00:00"
+    )
     assert report["generator"]["build_fingerprint"] == "source"
     # A disabled check is explicitly labelled, not an ambiguous null.
     assert report["verification"]["gates"]["ctdb"] == "disabled"
@@ -10662,3 +10667,41 @@ def test_a_rips_own_bundle_lands_in_the_acceptance_session_folder(
         "inside evidence/ it would be archived into the session bundle — the same "
         "facts twice, and a .tar.gz the allowlist then has to refuse"
     )
+
+
+def test_check_again_is_told_once_when_the_dependency_check_lands(
+    qapp: QApplication,
+) -> None:
+    """The window half of Help → About's Check again.
+
+    The listener is called once and then forgotten, and a listener the dialog
+    has withdrawn is never called: a check that lands after About closes must
+    not reach a deleted widget.
+    """
+    from types import SimpleNamespace as _NS
+
+    from platterpus.deps import manager as dep_manager
+    from platterpus.deps.manager import DependencyReport
+
+    window = _make_window(qapp)
+    try:
+        # A check that is "already running", so the hook waits on it.
+        window._dep_check_thread = object()  # type: ignore[assignment]  # stand-in
+        told: list[str] = []
+        window._recheck_dependencies_for(lambda: told.append("kept"))
+        forget = window._recheck_dependencies_for(lambda: told.append("withdrawn"))
+        forget()
+        report = DependencyReport(
+            ok=[_NS(dep_id="cyanrip")],
+            ok_versions={"cyanrip": (0, 9, 4)},
+            ok_probes={"cyanrip": _NS(location="/x")},
+        )
+        window._dep_check_manager = window._dependency_manager
+        window._dep_check_show_summary = False
+        window._on_dependency_check_done(report)
+        assert told == ["kept"]
+        assert window._dep_check_listeners == []
+    finally:
+        window._dep_check_thread = None
+        window.close()
+        dep_manager.remember_report(None)

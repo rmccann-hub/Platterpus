@@ -82,6 +82,13 @@ round 26 is open.
   found and fixed: duplicate Alt-keys in the script console, Setup & Updates and the
   Tools menu; a nameless search field; a checkbox cut off at 150% text; a picker
   that scrolled with screen to spare.
+- [x] **Component inventory** (#36): `build_info.component_inventory` is the one list About,
+  Diagnostics, the rip report and the acceptance bundle (`COMPONENTS.json`) read, with the
+  probe's `measured_at` beside every version and **Check again** in About. **Deliberately NOT
+  done: re-probing at the start of every rip.** The probe enters the ripper's container while
+  the rip does, and a check that finds something missing can open a resolver dialog, which
+  would land over a live rip — the 2026-08-18 defect. The age on every surface makes a stale
+  version visible instead. Revisit only with a probe that can never raise a dialog.
 - [x] **Acceptance run sizes (Quick / Standard / Full) and a fixed starting baseline**
   (maintainer: "do all this", 2026-09-24). One script, a `run-size` line at the top of every
   section, nested by construction, and only Full counts as evidence. The preamble sets every

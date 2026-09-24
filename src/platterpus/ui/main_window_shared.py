@@ -221,6 +221,7 @@ class MainWindowShared(_SeamBase):
     _dep_check_worker: DependencyCheckWorker | None
     _dep_check_thread: QThread | None
     _dep_check_manager: DependencyManager | None
+    _dep_check_listeners: list[Callable[[], None]]
     _dep_check_show_summary: bool
     # Disc probe (per drive change) + scan force-stop flag.
     _disc_info_worker: DiscInfoWorker | None

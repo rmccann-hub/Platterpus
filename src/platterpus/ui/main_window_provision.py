@@ -960,6 +960,8 @@ class ProvisioningMixin(MainWindowShared):
         album_roots: list[Path] = []
         try:
             facts["sleep lock"] = self._acceptance_inhibit_note or "not determined"
+            # Which size ran. Only `full` is evidence, so the archive says which.
+            facts["run size"] = self._acceptance_run_size
             script = self._acceptance_script
             facts["acceptance script"] = str(script) if script else "(not recorded)"
             console = self._acceptance_console
@@ -1282,6 +1284,16 @@ class ProvisioningMixin(MainWindowShared):
         # have found none of this run's albums.
         roots: list[Path] = list(album_roots or [])
         since = self._acceptance_started_at
+        # Every component and its version, read here (plain reads, no probe) so
+        # the daemon closes over a string: the same inventory Help → About shows.
+        import json
+
+        from platterpus import build_info
+        from platterpus.deps import manager as dep_manager
+
+        components = json.dumps(
+            build_info.component_inventory(dep_manager.latest_report()), indent=2
+        )
 
         def work() -> None:
             result = BundleResult()
@@ -1313,6 +1325,7 @@ class ProvisioningMixin(MainWindowShared):
                             if settings_record
                             else {}
                         ),
+                        "COMPONENTS.json": components,
                     },
                 )
             except Exception as exc:  # noqa: BLE001 — must never crash the session
