@@ -1701,7 +1701,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **494 -> 509** (2026-09-24): `size_next_run`, the one-shot run-size hand-off beside `contain_next_run_in`.
     # **509 -> 548** (2026-09-24, #37 one home per setting): the console hosts its three test-script settings (in `script_settings_box.py`, split out so the console stays about running) and never replaces a typed batch when the startup script changes.
     # **548 -> 565** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the intro and script settings scroll in a `FitScrollArea` so Run and the transcript keep their room on a Steam Deck at 150% text, where the new settings group squeezed three buttons to 12 px.
-    "ui/dialogs/script_console.py": 565,
+    # **565 -> 570 (2026-09-24)**: `refresh_settings`, the pass-through the window
+    # calls so the console's own script options follow a script's `set`.
+    "ui/dialogs/script_console.py": 570,
     # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "ui/disc_info_panel.py": 320,
     # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy ripper-config offset line, both moved from Settings, with the tooltip the offset's control had there.
@@ -1857,7 +1859,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # cross-mixin call is a mypy error, which is how the wiring gets checked.
     # **427 -> 428** (2026-09-24, #36): the listener list's declaration.
     # **428 -> 441** (2026-09-24, #37 one home per setting): the seam declares SettingsMixin's methods and the open Setup & Updates window it refreshes.
-    "ui/main_window_shared.py": 441,
+    # **441 -> 446 (2026-09-24)**: `_script_console` declared beside
+    # `_setup_center`, because SettingsMixin now re-renders the console too.
+    "ui/main_window_shared.py": 446,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2014,7 +2018,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # (identity), after the full suite showed a class-name match picking a leftover.
     # **4125 -> 4314** (2026-09-24): `run-size` (the dispatch check and its handler), `keep`, `set-drive-offset`, `expect-drive-offset` and the `(offset)` placeholder. Verb handlers live beside the other verb handlers; the pure halves are in `run_sizes.py` and `script.py`.
     # **4314 -> 4297** (2026-09-24, #37 one home per setting): down: the setting validator moved to `settings_validation.field_error`.
-    "uiscript/runner.py": 4297,  # +116: _do_expect_verification, the assertion section F never had,
+    # **4297 -> 4305 (2026-09-24)**: `set` calls the window's one
+    # `_refresh_setting_views` after a change, so open windows follow it.
+    "uiscript/runner.py": 4305,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     "uiscript/script.py": 339,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
