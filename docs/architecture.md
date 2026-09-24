@@ -94,7 +94,8 @@ The pattern (designs in [`../PLANNING.md`](../PLANNING.md) §5–§6):
   GUI depends only on the ABC.
 - Provide a **concrete implementation** that wraps the real tool/library
   (`adapters/cyanrip_backend.py` — the sole backend today, KDD-18; a second
-  could slot in behind the same ABC, which is exactly how whipper was replaced).
+  could slot in behind the same ABC, which is exactly how the previous backend
+  was replaced).
 - **Inject the adapter** at construction so tests pass a fake — no real
   binary, network, or drive in the suite.
 - Keep the ABC surface *minimal and capability-shaped*. Optional capabilities
@@ -103,7 +104,8 @@ The pattern (designs in [`../PLANNING.md`](../PLANNING.md) §5–§6):
 
 Design the interface around the *consumer's* needs, not the wrapped library's
 shape — that's what makes the dependency swappable. **Never** call an external
-tool from a widget; **never fork whipper** (KDD-18) — write an adapter.
+tool from a widget; **never fork an unmaintained tool to carry it yourself**
+(KDD-18) — write an adapter.
 
 ### 3.2 Never block the GUI thread (this caused real bugs — internalize it)
 Anything that can take more than a few milliseconds — `subprocess.run`,
@@ -132,7 +134,7 @@ fire-and-forget `Popen`.
 > nothing and the X took ages. Root cause: the post-download menu
 > re-integration called `kbuildsycoca6` via `subprocess.run(timeout=30)` **on
 > the GUI thread**. The same anti-pattern lurked in `_mark_trusted` (a 15 s
-> `gio` call) and the launch dependency probe (`whipper --version`, which
+> `gio` call) and the launch dependency probe (the ripper's `--version`, which
 > enters the container). All three were the *same class* of bug.
 
 Worker mechanics, all demonstrated in `workers/`:
@@ -256,6 +258,28 @@ Worker mechanics, all demonstrated in `workers/`:
   `tests/test_help_documents_the_menu.py` resolves every menu path the product
   names against the real menus, and five named paths led nowhere when it was
   written.
+- **One home per setting** (2026-09-24). The same rule for values: a setting
+  edited in two windows lets one of them write back what it merely displayed,
+  which is how Settings once wrote a stale read offset over the one the drive
+  wizard had just saved. `ui/setting_homes.py` names each setting's one window
+  and control, and a setting lives **beside what it steers**: the read offset
+  and its Apply tick-box in *Set up drive…*, the update channels above their
+  checks in Setup & Updates, the startup script in the script console,
+  everything that shapes the rip itself in Settings. A window that only needs
+  to SHOW a setting homed elsewhere shows it read-only and names the home.
+  Two write paths, both in `ui/main_window_settings.py`: Settings' OK/Apply
+  (only what the user changed, `apply_user_edits`), and
+  `_save_user_setting(field, value)` for a control that saves as it changes,
+  validated by the same `settings_validation.field_error` as the `set` script
+  verb and returning a `SettingWrite` so a refusal puts the control back and
+  shows the validator's sentence. `tests/test_setting_homes.py` builds every
+  such window and holds it both ways: every setting has a home whose control
+  exists, and every value control in every window is either a home control or
+  on an allowlist with a reason — so a second editor fails by name.
+  **A modeless window needs its own rip lock.** Greying the menu item stops a
+  window being *opened*; one already open when a rip starts kept every button
+  live until `SetupCenterDialog.set_locked` (found while moving *Diagnose drive
+  access…* into it).
 - Use thread-safe primitives for cancellation flags — a plain `bool` set from
   the GUI thread and read by the worker is fine under the GIL; anything richer
   needs care.
@@ -285,8 +309,9 @@ The GUI shells out constantly (cyanrip, flatpak, eject, pkill):
   a session starts the Distrobox `ripping` container (podman cold-start), which
   routinely takes tens of seconds on first use after a boot. A timeout calibrated
   for a *warm* system turns that legitimately-slow first call into a false
-  failure — it shipped as "whipper timed out after 30s" on the first disc scan
-  and as a *missing*-whipper verdict at launch (real-user report, 2026-06-27).
+  failure — it shipped as a ripper "timed out after 30s" error on the first
+  disc scan and as a *missing*-ripper verdict at launch (real-user report,
+  2026-06-27, against the ripper Platterpus used before cyanrip).
   The info/probe timeouts (`_INFO_TIMEOUT_S`, `_PROBE_TIMEOUT_S`) are deliberately
   ≥60–120 s for this reason; they're a wedged-process backstop, **not** a latency
   target (the warm case returns in a second or two regardless), and they run off
@@ -355,11 +380,13 @@ canonical ownership map** — KDD-19 records the *decision* and links here.
 | Host setup / AppImage integration / uninstall | `main_window_provision.py` (`ProvisioningMixin`) |
 | Drive setup / offset / access diagnosis | `main_window_drive.py` (`DriveMixin`) |
 | Dependency check / resolve routing / summary | `main_window_deps.py` (`DependencyMixin`) |
-| Construction, menus, signal wiring, MusicBrainz slots, settings | `main_window.py` (the assembler) |
+| Settings' OK/Apply, and saving one setting from its home control | `main_window_settings.py` (`SettingsMixin`) |
+| Construction, menus, signal wiring, MusicBrainz slots | `main_window.py` (the assembler) |
 
-`MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DependencyMixin)`
-— a 1707-line god-object reduced to an assembler plus six focused
-modules. (The split first landed it at ~460 lines; it has since grown as
+`MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DependencyMixin, SettingsMixin)`
+— a 1707-line god-object reduced to an assembler plus seven focused
+modules: six mixins and the pure helpers (`SettingsMixin` was the sixth mixin,
+2026-09-24). (The split first landed it at ~460 lines; it has since grown as
 new-feature wiring accreted — split again if a *concern*, not just a line
 count, starts sharing the file.)
 
@@ -1128,8 +1155,8 @@ that cost a rig run once.
 > code.
 
 ### Add a ripping backend (e.g. a future `XyzripImpl`)
-cyanrip is currently the **sole** backend (KDD-18 — whipper was removed
-2026-06-30), but the `RipBackend` ABC seam is kept exactly so another engine
+cyanrip is currently the **sole** backend (KDD-18 — the previous backend was
+removed 2026-06-30), but the `RipBackend` ABC seam is kept exactly so another engine
 can be slotted in without rewriting the GUI:
 1. Implement the `RipBackend` ABC in `adapters/xyzrip_backend.py`
    (`rip`, `disc_info`, `version`, optional `find_offset`/`analyze_drive`).
@@ -1144,7 +1171,7 @@ can be slotted in without rewriting the GUI:
 4. If it needs a package, add a wizard step in `deps/host_setup.py` and CLI
    parity in `setup-host.sh` (keep the two install stanzas in sync).
 5. Gate any backend-specific Settings widgets in `settings_dialog.py` — grey
-   out, explain, never lose values. (The whipper-era `_apply_backend_capabilities`
+   out, explain, never lose values. (The two-backend era's `_apply_backend_capabilities`
    gating was removed when cyanrip became sole; reintroduce that shape if a
    second backend returns.)
 
@@ -1156,12 +1183,15 @@ Settings widget is greyed out for that backend. `secure_rerip_matches` (cyanrip
 `-Z N` "re-rip until N reads match", for marginal discs) is the worked
 example — copy its shape for the next one.
 
-> **Comment hygiene after a backend swap (hard-won, 2026-06-30).** When whipper
-> was removed, dozens of docstrings/comments still said "whipper does X" as if
-> describing *current* behavior — false for the next reader. The convention:
-> comments describe what the **current** backend does; the old tool appears only
-> as accurate *history* explaining why code is shaped a certain way (e.g. "this
-> parser reads whipper-FORMAT logs, kept for old logs/fixtures"). When you swap
+> **Comment hygiene after a backend swap (hard-won, 2026-06-30).** When the
+> previous backend was removed, dozens of docstrings/comments still said "the old
+> tool does X" as if describing *current* behavior — false for the next reader.
+> The convention: comments describe what the **current** backend does; the old
+> tool appears only as accurate *history* explaining why code is shaped a certain
+> way, and by its role rather than its name — "the previous backend", "the
+> legacy log format" (e.g. "this parser reads the legacy log format, kept for old
+> logs/fixtures"; name-to-role sweep 2026-09-24). Exact paths a user may still
+> have on disk are the exception, since those are names they must type. When you swap
 > or remove a backend, grep the whole tree for its name and re-audit every hit —
 > a stale "current-behavior" claim is a bug in the docs.
 
@@ -1387,8 +1417,9 @@ Patching an attribute *on a shared module object* (`drive_control.eject_drive`)
 is unaffected by where the caller lives.
 
 This isn't only about *methods* moving — a **shared helper** relocates name
-resolution too. When `cyanrip._run` was routed through `whipper_backend.run_capture`
-(2026-06-22), `subprocess.run` began resolving in `whipper_backend`, so the
+resolution too. When `cyanrip._run` was routed through a `run_capture` helper in the previous
+backend's adapter module (2026-06-22), `subprocess.run` began resolving in that
+module, so the
 cyanrip tests' `subprocess.run` patch had to move there with it (the helper
 now lives in `adapters/rip_backend.py` — today's patch point). The mirror-image
 trick is to design the helper so it *doesn't* relocate the patchable seam: the
@@ -1635,7 +1666,7 @@ horizon — the seams that exist so future contributors can take the program
 places we haven't planned.
 
 - **Backends as plugins.** The `RipBackend` ABC already makes backends
-  swappable — it's how whipper was replaced by cyanrip (KDD-18). A small
+  swappable — it's how the previous backend was replaced by cyanrip (KDD-18). A small
   entry-point/registry could let third parties drop in a backend without
   editing `app.py` (a `Config`-level backend selector was removed when cyanrip
   became the sole backend; reintroduce one here if a second returns).
@@ -1694,4 +1725,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.6.56.*
+*Last updated for Platterpus v0.6.58.*

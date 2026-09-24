@@ -11,9 +11,9 @@ it resolves the offset from the bundled AccurateRip list by drive model
 (`_auto_apply_known_offset`, the disc-free primary path), runs the wizard for
 the unknown-drive case (`_on_drive_setup` → `DriveSetupDialog`), records a
 hand-entered value as the GUI's `--offset` override (`_set_read_offset_override`
-— the single place that marks "offset configured", so `whipper.conf` is never
-hand-authored, KDD-15), and diagnoses the no-drive case (permission vs. no
-device).
+— the single place that marks "offset configured", KDD-15, so the offset has
+one home: the GUI's own config), and diagnoses the no-drive case (permission
+vs. no device).
 
 Contract this mixin expects from the host window (set in
 ``MainWindow.__init__``): ``self._config``, ``self._save_config``,
@@ -45,7 +45,6 @@ from platterpus.drive_profiles import (
     OffsetRecord,
     OffsetSource,
     compute_fingerprint,
-    conf_offset_for,
     confidence_for,
     describe_source,
     evaluate_drive_state,
@@ -53,7 +52,7 @@ from platterpus.drive_profiles import (
     read_drive_identity,
     reconcile_offset,
 )
-from platterpus.offset_config import is_offset_configured, read_drive_offsets
+from platterpus.offset_config import is_offset_configured
 from platterpus.settings_validation import OFFSET_MAX, OFFSET_MIN
 from platterpus.ui.drive_setup_dialog import DriveSetupDialog
 from platterpus.ui.main_window_shared import MainWindowShared
@@ -96,11 +95,15 @@ class DriveMixin(MainWindowShared):
             current_offset=self._config.read_offset,
             known_offset=known_offset,
             drive_label=drive_label,
+            offset_applied=self._config.override_read_offset,
         )
         dialog.manual_offset_saved.connect(self._on_manual_offset_saved)
+        # The Apply tick-box moved here from Settings (2026-09-24): the offset
+        # and the switch that makes it count are edited in one window.
+        dialog.offset_applied_changed.connect(self._on_offset_applied_changed)
         # Record a successful auto-detect's provenance (measured on this drive →
         # high confidence). Provenance only — the offset itself is saved to
-        # Platterpus config by the manual-save path, not to whipper.conf.
+        # Platterpus config by the manual-save path.
         dialog.detection_recorded.connect(self._on_detection_recorded)
         dialog.exec()
 
@@ -108,7 +111,7 @@ class DriveMixin(MainWindowShared):
         """True when we should auto-offer calibration on first run.
 
         Only when (a) we haven't offered before and (b) no read offset is
-        configured (neither the legacy whipper.conf nor our --offset override).
+        configured (our --offset override is off — see offset_config.py).
         A bit-perfect rip needs one, so a fresh user is otherwise stuck.
         """
         if self._config.drive_setup_prompted:
@@ -179,7 +182,7 @@ class DriveMixin(MainWindowShared):
     def _set_read_offset_override(self, value: int) -> bool:
         """Persist `value` as the GUI's `--offset` override and push it into the
         rip controls. This is the single place that records "the offset is now
-        configured" (so whipper.conf is never hand-authored, KDD-15).
+        configured" (KDD-15), so the offset has one home: the GUI's own config.
 
         Returns True when the value was accepted. It is validated here against
         the *same* bounds the Settings dialog enforces
@@ -210,6 +213,8 @@ class DriveMixin(MainWindowShared):
         self._config.override_read_offset = True
         self._rip_controls.set_config(self._config)
         self._save_config(self._config)
+        # Setup & Updates shows the offset beside Set up drive…; keep it true.
+        self._refresh_setting_views()
         return True
 
     def _show_offset_rejected(self, value: int) -> None:
@@ -256,8 +261,8 @@ class DriveMixin(MainWindowShared):
     # --- Drive-profile ledger (provenance + trust display, KDD-23) ----------
     #
     # A record/display/guard layer keyed by a stable hardware fingerprint. It
-    # NEVER decides which offset a rip uses — whipper.conf and the --offset
-    # override above stay authoritative. It records where each learned offset
+    # NEVER decides which offset a rip uses — the --offset override above
+    # stays authoritative. It records where each learned offset
     # came from + how sure we are, and surfaces collision/drift warnings so a
     # silent wrong-offset rip becomes visible. The single writer is
     # `_record_drive_fact`; no other code touches the store.
@@ -402,34 +407,18 @@ class DriveMixin(MainWindowShared):
     def _refresh_drive_profile_display(self) -> None:
         """Recompute and push the read-offset trust line for the selected drive.
 
-        Seeds the ledger from whipper.conf the first time we see an offset there
-        (so the display isn't empty for a drive whipper already knows), stamps
-        last-seen, runs the mismatch guard across all enumerated drives, and
-        hands the disc-info panel a ready-to-show provenance/warning string.
+        Stamps last-seen (and persists the drive's identity), runs the mismatch
+        guard across all enumerated drives, and hands the disc-info panel a
+        ready-to-show provenance/warning string. It records no offset of its own:
+        an offset enters the ledger only from something that set it on purpose
+        (the wizard, a hand entry, the AccurateRip list, a matching rip).
         """
         drive = self._drive_picker.current_drive()
         if drive is None:
             return
         fingerprint, _serial, _wwn = self._fingerprint_for(drive)
-        conf_offsets = read_drive_offsets()
+        self._record_drive_fact(drive)
         existing = self._drive_profiles.get(fingerprint)
-
-        # Seed from whipper.conf only when we have nothing recorded yet — never
-        # overwrite a known provenance with the bare conf value (the guard
-        # surfaces any disagreement instead).
-        if existing is None or existing.offset is None:
-            conf_value = conf_offset_for(drive.vendor, drive.model, conf_offsets)
-            if conf_value is not None:
-                self._record_drive_fact(
-                    drive, offset_value=conf_value, source=OffsetSource.WHIPPER_CONF
-                )
-            else:
-                # Still stamp last-seen / persist identity even with no offset.
-                self._record_drive_fact(drive)
-            existing = self._drive_profiles.get(fingerprint)
-        else:
-            self._record_drive_fact(drive)
-            existing = self._drive_profiles.get(fingerprint)
 
         all_fingerprints = [
             self._fingerprint_for(d)[0] for d in self._drive_picker.all_drives()
@@ -440,7 +429,6 @@ class DriveMixin(MainWindowShared):
             model=drive.model,
             release=getattr(drive, "release", ""),
             stored=existing,
-            conf_offsets=conf_offsets,
             collisions=find_fingerprint_collisions(all_fingerprints),
             # The AccurateRip drive-list value for this model, so the guard can
             # flag a stored/applied offset that silently disagrees with it.

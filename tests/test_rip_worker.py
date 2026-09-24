@@ -6,7 +6,7 @@ Connected slots receive emissions immediately because we use direct
 connections by default. This keeps the tests fast and deterministic.
 
 The RipBackend is replaced with a fake so we don't need a real
-whipper binary.
+cyanrip binary.
 """
 
 from __future__ import annotations
@@ -1608,14 +1608,14 @@ def test_no_unknown_retry_on_clean_rip(qapp: QApplication, tmp_path: Path) -> No
 def test_failure_hint_set_on_track_giveup(qapp: QApplication, tmp_path: Path) -> None:
     """An unreadable track yields an actionable hint, not a bare failure."""
     handle = _FakeHandle(
-        lines=["CRITICAL:whipper.command.cd:giving up on track 3 after 5 times"],
+        lines=["giving up on track 3 after 5 times"],
         exit_code=1,
     )
     worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
     worker.start_rip()
     assert "Track 3" in worker.failure_hint
     # Actionable, backend-neutral advice (no stale "Keep going" setting, which
-    # was removed with whipper, and no false >587 cd-paranoia claim).
+    # was removed with the previous backend, and no false >587 cd-paranoia claim).
     assert "scratched or dirty" in worker.failure_hint
 
 
@@ -1633,7 +1633,7 @@ def test_a_giveup_line_does_not_overwrite_the_rippers_own_fatal(
             # A REAL cyanrip format string, taken from the generated inventory —
             # not one I invented, which would test the fixture rather than the matcher.
             "Unable to read track 3 subchannel info!",
-            "CRITICAL:whipper.command.cd:giving up on track 3 after 5 times",
+            "giving up on track 3 after 5 times",
         ],
         exit_code=1,
     )
@@ -1695,7 +1695,7 @@ def test_progress_two_tier_overall_monotonic_and_task_resets(
 def test_emits_current_track_once_per_new_track(
     qapp: QApplication, tmp_path: Path
 ) -> None:
-    """current_track fires once when whipper moves to a new track — not on
+    """current_track fires once when the ripper moves to a new track — not on
     every per-percent line for the same track — so the GUI can follow the
     rip by highlighting the active row."""
     handle = _FakeHandle(
@@ -1726,7 +1726,7 @@ def test_progress_for_ignores_lines_without_usable_percent(
     # Encode/tag sub-phases carry no meaningful percent → no progress emit
     # (the status label covers them; the task bar holds its last value).
     assert worker._progress_for("Encoding track to FLAC (5 of 9) ...   0 %") is None
-    assert worker._progress_for("INFO:whipper.command.cd:CRCs match") is None
+    assert worker._progress_for("INFO: CRCs match") is None
     assert worker._progress_for("") is None
 
 
@@ -1776,7 +1776,7 @@ def test_describe_activity_cyanrip_omits_total_when_unknown() -> None:
 
 
 def test_describe_activity_returns_none_for_unrelated_lines() -> None:
-    assert _describe_activity("INFO:whipper.command.cd:CRCs match") is None
+    assert _describe_activity("INFO: CRCs match") is None
     assert _describe_activity("") is None
 
 
@@ -1823,7 +1823,7 @@ def test_status_signal_deduplicates_repeated_phase(
 # --- Error paths ----------------------------------------------------------
 
 
-def test_whipper_error_on_start_emits_error_and_finished_false(
+def test_rip_error_on_start_emits_error_and_finished_false(
     qapp: QApplication, tmp_path: Path
 ) -> None:
     backend = _FakeBackend()

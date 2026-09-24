@@ -72,8 +72,9 @@ and important settings were scattered across many dialogs.
    shows it as a trust line, and guards the identical-drive / offset-disagreement
    cases. It is a **record/display/guard layer** — the GUI's own offset override
    (`Config.read_offset`, passed to cyanrip as `-s N`) is the **sole** offset
-   authority; a legacy `whipper.conf` is read only as a reference/trust
-   display, never applied (KDD-23, tightened by the 0.4.19 offset-gate fix);
+   authority (KDD-23, tightened by the 0.4.19 offset-gate fix); a
+   `~/.config/whipper/whipper.conf` left over from older versions is not read
+   at all (until 2026-09-24 it was shown as a reference only, never applied);
    *applying* a remembered offset per drive is the deferred, hardware-gated
    piece.
 8. **Metadata = reviewable suggestions, not truth.** Auto-fetch and prefill;
@@ -216,4 +217,4 @@ finished — put the explanation *in the product*.
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.58.*

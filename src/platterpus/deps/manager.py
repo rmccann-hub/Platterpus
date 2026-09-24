@@ -59,6 +59,11 @@ class DependencyReport:
     ok_probes: dict[str, object] = field(default_factory=dict)
     install_results: list[InstallResult] = field(default_factory=list)
     build_notes: dict[str, BuildNote] = field(default_factory=dict)
+    #: When this probe finished, ISO-8601 UTC to the second. ``""`` for a report
+    #: that never ran a probe (a test double, or one built by hand). A version is
+    #: a fact about the moment it was measured, and a tool can be updated under a
+    #: running app, so every surface that shows a version shows this beside it.
+    measured_at: str = ""
 
     @property
     def build_attention(self) -> list[tuple[DependencySpec, BuildNote]]:
@@ -125,6 +130,7 @@ class DependencyManager:
                     len(report.ok) + len(report.missing),
                     len(self._specs),
                 )
+                report.measured_at = _now_iso()
                 return report
             probe = spec.probe()
             log.debug(
@@ -165,7 +171,15 @@ class DependencyManager:
                         )
             else:
                 report.missing.append(MissingItem(spec=spec, probe=probe))
+        report.measured_at = _now_iso()
         return report
+
+
+def _now_iso() -> str:
+    """Now, ISO-8601 UTC to the second: when a probe's versions were measured."""
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 # --- The most recent probe, so every surface can answer the same question ----

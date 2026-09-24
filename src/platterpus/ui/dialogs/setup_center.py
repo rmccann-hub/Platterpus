@@ -27,6 +27,14 @@ re-implemented any of them would be a second answer to a question that already
 has one, free to disagree with the report a rip writes (`CLAUDE.md`: one
 predicate, N callers). What this file contributes is *placement*, not behaviour.
 
+**It holds three settings, and only these three** (2026-09-24). A setting lives
+beside what it steers (`ui/setting_homes.py`), so the two update channels sit
+above the checks they decide, and the read offset — edited in *Set up drive…* —
+is shown in the Drive section. Each tick-box saves the moment it is clicked,
+through the window's one single-setting writer (`_save_user_setting`), because
+this window has no OK to wait for and a change that took effect only on some
+later button would be one the user believed they had made and had not.
+
 **It never probes.** Everything it displays is either a module constant or a
 value the window already cached — nothing here shells out, and in particular
 nothing asks the container what ripper is installed, because that enters
@@ -49,6 +57,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDialogButtonBox,
     QFrame,
     QGridLayout,
@@ -58,11 +67,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from platterpus import offset_config
+from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
+from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from platterpus.config import Config
+    from platterpus.user_settings import SettingWrite
 
 log = logging.getLogger(__name__)
 
@@ -130,6 +145,8 @@ class SetupCenterDialog(CenteredDialog):
         approved_by_round: int,
         dependency_report: object | None,
         actions: dict[str, Callable[[], object]],
+        config: Config,
+        save_setting: Callable[[str, object], SettingWrite],
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Setup & Updates")
@@ -139,7 +156,10 @@ class SetupCenterDialog(CenteredDialog):
         self.setModal(False)
 
         self._actions: dict[str, Callable[[], object]] = actions
+        self._save_setting: Callable[[str, object], SettingWrite] = save_setting
         self._dependency_label: QLabel | None = None
+        #: Every action button, so a rip can lock them all (`set_locked`).
+        self._buttons: dict[str, QPushButton] = {}
 
         root = QVBoxLayout(self)
 
@@ -169,6 +189,50 @@ class SetupCenterDialog(CenteredDialog):
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
+        # The one tick-box vocabulary on this window: each is the two-value view
+        # of a channel STRING (a third channel needs no config migration).
+        self._app_beta_check: QCheckBox = QCheckBox(
+            "Offer beta (&pre-release) updates", self
+        )
+        self._app_beta_check.setToolTip(
+            "ON: Check for updates also offers pre-release builds (0.6.4b1, "
+            "0.6.5rc1…). OFF (default): only finished releases are offered, so "
+            "'up to date' means up to date on the stable channel.\n\nBetas are "
+            "published for testing: they may contain bugs, and a beta's rip "
+            "reports can name a ripper build no handshake round has approved yet. "
+            "Every beta offer says so before it installs, and you can go back to a "
+            "stable release at any time.\n\nSaved as soon as you click it. Leave "
+            "this off unless you are testing."
+        )
+        self._ripper_beta_check: QCheckBox = QCheckBox(
+            "Offer beta (pre-re&lease) cyanrip builds", self
+        )
+        self._ripper_beta_check.setToolTip(
+            "ON: Check for cyanrip updates also tells you about beta builds the "
+            "fork has published for testing. OFF (default): only stable builds, "
+            "from a closed handshake round.\n\nThis never installs anything: it "
+            "only reports what the fork has published, and says what taking a "
+            "build would cost. A ripper no handshake round has verified makes every "
+            "rip afterwards report its ripper as 'unapproved': the audio is "
+            "unaffected, but the record can no longer say the ripper was jointly "
+            "verified.\n\nSaved as soon as you click it. Leave this off unless you "
+            "are testing."
+        )
+        self._offset_label: QLabel = QLabel("")
+        self._offset_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._offset_label.setWordWrap(True)
+        self.refresh_settings(config)
+        self._app_beta_check.toggled.connect(
+            lambda on: self._on_channel_toggled(
+                "update_channel", self._app_beta_check, on
+            )
+        )
+        self._ripper_beta_check.toggled.connect(
+            lambda on: self._on_channel_toggled(
+                "ripper_channel", self._ripper_beta_check, on
+            )
+        )
+
         grid = QGridLayout()
         layout.addLayout(grid)
         row = 0
@@ -178,6 +242,7 @@ class SetupCenterDialog(CenteredDialog):
             row,
             title="Platterpus",
             status=f"{_OK} Version {app_version}",
+            checkbox=self._app_beta_check,
             buttons=[("Check for &updates", "app_update")],
         )
         row = self._add_section(
@@ -192,6 +257,7 @@ class SetupCenterDialog(CenteredDialog):
                 f"{_INFO} Approved build: {ripper_pin} ({ripper_version}), "
                 f"from handshake round {approved_by_round}"
             ),
+            checkbox=self._ripper_beta_check,
             buttons=[
                 # Alt+C: Alt+U is the app's own update check, one section up.
                 ("Check for &cyanrip updates", "ripper_update"),
@@ -211,6 +277,20 @@ class SetupCenterDialog(CenteredDialog):
         row = self._add_section(
             grid,
             row,
+            title="Drive",
+            # What the next rip does with the offset: a value already in the
+            # config, so reading it is free. The drive wizard edits it.
+            status_widget=self._offset_label,
+            buttons=[
+                ("Set up d&rive…", "drive_setup"),
+                # Moved here from the Tools menu (2026-09-24): one place for the
+                # drive, instead of one item in each of two menus.
+                ("Dia&gnose drive access…", "drive_diagnose"),
+            ],
+        )
+        row = self._add_section(
+            grid,
+            row,
             title="Setup",
             status=(
                 f"{_INFO} Installs the ripping tools in their container, adds the "
@@ -220,9 +300,16 @@ class SetupCenterDialog(CenteredDialog):
                 ("Run &setup…", "host_setup"),
                 # Alt+T: Alt+S is "Run setup" beside it.
                 ("Add app shor&tcut", "shortcut"),
-                ("Set up d&rive…", "drive_setup"),
             ],
         )
+
+        # What the last tick-box click did, so a save (or a refusal) is seen and
+        # heard rather than assumed.
+        self._settings_status: QLabel = QLabel("")
+        self._settings_status.setTextFormat(Qt.TextFormat.PlainText)
+        self._settings_status.setWordWrap(True)
+        self._settings_status.setAccessibleName("Setup and updates status")
+        layout.addWidget(self._settings_status)
 
         box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         box.rejected.connect(self.reject)
@@ -237,6 +324,7 @@ class SetupCenterDialog(CenteredDialog):
         buttons: list[tuple[str, str]],
         status: str | None = None,
         status_widget: QLabel | None = None,
+        checkbox: QCheckBox | None = None,
     ) -> int:
         """Lay out one section and return the next free row.
 
@@ -264,10 +352,15 @@ class SetupCenterDialog(CenteredDialog):
         grid.addWidget(status_widget, row, 0, 1, 2)
         row += 1
 
+        if checkbox is not None:
+            grid.addWidget(checkbox, row, 0, 1, 2)
+            row += 1
+
         for label, key in buttons:
             button = QPushButton(label)
             button.setMinimumHeight(_COMMIT_HEIGHT)
             button.clicked.connect(lambda _checked=False, k=key: self._run(k))
+            self._buttons[key] = button
             grid.addWidget(button, row, 0, 1, 2)
             row += 1
         return row
@@ -285,6 +378,64 @@ class SetupCenterDialog(CenteredDialog):
             return
         log.info("Setup & Updates: running %s", key)
         action()
+
+    def set_locked(self, locked: bool) -> None:
+        """Grey every action while a rip runs, and say why.
+
+        The window's rip lock greys the menu item that OPENS this window; this is
+        the half that reaches one already open. Every action is locked, as the
+        menu item was, because each one either uses the drive, installs
+        something, or replaces the app. The channel tick-boxes stay usable: they
+        only decide what a later check offers.
+        """
+        for button in self._buttons.values():
+            button.setEnabled(not locked)
+        if locked:
+            self._settings_status.setText(
+                f"{_INFO} Locked while a rip runs. The actions come back when it ends."
+            )
+        elif self._settings_status.text().startswith(f"{_INFO} Locked"):
+            self._settings_status.setText("")
+
+    def refresh_settings(self, config: Config) -> None:
+        """Show ``config``'s channels and read offset. Changes nothing.
+
+        Called at construction and by the window whenever a setting this window
+        displays changes elsewhere (a script's ``set``, a drive-wizard save), so
+        the boxes never describe a channel the config no longer holds. Signals
+        are blocked: re-rendering must not look like a click and save again.
+        """
+        for box, channel in (
+            (self._app_beta_check, config.update_channel),
+            (self._ripper_beta_check, config.ripper_channel),
+        ):
+            box.blockSignals(True)
+            box.setChecked(channel == CHANNEL_BETA)
+            box.blockSignals(False)
+        applied = offset_config.describe_applied_offset(
+            config.read_offset, config.override_read_offset
+        )
+        marker = _INFO if config.override_read_offset else _WARN
+        self._offset_label.setText(f"{marker} Read offset: {applied}")
+
+    def _on_channel_toggled(self, field: str, box: QCheckBox, beta: bool) -> None:
+        """Save a channel tick-box through the window, and say what happened."""
+        result = self._save_setting(field, CHANNEL_BETA if beta else CHANNEL_STABLE)
+        what = "Platterpus" if field == "update_channel" else "cyanrip"
+        if not result.applied:
+            # Refused: put the box back, so it never shows a value not in force.
+            box.blockSignals(True)
+            box.setChecked(not beta)
+            box.blockSignals(False)
+            text = f"{_WARN} Not changed: {result.message}"
+        elif beta:
+            text = f"{_OK} Saved: beta {what} builds will be offered."
+        else:
+            text = f"{_OK} Saved: only stable {what} releases will be offered."
+        if result.applied and result.message:
+            text += f" {result.message}"
+        self._settings_status.setText(text)
+        announce(self._settings_status, text)
 
     def refresh_dependencies(self, report: object | None) -> None:
         """Re-render the dependency line after a check has reported.

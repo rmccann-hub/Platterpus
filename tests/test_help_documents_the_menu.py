@@ -78,13 +78,14 @@ def test_the_menu_sweep_actually_finds_the_menu() -> None:
     """The floor. A regex that stopped matching would pass every case below
     while checking nothing — the shape this repo has 52 live instances of."""
     labels = _menu_labels()
-    # **7, down from 8 on 2026-09-21, and lowered deliberately.** The Tools menu
-    # really did shrink: *Set up Platterpus…*, *Add app shortcut* and *Set up
-    # drive…* became sections of the one *Setup & Updates…* window, which is a net
-    # -2. The floor exists to catch the regex silently ceasing to match, so it has
-    # to track the real count; leaving it at 8 would have been a floor nothing
-    # could satisfy, and raising it back later is how it stops meaning anything.
-    assert len(labels) >= 7, (
+    # **6, down from 7 on 2026-09-24, and lowered deliberately.** *Diagnose drive
+    # access…* moved into Setup & Updates → Drive beside *Set up drive…*, so the
+    # drive has one place instead of an item in each of two. (7 was itself down
+    # from 8 on 2026-09-21, when setup, the app shortcut and drive setup became
+    # sections of Setup & Updates.) The floor exists to catch the regex silently
+    # ceasing to match, so it has to track the real count; a floor nothing could
+    # satisfy stops meaning anything.
+    assert len(labels) >= 6, (
         f"only {len(labels)} Tools action(s) found in {MAIN_WINDOW.name}; the "
         "pattern has stopped matching and this file is measuring nothing"
     )
@@ -179,6 +180,9 @@ SCRIPT_CONSOLE: Final[Path] = (
     REPO_ROOT / "src" / "platterpus" / "ui" / "dialogs" / "script_console.py"
 )
 SETTINGS: Final[Path] = REPO_ROOT / "src" / "platterpus" / "ui" / "settings_dialog.py"
+SCRIPT_SETTINGS_BOX: Final[Path] = (
+    REPO_ROOT / "src" / "platterpus" / "ui" / "dialogs" / "script_settings_box.py"
+)
 
 #: User-facing documents scanned in full. The chronological records (the session
 #: log, the CHANGELOG, `docs/archive/`, the handshake laps) are deliberately NOT
@@ -234,9 +238,12 @@ def _menu_model() -> dict[str, dict[str, list[str]]]:
         _norm(_searchable(b))
         for b in _SECTION_BUTTON.findall(SETUP_CENTER.read_text(encoding="utf-8"))
     ]
+    # The console's buttons, and those of its script-settings box (the startup
+    # script's Choose / Use built-in / Clear), which is part of the same window.
     console = [
         _norm(_searchable(b))
-        for b in _CONSOLE_BUTTON.findall(SCRIPT_CONSOLE.read_text(encoding="utf-8"))
+        for source in (SCRIPT_CONSOLE, SCRIPT_SETTINGS_BOX)
+        for b in _CONSOLE_BUTTON.findall(source.read_text(encoding="utf-8"))
     ]
     settings = [
         _norm(_searchable(row))
@@ -343,7 +350,9 @@ def test_the_menu_path_sweep_resolves_real_paths_and_rejects_dead_ones() -> None
     refuse each of the five shapes that shipped.
     """
     model = _menu_model()
-    assert len(model["tools"]) >= 7 and len(model["tools"]["setup & updates"]) >= 6
+    # 6 Tools items since Diagnose drive access… moved into Setup & Updates, which
+    # took its section-button count from 7 to 8 (2026-09-24).
+    assert len(model["tools"]) >= 6 and len(model["tools"]["setup & updates"]) >= 8
     assert len(model["tools"]["settings"]) >= 20, "the Settings rows were not read"
     named = sum(
         len(_PATH_START.findall(_plain(text))) for text in _user_facing_texts().values()

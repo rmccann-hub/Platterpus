@@ -3,8 +3,8 @@
 EAC is the bit-perfect baseline (``output_reference/``, ``docs/test-plan.md``).
 A rip from any backend is byte-identical to EAC's when every track's **Copy
 CRC** matches. This module reads the per-track Copy CRCs out of a log —
-whichever of the three formats it is (EAC, whipper, cyanrip) — and diffs a
-candidate against a baseline.
+whichever of the three formats it is (EAC, cyanrip, or the legacy log format)
+— and diffs a candidate against a baseline.
 
 Pure and never-raises; backs ``scripts/eac_parity.py`` and the parity tests.
 It's the "proof it's working" check for ``output_reference/``: a backend's log
@@ -38,9 +38,9 @@ def decode_log_bytes(raw: bytes) -> str:
     **EAC writes its logs as UTF-16** (with a BOM) — naively reading them as
     UTF-8 turns every character into a replacement char, so the parser finds no
     CRCs and the parity check silently false-fails (every track "missing").
-    whipper/cyanrip write UTF-8. We sniff the BOM (and fall back to a NUL-heavy
-    heuristic for the rare BOM-less UTF-16), then default to UTF-8. Never raises
-    — undecodable bytes are replaced.
+    cyanrip and legacy-format logs are UTF-8. We sniff the BOM (and fall back to
+    a NUL-heavy heuristic for the rare BOM-less UTF-16), then default to UTF-8.
+    Never raises — undecodable bytes are replaced.
     """
     if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
         return raw.decode("utf-16", errors="replace")  # BOM picks LE/BE
@@ -61,8 +61,9 @@ def decode_log_bytes(raw: bytes) -> str:
 def track_copy_crcs(text: str) -> dict[int, str]:
     """Per-track ``{number: uppercase Copy CRC}`` from a rip log of ANY backend.
 
-    Sniffs the format (cyanrip → EAC → whipper as the default) and dispatches to
-    the matching parser. Never raises — unrecognised input yields an empty map.
+    Sniffs the format (cyanrip → EAC → the legacy log format as the default) and
+    dispatches to the matching parser. Never raises — unrecognised input yields
+    an empty map.
     Tracks with no Copy CRC (e.g. a data track) are omitted.
     """
     if looks_like_cyanrip_log(text):

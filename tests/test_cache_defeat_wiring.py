@@ -77,8 +77,9 @@ def test_injects_measured_verdict_when_log_has_none() -> None:
 
 
 def test_never_overwrites_a_value_the_log_already_carried() -> None:
-    # A log that already reported the fact (e.g. a real EAC/whipper log) is left
-    # exactly as parsed — we only FILL a missing value, never replace real data.
+    # A log that already reported the fact (e.g. a real EAC or legacy-format log)
+    # is left exactly as parsed — we only FILL a missing value, never replace real
+    # data.
     window = _fake_window(cache_defeat=True)
     out = RipMixin._inject_measured_cache_defeat(window, _log_with_cache(False))
     assert out.ripping_info.defeat_audio_cache is False

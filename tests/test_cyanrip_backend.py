@@ -143,7 +143,8 @@ def test_rip_argv_known_disc_with_offset() -> None:
     )
     assert argv[0] == "cyanrip"
     assert "-d" in argv and argv[argv.index("-d") + 1] == "/dev/sr0"
-    # cyanrip applies the offset itself via -s (no whipper >587 bug).
+    # cyanrip applies the offset itself via -s (no >587 offset bug, which the
+    # previous backend had).
     assert "-s" in argv and argv[argv.index("-s") + 1] == "667"
     assert "-o" in argv and argv[argv.index("-o") + 1] == "flac"
     assert "-r" in argv and argv[argv.index("-r") + 1] == "5"
@@ -494,7 +495,7 @@ def test_metadata_args_include_catalog_barcode_and_label() -> None:
     assert "label" not in empty[1]
 
 
-# --- whipper template → cyanrip scheme --------------------------------------
+# --- %-token template → cyanrip scheme --------------------------------------
 
 
 def test_scheme_translates_default_known_template() -> None:
@@ -529,7 +530,7 @@ def test_scheme_expands_year_only_token_to_literal() -> None:
     # Empty year → the token drops out (dateless disc).
     assert scheme_from_template("%d (%Y)", year="") == "{album} ()"
     # A %%Y escape is a literal percent + "Y": "%%" collapses to a single "%"
-    # (matching naming.render_preview and whipper semantics) and the year is NOT
+    # (matching naming.render_preview and %-template semantics) and the year is NOT
     # spliced in mid-escape (why we scan rather than str.replace). Previously this
     # returned "%%Y" — two percents — so the real filename disagreed with the
     # preview, which shows "%Y".
@@ -537,7 +538,7 @@ def test_scheme_expands_year_only_token_to_literal() -> None:
 
 
 def test_scheme_collapses_escaped_percent() -> None:
-    # "%%" is whipper's escape for a literal percent; it must become a single "%"
+    # "%%" is the %-template escape for a literal percent; it must become a single "%"
     # (cyanrip treats "%" as an ordinary character), so the filename matches what
     # naming.render_preview shows the user. A "%%" before a token letter is a
     # literal percent + that letter, NOT the token: "%%A" is "%A", not the album
@@ -646,8 +647,8 @@ def test_disc_info_runs_info_only_offline(monkeypatch: pytest.MonkeyPatch) -> No
     """disc_info must use info-only mode (-I) with MusicBrainz disabled (-N)
     — identification is local; the GUI does its own MB lookup — and pass the
     selected device."""
-    # cyanrip's `_run` delegates to the shared run_capture in whipper_backend,
-    # so the subprocess.run patch targets that module (see _patch_run).
+    # cyanrip's `_run` delegates to the shared run_capture in rip_backend, so
+    # the subprocess.run patch targets that module (see _patch_run).
     import platterpus.adapters.rip_backend as mod
 
     seen: list[list[str]] = []

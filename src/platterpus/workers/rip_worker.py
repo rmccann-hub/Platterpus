@@ -139,8 +139,8 @@ class RipParameters:
 # (which can run a minute or more) and looked frozen — T32 feedback.
 # The current backend is cyanrip (KDD-18) — its progress lines are matched by
 # the _CYANRIP_* patterns further down. The patterns just below match the
-# WHIPPER log format and are kept only as an inert whipper-format seam (harmless
-# if a whipper-era log is ever re-fed); whipper's progress lines looked like:
+# previous backend's progress-line format and are kept only as an inert seam
+# (harmless if that output is ever re-fed); its progress lines looked like:
 #   "Reading TOC  50 %"
 #   "Reading table  50 %"
 #   "Reading track 3 of 16 (1 of 9) ...  42 %"
@@ -186,10 +186,11 @@ _CYANRIP_DISC_TRACKS = re.compile(r"^Disc tracks:\s+(?P<total>\d{1,4})\s*$")
 # A ripper can abort when it can't fetch online metadata (e.g. the container
 # has no network) and wasn't told the disc is "unknown". We detect that so the
 # GUI can auto-retry as an unknown-album rip — which needs no network — and tag
-# locally afterward from the metadata it already has. These are whipper's abort
-# strings; cyanrip is always run with `-N` and fed the GUI's tags (Critical
-# Rule #5), so it never does an online lookup and never hits this — the heal
-# path is currently inert, kept as the seam for any future networked backend.
+# locally afterward from the metadata it already has. These are the previous
+# backend's abort strings; cyanrip is always run with `-N` and fed the GUI's
+# tags (Critical Rule #5), so it never does an online lookup and never hits
+# this — the heal path is currently inert, kept as the seam for any future
+# networked backend.
 _NO_METADATA_MARKERS: tuple[str, ...] = (
     "--unknown argument not passed",
     "unable to retrieve disc metadata",
@@ -197,9 +198,9 @@ _NO_METADATA_MARKERS: tuple[str, ...] = (
 
 # A ripper can exhaust its retries on a track it can't read consistently (a
 # scratched/dirty disc). We turn that into an actionable message instead of a
-# bare "Rip failed". This matches whipper's "giving up on track N" wording;
-# cyanrip instead rips the track "with errors" and keeps going, so it doesn't
-# trip this — the hint stays for the whipper-format seam and is harmless inert.
+# bare "Rip failed". This matches the previous backend's "giving up on track N"
+# wording; cyanrip instead rips the track "with errors" and keeps going, so it
+# doesn't trip this — the hint stays as an inert seam and is harmless.
 # cyanrip's own fatal-argument / fatal-setup errors, which it prints and then
 # exits on. Deliberately narrow: these are the shapes that end a rip before any
 # audio is read, so surfacing one verbatim is strictly better than "Rip failed."
@@ -775,7 +776,8 @@ class RipWorker(QObject):
         # Progress state. `_overall` only ever moves forward (see
         # _bump_overall); `_total_tracks`/`_current_track` are learned from
         # the ripper's per-track progress lines (cyanrip's "Ripping track N";
-        # the whipper "track N of M" form is still matched as an inert seam).
+        # the previous backend's "track N of M" form is still matched as an
+        # inert seam).
         self._overall: float = 0.0
         self._total_tracks: int = 0
         self._current_track: int = 0
@@ -886,7 +888,7 @@ class RipWorker(QObject):
         # against (see the assignment site for the false alarm this fixes).
         self._ripper_argv_first_pass: tuple[str, ...] = ()
         # Set true if the ripper aborts for lack of online metadata, so the GUI
-        # can heal by retrying as an unknown-album rip. An inert whipper-era seam:
+        # can heal by retrying as an unknown-album rip. An inert pre-cyanrip seam:
         # cyanrip runs with -N and is fed the GUI's tags, so it never hits this.
         # Only meaningful when this rip wasn't already unknown.
         self._needs_unknown_retry: bool = False
@@ -2205,7 +2207,7 @@ class RipWorker(QObject):
                     log.debug("cyanrip │ %s", line)
                 # Watch for the "no online metadata" abort so the GUI can heal
                 # by re-ripping as unknown (only worth it if this rip wasn't
-                # already unknown). Inert whipper-era seam — cyanrip runs -N and
+                # already unknown). Inert pre-cyanrip seam — cyanrip runs -N and
                 # never emits these markers. Detection runs on EVERY line.
                 if not self._params.unknown and any(
                     m in line for m in _NO_METADATA_MARKERS
@@ -3110,7 +3112,7 @@ class RipWorker(QObject):
         """Map a ripper stdout line to (overall, task) percentages.
 
         Handles cyanrip's progress lines (the live backend) and, as an inert
-        seam, the whipper log format.
+        seam, the previous backend's progress-line format.
 
         The rip is split into three overall bands so the overall bar
         advances smoothly start-to-finish instead of resetting per track:
@@ -3152,7 +3154,7 @@ class RipWorker(QObject):
             frac = done / total if total else 1.0
             return self._bump_overall(95.0 + frac * 5.0), 100.0
 
-        # --- cyanrip lines (mutually exclusive with whipper's formats) ---
+        # --- cyanrip lines (mutually exclusive with the previous backend's) ---
 
         match = _CYANRIP_DISC_TRACKS.search(line)
         if match:
@@ -3389,7 +3391,7 @@ def _describe_activity(
 ) -> str | None:
     """Return a short human status for a ripper progress line, or None.
 
-    Matches cyanrip's progress lines (and the inert whipper-format seam). Used
+    Matches cyanrip's progress lines (and the inert pre-cyanrip seam). Used
     to keep the status label live across every phase — especially the pre-track
     disc scan, which otherwise left the GUI on "Starting rip…" for a minute-plus
     and looked hung.

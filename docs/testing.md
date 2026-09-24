@@ -4,8 +4,8 @@ The single, authoritative description of **how we test Platterpus** and the
 rules every change is held to. It exists because this project's hardest bugs
 have all been the same shape: code that passes unit tests with fakes, then
 fails on real hardware / in the packaged build / on an unexpected input
-(silent startup crash, AppImage CA-cert bug, `offset find`, whipper output
-drift). The strategy below is built to catch *that* class.
+(silent startup crash, AppImage CA-cert bug, `offset find`, output drift in
+the ripper Platterpus used before cyanrip). The strategy below is built to catch *that* class.
 
 > **Portability note.** This file is written to be lifted into a sibling
 > project (e.g. `scheduling-engineV2`) with only the project-specific
@@ -78,8 +78,8 @@ tiers. "I added a happy-path test" is not done.
   captured sample under `tests/fixtures/` and assert against it. This is how we
   pin cyanrip's actual log/`-I` shapes (the live backend whose output can
   drift — when it does, update the fixture in the same PR as the parser
-  change) and how the frozen legacy whipper formats stay pinned for old logs
-  (`rip_log_real_whipper_0_7.log`, `drive_list_pioneer.txt`, …).
+  change) and how the frozen legacy formats stay pinned for old logs
+  (`rip_log_legacy_format.log`, `drive_list_pioneer.txt`, …).
 - **Property-based tests** (`hypothesis`). Use for **invariants that must hold
   over all inputs**. Our keystone invariant: *a parser must never raise on
   arbitrary text* (`test_parsers_property.py`). Hypothesis generates hundreds of
@@ -2295,7 +2295,7 @@ about the argument prints first. They named it as a problem for **their** `-Y` a
 Checking what it would do to us found that the consumer half is worse and they had
 no way to see it. `looks_like_cyanrip_log` read **exactly the first non-blank
 line** and returned its match, so a valid cyanrip log with one line of preamble is
-*"not a cyanrip log"*, gets dispatched to the **whipper** parser, and yields **zero
+*"not a cyanrip log"*, gets dispatched to the **legacy log format** parser, and yields **zero
 tracks from a fourteen-track disc** with no error anywhere. That precise zero-track
 parse happened in this repository the day before from a different cause, so it is
 not a hypothetical.
@@ -2311,9 +2311,9 @@ decides whether to call the parser must say yes — because a test of either sur
 alone passes while they disagree.
 
 Two things the fix had to buy explicitly. Widening the window means a document
-merely *mentioning* cyanrip could be misread, so the whipper header is now a
-**positive** check rather than a bet on ordering, tested with the cyanrip banner
-placed inside a whipper log. And the window is **bounded**, with the bound asserted
+merely *mentioning* cyanrip could be misread, so the legacy log format's header is
+now a **positive** check rather than a bet on ordering, tested with the cyanrip
+banner placed inside a legacy-format log. And the window is **bounded**, with the bound asserted
 on both sides of itself.
 
 **The generalisation, and it is a duty rather than a technique.** `CLAUDE.md` rule
@@ -3358,6 +3358,17 @@ was sharpened to mean something precise:
 So the bar is **zero failures in `ARCHIVAL` sections.** `UX` failures are
 recorded, triaged and non-blocking.
 
+**And only a FULL run is evidence** (2026-09-24). The acceptance run comes in three
+sizes cut from the one script (`uiscript/run_sizes.py`): **Quick** (about 15
+minutes), **Standard** (about an hour) and **Full** (4 to 6 hours). A smaller run
+declines whole sections on purpose, so its green result cannot stand in for a Full
+one in the evidence ledger, whatever its sections scored. It says so in its own
+record: the transcript opens with *"A QUICK RUN … NOT evidence"*, and its report
+carries `run_size` and `counts_as_evidence: false`. Each section declares the
+smallest size that runs it, as its first line, so the sizes nest by construction
+and no section inherits its size (§5.bj); `tests/test_uiscript_run_sizes.py` holds
+the script to that.
+
 **The one property that makes this safe: severity is a property of the SECTION,
 fixed here in advance — never a judgement made about a failure after seeing it.**
 *"The five failures were each understood"* is the exact sentence 2026-08-19
@@ -3777,4 +3788,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.57.*
+*Last updated for Platterpus v0.6.58.*

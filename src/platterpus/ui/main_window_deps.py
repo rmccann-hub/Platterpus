@@ -176,6 +176,26 @@ class DependencyMixin(MainWindowShared):
             self._dep_check_worker, self._dep_check_thread, self._dep_check_worker.run
         )
 
+    def _recheck_dependencies_for(
+        self, on_done: Callable[[], None]
+    ) -> Callable[[], None]:
+        """Run the dependency check and call ``on_done`` once when it lands.
+
+        For Help → About's **Check again**. The check is the app's own, off the
+        GUI thread; if one is already running, ``on_done`` waits for that one
+        rather than starting a second. Returns a function that forgets
+        ``on_done``, which the dialog calls when it closes, so a check that lands
+        after the dialog is gone never reaches a deleted widget.
+        """
+        self._dep_check_listeners.append(on_done)
+        self.run_dependency_check_async(show_summary=False)
+
+        def forget() -> None:
+            if on_done in self._dep_check_listeners:
+                self._dep_check_listeners.remove(on_done)
+
+        return forget
+
     def _on_dependency_check_done(self, report: DependencyReport | None) -> None:
         """Worker finished probing — apply the report on the GUI thread.
 
@@ -208,6 +228,15 @@ class DependencyMixin(MainWindowShared):
             from platterpus.deps import manager as _dep_manager
 
             _dep_manager.remember_report(self._last_dependency_report)
+        # Whoever asked to be told (About's "Check again"), told once, BEFORE the
+        # report is applied: applying it can open a resolver dialog, and the
+        # listener only re-reads the stored report.
+        listeners, self._dep_check_listeners = self._dep_check_listeners, []
+        for listener in listeners:
+            try:
+                listener()
+            except Exception:  # noqa: BLE001 — one listener must not stop the rest
+                log.exception("a dependency-check listener raised")
         # `show_summary` is True for the user-clicked Tools/Settings check and
         # False for the silent launch check; resolver dialogs surface for
         # genuinely-missing deps regardless.
@@ -437,7 +466,7 @@ class DependencyMixin(MainWindowShared):
         This replaces the old per-tier fan-out — a consent box for auto deps,
         a separate queued dialog, and *one manual dialog per item* — which is
         what produced the "two popups" the maintainer hit on a fresh install
-        (whipper + metaflac each opened their own dialog). Now every installable
+        (the ripper + metaflac each opened their own dialog). Now every installable
         missing dep is a single checkbox row (ticked by default) in one
         `PendingInstallsDialog`; the dialog installs the ticked rows inline with
         per-row progress, and its dismiss button stays greyed out until the
@@ -585,10 +614,11 @@ class DependencyMixin(MainWindowShared):
         return install_one
 
     def _gui_manual_dialog(self, item: MissingItem) -> None:
-        # For tools the setup wizard provides (whipper/metaflac/flac), hand the
-        # dialog a callback so it can offer the one-click wizard instead of only
-        # a copyable search string — the user shouldn't have to paste a query to
-        # install something the app installs itself (Tools → Setup & Updates… → Run setup…).
+        # For tools the setup wizard provides (cyanrip, metaflac, flac and
+        # cd-paranoia), hand the dialog a callback so it can offer the one-click
+        # wizard instead of only a copyable search string — the user shouldn't
+        # have to paste a query to install something the app installs itself
+        # (Tools → Setup & Updates… → Run setup…).
         on_setup_wizard = (
             self.open_host_setup_dialog
             if getattr(item.spec, "from_setup_wizard", False)

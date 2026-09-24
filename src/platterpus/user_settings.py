@@ -22,6 +22,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+from collections.abc import Mapping
 
 from platterpus.config import APP_STATE_FIELDS, Config
 
@@ -46,6 +47,25 @@ def user_settings(config: object) -> dict[str, object]:
         for name in user_setting_names()
         if hasattr(config, name)
     }
+
+
+def with_values(config: Config, values: Mapping[str, object]) -> Config:
+    """A copy of ``config`` with ``values`` written in. ``config`` is untouched.
+
+    For a mapping built at run time — a dialog's widgets, one control's field —
+    which ``dataclasses.replace(config, **values)`` cannot type-check, because
+    the checker cannot tell which field each value is for. A name that is not a
+    field is refused rather than silently added as a stray attribute, which a
+    typo in a control's wiring would otherwise do.
+    """
+    known = {f.name for f in dataclasses.fields(Config)}
+    unknown = sorted(set(values) - known)
+    if unknown:
+        raise ValueError(f"not Config fields: {unknown}")
+    copy = dataclasses.replace(config)
+    for name, value in values.items():
+        setattr(copy, name, value)
+    return copy
 
 
 def apply_user_edits(current: Config, opened: Config, edited: Config) -> Config:
@@ -77,6 +97,21 @@ def apply_user_edits(current: Config, opened: Config, edited: Config) -> Config:
     if changes:
         log.info("settings: applying user edits to %s", sorted(changes))
     return dataclasses.replace(current, **changes)
+
+
+@dataclasses.dataclass(frozen=True)
+class SettingWrite:
+    """What happened when one control saved one setting.
+
+    ``applied`` says whether the value is now in effect; ``message`` is the
+    sentence to show beside the control, empty when there is nothing to say. The
+    two are separate because they can disagree: a value the validator refused is
+    neither applied nor saved, while a value applied for this session and then
+    not written to disk is in effect and still needs a sentence.
+    """
+
+    applied: bool
+    message: str = ""
 
 
 def changed_settings(before: object, after: object) -> list[str]:

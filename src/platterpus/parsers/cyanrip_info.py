@@ -24,8 +24,9 @@ known; we deliberately don't parse them — the GUI does its own MusicBrainz
 lookup host-side (Critical Rule #5), so the IDs + track count are all the
 backend needs to report.
 
-The result reuses the backend-neutral :class:`DiscInfo` dataclass, so the
-GUI handles whipper and cyanrip identically.
+The result reuses the backend-neutral :class:`DiscInfo` dataclass (shared
+with the legacy disc-info parser, ``parsers/cd_info.py``), so the GUI's
+disc-info handling does not depend on which parser produced it.
 """
 
 from __future__ import annotations

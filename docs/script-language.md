@@ -80,11 +80,15 @@ text is taken verbatim as one value.
 | `expect-secure-rerip` | 0 | ready | expect-secure-rerip — assert the secure re-read actually RAN on this rip (at least one track block carries cyanrip's Scope: line), the graded form of rig-check's 'genuinely exercised' row |
 | `expect-identified` | 0 | ready | expect-identified — assert the disc was identified against MusicBrainz (a well-formed release MBID is held), not merely that the track table has rows, which placeholder rows also satisfy |
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
+| `keep` | 1 | ready | keep <config-field> — leave this setting as it is for the run, on purpose, and record its value (the baseline sets or keeps every setting) |
+| `set-drive-offset` | 0 | ready | set-drive-offset — set the read offset for the drive in THIS machine: the one it is already set to, or else the AccurateRip drive list's (fails if neither is known) |
+| `expect-drive-offset` | 0 | ready | expect-drive-offset — assert the read offset is still the one set-drive-offset set, with the override on |
 | `expect-ripper-under-review` | 0 | ready | expect-ripper-under-review — assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first) |
 | `probe-ripper-wrapper` | 0 | ready | probe-ripper-wrapper — time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run |
 | `expect-tracks` | 1 | ready | expect-tracks <count|count+> — assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants |
 | `tier` | 2+ (rest of line) | ready | tier <0-4> <label> — the steps after this belong to tier N, in a block named <label> that later steps can declare a dependency on |
 | `needs` | 1+ (rest of line) | ready | needs <label…> — the steps after this are PREVENTED (not skipped) if any named block already failed; the record names the prerequisite |
+| `run-size` | 1 | ready | run-size <quick|standard|full> — the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped) |
 | `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real and capture its exit code, exact argv and complete output |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
 | `expect-exit` | 1 | ready | expect-exit <code> — assert the last cyanrip exit code |
@@ -342,7 +346,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.6.57",
+  "platterpus_version": "0.6.58",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -643,6 +647,33 @@ found nothing wrong*.
       "help": "expect-refused <setting> <value> \u2014 assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal)"
     },
     {
+      "name": "keep",
+      "min_args": 1,
+      "max_args": 1,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "keep <config-field> \u2014 leave this setting as it is for the run, on purpose, and record its value (the baseline sets or keeps every setting)"
+    },
+    {
+      "name": "set-drive-offset",
+      "min_args": 0,
+      "max_args": 0,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "set-drive-offset \u2014 set the read offset for the drive in THIS machine: the one it is already set to, or else the AccurateRip drive list's (fails if neither is known)"
+    },
+    {
+      "name": "expect-drive-offset",
+      "min_args": 0,
+      "max_args": 0,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-drive-offset \u2014 assert the read offset is still the one set-drive-offset set, with the override on"
+    },
+    {
       "name": "expect-ripper-under-review",
       "min_args": 0,
       "max_args": 0,
@@ -686,6 +717,15 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "needs <label\u2026> \u2014 the steps after this are PREVENTED (not skipped) if any named block already failed; the record names the prerequisite"
+    },
+    {
+      "name": "run-size",
+      "min_args": 1,
+      "max_args": 1,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "run-size <quick|standard|full> \u2014 the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped)"
     },
     {
       "name": "cyanrip",
@@ -943,4 +983,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.6.57.*
+*Last updated for Platterpus v0.6.58.*

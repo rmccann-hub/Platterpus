@@ -128,7 +128,7 @@ def test_similar_but_wrong_labels_do_not_match() -> None:
     report = (
         "  DiscID:         indented-should-not-match\n"
         "MusicBrainz DiscID: wrong-label\n"
-        "CDDB disc id: whipper-style-label\n"
+        "CDDB disc id: legacy-style-label\n"
         "Total tracks:   9\n"
     )
     assert parse_cyanrip_info(report) == DiscInfo()

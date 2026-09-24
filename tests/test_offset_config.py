@@ -1,138 +1,57 @@
-"""Tests for platterpus.offset_config."""
+"""Tests for platterpus.offset_config.
+
+Since 2026-09-24 the module reads no file at all: the read offset lives in
+Platterpus's own config and nowhere else. The leftover config folder of the
+ripper older versions drove is still REMOVED by the uninstaller, and the sweep at
+the bottom holds everything else to not reading it.
+"""
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
-from platterpus.offset_config import (
-    WhipperConfOffset,
-    describe_conf_offsets,
-    is_offset_configured,
-    read_drive_offsets,
-    whipper_conf_has_offset,
-)
+from platterpus.offset_config import describe_applied_offset, is_offset_configured
 
-_CONF_WITH_OFFSET = """\
-[main]
-path = something
-
-[drive:PIONEER :BD-RW   BDR-209D:1.51]
-defeats_cache = True
-read_offset = 667
-"""
-
-_CONF_NO_OFFSET = """\
-[drive:PIONEER :BD-RW   BDR-209D:1.51]
-defeats_cache = True
-"""
-
-_CONF_COMMENTED_OFFSET = """\
-[drive:Foo]
-# read_offset = 6
-defeats_cache = True
-"""
+_SRC = Path(__file__).resolve().parents[1] / "src" / "platterpus"
 
 
-def _write(tmp_path: Path, text: str) -> Path:
-    conf = tmp_path / "whipper.conf"
-    conf.write_text(text, encoding="utf-8")
-    return conf
+def test_is_configured_follows_the_override_alone() -> None:
+    # Regression: a leftover offset in another program's config must NOT satisfy
+    # the gate — it never reaches cyanrip's -s, so counting it as "configured"
+    # made the rip preflight skip auto-apply + the wizard and rip at offset 0.
+    # Only the GUI override (which is what cyanrip actually gets) configures it.
+    assert is_offset_configured(True) is True
+    assert is_offset_configured(False) is False
 
 
-def test_has_offset_true_when_present(tmp_path: Path) -> None:
-    assert whipper_conf_has_offset(_write(tmp_path, _CONF_WITH_OFFSET)) is True
+def test_describe_applied_offset_says_what_the_next_rip_does() -> None:
+    assert describe_applied_offset(667, True) == "+667 samples, applied to every rip"
+    assert describe_applied_offset(-6, True) == "-6 samples, applied to every rip"
+    off = describe_applied_offset(667, False)
+    assert "not applied" in off and "+667" not in off
 
 
-def test_has_offset_handles_negative(tmp_path: Path) -> None:
-    conf = _write(tmp_path, "[drive:X]\nread_offset = -12\n")
-    assert whipper_conf_has_offset(conf) is True
+def test_the_module_does_no_io() -> None:
+    """It used to read a file; nothing here may open one again."""
+    tree = ast.parse((_SRC / "offset_config.py").read_text(encoding="utf-8"))
+    names = {
+        node.attr if isinstance(node, ast.Attribute) else node.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute | ast.Name)
+    }
+    assert not names & {"open", "read_text", "read_bytes", "Path"}, names
 
 
-def test_has_offset_false_when_absent(tmp_path: Path) -> None:
-    assert whipper_conf_has_offset(_write(tmp_path, _CONF_NO_OFFSET)) is False
+def test_only_the_uninstaller_refers_to_the_leftover_config_folder() -> None:
+    """Nothing reads the old ripper's config folder; the uninstaller removes it.
 
-
-def test_has_offset_ignores_commented_line(tmp_path: Path) -> None:
-    assert whipper_conf_has_offset(_write(tmp_path, _CONF_COMMENTED_OFFSET)) is False
-
-
-def test_has_offset_false_when_file_missing(tmp_path: Path) -> None:
-    assert whipper_conf_has_offset(tmp_path / "nope.conf") is False
-
-
-def test_has_offset_vs_read_drive_offsets_differ_on_non_drive_section(
-    tmp_path: Path,
-) -> None:
-    # Characterization (pins a deliberate difference): both functions now share
-    # one section scanner, but they FILTER it differently. `whipper_conf_has_offset`
-    # answers "is an offset assigned anywhere?" and so reports one under a
-    # non-`[drive:...]` section; `read_drive_offsets` only collects per-drive
-    # offsets and ignores it. This test locks that distinction so the shared
-    # scanner can't quietly collapse the two semantics.
-    conf = _write(tmp_path, "[main]\nread_offset = 99\n")
-    assert whipper_conf_has_offset(conf) is True
-    assert read_drive_offsets(conf) == []
-
-
-def test_is_configured_true_when_override_on(tmp_path: Path) -> None:
-    # Override short-circuits — whipper.conf is irrelevant.
-    assert is_offset_configured(True, tmp_path / "missing.conf") is True
-
-
-def test_is_configured_false_from_conf_alone(tmp_path: Path) -> None:
-    # Regression: a leftover whipper.conf offset must NOT satisfy the gate — it
-    # never reaches cyanrip's -s, so counting it as "configured" made the rip
-    # preflight skip auto-apply + the wizard and rip at offset 0. Only the GUI
-    # override (which is what cyanrip actually gets) configures the offset.
-    conf = _write(tmp_path, _CONF_WITH_OFFSET)
-    assert is_offset_configured(False, conf) is False
-
-
-def test_is_configured_false_when_no_override(tmp_path: Path) -> None:
-    conf = _write(tmp_path, _CONF_NO_OFFSET)
-    assert is_offset_configured(False, conf) is False
-
-
-# --- read_drive_offsets / describe_conf_offsets ----------------------------
-
-
-def test_read_drive_offsets_parses_value_and_drive(tmp_path: Path) -> None:
-    offsets = read_drive_offsets(_write(tmp_path, _CONF_WITH_OFFSET))
-    assert offsets == [
-        WhipperConfOffset(drive="PIONEER :BD-RW   BDR-209D:1.51", offset=667)
-    ]
-
-
-def test_read_drive_offsets_url_decodes_drive_id(tmp_path: Path) -> None:
-    conf = _write(tmp_path, "[drive:PIONEER%20BD-RW%20BDR-209D]\nread_offset = 667\n")
-    assert read_drive_offsets(conf)[0].drive == "PIONEER BD-RW BDR-209D"
-
-
-def test_read_drive_offsets_multiple_drives(tmp_path: Path) -> None:
-    conf = _write(
-        tmp_path,
-        "[drive:A]\nread_offset = 6\n[drive:B]\nread_offset = -12\n",
+    Derived from the tree, so a new reader anywhere in the package fails here by
+    name. `paths.py` defines the constant; `deps/host_teardown.py` removes it.
+    """
+    users = sorted(
+        str(path.relative_to(_SRC))
+        for path in _SRC.rglob("*.py")
+        if "LEGACY_RIPPER_CONFIG_DIR" in path.read_text(encoding="utf-8")
     )
-    assert read_drive_offsets(conf) == [
-        WhipperConfOffset(drive="A", offset=6),
-        WhipperConfOffset(drive="B", offset=-12),
-    ]
-
-
-def test_read_drive_offsets_ignores_non_drive_section(tmp_path: Path) -> None:
-    # A read_offset outside a [drive:...] section is not a per-drive offset.
-    conf = _write(tmp_path, "[main]\nread_offset = 99\n")
-    assert read_drive_offsets(conf) == []
-
-
-def test_read_drive_offsets_missing_file(tmp_path: Path) -> None:
-    assert read_drive_offsets(tmp_path / "nope.conf") == []
-
-
-def test_describe_conf_offsets_none(tmp_path: Path) -> None:
-    assert describe_conf_offsets(_write(tmp_path, _CONF_NO_OFFSET)) == "none set"
-
-
-def test_describe_conf_offsets_formats(tmp_path: Path) -> None:
-    out = describe_conf_offsets(_write(tmp_path, _CONF_WITH_OFFSET))
-    assert "PIONEER" in out and "+667" in out
+    assert users == ["deps/host_teardown.py", "paths.py"], users

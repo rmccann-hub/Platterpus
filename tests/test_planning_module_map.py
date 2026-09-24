@@ -130,8 +130,8 @@ def test_the_map_does_not_describe_source_modules_that_are_gone() -> None:
     """The converse, scoped to names that look like package modules.
 
     A deleted module keeps its paragraph, and the paragraph keeps reading as
-    current — `whipper_backend.py` was removed in KDD-18 and its description
-    would have been indistinguishable from a live one. Scoped to bare
+    current — the previous backend's adapter module was removed in KDD-18 and
+    its description would have been indistinguishable from a live one. Scoped to bare
     `foo.py` bullets: `PLANNING.md` legitimately names `scripts/…` files, the
     generated `_build.py`, and `setup.py` as something we deliberately do not
     use, so a blanket "every name resolves" would fail on correct prose.

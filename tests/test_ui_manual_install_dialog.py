@@ -136,15 +136,15 @@ def test_why_text_falls_back_when_description_empty(
 
 
 def _wizard_spec() -> DependencySpec:
-    """A dep the setup wizard provides (whipper/metaflac/flac)."""
+    """A dep the setup wizard provides (cyanrip/metaflac/flac)."""
     return DependencySpec(
-        dep_id="whipper",
-        display_name="whipper",
+        dep_id="cyanrip",
+        display_name="cyanrip",
         probe=lambda: ProbeResult(present=False, version=None, location=None),
-        min_version=(0, 10, 0),
+        min_version=(0, 9, 3),
         tier=Tier.MANUAL,
         install_command=None,
-        search_string="install whipper Bazzite Fedora Distrobox",
+        search_string="install cyanrip Bazzite Fedora Distrobox",
         description="installed + exported by the setup wizard",
         from_setup_wizard=True,
     )

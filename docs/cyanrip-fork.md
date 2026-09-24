@@ -25,21 +25,21 @@ Consolidated from two separate documents so the subject has one home — part of
 
 > **Status: RESEARCH / OPTIONS — not a commitment.** Long-horizon: revisited
 > only *after* the v1 feature set works and hardware parity is proven. This doc
-> deliberately **keeps open** the option of forking and/or combining whipper and
-> cyanrip and maintaining our own engine — which **revisits [KDD-18](../PLANNING.md)
-> ("never fork whipper")**. Nothing here changes current direction; adopting any
+> deliberately **keeps open** the option of forking and/or combining the previous
+> backend and cyanrip and maintaining our own engine — which **revisits
+> [KDD-18](../PLANNING.md)'s "never fork" stance**. Nothing here changes current direction; adopting any
 > fork/combine path requires an explicit new KDD that amends KDD-18. This file is
 > *living* — append findings as the research continues (see §6).
 
 ### 0. Why this exists
 
 The maintainer asked (2026-06-23) to not rule out, long-term, forking and/or
-combining whipper and cyanrip — fixing, updating, and upgrading them ourselves
+combining the previous backend and cyanrip — fixing, updating, and upgrading them ourselves
 to get exactly the behaviour we need — **within what their licenses allow**.
 
 Today we invoke the rippers as **subprocess adapters** (Critical Rule #3, KDD-18),
 and the `RipBackend` ABC means the engine is already swappable as a near one-file
-change — that's how whipper was replaced by cyanrip. (A `Config.ripper_backend`
+change — that's how the previous backend was replaced by cyanrip. (A `Config.ripper_backend`
 selector existed while both shipped; it was removed when cyanrip became the sole
 backend, and would return if a second engine did.) So we can keep this option
 fully open at
@@ -47,7 +47,7 @@ fully open at
 
 ### 1. The two engines (facts, with sources)
 
-**whipper** — [`whipper-team/whipper`](https://github.com/whipper-team/whipper)
+**The previous backend** (the ripper Platterpus used before cyanrip) — [upstream repository](https://github.com/whipper-team/whipper)
 - License: **GNU GPL-3.0** (copyright 2009–2021). Python 3 (3.6+), derived from `morituri`.
 - Releases: last tagged release **v0.10.0, 2021-05-17** (KDD-18); the `develop`
   branch still receives commits (~1,600+), but no new *release* in years.
@@ -80,7 +80,7 @@ engineering, not legal.
 
 | Tool | Its license | If we fork/embed into our GPL-3.0 code |
 |---|---|---|
-| whipper | GPL-3.0-only | Directly compatible — same license; the combined work stays GPL-3.0. ✓ |
+| the previous backend | GPL-3.0-only | Directly compatible — same license; the combined work stays GPL-3.0. ✓ |
 | cyanrip | LGPL-2.1 | LGPL-2.1 **explicitly permits relicensing to GPL-2-or-later**, hence GPL-3.0; combining LGPL-2.1 with GPL-3 yields a GPL-3 work. ✓ (LGPL is also the *more permissive* base — more downstream freedom.) |
 
 - **cyanrip's transitive deps:** FFmpeg is LGPL-2.1+ by default (GPL only with
@@ -106,15 +106,15 @@ Sources: [GNU license compatibility](https://www.gnu.org/licenses/license-compat
 - **Option 0 — Status quo + upstream contribution (KDD-18 default).** Keep the
   subprocess adapters; when a ripper-level change is needed, contribute it to
   **cyanrip** (active). *Lowest burden; depends on upstream accepting + releasing.*
-- **Option 1 — Fork whipper.** *Pros:* Python (our language); EAC-grade log +
+- **Option 1 — Fork the previous backend.** *Pros:* Python (our language); EAC-grade log +
   cdrdao gap detection. *Cons:* stalled releases, the `pkg_resources`/Python-3.14
   cliff we'd own, the >587 bug, morituri legacy. **High maintenance.**
 - **Option 2 — Fork cyanrip.** *Pros:* active, C/FFmpeg (no Python cliff),
   already does AccurateRip+EAC-CRC+MB+ReplayGain+11 formats, LGPL→GPL3 trivial,
   applies offset without the >587 bug. *Cons:* C (not our primary language);
   Meson/FFmpeg/libcdio build + packaging to own; dep/ABI churn.
-- **Option 3 — Combine.** Use **cyanrip as the engine** and port whipper's
-  EAC-parity log (and any gap-detection edge) onto it → one GPL-3.0 engine we
+- **Option 3 — Combine.** Use **cyanrip as the engine** and port the previous
+  backend's EAC-parity log (and any gap-detection edge) onto it → one GPL-3.0 engine we
   control. *Highest power, highest effort.*
 - **Option 4 — Build our own ripper.** Rejected historically (KDD-08/18): the
   forensic read/offset/AccurateRip math is exactly what we delegate to a trusted
@@ -140,7 +140,8 @@ fork/combine option open.
 ### 5. Decision gates before adopting any fork/combine
 
 1. v1 feature set complete **and** hardware parity proven (the
-   `output_reference/` EAC output-parity matrix passing for whipper **and** cyanrip).
+   `output_reference/` EAC output-parity matrix passing for **every** engine being
+   forked or combined — cyanrip **and** the previous backend).
 2. A concrete need upstream won't serve, **documented**.
 3. Maintenance capacity assessed: who builds/releases the fork; CI for a C/Meson
    (or Python) build; ongoing security updates for FFmpeg/libcdio.
@@ -149,7 +150,7 @@ fork/combine option open.
 ### 6. Open research tasks (append findings here as we learn)
 
 - [x] **Gauge cyanrip upstream's activity + PR responsiveness (gates Option 0) — done 2026-07-08.** *Development:* `master` is live (last commit 2026-03-25; ~25–30 commits/yr). *Releases:* stalled — last tag v0.9.3.1 is ~2 yr old. *Responsiveness:* the maintainer **does merge external PRs, but slowly** (contact/cadence facts live in the roadmap's **Process** block — [`cyanrip-upstream.md`](cyanrip-upstream.md) — the canonical home; PR #115, pregap/HTOA, is open and actively reviewed). **Conclusion — a fork is NOT warranted for "slow releases":** because Platterpus owns the `ripping` Distrobox container, we can build cyanrip **from any git commit** (our own topic branch *before* a merge, or upstream `master` *after*), so cyanrip's release cadence never gates us — the "slow releases → must fork" reasoning dissolves. The real, smaller decision is **build-cyanrip-from-source in the container vs. a distro package** (a maintenance choice, not a fork). Escalate to a **soft fork** (upstream `master` + our small rebased patch set) only if a needed PR is *declined or stalls indefinitely*; a **hard fork / consolidated tree (§7)** stays behind the §5 gates + a KDD-18 amendment. (Upstream conventions/CI: see the roadmap's Process block.) **The soft fork now exists** (decided 2026-07-08): runbook in [`cyanrip-fork.md`](cyanrip-fork.md), execution kit in `scripts/cyanrip/` — two contributions prepared (the `-a`/`-t` colon fix ⭐ and full encoder opts). The "map cyanrip's FFmpeg flag surface" question below was answered **negatively** the same day: cyanrip hardcodes `compression_level` and opens encoders with no options dict — hence the prepared encoder-opts contribution.
-- [ ] Inventory exactly what whipper does that cyanrip doesn't (gap-detection
+- [ ] Inventory exactly what the previous backend does that cyanrip doesn't (gap-detection
       method, log fields, `.cue`/`.toc` output) — gates Option 3.
 - [ ] Map cyanrip's FFmpeg flag surface for what we want (FLAC compression level,
       encode verify, richer tags) — a rich-enough flag surface could make a fork
@@ -158,7 +159,7 @@ fork/combine option open.
       the build/packaging burden.
 - [ ] Re-verify transitive-dep licenses at the exact versions we'd ship
       (FFmpeg build flags; libcdio components).
-- [ ] Re-confirm whipper's Python-3.14 / `pkg_resources` status at decision time.
+- [ ] Re-confirm the previous backend's Python-3.14 / `pkg_resources` status at decision time.
 - [ ] **Run the §7 "mirror + enumerate + triage" spike** (read-only) and attach
       the per-branch manifest below.
 
@@ -179,10 +180,10 @@ their unreleased `develop`/feature/PR branches — merged, building, and test-gr
 through the host-setup wizard (the adapter boundary is unchanged).
 
 #### 7.1 Repo shape (pick at decision time)
-- **(a) Monorepo via `git subtree`** — vendor each upstream under `vendor/whipper`
-  and `vendor/cyanrip` *with full history*; local edits live alongside; pull
+- **(a) Monorepo via `git subtree`** — vendor each upstream under its own
+  `vendor/<name>` directory (e.g. `vendor/cyanrip`) *with full history*; local edits live alongside; pull
   upstream with `git subtree pull`. Best fit for "single project here." Recommended.
-- **(b) Two in-house forks** (`*-whipper`, `*-cyanrip`), each with a `consolidated`
+- **(b) Two in-house forks** (one per engine, e.g. `*-cyanrip`), each with a `consolidated`
   branch — better if we intend to send PRs back upstream (Option 0 still in play).
 - Either way the GUI repo is unchanged; only the host-setup install source moves
   from distro/COPR packages to our built artifacts.
@@ -196,11 +197,11 @@ through the host-setup wizard (the adapter boundary is unchanged).
    quality — unreleased branches are often experimental, abandoned-for-cause, or
    superseded. Each candidate must earn inclusion (see step 5). Record decisions.
 4. **Per-project test harness** so any branch can be verified in isolation:
-   whipper → `pytest` + a smoke rip; cyanrip → `meson build && meson test` + a smoke
+   the previous backend (Python) → `pytest` + a smoke rip; cyanrip → `meson build && meson test` + a smoke
    rip. "Verify a branch" = builds **and** its tests pass **and** a smoke rip works.
 5. **Integration branch `consolidated`,** built like our own refactor (small,
    bisectable, green-at-every-step): start from the most-advanced stable base
-   (whipper `develop`, cyanrip `master`), then **merge kept branches one at a time**,
+   (the previous backend's `develop`, cyanrip `master`), then **merge kept branches one at a time**,
    running the harness after each; reject any branch that can't be made green
    without disproportionate surgery. (Avoid octopus merges — conflicts need
    per-branch resolution.) Document every non-trivial conflict resolution.
@@ -216,7 +217,7 @@ re-mirror + re-triage), re-merge our local deltas, re-validate. Budget this as
 recurring maintenance, not one-time.
 
 #### 7.4 Licensing & attribution (non-negotiable)
-The consolidated work is **GPL-3.0** (whipper GPL-3 + cyanrip LGPL-2.1 → GPL-3;
+The consolidated work is **GPL-3.0** (the previous backend's GPL-3 + cyanrip LGPL-2.1 → GPL-3;
 §2). We MUST: retain **all** upstream copyright/license headers + `AUTHORS`/`NOTICE`,
 keep cyanrip's LGPL-2.1 notices intact even when combined under GPL-3, **state our
 modifications**, ship **complete corresponding source**, add **no further
@@ -226,7 +227,7 @@ inside the container image or AppImage), honor the GPL source-offer.
 
 #### 7.5 Risks (why this is the heavy option)
 - **We become the maintainer** of two upstream codebases (security updates for
-  FFmpeg/libcdio; the whipper `pkg_resources`/Python-3.14 cliff; build/packaging).
+  FFmpeg/libcdio; the previous backend's `pkg_resources`/Python-3.14 cliff; build/packaging).
 - **Merging unreleased branches can lower quality** vs. a curated upstream release —
   hence the per-branch verify-or-reject gate; expect to reject a lot.
 - **Heavy, divergent conflicts** between long-lived branches.
@@ -254,7 +255,7 @@ accuracy — not an accuracy feature.
 
 **The finding: it is primarily a software gap, with a hardware caveat.**
 - Our whole extraction stack ignores C2. Hydrogenaudio's ripper comparison lists
-  the C2 column as **"No"** for cdparanoia, whipper **and** cyanrip; only EAC,
+  the C2 column as **"No"** for cdparanoia, the previous backend **and** cyanrip; only EAC,
   dBpoweramp and XLD use C2 ([comparison][cmp]). cdparanoia has never used C2 —
   it relies on multi-pass re-reads + jitter/overlap analysis ([cdparanoia][cdp]);
   the cd-paranoia manpage never mentions C2 ([manpage][man]).
@@ -268,7 +269,7 @@ accuracy — not an accuracy feature.
   accurate — a C2-capable engine likely still couldn't get pointers from it.
   **Hardware-gated:** confirm with a real BDR-209D probe before acting.
 
-**No mature Linux C2 path exists.** libcdio-paranoia (whipper + cyanrip) doesn't;
+**No mature Linux C2 path exists.** libcdio-paranoia (cyanrip's engine, and the previous backend's) doesn't;
 `cdda2wav`/`icedax` can request C2 but isn't a secure/consensus ripper; dBpoweramp
 ships no Linux ripper.
 
@@ -417,8 +418,8 @@ cache-defeat verdict:
   readahead cache-exhaustion reads, plus FUA (Force Unit Access) where the
   drive advertises support — but this is **best-effort and drive-dependent**,
   with no runtime signal confirming it actually happened on a given drive.
-  whipper's `defeats_cache` setting in `whipper.conf` was the same shape: a
-  configured *intent*, not a measured *result*.
+  The previous backend's `defeats_cache` setting in its own config file was the
+  same shape: a configured *intent*, not a measured *result*.
 
 **Decision (see PLANNING.md KDD-25 for the full record):** report this
 honestly as **"attempted, not measured."** Our EAC-style log export
@@ -446,12 +447,12 @@ sign-off, and hardware validation before it could be trusted (KDD-25).
 **Two more notes from cross-checking that doc against our own decisions:**
 
 - **The doc's favored tracker path is the one we deliberately left behind.**
-  It endorses whipper + `whipper-plugin-eaclogger` as the way to satisfy
-  OPS/Orpheus-style tracker log acceptance. That's the exact backend we
+  It endorses the previous backend plus its EAC-logger plugin as the way to
+  satisfy OPS/Orpheus-style tracker log acceptance. That's the exact backend we
   removed as the ripper (KDD-18) and the exact path our own research
-  concluded does **not** cleanly work even for whipper (the plugin's
+  concluded does **not** cleanly work even for that backend (the plugin's
   EAC-*style* log still can't emit a real EAC checksum — RED's wall — per
-  [whipper-plugin-eaclogger#7](https://github.com/whipper-team/whipper-plugin-eaclogger/issues/7)).
+  [the plugin's issue #7](https://github.com/whipper-team/whipper-plugin-eaclogger/issues/7)).
   Our no-forged-provenance / open-trust position (AccurateRip + CTDB + an
   honest unsigned log) is **unchanged** by the doc's framing — see
   PLANNING.md **KDD-24** and `docs/eac-parity.md`.
@@ -467,7 +468,7 @@ below:
 
 1. **PR-first, not merge-assumed.** Where a gap is best closed *inside* an
    upstream tool, the plan is to **open a pull request upstream** (cyanrip,
-   whipper, libcdio-paranoia, cdrdao, or the tracker logcheckers) and *be
+   libcdio-paranoia, cdrdao, or the tracker logcheckers) and *be
    adaptable to their decision* — merging is their call. A **fork is the
    fallback**, taken only if upstream declines or stalls (§7 is the heavy
    in-house-tree procedure if it ever comes to that).
@@ -494,17 +495,17 @@ lowest-obligation route, and it's how we already use cyanrip/ffmpeg/flac/metafla
 | Gap | Best route (PR-first) | Candidate OSS / where | License fit | Effort | How we'd *verify* it (honesty gate) | Go / no-go |
 |---|---|---|---|---|---|---|
 | **Cache-defeat verdict** | PR to cyanrip to surface a cache self-test; else integrate `cd-paranoia -A` as a subprocess | cyanrip; `cdparanoia`/libcdio-paranoia (GPL-3) | ✓ (subprocess: any; PR to LGPL cyanrip: fine) | Med | Run `-A` on the real BDR-209D; a self-test that reports the drive's cache size + defeat method IS the verification. Until then KDD-25 keeps the honest "attempted, not measured" note. | **Deferred, PR-first.** Not worth a new host tool until a gap-consumer needs it; the honest note already satisfies the gate. |
-| **Test & Copy** (two-pass Test+Copy CRC) | PR to cyanrip for a two-pass mode; else our own second invocation + diff | cyanrip | ✓ | Med | Two independent passes producing two CRCs that we compare — self-verifying by construction. | **No-go for now.** Our `-Z N` consensus re-read is a *stronger* real-world guarantee; T&C matters only for a tracker log we don't target. Revisit only if whipper is re-added. |
-| **Gap / INDEX-00 detection** | Integrate `cdrdao read-toc` as a subprocess (what whipper does); else PR cyanrip | `cdrdao` (**GPL-2.0-only** — fine as a subprocess) | ✓ (subprocess only — do **not** link/copy) | Med–hard | Compare our detected pregaps against an EAC/whipper baseline cue on a real disc. | **Deferred.** Audio is already bit-perfect; only INDEX-00 *cue metadata* differs. Worth it only alongside a single-image rip mode. |
+| **Test & Copy** (two-pass Test+Copy CRC) | PR to cyanrip for a two-pass mode; else our own second invocation + diff | cyanrip | ✓ | Med | Two independent passes producing two CRCs that we compare — self-verifying by construction. | **No-go for now.** Our `-Z N` consensus re-read is a *stronger* real-world guarantee; T&C matters only for a tracker log we don't target. Revisit only if a tracker-recognized ripper is re-added. |
+| **Gap / INDEX-00 detection** | Integrate `cdrdao read-toc` as a subprocess (what the previous backend did); else PR cyanrip | `cdrdao` (**GPL-2.0-only** — fine as a subprocess) | ✓ (subprocess only — do **not** link/copy) | Med–hard | Compare our detected pregaps against an EAC (or other trusted ripper's) baseline cue on a real disc. | **Deferred.** Audio is already bit-perfect; only INDEX-00 *cue metadata* differs. Worth it only alongside a single-image rip mode. |
 | **HTOA** (hidden track-0 audio) | PR to cyanrip to rip the track-1 pregap; else `cdrdao`/`cdparanoia` span read | cyanrip; cdparanoia | ✓ | Med | Rip a known-HTOA disc and confirm the pregap audio extracts + verifies. **Hardware-gated** (need such a disc). | **Deferred, explicit scope note.** Rare; documented as out-of-scope until a real HTOA disc is on hand (TASKS.md). |
 | **C2 error pointers** | PR to **libcdio-paranoia** to expose C2, or a different read primitive below cyanrip | libcdio-paranoia (GPL-3); or a C2-aware reader | ✓ (GPL-3) | **Hard** | Only a real drive+disc with induced errors can confirm C2 flags are read and acted on. | **No-go (documented uncertainty).** The gap is *below* cyanrip — cd-paranoia deliberately ignores C2. Honest status: we do **not** use C2; overlap re-reads + AR/CTDB are our error defense. A PR to libcdio is the only route and upstream interest is unknown. |
-| **Tracker (RED/OPS) recognition** | **Re-add whipper as an optional secondary backend** (reverses KDD-18, needs maintainer sign-off); *and/or* PR to add cyanrip to the OPS/orpheus Logchecker allow-list | whipper (GPL-3, a **recognized** ripper); OPSnet/orpheusnet Logchecker (PHP) | ✓ | Med (whipper) / Low but uncertain (logchecker PR) | A recognized-ripper native log scored by the real logchecker — verifiable directly against OPS's checker. | **Documented option, maintainer's call.** A cyanrip *fork alone cannot* solve this (checkers gate on ripper *identity*, not our code). whipper is the honest OSS answer; the checksum wall still bars RED regardless. |
+| **Tracker (RED/OPS) recognition** | **Re-add the previous backend as an optional secondary backend** (reverses KDD-18, needs maintainer sign-off); *and/or* PR to add cyanrip to the OPS/orpheus Logchecker allow-list | the previous backend (GPL-3, a **recognized** ripper); OPSnet/orpheusnet Logchecker (PHP) | ✓ | Med (re-add) / Low but uncertain (logchecker PR) | A recognized-ripper native log scored by the real logchecker — verifiable directly against OPS's checker. | **Documented option, maintainer's call.** A cyanrip *fork alone cannot* solve this (checkers gate on ripper *identity*, not our code). Re-adding a recognized OSS ripper is the honest answer; the checksum wall still bars RED regardless. |
 
 #### Recommendation & decision gates
 
 - **Do nothing speculative.** Every row is *deferred with a plan*, not built — matching §5's decision gates. Adopt a route only when a specific gap becomes a **hard requirement** for a real user goal.
 - **When a gap does become required:** open the **upstream PR first**; keep the change small and rebased against upstream `master`; only fall back to a fork (§7) if it's declined. Prefer **subprocess integration** over forking wherever the capability can be reached from a separate binary (it sidesteps the maintenance and most obligations).
-- **The one permanent no:** never forge the EAC log checksum. If tracker acceptance is ever a hard requirement, the *only* honest routes are re-adding whipper (a recognized ripper) or getting cyanrip onto the logchecker allow-list upstream — both leave provenance truthful.
+- **The one permanent no:** never forge the EAC log checksum. If tracker acceptance is ever a hard requirement, the *only* honest routes are re-adding the previous backend (a recognized ripper) or getting cyanrip onto the logchecker allow-list upstream — both leave provenance truthful.
 - **Honesty gate is binding:** anything we surface to the user (a report field, a log line, a Settings claim) must be something we've verified or explicitly qualified — the cache-defeat "(unknown)" + reasoned note (KDD-25) is the template.
 
 > **Ordered, step-by-step version:** this menu is turned into a *ranked* action
@@ -901,4 +902,4 @@ cyanrip built it.
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.58.*

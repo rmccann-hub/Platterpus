@@ -9,8 +9,9 @@
 # Optional removals (prompted interactively, or --full to enable all):
 #   - MusicBrainz Picard Flatpak
 #   - The Distrobox 'ripping' container
-#   - whipper.conf at ~/.config/whipper/
-#   - Host-exported whipper, metaflac, flac and cyanrip at ~/.local/bin/
+#   - Leftover ripper settings from older versions at ~/.config/whipper/
+#   - Host-exported cyanrip, metaflac, flac and cd-paranoia at ~/.local/bin/
+#     (plus an older version's leftover wrapper there, if any)
 #
 # NEVER removed unless explicitly asked via --remove-rips:
 #   - Music files at ~/Music/rips/ (or wherever your Config points)
@@ -31,7 +32,7 @@ INTERACTIVE=1
 DRY_RUN=0
 REMOVE_PICARD=0
 REMOVE_CONTAINER=0
-REMOVE_WHIPPER_CONFIG=0
+REMOVE_LEGACY_CONFIG=0
 REMOVE_EXPORTS=0
 REMOVE_RIPS=0
 
@@ -47,8 +48,9 @@ Default removals (safe — easily redoable with dev-setup.sh):
 Optional removals (prompted interactively, or --full to enable all):
   - MusicBrainz Picard Flatpak
   - The Distrobox 'ripping' container
-  - whipper.conf at ~/.config/whipper/
-  - Host-exported whipper, metaflac, flac and cyanrip at ~/.local/bin/
+  - Leftover ripper settings from older versions at ~/.config/whipper/
+  - Host-exported cyanrip, metaflac, flac and cd-paranoia at ~/.local/bin/
+    (plus an older version's leftover wrapper there, if any)
 
 NEVER removed unless explicitly asked via --remove-rips:
   - Music files at ~/Music/rips/ (or wherever your Config points)
@@ -72,7 +74,7 @@ while [ $# -gt 0 ]; do
         --full)
             REMOVE_PICARD=1
             REMOVE_CONTAINER=1
-            REMOVE_WHIPPER_CONFIG=1
+            REMOVE_LEGACY_CONFIG=1
             REMOVE_EXPORTS=1
             ;;
         --remove-rips) REMOVE_RIPS=1 ;;
@@ -163,20 +165,21 @@ else
     missing "$GUI_LOGS"
 fi
 
-# Pre-rename leftovers (the app was "Whipper GUI" before Platterpus). The
-# rename copied ~/.config/whipper-gui → ~/.config/platterpus rather than moving
-# it, so the old dirs can linger — clear them for a clean slate.
+# Pre-rename leftovers: folders under the app's name before it was Platterpus.
+# The rename copied them to ~/.config/platterpus rather than moving them, so the
+# old dirs can linger — clear them for a clean slate. The names are the real
+# ones on disk, so they are spelled exactly.
 for _legacy in "$HOME/.config/whipper-gui" "$HOME/.local/share/whipper-gui"; do
     if [ -d "$_legacy" ]; then
         run rm -rf "$_legacy"
-        removed "$_legacy (legacy whipper-gui)"
+        removed "$_legacy (pre-rename leftover)"
     fi
 done
 
 # The freedesktop app-id: the AppImage integration writes its menu entry and
 # icon under this name (paths.APP_ID), while dev-setup.sh uses the short
 # `platterpus` name. Remove BOTH so every install method is covered — and the
-# legacy pre-rename `whipper-gui` name too, for a truly clean slate.
+# app's pre-rename name too, for a truly clean slate.
 APP_ID="io.github.rmccann_hub.Platterpus"
 
 # Main menu launcher. Created as "$APP_ID.desktop" by the AppImage (the bug this
@@ -263,9 +266,9 @@ fi
 
 echo
 
-# --- 2. Optional removals (Picard, container, whipper.conf, exports) -----
+# --- 2. Optional removals (Picard, container, leftovers, exports) --------
 
-echo "Optional removals (Picard, container, whipper.conf, host exports):"
+echo "Optional removals (Picard, container, older-version leftovers, host exports):"
 
 # Picard
 if [ "$REMOVE_PICARD" -eq 1 ] || prompt "Remove MusicBrainz Picard (Flatpak)?"; then
@@ -294,29 +297,30 @@ else
     skipped "Distrobox 'ripping' container"
 fi
 
-# whipper config — remove the whole ~/.config/whipper/ directory, not just
-# whipper.conf, so the drive-setup wizard's whipper.conf.bak backup doesn't
-# survive a "full" uninstall. Matches what the in-app uninstaller
-# (deps/host_teardown.py) already does (it removes the config dir).
-WHIPPER_CONF_DIR="$HOME/.config/whipper"
-if [ "$REMOVE_WHIPPER_CONFIG" -eq 1 ] || prompt "Remove whipper config (drive calibration, incl. .bak) at $WHIPPER_CONF_DIR?"; then
-    if [ -d "$WHIPPER_CONF_DIR" ]; then
-        run rm -rf "$WHIPPER_CONF_DIR"
-        removed "$WHIPPER_CONF_DIR"
+# Leftover settings of the ripper older versions drove (before cyanrip, KDD-18).
+# The whole folder, not just its config file, so an older drive wizard's `.bak`
+# backup doesn't survive a "full" uninstall. Matches the in-app uninstaller
+# (deps/host_teardown.py), which removes the folder. Nothing reads it any more.
+LEGACY_CONFIG_DIR="$HOME/.config/whipper"
+if [ "$REMOVE_LEGACY_CONFIG" -eq 1 ] || prompt "Remove leftover ripper settings from older versions at $LEGACY_CONFIG_DIR?"; then
+    if [ -d "$LEGACY_CONFIG_DIR" ]; then
+        run rm -rf "$LEGACY_CONFIG_DIR"
+        removed "$LEGACY_CONFIG_DIR"
     else
-        missing "$WHIPPER_CONF_DIR"
+        missing "$LEGACY_CONFIG_DIR"
     fi
 else
-    skipped "$WHIPPER_CONF_DIR"
+    skipped "$LEGACY_CONFIG_DIR"
 fi
 
 # Host-exported binaries from Distrobox. Must match what setup-host.sh and the
 # in-app host-setup wizard exported: cyanrip, metaflac, flac AND cd-paranoia
 # (the optional cache-probe tool, KDD-29). `flac` was missing once and its
-# wrapper was orphaned; `cd-paranoia` then repeated it. `whipper` stays for a
-# pre-KDD-18 install that may still have it exported.
-if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported whipper, metaflac, flac, cyanrip and cd-paranoia wrappers at ~/.local/bin/?"; then
-    for bin in whipper metaflac flac cyanrip cd-paranoia; do
+# wrapper was orphaned; `cd-paranoia` then repeated it. The last name in the
+# list is a leftover: the wrapper of the ripper older versions drove, which an
+# older install may still have exported.
+if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported cyanrip, metaflac, flac and cd-paranoia wrappers (and any older-version leftover) at ~/.local/bin/?"; then
+    for bin in cyanrip metaflac flac cd-paranoia whipper; do
         target="$HOME/.local/bin/$bin"
         if [ -f "$target" ]; then
             run rm -f "$target"
@@ -326,7 +330,7 @@ if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported whipper, metaflac
         fi
     done
 else
-    skipped "host-exported whipper, metaflac, flac, cyanrip and cd-paranoia"
+    skipped "host-exported cyanrip, metaflac, flac and cd-paranoia"
 fi
 
 # Music files — opt-in only, never via --full.

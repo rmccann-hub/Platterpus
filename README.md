@@ -6,13 +6,13 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.57 — out of beta.** Handshake rounds **1 through 26** are all closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.15` at **`df91ae7`** and Platterpus **`0.6.55`**, approved by **round 26** — the first pin this project has approved on its own real hardware test: the full acceptance run on 0.6.55 with `.15` installed, eight rips on the Pioneer BDR-209D, whose only failures were one rip killed when its container was stopped from outside the app. 0.6.56 was the first release to install `df91ae7` by default. **0.6.57 re-reads "partially accurate" tracks by default**, because that AccurateRip match checks only **one frame** of the track, and on that test one such track held wrong audio. It also says so in plain words everywhere it used to say "offset-variant pressing". The fork has published `.16`; **round 27** reviews it next, on a real test of `.16` with 0.6.57.
+> **Status: v0.6.58 — out of beta.** Handshake rounds **1 through 26** are all closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.15` at **`df91ae7`** and Platterpus **`0.6.55`**, approved by **round 26** — the first pin this project has approved on its own real hardware test: the full acceptance run on 0.6.55 with `.15` installed, eight rips on the Pioneer BDR-209D, whose only failures were one rip killed when its container was stopped from outside the app. 0.6.56 was the first release to install `df91ae7` by default. **0.6.57 re-reads "partially accurate" tracks by default**, because that AccurateRip match checks only **one frame** of the track, and on that test one such track held wrong audio. It also says so in plain words everywhere it used to say "offset-variant pressing". The fork has published `.16`; **round 27** reviews it next, on a real test of `.16` with 0.6.57.
 >
 > **One hardware-gated item remains, and it is a drive limitation rather than a gap in the app.** **Overread is `-O`, it has run on the Pioneer BDR-209D, and it hung the drive ~23 minutes** — do not reach for that toggle on this drive (`docs/dependency-contracts.md`). The fork's `-x` **cache probe** is no longer outstanding, and not because anyone fixed it: `-x` is a *modifier*, not a mode — it proceeds into a full rip by design, which the fork [declined to change](docs/handshake/inbound/round-14-lap-03.md) — and `-x -I` is the probe-only invocation that writes no audio. Platterpus always passes both, and that pairing ran clean on 2026-08-26 (`-N -x -I`, exit 0), as did the C1 detector (`-N -l 1`, exit 1, *Offset is unset*, no hang). The next minor is **0.7.100**, gated on a full hardware pass — and the bar was sharpened by the maintainer on 2026-08-26: **zero failures in the archival sections** — accuracy, provenance, and the records that make a rip trustworthy — with UX failures recorded, triaged and non-blocking. Severity is declared per section *before* the disc goes in, never decided after seeing a failure: of 21 sections, 17 are archival and 4 are UX.
 >
 > **Latest hardware: a clean identity check, and one rip lost to something outside the app.** On **2026-09-24** the acceptance run on the Pioneer BDR-209D under Bazzite reached the last step at **258 of 261**. It ran app `0.6.55` against the round-26 test pin `df91ae7`, over eight rips in about four hours. All three failures were one event: 95 seconds into the whole-disc rip, the Distrobox container the ripper runs in was stopped from outside Platterpus, and the ripper was killed. Every other section passed, including the three-hour secure re-read: 14 of 14 tracks converged, 13 of 14 were verified by AccurateRip, and CTDB matched. The run is recorded `partial`, because the lost rip is in an archival section, and grades are fixed before a run, never after. **The field-evidence ledger carries eight rows and no `full-green` row at all**, and that is the number to read rather than any step count. The run also showed that Platterpus told the user *"no diagnosis was captured"* when the exit status *was* the diagnosis. That is fixed, along with three smaller things the same event exposed (`docs/testing.md` §5.br). The next minor, **`0.7.100`**, is gated on a full hardware pass and **has not met it**; `0.9.1` needs **two** full-green passes across **at least two machines and two distros** (maintainer ruling, 2026-09-13) — one rig passing twice answers *was it luck* and says nothing about *is it green only because of this machine*. A gate refuses a version bump the ledger does not support.
 >
-> **What is in it.** Implemented end-to-end with 5,400+ tests (including a full-pipeline end-to-end test) at 91.9% branch coverage (91% enforced in CI, and the floor ratchets up, never down), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line**, **true in-app updates**, **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder**, an **EAC-compatible companion log** with a per-track **EAC CRC32 column**, and **software-version provenance** recorded in the log header and the window title. Release-by-release detail lives in [`CHANGELOG.md`](CHANGELOG.md) — the single authoritative record — rather than accumulating on this page. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
+> **What is in it.** Implemented end-to-end with 5,400+ tests (including a full-pipeline end-to-end test) at 91.9% branch coverage (91% enforced in CI, and the floor ratchets up, never down), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (the Platterpus fork of cyanrip — actively maintained, and no >587 read-offset bug; see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line**, **true in-app updates**, **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder**, an **EAC-compatible companion log** with a per-track **EAC CRC32 column**, and **software-version provenance** recorded in the log header and the window title. Release-by-release detail lives in [`CHANGELOG.md`](CHANGELOG.md) — the single authoritative record — rather than accumulating on this page. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 ## At a glance
 
@@ -43,7 +43,7 @@ Where Platterpus stands against EAC-equivalent archival quality: what it has, wh
 | Log integrity checksum (ours, openly verifiable) | ✅ | Have it (KDD-28) — a plain SHA-256 of the log text, at least as strong as EAC's and checkable with `sha256sum` (no secret key). Clearly labelled *not* an EAC checksum |
 | C2 error pointers | ✅\* | **Aligned with EAC archival best practice — which *disables* C2.** The perfect-rip guide leaves C2 unchecked *even when the drive supports it* (drives falsely report clean reads while dropping C2 internally); the archival path relies on re-reads + AccurateRip/CTDB. So "no C2" is correct, not a gap |
 | Signed EAC log checksum | ❌ | **Never** — signing our log as EAC forges provenance (bannable fake log). No PR, ever |
-| Elite-tracker (RED/OPS/Orpheus) log acceptance | ❌ | Out of scope — *identity-walled* (checkers score cyanrip 0 regardless of audio). Honest path: re-add whipper, or a 2-PR chain **cyanreg → itismadness** (low odds) |
+| Elite-tracker (RED/OPS/Orpheus) log acceptance | ❌ | Out of scope — *identity-walled* (checkers score cyanrip 0 regardless of audio). Honest path: rip with a ripper the log checkers accept, or a 2-PR chain **cyanreg → itismadness** (low odds) |
 
 **In short:** everything that *proves* a good archival rip — bit-perfect audio, AccurateRip + CTDB verification, a measured cache-defeat verdict, Test & Copy, an openly-verifiable log checksum, tags, art, provenance — is in place. Each of those was closed with **equal-or-stronger rigor than EAC, honestly labelled as ours** — we never forge EAC's output. The one remaining gap is **gap/INDEX-00 + HTOA**, and its mechanism is now decided (build cyanrip from our soft fork — KDD-32). The rest is either *never* (signed checksum = forgery), *aligned with best practice* (C2 stays off), or *identity-walled* (elite-tracker acceptance). Contributor detail: [`docs/cyanrip-upstream.md`](docs/cyanrip-upstream.md) and [`docs/cyanrip-fork.md` Part A §10](docs/cyanrip-fork.md).
 
@@ -397,7 +397,7 @@ Every optical drive reads audio slightly off from where it "should" — by a pos
 
 > **Why no "detect from a disc" button?** cyanrip (the ripping backend) has no AccurateRip offset-*finder*, so Platterpus doesn't offer on-disc auto-detection — a button that could only guess or fail would be worse than none. The drive-offset list is the reliable, disc-free source; a rip that then verifies against AccurateRip is what confirms the offset is right for your unit.
 
-> **What about `~/.config/whipper/whipper.conf`?** If you ran an older whipper-based install, that file may still exist. It's **legacy, read-only reference only** — kept so an upgrading user can see their previous offset. cyanrip neither reads nor writes it; the live offset lives in Platterpus's own config. There's nothing to create or edit there.
+> **What about `~/.config/whipper/whipper.conf`?** That file is a leftover from older versions, if it exists at all. Platterpus no longer reads it, and neither does cyanrip — the offset lives only in Platterpus's own config, set in the drive-setup wizard. There's nothing to create or edit there, and the uninstaller removes it if present.
 
 ### Step 6 — Install MusicBrainz Picard *(optional)*
 
@@ -541,7 +541,7 @@ The resulting `platterpus-x86_64.AppImage` appears at the repo root. See [`build
 
 ## Ripping backend: cyanrip
 
-The GUI drives a single ripping engine: [**cyanrip**](https://github.com/cyanreg/cyanrip) — actively maintained, EAC-equivalent archival quality. There's no backend setting or toggle; cyanrip is it. (The project originally used whipper, but its cd-paranoia has a known bug at read offsets **over 587 samples** that can fail tracks — e.g. the Pioneer BDR-209D's +667; cyanrip applies the offset correctly with its own paranoia even past that threshold, which is why we switched. See [KDD-18](PLANNING.md).)
+The GUI drives a single ripping engine: [**cyanrip**](https://github.com/cyanreg/cyanrip) — actively maintained, EAC-equivalent archival quality. There's no backend setting or toggle; cyanrip is it. (The project originally used a different ripper, whose cd-paranoia has a known bug at read offsets **over 587 samples** that can fail tracks — e.g. the Pioneer BDR-209D's +667; cyanrip applies the offset correctly with its own paranoia even past that threshold, which is why we switched. See [KDD-18](PLANNING.md).)
 
 The GUI does the MusicBrainz lookup itself and then runs cyanrip **offline** — with `-N` (no network metadata lookup) and the chosen release's tags fed in via `-a`/`-t` — so cyanrip's own interactive prompt never surfaces and the rip needs no in-container network. Cover art is fetched separately by the GUI from the Cover Art Archive.
 
@@ -572,7 +572,7 @@ The flag-by-flag detail below is about how each format is encoded.
 
 cyanrip encodes each track to FLAC through FFmpeg at **maximum compression**, and verifies the read itself via its own paranoia engine — so every track is provably bit-perfect (and confirmed afterwards against AccurateRip and CTDB). There's no compression-level knob to set: it's already at the top.
 
-**Historical context — the "Re-compress FLACs" setting.** Settings still lists a **"Re-compress FLACs"** toggle, but it is **inert and disabled** with cyanrip and does nothing: cyanrip already produces maximum-compression FLAC, so there's nothing to re-compress. (The control is kept only as a seam for a hypothetical future backend that *didn't* encode at max — for example, the old whipper backend relied on flac's default level 5, where a post-rip re-encode to `-8` would have shaved ~5% off file size. That no longer applies.) Don't expect flipping it to change anything.
+**Historical context — the "Re-compress FLACs" setting.** Settings still lists a **"Re-compress FLACs"** toggle, but it is **inert and disabled** with cyanrip and does nothing: cyanrip already produces maximum-compression FLAC, so there's nothing to re-compress. (The control is kept only as a seam for a hypothetical future backend that *didn't* encode at max — for example, the previous backend relied on flac's default level 5, where a post-rip re-encode to `-8` would have shaved ~5% off file size. That no longer applies.) Don't expect flipping it to change anything.
 
 For background: **all FLAC compression levels are lossless** — `-0` and `-8` decode to identical audio; only file size (and a little decode CPU) differ. cyanrip's max-compression output and its self-verification give you the smallest standard FLAC with the bit-perfect property already proven.
 
@@ -625,7 +625,7 @@ Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checka
 - **Move finished rips to** a library folder (empty = off) — once every post-rip check has settled (verification, transcode, checksums, the rip report), the album folder is filed into your library; a name collision lands in a "(2)" sibling, never an overwrite
 - Auto-eject after a successful rip, plus read-offset calibration via the drive-setup wizard
 
-*(Of the three whipper-only toggles removed with whipper (KDD-18) — force overread, keep-going-on-track-failure, and continue-ripping-CD-Rs — the last two stay gone: cyanrip handles track failures and CD-Rs natively with no equivalent flag. Force overread returned in v0.5.0, rebuilt cyanrip-native as the Overread toggle above.)*
+*(Of the three toggles removed with the previous backend (KDD-18) — force overread, keep-going-on-track-failure, and continue-ripping-CD-Rs — the last two stay gone: cyanrip handles track failures and CD-Rs natively with no equivalent flag. Force overread returned in v0.5.0, rebuilt cyanrip-native as the Overread toggle above.)*
 
 After a rip, the results pane shows an at-a-glance **verification verdict** (green = every track verified against AccurateRip, amber = partial, grey = not in the database) above the per-track table, plus the CTDB result.
 
@@ -850,7 +850,7 @@ If you plan to **push changes**, GitHub deprecated HTTPS password auth in 2021, 
 
 ### Where is my drive's read offset stored?
 
-cyanrip uses **no config file** of its own. Platterpus stores your drive's read offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time. Set or change it in the GUI via **Tools → Setup & Updates… → Set up drive…**. (A `~/.config/whipper/whipper.conf` left over from an older whipper install is legacy reference only — cyanrip doesn't read it.)
+cyanrip uses **no config file** of its own. Platterpus stores your drive's read offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time. Set or change it in the GUI via **Tools → Setup & Updates… → Set up drive…**. (A `~/.config/whipper/whipper.conf` left over from older versions is not read by Platterpus or cyanrip; the uninstaller removes it if present.)
 
 ### `cyanrip: command not found`
 
@@ -953,7 +953,7 @@ sudo dnf system-upgrade reboot   # inside the container only
 
 ## Uninstalling
 
-**Easiest — no terminal:** open the app and use **Tools → Uninstall Platterpus…**, or click the **Uninstall Platterpus** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the cyanrip/metaflac/flac/cd-paranoia commands (and any leftover whipper export from an older install), the `ripping` container, optionally the AppImage file itself, and the app's own settings and logs (including the stored read offset) — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `./platterpus-x86_64.AppImage --uninstall` (or `platterpus --uninstall` on a pipx install).
+**Easiest — no terminal:** open the app and use **Tools → Uninstall Platterpus…**, or click the **Uninstall Platterpus** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the cyanrip/metaflac/flac/cd-paranoia commands (and any leftovers from older versions, such as `~/.local/bin/whipper`), the `ripping` container, optionally the AppImage file itself, and the app's own settings and logs (including the stored read offset) — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `./platterpus-x86_64.AppImage --uninstall` (or `platterpus --uninstall` on a pipx install).
 
 **Script alternative** (source checkouts, or if you prefer the terminal): the [`uninstall.sh`](uninstall.sh) script tears everything down in layers, safest-first — it also covers the dev `.venv/`, which the in-app uninstaller doesn't (a packaged app doesn't know your checkout's location). It **never** removes your ripped music or a source checkout without an explicit flag.
 
@@ -978,9 +978,9 @@ To remove the host stack fully by hand instead:
 distrobox rm ripping            # remove the container
 rm -f ~/.local/bin/cyanrip ~/.local/bin/metaflac \
       ~/.local/bin/flac ~/.local/bin/cd-paranoia   # host exports (all four)
-rm -f ~/.local/bin/whipper      # leftover from an older whipper install, if present
+rm -f ~/.local/bin/whipper      # leftover from older versions, if present
 rm -rf ~/.config/platterpus ~/.local/share/platterpus
-rm -rf ~/.config/whipper        # legacy whipper config, if present
+rm -rf ~/.config/whipper        # leftover from older versions, if present
 ```
 
 Your music at `~/Music/rips/` (or wherever Settings points) is never touched by any of this.
@@ -991,10 +991,10 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 |------|----------|
 | `~/.local/bin/cyanrip` | The Distrobox-exported ripper wrapper. Always present. **Don't edit.** |
 | `~/.local/bin/metaflac` | The Distrobox-exported tag-editor wrapper. **Don't edit.** |
-| `~/.local/bin/whipper` | Legacy leftover from an older whipper install, if present — no longer used; safe to remove. |
+| `~/.local/bin/whipper` | Leftover from older versions, if present — no longer used; safe to remove. |
 | `~/Applications/platterpus-x86_64.AppImage` | The app itself, after menu integration moves it out of Downloads. |
 | `~/.config/platterpus/config.toml` | The GUI's own settings (output dir, templates, toggles) **and your drive's read offset**. The real settings file. |
-| `~/.config/whipper/whipper.conf` | Legacy offset reference only — cyanrip does not use it. Kept so an upgrading user can see their old offset. |
+| `~/.config/whipper/whipper.conf` | Leftover from older versions, if present — Platterpus no longer reads it (the offset lives in `config.toml` above); the uninstaller removes it. |
 | `~/.local/share/platterpus/log.txt` | GUI log file. Check here when something goes sideways. |
 | `~/Music/rips/` *(default)* | Where rips land, under `Artist/Album/`. Configurable in Settings. |
 | `…/Artist/Album/` | The rip itself: the FLAC tracks **plus** the sidecars — cyanrip's own `.log` and `.cue`, Platterpus's `<Album>.platterpus.json` report, the optional `<Album> (EAC-compatible).log`, and any saved `cover.<ext>` / `back.<ext>` / `booklet-NN.<ext>` artwork. |
@@ -1035,10 +1035,10 @@ Build / dev tooling:
 
 ## License
 
-[**GPL-3.0-only**](LICENSE). Chosen to align with the free-software CD-ripping ecosystem this builds on (whipper, cdparanoia, CUETools) and to keep the tool and any forks open. cyanrip and other GPL tools are invoked as separate processes (not linked), and PySide6 is used under its LGPL-3 option — so the combined work is cleanly GPL-3.0.
+[**GPL-3.0-only**](LICENSE). Chosen to align with the free-software CD-ripping ecosystem this builds on (cyanrip, cdparanoia, CUETools) and to keep the tool and any forks open. cyanrip and other GPL tools are invoked as separate processes (not linked), and PySide6 is used under its LGPL-3 option — so the combined work is cleanly GPL-3.0.
 
 See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.6.57.*
+*Last updated for Platterpus v0.6.58.*

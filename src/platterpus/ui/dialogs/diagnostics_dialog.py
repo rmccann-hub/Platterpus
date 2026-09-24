@@ -107,7 +107,14 @@ def build_diagnostics_text() -> str:
             lines.append(f"{key}: {env_items[key]}")
         deps = env_items.get("dependencies")
         if isinstance(deps, dict) and deps:
-            lines += ["", "--- Dependencies ---"]
+            lines += [
+                "",
+                "--- Dependencies ---",
+                # A version is a fact about the moment it was measured.
+                build_info.describe_measured_at(
+                    getattr(dep_report, "measured_at", "") or None
+                ),
+            ]
             for tool in sorted(deps):
                 info = deps[tool]
                 if isinstance(info, dict):

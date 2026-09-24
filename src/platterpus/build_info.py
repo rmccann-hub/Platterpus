@@ -21,7 +21,11 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-from platterpus.report_types import DependencyEntry, EnvironmentBlock
+from platterpus.report_types import (
+    ComponentInventory,
+    DependencyEntry,
+    EnvironmentBlock,
+)
 
 # The sentinel used when no build stamp is present (source/editable installs).
 # A report always carries a fingerprint string — a real one or this — so a
@@ -175,6 +179,66 @@ def dependency_summary(report: object) -> dict[str, DependencyEntry]:
             "min_version_met": False,
         }
     return summary
+
+
+def component_inventory(report: object) -> ComponentInventory:
+    """Every component, its version, and when the dependency versions were measured.
+
+    THE one function Help → About, Diagnostics and the acceptance bundle read, so
+    they cannot disagree about a machine. ``report`` is the newest dependency
+    probe (``deps.manager.latest_report()``), or ``None`` when none has finished:
+    then ``dependencies`` is ``None``, which means *not measured yet*, never *no
+    dependencies*. Reads only what is already known: it never probes, because a
+    probe enters the ripper's container. Never raises.
+    """
+    env = environment_report()
+    qt: str | None = None
+    try:
+        from PySide6.QtCore import qVersion
+
+        qt = qVersion()
+    except Exception:  # noqa: BLE001 — an absent Qt must not break the inventory
+        pass
+    from platterpus import __version__
+
+    measured = getattr(report, "measured_at", "") if report is not None else ""
+    return {
+        "app": __version__,
+        "build": build_fingerprint(),
+        "python": env["python"],
+        "qt": qt,
+        "pyside6": env["pyside6"],
+        "platform": env["platform"],
+        "dependencies": dependency_summary(report) if report is not None else None,
+        "dependencies_measured_at": measured or None,
+    }
+
+
+def describe_measured_at(measured_at: str | None, now: object = None) -> str:
+    """``measured 4 minutes ago (17:12 UTC)``, or why there is no measurement.
+
+    ``now`` is injectable for tests. A value that does not parse is shown as
+    given rather than dropped, since the raw timestamp is still the fact.
+    """
+    from datetime import UTC, datetime
+
+    if not measured_at:
+        return "not measured yet this session"
+    try:
+        when = datetime.fromisoformat(measured_at)
+    except ValueError:
+        return f"measured at {measured_at}"
+    current = now if isinstance(now, datetime) else datetime.now(UTC)
+    seconds = max(0, int((current - when).total_seconds()))
+    if seconds < 60:
+        age = "just now"
+    elif seconds < 3600:
+        minutes = seconds // 60
+        age = f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+    else:
+        hours = seconds // 3600
+        age = f"{hours} hour{'s' if hours != 1 else ''} ago"
+    return f"measured {age} ({when.astimezone(UTC):%H:%M} UTC)"
 
 
 def encoder_versions(report: object, dep_ids: Iterable[str]) -> dict[str, str]:

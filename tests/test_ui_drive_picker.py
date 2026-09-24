@@ -206,11 +206,11 @@ def test_refresh_with_drives_does_not_emit_unavailable(
 # --- refresh() — error case ----------------------------------------------
 
 
-def test_refresh_handles_whipper_error_without_crashing(
+def test_refresh_handles_rip_error_without_crashing(
     qapp: QApplication,
 ) -> None:
     backend = _FakeBackend()
-    backend.raise_on_list(RipError("whipper missing"))
+    backend.raise_on_list(RipError("cyanrip missing"))
     picker = DrivePicker(backend)
     seen: list[str] = []
     picker.drive_changed.connect(seen.append)
@@ -226,7 +226,7 @@ def test_refresh_handles_whipper_error_without_crashing(
 def test_refresh_handles_unexpected_exception_without_crashing(
     qapp: QApplication,
 ) -> None:
-    # A non-RipError (e.g. a parser choking on unexpected whipper
+    # A non-RipError (e.g. a parser choking on unexpected ripper
     # output) must NOT propagate out of refresh() — that's what made the
     # whole window vanish at startup. It should degrade to a placeholder.
     backend = _FakeBackend()
@@ -356,8 +356,8 @@ def test_current_drive_none_on_backend_error(qapp: QApplication) -> None:
 
 def test_rescan_button_reemits_drive_changed(qapp: QApplication) -> None:
     """Rescan re-runs the disc pipeline for the CURRENT drive — the retry
-    affordance for transient scan failures (e.g. whipper's cdrdao read-toc
-    flake when the disc is still spinning up). Refresh can't do this: it
+    affordance for transient scan failures (e.g. the table-of-contents read
+    failing while the disc is still spinning up). Refresh can't do this: it
     preserves the selection, so it never re-triggers the scan."""
     backend = _FakeBackend()
     backend.set_drives([_drive("/dev/sr0")])

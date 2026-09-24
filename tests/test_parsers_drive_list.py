@@ -1,7 +1,8 @@
 """Tests for platterpus.parsers.drive_list.
 
 Fixtures live in tests/fixtures/; each fixture is hand-written to match
-the format documented in whipper-team/whipper master (command/drive.py).
+the legacy drive-list output format (described, with the upstream source it
+was verified against, in `platterpus/parsers/drive_list.py`).
 """
 
 from __future__ import annotations
@@ -60,7 +61,7 @@ def test_parse_handles_completely_empty_input() -> None:
 
 
 def test_parse_yes_no_cache_values() -> None:
-    """Whipper may emit Yes/No variants in some builds; we accept both."""
+    """Some builds of the legacy output emit Yes/No variants; we accept both."""
     output = (
         "drive: /dev/sr0, vendor: ASUS, model: SDRW-08D2S-U, release: D102\n"
         "       Can defeat audio cache: Yes\n"

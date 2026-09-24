@@ -45,7 +45,7 @@ def _step(step_id: str) -> StepResult:
 
 
 def test_run_emits_each_step_then_the_full_list(qapp: QApplication) -> None:
-    steps = [_step("distrobox"), _step("container"), _step("whipper")]
+    steps = [_step("distrobox"), _step("container"), _step("cyanrip")]
     worker = HostSetupWorker(_FakeEngine(steps))
     per_step: list[StepResult] = []
     final: list[list[StepResult]] = []
@@ -54,9 +54,9 @@ def test_run_emits_each_step_then_the_full_list(qapp: QApplication) -> None:
 
     worker.run()
 
-    assert [s.step_id for s in per_step] == ["distrobox", "container", "whipper"]
+    assert [s.step_id for s in per_step] == ["distrobox", "container", "cyanrip"]
     assert len(final) == 1
-    assert [s.step_id for s in final[0]] == ["distrobox", "container", "whipper"]
+    assert [s.step_id for s in final[0]] == ["distrobox", "container", "cyanrip"]
 
 
 def test_cancel_is_observable_through_the_engine_probe(qapp: QApplication) -> None:

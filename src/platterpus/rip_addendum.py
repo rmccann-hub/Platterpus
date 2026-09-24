@@ -454,7 +454,7 @@ def read_log_with_addendum(log_path: str | Path) -> str:
 def read_any_log(log_path: str | Path) -> str:
     """Any rip log's text — **encoding sniffed, addendum applied**. One reader.
 
-    :func:`read_log_with_addendum` assumes UTF-8, which is right for cyanrip and whipper
+    :func:`read_log_with_addendum` assumes UTF-8, right for cyanrip and legacy-format logs
     and wrong for EAC (UTF-16). The three CLI tools in ``scripts/`` all have to accept
     either, so each of them grew the same two-line ``decode_log_bytes(p.read_bytes())`` —
     and **all three of them thereby skipped the addendum.**

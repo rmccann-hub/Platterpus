@@ -971,7 +971,8 @@ grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 
 Expected, unchanged across v0.5.12 → v0.5.18: `output_dir = "/home/rmccann/Music/rips"`,
 working dir `~/.cache/platterpus`, `read_offset = 667` with "Apply this read offset to
-rips" ticked, the drive's *"confirmed — two independent sources agree"* trust line, and the
+every rip" ticked (in *Set up drive…* since 2026-09-24; it was a Settings tick-box
+called "…to rips" before), the drive's *"confirmed — two independent sources agree"* trust line, and the
 cache-defeat **Yes** measurement.
 
 > One deliberate change to watch for: an output or library folder that is **not mounted**
@@ -1110,8 +1111,8 @@ not.
 **Two corrections, 2026-08-19. Read both before doing anything with this item.**
 
 **(1) The flag is `-O`, not `-x`.** This heading said `-x` for months. `-x` is the *fork's*
-`--cache-probe`, a different flag doing a different thing; `-x/--force-overread` was
-**whipper's**, retired with whipper in KDD-18. The hazard table is
+`--cache-probe`, a different flag doing a different thing; `-x/--force-overread` belonged
+to **the ripper Platterpus used before cyanrip**, retired with it in KDD-18. The hazard table is
 `docs/dependency-contracts.md`.
 
 **(2) It is not "expected to be fine" — it is measured to hang, on this exact drive.**
@@ -1230,4 +1231,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.6.56.*
+*Last updated for Platterpus v0.6.58.*

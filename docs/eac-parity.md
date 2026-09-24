@@ -197,8 +197,8 @@ count — so "did this rip match EAC?" is one command. (Small; mostly done.)
   converges to the consensus. **✅ Code landed 2026-06-28** (as the Settings
   control now named "Max reads to confirm a shaky track",
   `config.secure_rerip_matches` → cyanrip `-Z N`; dynamic secure re-rip is
-  **on by default since v0.4.9** — no opt-in checkbox; the whipper grey-out
-  clause is history, whipper was removed 2026-06-30, KDD-18). **⚠ HARDWARE-GATED:** confirmed
+  **on by default since v0.4.9** — no opt-in checkbox; the grey-out clause for
+  the previous backend is history, that backend was removed 2026-06-30, KDD-18). **⚠ HARDWARE-GATED:** confirmed
   to build the right argv and pass through the stack in tests, but its *effect*
   on a marginal disc — does a `-Z 2` rip actually converge Track-3-class
   near-misses to the AccurateRip consensus? — can only be proven on the
@@ -224,13 +224,14 @@ count — so "did this rip match EAC?" is one command. (Small; mostly done.)
   (§"Gap handling audio" above), so no `-p` mode changes audio parity — the
   question is purely whether one triggers `INDEX 00` emission.
 - (b) If cyanrip won't detect subchannel pre-gaps, the only routes are a cyanrip
-  feature request, the whipper/cdrdao path (cdrdao reads full TOC incl. gaps —
-  but whipper is offset->587-buggy and cdrdao stalls on this BD drive), or
+  feature request, the previous backend's cdrdao path (cdrdao reads full TOC
+  incl. gaps — but that backend is offset->587-buggy and cdrdao stalls on this BD
+  drive), or
   generating the cue ourselves from a subchannel read we don't currently do.
   *(Superseded 2026-07-07: the researched answer lives in
   [docs/cyanrip-upstream.md](cyanrip-upstream.md) — support cyanrip
   **PR #115**, with a Platterpus-side `cdrdao read-toc` as the documented
-  fallback; the whipper route no longer exists — KDD-18.)*
+  fallback; the previous backend's route no longer exists — KDD-18.)*
 - (c) **Decision gate:** is `INDEX 00` worth it given the audio is already
   equivalent and per-track FLACs don't use it? Likely **only** pursue if we add a
   single-file-image output mode.
@@ -267,7 +268,7 @@ a burnable disc image; revisit with KDD-18 (ripper-engine strategy).
 
 The brief promises "EAC-equivalent archival quality" — so the rip log should be a reasonable archival substitute for EAC's. This document compares the two formats field-by-field, identifies what each captures, and notes the small gaps.
 
-**History:** this document originally compared *whipper* vs EAC. whipper was removed as a backend on 2026-06-30 (KDD-18) in favour of **cyanrip**, which is now the sole ripper. It was refreshed to cyanrip vs EAC in the post-0.4.5 session. The whipper comparison is preserved in git history if ever needed.
+**History:** this document originally compared the previous backend (the ripper Platterpus used before cyanrip, whose log is now read as the *legacy log format*) vs EAC. That backend was removed on 2026-06-30 (KDD-18) in favour of **cyanrip**, which is now the sole ripper. It was refreshed to cyanrip vs EAC in the post-0.4.5 session. The earlier comparison is preserved in git history if ever needed.
 
 ### Where the reference material lives
 
@@ -283,9 +284,9 @@ The brief promises "EAC-equivalent archival quality" — so the rip log should b
 | Tool version | `Exact Audio Copy V1.6 from 23. November 2020` | `cyanrip 0.9.3.1 (...)` | Both clearly identify the ripping tool + version. |
 | Date | `EAC extraction logfile from 16. October 2023, 14:30` | `Ripping finished at 2026-06-09 12:34:56` | Both stamp the rip; cyanrip records the *finish* time (Platterpus adds the real elapsed + a realtime multiplier in the JSON report — cyanrip logs neither its own run time nor an ETA). |
 | Drive identification | `Used drive  : PIONEER BD-RW BDR-209D   Adapter: 1  ID: 0` | `Device model:   PIONEER BD-RW   BDR-209D (revision 1.10)` | EAC includes adapter/ID; cyanrip includes firmware revision. **Roughly equivalent.** (cyanrip 0.9.3 prints `Device model:`; older builds printed `Drive used:` — the parser accepts both.) |
-| Extraction engine | (implicit in EAC binary) | (implicit — cyanrip drives libcdio-paranoia) | cyanrip is built on FFmpeg + libcdio-paranoia; it doesn't print the engine versions in the log. Minor parity gap vs whipper (which named them). |
+| Extraction engine | (implicit in EAC binary) | (implicit — cyanrip drives libcdio-paranoia) | cyanrip is built on FFmpeg + libcdio-paranoia; it doesn't print the engine versions in the log. Minor parity gap vs the legacy log format (which named them). |
 | Read mode | `Read mode : Secure` | (implicit — cyanrip always reads with paranoia) | EAC offers Burst mode; cyanrip doesn't. Not a gap for archival. |
-| Read offset correction | `Read offset correction : 667` | `Offset:         +667 samples` | Equivalent. cyanrip applies the offset itself (no whipper >587 cd-paranoia bug), and prints the sign explicitly. |
+| Read offset correction | `Read offset correction : 667` | `Offset:         +667 samples` | Equivalent. cyanrip applies the offset itself (no >587 cd-paranoia bug, which the previous backend had), and prints the sign explicitly. |
 | C2 pointers | `Make use of C2 pointers : No` | `C2 errors: <text> by drive` | **Parsed since v0.5.12** (`_C2` → `RippingInfo.c2_pointers`). Note the two lines ask different questions: cyanrip reports what the *drive can do*, EAC's row what the *rip did* — so `unsupported`/`disabled` renders a truthful `No` and an affirmative capability renders as unknown rather than a fabricated `Yes`. Per-sector C2 *counts* remain unexposed — see `docs/cyanrip-fork.md Part A §8`. |
 | Gap detection | (not in EAC log) | `Gaps:` block | **cyanrip extra**, parsed to `RippingInfo.gap_detection`. |
 | Per-track pre-gap | `Pre-gap length  0:00:02.00` | `Pregap LSN: N` | Parsed to `TrackResult.pregap_sectors` and rendered in the EAC-layout export. |
@@ -377,7 +378,8 @@ Before any of the checksum discussion below, there's a harder wall: the
 gazelle logcheckers (OPSnet's/orpheusnet's PHP logchecker; RED's EAC/XLD +
 Python `eac_logchecker` for the checksum) score a log by **which program
 produced it**, not by whether the underlying audio is bit-perfect. Their
-ripper allow-list is **EAC, XLD, and whipper ≥ 0.7.3** — full stop. An
+ripper allow-list is **EAC, XLD, and the previous backend ≥ 0.7.3** (the ripper
+Platterpus used before cyanrip) — full stop. An
 unrecognized ripper, including **cyanrip**, is hard-set to score **0 /
 rejected** before the checker ever looks at read quality, AccurateRip
 confidence, or anything audio-related.
@@ -392,8 +394,8 @@ categorically out of scope by design" — see PLANNING.md **KDD-24** for the
 full record.
 
 **Two corrections to the maintainer's 2026 ripper-landscape research doc**
-surfaced while researching this — (1) whipper + `whipper-plugin-eaclogger`
-does **not** genuinely satisfy RED (the plugin hits the same EAC-checksum
+surfaced while researching this — (1) the previous backend plus its EAC-logger
+plugin does **not** genuinely satisfy RED (the plugin hits the same EAC-checksum
 wall described below), and (2) the "logchecker-go (pure Go)" characterization
 is unverified and not load-bearing (the verifiable fact is the scoring
 mechanics). The full text of both corrections lives in PLANNING.md
@@ -401,14 +403,14 @@ mechanics). The full text of both corrections lives in PLANNING.md
 
 #### The constraint
 
-Gazelle trackers (RED/OPS) accept **only EAC or XLD logs** — plus whipper
-≥ 0.7.3 at OPS. A cyanrip log — even with a valid AccurateRip result and
+Gazelle trackers (RED/OPS) accept **only EAC or XLD logs** — plus the previous
+backend ≥ 0.7.3 at OPS. A cyanrip log — even with a valid AccurateRip result and
 cyanrip's own FUN512 checksum — is **not** accepted.
 
-> **Correction (2026-07-29):** an earlier version of this paragraph said whipper
-> "still cannot clear RED's checksum requirement." That is wrong. OPS's checker
-> validates whipper's checksum, which is a **plain SHA-256 of every line but the
-> last** (`OPSnet/Logchecker`, `src/Check/Checksum/Whipper.php`) — the same scheme
+> **Correction (2026-07-29):** an earlier version of this paragraph said the
+> previous backend "still cannot clear RED's checksum requirement." That is wrong.
+> OPS's checker validates that backend's checksum, which is a **plain SHA-256 of
+> every line but the last** (`OPSnet/Logchecker`, `src/Check/Checksum/Whipper.php`) — the same scheme
 > Platterpus's own footer uses. The checksum wall is cleared there; what excludes
 > cyanrip is *identity*, checked before any quality line is read, and Redacted's
 > rules listing only EAC and XLD is a policy limit rather than a technical one.
@@ -450,8 +452,8 @@ which program did the rip** — i.e. a **forged log**, regardless of whether the
 underlying audio is genuinely bit-perfect. Gazelle communities treat
 third-party-signed EAC logs as **faked logs, and faking a log is a bannable
 offence**. (The long-running debate at
-[whipper-plugin-eaclogger#7](https://github.com/whipper-team/whipper-plugin-eaclogger/issues/7)
-is exactly this: whipper *can* render EAC-shaped logs, but signing them to pass
+[the previous backend's EAC-logger plugin, issue #7](https://github.com/whipper-team/whipper-plugin-eaclogger/issues/7)
+is exactly this: that backend *can* render EAC-shaped logs, but signing them to pass
 as EAC is the line nobody legitimate crosses.)
 
 That `eac_logsigner`'s README carries no ethics warning is irrelevant — the
@@ -487,7 +489,7 @@ of Python and ethically a non-starter.
    `write_eac_log_after_rip`, off by default) writes the attributed EAC-layout
    log beside each rip — option 2 is fully implemented.
 3. **If tracker acceptance is genuinely required**, the only legitimate route is
-   the *tracker* choosing to accept whipper/cyanrip (advocate upstream; OPS
+   the *tracker* choosing to accept cyanrip (advocate upstream; OPS
    already maintains tooling in this space). We do not manufacture acceptance by
    signing. This is out of our hands by design.
 
@@ -611,23 +613,23 @@ allow-list first**, quality second:
 
 | Checker | Accepts | Everything else |
 |---|---|---|
-| [OPSnet/Logchecker](https://github.com/OPSnet/Logchecker) (PHP; what OPS runs) — read at `ca565479`, 2026-05-31 | EAC, XLD, whipper ≥0.7.3 | `UnknownRipperException` → score **0**, "Unrecognized log file" |
+| [OPSnet/Logchecker](https://github.com/OPSnet/Logchecker) (PHP; what OPS runs) — read at `ca565479`, 2026-05-31 | EAC, XLD, the previous backend ≥0.7.3 | `UnknownRipperException` → score **0**, "Unrecognized log file" |
 | [ligh7s/hey-bro-check-log](https://github.com/ligh7s/hey-bro-check-log) (Python; "aligned with Redacted standards" — **unmaintained since 2020-03-31**, read at `d3192ad2`) | EAC ≥0.99, EAC95, XLD | `UnrecognizedException` — and the version string must be in a hardcoded table |
 
 Redacted's own rules name only EAC and XLD, and treat a log from any other tool as
 trumpable ([rules](https://interviewfor.red/en/rules.html),
 [ripping](https://interviewfor.red/en/ripping.html)).
 
-**So: cyanrip, morituri, dBpoweramp, Rubyripper, CUERipper — not accepted.** whipper is
-the sole non-EAC/XLD exception, and only at OPS.
+**So: cyanrip, morituri, dBpoweramp, Rubyripper, CUERipper — not accepted.** The
+previous backend is the sole non-EAC/XLD exception, and only at OPS.
 
 #### Checksums are not the barrier — identity is
 
 Worth being precise, because it is easy to assume the opposite. EAC's footer is an
 obfuscated Rijndael-256 fold under a reverse-engineered key
 ([eac_logchecker.py](https://github.com/OPSnet/eac_logchecker.py),
-[eac_logsigner](https://github.com/puddly/eac_logsigner)). But **whipper's checksum is a
-plain SHA-256 of every line but the last, and OPS validates it**
+[eac_logsigner](https://github.com/puddly/eac_logsigner)). But **the previous backend's
+checksum is a plain SHA-256 of every line but the last, and OPS validates it**
 (`src/Check/Checksum/Whipper.php`).
 
 Platterpus's own footer is *structurally the same scheme* a real tracker already
@@ -759,8 +761,9 @@ disagreement so nobody later "fixes" it by making the string match.
    archival value: it turns a number into a checkable claim. ~40 lines.
 4. **Investigate accurate-stream** — check whether `cd-paranoia -A` output carries a
    usable signal. May be a dead end; investigation before code.
-5. **Do NOT build a whipper-format emitter.** It is the only technically-passing
-   route, and it is the same forgery as EAC-signing: whipper did not do the rip.
+5. **Do NOT build a legacy-log-format emitter.** It is the only technically-passing
+   route, and it is the same forgery as EAC-signing: the ripper that format names
+   did not do the rip.
 
    **Two additional arguments, added 2026-08-24 after reading the checker's own
    source** (`OPSnet/Logchecker` @ `ca565479`), because the second does not depend
@@ -771,17 +774,17 @@ disagreement so nobody later "fixes" it by making the string match.
      quality rule runs. That it is trivially forgeable is precisely why doing it is
      unambiguous forgery rather than a grey area: there is no craftsmanship in
      which to hide an intention.
-   * **The whipper rubric is 6 checks; the EAC/XLD rubric is about 30** — and the
-     reason is that whipper's log does not *contain* the other 24 fields. Its
+   * **The legacy-format rubric is 6 checks; the EAC/XLD rubric is about 30** — and
+     the reason is that a legacy-format log does not *contain* the other 24 fields. Its
      ripping-phase block has seven rows: drive, extraction engine, cache defeat,
      read offset, overread, gap detection, CD-R. No read mode, no accurate-stream
      row, no C2 row, no gap-*handling* row, no null-samples row, no silent-blocks
-     row, no ID3 row. So a perfect whipper log scores 100 having proven **less**
+     row, no ID3 row. So a perfect legacy-format log scores 100 having proven **less**
      than our cyanrip log already records. Emitting their format would mean
      **discarding evidence in order to score better on a rubric that checks
      less.** Field-by-field: ours is richer on 14 counts and poorer on 4, and two
      of the four are our own deliberate refusals (extraction-quality %, which
-     whipper's own source concedes diverges from EAC's at
+     the previous backend's own source concedes diverges from EAC's at
      `program/cdparanoia.py:150-153`; and the Test/Copy CRC pair, which `-Z`
      convergence supersedes and our export already renders honestly).
 
@@ -806,9 +809,9 @@ chased.
 
 #### A correction this part made to Part C
 
-Part C originally said whipper "still cannot clear RED's checksum requirement." That is
-wrong, and Part C now carries the fix inline — see its **Correction (2026-07-29)** note.
-OPS's checker **does** validate whipper's plain SHA-256, so the checksum wall is cleared
+Part C originally said the previous backend "still cannot clear RED's checksum
+requirement." That is wrong, and Part C now carries the fix inline — see its
+**Correction (2026-07-29)** note. OPS's checker **does** validate that backend's plain SHA-256, so the checksum wall is cleared
 there. The accurate statement is that *Redacted's rules* list only EAC and XLD — a
 policy limit, not a technical one.
 
@@ -825,4 +828,4 @@ policy limit, not a technical one.
 
 ---
 
-*Last updated for Platterpus v0.6.57.*
+*Last updated for Platterpus v0.6.58.*

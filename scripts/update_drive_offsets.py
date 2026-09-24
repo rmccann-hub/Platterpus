@@ -17,9 +17,9 @@ Binary format (reverse-engineered + validated against the Pioneer BDR-209D,
 whose known read offset is +667): a flat array of 69-byte records, each
 ``<int16 little-endian signed offset><67-byte null-padded ASCII name>``.
 AccurateRip names look like ``"PIONEER  - BD-RW   BDR-209D"``; we normalize
-them with the SAME function the runtime lookup uses, so keys match whipper's
-vendor+model. Names that normalize to the same key with conflicting offsets
-are dropped (never guess).
+them with the SAME function the runtime lookup uses, so keys match the
+ripper's drive-list vendor+model. Names that normalize to the same key with
+conflicting offsets are dropped (never guess).
 """
 
 from __future__ import annotations

@@ -631,7 +631,7 @@ class TrackTable(QWidget):
     def highlight_track(self, track_number: int) -> None:
         """Select and scroll to the row for `track_number` (1-based).
 
-        Called as a rip progresses so the table follows whipper track by
+        Called as a rip progresses so the table follows the ripper track by
         track instead of staying wherever the user last clicked. The track
         rows are laid out 1..N in order, so row index == track_number - 1.
         Out-of-range numbers (e.g. a stray 0 before the first track, or a

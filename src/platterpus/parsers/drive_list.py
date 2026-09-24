@@ -1,16 +1,18 @@
-"""Parse whipper's drive-list FORMAT into DriveDescriptor records.
+"""Parse the legacy drive-list FORMAT into DriveDescriptor records.
 
-This parses the legacy `whipper drive list` output format; the current
-cyanrip backend enumerates `/dev/sr*` itself instead, so this parser is
-kept for old paths and test fixtures. Whipper emitted one drive per call
-to the `List` command, with this shape (verified against
-whipper-team/whipper master, command/drive.py):
+This parses the drive-list output of the ripper older versions used (the
+previous backend, before cyanrip — KDD-18); the current cyanrip backend
+enumerates `/dev/sr*` itself instead, so this parser is kept for old paths
+and test fixtures. That ripper emitted one drive per call to its `List`
+command, with this shape (verified against its upstream master branch;
+citation, kept because a source claim needs one: whipper-team/whipper,
+command/drive.py):
 
     drive: /dev/sr0, vendor: PIONEER, model: BD-RW  BDR-209D, release: 1.51
            Configured read offset: 667
            Can defeat audio cache: True
 
-Either of the indented properties may be absent (whipper prints
+Either of the indented properties may be absent (that ripper printed
 "no read offset found..." or "unknown whether audio cache can be
 defeated..." instead). Both absences leave the corresponding field as
 None on the DriveDescriptor.
@@ -43,9 +45,10 @@ class DriveDescriptor:
     """One drive detected by the backend.
 
     - `device`: kernel device node, e.g. "/dev/sr0".
-    - `vendor` / `model` / `release`: as whipper reports them. Whipper
-      sometimes emits double-spaced model strings (Pioneer's actual
-      output includes "BD-RW  BDR-209D"); we preserve whatever it sent.
+    - `vendor` / `model` / `release`: as the backend reports them (cyanrip's
+      drive scan reads them from sysfs). Drive name strings can carry
+      internal runs of spaces (the previous backend reported Pioneer's
+      model as "BD-RW  BDR-209D"); we preserve whatever was sent.
     - `read_offset`: integer sample offset, or None if not configured.
     - `cache_defeat`: True/False, or None if unknown.
     """
@@ -59,11 +62,11 @@ class DriveDescriptor:
 
 
 def parse_drive_list(stdout: str) -> list[DriveDescriptor]:
-    """Parse a `whipper drive list` invocation's stdout into descriptors.
+    """Parse legacy-format drive-list stdout into descriptors.
 
     Returns an empty list if no `drive:` line is found (which is also
-    what whipper outputs for a system with no drives — its actual
-    message is "no drives found...").
+    what that ripper printed for a system with no drives — its actual
+    message was "no drives found...").
     """
     drives: list[DriveDescriptor] = []
     pending_header: dict[str, str] | None = None

@@ -1,4 +1,4 @@
-"""Parsers for rip subprocess output (cyanrip, plus legacy whipper-format logs).
+"""Parsers for rip subprocess output (cyanrip, plus legacy-format logs).
 
 Per CLAUDE.md "Subprocess output parsing must be robust to ripper
 minor-version output changes. Use named-group regexes, not column-index
