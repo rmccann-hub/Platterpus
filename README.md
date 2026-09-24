@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.55 — out of beta.** Handshake rounds **1 through 25** are all closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.14` at **`3e01bb3`** and Platterpus **`0.6.53`**, approved by round 24 and re-approved by **round 25**, which settled the shared protocol text (v6). **0.6.54 is the first release that installs `3e01bb3` by default**, so a rip made with `.14` stops being stamped `unapproved`; 0.6.53 as released still installs round 23's pin, `2cce60d`. `.14` changes log text only: each track now reads *"read successfully"* rather than *"ripped and encoded successfully"*, and a new `Encoder errors:` line reports the encoder separately. **Round 26 is open** on the fork's new `+platterpus.15` (`df91ae7`), and it closes on a real hardware test of `.15` installed through this app. 0.6.54 is the release that makes that test possible: its acceptance test demands `.15`, and **Tools → Setup & Updates… → Check for cyanrip updates** offers to install it behind a warning. A rip on `.15` is stamped `unapproved` until round 26 closes on it, and that is the record being accurate. 0.6.54 went out while round 26 was open, under an override the maintainer recorded in our round 26 lap 2, because the round cannot close before this release exists. **The rest of 0.6.54 is about the handshake's own checks.** A release can no longer go out to stable-channel users while a round is open unless an override is written down. Our side can no longer release a lap under a number the fork has already used. And the rig sheet's check now fails when the sheet points at the approved build while a round is reviewing a different one.
+> **Status: v0.6.55 — out of beta.** Handshake rounds **1 through 26** are all closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.15` at **`df91ae7`** and Platterpus **`0.6.55`**, approved by **round 26** — the first pin this project has approved on its own real hardware test: the full acceptance run on 0.6.55 with `.15` installed, eight rips on the Pioneer BDR-209D, whose only failures were one rip killed when its container was stopped from outside the app. `.15` makes any retry limit safe: a per-frame limit is rounded up to a multiple of 5, the only values the underlying read library checks, and the log's `Retry limit:` line says so. **The next release, 0.6.56, is the first that installs `df91ae7` by default**; 0.6.55 as released still installs round 24's pin, `3e01bb3`, so until you update, a rip made with `.15` is stamped `unapproved`. 0.6.56 also carries what the test found in us — a killed rip now says who ended it instead of *"no diagnosis was captured"*, finished tracks turn "Done" again, and an acceptance run keeps everything in one folder.
 >
 > **One hardware-gated item remains, and it is a drive limitation rather than a gap in the app.** **Overread is `-O`, it has run on the Pioneer BDR-209D, and it hung the drive ~23 minutes** — do not reach for that toggle on this drive (`docs/dependency-contracts.md`). The fork's `-x` **cache probe** is no longer outstanding, and not because anyone fixed it: `-x` is a *modifier*, not a mode — it proceeds into a full rip by design, which the fork [declined to change](docs/handshake/inbound/round-14-lap-03.md) — and `-x -I` is the probe-only invocation that writes no audio. Platterpus always passes both, and that pairing ran clean on 2026-08-26 (`-N -x -I`, exit 0), as did the C1 detector (`-N -l 1`, exit 1, *Offset is unset*, no hang). The next minor is **0.7.100**, gated on a full hardware pass — and the bar was sharpened by the maintainer on 2026-08-26: **zero failures in the archival sections** — accuracy, provenance, and the records that make a rip trustworthy — with UX failures recorded, triaged and non-blocking. Severity is declared per section *before* the disc goes in, never decided after seeing a failure: of 21 sections, 17 are archival and 4 are UX.
 >
@@ -263,8 +263,8 @@ You're now inside the container. The prompt should change to show you're in the 
 >
 > **Neither the script nor the manual steps below install the ripper Platterpus
 > is verified against.** Both add the `barsnick/non-fed` COPR, which ships
-> **stock cyanrip 0.9.3.1**. Platterpus pins a *fork* — currently `3e01bb3`,
-> `cyanrip 0.9.4-rc2+platterpus.14`, approved by handshake round 25 — and a rip
+> **stock cyanrip 0.9.3.1**. Platterpus pins a *fork* — currently `df91ae7`,
+> `cyanrip 0.9.4-rc2+platterpus.15`, approved by handshake round 26 — and a rip
 > made with any other build is stamped **`unapproved`** in its rip report, its
 > cyanrip log and its EAC-compatible export. That is not a warning about
 > quality: the audio is still bit-perfect and still AccurateRip-verified. It is
@@ -310,7 +310,7 @@ metaflac --version
 ```
 
 `cyanrip --version` should report
-`cyanrip 0.9.4-rc2+platterpus.14 (platterpus-fork-g3e01bb3)`. The parenthetical is
+`cyanrip 0.9.4-rc2+platterpus.15 (platterpus-fork-gdf91ae7)`. The parenthetical is
 the part that matters: it names the **fork**, which is the build Platterpus is
 verified against — and it is what `approved` versus `unapproved` in every rip
 report is keyed on.
@@ -366,7 +366,7 @@ which cyanrip
 # → /home/<you>/.local/bin/cyanrip
 
 cyanrip --version
-# → cyanrip 0.9.4-rc2+platterpus.14 (platterpus-fork-g3e01bb3)
+# → cyanrip 0.9.4-rc2+platterpus.15 (platterpus-fork-gdf91ae7)
 #   (`--version`, not `-V` — see the flag table above. A stock build prints
 #    its own version with no `platterpus-fork` parenthetical.)
 #   This must match the banner named earlier on this page — and it is now

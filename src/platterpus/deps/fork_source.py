@@ -193,7 +193,15 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: two different laps. What our lap promised is kept where it matters to a user: the
 #: RELEASE that ships this constant (0.6.54) waits for their lap 3. The wording fix
 #: and the one-lap close are round-25 items (`TASKS.md`).
-FORK_PIN: Final[str] = "3e01bb3"
+#: **Rolled to `df91ae7` (`+platterpus.15`) on round 26's close on OUR gate
+#: (2026-09-24)** — our lap 5 `GO`, released on the maintainer's word, against their
+#: lap 4 `GO`. The first pin approved on hardware from the round's own real test: the
+#: acceptance run on 0.6.55 with `df91ae7` installed, 258 of 261, whose three
+#: failures were one external stop of the container (`docs/testing.md` §5.br). Our
+#: lap 5 said this commit would roll it, so this time promise and binding agree. As in
+#: round 24 the fork's gate closes one lap later, on their lap 6; the RELEASE that
+#: ships this constant (0.6.56) waits for that lap and for their `.16`.
+FORK_PIN: Final[str] = "df91ae7"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -425,7 +433,11 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: round 24 lap 1's `HANDSHAKE-RIPPER-VERSION` — `cyanrip 0.9.4-rc2+platterpus.14
 #: (platterpus-fork-g3e01bb3)` — and cross-checked against `meson.build` at
 #: `3e01bb3` in their tree, which declares the same string.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.14"
+#: **Rolled to `0.9.4-rc2+platterpus.15` on 2026-09-24, with `FORK_PIN`**, read off
+#: round 26 lap 4's `HANDSHAKE-RIPPER-VERSION` — `cyanrip 0.9.4-rc2+platterpus.15
+#: (platterpus-fork-gdf91ae7)` — and cross-checked against `meson.build` at
+#: `df91ae7` in their tree (line 21), which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.15"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -578,7 +590,8 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: demands it and the ripper offer marks it the build the acceptance run needs.
 #: **`FORK_PIN` stays `3e01bb3` until round 26 closes** — the approval is the
 #: close's to give, and a round opening is when the subject moves and the approval
-#: does not.
+#: does not. **It closed on our gate on 2026-09-24 and `FORK_PIN` rolled with it**,
+#: so this is now also the release pin until the next round opens on a new subject.
 PIN_UNDER_REVIEW: Final[str] = "df91ae7"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
@@ -1503,18 +1516,17 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 24 approved, GO on both sides, and published by the fork "
-        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 24 — read "
+        "the build round 26 approved, GO on both sides, and published by the fork "
+        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 25 — read "
         "from their live release-manifest.json, and the version cross-checked "
         "against meson.build at the pin itself rather than taken from the lap). "
-        "It carries round 22's agreed log change and nothing else: per-track "
-        "'Track N read successfully!' replacing 'ripped and encoded successfully!', "
-        "plus the new 'Encoder errors:' line. Round 24's evidence is the fork's "
-        "golden reference (built at 2e6d97d, whose src/ and meson.build are "
-        "identical to this pin), parsed completely by our parser with no "
-        "unrecognised line, and their suite and tarball install at the pin. "
-        "Round 25 reviewed shared text and re-approved it unchanged. See "
-        "docs/handshake/inbound/round-24-lap-01.md"
+        "Over +platterpus.14 it makes any per-frame retry limit safe: -r is "
+        "rounded up to a multiple of 5, the only values libcdio-paranoia checks, "
+        "and the log's 'Retry limit:' line says so. Round 26's evidence is the "
+        "real test on a drive, installed through Platterpus 0.6.55: eight rips, "
+        "258 of 261 steps, and the three failures one external stop of the "
+        "container. A read that fails, the path the fix protects, was not "
+        "reached on that disc. See docs/handshake/inbound/round-26-lap-04.md"
     ),
 )
 

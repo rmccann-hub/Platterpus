@@ -1196,9 +1196,25 @@ class TestTheRipperBuildMenu:
         assert choices[0].pin == fork_source.PRODUCTION_TARGET.pin
         assert choices[0].kind == "approved"
 
-    def test_an_unapproved_choice_is_visibly_marked(self) -> None:
+    def test_an_unapproved_choice_is_visibly_marked(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Non-triviality floor: a menu that marked everything approved would
-        pass the test above and destroy the distinction it exists for."""
+        pass the test above and destroy the distinction it exists for.
+
+        **The open round is supplied, not read.** This read the live constants
+        and failed the day round 26 closed, because a closed round leaves nothing
+        unapproved to mark — the property had become a claim about which round
+        was open. An under-review build distinct from the approved one is what an
+        open round looks like, so the test builds exactly that.
+        """
+        import dataclasses
+
+        monkeypatch.setattr(
+            fork_source,
+            "UNDER_REVIEW_TARGET",
+            dataclasses.replace(fork_source.UNDER_REVIEW_TARGET, pin="abc1234"),
+        )
         unapproved = [c for c in fork_source.ripper_choices() if not c.is_approved]
         assert unapproved, (
             "no unapproved build in the menu — either the test pin has been "
@@ -1436,9 +1452,15 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # WITH `-Ddeclare_released=true` — which is exactly the release path the
     # option is for, and exactly why a build we compile must not set it.
     #
+    # **SIXTH TIME, ON THE ROLL TO `df91ae7` (round 26 close, 2026-09-24), AND THE
+    # ANSWER AGAIN DID NOT CHANGE.** Re-derived: `meson_options.txt` at `df91ae7`
+    # and at `3e01bb3` hash identically (sha256 `0a32b1f7ac8efbde…`), 973 bytes, the
+    # one option still `declare_released`, `value: false`. Their release manifest
+    # builds `df91ae7` with `-Ddeclare_released=true` — the release path again.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "3e01bb3", (
+    assert fork_source.PRODUCTION_TARGET.pin == "df91ae7", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "

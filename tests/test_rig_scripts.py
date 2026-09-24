@@ -2622,6 +2622,10 @@ def test_section_a_accepts_exactly_the_builds_the_round_allows(
         fork_source, "FORK_TEST_BUILD_TAG", f"{fork_source.FORK_BRANCH}-g{test_pin}"
     )
     monkeypatch.setattr(fork_source, "TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED", same)
+    # Every shape is an OPEN round, and "open" is derived from the approved pin
+    # differing from the reviewed one — so the approved pin is fixed too, to the one
+    # round 26 opened on. Read live, this row failed the day round 26 closed.
+    monkeypatch.setattr(fork_source, "FORK_PIN", "3e01bb3")
     assert fork_source.a_round_is_reviewing_a_build(), "fixture: a round must be open"
     tags = {
         "reviewed": f"{fork_source.FORK_BRANCH}-g{reviewed_pin}",
