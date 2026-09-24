@@ -41,6 +41,7 @@ from platterpus.adapters.rip_backend import (
 )
 from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
 from platterpus.adapters.ripper_log_verify import LogVerification
+from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 from platterpus.parsers import cyanrip_log
 from platterpus.read_speed_ladder import (
     MAX_ATTEMPTS,
@@ -126,12 +127,11 @@ class RipParameters:
     # "Rip?" checkboxes). Empty = rip the whole disc (the common case); a
     # non-empty tuple becomes cyanrip's `-l` so only those tracks are read.
     only_tracks: tuple[int, ...] = ()
-    # Opt-in (Settings): in dynamic secure-rerip mode, also re-read tracks that
-    # only got an offset-variant ("partially accurate") AccurateRip match, until
-    # `-Z` reads agree — so an offset-variant track with an unstable read
-    # converges on a reproducible one. Off by default (an offset-variant match is
-    # accepted on the fast read, as before). Real-hardware finding, 2026-07-23.
-    rerip_offset_variant: bool = False
+    # In dynamic secure-rerip mode, also re-read tracks that only got an
+    # offset-variant ("partially accurate") AccurateRip match, until `-Z` reads
+    # agree. On by default: `Config`'s own named default, so a worker built from
+    # defaults rips the way a user's does. False accepts the match on the fast read.
+    rerip_offset_variant: bool = DEFAULT_RERIP_OFFSET_VARIANT
 
 
 # Human-readable phase descriptions for the status line. Without these
@@ -1799,12 +1799,12 @@ class RipWorker(QObject):
                 # the real dynamic case and still re-rips just those.)
                 self._disc_in_accuraterip = disc_in_accuraterip(parsed_log)
                 if self._disc_in_accuraterip:
-                    # With rerip_offset_variant on, an offset-variant ("partially
-                    # accurate") match is NOT treated as proven and is re-read too,
-                    # so a track that offset-variant-matches with an unstable read
-                    # converges on a reproducible one (real-hardware finding,
-                    # 2026-07-23). Off by default → today's behaviour (offset-variant
-                    # accepted on the fast read).
+                    # With rerip_offset_variant on (the default), an
+                    # offset-variant ("partially accurate") match is NOT treated as
+                    # proven and is re-read too, so a track that offset-variant-
+                    # matches with an unstable read converges on a reproducible one
+                    # (real-hardware findings, 2026-07-23 and 2026-09-24). Off →
+                    # the offset-variant match is accepted on the fast read.
                     to_fix = tracks_failing_accuraterip(
                         parsed_log,
                         include_offset_variant=self._params.rerip_offset_variant,

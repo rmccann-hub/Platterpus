@@ -44,9 +44,10 @@ class GoalPreset:
     # "Fast Verified" rather than a different label for the same one.
     secure_rerip_dynamic: bool
     # Re-read tracks whose only AccurateRip match was the +450 offset variant. An
-    # offset-variant match confirms a pressing; it does not prove the read is
-    # reproducible — real hardware produced a track that offset-variant-matched
-    # twice with different audio each time (2026-07-23).
+    # offset-variant match rests on a ONE-frame checksum; it does not prove the
+    # read is reproducible — real hardware produced a track that offset-variant-
+    # matched twice with different audio each time (2026-07-23), and one whose
+    # wrong read passed as "partially accurate" (2026-09-24). ON in every goal.
     rerip_offset_variant: bool
     # How read speed is chosen. All shipped goals use the adaptive ladder: fast
     # on a clean disc, careful only when a disc needs it (quality only goes up).
@@ -60,9 +61,10 @@ class GoalPreset:
 # maintainer's bar is "verification is paramount for every format" (the FLAC
 # master is always kept; MP3/WavPack/WAV are derived from it afterward). The
 # presets differ only in OUTPUT and effort, not in how hard they check:
-#   * Fast Verified — lossless FLAC, full verification, re-read only what needs it.
+#   * Fast Verified — lossless FLAC, full verification, re-read only what needs it
+#     (which includes every track whose only AccurateRip match is offset-variant).
 #   * Archival Exact — the same checks, but EVERY track is read until two reads
-#     agree, and an offset-variant match is not accepted on one read either.
+#     agree, not only the ones AccurateRip did not confirm.
 #   * Portable — MP3 derived from the (fully verified) FLAC master.
 #
 # **Archival Exact used to be byte-identical to Fast Verified** (found 2026-08-24
@@ -76,10 +78,17 @@ class GoalPreset:
 #
 # The difference is now the one an archival goal should actually have: **effort**.
 # `secure_rerip_dynamic=False` makes it EAC-style Test and Copy — every track read
-# until two reads agree, not just the tracks AccurateRip failed to confirm — and
-# `rerip_offset_variant=True` refuses to accept an offset-variant match on a
-# single read. Both cost rip time, which is the trade an archival goal exists to
-# make, and both are long-shipped behaviours rather than anything new.
+# until two reads agree, not just the tracks AccurateRip failed to confirm. That
+# costs rip time, which is the trade an archival goal exists to make.
+#
+# `rerip_offset_variant=True` USED to be Archival's second difference and is now
+# in every goal (maintainer decision, 2026-09-24; see
+# `config.DEFAULT_RERIP_OFFSET_VARIANT`). Refusing to accept an offset-variant
+# match on one read is not an archival extra: the match rests on a one-frame
+# checksum and has passed wrong audio twice, and a Fast Verified user's FLAC is an
+# archival master as much as anyone's. So `secure_rerip_dynamic` is now the ONE
+# field that makes Archival a different rip, which `tests/test_ui_settings_dialog.py`
+# asserts rather than trusts.
 #
 # `recompress_flac_after_rip=True` stays on this preset deliberately. It is inert
 # today and correct in intent: a backend that does not max FLAC compression would
@@ -93,7 +102,7 @@ PRESETS: dict[str, GoalPreset] = {
         recompress_flac_after_rip=False,
         secure_rerip_matches=2,
         secure_rerip_dynamic=True,
-        rerip_offset_variant=False,
+        rerip_offset_variant=True,
         read_speed_mode="auto_ladder",
     ),
     GOAL_ARCHIVAL: GoalPreset(
@@ -113,7 +122,7 @@ PRESETS: dict[str, GoalPreset] = {
         recompress_flac_after_rip=False,
         secure_rerip_matches=2,
         secure_rerip_dynamic=True,
-        rerip_offset_variant=False,
+        rerip_offset_variant=True,
         read_speed_mode="auto_ladder",
     ),
 }

@@ -865,6 +865,107 @@ def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
     }
 
 
+#: Section J of the 2026-09-24 acceptance run: tracks 1-2 ripped straight after a
+#: cancel. Track 1 read ``0E91CD1A`` — wrong; the five other reads of that track
+#: in the same bundle gave ``B0D122E7``, an exact AccurateRip match — and passed
+#: on ``Accurip 450`` alone, a checksum over ONE frame
+#: (``cyanrip@df91ae7:src/checksums.h:74-78``). Track 2 matched exactly. The real
+#: log, not a fixture, because what matters is that the worker's decision is made
+#: on the line cyanrip actually wrote.
+_SECTION_J_LOG: Path = (
+    Path(__file__).resolve().parents[1]
+    / "docs/handshake/artifactsround26/round26aftercancel.log"
+)
+_SECTION_J_ALBUM: tuple[str, str] = (
+    "The Police",
+    "after cancel 20260924t011421 platterpus-fork-gdf91ae7",
+)
+
+
+def _section_j_rip(
+    tmp_path: Path, **overrides: object
+) -> tuple[RipWorker, _FakeBackend]:
+    """Run the worker over section J's real pass-1 log; a re-read converges."""
+    pass1 = _SECTION_J_LOG.read_text(encoding="utf-8")
+    rerip = (
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    14\n"
+        "Done; (2 out of 2 matches for current checksum B0D122E7)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     B0D122E7\n"
+        "  File(s):\n"
+        f"    {_SECTION_J_ALBUM[0]}/{_SECTION_J_ALBUM[1]}/01 - Roxanne.flac\n"
+        "Ripping errors: 0\n"
+    )
+
+    def side_effect(call: dict) -> None:
+        rel = call["output_dir"] / _SECTION_J_ALBUM[0] / _SECTION_J_ALBUM[1]
+        rel.mkdir(parents=True, exist_ok=True)
+        if call["only_tracks"]:
+            (rel / "rerip.log").write_text(rerip, encoding="utf-8")
+            (rel / "01 - Roxanne.flac").write_bytes(b"CONVERGED-READ")
+        else:
+            (rel / "rip.log").write_text(pass1, encoding="utf-8")
+
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend.rip_side_effect = side_effect
+    params: dict[str, object] = {
+        "read_speed_mode": "auto_ladder",
+        "secure_rerip_matches": 2,
+        "secure_rerip_dynamic": True,
+    }
+    params.update(overrides)
+    worker = RipWorker(backend, _params(tmp_path, **params))
+    worker.start_rip()
+    return worker, backend
+
+
+def test_a_one_frame_offset_variant_match_is_re_read_by_default(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The regression test for the wrong read kept as "partially accurate".
+
+    Built WITHOUT naming `rerip_offset_variant`, so it asserts what a default rip
+    does. Before 2026-09-24 the default accepted track 1 on the fast read and the
+    run shipped `0E91CD1A`; now the track is secured like an AccurateRip miss.
+    """
+    worker, backend = _section_j_rip(tmp_path)
+
+    # Floor: the log really is the case — track 1 offset-variant only, track 2
+    # exact — so a re-read of track 1 alone is a decision, not a coincidence.
+    text = _SECTION_J_LOG.read_text(encoding="utf-8")
+    assert "0E91CD1A" in text
+    assert "track is partially accurately ripped" in text
+
+    assert len(backend.rip_calls) == 2
+    assert backend.rip_calls[0]["secure_rerip_matches"] == 0  # pass 1 still fast
+    assert backend.rip_calls[1]["only_tracks"] == (1,)  # track 2 left alone
+    assert backend.rip_calls[1]["secure_rerip_matches"] == 2
+    assert worker.retried_tracks == [
+        {
+            "track": 1,
+            "trigger": "accuraterip",
+            "reripped_z": 2,
+            "converged": True,
+            "replaced": True,
+        }
+    ]
+
+
+def test_unticked_offset_variant_re_reads_accept_the_one_frame_match(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The setting still turns it off: one fast pass, track 1 kept as read.
+
+    This is the non-triviality half of the test above — without it, a worker that
+    re-read every track regardless of the setting would pass.
+    """
+    worker, backend = _section_j_rip(tmp_path, rerip_offset_variant=False)
+
+    assert len(backend.rip_calls) == 1
+    assert worker.retried_tracks == []
+
+
 def test_secure_rerip_report_uniform_and_off_modes(
     qapp: QApplication, tmp_path: Path
 ) -> None:

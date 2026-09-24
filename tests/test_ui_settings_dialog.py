@@ -338,7 +338,11 @@ def test_goal_combo_reflects_the_incoming_config(qapp: QApplication) -> None:
     fast = goal_presets.apply_preset(Config(), GOAL_FAST)
     assert archival.secure_rerip_dynamic is False
     assert fast.secure_rerip_dynamic is True
-    assert archival.rerip_offset_variant is not fast.rerip_offset_variant
+    # Offset-variant re-reads USED to be the second difference; since 2026-09-24
+    # every goal has them, because the match they distrust rests on a one-frame
+    # checksum and a Fast Verified FLAC is an archival master too.
+    assert archival.rerip_offset_variant is True
+    assert fast.rerip_offset_variant is True
 
 
 def test_selecting_goal_applies_the_preset_to_controls(qapp: QApplication) -> None:
@@ -834,17 +838,32 @@ def test_every_documented_setting_has_a_tooltip(qapp: QApplication) -> None:
 
 
 def test_rerip_offset_variant_round_trips(qapp: QApplication) -> None:
-    """The opt-in 'also re-read offset-variant tracks' setting is off by default
-    and survives Settings → to_config."""
+    """The 'also re-read offset-variant tracks' setting is ON by default (since
+    2026-09-24), and both states survive Settings → to_config."""
     dialog = SettingsDialog(Config())
-    assert dialog._rerip_offset_variant_check.isChecked() is False
-    assert dialog.to_config().rerip_offset_variant is False
-
-    dialog._rerip_offset_variant_check.setChecked(True)
+    assert dialog._rerip_offset_variant_check.isChecked() is True
     assert dialog.to_config().rerip_offset_variant is True
 
-    dialog2 = SettingsDialog(Config(rerip_offset_variant=True))
-    assert dialog2._rerip_offset_variant_check.isChecked() is True
+    dialog._rerip_offset_variant_check.setChecked(False)
+    assert dialog.to_config().rerip_offset_variant is False
+
+    dialog2 = SettingsDialog(Config(rerip_offset_variant=False))
+    assert dialog2._rerip_offset_variant_check.isChecked() is False
+
+
+def test_unticking_offset_variant_re_reads_leaves_every_preset(
+    qapp: QApplication,
+) -> None:
+    """Every goal re-reads offset-variant tracks, so unticking it is a Custom rip.
+
+    The Settings combo must say so rather than keep claiming Fast Verified — the
+    goal label is the summary a user trusts instead of reading every control.
+    """
+    dialog = SettingsDialog(Config())
+    assert dialog._goal_combo.currentData() == GOAL_FAST
+    dialog._rerip_offset_variant_check.setChecked(False)
+    assert dialog._goal_combo.currentData() == GOAL_CUSTOM
+    assert goal_presets.detect_goal(dialog.to_config()) == GOAL_CUSTOM
 
 
 # --- The form scrolls; the actions never do ------------------------------
