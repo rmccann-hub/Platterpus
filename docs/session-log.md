@@ -11,6 +11,46 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (late night) — round 27 opens on `.16`; the container finding is fixed; 0.6.59 prepared
+
+**Round 27.**
+- **Opened** by the fork's lap 1 (`f44de648…`) on `+platterpus.16` (`221a1df`). The
+  operator's quick run on 0.6.58 with `.16` installed stopped at section A, exactly as
+  that lap predicted.
+- **Our side:** filed the lap and moved `PIN_UNDER_REVIEW` to `221a1df`. Their tree
+  showed the contract unchanged apart from line numbers, and no option-parsing change,
+  so the argv check reads round 26's table with a derived lag of 1.
+- **Records:** rewrote the rig sheet, whose body still described round 26. Corrected the
+  handshake map, which still said round 26 was open.
+- **Our lap 2** names 0.6.59 and records the operator's §6b override for it.
+- **The fork has since revised lap 1:** they returned it to held and revised it to name
+  0.6.59 (`cyanrip@ac7143d`), on the operator's instruction. Our lap 2 answers the
+  version they released, by hash, as their K1 note anticipates.
+
+**The container, settled on the rig.** A host script (`containercheck.sh`, sent to the
+maintainer, not committed) read the 09-23 journal and ran a stand-in reproduction.
+- **09-23:** the container belonged to an earlier Platterpus window. That window
+  auto-updated and relaunched inside the same unit, and was closed three minutes before
+  the rip. Its unit stayed alive holding the container's monitor.
+- **Case A (today's behaviour):** closing the app did not kill the container, but ending
+  its unit did.
+- **Case B (the fix):** with `INVOCATION_ID` removed, `conmon` got its own scope and the
+  container survived.
+
+So "killed from outside both programs", which our round-26 lap 5 said, was half ours.
+Lap 2 corrects it. What ended the unit at 21:16:15 is still not identified.
+
+**Built for 0.6.59, every fix revert-probed:**
+- `container_scope.py`, which removes the variable at startup and gives `--doctor` a
+  container-owner line;
+- a script's `set` now reaches an open Setup & Updates and console. The old test named
+  for that drove a different path, and it is renamed.
+
+The lesson is in `docs/testing.md` §5.bt.
+
+**My own miss:** I wrote in a commit message that a test would fail on revert before I
+had run the probe. The probe then confirmed it, but the order was wrong.
+
 ## 2026-09-24 (night, last) — what stopped the container on 2026-09-23
 
 **The evidence:** the maintainer ran the journal check for the section F kill (exit 137, 95 s
@@ -8181,4 +8221,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.58.*
+*Last updated for Platterpus v0.6.59.*

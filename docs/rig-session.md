@@ -110,4 +110,4 @@ known to be correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.58.*
+*Last updated for Platterpus v0.6.59.*
