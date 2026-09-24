@@ -11,6 +11,30 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-24 (late night) — round 26 closed on both gates; 0.6.56 released; offset-variant re-reads default on
+
+**The fork's lap 6 closed round 26 `GO`/`GO`**, and they published `.16` at `221a1df` on both
+channels. I filed it byte-exact; it passes our checker and their round digest reproduces.
+**0.6.56 went out with no override** (no round open): release run 154 on `56de3cf`, after
+`main`'s own CI on that SHA was green. PyPI published. It is the first release that
+installs `df91ae7` by default.
+
+**Then the maintainer approved the change I had recommended: offset-variant re-reads are
+on by default, for the next release.** Lap 6 added the fact that decided it: the wrong
+track-1 read (`0E91CD1A`) happened on 2026-09-11 too, so a one-frame `Accurip 450` match
+has now passed wrong audio twice. KDD-27's old premise, "usually a genuine pressing",
+was never measured; the one-frame scope was. One constant
+(`config.DEFAULT_RERIP_OFFSET_VARIANT`) now feeds `Config`, `RipParameters` and the rip
+plan, all three goals carry it, and a v8→v9 migration turns a saved `false` on once.
+
+**The migration was not optional, and the reason was the state this change creates.**
+`save()` writes every field, and `detect_goal` compares every preset field. So flipping
+the Fast Verified preset without migrating would have shown every untouched 0.6.56
+config as "Custom" the first time Settings opened. The test that pins this asserts its
+own floor: the file on disk really does read as Custom before the load. The worker test
+is fed the committed section J log, not a fixture, and five revert probes all came back
+`detected`.
+
 ## 2026-09-24 (night) — lap 5 released; round 26 closed on our gate; the pin is `df91ae7`
 
 The maintainer said "release the next lap". Before announcing, I re-read their branch

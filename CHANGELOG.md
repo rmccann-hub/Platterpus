@@ -11,6 +11,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+
+- **Offset-variant ("partially accurate") tracks are now re-read by default.**
+  Such a match rests on a checksum over one frame of the track, and it has let
+  wrong audio through twice: on the 2026-09-24 test run, track 1 of a two-track
+  rip read `0E91CD1A` while the five other reads of that track gave `B0D122E7`,
+  an exact AccurateRip match, and the same wrong read happened on 2026-09-11.
+  Both were kept because this setting was off. Now such a track gets the same
+  secure re-read as a track AccurateRip did not match, until reads agree. It
+  costs extra read time on discs with offset-variant tracks (common on
+  compilations and remasters) and none on others. **If you are upgrading, it is
+  turned on for you once**, because a saved "off" cannot say whether you chose it
+  or inherited the old default. Untick *Settings → Also re-read offset-variant
+  (partially accurate) tracks* to turn it off, and it stays off. All three goals
+  (Fast Verified, Archival Exact, Portable) now include it, so a config that was
+  on Fast Verified still shows Fast Verified after the upgrade.
+
 ## [0.6.56] — 2026-09-24
 
 ### Changed
