@@ -7,7 +7,9 @@ never-raises guarantee (a validator that crashed would take Settings down)."""
 
 from __future__ import annotations
 
+import dataclasses
 import logging
+import typing
 from pathlib import Path
 
 import pytest
@@ -255,6 +257,183 @@ def test_validate_never_raises_on_garbage() -> None:
     # Should return issues, not raise.
     result = sv.validate_config(cfg)
     assert isinstance(result, list)
+
+
+# --- validate_config over the whole field space -------------------------------
+#
+# The example above hand-sets three fields. `validate_config` cannot raise by
+# construction — every rule runs inside `run()`, which catches and logs — so
+# "never raises" is the WEAK claim here. The strong one is what `run()` hides:
+# a rule that crashes is logged and reports NO issue, which is a pass. A crash is
+# therefore a validator failing OPEN, and the dialog, `field_error` and the
+# config loader all read it as "this value is fine". So, for every Config field
+# (derived from the dataclass, not listed by hand) and values of every type:
+#
+#  * no rule's safety net fires (checked on the logger, where `run()` reports it);
+#  * a value of the wrong TYPE is always an error for that field — and
+#    `field_error`, the predicate every single-setting writer asks, agrees;
+#  * every issue names a real field, with a real severity and a message.
+
+_CONFIG_TYPES: dict[str, type] = typing.get_type_hints(Config)
+_CONFIG_FIELDS: tuple[str, ...] = tuple(f.name for f in dataclasses.fields(Config))
+
+#: Strings shaped like the paths these fields hold, including the two shapes a
+#: path probe cannot answer: "~someone/" for a user who does not exist, and a
+#: component longer than any filesystem allows.
+_PATH_SHAPED = st.builds(
+    str.__add__,
+    st.sampled_from(
+        ["", "~", "~/", "~nosuchuser_platterpus/", "/", "/tmp/", "./", "/" + "a" * 300]
+    ),
+    st.text(max_size=12),
+)
+_ANY_VALUE = st.one_of(
+    st.none(),
+    st.booleans(),
+    st.integers(),
+    st.floats(),
+    st.text(max_size=20),
+    _PATH_SHAPED,
+    st.binary(max_size=8),
+    st.lists(st.integers(), max_size=3),
+    st.dictionaries(st.text(max_size=3), st.integers(), max_size=2),
+)
+
+
+def _is_declared_type(value: object, declared: type) -> bool:
+    """``value`` has the field's declared type — and a bool is NOT an int."""
+    if declared is int:
+        return isinstance(value, int) and not isinstance(value, bool)
+    return isinstance(value, declared)
+
+
+class _RuleCrashes(logging.Handler):
+    """Collects the records `validate_config`'s `run()` writes when a rule raises."""
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.DEBUG)
+        self.crashes: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if record.getMessage().startswith("settings validation rule"):
+            self.crashes.append(record.getMessage())
+
+
+def test_the_field_space_is_derived_and_fully_typed() -> None:
+    """Floor for the property below: it must be sweeping every field, and every
+    declared type must be one `_is_declared_type` can judge."""
+    assert len(_CONFIG_FIELDS) >= 35
+    assert set(_CONFIG_FIELDS) == sv.validated_field_names()
+    assert {_CONFIG_TYPES[name] for name in _CONFIG_FIELDS} <= {str, int, bool}
+
+
+@given(
+    values=st.dictionaries(
+        st.sampled_from(_CONFIG_FIELDS), _ANY_VALUE, min_size=1, max_size=8
+    )
+)
+@settings(max_examples=300, deadline=None)
+def test_validate_config_never_fails_open_on_any_field(
+    values: dict[str, object],
+) -> None:
+    cfg = Config()
+    for name, value in values.items():
+        setattr(cfg, name, value)
+
+    watcher = _RuleCrashes()
+    logger = logging.getLogger(sv.__name__)
+    logger.addHandler(watcher)
+    try:
+        issues = sv.validate_config(cfg)
+    finally:
+        logger.removeHandler(watcher)
+
+    assert watcher.crashes == [], (
+        f"a rule raised on {values!r}, so run() reported NO issue for it — the "
+        f"validator failed open: {watcher.crashes}"
+    )
+    for issue in issues:
+        assert issue.field in _CONFIG_FIELDS, issue
+        assert issue.severity in {sv.SEVERITY_ERROR, sv.SEVERITY_WARNING}, issue
+        assert isinstance(issue.message, str) and issue.message, issue
+    for name, value in values.items():
+        if _is_declared_type(value, _CONFIG_TYPES[name]):
+            continue
+        assert any(i.field == name and i.is_error() for i in issues), (
+            f"{name}={value!r} is not a {_CONFIG_TYPES[name].__name__}, and "
+            "nothing refused it"
+        )
+        assert sv.field_error(cfg, name), f"field_error passed {name}={value!r}"
+
+
+_STR_FIELDS: tuple[str, ...] = tuple(
+    name for name in _CONFIG_FIELDS if _CONFIG_TYPES[name] is str
+)
+
+
+@given(
+    values=st.dictionaries(
+        st.sampled_from(_STR_FIELDS), _PATH_SHAPED, min_size=1, max_size=8
+    )
+)
+@settings(max_examples=200, deadline=None)
+def test_no_path_shaped_text_crashes_a_rule(values: dict[str, str]) -> None:
+    """The same "no rule fails open" check, aimed where the probes live.
+
+    The broad property above spreads its draws over every type, so a text field
+    meets a path shape a probe cannot answer only now and then. Here every draw
+    is one — a "~user" who does not exist, an over-long component — into the
+    fields whose rules look at the filesystem.
+    """
+    cfg = Config()
+    for name, value in values.items():
+        setattr(cfg, name, value)
+    watcher = _RuleCrashes()
+    logger = logging.getLogger(sv.__name__)
+    logger.addHandler(watcher)
+    try:
+        sv.validate_config(cfg)
+    finally:
+        logger.removeHandler(watcher)
+    assert watcher.crashes == [], (values, watcher.crashes)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        # An unhashable value in a choice field: `value not in frozenset` raised
+        # TypeError, and a list is what a hand-edited `output_format = ["flac"]`
+        # in config.toml loads as.
+        ("output_format", ["flac"]),
+        ("update_channel", {"stable": 1}),
+        # A "~user" nobody has: Path.expanduser raises RuntimeError.
+        ("metaflac_path", "~nosuchuser_platterpus/bin/metaflac"),
+        ("test_script_path", "~nosuchuser_platterpus/batch.pscript"),
+        # A component longer than NAME_MAX: Path.exists raises ENAMETOOLONG.
+        ("metaflac_path", "/" + "a" * 300 + "/metaflac"),
+        ("test_script_path", "/" + "a" * 300),
+    ],
+    ids=[
+        "choice-list",
+        "choice-dict",
+        "tool-unknown-user",
+        "script-unknown-user",
+        "tool-name-too-long",
+        "script-name-too-long",
+    ],
+)
+def test_a_value_that_crashed_its_rule_is_now_refused(
+    field: str, value: object
+) -> None:
+    """Regression (found by the property above, 2026-09-25).
+
+    Each of these made its rule raise. `run()` caught it, logged it, and reported
+    no issue — so `field_error` returned "" and the value was accepted by the
+    Settings dialog, the script `set` verb and the config loader alike.
+    """
+    cfg = Config()
+    setattr(cfg, field, value)
+    assert sv.field_error(cfg, field), f"{field}={value!r} was accepted"
 
 
 # --- Enforcement: every field is covered, and reacts to a bad value ---------
