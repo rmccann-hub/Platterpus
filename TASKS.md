@@ -136,6 +136,17 @@ stopped at section A the same day, as their lap 1 predicted.
   the §6b override in our lap 2. The pin move, the container fix, the script-`set` refresh fix,
   and `--doctor` naming the container's owner. The PR's py3.12 leg failed once at `apt-get
   update` (a runner's third-party repo returned 403, before any test ran) and passed on rerun.
+- [ ] **NEXT RELEASE: "Check for cyanrip updates" offers to replace the build under review.**
+  Found 2026-09-25: the operator's first Full attempt on 0.6.59 stopped at section A with
+  `.15` installed, though `.16` was installed at 17:53 the day before. With the build under
+  review installed and the channel head the same build, `_up_to_date_offer`
+  (`deps/ripper_offer.py`) sees "newest published, but not `FORK_PIN`" and offers
+  `install_commit=FORK_PIN`, `auto_installable=True` — **"Install it now"** as the default, to
+  "put the approved build back". It never asks `a_round_is_reviewing_a_build()`, so during a
+  round it undoes the test setup in one click. (Not yet confirmed from the operator's log that
+  this is the click that happened.) Fix: when the installed build is `PIN_UNDER_REVIEW` and a
+  round reviews it, offer nothing and say it is the build the acceptance test needs; test it
+  and revert-probe it. Not released mid-round: the test runs on 0.6.59, avoiding the button.
 - [ ] **The real test on 0.6.59**, then each side's reading and the closing laps.
 
 ## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
