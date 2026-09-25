@@ -11,6 +11,84 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-25 — our handshake gate implements protocol 6
+
+**Why now.** Nothing in round 27 can move until the operator runs the Full test on
+0.6.60, and they have no access to the rig. Implementing 6 was the largest open
+engineering item that needed neither the rig nor the fork. Both of v6 §14's
+conditions held: the shared file is byte-identical in both trees (`05abdfde…`, compared
+against `cyanrip@3ad160f`), and the fork's gate implements 6 from `643631b`, which
+their round 25 lap 5 says. Their round-25 ledger listed ours as *"not landed"*.
+
+**What landed** (`scripts/handshake.py`):
+- **C44/C45.** A `GO` file declaring 6 must carry `HANDSHAKE-AGREED-CHANGES`, refused by
+  name without it. Its content is never read, because the ledger records delivery and
+  does not gate a close.
+- **K2.** A file declaring 6 must carry `HANDSHAKE-INBOUND-OBSERVED`. No §8 row names
+  this; it is our reading, and both sides have written the field on every lap since
+  round 22.
+- **C23**, binding since round 9 and never checked, because the coverage test exempted
+  every v3/v4 row as pending. Its first run over the record found one miss: our own
+  `verified/round-13-lap-03.md`, a sent file, now pinned by hash.
+- **The amended C13a**, which neither gate had. A round is graded lap by lap
+  (`_grade_round`, extracted unchanged from `round_status`). Once one lap closes it, a
+  later lap declaring a different verdict is refused and the round stays `CLOSED`; a
+  later lap declaring the same verdict is not a transition. Replaying our record found
+  ten such later laps in eight rounds, all `GO`, which is exactly the case v6's
+  amendment exists for.
+- **Implementing is not declaring.** `PROTOCOL_VERSION` is 6 and `DECLARED_PROTOCOL`
+  is 5, and the emitter uses the second. Our next released lap says our gate implements
+  6; the commit after it raises the declaration.
+
+**One decision is ours, because v6 leaves it to v7: what a C13a refusal does to a
+release.** It holds a release until a later round exists, and then that round
+governs. Holding forever would be a wall, since the refused lap is sent and can never
+be edited. Permitting a release would ship past an objection the record carries.
+The fork's gate still reopens on such a lap, so on that record the two gates would
+print different round states, and both would hold the release. No such lap exists in
+either record. This goes to the fork as a `NEXT-ROUND` item in our next lap.
+
+**Two tests were pinning the divergence as if it were the rule.** `test_C13_…` built
+C13a's case (a complete close, then a HOLD) and asserted v2's reopen. The fork found
+the same mislabel in their suite two days earlier
+(`cyanrip@3ad160f:tests/release_gate.py:191-192`). A file-naming test put the peer's GO
+before our HOLD, so the round closed first. Each keeps its property with a corrected
+fixture.
+
+**Evidence.** Twelve reverts probed with `scripts/revert_probe.py`; twelve detected.
+`--status` on the real record is byte-identical before and after. The three test
+stand-ins lacked `INBOUND-HELD`, which every real lap from round 9 carries. They were
+more permissive than the record, and once the gate read the field they stopped
+closing. That is `CLAUDE.md`'s *"what does my stand-in do that the real thing does
+not?"*, and no new rule is needed.
+
+**Three red gates I had left on this branch, caught by the next full run.** 46a522e
+(the held EAC wording) passed `int | None` where an `int` is required. It also shrank
+`eac_log_export.py` below its recorded size, so the size ratchet reported room to
+grow. The protocol-6 commit changed `docs/cyanrip-handshake.md` without moving its
+version stamp. None of this reached `main`; 6a2f81a fixes all three. **The lesson is
+not new:** `CLAUDE.md` says to run `scripts/check.py` rather than a subset. I ran a
+subset for 46a522e.
+
+**Then an audit of every open row in `TASKS.md`**, while the round waits on the rig.
+There were 454 open rows, checked by six read-only passes. I spot-checked the evidence
+behind most of the DONE verdicts before marking them, not all 62: one had loose evidence
+and still held, and I downgraded one to PARTLY. The results:
+- 110 closed (62 done, 48 superseded).
+- 97 marked `[~]`.
+- 30 left open as not ours to verify.
+- About 215 confirmed open.
+
+The summary heads `TASKS.md`. **My first count missed 120 rows** written as
+`- **[ ]**` or `N. **[ ]`, which a pass found by reading instead of trusting my regex.
+That is *"is the population closed?"* asked of my own grep. It also found two
+things bigger than a row:
+- Critical rule #12 describes an inbound output sanitiser that the audit could not
+  find in code.
+- `rig_check.py` constructs the backend outside the composition root.
+
+Both are open rows now, reported to the maintainer.
+
 ## 2026-09-25 — 0.6.59 swapped out the build under test; 0.6.60 keeps it
 
 **What happened.** 0.6.59 was released, the fork confirmed it from our tag and
