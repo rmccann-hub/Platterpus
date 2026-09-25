@@ -126,3 +126,83 @@ def test_custom_label_is_not_a_preset_key() -> None:
     # The Custom sentinel must never collide with a real preset (else selecting
     # it would overwrite the user's hand-tuned templates).
     assert all(p.label != naming.CUSTOM_LABEL for p in naming.PRESETS)
+
+
+# --- The value sanitiser, fuzzed on the VALUE --------------------------------
+#
+# `test_render_preview_never_raises_property` above fuzzes the TEMPLATE and holds
+# the sample fixed, so `_sanitise_value` only ever saw the eight or so characters
+# SAMPLE_STRESS happens to contain. These fuzz the value itself, and assert what
+# the sanitiser is FOR rather than that it returns:
+#
+#  * it is a character-for-character map — a path-illegal character becomes its
+#    look-alike, every other character is untouched, and nothing is dropped or
+#    added (the overwrite guard lines a predicted name up against the one on
+#    disk position by position, so a length change would misalign the match);
+#  * no table key survives it, so a "/" inside a tag value can never become a
+#    folder separator in the preview;
+#  * it is idempotent — a look-alike is never itself rewritten.
+
+#: A value dense in the characters the table exists for, so a draw reaches the
+#: substitution branch constantly rather than once in a few hundred.
+_TAG_VALUE = st.one_of(
+    st.text(max_size=40),
+    st.text(alphabet="".join(naming._VALUE_SANITISE) + "ab ‹∶", max_size=40),
+)
+
+
+@given(value=_TAG_VALUE)
+@settings(max_examples=300, deadline=None)
+def test_sanitise_value_is_a_character_for_character_map(value: str) -> None:
+    out = naming._sanitise_value(value)
+    assert len(out) == len(value)
+    for before, after in zip(value, out, strict=True):
+        assert after == naming._VALUE_SANITISE.get(before, before), (before, after)
+    assert not set(out) & set(naming._VALUE_SANITISE), out
+    assert naming._sanitise_value(out) == out
+
+
+def test_the_value_sanitiser_property_reaches_every_table_row() -> None:
+    """Floor: the whole table in one value, so no row can be skipped unseen."""
+    every_key = "".join(naming._VALUE_SANITISE)
+    assert len(every_key) >= 8, "the table shrank — re-derive it from P7b"
+    out = naming._sanitise_value(every_key)
+    assert out == "".join(naming._VALUE_SANITISE.values())
+
+
+@st.composite
+def _sample_track(draw: st.DrawFn) -> naming.SampleTrack:
+    """A sample whose every value is drawn — non-empty, as the real samples are."""
+    text = _TAG_VALUE.filter(bool)
+    total = draw(st.integers(min_value=1, max_value=999))
+    return naming.SampleTrack(
+        album_artist=draw(text),
+        track_artist=draw(text),
+        album=draw(text),
+        title=draw(text),
+        track=draw(st.integers(min_value=1, max_value=total)),
+        track_total=total,
+        date=draw(text),
+    )
+
+
+@given(
+    sample=_sample_track(),
+    tokens=st.lists(st.sampled_from(["%A", "%a", "%d", "%n", "%y", "%t"]), min_size=1),
+)
+@settings(max_examples=200, deadline=None)
+def test_a_tag_value_never_adds_or_removes_a_folder_level(
+    sample: naming.SampleTrack, tokens: list[str]
+) -> None:
+    """The template's own "/" are the only separators in the preview.
+
+    A value carrying "/" (an album called "AC/DC Live") must render as ONE
+    segment, or the preview shows a folder the rip will not create.
+    """
+    template = "/".join(tokens)
+    out = naming.render_preview(template, sample)
+    assert out.count("/") == template.count("/"), (template, out)
+    # And each segment is exactly that token's sanitised value, in order.
+    assert out.removesuffix(".flac").split("/") == [
+        sample.value_for(token[1]) for token in tokens
+    ]
