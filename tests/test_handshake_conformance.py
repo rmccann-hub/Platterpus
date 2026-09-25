@@ -85,6 +85,14 @@ def _header(**overrides: str | None) -> str:
         # a world the product does not have (`CLAUDE.md`: *what does my stand-in do
         # that the real thing does not?*).
         "HANDSHAKE-READY-TO-READ": "yes — released by the operator on 2026-09-14",
+        # WHAT THE LAP HOLDS, AND THE LEDGER (2026-09-25). Every real lap from round 9
+        # on carries INBOUND-HELD (row C23), and every one since round 22 the other
+        # two; the stand-in carried none of them, which was invisible while the gate
+        # read none of them. Once it did, this stand-in stopped closing — the gate was
+        # right and the stand-in was more permissive than the record it stands for.
+        "HANDSHAKE-INBOUND-HELD": "none",
+        "HANDSHAKE-INBOUND-OBSERVED": "none",
+        "HANDSHAKE-AGREED-CHANGES": "none",
         # Long enough to clear the evidence floor. It read 'T1-T8 and T14 on the pair above' — 31 characters
         # naming nothing in particular — and the close/status tests leaned on that
         # passing. `evidence_blockers` (2026-08-18) refuses content-free evidence, so
@@ -250,33 +258,181 @@ def test_C12_a_declared_round_that_differs_from_its_file_refuses(
     assert any("HANDSHAKE-ROUND: 8" in p and "round 9" in p for p in problems), problems
 
 
-def test_C13_a_later_lap_declaring_hold_after_a_go_reopens_the_round(
+def test_C13_a_later_hold_after_a_go_that_did_NOT_close_governs(
     hs: ModuleType, tmp_path: Path
 ) -> None:
-    """*"a later lap declaring `HOLD` after an earlier `GO` → refuse — a round can
-    reopen."*
+    """*"a later lap declaring `HOLD` after an earlier lap's `GO`, where that `GO` did
+    **not** close the round (no peer verdict, missing fields) → refuse — the round was
+    never closed, and the latest lap governs."*
 
-    State is the **latest lap**, not a conjunction over all of them. New evidence
-    reopening a round is the protocol working.
+    **This test used to build the OTHER case** — a complete close followed by a HOLD,
+    asserted to reopen the round — which is C13a's, with the opposite answer since
+    v3. It passed because our gate still implemented v2's reopen, so it pinned the
+    divergence as if it were the row. The fork found the same mislabel in their own
+    suite on 2026-09-23 (``cyanrip@3ad160f:tests/release_gate.py:191-192``, *"Until
+    2026-09-23 the test claiming C13 built the OTHER case"*); ours survived two days
+    longer.
     """
-    for name in ("outbound", "inbound", "verified"):
-        (tmp_path / name).mkdir()
-        (tmp_path / name / "round-9.md").write_text("x", encoding="utf-8")
-    # The COMPLETE header on both sides — round 9 is not grandfathered, so a close
-    # needs the identity fields too (C9). Using a bare verdict here was the fixture
-    # C9 immediately invalidated, which is the check working on its own test file.
-    (tmp_path / "inbound" / "round-9.md").write_text(
-        _header(**{"HANDSHAKE-FROM": "cyanrip-fork"}), encoding="utf-8"
+    root = _v5_world(
+        hs,
+        tmp_path / "hs",
+        [
+            # Their opener, OPEN: no peer GO exists, so our GO below cannot close.
+            (
+                "inbound",
+                1,
+                {"HANDSHAKE-VERDICT": "OPEN", "HANDSHAKE-PEER-VERDICT": "OPEN"},
+            ),
+            (
+                "outbound",
+                2,
+                {
+                    "HANDSHAKE-PEER-VERDICT": "OPEN",
+                    hs.PEER_VERDICT_SOURCE_FIELD: "round-99-lap-01.md at cyanrip@abc1234",
+                },
+            ),
+        ],
     )
-    (tmp_path / "verified" / "round-9.md").write_text(_header(), encoding="utf-8")
-    assert hs.round_status(tmp_path)[0].endswith("CLOSED"), hs.round_status(tmp_path)
+    assert _state(hs.round_status(root)) == "OPEN", "the GO must not have closed"
+    (root / "outbound" / "round-99-lap-03.md").write_text(
+        _v5_lap(hs, "platterpus", 3, **{"HANDSHAKE-VERDICT": "HOLD"}), encoding="utf-8"
+    )
+    lines = hs.round_status(root)
+    assert _state(lines) == "OPEN", lines
+    assert "yes (HOLD — not closed)" in lines[0], "the latest lap must govern"
+    assert not [ln for ln in lines if ln.startswith(hs.ILLEGAL_TRANSITION_PREFIX)], (
+        "nothing closed, so nothing after it is a transition"
+    )
 
-    (tmp_path / "verified" / "round-9b.md").write_text(
-        _header(**{"HANDSHAKE-VERDICT": "HOLD", "HANDSHAKE-LAP": "3"}),
+
+def _closed_then(
+    hs: ModuleType, root: Path, direction: str, **later: str | None
+) -> Path:
+    """A round that CLOSES at lap 3, then a lap 4 from ``direction`` with ``later``."""
+    _we_spoke_first_and_they_closed(hs, root)
+    assert _state(hs.round_status(root)) == "CLOSED", "the positive control"
+    sender = "cyanrip-fork" if direction == "inbound" else "platterpus"
+    (root / direction / "round-99-lap-04.md").write_text(
+        _v5_lap(hs, sender, 4, **later), encoding="utf-8"
+    )
+    return root
+
+
+@pytest.mark.parametrize("direction", ["outbound", "inbound"])
+@pytest.mark.parametrize("verdict", ["HOLD", "OPEN"])
+def test_C13a_a_different_verdict_after_a_close_is_refused_and_the_round_stays_CLOSED(
+    hs: ModuleType,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    direction: str,
+    verdict: str,
+) -> None:
+    """C13a — *"a later lap after the round reached a terminal state, declaring a
+    verdict other than the one that made it terminal → refuse the file as an
+    illegal transition; the round stays in its terminal state."*
+
+    Either side, because §4a's transitions belong to the round, not to a party.
+    """
+    root = _closed_then(
+        hs, tmp_path / "hs", direction, **{"HANDSHAKE-VERDICT": verdict}
+    )
+    lines = hs.round_status(root)
+    assert _state(lines) == "CLOSED", lines
+    refused = [ln for ln in lines if ln.startswith(hs.ILLEGAL_TRANSITION_PREFIX)]
+    assert len(refused) == 1, lines
+    assert f"{direction}/round-99-lap-04.md declares {verdict}" in refused[0], refused
+    assert "closed at lap 3" in refused[0] and "row C13a" in refused[0], refused
+    assert any(
+        ln.startswith(hs.TERMINAL_NOTE_PREFIX + "round-99 reached CLOSED at lap 3")
+        for ln in lines
+    ), lines
+    # THE RELEASE EFFECT, which v6 leaves to v7: this gate fails closed while no later
+    # round exists — the objection has nowhere else to live yet — on both exits.
+    assert hs.illegal_transition_blockers(lines) == refused
+    assert hs.main(["--status", "--handshake-dir", str(root)]) == 1
+    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 1
+    assert "row C13a" in capsys.readouterr().err
+
+
+def test_C13a_a_later_lap_declaring_the_SAME_verdict_is_not_a_transition(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """*"A later lap declaring the same verdict is not a transition"* — v6's
+    amendment. Under §5b the second side's closing lap follows the close on the first
+    side's gate; C13a as v3–v5 wrote it refused that lap, and replaying our own
+    record lap by lap finds ten such laps in eight rounds (10, 14, 15, 16, 22, 23, 24,
+    26), every one declaring GO. So this is the case the record is made of."""
+    root = _closed_then(hs, tmp_path / "hs", "outbound")  # lap 4 declares GO
+    lines = hs.round_status(root)
+    assert _state(lines) == "CLOSED", lines
+    assert not [ln for ln in lines if ln.startswith(hs.ILLEGAL_TRANSITION_PREFIX)], (
+        lines
+    )
+    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 0
+
+
+def test_C13a_a_later_lap_its_operator_has_not_released_is_not_a_transition(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """A held lap is a draft (§4a, K1: *"a lap is sent when it is released"*), so it
+    proposes nothing. Under v2's reopen this held lap turned a closed round OPEN,
+    because the newest lap was read and a held lap reads as no verdict."""
+    root = _closed_then(
+        hs,
+        tmp_path / "hs",
+        "inbound",
+        **{"HANDSHAKE-VERDICT": "HOLD", "HANDSHAKE-READY-TO-READ": "no — held"},
+    )
+    lines = hs.round_status(root)
+    assert _state(lines) == "CLOSED", lines
+    assert not [ln for ln in lines if ln.startswith(hs.ILLEGAL_TRANSITION_PREFIX)], (
+        lines
+    )
+
+
+def test_C13a_a_later_round_takes_the_objection_and_releases_the_hold(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Our reading of the release effect, and the half that stops it being a wall.
+
+    The refused lap is sent and can never be edited, so a hold with no way out would
+    block every future release. Once a later round exists the objection has
+    somewhere to live — *"new evidence opens a new round"* — and that round's own
+    state governs. The refusal is still printed: it is history, not a hold.
+    """
+    root = _closed_then(hs, tmp_path / "hs", "inbound", **{"HANDSHAKE-VERDICT": "HOLD"})
+    (root / "inbound" / "round-100-lap-01.md").write_text(
+        _v5_lap(
+            hs,
+            "cyanrip-fork",
+            1,
+            **{
+                "HANDSHAKE-ROUND": "100",
+                "HANDSHAKE-VERDICT": "OPEN",
+                "HANDSHAKE-PEER-VERDICT": "OPEN",
+            },
+        ),
         encoding="utf-8",
     )
-    reopened = hs.round_status(tmp_path)[0]
-    assert reopened.endswith("OPEN"), reopened
+    lines = hs.round_status(root)
+    assert [ln for ln in lines if ln.startswith(hs.ILLEGAL_TRANSITION_PREFIX)], lines
+    assert hs.illegal_transition_blockers(lines) == []
+    assert any(ln.startswith("round-100:") and ln.endswith("OPEN") for ln in lines)
+
+
+def test_C13a_never_outranks_C43(hs: ModuleType, tmp_path: Path) -> None:
+    """A file after the close that declares a protocol above ours: the ROUND is
+    refused (C43), and a closed earlier lap must not rescue it. Fail-closed ordering:
+    a round we cannot grade is not a round we may call terminal."""
+    root = _closed_then(
+        hs,
+        tmp_path / "hs",
+        "inbound",
+        **{"HANDSHAKE-PROTOCOL": str(hs.PROTOCOL_VERSION + 1)},
+    )
+    lines = hs.round_status(root)
+    assert _state(lines) == "OPEN", lines
+    assert any("refused inbound/round-99-lap-04.md" in ln for ln in lines), lines
 
 
 def test_C14_no_round_files_at_all_refuses(hs: ModuleType, tmp_path: Path) -> None:
@@ -722,6 +878,237 @@ def test_the_source_parser_never_raises_and_reads_the_committed_spellings(
     assert unplaceable.lap is None and not unplaceable.none_declared
     for junk in ("", "   ", "lap", "round-x-lap-y", "\x00", "lap -1"):
         hs.parse_source(junk)
+
+
+# --- C23 / C24: what a lap says it holds (v3/v4, binding since round 9) ---------
+
+
+def test_C23_a_round_9_file_without_INBOUND_HELD_is_refused(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """C23 — *"`HANDSHAKE-INBOUND-HELD` absent on a round ≥ 9 file → refuse; silence
+    about what you hold is the failure this field exists for."*
+
+    At ``--check`` on any verdict, and at the gate on a close. **Binding since round
+    9 and never enforced until 2026-09-25**: the coverage check exempted every v3/v4
+    row as pending, so no test asked, and both sides carried the field by habit.
+    """
+    path = tmp_path / "round-09-lap-02.md"
+    path.write_text(_header(**{"HANDSHAKE-INBOUND-HELD": None}), encoding="utf-8")
+    problems = hs.check_wire_header(path)
+    assert any("HANDSHAKE-INBOUND-HELD" in p and "row C23" in p for p in problems), (
+        problems
+    )
+    blockers = hs.close_blockers(path.read_text(encoding="utf-8"), round_hint=9)
+    assert any("row C23" in b for b in blockers), blockers
+    # A HOLD is refused at --check too: the row is about the file, not the close.
+    path.write_text(
+        _header(**{"HANDSHAKE-INBOUND-HELD": None, "HANDSHAKE-VERDICT": "HOLD"}),
+        encoding="utf-8",
+    )
+    assert any("row C23" in p for p in hs.check_wire_header(path))
+    # And round 8 predates the row.
+    early = tmp_path / "round-08-lap-02.md"
+    early.write_text(
+        _header(**{"HANDSHAKE-INBOUND-HELD": None, "HANDSHAKE-ROUND": "8"}),
+        encoding="utf-8",
+    )
+    assert not any("C23" in p for p in hs.check_wire_header(early))
+
+
+def test_C24_INBOUND_HELD_none_is_a_claim_and_is_allowed(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """C24 — *"`HANDSHAKE-INBOUND-HELD: none` → allow — `none` is a claim, and a legal
+    one."* The positive control for C23: a check that refused the value `none` would
+    make an opener unwritable."""
+    path = tmp_path / "round-09-lap-02.md"
+    path.write_text(_header(**{"HANDSHAKE-INBOUND-HELD": "none"}), encoding="utf-8")
+    assert hs.check_wire_header(path) == []
+    assert hs.close_blockers(path.read_text(encoding="utf-8"), round_hint=9) == []
+
+
+def test_the_C23_exemptions_are_exact_and_may_only_shrink(hs: ModuleType) -> None:
+    """Each pinned file must exist in the record and still lack the field.
+
+    A sent file is never edited, so a historical miss is recorded rather than
+    repaired — and a record of it that outlives its subject silently exempts
+    whatever takes that hash next. None can: the pin is the file's exact bytes.
+    """
+    import hashlib
+
+    by_hash = {
+        hashlib.sha256(path.read_bytes()).hexdigest(): path
+        for sub in ("outbound", "inbound", "verified")
+        for path in (_REPO_ROOT / "docs" / "handshake" / sub).glob("round-*.md")
+    }
+    for digest in hs.INBOUND_HELD_EXEMPT_SHA256:
+        assert digest in by_hash, f"exempted {digest[:16]}… is no longer in the record"
+        text = by_hash[digest].read_text(encoding="utf-8")
+        assert hs.INBOUND_HELD_FIELD not in hs.wire_fields(text), (
+            f"{by_hash[digest].name} now declares the field — drop its exemption"
+        )
+    assert len(hs.INBOUND_HELD_EXEMPT_SHA256) <= 1, "this set may only shrink"
+
+
+def test_every_committed_lap_from_round_9_passes_C23(hs: ModuleType) -> None:
+    """The sweep over the whole record, both sides, with a floor. It found exactly
+    one miss on its first run — our own round-13 verification — which is pinned
+    above; every other lap from round 9 to today carries the field."""
+    checked = 0
+    missing: list[str] = []
+    for sub in ("outbound", "inbound", "verified"):
+        for path in sorted(
+            (_REPO_ROOT / "docs" / "handshake" / sub).glob("round-*.md")
+        ):
+            num = hs.round_number(path)
+            if num is None or num < hs.INBOUND_HELD_FROM_ROUND:
+                continue
+            checked += 1
+            text = path.read_text(encoding="utf-8")
+            missing += [
+                f"{sub}/{path.name}: {p}" for p in hs.inbound_field_problems(text, num)
+            ]
+    assert checked >= 100, (
+        f"only {checked} lap(s) from round 9 on — the sweep is not reading the record"
+    )
+    assert not missing, missing
+
+
+# --- C43-C45: protocol v6 (§5e, and C15 across every file) ---------------------
+
+
+def test_C43_an_OLDER_lap_declaring_a_higher_protocol_refuses_the_round(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """C43 — *"any file of the round — the gate's own or the peer's, not only the one
+    its verdict is read from — declares a `HANDSHAKE-PROTOCOL` higher than the gate
+    implements → refuse the round, naming the file."*
+
+    The file ahead is the OPENER, which no verdict is read from once the round has
+    moved on: the case C15 on the newest file alone cannot see, and the one C43 was
+    written for (*"a newer lap may lean on a clause of the older one's version"*).
+    """
+    root = _we_spoke_first_and_they_closed(hs, tmp_path / "hs")
+    assert _state(hs.round_status(root)) == "CLOSED", "the positive control"
+    opener = root / "inbound" / "round-99-lap-01.md"
+    opener.write_text(
+        opener.read_text(encoding="utf-8").replace(
+            f"HANDSHAKE-PROTOCOL: {hs.PEER_VERDICT_SOURCE_FROM_PROTOCOL}\n",
+            f"HANDSHAKE-PROTOCOL: {hs.PROTOCOL_VERSION + 1}\n",
+        ),
+        encoding="utf-8",
+    )
+    assert f"HANDSHAKE-PROTOCOL: {hs.PROTOCOL_VERSION + 1}" in opener.read_text(
+        encoding="utf-8"
+    )
+    lines = hs.round_status(root)
+    assert _state(lines) == "OPEN", lines
+    assert any(ln.startswith("  refused inbound/round-99-lap-01.md") for ln in lines), (
+        lines
+    )
+
+
+def _v6(hs: ModuleType, root: Path, **their_close: str | None) -> Path:
+    """The §5b close above, every lap re-declared as protocol 6."""
+    _we_spoke_first_and_they_closed(hs, root, **their_close)
+    for path in root.glob("*/round-99-lap-*.md"):
+        text = path.read_text(encoding="utf-8")
+        six = text.replace(
+            f"HANDSHAKE-PROTOCOL: {hs.PEER_VERDICT_SOURCE_FROM_PROTOCOL}\n",
+            f"HANDSHAKE-PROTOCOL: {hs.V6_FIELDS_FROM_PROTOCOL}\n",
+        )
+        assert six != text, f"{path.name}: the protocol line was not rewritten"
+        path.write_text(six, encoding="utf-8")
+    return root
+
+
+def test_C44_a_GO_declaring_6_without_the_ledger_is_refused_naming_the_field(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """C44 — *"a file declaring protocol 6 or later and verdict `GO`, with no
+    `HANDSHAKE-AGREED-CHANGES` → refuse, naming the field (§5e)."*"""
+    root = _v6(hs, tmp_path / "hs", **{"HANDSHAKE-AGREED-CHANGES": None})
+    closing = root / "inbound" / "round-99-lap-03.md"
+    problems = hs.check_wire_header(closing)
+    assert any("HANDSHAKE-AGREED-CHANGES" in p and "row C44" in p for p in problems), (
+        problems
+    )
+    assert _state(hs.round_status(root)) == "OPEN"
+    # The same file declaring 5 is not failed for a v6 field (C29's reasoning), and a
+    # HOLD declaring 6 owes no ledger: §5e makes it a property of a closing lap.
+    five = closing.read_text(encoding="utf-8").replace(
+        f"HANDSHAKE-PROTOCOL: {hs.V6_FIELDS_FROM_PROTOCOL}\n", "HANDSHAKE-PROTOCOL: 5\n"
+    )
+    assert not hs.agreed_changes_blockers(five)
+    hold = closing.read_text(encoding="utf-8").replace(
+        "HANDSHAKE-VERDICT: GO\n", "HANDSHAKE-VERDICT: HOLD\n"
+    )
+    assert "HANDSHAKE-VERDICT: HOLD" in hold
+    assert not hs.agreed_changes_blockers(hold)
+
+
+@pytest.mark.parametrize(
+    "ledger",
+    [
+        "none",
+        "K1 landed at 1a2b3c4 (PROTOCOL.md v6); the Handshake: qualifier not landed, cyanrip's",
+        "our gate at protocol 6 not landed, Platterpus's; +platterpus.17 not landed, cyanrip's",
+    ],
+)
+def test_C45_the_ledger_records_delivery_and_never_gates_the_close(
+    hs: ModuleType, tmp_path: Path, ledger: str
+) -> None:
+    """C45 — *"`HANDSHAKE-AGREED-CHANGES: none`, or a ledger with `not landed`
+    entries, on an otherwise complete close → allow; the ledger records delivery and
+    does not gate the close."* Asserted at the gate, where a close is decided."""
+    root = _v6(hs, tmp_path / "hs", **{"HANDSHAKE-AGREED-CHANGES": ledger})
+    lines = hs.round_status(root)
+    assert _state(lines) == "CLOSED", lines
+    assert hs.check_wire_header(root / "inbound" / "round-99-lap-03.md") == []
+
+
+def test_v6_K2_a_file_declaring_6_says_what_it_can_see_but_does_not_hold(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """K2 (v6 §5a): peer laps that are not released go in
+    `HANDSHAKE-INBOUND-OBSERVED`, and `none` is written out as for `-HELD`. No §8 row
+    names it; enforced on files declaring 6 because both sides have written it on
+    every lap since round 22, and a field carried by habit is what §5e says does not
+    survive a round boundary. A file declaring 5 is not failed for it."""
+    root = _v6(hs, tmp_path / "hs", **{"HANDSHAKE-INBOUND-OBSERVED": None})
+    closing = root / "inbound" / "round-99-lap-03.md"
+    problems = hs.check_wire_header(closing)
+    assert any("HANDSHAKE-INBOUND-OBSERVED" in p and "K2" in p for p in problems), (
+        problems
+    )
+    assert _state(hs.round_status(root)) == "OPEN"
+    five = closing.read_text(encoding="utf-8").replace(
+        f"HANDSHAKE-PROTOCOL: {hs.V6_FIELDS_FROM_PROTOCOL}\n", "HANDSHAKE-PROTOCOL: 5\n"
+    )
+    assert not any("K2" in p for p in hs.inbound_field_problems(five, 99))
+
+
+def test_we_declare_no_protocol_we_have_not_told_the_fork_our_gate_implements(
+    hs: ModuleType,
+) -> None:
+    """v6 §14: *"Neither side declares 6 until both have said, in a lap, that their
+    gate implements it."* Implementing and declaring are two constants, and the
+    emitter uses the second; every lap of ours in the record declares no more than
+    it, so a hand-written header cannot run ahead of the skeleton either."""
+    assert hs.DECLARED_PROTOCOL <= hs.PROTOCOL_VERSION
+    assert f"HANDSHAKE-PROTOCOL: {hs.DECLARED_PROTOCOL}\n" in hs.emit_outbound(99)
+    checked = 0
+    for sub in ("outbound", "verified"):
+        for path in (_REPO_ROOT / "docs" / "handshake" / sub).glob("round-*.md"):
+            declared = hs.declared_protocol(path.read_text(encoding="utf-8"))
+            if declared is None:
+                continue
+            checked += 1
+            assert declared <= hs.DECLARED_PROTOCOL, (
+                f"{sub}/{path.name} declares {declared}, ahead of DECLARED_PROTOCOL"
+            )
+    assert checked >= 50, checked
 
 
 # --- C9 / C10: the rows the fork added in lap 4, which we did not have ---------
@@ -1171,7 +1558,7 @@ def test_every_conformance_row_has_a_test_here(hs: ModuleType) -> None:
 #: for any of them. Recorded 2026-09-22 so the gap is a number, not a silence.
 #: Retire an entry by writing ``test_C<nn>_…`` — the check below refuses a stale entry.
 _BINDING_ROWS_WITHOUT_A_NAMED_TEST: frozenset[str] = frozenset(
-    {f"C{n}" for n in range(21, 37)}
+    {f"C{n}" for n in range(21, 37)} - {"C23", "C24"}
 )
 
 
@@ -1187,7 +1574,7 @@ def test_the_untested_binding_rows_ratchet_is_exact() -> None:
     )
     unknown = sorted(_BINDING_ROWS_WITHOUT_A_NAMED_TEST - ids)
     assert not unknown, f"{unknown} are not rows in the shared §8 table"
-    assert len(_BINDING_ROWS_WITHOUT_A_NAMED_TEST) <= 16, "this ratchet may only shrink"
+    assert len(_BINDING_ROWS_WITHOUT_A_NAMED_TEST) <= 14, "this ratchet may only shrink"
 
 
 #: Binding conformance rows our gate does NOT implement — **recorded, not hidden.**
@@ -1198,18 +1585,18 @@ def test_the_untested_binding_rows_ratchet_is_exact() -> None:
 #: invisible for as long as the row-id pattern was ``C\d+`` — not exempted, not
 #: deferred, simply unable to appear in any denominator.
 #:
-#: ``C13a`` — *"a later lap after the round reached a terminal state, declaring a
-#: verdict other than the one that made it terminal → refuse the FILE as an illegal
-#: transition"* (amended in v6, round 25: v3-v5 said *of any verdict*, which refused
-#: the second side's own closing lap). Under the amended row a later lap declaring
-#: the SAME verdict is fine, and ours already treats it so. Our ``round_status`` reads the newest
-#: file on each side, so a later lap still reopens a closed round — the v2
-#: behaviour. **It fails CLOSED**: every later-lap shape (``HOLD``, or no verdict
-#: at all) turns the round ``OPEN`` and ``--release-gate`` refuses, so the
-#: divergence over-blocks a release rather than permitting one. That is the right
-#: direction to be wrong in and it is still wrong, and it is why this is queued
-#: rather than hot-fixed at the end of a long change.
-_KNOWN_DIVERGENCES: frozenset[str] = frozenset({"C13a"})
+#: **Empty since 2026-09-25**, when the gate learned C13a (``_terminal_at`` in
+#: ``scripts/handshake.py``). It had held one entry: C13a, which our ``round_status``
+#: diverged from by reading the newest file on each side, so a lap after a close
+#: became the round's new state — v2's reopen. It failed CLOSED (every later-lap
+#: shape turned the round OPEN and ``--release-gate`` refused), which is the right
+#: direction to be wrong in and was still wrong. **The fork's gate still carries it
+#: as a known divergence** (``cyanrip@3ad160f:tests/release_gate.py:633``), so on a
+#: record with a different verdict after a close the two gates would print different
+#: round states; both hold a release, theirs because the round reads OPEN, ours
+#: because :func:`illegal_transition_blockers` fails closed until a later round
+#: exists. No such lap exists in either record.
+_KNOWN_DIVERGENCES: frozenset[str] = frozenset()
 
 
 def test_every_known_divergence_is_still_real() -> None:
@@ -1297,7 +1684,9 @@ _ROW_ID: str = r"^\| (C\d+[a-z]?) "
 _NAMED_ID: str = r"(?<![A-Za-z0-9])C\d+[a-z]?(?![A-Za-z0-9])"
 
 _ROWS_NAMED_HERE: frozenset[str] = frozenset(
-    {f"C{n}" for n in range(1, 21)} | {"C13a", "C31", "C32"}
+    {f"C{n}" for n in range(1, 21)}
+    | {"C13a", "C23", "C24", "C31", "C32"}
+    | {f"C{n}" for n in range(37, 46)}
 )
 
 #: **What this counts, stated because the first two numbers here were both wrong.**
