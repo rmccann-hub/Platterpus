@@ -528,16 +528,52 @@ def test_the_audit_is_read_only(tmp_path: Path) -> None:
     assert snapshot() == before
 
 
-def test_the_cli_flag_is_wired(tmp_path: Path) -> None:
-    """Grep the call site: a fully-implemented feature reachable from nothing
-    is a failure this project has shipped."""
-    import inspect
+def test_the_cli_flag_is_wired(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A fully-implemented feature reachable from nothing is a failure this
+    project has shipped — so drive the real entry point and watch it arrive.
 
+    **Behavioural, not a grep (2026-09-25).** The first version asserted that
+    ``"--audit-rips"`` and ``"rip_audit.run_audit("`` both appeared in `app.py`'s
+    source. A commented-out call satisfies that: ``return 0  #
+    rip_audit.run_audit(folder)`` keeps both substrings and audits nothing, and
+    the old test passed against it (revert-probed). So this calls ``app.main``
+    with the flag, with `run_audit` replaced by a spy, and asserts what a comment
+    cannot fake: the spy ran once, on the folder the user named (resolved, which
+    is the boundary validation `main` owes it), and its return value became the
+    process's exit code. Startup that touches the real user config and log is
+    neutralised the same way `tests/test_app.py::_stub_startup` does it, and a
+    `MainWindow` being built would mean the flag fell through to the GUI.
+    """
     from platterpus import app
 
-    source = inspect.getsource(app)
-    assert "--audit-rips" in source
-    assert "rip_audit.run_audit(" in source
+    monkeypatch.setattr("platterpus.logging_setup.configure_logging", lambda: None)
+    monkeypatch.setattr("platterpus.logging_setup.set_debug_logging", lambda v: None)
+
+    class _Cfg:
+        debug_logging = False
+
+    monkeypatch.setattr("platterpus.config.load", lambda: _Cfg())
+    import platterpus.ui.main_window as mw
+
+    monkeypatch.setattr(
+        mw,
+        "MainWindow",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("main window built")),
+    )
+
+    seen: list[Path] = []
+
+    def _spy(folder: Path) -> int:
+        seen.append(folder)
+        return 7  # distinctive, so "returned 0 by default" cannot pass
+
+    monkeypatch.setattr(rip_audit, "run_audit", _spy)
+    rc = app.main(["--audit-rips", str(tmp_path)])
+    assert seen == [tmp_path.resolve()], (
+        f"--audit-rips did not reach rip_audit.run_audit with the named folder; "
+        f"calls were {seen}"
+    )
+    assert rc == 7, f"run_audit's result was not the exit code (got {rc})"
 
 
 # --- the registry, and the automatic per-rip block ---------------------------
