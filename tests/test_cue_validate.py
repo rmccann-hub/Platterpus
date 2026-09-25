@@ -41,7 +41,7 @@ from pathlib import Path
 
 import pytest
 
-from platterpus import cue_validate, rip_audit
+from platterpus import cue_validate, rip_audit, tag_hygiene
 from platterpus.adapters.cyanrip_backend import CyanripImpl, _metadata_args
 from platterpus.adapters.rip_backend import RipMetadata, TrackTag
 from platterpus.cue_validate import (
@@ -1137,17 +1137,24 @@ def test_the_argv_readers_recover_exactly_what_the_builder_sent(
     meta, total = case
     argv = _metadata_args(meta, release_id, disc_track_total=total)
 
+    # The TAG-ONLY fields reach the argv with control characters replaced by a
+    # space (D14, `tag_hygiene`), so what the builder SENT is the cleaned value.
+    # Taken from the module that decides it rather than restated here; this
+    # property was written before D14 landed and met it on 2026-09-25.
+    def sent(value: str) -> str:
+        return tag_hygiene.clean_value(value)[0]
+
     album_expected = {
         key: value
         for key, value in (
             ("album", meta.album_title),
             ("album_artist", meta.album_artist),
-            ("date", meta.year),
-            ("genre", meta.genre),
-            ("catalognumber", meta.catalog_number),
-            ("barcode", meta.barcode),
-            ("label", meta.label),
-            ("musicbrainz_albumid", release_id),
+            ("date", sent(meta.year)),
+            ("genre", sent(meta.genre)),
+            ("catalognumber", sent(meta.catalog_number)),
+            ("barcode", sent(meta.barcode)),
+            ("label", sent(meta.label)),
+            ("musicbrainz_albumid", sent(release_id)),
         )
         if value
     }
@@ -1162,7 +1169,7 @@ def test_the_argv_readers_recover_exactly_what_the_builder_sent(
             for key, value in (
                 ("title", track.title),
                 ("artist", track.artist),
-                ("isrc", track.isrc),
+                ("isrc", sent(track.isrc)),
             )
             if value
         }
