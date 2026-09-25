@@ -261,3 +261,55 @@ def test_the_classification_is_exhaustive() -> None:
         + ", ".join(unreasoned)
         + " — an allowlist entry without a reason is a permission nobody can review"
     )
+
+
+#: Routes to the ripper that live OUTSIDE ``adapters/``, each a deliberate,
+#: reasoned exception to Critical rule #1 ("every call goes through an adapter").
+#: **A ratchet: it may shrink, never grow.** Found by the 2026-09-25 TASKS audit
+#: (`rule-1.adapters`), which listed both as violations; reading them showed one
+#: spawns through the adapter's own seam and the other must not.
+_RIPPER_ROUTES_OUTSIDE_ADAPTERS: dict[str, str] = {
+    "uiscript/runner.py": (
+        "composes the script verb's argv, but the SPAWN is "
+        "`adapters.rip_backend.run_capture` (asserted below), and the argv passes "
+        "the adapter's chokepoint via uiscript/script.py"
+    ),
+    "deps/ripper_wrapper_probe.py": (
+        "measures whether the host WRAPPER exits when cyanrip does, so it must own "
+        "the process (its own Popen, deadline and killpg); it calls the adapter's "
+        "chokepoint rather than restating it"
+    ),
+}
+
+
+def test_a_route_to_the_ripper_outside_adapters_is_a_named_exception() -> None:
+    """Critical rule #1, for the ripper: every route to it is an adapter, or one of
+    the two exceptions above, and the script verb spawns only through the adapter.
+    """
+    outside = {
+        module
+        for module, (kind, _reason) in SPAWN_SITES.items()
+        if kind == "ripper" and not module.startswith("adapters/")
+    }
+    assert outside == set(_RIPPER_ROUTES_OUTSIDE_ADAPTERS), (
+        f"routes to the ripper outside adapters/: {sorted(outside)}; the named "
+        f"exceptions are {sorted(_RIPPER_ROUTES_OUTSIDE_ADAPTERS)}. A new route "
+        "belongs in an adapter (Critical rule #1)."
+    )
+    tree = ast.parse((PKG / "uiscript" / "runner.py").read_text(encoding="utf-8"))
+    spawns = sorted(
+        {
+            node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute | ast.Name)
+            and (
+                node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id
+            )
+            in SPAWN_CALLS
+        }
+    )
+    assert spawns == ["run_capture"], (
+        f"uiscript/runner.py spawns via {spawns}; the script verb must go through "
+        "the adapter's `run_capture`, never its own subprocess call"
+    )
