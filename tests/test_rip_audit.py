@@ -61,6 +61,10 @@ def _healthy(**over: object) -> dict:
     """
     base: dict = {
         "album": "Healthy",
+        # The ripper's error tally, as a clean fork rip records it. Without it the
+        # completion check cannot reach OK (2026-09-25): an absent tally is "not
+        # determined", never clean.
+        "health_status": "No errors occurred",
         "rip": {
             "ripper_identity": "fork",
             "ripper_build": "platterpus-fork-ga04a94b",
@@ -293,6 +297,77 @@ def test_an_incomplete_rip_carries_the_rippers_own_counts_and_reason(
     text = " ".join(f.text for f in album.findings)
     assert "2 of 14" in text
     assert "interrupted by user" in text
+
+
+# --- a reported completion is graded on the ripper's own numbers -----------
+#
+# Round 21 §C, built 2026-09-25: the OK used to come from the boolean alone, with
+# `done` and `total` printed and compared with nothing and the error count read
+# nowhere. Every real disc since has been clean, so these are constructed cases.
+
+
+def _completion_findings(**rip: object) -> list[tuple[str, str]]:
+    report = _healthy()
+    report["rip"].update(rip)
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_completion(report, album)
+    return [(f.level, f.text) for f in album.findings]
+
+
+def test_a_clean_complete_rip_is_ok_and_says_what_it_checked() -> None:
+    findings = _completion_findings()
+    assert findings == [(LEVEL_OK, "rip completed (2 of 2 tracks, no errors)")]
+
+
+def test_completed_over_fewer_tracks_than_the_disc_is_a_warning_not_ok() -> None:
+    findings = _completion_findings(rip_completed_tracks=12, rip_completed_total=14)
+    levels = [level for level, _ in findings]
+    assert LEVEL_OK not in levels and LEVEL_WARN in levels
+    assert any(
+        "12 of 14" in text and "contradicts itself" in text for _, text in findings
+    )
+
+
+def test_completed_over_zero_tracks_is_a_warning() -> None:
+    findings = _completion_findings(rip_completed_tracks=0, rip_completed_total=0)
+    assert LEVEL_OK not in [level for level, _ in findings]
+
+
+def test_completed_with_ripping_errors_is_a_warning_naming_them() -> None:
+    report = _healthy()
+    report["health_status"] = "3 ripping errors"
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_completion(report, album)
+    assert album.worst == LEVEL_WARN
+    assert any("3 ripping errors" in f.text for f in album.findings)
+    assert not any(f.level == LEVEL_OK for f in album.findings)
+
+
+def test_an_encoder_failure_in_the_tally_also_withholds_ok() -> None:
+    report = _healthy()
+    report["health_status"] = "1 encoder error"
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_completion(report, album)
+    assert album.worst == LEVEL_WARN
+
+
+def test_missing_counts_or_tally_are_not_determined_rather_than_ok() -> None:
+    for over in ({"rip_completed_tracks": None}, {"rip_completed_total": "14"}):
+        findings = _completion_findings(**over)
+        levels = [level for level, _ in findings]
+        assert LEVEL_OK not in levels and LEVEL_NOTE in levels, (over, findings)
+    report = _healthy()
+    del report["health_status"]
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_completion(report, album)
+    assert not any(f.level == LEVEL_OK for f in album.findings)
+    assert any("not determined" in f.text for f in album.findings)
+
+
+def test_a_bool_is_not_a_track_count() -> None:
+    """`True == 1` in Python, so `True of True` would otherwise compare equal."""
+    findings = _completion_findings(rip_completed_tracks=True, rip_completed_total=True)
+    assert LEVEL_OK not in [level for level, _ in findings]
 
 
 # --- failures carry what is needed to reproduce them -------------------------
@@ -548,6 +623,9 @@ def test_the_block_is_embedded_in_a_written_report(tmp_path: Path) -> None:
             rip_completed=True,
             rip_completed_tracks=1,
             rip_completed_total=1,
+            # What the parser writes for `Ripping errors: 0`; without it the
+            # completion check reports the tally as not determined (2026-09-25).
+            health_status="No errors occurred",
             tracks=(TrackResult(1),),
         ),
         log_file=log_file,

@@ -38,7 +38,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 log = logging.getLogger(__name__)
 
@@ -309,6 +309,77 @@ def _audit_checksum_inventory(report: dict[str, Any], album: AlbumAudit) -> None
         )
 
 
+#: The ripper's health line when it counted no errors. The parser writes this
+#: exact phrase for a zero count in both log formats, and every other reader of
+#: `health_status` treats it as the clean marker; anything else is a finding.
+_NO_ERRORS: Final[str] = "No errors occurred"
+
+
+def _count(value: object) -> int | None:
+    """``value`` as a track count, or None. A bool is not a count."""
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _grade_a_reported_completion(
+    report: dict[str, Any], album: AlbumAudit, done: object, total: object
+) -> None:
+    """Grade a rip whose ripper said it completed. OK only if its own numbers agree.
+
+    **Why this is its own function.** Until 2026-09-25 this was one line: OK off
+    the boolean, with ``done`` and ``total`` printed in the same sentence and
+    compared with nothing, and the ripper's error count read nowhere in this
+    module. So a footer saying *completed* over *12 of 14 tracks*, or over
+    *3 ripping errors*, graded OK. Raised as our round-21 §C and held for that
+    round's release; built on a constructed case, since every real disc since
+    has come back clean.
+
+    Three checks, each able to withhold the OK on its own:
+
+    * **The counts must be present.** Without them the claim cannot be
+      cross-checked, which is a NOTE rather than an OK: not proven wrong, not
+      shown right.
+    * **They must agree, and be non-zero.** *Completed* over fewer tracks than
+      the disc holds is the ripper contradicting itself, a WARN.
+    * **The error tally must be clean.** The same footer carries
+      ``Ripping errors:``; a completed rip that counted errors is a WARN naming
+      them. An absent tally beside a present footer is a NOTE.
+    """
+    n_done, n_total = _count(done), _count(total)
+    health = report.get("health_status")
+    if n_done is None or n_total is None:
+        album.add(
+            LEVEL_NOTE,
+            "the ripper reports the rip completed, but its track counts were not "
+            f"recorded ({done} of {total}), so the claim could not be cross-checked",
+        )
+    elif n_total == 0 or n_done != n_total:
+        album.add(
+            LEVEL_WARN,
+            f"the ripper reports the rip completed, but its own count reads "
+            f"{n_done} of {n_total} tracks — the record contradicts itself, so "
+            "do not treat it as a whole-disc rip",
+        )
+    if not isinstance(health, str) or not health:
+        album.add(
+            LEVEL_NOTE,
+            "the ripper's error tally (its `Ripping errors:` line) is absent, so "
+            "whether it counted any errors is not determined",
+        )
+    elif health != _NO_ERRORS:
+        album.add(
+            LEVEL_WARN,
+            f"the ripper reports the rip completed with {health} — check the "
+            "affected tracks before treating this as a clean rip",
+        )
+    if (
+        n_done is not None
+        and n_done == n_total
+        and n_total > 0
+        and health == _NO_ERRORS
+    ):
+        album.add(LEVEL_OK, f"rip completed ({n_done} of {n_total} tracks, no errors)")
+
+
 def _audit_completion(report: dict[str, Any], album: AlbumAudit) -> None:
     """Did the ripper say it finished, and does our own count agree?"""
     rip = report.get("rip") or {}
@@ -322,7 +393,7 @@ def _audit_completion(report: dict[str, Any], album: AlbumAudit) -> None:
     reason = rip.get("rip_completed_reason") or ""
 
     if completed is True:
-        album.add(LEVEL_OK, f"rip completed ({done} of {total} tracks)")
+        _grade_a_reported_completion(report, album, done, total)
     elif completed is False:
         detail = f" — {reason}" if reason else ""
         album.add(LEVEL_WARN, f"rip did NOT complete: {done} of {total} tracks{detail}")

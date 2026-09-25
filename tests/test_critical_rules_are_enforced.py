@@ -1618,7 +1618,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "rig_check.py": 979,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     "rip_addendum.py": 496,
-    "rip_audit.py": 1216,
+    # **1216 -> 1287** (2026-09-25): `_grade_a_reported_completion`, round 21 §C. The
+    # completion check graded OK off the boolean; it now reads the ripper's own
+    # counts and error tally. It is a check of this registry, so it lives here.
+    "rip_audit.py": 1287,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     "rip_files.py": 422,
