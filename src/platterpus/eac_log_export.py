@@ -1491,7 +1491,10 @@ def _accuraterip_line(track: TrackResult) -> str:
     # "verified" (see accuraterip_is_match's callers and KDD-27).
     offset_variant = track.accuraterip_offset
     if accuraterip_is_match(offset_variant):
+        # A match has a confidence of at least 1 (`accuraterip_is_match`), so it is
+        # never None here; the assert states that for the type checker.
         assert isinstance(offset_variant, AccurateRipResult)
+        assert offset_variant.confidence is not None
         crc = f"  [{offset_variant.local_crc}]" if offset_variant.local_crc else ""
         return one_frame_match.eac_track_line(offset_variant.confidence, crc)
     # A track with an AR result that simply didn't match is NOT absent from the
