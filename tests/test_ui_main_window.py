@@ -20,6 +20,8 @@ import pytest
 # The one canonical window teardown (see its docstring — a second copy of it
 # is how CI segfaulted on 2026-07-28).
 from conftest import HardExitCalled, stop_window_threads
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from platterpus import report_writer, rip_report
@@ -2362,6 +2364,91 @@ def test_safe_path_segment_i18n_and_robustness() -> None:
     out = _safe_path_segment(long_cjk)
     assert len(out.encode("utf-8")) <= 255
     assert out and all(ch == "あ" for ch in out)  # no mojibake from a split char
+
+
+# --- safe_path_segment: the properties -----------------------------------------
+#
+# The examples above pin one shape each. The value is whatever the user typed for
+# an unknown disc, dropped LITERALLY into `-D`/`-F`, so the promises are checked
+# over every `str` — including lone surrogates, which a Python str can hold and
+# which no UTF-8 filename can:
+#
+#  * the result is one creatable path segment: never "." or "..", no "/", no
+#    "%" (a template token), no NUL/C0/DEL, no surrogate, no edge whitespace,
+#    at most NAME_MAX bytes — and it is idempotent;
+#  * and the non-triviality half, without which returning "" for everything
+#    would pass: an ordinary title comes back unchanged.
+
+#: Every code point, surrogates included — `st.text()` excludes them by default.
+_ANY_CHAR = st.characters(codec=None, exclude_categories=())
+#: Short enough to stay under the byte cap, dense in the characters that matter.
+_TRICKY = st.text(alphabet=" ./%\x00\x1f\x7f\ud800あa", max_size=12)
+
+
+def _long_title() -> st.SearchStrategy[str]:
+    """Past the 255-byte cap, starting with a directory reference.
+
+    The cap strips whatever it cuts to, so a title of ".." and a long run of
+    spaces is the shape that reaches the cap and leaves only the dots behind.
+    """
+    return st.builds(
+        lambda head, pad, tail: head + " " * pad + tail,
+        st.sampled_from([".", "..", "a"]),
+        st.integers(min_value=240, max_value=300),
+        st.text(alphabet="xあ", min_size=1, max_size=20),
+    )
+
+
+@given(
+    value=st.one_of(st.text(alphabet=_ANY_CHAR, max_size=40), _TRICKY, _long_title())
+)
+@settings(max_examples=300, deadline=None)
+def test_safe_path_segment_always_yields_one_creatable_segment(value: str) -> None:
+    from platterpus.ui.main_window_helpers import safe_path_segment
+
+    out = safe_path_segment(value)
+    assert out not in (".", ".."), (value, out)
+    assert "/" not in out and "%" not in out, out
+    assert all(ch >= " " and ch != "\x7f" for ch in out), repr(out)
+    assert not any("\ud800" <= ch <= "\udfff" for ch in out), repr(out)
+    assert out == out.strip(), repr(out)
+    assert len(out.encode("utf-8")) <= 255
+    assert safe_path_segment(out) == out, "a second pass must change nothing"
+
+
+@given(
+    value=st.text(
+        alphabet=st.characters(
+            codec="utf-8",
+            exclude_categories=("Cc", "Cs", "Zs", "Zl", "Zp"),
+            exclude_characters="/%.",
+        ),
+        min_size=1,
+        max_size=40,
+    )
+)
+@settings(max_examples=200, deadline=None)
+def test_safe_path_segment_leaves_an_ordinary_title_alone(value: str) -> None:
+    """Floor: a title with nothing to remove comes back exactly as typed."""
+    from platterpus.ui.main_window_helpers import safe_path_segment
+
+    assert safe_path_segment(value) == value.strip()
+
+
+def test_safe_path_segment_regressions_found_by_the_property() -> None:
+    """Regression (found by the property above, 2026-09-25).
+
+    * The "."/".." refusal ran BEFORE the 255-byte cap, and the cap strips what
+      it cuts to — so ".." + 253 spaces + "x" came back as "..", a traversing
+      segment from the function whose job includes refusing exactly that.
+    * A lone surrogate reached `str.encode("utf-8")` and raised
+      UnicodeEncodeError, on the rip-start path.
+    """
+    from platterpus.ui.main_window_helpers import safe_path_segment
+
+    assert safe_path_segment(".." + " " * 253 + "x") == ""
+    assert safe_path_segment("." + " " * 254 + "x") == ""
+    assert safe_path_segment("a\ud800b") == "ab"
 
 
 def test_unique_album_title_never_overwrites_a_previous_unknown_rip(

@@ -304,8 +304,8 @@ def safe_path_segment(value: str) -> str:
 
     * strips whitespace, turns ``/`` into ``-`` (it'd create stray subdirs), and
       drops ``%`` (the ripper treats it as a format code);
-    * strips NUL and C0 control characters (never valid in a path — a corrupt or
-      adversarial tag could carry them);
+    * strips NUL, C0 control characters and lone surrogates (never valid in a
+      path — a corrupt or adversarial tag could carry them);
     * refuses ``.``/``..`` (the filesystem's current/parent-dir names) by
       returning ``""`` — so a disc literally titled ``..`` can't create a no-op
       or traversing directory;
@@ -317,17 +317,23 @@ def safe_path_segment(value: str) -> str:
     "Unknown …" placeholder.
     """
     cleaned = (value or "").strip().replace("/", "-").replace("%", "")
-    # Drop NUL + C0 controls (< space) and DEL; re-strip in case that exposed
-    # edge whitespace.
-    cleaned = "".join(ch for ch in cleaned if ch >= " " and ch != "\x7f").strip()
-    # "." and ".." are filesystem-special — never let a title become one.
-    if cleaned in (".", ".."):
-        return ""
+    # Drop NUL + C0 controls (< space), DEL and lone surrogates (no UTF-8 name can
+    # hold one; the encode below raised on it); re-strip for exposed whitespace.
+    cleaned = "".join(
+        ch
+        for ch in cleaned
+        if ch >= " " and ch != "\x7f" and not "\ud800" <= ch <= "\udfff"
+    ).strip()
     # Cap at NAME_MAX bytes on a codepoint boundary (errors="ignore" drops a
     # partial trailing multi-byte char left by the byte-slice).
     encoded = cleaned.encode("utf-8")
     if len(encoded) > _NAME_MAX_BYTES:
         cleaned = encoded[:_NAME_MAX_BYTES].decode("utf-8", "ignore").strip()
+    # "." and ".." are filesystem-special — never let a title become one. AFTER
+    # the cap, because the cap strips what it cuts to: ".." + 253 spaces + "x"
+    # used to come back as "..".
+    if cleaned in (".", ".."):
+        return ""
     return cleaned
 
 
