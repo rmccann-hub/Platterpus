@@ -206,8 +206,11 @@ def parse(text: str) -> list[Step]:
         args = tuple(tokens[1:])
         # The verbatim tail, for the match verbs. Split on the FIRST run of
         # whitespace after the verb as it appears in the stripped body, so the
-        # verb's own spelling (any case) is removed and nothing else is.
-        raw_tail = body[len(tokens[0]) :].strip()
+        # verb's own spelling (any case) is removed and nothing else is. Cut at
+        # the end of the verb AS TYPED: a quoted `"log"` is longer than its
+        # token, and cutting by the token's length left `g" ` in the tail.
+        typed_verb = _TOKEN.match(body)
+        raw_tail = body[typed_verb.end() if typed_verb else len(tokens[0]) :].strip()
         if spec.takes_paths:
             # Per verb, not per token: the free-text verbs carry messages and
             # match patterns, and rewriting one of those would quietly turn an
