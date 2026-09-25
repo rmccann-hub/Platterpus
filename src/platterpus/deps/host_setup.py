@@ -179,6 +179,10 @@ class HostSetup:
     #: the build step built the test pin, so a correct install reported "not done" and was
     #: rebuilt on every run.
     fork_target: fork_source.ForkTarget | None = None
+    #: Set by :meth:`fork_installed` when what satisfied it was the build a round is
+    #: reviewing rather than the target, so the "already present" line names the
+    #: build that is actually there.
+    kept_under_review: bool = field(default=False, init=False)
     # Ordered step ids, exposed for the dialog/tests.
     STEP_IDS: tuple[str, ...] = field(default=(), init=False)
 
@@ -292,7 +296,22 @@ class HostSetup:
         # pin would report a correct install as "not done" and rebuild it every run
         # (the exact `-V` failure shape: an accurate comparison of the wrong pair).
         target_pin = self._target.pin
-        return identity.kind == "fork" and target_pin in identity.build_tag.casefold()
+        if identity.kind != "fork":
+            return False
+        if target_pin in identity.build_tag.casefold():
+            return True
+        # **The DEFAULT target keeps the build a round is reviewing.** The wizard
+        # builds `FORK_PIN` by default, so during a round it counted the build under
+        # review as "not installed" and rebuilt `FORK_PIN` over it: a rig set up for
+        # the real test was reset by running setup (2026-09-25). An explicit
+        # target (`--install-ripper <commit>`) is a deliberate choice and still
+        # compares strictly. Same predicate the update offer asks.
+        installed = identity.build_tag.casefold().rpartition("-g")[2]
+        self.kept_under_review = (
+            self.fork_target is None
+            and fork_source.is_the_build_under_review(installed)
+        )
+        return self.kept_under_review
 
     def flac_exported(self) -> bool:
         return self.runner.exists(self.flac_path)
@@ -600,6 +619,12 @@ class HostSetup:
         `<expected build tag>`", which would claim an equality nobody tested.
         """
         if step_id == "cyanrip_fork":
+            if self.kept_under_review:
+                return (
+                    f"already present — the installed banner names commit "
+                    f"{fork_source.PIN_UNDER_REVIEW}, the build handshake round "
+                    f"{fork_source.PIN_UNDER_REVIEW_ROUND} is reviewing, so it is kept"
+                )
             return (
                 f"already present — the installed banner names commit "
                 f"{self._target.pin}"

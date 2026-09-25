@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from platterpus.deps import fork_source
 from platterpus.deps.host_setup import (
     CYANRIP_COPR_REPO_CONTENT,
@@ -489,6 +491,67 @@ def test_a_fork_build_from_a_DIFFERENT_pin_is_not_done(tmp_path: Path) -> None:
     rather than report the step satisfied."""
     assert (
         _fork_probe(tmp_path, "cyanrip 0.9.4-rc1 (platterpus-fork-gdeadbee)\n") is False
+    )
+
+
+def _mid_round(monkeypatch: pytest.MonkeyPatch, reviewed: str = "cafe123") -> str:
+    """A round reviewing ``reviewed`` while the approved pin stays put.
+
+    Supplied here rather than read from the live constants, so these tests hold
+    whether or not a round happens to be open when they run.
+    """
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", reviewed)
+    assert fork_source.a_round_is_reviewing_a_build()
+    return reviewed
+
+
+def test_the_default_wizard_keeps_the_build_under_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression, 2026-09-25: running setup mid-round rebuilt `FORK_PIN` over the
+    build the real test needs. With that build installed the step is done, and the
+    "already present" line names the build that is actually there."""
+    reviewed = _mid_round(monkeypatch)
+    runner = _FakeRunner()
+    runner.paths = {tmp_path / "cyanrip"}
+    runner.results[(str(tmp_path / "cyanrip"), "-V")] = (
+        0,
+        f"cyanrip 0.9.4-rc2+platterpus.16 (platterpus-fork-g{reviewed})\n",
+    )
+    setup = _setup(tmp_path, runner)
+    assert setup.fork_installed() is True
+    assert reviewed in setup._done_detail("cyanrip_fork")
+    assert "reviewing" in setup._done_detail("cyanrip_fork")
+
+
+def test_an_explicit_target_still_compares_strictly_mid_round(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--install-ripper <commit>` is a deliberate choice: the build under review
+    does not satisfy a request for a different commit."""
+    reviewed = _mid_round(monkeypatch)
+    runner = _FakeRunner()
+    runner.paths = {tmp_path / "cyanrip"}
+    runner.results[(str(tmp_path / "cyanrip"), "-V")] = (
+        0,
+        f"cyanrip 0.9.4-rc2+platterpus.16 (platterpus-fork-g{reviewed})\n",
+    )
+    setup = _setup(tmp_path, runner)
+    setup.fork_target = fork_source.PRODUCTION_TARGET
+    assert setup.fork_installed() is False
+
+
+def test_between_rounds_only_the_target_is_done(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The floor: with no round reviewing a build, the old strict rule stands."""
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", fork_source.FORK_PIN)
+    assert not fork_source.a_round_is_reviewing_a_build()
+    assert (
+        _fork_probe(
+            tmp_path, "cyanrip 0.9.4-rc2+platterpus.16 (platterpus-fork-gcafe123)\n"
+        )
+        is False
     )
 
 
