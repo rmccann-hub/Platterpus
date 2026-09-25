@@ -3230,8 +3230,9 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 
 ### 4. Code conventions (8)
 
-- [~] **`conv.a11y-target-size`** (partial, small) — Code convention / WCAG 2.5.8 — an explicit size is a size you own (24 px floor, 44 px to commit)
+- [x] **`conv.a11y-target-size`** (partial, small) — Code convention / WCAG 2.5.8 — an explicit size is a size you own (24 px floor, 44 px to commit)
   - *Audit 2026-09-25: partly done.* TestTargetSize::test_no_explicit_size_drops_below_the_floor checks literal setFixed/Minimum H/W >= 24 in ui/ only. No 44 px commit check, no setFixedSize or non-literal sizes, no floor.
+  - *2026-09-25:* **Done.** `TestTargetSize` is now an AST sweep over every `set{Fixed,Minimum,Maximum}{Height,Width,Size}` call in `ui/`, including `QSize(...)` arguments and sizes given through a module or class constant. Floors: at least 12 calls examined and 10 sizes read (15 and 14 measured). `test_a_COMMIT_size_is_at_least_44px` holds every size given through a `*COMMIT*` constant to 44 px (3 uses found). Sizes computed at run time (from a layout's hint) are counted but not graded, because they follow the content. Revert-probed three ways.
 - [~] **`conv.argv-range`** (partial, small) — Code convention — range checks enforced by CODE at the argv chokepoint
   - *Audit 2026-09-25: partly done.* assert_numeric_args_in_range (-r/-S/-Z/-s) at the chokepoint, tested in test_cyanrip_backend.py. The -t range lives in the builder and only warns when the track total is unknown; no sweep that every numeric flag is mapped.
 - [x] **`conv.error-handling`** (partial, small) — Code convention — catch specific exceptions, never a bare except; log with logging, not print

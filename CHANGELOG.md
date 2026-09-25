@@ -107,6 +107,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The on-screen target-size check now sees every size we set**
+  (contributor-facing). It read literal minimum and fixed heights and widths
+  only; it now also reads maximum sizes, `setFixedSize`, `QSize` and sizes given
+  through a named constant, has a floor, and holds buttons that commit an action
+  to 44 px as the accessibility convention says.
+
 - **The rule that rips go through the host-exported ripper is now a test**
   (contributor-facing). One test pins the backend to `~/.local/bin/cyanrip`;
   another allows only setup, uninstall, the wrapper diagnosis and the scoped

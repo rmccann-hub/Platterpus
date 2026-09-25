@@ -236,31 +236,123 @@ class TestTargetSize:
 
     MINIMUM_PX = 24
 
-    def test_no_explicit_size_drops_below_the_floor(self) -> None:
-        offenders: list[str] = []
-        pattern = re.compile(r"set(?:Fixed|Minimum)(?:Height|Width)\(\s*(\d+)\s*\)")
+    COMMIT_PX = 44
+
+    #: Every Qt call that sets a widget's size explicitly. A maximum counts too:
+    #: it can squeeze a target below the floor as surely as a fixed size can.
+    _SIZE_CALLS: frozenset[str] = frozenset(
+        f"set{kind}{dim}"
+        for kind in ("Fixed", "Minimum", "Maximum")
+        for dim in ("Height", "Width", "Size")
+    )
+
+    @staticmethod
+    def _int_constants(tree: ast.Module) -> dict[str, int]:
+        """Module- and class-level ``NAME = <int>`` assignments, by name."""
+        found: dict[str, int] = {}
+        bodies = [tree.body] + [
+            node.body for node in tree.body if isinstance(node, ast.ClassDef)
+        ]
+        for body in bodies:
+            for node in body:
+                target = value = None
+                if isinstance(node, ast.AnnAssign) and isinstance(
+                    node.target, ast.Name
+                ):
+                    target, value = node.target.id, node.value
+                elif (
+                    isinstance(node, ast.Assign)
+                    and len(node.targets) == 1
+                    and isinstance(node.targets[0], ast.Name)
+                ):
+                    target, value = node.targets[0].id, node.value
+                if (
+                    target
+                    and isinstance(value, ast.Constant)
+                    and type(value.value) is int
+                ):
+                    found[target] = value.value
+        return found
+
+    @staticmethod
+    def _resolve(node: ast.expr, constants: dict[str, int]) -> tuple[int | None, str]:
+        """``(pixels, name)``: the value if it can be read statically, and the
+        constant's name if it came from one. ``None`` means computed at run time
+        (e.g. ``max(hint.width(), …)``), which sizes from content."""
+        if isinstance(node, ast.Constant) and type(node.value) is int:
+            return node.value, ""
+        name = (
+            node.id
+            if isinstance(node, ast.Name)
+            else node.attr
+            if isinstance(node, ast.Attribute)
+            else ""
+        )
+        return constants.get(name), name
+
+    def _explicit_sizes(self) -> tuple[list[tuple[str, int, str]], int]:
+        """Every statically-known explicit size in ``ui/``, and how many calls
+        were examined in total (resolved or not)."""
+        sizes: list[tuple[str, int, str]] = []
+        calls = 0
         for path in sorted(UI.rglob("*.py")):
-            text = path.read_text(encoding="utf-8")
-            tree = ast.parse(text, filename=str(path))
-            comment_lines = {
-                lineno
-                for lineno, line in enumerate(text.splitlines(), 1)
-                if line.lstrip().startswith("#")
-            }
-            del tree  # parsed only to prove the file is real Python
-            for lineno, line in enumerate(text.splitlines(), 1):
-                if lineno in comment_lines:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            constants = self._int_constants(tree)
+            for node in ast.walk(tree):
+                if not (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in self._SIZE_CALLS
+                ):
                     continue
-                for match in pattern.finditer(line):
-                    value = int(match.group(1))
-                    if value < self.MINIMUM_PX:
-                        offenders.append(
-                            f"{path.relative_to(SRC.parent)}:{lineno}: {value}px"
-                        )
+                calls += 1
+                args: list[ast.expr] = list(node.args)
+                if (
+                    len(args) == 1
+                    and isinstance(args[0], ast.Call)
+                    and getattr(args[0].func, "id", getattr(args[0].func, "attr", ""))
+                    == "QSize"
+                ):
+                    args = list(args[0].args)
+                for arg in args:
+                    value, name = self._resolve(arg, constants)
+                    if value is not None:
+                        where = f"{path.relative_to(SRC.parent)}:{node.lineno}"
+                        sizes.append((where, value, name))
+        return sizes, calls
+
+    def test_no_explicit_size_drops_below_the_floor(self) -> None:
+        """Every explicit size we set, including ``setFixedSize``/``setMaximum*`` and
+        sizes given through a named constant, is at least 24 px (TASKS
+        ``conv.a11y-target-size``: the old scan read literal ``setFixed/Minimum``
+        heights and widths only, and had no floor)."""
+        sizes, calls = self._explicit_sizes()
+        # FLOOR: 15 calls and 14 resolvable values measured 2026-09-25; a scan that
+        # stopped matching would otherwise pass by finding nothing.
+        assert calls >= 12, f"only {calls} explicit sizing call(s) examined"
+        assert len(sizes) >= 10, f"only {len(sizes)} size(s) could be read"
+        offenders = [
+            f"{where}: {value}px"
+            for where, value, _ in sizes
+            if value < self.MINIMUM_PX
+        ]
         assert not offenders, (
             "explicitly sized below the 24 px WCAG 2.5.8 floor:\n  "
             + "\n  ".join(offenders)
         )
+
+    def test_a_COMMIT_size_is_at_least_44px(self) -> None:
+        """The second half of the convention: 44 px for anything that commits.
+
+        A button that commits is sized through a constant with ``COMMIT`` in its
+        name (``_COMMIT_HEIGHT`` in the ripper picker and Setup & Updates), so the
+        rule is checked on every use of such a constant.
+        """
+        sizes, _ = self._explicit_sizes()
+        commits = [(w, v) for w, v, name in sizes if "COMMIT" in name]
+        assert len(commits) >= 2, f"only {commits} commit size(s) found"
+        small = [f"{w}: {v}px" for w, v in commits if v < self.COMMIT_PX]
+        assert not small, "a commit control below 44 px:\n  " + "\n  ".join(small)
 
 
 class TestShortcutsSurviveAQtUpgrade:
