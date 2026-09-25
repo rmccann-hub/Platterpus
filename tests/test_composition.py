@@ -101,3 +101,31 @@ def test_build_cyanrip_backend_uses_the_binary_it_is_given() -> None:
     backend = composition.build_cyanrip_backend("/opt/test/cyanrip")
     assert backend.__class__.__name__ == "CyanripImpl"
     assert backend._binary == "/opt/test/cyanrip"  # noqa: SLF001
+
+
+def test_the_backend_runs_the_HOST_EXPORTED_ripper_when_it_exists(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Critical rule #3: the GUI calls the host-exported `~/.local/bin/cyanrip`.
+
+    Nothing pinned this (TASKS `rule-3.routing`). The builder prefers that
+    absolute path because a desktop-launched GUI's PATH may omit `~/.local/bin`;
+    a change to prefer a PATH lookup, or a container entry, would pass every
+    other test here. The rip argv's first element is checked too, since that is
+    what the OS actually receives.
+    """
+    from platterpus import paths
+
+    assert Path.home() / ".local" / "bin" / "cyanrip" == paths.CYANRIP_BINARY_DEFAULT
+    exported = tmp_path / ".local" / "bin" / "cyanrip"
+    exported.parent.mkdir(parents=True)
+    exported.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr(composition, "CYANRIP_BINARY_DEFAULT", exported)
+    backend, _ = composition.build_backend(Config())
+    assert backend._binary == str(exported)  # noqa: SLF001
+
+    # And the fallback when there is no export: a PATH lookup of the ripper by
+    # name, never a container command.
+    monkeypatch.setattr(composition, "CYANRIP_BINARY_DEFAULT", tmp_path / "absent")
+    backend, _ = composition.build_backend(Config())
+    assert backend._binary == "cyanrip"  # noqa: SLF001

@@ -107,6 +107,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The rule that rips go through the host-exported ripper is now a test**
+  (contributor-facing). One test pins the backend to `~/.local/bin/cyanrip`;
+  another allows only setup, uninstall, the wrapper diagnosis and the scoped
+  cancel exception to run a container tool directly.
+
 - **Thirteen tests that could pass while checking nothing now fail when they
   should** (contributor-facing). Each was shown to pass under a condition it
   exists to catch: a commented-out call, a renamed field that meant nothing was
