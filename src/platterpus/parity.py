@@ -25,11 +25,16 @@ covers all three:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from typing import Final
 
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.eac_log import looks_like_eac_log, parse_eac_copy_crcs
 from platterpus.parsers.rip_log import parse_rip_log
+
+#: A Copy CRC is a CRC-32: exactly eight hex digits, either case.
+_CRC32_HEX: Final[re.Pattern[str]] = re.compile(r"[0-9A-Fa-f]{8}")
 
 
 def decode_log_bytes(raw: bytes) -> str:
@@ -64,18 +69,25 @@ def track_copy_crcs(text: str) -> dict[int, str]:
     Sniffs the format (cyanrip → EAC → the legacy log format as the default) and
     dispatches to the matching parser. Never raises — unrecognised input yields
     an empty map.
-    Tracks with no Copy CRC (e.g. a data track) are omitted.
+    Tracks with no Copy CRC (e.g. a data track) are omitted — and so are tracks whose
+    value is not eight hex digits. The EAC and cyanrip parsers only ever capture that
+    shape; the legacy-format parser keeps the field verbatim, so a garbled
+    ``Copy CRC: n/a`` used to come back as the "CRC" ``N/A``, and two logs carrying
+    the same garbage compared as a bit-perfect match (found by the property test,
+    2026-09-25). One definition for all three branches.
     """
     if looks_like_cyanrip_log(text):
         return {
             t.number: t.copy_crc.upper()
             for t in parse_cyanrip_log(text).tracks
-            if t.copy_crc
+            if _CRC32_HEX.fullmatch(t.copy_crc)
         }
     if looks_like_eac_log(text):
-        return parse_eac_copy_crcs(text)
+        return parse_eac_copy_crcs(text)  # its regex already admits only 8 hex
     return {
-        t.number: t.copy_crc.upper() for t in parse_rip_log(text).tracks if t.copy_crc
+        t.number: t.copy_crc.upper()
+        for t in parse_rip_log(text).tracks
+        if _CRC32_HEX.fullmatch(t.copy_crc)
     }
 
 
