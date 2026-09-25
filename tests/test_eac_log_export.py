@@ -655,8 +655,10 @@ def test_offset_variant_is_not_reported_as_absent_from_the_database() -> None:
     verdict banner and the JSON report built from the same parsed RipLog."""
     text = render_eac_style_log(_rip_log(_offset_variant_track()))
     assert "not present in AccurateRip database" not in text
-    assert "offset-variant" in text
-    assert "partially accurate" in text
+    # The words agreed in round 27: what matched (one frame) and what did not
+    # (the whole-track checksums), naming no cause.
+    assert "Only one frame matched AccurateRip" in text
+    assert "whole-track checksums not found" in text
     assert "confidence 200" in text
     assert "BF62B1DA" in text  # the matched CRC is evidence, so it's shown
 
@@ -671,7 +673,7 @@ def _summary_counts(text: str) -> dict[str, int]:
         for n, what in _COUNT_LINE.findall(text)
         if "accurately ripped" in what
         or "could not be verified" in what
-        or "offset-variant pressing" in what
+        or "on one frame only" in what
     }
 
 
