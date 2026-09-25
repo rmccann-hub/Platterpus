@@ -1584,6 +1584,17 @@ by a CI compromise. That's why the key is **offline** and signing happens
 SHA-256-only and nothing about updates changes. Arming it is the one-time setup
 below.
 
+**Decided 2026-09-25: it is never armed** (maintainer, `PLANNING.md` KDD-37, D9).
+**Say precisely what that leaves.** The app checks the download's SHA-256, fetched
+from the same release, so it proves the file is intact and not who published it.
+The build-provenance attestation is published for a person to check with `gh
+attestation verify`; **the updater does not check it.** So an update is only as
+trustworthy as whoever can publish a release: the account, or any token that can
+write release assets. What the decision buys is releases that run unattended, and
+no key that can be lost. The ritual below is kept so the decision can be reversed
+without rediscovering it; verifying the attestation in the app is the other way to
+close the gap, and needs a new dependency (`TASKS.md`).
+
 **One-time setup (do this once, on a trusted machine — never in CI).**
 
 1. **Install minisign** (`sudo dnf install minisign` / `sudo apt install

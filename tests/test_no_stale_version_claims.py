@@ -202,17 +202,17 @@ def test_every_compare_link_POINTS_AT_THE_VERSION_IT_LABELS() -> None:
     `v0.1.0...v0.2.1`, the line above it copied, so that entry had always linked to
     the next version's diff.
 
-    **What this does NOT check, said plainly:** whether the tags exist. They do not
-    below `v0.6.4` — the project's first 39 tags start there — so every early link
-    is dead regardless of its labelling, and pretending otherwise would be a second
-    false claim. This is an internal-consistency check: the label and the target
-    name the same version, and no link compares a version with itself.
+    **What this does NOT check:** whether the tags exist, which needs GitHub. The
+    test below this one keeps out the versions measured to have none.
     """
     text = _CHANGELOG.read_text(encoding="utf-8")
     rows = re.findall(r"^\[([^\]]+)\]:\s*(\S+)\s*$", text, re.MULTILINE)
     # FLOOR. A regex that stopped matching would make this pass by sweeping an
-    # empty set, which is the shape this whole file is written against.
-    assert len(rows) >= 100, (
+    # empty set, which is the shape this whole file is written against. Was 100
+    # until 2026-09-25, when the 85 rows for versions with no tag on GitHub were
+    # removed (maintainer decision D7, TASKS.md), leaving 60. It grows by one a
+    # release, so 55 still catches a broken pattern.
+    assert len(rows) >= 55, (
         f"only {len(rows)} link row(s) parsed from CHANGELOG.md; the format changed "
         "or the pattern broke, and those are different findings"
     )
@@ -233,10 +233,70 @@ def test_every_compare_link_POINTS_AT_THE_VERSION_IT_LABELS() -> None:
         elif hi != label:
             problems.append(f"[{label}] is labelled {label} but ends at {hi}")
 
-    assert compared >= 100, (
+    assert compared >= 55, (
         f"only {compared} compare link(s) examined; the URL shape changed"
     )
     assert not problems, "malformed compare links:\n  " + "\n  ".join(problems)
+
+
+#: Versions with a CHANGELOG heading and no tag on GitHub, measured 2026-09-25
+#: against the repository's tag list (59 tags, the oldest v0.6.4). Every version
+#: below 0.6.4 is untagged as well; :func:`_has_no_tag` covers those by number.
+_UNTAGGED_SINCE_064: frozenset[str] = frozenset(
+    {f"0.6.4b{n}" for n in (*range(1, 12), 13, 14, 15)} | {"0.6.7", "0.6.27", "0.6.46"}
+)
+
+
+def _has_no_tag(version: str) -> bool:
+    """True for a version measured to have no tag on GitHub."""
+    if version in _UNTAGGED_SINCE_064:
+        return True
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:b\d+)?", version)
+    if match is None:
+        return False
+    return tuple(int(part) for part in match.groups()) < (0, 6, 4)
+
+
+def test_no_link_names_a_version_that_has_no_tag() -> None:
+    """A link to a tag that does not exist goes nowhere, however well it is labelled.
+
+    Until 2026-09-25 the CHANGELOG carried 85 of them: every version below 0.6.4,
+    and seventeen later ones. The maintainer decided (TASKS.md D7) to mark those
+    versions as history and remove the links. This keeps them out, both as a
+    link's own version and as the version it compares from.
+    """
+    text = _CHANGELOG.read_text(encoding="utf-8")
+    rows = re.findall(r"^\[([^\]]+)\]:\s*(\S+)\s*$", text, re.MULTILINE)
+    assert len(rows) >= 55, f"only {len(rows)} link row(s) parsed"
+    dead: list[str] = []
+    for label, url in rows:
+        named = [label]
+        compare = re.search(r"/compare/v?(?P<lo>.+?)\.\.\.v?(?P<hi>.+)$", url)
+        tag = re.search(r"/releases/tag/v?(?P<tag>.+)$", url)
+        if compare is not None:
+            named += [compare.group("lo"), compare.group("hi")]
+        elif tag is not None:
+            named.append(tag.group("tag"))
+        dead += [f"[{label}] names {v}" for v in named if _has_no_tag(v)]
+    assert not dead, "links to versions with no tag on GitHub:\n  " + "\n  ".join(dead)
+
+
+def test_the_untagged_check_fires_on_the_links_that_were_removed() -> None:
+    assert _has_no_tag("0.6.3") and _has_no_tag("0.1.0") and _has_no_tag("0.5.16")
+    assert _has_no_tag("0.6.46") and _has_no_tag("0.6.4b15")
+    assert not _has_no_tag("0.6.4") and not _has_no_tag("0.6.12b1")
+    assert not _has_no_tag("0.6.45") and not _has_no_tag("Unreleased")
+
+
+def test_every_tagged_version_heading_still_has_its_link() -> None:
+    """The other direction: removing dead links must not take live ones with them."""
+    text = _CHANGELOG.read_text(encoding="utf-8")
+    headings = re.findall(r"^## \[([^\]]+)\]", text, re.MULTILINE)
+    linked = set(re.findall(r"^\[([^\]]+)\]:", text, re.MULTILINE))
+    tagged = [h for h in headings if h != "Unreleased" and not _has_no_tag(h)]
+    assert len(tagged) >= 55, f"only {len(tagged)} tagged heading(s) found"
+    missing = [h for h in tagged if h not in linked]
+    assert not missing, f"tagged versions whose heading has no link: {missing}"
 
 
 def test_the_unreleased_compare_link_points_at_the_current_version() -> None:
