@@ -77,6 +77,258 @@ can close it, and what would close it.
 - **A composition-root violation.** `rig_check.py` built `CyanripImpl` itself. It now
   goes through `composition.build_cyanrip_backend`, and a sweep refuses the shape.
 
+## Decisions waiting on the maintainer (asked 2026-09-25)
+
+Fifteen questions only the maintainer can answer. Each has options, their ups and
+downs, and a recommendation. **Write the answer on its `Answer:` line**, even just
+the letter; the work can then be done in any later session. The rows each question
+unblocks carry a pointer back here.
+
+- [ ] **D1. May a new cyanrip build reach the stable channel before a round reviews it?**
+  The fork published `.14` straight to stable. Until our app's approval record
+  caught up, stable users were offered a build their own reports stamp `unapproved`.
+  Rows: N3, A8.
+  - **A. Beta first, stable only after a round reviews it.**
+    - Up: stable users are never offered an unreviewed build.
+    - Up: it is the fork's own first recommendation.
+    - Down: a fork fix waits one round before stable users get it.
+  - **B. Stable at once, with a bounded window.** The app marks the build "not yet
+    reviewed", and the round must close within a set time, say 7 days.
+    - Up: fixes reach users sooner.
+    - Down: users see an "unreviewed" warning.
+    - Down: someone has to police the deadline.
+  - **C. Leave it as it is.**
+    - Up: no change.
+    - Down: the "unapproved" window reopens with every release.
+  - **Recommended: A.** Beta exists for exactly this, and a stable offer is a claim
+    that the pair was checked.
+  - Answer:
+
+- [ ] **D2. Tag names: keep the mixed casing, or make it uniform?** A FLAC today holds
+  `TRACKNUMBER` and `ALBUMARTIST` in capitals, but `title`, `album` and `tracktotal`
+  in lower case, and `totaldiscs` where EAC writes `TOTALDISCS` and Picard
+  `DISCTOTAL`. Rows: J7, E15.
+  - **A. Keep it, and write it down.** State in the contract that casing is not
+    fixed and readers must ignore case.
+    - Up: nothing changes.
+    - Up: FLAC tag names are case-insensitive by the format's own rules, so no
+      player misreads them.
+    - Down: `metaflac --list` looks untidy, and a diff against an EAC rip of the
+      same disc is noisy.
+  - **B. Make them uniform capitals, in cyanrip.** The fork writes every key in
+    capitals, and `DISCTOTAL` plus `TOTALDISCS`.
+    - Up: tidy.
+    - Up: matches EAC and Picard.
+    - Down: a tag-format change, so it costs a handshake round.
+    - Down: new rips will differ from rips already in your library.
+  - **C. Make them uniform in Platterpus, after the rip.**
+    - Up: no round needed.
+    - Down: a second program rewrites tags the ripper wrote, which the project has
+      avoided.
+  - **Recommended: A.** Nothing is broken, and B costs a round for looks. Choose B
+    if tidy tags matter to you; it is then a clean, one-time change.
+  - Answer:
+
+- [ ] **D3. Where does "Copy diagnostics…" belong?** It is the last action left in
+  the Help menu.
+  - **A. Keep it in Help.**
+    - Up: Help is where people look when something is wrong, and it is what you ask
+      for in a bug report.
+    - Down: Help is otherwise documentation only.
+  - **B. Move it into Tools → Setup & Updates.**
+    - Up: Help becomes pure documentation.
+    - Down: harder to find at the moment someone needs it.
+  - **Recommended: A**, and the row closes.
+  - Answer:
+
+- [ ] **D4. The testing items in the Tools menu** (Run test script, Run acceptance test).
+  An ordinary user never needs them.
+  - **A. Tools → Advanced ▸ submenu.**
+    - Up: out of the way, still one click deeper for you.
+    - Down: one more menu level.
+  - **B. Hidden unless a "Show testing tools" setting is on.**
+    - Up: invisible to ordinary users.
+    - Down: you must turn the setting on before every acceptance run, on every
+      machine.
+  - **C. Leave them where they are.**
+  - **Recommended: A.** You run the acceptance test often, and a hidden switch is
+    one more thing to forget on a new machine. Uninstall stays visible either way;
+    users do need it.
+  - Answer:
+
+- [ ] **D5. How does the app learn that a cyanrip build accepts `--consumer`?** It
+  uses a list shipped inside each app release. So during a round, every rip on the
+  new build records `Consumer: not identified` until a new app release knows the
+  build.
+  - **A. Read it from the fork's release manifest**, which the app already downloads
+    for ripper updates.
+    - Up: new builds are known without an app release.
+    - Down: depends on having fetched the manifest.
+    - Down: trusts a file the fork edits by hand.
+  - **B. Ask the binary itself:** read `cyanrip -h` and look for the flag.
+    - Up: always right for the build actually installed.
+    - Up: no list for either side to keep.
+    - Down: one more probe, cached per build. If the help text cannot be read, the
+      app does not send the flag, which is today's behaviour.
+  - **C. Keep the shipped list.**
+    - Down: the gap stays.
+  - **Recommended: B.** The answer comes from the thing being asked about. `-h` is
+    the documented flag the fork's own flag table is generated from, so it does not
+    have the old `-V` trap, where a rejected flag looked like a missing program.
+  - Answer:
+
+- [ ] **D6. Should the Goal label describe settings the preset does not control?** You
+  asked for names like "FLAC – Lossless Archival Master [Debugging]". Debug logging
+  is not part of any preset.
+  - **A. Keep the label to the preset, and show extra state on its own line** under
+    the Goal row, e.g. "Debug logging is on".
+    - Up: a label always means one thing.
+    - Down: one more line in Settings.
+  - **B. Add a suffix**, such as "Archival exact [Debugging]".
+    - Up: exactly what you asked for.
+    - Down: the label now mixes the preset with settings outside it, and every new
+      setting raises "does this get a suffix too?".
+  - **C. Rename the presets to descriptive names** ("FLAC – lossless archival
+    master"), with the extra state as in A.
+    - Up: clearer names.
+    - Down: the old names appear in past reports and docs.
+  - **Recommended: C.** It gives the descriptive naming you asked for without making
+    the label claim settings it does not set.
+  - Answer:
+
+- [ ] **D7. CHANGELOG entries for versions that no longer exist on GitHub.** GitHub's
+  tags and releases start at v0.6.4. Every earlier version the CHANGELOG lists (63
+  headings) has no tag, and their comparison links lead nowhere.
+  - **A. Mark that section as history**: one note saying those versions are no longer
+    on GitHub, with the dead links removed.
+    - Up: honest, quick, and no guesswork.
+  - **B. Recreate the old tags** at their release commits, which are still in the
+    history.
+    - Up: the links work again.
+    - Down: I cannot push tags; you would run one command I supply. It is only
+      worth it if they were deleted by mistake.
+  - **Question first:** were they removed on purpose?
+  - **Recommended: A** if on purpose, **B** if not.
+  - Answer:
+
+- [ ] **D8. Should drive setup measure the read offset from a disc** (cyanrip `-f`)?
+  Today the offset comes from the AccurateRip drive list, or you type it. `-f` needs
+  a disc that AccurateRip knows in the drive.
+  - **A. Use `-f` only as a cross-check**, and as the answer only for a drive missing
+    from the list. The app shows both values and never overwrites the list's value
+    silently.
+    - Up: covers drives the list does not know.
+    - Up: catches a wrong list entry.
+    - Down: slower setup, a new parser, and a hardware test before it ships. An
+      earlier attempt was removed for silently overwriting the offset.
+  - **B. Leave it out.**
+    - Up: nothing new to break.
+    - Down: a drive missing from the list needs a manual offset.
+  - **Recommended: B for now, A after 1.0.** It only helps unlisted drives, and the
+    BDR-209D is listed.
+  - Answer:
+
+- [ ] **D9. When to turn on update signing.** Update signing means signing each
+  release with a private key only you hold. The code is ready and switched off.
+  Today an update is protected by its SHA-256 checksum and GitHub's build
+  attestation.
+  - **A. Now.**
+    - Up: strongest protection: even someone who took over the GitHub account could
+      not ship an update the app accepts.
+    - Down: every release then needs you to sign it, so releases cannot run
+      unattended from a session.
+    - Down: if the key is lost, the app can never update again.
+  - **B. Just before 1.0.0.**
+    - Up: protection arrives before the app is widely used, and releases stay
+      automatic while they are still frequent.
+    - Down: until then, the account is the weak point.
+  - **C. Never; rely on the attestation.**
+    - Down: weaker against an account takeover.
+  - **Recommended: B.**
+  - Answer:
+
+- [ ] **D10. README screenshots.**
+  - **A. Take them from the next Full run.** The acceptance script already saves 11
+    screenshots into its bundle.
+    - Up: no extra work, and they come from real hardware on KDE.
+    - Down: they wait for that run.
+  - **B. You take two by hand.**
+    - Up: you choose the moments.
+  - **C. None.**
+  - **Recommended: A.** I pick the two best from the bundle and you approve them.
+  - Answer:
+
+- [ ] **D11. Where does the automatic re-rip's own log go?** When a track is re-read
+  and swapped in, the re-read writes a complete cyanrip log of its own, which today
+  is deleted. Row: Route 2.
+  - **A. Inside the rip's `.platterpus.json` report.**
+    - Up: nothing new in the album folder.
+    - Up: the record is complete.
+    - Down: a person has to open the JSON to see it.
+  - **B. As a second `.log` file in the album folder.**
+    - Up: easy to see.
+    - Down: log checkers and library tools may read a second log and misjudge the
+      rip.
+  - **C. Keep deleting it** (today's behaviour).
+  - **Recommended: A.**
+  - Answer:
+
+- [ ] **D12. The test-script console.** Today it is in Tools, and its risky commands
+  are allowed only when a setting is on. An old row proposed also hiding the console
+  itself behind a setting.
+  - **A. Keep today's arrangement**, moved under Advanced if you choose D4 A, and
+    close the row.
+  - **B. Hide it behind a setting as well.**
+  - **Recommended: A.** It is harmless without the risky commands, and hiding it
+    adds a switch to remember.
+  - Answer:
+
+- [ ] **D13. What a cancelled rip should say about itself.** cyanrip's own log already
+  ends with "interrupted by SIGTERM" when a rip is cancelled. Nothing can be added
+  after its final checksum line, or its own check calls the log modified.
+  - **A. Put Platterpus's part in the JSON report only.** That is which tracks were
+    kept, and their checksums.
+    - Up: cyanrip's log stays exact.
+    - Up: no extra file.
+  - **B. A sidecar text file**, as the auto-fix already uses.
+    - Up: readable without opening the JSON.
+    - Down: one more file in the album folder.
+  - **C. Ask the fork to write it into their log** before the checksum.
+    - Up: all in one place.
+    - Down: costs a round.
+    - Down: cyanrip cannot know what Platterpus kept.
+  - **Recommended: A.**
+  - Answer:
+
+- [ ] **D14. A control character inside a tag that comes only from MusicBrainz**
+  (genre, label, catalog number, barcode, ISRC). An example is a stray newline in a
+  MusicBrainz entry. These fields are not editable in the track table, so a user
+  cannot fix them before ripping. Rows: E12, `fuzz:_metadata_args`.
+  - **A. Refuse the rip** with a message, as for the four fields that become folder
+    and file names.
+    - Up: never alters data.
+    - Down: blocks the rip with no way for the user to fix it.
+  - **B. Replace the character with a space, and say so in the report.**
+    - Up: the rip goes ahead.
+    - Up: the record shows what was changed.
+    - Down: the tag differs from MusicBrainz by an invisible character.
+  - **C. Make those fields editable, then refuse.**
+    - Up: the user fixes it.
+    - Down: a bigger change for a rare case.
+  - **Recommended: B.**
+  - Answer:
+
+- [ ] **D15. Should a beta build of cyanrip stop being offered after a while?** The
+  fork asked this and it was never answered. Row: F8.
+  - **A. Never; it stays until a newer build replaces it.**
+    - Down: an old beta can linger.
+  - **B. When its round closes**, or a newer beta appears.
+    - Up: the beta channel only ever offers builds under review.
+  - **C. After a fixed time**, e.g. 30 days.
+    - Down: arbitrary; it can expire mid-round.
+  - **Recommended: B.** It lines up with D1 A.
+  - Answer:
+
 ## Round 24 — CLOSED on both gates 2026-09-23 on `3e01bb3` (`+platterpus.14`): ours at our lap 2, theirs at their lap 3
 
 One close condition, fixed at their lap 1: **our verdict on `3e01bb3`**. Filed
@@ -558,6 +810,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   opens this window. Settle the ordering: stable only after a round reviews it, or an
   explicitly bounded window. *Both · v6 candidate (A8).* Cite: their r24 lap 1 §0; fork
   `RELEASE-PLAN-platterpus.14.md` §3 and `ROUND-23-PLAN.md` item 11 note (their `docs/`).
+  - *2026-09-25:* **Waiting on the maintainer:** question D1 in *Decisions waiting on the maintainer* near the top of this file.
 - [x] **N4. OUR HANDSHAKE RELEASE GATE NEVER BLOCKS IN THE v0 LINE — a decision for the
   maintainer.** `release.yml` runs `--release-gate --prerelease` for every `v0.*` tag,
   and that path permits a release with a round OPEN (the round-7 lap 6 deadlock fix:
@@ -772,6 +1025,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [ ] **E12. Outbound argv property gaps** — `_metadata_args` rejects control characters
   on 4 of 11 fields; `sanitise_cyanrip_args` misses line terminators; plus the rest of
   the 2026-08-28 list (TASKS@b8f89a2:1993–2028, not re-derived one by one).
+  - *2026-09-25:* **Waiting on the maintainer:** question D14 in *Decisions waiting on the maintainer* near the top of this file.
 - [ ] **E13. `seam-commands` structural work** — rows for all 41 flags, generated types
   and ranges, string/path probes, reasons for the `-I`/`-J` and `-F` exclusions,
   NEED 1–3 / WANT 1–3. TASKS@b8f89a2:3704–3709, 3766.
@@ -779,6 +1033,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   `Cache model:`; per-track paranoia counts in the read-effort flag; `Duration:` vs
   `Samples:` (T14(c)). TASKS@b8f89a2:4483, 4479, 4461, 4502, 4371.
 - [ ] **E15. A cancelled-rip log addendum (J2) and the tag-casing ruling (J7).**
+  - *2026-09-25:* **Waiting on the maintainer:** question D2 and D13 in *Decisions waiting on the maintainer* near the top of this file.
 - [ ] **E16. AccurateRip skip discrimination** (round 8 J13) — ours to answer; the
   track-3 CRC puzzle is related. KI:1388.
 - [ ] **E17. Does cyanrip emit `Accurip` lines under `-l`?** — gates the AR-carryover
@@ -805,6 +1060,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"observed_version_pair_line still has no caller. 0.6.36 fixed the"*, which stays open.
 - [ ] **F8. Their two channel questions** — "should a beta expire?" (asked of us, never
   answered) and `release/*` markers (planned, relates to A5). Fork `CLAUDE.md:2076-2104`.
+  - *2026-09-25:* **Waiting on the maintainer:** question D15 in *Decisions waiting on the maintainer* near the top of this file.
 - [x] **F9. Keep `claude/session-omka9f`** — it also holds round 24 lap 2's evidence
   (`247bb89`). Until A5 settles what a citation names.
   - *Audit 2026-09-25: partly done.* The branch is kept and holds 247bb89, which is not on main. A5 is settled (v6 §3b), but the citation still needs the branch.
@@ -1126,6 +1382,7 @@ the sprawl is concentrated in two of them.
       actions, not documentation. Help should be User Guide / About, plus
       whatever troubleshooting genuinely belongs there.
   - *Audit 2026-09-25: partly done.* The three update items moved to Tools → Setup & Updates (3fbf568). "Copy diagnostics…" is still in Help.
+  - *2026-09-25:* **Waiting on the maintainer:** question D3 in *Decisions waiting on the maintainer* near the top of this file.
 - [x] **Three separate update entries is the sprawl the report is about.** One
       *Updates ▸* submenu (or a single *Check for updates…* that covers both the
       app and the ripper) replaces three top-level items with one.
@@ -1138,6 +1395,7 @@ the sprawl is concentrated in two of them.
       an end user who has never written a rig script does not need two entries
       for running them.
   - *Audit 2026-09-25: partly done.* The setup items are folded into Setup & Updates (3fbf568). Uninstall, Run test script and Run acceptance test are still top-level in Tools.
+  - *2026-09-25:* **Waiting on the maintainer:** question D4 in *Decisions waiting on the maintainer* near the top of this file.
 - [ ] **"Set cover art from file…" is a per-album action in a global menu.** It
       belongs with the album it acts on (File, or the album context menu).
 - [~] **Check every regrouping against the accessibility rules before landing**:
@@ -2217,6 +2475,7 @@ get right twice.
       hazard, since a rejected flag exits non-zero and reads to every probe as
       *"the tool is not installed"*, which is the `-V` failure exactly.
       Declared `NEXT-ROUND` in lap 4.
+  - *2026-09-25:* **Waiting on the maintainer:** question D5 in *Decisions waiting on the maintainer* near the top of this file.
 - [ ] **`defeat_audio_cache` carries its provenance in the EAC export and NOT in
       the report JSON — the fork's round-21 §H, accepted, and it is ours.** The EAC
       row says *"(measured for this drive with `cd-paranoia -A`, not asserted from
@@ -2947,6 +3206,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 
 - [~] **`fuzz:adapters.cyanrip_backend._metadata_args`** (ungated, small) — Outbound -a/-t blob: control chars and newlines are only rejected on 4 of 11 metadata fields
   - *Audit 2026-09-25: partly done.* test_the_whole_ASSEMBLED_blob_is_a_fixed_point_too fuzzes album/artist/title. _reject_path_reference_values still checks only 4 of 11 fields, so the defect is live.
+  - *2026-09-25:* **Waiting on the maintainer:** question D14 (refuse or replace) decides what the property test asserts.
 - [ ] **`fuzz:adapters.cyanrip_backend.scheme_from_template`** (ungated, small) — The Settings path-template (`%A`/`%d`/`%t`…) to cyanrip -D/-F translator has no property test
 - [ ] **`fuzz:adapters.ripper_log_verify.verify_rip_log`** (partial, small) — The adapter that turns a ripper exit code into an accusation about an archival file is fuzzed on no axis
 - [ ] **`fuzz:ctdb.crc.ctdb_crc`** (partial, small) — The CTDB CRC's only property test can never reach the CRC — every draw returns None
@@ -3914,6 +4174,7 @@ around, which is a different question from whether today's build is good.
   own (debug logging on, a test script set to autorun)? It means deciding which fields
   a label may speak for. Not an oversight — a design question held open deliberately.
   - *Audit 2026-09-25: not ours to verify.* The maintainer's design decision, not recorded as decided.
+  - *2026-09-25:* **Waiting on the maintainer:** question D6 in *Decisions waiting on the maintainer* near the top of this file.
 
 - [ ] **Consider surfacing the `[plan]` block in the UI, not only the log.** It goes to
   the live log pane today, which is right during a rip but is not where someone decides
@@ -3964,6 +4225,7 @@ around, which is a different question from whether today's build is good.
   leaving them. **Not a gate yet either**: a tag-vs-heading check needs tags in CI, and the
   `test` job checks out shallow without them, so it would need a workflow change to be honest
   rather than a skip.
+  - *2026-09-25:* **Waiting on the maintainer:** question D7 in *Decisions waiting on the maintainer* near the top of this file.
 
 - [ ] **Answer the fork's H3 question about a Platterpus-side sanitiser blind spot.** They
   found ASAN and UBSAN both blind to their argv overread. Our nearest equivalent of that false
@@ -4097,6 +4359,7 @@ and only the argv proves the second.
 4. **[~] The console dialog**, gated behind two separate Settings toggles (show the
    console; allow unsafe verbs), plus the Tools menu entry.
   - *Audit 2026-09-25: partly done.* Tools → Run test script… and test_script_allow_unsafe exist; there is no "show the console" toggle.
+  - *2026-09-25:* **Waiting on the maintainer:** question D12 in *Decisions waiting on the maintainer* near the top of this file.
 5. **[x] Handshake lap 28.** Independent of the rip *except* for the pin verdict —
    draft everything else now: withdraw the stale HOLD (their flag table arrived;
    `_MAX_TABLE_LAG` is 0), correct the recommendation of a pin our own
@@ -4559,6 +4822,7 @@ High-level feature backlog (not bucketed into a sub-section because each is smal
 - **[x] Eject button + auto-eject toggle. Done 2026-06-02.** Manual **Eject** button on the `DrivePicker` (emits `eject_requested(device)`; MainWindow ejects off a daemon thread via the existing `drive_control.eject_drive`, mirroring the force-stop pattern). New `Config.auto_eject_after_rip` (default off) + Settings checkbox; on a *successful* rip `_on_rip_finished` auto-ejects the just-ripped drive (skipped on failure/cancel so the disc stays in for a retry). User guide updated. Tests in `test_ui_drive_picker`, `test_ui_settings_dialog`, `test_config`, `test_ui_main_window`.
 - **[ ]** Re-evaluate a vetted cyanrip `-f` offset-detect in the drive-setup wizard (maintainer call). The 2026-07-21 flag verification confirmed `-f` IS a real "find drive offset" mode (needs an AccurateRip-listed disc in the drive) — the 2026-06 removal was about our mis-scraped integration (read a default 0, silently overrode the list value), not the capability. A redo needs trustworthy output parsing + agreement-with-the-list confidence rules (KDD-23 style), and hardware validation.
   - *Audit 2026-09-25: not ours to verify.* The maintainer's call; find_offset is still not implemented.
+  - *2026-09-25:* **Waiting on the maintainer:** question D8 in *Decisions waiting on the maintainer* near the top of this file.
 - **[ ]** Multi-disc queue
 - **[x]** Live progress bars per track — **DONE 2026-07-21:** the track table's Status column now paints a real progress bar (with the percent as its text) on the currently-ripping row, fed by the same worker task-percent stream as the bottom bar (`TrackStatusDelegate` + `PROGRESS_ROLE`; DisplayRole stays textual for assistive tech). Finished rows drop the bar for "✓ Done" — never a stale frozen bar.
 - **[ ]** Multi-drive support
@@ -4920,6 +5184,7 @@ From the trust/quality deep audit — see [docs/archive/trust-audit-2026-07-08.m
 
 - **[~] ⭐ Update authenticity (trust-critical).** **Build-provenance attestation DONE** — `release.yml` runs `actions/attest-build-provenance` over the released AppImage (SLSA, GitHub OIDC + Sigstore, no key/secret; verify with `gh attestation verify … --repo rmccann-hub/Platterpus`), and PyPI wheels are attested via Trusted Publishing. **The verify side DONE 2026-07-21 (KDD-26):** the must-ask was answered and `cryptography>=50.0.0,<51` is a declared runtime dep ([DEPENDENCIES.md](DEPENDENCIES.md)); `src/platterpus/update_signing.py` (`verify_minisign`, `verify_minisign_file`, `signing_configured`) is wired into `update_install.py` **fail-closed** on a present-but-invalid signature, with tests. It is dormant because `update_signing.PUBLIC_KEY_B64` is empty — today's gate is SHA-256 only, which `SECURITY.md` documents honestly. **Remaining, maintainer-only:** generate the keypair, bake in the public key, sign the first release — the ritual is in [docs/architecture.md §6.2](docs/architecture.md).
   - *Audit 2026-09-25: partly done.* The attestation is in release.yml and verification is wired in update_install.py; update_signing.PUBLIC_KEY_B64 is still empty (the keypair is the maintainer's).
+  - *2026-09-25:* **Waiting on the maintainer:** question D9 in *Decisions waiting on the maintainer* near the top of this file.
 - **[x] Pin GitHub Actions to commit SHAs** — DONE (round 2, 2026-07-08): every `uses:` across `ci.yml`/`release.yml`/`publish-pypi.yml`/`appimage.yml`/`mutation.yml` pins a full commit SHA (`# vN` comment). Dependabot (`github-actions`) drives the bumps.
 - **[~] Reproducible AppImage build.** **`SOURCE_DATE_EPOCH` — DONE (2026-07-08):** `build_appimage.sh` pins every embedded timestamp to the HEAD commit time; verified the *wheel* is byte-identical across rebuilds (same sha256). **`pip --require-hashes` dependency byte-pinning — PLUMBING SHIPPED (2026-07-21, Option A, maintainer-chosen):** the python-appimage-compatible design is a **hash-verified wheelhouse** — `build/lock-requirements.sh` resolves the third-party closure and writes a hash-pinned `requirements.lock` (run in the release env when a dep changes); `build_appimage.sh`, *when the lock exists*, `pip download --require-hashes`-es the closure into a local wheelhouse (aborts on any byte mismatch) and installs python-appimage's per-line deps **offline** from it, with the local `platterpus` wheel served alongside. It's **opt-in and additive** — no lock ⇒ the previous version-pinned online install, unchanged. Parsing logic unit-verified; scripts `bash -n`-clean. **Still gated on a real build (only place it can be validated):** generate the lock in CI/the release env, commit it, and confirm the *full* AppImage is byte-identical across rebuilds (the sandbox can only verify the wheel half).
   - *Audit 2026-09-25: partly done.* SOURCE_DATE_EPOCH and --require-hashes plumbing are in build_appimage.sh; no requirements.lock is committed, and full AppImage byte-identity is unproven.
@@ -4953,6 +5218,7 @@ Items that need real-system output to write authoritatively. Address as T32's sm
 - **[x] Remove the Method C "private repo, authenticate first" blockquote — done.** The repo is public; the README's auth section states a plain HTTPS `git clone` needs no authentication (auth only matters if you intend to *push*).
 - **[x] Add a Quick Start for users who already have whipper + Distrobox set up — done 2026-06-02.** README quickstart now has an "Already have whipper + Distrobox set up?" callout pointing at `install.sh --no-host` (GUI-only), for re-installs or a second box sharing the stack.
 - **[ ] Add a screenshot or two** of the GUI to the top of the README once T32 confirms it looks right on Bazzite KDE Plasma 6. *(Needs a real GUI screenshot — hardware/display; [docs/test-plan.md](docs/test-plan.md) Test 5.)*
+  - *2026-09-25:* **Waiting on the maintainer:** question D10 in *Decisions waiting on the maintainer* near the top of this file.
 - **[ ] Document Picard's actual auto-launch behavior** under Step 6 once T32 verifies it. The README currently says it works "if you enable the toggle"; T32 will confirm what the toggle UX actually feels like end-to-end. *([docs/test-plan.md](docs/test-plan.md) Test 6.)*
 - **[x] Sanity-check the "Where things live" table — done 2026-06-02.** Added a row for the rip output folder (`Artist/Album/`) documenting that whipper writes the FLAC tracks **plus** `.log`/`.cue`/`.m3u`/`.toc` next to them — confirmed on the real 16-track T32 rip (KDD-13 findings). Output goes under the configured output dir (not the working dir).
 
@@ -5177,6 +5443,7 @@ two verdicts turning GO.
       record, deliberately **not** batched with the H1 fix: it changes which files an
       album folder contains, which is a contract of ours with users and with tooling
       we do not control. Same reasoning that made us keep `-j`'s explicit path.
+  - *2026-09-25:* **Waiting on the maintainer:** question D11 in *Decisions waiting on the maintainer* near the top of this file.
 5. **[x] `-x` on one throwaway rip** (their J6). The least-tested path in the binary,
       never measured on hardware; the fork's new stall report makes the cost one track
       rather than a session. First group of the hardware plan, not the last.
@@ -5602,9 +5869,11 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
 - **[ ] The cancelled-rip log addendum, properly.** Their J2 is right that appending after
       `Log FUN512:` breaks `cyanrip -Y`, and the naive sidecar regresses bug #19 (the
       shipped-CRC statement lives in that text). Needs the real fix, not the sidecar.
+  - *2026-09-25:* **Waiting on the maintainer:** question D13 in *Decisions waiting on the maintainer* near the top of this file.
 - **[ ] Answer J7 (tag casing).** The maintainer's ruling, still open. Recommendation: state
       the convention explicitly in the contract rather than leave it implied.
   - *Audit 2026-09-25: not ours to verify.* The maintainer's ruling; no casing convention is stated in any contract.
+  - *2026-09-25:* **Waiting on the maintainer:** question D2 in *Decisions waiting on the maintainer* near the top of this file.
 - **[x] Reinstate `--dirty` in the fork's build tag (round 7).** Previously "agreed, not
       asking"; round 6 delivered two consecutive golden references whose banners named
       commits three behind the pin, so the mechanism demonstrably fires. Ours is not
