@@ -11,6 +11,57 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-25 — the known gaps, and a sweep of the small open rows
+
+Asked to fix the known gaps from the last round of work and look for other small
+open tasks. Three real defects turned up among the rows (two in how MusicBrainz
+answers reach the track table, one in the argv); the rest were rules with no test
+behind them. Delegated property tests found eight more.
+
+- **A failed release fetch left the disc "answered" with nothing loaded.** The
+  chosen-release marker is set before the fetch is sent, and the error handler never
+  cleared it, so the next lookup for that disc was refused as "already chosen".
+  Result: placeholder rows and no way back short of Rescan. The worker now reports a
+  failed fetch on its own signal, and that handler un-answers the disc. A failed
+  *redundant* lookup no longer overwrites a release already chosen.
+- **Nothing stopped a MusicBrainz answer rewriting the table under a running rip.**
+  An unknown-album rip is tagged from a snapshot of the table taken when it
+  finishes, so a slow lookup landing mid-rip changed its tags. The picker or the
+  unknown-album dialog could also open over the progress view. Every MusicBrainz
+  slot now checks `_rip_holds_the_track_table` at the point the result lands, and
+  the table refuses a rewrite from code while locked. A stale docstring said edits
+  "don't feed the rip yet"; they do, and that is why this matters.
+- **`-l` had no range check, and cyanrip refuses the whole rip on one out of
+  range.** The track numbers come from the MusicBrainz rows, not from the disc. It
+  is the `-t 17=` failure one flag over. `docs/dependency-contracts.md` already
+  listed the constraint, and nothing enforced it. A sweep now drives the builder
+  with every option on and fails on any numeric flag without a range check.
+- **Gates for rules nothing checked:** broad excepts must say why (11 did not),
+  `print` only in the three CLI modules, no metaprogramming, no column splits of
+  tool output, python-appimage only, "detach" across every module, Critical rule
+  #3's routing (host export pinned; container tools only in five named modules),
+  target sizes (all nine sizing calls, constants, and 44 px for commit controls),
+  a new top-level doc must name the homes it rejected, and the two ripper routes
+  outside `adapters/` named with reasons. Every one was revert-probed and has a
+  floor.
+- **The TASKS audit overstated one row.** It listed `uiscript/runner.py` as
+  spawning cyanrip outside the adapters. Its only spawn is the adapter's
+  `run_capture`. Checked by reading the call, not by trusting the row.
+- **Mutation audit: 6 modules to 15**, with floors set from a first sweep run in a
+  separate worktree (in-place mutation must never touch the working tree). The
+  scope is now a ratchet, and the documented command is pinned to a real leg. The
+  first run left 77 survivors of 241; some are `frozen=True` flips that only show
+  nothing asserts immutability. They are an open row, not a claim of good coverage.
+- **Delegated work, verified rather than relayed.** A vacuity agent fixed 13 tests
+  that passed under the condition they exist to catch. I re-ran all 13 here and
+  independently probed three (commented-out calls in `app.py` and `preflight.py`);
+  all were detected. Two property-test agents covered fourteen functions that take outside input and found **eight defects**. The worst: a `%{album}`-style template reached cyanrip with an unterminated brace, which refuses every rip. Exit 127 from the wrapper made the log check call a genuine archival log "altered". A garbled legacy Copy CRC compared as a bit-perfect match. Three Settings rules crashed and so counted as passing. I re-probed three of those fixes here; one agent's property needed D14's cleaned values once the batches met (`161ee84`).
+- **Open for the maintainer, from the agents:** an album artist shaped like EAC's `==== Log checksum … ====` line lands at column 0 of our EAC-style log; and whether `validate_config`'s `run()` should fail closed when a rule crashes (it resets a valid setting if a validator has a bug, which is why it was not changed).
+- **Lesson, graduated to the helper's docstring:** a git worktree nested in the tree
+  holds a `.git` *file*, so the `".git" in path.parts` filter four doc walks used did
+  not see it, and they read another checkout's files as ours. The four walks now
+  share one helper.
+
 ## 2026-09-25 — the small archival items, started: the completion check and D14
 
 The maintainer asked whether to start on the small open items (248 rows open, 56
