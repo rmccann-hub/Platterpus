@@ -371,6 +371,15 @@ used listed 18; we passed `-t 17=` and `-t 18=`; cyanrip refused the whole rip
 in two seconds. Guarded now in `_metadata_args` and pinned by
 `tests/test_dependency_arg_contract.py`.
 
+**The `-l` row sat in this table with no guard behind it until 2026-09-25**,
+the same shape one flag over: the track numbers come from the track table,
+whose rows come from the MusicBrainz release. `_tracks_on_disc` now drops a
+number the disc does not have and refuses the rip if none is left (dropping
+`-l` itself would mean "rip everything"). So that a table row cannot outrun its
+guard again, `tests/test_cyanrip_backend.py::test_every_NUMERIC_flag_the_builder_sends_has_a_range_check`
+drives the builder with every option on and fails on any numeric flag that is
+not range-checked at the chokepoint or in the builder.
+
 **The rule this implies for any new flag:** if a value is derived from
 *anything other than the disc we are about to rip* — a metadata service, a
 config file, a previous disc — it needs a range check against the disc before

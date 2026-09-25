@@ -282,7 +282,8 @@ class CyanripImpl(RipBackend):
         # speed change — the lever that works on a speed-locked drive). Empty =
         # rip the whole disc, so a normal rip omits `-l` entirely.
         if only_tracks:
-            argv += ["-l", ",".join(str(n) for n in only_tracks)]
+            wanted = _tracks_on_disc(only_tracks, disc_track_total)
+            argv += ["-l", ",".join(str(n) for n in wanted)]
         # Always -N: the GUI is the single metadata source (see docstring).
         # `unknown` just means the GUI has placeholder tags instead of MB
         # ones — either way cyanrip itself stays offline.
@@ -900,6 +901,49 @@ def _reject_path_reference_values(meta: RipMetadata) -> None:
         if problem:
             log.error("refusing to start a rip: %s (value=%r)", problem, value)
             raise RipError(problem)
+
+
+def _tracks_on_disc(
+    only_tracks: tuple[int, ...], disc_track_total: int | None
+) -> tuple[int, ...]:
+    """The ``-l`` track list, range-checked against the disc being ripped.
+
+    cyanrip validates ``-l N`` against the disc's real track count and refuses
+    the WHOLE rip on one out of range (provider contract,
+    ``round-26-lap-01-provider-contract-g37f946b.md:115``) — the ``-t 17=``
+    failure of 2026-08-02 in a different flag. The numbers come from the track
+    table, whose rows come from the MusicBrainz release, not from the disc, so a
+    medium listing more tracks than the disc has put an unrippable ``-l`` one
+    tick away (TASKS ``conv.argv-range``).
+
+    Surplus numbers are dropped with a warning, as ``-t`` drops surplus tags:
+    they name tracks the disc does not have. If NONE is on the disc the rip is
+    refused, because dropping ``-l`` entirely would mean "rip the whole disc",
+    which is not what was asked.
+    """
+    if not disc_track_total:
+        log.warning(
+            "the -l track range check did NOT run: the disc's track total is "
+            "unknown, so the track list %s goes to cyanrip unchecked",
+            list(only_tracks),
+        )
+        return only_tracks
+    on_disc = tuple(n for n in only_tracks if 1 <= n <= disc_track_total)
+    dropped = [n for n in only_tracks if not 1 <= n <= disc_track_total]
+    if dropped:
+        log.warning(
+            "not asking cyanrip for track(s) %s: the disc has %d track(s), and "
+            "cyanrip refuses the whole rip on an out-of-range -l",
+            dropped,
+            disc_track_total,
+        )
+    if not on_disc:
+        raise RipError(
+            f"None of the selected tracks ({', '.join(map(str, only_tracks))}) is on "
+            f"this disc, which has {disc_track_total} track(s). Rescan the disc, or "
+            f"choose tracks from 1 to {disc_track_total}."
+        )
+    return on_disc
 
 
 def _disc_args(metadata: RipMetadata | None) -> list[str]:
