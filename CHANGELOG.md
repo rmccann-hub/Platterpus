@@ -114,6 +114,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Agent worktrees inside the repository are ignored by git** (contributor-facing).
+  `.claude/worktrees/` holds separate checkouts the tooling creates; they are
+  never part of this repository.
+
 - **The documentation checks no longer read another checkout's files**
   (contributor-facing). A git worktree nested inside the repository was walked
   as part of it, so one check failed on a copy of the handshake record that was
