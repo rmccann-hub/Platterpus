@@ -129,29 +129,82 @@ def test_every_dialog_in_the_app_inherits_the_logging_base() -> None:
     one on the day it was written: `DiagnosticsDialog` — a **diagnostics** window
     that left no trace of having been opened, which is the joke telling itself.
 
-    Matches on the base class named in the `class X(...)` line rather than by
-    importing every UI module, so it needs no QApplication and cannot be defeated
-    by an import that happens to fail in a headless container.
+    Matches on the base classes of each `class` statement, read from the AST,
+    rather than by importing every UI module, so it needs no QApplication and
+    cannot be defeated by an import that happens to fail in a headless container.
+
+    **Why the AST and not a regex (2026-09-25).** The first version matched
+    ``^class X(QDialog):`` literally, so its candidate set was *provably* empty
+    once every dialog had been migrated: the only line of that shape left in the
+    tree was `CenteredDialog` itself, which it skipped. And the shapes it could
+    not see were the ordinary ones — ``class X(QtWidgets.QDialog)``,
+    ``class X(QDialog, SomeMixin)``, a base list wrapped across lines. Each of
+    those opts a dialog out exactly as well, and each passed. (Revert-probed:
+    rebasing `FileViewerDialog` onto either of the first two passed the old test.)
+
+    So the population is now **every class statement in the package** and the
+    question is "does any base name QDialog, bare or dotted", and the check owes
+    two floors, because a sweep that finds nothing to object to must also prove
+    it found the things it is about:
+
+    * it must see `CenteredDialog` itself as a direct `QDialog` subclass — the
+      one legitimate match, and the proof the matcher can match at all;
+    * it must see the dialogs that DO comply. 15 classes named `CenteredDialog`
+      as a base when measured (2026-09-25); the floor sits a little below so a
+      deleted dialog does not trip it, while a matcher that stopped seeing
+      class bases does.
+
+    Scope, stated rather than implied: `QDialog` only. Subclassing a *concrete*
+    Qt dialog (`QMessageBox`, `QFileDialog`) is not policed here — none exists
+    today, and such a class cannot also inherit `CenteredDialog`, so it would
+    need its own rule rather than this one.
     """
-    import re
+    import ast
     from pathlib import Path
 
-    ui_root = Path(__file__).resolve().parents[1] / "src" / "platterpus" / "ui"
-    pattern = re.compile(r"^class (?P<name>\w+)\(QDialog\):", re.MULTILINE)
+    src_root = Path(__file__).resolve().parents[1] / "src" / "platterpus"
+
+    def _base_name(node: ast.expr) -> str:
+        """`QDialog` for both `QDialog` and `QtWidgets.QDialog`; "" otherwise."""
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            return node.attr
+        return ""
+
     offenders: list[str] = []
+    roots: list[str] = []
+    compliant: list[str] = []
     scanned = 0
-    for path in sorted(ui_root.rglob("*.py")):
-        text = path.read_text(encoding="utf-8")
+    for path in sorted(src_root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         scanned += 1
-        for match in pattern.finditer(text):
-            name = match.group("name")
-            # `CenteredDialog` IS the base; it is the one legitimate subclass.
-            if name == "CenteredDialog":
+        rel = path.relative_to(src_root.parents[1])
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
                 continue
-            rel = path.relative_to(ui_root.parents[2])
-            offenders.append(f"{rel}: class {name}(QDialog)")
+            bases = [_base_name(b) for b in node.bases]
+            if "CenteredDialog" in bases:
+                compliant.append(node.name)
+            if "QDialog" not in bases:
+                continue
+            # `CenteredDialog` IS the base; it is the one legitimate subclass.
+            if node.name == "CenteredDialog":
+                roots.append(f"{rel}")
+                continue
+            offenders.append(f"{rel}:{node.lineno}: class {node.name}(...QDialog...)")
     # Floor: a rglob that stopped matching would report "no offenders" forever.
-    assert scanned >= 15, f"only scanned {scanned} UI modules — the glob is broken"
+    # 173 modules in the package when measured (2026-09-25).
+    assert scanned >= 150, f"only scanned {scanned} modules — the glob is broken"
+    assert len(roots) == 1, (
+        f"expected exactly one direct QDialog subclass named CenteredDialog, found "
+        f"{roots or 'none'} — either the base moved, or the matcher can no longer "
+        "see a QDialog base at all, and the offender check below is measuring nothing"
+    )
+    assert len(compliant) >= 12, (
+        f"only {len(compliant)} classes inherit CenteredDialog (15 when measured, "
+        "2026-09-25) — the sweep is not seeing the population it polices"
+    )
     assert not offenders, (
         "these dialogs subclass QDialog directly, so they inherit neither the "
         "centring nor the presented/closed log lines:\n  " + "\n  ".join(offenders)

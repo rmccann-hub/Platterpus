@@ -409,7 +409,22 @@ def test_no_two_files_in_a_directory_claim_the_same_lap() -> None:
     judgement, not a fact. Under the convention a collision is a name collision, which
     the filesystem itself refuses — but only while every file is named canonically, and
     only while nothing files by hand into a legacy name. So: check it.
+
+    **Floors, per directory (2026-09-25).** The collision assertion sits two loops
+    deep with a `continue` above it for files that declare no round/lap, so a
+    header parser that stopped matching — a renamed wire field, a changed fence
+    rule in `_declared` — skips *every* file and the test passes having compared
+    nothing. Revert-probed: renaming the `HANDSHAKE-ROUND` field this parser
+    looks for passed the old version. The legacy files that legitimately declare
+    nothing (the pre-protocol `round-N.md` set, a few status notes) are real, so
+    the skip stays; what changes is that the number that *were* compared is
+    counted and must clear a floor. Measured 2026-09-25: inbound 100 of 112,
+    outbound 46 of 54, verified 43 of 50. Floors sit below those so a retired
+    file does not trip them, and far above "nothing parsed".
     """
+    floors = {"inbound": 90, "outbound": 40, "verified": 38}
+    assert set(floors) == set(_DIRS), "every swept directory needs its own floor"
+    compared: dict[str, int] = {}
     for directory in _DIRS:
         seen: dict[tuple[int, int], Path] = {}
         for path in _lap_files_in(directory):
@@ -422,6 +437,13 @@ def test_no_two_files_in_a_directory_claim_the_same_lap() -> None:
                 f"{round_} lap {lap}. One of them is a misfiled copy."
             )
             seen[key] = path
+        compared[directory] = len(seen)
+    short = {d: n for d, n in compared.items() if n < floors[d]}
+    assert not short, (
+        f"too few declared laps were compared: {short} (floors {floors}). Either "
+        "the header parser has stopped seeing HANDSHAKE-ROUND/HANDSHAKE-LAP, or "
+        "files left the tree — a collision check over nothing cannot fail."
+    )
 
 
 def test_the_pad_width_is_uniform_so_a_lexical_sort_is_chronological(
