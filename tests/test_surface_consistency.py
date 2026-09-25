@@ -220,19 +220,66 @@ def test_every_track_crc_is_identical_in_the_log_and_the_report() -> None:
 
     This is the v0.5.10 defect in general form: the log rendered the discarded
     read's CRC while the file on disk (and cyanrip's own addendum) had another.
+
+    **Counted, and scoped to the track (2026-09-25).** Two ways this archival
+    check could pass without checking, both closed:
+
+    * *Nothing compared.* The assertions sat inside two loops with no count, so an
+      emptied scenario table — or scenarios whose tracks all vanished — passed.
+      Now every scenario must contribute a track, and the total must clear a
+      floor: 12 comparisons when measured (4 clean + 5 police + 3 unknown), floor
+      10. And each CRC compared must be a real 8-hex value, because an empty CRC
+      makes ``"Copy CRC " in text`` true of any log with any CRC in it.
+    * *The right CRC under the wrong track.* ``"Copy CRC X" in text`` searched the
+      whole log, so a renderer that filed track 1's CRC under a ``Track  2``
+      header — the archival record attributing bytes to the wrong track — passed
+      (revert-probed: numbering every header one high passed the old test). The
+      CRC is now looked for inside its own track's section, split on EAC's
+      ``Track NN`` header lines.
     """
+    compared = 0
     for name, build in SCENARIOS.items():
         rip_log = build()
         text, report, _, _ = _surfaces(rip_log)
+        sections = _track_sections(text)
+        in_scenario = 0
         for track, entry in zip(rip_log.tracks, report["tracks"], strict=True):
+            assert re.fullmatch(r"[0-9A-F]{8}", track.copy_crc or ""), (
+                f"{name}: track {track.number} has no real CRC ({track.copy_crc!r}) "
+                "— a blank CRC matches any 'Copy CRC' line, so it proves nothing"
+            )
             assert entry["copy_crc"] == track.copy_crc, (
                 f"{name}: report CRC disagrees with the parsed log for track "
                 f"{track.number}"
             )
-            assert f"Copy CRC {track.copy_crc}" in text, (
+            section = sections.get(track.number, "")
+            assert f"Copy CRC {track.copy_crc}" in section, (
                 f"{name}: track {track.number}'s CRC {track.copy_crc} is in the "
-                "report but not in the EAC-compatible log"
+                "report but not in that track's section of the EAC-compatible log "
+                f"(sections found: {sorted(sections)})"
             )
+            in_scenario += 1
+        assert in_scenario >= 1, f"{name}: no tracks were compared"
+        compared += in_scenario
+    assert compared >= 10, (
+        f"only {compared} track CRCs compared across {len(SCENARIOS)} scenarios "
+        "(12 when measured, 2026-09-25) — the sweep is not seeing its population"
+    )
+
+
+def _track_sections(text: str) -> dict[int, str]:
+    """The EAC log split into per-track sections, keyed by track number.
+
+    A section runs from its ``Track NN`` header line to the next one (or the end),
+    which is how EAC lays the log out and how a reader attributes a CRC to a
+    track.
+    """
+    headers = list(re.finditer(r"^Track\s+(?P<n>\d{1,3})\s*$", text, re.MULTILINE))
+    out: dict[int, str] = {}
+    for i, match in enumerate(headers):
+        end = headers[i + 1].start() if i + 1 < len(headers) else len(text)
+        out[int(match.group("n"))] = text[match.end() : end]
+    return out
 
 
 def test_no_crc_appears_in_the_log_that_no_track_actually_has() -> None:

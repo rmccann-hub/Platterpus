@@ -106,23 +106,81 @@ def test_no_declared_key_is_unemitted() -> None:
 
     `rip_compare` reads these types. A key declared here and absent from every
     report makes a downstream `.get()` look safe when it can only ever be `None`.
+
+    **Two holes closed (2026-09-25), both "satisfied by finding nothing" shapes.**
+
+    * *No floor on the declared side.* `_declared_keys` returns ``[]`` for a class
+      whose body holds no annotated fields — fields moved to a base, a class
+      rewritten in the functional ``TypedDict("X", {...})`` form — and an empty
+      declared list has no extras, so the converse passed having compared
+      nothing. Measured 2026-09-25: RipBlock 34, OutcomeBlock 7, TimingBlock 7
+      declared (48), of which 45 are required and so actually compared. Floors
+      below: every block declares something, and at least 40 required keys are
+      compared across the three.
+    * *The `NotRequired` exemption read the whole file.* It excused a key if the
+      text ``"<key>: NotRequired"`` appeared *anywhere* in `report_types.py`, so a
+      RipBlock field named `source` — `NotRequired` in an unrelated class further
+      down — was excused in RipBlock too (revert-probed: adding an unwritten
+      ``source: str`` to RipBlock passed). The exemption is now read off the
+      annotation of that field, in that class.
     """
     problems: list[str] = []
+    compared = 0
     for class_name, anchor in _BLOCKS.items():
         emitted = set(_emitted_keys(anchor))
         declared = _declared_keys(class_name)
+        assert declared, (
+            f"{class_name} declares no fields at all — the AST read of "
+            "report_types.py is not seeing its annotations, so this sweep would "
+            "compare nothing"
+        )
         # `NotRequired` fields are conditional by construction — `TimingBlock`'s
         # `disc_seconds` is only written when a disc duration is known — so they
-        # are legitimately absent from the unconditional literal.
-        source = _TYPES.read_text(encoding="utf-8")
-        extra = [
-            k
-            for k in declared
-            if k not in emitted and f"{k}: NotRequired" not in source
-        ]
+        # are legitimately absent from the unconditional literal. Scoped to THIS
+        # class's own annotation, never to the file.
+        optional = _not_required_keys(class_name)
+        required = [k for k in declared if k not in optional]
+        compared += len(required)
+        extra = [k for k in required if k not in emitted]
         if extra:
             problems.append(f"{class_name} declares but nothing writes: {extra}")
     assert not problems, "; ".join(problems)
+    assert compared >= 40, (
+        f"only {compared} required declared keys were compared across "
+        f"{len(_BLOCKS)} blocks (45 when measured, 2026-09-25) — the declared side "
+        "has shrunk or the exemption has swallowed it"
+    )
+
+
+def _not_required_keys(class_name: str) -> set[str]:
+    """The fields of one ``TypedDict`` whose own annotation is ``NotRequired[...]``.
+
+    Read from that class's AST, so a same-named field that is `NotRequired` in
+    some *other* class cannot excuse this one.
+    """
+    tree = ast.parse(_TYPES.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == class_name:
+            out: set[str] = set()
+            for stmt in node.body:
+                if not (
+                    isinstance(stmt, ast.AnnAssign)
+                    and isinstance(stmt.target, ast.Name)
+                ):
+                    continue
+                ann = stmt.annotation
+                head = ann.value if isinstance(ann, ast.Subscript) else ann
+                name = (
+                    head.id
+                    if isinstance(head, ast.Name)
+                    else head.attr
+                    if isinstance(head, ast.Attribute)
+                    else ""
+                )
+                if name == "NotRequired":
+                    out.add(stmt.target.id)
+            return out
+    raise AssertionError(f"report_types.py has no class {class_name}")
 
 
 def test_the_handshake_approval_fields_are_in_the_rip_block() -> None:

@@ -50,13 +50,21 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 #: old version number is the whole point.
 USER_FACING_DOCS: tuple[str, ...] = ("README.md", "SECURITY.md")
 
+#: The README's status banner, `**Status: vX.Y.Z — …`. ONE object, used by every
+#: test that reads the banner: the minor-level sweep below (through
+#: `_CLAIM_PATTERNS`), its floor, the exact-version sweep and that sweep's
+#: non-triviality check. Until 2026-09-25 the exact-version sweep and its
+#: non-triviality test each carried their own literal copy, so the floor
+#: (`test_the_patterns_actually_match_something`) certified a regex the exact
+#: sweep did not use — a floor under a different building.
+_STATUS_BANNER: re.Pattern[str] = re.compile(
+    r"\*\*Status:\s*v(?P<ver>\d{1,3}(?:\.\d{1,3}){0,2})", re.IGNORECASE
+)
+
 #: Patterns that assert something about the CURRENT release. Each captures the
 #: version it claims. Bounded quantifiers per the project rule.
 _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    (
-        "status banner",
-        re.compile(r"\*\*Status:\s*v(?P<ver>\d{1,3}(?:\.\d{1,3}){0,2})", re.IGNORECASE),
-    ),
+    ("status banner", _STATUS_BANNER),
     (
         "supported-versions statement",
         re.compile(
@@ -712,11 +720,19 @@ def test_the_status_banner_names_the_EXACT_current_version() -> None:
     of those move with patch releases. A banner three patches behind is a banner
     whose other two claims are unlikely to be right either — which is exactly
     what was found.
+
+    **It must find a banner to compare (2026-09-25).** The loop used to be the
+    whole test, so a banner reworded out of the pattern's reach — `**Status
+    (v0.6.59) — …` — was simply not iterated, and a stale version passed
+    (revert-probed). The README carries exactly one banner today; the floor is
+    that the README yields at least one, read with the SAME `_STATUS_BANNER`
+    object the §1 sweep and its floor use.
     """
+    examined: dict[str, int] = {}
     for doc, text in _user_facing_text().items():
-        for match in re.finditer(
-            r"\*\*Status:\s*v(?P<ver>\d{1,3}(?:\.\d{1,3}){0,2})", text, re.IGNORECASE
-        ):
+        examined[doc] = 0
+        for match in _STATUS_BANNER.finditer(text):
+            examined[doc] += 1
             claimed = match.group("ver")
             assert claimed == __version__, (
                 f"{doc}: the status banner says v{claimed} but __version__ is "
@@ -724,6 +740,11 @@ def test_the_status_banner_names_the_EXACT_current_version() -> None:
                 f"only — and the banner also states the ripper pin and the round "
                 f"state, which drift with it."
             )
+    assert examined.get("README.md", 0) >= 1, (
+        f"no status banner found in README.md (examined per doc: {examined}) — "
+        "either the banner was reworded out of _STATUS_BANNER's reach or it was "
+        "removed. An exact-version check over no banner cannot fail."
+    )
 
 
 def test_no_user_facing_doc_claims_a_RETIRED_ripper_pin_is_installed() -> None:
@@ -1363,12 +1384,9 @@ def test_the_three_new_patterns_catch_the_text_that_actually_shipped() -> None:
         "and rig-tested on real hardware."
     )
 
-    vers = [
-        m.group("ver")
-        for m in re.finditer(
-            r"\*\*Status:\s*v(?P<ver>\d{1,3}(?:\.\d{1,3}){0,2})", shipped
-        )
-    ]
+    # The shared object, not a copy of it: this is the non-triviality half of the
+    # exact-version sweep, so it must exercise the regex that sweep runs.
+    vers = [m.group("ver") for m in _STATUS_BANNER.finditer(shipped)]
     assert vers == ["0.6.27"], vers
     assert vers[0] != __version__, "pick a different sample; 0.6.27 is now current"
 
