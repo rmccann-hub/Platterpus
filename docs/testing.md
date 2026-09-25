@@ -223,11 +223,15 @@ tiers. "I added a happy-path test" is not done.
   says a line ran, mutation says a test fails when that line is wrong. It runs as
   a weekly, non-blocking workflow (`.github/workflows/mutation.yml`), one matrix
   leg per trust-bearing module — the AccurateRip verdict (`verdict.py`), the CTDB
-  CRC (`ctdb/crc.py`), the cyanrip, rip and EAC log parsers, and the
-  EAC-compatible log export — each with its own measured `--min-checked` floor,
-  so a sweep that checked nothing reports `NO RESULT` rather than a pass. Read
-  the run summary for survivors; it never gates a PR. The §7 command runs one leg
-  locally.
+  CRC, decode, TOC and diagnosis, the cyanrip, rip and EAC log parsers, the
+  EAC-compatible log export, and (added 2026-09-25) the cyanrip argv chokepoint,
+  the per-rip handshake approval, the ripper identity classifier, `naming.py`,
+  `rig_check.py` and `settings_validation.py` — each with its own measured
+  `--min-checked` floor, so a sweep that checked nothing reports `NO RESULT`
+  rather than a pass. The required modules are a ratchet in
+  `tests/test_mutation_audit_can_report_its_own_absence.py`, which also pins the
+  §7 command to a real leg. Read the run summary for survivors; it never gates a
+  PR. The §7 command runs one leg locally.
 
 ## 5. Institutional rules (the non-negotiables)
 

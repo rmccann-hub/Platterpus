@@ -93,6 +93,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The weekly mutation audit now covers fifteen modules, up from six**
+  (contributor-facing). Added: the cyanrip argument builder, CTDB decode, TOC and
+  diagnosis, the per-rip handshake approval, the ripper identity check, file
+  naming, the rig check and Settings validation, each with a floor set from its
+  measured first run. A test now lists the modules that must stay covered, and
+  may only grow, and another checks that the command in the docs is one the
+  workflow actually runs.
+
 - **Five coding rules that nothing checked are now tests** (contributor-facing).
   Every broad `except` must say why it is broad (eleven did not, and now do);
   `print` is allowed only in the three command-line modules; no
