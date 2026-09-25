@@ -213,6 +213,12 @@ def bounded_output(
     on whatever a dependency handed us.
     """
     text = _safe_str(output) if not isinstance(output, str) else output
+    # The bounds are clamped, because `lines[-0:]` is the WHOLE list: `tail=0` used
+    # to print every line again after a marker claiming some had been omitted (a
+    # count that was false, beside a duplicated head). The tail keeps at least one
+    # line for the reason above: head-only is the one shape this helper refuses.
+    head = max(0, head)
+    tail = max(1, tail)
     lines = text.rstrip("\n").splitlines()
     if len(lines) <= head + tail:
         return "\n".join(lines)

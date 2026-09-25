@@ -21,10 +21,13 @@ from __future__ import annotations
 import ast
 import dataclasses
 import logging
+import re
 import threading
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from platterpus import diagnostics as d
 
@@ -505,3 +508,132 @@ def test_an_info_diagnostic_is_info_not_a_warning() -> None:
     assert item is not None
     assert item.severity == d.INFO
     d.clear()
+
+
+# --- bounded_output: the head-and-tail rule every capture path shares --------
+#
+# Every external-tool capture in the app routes through this one helper
+# (`adapters/tool_run`, `adapters/metaflac`, `adapters/cache_probe`,
+# `adapters/rip_backend`, `drive_control`), and until 2026-09-25 the only test of
+# the head-and-tail rule targeted the step engine's private copy of it — so this
+# function could have dropped the tail, the line that explains a failure, with the
+# suite green.
+
+#: Every character `str.splitlines` treats as a line boundary. A generated LINE may
+#: contain none of them, or the test and the helper would be counting different
+#: things. `…` is excluded too, so no input line can pass for the elision marker.
+_LINE_BOUNDARIES = "\n\r\x0b\x0c\x1c\x1d\x1e\x85  …"
+_ONE_LINE = st.text(
+    st.characters(blacklist_characters=_LINE_BOUNDARIES, blacklist_categories=["Cs"]),
+    max_size=10,
+)
+_ELISION = re.compile(r"  … \[(?P<count>\d+) line\(s\) omitted\] …")
+
+
+@st.composite
+def _capture(draw: st.DrawFn, *, over: bool) -> tuple[list[str], str, int, int]:
+    """A tool's output as lines, its text, and the bounds it is capped to.
+
+    `over` decides which side of the cap the line count falls on, so each property
+    below is guaranteed to exercise its own branch rather than hoping a draw does.
+    The bounds include zero and negatives on purpose: `lines[-0:]` is the whole
+    list, and that is the defect the first run of this property found.
+    """
+    head = draw(st.integers(-2, 8))
+    tail = draw(st.integers(-2, 8))
+    # The helper's effective bounds. Stated here, not read from the helper,
+    # because what it SHOULD do with a nonsense bound is the question under test.
+    cap = max(0, head) + max(1, tail)
+    n = draw(st.integers(cap + 1, cap + 25) if over else st.integers(0, cap))
+    lines = draw(st.lists(_ONE_LINE, min_size=n, max_size=n))
+    if lines:
+        # The last line is the tool's fatal message: never blank, so the helper's
+        # stripping of trailing blank lines cannot change the count.
+        lines[-1] = draw(_ONE_LINE.filter(lambda s: s != ""))
+    # One separator per capture: cyanrip redraws progress with a bare `\r`, and
+    # mixing `\r` with `\n` would fuse into a single `\r\n` break.
+    sep = draw(st.sampled_from(["\n", "\r\n", "\r"]))
+    text = sep.join(lines) + draw(st.sampled_from(["", sep]))
+    return lines, text, head, tail
+
+
+@given(_capture(over=True))
+def test_a_capped_capture_keeps_both_ends_and_counts_exactly_what_it_dropped(
+    capture: tuple[list[str], str, int, int],
+) -> None:
+    """Over the cap: a head prefix, ONE counted marker, a tail suffix — and the
+    count plus the kept lines is exactly the input. Nothing dropped silently and
+    nothing repeated, whatever bounds the caller passed."""
+    lines, text, head, tail = capture
+    rows = d.bounded_output(text, head=head, tail=tail).split("\n")
+    markers = [i for i, row in enumerate(rows) if _ELISION.fullmatch(row)]
+    assert len(markers) == 1, f"expected exactly one elision marker: {rows!r}"
+    at = markers[0]
+    match = _ELISION.fullmatch(rows[at])
+    assert match is not None
+    elided = int(match["count"])
+    before, after = rows[:at], rows[at + 1 :]
+    assert before == lines[: len(before)], "the head is not a prefix of the input"
+    assert after == lines[len(lines) - len(after) :], "the tail is not the input's end"
+    assert len(before) + elided + len(after) == len(lines), (
+        "the kept lines and the stated count do not add up to the capture — a "
+        "silent drop, or a line printed twice"
+    )
+    assert elided >= 1
+    assert after and after[-1] == lines[-1], "the last line — the fatal one — is gone"
+    assert len(before) == max(0, head) and len(after) == max(1, tail)
+
+
+@given(_capture(over=False))
+def test_a_capture_within_the_cap_is_kept_whole_and_unmarked(
+    capture: tuple[list[str], str, int, int],
+) -> None:
+    """At or under the cap every line survives, in order, with no marker — a
+    marker on an untruncated capture would claim a gap that is not there."""
+    lines, text, head, tail = capture
+    out = d.bounded_output(text, head=head, tail=tail)
+    assert (out.split("\n") if out else []) == lines
+
+
+def test_a_zero_tail_neither_repeats_the_capture_nor_drops_its_last_line() -> None:
+    """REGRESSION, found by the property above on its first run (2026-09-25).
+
+    `lines[-0:]` is the whole list, so `tail=0` printed a marker claiming three
+    lines were omitted and then printed all four again after it — a false count
+    beside a duplicated head. The tail now keeps at least one line: head-only is
+    the one shape the docstring says this helper never produces.
+    """
+    assert d.bounded_output("a\nb\nc\nd", head=1, tail=0).split("\n") == [
+        "a",
+        "  … [2 line(s) omitted] …",
+        "d",
+    ]
+    assert d.bounded_output("a\nb\nc\nd", head=-1, tail=1).split("\n") == [
+        "  … [3 line(s) omitted] …",
+        "d",
+    ]
+
+
+def test_the_default_bounds_keep_the_larger_half_at_the_tail() -> None:
+    """The defaults every production caller uses: the tail is the larger half."""
+    assert d.OUTPUT_TAIL_LINES > d.OUTPUT_HEAD_LINES >= 1
+    total = d.OUTPUT_HEAD_LINES + d.OUTPUT_TAIL_LINES + 7
+    rows = d.bounded_output("\n".join(f"line{i}" for i in range(total))).split("\n")
+    assert rows[d.OUTPUT_HEAD_LINES] == "  … [7 line(s) omitted] …"
+    assert rows[-1] == f"line{total - 1}"
+
+
+@given(
+    st.one_of(
+        st.none(),
+        st.integers(),
+        st.binary(max_size=40),
+        st.lists(st.text(max_size=8), max_size=5),
+        st.just(_Exploding()),
+    )
+)
+def test_bounded_output_never_raises_on_what_a_dependency_hands_it(
+    value: object,
+) -> None:
+    """It runs on whatever a dependency returned, including a broken `__str__`."""
+    assert isinstance(d.bounded_output(value), str)
