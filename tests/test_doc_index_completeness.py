@@ -31,6 +31,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from conftest import repo_markdown_files
+
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _DOCS = _REPO_ROOT / "docs"
 _DOCS_INDEX = _DOCS / "README.md"
@@ -633,7 +635,7 @@ def test_no_prose_cites_a_generated_document_by_line_number() -> None:
     """
     offenders: list[str] = []
     examined = 0
-    for path in sorted(_REPO_ROOT.rglob("*.md")):
+    for path in repo_markdown_files(_REPO_ROOT):
         if ".git" in path.parts or "node_modules" in path.parts:
             continue
         examined += 1
@@ -728,9 +730,7 @@ def _handshake_citations() -> list[tuple[Path, int, str, int]]:
         r"(?P<doc>round-?\d+[a-z]?(?:-lap-?\d+)?\.md):(?P<line>\d+)"
     )
     found: list[tuple[Path, int, str, int]] = []
-    for path in sorted(_REPO_ROOT.rglob("*.md")):
-        if ".git" in path.parts:
-            continue
+    for path in repo_markdown_files(_REPO_ROOT):
         # Skip the round files themselves: a lap quoting a lap uses the OTHER
         # side's layout by design, and rewriting a received artifact to suit our
         # directory names would falsify the record.
