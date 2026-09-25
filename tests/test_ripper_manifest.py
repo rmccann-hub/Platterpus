@@ -848,6 +848,39 @@ def test_being_ahead_of_the_approved_pin_is_said_out_loud() -> None:
     assert offer.auto_installable is True
 
 
+def test_the_build_under_review_is_kept_not_replaced(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression, 2026-09-25: mid-round, Check for cyanrip updates offered to put
+    the approved build back over the build under review, as a one-click default, and
+    the operator's Full run then stopped at section A on the wrong build.
+
+    Installed = under review = the channel head, the real test's exact state.
+    """
+    reviewed = "c4d1a00"  # the published head in this file's manifest
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", reviewed)
+    assert fork_source.a_round_is_reviewing_a_build()
+    manifest = _manifest(stable={"release_seq": 16, "commit": reviewed})
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit=reviewed)
+    assert offer.verdict == OFFER_UP_TO_DATE
+    assert not offer.can_install, "nothing may be offered over the build under review"
+    assert offer.auto_installable is False
+    assert "acceptance test needs" in offer.detail
+    assert "unapproved" in offer.detail, "the truth about the verdict is still told"
+
+
+def test_a_build_ahead_that_is_NOT_under_review_still_gets_the_way_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The fix is narrow: a round reviewing ANOTHER build leaves this case alone."""
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", "cafe123")
+    assert fork_source.a_round_is_reviewing_a_build()
+    manifest = _manifest(stable={"release_seq": 16, "commit": "c4d1a00"})
+    offer = evaluate_offer(manifest, CHANNEL_STABLE, installed_commit="c4d1a00")
+    assert offer.install_commit == fork_source.FORK_PIN
+    assert offer.auto_installable is True
+
+
 def test_being_on_the_approved_pin_says_nothing_alarming() -> None:
     """The floor for the test above: the healthy state must stay quiet.
 

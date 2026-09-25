@@ -1321,6 +1321,26 @@ def a_round_is_reviewing_a_build() -> bool:
     return not same_commit(PIN_UNDER_REVIEW, FORK_PIN)
 
 
+def is_the_build_under_review(commit: str) -> bool:
+    """Whether ``commit`` is the build an open round is reviewing, so it must be kept.
+
+    **One predicate for every surface that could replace an installed ripper.** On
+    2026-09-25 the operator's Full run on 0.6.59 stopped at section A with `.15`
+    installed, a day after `.16` had been. Two surfaces could have done it, each by
+    comparing the installed build with `FORK_PIN` alone: Check for cyanrip updates
+    offered to "put the approved build back" as a one-click default, and the setup
+    wizard counted anything but `FORK_PIN` as "not installed" and rebuilt it. Both
+    were right between rounds and wrong during one, because during a round the build
+    to keep is the one under review. Asked here, once, so the offer and the wizard
+    cannot answer differently.
+    """
+    return (
+        bool(commit)
+        and a_round_is_reviewing_a_build()
+        and same_commit(commit, PIN_UNDER_REVIEW)
+    )
+
+
 def pin_under_review_role() -> str:
     """What `PIN_UNDER_REVIEW` *is* right now, in words true either way.
 
