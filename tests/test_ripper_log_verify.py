@@ -23,12 +23,18 @@ is how "the tool is not installed" got reported for a perfectly working binary.
 
 from __future__ import annotations
 
+import dataclasses
+import itertools
+from collections import Counter
 from pathlib import Path
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from platterpus.adapters import ripper_log_verify as rlv
 from platterpus.adapters.tool_run import ToolRun
+from platterpus.cyanrip_cli import VERIFY_LOG_EXIT_NO_VERDICT
 from platterpus.deps import fork_source
 
 #: A build a published flag table lists as accepting `--verify-log`.
@@ -601,3 +607,230 @@ def test_the_backend_forwards_writer_finished_rather_than_deciding_it() -> None:
         "the backend does not forward the caller's declaration — a re-derivation "
         "here is a second opinion about one fact"
     )
+
+
+def test_a_wrapper_that_cannot_find_the_ripper_is_not_an_accusation() -> None:
+    """REGRESSION (2026-09-25): exit 127 from the Distrobox wrapper is a missing
+    binary, not a verdict about the log.
+
+    `~/.local/bin/cyanrip` exists, so the exec succeeds and `started` is True; the
+    wrapper then exits 127 because the binary inside the container is gone. The
+    guard checked `started`, so on a build listed as accepting the flag with a
+    signed log, this produced *"the file was altered after the ripper signed it
+    and must not be treated as archival evidence"* — from a ripper that never ran.
+    Same defect `flac_verify` had until 2026-09-21, fixed the same way: the shared
+    `ToolRun.binary_missing` predicate.
+    """
+    result = rlv.verify_rip_log(
+        _REAL_LOG,
+        build_tag=KNOWN_BUILD,
+        runner=_runner(
+            ToolRun(exit_code=127, output="sh: line 1: cyanrip: command not found")
+        ),
+    )
+    assert result.verdict == rlv.NOT_DETERMINED
+    assert "could not be run" in result.detail
+    assert "altered" not in result.detail and "REJECTED" not in result.detail
+    assert result.exit_code == 127, "the evidence still travels with the verdict"
+
+
+# --- Property: an accusation needs positive evidence on EVERY axis -----------
+#
+# Every test above pins one branch with one input. The axes are independent —
+# how the run ended, the exit code, the build tag, the ripper's own words, whether
+# the footer is present, whether the writer was seen to finish, whether the log is
+# still readable after the run — and the exit-127 defect above lived in a
+# combination no example had. So this states the whole rule once and lets the
+# draws find the combinations.
+
+#: What cyanrip (really genopt) prints for a flag it does not know. Spelled out
+#: here as well as in the adapter, so a marker dropped from the adapter's list is
+#: a disagreement this test can see.
+_REJECTION_MARKERS = (
+    "unable to parse command line argument",
+    "unrecognized option",
+    "unrecognised option",
+    "invalid option",
+)
+_SUPPORTED_TAGS = sorted(fork_source.BUILD_TAGS_ACCEPTING_VERIFY_LOG)
+#: A character `str.splitlines` would treat as a line boundary could smuggle a
+#: footer onto a line of its own, so body lines are drawn without any of them.
+_NO_BREAKS = st.characters(
+    blacklist_characters="\n\r\x0b\x0c\x1c\x1d\x1e\x85  ",
+    blacklist_categories=["Cs"],
+)
+_BODY_LINE = st.text(_NO_BREAKS, max_size=30).filter(
+    lambda s: not s.startswith("Log FUN512")
+)
+
+
+def _real_footer() -> str:
+    """The genuine `Log FUN512:` line from the committed fork log."""
+    return next(
+        line
+        for line in _REAL_LOG.read_text(encoding="utf-8").splitlines()
+        if line.startswith("Log FUN512:")
+    )
+
+
+def _check_one_verification(
+    log: Path,
+    *,
+    run: ToolRun,
+    build_tag: str,
+    body: list[str],
+    footer: bool,
+    writer_finished: bool,
+    vanishes: bool,
+) -> str:
+    """Run the classifier once and assert every invariant. Returns the verdict."""
+    log.write_text(
+        "\n".join([*body, *([_real_footer()] if footer else [])]) + "\n",
+        encoding="utf-8",
+    )
+    calls: list[list[str]] = []
+
+    def _runner_that_may_lose_the_log(argv: list[str]) -> ToolRun:
+        # Returns what the real runner returns: the run as spawned. `vanishes`
+        # is a real race — the log removed between the spawn and our own read
+        # of it (an unmounted library volume) — and it is what reaches the
+        # "we could not read it" branch without monkeypatching the reader.
+        calls.append(list(argv))
+        if vanishes:
+            log.unlink()
+        return dataclasses.replace(run, argv=tuple(argv))
+
+    result = rlv.verify_rip_log(
+        log,
+        "cyanrip",
+        build_tag=build_tag,
+        runner=_runner_that_may_lose_the_log,
+        writer_finished=writer_finished,
+    )
+
+    # One spawn, the long flag, naming the log.
+    assert calls == [["cyanrip", "--verify-log", str(log)]]
+    assert result.verdict in {rlv.VERIFIED, rlv.FAILED, rlv.NOT_DETERMINED}
+    assert result.detail.strip(), "every verdict carries a sentence"
+    # The evidence travels with EVERY verdict, so an accusation is checkable and
+    # a not-determined is diagnosable. `None` stays `None`, never 0.
+    assert result.log_path == str(log)
+    assert result.exit_code == run.exit_code
+    assert result.argv == tuple(calls[0])
+    assert result.output == run.output
+
+    ripper_ran = run.started and run.exit_code != ToolRun.NOT_FOUND_EXIT
+    assert (result.verdict == rlv.VERIFIED) == (ripper_ran and run.exit_code == 0)
+
+    # THE RULE: `failed` accuses an archival file, so it requires every piece of
+    # positive evidence at once, and it is reached whenever all of it is there.
+    evidence = (
+        ripper_ran
+        and run.exit_code is not None
+        and run.exit_code != 0
+        and run.exit_code not in VERIFY_LOG_EXIT_NO_VERDICT
+        and fork_source.accepts_verify_log(build_tag) is True
+        and not any(m in run.output.casefold() for m in _REJECTION_MARKERS)
+        and not vanishes
+        and (footer or writer_finished)
+    )
+    assert (result.verdict == rlv.FAILED) == evidence, (
+        f"verdict {result.verdict!r} with evidence={evidence}: {result.detail}"
+    )
+    if result.verdict == rlv.FAILED:
+        # And its wording matches the artifact: "altered" only over a footer that
+        # is actually there; a missing footer is never called a mismatch.
+        assert ("does NOT match" in result.detail) == footer, result.detail
+    return result.verdict
+
+
+#: The ripper's own words, with a marker in any case (`casefold` must find it).
+_WITH_MARKER = st.builds(
+    lambda pre, marker, post: pre + marker + post,
+    st.text(max_size=20),
+    st.sampled_from(_REJECTION_MARKERS).map(lambda m: m.upper() if len(m) % 2 else m),
+    st.text(max_size=20),
+)
+_PLAIN_OUTPUT = st.text(max_size=60).filter(
+    lambda s: not any(m in s.casefold() for m in _REJECTION_MARKERS)
+)
+#: A non-zero exit that is neither "not found" nor a reserved no-verdict code: the
+#: only kind a `failed` can come from.
+_VERDICT_EXIT = st.integers(-(2**31), 2**31 - 1).filter(
+    lambda c: c not in {0, ToolRun.NOT_FOUND_EXIT, *VERIFY_LOG_EXIT_NO_VERDICT}
+)
+_LISTED_TAG = st.sampled_from(_SUPPORTED_TAGS).flatmap(
+    lambda t: st.sampled_from([t, t.upper(), t + "-dirty"])
+)
+_UNLISTED_TAG = st.text(max_size=24).filter(
+    lambda t: fork_source.accepts_verify_log(t) is not True
+)
+
+
+@pytest.fixture(scope="module")
+def _log_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return tmp_path_factory.mktemp("verify_property")
+
+
+@settings(max_examples=20)
+@given(
+    exit_code=_VERDICT_EXIT,
+    plain=_PLAIN_OUTPUT,
+    rejection=_WITH_MARKER,
+    error=st.text(max_size=30),
+    listed=_LISTED_TAG,
+    unlisted=_UNLISTED_TAG,
+    body=st.lists(_BODY_LINE, max_size=6),
+)
+def test_an_accusation_needs_positive_evidence_on_every_axis(
+    _log_dir: Path,
+    exit_code: int,
+    plain: str,
+    rejection: str,
+    error: str,
+    listed: str,
+    unlisted: str,
+    body: list[str],
+) -> None:
+    """Hypothesis draws the FREE axes (the exit code, the ripper's words, the build
+    tag, the log body); every example then runs the whole CATEGORICAL product
+    against them — each way a run can end, a listed/unlisted/absent build, footer or
+    not, writer finished or not, log still there or not.
+
+    Why the product rather than drawing the categories too: `failed` needs every
+    piece of evidence at once, so a draw reaches it a few times in a hundred, and
+    the exit-127 defect above needed one particular exit code on top. A first
+    version that let Hypothesis pick the categories was revert-probed and found
+    VACUOUS on three guards, the 127 fix among them. Here every combination runs
+    every example, and the floor at the bottom proves each verdict was reached."""
+    runs = [
+        ToolRun.failed_to_run(error),
+        ToolRun.timed_out(error, plain),
+        ToolRun(exit_code=0, output=plain),
+        ToolRun(exit_code=exit_code, output=plain),
+        ToolRun(exit_code=exit_code, output=rejection),
+        ToolRun(exit_code=min(VERIFY_LOG_EXIT_NO_VERDICT), output=plain),
+        ToolRun(exit_code=ToolRun.NOT_FOUND_EXIT, output=plain),
+    ]
+    seen: Counter[str] = Counter()
+    accusations: set[bool] = set()
+    for run, tag, footer, finished, vanishes in itertools.product(
+        runs, [listed, unlisted, ""], *[[False, True]] * 3
+    ):
+        verdict = _check_one_verification(
+            _log_dir / "rip.log",
+            run=run,
+            build_tag=tag,
+            body=body,
+            footer=footer,
+            writer_finished=finished,
+            vanishes=vanishes,
+        )
+        seen[verdict] += 1
+        if verdict == rlv.FAILED:
+            accusations.add(footer)
+    # The floor: a classifier that answered `not_determined` to everything would
+    # satisfy the evidence rule on every combination lacking the evidence, so the
+    # property must SEE each verdict — and both kinds of accusation.
+    assert set(seen) == {rlv.VERIFIED, rlv.FAILED, rlv.NOT_DETERMINED}, seen
+    assert accusations == {True, False}, "both kinds of `failed` must be reached"
