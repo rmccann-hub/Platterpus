@@ -327,6 +327,19 @@ jobs:
           fi
           echo "version check: built '$built' == tag '$expected'"
 
+      # The updater imports sigstore lazily, so an AppImage built without a working
+      # copy passes --version and then refuses every update it is ever offered,
+      # stranding its users. Run the BUNDLED Python on a genuine attestation.
+      - name: Check the bundled attestation verifier works
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          work="$(mktemp -d)"
+          (cd "$work" && "$GITHUB_WORKSPACE/platterpus-x86_64.AppImage" --appimage-extract >/dev/null)
+          py="$(ls "$work"/squashfs-root/opt/python*/bin/python3* | head -1)"
+          echo "bundled interpreter: $py"
+          PYTHONNOUSERSITE=1 "$py" scripts/check_bundled_verifier.py --bundle-root "$work/squashfs-root"
+
       # Build-provenance attestation (2026-07-08 trust-audit follow-up). Emits a
       # cryptographically signed SLSA provenance statement binding THIS exact
       # AppImage — by its SHA-256 digest — to the workflow, repo, and commit that

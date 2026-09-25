@@ -55,6 +55,19 @@ jobs:
           chmod +x platterpus-x86_64.AppImage
           ./platterpus-x86_64.AppImage --version
 
+      # The updater imports sigstore lazily, so an AppImage built without a working
+      # copy passes --version and then refuses every update it is ever offered,
+      # stranding its users. Run the BUNDLED Python on a genuine attestation.
+      - name: Check the bundled attestation verifier works
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          work="$(mktemp -d)"
+          (cd "$work" && "$GITHUB_WORKSPACE/platterpus-x86_64.AppImage" --appimage-extract >/dev/null)
+          py="$(ls "$work"/squashfs-root/opt/python*/bin/python3* | head -1)"
+          echo "bundled interpreter: $py"
+          PYTHONNOUSERSITE=1 "$py" scripts/check_bundled_verifier.py --bundle-root "$work/squashfs-root"
+
       - name: Upload the AppImage artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

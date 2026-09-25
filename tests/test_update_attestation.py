@@ -399,3 +399,76 @@ def test_the_release_script_refuses_and_writes_nothing_for_the_wrong_file(
         ]
     )
     assert code == 1 and not out.exists()
+
+
+@pytest.mark.parametrize("workflow", ["release.yml", "appimage.yml"])
+def test_every_appimage_build_proves_its_bundled_verifier_works(workflow: str) -> None:
+    """An AppImage whose sigstore cannot import passes --version and then refuses
+    every update it is offered. Both workflows that build one must run the check
+    with the BUNDLED interpreter, after the build."""
+    text = (_REPO / ".github" / "workflows" / workflow).read_text(encoding="utf-8")
+    name = "      - name: Check the bundled attestation verifier works"
+    assert text.count(name) == 1
+    step = text[text.index(name) :].split("\n      - ", 2)[0]
+    assert "--appimage-extract" in step
+    assert "squashfs-root/opt/python" in step
+    assert "scripts/check_bundled_verifier.py --bundle-root" in step
+    assert text.index("run: bash build/build_appimage.sh") < text.index(name)
+
+
+def test_the_bundled_check_refuses_an_interpreter_without_the_verifier(
+    tmp_path: Path,
+) -> None:
+    """The failure it exists for, run for real: a Python that cannot import sigstore."""
+    import subprocess
+    import sys
+
+    blocker = tmp_path / "sigstore"
+    blocker.mkdir()
+    (blocker / "__init__.py").write_text("raise ImportError('not bundled')\n")
+    completed = subprocess.run(
+        [sys.executable, str(_REPO / "scripts" / "check_bundled_verifier.py")],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        env={"PYTHONPATH": str(tmp_path), "PATH": "/usr/bin:/bin"},
+        timeout=120,
+    )
+    assert completed.returncode == 1
+    assert "would refuse every update" in completed.stdout
+
+
+def test_the_bundled_check_passes_on_a_working_interpreter() -> None:
+    import subprocess
+    import sys
+
+    completed = subprocess.run(
+        [sys.executable, str(_REPO / "scripts" / "check_bundled_verifier.py")],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=120,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "accepts the genuine v0.6.60 attestation" in completed.stdout
+
+
+def test_the_bundled_check_fails_when_the_verifier_imports_but_refuses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A bundle whose sigstore imports but cannot verify (a broken crypto build,
+    say) strands users just as surely as a missing one."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "check_bundled_verifier", _REPO / "scripts" / "check_bundled_verifier.py"
+    )
+    assert spec is not None and spec.loader is not None
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    monkeypatch.setattr(
+        update_attestation,
+        "select_verified",
+        lambda *args: (AttestationResult("refused", "broken build"), None),
+    )
+    assert script.main([]) == 1
