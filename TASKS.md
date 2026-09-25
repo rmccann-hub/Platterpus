@@ -3236,19 +3236,30 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 
 ### 6. Mutation-testing scope (22)
 
-- [~] **`mutation:_documented_command`** (ungated, small) — CLAUDE.md and docs/testing.md still publish the mutmut 2.x command that exits 2
+- [x] **`mutation:_documented_command`** (ungated, small) — CLAUDE.md and docs/testing.md still publish the mutmut 2.x command that exits 2
   - *Audit 2026-09-25: partly done.* CLAUDE.md and docs/testing.md now publish scripts/mutation_sweep.py, but no test pins the documented command to the workflow's invocation.
-- [~] **`mutation:_scope_config`** (partial, small) — No test asserts WHICH modules are mutated — the scope can shrink to one 104-line parser and stay green
+  - *2026-09-25:* **Done.** `test_the_DOCUMENTED_command_is_the_one_the_workflow_runs` reads the command out of CLAUDE.md and docs/testing.md and requires every flag to be one the sweep accepts, and its target, tests, `--limit` and `--min-checked` to be those of a real matrix leg. Revert-probed on both docs.
+- [x] **`mutation:_scope_config`** (partial, small) — No test asserts WHICH modules are mutated — the scope can shrink to one 104-line parser and stay green
   - *Audit 2026-09-25: partly done.* test_mutation_audit_can_report_its_own_absence checks len(targets) >= 3 and names eac_log_export.py only; the verdict/crc/cyanrip_log legs could be dropped and stay green.
-- [ ] **`mutation:adapters/cyanrip_backend.py`** (ungated, small) — The argv chokepoint — 5 fix commits, pure, and the best single addition to scope
-- [ ] **`mutation:ctdb/decode.py+toc.py+diagnose.py`** (ungated, small) — Inside ctdb/, the ONE module in scope (crc.py) is the one with no shipped bug
+  - *2026-09-25:* **Done.** `_REQUIRED_TARGETS` in `test_mutation_audit_can_report_its_own_absence.py` is a ratchet of the 15 swept modules (it may grow, never shrink, with a size floor so deleting a row and its leg together still fails). Revert-probed by dropping a leg.
+- [x] **`mutation:adapters/cyanrip_backend.py`** (ungated, small) — The argv chokepoint — 5 fix commits, pure, and the best single addition to scope
+  - *2026-09-25:* **Done.** A matrix leg in `.github/workflows/mutation.yml`: leg `cyanrip-backend`, floor 30; measured 39 checked of 114 generated (40 sampled), 64% killed. Survivors are tracked in `mutation:_survivors-20260925`.
+- [x] **`mutation:ctdb/decode.py+toc.py+diagnose.py`** (ungated, small) — Inside ctdb/, the ONE module in scope (crc.py) is the one with no shipped bug
+  - *2026-09-25:* **Done.** A matrix leg in `.github/workflows/mutation.yml`: legs `ctdb-decode` (floor 14; 18/18 checked, 72%), `ctdb-toc` (floor 7; 9/9, 78%), `ctdb-diagnose` (floor 14; 18/18, 50%). Survivors are tracked in `mutation:_survivors-20260925`.
 - [x] **`mutation:eac_log_export.py`** (ungated, small) — The archival EAC artifact — 4 fix commits, fully pure, 1,450 lines
   - *Audit 2026-09-25: done.* Matrix leg eac-log-export in mutation.yml (floor 30), plus test_the_archival_EAC_WRITER_is_swept_and_not_only_the_reader.
-- [ ] **`mutation:handshake_approval.py`** (ungated, small) — The per-rip approval verdict stamped into every archival record — 491 lines, outside scope
-- [ ] **`mutation:naming.py`** (ungated, small) — 315 lines, the substitution table that cost a finished 14-track rip
-- [ ] **`mutation:rig_check.py`** (ungated, small) — Flag-token comparison — 773 lines, 2 fix commits, the exact bug mutmut kills
-- [ ] **`mutation:ripper_identity.py`** (ungated, small) — The single shared provenance classifier — 247 lines, in nothing
-- [ ] **`mutation:settings_validation.py`** (ungated, small) — The pure validator CLAUDE.md mandates — 879 lines, 120 tests, outside scope
+- [x] **`mutation:handshake_approval.py`** (ungated, small) — The per-rip approval verdict stamped into every archival record — 491 lines, outside scope
+  - *2026-09-25:* **Done.** A matrix leg in `.github/workflows/mutation.yml`: leg `handshake-approval`, floor 20; 25/25 checked, 84% killed. Survivors are tracked in `mutation:_survivors-20260925`.
+- [x] **`mutation:naming.py`** (ungated, small) — 315 lines, the substitution table that cost a finished 14-track rip
+  - *2026-09-25:* **Done.** A matrix leg in `.github/workflows/mutation.yml`: leg `naming`, floor 20; 25 checked of 26, 84% killed. Survivors are tracked in `mutation:_survivors-20260925`.
+- [x] **`mutation:rig_check.py`** (ungated, small) — Flag-token comparison — 773 lines, 2 fix commits, the exact bug mutmut kills
+  - *2026-09-25:* **Done.** A matrix leg in `.github/workflows/mutation.yml`: leg `rig-check`, floor 30; 40 checked of 84 generated, 65% killed. Survivors are tracked in `mutation:_survivors-20260925`.
+- [x] **`mutation:ripper_identity.py`** (ungated, small) — The single shared provenance classifier — 247 lines, in nothing
+  - *2026-09-25:* **Done.** A matrix leg in `.github/workflows/mutation.yml`: leg `ripper-identity`, floor 21; 27/27 checked, 59% killed. Survivors are tracked in `mutation:_survivors-20260925`.
+- [x] **`mutation:settings_validation.py`** (ungated, small) — The pure validator CLAUDE.md mandates — 879 lines, 120 tests, outside scope
+  - *2026-09-25:* **Done.** A matrix leg in `.github/workflows/mutation.yml`: leg `settings-validation`, floor 30; 40 checked of 56 generated, 65% killed. Survivors are tracked in `mutation:_survivors-20260925`.
+- [ ] **`mutation:_survivors-20260925`** (ungated, medium) — The nine new legs' first sweep left 77 survivors of 241 checked; read them and kill the real ones
+  - *2026-09-25:* Measured in a separate worktree at 24755e1 (`--limit 40 --seed 0`). By leg: cyanrip-backend 14, rig-check 14, settings-validation 14, ripper-identity 11, ctdb-diagnose 9, ctdb-decode 5, handshake-approval 4, naming 4, ctdb-toc 2. **Not all are test gaps:** several are `@dataclass(frozen=True)` flipped to `False` (naming.py:130, ripper_identity.py:63, ctdb/toc.py:40, handshake_approval.py:257), which only says no test asserts immutability. Triage each as *equivalent*, *immutability only*, or *a real missed behaviour*, and write a test for the last kind. The weekly run's artifact lists them all.
 - [x] **`mutation:_proposed_expansion`** (ungated, medium) — Concrete proposal: tier A now (+~2,900 mutants), tier B next, measured test cost 14.5 s
   - *Audit 2026-09-25: partly done.* The matrix grew to 6 legs (rip_log, eac_log, eac_log_export added); none of the other candidates listed here was added.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"mutation:adapters/cyanrip_backend.py (ungated, small) — The argv chokepoint — 5 fix …"*, which stays open.
