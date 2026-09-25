@@ -114,6 +114,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Adding a new top-level document now needs a stated reason**
+  (contributor-facing). A test lists today's documents; a new one fails until it
+  is added with the existing homes that were considered and why each did not
+  fit, which is what the project's documentation rule asks for.
+
 - **The on-screen target-size check now sees every size we set**
   (contributor-facing). It read literal minimum and fixed heights and widths
   only; it now also reads maximum sizes, `setFixedSize`, `QSize` and sizes given
