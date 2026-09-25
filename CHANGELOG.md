@@ -107,6 +107,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Thirteen tests that could pass while checking nothing now fail when they
+  should** (contributor-facing). Each was shown to pass under a condition it
+  exists to catch: a commented-out call, a renamed field that meant nothing was
+  compared, an empty table, a skip. They now check behaviour or parse the code,
+  carry a floor on what they examined, and were each shown to fail under the
+  same condition.
+
 - **The weekly mutation audit now covers fifteen modules, up from six**
   (contributor-facing). Added: the cyanrip argument builder, CTDB decode, TOC and
   diagnosis, the per-rip handshake approval, the ripper identity check, file

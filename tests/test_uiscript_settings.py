@@ -99,16 +99,32 @@ def test_a_warning_does_not_block_a_set() -> None:
 
     This test finds a real warning-severity issue from the live validator rather than
     constructing one, so it cannot pass against a validator whose severities have
-    moved. If no field ever produces a warning again, it skips loudly instead of
-    passing quietly — a test that silently stops testing is the thing it is here to
-    prevent.
+    moved.
+
+    **It no longer skips (2026-09-25).** It used to `pytest.skip` when the fixture
+    produced no warning, on the theory that a skip is loud. It is not: a skip is
+    green in CI, so reclassifying the unknown-%code rule as an error — or dropping
+    it — turned this regression test off with nothing red anywhere
+    (revert-probed: making that rule an error passed the old version). An empty
+    population here is a defect *in the fixture*, so it fails and says to pick
+    another warning-producing value. And a second half that does not depend on
+    the live validator's severities at all: a stubbed validator returning one
+    warning and then one error for the same field, so the distinction itself is
+    tested even on a day no real rule warns — and "always refuse" or "never
+    refuse" each fail one of the two.
     """
+    import platterpus.settings_validation as sv
+    from platterpus.settings_validation import SEVERITY_ERROR, ValidationIssue
+
     # A template with an unknown %code is a WARNING: legal, probably not intended.
     config = dataclasses.replace(Config(), track_template="%A/%q-unknown/%t")
     issues = validate_config(config)
     warnings = [i for i in issues if i.severity == SEVERITY_WARNING]
-    if not warnings:
-        pytest.skip("no warning-severity issue available to test the distinction")
+    assert warnings, (
+        "the fixture no longer produces a warning-severity issue (an unknown "
+        "%code in track_template used to), so this test cannot tell a warning from "
+        "an error. Pick another value the live validator WARNS about — do not skip."
+    )
     field = warnings[0].field
     assert not any(i.is_error() for i in issues if i.field == field), (
         "fixture picked a field that also has an error — pick a warning-only one"
@@ -117,6 +133,16 @@ def test_a_warning_does_not_block_a_set() -> None:
         f"a {SEVERITY_WARNING}-severity issue on {field!r} blocked the set; only a "
         f"hard error may. A script must not be stricter than the dialog."
     )
+
+    # The distinction on its own, independent of which live rules warn today.
+    for severity, blocks in ((SEVERITY_WARNING, False), (SEVERITY_ERROR, True)):
+        stub = [ValidationIssue("output_format", "stubbed issue", severity)]
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr(sv, "validate_config", lambda _c, stub=stub: stub)
+            got = _validation_error_for(Config(), "output_format")
+        assert (got == "stubbed issue") is blocks, (
+            f"a {severity}-severity issue gave {got!r}; only an error may block a set"
+        )
 
 
 def test_a_validator_that_explodes_blocks_rather_than_silently_setting(monkeypatch):
