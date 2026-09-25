@@ -366,14 +366,70 @@ def test_every_exemption_names_a_module_that_exists() -> None:
 
 
 def test_the_module_never_imports_qt() -> None:
-    """It is called from a worker thread and from the pure-ish file layer."""
+    """It is called from a worker thread and from the pure-ish file layer.
+
+    **Two halves (2026-09-25), because the first version had only the weaker one.**
+    Every assertion lived inside the AST walk's `Import`/`ImportFrom` branches, so
+    it asserted nothing when the walk yielded none, and — the real gap — it only
+    looked at *this* file's import statements. ``import platterpus.ui.rip_progress``
+    names no ``PySide6`` and drags all of Qt in behind it; the old test passed
+    against exactly that line (revert-probed).
+
+    * **Direct:** the AST walk stays, now counting the import statements it
+      examined, with a floor. Five when measured (2026-09-25: ``__future__``,
+      ``logging``, ``dataclasses``, ``pathlib``, ``typing``).
+    * **Transitive, and behavioural:** import the module in a *fresh* interpreter
+      and read ``sys.modules`` afterwards. A fresh one because this test process
+      has long since imported Qt for other tests, so an in-process check could not
+      tell. That half asserts the property the docstring states — the module does
+      not bring Qt in — rather than a proxy for it.
+    """
+    import subprocess
+    import sys
+
     tree = ast.parse((_SRC / "rip_addendum.py").read_text(encoding="utf-8"))
+    examined = 0
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
+            examined += 1
             assert "PySide6" not in (node.module or "")
         elif isinstance(node, ast.Import):
+            examined += 1
             for alias in node.names:
                 assert "PySide6" not in alias.name
+    assert examined >= 4, (
+        f"only {examined} import statements found in rip_addendum.py (5 when "
+        "measured) — the walk is not seeing the file's imports"
+    )
+
+    probe = (
+        "import sys\n"
+        f"sys.path.insert(0, {str(_SRC.parent)!r})\n"
+        "import platterpus.rip_addendum\n"
+        "loaded = sorted(m for m in sys.modules "
+        "if m.split('.')[0] in ('PySide6', 'shiboken6'))\n"
+        "assert 'platterpus.rip_addendum' in sys.modules\n"
+        "print('QT-MODULES:' + ','.join(loaded))\n"
+    )
+    run = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert run.returncode == 0, (
+        f"importing rip_addendum in a fresh interpreter failed "
+        f"(exit {run.returncode}):\n{run.stdout}\n{run.stderr}"
+    )
+    marker = [ln for ln in run.stdout.splitlines() if ln.startswith("QT-MODULES:")]
+    assert len(marker) == 1, f"the probe printed no verdict:\n{run.stdout}"
+    loaded = marker[0].removeprefix("QT-MODULES:")
+    assert loaded == "", (
+        f"importing platterpus.rip_addendum loads Qt transitively: {loaded}. It "
+        "runs on a worker thread and in the file layer, so nothing it imports may "
+        "pull PySide6 in."
+    )
 
 
 # --------------------------------------------------------------------------

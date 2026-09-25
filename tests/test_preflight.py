@@ -8,7 +8,10 @@ real-adapter composition root, and the `platterpus --doctor` CLI path.
 from __future__ import annotations
 
 import urllib.error
+from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 from platterpus import preflight
 from platterpus.adapters.ctdb_client import CtdbLookupError, CtdbLookupResult
@@ -809,10 +812,37 @@ def test_a_backend_that_raises_does_not_crash_the_doctor() -> None:
     assert result.status is Status.WARN
 
 
-def test_the_build_check_is_actually_run_by_the_doctor() -> None:
-    """Grep for the call site before believing a check runs. A fully-implemented
-    check called from nowhere is a failure this project has shipped."""
-    import inspect
+def test_the_build_check_is_actually_run_by_the_doctor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A fully-implemented check called from nowhere is a failure this project
+    has shipped — so drive the real orchestrator and watch the check run.
 
-    source = inspect.getsource(preflight.run_preflight)
-    assert "check_backend_build(" in source
+    **Behavioural, not a grep (2026-09-25).** The first version asserted that
+    ``"check_backend_build("`` appeared in ``run_preflight``'s source, which a
+    commented-out call satisfies: ``# emit(check_backend_build(...))`` still
+    contains the substring and runs nothing (revert-probed — it passed). So this
+    runs ``run_preflight`` for real, with the build check replaced by a spy, and
+    asserts three things a comment cannot fake: the spy was called, it was handed
+    the context's own backend and backend name, and the result it returned
+    reached the list the doctor prints and scores.
+    """
+    sentinel = CheckResult("cyanrip build", Status.OK, "spy result")
+    calls: list[tuple[object, str]] = []
+
+    def _spy(backend: object, *, backend_name: str) -> CheckResult:
+        calls.append((backend, backend_name))
+        return sentinel
+
+    monkeypatch.setattr(preflight, "check_backend_build", _spy)
+    ctx = _ctx(cfg=Config(output_dir=str(tmp_path)))
+    results = preflight.run_preflight(ctx, network=False)
+
+    assert calls == [(ctx.backend, ctx.backend_name)], (
+        f"run_preflight did not call check_backend_build exactly once with the "
+        f"context's backend; calls were {calls}"
+    )
+    assert results.count(sentinel) == 1, (
+        "check_backend_build ran but its result never reached the doctor's "
+        f"results: {[r.name for r in results]}"
+    )

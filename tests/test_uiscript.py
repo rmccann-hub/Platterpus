@@ -596,16 +596,56 @@ def test_the_production_adapter_really_does_omit_dash_N() -> None:
     """The floor under the test above. If the adapter started passing `-N`, the
     justification for this exemption would be gone and nothing else would say so
     — the argument would keep citing an adapter that no longer behaves that way.
-    Read the source rather than trusting the claim (`CLAUDE.md`: answer from the
-    artifact, and name which one)."""
-    import inspect
+    Answer from the artifact, and name which one (`CLAUDE.md`) — and the artifact
+    is the argv the adapter actually hands its runner, not its source text.
+
+    **Behavioural, not an exact-source-string match (2026-09-25).** The first
+    version asserted that ``"[binary, VERIFY_LOG_FLAG, str(path)]"`` appeared in
+    the adapter's source. That is satisfied by a comment beside a call that sends
+    ``-N`` anyway (revert-probed: ``# was: [binary, VERIFY_LOG_FLAG, str(path)]``
+    above ``[binary, "-N", VERIFY_LOG_FLAG, str(path)]`` passed), and it fails on
+    a harmless reformat. So this runs `verify_rip_log` with a recording stand-in
+    runner and asserts on the argv it received: no ``-N``, exactly
+    ``[binary, --verify-log, <log>]`` — and that this exact argv, minus the
+    binary, is one the script surface's exemption waves through. That last clause
+    ties the exemption to what the adapter does, which is the claim the exemption
+    rests on.
+    """
+    from pathlib import Path
 
     from platterpus.adapters import ripper_log_verify
+    from platterpus.adapters.tool_run import ToolRun
+    from platterpus.cyanrip_cli import VERIFY_LOG_FLAG
 
-    src = inspect.getsource(ripper_log_verify)
-    assert "[binary, VERIFY_LOG_FLAG, str(path)]" in src, (
-        "the verify-log argv has changed shape; re-derive the exemption "
+    log_path = (
+        Path(__file__).resolve().parents[1]
+        / "output_reference"
+        / "cyanrip_fork_flac"
+        / "cyanrip_fork_police_classics.log"
+    )
+    assert log_path.is_file(), f"missing corpus log {log_path}"
+
+    sent: list[list[str]] = []
+
+    def _recording(argv: list[str]) -> ToolRun:
+        sent.append(list(argv))
+        return ToolRun(exit_code=0, argv=tuple(argv))
+
+    ripper_log_verify.verify_rip_log(log_path, "cyanrip", runner=_recording)
+    assert len(sent) == 1, f"expected one verifier invocation, got {sent}"
+    argv = sent[0]
+    assert "-N" not in argv, (
+        f"the verify-log adapter now sends -N ({argv}); the exemption in "
+        "verbs.FILE_ONLY_FLAGS cites an adapter that no longer behaves that way — "
+        "re-derive it instead of leaving its reason stale"
+    )
+    assert argv == ["cyanrip", VERIFY_LOG_FLAG, str(log_path)], (
+        f"the verify-log argv has changed shape: {argv}. Re-derive the exemption "
         "in verbs.FILE_ONLY_FLAGS instead of leaving its reason stale"
+    )
+    assert script_mod.sanitise_cyanrip_args(argv[1:]) is None, (
+        f"the script surface refuses the exact argv the product sends ({argv[1:]}),"
+        " so a script cannot exercise what the app does"
     )
 
 
