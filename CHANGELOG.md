@@ -114,6 +114,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Every route to the ripper outside the adapter layer is now named and
+  checked** (contributor-facing). Only two exist, each with its reason; the
+  test-script runner must start the ripper through the adapter, never its own
+  subprocess call.
+
 - **Adding a new top-level document now needs a stated reason**
   (contributor-facing). A test lists today's documents; a new one fails until it
   is added with the existing homes that were considered and why each did not
