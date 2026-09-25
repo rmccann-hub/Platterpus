@@ -188,7 +188,8 @@ Platterpus/
         ├── report_types.py              # the .platterpus.json shape, as TypedDicts (schema v9)
         ├── report_artifacts.py          # embed a rip's companion text files inside the JSON report
         ├── update_check.py              # "is a newer release published?" (self-update, KDD-17b)
-        ├── update_install.py            # download + checksum-verify + atomic self-install (KDD-17b)
+        ├── update_install.py            # download + checksum + attestation verify + atomic self-install (KDD-17b)
+        ├── update_attestation.py        # verify a release's Sigstore build attestation before it installs (KDD-37)
         ├── update_signing.py            # verify a release's minisign signature — the authenticity gate (KDD-26)
         ├── drive_access.py              # diagnose no-drive cause (no_device / permission / ok)
         ├── drive_control.py             # eject + force-stop a runaway drive on cancel (Critical Rule #3)
@@ -410,7 +411,8 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`settings_validation.py`** — the pure validator for Settings/Config inputs (type, range, character set, format) — the "validate every input" boundary; returns a list of `ValidationIssue`, no Qt and no persistence, so tests assert against it directly (Code conventions).
 - **`sleep_inhibit.py`** — holds sleep, idle and lid-suspend off for the duration of an unattended run, and reports **tri-state** whether it managed to (`held` / `unavailable` / `not_installed`) because a missing tool and a refused lock need different advice. It **probes then adopts**: `systemd-inhibit` is frequently present and non-functional (no session bus over ssh or cron; no polkit privilege on a CI runner), so the capability is measured by running the real thing over `true` rather than inferred from the binary existing — and the probe asks for *byte-identical* `--what` to the real lock, which the shell version got wrong once. Moved here out of `platterpusovernight.sh` (2026-08-28) so the program holds its own lock.
 - **`test_session.py`** — the Qt-free core of an in-app acceptance session: decide the folder layout (`plan_session` is **pure**, so it is assertable without a filesystem), create it, gather the sources, and pack **one** file for the operator to send. The archive itself is delegated to `evidence_bundle.build_bundle` rather than reimplemented, so the text-extension allowlist, the manifest that names every omission and the never-raises contract are inherited, not restated. This is what lets the GUI absorb what three shell scripts used to hand back.
-- **`update_signing.py`** — ed25519 (minisign-format) verification of a release's signature, used **fail-closed** by `update_install.py`: a present-but-invalid signature aborts the update (KDD-26). Dormant until `PUBLIC_KEY_B64` is baked in; until then the gate is SHA-256 only, which `SECURITY.md` states plainly.
+- **`update_attestation.py`** — the adapter over `sigstore` (the only module that imports it, lazily): verifies a release's build-provenance attestation, **fail-closed**, before `update_install.py` swaps an update in. It passes only if the certificate was issued by GitHub Actions to `.github/workflows/release.yml` in this repository, run from `main` or from the release's own tag, and the signed statement names the downloaded file's SHA-256. Every answer is an `AttestationResult` (`verified` / `refused` / `not_checked`), never an exception. `TrustRefresh` starts Sigstore's trust-root refresh on a daemon thread before the download and waits for it a bounded time, falling back to the cached root. `release.yml` stages the asset with the same `select_verified`, so what a release publishes is what the updater accepts (KDD-37, D9; added 2026-09-25).
+- **`update_signing.py`** — ed25519 (minisign-format) verification of a release's signature, used **fail-closed** by `update_install.py`: a present-but-invalid signature aborts the update (KDD-26). Dormant, and will stay so: the maintainer decided on 2026-09-25 never to arm it (KDD-37, D9), and the build attestation above is the authenticity check instead.
 - **`tool_paths.py`** — one search order for every external binary: `PATH`, then `~/.local/bin` (where `distrobox-export` puts the container's tools), then the usual system directories, then the bare name. A GUI launched from a desktop icon does not inherit a login shell's `PATH`, so without this the wizard could report a tool installed while the dependency probe reported it missing.
 - **`verdict.py`** — the single, pure, Qt-free AccurateRip "is this rip trustworthy?" whole-disc verdict, so every surface (results-pane banner, JSON report) shares one definition; builds on `parsers/rip_log.track_accuraterip_verified` (confidence ≥ 1).
 - **`inbound_text.py`** — the inbound half of Critical rule #12, which the rule described and no code did until 2026-09-25. `screen_line` turns control characters and NULs into visible `\xNN` escapes, bounds a line at `MAX_LINE_CHARS` (head and tail kept, the elision marked with its count), and counts U+FFFD, which is what a byte that was not UTF-8 becomes now every text-mode pipe sets `errors="replace"`. For display and storage only: parsers read the raw line. `Tally` totals a stream, so the rip worker's captured output ends with a line saying what screening changed. Pure, never raises. `tests/test_inbound_text.py`, which also sweeps every text-mode subprocess read for an `errors=` policy.
@@ -1394,14 +1396,14 @@ recommendation, which is exactly when the reason has to survive.
 | # | Question | Ruling |
 |---|---|---|
 | D1 | May a new cyanrip build reach stable before a round reviews it? | **No.** Beta first; stable only after a round reviews it. Proposed to the fork as v7 release-ordering text. |
-| D2 | Tag-key casing | **Uniform capitals, written by cyanrip**, with both `DISCTOTAL` and `TOTALDISCS`. A tag-format change, so it costs a round. |
+| D2 | Tag-key casing | **Uniform capitals, written by cyanrip**, with both `DISCTOTAL` and `TOTALDISCS`. A tag-format change, so it costs a round; that cost is accepted and the ruling is firm. |
 | D3 | Where "Copy diagnostics…" lives | **Help**, where people look when something is wrong. |
 | D4 | The testing items in Tools | **A Tools → Advanced ▸ submenu.** Uninstall stays visible. |
 | D5 | How the app learns a build accepts `--consumer` | **Ask the binary**: read `cyanrip -h`, cached per build; send no flag when it cannot be read. Replaces the shipped accept-set. |
 | D6 | May the Goal label describe settings no preset controls? | **No.** Rename the presets to descriptive names, and show state outside every preset on its own line. Stored goal IDs do not change. |
 | D7 | CHANGELOG entries for versions with no GitHub tag | **Mark them as history and remove the dead links.** Done the same day. |
 | D8 | Measure the read offset with `-f`? | **Yes, as a cross-check**, and as the answer for a drive missing from the AccurateRip list. Both values shown, never a silent overwrite; hardware-validated before it ships. |
-| D9 | When to arm update signing | **Never.** The app's check stays the SHA-256; the attestation is published for a person to verify. |
+| D9 | When to arm update signing | **Never.** Asked the follow-up, the maintainer said yes to checking the build attestation in the updater instead, fail-closed (built the same day). |
 | D10 | README screenshots | **From the next Full run's bundle**, two picked and approved. |
 | D11 | Where the automatic re-rip's own log goes | **Inside the rip's `.platterpus.json`.** No second `.log` in the album folder. |
 | D12 | Hide the test-script console behind a setting? | **No.** Keep today's arrangement; it moves under Advanced with D4. |
@@ -1411,9 +1413,13 @@ recommendation, which is exactly when the reason has to survive.
 
 **The three that differ from the recommendation, and what was accepted with them.**
 
-- **D2 (recommended A, keep the casing and document it).** Accepted: one handshake
-  round for a change nothing needed functionally, and a library whose earlier rips
-  differ from later ones. Bought: tags that match EAC and Picard key for key, which
+- **D2 (recommended A, keep the casing and document it).** **Firm, and not up for
+  negotiation with the fork**: told they might push back because it costs them a
+  round, the maintainer said *"dont let them, this is important."* So it is sent as
+  a ruling with its cost accepted; the fork shapes how and when, not whether, and a
+  refusal goes back to the maintainer rather than being traded away in a lap.
+  Accepted: one handshake round for a change nothing needed functionally, and a
+  library whose earlier rips differ from later ones. Bought: tags that match EAC and Picard key for key, which
   is what makes a diff against an EAC rip of the same disc readable. Our side's
   obligation before it lands: check that nothing of ours reads a tag key
   case-sensitively (the folder prediction in `known_album_folder` included).
@@ -1427,12 +1433,20 @@ recommendation, which is exactly when the reason has to survive.
   the same release, which proves the download is intact and not who published it; the
   build-provenance attestation is published for a person to check, and the updater does
   not check it. (The question put to the maintainer said the attestation protected
-  updates. It does not, and the correction is recorded under D9 in `TASKS.md`.) Bought: releases stay
+  updates. It did not, and the correction is recorded under D9 in `TASKS.md`.)
+  **Follow-up, same day: the maintainer said yes** to verifying the attestation in
+  the app, which needed a new dependency (`sigstore`, `DEPENDENCIES.md`). The
+  updater now refuses an update unless Sigstore confirms it was built by this
+  repository's `release.yml`, from `main` or the release's tag, and the signed
+  statement names the downloaded file (`update_attestation.py`). What that still
+  leaves: anyone able to push to `main` can run the release workflow, and `main` is
+  unprotected by a separate ruling, so the check proves a build is traceable to a
+  public commit, not that the commit was reviewed. Bought: releases stay
   unattended from a session, and no key exists that can be lost, which would end
   updates for good. The verify side stays in the code, dormant, so the decision can
   be reversed by the ritual in `docs/architecture.md` §6.2 without rediscovering it.
 
 **Consequence.** D3, D9 and D12 need nothing built, D7 is done, and the rest are
 ready-to-build rows in `TASKS.md`, each naming its decision. One new question came out
-of recording D9: whether to verify the attestation inside the updater, which needs a
-dependency not in `DEPENDENCIES.md` and so is the maintainer's to allow.
+of recording D9, whether to verify the attestation inside the updater, and the
+maintainer said yes; it is built.

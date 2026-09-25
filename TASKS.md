@@ -73,8 +73,8 @@ can close it, and what would close it.
   update signing, the Goal-label question and the tag-casing question), one closed with
   the work done (the CHANGELOG's dead links), and one new row carries D6's build. The
   rest now say what to build instead of *waiting on the maintainer*. One new question
-  arose while recording D9: the app never checks the build attestation, so the row
-  *"Verify the build attestation in the updater"* needs a yes or no on a new dependency.
+  arose while recording D9: the app never checked the build attestation. The maintainer
+  said yes to a new dependency for it, and the check is built.
 
 **Two findings that are more than a row, both fixed the same day:**
 - **Critical rule #12 described an inbound sanitiser the code did not have.** It
@@ -135,6 +135,9 @@ which row that is. Three answers differ from my recommendation (D2, D8, D9).
   - **Recommended: A.** Nothing is broken, and B costs a round for looks. Choose B
     if tidy tags matter to you; it is then a clean, one-time change.
   - **Answer: B** — the maintainer, 2026-09-25 (not the recommendation, which was A).
+  - **Held firm, same day.** Told the fork may push back because it costs them a round, the
+    maintainer said: *"dont let them, this is important."* So this goes to the fork as a
+    ruling with its cost accepted, not as a proposal; see item (e) of the next-lap row.
 
 - [x] **D3. Where does "Copy diagnostics…" belong?** It is the last action left in
   the Help menu.
@@ -263,6 +266,7 @@ which row that is. Three answers differ from my recommendation (D2, D8, D9).
     unless the maintainer changes it. Making the attestation protect the updater would mean
     verifying it in the app, which needs a Sigstore verifier, i.e. a new dependency (the
     row *"Verify the build attestation in the updater"*).
+  - **Follow-up answered the same day: yes**, and built (`update_attestation.py`).
 
 - [x] **D10. README screenshots.**
   - **A. Take them from the next Full run.** The acceptance script already saves 11
@@ -358,7 +362,7 @@ which row that is. Three answers differ from my recommendation (D2, D8, D9).
 | D6 | C | Descriptive preset names, and a separate extra-state line | *"Build D6 C"* (the decide row is closed) |
 | D7 | A | Done: dead links removed, untagged versions noted | CHANGELOG row, closed |
 | D8 | A | `-f` as a cross-check, and as the answer for unlisted drives; hardware run first | *"Re-evaluate a vetted cyanrip `-f` offset-detect"* |
-| D9 | C | Signing stays dormant. The question overstated the protection (see the correction under D9) | Update-authenticity row, closed; new row *"Verify the build attestation in the updater"*; KDD-37; `docs/architecture.md` §6.2 |
+| D9 | C | Signing stays dormant. The question overstated the protection (see the correction under D9); the follow-up, verifying the attestation in the app, was approved and built | Update-authenticity row, closed; *"Verify the build attestation in the updater"*, closed; KDD-37; `docs/architecture.md` §6.2 |
 | D10 | A | Pick two screenshots from the next Full run's bundle | *"Add a screenshot or two"* |
 | D11 | A | Embed the re-rip's cyanrip log in `.platterpus.json` | *"Route 2"* |
 | D12 | A | Nothing; the console moves with D4 | Console row, closed |
@@ -804,9 +808,17 @@ other agenda item is placed by name in their §E; we accept the placement.
   did until now, and a shape either side can hold).
   - *2026-09-25:* **Also carries three of the maintainer's rulings**, as `NEXT-ROUND` items
     (S-14), not close conditions (S-13): **(d) D1 A**, proposed as v7 release-ordering text:
-    a new build reaches stable only after a round reviews it; **(e) D2 B**, a request: write
-    every tag key in capitals, plus both `DISCTOTAL` and `TOTALDISCS`. It is a tag-format
-    change, so it costs a round, and new rips will differ from earlier ones. Ask them to check
+    a new build reaches stable only after a round reviews it; **(e) D2 B — a maintainer RULING,
+    not a proposal, and not up for negotiation** (maintainer, 2026-09-25, on being told the
+    fork may push back because it costs them a round: *"dont let them, this is important"*):
+    write every tag key in capitals, plus both `DISCTOTAL` and `TOTALDISCS`. Say in the lap
+    that the cost is known and accepted: it is a tag-format change, it costs a round, and new
+    rips will differ from earlier ones. What is theirs to shape is **how and when**: which
+    round carries it (ask them to name it as a close condition of the next round they open,
+    so it is fixed at lap 1 under S-13 rather than argued later), the exact key set, and how
+    the change is described in the log. **Whether is not open.** If they push back on
+    whether, answer with the ruling and do not concede; if they still decline, take it to
+    the maintainer rather than trading it away in a lap. Ask them to check
     that their own naming templates (`{if #totaldiscs# > #1# CD|disc|}`, as quoted in our
     `adapters/cyanrip_backend.py:922`) still match after it;
     on ours, check that `known_album_folder` and every tag reader ignore case before it lands;
@@ -5241,13 +5253,22 @@ From the trust/quality deep audit — see [docs/archive/trust-audit-2026-07-08.m
   - *Audit 2026-09-25: partly done.* The attestation is in release.yml and verification is wired in update_install.py; update_signing.PUBLIC_KEY_B64 is still empty (the keypair is the maintainer's).
   - *2026-09-25, correction to the note above:* what is wired in `update_install.py` is the **minisign** verify side, dormant. Nothing in the app verifies the attestation.
   - *2026-09-25:* **Decided (D9 C): update signing is never armed**, so releases stay unattended. The app checks the SHA-256 only; the attestation is published for a person to verify and the updater does not check it (see the correction under D9). The accepted cost: an update is as trustworthy as whoever can publish a release. The dormant verify side stays, so reversing this is the `docs/architecture.md` §6.2 ritual. Recorded in PLANNING.md KDD-37.
-- **[ ] Verify the build attestation in the updater** (found 2026-09-25 while recording D9).
+- **[x] Verify the build attestation in the updater** (found 2026-09-25 while recording D9).
   With signing never armed (D9 C), the app's only check on an update is a SHA-256 fetched
   from the same release. Verifying the release's build-provenance attestation in the app
   would make an update prove it was built by this repository's workflow, which a
   replaced asset could not. It needs a Sigstore verifier, a dependency not in
   `DEPENDENCIES.md`, so **ask the maintainer before adding one**; the alternative is
   to leave it and record the gap in `docs/architecture.md` §6.2, which is done.
+  - *2026-09-25:* **The maintainer said yes, and it is built.** `update_attestation.py` (the
+    `sigstore` adapter) refuses an update unless its attestation names the downloaded file
+    and was signed for `release.yml` in this repository from `main` or the release's tag.
+    `release.yml` attests before publishing and stages the bundle with the updater's own
+    code. Verified on the real v0.6.60 release: the genuine AppImage installs; the same file
+    with one bit changed and a matching `.sha256` is refused; with no network the cached
+    trust root is used. Eight guards revert-probed, eight detected. The first release
+    carrying this is installed unchecked by the old updater; every update after it is
+    checked.
 - **[x] Pin GitHub Actions to commit SHAs** — DONE (round 2, 2026-07-08): every `uses:` across `ci.yml`/`release.yml`/`publish-pypi.yml`/`appimage.yml`/`mutation.yml` pins a full commit SHA (`# vN` comment). Dependabot (`github-actions`) drives the bumps.
 - **[~] Reproducible AppImage build.** **`SOURCE_DATE_EPOCH` — DONE (2026-07-08):** `build_appimage.sh` pins every embedded timestamp to the HEAD commit time; verified the *wheel* is byte-identical across rebuilds (same sha256). **`pip --require-hashes` dependency byte-pinning — PLUMBING SHIPPED (2026-07-21, Option A, maintainer-chosen):** the python-appimage-compatible design is a **hash-verified wheelhouse** — `build/lock-requirements.sh` resolves the third-party closure and writes a hash-pinned `requirements.lock` (run in the release env when a dep changes); `build_appimage.sh`, *when the lock exists*, `pip download --require-hashes`-es the closure into a local wheelhouse (aborts on any byte mismatch) and installs python-appimage's per-line deps **offline** from it, with the local `platterpus` wheel served alongside. It's **opt-in and additive** — no lock ⇒ the previous version-pinned online install, unchanged. Parsing logic unit-verified; scripts `bash -n`-clean. **Still gated on a real build (only place it can be validated):** generate the lock in CI/the release env, commit it, and confirm the *full* AppImage is byte-identical across rebuilds (the sandbox can only verify the wheel half).
   - *Audit 2026-09-25: partly done.* SOURCE_DATE_EPOCH and --require-hashes plumbing are in build_appimage.sh; no requirements.lock is committed, and full AppImage byte-identity is unproven.

@@ -358,6 +358,10 @@ MINOR_PINNED_RUNTIME: Final[dict[str, str]] = {
         "6.11.2 dropped the StandardKey bindings for Quit and Preferences, shipping "
         "menu items with no keyboard shortcut"
     ),
+    "sigstore": (
+        "the updater refuses an update this verifier cannot pass, so an API change "
+        "in a new minor would silently stop every user's in-app updates"
+    ),
 }
 
 

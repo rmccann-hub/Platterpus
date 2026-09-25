@@ -11,6 +11,47 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-25 — updates verify their build attestation before installing
+
+The maintainer said yes to the follow-up from D9. The updater now refuses an update
+unless its Sigstore build attestation names the downloaded file and was signed for
+`.github/workflows/release.yml` in this repository, run from `main` or from the
+release's tag (`update_attestation.py`, the adapter over the new `sigstore`
+dependency). `release.yml` attests **before** publishing and stages the bundle with
+the updater's own `select_verified`, so a release no app could update to fails in
+the workflow.
+
+- **Vetted before any code depended on it.** `sigstore` 4.5.0: wheels for Python
+  3.11 and 3.14 (31 wheels, about 14 MB), `pip-audit` clean, and its only overlap
+  with our pins (`cryptography>=42`) is satisfied. Minor-pinned, because a verifier
+  API change would silently stop every user's updates rather than redden a build.
+- **Measured, not assumed:** the real v0.6.60 attestation verifies online and
+  offline; a stalled network makes the trust-root refresh hang **120 s** before
+  failing, so the refresh starts before the download and the wait is bounded; the
+  pinned `actions/attest` writes JSON Lines in append mode (read from its source),
+  so the verifier tries each line.
+- **End to end on the real release, in scratch:** the genuine 243 MB AppImage
+  installs through the new gate in 1.2 s; the same file with one bit changed and a
+  matching `.sha256`, the swap the checksum alone let through, is refused with the
+  current version untouched; with the network broken the cached root is used and the
+  log says so. Offline tests use the real bundle and trust root as fixtures, and
+  pass with the proxy deliberately broken.
+- **Eight guards revert-probed, eight detected**, from the gate itself to the
+  re-upload branch of the workflow dropping the asset.
+- **What it does not cover, written where a reader will find it** (`SECURITY.md`,
+  `docs/architecture.md` §6.2): anyone who can push to `main` can run the release,
+  and `main` is unprotected by ruling, so this proves a build is traceable to a
+  public commit, not that the commit was reviewed. The first release carrying the
+  code is installed unchecked by the old updater.
+- **A sweep taught rather than exempted.** The in-toto key `_type` tripped the
+  dead-attribute sweep, whose allowlist may not grow. It now skips mapping keys
+  (`d["_x"]`, `d.get("_x")`) and still catches both shapes that shipped, and its
+  self-test now calls the sweep's own collector instead of a copy of it.
+- **D2 is firm.** The maintainer, told the fork may push back because tag casing
+  costs them a round: *"dont let them, this is important."* Recorded in `TASKS.md`
+  (next-lap item (e)) and KDD-37: the lap sends it as a ruling with the cost accepted,
+  and a refusal goes back to the maintainer rather than being conceded.
+
 ## 2026-09-25 — the maintainer's fifteen answers, recorded; two of my own claims corrected
 
 The maintainer answered D1–D15. Each answer is on its `Answer:` line in `TASKS.md`,
