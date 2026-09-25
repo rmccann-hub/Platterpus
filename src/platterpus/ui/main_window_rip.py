@@ -48,7 +48,7 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QSystemTrayIcon
 
-    from platterpus.adapters.musicbrainz_client import TrackSummary
+    from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
 
 from platterpus import drive_control, rip_addendum, rip_files
@@ -806,8 +806,8 @@ class RipMixin(MainWindowShared):
         # passthroughs (not editable in the table), so they come from the stored
         # release — and only when it matches THIS rip (guards a stale detail from
         # a previous disc, and unknown-album rips where release_id is "").
-        detail = self._current_release_detail
-        if detail is not None and detail.summary.mbid == params.release_id:
+        detail = self._release_detail_for(params.release_id)
+        if detail is not None:
             genre = detail.summary.genre
             disc_number = detail.summary.disc_number
             total_discs = detail.summary.total_discs
@@ -1513,6 +1513,19 @@ class RipMixin(MainWindowShared):
             # Hook for tests to know that finish-time post-processing is done.
             self.rip_post_processing_done.emit()
 
+    def _release_detail_for(self, release_id: str) -> ReleaseDetail | None:
+        """The stored MusicBrainz detail, only if it is THIS rip's release.
+
+        The detail outlives the disc it came from, so every reader must check it
+        belongs to the rip in hand. One predicate, used by the rip-start snapshot
+        and the report alike: the report once skipped the check and recorded a
+        previous disc's medium provenance for an unknown-album rip.
+        """
+        detail = self._current_release_detail
+        if detail is None or not release_id or detail.summary.mbid != release_id:
+            return None
+        return detail
+
     def _finish_rip(self, success: bool, log_path: str) -> None:
         """Body of the finish handler, after the auto-heal decision.
 
@@ -1631,10 +1644,12 @@ class RipMixin(MainWindowShared):
         _meta = params.metadata if params is not None else None
         # The release summary this rip's tags came from, for the medium
         # provenance below. None on an unknown-album rip, which has no
-        # MusicBrainz release and so no medium to have resolved.
-        _summary = getattr(
-            getattr(self, "_current_release_detail", None), "summary", None
-        )
+        # MusicBrainz release and so no medium to have resolved — and None when
+        # the stored detail is a PREVIOUS disc's. It used to be read with no
+        # check, so an unknown-album rip made after a MusicBrainz one recorded
+        # that earlier disc's medium basis as its own (found 2026-09-25).
+        _detail = self._release_detail_for(params.release_id) if params else None
+        _summary = _detail.summary if _detail is not None else None
         self._last_disc = {
             "unknown": bool(params.unknown) if params is not None else None,
             "musicbrainz_release_id": (self._current_release_id or None),

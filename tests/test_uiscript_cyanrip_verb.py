@@ -399,3 +399,64 @@ def test_the_recorded_output_is_screened_and_the_expect_verbs_still_see_it_raw(
     assert "bad\\x00byte\\x1b[2J" in step.detail
     assert "\x00" not in step.detail and "\x1b" not in step.detail
     assert "bad\x00byte" in run._last_cyanrip_output
+
+
+class TestTheWrapperProbeDoesNotBlockTheGuiThread:
+    """``probe-ripper-wrapper`` spawns the host wrapper up to four times.
+
+    It ran inline from the tick, and the tick runs on the GUI thread, so an
+    acceptance run froze the window for as long as the probes took, under a
+    docstring that said it ran elsewhere (found 2026-09-25 by the TASKS triage).
+    """
+
+    def test_the_tick_returns_while_the_probe_is_still_running(
+        self, window: QWidget, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from platterpus.deps import ripper_wrapper_probe as probe_mod
+
+        entered = threading.Event()
+        released = threading.Event()
+
+        def slow_probe(**_kwargs: object) -> probe_mod.WrapperReport:
+            entered.set()
+            released.wait(timeout=30.0)
+            return probe_mod.WrapperReport(
+                verdict=probe_mod.Verdict.EXITS, summary="the wrapper exits"
+            )
+
+        monkeypatch.setattr(probe_mod, "probe", slow_probe)
+        run = runner_mod.ScriptRunner(window)
+        run.start(_steps("probe-ripper-wrapper"))
+        started = time.monotonic()
+        while not entered.is_set():
+            tick_started = time.monotonic()
+            run._tick()
+            assert time.monotonic() - tick_started < 0.5, (
+                "a tick blocked while the probe was running — the probe is back "
+                "on the GUI thread"
+            )
+            assert time.monotonic() - started < 5.0, "the helper thread never ran"
+            time.sleep(0.005)
+        assert run._pending_wrapper_probe is not None
+        assert not run._report.steps, "recorded before the probe finished"
+        released.set()
+        _pump(run)
+        [step] = run._report.steps
+        assert step.outcome == Outcome.INFO
+        assert step.detail.startswith("exits: the wrapper exits")
+
+    def test_a_probe_that_raises_is_recorded_as_not_determined(
+        self, window: QWidget, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from platterpus.deps import ripper_wrapper_probe as probe_mod
+
+        def broken(**_kwargs: object) -> probe_mod.WrapperReport:
+            raise OSError("no such wrapper")
+
+        monkeypatch.setattr(probe_mod, "probe", broken)
+        run = runner_mod.ScriptRunner(window)
+        run.start(_steps("probe-ripper-wrapper"))
+        _pump(run)
+        [step] = run._report.steps
+        assert step.outcome == Outcome.INFO
+        assert "could not run" in step.detail and "no such wrapper" in step.detail

@@ -23,6 +23,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   characters are shown as `\xNN` escapes in the log pane and the rip's record, and
   over-long lines are shortened with the cut marked. The record ends with a line
   saying what was changed. The project's rules said this happened, and it did not.
+- **A rip of an album MusicBrainz does not know no longer borrows the previous
+  disc's details.** If you ripped a known album and then an unknown one, the second
+  rip's record stated which disc of a multi-disc release it was, copied from the
+  first. The record now uses those details only when they belong to the rip.
+- **A new disc no longer inherits the previous disc's identity.** Platterpus clears
+  the old disc's details when it sees the drive go empty. If one drive check in
+  between failed, the clearing was skipped, and the new disc was scanned on top of
+  the old one's release and disc ID. A new disc now always starts clean.
+- **The acceptance test's wrapper check no longer freezes the window.** It ran on
+  the window's own thread, for up to about a minute. It now runs in the
+  background, like the other checks that start processes.
 - **The rig check builds its test command the same way everything else does**
   (contributor-facing). It had built the ripper adapter directly, outside the one
   place that is meant to. A test now refuses that.

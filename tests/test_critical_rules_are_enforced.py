@@ -1754,7 +1754,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1609 -> 1611** (2026-09-24): the acceptance menu item gets a no-argument slot, so `triggered`'s bool never lands in `size`.
     # **1611 -> 1616** (2026-09-24, #36): the per-instance dependency-check listener list, and About gets its recheck hook.
     # **1616 -> 1599** (2026-09-24, #37 one home per setting): down: Settings' opener moved to `main_window_settings.py`, and Diagnose drive access… left the Tools menu.
-    "ui/main_window.py": 1599,
+    # 1599 -> 1600 on 2026-09-25: a drive change forgets the release detail with the release id.
+    "ui/main_window.py": 1600,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -1766,7 +1767,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/main_window_deps.py": 723,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "ui/main_window_drive.py": 543,
+    # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
+    "ui/main_window_drive.py": 549,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "ui/main_window_helpers.py": 515,
@@ -1856,7 +1858,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # own outcome, and a rip's own bundle goes to the session folder while one runs.
     # **4710 -> 4717** (2026-09-24, #36): the rip report records when its dependency versions were measured.
     # **4717 -> 4715** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "ui/main_window_rip.py": 4715,
+    # 4715 -> 4730 on 2026-09-25: _release_detail_for, the one check both the rip start and the report use.
+    "ui/main_window_rip.py": 4730,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2034,7 +2037,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `_refresh_setting_views` after a change, so open windows follow it.
     # 4305 -> 4309 on 2026-09-25: a cyanrip step's recorded output is screened
     # (inbound_text, Critical rule #12), and why the expect-verbs copy stays raw.
-    "uiscript/runner.py": 4309,  # +116: _do_expect_verification, the assertion section F never had,
+    # 4309 -> 4398 on 2026-09-25: probe-ripper-wrapper moved onto a helper thread (_WrapperProbeJob); it ran on the GUI thread.
+    "uiscript/runner.py": 4398,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     "uiscript/script.py": 339,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
