@@ -365,8 +365,8 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   untested by the 2026-09-24 run, and that path is F's whole purpose.
 - [ ] **Each side's reading, then the closing laps**; at the close, roll `FORK_PIN` to
   `df91ae7` in our release and move the approval record to round 26.
-- [ ] **Correct `fullacceptance.txt`'s `-r 3` comment** (*"not dangerous"*) with the next change
-  to that script — on `.15` it is true, on `.14` it was not.
+- [x] **Corrected `fullacceptance.txt`'s `-r 3` comment** (2026-09-25): *"not dangerous"* now says
+  *on `.15` and later*, and why `.14` was the exception.
 
 ## Round 25 — CLOSED `GO`/`GO` 2026-09-23 at five laps on shared TEXT (pin `3e01bb3` unchanged)
 
