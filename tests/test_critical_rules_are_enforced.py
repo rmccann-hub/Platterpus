@@ -2610,3 +2610,57 @@ def test_the_appimage_is_built_by_python_appimage_only() -> None:
         )
     ]
     assert not users, f"appimage-builder is used without sign-off: {users}"
+
+
+#: Modules that run a container tool as a PROGRAM, each with its reason
+#: (Critical rule #3: the GUI rips through the host-exported ripper, never by
+#: entering the container itself). **A ratchet: it may shrink, never grow.**
+_CONTAINER_TOOL_ALLOWED: Final[dict[str, str]] = {
+    "drive_control.py": "rule #3's one scoped exception: force-stopping a runaway reader on cancel",
+    "deps/fork_source.py": "builds the pinned fork inside the container and exports it (the setup wizard and --install-ripper)",
+    "deps/host_setup.py": "creates the `ripping` container during setup",
+    "deps/host_teardown.py": "removes what setup created, on uninstall",
+    "deps/ripper_wrapper_probe.py": "times `distrobox-enter -- true` to diagnose a wrapper that hangs",
+}
+
+#: A string constant that IS a container tool (optionally a path to one), as it
+#: would appear as argv[0]. Prose that merely mentions Distrobox does not match.
+_CONTAINER_TOOL: Final[re.Pattern[str]] = re.compile(
+    r"^(?:\S*/)?(?:distrobox(?:-enter|-export|-create|-rm|-stop)?|podman|docker|toolbox)$"
+)
+
+#: The modules on the RIP path. Named so that allowlisting one of them is a
+#: separate, visible failure rather than an edit to the dict above.
+_RIP_PATH: Final[frozenset[str]] = frozenset(
+    {
+        "adapters/cyanrip_backend.py",
+        "composition.py",
+        "rig_check.py",
+        "uiscript/runner.py",
+        "workers/rip_worker.py",
+    }
+)
+
+
+def test_only_setup_and_the_scoped_exception_enter_the_container() -> None:
+    """Critical rule #3, which no test enforced (TASKS `rule-3.routing`)."""
+    running: set[str] = set()
+    for rel, tree in _src_trees():
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and _CONTAINER_TOOL.match(node.value.strip())
+            ):
+                running.add(rel)
+    assert len(running) >= 4, f"only {sorted(running)} found; the scan is blind"
+    assert not (set(_CONTAINER_TOOL_ALLOWED) & _RIP_PATH), (
+        "a rip-path module was allowlisted to enter the container"
+    )
+    stray = sorted(running - set(_CONTAINER_TOOL_ALLOWED))
+    assert not stray, (
+        "these modules run a container tool directly; the rip path goes through "
+        f"the host-exported ~/.local/bin/cyanrip (Critical rule #3): {stray}"
+    )
+    stale = sorted(set(_CONTAINER_TOOL_ALLOWED) - running)
+    assert not stale, f"allowlisted but no longer running one; remove them: {stale}"
