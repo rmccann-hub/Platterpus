@@ -284,15 +284,21 @@ def _validate_test_script_path(value: object) -> list[ValidationIssue]:
     text = value.strip()
     if not text:
         return []
-    path = Path(text).expanduser()
-    if not path.exists():
-        return [ValidationIssue("test_script_path", f"No file at: {text}")]
-    if path.is_dir():
-        return [
-            ValidationIssue("test_script_path", f"{text} is a folder, not a script.")
-        ]
-    if not os.access(path, os.R_OK):
-        return [ValidationIssue("test_script_path", f"{text} cannot be read.")]
+    try:
+        path = Path(text).expanduser()
+        if not path.exists():
+            return [ValidationIssue("test_script_path", f"No file at: {text}")]
+        if path.is_dir():
+            return [
+                ValidationIssue(
+                    "test_script_path", f"{text} is a folder, not a script."
+                )
+            ]
+        if not os.access(path, os.R_OK):
+            return [ValidationIssue("test_script_path", f"{text} cannot be read.")]
+    except (OSError, RuntimeError) as exc:  # see _probe_failure
+        reason = _probe_failure(exc)
+        return [ValidationIssue("test_script_path", f"No file at: {text} ({reason})")]
     return []
 
 
@@ -836,12 +842,33 @@ def _validate_tool_path(field: str, value: object, tool: str) -> list[Validation
             ValidationIssue(field, f"{tool} path may not contain control characters.")
         ]
     if "/" in text:
-        p = Path(text).expanduser()
-        if not p.exists():
-            return [ValidationIssue(field, f"No {tool} executable at: {text}")]
-        if p.is_dir() or not os.access(p, os.X_OK):
-            return [ValidationIssue(field, f"{text} is not an executable file.")]
+        try:
+            p = Path(text).expanduser()
+            if not p.exists():
+                return [ValidationIssue(field, f"No {tool} executable at: {text}")]
+            if p.is_dir() or not os.access(p, os.X_OK):
+                return [ValidationIssue(field, f"{text} is not an executable file.")]
+        except (OSError, RuntimeError) as exc:
+            reason = _probe_failure(exc)
+            return [
+                ValidationIssue(field, f"No {tool} executable at: {text} ({reason})")
+            ]
     return []
+
+
+def _probe_failure(exc: OSError | RuntimeError) -> str:
+    """Why a path could not be looked up at all, in words for the user.
+
+    Two shapes reach here: ``~nobody/…`` names a user who does not exist
+    (``expanduser`` raises ``RuntimeError``), and a component past the
+    filesystem's name limit makes ``exists()`` raise ``ENAMETOOLONG``. Both used
+    to escape their rule — and ``validate_config`` reports a rule that raises as
+    NO issue, so the value was accepted. A path we cannot look up is not a path we
+    can call fine.
+    """
+    if isinstance(exc, OSError) and exc.strerror:
+        return exc.strerror
+    return str(exc)
 
 
 def _validate_int(
@@ -859,7 +886,10 @@ def _validate_choice(
     field: str, value: object, allowed: frozenset[str], label: str
 ) -> list[ValidationIssue]:
     """A field that must be one of a fixed set of string values."""
-    if value not in allowed:
+    # Type first: `[] in frozenset(...)` RAISES (a list is unhashable), and a
+    # raising rule is reported as no issue at all — so `output_format = ["flac"]`
+    # in a hand-edited config.toml used to be accepted.
+    if not isinstance(value, str) or value not in allowed:
         shown = ", ".join(sorted(repr(a) for a in allowed))
         return [ValidationIssue(field, f"{label} must be one of: {shown}.")]
     return []
