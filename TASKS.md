@@ -2489,7 +2489,7 @@ get right twice.
       is one predicate with N callers delegating to it, never a second copy.
       Declared `NEXT-ROUND` in lap 4 — **do not land before release.**
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"F3. a_round_is_reviewing_a_build() answers from pin coincidence, not from the"*, which stays open.
-- [ ] **`rip_audit._audit_completion` grades `LEVEL_OK` off the boolean while
+- [x] **`rip_audit._audit_completion` grades `LEVEL_OK` off the boolean while
       printing `done` and `total` in the same sentence and comparing neither, and
       `rip_audit.py` reads the error count nowhere.** Our §C, unchanged since lap
       2. **And the plan to obtain evidence for it failed, which is the part worth
@@ -2501,6 +2501,7 @@ get right twice.
       of a run you are doing anyway is a plan with no owner* — and a clean disc is
       the likeliest outcome of every rip we do.
       Declared `NEXT-ROUND` in lap 4 — **do not land before release.**
+  - *2026-09-25:* **Done.** `_grade_a_reported_completion` gives OK only when the ripper's own counts are present, agree and are non-zero, AND its error tally reads `No errors occurred`. Disagreeing counts or a non-clean tally (ripping or encoder errors) is a WARN naming it; missing counts or a missing tally is a NOTE (not determined), never OK. Built on constructed cases, as the row asked; four guards revert-probed, four detected.
 - [x] **A lap number should be claimed on RELEASE, not on writing —
       `docs/handshake-protocol.md`, so it is bilateral and needs both sides.**
       Round 21 produced two held lap 4s, one per project. Theirs was withdrawn by
