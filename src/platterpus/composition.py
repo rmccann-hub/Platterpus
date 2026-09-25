@@ -59,8 +59,21 @@ def build_backend(cfg: Config) -> tuple[RipBackend, str]:
         CYANRIP_BINARY_DEFAULT if CYANRIP_BINARY_DEFAULT.exists() else "cyanrip"
     )
     log.info("using cyanrip backend (%s)", cyanrip_binary)
-    backend: RipBackend = CyanripImpl(binary_path=cyanrip_binary)
+    backend: RipBackend = build_cyanrip_backend(cyanrip_binary)
     return backend, "cyanrip"
+
+
+def build_cyanrip_backend(binary: Path | str) -> CyanripImpl:
+    """Construct the cyanrip adapter for an explicit ``binary``.
+
+    For a caller that already knows which binary it means and needs the concrete
+    class, not the ``RipBackend`` interface. ``rig_check`` is one: it asks the real
+    argv builder what a rip would send to the binary under test. It used to
+    construct ``CyanripImpl`` itself, outside this module, which is the
+    one construction the architecture rule forbids (found by the 2026-09-25 TASKS
+    audit). ``tests/test_composition.py`` now sweeps for it.
+    """
+    return CyanripImpl(binary_path=binary)
 
 
 def build_musicbrainz_client() -> MusicBrainzClient:

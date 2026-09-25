@@ -382,3 +382,20 @@ class TestTheUnderReviewFailureNamesTheRightBuild:
             f"the build the rig is told to install must PASS, not be told to "
             f"reinstall: {detail!r}"
         )
+
+
+def test_the_recorded_output_is_screened_and_the_expect_verbs_still_see_it_raw(
+    window: QWidget, fake_capture: _FakeCapture
+) -> None:
+    """Critical rule #12, inbound: the report a person reads shows a control
+    character as an escape. The ``expect-*`` verbs match what the ripper said, so
+    ``_last_cyanrip_output`` keeps the raw text."""
+    fake_capture._result = (0, "cyanrip 0.9.4-rc1\nbad\x00byte\x1b[2J\n")
+    fake_capture.released.set()
+    run = runner_mod.ScriptRunner(window)
+    run.start(_steps("cyanrip -N --version"))
+    _pump(run)
+    [step] = run._report.steps
+    assert "bad\\x00byte\\x1b[2J" in step.detail
+    assert "\x00" not in step.detail and "\x1b" not in step.detail
+    assert "bad\x00byte" in run._last_cyanrip_output

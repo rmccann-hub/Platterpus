@@ -154,6 +154,7 @@ class SubprocessRunner:
                 argv,
                 capture_output=True,
                 text=True,
+                errors="replace",
                 timeout=_STEP_TIMEOUT_S,
                 stdin=subprocess.DEVNULL,  # never consume a parent stdin
             )

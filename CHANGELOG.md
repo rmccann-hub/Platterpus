@@ -11,6 +11,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+
+- **A character on the disc that is not valid UTF-8 no longer stops Platterpus
+  reading the rip.** The ripper's output was read in a mode where one such byte
+  raised an error and ended the read, losing the line before it too. A disc's
+  CD-TEXT, which is often in an older encoding, can contain one. That byte now shows
+  as �, and reading continues. The same applied to eight places that read a tool's
+  output, and all eight are fixed.
+- **Odd characters in the ripper's output are now shown, not hidden.** Control
+  characters are shown as `\xNN` escapes in the log pane and the rip's record, and
+  over-long lines are shortened with the cut marked. The record ends with a line
+  saying what was changed. The project's rules said this happened, and it did not.
+- **The rig check builds its test command the same way everything else does**
+  (contributor-facing). It had built the ripper adapter directly, outside the one
+  place that is meant to. A test now refuses that.
+
 ### Changed
 
 - **The EAC-compatible log now says what a one-frame AccurateRip match is.** A track

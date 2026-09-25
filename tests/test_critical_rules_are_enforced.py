@@ -1127,7 +1127,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # rather than re-derive it: a second opinion about one fact is the shape
     # `CLAUDE.md` names as guaranteed to drift, and here both opinions
     # produce a `LogVerification`, so the drift would be invisible.
-    "adapters/cyanrip_backend.py": 1577,
+    # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
+    "adapters/cyanrip_backend.py": 1578,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1612,7 +1613,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # names the failure (`_rip_failure`) instead of calling it unexplained; it reads
     # the same report as `_rip_was_cancelled`, so it belongs beside it.
     # **940 -> 976** (2026-09-24): the paranoia row reads `READ` (the fork's 3.02x, not our 2.87x) and grades the bound per counter, which a sum could hide.
-    "rig_check.py": 976,
+    # 976 -> 979 on 2026-09-25: errors="replace" on two probe pipes, and the argv
+    # builder reached through composition.build_cyanrip_backend, not built here.
+    "rig_check.py": 979,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     "rip_addendum.py": 496,
     "rip_audit.py": 1216,
@@ -1666,7 +1669,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # shapes, and one check loose enough for both checks neither properly.
     # **896 -> 922** (2026-09-24, #37 one home per setting): `field_error`, the ONE single-setting predicate the `set` verb and every save-as-you-change control share; it moved here from the runner so neither can restate it.
     "settings_validation.py": 922,
-    "sleep_inhibit.py": 599,
+    # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
+    "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
     # the single deletable directory every rig artifact of ours now lives under,
     # on the maintainer's "stop polluting my home directory" instruction. The
@@ -2028,7 +2032,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4314 -> 4297** (2026-09-24, #37 one home per setting): down: the setting validator moved to `settings_validation.field_error`.
     # **4297 -> 4305 (2026-09-24)**: `set` calls the window's one
     # `_refresh_setting_views` after a change, so open windows follow it.
-    "uiscript/runner.py": 4305,  # +116: _do_expect_verification, the assertion section F never had,
+    # 4305 -> 4309 on 2026-09-25: a cyanrip step's recorded output is screened
+    # (inbound_text, Critical rule #12), and why the expect-verbs copy stays raw.
+    "uiscript/runner.py": 4309,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     "uiscript/script.py": 339,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
@@ -2064,7 +2070,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # place that knows whether it sent one, so `_we_stopped_ripper` lives here.
     # **3463 -> 3462 (2026-09-24, round 26 lap 4)**: finished tracks are read through the parser, so its own copy of the pattern is gone.
     # **3462 -> 3464** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "workers/rip_worker.py": 3464,
+    # 3464 -> 3490 on 2026-09-25: every pipe line is screened once (`_screen`), for
+    # the log pane and the record, and the capture ends with what screening changed.
+    # The screen itself lives in inbound_text; this is the wiring and its reasons.
+    "workers/rip_worker.py": 3490,
 }
 
 
