@@ -43,6 +43,11 @@ the workflow.
   and `main` is unprotected by ruling, so this proves a build is traceable to a
   public commit, not that the commit was reviewed. The first release carrying the
   code is installed unchecked by the old updater.
+- **The gap no existing check covered: the shipped bundle.** `sigstore` is imported
+  lazily, so an AppImage without a working copy passes `--version` and then
+  refuses every update, stranding its users. `scripts/check_bundled_verifier.py`
+  runs the bundle's own interpreter on a genuine attestation, in both AppImage
+  workflows. Run on the real v0.6.60 AppImage it fails, as it should.
 - **A sweep taught rather than exempted.** The in-toto key `_type` tripped the
   dead-attribute sweep, whose allowlist may not grow. It now skips mapping keys
   (`d["_x"]`, `d.get("_x")`) and still catches both shapes that shipped, and its

@@ -26,7 +26,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **Releases publish that build record next to the app, and check it first**
   (contributor-facing). The release workflow now creates the record before the
   release is visible, checks it with the updater's own code, and fails rather than
-  publish a release no installed app could update to.
+  publish a release no installed app could update to. Every AppImage build also runs
+  the bundle's own Python on a genuine record, so an app that could not check its
+  next update is never shipped.
 
 ### Fixed
 

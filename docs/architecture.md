@@ -1608,6 +1608,13 @@ refused.
   `select_verified` and stages it as a release asset. So what a release publishes
   is by construction what the updater accepts, and a release it would refuse fails
   in the workflow instead.
+- **The shipped bundle's own verifier is checked.** The updater imports `sigstore`
+  lazily, so an AppImage built without a working copy would pass `--version` and
+  then refuse every update it is ever offered, stranding its users with no in-app
+  route off it. Both AppImage workflows therefore extract the build and run
+  `scripts/check_bundled_verifier.py` with the **bundled** interpreter against the
+  committed v0.6.60 attestation. Run on the real v0.6.60 AppImage, which predates
+  the dependency, it fails as it should: *No module named 'sigstore'*.
 - **The trust root.** Sigstore's keys are refreshed over TUF, which is how a key
   rotation reaches users without a Platterpus release. A stalled network makes the
   refresh hang for 120 s (measured), so the updater starts it on a daemon thread
