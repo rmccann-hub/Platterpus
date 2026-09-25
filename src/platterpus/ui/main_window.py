@@ -1195,6 +1195,7 @@ class MainWindow(
         self._refresh_drive_profile_display()
         self._track_table.clear()
         self._current_release_id = ""
+        self._current_release_detail = None
         self._current_num_tracks = 0
         self._rip_controls.set_release_id("")
         self._rip_controls.set_drive(device)

@@ -5622,6 +5622,99 @@ def test_reset_disc_view_clears_disc_state(teardown_threads) -> None:
     assert window._current_disc_id == ""
 
 
+def test_a_disc_inserted_clears_the_previous_discs_identity_before_scanning(
+    teardown_threads,
+) -> None:
+    """The removal reset does not always run before an insert.
+
+    The watcher fires REMOVED only on disc → empty and INSERTED on empty → disc,
+    so disc → unknown (a probe glitch) → empty → disc fires INSERTED with no
+    REMOVED. The new disc's scan then started on top of the old disc's release
+    and disc id. The insert now resets first. Found 2026-09-25 by the TASKS triage.
+    """
+    window = teardown_threads()
+    window._rip_thread = None
+    window._disc_info_thread = None
+    window._current_release_id = "old-release"
+    window._current_release_detail = _detail()
+    window._current_disc_id = "old-disc"
+    seen_at_scan: list[tuple[str, object, str]] = []
+    window._start_disc_info = lambda _device: seen_at_scan.append(  # type: ignore[assignment]
+        (
+            window._current_release_id,
+            window._current_release_detail,
+            window._current_disc_id,
+        )
+    )
+    window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
+    window._media_watcher.reset()
+    statuses = iter(["disc", "unknown", "empty", "disc"])
+    window._disc_status_probe = lambda _dev: next(statuses)  # type: ignore[assignment]
+
+    for _ in range(4):
+        window._poll_disc_media()
+
+    assert seen_at_scan == [("", None, "")], seen_at_scan
+
+
+def test_reset_disc_view_forgets_the_release_detail_too(teardown_threads) -> None:
+    """The detail is cleared wherever the release id is, never only one of them."""
+    window = teardown_threads()
+    window._current_release_id = "rel-123"
+    window._current_release_detail = _detail()
+    window._reset_disc_view()
+    assert window._current_release_detail is None
+
+
+def _detail_with_medium(mbid: str) -> ReleaseDetail:
+    from dataclasses import replace
+
+    base = _detail()
+    return ReleaseDetail(
+        summary=replace(
+            base.summary,
+            mbid=mbid,
+            medium_basis="disc-id",
+            medium_detail="disc 2 of 2, matched by disc id",
+        ),
+        tracks=base.tracks,
+    )
+
+
+@pytest.mark.parametrize(
+    ("release_id", "expected_basis"),
+    [("", None), ("a-different-release", None), ("previous-mbid", "disc-id")],
+)
+def test_the_report_takes_medium_provenance_only_from_this_rips_release(
+    teardown_threads, release_id: str, expected_basis: str | None
+) -> None:
+    """An unknown-album rip after a MusicBrainz one recorded the EARLIER disc's
+    medium basis as its own: the report read the stored detail with no check that
+    it belonged to this rip, while the rip-start snapshot did check. Both now use
+    one predicate. The last case is the positive control: the matching release
+    still reports its provenance."""
+    from types import SimpleNamespace
+
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._current_release_detail = _detail_with_medium("previous-mbid")
+    window._current_release_id = release_id
+    window._rip_worker = SimpleNamespace(failure_hint="")  # type: ignore[assignment]
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id=release_id,
+        output_dir=Path("/tmp/x"),
+        track_template="t",
+        disc_template="d",
+        unknown=not release_id,
+    )
+
+    window._finish_rip(success=False, log_path="")
+
+    assert window._last_disc["medium_basis"] == expected_basis
+
+
 def test_notify_rip_complete_respects_toggle_and_cancel(teardown_threads) -> None:
     """The completion notification is gated by the setting and never fires for a
     user-cancelled rip; otherwise it reaches the tray step (None here → no-op)."""

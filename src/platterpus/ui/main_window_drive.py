@@ -369,6 +369,11 @@ class DriveMixin(MainWindowShared):
             event = self._media_watcher.observe_event(status)
             if event == drive_media.INSERTED:
                 log.info("disc inserted in %s — auto-rescanning", device)
+                # Whatever the view holds belongs to an earlier disc. A removal
+                # normally cleared it, but not always: disc → unknown (a probe
+                # glitch) → empty → disc never fires REMOVED, and the new scan
+                # then started on top of the old disc's identity.
+                self._reset_disc_view()
                 self._start_disc_info(device)
             elif event == drive_media.REMOVED:
                 # The disc left the drive (an eject or a physical removal). Clear
@@ -392,6 +397,7 @@ class DriveMixin(MainWindowShared):
         self._disc_info_panel.clear_disc_state()
         self._track_table.clear()
         self._current_release_id = ""
+        self._current_release_detail = None
         self._current_num_tracks = 0
         self._current_disc_id = ""
         # Cleared wherever `_current_disc_id` is, never only at the site the bug
