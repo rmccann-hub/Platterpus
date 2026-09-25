@@ -11,6 +11,33 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-25 — 0.6.59 swapped out the build under test; 0.6.60 keeps it
+
+**What happened.** 0.6.59 was released, the fork confirmed it from our tag and
+re-released their lap 1 naming it, and the operator started the Full run. It stopped at
+section A with `.15` installed. The day before, the rig had `.16`.
+
+**The cause is ours, in two places, with one shape.** Both compared the installed build
+with `FORK_PIN` and nothing else:
+- **Check for cyanrip updates** found "newest published, but not the approved build" and
+  offered to put the approved one back, with **Install it now** as the default.
+- **The setup wizard** builds `FORK_PIN` by default and counted any other build as not
+  installed.
+
+Both are right between rounds and wrong during one. The fix is one predicate with two
+callers (`fork_source.is_the_build_under_review`). Tests set up the round themselves
+rather than reading the live constants. Three reverts probed, three detected. Which of
+the two surfaces the operator pressed is not confirmed from their log.
+
+**Released as 0.6.60 under the operator's word** (*"no i want this fixed and in a new
+release"*). The §6b override is recorded in our lap 3, which also files their final
+lap 1 (`c3a7a2a4…`) and reports the shape to the fork as a `NEXT-ROUND` item.
+
+**The lesson** is the one `CLAUDE.md` already names: *"what does the code downstream do
+with answers it never used to receive?"* 0.6.59 moved `PIN_UNDER_REVIEW`, and so made
+reachable a state (the build under review installed and current) that two surfaces had
+only ever answered with "not the pin". The move was tested; its consumers were not.
+
 ## 2026-09-24 (late night) — round 27 opens on `.16`; the container finding is fixed; 0.6.59 prepared
 
 **Round 27.**
@@ -8221,4 +8248,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.59.*
+*Last updated for Platterpus v0.6.60.*

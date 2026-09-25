@@ -101,6 +101,11 @@ SENT_LAPS: dict[str, str] = {
     # word 2026-09-24 ("Yes, release 0.6.59"). Answers their lap 1 as released
     # (f44de648...), which they have since returned to held and revised.
     "outbound/round-27-lap-02.md": "8ed9d7c2e5aaca88e510d6a3540d4df131ac4a868302e11ecfe261bcaac61ea6",
+    # Round 27 lap 3: OPEN — 0.6.59 swapped `.16` out (our defect), 0.6.60 is the fix
+    # and the release the real test runs on, under the operator's §6b override;
+    # files their re-released lap 1 (c3a7a2a4...). Released on the maintainer's word
+    # 2026-09-25 ("no i want this fixed and in a new release").
+    "outbound/round-27-lap-03.md": "f4af4c8caeafd582f31395487f48b1e768f683fa69f61538db0a3db970032f58",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and

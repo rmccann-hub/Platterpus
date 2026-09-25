@@ -217,4 +217,4 @@ finished — put the explanation *in the product*.
 
 ---
 
-*Last updated for Platterpus v0.6.59.*
+*Last updated for Platterpus v0.6.60.*
