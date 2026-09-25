@@ -14,10 +14,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
 from platterpus.adapters.cyanrip_backend import (
+    _TOKEN_MAP,
     DIAGNOSTICS_RECORD_PREFIX,
     CyanripImpl,
     _escape_meta_value,
@@ -26,6 +27,7 @@ from platterpus.adapters.cyanrip_backend import (
     scheme_from_template,
 )
 from platterpus.adapters.rip_backend import RipError, RipMetadata, TrackTag
+from platterpus.settings_validation import _KNOWN_TEMPLATE_TOKENS, _unknown_tokens
 
 #: Repo root, for loading `scripts/` helpers that are part of the contract
 #: surface these tests assert on.
@@ -547,6 +549,149 @@ def test_scheme_collapses_escaped_percent() -> None:
     assert scheme_from_template("100%%") == "100%"
     assert scheme_from_template("%%A") == "%A"
     assert scheme_from_template("%%n - %n") == "%n - {title}"
+
+
+# --- scheme_from_template: the properties, not the examples ------------------
+#
+# The examples above pin one shape each. The translator sits on the argv path
+# (`-D`/`-F`) and reads a Settings value the user types, so the properties below
+# hold it to its documented contract over the whole input space:
+#
+#  1. **Brace discipline.** Every `{` or `}` in the output is part of one of OUR
+#     `{key}` substitutions — never a stray. cyanrip parses `{…}` as its own
+#     syntax and refuses the whole scheme on an unterminated one
+#     (`cyanrip@f8ebf48:src/naming.c:213-216`, *"Invalid scheme syntax,
+#     unterminated "{"!"*), so a stray brace is a rip that fails at start.
+#  2. **Composition.** A template built from pieces translates piece by piece:
+#     a literal, a known token, a `%%` escape, `%Y`, and an unknown `%x` each
+#     mean one thing and never bleed into their neighbours. The oracle is the
+#     documented meaning of each piece, not a second scanner.
+#  3. **The validator and the translator agree about "known".** A token the
+#     Settings validator accepts without a warning is one this translator turns
+#     into something cyanrip understands — never a `%x` left in the filename.
+
+#: One of our own substitutions, as it appears in the scheme.
+_OUR_SUBSTITUTION: re.Pattern[str] = re.compile(
+    "|".join(re.escape(value) for value in sorted(_TOKEN_MAP.values()))
+)
+
+#: The token letters `scheme_from_template` gives a meaning to.
+_MEANINGFUL_LETTERS: frozenset[str] = frozenset(
+    {key[1] for key in _TOKEN_MAP} | {"Y", "%"}
+)
+
+
+def test_an_unknown_token_does_not_smuggle_a_brace_to_cyanrip() -> None:
+    """Regression (found by the property below, 2026-09-25).
+
+    "%{" is not one of our tokens, so it took the *unknown token — kept* path,
+    which appended both characters verbatim. The template's own braces were
+    flattened, the one behind a ``%`` was not, and ``%{album}`` became
+    ``%{album)``: an unterminated brace cyanrip refuses the whole scheme over. The
+    Settings validator only *warns* about an unknown code, so the template saved.
+    """
+    assert scheme_from_template("%{album}") == "%(album)"
+    assert scheme_from_template("%{a%}") == "%(a%)"
+    assert scheme_from_template("100%}") == "100%)"
+
+
+def _stray_braces(scheme: str) -> str:
+    """The braces left once every one of our ``{key}`` substitutions is removed."""
+    return "".join(ch for ch in _OUR_SUBSTITUTION.sub("", scheme) if ch in "{}")
+
+
+# A dense alphabet, so a draw lands on "%{" / "%}" / "{…}" constantly rather than
+# once in a thousand runs of full-range text. The two `@example`s are the shapes
+# that found the defect: "%{" is not a token, and it was kept VERBATIM — brace
+# included — so `%{album}` reached cyanrip as `%{album)`, an unterminated brace.
+@example("%{album}")
+@example("%{a%}")
+@settings(max_examples=300, deadline=None)
+@given(st.text(alphabet="%{}AadntYNz/ -", max_size=40))
+def test_the_scheme_never_carries_a_stray_brace(template: str) -> None:
+    scheme = scheme_from_template(template, year="1995")
+    assert _stray_braces(scheme) == "", (
+        f"{template!r} → {scheme!r}: a brace that is not one of our {{key}} "
+        "substitutions reaches cyanrip as its own scheme syntax"
+    )
+
+
+@settings(max_examples=200, deadline=None)
+@given(st.text(max_size=80))
+def test_the_scheme_never_carries_a_stray_brace_on_any_text(template: str) -> None:
+    """The same invariant over full-range text, for breadth."""
+    assert _stray_braces(scheme_from_template(template, year="1995")) == ""
+
+
+def _literal_piece() -> st.SearchStrategy[tuple[str, str]]:
+    """A run of text with no ``%`` in it: braces flatten, everything else stays."""
+    text = st.one_of(
+        st.text(alphabet=st.characters(blacklist_characters="%"), max_size=6),
+        st.sampled_from(["{", "}", "{title}", "/", " - ", "(", "Disc 1"]),
+    )
+    return text.map(lambda s: (s, s.replace("{", "(").replace("}", ")")))
+
+
+def _token_piece(year: str) -> st.SearchStrategy[tuple[str, str]]:
+    """One ``%``-sequence and what it is documented to become."""
+    known = st.sampled_from(sorted(_TOKEN_MAP)).map(lambda t: (t, _TOKEN_MAP[t]))
+    escape = st.just(("%%", "%"))
+    year_token = st.just(("%Y", year))
+    # An unknown token is kept so a typo stays visible — but a brace in it is
+    # still a brace, and flattens like any other literal one.
+    unknown_char = st.one_of(
+        st.characters(blacklist_characters="".join(_MEANINGFUL_LETTERS)),
+        st.sampled_from(["{", "}"]),
+    )
+    unknown = unknown_char.map(
+        lambda c: ("%" + c, "%" + c.replace("{", "(").replace("}", ")"))
+    )
+    return st.one_of(known, escape, year_token, unknown)
+
+
+@st.composite
+def _template_with_meaning(draw: st.DrawFn) -> tuple[str, str, str]:
+    """``(template, year, expected scheme)``, built from pieces of known meaning."""
+    year = draw(st.sampled_from(["", "1995", "2020"]))
+    pieces = draw(
+        st.lists(st.one_of(_literal_piece(), _token_piece(year)), max_size=12)
+    )
+    # A lone "%" can only be a literal at the very END — anywhere else it would
+    # pair with the next character and become a token.
+    if draw(st.booleans()):
+        pieces.append(("%", "%"))
+    template = "".join(source for source, _ in pieces)
+    expected = "".join(meaning for _, meaning in pieces)
+    return template, year, expected
+
+
+@settings(max_examples=300, deadline=None)
+@given(_template_with_meaning())
+def test_the_scheme_translates_a_template_piece_by_piece(
+    case: tuple[str, str, str],
+) -> None:
+    template, year, expected = case
+    assert scheme_from_template(template, year=year) == expected
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    st.lists(
+        st.one_of(
+            st.sampled_from(sorted(f"%{letter}" for letter in _KNOWN_TEMPLATE_TOKENS)),
+            st.text(alphabet=st.characters(blacklist_characters="%"), max_size=6),
+        ),
+        min_size=1,
+        max_size=10,
+    ).map("".join)
+)
+def test_every_token_the_validator_accepts_is_translated(template: str) -> None:
+    """A template the Settings validator passes without an *unknown code* warning
+    must reach cyanrip with no ``%`` left in it — a leftover ``%d`` is written into
+    the folder name literally, because cyanrip treats ``%`` as an ordinary
+    character."""
+    assert not _unknown_tokens(template), "floor: the draw must be all-known"
+    assert "%" not in scheme_from_template(template, year="1995")
 
 
 def test_rip_argv_preexpands_year_only_token_from_release_date() -> None:
