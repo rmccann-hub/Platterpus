@@ -2051,3 +2051,114 @@ def test_a_rip_keeps_reading_past_a_byte_that_is_not_utf8(
     lines = list(handle.log_lines())
     handle.wait(timeout=10)
     assert lines == ["before", "CD-TEXT: caf\ufffd", "after"]
+
+
+# --- -l is range-checked against the disc (TASKS conv.argv-range, 2026-09-25) ---
+
+
+def _l_argv(only_tracks: tuple[int, ...], total: int | None) -> list[str]:
+    return _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=6,
+        only_tracks=only_tracks,
+        disc_track_total=total,
+    )
+
+
+def test_a_track_the_disc_does_not_have_is_not_sent_in_dash_l(caplog) -> None:
+    """cyanrip refuses the WHOLE rip on an out-of-range `-l N` (provider contract,
+    round-26-lap-01-provider-contract-g37f946b.md:115), the `-t 17=` failure in a
+    different flag. The track table's rows come from the MusicBrainz release, so
+    a medium listing 18 tracks for a 16-track disc put `-l 17` one tick away."""
+    with caplog.at_level(logging.WARNING):
+        argv = _l_argv((3, 17, 0), 16)
+    assert argv[argv.index("-l") + 1] == "3"
+    assert any("[17, 0]" in r.getMessage() for r in caplog.records), (
+        "the dropped tracks were not logged"
+    )
+
+
+def test_no_selected_track_on_the_disc_REFUSES_rather_than_ripping_everything() -> None:
+    """Dropping every number would drop `-l` itself, which means "rip the whole
+    disc". That is not what was asked, so the rip is refused with a message the
+    user can act on."""
+    with pytest.raises(RipError, match=r"has 16 track\(s\)"):
+        _l_argv((17, 18), 16)
+
+
+def test_an_in_range_track_list_is_sent_unchanged() -> None:
+    argv = _l_argv((1, 16), 16)
+    assert argv[argv.index("-l") + 1] == "1,16"
+
+
+def test_an_UNKNOWN_track_total_sends_the_list_and_says_the_check_did_not_run(
+    caplog,
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        argv = _l_argv((3, 17), None)
+    assert argv[argv.index("-l") + 1] == "3,17"
+    assert any("did NOT run" in r.getMessage() for r in caplog.records)
+
+
+#: Numeric flags range-checked by the BUILDER, which knows the disc, rather than
+#: by the chokepoint's `_load_arg_ranges`, which sees only the argv. Each names
+#: the test that proves the check. **A new numeric flag must join one of the two.**
+_RANGED_IN_BUILDER: dict[str, str] = {
+    "-l": "test_a_track_the_disc_does_not_have_is_not_sent_in_dash_l",
+    "-c": "the disc position check in `_disc_args` (number >= 1, <= total)",
+    "-t": "the track-number drop in `_metadata_args` (2026-08-02, §5.m)",
+}
+
+#: A value that is a number, a number list, a position (`1/2`) or a
+#: numbered tag (`3=title=…`): the shapes whose meaning is a range.
+_NUMERIC_VALUE = re.compile(r"^(?:-?\d+(?:,\d+)*|\d+/\d+|\d+=.*)$")
+
+
+def test_every_NUMERIC_flag_the_builder_sends_has_a_range_check() -> None:
+    """The half of `conv.argv-range` nothing enforced: a sweep, not a list.
+
+    The builder is driven with every option on, and every flag whose value is
+    numeric must be range-checked either at the chokepoint or in the builder.
+    A new numeric flag added with no range check fails here, before a hardware
+    run finds out that cyanrip refuses it.
+    """
+    from platterpus.adapters.cyanrip_backend import _load_arg_ranges
+
+    meta = RipMetadata(
+        album_title="A",
+        disc_number=1,
+        total_discs=2,
+        tracks=(TrackTag(1, "One", "X"), TrackTag(2, "Two", "X")),
+    )
+    argv = _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=6,
+        metadata=meta,
+        secure_rerip_matches=3,
+        read_speed=8,
+        only_tracks=(1, 2),
+        disc_track_total=2,
+    )
+    numeric = {
+        flag
+        for flag, value in zip(argv, argv[1:], strict=False)
+        if flag.startswith("-") and _NUMERIC_VALUE.match(value)
+    }
+    # FLOOR: seven measured (-s -r -Z -S -l -c -t). A builder that stopped
+    # emitting them, or a pattern that stopped matching, must not pass.
+    assert len(numeric) >= 7, sorted(numeric)
+    covered = set(_load_arg_ranges()) | set(_RANGED_IN_BUILDER)
+    unchecked = sorted(numeric - covered)
+    assert not unchecked, (
+        f"numeric flag(s) {unchecked} reach cyanrip with no range check. Add the "
+        "range to `_load_arg_ranges` (the chokepoint) or check it in the builder "
+        "and list it in `_RANGED_IN_BUILDER` with the test that proves it."
+    )
+    stale = sorted(set(_RANGED_IN_BUILDER) - numeric)
+    assert not stale, f"listed but no longer sent: {stale}"

@@ -32,6 +32,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Ticking a track the disc does not have no longer stops the whole rip.** The
+  track list comes from MusicBrainz, which can list more tracks than the disc
+  has. Ripping only some tracks sent their numbers to the ripper unchecked, and
+  it refuses the entire rip if any number is out of range. Tracks the disc does
+  not have are now left out (and logged). If none of the ticked tracks is on the
+  disc, you get a message saying how many tracks it has, instead of a failed rip.
+
 - **A MusicBrainz answer that arrives during a rip no longer changes it.** A
   slow lookup could finish while a rip was running and rewrite the track list,
   and an unknown-album rip is tagged from that list when it ends, so its files

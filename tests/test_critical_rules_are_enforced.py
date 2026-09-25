@@ -1129,7 +1129,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # produce a `LogVerification`, so the drift would be invisible.
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     # **1578 -> 1594** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): the chokepoint applies `tag_hygiene` and logs each replacement.
-    "adapters/cyanrip_backend.py": 1594,
+    # **1594 -> 1638** (2026-09-25, TASKS `conv.argv-range`): `_tracks_on_disc` range-checks `-l` against the disc, which cyanrip enforces by refusing the whole rip. It belongs beside `_disc_args` and the `-t` check in `_metadata_args`, which are the same kind of guard.
+    "adapters/cyanrip_backend.py": 1638,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
