@@ -151,7 +151,15 @@ stopped at section A the same day, as their lap 1 predicted.
   and revert-probe it. Not released mid-round: the test runs on 0.6.59, avoiding the button.
 - [x] **Our lap 3**, released 2026-09-25: 0.6.59 swapped `.16` out, 0.6.60 is the fix and the
   release the test runs on, under a §6b override; their final lap 1 (`c3a7a2a4…`) filed.
-- [~] **0.6.60**, under that override.
+- [x] **0.6.60 released 2026-09-25** (release run 158 on `88c09dd`, after `main`'s CI run
+  36138712820 was green; AppImage, `.sha256`, `.zsync` and install scripts published), under
+  the §6b override in our lap 3. `PIN_UNDER_REVIEW` `221a1df`, `FORK_PIN` `df91ae7`.
+- [ ] **Done inside round 27 rather than round 28 (maintainer, 2026-09-25), without making them
+  close conditions (S-13):** the fork's reading of its own tests by name and the check of
+  the "restores the approved build mid-round" shape, both theirs, for `.17`; and the
+  EAC-compatible log's `Accurip 450` wording, which is ours to change once they accept or
+  amend it in their next lap (round 7 H4), for our closing release. Asked in the operator's
+  message with 0.6.60.
 - [ ] **The real test on 0.6.60**, then each side's reading and the closing laps.
 
 ## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
