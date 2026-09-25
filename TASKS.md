@@ -367,7 +367,7 @@ which row that is. Three answers differ from my recommendation (D2, D8, D9).
 | D11 | A | Embed the re-rip's cyanrip log in `.platterpus.json` | *"Route 2"* |
 | D12 | A | Nothing; the console moves with D4 | Console row, closed |
 | D13 | A | Cancelled-rip facts in the JSON report only | *"The cancelled-rip log addendum, properly"*; E15 |
-| D14 | B | Replace a control character with a space in MusicBrainz-only tags, and record it | E12; the `_metadata_args` fuzz row |
+| D14 | B | **Built 2026-09-25**: `tag_hygiene`, report v28 `disc.tag_control_characters_replaced` | E12 (partly); the `_metadata_args` fuzz row, closed |
 | D15 | B | Tell the fork: a beta stops at its round's close or a newer beta | Same next-lap row (f); F8 |
 
 ## Round 24 — CLOSED on both gates 2026-09-23 on `3e01bb3` (`+platterpus.14`): ours at our lap 2, theirs at their lap 3
@@ -1081,10 +1081,11 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   `QLabel(<non-literal>)` sites outside the PlainText sweep; no test that what reaches
   the user is what cyanrip said. TASKS@b8f89a2:3818–3821.
   - *2026-09-25:* **Sanitiser done** (`inbound_text`, and `errors="replace"` on every text-mode read). The 13 `QLabel(<non-literal>)` sites are still unswept.
-- [ ] **E12. Outbound argv property gaps** — `_metadata_args` rejects control characters
+- [~] **E12. Outbound argv property gaps** — `_metadata_args` rejects control characters
   on 4 of 11 fields; `sanitise_cyanrip_args` misses line terminators; plus the rest of
   the 2026-08-28 list (TASKS@b8f89a2:1993–2028, not re-derived one by one).
   - *2026-09-25:* **Decided (D14 B):** a control character in a tag that comes only from MusicBrainz (genre, label, catalog number, barcode, ISRC) becomes a space, and the report records which field changed and how. The four fields that become folder and file names still refuse. Ready to build.
+  - *2026-09-25:* **The `_metadata_args` half is done (D14 B, see the fuzz row).** Still open: `sanitise_cyanrip_args` missing line terminators, and the rest of the 2026-08-28 list.
 - [ ] **E13. `seam-commands` structural work** — rows for all 41 flags, generated types
   and ranges, string/path probes, reasons for the `-I`/`-J` and `-F` exclusions,
   NEED 1–3 / WANT 1–3. TASKS@b8f89a2:3704–3709, 3766.
@@ -3264,9 +3265,10 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 
 ### 7. Boundary functions with no property test (23)
 
-- [~] **`fuzz:adapters.cyanrip_backend._metadata_args`** (ungated, small) — Outbound -a/-t blob: control chars and newlines are only rejected on 4 of 11 metadata fields
+- [x] **`fuzz:adapters.cyanrip_backend._metadata_args`** (ungated, small) — Outbound -a/-t blob: control chars and newlines are only rejected on 4 of 11 metadata fields
   - *Audit 2026-09-25: partly done.* test_the_whole_ASSEMBLED_blob_is_a_fixed_point_too fuzzes album/artist/title. _reject_path_reference_values still checks only 4 of 11 fields, so the defect is live.
   - *2026-09-25:* **Decided (D14 B):** the property test asserts that no control character reaches the `-a`/`-t` blob from any field, and that each replacement in a MusicBrainz-only field is recorded.
+  - *2026-09-25:* **Done (D14 B).** `tag_hygiene.clean_tag_only_fields` replaces each control character in the seven tag-only fields with a space at the chokepoint and returns what it changed; the report records it in `disc.tag_control_characters_replaced` (schema v28) plus an `info` issue. `tests/test_tag_hygiene.py::test_no_control_character_reaches_the_blob_from_any_field` is the property this row asked for, over all eleven fields: each input is refused (a path field) or reaches `-a`/`-t` with no control character. Four guards revert-probed, four detected.
 - [ ] **`fuzz:adapters.cyanrip_backend.scheme_from_template`** (ungated, small) — The Settings path-template (`%A`/`%d`/`%t`…) to cyanrip -D/-F translator has no property test
 - [ ] **`fuzz:adapters.ripper_log_verify.verify_rip_log`** (partial, small) — The adapter that turns a ripper exit code into an accusation about an archival file is fuzzed on no axis
 - [ ] **`fuzz:ctdb.crc.ctdb_crc`** (partial, small) — The CTDB CRC's only property test can never reach the CRC — every draw returns None

@@ -32,6 +32,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A stray control character in MusicBrainz data no longer goes into your tags.**
+  Genre, label, catalog number, barcode, year, ISRC and the release ID come from
+  MusicBrainz and cannot be edited before a rip, so a newline or similar character
+  in one of them went straight into the file's tags. It is now replaced with a
+  space, and the rip's report names each field that was changed. Album and track
+  titles and artists, which become folder and file names, still stop the rip with a
+  message so you can fix them.
+
 - **A rip is no longer marked complete when its own numbers disagree.** The rip
   check that runs after every rip marked a rip "completed" just because the ripper
   said so. It ignored the ripper's own track count ("12 of 14") and its error count

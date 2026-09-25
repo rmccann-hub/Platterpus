@@ -81,13 +81,26 @@ Only the default (no flag) is archival-safe, which is why it's the only mode we
 use. See `docs/eac-parity.md` Part A (pre-gaps in the cue) for the `INDEX 00`
 cue-metadata question (separate, decision-gated).
 
-**Tag string syntax (`-a`/`-t`) — a real trap:** the value list is
-`key=value:key=value`, parsed by FFmpeg's `av_dict_parse_string`, **but** cyanrip
-first runs it through `append_missing_keys()` which splits on `:` *naïvely*
-(ignoring backslash/quote escapes). So a literal `:` in a value cannot be escaped
-— we substitute the look-alike `∶` (U+2236) and restore the real colon in the
-FLAC tags post-rip via metaflac (`_escape_meta_value` / `restore_substituted_colons`).
-Other tokenizer-special chars (`\ = '`) are backslash-escaped.
+**Tag string syntax (`-a`/`-t`) — a real trap, now escaped rather than substituted:**
+the value list is `key=value:key=value`, parsed by FFmpeg's `av_dict_parse_string`
+after cyanrip's `append_missing_keys()` pre-splitter. That pre-splitter used to
+split on `:` naïvely, so until round 7 lap 31 we swapped a literal `:` for the
+look-alike `∶` (U+2236) and repaired it post-rip. It is escape-aware in both the
+fork and upstream (verified in their `src/naming.c`), so every tokenizer-special
+character (`: \ = '`) is now **backslash-escaped** and the real colon goes in and
+comes back out (`_escape_meta_value`; this paragraph said "substitute" until
+2026-09-25, a year-old description of code that had changed).
+
+**Control characters in tag values** (maintainer decision D14, 2026-09-25). The
+four values that become folder and file names (album artist, album title, track
+title, track artist) **refuse** a C0 control character or DEL before the rip
+starts. The seven that only ever become tags (genre, label, catalog number,
+barcode, year, ISRC, release id) come from MusicBrainz and cannot be edited, so
+each such character is **replaced with a space** at the argv chokepoint
+(`tag_hygiene`, applied in `_metadata_args`), logged, and recorded in the
+report's `disc.tag_control_characters_replaced`. One definition of "control
+character" serves both rules (`settings_validation.is_control_char`), and a
+property test holds that no control character reaches `-a`/`-t` from any field.
 
 **Filename / path cross-filesystem safety (the `-D`/`-F` output on disk).**
 cyanrip builds each folder/file segment from the naming template with the fetched

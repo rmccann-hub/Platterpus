@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
 
-from platterpus import drive_control, rip_addendum, rip_files
+from platterpus import drive_control, rip_addendum, rip_files, tag_hygiene
 from platterpus.adapters import cover_art
 from platterpus.adapters.derived_verify import DerivedVerifyResult
 from platterpus.adapters.flac_recompress import (
@@ -1667,6 +1667,15 @@ class RipMixin(MainWindowShared):
             "medium_detail": (getattr(_summary, "medium_detail", "") or None),
             "medium_undetermined": bool(
                 getattr(_summary, "medium_undetermined", False)
+            ),
+            # What the argv chokepoint replaced in the tag-only fields (D14),
+            # recomputed from the metadata that was sent, with the same function.
+            "tag_control_characters_replaced": (
+                tag_hygiene.fixes_block(
+                    tag_hygiene.clean_tag_only_fields(_meta, params.release_id).fixes
+                )
+                if params is not None
+                else []
             ),
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the

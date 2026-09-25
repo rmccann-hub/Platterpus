@@ -1132,7 +1132,7 @@ def test_schema_version_is_27() -> None:
     # rather than folded into `checksums`, because a SHA256 mismatch after a
     # retag is expected while an audio-MD5 mismatch never is, and a reader must
     # not be able to confuse the two.
-    assert REPORT_SCHEMA_VERSION == 27
+    assert REPORT_SCHEMA_VERSION == 28
 
 
 def _issue_codes(report: dict) -> set[str]:
@@ -2011,3 +2011,21 @@ def test_a_rip_that_never_finished_is_not_called_read_unstable() -> None:
         )
         codes = [i["code"] for i in report["issues"]]
         assert ("read_unstable" in codes) is expected, (status, unstable, codes)
+
+
+def test_replaced_tag_control_characters_are_an_info_issue() -> None:
+    """Decision D14: the tag differs from MusicBrainz, and the report says why."""
+    disc = {
+        "unknown": False,
+        "musicbrainz_release_id": "mbid",
+        "tag_control_characters_replaced": [{"field": "genre", "replaced": 1}],
+    }
+    report = build_report(_sample_log(), disc=disc)
+    issue = next(
+        i for i in report["issues"] if i["code"] == "tag_control_characters_replaced"
+    )
+    assert issue["severity"] == "info" and "genre (1)" in issue["message"]
+    clean = build_report(
+        _sample_log(), disc={**disc, "tag_control_characters_replaced": []}
+    )
+    assert "tag_control_characters_replaced" not in _issue_codes(clean)

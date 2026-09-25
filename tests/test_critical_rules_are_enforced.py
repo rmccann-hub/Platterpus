@@ -1128,7 +1128,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `CLAUDE.md` names as guaranteed to drift, and here both opinions
     # produce a `LogVerification`, so the drift would be invisible.
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
-    "adapters/cyanrip_backend.py": 1578,
+    # **1578 -> 1594** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): the chokepoint applies `tag_hygiene` and logs each replacement.
+    "adapters/cyanrip_backend.py": 1594,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1600,7 +1601,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
     # **690 -> 712** (2026-09-24, #36): `ComponentInventory`, the one inventory type, and v27's `dependencies_measured_at`.
-    "report_types.py": 712,
+    # **712 -> 723** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): `TagFixEntry` and `DiscBlock.tag_control_characters_replaced`.
+    "report_types.py": 723,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1646,7 +1648,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2479 -> 2490** (2026-09-24): schema v26 `album_loudness_covers` plus its history note.
     # **2490 -> 2494** (2026-09-24, #36): schema v27's history note.
     # **2494 -> 2495** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "rip_report.py": 2495,
+    # **2495 -> 2515** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): schema v28 and the `tag_control_characters_replaced` issue.
+    "rip_report.py": 2515,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1671,7 +1674,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # rather than folded in with its sibling — a path and a version are two
     # shapes, and one check loose enough for both checks neither properly.
     # **896 -> 922** (2026-09-24, #37 one home per setting): `field_error`, the ONE single-setting predicate the `set` verb and every save-as-you-change control share; it moved here from the runner so neither can restate it.
-    "settings_validation.py": 922,
+    # **922 -> 933** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): `is_control_char`, the one definition both rules share.
+    "settings_validation.py": 933,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -1862,7 +1866,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4710 -> 4717** (2026-09-24, #36): the rip report records when its dependency versions were measured.
     # **4717 -> 4715** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 4715 -> 4730 on 2026-09-25: _release_detail_for, the one check both the rip start and the report use.
-    "ui/main_window_rip.py": 4730,
+    # **4730 -> 4739** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): the finish record carries the fixes.
+    "ui/main_window_rip.py": 4739,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared

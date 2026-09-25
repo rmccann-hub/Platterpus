@@ -981,6 +981,22 @@ def _metadata_args(
     # Before anything is turned into argv: no value that becomes a path segment
     # may be a directory reference. See _reject_path_reference_values.
     _reject_path_reference_values(meta)
+    # The seven tag-only values (genre, label, ISRC…) come from MusicBrainz and
+    # cannot be edited, so a control character in one is REPLACED with a space
+    # rather than refused (maintainer decision D14). Done here, at the chokepoint,
+    # so nothing reaches cyanrip unreplaced; the rip-finish path records the same
+    # fixes in the report (`disc.tag_control_characters_replaced`).
+    from platterpus import tag_hygiene
+
+    cleaned = tag_hygiene.clean_tag_only_fields(meta, release_id)
+    meta, release_id = cleaned.metadata, cleaned.release_id
+    for fixed in cleaned.fixes:
+        log.warning(
+            "replaced %d control character(s) with a space in the %s tag "
+            "(MusicBrainz data; not editable, so not refused)",
+            fixed.replaced,
+            fixed.field,
+        )
     if meta.album_title:
         album_pairs.append(f"album={_escape_meta_value(meta.album_title)}")
     if meta.album_artist:
