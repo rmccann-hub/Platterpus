@@ -46,9 +46,35 @@ def test_it_specifies_BOTH_directions() -> None:
 
 
 def test_it_states_that_the_release_is_gated_on_both() -> None:
-    text = _DOC.read_text(encoding="utf-8").lower()
-    assert "neither project ships until" in text
-    assert "both" in text
+    """The one-line rule, pinned as a sentence rather than as two common words.
+
+    The first version asserted ``"both" in text`` — against a 54 KB document that
+    contains the word 41 times (measured 2026-09-25) — beside a separate check for
+    ``"neither project ships until"``. So rewriting the rule to *"neither project
+    ships until it has sent a handshake file"* — which drops BOTH halves of the
+    gate, the bilateral send and the bilateral verification — passed, because
+    "both" was still somewhere else in the file (revert-probed). The subject of
+    the rule is the conjunction, so the conjunction is what is matched.
+
+    Markdown emphasis and the blockquote marker are stripped and whitespace
+    collapsed first, so re-wrapping or re-bolding the sentence does not fail this;
+    changing what it says does.
+    """
+    import re
+
+    raw = _DOC.read_text(encoding="utf-8")
+    # `> ` blockquote markers and `**`/`*`/`_` emphasis are presentation.
+    plain = re.sub(r"^>\s?", "", raw, flags=re.MULTILINE)
+    plain = re.sub(r"[*_]+", "", plain)
+    plain = re.sub(r"\s+", " ", plain).lower()
+    rule = (
+        "neither project ships until both have sent a handshake file and both "
+        "have verified the other's"
+    )
+    assert rule in plain, (
+        "docs/cyanrip-handshake.md no longer states the release rule as a gate on "
+        f"BOTH sides sending AND BOTH verifying: expected the sentence {rule!r}"
+    )
 
 
 def test_the_cyanrip_return_spec_enumerates_every_section() -> None:
