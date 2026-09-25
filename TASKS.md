@@ -160,6 +160,11 @@ stopped at section A the same day, as their lap 1 predicted.
   EAC-compatible log's `Accurip 450` wording, which is ours to change once they accept or
   amend it in their next lap (round 7 H4), for our closing release. Asked in the operator's
   message with 0.6.60.
+  - [~] **The EAC wording is built, and HELD off `main` until their lap 4 is released.**
+    `one_frame_match.eac_track_line` / `eac_summary_line`, with the per-track amendment
+    their STATUS records for lap 4 (*"whole-track checksums not found"*, not
+    *"unverified"*, which reads as not checked). Tests updated; one revert probed and
+    detected. If their released lap 4 words it differently, change the two functions.
 - [ ] **The real test on 0.6.60**, then each side's reading and the closing laps.
 
 ## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app

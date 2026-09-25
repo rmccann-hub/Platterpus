@@ -43,9 +43,13 @@ claim. The internal names (``accuraterip_offset``, the ``"offset-variant"`` stat
 value in reports) are unchanged: they are keys other code and old reports carry,
 and renaming a key is a schema change this wording does not need.
 
-**NOT changed here: the EAC-compatible log.** Its lines are what the cyanrip fork
-diffs against, and in round 7 (lap 11, H4) both sides agreed that neither rewords
-that log unilaterally. The new wording for it is proposed in handshake round 27.
+**The EAC-compatible log too, as agreed in round 27.** Its lines are what the
+cyanrip fork diffs against, and in round 7 (lap 11, H4) both sides agreed that
+neither rewords that log unilaterally. So its words were settled there: we proposed
+them (our lap 2 §B1), and the fork accepted the summary and amended the per-track
+line, because *"unverified"* reads as *not checked* when both whole-track lookups
+were in fact checked and not found (their lap 4). :func:`eac_track_line` and
+:func:`eac_summary_line` are those words.
 """
 
 from __future__ import annotations
@@ -73,6 +77,24 @@ TOOLTIP: Final[str] = (
 CLAUSE: Final[str] = (
     "only one frame matched AccurateRip, so the rest of the track is unverified"
 )
+
+
+def eac_track_line(confidence: int, crc: str = "") -> str:
+    """The EAC-compatible log's per-track AccurateRip line for a one-frame match.
+
+    ``crc`` is the log's ``  [XXXXXXXX]`` group, already formatted, or ``""``. The
+    confidence is the matched FRAME's: it says nothing about the rest of the track.
+    """
+    return (
+        f"Only one frame matched AccurateRip (confidence {confidence}); whole-track "
+        f"checksums not found{crc}  (AR frame 450)"
+    )
+
+
+def eac_summary_line(count: int) -> str:
+    """The EAC-compatible log's summary line: `` 1 track(s) matched AccurateRip on
+    one frame only``, right-aligned like its sibling lines."""
+    return f"{count:2} track(s) matched AccurateRip on one frame only"
 
 
 def count_sentence(matched: int, population: int) -> str:

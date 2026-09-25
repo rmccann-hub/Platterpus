@@ -11,6 +11,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+
+- **The EAC-compatible log now says what a one-frame AccurateRip match is.** A track
+  whose whole-track checksums matched nothing, but whose one checked frame did, used to
+  read "Matched an offset-variant pressing — partially accurate". It now reads "Only one
+  frame matched AccurateRip (confidence N); whole-track checksums not found", and the
+  summary says "N track(s) matched AccurateRip on one frame only". The words were agreed
+  with the cyanrip fork, because both projects read this log.
+
 ## [0.6.60] — 2026-09-25
 
 ### Fixed
