@@ -11,6 +11,31 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-25 — the small archival items, started: the completion check and D14
+
+The maintainer asked whether to start on the small open items (248 rows open, 56
+tagged small). Archival correctness first.
+
+- **`rip_audit` graded a rip complete on the ripper's flag alone** (our round-21
+  §C). It printed the ripper's own `done of total` and compared neither, and read
+  the error count nowhere. It is now OK only when the counts agree and are
+  non-zero and the tally reads `No errors occurred`; otherwise it WARNs or says
+  "not determined". Built on constructed cases, since every real disc since has
+  been clean. Four reverts probed, four detected.
+- **D14 built.** The seven tag-only fields get control characters replaced with a
+  space at the argv chokepoint (`tag_hygiene.py`), and the report records which
+  (`disc.tag_control_characters_replaced`, schema v28, plus an `info` issue).
+  The path-bearing four still refuse, and both rules now share one definition
+  (`settings_validation.is_control_char`). The property the fuzz row asked for
+  holds over all eleven fields. Four reverts probed, four detected.
+- **Two stand-in lessons from D14.** The argv-contract suite built tracks from
+  `SimpleNamespace`, which the product never passes; it is now the real frozen
+  `TrackTag`. And a real caller passes `None` for an absent release id where the
+  type says `str`, so the cleaner passes non-strings through rather than raising.
+- **A year-old stale paragraph corrected on the way.** `docs/dependency-contracts.md`
+  still said a colon in a tag was swapped for a look-alike; it has been
+  backslash-escaped since round 7 lap 31.
+
 ## 2026-09-25 — updates verify their build attestation before installing
 
 The maintainer said yes to the follow-up from D9. The updater now refuses an update

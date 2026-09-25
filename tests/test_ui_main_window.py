@@ -4873,6 +4873,8 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
         "medium_basis": None,
         "medium_detail": None,
         "medium_undetermined": False,
+        # v28 (D14): a positive "nothing was replaced", not an absent key.
+        "tag_control_characters_replaced": [],
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}
     assert report["environment"]["dependencies"]["cyanrip"] == {
@@ -5713,6 +5715,33 @@ def test_the_report_takes_medium_provenance_only_from_this_rips_release(
     window._finish_rip(success=False, log_path="")
 
     assert window._last_disc["medium_basis"] == expected_basis
+
+
+def test_the_disc_record_says_which_tag_only_fields_were_cleaned(
+    teardown_threads,
+) -> None:
+    """D14: the report records what the argv chokepoint replaced, computed from the
+    same metadata with the same function, so the two cannot disagree."""
+    from types import SimpleNamespace
+
+    from platterpus.adapters.rip_backend import RipMetadata, TrackTag
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(failure_hint="")  # type: ignore[assignment]
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=Path("/tmp/x"),
+        track_template="t",
+        disc_template="d",
+        metadata=RipMetadata(genre="Rock\nPop", tracks=(TrackTag(2, isrc="GB\x00X"),)),
+    )
+    window._finish_rip(success=False, log_path="")
+    assert window._last_disc["tag_control_characters_replaced"] == [
+        {"field": "genre", "replaced": 1},
+        {"field": "track 2 isrc", "replaced": 1},
+    ]
 
 
 def test_notify_rip_complete_respects_toggle_and_cancel(teardown_threads) -> None:

@@ -884,6 +884,17 @@ def _validate_plain_int(field: str, value: object) -> list[ValidationIssue]:
     return []
 
 
+def is_control_char(ch: str) -> bool:
+    """True for a C0 control character (NUL, tab, newline…) or DEL.
+
+    The ONE definition: the path-bearing tag fields refuse these
+    (:func:`path_segment_issue`) and the tag-only fields replace them with a
+    space (``tag_hygiene``, maintainer decision D14), so the two cannot disagree
+    about which characters count.
+    """
+    return ord(ch) < 0x20 or ch == "\x7f"
+
+
 def _has_control_char(text: str) -> bool:
     """True if ``text`` holds a NUL or other C0 control character.
 
@@ -891,7 +902,7 @@ def _has_control_char(text: str) -> bool:
     characters have no business in a path or template — rejecting them keeps a
     crafted or pasted value from doing something surprising downstream.
     """
-    return any(ord(ch) < 0x20 or ch == "\x7f" for ch in text)
+    return any(is_control_char(ch) for ch in text)
 
 
 def _allowed_goals() -> frozenset[str]:

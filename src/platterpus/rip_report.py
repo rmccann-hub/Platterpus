@@ -241,7 +241,12 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     `environment.dependencies` were measured. The probe runs at launch and on
 #     request, so in a long session they can be hours old, and a tool updated in
 #     between would otherwise read as the version that ripped the disc.
-REPORT_SCHEMA_VERSION: int = 27
+# v28: `disc.tag_control_characters_replaced` — the tag-only fields (genre, label,
+#     catalog number, barcode, year, ISRC, release id) whose control characters were
+#     replaced with a space before the rip, with a count each. Maintainer decision
+#     D14: those values come from MusicBrainz and cannot be edited, so a stray
+#     newline is replaced rather than refused, and the record says so.
+REPORT_SCHEMA_VERSION: int = 28
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -1848,6 +1853,21 @@ def _issues(
 
     def add(severity: str, code: str, message: str) -> None:
         issues.append({"severity": severity, "code": code, "message": message})
+
+    replaced = (disc or {}).get("tag_control_characters_replaced")
+    if isinstance(replaced, list) and replaced:
+        fields = ", ".join(
+            f"{entry.get('field')} ({entry.get('replaced')})"
+            for entry in replaced
+            if isinstance(entry, dict)
+        )
+        add(
+            "info",
+            "tag_control_characters_replaced",
+            "control characters in MusicBrainz data were replaced with a space "
+            f"before tagging: {fields}. These tags differ from MusicBrainz by that "
+            "character only.",
+        )
 
     status = (outcome or {}).get("status")
     if status == "failed":
