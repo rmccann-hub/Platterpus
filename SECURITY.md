@@ -35,15 +35,18 @@ reproduce on the newest release before reporting.
   you can prove a download really came from this repo's release pipeline:
   `gh attestation verify platterpus-x86_64.AppImage --repo rmccann-hub/Platterpus`.
   The in-app updater verifies the release's published **SHA-256 checksum**
-  (integrity) on every download. **Cryptographic signature verification**
-  (Ed25519, via `minisign`) is implemented and verifies **fail-closed** — but it
-  is *armed* only once a maintainer-held **offline** signing key is baked into
-  the build (`update_signing.PUBLIC_KEY_B64`). Until then the updater is
-  SHA-256-only; from the first signed release on, it refuses any update whose
-  signature is missing or invalid. The key is held offline and signing happens
-  outside CI, so a CI compromise can't forge a signature. See
-  [`docs/architecture.md` §6.2 *Release signing*](docs/architecture.md) and the trust-audit notes
-  in `docs/`. (The updater does not yet check the SLSA attestation itself.)
+  (integrity), and **from the release after v0.6.60 it also verifies that
+  attestation, fail-closed** (`src/platterpus/update_attestation.py`): an update
+  installs only if Sigstore confirms it was built by `.github/workflows/release.yml`
+  in this repository, from `main` or from the release's own tag, and the signed
+  statement names the exact file downloaded. A missing or failing attestation
+  blocks the install and leaves the current version untouched. **What that does
+  not cover:** anyone who can push to `main` can run the release workflow, and
+  `main` is not branch-protected, so the attestation proves a build is traceable to
+  a public commit here, not that the commit was reviewed. **Offline-key signing**
+  (Ed25519, via `minisign`) is implemented but will not be armed (maintainer
+  decision, 2026-09-25, `PLANNING.md` KDD-37); see
+  [`docs/architecture.md` §6.2 *Release signing*](docs/architecture.md).
 - **Workflow supply chain.** CI runs least-privilege (`contents: read`), a
   server-side guard rejects committed audio, every GitHub Action is pinned to a
   full commit SHA, a gating `pip-audit` job scans the dependency graph, and

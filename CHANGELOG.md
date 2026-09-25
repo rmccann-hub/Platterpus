@@ -12,6 +12,22 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **Updates now prove they were built by Platterpus's own release process before
+  they install.** Until now the updater checked only that the download matched a
+  checksum published beside it, so anyone able to replace both files could have
+  replaced the app. Now it also checks the release's signed build record
+  (Sigstore), and installs only if it confirms the file was built by this
+  project's release workflow on GitHub. If the record is missing or does not match,
+  the update is not installed and your current version is untouched. The check
+  takes effect from the next update after this release. New dependency:
+  `sigstore`.
+- **Releases publish that build record next to the app, and check it first**
+  (contributor-facing). The release workflow now creates the record before the
+  release is visible, checks it with the updater's own code, and fails rather than
+  publish a release no installed app could update to.
+
 ### Fixed
 
 - **A character on the disc that is not valid UTF-8 no longer stops Platterpus

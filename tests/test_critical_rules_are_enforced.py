@@ -2055,7 +2055,19 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `-o flac`, so its log is identical whether our transcode ran or not).
     # **759 -> 801** (2026-09-24): four verbs, `run-size`, `keep`, `set-drive-offset` and `expect-drive-offset`. The table is the vocabulary's security boundary, so a verb is an entry here by design.
     "uiscript/verbs.py": 801,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
-    "update_install.py": 304,
+    # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
+    # whether a release's attestation proves the download was built by our
+    # release workflow. It is the only module that imports `sigstore` (Critical
+    # rule #1), so the trust-root refresh lives beside the check that consumes it —
+    # splitting them would make two sigstore-importing modules for one adapter. The
+    # length is mostly the docstrings saying what the check does NOT prove.
+    "update_attestation.py": 316,
+    # **304 -> 358** (2026-09-25): step 3a, the build-attestation gate — fetch the
+    # bundle capped, refuse when missing, oversized, refused or not checked, each
+    # with its own message — plus starting the trust-root refresh before the
+    # download. It belongs here: it is a step of this pipeline, between the checksum
+    # and the swap, and must run on its `.part` file before `replace`.
+    "update_install.py": 358,
     # **521 -> 530** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The banner and the CTDB reconciliation say what matched.
     # **530 -> 531** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "verdict.py": 531,

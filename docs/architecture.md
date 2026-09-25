@@ -1585,15 +1585,43 @@ SHA-256-only and nothing about updates changes. Arming it is the one-time setup
 below.
 
 **Decided 2026-09-25: it is never armed** (maintainer, `PLANNING.md` KDD-37, D9).
-**Say precisely what that leaves.** The app checks the download's SHA-256, fetched
-from the same release, so it proves the file is intact and not who published it.
-The build-provenance attestation is published for a person to check with `gh
-attestation verify`; **the updater does not check it.** So an update is only as
-trustworthy as whoever can publish a release: the account, or any token that can
-write release assets. What the decision buys is releases that run unattended, and
-no key that can be lost. The ritual below is kept so the decision can be reversed
-without rediscovering it; verifying the attestation in the app is the other way to
-close the gap, and needs a new dependency (`TASKS.md`).
+What that buys is releases that run unattended, and no key that can be lost. The
+ritual below is kept so the decision can be reversed without rediscovering it.
+
+**What protects an update instead: the build attestation, checked in the app**
+(added the same day, on the maintainer's yes; `src/platterpus/update_attestation.py`).
+Until then the updater checked only the download's SHA-256, fetched from the same
+release, which proves the file is intact and not who published it. Now, after the
+checksum, it fetches `platterpus-x86_64.AppImage.sigstore.json` from the release
+and refuses the update unless Sigstore confirms three things: the certificate was
+issued by GitHub Actions to `.github/workflows/release.yml` in this repository; the
+run was from `main` or from the release's own tag; and the signed statement names
+the downloaded file's SHA-256. A missing, unreadable or failing attestation blocks
+the install and leaves the current version untouched. Measured on the real v0.6.60
+release: the genuine AppImage installs; the same AppImage with one bit changed and
+a matching `.sha256` beside it — the swap the checksum alone could not catch — is
+refused.
+
+- **The release side.** `release.yml` now attests **before** publishing (it used
+  to attest after, deliberately, while nothing read the attestation), then runs
+  `scripts/release_attestation.py`, which chooses the bundle with the updater's own
+  `select_verified` and stages it as a release asset. So what a release publishes
+  is by construction what the updater accepts, and a release it would refuse fails
+  in the workflow instead.
+- **The trust root.** Sigstore's keys are refreshed over TUF, which is how a key
+  rotation reaches users without a Platterpus release. A stalled network makes the
+  refresh hang for 120 s (measured), so the updater starts it on a daemon thread
+  before the download, waits at most `TRUST_REFRESH_WAIT_S` once the download is
+  done, and falls back to the cached root, or the one inside the `sigstore`
+  package. The log names which one was used.
+- **What it does not prove.** Anyone who can push to `main` can run the release
+  workflow, and `main` is not branch-protected (a maintainer ruling), so the check
+  proves a build is traceable to a public commit here, not that anyone reviewed the
+  commit. It also does not stop a genuine *older* build being served under a newer
+  version; the attested commit is logged, so such a mix-up is visible afterwards.
+- **The rollout.** An installed app checks the release it updates *to*, so the
+  first release carrying this code is installed by the old updater, unchecked, and
+  every update after it is checked.
 
 **One-time setup (do this once, on a trusted machine — never in CI).**
 

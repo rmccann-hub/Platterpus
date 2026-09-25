@@ -540,6 +540,36 @@ per-file failure leaves the source FLAC untouched (the master is never at risk).
   MP3 is only checked as cleanly decodable (lossy by design — Critical
   rule #4). Watchdog timeout; never raises.
 
+## sigstore — release build-attestation check (`update_attestation.py`)
+
+- **Input:** the release asset `platterpus-x86_64.AppImage.sigstore.json`, read
+  capped at `MAX_BUNDLE_BYTES` (256 KiB; the v0.6.60 bundle is 10,887 bytes). One
+  Sigstore bundle (`application/vnd.dev.sigstore.bundle.v0.3+json`), or JSON Lines
+  of them, which is what `actions/attest` writes: it appends one bundle per line
+  (`actions/attest@a1948c3:src/main.ts:94-110`). Each line is tried; any that
+  verifies is enough.
+- **Calls:** `Bundle.from_json(text)`, then `Verifier.verify_dsse(bundle, policy)`
+  with `Verifier.production(offline=…)`. It returns `(payload_type, payload)` and
+  does **not** check either, by its own docstring, so we do: payload type
+  `application/vnd.in-toto+json`, `_type` `https://in-toto.io/Statement/v1`,
+  `predicateType` `https://slsa.dev/provenance/v1`, and a `subject` whose
+  `digest.sha256` equals the downloaded file's.
+- **Identity policy (the certificate's Fulcio extensions):** issuer (`…57264.1.8`)
+  `https://token.actions.githubusercontent.com`; source repository URI (`…1.12`)
+  `https://github.com/rmccann-hub/Platterpus`; build signer URI (`…1.9`)
+  `…/.github/workflows/release.yml@refs/heads/main` **or**
+  `…@refs/tags/v<version>`. Measured on v0.6.60: a dispatched release signs as
+  `refs/heads/main`, trigger `workflow_dispatch`, commit = the tag's commit.
+- **Errors we map:** `sigstore.errors.Error` (and its `VerificationError`,
+  `InvalidBundle`, `TUFError`) become a `refused` result; anything else becomes
+  `not_checked`, logged with its traceback. Nothing raises to the updater.
+- **Network:** a TUF refresh of the trust root from `tuf-repo-cdn.sigstore.dev`
+  (honours `HTTPS_PROXY`; 30 s socket timeout with retries, so a stalled network
+  takes 120 s to fail, measured). The updater bounds its wait and falls back to the
+  cached root, which is `~/.cache/sigstore-python/` after a refresh or the copy
+  inside the package before one. `verify_dsse` itself makes no network call: the
+  inclusion proof and timestamps are inside the bundle.
+
 ## Cover Art Archive (`adapters/cover_art.py`)
 
 - HTTPS GET **`https://coverartarchive.org/release/{mbid}/front`** — the front
