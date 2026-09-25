@@ -1405,7 +1405,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # printing "this log carries no end-of-rip summary" over a six-line
     # summary. Rendering rows belongs with the renderer; the growth is the
     # two rows and the tri-state that keeps a footerless log silent here.
-    "eac_log_export.py": 1576,
+    # **1576 -> 1574 on 2026-09-25**: the one-frame AccurateRip wording moved to
+    # `one_frame_match`, agreed in round 27; the narrowing assert it needs is two
+    # of the lines kept.
+    "eac_log_export.py": 1574,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
