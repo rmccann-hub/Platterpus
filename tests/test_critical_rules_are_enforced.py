@@ -1347,7 +1347,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `221a1df` (`+platterpus.16`) with why, its release sequence, its build tag in
     # the `--consumer` accept-set with the contract that licenses it, the re-derived
     # same-program flag, and the round-27 pairing line.
-    "deps/fork_source.py": 2362,
+    # **2362 -> 2382 (2026-09-25)**: `is_the_build_under_review`, the one predicate
+    # the update offer and the setup wizard now both ask, so neither can replace the
+    # build a round is reviewing (0.6.59 did, before the first Full run).
+    "deps/fork_source.py": 2382,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1357,7 +1360,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # explaining why each bound and each tri-state is there, which the cohesion
     # heuristic is explicitly not meant to punish.
     "deps/ripper_wrapper_probe.py": 510,
-    "deps/host_setup.py": 663,
+    # **663 -> 688 (2026-09-25)**: the default wizard keeps the build under review, records that it did, and says so in its 'already present' line.
+    "deps/host_setup.py": 688,
     # **343 -> 392 (2026-09-21).** The menu-cache rebuild the uninstaller never
     # did, and the comment saying why it is unconditional on the failure path and
     # absent on a dry run. Installing refreshed the caches and uninstalling did
@@ -1369,7 +1373,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "deps/ripper_manifest.py": 608,
     # **777 -> 782 (2026-09-24)**: asks `current_test_pin()` / `retired_test_pins()`
     # instead of the raw constant, and says why in four lines (§5.bq).
-    "deps/ripper_offer.py": 782,
+    # **782 -> 800 (2026-09-25)**: the up-to-date offer keeps the build under review instead of offering the approved pin over it.
+    "deps/ripper_offer.py": 800,
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
