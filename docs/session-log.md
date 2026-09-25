@@ -11,6 +11,57 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-25 — the audit's findings fixed, and a triage of everything still open
+
+**The two findings, fixed** (fb92105):
+- **The inbound sanitiser Critical rule #12 described now exists** (`inbound_text.py`).
+- **Building it found something worse, and that fix matters more.** Eight of the
+  fourteen text-mode subprocess reads set no `errors` policy, the rip's own pipe
+  among them. One byte that was not UTF-8 raised `UnicodeDecodeError` and ended the
+  read, losing the line before it. It is reproduced end to end through
+  `CyanripImpl.rip()` against a stand-in binary printing Latin-1. A disc's CD-TEXT is
+  a realistic source. A sweep now refuses a text-mode read with no policy.
+- **`rig_check.py` builds the adapter through the composition root.** A sweep
+  refuses a direct construction.
+
+**A triage of all 344 open rows.** Three read-only passes worked from a frozen copy
+of `TASKS.md`, asking who can close each row and what would close it:
+- 91 closed: 57 duplicates, 19 withdrawn, 9 lessons that cannot become a test, and
+  the rows the fixes settled.
+- Four more defects the triage named in code, each verified by reading before
+  fixing, and revert-probed:
+  - **The report took a previous disc's medium provenance for an unknown-album
+    rip.** The rip-start snapshot checked the stored detail's MusicBrainz ID; the
+    report did not. Both now call `_release_detail_for`.
+  - **An insert could scan on top of the old disc's identity.** The watcher fires
+    REMOVED only on disc → empty, so disc → unknown → empty → disc never cleared
+    it.
+  - **`probe-ripper-wrapper` ran on the GUI thread**, for up to about seventy
+    seconds, under a docstring saying it did not. The script runner's `QTimer`
+    fires on the GUI thread.
+  - **The `%%` order in `cross_fs_hazards`** is real and harmless: it only ever
+    strips letters, which are never reserved. It is left open at low priority.
+
+**Two of my own mistakes, both caught by the next check.**
+- I told the maintainer there were 53 text-mode reads, 39 of them fine. There
+  were 14, and 6 were fine; my 39 was every `errors="replace"`, file reads
+  included. The sweep's floor caught it, because I had set the floor from my wrong
+  number.
+- Writing the sanitiser through the tool, my ` `, ` ` and `�`
+  escapes arrived as the literal characters. The code behaved identically, which
+  is why the tests passed. But the source became unreadable at exactly the
+  characters it is about. I rewrote them as escapes and checked that the compiled
+  pattern was unchanged.
+
+**What is left** (253 rows):
+- mostly ours, with no hardware needed: about 80 small and 75 medium;
+- about 21 for our next lap;
+- about 15 each waiting on the fork and on hardware;
+- 12 waiting on a maintainer decision;
+- 10 unscheduled feature ideas.
+
+The summary heads `TASKS.md`.
+
 ## 2026-09-25 — our handshake gate implements protocol 6
 
 **Why now.** Nothing in round 27 can move until the operator runs the Full test on
