@@ -3114,15 +3114,17 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *Audit 2026-09-25: done.* test_critical_rules_are_enforced::test_every_module_declares_future_annotations (AST, floor of 120 modules), e398553.
 - [x] **`rule-10.signal-payloads`** (ungated, small) — Critical rule #10 — Signal payload types are named in a comment beside `Signal(object)`
   - *Audit 2026-09-25: done.* test_critical_rules_are_enforced::test_every_object_payload_signal_names_its_payload_type (floor of 20), e398553.
-- [~] **`rule-2.appimage-builder`** (partial, small) — Critical rule #2 — python-appimage is the builder; appimage-builder needs sign-off
+- [x] **`rule-2.appimage-builder`** (partial, small) — Critical rule #2 — python-appimage is the builder; appimage-builder needs sign-off
   - *Audit 2026-09-25: partly done.* Covered: appimage-builder classified as an external CLI and never imported (e398553). Not covered: nothing asserts build_appimage.sh and the workflows invoke python_appimage and never appimage-builder.
+  - *2026-09-25:* **Done.** `test_critical_rules_are_enforced::test_the_appimage_is_built_by_python_appimage_only`: the recipe must invoke `python_appimage build app`, both AppImage workflows must use the recipe, and no build/CI/script file may name `appimage-builder`. Revert-probed.
 - [~] **`rule-3.routing`** (partial, small) — Critical rule #3 — the GUI calls the host-exported ~/.local/bin ripper
   - *Audit 2026-09-25: partly done.* Covered: test_ripper_spawn_sites_are_enumerated and preflight's routing checks. Not covered: nothing pins build_backend to paths.CYANRIP_BINARY_DEFAULT, or forbids distrobox-enter in the listed modules.
 - [x] **`rule-5.mb-adapter`** (ungated, small) — Critical rule #5 — no bypass of the MusicBrainzClient query path
   - *Audit 2026-09-25: done.* test_critical_rules_are_enforced::test_musicbrainzngs_is_imported_only_by_its_adapter, e398553. Import-level; src has no raw-HTTP MusicBrainz call.
 - [ ] **`rule-7.new-file-last-resort`** (ungated, small) — Critical rule #7 obligation 4 — a NEW doc is the last resort and the commit names the homes it rejected
-- [~] **`rule-9.detach`** (partial, small) — Critical rule #9 — never say "detach"; abandon and retain the reference
+- [x] **`rule-9.detach`** (partial, small) — Critical rule #9 — never say "detach"; abandon and retain the reference
   - *Audit 2026-09-25: partly done.* test_qthread_teardown_abort::test_the_word_detach_is_gone_from_thread_handling (7932a3a) scans workers/__init__.py only, not every thread-owning module.
+  - *2026-09-25:* **Done.** `test_qthread_teardown_abort::test_no_module_describes_a_thread_as_detached` sweeps every module (floor: ≥5 mentions examined), with a twin test proving it flags the sentences it was written for. Two dialogs said a teardown "detaches" a thread; both now say it ABANDONS it and keeps the reference.
 - [~] **`rule-10.no-bare-any`** (partial, medium) — Critical rule #10 — no bare Any, and no bare `# type: ignore`
   - *Audit 2026-09-25: partly done.* A bare `# type: ignore` is refused by mypy's ignore-without-code. A bare Any is not (disallow_any_explicit is off), and the required `# reason` suffix is not checked.
 - [x] **`rule-12.challenge-ledger`** (ungated, medium) — Critical rule #12 — the fork's challenge mandate is settled by COUNTING, in a ledger
@@ -3218,14 +3220,17 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *Audit 2026-09-25: partly done.* TestTargetSize::test_no_explicit_size_drops_below_the_floor checks literal setFixed/Minimum H/W >= 24 in ui/ only. No 44 px commit check, no setFixedSize or non-literal sizes, no floor.
 - [~] **`conv.argv-range`** (partial, small) — Code convention — range checks enforced by CODE at the argv chokepoint
   - *Audit 2026-09-25: partly done.* assert_numeric_args_in_range (-r/-S/-Z/-s) at the chokepoint, tested in test_cyanrip_backend.py. The -t range lives in the builder and only warns when the track total is unknown; no sweep that every numeric flag is mapped.
-- [~] **`conv.error-handling`** (partial, small) — Code convention — catch specific exceptions, never a bare except; log with logging, not print
+- [x] **`conv.error-handling`** (partial, small) — Code convention — catch specific exceptions, never a bare except; log with logging, not print
   - *Audit 2026-09-25: partly done.* A bare except is refused by ruff E722. No print() gate (T20 off), and no broad-except gate (BLE off; 169 `except Exception` in src).
+  - *2026-09-25:* **Done.** `test_every_broad_except_says_why` (every `except Exception`/`BaseException` carries `# noqa: BLE001 — <reason>`; floor 150, 172 measured, 11 had no reason and now do) and `test_print_is_used_only_by_command_line_output` (a three-module allowlist that may only shrink; floor 20, 47 measured). Both revert-probed.
 - [x] **`conv.module-size`** (ungated, small) — Code convention — small focused modules, split past ~300 lines
   - *Audit 2026-09-25: done.* test_critical_rules_are_enforced::test_no_new_module_crosses_the_size_threshold and test_no_oversize_module_grows (a ratchet with a floor).
-- [ ] **`conv.named-group-regex`** (ungated, small) — Code convention — named-group regexes, not column-index splits
+- [x] **`conv.named-group-regex`** (ungated, small) — Code convention — named-group regexes, not column-index splits
+  - *2026-09-25:* **Done.** `test_output_parsers_do_not_split_tool_output_into_columns`: no whitespace `.split()[N]` in `parsers/` or `adapters/` (≥15 modules examined; none found). Scoped to the packages that read tool output, and a split at a named separator is allowed. Revert-probed.
 - [x] **`conv.naming`** (ungated, small) — Code convention — snake_case functions/modules, PascalCase classes, SCREAMING_SNAKE constants
   - *Audit 2026-09-25: done.* test_critical_rules_are_enforced: test_module_and_class_names_follow_the_convention, the snake_case function test, and test_module_level_constants_are_screaming_snake_case, with floors.
-- [ ] **`conv.no-metaprogramming`** (ungated, small) — Code convention — no clever metaprogramming
+- [x] **`conv.no-metaprogramming`** (ungated, small) — Code convention — no clever metaprogramming
+  - *2026-09-25:* **Done.** `test_no_clever_metaprogramming` (no exec/eval, dynamic classes, metaclasses, module `__getattr__` or computed imports; `setattr` only in a four-module allowlist that may only shrink), plus `test_the_metaprogramming_gate_fires_on_what_it_forbids`. Revert-probed.
 - [~] **`conv.a11y-colour`** (partial, medium) — Code convention / WCAG 1.4.1 — status is never colour alone
   - *Audit 2026-09-25: partly done.* TestUseOfColour covers verdict.accuraterip_verdict only, plus per-widget asserts. No sweep over the other status surfaces.
 

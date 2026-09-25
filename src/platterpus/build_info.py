@@ -118,11 +118,11 @@ def environment_report() -> EnvironmentBlock:
     }
     try:
         env["python"] = sys.version.split()[0]
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 — an environment field is best effort; the report must still build
         pass
     try:
         env["platform"] = platform.platform()
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 — an environment field is best effort; the report must still build
         pass
     try:
         import PySide6

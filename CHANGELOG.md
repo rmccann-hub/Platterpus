@@ -93,6 +93,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Five coding rules that nothing checked are now tests** (contributor-facing).
+  Every broad `except` must say why it is broad (eleven did not, and now do);
+  `print` is allowed only in the three command-line modules; no
+  metaprogramming (`exec`, dynamic classes, computed imports); no
+  whitespace-column splits of tool output in the parsers and adapters; and the
+  AppImage is built by `python-appimage` only. The "never say detach" check for
+  threads now covers every module, not one, and two dialogs' comments were
+  corrected. Each gate has a floor so it cannot pass by finding nothing, and
+  each was shown to fail on the thing it forbids.
+
 - **The EAC-compatible log now says what a one-frame AccurateRip match is.** A track
   whose whole-track checksums matched nothing, but whose one checked frame did, used to
   read "Matched an offset-variant pressing — partially accurate". It now reads "Only one

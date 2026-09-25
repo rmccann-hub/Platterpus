@@ -132,7 +132,7 @@ def build_diagnostics_text() -> str:
                 "(not probed yet this session — the launch-time check had not "
                 "completed, or it crashed; see the diagnostics below)",
             ]
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 — logged; the dialog must still open to show what it can
         log.exception("diagnostics view: could not render the environment")
         lines += ["", "--- Environment ---", "(unavailable)"]
 
@@ -182,7 +182,7 @@ def build_diagnostics_text() -> str:
             if item.get("detail"):
                 lines.append("  detail:")
                 lines += [f"    {ln}" for ln in str(item["detail"]).splitlines()]
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 — logged; the dialog must still open to show what it can
         log.exception("diagnostics view: could not render the diagnostics list")
         lines += ["", "--- Diagnostics ---", "(unavailable)"]
 

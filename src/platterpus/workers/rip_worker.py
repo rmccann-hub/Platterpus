@@ -2334,7 +2334,7 @@ class RipWorker(QObject):
                     self.track_completed.emit(finished[0])
                     if incremental:
                         self._write_incremental_report(out_dir)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 — logged with its trace; the worker must always finish and hand over what it captured
             log.exception("error reading ripper stdout")
             # The stdout we DID capture before the break is the only account of how
             # far the rip got; hand it over rather than letting the traceback stand

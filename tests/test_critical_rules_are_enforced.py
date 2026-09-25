@@ -1730,7 +1730,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
     # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     "ui/drive_setup_dialog.py": 561,
-    "ui/host_setup_dialog.py": 341,
+    # **341 -> 342** (2026-09-25, Critical rule #9: Qt has no "detach"): the teardown comment now says the dialog ABANDONS a running thread and keeps its reference, which reflowed one line.
+    "ui/host_setup_dialog.py": 342,
     # **1558 -> 1572 on 2026-09-08**: the `Help → Install a cyanrip build…`
     # action, plus the paragraph saying why a SECOND ripper entry exists — the
     # update check reads the fork's release manifest and cannot offer a build the
@@ -2400,3 +2401,210 @@ def test_no_file_carries_an_unresolved_conflict_marker() -> None:
         "unresolved merge-conflict markers are committed in these files:\n  "
         + "\n  ".join(offenders)
     )
+
+
+# --- Code conventions that were rules with no gate (2026-09-25) -------------
+#
+# Each of these is a convention CLAUDE.md states and nothing checked. Measured the
+# day they were written, so each floor and allowlist below records a real count.
+
+
+def _src_trees() -> list[tuple[str, ast.Module]]:
+    return [
+        (str(path.relative_to(SRC_ROOT)), ast.parse(path.read_text(encoding="utf-8")))
+        for path in sorted(SRC_ROOT.rglob("*.py"))
+    ]
+
+
+def test_every_broad_except_says_why() -> None:
+    """`except Exception` is sometimes right (a worker must always finish), and
+    the codebase marks each one `# noqa: BLE001 — <reason>`. Eleven of 172 had
+    the marker and no reason (2026-09-25), which leaves the next reader unable to
+    tell a deliberate catch-all from a lazy one."""
+    unexplained: list[str] = []
+    handlers = 0
+    for rel, tree in _src_trees():
+        lines = (SRC_ROOT / rel).read_text(encoding="utf-8").splitlines()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler) or node.type is None:
+                continue
+            types = node.type.elts if isinstance(node.type, ast.Tuple) else [node.type]
+            if not any(
+                isinstance(t, ast.Name) and t.id in ("Exception", "BaseException")
+                for t in types
+            ):
+                continue
+            handlers += 1
+            marker = re.search(r"noqa: BLE001(.*)$", lines[node.lineno - 1])
+            if marker is None or not re.search(r"[A-Za-z]{3,}", marker.group(1)):
+                unexplained.append(f"{rel}:{node.lineno}")
+    assert handlers >= 150, f"only {handlers} broad handler(s) found; the scan is blind"
+    assert not unexplained, (
+        "a broad except must say why it is broad, on its own line "
+        "(`# noqa: BLE001 — <reason>`):\n  " + "\n  ".join(unexplained)
+    )
+
+
+#: Modules allowed to `print`, each with the reason. Everything else logs.
+#: **A ratchet: it may shrink, never grow.**
+_PRINT_ALLOWED: Final[dict[str, str]] = {
+    "app.py": "the command-line flags (--version, --doctor, --rig-check…) write to the terminal",
+    "cli_compare.py": "the --compare command writes its table to the terminal",
+    "rip_audit.py": "the --audit command writes its report to the terminal",
+}
+
+
+def test_print_is_used_only_by_command_line_output() -> None:
+    """ "Log with the logging module, not print" (Code conventions). A print in a
+    GUI path goes nowhere a bug report can see."""
+    printing: dict[str, int] = {}
+    for rel, tree in _src_trees():
+        count = sum(
+            1
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "print"
+        )
+        if count:
+            printing[rel] = count
+    assert sum(printing.values()) >= 20, printing  # floor: 47 measured
+    stray = sorted(set(printing) - set(_PRINT_ALLOWED))
+    assert not stray, f"print() outside a command-line module (log instead): {stray}"
+    stale = sorted(set(_PRINT_ALLOWED) - set(printing))
+    assert not stale, f"allowlisted but no longer printing; remove them: {stale}"
+
+
+#: `setattr` on something other than `self`, each a data write onto an instance
+#: whose field name is data. **A ratchet: it may shrink, never grow.**
+_SETATTR_ALLOWED: Final[dict[str, str]] = {
+    "logging_setup.py": "records the handlers on the root logger so a later call finds them",
+    "ui/main_window_rip.py": "writes named fields onto the post-rip record",
+    "uiscript/runner.py": "a script's `set` installs a validated Config on the window",
+    "user_settings.py": "applies named values to a copy of the Config dataclass",
+}
+
+
+def test_no_clever_metaprogramming() -> None:
+    """ "No clever metaprogramming" (Code conventions): no exec/eval, no dynamic
+    classes, no metaclasses, no module __getattr__, no computed imports, and
+    `setattr` only where a named field is written onto a data instance."""
+    forbidden: list[str] = []
+    setattr_files: set[str] = set()
+    for rel, tree in _src_trees():
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name in (
+                "__getattr__",
+                "__dir__",
+            ):
+                forbidden.append(f"{rel}:{node.lineno} module-level {node.name}")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and any(
+                k.arg == "metaclass" for k in node.keywords
+            ):
+                forbidden.append(f"{rel}:{node.lineno} metaclass")
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+            if isinstance(func, ast.Name) and name in ("exec", "eval", "__import__"):
+                forbidden.append(f"{rel}:{node.lineno} {name}()")
+            if isinstance(func, ast.Name) and name == "type" and len(node.args) == 3:
+                forbidden.append(f"{rel}:{node.lineno} type() building a class")
+            if (
+                name == "import_module"
+                and node.args
+                and not isinstance(node.args[0], ast.Constant)
+            ):
+                forbidden.append(f"{rel}:{node.lineno} computed import")
+            if isinstance(func, ast.Name) and name == "setattr":
+                target = node.args[0] if node.args else None
+                if not (isinstance(target, ast.Name) and target.id == "self"):
+                    setattr_files.add(rel)
+    assert not forbidden, "metaprogramming the conventions forbid:\n  " + "\n  ".join(
+        forbidden
+    )
+    assert setattr_files, (
+        "no setattr found at all; the scan is blind"
+    )  # 7 sites measured
+    grown = sorted(setattr_files - set(_SETATTR_ALLOWED))
+    assert not grown, f"setattr on a non-self object in a new module: {grown}"
+    stale = sorted(set(_SETATTR_ALLOWED) - setattr_files)
+    assert not stale, f"allowlisted setattr modules that no longer use it: {stale}"
+
+
+def test_the_metaprogramming_gate_fires_on_what_it_forbids() -> None:
+    sample = ast.parse(
+        "exec('x')\nKlass = type('K', (), {})\nclass M(metaclass=Meta): pass\n"
+        "import importlib\nimportlib.import_module(name)\n"
+    )
+    names = [
+        n.func.id if isinstance(n.func, ast.Name) else n.func.attr
+        for n in ast.walk(sample)
+        if isinstance(n, ast.Call)
+    ]
+    assert {"exec", "type", "import_module"} <= set(names)
+
+
+def test_output_parsers_do_not_split_tool_output_into_columns() -> None:
+    """ "Named-group regexes, not column-index splits" (Code conventions), for the
+    packages that read external tools: `parsers/` and `adapters/`.
+
+    Scoped deliberately and said so: a whitespace `.split()[N]` there reads a
+    COLUMN of a tool's output, which moves when the tool's layout does. A split at
+    a named separator (`.split(":", 1)[1]`, `.rsplit("}", 1)[-1]`) is not column
+    indexing and is allowed. None existed on 2026-09-25; this keeps it so.
+    """
+    columns: list[str] = []
+    examined = 0
+    for rel, tree in _src_trees():
+        if not rel.startswith(("parsers/", "adapters/")):
+            continue
+        examined += 1
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Subscript)
+                and isinstance(node.value, ast.Call)
+                and isinstance(node.value.func, ast.Attribute)
+                and node.value.func.attr in ("split", "rsplit")
+            ):
+                continue
+            call = node.value
+            whitespace = not call.args or (
+                isinstance(call.args[0], ast.Constant) and call.args[0].value is None
+            )
+            if whitespace:
+                columns.append(f"{rel}:{node.lineno}: {ast.unparse(node)[:60]}")
+    assert examined >= 15, f"only {examined} parser/adapter module(s) examined"
+    assert not columns, (
+        "a whitespace column split of tool output; use a named-group regex:\n  "
+        + "\n  ".join(columns)
+    )
+
+
+def test_the_appimage_is_built_by_python_appimage_only() -> None:
+    """Critical rule #2: `python-appimage` is the builder, and `appimage-builder`
+    needs the maintainer's sign-off. Nothing asserted which tool the build ran."""
+    script = (REPO_ROOT / "build" / "build_appimage.sh").read_text(encoding="utf-8")
+    code = [ln for ln in script.splitlines() if not ln.lstrip().startswith("#")]
+    assert any("python_appimage build app" in ln for ln in code), (
+        "build_appimage.sh no longer invokes python-appimage"
+    )
+    for workflow in ("release.yml", "appimage.yml"):
+        text = (REPO_ROOT / ".github" / "workflows" / workflow).read_text(
+            encoding="utf-8"
+        )
+        assert "bash build/build_appimage.sh" in text, (
+            f"{workflow} does not use the recipe"
+        )
+    users = [
+        str(path.relative_to(REPO_ROOT))
+        for folder in ("build", ".github", "scripts")
+        for path in (REPO_ROOT / folder).rglob("*")
+        if path.is_file()
+        and path.suffix in {".sh", ".yml", ".yaml", ".py", ".txt", ".toml"}
+        and re.search(
+            r"appimage[-_]builder", path.read_text(encoding="utf-8", errors="replace")
+        )
+    ]
+    assert not users, f"appimage-builder is used without sign-off: {users}"
