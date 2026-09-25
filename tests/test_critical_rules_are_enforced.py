@@ -1764,7 +1764,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1611 -> 1616** (2026-09-24, #36): the per-instance dependency-check listener list, and About gets its recheck hook.
     # **1616 -> 1599** (2026-09-24, #37 one home per setting): down: Settings' opener moved to `main_window_settings.py`, and Diagnose drive access… left the Tools menu.
     # 1599 -> 1600 on 2026-09-25: a drive change forgets the release detail with the release id.
-    "ui/main_window.py": 1600,
+    # **1600 -> 1675** (2026-09-25, TASKS `stateful:answered-implies-answerable`, `stateful:table-immutable-during-rip`, `stateful:no-modal-during-rip`): a failed release FETCH now un-answers the disc in its own handler, a redundant lookup failing no longer overwrites the chosen release, and `_rip_holds_the_track_table` keeps every MusicBrainz answer off the table and out of a modal while a rip runs. These are the MusicBrainz slots, which live here.
+    "ui/main_window.py": 1675,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -1931,7 +1932,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1381 -> 1335** (2026-09-24, #37 one home per setting): down: seven controls moved to their homes, net of OK/Apply/Cancel/Restore Defaults.
     # **1335 -> 1336** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "ui/settings_dialog.py": 1336,
-    "ui/track_table.py": 802,
+    # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
+    "ui/track_table.py": 832,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces

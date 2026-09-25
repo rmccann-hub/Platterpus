@@ -641,6 +641,116 @@ def test_a_dropped_detail_unanswers_the_disc_so_the_picker_can_reopen(
     )
 
 
+def test_a_FAILED_FETCH_unanswers_the_disc_so_the_picker_can_reopen(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The error path, which the belt above never covered (2026-09-25).
+
+    The chosen marker is set BEFORE the fetch is emitted. When that fetch
+    failed, the disc stayed marked answered with no answer loaded, and the next
+    lookup for it was refused as "already chosen": placeholder rows, and no way
+    to ask again short of a Rescan. The recovery lookup is driven here, so the
+    test is about the user's symptom and not only the marker.
+    """
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    window._current_num_tracks = 3
+    window._mb_release_chosen_for = "disc-A"  # the user chose; the fetch is out
+
+    window._on_mb_release_fetch_failed("disc-A", "server gone")
+    assert window._mb_release_chosen_for == "", "still marked answered"
+    assert [t.title for t in window._track_table.tracks()] == [
+        "Track 01",
+        "Track 02",
+        "Track 03",
+    ]
+
+    fetched: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        window, "_fetch_release_detail", lambda mbid, ctx: fetched.append((mbid, ctx))
+    )
+    window._on_mb_releases("disc-A", _releases(1))
+    assert fetched == [("mbid-0", "disc-A")], (
+        "the recovery lookup was refused, so the disc can never load its tracks"
+    )
+
+
+def test_a_REDUNDANT_lookup_failure_keeps_the_release_already_chosen(
+    teardown_threads,
+) -> None:
+    """Two lookups can race for one disc. When the first was answered, the second
+    one failing used to overwrite the chosen release's tracks with placeholders."""
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    window._current_num_tracks = 2
+    window._mb_release_chosen_for = "disc-A"
+    window._on_mb_release_detail("disc-A", _detail())
+    assert [t.title for t in window._track_table.tracks()] == ["One", "Two"]
+
+    window._on_mb_error("disc-A", "timed out")
+    assert [t.title for t in window._track_table.tracks()] == ["One", "Two"], (
+        "a redundant lookup's failure replaced the chosen release with placeholders"
+    )
+    assert window._mb_release_chosen_for == "disc-A"
+
+
+def test_a_lookup_failure_for_an_UNANSWERED_disc_still_shows_placeholders(
+    teardown_threads,
+) -> None:
+    """The other half: the redundant-lookup rule must not swallow a real failure."""
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    window._current_num_tracks = 2
+    window._on_mb_error("disc-A", "timed out")
+    assert [t.title for t in window._track_table.tracks()] == ["Track 01", "Track 02"]
+
+
+def test_no_musicbrainz_answer_rewrites_the_table_or_opens_a_modal_UNDER_A_RIP(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A running rip owns the track table (TASKS `stateful:table-immutable-during-rip`
+    and `stateful:no-modal-during-rip`, 2026-09-25).
+
+    An unknown-album rip is tagged from a snapshot of the table taken when it
+    finishes, so every MusicBrainz path that could land mid-rip is driven here:
+    a release detail, a lookup error, a fetch failure, several candidates (which
+    would open the picker) and none (which would open the unknown-album dialog).
+    """
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    window._current_num_tracks = 2
+    window._track_table.set_placeholder_tracks(2)
+    before = [t.title for t in window._track_table.tracks()]
+
+    def _no_modal(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("a modal opened over a running rip")
+
+    monkeypatch.setattr(ReleasePickerDialog, "exec", _no_modal)
+    monkeypatch.setattr(window, "open_unknown_album_dialog", _no_modal)
+    window._rip_worker = object()  # type: ignore[assignment]  # a rip is running
+    window._track_table.set_locked(True)
+    try:
+        window._mb_release_chosen_for = "disc-A"
+        window._on_mb_release_detail("disc-A", _detail())
+        assert window._mb_release_chosen_for == "", (
+            "the dropped detail must un-answer the disc, so a Rescan asks again"
+        )
+        window._on_mb_error("disc-A", "timed out")
+        window._on_mb_release_fetch_failed("disc-A", "server gone")
+        window._on_mb_releases("disc-A", _releases(3))
+        window._on_mb_releases("disc-A", [])
+    finally:
+        window._rip_worker = None
+        window._track_table.set_locked(False)
+    assert [t.title for t in window._track_table.tracks()] == before
+    assert window._current_release_detail is None, "a detail was applied mid-rip"
+
+    # NOT satisfied by a window that ignores MusicBrainz altogether: with the rip
+    # over, the same detail loads.
+    window._on_mb_release_detail("disc-A", _detail())
+    assert [t.title for t in window._track_table.tracks()] == ["One", "Two"]
+
+
 # --- Rip request: validation gate ---------------------------------------
 
 

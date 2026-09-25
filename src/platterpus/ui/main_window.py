@@ -1165,6 +1165,7 @@ class MainWindow(
         self._mb_worker.releases_returned.connect(self._on_mb_releases)
         self._mb_worker.release_returned.connect(self._on_mb_release_detail)
         self._mb_worker.error.connect(self._on_mb_error)
+        self._mb_worker.release_fetch_failed.connect(self._on_mb_release_fetch_failed)
 
         # Rip controls.
         self._rip_controls.rip_requested.connect(self._on_rip_requested)
@@ -1387,10 +1388,36 @@ class MainWindow(
             return context != self._mb_release_chosen_for
         return context != self._current_disc_id
 
+    def _rip_holds_the_track_table(self, context: str, what: str) -> bool:
+        """True, and logged, when a MusicBrainz answer must wait for a rip to end.
+
+        A running rip owns the track table: an unknown-album rip is tagged from a
+        snapshot of it taken when the rip FINISHES (`_finish_rip`), so a lookup
+        landing mid-rip that rewrote the table changed what that rip was tagged
+        with, and a picker or the unknown-album dialog would open over the live
+        progress view (TASKS `stateful:table-immutable-during-rip`,
+        `stateful:no-modal-during-rip`). The answer is not applied; the rip keeps
+        the tags it started with. Deliberately does NOT touch the chosen marker:
+        duplicate candidates for a disc already answered must leave it answered,
+        so only the caller that drops an ANSWER (a release detail) un-answers.
+        """
+        if self._rip_worker is None:
+            return False
+        log.info(
+            "MusicBrainz %s for disc %r arrived while a rip is running; not "
+            "applied, so the rip keeps the tags it started with. Rescan after "
+            "the rip to use it.",
+            what,
+            context,
+        )
+        return True
+
     def _on_mb_releases(self, context: str, releases: list[ReleaseSummary]) -> None:
         """MB lookup returned candidates."""
         if self._is_stale_mb_result(context):
             log.debug("dropping stale MB releases for disc %r", context)
+            return
+        if self._rip_holds_the_track_table(context, "candidates"):
             return
         # ALREADY ANSWERED IS A DIFFERENT QUESTION FROM STALE, and only the second
         # one was being asked. `_is_stale_mb_result` compares against the disc on
@@ -1499,6 +1526,11 @@ class MainWindow(
                 self._mb_release_chosen_for = ""
             log.debug("dropping stale MB release detail for disc %r", context)
             return
+        if self._rip_holds_the_track_table(context, "release detail"):
+            # Dropping the answer un-answers the disc, as for a stale drop above.
+            if context and context == self._mb_release_chosen_for:
+                self._mb_release_chosen_for = ""
+            return
         self._current_release_detail = detail
         self._current_release_id = detail.summary.mbid
         self._track_table.set_release(detail)
@@ -1511,11 +1543,54 @@ class MainWindow(
         )
 
     def _on_mb_error(self, context: str, message: str) -> None:
+        """A LOOKUP failed. A failed fetch is `_on_mb_release_fetch_failed`."""
         if self._is_stale_mb_result(context):
             log.debug("dropping stale MB error for disc %r: %s", context, message)
             return
         log.warning("MB worker error: %s", message)
+        # A REDUNDANT LOOKUP FAILING IS NOT THE DISC FAILING. Two lookups can race
+        # for one disc (2026-08-26), and if the first was answered, the second's
+        # failure used to overwrite the chosen release's tracks with placeholders
+        # and its panel line with an error. The release chosen stands.
+        if context and context == self._mb_release_chosen_for:
+            log.info(
+                "a second MusicBrainz lookup for disc %r failed, but a release "
+                "was already chosen for it; keeping that release",
+                context,
+            )
+            return
+        self._show_mb_failure(context, message)
+
+    def _on_mb_release_fetch_failed(self, context: str, message: str) -> None:
+        """The release the user chose could not be fetched.
+
+        UN-ANSWER THE DISC, on every path. The chosen marker is set before the
+        fetch is emitted, so a fetch that fails used to leave the disc marked
+        answered with no answer loaded, and the next lookup for it was refused
+        as "already chosen": no tracks, and no way to ask again short of a
+        Rescan (TASKS `stateful:answered-implies-answerable`). Same rule as a
+        dropped detail in `_on_mb_release_detail`.
+        """
+        if context and context == self._mb_release_chosen_for:
+            log.info(
+                "the release chosen for disc %r could not be fetched, so the disc "
+                "is no longer answered; a later lookup may re-open the picker",
+                context,
+            )
+            self._mb_release_chosen_for = ""
+        if self._is_stale_mb_result(context):
+            log.debug(
+                "dropping stale MB fetch failure for disc %r: %s", context, message
+            )
+            return
+        log.warning("MB release fetch failed: %s", message)
+        self._show_mb_failure(context, message)
+
+    def _show_mb_failure(self, context: str, message: str) -> None:
+        """Show a lookup or fetch failure, and fall back to placeholder rows."""
         self._disc_info_panel.set_mb_error(message)
+        if self._rip_holds_the_track_table(context, "failure"):
+            return
         # A lookup *failure* (network down, TLS error, rate limit) must not
         # leave the track table empty the way it did before — fall back to
         # numbered placeholder rows so the user can still see the disc and
