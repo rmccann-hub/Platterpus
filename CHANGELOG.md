@@ -32,6 +32,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Every kind of line break is now treated as one.** Checks that keep invisible
+  characters out of tags, file names, Settings paths and test-script commands
+  caught newline, carriage return and NUL, but not the rarer characters that also
+  start a new line (vertical tab, form feed, NEL, the Unicode line separators) or
+  the C1 control range. They now all use one definition that covers every line
+  break Python itself recognises, and a test derives that list from Python.
+
 - **A stray control character in MusicBrainz data no longer goes into your tags.**
   Genre, label, catalog number, barcode, year, ISRC and the release ID come from
   MusicBrainz and cannot be edited before a rip, so a newline or similar character

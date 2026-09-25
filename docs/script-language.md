@@ -139,10 +139,12 @@ touching metadata or the drive's audio:
 
 `--help`, `--version`, `-V`, `-h`, `-v`
 
-Arguments containing a newline or NUL are refused. That is not injection —
-no shell is involved — it is **log forgery**: cyanrip writes its argv into
-an archival log, and a newline could fabricate a line in a document whose
-whole purpose is being trustworthy evidence.
+Arguments containing a control character or a line break are refused:
+NUL, newline and every other C0 control, DEL, the C1 range (which holds NEL)
+and U+2028/U+2029. That is not injection — no shell is involved — it is
+**log forgery**: cyanrip writes its argv into an archival log, and any of
+these could fabricate a line in a document whose whole purpose is being
+trustworthy evidence.
 
 ## Settings `set` and `expect` accept
 

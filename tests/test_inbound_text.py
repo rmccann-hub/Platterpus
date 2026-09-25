@@ -181,3 +181,19 @@ def test_the_policy_sweep_fires_on_the_shape_it_refuses() -> None:
     assert _text_mode_calls(good) == (1, [])
     by_encoding = "import subprocess\nsubprocess.run(['x'], encoding='utf-8')\n"
     assert _text_mode_calls(by_encoding) == (1, [2])
+
+
+def test_the_inbound_screen_and_the_outbound_rule_differ_only_in_tab() -> None:
+    """Two definitions of "control character", one per direction of the seam.
+
+    The inbound screen keeps tab (ordinary layout in a tool's output); the
+    outbound rule refuses or replaces it in a tag or an argument. Apart from
+    that they must agree, or a character one side flags would pass the other.
+    Found unequal on 2026-09-25: the outbound rule missed C1 and U+2028/2029.
+    """
+    from platterpus.settings_validation import is_control_char
+
+    for code in range(0x110000):
+        ch = chr(code)
+        flagged_in = bool(inbound_text._FLAGGED.match(ch))  # noqa: SLF001
+        assert flagged_in == (is_control_char(ch) and ch != "\t"), hex(code)

@@ -884,19 +884,33 @@ def _validate_plain_int(field: str, value: object) -> list[ValidationIssue]:
     return []
 
 
-def is_control_char(ch: str) -> bool:
-    """True for a C0 control character (NUL, tab, newline…) or DEL.
+#: The two Unicode line and paragraph separators. Not control characters by
+#: category (they are Zl and Zp), but every text widget and `str.splitlines`
+#: breaks a line at them, which is the harm the rule below exists to stop.
+_LINE_SEPARATORS: frozenset[str] = frozenset({"\u2028", "\u2029"})
 
-    The ONE definition: the path-bearing tag fields refuse these
-    (:func:`path_segment_issue`) and the tag-only fields replace them with a
-    space (``tag_hygiene``, maintainer decision D14), so the two cannot disagree
-    about which characters count.
+
+def is_control_char(ch: str) -> bool:
+    """True for a character that has no place in a value we store or send.
+
+    C0 (NUL, tab, newline…), DEL, C1 (U+0080–U+009F, which holds NEL, a line
+    break), and the Unicode line and paragraph separators. So every character
+    `str.splitlines` treats as a line boundary is covered, and a test derives that
+    set from Python rather than listing it by hand.
+
+    **Widened 2026-09-25.** It stopped at DEL, so a C1 character or U+2028 passed
+    every check that used it, while the inbound screen (`inbound_text`) already
+    flagged both. The ONE definition for outbound values: the path-bearing tag
+    fields refuse these (:func:`path_segment_issue`), the tag-only fields replace
+    them with a space (``tag_hygiene``, decision D14), and the script console's
+    passthrough refuses them (``uiscript.script.sanitise_cyanrip_args``).
     """
-    return ord(ch) < 0x20 or ch == "\x7f"
+    code = ord(ch)
+    return code < 0x20 or 0x7F <= code <= 0x9F or ch in _LINE_SEPARATORS
 
 
 def _has_control_char(text: str) -> bool:
-    """True if ``text`` holds a NUL or other C0 control character.
+    """True if ``text`` holds a character :func:`is_control_char` names.
 
     Security/robustness: a NUL truncates a C string (path/argv) and other control
     characters have no business in a path or template — rejecting them keeps a

@@ -300,6 +300,7 @@ def sanitise_cyanrip_args(args: list[str]) -> str | None:
     # contract, and taking each from its own home keeps that distinction visible.
     from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
     from platterpus.adapters.rip_backend import RipError
+    from platterpus.settings_validation import is_control_char
     from platterpus.uiscript.verbs import FILE_ONLY_FLAGS, PROBE_FLAGS
 
     if len(args) > 64:
@@ -307,11 +308,16 @@ def sanitise_cyanrip_args(args: list[str]) -> str | None:
     for arg in args:
         if len(arg) > 4000:
             return f"an argument is {len(arg)} characters; the limit is 4000"
-        if "\n" in arg or "\r" in arg or "\x00" in arg:
+        # Any control character or line separator, not just `\n`, `\r` and NUL:
+        # a vertical tab, form feed, record separator, NEL or U+2028 also starts a
+        # new line in a viewer (`str.splitlines` breaks at all of them), so the old
+        # three-character test let a forged log line through (TASKS E12,
+        # 2026-09-25). One definition, shared with the app's own argv chokepoint.
+        if any(is_control_char(ch) for ch in arg):
             return (
-                f"refusing an argument containing a newline or NUL: {arg!r} — "
-                "cyanrip writes its argv into an archival log, and a newline "
-                "could forge a second line in it"
+                "refusing an argument containing a control character or line "
+                f"break: {arg!r} — cyanrip writes its argv into an archival log, "
+                "and a line break could forge a second line in it"
             )
 
     # ALL, not ANY. `any` made one probe flag anywhere exempt the WHOLE command

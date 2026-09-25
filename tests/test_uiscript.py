@@ -408,7 +408,36 @@ def test_a_newline_in_an_argument_is_refused_as_log_forgery() -> None:
         ["-N", "-a", "album=x\nInvoked as: lies"]
     )
     assert refusal is not None
-    assert "newline" in refusal
+    assert "line break" in refusal
+
+
+#: Every character Python itself treats as a line boundary, derived rather than
+#: listed, so a character added to that set in a future Python is covered too.
+_LINE_BREAKS: tuple[str, ...] = tuple(
+    chr(code) for code in range(0x110000) if len(f"a{chr(code)}b".splitlines()) > 1
+)
+
+
+def test_every_line_break_python_knows_is_refused_not_only_newline() -> None:
+    """Regression, 2026-09-25 (TASKS E12): only `\n`, `\r` and NUL were refused,
+    so a vertical tab, form feed, record separator, NEL or U+2028 started a new
+    line in a viewer of the archival log and passed."""
+    assert len(_LINE_BREAKS) >= 10, _LINE_BREAKS  # floor: the set did not vanish
+    # No `:` or `=` in the value: either would be refused by the tag-syntax check
+    # further down for a different reason, and the revert probe showed this test
+    # passing on that reason alone (2026-09-25). The message pins the right one.
+    for ch in _LINE_BREAKS:
+        refusal = script_mod.sanitise_cyanrip_args(
+            ["-N", "-a", f"album=x{ch}Invoked as lies"]
+        )
+        assert refusal is not None and "line break" in refusal, repr(ch)
+
+
+def test_ordinary_text_is_not_refused_by_the_wider_rule() -> None:
+    assert (
+        script_mod.sanitise_cyanrip_args(["-N", "-a", "album=Café Ñ 日本 — «x»"])
+        is None
+    )
 
 
 def test_a_malformed_consumer_tag_is_refused_by_the_same_delegation() -> None:

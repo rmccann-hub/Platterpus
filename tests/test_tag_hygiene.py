@@ -64,9 +64,22 @@ def test_the_report_block_names_each_field_and_count() -> None:
     ]
 
 
+def test_every_line_break_python_knows_is_a_control_character() -> None:
+    """Widened 2026-09-25: C1 (which holds NEL) and U+2028/2029 had passed."""
+    breaks = [
+        chr(code) for code in range(0x110000) if len(f"a{chr(code)}b".splitlines()) > 1
+    ]
+    assert len(breaks) >= 10
+    assert all(is_control_char(ch) for ch in breaks), [
+        hex(ord(ch)) for ch in breaks if not is_control_char(ch)
+    ]
+    assert all(is_control_char(chr(code)) for code in range(0x80, 0xA0))  # C1
+    assert not any(is_control_char(ch) for ch in "aZ09 é日—\u00a0\u00ad")
+
+
 def test_one_definition_of_a_control_character_for_both_rules() -> None:
     """The path fields refuse exactly what the tag-only fields replace."""
-    for code in range(0x300):
+    for code in [*range(0x300), 0x2028, 0x2029]:
         ch = chr(code)
         refused = "control character" in (path_segment_issue("Title", f"a{ch}b") or "")
         assert refused == is_control_char(ch), hex(code)

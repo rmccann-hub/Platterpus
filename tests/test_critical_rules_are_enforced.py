@@ -1675,7 +1675,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # shapes, and one check loose enough for both checks neither properly.
     # **896 -> 922** (2026-09-24, #37 one home per setting): `field_error`, the ONE single-setting predicate the `set` verb and every save-as-you-change control share; it moved here from the runner so neither can restate it.
     # **922 -> 933** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): `is_control_char`, the one definition both rules share.
-    "settings_validation.py": 933,
+    # **933 -> 947** (2026-09-25): `is_control_char` widened to C1 and U+2028/2029, with the reason; the one definition belongs beside the validators that use it.
+    "settings_validation.py": 947,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -2048,7 +2049,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4309 -> 4398 on 2026-09-25: probe-ripper-wrapper moved onto a helper thread (_WrapperProbeJob); it ran on the GUI thread.
     "uiscript/runner.py": 4398,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
-    "uiscript/script.py": 339,
+    # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
+    "uiscript/script.py": 345,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
     # so a verb declared anywhere else would defeat the file. The comment is
