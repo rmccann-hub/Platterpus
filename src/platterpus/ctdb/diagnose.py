@@ -157,7 +157,7 @@ def _run_calibration(
 
     try:
         pcm = b"".join(decode_pcm(Path(p)) for p in flacs)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — a CLI diagnosis reports any decode failure, it does not crash
         out(f"Cannot calibrate: decode failed ({exc}).")
         return
     frames = len(pcm) // 4

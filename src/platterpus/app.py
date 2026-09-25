@@ -558,7 +558,7 @@ def _arm_unattended_quit(
             still = ""
             try:
                 still = window._post_rip_still_running()
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001 — a shutdown message must never stop the exit
                 pass
             # The ELAPSED wait, not the budget. The old message printed the
             # constant, so a give-up 0.55 s into the grace period reported itself

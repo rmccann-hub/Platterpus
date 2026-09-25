@@ -706,7 +706,7 @@ def check_drive_access(
     """Check the drive device node is present and readable (permissions)."""
     try:
         diag = diagnose()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — a failed check is a WARN row, never a crashed doctor
         return CheckResult(
             "Drive access",
             Status.WARN,
@@ -739,7 +739,7 @@ def check_musicbrainz(
             hint="Identified rips need MusicBrainz; unknown-disc rips still "
             "work, and the GUI tags them from this host-side lookup.",
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — a failed check is a WARN row, never a crashed doctor
         return CheckResult(
             "MusicBrainz reachable",
             Status.WARN,
@@ -778,7 +778,7 @@ def check_cover_art_archive(
             detail=str(exc),
             hint="Cover art is fetched after a rip; rips still succeed without it.",
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — a failed check is a WARN row, never a crashed doctor
         return CheckResult(
             "Cover Art Archive reachable",
             Status.WARN,
@@ -799,7 +799,7 @@ def check_ctdb(ctdb_client: CTDBClient, *, toc: DiscToc = _PROBE_TOC) -> CheckRe
             detail=str(exc),
             hint="CTDB verify is optional; rips work without it.",
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — a failed check is a WARN row, never a crashed doctor
         return CheckResult(
             "CTDB reachable", Status.WARN, "CTDB probe failed", detail=str(exc)
         )
