@@ -3313,15 +3313,18 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 
 ### 8. Event-ordering / stateful testing (12)
 
-- [~] **`stateful:answered-implies-answerable`** (partial, small) — The app must never believe a disc is answered while holding no answer and refusing to ask again
+- [x] **`stateful:answered-implies-answerable`** (partial, small) — The app must never believe a disc is answered while holding no answer and refusing to ask again
   - *Audit 2026-09-25: partly done.* test_a_dropped_detail_unanswers_the_disc_so_the_picker_can_reopen covers the stale-drop path. _on_mb_error leaves _mb_release_chosen_for set, untested; no ordering exploration.
+  - *2026-09-25:* **Done.** A failed release FETCH now has its own worker signal (`release_fetch_failed`) and handler, which un-answers the disc on every path, so the next lookup can re-open the picker. A failed LOOKUP for a disc already answered no longer overwrites the chosen release with placeholders. Tests: `test_a_FAILED_FETCH_unanswers_the_disc_so_the_picker_can_reopen` (drives the recovery lookup), `test_a_REDUNDANT_lookup_failure_keeps_the_release_already_chosen`, `test_a_lookup_failure_for_an_UNANSWERED_disc_still_shows_placeholders`. Ordering exploration is the `stateful:harness` row, still open.
 - [~] **`stateful:no-modal-during-rip`** (ungated, small) — A spontaneous modal must not open over a running rip
   - *Audit 2026-09-25: partly done.* Only the ripper-update offer is covered (test_the_automatic_check_stands_down_during_a_rip, test_a_rip_that_starts_MID_CHECK_still_stops_the_modal); no sweep over other spontaneous modals.
+  - *2026-09-25:* **Partly done.** The two MusicBrainz modals (the release picker and the unknown-album dialog) no longer open over a running rip; same test as `stateful:table-immutable-during-rip`. Still open: a sweep over every other spontaneous modal.
 - [x] **`stateful:non-triviality-floor`** (ungated, small) — The machine must prove it reached the interesting states, or it is decoration
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"stateful:harness (ungated, large) — No test anywhere explores event ORDERING; every …"*, which stays open.
 - [x] **`stateful:release-detail-never-cleared`** (ungated, small) — `_current_release_detail` is assigned in one place and cleared in none
   - *2026-09-25:* **Done, and it was an archival defect.** The report read the stored detail with no check that it was this rip's, so an unknown-album rip after a MusicBrainz one recorded the earlier disc's medium basis. Both readers now use `_release_detail_for`, and the detail is cleared wherever the release id is. Tests: `test_the_report_takes_medium_provenance_only_from_this_rips_release`, `test_reset_disc_view_forgets_the_release_detail_too`.
-- [ ] **`stateful:table-immutable-during-rip`** (ungated, small) — The track table must not be rewritten under a running rip
+- [x] **`stateful:table-immutable-during-rip`** (ungated, small) — The track table must not be rewritten under a running rip
+  - *2026-09-25:* **Done.** An unknown-album rip is tagged from a snapshot of the table taken when it finishes, so a MusicBrainz answer landing mid-rip changed its tags. `MainWindow._rip_holds_the_track_table` keeps every MusicBrainz result, error and failed fetch off the table while a rip runs, and `TrackTable` refuses a rewrite from code while locked (the belt). Tests: `test_no_musicbrainz_answer_rewrites_the_table_or_opens_a_modal_UNDER_A_RIP`, `test_a_locked_table_refuses_a_REWRITE_from_code`. Revert-probed.
 - [x] **`stateful:auto-insert-clears-identity`** (ungated, medium) — The auto-detect insertion path does NOT clear the previous disc's release id or track rows
   - *2026-09-25:* **Done.** Narrower than written: REMOVED normally cleared the view, but disc → unknown → empty → disc skips it. An insert now resets first. Test: `test_a_disc_inserted_clears_the_previous_discs_identity_before_scanning`.
 - [x] **`stateful:detail-not-dropped`** (partial, medium) — A detail the app itself requested must load tracks — the 2026-08-27 rig failure

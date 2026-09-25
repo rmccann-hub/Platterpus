@@ -59,7 +59,12 @@ class MusicBrainzWorker(QObject):
     release_returned = Signal(str, object)  # (context, ReleaseDetail) — object so
     # PySide needs no explicit type
     # registration for the dataclass
-    error = Signal(str, str)  # (context, message)
+    error = Signal(str, str)  # (context, message) — a LOOKUP failed
+    # The chosen release could not be fetched. Its own signal, not `error`,
+    # because the window must tell the two apart: a failed lookup may be a
+    # redundant one for a disc already answered, while a failed fetch means
+    # the answer the user gave never arrived and the disc is unanswered.
+    release_fetch_failed = Signal(str, str)  # (context, message)
 
     def __init__(
         self,
@@ -126,6 +131,6 @@ class MusicBrainzWorker(QObject):
             )
         except MusicBrainzQueryError as exc:
             log.warning("MB release fetch failed: %s", exc)
-            self.error.emit(context, str(exc))
+            self.release_fetch_failed.emit(context, str(exc))
             return
         self.release_returned.emit(context, detail)

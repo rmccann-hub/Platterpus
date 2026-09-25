@@ -451,6 +451,10 @@ class TrackTableModel(QAbstractTableModel):
         self._locked = locked
         self.layoutChanged.emit()
 
+    def is_locked(self) -> bool:
+        """True while a rip holds the table (see ``TrackTable.set_locked``)."""
+        return self._locked
+
 
 class TrackTable(QWidget):
     """Composite widget: album-level fields + track table."""
@@ -572,8 +576,29 @@ class TrackTable(QWidget):
 
     # --- Public surface -----------------------------------------------------
 
+    def _refuses_rewrite(self, what: str) -> bool:
+        """True, and logged, when a rip holds the table.
+
+        The lock stops the USER editing; this stops the CODE. An unknown-album rip
+        is tagged from a snapshot of this table taken when it finishes, so any
+        rewrite mid-rip changes what that rip is tagged with. The window already
+        holds MusicBrainz answers back during a rip
+        (``MainWindow._rip_holds_the_track_table``); this is the belt, so a
+        caller nobody has written yet cannot do it either.
+        """
+        if not self._model.is_locked():
+            return False
+        log.warning(
+            "track table: refused to %s while a rip is running; the rip keeps "
+            "the tags it started with",
+            what,
+        )
+        return True
+
     def set_release(self, detail: ReleaseDetail) -> None:
         """Populate from a MusicBrainz ReleaseDetail."""
+        if self._refuses_rewrite("load a release"):
+            return
         self._album_artist_edit.setText(detail.summary.artist_credit)
         self._album_title_edit.setText(detail.summary.title)
         self._album_year_edit.setText(detail.summary.date)
@@ -590,9 +615,12 @@ class TrackTable(QWidget):
         `ui.unknown_album.apply_placeholder_tags`), so the table shows
         the user what will land on disk instead of empty rows.
 
-        Editing these rows doesn't feed the rip yet — that's the P2
-        follow-up tracked in TASKS.md.
+        Editing these rows DOES feed the rip: an unknown-album rip is tagged
+        from this table when it finishes (``run_unknown_post_processing``),
+        which is why a running rip locks it against rewrites too.
         """
+        if self._refuses_rewrite("write placeholder rows"):
+            return
         self._album_artist_edit.setText("Unknown Artist")
         self._album_title_edit.setText("Unknown Album")
         self._album_year_edit.clear()
@@ -660,6 +688,8 @@ class TrackTable(QWidget):
 
     def clear(self) -> None:
         """Reset to the empty state (no album metadata, no tracks)."""
+        if self._refuses_rewrite("clear"):
+            return
         self._album_artist_edit.clear()
         self._album_title_edit.clear()
         self._album_year_edit.clear()

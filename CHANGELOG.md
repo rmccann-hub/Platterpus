@@ -32,6 +32,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A MusicBrainz answer that arrives during a rip no longer changes it.** A
+  slow lookup could finish while a rip was running and rewrite the track list,
+  and an unknown-album rip is tagged from that list when it ends, so its files
+  could get different tags from the ones you typed. The release picker could also
+  open on top of the rip's progress. Now nothing from MusicBrainz touches the
+  track list or opens a window until the rip ends; Rescan afterwards to use it.
+
+- **A failed download of the release you picked can be retried.** If you picked
+  a release and fetching it failed, the app still believed the disc was
+  identified, refused to show the picker again, and left placeholder tracks. Now
+  the disc goes back to unidentified, so the next lookup asks again. A second,
+  redundant lookup failing also no longer replaces tracks you already have with
+  placeholders.
+
 - **Every kind of line break is now treated as one.** Checks that keep invisible
   characters out of tags, file names, Settings paths and test-script commands
   caught newline, carriage return and NUL, but not the rarer characters that also
