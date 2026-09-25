@@ -32,7 +32,7 @@ downgraded to `[~]`. Every row that changed carries an *Audit 2026-09-25* line u
 it.
 
 - **110 closed** (`[x]`). 62 are done, each citing the commit, file or test. 48 are
-  superseded, each citing what replaced it: mostly whipper's removal, the v0.6.4
+  superseded, each citing what replaced it: mostly the previous ripper's removal, the v0.6.4
   release plan, and handshake rounds 7 and 8, all long past.
 - **97 marked `[~]`**, each saying what landed and what did not.
 - **30 left open as not ours to verify**: the fork's work, a hardware run, or a
@@ -4488,7 +4488,7 @@ repo + copyright; the CRCs are the proof). Ordered by format priority:
 
 *Priority 1 — FLAC (v1 archival format):*
 - **[x]** ~~whipper FLAC parity~~ — **retired: whipper removed 2026-06-30 (KDD-18)**; row kept as the record (the >587-offset question was settled by the cyanrip run below)
-  - *Audit 2026-09-25: superseded.* whipper removed (KDD-18).
+  - *Audit 2026-09-25: superseded.* The previous ripper was removed (KDD-18).
 - **[~]** cyanrip FLAC parity → `output_reference/cyanrip_flac/` — **proof committed 2026-06-27: 12/14 byte-identical vs EAC** (T3 divergence + T5 disc spot — documented near-parity; pinned by `tests/test_parity.py`)
   - *Audit 2026-09-25: partly done.* 12 of 14 near-parity committed in output_reference/cyanrip_flac/, pinned by tests/test_parity.py; 2 tracks still differ.
 
@@ -4496,14 +4496,14 @@ repo + copyright; the CRCs are the proof). Ordered by format priority:
 - **[~]** EAC "WAV" reference stored → `output_reference/EAC_wav/` (2026-06-25, **13/14** vs the FLAC baseline — track 3 read error this session; best run so far). ⚠️ **It's actually WavPack** (`wavpack -h -m`), not plain PCM WAV — equivalent for extraction parity (lossless) but a different format/encoder; see its README. Re-rip with a plain-WAV encoder to replace if a true WAV reference is wanted.
   - *Audit 2026-09-25: partly done.* Stored (13 of 14), but it is WavPack, not plain WAV; a true-WAV re-rip is owed.
 - **[x]** ~~whipper WAV parity~~ — **retired: whipper removed 2026-06-30 (KDD-18)**
-  - *Audit 2026-09-25: superseded.* whipper removed (KDD-18).
+  - *Audit 2026-09-25: superseded.* The previous ripper was removed (KDD-18).
 - **[ ]** cyanrip WAV parity → `output_reference/cyanrip_wav/`
 
 *Priority 3 — MP3 (P1; lossy → "parity" = same extraction CRCs + correct encoder/tags, not bit-identical audio):*
 - **[~]** EAC MP3 reference stored → `output_reference/EAC_mp3/` (2026-06-25, **imperfect**: 12/14 vs the FLAC baseline — tracks 3/4 read errors this session; kept for the encoder-config reference `lame -V 0` + ID3. Re-rip clean to replace; see its README).
   - *Audit 2026-09-25: partly done.* Stored but imperfect (12 of 14); a clean EAC re-rip (the maintainer's) is owed.
 - **[x]** ~~whipper MP3 parity~~ — **retired: whipper removed 2026-06-30 (KDD-18)**
-  - *Audit 2026-09-25: superseded.* whipper removed (KDD-18).
+  - *Audit 2026-09-25: superseded.* The previous ripper was removed (KDD-18).
 - **[~]** cyanrip MP3 parity → `output_reference/cyanrip_mp3/` — **proof committed 2026-06-27: 13/14 extraction parity vs EAC**
   - *Audit 2026-09-25: partly done.* The log and cue are committed, 13 of 14 parity, not 14 of 14.
 
@@ -4522,9 +4522,9 @@ The following whipper CLI options exist but aren't currently surfaced in our Set
 - **[x] Force overread into lead-in/lead-out — REBUILT cyanrip-native, DONE 2026-07-21.** The whipper-era `-x/--force-overread` plumbing was removed with whipper (KDD-18); the fresh task shipped as the Settings "Overread" toggle → `Config.force_overread` → `RipParameters` → cyanrip **`-O`**, off by default (EAC's baseline setting, and how the 12/14 parity proof matched). **Flag-letter correction (same day):** this row and `docs/dependency-contracts.md` previously claimed cyanrip has "its own `-x` flag" — **`-x` does not exist in cyanrip's getopt at all** (verified against the deployed 0.9.3.1 *and* master); wiring the documented letter would have aborted every overread rip. The whipper flag really was `-x`, which is likely the mix-up's origin. Upstream's own caveat ("may freeze if unsupported by drive") is surfaced in the tooltip; effect confirmed only by a future hardware run (like every rip flag).
 - **[x] Max retries.** Done 2026-05-30. `-r/--max-retries N`, default 5 (whipper's own). `Config.max_retries` + Settings spinbox (0–100) + `RipParameters.max_retries`; always passed (no-op at 5). Still current: cyanrip has its own `-r` and this Settings widget is live.
 - **[x] Keep going on track failure — superseded, cyanrip-native.** Was done 2026-05-30 as whipper's `-k/--keep-going` (`Config.keep_going` + Settings toggle + `RipParameters.keep_going` + flag); removed with whipper (KDD-18). cyanrip needs no equivalent flag — its rip loop is cyanrip-native and there is no Settings toggle for this today.
-  - *Audit 2026-09-25: superseded.* Removed with whipper (KDD-18); cyanrip-native.
+  - *Audit 2026-09-25: superseded.* Removed with the previous ripper (KDD-18); cyanrip does it natively.
 - **[x] Continue on CD-R — superseded, cyanrip-native.** Was done 2026-05-29 (pulled forward during T32) as whipper's `--cdr` flag (`Config.continue_on_cdr`, a "CD-R discs" Settings toggle, `RipParameters.cdr`, passthrough in `WhipperHostExportedImpl.rip()`); removed with whipper (KDD-18). cyanrip is cyanrip-native here too — no equivalent flag, no Settings toggle exists today.
-  - *Audit 2026-09-25: superseded.* Removed with whipper (KDD-18).
+  - *Audit 2026-09-25: superseded.* Removed with the previous ripper (KDD-18).
 
 - **[x] EAC gap-handling parity — CLOSED as already-satisfied (verified upstream 2026-07-21).** EAC's reference rip used **"Gap handling: Appended to previous track"**, and this was flagged (2026-06-14) as a possible parity lever because "we set no gap mode." Re-checked against cyanrip's own source and README (0.9.3.1 **and** master): cyanrip's default *is* EAC's — README §"Pregap handling": *"By default, track 1 pregap is ignored, while any other track's pregap is merged into the previous track. **This is identical to EAC's default behaviour.**"* We pass **no `-p`**, so the rip uses that default (exactly how the committed 12/14 audio-parity proof matched). So there is **no audio-parity gap here and no knob to add**: cyanrip's `-p` is a *per-track* override (`-p track_number=action`; `default`/`merge`/`drop`/`track`), not a global switch, and its only archival-safe value is the default we already use (`drop` deletes pregap audio and breaks cyanrip's no-discontinuities guarantee; `track` renumbers tracks and would desync our per-track `-t`/`-l`/progress/AR alignment). The **one** remaining EAC-gap difference is *cue-metadata only* — EAC's subchannel-detected `INDEX 00` pre-gap markers — which is **not** an audio-parity gap and is tracked separately (parity doc §Pregaps P3 + the cyanrip **PR #115** route in [docs/cyanrip-upstream.md](docs/cyanrip-upstream.md)). Same disposition as the udev/ReplayGain backlog closures: the feature was already delivered by cyanrip's default; the checkbox just hadn't been flipped.
 
