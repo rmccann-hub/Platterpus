@@ -48,6 +48,14 @@ the workflow.
   refuses every update, stranding its users. `scripts/check_bundled_verifier.py`
   runs the bundle's own interpreter on a genuine attestation, in both AppImage
   workflows. Run on the real v0.6.60 AppImage it fails, as it should.
+- **The new check's first CI run found an older, bigger defect.** The branch's
+  AppImage contained PyPI's 0.6.60, not the branch: `build_appimage.sh` pinned
+  `platterpus==<tree version>`, which PyPI satisfies between releases. So every
+  non-release AppImage artifact has been the last release, with `--version` reading
+  the right number and `(source)` the only sign. Fixed by bundling the built wheel
+  by file path; tested by running the script's own substitution snippet;
+  revert-probed. Releases were never affected, since their version is new. Any
+  hardware run on a non-release artifact tested the previous release.
 - **A sweep taught rather than exempted.** The in-toto key `_type` tripped the
   dead-attribute sweep, whose allowlist may not grow. It now skips mapping keys
   (`d["_x"]`, `d.get("_x")`) and still catches both shapes that shipped, and its

@@ -218,34 +218,43 @@ fi
 # and "built from PyPI" produced identical binaries. Two witnesses agreeing
 # because they share an ancestor — `docs/testing.md` §5.ac, arriving in the build.
 #
-# An EXACT pin rather than `PIP_PRE=1`: `==` makes the resolution provable (PyPI
-# has no such version, so only the local wheel can satisfy it) and fails loudly
-# if the wheel is missing, whereas `--pre` would merely make the local wheel
-# *eligible* and would silently prefer a newer PyPI release later.
-PLATTERPUS_WHEEL_VERSION="$(
-    ls -1 "$RECIPE_DIR"/platterpus-*.whl \
-      | head -1 | sed -E 's|.*/platterpus-([^-]+)-.*|\1|'
-)"
-if [ -z "$PLATTERPUS_WHEEL_VERSION" ]; then
-    echo "error: no platterpus wheel in $RECIPE_DIR — cannot pin the version" >&2
+# **The wheel's FILE PATH, not a version pin** (2026-09-25). This was
+# `platterpus==<tree version>`, reasoned as "PyPI has no such version, so only the
+# local wheel can satisfy it". That holds at RELEASE time, when the version is new,
+# and at no other time: between releases the tree carries the version just
+# published, PyPI's copy satisfies the same `==`, and pip took it. So every
+# `appimage.yml` build of `main` or a branch between releases bundled the LAST
+# RELEASE's code, passed `--version` (same number) and looked current. Found by
+# the bundled-verifier check on its first CI run, which asked the bundle for a
+# module this branch had added and PyPI's 0.6.60 did not have; the smoke test's
+# own `platterpus 0.6.60 (source)` (no build stamp, which a local wheel carries)
+# had been saying so all along. A path can only be satisfied by the file at it,
+# and pip fails loudly if the file is missing.
+PLATTERPUS_WHEEL="$(ls -1 "$RECIPE_DIR"/platterpus-*.whl | head -1)"
+if [ -z "$PLATTERPUS_WHEEL" ]; then
+    echo "error: no platterpus wheel in $RECIPE_DIR — cannot bundle it" >&2
     exit 1
 fi
-echo "Pinning the bundled platterpus to the wheel we just built: $PLATTERPUS_WHEEL_VERSION"
+echo "Bundling the platterpus wheel we just built: $PLATTERPUS_WHEEL"
 # Assigning these two arms the single EXIT trap installed near the top of the
 # script (see `cleanup`) — deliberately NOT a second `trap`, which would silently
 # replace the first and orphan the build stamp.
 REQ_SRC="$RECIPE_DIR/requirements.txt"
 REQ_BAK="$RECIPE_DIR/requirements.txt.orig"
 cp "$REQ_SRC" "$REQ_BAK"
-python3 - "$REQ_SRC" "$PLATTERPUS_WHEEL_VERSION" <<'PIN'
-import re, sys
-path, version = sys.argv[1], sys.argv[2]
+python3 - "$REQ_SRC" "$PLATTERPUS_WHEEL" <<'PIN'
+import os, re, sys
+path, wheel = sys.argv[1], os.path.abspath(sys.argv[2])
+if not os.path.isfile(wheel) or any(c.isspace() for c in wheel):
+    # python-appimage runs each line through a shell, so a path with whitespace
+    # would be split into two arguments.
+    sys.exit(f"cannot bundle {wheel!r}: missing, or its path contains whitespace")
 text = open(path, encoding="utf-8").read()
-new, n = re.subn(r"(?m)^platterpus\s*$", f"platterpus=={version}", text)
+new, n = re.subn(r"(?m)^platterpus\s*$", lambda _m: wheel, text)
 if n != 1:
     sys.exit(f"expected exactly one bare 'platterpus' line in {path}, found {n}")
 open(path, "w", encoding="utf-8").write(new)
-print(f"  requirements.txt: platterpus -> platterpus=={version}")
+print(f"  requirements.txt: platterpus -> {wheel}")
 PIN
 
 # Optional offline / rate-limit escape hatch: by default python-appimage hits
