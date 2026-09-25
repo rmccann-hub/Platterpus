@@ -259,7 +259,8 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   **RELEASED 2026-09-24 on the maintainer's explicit word** (sha256 `ba57e7bd…`, 11,550 bytes, pinned
   in `SENT_LAPS`), after fetching their branch (`583d6f3`) and confirming no round-26 lap after
   their lap 1 (K1).
-- [ ] **0.6.55** — the release steps, after lap 3 is announced and `main`'s own CI is green.
+- [x] **0.6.55** — the release steps, after lap 3 is announced and `main`'s own CI is green. Done
+  (next row).
 - [x] **0.6.55 released 2026-09-24** (run 01:05–01:08 UTC, all three gates green, the §6b override
   printed); the operator started the real test on it.
 - [x] **One folder per acceptance run** (maintainer, 2026-09-24, during that test): rips,
@@ -274,8 +275,11 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
   was one; gates "ran" on an unfinished rip; `expect-verification` waiting 600 s on
   it; screenshots of hidden windows (the headline was one), leaked dialogs, and per-rip
   bundles outside the session folder.
-- [ ] **What stopped the container** (operator): `podman events` / `journalctl` for
-  2026-09-23 21:15:30–21:16:30 local; nothing we capture can say.
+- [x] **What stopped the container** (operator): `podman events` / `journalctl` for
+  2026-09-23 21:15:30–21:16:30 local; nothing we capture can say. **Answered 2026-09-24/25** by the
+  operator's journal and `containercheck.sh`: the container belonged to an earlier, closed Platterpus
+  window's unit; fixed in 0.6.59 (`container_scope.py`, `docs/testing.md` §5.bt). What ended that
+  unit at 21:16:15 is still not identified.
 - [x] **Round 26 lap 4 filed** (their `GO`, sha256 `7a56b1d2…`); every checkable claim
   re-derived. The bundle is filed as `docs/handshake/artifactsround26/`, 40 of 46 blob-identical
   to theirs. Their nit is fixed ("0 of 0" → "0 of 14"), plus two more of ours from the second
@@ -297,7 +301,8 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **0.6.57 released 2026-09-24** (release run 155 on `8278b19`, after `main`'s CI run 898
   was green; AppImage, `.sha256`, `.zsync` and install scripts published; PyPI published). No
   round open, so no override. It re-reads one-frame matches by default.
-- [ ] **Round 27** (theirs to open, on `.16`): the real test on `.16` + **0.6.58** (released
+- [x] **Round 27** (theirs to open, on `.16`) — **superseded 2026-09-24/25**: they opened it, and the
+  test now runs on 0.6.60 (see the Round 27 section). As first written: the real test on `.16` + **0.6.58** (released
   before the round opened, on the maintainer's word, so the test runs the new one-frame default
   AND the run sizes: the maintainer runs it on 0.6.58); our answers first on the `Accurip 450`
   wording and the album-loudness rows, ready below.
@@ -315,7 +320,7 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **Our half of the loudness finding** (`cancel-me.log:75`): the results pane and the
   report now label the album rows by what they covered (`album_loudness.py`, report key
   `album_loudness_covers`, schema v26), read off the same log's footer.
-- [ ] **ROUND-27 ANSWERS, ready for our lap 2** (they asked us to go first on both):
+- [x] **ROUND-27 ANSWERS, delivered in our round 27 lap 2 (2026-09-24)** (they asked us to go first on both):
   1. **Their `Accurip 450` line, what we parse.** `^\s+Accurip 450:\s+<8 hex>` plus an optional
      parenthetical, and inside it only `confidence\s+(\d+)`. A match is confidence >= 1 and a
      non-zero CRC. We read neither "matches Accurip DB" nor "partially accurately ripped". So
@@ -363,8 +368,9 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
      does their handler print that for?
 - [ ] **Re-run F (or the whole script)** on the next release. F's fast whole-disc path is
   untested by the 2026-09-24 run, and that path is F's whole purpose.
-- [ ] **Each side's reading, then the closing laps**; at the close, roll `FORK_PIN` to
-  `df91ae7` in our release and move the approval record to round 26.
+- [x] **Each side's reading, then the closing laps**; at the close, roll `FORK_PIN` to
+  `df91ae7` in our release and move the approval record to round 26. Done: round 26 closed
+  2026-09-24, and 0.6.56 shipped `df91ae7`.
 - [x] **Corrected `fullacceptance.txt`'s `-r 3` comment** (2026-09-25): *"not dangerous"* now says
   *on `.15` and later*, and why `.14` was the exception.
 
@@ -408,7 +414,8 @@ other agenda item is placed by name in their §E; we accept the placement.
 - [x] **Their lap 5** (pre-committed `GO`) lands `05abdfde…` and closes round 25. Then: file it,
   retire the shared-hash exemption, move the approval record to round 25 for `3e01bb3`; they
   release `.15`; we release 0.6.54 after `main`'s own CI. Then implement protocol 6.
-- [ ] **`-r` not divisible by 5 hangs on a bad sector on `.14`** (their round 25 lap 2 §B1). Our
+- [x] **`-r` not divisible by 5 hangs on a bad sector on `.14`** (their round 25 lap 2 §B1). **Closed**:
+  round 26 approved `.15`, which returns, and the script's comment was corrected 2026-09-25. Our
   default 5 is safe; Settings accept 0-100, and `fullacceptance.txt` rips at 3 from line 286 to
   1166 under a comment calling it *"not dangerous"*. **Maintainer: leave it for `.15`**, which
   makes any value safe. Revisit only if `.15` is not approved in round 26; correct the comment
@@ -416,7 +423,8 @@ other agenda item is placed by name in their §E; we accept the placement.
 - [x] **CONFIRMED by the maintainer directly, 2026-09-23: 0.6.54 ENDS round 25** — on `3e01bb3`,
   after the fork's lap 3 correction (the first reading of this item said `.15`, which R8 as
   merged does not allow: a consumer release pins what a CLOSED round approved).
-- [~] **0.6.54 — round 25 closed and `.15` released, so it is unblocked except by round 26:**
+- [x] **0.6.54 — round 25 closed and `.15` released, so it is unblocked except by round 26:**
+  (released 2026-09-23 under the §6b override; kept as written below)
   `FORK_PIN` stays `3e01bb3` (superseded reading: *roll to `.15`*), the approval record is
   round 25, and the release steps are in the round-24 section. See round 26 above for the
   override it now needs. Our answering lap declares this
