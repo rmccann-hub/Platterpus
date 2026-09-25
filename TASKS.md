@@ -136,7 +136,9 @@ stopped at section A the same day, as their lap 1 predicted.
   the §6b override in our lap 2. The pin move, the container fix, the script-`set` refresh fix,
   and `--doctor` naming the container's owner. The PR's py3.12 leg failed once at `apt-get
   update` (a runner's third-party repo returned 403, before any test ran) and passed on rerun.
-- [ ] **NEXT RELEASE: "Check for cyanrip updates" offers to replace the build under review.**
+- [x] **FIXED in 0.6.60 (the maintainer: "i want this fixed and in a new release"): "Check for
+  cyanrip updates" offers to replace the build under review.** The setup wizard did the same;
+  both now ask `fork_source.is_the_build_under_review`. Details as first recorded:
   Found 2026-09-25: the operator's first Full attempt on 0.6.59 stopped at section A with
   `.15` installed, though `.16` was installed at 17:53 the day before. With the build under
   review installed and the channel head the same build, `_up_to_date_offer`
@@ -147,7 +149,10 @@ stopped at section A the same day, as their lap 1 predicted.
   this is the click that happened.) Fix: when the installed build is `PIN_UNDER_REVIEW` and a
   round reviews it, offer nothing and say it is the build the acceptance test needs; test it
   and revert-probe it. Not released mid-round: the test runs on 0.6.59, avoiding the button.
-- [ ] **The real test on 0.6.59**, then each side's reading and the closing laps.
+- [x] **Our lap 3**, released 2026-09-25: 0.6.59 swapped `.16` out, 0.6.60 is the fix and the
+  release the test runs on, under a §6b override; their final lap 1 (`c3a7a2a4…`) filed.
+- [~] **0.6.60**, under that override.
+- [ ] **The real test on 0.6.60**, then each side's reading and the closing laps.
 
 ## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 
@@ -5401,4 +5406,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.59.*
+*Last updated for Platterpus v0.6.60.*
