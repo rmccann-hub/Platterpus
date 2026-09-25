@@ -789,12 +789,16 @@ def cross_fs_hazards(template: str) -> list[str]:
         listed = " ".join(bad_chars)
         hazards.append(f"the character(s) {listed} are reserved on Windows")
     for segment in template.split("/"):
-        if "%" in segment:
+        # Only a TAG token makes a segment value-dependent. This used to skip any
+        # segment containing a "%", but "%%" is a literal percent and an unknown
+        # "%q" is kept as typed — so "CON.%%" (the device name CON) went unjudged.
+        text, has_tag = _segment_text(segment)
+        if has_tag:
             continue  # value-dependent — judged at rip time, not here
-        stem = segment.split(".", 1)[0].strip().lower()
+        stem = text.split(".", 1)[0].strip().lower()
         if stem in _WINDOWS_RESERVED_NAMES:
             hazards.append(f"“{segment}” is a reserved device name on Windows")
-        if segment != segment.rstrip(". "):
+        if text != text.rstrip(". "):
             hazards.append(
                 f"“{segment}” ends in a dot/space, which Windows strips or rejects"
             )
@@ -922,6 +926,29 @@ def _has_control_char(text: str) -> bool:
 def _allowed_goals() -> frozenset[str]:
     """Valid goal keys: the presets plus the 'custom' sentinel."""
     return frozenset(set(goal_presets.PRESETS) | {goal_presets.GOAL_CUSTOM})
+
+
+def _segment_text(segment: str) -> tuple[str, bool]:
+    """``(the literal text this segment writes into the path, holds a tag token)``.
+
+    Scans left to right the way the translator does, so ``%%`` is one literal
+    ``%`` (never the start of a token) and an unknown ``%q`` stays as typed.
+    """
+    out: list[str] = []
+    has_tag = False
+    i = 0
+    while i < len(segment):
+        if segment[i] == "%" and i + 1 < len(segment):
+            token = segment[i + 1]
+            if token in _KNOWN_TEMPLATE_TOKENS:
+                has_tag = True
+            else:
+                out.append("%" if token == "%" else segment[i : i + 2])
+            i += 2
+            continue
+        out.append(segment[i])
+        i += 1
+    return "".join(out), has_tag
 
 
 def _unknown_tokens(template: str) -> list[str]:
