@@ -764,6 +764,24 @@ def _up_to_date_offer(
             release=row,
             detail=current,
         )
+    if fork_source.is_the_build_under_review(installed):
+        # THE BUILD UNDER REVIEW IS INSTALLED: KEEP IT, AND OFFER NOTHING. The branch
+        # below would offer the approved pin back as a one-click default, which is
+        # right for somebody who wandered ahead and exactly wrong during a round:
+        # it swaps out the build the acceptance test needs (2026-09-25, `.16`
+        # replaced by `.15` before a Full run). See `is_the_build_under_review`.
+        return RipperOffer(
+            verdict=OFFER_UP_TO_DATE,
+            channel=channel,
+            release=row,
+            detail=(
+                f"{current}\n\n"
+                f"This is the build handshake round {fork_source.PIN_UNDER_REVIEW_ROUND} "
+                "is reviewing, and the one the acceptance test needs, so keep it. Until "
+                "that round closes, rips on it report their ripper as 'unapproved'. "
+                "That is the correct verdict while the review is running, not a fault."
+            ),
+        )
     # Newest published, but not what our record approved. Offer the way back.
     return RipperOffer(
         verdict=OFFER_UP_TO_DATE,

@@ -11,6 +11,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.60] — 2026-09-25
+
+### Fixed
+
+- **Checking for cyanrip updates, or running setup, no longer swaps out the build a test
+  needs.** While a handshake round is reviewing a new cyanrip build, the acceptance test
+  needs that build installed. But **Check for cyanrip updates** offered to "put the
+  approved build back" over it, with **Install it now** as the default. And the setup
+  wizard treated it as "not installed" and rebuilt the approved one on top. Either one
+  undid the test setup in one click. That is what stopped the first Full test on 0.6.59.
+  Both now keep the build under review, and say that it is the one the test needs.
+
 ## [0.6.59] — 2026-09-24
 
 ### Fixed
@@ -15531,7 +15543,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.59...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.60...HEAD
+[0.6.60]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.59...v0.6.60
 [0.6.59]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.58...v0.6.59
 [0.6.58]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.57...v0.6.58
 [0.6.57]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.56...v0.6.57
@@ -15678,4 +15691,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.59.*
+*Last updated for Platterpus v0.6.60.*

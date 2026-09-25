@@ -1,9 +1,10 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.59        the release this run needs: v0.6.58's section A refuses .16,
-                           because it predates round 27. GitHub pre-release flag (every
-                           v0.* tag carries it); offered on the STABLE update channel.
+Platterpus  v0.6.60        the release this run needs. v0.6.59 carries the same pin but
+                           offered to swap .16 back to .15 (fixed in v0.6.60); v0.6.58's
+                           section A refuses .16. GitHub pre-release flag (every v0.* tag
+                           carries it); offered on the STABLE update channel.
 cyanrip     221a1df        0.9.4-rc2+platterpus.16  (platterpus-fork-g221a1df)  <- UNDER REVIEW
                            round 27's subject, reviewed on a drive; keep it installed
             df91ae7        0.9.4-rc2+platterpus.15  (platterpus-fork-gdf91ae7)  <- PRODUCTION PIN
@@ -12,7 +13,10 @@ drive       Pioneer BDR-209D 1.51, read offset +667
 rounds 1-26 ALL CLOSED on our gate, bilateral GO. Round 27 is OPEN, reviewing .16.
 ```
 
-> **Header last moved 2026-09-24, to round 27 and 0.6.59.** The fork opened round 27
+> **Header last moved 2026-09-25, to 0.6.60.** The first Full attempt on 0.6.59 stopped at
+> section A with `.15` installed: 0.6.59's update check and setup wizard could each replace
+> the build under review with the approved one. 0.6.60 keeps it.
+> Before that, 2026-09-24, to round 27 and 0.6.59. The fork opened round 27
 > on `.16` the same evening, and a quick run on 0.6.58 with `.16` installed stopped at
 > section A, as their lap 1 said it would. Before that, the same day, to 0.6.58, which
 > splits the acceptance run into
@@ -42,7 +46,7 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 **Round 27's close condition, and it cannot be met any other way.** The fork's round
 27 lap 1 names `+platterpus.16` (`221a1df`) and closes on the real test: our **Full**
 acceptance run with `.16` installed **through this app**, from a release whose
-`PIN_UNDER_REVIEW` is `221a1df` (0.6.59), with the bundle committed to both
+`PIN_UNDER_REVIEW` is `221a1df` (0.6.60), with the bundle committed to both
 repositories. Round 27 then closes on each side's reading of it (theirs across every
 rip, not only the whole-disc one), our release rolls `FORK_PIN` to `221a1df`, and
 theirs is `+platterpus.17`.
@@ -74,12 +78,12 @@ a container that is already running.
 1. **Put the reference disc in the drive** (any ordinary audio CD works; the script
    needs no album name, track count or path) and open Platterpus from the applications
    menu.
-2. **Update Platterpus to 0.6.59 first.** Then check **Tools → Setup & Updates…**: the
-   cyanrip line should read `platterpus-fork-g221a1df`. **Keep `.16`.** Do not choose
-   the build 0.6.58 suggested (`df91ae7`): that would re-test `.15`, which round 26
-   already reviewed. If `.16` is missing, **Check for cyanrip updates** offers it as
-   *"the build the acceptance test needs"*, with a ⚠ that rips on it read
-   `unapproved`; choose **Install it anyway**. Then **Tools → Run acceptance test…**,
+2. **Update Platterpus to 0.6.60 first.** Then check **Tools → Setup & Updates…**: the
+   cyanrip line should read `platterpus-fork-g221a1df`. **Keep `.16`.** If it reads
+   `gdf91ae7` (`.15`), **Check for cyanrip updates** offers `.16` as *"the build the
+   acceptance test needs"*, with a ⚠ that rips on it read `unapproved`; choose **Install
+   it anyway**. From 0.6.60, neither that button nor Run setup… puts `.15` back over
+   `.16` while the round is open. Then **Tools → Run acceptance test…**,
    choose **Full**, and leave it. It holds sleep off, runs every section (4–6 hours),
    stops in its first seconds if the ripper is not `.16`, and puts your own settings
    back when it ends. **During the run, don't close any other Platterpus window or any
@@ -110,4 +114,4 @@ known to be correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.59.*
+*Last updated for Platterpus v0.6.60.*
