@@ -436,9 +436,22 @@ other agenda item is placed by name in their §E; we accept the placement.
   complete, released `HANDSHAKE-OVERRIDE` naming `§6b` and the tag releases it and is
   printed (a C31/C32 slice); `release.yml` passes `--tag` on both branches. Six reverts
   probed, six detected.
-- [ ] **After round 25 closes: implement protocol 6** — C44/C45 (`HANDSHAKE-AGREED-CHANGES`),
-  amended C13a, K2's `INBOUND-HELD`/`INBOUND-OBSERVED` split, a row-named test each; clear
-  `_BOOTSTRAP_REASON` in that commit.
+- [x] **After round 25 closes: implement protocol 6** — done 2026-09-25. `PROTOCOL_VERSION`
+  6, `DECLARED_PROTOCOL` 5 (v6 §14). C44/C45 (`agreed_changes_blockers`: presence on a `GO`
+  file declaring 6, content never read), K2 (`-OBSERVED` required on a file declaring 6),
+  C43 (already true, now row-named), the amended C13a (`_terminal_at`: a closed round stays
+  closed and a later different verdict is refused; `illegal_transition_blockers` holds a
+  release until a later round exists — v6 leaves that effect to v7), and C23/C24, binding
+  since round 9 and never enforced (one sent file lacks the field, pinned by hash). A
+  row-named test each, `_BOOTSTRAP_REASON` cleared, C13a out of `_KNOWN_DIVERGENCES`, the
+  skeleton emits `-HELD`/`-OBSERVED`/`-AGREED-CHANGES`. Twelve reverts probed, twelve
+  detected; `--status` on the real record byte-identical before and after.
+- [ ] **Our next released lap says our gate implements 6** (v6 §14), declaring 5. Then
+  raise `DECLARED_PROTOCOL` to 6 in the commit after, so later laps declare 6. Same lap,
+  `NEXT-ROUND` items for the fork: (a) our reading of C13a's release effect, proposed for
+  v7; (b) K2's `-OBSERVED` — we require it on a file declaring 6 and their gate does not
+  read it; (c) C23 — does their gate refuse a round ≥ 9 file without `-HELD`? (ours never
+  did until now, and a shape either side can hold).
 
 ## Round 25 — the complete known-issue agenda (compiled 2026-09-23)
 

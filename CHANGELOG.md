@@ -23,6 +23,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   count at 3 was "not dangerous". That holds for cyanrip `.15` and later; on `.14`, a
   retry count that is not a multiple of 5 could hang on an unreadable sector. It changes
   no step.
+- **The handshake gate implements protocol 6** (contributor-facing: `scripts/handshake.py`).
+  - A `GO` file declaring 6 must carry the agreed-change ledger,
+    `HANDSHAKE-AGREED-CHANGES`, and the gate refuses it by name without one. What the
+    ledger says never decides a close.
+  - A file declaring 6 must say which unreleased peer laps it can see,
+    `HANDSHAKE-INBOUND-OBSERVED`.
+  - Every file from round 9 on must say which peer laps it holds,
+    `HANDSHAKE-INBOUND-HELD`. That rule has been in force since round 9 and was never
+    checked. One sent file of ours lacks it and is recorded by its hash.
+  - Once a round has closed, it stays closed. A later lap that declares a different
+    verdict is refused, and a release waits until the next round exists. Before this,
+    such a lap turned the round back to open.
+  - Our laps still declare protocol 5 until one of ours has told the fork that our gate
+    implements 6, as the shared spec requires. The lap skeleton now writes the three
+    fields above.
 
 ## [0.6.60] — 2026-09-25
 

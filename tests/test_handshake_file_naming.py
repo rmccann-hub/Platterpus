@@ -819,6 +819,14 @@ def _closing(
             "none — this stand-in names no peer lap; §5b resolves the newest one"
         ),
         "HANDSHAKE-READY-TO-READ": "yes — released (test stand-in)",
+        # WHAT THE LAP HOLDS, AND THE LEDGER (2026-09-25). Every real lap from round 9
+        # on carries INBOUND-HELD (row C23), and every one since round 22 the other
+        # two; the stand-in carried none of them, which was invisible while the gate
+        # read none of them. Once it did, this stand-in stopped closing — the gate was
+        # right and the stand-in was more permissive than the record it stands for.
+        "HANDSHAKE-INBOUND-HELD": "none",
+        "HANDSHAKE-INBOUND-OBSERVED": "none",
+        "HANDSHAKE-AGREED-CHANGES": "none",
         "HANDSHAKE-OUR-VERSION": "platterpus 0.6.4",
         "HANDSHAKE-OUR-PIN": pin,
         "HANDSHAKE-PEER-VERSION": "cyanrip 0.9.4 (platterpus-fork-gabc1234)",
@@ -1528,19 +1536,25 @@ def test_a_superseded_verdict_of_OURS_in_the_other_directory_cannot_close_a_roun
 
     Spanning both directories must not become "any GO of ours anywhere closes it".
     Newest lap of ours is a HOLD in `verified/`; an older GO sits in `outbound/`.
+
+    **Their GO comes AFTER our HOLD, and it has to** (2026-09-25). This fixture put
+    their GO at lap 3 and our HOLD at lap 4, so the round closed at lap 3 and the HOLD
+    arrived after a terminal state — which since row C13a is a refused transition,
+    not the round's new state. The property this test is for is about which of OUR
+    laps speaks, and that only means something while the round is still open.
     """
     outbound, inbound, verified = _round_dirs(tmp_path)
     (outbound / "round-12-lap-02.md").write_text(
         _closing(hs, "platterpus", 12, 2), encoding="utf-8"
     )
-    (inbound / "round-12-lap-03.md").write_text(
-        _closing(hs, "cyanrip-fork", 12, 3), encoding="utf-8"
-    )
-    (verified / "round-12-lap-04.md").write_text(
-        _closing(hs, "platterpus", 12, 4).replace(
+    (verified / "round-12-lap-03.md").write_text(
+        _closing(hs, "platterpus", 12, 3).replace(
             "HANDSHAKE-VERDICT: GO", "HANDSHAKE-VERDICT: HOLD"
         ),
         encoding="utf-8",
+    )
+    (inbound / "round-12-lap-04.md").write_text(
+        _closing(hs, "cyanrip-fork", 12, 4), encoding="utf-8"
     )
     lines = hs.round_status(root=tmp_path)
     assert any(line.endswith("OPEN") for line in lines), lines

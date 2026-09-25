@@ -182,6 +182,14 @@ def _closing(**overrides: str | None) -> str:
         "HANDSHAKE-OUR-PIN": "def5678",
         "HANDSHAKE-PEER-VERSION": "0.9.4-rc1+platterpus.4",
         "HANDSHAKE-PEER-PIN": "abc1234",
+        # WHAT THE LAP HOLDS, AND THE LEDGER (2026-09-25). Every real lap from round 9
+        # on carries INBOUND-HELD (row C23), and every one since round 22 the other
+        # two; the stand-in carried none of them, which was invisible while the gate
+        # read none of them. Once it did, this stand-in stopped closing — the gate was
+        # right and the stand-in was more permissive than the record it stands for.
+        "HANDSHAKE-INBOUND-HELD": "none",
+        "HANDSHAKE-INBOUND-OBSERVED": "none",
+        "HANDSHAKE-AGREED-CHANGES": "none",
         # Long enough to clear the evidence floor, because the FIXTURE WAS THINNER
         # THAN THE REAL RECORDS: it read "the suite, on the pair above" — 28
         # characters that name nothing — and six close/status tests depended on that
@@ -1082,8 +1090,24 @@ def test_the_newest_verification_file_supplies_the_verdict(
         encoding="utf-8",
     )
     lines = hs.round_status(tmp_path)
+    # **Since 2026-09-25 (row C13a) the round STAYS CLOSED**, because it closed at lap
+    # 1 and a terminal state is final (§4a). This asserted OPEN, which was v2's
+    # reopen. What the test protects — a since-withdrawn GO must not be what a
+    # release rests on — still holds, by a different route: the withdrawal is
+    # refused as an illegal transition and holds the release until a later round.
+    assert lines[0].endswith("CLOSED"), lines
+    refused = [ln for ln in lines if ln.startswith(hs.ILLEGAL_TRANSITION_PREFIX)]
+    assert refused and "round-9b.md declares HOLD" in refused[0], lines
+    assert hs.illegal_transition_blockers(lines) == refused
+
+    # And while the round is still OPEN, the newest file is what speaks: their file
+    # withdraws its GO, so nothing closed, and our lap-2 HOLD is our verdict.
+    (tmp_path / "inbound" / "round-9.md").write_text(
+        _closing(**{"HANDSHAKE-VERDICT": "OPEN"}), encoding="utf-8"
+    )
+    lines = hs.round_status(tmp_path)
     assert lines[0].endswith("OPEN"), lines
-    assert "HOLD" in lines[0]
+    assert "we-verified=yes (HOLD" in lines[0], lines
 
 
 def test_the_real_verification_files_all_declare_a_verdict(hs: ModuleType) -> None:
@@ -1420,16 +1444,15 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = (
-    "v6 landed 2026-09-23 as round 25 §0.1's close condition, ahead of the fork. "
-    "v6 §14: 'Neither gate implements 6 until this file is byte-identical in both "
-    "trees' — true only once their next lap lands our copy — and 'neither side "
-    "declares 6 until both have said, in a lap, that their gate implements it'. "
-    "Clear this in the commit that teaches the gate C43-C45, the amended C13a and "
-    "the K2 field split, with a row-named test for each."
-)
-#: History of this constant, newest first. **2026-09-23: non-empty again**, the v6
-#: bootstrap above. **Empty again from 2026-09-22 (later the
+_BOOTSTRAP_REASON: str = ""
+#: History of this constant, newest first. **Empty again from 2026-09-25**: the gate
+#: implements 6 (C43-C45, the amended C13a, the K2 field split, each with a row-named
+#: test), cleared in that commit as the reason itself required. It had read: *"v6
+#: landed 2026-09-23 as round 25 §0.1's close condition, ahead of the fork. v6 §14:
+#: 'Neither gate implements 6 until this file is byte-identical in both trees' … Clear
+#: this in the commit that teaches the gate C43-C45, the amended C13a and the K2 field
+#: split, with a row-named test for each."* **2026-09-23: non-empty again**, the v6
+#: bootstrap. **Empty again from 2026-09-22 (later the
 #: same day)**: the gate implements and declares 5, the shared file is v5, and the
 #: C37-C42 rows have tests — cleared in that commit, as the reason itself required.
 #: **2026-09-22, for one day: non-empty**, the v5 bootstrap — *"v5 landed as round 23
@@ -1479,9 +1502,16 @@ def test_the_required_field_set_matches_the_published_spec(hs: ModuleType) -> No
             "spec with no recorded reason — see _BOOTSTRAP_REASON"
         )
     else:
-        assert f"HANDSHAKE-PROTOCOL: {hs.PROTOCOL_VERSION}" in shared, (
-            f"we implement protocol v{hs.PROTOCOL_VERSION} and the shared spec "
-            "does not declare that version"
+        # The spec must DESCRIBE the version we implement, not merely mention it.
+        # This asserted the literal `HANDSHAKE-PROTOCOL: N` appeared somewhere in the
+        # file, which held for v5 only because row C41's text happened to quote it —
+        # v6 quotes no such line, so the check measured a coincidence. The changes
+        # section is where a version says what it is.
+        assert re.search(
+            rf"^## \d+[a-z]?\. Changes in v{hs.PROTOCOL_VERSION}\s*$", shared, re.M
+        ), (
+            f"we implement protocol v{hs.PROTOCOL_VERSION} and the shared spec has no "
+            f"'Changes in v{hs.PROTOCOL_VERSION}' section describing it"
         )
     # And our own doc must route a reader to the shared file rather than restating it.
     ours = hs.PROTOCOL_DOC.read_text(encoding="utf-8")
@@ -1530,7 +1560,9 @@ def test_a_mid_round_lap_is_not_held_to_the_full_section_list(
         "HANDSHAKE-FROM: cyanrip-fork\nHANDSHAKE-VERDICT: HOLD\n"
         "HANDSHAKE-APP-VERSION: platterpus 0.6.3\n"
         "HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1 (platterpus-fork-gabc1234)\n"
-        "HANDSHAKE-PIN: abc1234\n\n"
+        "HANDSHAKE-PIN: abc1234\n"
+        # Row C23: every real round-9 lap carries it, so the stand-in does too.
+        "HANDSHAKE-INBOUND-HELD: none\n\n"
         "# Round 9 lap 2\n\nA reply to your verification, scoped to what it answers.\n",
         encoding="utf-8",
     )
