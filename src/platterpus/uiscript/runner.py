@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING, Final
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
-from platterpus import __version__, build_info
+from platterpus import __version__, build_info, inbound_text
 from platterpus.uiscript import run_sizes
 from platterpus.uiscript.report import (
     CONCEPT,
@@ -1626,7 +1626,11 @@ class ScriptRunner(QObject):
         self._record(
             job.step,
             Outcome.PASS,
-            f"argv: {' '.join(job.argv)}\nexit: {code}\n{_bounded_output(output)}",
+            # Screened for the record a person reads (Critical rule #12, inbound).
+            # `_last_cyanrip_output` above stays raw: the `expect-*` verbs match
+            # what the ripper said, not our rendering of it.
+            f"argv: {' '.join(job.argv)}\nexit: {code}\n"
+            f"{_bounded_output(inbound_text.screen_text(output).text)}",
             elapsed=elapsed,
         )
 

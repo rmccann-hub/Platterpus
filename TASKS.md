@@ -44,14 +44,13 @@ it.
 forms. The pass covering the end of the file found them. This is the
 *"is the population closed?"* question from `CLAUDE.md`, asked of my own grep.
 
-**Two findings that are more than a row:**
-- **Critical rule #12 describes an inbound sanitiser the audit could not find.** The
-  rule says control characters and NULs are flagged and long lines bounded. The code
-  has only line-count elision (`rip_worker.py`). The rows `rule-12.inbound-sanitising` and *"Add the return-path sanitiser as the mirror"* are open. The
-  next step is to confirm, then either build it or correct the rule.
-- **A live composition-root violation.** `rig_check.py` constructs `CyanripImpl`
-  itself, not through `composition.py`, and no sweep would catch it (row `rule-1.composition-root`).
-
+**Two findings that are more than a row, both fixed the same day:**
+- **Critical rule #12 described an inbound sanitiser the code did not have.** It
+  does now (`inbound_text.py`). Building it found something worse: eight text-mode
+  reads had no `errors` policy, the rip's own pipe among them, so one byte that was
+  not UTF-8 ended the read. All eight are fixed, and a sweep refuses a new one.
+- **A composition-root violation.** `rig_check.py` built `CyanripImpl` itself. It now
+  goes through `composition.build_cyanrip_backend`, and a sweep refuses the shape.
 
 ## Round 24 — CLOSED on both gates 2026-09-23 on `3e01bb3` (`+platterpus.14`): ours at our lap 2, theirs at their lap 3
 
@@ -723,9 +722,10 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   (a) or (b) still undecided. Our r21 lap 4 §H2.
 - [ ] **E10. The post-cancel rescue sends a second signal ~2 s before the footer is
   written** — never raised with the fork; the ask is a measurement. TASKS@b8f89a2:669.
-- [ ] **E11. The inbound half of the seam is unguarded** — no return-path sanitiser; 13
+- [~] **E11. The inbound half of the seam is unguarded** — no return-path sanitiser; 13
   `QLabel(<non-literal>)` sites outside the PlainText sweep; no test that what reaches
   the user is what cyanrip said. TASKS@b8f89a2:3818–3821.
+  - *2026-09-25:* **Sanitiser done** (`inbound_text`, and `errors="replace"` on every text-mode read). The 13 `QLabel(<non-literal>)` sites are still unswept.
 - [ ] **E12. Outbound argv property gaps** — `_metadata_args` rejects control characters
   on 4 of 11 fields; `sanitise_cyanrip_args` misses line terminators; plus the rest of
   the 2026-08-28 list (TASKS@b8f89a2:1993–2028, not re-derived one by one).
@@ -2720,8 +2720,9 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 
 - [~] **`rule-1.adapters`** (ungated, small) — Critical rule #1 — external/unmaintained deps must go through an adapter module
   - *Audit 2026-09-25: partly done.* Covered: test_critical_rules_are_enforced::test_no_flagged_dependency_is_imported_outside_an_adapter plus the classification ratchet (e398553). Not covered: CLI dependencies are only checked as not imported, and runner.py and ripper_wrapper_probe.py spawn cyanrip outside adapters/.
-- [ ] **`rule-1.composition-root`** (ungated, small) — Critical rule #1 / architecture §2 — adapters are constructed only at the composition root
+- [x] **`rule-1.composition-root`** (ungated, small) — Critical rule #1 / architecture §2 — adapters are constructed only at the composition root
   - *Audit 2026-09-25: confirmed open.* A live violation found by the audit: rig_check.py:224 constructs CyanripImpl(binary_path=...) outside composition.py, and no sweep would catch it.
+  - *2026-09-25:* **Done.** `rig_check.py` now builds the adapter through `composition.build_cyanrip_backend`, and `tests/test_composition.py::test_only_the_composition_root_constructs_the_owned_adapters` sweeps `src/` for a direct construction of `CyanripImpl` or `MusicBrainzNgsImpl`, with a floor and a twin that proves it fires. The trivial zero-argument adapters stay inline, as `composition.py`'s docstring decides.
 - [x] **`rule-10.future-annotations`** (ungated, small) — Critical rule #10 — `from __future__ import annotations` in every module
   - *Audit 2026-09-25: done.* test_critical_rules_are_enforced::test_every_module_declares_future_annotations (AST, floor of 120 modules), e398553.
 - [x] **`rule-10.signal-payloads`** (ungated, small) — Critical rule #10 — Signal payload types are named in a comment beside `Signal(object)`
@@ -2739,8 +2740,9 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *Audit 2026-09-25: partly done.* A bare `# type: ignore` is refused by mypy's ignore-without-code. A bare Any is not (disallow_any_explicit is off), and the required `# reason` suffix is not checked.
 - [x] **`rule-12.challenge-ledger`** (ungated, medium) — Critical rule #12 — the fork's challenge mandate is settled by COUNTING, in a ledger
   - *Audit 2026-09-25: done.* tests/test_challenge_ledger_count.py (3bab6e6): a row floor, parsed verdicts, and the headline derived from the rows.
-- [ ] **`rule-12.inbound-sanitising`** (ungated, medium) — Critical rule #12 — the INBOUND half: control characters and NULs flagged, line lengths bounded
+- [x] **`rule-12.inbound-sanitising`** (ungated, medium) — Critical rule #12 — the INBOUND half: control characters and NULs flagged, line lengths bounded
   - *Audit 2026-09-25: confirmed open.* The audit found no inbound sanitiser on the ripper-output path (only line-count caps), although Critical rule #12 describes one. To be confirmed, then built or the rule corrected.
+  - *2026-09-25:* **Done.** `src/platterpus/inbound_text.py` screens each line: control characters become `\xNN` escapes, lines over 65,536 characters keep head and tail with the cut counted, and U+FFFD is counted. The rip worker screens once per pipe line, for the log pane and the record, and the capture ends with what was changed. Parsers still read the raw line. Checking this found a worse hole, now fixed: eight text-mode reads had no `errors` policy, so one byte that was not UTF-8 ended the read (the rip's own pipe among them). `tests/test_inbound_text.py` sweeps every text-mode subprocess call for one.
 - [~] **`rule-12.plaintext`** (partial, medium) — Critical rule #12 — every widget carrying dependency output is PlainText
   - *Audit 2026-09-25: partly done.* test_message_boxes_are_plaintext sweeps QMessageBox only; the 13 QLabel(non-literal) sites are unswept.
 - [~] **`rule-4.one-transcode-adapter`** (partial, medium) — Critical rule #4 — one transcode adapter, no bespoke per-encoder install code
@@ -3995,6 +3997,7 @@ and only the argv proves the second.
    error dialog and the user never learns text went missing. Sweep, don't
    spot-fix.
   - *Audit 2026-09-25: partly done.* The QMessageBox PlainText sweep exists; QLabels are unswept and no inbound line sanitiser was found.
+  - *2026-09-25:* The sanitiser half is done (`inbound_text`). The QLabel sweep is what keeps this row open.
 4. **[~] The console dialog**, gated behind two separate Settings toggles (show the
    console; allow unsafe verbs), plus the Tools menu entry.
   - *Audit 2026-09-25: partly done.* Tools → Run test script… and test_script_allow_unsafe exist; there is no "show the console" toggle.
@@ -4748,8 +4751,9 @@ The maintainer asked the mirror of the argv question: *"do all logs and commands
 
 - **[~] Pin every user-facing widget that can carry dependency output to `PlainText`**, and add a sweep test asserting no `QLabel`/`QMessageBox` receiving tool output is left on `AutoText`. The sweep matters more than the individual fixes — this is a rule to enforce across the codebase, not at the one place it was found (`docs/testing.md` §5.o).
   - *Audit 2026-09-25: partly done.* The QMessageBox sweep exists (tests/test_message_boxes_are_plaintext.py); the 13 QLabel(<non-literal>) sites are not swept.
-- **[ ] Add the return-path sanitiser as the mirror of `sanitise_cyanrip_args`**: strip/flag control characters and NULs, bound absurd line lengths (a 10 MB single line will freeze the GUI thread rendering it), and preserve everything else verbatim. It must **never silently drop** — an elision is counted and marked, same rule as the argv side.
+- **[x] Add the return-path sanitiser as the mirror of `sanitise_cyanrip_args`**: strip/flag control characters and NULs, bound absurd line lengths (a 10 MB single line will freeze the GUI thread rendering it), and preserve everything else verbatim. It must **never silently drop** — an elision is counted and marked, same rule as the argv side.
   - *Audit 2026-09-25: confirmed open.* Confirmed: no control-character/NUL flagging or per-line length cap on ripper output, only head-and-tail line-count elision (rip_worker.py).
+  - *2026-09-25:* **Done** as `inbound_text` (see the `rule-12.inbound-sanitising` row). The QLabel half of rule #12's plain-text pinning is still open, in its own rows.
 - **[x] Institutionalised in both repos.** The clause is now a bullet of Critical rule #12 in `CLAUDE.md` (which is the bidirectional-seam rule and already carries the "this rule lives in both repos" obligation), and the fork's half is drafted ready to send as [`docs/handshake/verified/round-07-lap-29.md`](docs/handshake/verified/round-07-lap-29.md) §S. That file describes **our own two defects** rather than proposing a clause from a clean position, asks which of their routes reach the ripping core, and asks for confirmation the clause landed on their side so the next round can cite it instead of re-arguing it.
 - **[ ] Make it a two-way contract test.** The input half is `tests/test_argv_surface_agreement.py`. The output half has parser tests but nothing asserting *what reaches the user* is what cyanrip said. That asymmetry is the same one that let the `-V` blocker ship for a full round.
 

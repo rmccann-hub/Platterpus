@@ -3774,3 +3774,54 @@ def test_a_finished_track_is_marked_done_on_every_build_wording(
     assert any(s.startswith(f"Track 1 done {outcome}") for s in sigs.statuses), (
         sigs.statuses
     )
+
+
+def test_the_rippers_output_is_screened_for_the_record_and_the_log_pane(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Critical rule #12, the inbound half, at the worker that reads the pipe.
+
+    Control characters become visible escapes, an over-long line keeps its head
+    and tail, a byte that was not UTF-8 is counted, and the capture says what was
+    screened. Until 2026-09-25 nothing did any of this: the rule described a
+    screen the code did not have.
+    """
+    from platterpus import inbound_text
+
+    long_line = "Invoked as: " + "x" * (inbound_text.MAX_LINE_CHARS + 500) + " END"
+    handle = _FakeHandle(
+        [
+            "cyanrip 0.9.4",
+            "Track 1 title: bad\x00byte\x1b[2J",
+            long_line,
+            "not \ufffd utf-8",
+            "an ordinary line",
+        ]
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    shown: list[str] = []
+    worker.log_line.connect(shown.append)
+    worker.start_rip()
+
+    captured = worker.captured_stdout
+    assert "bad\\x00byte\\x1b[2J" in captured
+    assert "\x00" not in captured and "\x1b" not in captured
+    assert "characters of this line elided here" in captured and " END" in captured
+    assert "an ordinary line" in captured
+    assert captured.splitlines()[-1].startswith(
+        "[platterpus] 3 line(s) of this output were screened"
+    ), captured.splitlines()[-1][:200]
+    pane = [s for s in shown if "bad" in s or "Invoked" in s]
+    assert pane and all("\x00" not in s and "\x1b" not in s for s in pane)
+    assert max(len(s) for s in shown) < inbound_text.MAX_LINE_CHARS + 200
+
+
+def test_clean_ripper_output_carries_no_screening_note(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The note appears only when screening changed something, or it is noise."""
+    handle = _FakeHandle(["cyanrip 0.9.4", "Track 1 title: Café"])
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+    assert "Track 1 title: Café" in worker.captured_stdout
+    assert "were screened" not in worker.captured_stdout

@@ -2022,3 +2022,32 @@ def test_the_track_range_check_says_so_when_it_CANNOT_run(
     assert not any("range check did NOT run" in r.message for r in caplog.records), (
         "the warning fired when the total WAS known, so it says nothing"
     )
+
+
+def test_a_rip_keeps_reading_past_a_byte_that_is_not_utf8(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real rip Popen, against a stand-in binary that prints Latin-1.
+
+    Until 2026-09-25 the rip pipe was opened ``text=True`` with no ``errors``
+    policy, so the first byte that was not UTF-8 raised ``UnicodeDecodeError``
+    and the worker's read loop stopped reading the ripper, losing the line
+    before it too. A disc's CD-TEXT is a realistic source: it is often Latin-1.
+    """
+    binary = tmp_path / "cyanrip"
+    binary.write_text(
+        "#!/bin/sh\nprintf 'before\\nCD-TEXT: caf\\351\\nafter\\n'\n", encoding="utf-8"
+    )
+    binary.chmod(0o755)
+    impl = CyanripImpl(binary_path=str(binary))
+    monkeypatch.setattr(impl, "version", lambda: "cyanrip 0.9.3")
+    handle = impl.rip(
+        drive="/dev/sr0",
+        release_id="",
+        output_dir=tmp_path / "out",
+        track_template="%t - %n",
+        disc_template="",
+    )
+    lines = list(handle.log_lines())
+    handle.wait(timeout=10)
+    assert lines == ["before", "CD-TEXT: caf\ufffd", "after"]

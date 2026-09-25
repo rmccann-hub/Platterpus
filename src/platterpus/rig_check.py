@@ -218,10 +218,11 @@ def _compose_reference_argv(binary: str, device: str, build_tag: str) -> list[st
     Returns the argv **without** ``argv[0]`` — the caller puts the binary back at
     the front along with the ``-j`` record path.
     """
-    from platterpus.adapters.cyanrip_backend import CyanripImpl
     from platterpus.adapters.rip_backend import RipMetadata, TrackTag
+    from platterpus.composition import build_cyanrip_backend
 
-    backend = CyanripImpl(binary_path=binary)
+    # Through the composition root, like every other construction of the adapter.
+    backend = build_cyanrip_backend(binary)
     metadata = RipMetadata(
         album_artist="Platterpus",
         album_title="Rig Check",
@@ -360,6 +361,7 @@ def check_argv_reaches_the_binary(
             full,
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=PROBE_TIMEOUT_S,
             check=False,
         )
@@ -481,6 +483,7 @@ def check_ripper_identity(manifest: Manifest, binary: str) -> str:
             [binary, "-v"],
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=PROBE_TIMEOUT_S,
             check=False,
         )

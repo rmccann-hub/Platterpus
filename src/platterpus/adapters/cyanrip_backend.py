@@ -471,6 +471,7 @@ class CyanripImpl(RipBackend):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            errors="replace",
             bufsize=1,
             start_new_session=True,
         )

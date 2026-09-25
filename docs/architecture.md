@@ -426,6 +426,15 @@ comments accurate too — they document *which* mixin owns each concern).
 - **Surface the actionable line to the user; keep the full detail in the log**
   (e.g. the dependency-summary "Install failures" block shows the last error
   line and points at the log).
+- **A text-mode pipe says what to do with a byte it cannot decode.** Every
+  subprocess read with `text=True` (or `encoding=`) passes `errors="replace"`.
+  Without it, the first byte that is not UTF-8 raises `UnicodeDecodeError`, and
+  the read ends, taking the line before the byte with it. Eight reads had no
+  policy until 2026-09-25, the rip's own pipe among them, and a disc's CD-TEXT
+  is a realistic source of such a byte. `tests/test_inbound_text.py` sweeps for
+  it. What such a read then shows a person goes through `inbound_text` (escapes
+  for control characters, a bound on line length, the count of what changed).
+  Parsers read the raw text.
 - **Two audiences, two artifacts (maintainer's call, 2026-07-01).** Platterpus's
   app log lands in exactly two places — *not* redundant — and there is **no**
   standalone `.platterpus.log` sidecar:
