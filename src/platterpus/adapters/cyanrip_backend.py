@@ -1625,7 +1625,9 @@ def scheme_from_template(template: str, *, year: str = "") -> str:
                 i += 2
                 continue
             log.warning("no cyanrip mapping for template token %r — kept", token)
-            out.append(token)
+            # Kept, but a brace in it is still a brace: "%{album}" used to reach
+            # cyanrip as "%{album)", an unterminated "{" that refuses the rip.
+            out.append(token.replace("{", "(").replace("}", ")"))
             i += 2
             continue
         if ch == "{":
