@@ -15,6 +15,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from platterpus import settings_validation as sv
+from platterpus.adapters.cyanrip_backend import scheme_from_template
 from platterpus.config import Config
 
 
@@ -487,6 +488,130 @@ def test_cross_fs_trailing_dot_or_space_flagged() -> None:
     assert any("dot/space" in h for h in cross_fs_hazards("Best Of./%t"))
     assert any("dot/space" in h for h in cross_fs_hazards("Best Of /%t"))
     assert cross_fs_hazards("Best Of/%t") == []
+
+
+# --- cross_fs_hazards: the properties ----------------------------------------
+#
+# The portability warning makes two claims, and each is checked against
+# something other than its own implementation:
+#
+#  1. **Characters.** It names exactly the Windows-reserved characters that the
+#     template writes into EVERY rip's path — so the reference is what the argv
+#     builder actually hands cyanrip (`scheme_from_template`), not a second
+#     scanner. (This is also where the "%%-unfold runs before token blanking"
+#     question is settled: blanking only ever removes a "%" and a letter, and no
+#     letter is reserved, so the order cannot change which characters are named.)
+#  2. **Segments.** A segment holding a TAG token is value-dependent and is not
+#     judged; every other segment is judged on the text it puts in the path. The
+#     oracle is built with the template: each segment is drawn with the verdict it
+#     must get.
+
+_RESERVED_CHARS = frozenset('<>:"\\|?*')
+
+
+def _named_characters(hazards: list[str]) -> set[str]:
+    """The reserved characters a hazard list names (the one char-scan message)."""
+    prefix, suffix = "the character(s) ", " are reserved on Windows"
+    named: set[str] = set()
+    for hazard in hazards:
+        if hazard.startswith(prefix) and hazard.endswith(suffix):
+            named |= set(hazard[len(prefix) : -len(suffix)].split(" "))
+    return named
+
+
+@given(
+    template=st.one_of(
+        st.text(max_size=40),
+        st.text(alphabet='<>:"\\|?*%AadntyYNz{}/ .', max_size=30),
+    )
+)
+@settings(max_examples=300, deadline=None)
+def test_cross_fs_names_exactly_the_reserved_chars_that_reach_the_path(
+    template: str,
+) -> None:
+    from platterpus.settings_validation import cross_fs_hazards
+
+    written = set(scheme_from_template(template, year="1995")) & _RESERVED_CHARS
+    assert _named_characters(cross_fs_hazards(template)) == written
+
+
+def _quoted_segments(hazards: list[str], marker: str) -> set[str]:
+    """The segments named by every hazard containing ``marker``."""
+    return {h.split("“", 1)[1].split("”", 1)[0] for h in hazards if marker in h}
+
+
+#: A plain word that is neither a reserved name nor ends in a dot or space.
+_CLEAN_WORD = st.text(alphabet="abcxyz019-_()", min_size=1, max_size=6).filter(
+    lambda w: w.lower() not in {"con", "prn", "aux", "nul"}
+)
+#: Letters that are not tokens anywhere: an unknown "%q" is kept in the path as
+#: typed. "N" is excluded on purpose — the backend maps "%N" to cyanrip's {disc}
+#: while this validator does not know it, so its verdict is not settled here.
+_UNKNOWN_TOKEN = st.sampled_from("bcefgqzBCDEFG").map(lambda c: "%" + c)
+#: A piece of text containing a "%" that is NOT a tag token.
+_PERCENT_LITERAL = st.one_of(st.just("%%"), _UNKNOWN_TOKEN)
+
+
+@st.composite
+def _segment_with_verdict(draw: st.DrawFn) -> tuple[str, bool, bool]:
+    """``(segment, is_reserved_name, ends_in_dot_or_space)`` as the path sees it."""
+    kind = draw(st.sampled_from(["reserved", "trailing", "clean", "token"]))
+    percent = draw(st.one_of(st.just(""), _PERCENT_LITERAL))
+    if kind == "reserved":
+        name = draw(st.sampled_from(sorted(sv._WINDOWS_RESERVED_NAMES)))
+        name = "".join(c.upper() if draw(st.booleans()) else c for c in name)
+        # Windows reserves "CON.anything" too; a "%" after the dot is still text.
+        ext = draw(st.sampled_from(["", ".flac", ".txt"]))
+        return (name + (ext + percent if ext else ""), True, False)
+    if kind == "trailing":
+        word = draw(_CLEAN_WORD)
+        tail = draw(st.sampled_from([".", " ", "..", ". "]))
+        return (word + percent + tail, False, True)
+    if kind == "clean":
+        word = draw(_CLEAN_WORD)
+        return (word + percent + draw(_CLEAN_WORD), False, False)
+    # A tag token makes the segment value-dependent, however hazardous the rest
+    # of it looks: "aux %A" is a name the ALBUM ARTIST decides.
+    token = "%" + draw(st.sampled_from(sorted(sv._KNOWN_TEMPLATE_TOKENS)))
+    decoy = draw(st.sampled_from(["aux ", "CON.", "Best Of.", ""]))
+    return (
+        decoy + token + percent + draw(st.sampled_from(["", ".", " "])),
+        False,
+        False,
+    )
+
+
+@given(segments=st.lists(_segment_with_verdict(), min_size=1, max_size=6))
+@settings(max_examples=300, deadline=None)
+def test_cross_fs_judges_every_segment_that_holds_no_tag_token(
+    segments: list[tuple[str, bool, bool]],
+) -> None:
+    from platterpus.settings_validation import cross_fs_hazards
+
+    hazards = cross_fs_hazards("/".join(seg for seg, _, _ in segments))
+    assert _quoted_segments(hazards, "reserved device name") == {
+        seg for seg, reserved, _ in segments if reserved
+    }
+    assert _quoted_segments(hazards, "dot/space") == {
+        seg for seg, _, trailing in segments if trailing
+    }
+
+
+def test_a_percent_that_is_not_a_tag_token_does_not_hide_a_segment() -> None:
+    """Regression (found by the property above, 2026-09-25).
+
+    The segment checks skipped any segment containing a "%", on the reasoning
+    that a TOKEN makes it value-dependent. But "%%" is a literal percent and an
+    unknown "%q" is kept as typed, so those segments reach the path verbatim —
+    and "CON.%%" is the reserved device name CON with an extension.
+    """
+    from platterpus.settings_validation import cross_fs_hazards
+
+    assert any("reserved device name" in h for h in cross_fs_hazards("CON.%%/%t"))
+    assert any("dot/space" in h for h in cross_fs_hazards("Bonus%%./%t"))
+    assert any("dot/space" in h for h in cross_fs_hazards("Take %q./%t"))
+    # A real tag token still defers the verdict to rip time.
+    assert cross_fs_hazards("CON.%A/%t") == []
 
 
 # --- Library folder (optional dir — auto-move feature) ------------------------
