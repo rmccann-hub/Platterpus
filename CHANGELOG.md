@@ -6,7 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project
 adheres to [Semantic Versioning](https://semver.org/); dates are ISO-8601
 (YYYY-MM-DD). The version itself is single-sourced from
 `src/platterpus/__init__.py` (`__version__`); at release time the `[Unreleased]`
-entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
+entries move under a dated `## [X.Y.Z]` heading. A heading with no link names a
+version that has no tag on GitHub; see *Earlier versions* near the end. (Design decisions live in
 `PLANNING.md` KDDs and `docs/session-log.md` — not here.)
 
 ## [Unreleased]
@@ -37,6 +38,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 - **The rig check builds its test command the same way everything else does**
   (contributor-facing). It had built the ripper adapter directly, outside the one
   place that is meant to. A test now refuses that.
+- **This changelog's links now all lead somewhere.** 85 versions it lists have no tag
+  on GitHub: everything before 0.6.4, and seventeen later ones. Their comparison
+  links led nowhere and are removed, and a note near the end says which versions
+  they are. Three links that compared from an untagged version now compare from the
+  previous tagged one, and 0.6.4's opens its release page. A test refuses a link to
+  an untagged version.
 
 ### Changed
 
@@ -10635,6 +10642,15 @@ for the two builds by name.
   round, four rounds in. Two tests now derive the expected rounds from the directories and
   assert the file does not teach the superseded rule.
 
+## Earlier versions (history only: no tag on GitHub)
+
+**Every version from here down has no tag or release on GitHub**, so its heading has
+no comparison link. GitHub's tags and releases start at v0.6.4 (59 tags, checked
+2026-09-25). These entries are kept as the record of what each version contained.
+Seventeen later versions have no tag either, and their headings are unlinked for the
+same reason: 0.6.4b1–b11, 0.6.4b13–b15, 0.6.7, 0.6.27 and 0.6.46. The links for
+0.6.8, 0.6.28 and 0.6.47 compare from the previous version that has a tag.
+
 ## [0.6.3] — 2026-08-03
 
 ### Added
@@ -15612,8 +15628,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 [0.6.50]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.49...v0.6.50
 [0.6.49]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.48...v0.6.49
 [0.6.48]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.47...v0.6.48
-[0.6.47]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.46...v0.6.47
-[0.6.46]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...v0.6.46
+[0.6.47]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...v0.6.47
 [0.6.45]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.44...v0.6.45
 [0.6.44]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.43...v0.6.44
 [0.6.43]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.42...v0.6.43
@@ -15631,8 +15646,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 [0.6.31]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.30...v0.6.31
 [0.6.30]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.29...v0.6.30
 [0.6.29]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...v0.6.29
-[0.6.28]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.27...v0.6.28
-[0.6.27]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...v0.6.27
+[0.6.28]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...v0.6.28
 [0.6.26]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...v0.6.26
 [0.6.25]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...v0.6.25
 [0.6.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...v0.6.24
@@ -15656,93 +15670,10 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 [0.6.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.10...v0.6.11
 [0.6.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.9...v0.6.10
 [0.6.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.8...v0.6.9
-[0.6.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.7...v0.6.8
-[0.6.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.6...v0.6.7
+[0.6.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.6...v0.6.8
 [0.6.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4...v0.6.5
-[0.6.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b15...v0.6.4
-[0.6.4b15]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b14...v0.6.4b15
-[0.6.4b14]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b13...v0.6.4b14
-[0.6.4b13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...v0.6.4b13
-[0.6.4b11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b10...v0.6.4b11
-[0.6.4b10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...v0.6.4b10
-[0.6.4b9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...v0.6.4b9
-[0.6.4b8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b7...v0.6.4b8
-[0.6.4b7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b6...v0.6.4b7
-[0.6.4b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b5...v0.6.4b6
-[0.6.4b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b4...v0.6.4b5
-[0.6.4b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b3...v0.6.4b4
-[0.6.4b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b2...v0.6.4b3
-[0.6.4b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b1...v0.6.4b2
-[0.6.4b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...v0.6.4b1
-[0.6.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.2...v0.6.3
-[0.6.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.1...v0.6.2
-[0.6.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...v0.6.1
-[0.6.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.21...v0.6.0
-[0.5.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.20...v0.5.21
-[0.5.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.19...v0.5.20
-[0.5.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.18...v0.5.19
-[0.5.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.17...v0.5.18
-[0.5.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.16...v0.5.17
-[0.5.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.15...v0.5.16
-[0.5.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.14...v0.5.15
-[0.5.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...v0.5.14
-[0.5.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...v0.5.13
-[0.5.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...v0.5.12
-[0.5.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.10...v0.5.11
-[0.5.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.9...v0.5.10
-[0.5.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.8...v0.5.9
-[0.5.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.7...v0.5.8
-[0.5.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.6...v0.5.7
-[0.5.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...v0.5.6
-[0.5.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...v0.5.5
-[0.5.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...v0.5.0
-[0.4.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...v0.4.24
-[0.4.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.22...v0.4.23
-[0.4.22]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.21...v0.4.22
-[0.4.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.20...v0.4.21
-[0.4.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.19...v0.4.20
-[0.4.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.18...v0.4.19
-[0.4.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.17...v0.4.18
-[0.4.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.16...v0.4.17
-[0.4.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.15...v0.4.16
-[0.4.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.14...v0.4.15
-[0.4.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.13...v0.4.14
-[0.4.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.12...v0.4.13
-[0.4.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.11...v0.4.12
-[0.4.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.10...v0.4.11
-[0.4.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.9...v0.4.10
-[0.4.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.8...v0.4.9
-[0.4.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.7...v0.4.8
-[0.4.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.6...v0.4.7
-[0.4.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.5...v0.4.6
-[0.4.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.4...v0.4.5
-[0.4.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.2...v0.4.4
-[0.4.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.1...v0.4.2
-[0.4.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.10...v0.4.0
-[0.3.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.9...v0.3.10
-[0.3.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.8...v0.3.9
-[0.3.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.7...v0.3.8
-[0.3.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.6...v0.3.7
-[0.3.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.5...v0.3.6
-[0.3.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.4...v0.3.5
-[0.3.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.3...v0.3.4
-[0.3.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.2...v0.3.3
-[0.3.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.1...v0.3.2
-[0.3.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.0...v0.3.1
-[0.3.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.8...v0.3.0
-[0.2.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.7...v0.2.8
-[0.2.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.6...v0.2.7
-[0.2.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.5...v0.2.6
-[0.2.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.4...v0.2.5
-[0.2.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.3...v0.2.4
-[0.2.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.2...v0.2.3
-[0.2.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.1...v0.2.2
-[0.2.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.1
-[0.2.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.1.0
-[0.0.1]: https://github.com/rmccann-hub/Platterpus/releases
+[0.6.4]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.6.4
 
 ---
 

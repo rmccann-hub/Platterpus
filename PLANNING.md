@@ -1381,3 +1381,58 @@ a goal, not polish — which raises, not lowers, the bar for what may go in it. 
 field must be something we *observed*, the tri-state rule applies to all of it, and
 a gap is recorded as a gap rather than filled with a plausible value. That is the
 only way a format earns the standing this KDD aims at.
+
+### KDD-37 — Fifteen maintainer rulings on product, release and seam questions (decided 2026-09-25)
+
+**Context.** The 2026-09-25 TASKS triage found fifteen rows that only the maintainer
+could settle. They were put as questions with options, their ups and downs, and a
+recommendation (`TASKS.md` → *Maintainer decisions D1–D15*, where each one's full
+options are kept). The maintainer answered all fifteen the same day. Recorded here
+because several of them change what the code will do, and three differ from the
+recommendation, which is exactly when the reason has to survive.
+
+| # | Question | Ruling |
+|---|---|---|
+| D1 | May a new cyanrip build reach stable before a round reviews it? | **No.** Beta first; stable only after a round reviews it. Proposed to the fork as v7 release-ordering text. |
+| D2 | Tag-key casing | **Uniform capitals, written by cyanrip**, with both `DISCTOTAL` and `TOTALDISCS`. A tag-format change, so it costs a round. |
+| D3 | Where "Copy diagnostics…" lives | **Help**, where people look when something is wrong. |
+| D4 | The testing items in Tools | **A Tools → Advanced ▸ submenu.** Uninstall stays visible. |
+| D5 | How the app learns a build accepts `--consumer` | **Ask the binary**: read `cyanrip -h`, cached per build; send no flag when it cannot be read. Replaces the shipped accept-set. |
+| D6 | May the Goal label describe settings no preset controls? | **No.** Rename the presets to descriptive names, and show state outside every preset on its own line. Stored goal IDs do not change. |
+| D7 | CHANGELOG entries for versions with no GitHub tag | **Mark them as history and remove the dead links.** Done the same day. |
+| D8 | Measure the read offset with `-f`? | **Yes, as a cross-check**, and as the answer for a drive missing from the AccurateRip list. Both values shown, never a silent overwrite; hardware-validated before it ships. |
+| D9 | When to arm update signing | **Never.** The app's check stays the SHA-256; the attestation is published for a person to verify. |
+| D10 | README screenshots | **From the next Full run's bundle**, two picked and approved. |
+| D11 | Where the automatic re-rip's own log goes | **Inside the rip's `.platterpus.json`.** No second `.log` in the album folder. |
+| D12 | Hide the test-script console behind a setting? | **No.** Keep today's arrangement; it moves under Advanced with D4. |
+| D13 | What a cancelled rip says about itself | **The JSON report only.** cyanrip's log stays exact; no sidecar. |
+| D14 | A control character in a MusicBrainz-only tag | **Replace it with a space and record the change in the report.** The four path fields still refuse. |
+| D15 | Should a beta stop being offered? | **Yes, when its round closes or a newer beta appears.** |
+
+**The three that differ from the recommendation, and what was accepted with them.**
+
+- **D2 (recommended A, keep the casing and document it).** Accepted: one handshake
+  round for a change nothing needed functionally, and a library whose earlier rips
+  differ from later ones. Bought: tags that match EAC and Picard key for key, which
+  is what makes a diff against an EAC rip of the same disc readable. Our side's
+  obligation before it lands: check that nothing of ours reads a tag key
+  case-sensitively (the folder prediction in `known_album_folder` included).
+- **D8 (recommended leaving it until after 1.0).** Accepted: a new parser and a
+  hardware test on the setup path now. Bought: a drive missing from the AccurateRip
+  list gets a measured offset rather than a typed one, and a wrong list entry gets
+  caught. The 2026-06 removal was for silently overwriting the offset, and that is
+  forbidden by the ruling itself.
+- **D9 (recommended arming just before 1.0.0).** Accepted: an update is only as
+  trustworthy as whoever can publish a release. The app checks a SHA-256 fetched from
+  the same release, which proves the download is intact and not who published it; the
+  build-provenance attestation is published for a person to check, and the updater does
+  not check it. (The question put to the maintainer said the attestation protected
+  updates. It does not, and the correction is recorded under D9 in `TASKS.md`.) Bought: releases stay
+  unattended from a session, and no key exists that can be lost, which would end
+  updates for good. The verify side stays in the code, dormant, so the decision can
+  be reversed by the ritual in `docs/architecture.md` §6.2 without rediscovering it.
+
+**Consequence.** D3, D9 and D12 need nothing built, D7 is done, and the rest are
+ready-to-build rows in `TASKS.md`, each naming its decision. One new question came out
+of recording D9: whether to verify the attestation inside the updater, which needs a
+dependency not in `DEPENDENCIES.md` and so is the maintainer's to allow.

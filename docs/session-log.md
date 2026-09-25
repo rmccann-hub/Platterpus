@@ -11,6 +11,38 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-25 — the maintainer's fifteen answers, recorded; two of my own claims corrected
+
+The maintainer answered D1–D15. Each answer is on its `Answer:` line in `TASKS.md`,
+and the reasoning is in `PLANNING.md` KDD-37. Three answers differ from my
+recommendation: D2 (tags in capitals, written by cyanrip), D8 (`-f` offset
+measurement now), and D9 (update signing never armed).
+
+- **Every row the questions blocked now says what to build**, not *waiting on the
+  maintainer*. Five closed on the answer alone. One new row carries D6's build. D1,
+  D2 and D15 join our next lap as `NEXT-ROUND` items. A table in `TASKS.md` says
+  where each answer's work lives.
+- **D7 is done: the CHANGELOG's dead links.** Checking the question's own number
+  against GitHub's tag list found it was too small. I had said 63 headings; there
+  are 67 before v0.6.4, and 17 more after it (fourteen 0.6.4 betas, 0.6.7, 0.6.27,
+  0.6.46). All 85 of their link rows are removed, including one (`[0.5.6]`) with no
+  heading. Three links that compared from an untagged version now compare from the
+  previous tag. The link test's floor went from 100 to 55, with the reason written
+  beside it, because the floor guards a broken pattern and 60 rows remain. Two new
+  tests keep dead links out and live ones in; three reverts probed, three detected.
+- **D9's question was wrong about what protects an update, and that matters more
+  than the answer.** I wrote that an update is protected by its SHA-256 *and* the
+  build attestation. The updater checks only the SHA-256, fetched from the same
+  release, so it proves the file is intact, not who published it. Nothing in the
+  app checks the attestation. An audit note from the same day said *"verification
+  is wired in update_install.py"*. That is the dormant minisign check, and I
+  carried the note into the question without opening the file. The correction is
+  under D9, in KDD-37, in `docs/architecture.md` §6.2 and in `CLAUDE.md`. A new row
+  asks whether to verify the attestation in the app, which needs a new dependency.
+  The lesson is already a rule here (*"am I answering from the artifact, or from my
+  memory of it?"*). It was broken inside a question put to the maintainer for a
+  decision, which is where it costs most.
+
 ## 2026-09-25 — the audit's findings fixed, and a triage of everything still open
 
 **The two findings, fixed** (fb92105):
