@@ -1504,6 +1504,17 @@ situation, including branches that don't have a published release yet.
 | Manual run on **any branch** | `appimage.yml` (`workflow_dispatch`) | Same — a downloadable AppImage artifact for a branch with no release. (Run artifacts expire — 90 days by default; re-run the workflow to regenerate one.) |
 | Push a `vX.Y.Z` tag **or dispatch the Release workflow with the tag as input** (Actions → Release → *Run workflow* — it creates the tag itself; the only route that works from cloud sessions) | `.github/workflows/release.yml` | Builds, checksums, and **publishes** the AppImage + its `.sha256` + `.zsync` (self-update) + `install.sh`/`install-appimage.sh` to a GitHub Release (`v0.*` → pre-release), then dispatches the PyPI publish. |
 
+**Before 2026-09-25, a `main` or branch AppImage was the LAST RELEASE, not the
+tree.** The build pinned `platterpus==<tree version>`, and between releases the tree
+carries the version just published, so PyPI's copy satisfied the pin and pip took
+it. `--version` read the same number, so the smoke test passed; its
+`(source)` suffix, where a locally built wheel prints its build stamp, was the
+only sign. The build now installs the built wheel by its **file path**, which only
+that file can satisfy (`tests/test_build_harness.py` runs the script's own
+substitution snippet). It was found by the bundled-verifier step, which asked a
+branch build for a module the branch had added. **Any hardware test run on a
+non-release AppImage artifact before this date tested the previous release.**
+
 **Testing `main`.** Every push to `main` runs the **AppImage** workflow. Confirm
 it's green in the **Actions** tab. To test the actual binary, open the latest
 `AppImage` run and download the `platterpus-x86_64.AppImage` artifact, then:

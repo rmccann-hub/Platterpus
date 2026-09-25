@@ -53,6 +53,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **The acceptance test's wrapper check no longer freezes the window.** It ran on
   the window's own thread, for up to about a minute. It now runs in the
   background, like the other checks that start processes.
+- **A test build of the AppImage now contains the code it was built from**
+  (contributor-facing). Builds of `main` or a branch between releases had been
+  bundling the last published release instead, because the build asked for "this
+  version" and PyPI already had it. They reported the right version number, so it
+  went unnoticed. The build now installs the package file it just made. Releases
+  were not affected: a release's version is new, so only the local build matched.
 - **The rig check builds its test command the same way everything else does**
   (contributor-facing). It had built the ripper adapter directly, outside the one
   place that is meant to. A test now refuses that.
