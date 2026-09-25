@@ -32,6 +32,26 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Fixed six problems found by new property tests.** Each could reach a rip or
+  its record:
+  - A folder or file template with a code the app did not recognise inside
+    braces, such as `%{album}`, reached the ripper with an unmatched brace, and
+    every rip then failed at the start. The brace now becomes a parenthesis.
+  - When the ripper could not run at all, the log check could report a genuine
+    archival log as "altered after the ripper signed it". It now says the log
+    was not checked.
+  - Two logs with the same unreadable Copy CRC (such as `n/a`) could be reported
+    as a bit-perfect match. Only real CRCs are compared now.
+  - Some Settings values (an unknown `~user` path, an over-long folder name, a
+    list where a choice belongs) crashed their check, which then counted as
+    passing. They are now caught and reset, and you are shown the reset. A
+    template segment containing `%%` is now checked for reserved names and a
+    trailing dot like any other.
+  - An unknown-album folder name could come out as `..` or crash on an unusual
+    character. It can do neither now.
+  - In a test script, a quoted command name corrupted the text an
+    `expect-cyanrip` step compares.
+
 - **Ticking a track the disc does not have no longer stops the whole rip.** The
   track list comes from MusicBrainz, which can list more tracks than the disc
   has. Ripping only some tracks sent their numbers to the ripper unchecked, and
@@ -113,6 +133,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   an untagged version.
 
 ### Changed
+
+- **Property tests for fourteen functions that handle outside input**
+  (contributor-facing): the CTDB CRC (with draws long enough to reach the CRC,
+  which the old test's never were), cue-sheet reading, the EAC-style log
+  writer, log decoding, output truncation, the argv readers, the name
+  sanitisers, Settings validation and the test-script parser. Each was
+  revert-probed; 65 reverts in all.
 
 - **Agent worktrees inside the repository are ignored by git** (contributor-facing).
   `.claude/worktrees/` holds separate checkouts the tooling creates; they are

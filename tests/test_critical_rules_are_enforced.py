@@ -1130,7 +1130,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     # **1578 -> 1594** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): the chokepoint applies `tag_hygiene` and logs each replacement.
     # **1594 -> 1638** (2026-09-25, TASKS `conv.argv-range`): `_tracks_on_disc` range-checks `-l` against the disc, which cyanrip enforces by refusing the whole rip. It belongs beside `_disc_args` and the `-t` check in `_metadata_args`, which are the same kind of guard.
-    "adapters/cyanrip_backend.py": 1638,
+    # **1638 -> 1640** (2026-09-25, the property-test batches): an unknown `%{…}` token's brace becomes a paren, so it cannot reach cyanrip as an unterminated `{` (TASKS `fuzz:adapters.cyanrip_backend.scheme_from_template`).
+    "adapters/cyanrip_backend.py": 1640,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1144,7 +1145,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # written at 22:02:15 — because the branch above it is the 2026-08-20
     # fix for the same field and a reader needs to see the two are different
     # questions, not a duplicate.
-    "adapters/ripper_log_verify.py": 467,
+    # **467 -> 473** (2026-09-25, the property-test batches): exit 127 from the wrapper is a missing ripper, not an altered log (`binary_missing`, as `flac_verify`).
+    "adapters/ripper_log_verify.py": 473,
     "adapters/transcode.py": 305,
     # **1349 -> 1356 on 2026-09-12** (+7): `--rig-session`'s default output
     # directory moved out of `$HOME` and under the one deletable parent, and the
@@ -1381,7 +1383,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
-    "diagnostics.py": 685,
+    # **685 -> 691** (2026-09-25, the property-test batches): `bounded_output` clamps its bounds and always keeps the tail.
+    "diagnostics.py": 691,
     # **411 -> 423 on 2026-09-10** (log-verification race, above):
     # `FORCE_STOP_COUNTDOWN_S` moved here from the UI module that arms the
     # timer, because the rip worker's log wait must outlast it. Two
@@ -1677,7 +1680,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **896 -> 922** (2026-09-24, #37 one home per setting): `field_error`, the ONE single-setting predicate the `set` verb and every save-as-you-change control share; it moved here from the runner so neither can restate it.
     # **922 -> 933** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): `is_control_char`, the one definition both rules share.
     # **933 -> 947** (2026-09-25): `is_control_char` widened to C1 and U+2028/2029, with the reason; the one definition belongs beside the validators that use it.
-    "settings_validation.py": 947,
+    # **947 -> 1004** (2026-09-25, the property-test batches): three rules no longer crash (and so pass) on an unhashable choice, an unknown `~user`, or an over-long component; and `%%` no longer hides a segment from the reserved-name and trailing-dot checks.
+    "settings_validation.py": 1004,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -1782,7 +1786,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/main_window_drive.py": 549,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "ui/main_window_helpers.py": 515,
+    # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
+    "ui/main_window_helpers.py": 521,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -2054,7 +2059,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "uiscript/runner.py": 4398,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
-    "uiscript/script.py": 345,
+    # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
+    "uiscript/script.py": 348,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
     # so a verb declared anywhere else would defeat the file. The comment is
