@@ -114,6 +114,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The documentation checks no longer read another checkout's files**
+  (contributor-facing). A git worktree nested inside the repository was walked
+  as part of it, so one check failed on a copy of the handshake record that was
+  not ours. The four repository-wide walks now share one helper that leaves
+  nested checkouts out.
+
 - **Every route to the ripper outside the adapter layer is now named and
   checked** (contributor-facing). Only two exist, each with its reason; the
   test-script runner must start the ripper through the adapter, never its own

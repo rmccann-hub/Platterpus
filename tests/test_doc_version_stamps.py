@@ -35,6 +35,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from conftest import repo_markdown_files
 
 from platterpus import __version__
 
@@ -332,7 +333,7 @@ def test_every_documented_kdd_range_ends_at_the_last_real_kdd() -> None:
     highest = max(numbers)
 
     stale: list[str] = []
-    for path in sorted(_REPO_ROOT.rglob("*.md")):
+    for path in repo_markdown_files(_REPO_ROOT):
         # The session log and the archive are dated HISTORY: an entry recording
         # "the range was KDD-01 … KDD-19 at the time" is correct, not drift.
         # Only living docs — the ones a contributor is told to trust — are held

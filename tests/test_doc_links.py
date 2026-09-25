@@ -29,6 +29,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from conftest import repo_markdown_files
+
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 #: A markdown inline link with a relative target: `[text](path)` or
@@ -44,11 +46,11 @@ _EXTERNAL_PREFIXES = ("http://", "https://", "//", "mailto:", "tel:")
 
 
 def _markdown_files() -> list[Path]:
-    return sorted(
+    return [
         p
-        for p in _REPO_ROOT.rglob("*.md")
+        for p in repo_markdown_files(_REPO_ROOT)
         if not _SKIP_DIRS & set(p.relative_to(_REPO_ROOT).parts)
-    )
+    ]
 
 
 def _strip_fences(text: str) -> str:
@@ -138,3 +140,20 @@ def test_external_links_are_skipped_on_purpose() -> None:
     text = doc.read_text(encoding="utf-8")
     assert "https://" in text, "README has no external links; this test is vacuous"
     assert not [t for t in _relative_links(doc) if t.startswith("http")]
+
+
+def test_a_NESTED_CHECKOUT_is_not_part_of_this_tree(tmp_path: Path) -> None:
+    """A git worktree inside the tree holds a `.git` FILE; its Markdown is another
+    checkout's, and reading it as ours failed a doc gate on 2026-09-25 while agent
+    worktrees sat under `.claude/worktrees/`."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "ours.md").write_text("x", encoding="utf-8")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "also-ours.md").write_text("x", encoding="utf-8")
+    nested = tmp_path / ".claude" / "worktrees" / "agent-x"
+    (nested / "docs").mkdir(parents=True)
+    (nested / ".git").write_text("gitdir: /elsewhere\n", encoding="utf-8")
+    (nested / "docs" / "theirs.md").write_text("x", encoding="utf-8")
+    (tmp_path / ".git" / "inside.md").write_text("x", encoding="utf-8")
+    found = [p.relative_to(tmp_path).as_posix() for p in repo_markdown_files(tmp_path)]
+    assert found == ["docs/also-ours.md", "ours.md"]
