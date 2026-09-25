@@ -148,12 +148,12 @@ def test_a_NESTED_CHECKOUT_is_not_part_of_this_tree(tmp_path: Path) -> None:
     worktrees sat under `.claude/worktrees/`."""
     (tmp_path / ".git").mkdir()
     (tmp_path / "ours.md").write_text("x", encoding="utf-8")
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "also-ours.md").write_text("x", encoding="utf-8")
+    (tmp_path / "notes").mkdir()
+    (tmp_path / "notes" / "also-ours.md").write_text("x", encoding="utf-8")
     nested = tmp_path / ".claude" / "worktrees" / "agent-x"
-    (nested / "docs").mkdir(parents=True)
+    (nested / "notes").mkdir(parents=True)
     (nested / ".git").write_text("gitdir: /elsewhere\n", encoding="utf-8")
-    (nested / "docs" / "theirs.md").write_text("x", encoding="utf-8")
+    (nested / "notes" / "theirs.md").write_text("x", encoding="utf-8")
     (tmp_path / ".git" / "inside.md").write_text("x", encoding="utf-8")
     found = [p.relative_to(tmp_path).as_posix() for p in repo_markdown_files(tmp_path)]
-    assert found == ["docs/also-ours.md", "ours.md"]
+    assert found == ["notes/also-ours.md", "ours.md"]

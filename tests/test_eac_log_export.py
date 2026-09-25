@@ -2141,7 +2141,9 @@ def _crc_bearing_log(draw: st.DrawFn) -> RipLog:
     # The disc-level fields are fuzzed in full by the property above; here only the
     # ones rendered at column 0 (the album line) could stand in for a track header.
     return RipLog(
-        log_creator=draw(st.sampled_from(["cyanrip 0.9.3", "whipper 0.10.0", ""])),
+        log_creator=draw(
+            st.sampled_from(["cyanrip 0.9.3", "legacy-ripper 0.10.0", ""])
+        ),
         ripping_info=RippingInfo(
             album=draw(_LINE_TEXT), album_artist=draw(_LINE_TEXT | st.just("Track 7"))
         ),
