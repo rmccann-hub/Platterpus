@@ -1236,8 +1236,11 @@ snapshot afterdeemphoff
 # Said out loud because the heading read as the stronger claim and two fields
 # quietly fell out of it -- `max_retries` (set to 3 in section B, left there)
 # and `ripper_channel` (switched to beta in section B, left there). Neither is
-# dangerous and both are exactly the kind of thing nobody reviews a file for,
-# because a map is only ever wrong by omission. `tests/test_rig_scripts.py`
+# dangerous ON `.15` AND LATER, and that qualifier is the correction: on `.14`
+# a `-r` that is not a multiple of 5 could hang the read of an unreadable
+# sector (the fork's round 25 lap 2 §B1), and from `.15` it returns at the
+# paranoia level we run. Both are exactly the kind of thing nobody reviews a
+# file for, because a map is only ever wrong by omission. `tests/test_rig_scripts.py`
 # now derives the end state rather than trusting this list, with `read_offset`
 # and its override the two documented exceptions -- the offset is this drive's
 # calibration and resetting it to 0 would be the misconfiguration.

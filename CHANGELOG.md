@@ -19,6 +19,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   frame matched AccurateRip (confidence N); whole-track checksums not found", and the
   summary says "N track(s) matched AccurateRip on one frame only". The words were agreed
   with the cyanrip fork, because both projects read this log.
+- **A comment in the acceptance test script is corrected.** It said leaving the retry
+  count at 3 was "not dangerous". That holds for cyanrip `.15` and later; on `.14`, a
+  retry count that is not a multiple of 5 could hang on an unreadable sector. It changes
+  no step.
 
 ## [0.6.60] — 2026-09-25
 
