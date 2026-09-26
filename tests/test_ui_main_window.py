@@ -5072,6 +5072,8 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
         "medium_undetermined": False,
         # v28 (D14): a positive "nothing was replaced", not an absent key.
         "tag_control_characters_replaced": [],
+        # v29 (D16): filled in when the EAC-layout log is written.
+        "eac_log_signature_lines_defused": [],
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}
     assert report["environment"]["dependencies"]["cyanrip"] == {
@@ -5983,6 +5985,43 @@ def test_write_eac_log_respects_toggle(teardown_threads, tmp_path) -> None:
     assert companion.read_text(encoding="utf-8").startswith(
         "Exact Audio Copy-compatible"
     )
+
+
+def test_a_defused_signature_line_reaches_the_report_and_the_log_is_still_written(
+    teardown_threads, tmp_path
+) -> None:
+    """D16, end to end on the real write path. The rewritten lines land in the
+    disc block the report reads, and recording them can never be the reason the
+    companion log is missing: the first version read `self._last_disc` BEFORE the
+    write, and a window without it lost the log to the broad except."""
+    from platterpus.parsers.rip_log import RippingInfo
+
+    window = teardown_threads()
+    window._config.write_eac_log_after_rip = True
+    log_file = tmp_path / "X - Album.log"
+    log_file.write_text("cyanrip log", encoding="utf-8")
+    rip_log = RipLog(
+        ripping_info=RippingInfo(
+            album_artist="==== Log checksum ABCD ====", album="Album"
+        ),
+        tracks=(TrackResult(number=1),),
+    )
+    companion = tmp_path / "X - Album (EAC-compatible).log"
+
+    window._last_disc = {"eac_log_signature_lines_defused": []}
+    window._write_eac_log(rip_log, log_file)
+    assert companion.exists()
+    recorded = window._last_disc["eac_log_signature_lines_defused"]
+    assert len(recorded) == 1 and recorded[0].startswith("---- Log checksum ABCD ----")
+
+    companion.unlink()
+    del window._last_disc  # a window with no disc block still writes the log...
+    rearmed: list[bool] = []
+    window._schedule_rip_report_write = lambda: rearmed.append(True)  # type: ignore[method-assign]
+    window._write_eac_log(rip_log, log_file)
+    assert companion.exists()
+    # ...and still re-arms the report, which is what embeds the log beside it.
+    assert rearmed == [True]
 
 
 def test_poll_disc_media_skips_while_ripping(teardown_threads) -> None:

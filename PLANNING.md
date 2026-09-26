@@ -1466,4 +1466,4 @@ one's options are kept). The maintainer took the recommendation on all four.
 | D18 | `%N` / `%M` in a template | **They work everywhere**: Settings accepts them, the preview shows the number, and the backend fills them in from the disc position it sends as `-c`. Not left to cyanrip's `{disc}`, which renders its own name when no disc number was sent. |
 | D19 | The session branch | **Merge once CI is green; release when round 27 closes.** The held round-27 EAC wording is reverted on the branch so the merge cannot carry it. |
 
-**Consequence.** D17 and D18 are built. D16 is a row to build; D19 is PR #253.
+**Consequence.** D16, D17 and D18 were built the same day; D19 is PR #253.

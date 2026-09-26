@@ -246,7 +246,10 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     replaced with a space before the rip, with a count each. Maintainer decision
 #     D14: those values come from MusicBrainz and cannot be edited, so a stray
 #     newline is replaced rather than refused, and the record says so.
-REPORT_SCHEMA_VERSION: int = 28
+# v29: `disc.eac_log_signature_lines_defused` — lines of the EAC-layout log a
+#      metadata value had shaped like a log signature, as rewritten so the log
+#      cannot read as EAC-signed (D16, KDD-38), with an `info` issue beside it.
+REPORT_SCHEMA_VERSION: int = 29
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -1867,6 +1870,16 @@ def _issues(
             "control characters in MusicBrainz data were replaced with a space "
             f"before tagging: {fields}. These tags differ from MusicBrainz by that "
             "character only.",
+        )
+
+    defused = (disc or {}).get("eac_log_signature_lines_defused")
+    if isinstance(defused, list) and defused:
+        add(
+            "info",
+            "eac_log_signature_line_defused",
+            f"{len(defused)} line(s) of the EAC-layout log came from metadata shaped "
+            "like a log signature and were rewritten ('====' to '----') so the log "
+            "cannot be read as EAC-signed. The tags and file names are unchanged.",
         )
 
     status = (outcome or {}).get("status")

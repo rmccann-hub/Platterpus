@@ -32,6 +32,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Album or track names can no longer make the EAC-style log look signed by EAC.**
+  That log repeats the album line the way EAC does, so an album artist written to
+  look like EAC's `==== Log checksum … ====` line put a line in our log that a
+  tracker's log checker could take for EAC's signature. Such a line now has its
+  `====` changed to `----`, and the rip's report says which lines were changed.
+  Tags and file names are not affected.
+
 - **A Settings value that could not be checked now says so.** If one of the
   checks behind Settings failed with an internal error, the value was treated
   as fine and nobody was told. Now Settings shows "Platterpus couldn't check

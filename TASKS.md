@@ -376,7 +376,7 @@ Four questions that came out of the property-test and small-rows sweep. Each was
 options and a recommendation; **the maintainer took the recommendation on all four**
 (`PLANNING.md` KDD-38).
 
-- [ ] **D16. A line shaped like EAC's signature can appear in our EAC-style log.** The log
+- [x] **D16. A line shaped like EAC's signature can appear in our EAC-style log.** The log
   echoes the album line at column 0, as EAC does, so an album artist written as
   `==== Log checksum <64 hex> ====` puts a line of EAC's signature shape in our log. Our own
   checksum is not fooled (it reads only our differently-worded footer, the last one); a
@@ -385,7 +385,10 @@ options and a recommendation; **the maintainer took the recommendation on all fo
     line that would look like a signature, keep the rip, and record the change in the
     rip report (the D14 pattern).
   - B. Refuse the rip with a message. C. Leave it and document it.
-  - **Recommended: A.** **Answer: A** — the maintainer, 2026-09-25. To build.
+  - **Recommended: A.** **Answer: A** — the maintainer, 2026-09-25. **Built the same day**:
+    `eac_log_export._defuse_signature_lines` rewrites `====` to `----` on any body line shaped like
+    EAC's signature or either of our footer lines, before our own not-signed line is added; the
+    report carries `disc.eac_log_signature_lines_defused` (schema v29) and an `info` issue.
 - [x] **D17. A Settings check that crashes counts as a pass.** `validate_config`'s `run()`
   logs a raising rule and skips it, so the value passes. Three such crashes were found and
   fixed; the rule was still fail-open.

@@ -191,6 +191,10 @@ class DiscBlock(TypedDict):
     #: before the rip (maintainer decision D14, `tag_hygiene`). Empty when none
     #: were: a positive statement, not an absence.
     tag_control_characters_replaced: list[TagFixEntry]
+    #: Lines of the EAC-layout log that a metadata value had shaped like a log
+    #: signature, as rewritten (`====` to `----`) so the log cannot read as
+    #: EAC-signed (D16, KDD-38). Empty on almost every rip; v29.
+    eac_log_signature_lines_defused: list[str]
 
 
 class DependencyEntry(TypedDict):
