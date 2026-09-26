@@ -161,8 +161,9 @@ class TrackResult:
     accuraterip_v1: AccurateRipResult | None = None
     accuraterip_v2: AccurateRipResult | None = None
     # cyanrip's "Accurip 450:" result: the checksum of ONE frame (frame 450),
-    # printed after both whole-track checksums missed; cyanrip calls a match
-    # "partially accurately ripped". The field name says "offset" for historical
+    # printed after both whole-track checksums missed. cyanrip words a match
+    # "partially accurately ripped" up to +platterpus.16 and "one frame only;
+    # whole-track checksums not found" from .17. The field name says "offset" for historical
     # reasons and it is not a pressing (see `platterpus.one_frame_match`). It's
     # surfaced as data (not folded into the verified rule) so the verdict never
     # over-claims a plain match; see docs/architecture.md.

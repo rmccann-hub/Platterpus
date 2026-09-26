@@ -96,8 +96,8 @@ __all__ = [
     "status_phase_key",
 ]
 
-# Shared explanation of the "only one frame matched" state (cyanrip's
-# "partially accurately ripped"), used as the AR-cell tooltip and echoed in the
+# Shared explanation of the "only one frame matched" state (cyanrip's `Accurip
+# 450` line, "partially accurately ripped" up to +platterpus.16), used as the AR-cell tooltip and echoed in the
 # User Guide glossary. It lives in `one_frame_match` so the table, the help and
 # the banner read one wording. Until 2026-09-24 it said the audio "matches a
 # known pressing … shifted by a fixed offset" and was "usually perfectly fine",

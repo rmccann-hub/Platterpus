@@ -550,23 +550,35 @@ stopped at section A the same day, as their lap 1 predicted.
 - [x] **0.6.60 released 2026-09-25** (release run 158 on `88c09dd`, after `main`'s CI run
   36138712820 was green; AppImage, `.sha256`, `.zsync` and install scripts published), under
   the §6b override in our lap 3. `PIN_UNDER_REVIEW` `221a1df`, `FORK_PIN` `df91ae7`.
-- [~] **Done inside round 27 rather than round 28 (maintainer, 2026-09-25), without making them
+- [x] **Done inside round 27 rather than round 28 (maintainer, 2026-09-25), without making them
   close conditions (S-13):** the fork's reading of its own tests by name and the check of
   the "restores the approved build mid-round" shape, both theirs, for `.17`; and the
   EAC-compatible log's `Accurip 450` wording, which is ours to change once they accept or
   amend it in their next lap (round 7 H4), for our closing release. Asked in the operator's
   message with 0.6.60.
-  - [~] **The EAC wording is built, and HELD off `main` until their lap 4 is released.**
+  - [x] **The EAC wording is built, and HELD off `main` until their lap 4 is released.**
+    **Landed 2026-09-26.** Their lap 4 was released that day (`cyanrip@e9d3868`,
+    `docs/handshake/round-27-lap-04.md`, sha256 `90b7f401…`): the summary line accepted
+    as written, and the per-track line in exactly the amended form `46a522e` already
+    carried (§D3). The revert `55d51c9` is reverted. Our help text and tooltip now name
+    the `Accurip 450` line rather than quoting its wording, because `.17` rewords its
+    tail (`ec0fe47`, their §C); a test parses both wordings to the same reading.
     `one_frame_match.eac_track_line` / `eac_summary_line`, with the per-track amendment
     their STATUS records for lap 4 (*"whole-track checksums not found"*, not
     *"unverified"*, which reads as not checked). Tests updated; one revert probed and
     detected. If their released lap 4 words it differently, change the two functions.
-    **Reverted on the session branch 2026-09-25** so the maintainer's merge of that
-    branch (decision 4A) could not carry it onto `main`: their lap 4 existed on neither
-    fork branch that day (`master`, `platterpus-fork`). To land it once lap 4 is released
-    with these words, revert the revert commit; its CHANGELOG bullet goes back with it.
     - *Audit 2026-09-25: partly done.* Built: one_frame_match.eac_track_line / eac_summary_line (46a522e). Held off main until the fork's lap 4 is released with the same words.
   - *Audit 2026-09-25: partly done.* The fork's two items are done by their STATUS (cyanrip@2966369 STATUS.md:60), but their lap 4 is not written. Our EAC wording is built at 46a522e, on this branch only.
+- [ ] **`rip_audit._ar_matched` keys on result TEXT, and `.17` puts "not found" in a
+  match** (found 2026-09-26 verifying their lap 4 §C). It returns False for any result
+  containing "not found", and `.17`'s `Accurip 450` match ends *"whole-track checksums
+  not found"*. **Nothing it reports changes today:** it is applied only to the v1 and v2
+  blocks (`rip_audit.py:285`), whose wording is unchanged. Fix: delegate to
+  `parsers.rip_log.accuraterip_is_match` (confidence ≥ 1, never an all-zero CRC), the
+  rule every other surface uses, so no reader of AccurateRip results keys on a producer's
+  words. That also changes how legacy-format reports count (`"Found, exact match"` holds
+  neither phrase it looks for), so it is its own change with its own test, not a rider
+  on round 27. NEXT-ROUND (S-14): it breaks nothing in the pin under review.
 - [ ] **The real test on 0.6.60**, then each side's reading and the closing laps.
   - *Audit 2026-09-25: not ours to verify.* The operator's hardware run on 0.6.60. No round-27 bundle exists yet.
 
