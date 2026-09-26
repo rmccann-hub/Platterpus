@@ -557,8 +557,8 @@ stopped at section A the same day, as their lap 1 predicted.
   amend it in their next lap (round 7 H4), for our closing release. Asked in the operator's
   message with 0.6.60.
   - [x] **The EAC wording is built, and HELD off `main` until their lap 4 is released.**
-    **Landed 2026-09-26.** Their lap 4 was released that day (`cyanrip@e9d3868`,
-    `docs/handshake/round-27-lap-04.md`, sha256 `90b7f401…`): the summary line accepted
+    **Landed 2026-09-26.** Their lap 4 was released that day at `cyanrip@e9d3868` (sha256
+    `90b7f401…`, filed here as `docs/handshake/inbound/round-27-lap-04.md`): the summary line accepted
     as written, and the per-track line in exactly the amended form `46a522e` already
     carried (§D3). The revert `55d51c9` is reverted. Our help text and tooltip now name
     the `Accurip 450` line rather than quoting its wording, because `.17` rewords its
