@@ -1,0 +1,82 @@
+PLATTERPUS EVIDENCE BUNDLE
+==========================
+
+created            20260926T000413Z
+platterpus         0.6.60
+build              88c09dd
+rip outcome        acceptance test session
+ripper build wanted platterpus-fork-g221a1df ONLY — the build under review
+album folder       /home/rmccann/platterpus-rig/platterpustestsession20260926t000413z/rips/The Police/derived mp3 20260926t000413 platterpus-fork-g221a1df
+
+Raw facts this outcome was derived from (a label can be wrong; these
+are what it was computed from):
+  acceptance script      /tmp/.mount_platteHPhPbB/opt/python3.12/lib/python3.12/site-packages/platterpus/rig_scripts/fullacceptance.txt
+  album folders          1
+  album folders dropped  0
+  album folders examined 1
+  run ended              reached the last step
+  run outcome            ⚠ The run DID NOT COMPLETE — it stopped before the last step. 206 of 320 step(s) passed, 0 failed, 114 never ran. The steps after the stop measured nothing.
+  run size               quick
+  run verdict            pass 206, fail 0, error 0, skipped 114, blocked 0, unreachable 0, info 1
+  session folder         /home/rmccann/platterpus-rig/platterpustestsession20260926t000413z
+  sleep lock             ✓ Sleep lock: held (idle:sleep:handle-lid-switch) — Idle, sleep and lid suspend are held off for this run (idle:sleep:handle-lid-switch). The lock is released automatically when the run ends — there is nothing to undo.
+  sources absent         1
+  sources collected      4
+  sources failed         0
+  your settings          restored after the run; it had changed output_dir, auto_launch_picard, debug_logging, force_overread, secure_rerip_dynamic, recompress_flac_after_rip, write_eac_log_after_rip, rip_goal, update_channel, ripper_channel
+
+INCLUDED (28 file(s))
+----------------------------------------
+  album/derived mp3 20260926t000413 platterpus-fork-g221a1df.cue        684 B
+  album/derived mp3 20260926t000413 platterpus-fork-g221a1df.log       9192 B
+  album/derived mp3 20260926t000413 platterpus-fork-g221a1df.platterpus.json     499354 B
+  session/artifacts/03platterpus/config.toml                 1141 B
+  session/run/aftermp3-1-Run-test-script.png               149970 B
+  session/run/aftermp3.png                                 145628 B
+  session/run/dialogdependencies-1-Run-test-script.png     144793 B
+  session/run/dialogdependencies.png                       107371 B
+  session/run/dialogdiagnostics-1-Diagnostics.png           90993 B
+  session/run/dialogdiagnostics-2-Run-test-script.png      134215 B
+  session/run/dialogdiagnostics.png                        107371 B
+  session/run/dialogdrive-1-Set-up-drive.png                73966 B
+  session/run/dialogdrive-2-Run-test-script.png            142180 B
+  session/run/dialogdrive.png                              107371 B
+  session/run/dialogsettings-1-Settings.png                181443 B
+  session/run/dialogsettings-2-Run-test-script.png         147127 B
+  session/run/dialogsettings.png                           107371 B
+  session/run/report.json                                  152432 B
+  session/run/rig-check/MANIFEST.txt                         2273 B
+  session/run/rig-check/argv-probe-output.txt                 484 B
+  session/run/rig-check/argv-probe.json                      1628 B
+  session/run/rig-check/ripper-version.txt                     58 B
+  session/run/transcript.txt                                53568 B
+  session/transcript.txt                                    53568 B
+  COMPONENTS.json                                            1339 B
+  DIAGNOSTICS.txt                                            1383 B
+  SETTINGS.json                                              2760 B
+  SOURCES.txt                                                1370 B
+
+NOT INCLUDED (4 file(s))
+----------------------------------------
+  Listed so an absence is visible. A bundle quietly missing an artifact
+  looks exactly like a complete one.
+  album/01 - Roxanne.flac                              excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/01 - Roxanne.mp3                               excluded: '.mp3' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/02 - Can’t Stand Losing You.flac               excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/02 - Can’t Stand Losing You.mp3                excluded: '.mp3' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+
+NO AUDIO IS PRESENT — no file of any audio type can enter this archive.
+Everything here passed an allowlist: .cue .json .log .md .md5 .sha256 .toml .txt
+Plus, from this program's own run folder ONLY: .png
+A name is not a guarantee, so two more checks run on every file: its
+first bytes are compared against 14 audio-container
+signatures, and a symbolic link is judged by the name of the file it
+points at as well as by its own.
+(those are screenshots Platterpus took of its own window. An album folder
+is never judged by that wider rule, because its images are record-label
+artwork.) The per-track CRCs in the logs prove bit-perfection without the
+audio.
+
+Caps in force: 16777216 B per file (head+tail kept, elision
+marked inline), 67108864 B across the whole payload, and the
+newest 20 bundles are kept in the bundles folder.

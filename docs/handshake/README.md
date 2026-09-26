@@ -138,6 +138,13 @@ documents depend on.
   `cyanrip@9764970:docs/rig-2026-09-24-df91ae7/`; 40 of our 46 have identical git blob
   ids to theirs, and the other six are our rip reports, which they left to us. The
   directory's `README.md` maps each file to its tarball member and to the fork's copy.
+- **`artifactsround27/`** — the 2026-09-26 **quick** run on **`221a1df`**, round 27's
+  reviewed pin, through our 0.6.60, standing in for round 27's Full acceptance by the
+  operator's override of R1: every text member of the operator's bundle (sha256
+  `827d43da…`), 15 files. The fork filed the same bytes at
+  `cyanrip@29cae9e:docs/rig-2026-09-26-221a1df-quick/`, and all 15 have identical git blob
+  ids to theirs. The directory's `README.md` maps each file to its tarball member and to the
+  fork's copy.
 
 **Names are lowercase ASCII letters and digits only from round 8 on** (`CLAUDE.md` →
 *Artifact filenames that cross machines*). These files leave the repo and come back, and two
