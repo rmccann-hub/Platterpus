@@ -290,6 +290,79 @@ def _no_test_leaves_the_crash_dialog_armed() -> Generator[None, None, None]:
         _sys.excepthook, threading.excepthook = sys_before, thread_before
 
 
+#: The three round states the app can be in, named for `supply_round_state`.
+ROUND_STATES: tuple[str, ...] = ("no-round", "round-open", "round-with-test-pin")
+
+
+def supply_round_state(monkeypatch: pytest.MonkeyPatch, state: str) -> None:
+    """Put `fork_source` into one handshake round state for the rest of a test.
+
+    **Why this exists.** Tests of how the app behaves while a round is open used to
+    read the LIVE constants, so they could only run in the state the tree happened
+    to be in. A test of the second picker row skipped whenever no round was open,
+    and the tests of the test-pin messages skipped in every round that named no
+    separate test pin, which is most of them (2026-09-26). A property that holds
+    in some rounds is only tested if the test supplies that round.
+
+    * ``"no-round"``: the build under review is the approved pin.
+    * ``"round-open"``: a round reviews a build other than the approved pin, with
+      no separate test pin.
+    * ``"round-with-test-pin"``: as above, plus a test pin nominated for this round
+      that is a different program from the reviewed build.
+
+    The two predicates every surface asks are checked afterwards, so a state
+    this helper failed to build fails here rather than as a confusing assertion
+    further down.
+    """
+    import dataclasses
+
+    from platterpus.deps import fork_source
+
+    assert state in ROUND_STATES, f"unknown round state {state!r}"
+    approved = fork_source.FORK_PIN
+    reviewed = approved if state == "no-round" else "abc1234"
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", reviewed)
+    if state == "round-with-test-pin":
+        test_pin = "fee1234"
+        monkeypatch.setattr(fork_source, "FORK_TEST_PIN", test_pin)
+        monkeypatch.setattr(
+            fork_source, "FORK_TEST_PIN_ROUND", fork_source.PIN_UNDER_REVIEW_ROUND
+        )
+        monkeypatch.setattr(
+            fork_source, "FORK_TEST_BUILD_TAG", f"{fork_source.FORK_BRANCH}-g{test_pin}"
+        )
+        monkeypatch.setattr(fork_source, "TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED", False)
+    else:
+        # A test pin belongs to one round; one from another round is retired.
+        monkeypatch.setattr(
+            fork_source, "FORK_TEST_PIN_ROUND", fork_source.PIN_UNDER_REVIEW_ROUND - 1
+        )
+    # Both targets are rebuilt from the functions production calls once, at
+    # import, so their menu lines describe this state rather than the tree's.
+    monkeypatch.setattr(
+        fork_source,
+        "UNDER_REVIEW_TARGET",
+        dataclasses.replace(
+            fork_source.UNDER_REVIEW_TARGET,
+            pin=reviewed,
+            why=fork_source.under_review_target_why(),
+        ),
+    )
+    monkeypatch.setattr(
+        fork_source,
+        "TEST_TARGET",
+        dataclasses.replace(
+            fork_source.TEST_TARGET,
+            pin=fork_source.FORK_TEST_PIN,
+            why=fork_source.test_target_why(),
+        ),
+    )
+    assert fork_source.a_round_is_reviewing_a_build() is (state != "no-round"), state
+    assert fork_source.rig_installs_the_test_pin() is (
+        state == "round-with-test-pin"
+    ), state
+
+
 def stop_window_threads(window: object) -> None:
     """Join every QThread a MainWindow owns, before it is destroyed.
 

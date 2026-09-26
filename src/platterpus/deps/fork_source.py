@@ -1585,11 +1585,18 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     ),
 )
 
+
 #: The build nominated to gather the hardware evidence an OPEN round needs.
-TEST_TARGET: Final[ForkTarget] = ForkTarget(
-    pin=FORK_TEST_PIN,
-    version=FORK_TEST_VERSION,
-    why=(
+def test_target_why() -> str:
+    """The test pin's menu line, derived from the round state when it is called.
+
+    A function rather than a literal so a test can supply a round state and get
+    the line that state produces. When this was computed inline at import, the
+    "INSTALL THIS ONE" branch could only run in a round that named a separate test
+    pin, so the tests of that branch skipped in every other round, which is most of
+    them (2026-09-26). Production still calls it once, at import, below.
+    """
+    return (
         (
             "INSTALL THIS ONE for an acceptance run while the round is open. T"
             if rig_installs_the_test_pin()
@@ -1599,7 +1606,32 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
         "for the joint hardware session — NOT a release, and no round has "
         "approved it, so every rip will report `unapproved`, which is the "
         "correct answer rather than a fault"
-    ),
+    )
+
+
+def under_review_target_why() -> str:
+    """The under-review build's menu line, derived from the round state when called.
+
+    A function for the reason :func:`test_target_why` is: computed inline at
+    import, a test could not supply a round state and see the line that state
+    produces (2026-09-26).
+    """
+    return (
+        "the round's SUBJECT, but NOT what the rig installs — the "
+        f"test-pin entry ({FORK_TEST_PIN}) is. "
+        if rig_installs_the_test_pin()
+        else "what an acceptance run must be on — it "
+    ) + (
+        _pin_under_review_role_clause()
+        if not rig_installs_the_test_pin()
+        else f"It {_pin_under_review_role_clause()}."
+    )
+
+
+TEST_TARGET: Final[ForkTarget] = ForkTarget(
+    pin=FORK_TEST_PIN,
+    version=FORK_TEST_VERSION,
+    why=test_target_why(),
 )
 
 #: The build the **currently open round** is reviewing — what `fullacceptance.txt`
@@ -1657,19 +1689,7 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # §5.o: enforce a rule across the codebase, not at the place it was learned —
     # so both surfaces now call `pin_under_review_role()` rather than each
     # carrying their own sentence about the same fact.
-    why=(
-        (
-            "the round's SUBJECT, but NOT what the rig installs — the "
-            f"test-pin entry ({FORK_TEST_PIN}) is. "
-            if rig_installs_the_test_pin()
-            else "what an acceptance run must be on — it "
-        )
-        + (
-            _pin_under_review_role_clause()
-            if not rig_installs_the_test_pin()
-            else f"It {_pin_under_review_role_clause()}."
-        )
-    ),
+    why=under_review_target_why(),
 )
 
 #: **What the setup wizard and ``--install-ripper`` build by default.**

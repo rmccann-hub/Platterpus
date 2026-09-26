@@ -1360,7 +1360,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2382 -> 2397 (2026-09-26, round 27 closed on our gate)**: `FORK_PIN` rolls to
     # `221a1df` and `FORK_EXPECTED_VERSION` to `.16`, each with the dated record of
     # where it was read and cross-checked, as every roll before it.
-    "deps/fork_source.py": 2397,
+    # **2397 -> 2417 (2026-09-26)**: the two targets' menu lines became functions
+    # (`test_target_why`, `under_review_target_why`) so a test can supply a round
+    # state and reach them (`docs/testing.md` §5.bq); production text is unchanged.
+    "deps/fork_source.py": 2417,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
