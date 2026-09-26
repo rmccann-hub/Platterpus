@@ -4252,3 +4252,24 @@ def test_announce_is_not_blocked_by_a_peer_lap_that_is_still_HELD(
     _round19(hs, tmp_path, ours=hs.READY_TO_READ_NO, theirs="yes — released")
     _peer_lap_2(tmp_path, "no — published, NOT yet released for reading")
     assert hs.announce_lap(lap, on="2026-09-23") == 0
+
+
+def test_wire_fields_is_cached_but_never_shares_its_result() -> None:
+    """The parse is cached by text (2026-09-26: 9,389 calls, 3.3 s per `--status`),
+    so the one thing that must not happen is two callers getting the same dict.
+
+    A caller that edits the dict it was handed would otherwise change what every
+    later caller reads for that file, and a gate would grade a lap on a field it
+    does not contain.
+    """
+    hs = _load()
+    text = "HANDSHAKE-ROUND: 7\nHANDSHAKE-VERDICT: GO\n"
+    first = hs.wire_fields(text)
+    first["HANDSHAKE-VERDICT"] = "HOLD"
+    first["INJECTED"] = "x"
+    second = hs.wire_fields(text)
+    assert second == {"HANDSHAKE-ROUND": "7", "HANDSHAKE-VERDICT": "GO"}
+    assert second is not hs.wire_fields(text)
+    # And the cache is real: the parse ran once for the three calls above.
+    info = hs._parse_wire_fields.cache_info()
+    assert info.hits >= 2, info

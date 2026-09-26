@@ -32,6 +32,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **For contributors: the test suite runs 42% faster, and no longer touches your
+  real Platterpus folders.** A serial run went from 7m22s to 4m18s. Most of the
+  time was waits, not work: a report-writer thread left running at teardown, a
+  harness waiting out a deadline on a script it had already refused, the handshake
+  record parsed about 30 times per status check (3.3 s → 0.4 s, which also speeds up
+  `handshake.py --status` and the release gate), and a timing proof measuring more
+  than it needed. Tests also wrote evidence bundles into the real
+  `~/.local/share/platterpus/` and filled the real app log; the suite now uses a
+  temporary config and data folder. `scripts/check.py` runs its four gates at once.
+  The plan for parallel runs is in `TASKS.md`.
+
 - **Platterpus's library check counts every real AccurateRip match.** It
   used to decide a match from the result's words, so it would have counted
   cyanrip `.17`'s one-frame match, which ends "whole-track checksums not found",

@@ -2809,6 +2809,10 @@ def _album_with(tmp_path: Path, masters: int, derived_ext: str, derived: int) ->
     return log_file
 
 
+# The failure-path tests below pass a 0.2 s timeout. The verdict comes from the
+# files already on disk, so the wait adds nothing to what they prove, and at 1 s
+# eight of them spent 8 s of every suite run waiting for a result they had
+# already been handed (2026-09-26). Tests of the WAIT itself keep their long one.
 def _step_outcome(runner: Any, qapp: Any, process_until: Any, source: str) -> Any:
     emitted: list[Any] = []
     runner.finished.connect(emitted.append)
@@ -2839,7 +2843,7 @@ def test_expect_derived_output_fails_when_the_transcode_never_ran(
         _album_with(tmp_path, masters=2, derived_ext="mp3", derived=0)
     )
     step = _step_outcome(
-        ScriptRunner(win), qapp, process_until, "expect-derived-output mp3 1"
+        ScriptRunner(win), qapp, process_until, "expect-derived-output mp3 0.2"
     )
     assert step.outcome is Outcome.FAIL, step.detail
     assert "-o flac" in step.detail, "the detail must explain why the rip log agrees"
@@ -2853,7 +2857,7 @@ def test_expect_derived_output_fails_on_a_short_count_not_only_on_zero(
         _album_with(tmp_path, masters=3, derived_ext="wv", derived=1)
     )
     step = _step_outcome(
-        ScriptRunner(win), qapp, process_until, "expect-derived-output wavpack 1"
+        ScriptRunner(win), qapp, process_until, "expect-derived-output wavpack 0.2"
     )
     assert step.outcome is Outcome.FAIL, step.detail
 
@@ -2878,7 +2882,7 @@ def test_expect_derived_output_fails_rather_than_passing_over_an_empty_room(
     win = _window(last_rip_log=None)
     win._last_rip_log_file = None
     step = _step_outcome(
-        ScriptRunner(win), qapp, process_until, "expect-derived-output mp3 1"
+        ScriptRunner(win), qapp, process_until, "expect-derived-output mp3 0.2"
     )
     assert step.outcome is Outcome.FAIL, step.detail
 
@@ -2938,7 +2942,7 @@ def test_expect_derived_output_will_not_grade_a_previous_sections_album(
 
     emitted: list[Any] = []
     runner.finished.connect(emitted.append)
-    source = "expect-derived-output mp3 1"
+    source = "expect-derived-output mp3 0.2"
     runner.start(parse(source), source=source)
     assert process_until(lambda: bool(emitted)), "the run never finished"
     step = emitted[0].steps[-1]
@@ -3018,7 +3022,7 @@ def test_expect_verification_fails_when_a_later_rip_superseded_the_checks(
         )
     )
     step = _step_outcome(
-        ScriptRunner(win), qapp, process_until, "expect-verification 1"
+        ScriptRunner(win), qapp, process_until, "expect-verification 0.2"
     )
     assert step.outcome is Outcome.FAIL, step.detail
     assert "verification_superseded" in step.detail
@@ -3050,7 +3054,7 @@ def test_expect_verification_fails_on_a_gate_claiming_to_have_run_over_nothing(
         )
     )
     step = _step_outcome(
-        ScriptRunner(win), qapp, process_until, "expect-verification 1"
+        ScriptRunner(win), qapp, process_until, "expect-verification 0.2"
     )
     assert step.outcome is Outcome.FAIL, step.detail
 
@@ -3100,7 +3104,7 @@ def test_expect_verification_cannot_pass_over_a_rip_that_checked_nothing(
         )
     )
     step = _step_outcome(
-        ScriptRunner(win), qapp, process_until, "expect-verification 1"
+        ScriptRunner(win), qapp, process_until, "expect-verification 0.2"
     )
     assert step.outcome is Outcome.FAIL, step.detail
 
@@ -3115,7 +3119,7 @@ def test_expect_verification_fails_rather_than_passing_when_no_report_exists(
     log_file.write_text("log", encoding="utf-8")
     win = _window_after_a_rip_into(log_file)
     step = _step_outcome(
-        ScriptRunner(win), qapp, process_until, "expect-verification 1"
+        ScriptRunner(win), qapp, process_until, "expect-verification 0.2"
     )
     assert step.outcome is Outcome.FAIL, step.detail
 

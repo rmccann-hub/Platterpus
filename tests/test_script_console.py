@@ -102,11 +102,18 @@ def _run_main_with(
     monkeypatch.setattr(MainWindow, "open_script_console", capturing_open)
 
     def _finished() -> bool:
-        """The run has ended — or was never started, which is also an answer."""
+        """The run has ended — or was never started, which is also an answer.
+
+        "Never started" is `runner is None`. `open_script_console(autorun=True)`
+        starts the runner synchronously, so a console that is open with no runner
+        was refused, and there is nothing to wait for. This used to return False
+        for it, so both refusal tests waited out the full 10 s deadline and passed
+        on what they read afterwards (2026-09-26).
+        """
         if not opened:
             return False
         runner = opened[0].runner  # type: ignore[attr-defined]
-        return runner is not None and not runner.running
+        return runner is None or not runner.running
 
     def fake_exec(self: QApplication) -> int:
         # Real wall-clock waiting, not a tight `processEvents()` loop. The runner
