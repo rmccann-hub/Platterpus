@@ -621,6 +621,12 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   2026-09-26). Once given, the override goes in our lap 2's header before it is released.
 - [ ] **The Full run on 0.6.61 + `.17`** (close condition 1), then both readings (S7).
 - [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
+- [ ] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
+  failed once in about six full parallel runs on 2026-09-26**, and passed 8 of 8 alone
+  under six busy loops on four cores. It is timing-based in both directions, and the
+  failing run's message was not kept, so which side tripped is unknown. Next time it
+  fails, keep `.check-logs/tests.log` before rerunning. Do not widen a threshold on a
+  guess: the linear side guards against a detector that flags everything.
 - [ ] **NEXT-ROUND: ask them to ship `.17`'s `PROVIDER-CONTRACT.md` as a round
   artifact**, so the argv check reads the round's own table again (lag back to 0).
 
