@@ -469,7 +469,7 @@ The general GitHub mechanics + etiquette live in **[`docs/github-workflow-sop.md
 
 Beyond the *guidance* in the Critical rules above, a few things are **enforced** (not just trusted):
 
-- **`.githooks/pre-commit`** — blocks any commit that stages an audio/copyrighted-media file (Critical rule #8), even via `git add -f`. The hard guarantee behind the rule + the `.gitignore` backstop. Activate per clone with `git config core.hooksPath .githooks` (**`dev-setup.sh` does this**); bypass for a verified CC0/self-generated sample with `git commit --no-verify`.
+- **`.githooks/pre-commit`** — blocks any commit that stages an audio/copyrighted-media file (Critical rule #8), even via `git add -f`. The hard guarantee behind the rule + the `.gitignore` backstop. Activate per clone with `git config core.hooksPath .githooks` (**`dev-setup.sh` does this**, and in a Claude Code session on the web the SessionStart hook `.claude/hooks/session-start.sh` does, because a fresh cloud clone never runs `dev-setup.sh`; tested by `tests/test_session_start_hook.py`); bypass for a verified CC0/self-generated sample with `git commit --no-verify`.
 - **`.claude/settings.json`** (committed, shared) — permission `deny` for destructive commands (`rm -rf`, `git push --force`/`-f`/`--force-with-lease`) and secret reads (`.env*`, `secrets/**`), plus a `PreToolUse` hook that blocks a Bash call while audio is staged (the Claude-session belt for the same rule; git hook is the canonical guard). Deliberately does **not** prompt on normal `git push`, to preserve the merge-and-keep-going workflow. Personal overrides go in `.claude/settings.local.json` (git-ignored). Run `/memory` or `/hooks` to confirm what loaded.
 
 ### Artifact filenames that cross machines
