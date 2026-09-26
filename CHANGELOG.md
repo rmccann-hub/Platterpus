@@ -14,6 +14,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **The acceptance run accepts cyanrip `.17` as the build under review.** Handshake
+  round 28 opened on the fork's `0.9.4-rc2+platterpus.17` (`e0471f4`), so section A of
+  the acceptance run now accepts that build, and Setup & Updates offers it as the build
+  the run needs. The default install is still `.16` (`221a1df`), the build round 27
+  approved; `.17` becomes the default only once round 28 approves it.
 - **For contributors: cloud sessions switch the audio guard on by themselves.** The
   git hook that refuses a commit staging a music file runs only once
   `core.hooksPath` is set, which `dev-setup.sh` does. A Claude Code session on the

@@ -593,6 +593,37 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
+## Round 28 — OPEN on `e0471f4` (`+platterpus.17`): the Full run on 0.6.61 + `.17`
+
+Their lap 1 (`cyanrip@52a8a30`, sha256 `060fd251…`, 13,280 bytes, released by their
+operator 2026-09-26) opens on `.17`, `release_seq` 27 on both channels. It fixes three
+close conditions (S6–S8): our **Full** acceptance run with `.17` installed through our
+app from 0.6.61, whose `PIN_UNDER_REVIEW` is `e0471f4`, with the bundle in both repos;
+each side's reading of it; and both closing releases (ours rolls `FORK_PIN` to
+`e0471f4`, theirs is `+platterpus.18`). Every fact it rests on was derived from their
+tree: the manifest at `8ea8bee`, `git log 221a1df..e0471f4 -- src/` (three commits, no
+option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
+
+- [x] **File their lap 1 and move `PIN_UNDER_REVIEW` to `e0471f4`** (round 28), with its
+  release sequence, its build tag in the `--consumer` accept-set, the round-28 pairing
+  line, and the re-derived same-program flag. The rig sheet, the handshake map and the
+  standing status name the new pair. The argv check reads round 26's flag table with a
+  recorded lag of 2: their lap shipped no contract, and `.17`'s equals `.16`'s in every
+  flag.
+- [~] **Our lap 2, in LSL 1, held** until the operator releases it. It answers their S15
+  (the `Encoder errors:` count), S21 (their amendment of A3), S30 (B1, re-running a
+  `run:`), and their round 27 lap 6's S16 and S23. It corrects our round 27 lap 5 §D (the
+  §6b override) and our amendments artifact's F4 sentence.
+- [ ] **0.6.61 needs a §6b override, the operator's to give.** Our round 27 lap 5 §D said
+  it would not, and that was wrong by our own lap 2 §D: the amendment *"lands with the
+  next protocol change"*, and *"until then we record the override"*. v6 is still in
+  force and our gate refuses `v0.6.61` with round 28 open (`--release-gate`, measured
+  2026-09-26). Once given, the override goes in our lap 2's header before it is released.
+- [ ] **The Full run on 0.6.61 + `.17`** (close condition 1), then both readings (S7).
+- [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
+- [ ] **NEXT-ROUND: ask them to ship `.17`'s `PROVIDER-CONTRACT.md` as a round
+  artifact**, so the argv check reads the round's own table again (lag back to 0).
+
 ## Round 27 — CLOSED `GO`/`GO` on BOTH gates 2026-09-26 at six laps on `221a1df` (`+platterpus.16`): a quick run by the operator's override, then a Full run on the same pair
 
 Their lap 1 (`cyanrip@87facd5`, sha256 `f44de648…`, 9,767 bytes, released) names `.16`,
@@ -715,6 +746,8 @@ stopped at section A the same day, as their lap 1 predicted.
   `.17` (round 28) and cut 0.6.61, which carries the round-27 pin and the round-28 subject.
   Under our lap 2 §D amendment (their §E3), it needs no §6b override. (4) The operator runs
   the Full acceptance on 0.6.61 + `.17`.
+  - *2026-09-26, corrected:* it does need one. The amendment lands with protocol v7, as
+    our round 27 lap 2 §D said; see round 28 above. Steps (1) and (2) are done.
 - [x] **The 2026-09-26 04:13 UTC Full run is graded `partial`** (maintainer, 2026-09-26:
   *"There were errors so this is not full green."*). Added to the `docs/testing.md` §5B
   ledger with the errors it carried: our report's false note, fixed; two wrong reads

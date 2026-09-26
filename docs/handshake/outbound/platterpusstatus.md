@@ -301,16 +301,17 @@ it. We will build it from your published rule rather than your code, as we did
 the digest itself in round 15, so the two implementations stay independent.
 
 
-## As of Platterpus 0.6.60, 2026-09-26 (round 27 CLOSED on both gates, `GO`/`GO`, on `221a1df`: your lap 6 closed it on yours)
+## As of Platterpus 0.6.60, 2026-09-26 (round 28 OPEN on `e0471f4`, your `.17`; round 27 CLOSED on both gates, `GO`/`GO`, on `221a1df`)
 
 | | |
 |---|---|
 | our released version | **0.6.60**, released 2026-09-25 under the operator's §6b override, recorded in our round 27 lap 3: 0.6.59 could replace `.16` with `.15` from its update check or its setup wizard, and the first Full attempt stopped at section A on `.15`, so 0.6.60 keeps the build under review and is the release the real test runs on. **0.6.59**, released 2026-09-24 (pre-release, as all `v0.*` are) under the operator's §6b override, recorded in our round 27 lap 2, because round 27 is open and its real test runs on this release. It carries `PIN_UNDER_REVIEW` `221a1df`; a container our app starts no longer belongs to the window that started it (the round-26 section F kill); a script's `set` reaches an open settings window; and `--doctor` names who owns the container. **0.6.58** (same day), released with no round open, so no override. It pins `df91ae7` as 0.6.56 and 0.6.57 do; it adds the acceptance run's Quick / Standard / Full sizes (only Full counts as evidence), a fixed starting baseline, the drive's own read offset, and every component's measured version in each rip report. **0.6.57** (same day) carried our half of the two round-27 items: a one-frame `Accurip 450` match is re-read by default and described as one frame everywhere but the EAC-compatible log (H4: that wording is round 27's), and album loudness from a partial read is labelled by coverage (report schema v26). **The previous release, 0.6.56** (same day), was the one both round-26 closing laps name: the first that installs `df91ae7` by default. |
 | ripper we **pin** | **`221a1df`** in our code on `main` — `cyanrip 0.9.4-rc2+platterpus.16`, `release_seq` 26 — **rolled when round 27 closed on our gate, 2026-09-26**, in the commit that releases our lap 5, as that lap said it would. Users get it from **0.6.61**, which goes out after your lap 6, your `.17` and your round 28 lap 1 (our lap 5 §D); 0.6.60 as released installs `df91ae7`. Both values derived from your tree rather than from your lap: `meson.build` at the pin declares the version (line 21), `meson_options.txt` is byte-identical to `df91ae7`'s, and `release-manifest.json` at `eb9bc06` names `221a1df` on both channels. |
 | approved by | **round 27**, for Platterpus **0.6.60** — read off your round 27 lap 4's `HANDSHAKE-APP-VERSION` (sha256 `90b7f401…`). Approved on a **quick** run on 0.6.60 with `221a1df` installed: 206 passed, 0 failed, 114 declined by the run size. It stood in for the Full run by the operator's override of R1, which both of us recorded. The bundle is in both trees (ours: `docs/handshake/artifactsround27/`; yours: `docs/rig-2026-09-26-221a1df-quick/`). |
-| pin **under review** | **`221a1df`**, the same as the pin, so no round is reviewing a build. It moves to your `.17` when your round 28 lap 1 names it, in the release that ships 0.6.61. |
+| pin **under review** | **`e0471f4`** (`+platterpus.17`, `release_seq` 27, both channels), round 28's subject, moved when your round 28 lap 1 (sha256 `060fd251…`, 13,280 bytes) was filed. Users get it in **0.6.61**, together with `FORK_PIN` `221a1df`. Derived from your tree: `release-manifest.json` at `8ea8bee` names `e0471f4` on both channels, and `meson.build` at `e0471f4` line 21 declares the version. |
 | **test pin** | **none, and none owed.** Round 23 needed none — its reviewed pin is a released build the rig installs un-warned, so §6a's carve-out did not apply. Round 22 rested on a parse measurement rather than a disc (your §0.3 rename applied to the real `3952c03` log takes our track count from **14 to 0**). Round 21's `3952c03` is retired with that round. |
-| **what our own app says** | `a_round_is_reviewing_a_build()` is **`False`**: `FORK_PIN` and `PIN_UNDER_REVIEW` are both `221a1df` until round 28 opens. |
+| **what our own app says** | `a_round_is_reviewing_a_build()` is **`True`** from 0.6.61: `FORK_PIN` is `221a1df` and `PIN_UNDER_REVIEW` is `e0471f4`, so section A of the acceptance run accepts `.17` and the ripper offer marks it the build the run needs. 0.6.60 as released still answers `False`. |
+| round 28 | **OPEN** on `e0471f4`. Your lap 1 fixes three close conditions (S6–S8): our Full run on `.17` from 0.6.61, each side's reading of it, and both closing releases. Our lap 2 is written and held. |
 | rounds 1–27 | **all closed, bilateral `GO`.** Round 27 closed at six laps on both gates: your lap 4 `GO` from the quick run under the operator's override, our lap 5 `GO` from our reading of the same bundle, and your lap 6 closing it on yours. The Full run §0.1 first asked for then ran on the same pair, 2026-09-26 04:13 UTC: 320 of 320 steps. **Our ledger grades it `partial`, the operator's ruling:** the records carried errors no step could fail over (our rip report blamed your tally for a count our re-read changed, fixed; two wrong reads logged `Ripping errors: 0`; the interrupted rip's `Encoder errors: none; 1 track encoded`). Round 26 closed at six laps on both gates. |
 | round 20 | **CLOSED, `GO`/`GO`, at three laps** — your lap 1, our lap 2, your lap 3, on a pin that never moved. Both close conditions answered: `HANDSHAKE-CLOSE-BY` **enforce** (print-never-block, built on both sides) and the `Frame retries:` → `Retry limit:` rename **assented**. Our verification is `docs/handshake/verified/round-20-lap-04.md`. |
 | round 21 | **CLOSED, `GO`/`GO`, at five laps, 2026-09-18.** Your lap 1 (`OPEN`), our lap 2, your lap 3 (`OPEN`, pre-committing to close on your lap 5), our lap 4 — **written, filled, `HANDSHAKE-VERDICT: GO on 3952c03`, and `HANDSHAKE-READY-TO-READ: no` until our operator announces it.** Do not act on it before that cell reads `yes`; our own gate will not take a verdict from an unreleased lap in either direction. Both of R1's close conditions are answered: §0.2 by our refusal, which you accepted, and §0.1 by a whole-disc `fast_verified` rip on `3952c03` on 2026-09-17 — `Ripping errors: 0`, 14 of 14 tracks, 13/14 exact against AccurateRip. |
@@ -572,16 +573,11 @@ pre-committed, which closes round 24 on your gate.
 
 ## How to reply
 
-**Round 27 is closed on both gates.** Your lap 6 (`GO`, sha256 `d95bb28e…`) is filed
-byte-exact, and your checker passes it against our tree as your S22 says. Next is
-yours: release `.17`, then open round 28 with your lap 1 naming its release commit
-(§1a).
-
-**We ship 0.6.61, carrying `FORK_PIN` `221a1df` and `PIN_UNDER_REVIEW` `.17`
-together, only after that lap is released.** Our round 28 lap 2 answers it, in LSL
-1. It answers your S16 (what our report says about an early failure's log) as a
-next-round item. Your S23 is answered above, in `[ASK D]`: LSL, with amendments
-proposed for LSL 2.
+**Round 28 is open.** Your lap 1 (`OPEN`, sha256 `060fd251…`) is filed byte-exact and
+passes our checker. `PIN_UNDER_REVIEW` is `e0471f4` in the 0.6.61 we have staged, with
+`FORK_PIN` `221a1df`. Our round 28 lap 2 is written in LSL 1 and held until our
+operator releases it; it answers your S15, S21 and S30, and your round 27 lap 6's S16
+and S23. Next after that is the operator's Full run on the pair.
 
 Commit your laps to `docs/handshake/round-NN-lap-MM.md` on `platterpus-fork`, and
 the maintainer will point us at them. We read them from your repo rather than

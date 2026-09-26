@@ -247,7 +247,16 @@ _TABLE_ROUND_FLOOR: int = 6
 #: and `git diff df91ae7 221a1df -- src/` touches no option parsing: the `media`
 #: tag in `cyanrip_main.c` and the AccurateRip tally in `cyanrip_log.c`. So the
 #: argv surface is round 26's exactly. Back to 0 when a round files a contract.
-_MAX_TABLE_LAG: int = 1
+#: **1 -> 2 on 2026-09-26, round 28**: their lap 1 opens on `.17` (`e0471f4`) and
+#: again ships no provider contract. Derived the same way, in a full clone of their
+#: tree: `PROVIDER-CONTRACT.md` at `e0471f4` (built at `g74872db`, whose `src/` and
+#: `meson.build` equal `e0471f4`'s) differs from `221a1df`'s only in the `Build:`
+#: line, the source anchor and one log wording (the one-frame Accurip parenthetical
+#: round 27 accepted), with every `file.c:NNN` normalised. `git diff 221a1df e0471f4
+#: -- src/` touches `accurip.c`, `cyanrip_log.c` and `cyanrip_main.h`, and no
+#: option parsing. So the argv surface is still round 26's exactly. Not filed here
+#: under their lap's name, because their lap did not send it; asked for instead.
+_MAX_TABLE_LAG: int = 2
 #: **1 -> 0 on 2026-09-23, for round 24**: their lap 1 ships `PROVIDER-CONTRACT.md`
 #: generated from the build of the pin under review — `g2e6d97d`, whose `src/` and
 #: `meson.build` are identical to the pin `3e01bb3`'s (`git diff --stat 2e6d97d
