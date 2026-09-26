@@ -170,6 +170,19 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     SESSION_COMPLETE_SENTINEL.unlink(missing_ok=True)
 
 
+def _print_durations(config: pytest.Config, reporter: object) -> None:
+    """Print `--durations`, as pytest would after the session-finish hook.
+
+    pytest prints it from its `runner` plugin's terminal-summary hook. The plugin
+    manager hands that plugin over by name, so nothing imports pytest's private
+    modules. A pytest that renames it costs only this section, never the status.
+    """
+    runner = config.pluginmanager.get_plugin("runner")
+    summary = getattr(runner, "pytest_terminal_summary", None)
+    if callable(summary):
+        summary(reporter)
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
     # Defuse the intermittent PySide interpreter-shutdown SIGABRT (a Qt-internal
@@ -221,6 +234,13 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
             reporter.write_line("")
             reporter.summary_failures()
             reporter.summary_errors()
+            # The warnings and `--durations` sections, which the hard exit also
+            # skipped, so slow tests were invisible until timed through JUnit
+            # output (2026-09-26). `--durations` is printed by pytest's own
+            # `runner` plugin in its terminal-summary hook, reached here directly
+            # because calling the whole hook would print coverage twice.
+            reporter.summary_warnings()
+            _print_durations(session.config, reporter)
             reporter.short_test_summary()
             reporter.summary_stats()
         except Exception:  # noqa: BLE001 — reporting must never change the status

@@ -425,6 +425,37 @@ def test_session_finish_actually_calls_the_coverage_printer() -> None:
     )
 
 
+def test_session_finish_prints_warnings_and_durations_before_the_hard_exit() -> None:
+    """The `os._exit` in session finish also skipped the warnings summary and
+    `--durations`, so slow tests were invisible until timed through JUnit output
+    (2026-09-26). Asserts CALLS, as the test above does, because a name in a
+    comment is not an invocation. Measured by hand the same day: `--durations=3`
+    printed nothing before the fix and three rows after, serial and under `-n 2`.
+    """
+    source = (REPO_ROOT / "tests" / "conftest.py").read_text(encoding="utf-8")
+    finish = next(
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.FunctionDef) and node.name == "pytest_sessionfinish"
+    )
+    names = {
+        node.func.id
+        for node in ast.walk(finish)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    methods = {
+        node.func.attr
+        for node in ast.walk(finish)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert "_print_durations" in names, (
+        f"--durations is not printed; calls: {sorted(names)}"
+    )
+    assert "summary_warnings" in methods, (
+        f"warnings are not printed; calls: {sorted(methods)}"
+    )
+
+
 def test_the_window_teardown_stops_the_report_writer_as_close_does() -> None:
     """`stop_window_threads` does what the window's own `closeEvent` does for the
     rip-report writer (2026-09-26).
