@@ -2778,8 +2778,10 @@ def test_the_emitter_fills_our_pin_with_a_commit_that_resolves_here(
 def test_our_pin_names_a_commit_that_survives_the_squash_merge(hs: ModuleType) -> None:
     """`resolves locally` is weaker than `resolves for the peer`, and it shipped.
 
-    This repository squash-merges, so every commit on a session branch is
-    discarded at merge and replaced by one new commit on the default branch. The
+    This repository squash-merged until 2026-09-26, so every commit on a session
+    branch was discarded at merge and replaced by one new commit on the default
+    branch. (It now merges with a merge commit; a branch commit is still off
+    `main` until then.) The
     first `our_pin()` pickaxed the version literal with no scope, so on a branch
     it returned a branch commit: `git cat-file -e` passed in the author's clone
     and the sha was **unfetchable for the cyanrip fork**, which is the opposite of
@@ -2861,8 +2863,8 @@ def test_our_pin_names_a_commit_that_survives_the_squash_merge(hs: ModuleType) -
 
     assert _is_ancestor(pin, default), (
         f"our_pin() returned {pin}, which is NOT reachable from {default}. A "
-        "squash-merge discards branch commits, so a pin taken from a branch names "
-        "a commit only this clone has — the peer cannot fetch it. Take the pin "
+        "branch commit is not on main until the branch is merged, so a pin taken "
+        "from a branch may name a commit the peer cannot fetch. Take the pin "
         "after the merge, or search the published history first."
     )
 
@@ -2965,8 +2967,8 @@ _BARE_SHA: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{7,40}$")
 _UNREACHABLE_FROM_COMMITS: Final[dict[str, str]] = {
     # Declared `d97adae`, which does not resolve here at all. Round 9 predates the
     # `our_pin()` rule (`scripts/handshake.py`) that resolves pins against
-    # `origin/main` precisely because this repository squash-merges and a branch
-    # sha does not survive the merge. Same root cause as lap 18's `ed4f300`, which
+    # `origin/main` precisely because this repository squash-merged (until
+    # 2026-09-26) and a branch sha did not survive the merge. Same root cause as lap 18's `ed4f300`, which
     # our own CI pin check caught on all four matrix legs; this one was never
     # checked because nothing checked this field.
     "round-09-lap-02.md": "d97adae — squash-deleted session-branch commit",
@@ -3049,7 +3051,7 @@ def test_every_declared_from_commit_is_reachable_not_merely_resolvable() -> None
         "a lap names a HANDSHAKE-FROM-COMMIT the peer cannot fetch:\n  "
         + "\n  ".join(problems)
         + "\n\nResolve the pin against `origin/main` (see `scripts/handshake.py::"
-        "our_pin`), which this repository needs because it squash-merges. If the "
+        "our_pin`), because a branch commit is not on main until the merge. If the "
         "lap is already sent and cannot be corrected, inventory it in "
         "_UNREACHABLE_FROM_COMMITS with what went wrong."
     )
@@ -3289,7 +3291,7 @@ def test_no_provenance_field_carries_an_unresolved_placeholder() -> None:
         "a lap's provenance field is not filled in:\n  "
         + "\n  ".join(problems)
         + "\n\nResolve it with `scripts/handshake.py::our_pin` (which searches "
-        "`origin/main` first, because this repository squash-merges) before the "
+        "`origin/main` first, because main is what the peer reads) before the "
         "lap is handed over. A placeholder here is INVISIBLE to "
         "test_every_declared_from_commit_is_reachable_not_merely_resolvable, "
         "which probes bare shas and silently skips everything else."
