@@ -50,6 +50,14 @@ Complete anything open."*
   guard on in cloud sessions.
 - **Not done:** 0.6.61 waits, as agreed with the fork, for their round 28 lap 1
   naming `.17`.
+- **Then `main`'s CI failed on the merge, and the PR's had not.** The checker
+  refused our own worked example on `main`: it cites commits that exist only on our
+  session branch, which squash merges never put on `main`. It was right by its
+  rule, and the rule was wrong for us. Its spec asks for what *"a fresh clone can
+  resolve"*, and both checkers read that as reachable from `HEAD`. Now there are
+  three answers, and F4 goes to the fork. The lesson: **a test that passes on a
+  pull request can still fail on the branch it merges into**, whenever it reads git
+  history. The PR's `HEAD` carried the branch's commits, and `main` does not.
 
 ## 2026-09-26 — round 27 closed on both gates, and both sides built a body language
 
