@@ -63,6 +63,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   ripper would have named the folder with the word "disc". Both codes are now
   filled in from the same disc number and total that go into the tags. The
   preview also shows a typed `{` or `}` as the `(` or `)` the file actually gets.
+  For contributors: the template translator's property test now gives both codes
+  their meaning. It had still expected them to be kept as unknown codes, and
+  CI's draw found `%M` where the local run had not. That case is now pinned as
+  an `@example`.
 
 - **Fixed six problems found by new property tests.** Each could reach a rip or
   its record:

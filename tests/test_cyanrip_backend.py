@@ -575,9 +575,12 @@ _OUR_SUBSTITUTION: re.Pattern[str] = re.compile(
     "|".join(re.escape(value) for value in sorted(_TOKEN_MAP.values()))
 )
 
-#: The token letters `scheme_from_template` gives a meaning to.
+#: The token letters `scheme_from_template` gives a meaning to. `N` and `M`
+#: joined on 2026-09-26 (D18): this set lagged the change by one commit, so the
+#: property below drew `%M` as an "unknown" token and expected it kept, and CI's
+#: draw found it where the local one had not.
 _MEANINGFUL_LETTERS: frozenset[str] = frozenset(
-    {key[1] for key in _TOKEN_MAP} | {"Y", "%"}
+    {key[1] for key in _TOKEN_MAP} | {"Y", "N", "M", "%"}
 )
 
 
@@ -632,11 +635,14 @@ def _literal_piece() -> st.SearchStrategy[tuple[str, str]]:
     return text.map(lambda s: (s, s.replace("{", "(").replace("}", ")")))
 
 
-def _token_piece(year: str) -> st.SearchStrategy[tuple[str, str]]:
+def _token_piece(
+    year: str, disc: str, discs: str
+) -> st.SearchStrategy[tuple[str, str]]:
     """One ``%``-sequence and what it is documented to become."""
     known = st.sampled_from(sorted(_TOKEN_MAP)).map(lambda t: (t, _TOKEN_MAP[t]))
     escape = st.just(("%%", "%"))
     year_token = st.just(("%Y", year))
+    disc_token = st.sampled_from([("%N", disc), ("%M", discs)])
     # An unknown token is kept so a typo stays visible — but a brace in it is
     # still a brace, and flattens like any other literal one.
     unknown_char = st.one_of(
@@ -646,15 +652,20 @@ def _token_piece(year: str) -> st.SearchStrategy[tuple[str, str]]:
     unknown = unknown_char.map(
         lambda c: ("%" + c, "%" + c.replace("{", "(").replace("}", ")"))
     )
-    return st.one_of(known, escape, year_token, unknown)
+    return st.one_of(known, escape, year_token, disc_token, unknown)
 
 
 @st.composite
-def _template_with_meaning(draw: st.DrawFn) -> tuple[str, str, str]:
-    """``(template, year, expected scheme)``, built from pieces of known meaning."""
+def _template_with_meaning(draw: st.DrawFn) -> tuple[str, str, str, str, str]:
+    """``(template, year, disc, discs, expected scheme)``, from pieces of known meaning."""
     year = draw(st.sampled_from(["", "1995", "2020"]))
+    # "" is the unusable-position case: the codes drop out, as %Y does undated.
+    disc, discs = draw(st.sampled_from([("", ""), ("1", "1"), ("2", "3")]))
     pieces = draw(
-        st.lists(st.one_of(_literal_piece(), _token_piece(year)), max_size=12)
+        st.lists(
+            st.one_of(_literal_piece(), _token_piece(year, disc, discs)),
+            max_size=12,
+        )
     )
     # A lone "%" can only be a literal at the very END — anywhere else it would
     # pair with the next character and become a token.
@@ -662,16 +673,21 @@ def _template_with_meaning(draw: st.DrawFn) -> tuple[str, str, str]:
         pieces.append(("%", "%"))
     template = "".join(source for source, _ in pieces)
     expected = "".join(meaning for _, meaning in pieces)
-    return template, year, expected
+    return template, year, disc, discs, expected
 
 
+# The first `@example` is the draw CI's py3.11/3.13/3.14 legs found on
+# 2026-09-26 (`%M` expected kept as unknown); pinned so it runs every time
+# rather than whenever the random draw happens to land on it.
+@example(("%M", "", "", "", ""))
+@example(("%N/%M - %n", "", "2", "3", "2/3 - {title}"))
 @settings(max_examples=300, deadline=None)
 @given(_template_with_meaning())
 def test_the_scheme_translates_a_template_piece_by_piece(
-    case: tuple[str, str, str],
+    case: tuple[str, str, str, str, str],
 ) -> None:
-    template, year, expected = case
-    assert scheme_from_template(template, year=year) == expected
+    template, year, disc, discs, expected = case
+    assert scheme_from_template(template, year=year, disc=disc, discs=discs) == expected
 
 
 @settings(max_examples=200, deadline=None)
