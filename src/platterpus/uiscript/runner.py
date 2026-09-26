@@ -4317,12 +4317,21 @@ def _active_dialog() -> QDialog | None:
     The console is the harness, not the application under test. A script that
     says "no dialog is open" plainly means *no dialog of the app's* — nobody
     writes an assertion about the window they are typing into.
+
+    **Only a VISIBLE dialog counts** (2026-09-26). Qt's active window can still
+    name a dialog after it is hidden: in the parallel suite a closed Setup &
+    Updates made `rip` refuse *"a dialog is waiting for an answer"* with nothing on
+    screen. A dialog nobody can see cannot be answered, waited on or cancelled.
     """
     modal = QApplication.activeModalWidget()
-    if isinstance(modal, QDialog) and not _is_the_harness(modal):
+    if isinstance(modal, QDialog) and modal.isVisible() and not _is_the_harness(modal):
         return modal
     active = QApplication.activeWindow()
-    if isinstance(active, QDialog) and not _is_the_harness(active):
+    if (
+        isinstance(active, QDialog)
+        and active.isVisible()
+        and not _is_the_harness(active)
+    ):
         return active
     for widget in _visible_top_levels():
         if isinstance(widget, QDialog) and not _is_the_harness(widget):

@@ -55,6 +55,28 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Test scripts no longer refuse to rip behind a dialog nobody can see.** Before
+  pressing Start, a script checks that no dialog is waiting for an answer. Qt can
+  go on calling a dialog "active" after it has closed, and the check believed it,
+  so a closed Setup & Updates could stop a script's `rip` with nothing on screen.
+  Only a dialog that is actually showing counts now, for `rip`, `expect-dialog`
+  and `cancel` alike.
+- **For contributors: two causes of a red parallel run that had nothing to do
+  with the code.** Hypothesis failed any example slower than 200 ms, a limit that
+  reads a clock every worker shares, and one correct property test failed at
+  211 ms on a busy machine. The whole suite now runs with no deadline (34 tests
+  had already opted out one at a time). And a screenshot test left a dialog on
+  screen for the rest of its worker's run; it now closes it.
+- **For contributors: every commit the project cites now resolves from `main`, and
+  every branch can be deleted.** The handshake laps, TASKS and the session log cite
+  commits by SHA, and so do the cyanrip fork's laps. Pull requests were
+  squash-merged, which leaves a branch's own commits on no branch once it is
+  deleted. A scan found 47 cited commits in that state, held only by GitHub's
+  pull-request refs, which a plain clone does not fetch. All 47 are back in `main`'s
+  history, with the tree unchanged. Session-branch pull requests now merge with a
+  merge commit (Dependabot's still squash), and
+  `tests/test_cited_commits_are_reachable.py` fails on `main` if a squash strands a
+  citation again.
 - **For contributors: the whole-tree sweeps skip an agent's worktree.** An agent run
   in its own git worktree puts a full copy of the repository under
   `.claude/worktrees/`, which is gitignored. Three sweeps walked the filesystem, found

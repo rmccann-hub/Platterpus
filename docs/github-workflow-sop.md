@@ -12,7 +12,8 @@
 >   delete, no tag push (releases go via the `release.yml` `workflow_dispatch`).
 > - Feature work goes on the **designated branch** the session is given
 >   (e.g. `claude/…`), never a personal `username/…` branch.
-> - We **squash-merge** PRs to `main` (matches §7.1 below).
+> - We merge session-branch PRs to `main` with a **merge commit**, not a squash
+>   (since 2026-09-26; §7.1 below says why).
 > - Commit subjects use **lowercase conventional-commit `type(scope):`
 >   prefixes**, not §5.2's "Capitalize the subject" style, and there is **no
 >   hard 50-char subject cap** (see CLAUDE.md → Commit & PR hygiene).
@@ -165,7 +166,7 @@ origin** (triggers CI).
 | **Rebase and merge** | Replays commits atop `main` (new hashes) | Linear, no merge nodes | Painful with conflicts; rewrites hashes |
 
 **Squash and merge is favored** for feature branches (each `main` node = one
-complete, deployable change). *(This is what Platterpus uses for **all** PRs into `main`.)* Merge in the web UI → pick the strategy → **Confirm merge** → **Delete
+complete, deployable change). *(Platterpus did this for all PRs into `main` until 2026-09-26 and now uses a **merge commit** instead: its handshake laps cite branch commits by SHA, and a squash leaves those commits on no branch once the branch is deleted. `git log --first-parent main` keeps the one-node-per-change view. `CLAUDE.md` → *Commit & PR hygiene* lists this as deliberate divergence (6).)* Merge in the web UI → pick the strategy → **Confirm merge** → **Delete
 branch**. "Merge when ready" / auto-merge merges the instant CI passes.
 
 ### 7.2 Branch protection (admin, server-enforced on `main`/`release/*`)

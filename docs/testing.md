@@ -242,7 +242,12 @@ tiers. "I added a happy-path test" is not done.
    permanent CI coverage.
 2. **Parsers never raise.** Any new parser of external output gets a
    property-based "never raises on arbitrary input" test alongside its example
-   tests. Degrade to empty/default; never throw into the GUI.
+   tests. Degrade to empty/default; never throw into the GUI. **No per-example
+   deadline**: `tests/conftest.py` loads a Hypothesis profile with
+   `deadline=None`, because the default 200 ms reads a wall clock the parallel
+   suite shares, and a correct test failed at 211 ms on a busy runner
+   (2026-09-26). A test that really bounds time measures it itself
+   (`tests/test_regex_bounded_time.py`).
 3. **Fail loud, never silent.** Error paths surface to the log *and* the user
    (dialog / placeholder). Tests assert the surfacing, not just the absence of a
    crash.
@@ -2544,10 +2549,11 @@ Two tests then applied at once:
 
 * `test_every_declared_from_commit_is_reachable_not_merely_resolvable` requires an
   outbound lap's `HANDSHAKE-FROM-COMMIT` to be an **ancestor of `origin/main`** —
-  not merely a SHA `git cat-file -e` accepts. This repository squash-merges, so
-  every commit on a session branch is discarded at merge; a pin taken from the
-  branch passes locally and is **unfetchable for the peer**, who keeps the document
-  forever.
+  not merely a SHA `git cat-file -e` accepts. This repository squash-merged until
+  2026-09-26, so every commit on a session branch was discarded at merge; a pin
+  taken from the branch passed locally and was **unfetchable for the peer**, who
+  keeps the document forever. Session branches now merge with a merge commit, and
+  the rule stands: a branch commit is not on `main` until the merge.
 * `test_no_lap_of_the_current_round_is_left_unsent` requires an outbound lap for the
   current round the moment that round is filed as inbound.
 
@@ -3403,8 +3409,20 @@ Two things to carry:
 - **In a repository that squash-merges, a commit on a session branch never reaches
   `main`.** A lap written on the branch cites commits that last only as long as the
   branch does. The lap checker now says so (`LSL.offrecord`) instead of refusing or
-  passing, and the session branch is kept. The same shape is in the fork's checker,
-  sent as F4 (`docs/handshake/outbound/artifacts/lsl-amendments-1.md`).
+  passing. The same shape is in the fork's checker, sent as F4
+  (`docs/handshake/outbound/artifacts/lsl-amendments-1.md`).
+- **Then stop squash-merging the branches that are cited.** Keeping the branch was
+  the first answer, and it held only while nobody deleted anything. A full-tree scan
+  the same day found **47** cited commits already on no branch, held only by
+  GitHub's `refs/pull/N/head`, which a plain clone never fetches. One of them is
+  cited in the fork's round 19 lap 1. All 47 came back through `git merge -s ours`,
+  which keeps the history and leaves the tree alone. Session-branch pull requests now
+  merge with a merge commit, and `tests/test_cited_commits_are_reachable.py` turns
+  `main` red if a squash strands a citation again. It fails on `main`, never on the
+  pull request: the asymmetry this section records, used on purpose. It also
+  carries a floor of cited commits found, because the gitleaks scan of the
+  recovered history first ran on a range it could not parse, read **0 commits**,
+  and still printed *"no leaks found"*.
 
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
