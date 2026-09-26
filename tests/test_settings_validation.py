@@ -975,3 +975,41 @@ def test_the_DISC_codes_are_known_so_settings_does_not_warn_about_them() -> None
     """
     issues = sv.validate_config(Config(track_template="%A/%d/CD %N of %M/%t - %n"))
     assert not [i for i in issues if i.field == "track_template"], issues
+
+
+# --- D17: a crashing check is a WARNING, not a pass and not an error ----------
+
+
+def _crash(*_args: object) -> list[sv.ValidationIssue]:
+    raise RuntimeError("a validator bug")
+
+
+def test_a_CRASHING_check_is_a_visible_warning_and_is_logged(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Maintainer ruling D17 (KDD-38, 2026-09-25). A crashing rule used to count as
+    "no issue", so a value its check could not evaluate passed silently."""
+    monkeypatch.setattr(sv, "_validate_dir", _crash)
+    with caplog.at_level(logging.ERROR):
+        issues = sv.validate_config(Config())
+    crashed = [i for i in issues if i.field == "output_dir"]
+    assert len(crashed) == 1, issues
+    assert not crashed[0].is_error(), "a crash must not be an error: that resets"
+    assert "couldn't check" in crashed[0].message
+    assert any(r.exc_info for r in caplog.records), "the traceback must reach the log"
+
+
+def test_a_CRASHING_check_neither_resets_the_value_nor_blocks_saving(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reason D17 is a warning and not an error: at startup an error resets
+    the field to its default, so a validator bug would reset a correct setting.
+    Checked through the real load path and the real save check."""
+    from platterpus import config as config_module
+
+    monkeypatch.setattr(sv, "_validate_dir", _crash)
+    mine = Config(output_dir="/srv/music/rips")
+    config_module.take_load_resets()  # start from an empty record
+    assert config_module._sanitized(mine).output_dir == "/srv/music/rips"
+    assert config_module.take_load_resets() == []
+    assert sv.field_error(mine, "output_dir") == ""

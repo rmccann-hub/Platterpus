@@ -127,8 +127,17 @@ def validate_config(config: Config) -> list[ValidationIssue]:
 
     Never raises — a validator that crashed would be worse than the invalid
     input it was meant to catch (it would take the Settings dialog down). Any
-    unexpected failure is logged and treated as "no issue for that check" so the
-    rest still run.
+    unexpected failure is logged with its traceback and reported as a WARNING on
+    that field, so the rest still run.
+
+    **A crash is a warning: not a pass, and not an error** (maintainer ruling
+    D17, KDD-38, 2026-09-25). It used to count as "no
+    issue", so a value its check could not evaluate passed silently; three such
+    crashes were found by the property tests that day. An error would be worse:
+    at startup an error resets the field to its default, so a bug in a validator
+    would reset a correct setting (the read offset included) and the next disc
+    would rip wrong with a clean-looking log. A warning keeps the value, shows
+    the user that it could not be checked, and does not block Save.
 
     **Each rule is isolated.** This used to be one big ``try`` around every
     check, which failed *open*: a hand-edited ``config.toml`` with, say, an
@@ -143,11 +152,22 @@ def validate_config(config: Config) -> list[ValidationIssue]:
     def run(
         rule: str, check: Callable[..., list[ValidationIssue]], *args: object
     ) -> None:
-        """Run one rule; a crash in it costs only that rule's findings."""
+        """Run one rule; a crash in it becomes a warning on that field (D17)."""
         try:
             issues.extend(check(*args))
         except Exception:  # noqa: BLE001 — a validator must never crash the dialog
-            log.exception("settings validation rule %r raised; skipping it", rule)
+            log.exception(
+                "settings validation rule %r raised; its value is kept, unchecked",
+                rule,
+            )
+            issues.append(
+                ValidationIssue(
+                    rule,
+                    f"Platterpus couldn't check this setting ({rule}), so its value "
+                    "was kept as it is. The log has the details.",
+                    SEVERITY_WARNING,
+                )
+            )
 
     run(
         "output_dir", _validate_dir, "output_dir", config.output_dir, "Output directory"
