@@ -112,9 +112,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **A rip is no longer marked complete when its own numbers disagree.** The rip
   check that runs after every rip marked a rip "completed" just because the ripper
   said so. It ignored the ripper's own track count ("12 of 14") and its error count
-  in the same summary. Now a rip counts as complete only if every track finished
-  and no errors were counted. Otherwise the report says what does not add up, or
-  that it could not be checked.
+  in the same summary. Now a rip counts as complete only if every track you asked
+  for finished (all of them, or the ones you ticked) and no errors were counted.
+  Otherwise the report says what does not add up, or that it could not be checked.
 
 - **A character on the disc that is not valid UTF-8 no longer stops Platterpus
   reading the rip.** The ripper's output was read in a mode where one such byte
