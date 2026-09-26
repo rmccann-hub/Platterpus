@@ -249,6 +249,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The auto-fix addendum's one-frame row reads `AccurateRip frame 450:`**, not
+  `AccurateRip +450:`, which looked like a read offset of +450. The row is AccurateRip's
+  checksum of frame 450 alone, and these are the words round 27 agreed for the
+  EAC-compatible log. Nothing reads this row back, so addenda already on disk keep the
+  old label and lose nothing.
 - **The ripper Platterpus installs by default moves to cyanrip
   `0.9.4-rc2+platterpus.16` (`221a1df`).** Handshake round 27 approved it on a
   quick hardware run, which stood in for the full one by the maintainer's
