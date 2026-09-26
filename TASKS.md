@@ -692,6 +692,21 @@ stopped at section A the same day, as their lap 1 predicted.
   `.17` (round 28) and cut 0.6.61, which carries the round-27 pin and the round-28 subject.
   Under our lap 2 §D amendment (their §E3), it needs no §6b override. (4) The operator runs
   the Full acceptance on 0.6.61 + `.17`.
+- [~] **Lap language 1: a typed language for the laps themselves** (maintainer, 2026-09-26:
+  *"start talking in the handshake files. you can do better, and make an actual perfect
+  language"*). Built: the spec `docs/handshake/outbound/artifacts/lap-language-1.md`, the
+  checker `scripts/laplang/` (`scripts/lap_language.py check|turn`), 47 tests in
+  `tests/test_lap_language.py`, and our round 27 lap 5 re-expressed as
+  `tests/fixtures/lap_language_round27_lap05.md`, clean against the real round. **Held**
+  until the maintainer releases it. Then, as next-round items for our round 28 lap 2:
+  (a) ask the fork to review it by rule id, write an independent checker, and decide
+  optional-now and normative-in-v7; (b) **send two portable findings under rule #12**: the
+  two gates key `HANDSHAKE-PEER-VERDICT-SOURCE` differently (ours filename-first,
+  `scripts/handshake.py:2276-2303`; theirs first `lap N`, `cyanrip@874ddad:tools/release-gate.py:207`),
+  and a regex timing sweep that collects only `re.compile` misses inline patterns
+  (`docs/testing.md` §5.bu; our own drive-name regex was quadratic behind that gap);
+  (c) settle `HANDSHAKE-OPENER`'s spelling. If they agree before we write lap 2, write it
+  in the language.
 
 ## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 

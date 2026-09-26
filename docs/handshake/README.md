@@ -146,6 +146,12 @@ documents depend on.
   ids to theirs. The directory's `README.md` maps each file to its tarball member and to the
   fork's copy.
 
+- **`outbound/artifacts/lap-language-1.md`** — **a proposal, not a lap**: lap language 1,
+  a typed language for the laps themselves (sha256 `3732f87ee9dc3335…`, 23,563 bytes when
+  first filed). Held until the operator releases it. Its checker is `scripts/laplang/`,
+  and its worked example is our round 27 lap 5 rewritten in it
+  (`tests/fixtures/lap_language_round27_lap05.md`).
+
 **Names are lowercase ASCII letters and digits only from round 8 on** (`CLAUDE.md` →
 *Artifact filenames that cross machines*). These files leave the repo and come back, and two
 naming conventions cost a rig run once already.
