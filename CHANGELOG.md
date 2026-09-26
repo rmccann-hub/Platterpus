@@ -32,6 +32,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **For contributors: the suite runs in parallel, and CI measures coverage on one
+  leg.** `pytest-xdist` is a new dev dependency (approved 2026-09-26). CI and
+  `scripts/check.py` run `pytest -n auto`; a bare `pytest` stays serial. The
+  session-finish hooks are controller-only, so the completion sentinel still speaks
+  for the whole run, and workers no longer hard-exit while still reporting. The
+  coverage floor (91%) runs on the py3.14 leg, whose tracer is the fast one; every
+  leg still runs every test.
+
 - **For contributors: the test suite runs 42% faster, and no longer touches your
   real Platterpus folders.** A serial run went from 7m22s to 4m18s. Most of the
   time was waits, not work: a report-writer thread left running at teardown, a

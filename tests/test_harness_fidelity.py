@@ -466,3 +466,30 @@ def test_no_test_resolves_a_path_in_the_real_homes() -> None:
         value = getattr(paths, name)
         assert value.is_relative_to(TEST_HOME), f"paths.{name} is {value}"
     assert not TEST_HOME.is_relative_to(Path.home() / ".local"), TEST_HOME
+
+
+def test_a_handler_a_test_added_does_not_outlive_it() -> None:
+    """A root handler bound to one test's captured stderr is removed after it.
+
+    `logging_setup.configure_logging` binds a `StreamHandler` to the `sys.stderr`
+    of the moment, which inside a test is pytest's capture file, closed when the
+    test ends. Left on the root logger, the next thread to log wrote into a closed
+    file (seen first under the parallel suite, 2026-09-26). pytest's own capture
+    handlers are left for pytest to manage.
+    """
+    import io
+    import logging
+
+    from conftest import drop_root_handlers_added_since
+
+    root = logging.getLogger()
+    before = list(root.handlers)
+    stray = logging.StreamHandler(io.StringIO())
+    root.addHandler(stray)
+    try:
+        dropped = drop_root_handlers_added_since(before)
+    finally:
+        root.removeHandler(stray)
+    assert dropped == [stray]
+    assert stray not in root.handlers
+    assert all(h in root.handlers for h in before), "a pre-existing handler was lost"

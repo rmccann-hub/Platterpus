@@ -249,9 +249,11 @@ tiers. "I added a happy-path test" is not done.
 4. **Coverage gate.** CI runs branch coverage with `--cov-fail-under` (currently
    **91%**, TOTAL ~93%). The gate **ratchets up, never down** — raise it when
    TOTAL comfortably clears it; never lower it to make a build green.
-5. **Version matrix.** CI runs the suite on every supported Python (3.11–3.14).
-   Add a version when users move to it; we've been bitten by version-specific
-   breakage before.
+5. **Version matrix.** CI runs the suite on every supported Python (3.11–3.14),
+   each leg in parallel (`pytest -n auto`). The coverage floor runs on the 3.14
+   leg only (2026-09-26), because its `sys.monitoring` tracer is the fast one;
+   every leg still runs every test. Add a version when users move to it; we've
+   been bitten by version-specific breakage before.
 6. **The hardware gate is explicit.** Anything that can only be proven on real
    hardware goes in [test-plan.md](test-plan.md) with a checkbox, and the code is
    structured to **fail safe** until that box is ticked (e.g. CTDB CRC returns
@@ -3817,8 +3819,8 @@ is about. The gates written on the day are
 # Fast local loop (no coverage overhead):
 pytest
 
-# Exactly what CI enforces (branch coverage + gate):
-pytest --cov=platterpus --cov-report=term-missing --cov-fail-under=91
+# Exactly what CI's coverage leg enforces (parallel, branch coverage + gate):
+pytest -n auto --cov=platterpus --cov-report=term-missing --cov-fail-under=91
 
 # Property tests only (more examples for a deeper sweep):
 pytest tests/test_parsers_property.py --hypothesis-seed=random

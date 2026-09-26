@@ -28,6 +28,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import textwrap
+import types
 from pathlib import Path
 
 import pytest
@@ -184,9 +185,18 @@ def test_session_start_clears_a_stale_sentinel() -> None:
         assert SESSION_COMPLETE_SENTINEL.exists(), (
             "the sentinel path must be writable, or the guard can never fire"
         )
-        # The real hook, called directly. `session` is unused by it, so None is
-        # honest here rather than a fake that pretends to be a pytest.Session.
-        pytest_sessionstart(None)  # type: ignore[arg-type]  # hook ignores it
+        # The real hook, called directly. It reads only `session.config`, to ask
+        # whether it is running in an xdist worker (2026-09-26), so the stand-in
+        # carries a config and nothing else. A controller's config has no
+        # `workerinput`, and a worker's does.
+        worker = types.SimpleNamespace(config=types.SimpleNamespace(workerinput={}))
+        pytest_sessionstart(worker)  # type: ignore[arg-type]  # only .config is read
+        assert SESSION_COMPLETE_SENTINEL.exists(), (
+            "a WORKER cleared the sentinel. Only the controller speaks for the run; "
+            "a worker starting late would otherwise erase the run's own record"
+        )
+        controller = types.SimpleNamespace(config=types.SimpleNamespace())
+        pytest_sessionstart(controller)  # type: ignore[arg-type]  # only .config
         assert not SESSION_COMPLETE_SENTINEL.exists(), (
             "pytest_sessionstart left a stale sentinel in place — a leftover from "
             "an earlier run would then vouch for this one, and CI's 'did the suite "
@@ -195,3 +205,100 @@ def test_session_start_clears_a_stale_sentinel() -> None:
     finally:
         if previous is not None:
             SESSION_COMPLETE_SENTINEL.write_text(previous)
+
+
+@pytest.mark.parametrize("outcome", ["pass", "fail"])
+def test_a_parallel_run_is_vouched_for_once_by_the_controller(
+    tmp_path: Path, outcome: str
+) -> None:
+    """Under pytest-xdist, the sentinel is the CONTROLLER's, and records its status.
+
+    The suite runs with `-n auto` from 2026-09-26. The real conftest's session
+    finish used to write the sentinel and `os._exit` in every process, so a worker
+    that finished early could vouch for a run whose sibling then died, and with
+    coverage on the controller raised INTERNALERROR (`worker_errordown` after
+    `workerfinished`) because workers were killed while still reporting.
+
+    This runs the REAL conftest, copied into a scratch suite so its sentinel lands
+    in `tmp_path` rather than over this run's own, on two workers with coverage
+    on: the path that failed. It must exit with the true status, write the
+    sentinel once with that status, and raise no internal error.
+    """
+    suite = tmp_path / "tests"
+    suite.mkdir()
+    # The real conftest, plus one hook that records each WORKER reaching
+    # `pytest_unconfigure`. That is the deterministic half of this test: the
+    # INTERNALERROR itself depended on how much a worker had left to send, so a
+    # scratch suite this small passed on the old code. But the old code
+    # hard-exited inside session finish, so no worker ever reached unconfigure,
+    # and this record is absent (revert-probed).
+    probe = textwrap.dedent(
+        f"""
+
+        def pytest_unconfigure(config):
+            if hasattr(config, "workerinput"):
+                worker = config.workerinput["workerid"]
+                (Path(r"{tmp_path}") / f"unconfigured-{{worker}}").write_text("ok")
+        """
+    )
+    (suite / "conftest.py").write_text(
+        (REPO_ROOT / "tests" / "conftest.py").read_text(encoding="utf-8") + probe,
+        encoding="utf-8",
+    )
+    failing = "assert False, 'deliberate'" if outcome == "fail" else "pass"
+    (suite / "test_scratch.py").write_text(
+        textwrap.dedent(
+            f"""
+            from platterpus.safe_int import int_or_none
+
+            def test_one():
+                assert int_or_none("7", field="x") == 7
+
+            def test_two():
+                assert int_or_none("nope", field="x") is None
+
+            def test_three():
+                {failing}
+            """
+        ),
+        encoding="utf-8",
+    )
+    env = {
+        **__import__("os").environ,
+        "PYTHONPATH": str(REPO_ROOT / "src"),
+        "QT_QPA_PLATFORM": "offscreen",
+    }
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-n",
+            "2",
+            "-p",
+            "no:cacheprovider",
+            "--cov=platterpus.safe_int",
+            "--cov-fail-under=0",
+            "tests",
+        ],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    output = proc.stdout + proc.stderr
+    expected = 1 if outcome == "fail" else 0
+    assert "INTERNALERROR" not in output, output[-3000:]
+    assert proc.returncode == expected, output[-3000:]
+    sentinel = tmp_path / ".pytest-session-complete"
+    assert sentinel.exists(), "the controller wrote no sentinel: " + output[-2000:]
+    assert sentinel.read_text(encoding="utf-8").strip() == str(expected)
+    assert "safe_int" in output, "the controller printed no coverage table"
+    reached = sorted(p.name for p in tmp_path.glob("unconfigured-*"))
+    assert reached == ["unconfigured-gw0", "unconfigured-gw1"], (
+        f"workers that finished their session normally: {reached}. A worker "
+        "hard-exiting inside session finish is cut off while still reporting to "
+        "the controller"
+    )
