@@ -1176,3 +1176,36 @@ def test_a_completed_rip_is_unaffected_by_either_verdict(tmp_path: Path) -> None
             f"a completed rip reported no OK row (verified={verified})"
         )
         assert not any("ATTESTED" in f.text for f in album.findings)
+
+
+def _asked_for(n: int | None, **rip: object) -> list[tuple[str, str]]:
+    report = _healthy()
+    report["rip"].update(rip)
+    report["completeness"] = {"tracks_expected": n} if n is not None else {}
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_completion(report, album)
+    return [(f.level, f.text) for f in album.findings]
+
+
+def test_a_DELIBERATE_partial_rip_is_ok_not_a_contradiction() -> None:
+    """The maintainer's quick run of 2026-09-26, in numbers: `-l 1,2` on a
+    14-track disc, the footer reading "2 of 14", `completeness.tracks_expected`
+    2. The first version of the stricter check compared with the disc total only
+    and would have called every partial rip self-contradicting."""
+    findings = _asked_for(2, rip_completed_tracks=2, rip_completed_total=14)
+    assert findings == [
+        (LEVEL_OK, "rip completed (2 of 14 tracks, the 2 asked for, no errors)")
+    ]
+
+
+def test_a_partial_rip_SHORT_of_what_was_asked_for_is_still_a_warning() -> None:
+    """The other half: asking for fewer tracks must not excuse finishing fewer."""
+    findings = _asked_for(3, rip_completed_tracks=2, rip_completed_total=14)
+    assert LEVEL_OK not in [level for level, _ in findings]
+    assert any("3 were asked for" in text for _, text in findings), findings
+
+
+def test_with_NO_record_of_what_was_asked_the_disc_total_is_the_bar() -> None:
+    """Absent `tracks_expected` (an offline parse), the whole-disc rule stands."""
+    findings = _asked_for(None, rip_completed_tracks=2, rip_completed_total=14)
+    assert LEVEL_WARN in [level for level, _ in findings]

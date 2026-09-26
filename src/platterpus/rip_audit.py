@@ -339,12 +339,21 @@ def _grade_a_reported_completion(
       cross-checked, which is a NOTE rather than an OK: not proven wrong, not
       shown right.
     * **They must agree, and be non-zero.** *Completed* over fewer tracks than
-      the disc holds is the ripper contradicting itself, a WARN.
+      the rip was ASKED for is the ripper contradicting itself, a WARN. "Asked
+      for" is the report's own ``completeness.tracks_expected``, which is the
+      disc's count or fewer when a subset was ticked; only when it is absent do
+      we fall back to the disc total. The first version of this check compared
+      with the disc total alone, so every deliberate partial rip (`-l 1,2` reads
+      "2 of 14") would have been graded as contradicting itself. Caught on the
+      maintainer's quick run of 2026-09-26, before it merged.
     * **The error tally must be clean.** The same footer carries
       ``Ripping errors:``; a completed rip that counted errors is a WARN naming
       them. An absent tally beside a present footer is a NOTE.
     """
     n_done, n_total = _count(done), _count(total)
+    asked = _count((report.get("completeness") or {}).get("tracks_expected"))
+    # What the ripper's "done" should equal: the tracks requested, else the disc.
+    expected = asked if asked else n_total
     health = report.get("health_status")
     if n_done is None or n_total is None:
         album.add(
@@ -352,12 +361,13 @@ def _grade_a_reported_completion(
             "the ripper reports the rip completed, but its track counts were not "
             f"recorded ({done} of {total}), so the claim could not be cross-checked",
         )
-    elif n_total == 0 or n_done != n_total:
+    elif n_total == 0 or n_done != expected:
+        asked_for = f", and {asked} were asked for" if asked else ""
         album.add(
             LEVEL_WARN,
             f"the ripper reports the rip completed, but its own count reads "
-            f"{n_done} of {n_total} tracks — the record contradicts itself, so "
-            "do not treat it as a whole-disc rip",
+            f"{n_done} of {n_total} tracks{asked_for} — the record contradicts "
+            "itself, so do not treat it as a complete rip",
         )
     if not isinstance(health, str) or not health:
         album.add(
@@ -373,11 +383,15 @@ def _grade_a_reported_completion(
         )
     if (
         n_done is not None
-        and n_done == n_total
+        and n_total is not None
         and n_total > 0
+        and n_done == expected
         and health == _NO_ERRORS
     ):
-        album.add(LEVEL_OK, f"rip completed ({n_done} of {n_total} tracks, no errors)")
+        subset = f", the {asked} asked for" if asked and asked < n_total else ""
+        album.add(
+            LEVEL_OK, f"rip completed ({n_done} of {n_total} tracks{subset}, no errors)"
+        )
 
 
 def _audit_completion(report: dict[str, Any], album: AlbumAudit) -> None:
