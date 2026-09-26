@@ -1360,7 +1360,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2382 -> 2397 (2026-09-26, round 27 closed on our gate)**: `FORK_PIN` rolls to
     # `221a1df` and `FORK_EXPECTED_VERSION` to `.16`, each with the dated record of
     # where it was read and cross-checked, as every roll before it.
-    "deps/fork_source.py": 2397,
+    # **2397 -> 2417 (2026-09-26)**: the two targets' menu lines became functions
+    # (`test_target_why`, `under_review_target_why`) so a test can supply a round
+    # state and reach them (`docs/testing.md` §5.bq); production text is unchanged.
+    "deps/fork_source.py": 2417,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1647,7 +1650,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # completion check graded OK off the boolean; it now reads the ripper's own
     # counts and error tally. It is a check of this registry, so it lives here.
     # **1287 -> 1301** (2026-09-26, the maintainer's quick run): the completion check compares the ripper's count with the tracks ASKED for (`completeness.tracks_expected`), not the disc total, so a deliberate partial rip is not graded as contradicting itself.
-    "rip_audit.py": 1301,
+    # 1301 -> 1322 on 2026-09-26: `_ar_matched` reads the confidence through
+    # `accuraterip_is_match` instead of the result's words, with the docstring saying why.
+    "rip_audit.py": 1322,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     "rip_files.py": 422,

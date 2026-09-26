@@ -10,6 +10,7 @@ in one day.
 from __future__ import annotations
 
 import pytest
+from conftest import ROUND_STATES, supply_round_state
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QLabel
 
@@ -17,9 +18,32 @@ from platterpus.deps import fork_source
 from platterpus.ui.ripper_picker import RipperPickerDialog
 
 
-@pytest.fixture
-def picker(qapp: QApplication) -> RipperPickerDialog:
+@pytest.fixture(params=ROUND_STATES)
+def picker(
+    request: pytest.FixtureRequest,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> RipperPickerDialog:
+    """The dialog in each round state, supplied rather than read from the tree.
+
+    Every test that takes this runs three times. Read live, the tests below could
+    only run in the state the constants happened to hold: the second-row test
+    skipped whenever no round was open (2026-09-26).
+    """
     del qapp
+    supply_round_state(monkeypatch, request.param)
+    return RipperPickerDialog()
+
+
+@pytest.fixture(params=[state for state in ROUND_STATES if state != "no-round"])
+def picker_with_a_choice(
+    request: pytest.FixtureRequest,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> RipperPickerDialog:
+    """The dialog in the states that offer more than one build."""
+    del qapp
+    supply_round_state(monkeypatch, request.param)
     return RipperPickerDialog()
 
 
@@ -51,6 +75,11 @@ def test_the_picker_offers_exactly_what_the_cli_lists(
             f"only {len(offered)} build(s) offered while a round reviews "
             f"{fork_source.PIN_UNDER_REVIEW} — the approved build and the one "
             "under review should both be there"
+        )
+    else:
+        assert offered == [fork_source.FORK_PIN], (
+            f"no round is open, so the approved build is the only one to offer; "
+            f"got {offered}"
         )
 
 
@@ -104,12 +133,18 @@ def test_cancelling_installs_nothing(qapp: QApplication) -> None:
     assert RipperPickerDialog().chosen_pin() == ""
 
 
-def test_choosing_a_row_returns_that_row(picker: RipperPickerDialog) -> None:
+def test_choosing_a_row_returns_that_row(
+    picker_with_a_choice: RipperPickerDialog,
+) -> None:
     """Non-triviality floor for the two tests above: the dialog must actually
-    read the buttons, not return its default whatever is checked."""
+    read the buttons, not return its default whatever is checked.
+
+    It used to skip when the tree had no round open, because then the menu has
+    one row. The states with a second row are now supplied, so it always runs.
+    """
+    picker = picker_with_a_choice
     others = [pin for button, pin in picker._buttons if not button.isChecked()]
-    if not others:
-        pytest.skip("one build offered, so there is no other row to choose")
+    assert others, "the fixture's state offers only one build"
     other = others[0]
     for button, pin in picker._buttons:
         button.setChecked(pin == other)

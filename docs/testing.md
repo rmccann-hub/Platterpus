@@ -3166,6 +3166,25 @@ Gates: `test_section_a_accepts_exactly_the_builds_the_round_allows` (three shape
 probed, both detected, and the round-26 row fails on the old code with the
 maintainer's exact symptom.
 
+**The second half, 2026-09-26: a SKIP is the same defect, and quieter.** Round 27
+closed, and the next suite run skipped one more test than the last. The picker's
+second-row test skips when the menu has one row, which it does whenever no round is
+open. Looking for the rest found tests that had not checked anything since round
+21: the two tests of the test-pin failure message skip unless a round names a
+separate test pin, and two menu tests returned early in the same case. Every round
+since has named none. A rule that reads live constants is only exercised in the
+round the tree is in, and a skip reports that as "not applicable" rather than
+"not tested". The fix is the carry-over above, made one call:
+`conftest.supply_round_state(monkeypatch, state)` puts `fork_source` into
+`"no-round"`, `"round-open"` or `"round-with-test-pin"`, and checks the two
+predicates afterwards so a state it failed to build fails there. The two menu lines
+that were computed once at import (`test_target_why`, `under_review_target_why`)
+became functions so a supplied state reaches them too; production text is
+byte-identical. **Keep the live-state branch where the SUBJECT is live**: the doc
+sweeps in `test_no_stale_version_claims.py` check committed prose against the tree's
+real state, so they branch on it by design, and each has a separate test of its
+detector on synthetic text. Four reverts probed, each detected.
+
 ### §5.br — A killed process prints no diagnosis, so the exit status has to be read as one
 
 **2026-09-24, 0.6.55 on the round-26 test pin.** The acceptance run reached its last

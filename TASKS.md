@@ -569,7 +569,7 @@ stopped at section A the same day, as their lap 1 predicted.
     detected. If their released lap 4 words it differently, change the two functions.
     - *Audit 2026-09-25: partly done.* Built: one_frame_match.eac_track_line / eac_summary_line (46a522e). Held off main until the fork's lap 4 is released with the same words.
   - *Audit 2026-09-25: partly done.* The fork's two items are done by their STATUS (cyanrip@2966369 STATUS.md:60), but their lap 4 is not written. Our EAC wording is built at 46a522e, on this branch only.
-- [ ] **`rip_audit._ar_matched` keys on result TEXT, and `.17` puts "not found" in a
+- [x] **`rip_audit._ar_matched` keys on result TEXT, and `.17` puts "not found" in a
   match** (found 2026-09-26 verifying their lap 4 §C). It returns False for any result
   containing "not found", and `.17`'s `Accurip 450` match ends *"whole-track checksums
   not found"*. **Nothing it reports changes today:** it is applied only to the v1 and v2
@@ -579,6 +579,17 @@ stopped at section A the same day, as their lap 1 predicted.
   words. That also changes how legacy-format reports count (`"Found, exact match"` holds
   neither phrase it looks for), so it is its own change with its own test, not a rider
   on round 27. NEXT-ROUND (S-14): it breaks nothing in the pin under review.
+  - *2026-09-26:* **Done**, once round 27 had closed. It now reads the confidence through
+    `accuraterip_is_match`, and a confidence that is not a plain integer reads as no
+    match rather than raising. Tests: the new wording, the legacy wording, a zero CRC,
+    malformed fields, and two real reports (`artifactsround27/`, and round 26's one-frame
+    track) whose inventory grades the same as before. Revert-probed.
+- [x] **Tests of a round state skipped or returned early outside that state**
+  (2026-09-26). The picker's second-row test, the two test-pin failure-message tests
+  and two menu tests read the live constants, so the test-pin ones had checked nothing
+  since round 21. `conftest.supply_round_state` now supplies each state, and the two menu
+  lines computed at import became functions so the state reaches them (`docs/testing.md`
+  §5.bq). Four reverts probed, each detected.
 - [x] **The real test on 0.6.60**, then each side's reading and the closing laps.
   - *Audit 2026-09-25: not ours to verify.* The operator's hardware run on 0.6.60. No round-27 bundle exists yet.
   - *2026-09-26:* **Done, as a quick run, by the operator's override of R1.** The run: 206 pass,
