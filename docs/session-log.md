@@ -71,6 +71,22 @@ the maintainer made on the round-27 test build had been read.
 - **Not settled here:** this run is a quick run, so it is not evidence for a
   version (KDD-35). The CTDB result was `not_in_db`, so the CTDB comparison path
   was not exercised on hardware.
+- **CI caught what the local run did not.** All four matrix legs failed on one
+  property test. D18 made `%N`/`%M` meaningful and the template translator's test
+  still drew them as unknown codes. The local 300-example draw never produced `%M`.
+  The failing draw is now an `@example`. PR #253 then merged on green (`7071625`).
+- **The fork released round 27 lap 4 (GO), and I checked it before acting on it.**
+  The maintainer's message named two commits. Both exist: the lap is `e9d3868`, and
+  `eb9bc06` above it holds the same bytes (sha256 reproduced). Their claims about
+  our code were right, and one test made them checkable. Deriving the rest found
+  one thing they could not see: `rip_audit._ar_matched` rejects any result
+  containing "not found", and `.17`'s new match wording contains it. It is applied
+  only to v1/v2 today, so nothing changes. **My first write-up called it a defect
+  before reading the call site**, and the call site said otherwise. It is a
+  NEXT-ROUND TASKS row, and its shape went to the fork. The one-frame EAC wording
+  landed (`fafa565`, the revert reverted). The bundle is filed as
+  `artifactsround27/`, 15 of 15 blob ids equal to theirs. Our lap 5 declares GO
+  and is **held**: `--announce` waits for the maintainer.
 
 ## 2026-09-25 — the known gaps, and a sweep of the small open rows
 
