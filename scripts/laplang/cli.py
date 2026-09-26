@@ -25,11 +25,12 @@ from .tables import AMENDMENTS, tables_for
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 
-#: Where each side publishes from, tried in order. `main` is ours (CLAUDE.md
-#: rule #12); `platterpus-fork` is the fork's branch of record.
+#: Each side's ref of record, tried in order. `main` is ours (CLAUDE.md rule #12:
+#: "`main` is the ref of record"); `platterpus-fork` is the fork's. A commit on
+#: another branch only is reported `offrecord`, not refused (`refs.Trees`).
 PUBLISHING_REFS: Final[dict[Side, tuple[str, ...]]] = {
-    "platterpus": ("HEAD",),
-    "cyanrip": ("platterpus-fork", "origin/platterpus-fork", "HEAD"),
+    "platterpus": ("origin/main", "main", "HEAD"),
+    "cyanrip": ("origin/platterpus-fork", "platterpus-fork", "HEAD"),
 }
 
 

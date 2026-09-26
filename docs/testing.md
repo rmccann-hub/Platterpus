@@ -3484,6 +3484,34 @@ Three things to carry:
   one may be a real flake, and it gets diagnosed the same way before its bound is
   touched: time it serially, and look at where the time goes.
 
+### §5.bv — A test that reads git history can pass on the pull request and fail on `main`
+
+**2026-09-26, found by `main`'s own CI on #258's squash merge.** The PR's run was green
+on all four legs. `main`'s run, on a tree identical byte for byte, failed three tests
+of the lap checker, all saying *"commit a7b51a8 is not reachable from HEAD"*.
+
+The two runs differ in exactly one input, and it is not the tree:
+- **On a pull request, `HEAD` is the merge of the branch into `main`**, so every commit
+  the branch ever made is an ancestor.
+- **On `main`, `HEAD` is the squash commit**, which has none of them as ancestors.
+
+Our worked example cited six of those branch-only commits, because the real round 27
+lap 5 did. So a check reading *"reachable from `HEAD`"* passed where the branch's
+history happened to be present and failed where it was not.
+
+Two things to carry:
+- **Ask of any test that reads git history: is its answer a property of the content,
+  or of which ref happens to be checked out?** CI fetches the whole history
+  (`fetch-depth: 0`) and still differs between runs, because `HEAD` differs. The
+  earlier depth-1 lesson (the comment above `fetch-depth: 0` in `ci.yml`) was about
+  history missing. This one is about history present in one run and absent in the
+  other.
+- **In a repository that squash-merges, a commit on a session branch never reaches
+  `main`.** A lap written on the branch cites commits that last only as long as the
+  branch does. The lap checker now says so (`LSL.offrecord`) instead of refusing or
+  passing, and the session branch is kept. The same shape is in the fork's checker,
+  sent as F4 (`docs/handshake/outbound/artifacts/lsl-amendments-1.md`).
+
 ### §5.bw — Pre-ship questions whose full statement lived only in `CLAUDE.md` (moved 2026-09-26)
 
 `CLAUDE.md`'s *How to stop shipping the next one* is a list of questions to answer in a commit message. Most of them are the one-line form of a §5 entry above, and point there. These six had no §5 entry of their own, so when `CLAUDE.md` was trimmed to its rules and pointers their full text moved here rather than being summarised away (Critical rule #7). `CLAUDE.md` keeps each question and points at this section.
