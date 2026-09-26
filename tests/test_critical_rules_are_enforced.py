@@ -1603,7 +1603,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # report stop keeping their own copies — the copies are what drifted.
     # **2973 -> 2975** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
-    "parsers/cyanrip_log.py": 2976,
+    # **2976 -> 3023** (2026-09-26): the one-frame note now says whose number differs — the log keeps its own count, and the note tells a re-read of ours apart from the ripper disagreeing with its own log (the Full run).
+    "parsers/cyanrip_log.py": 3023,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1612,7 +1613,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **883 -> 884** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The `accuraterip_offset` comment corrected.
     # **884 -> 889** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
-    "parsers/rip_log.py": 890,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **890 -> 896** (2026-09-26): `partially_accurate_logged`, the log's own one-frame count beside the ripper's tally (the Full run).
+    "parsers/rip_log.py": 896,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -1681,7 +1683,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2495 -> 2515** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): schema v28 and the `tag_control_characters_replaced` issue.
     # **2515 -> 2528** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): schema v29 and the `eac_log_signature_line_defused` issue.
     # **2528 -> 2546** (2026-09-26, the maintainer's quick run): a missing EAC-layout log is healthy when the rip's own settings turned it off (`_setting_was_on`).
-    "rip_report.py": 2546,
+    # **2546 -> 2554** (2026-09-26): the report passes the log's own count to the one-frame note, so our re-read is not described as the ripper disagreeing (the Full run).
+    "rip_report.py": 2554,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED

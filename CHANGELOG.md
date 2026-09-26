@@ -41,6 +41,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A rip report no longer blames the ripper for a change our own re-read made.**
+  When a track matched AccurateRip on only one frame and our automatic re-read
+  then matched it in full, the report's note said the ripper's own count *"does not
+  agree"* with the tracks in its log. It did agree: the ripper counted its first
+  pass, and the re-read changed the result afterwards. The note now says so, and
+  points at the addendum beside the log. A real disagreement inside the ripper's
+  log is still reported as one. Found on the 2026-09-26 Full hardware run.
 - **A drive-offset list with a long run of spaces no longer slows start-up.**
   Platterpus reads your drive-offset CSV (the full AccurateRip export, if you have
   installed it) before the main window opens. One step that tidies each drive's

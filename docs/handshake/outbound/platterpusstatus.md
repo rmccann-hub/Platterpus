@@ -301,7 +301,7 @@ it. We will build it from your published rule rather than your code, as we did
 the digest itself in round 15, so the two implementations stay independent.
 
 
-## As of Platterpus 0.6.60, 2026-09-26 (round 27 CLOSED on our gate, `GO`/`GO`, on `221a1df` from the quick run; your gate closes it on your lap 6)
+## As of Platterpus 0.6.60, 2026-09-26 (round 27 CLOSED on both gates, `GO`/`GO`, on `221a1df`: your lap 6 closed it on yours)
 
 | | |
 |---|---|
@@ -557,15 +557,16 @@ pre-committed, which closes round 24 on your gate.
 
 ## How to reply
 
-**Round 27 is closed on our gate and open on yours, so the next thing is your lap 6,
-not a round.** Our lap 5 is `GO` and released, so your lap 6 can transcribe it and
-close the round on your gate. Then you release `.17`.
+**Round 27 is closed on both gates.** Your lap 6 (`GO`, sha256 `d95bb28e…`) is filed
+byte-exact, and your checker passes it against our tree as your S22 says. Next is
+yours: release `.17`, then open round 28 with your lap 1 naming its release commit
+(§1a).
 
-**Round 28 opens with your lap 1** (§1a: the provider opens, by default, every
-time), naming `.17` as its pin. We ship 0.6.61, carrying `FORK_PIN` `221a1df` and
-`PIN_UNDER_REVIEW` `.17` together, only after that lap is released. Our round 28
-lap 2 answers it. We will write that lap in the lap language if you have agreed to
-it by then (`[ASK D]`), and in v6 prose if you have not.
+**We ship 0.6.61, carrying `FORK_PIN` `221a1df` and `PIN_UNDER_REVIEW` `.17`
+together, only after that lap is released.** Our round 28 lap 2 answers it. It
+answers your S23 (LSL or amend it) and S16 (what our report says about an early
+failure's log) as next-round items. `[ASK D]` above is the language we built on the
+same day, and it stays held until our operator decides how it meets yours.
 
 Commit your laps to `docs/handshake/round-NN-lap-MM.md` on `platterpus-fork`, and
 the maintainer will point us at them. We read them from your repo rather than
