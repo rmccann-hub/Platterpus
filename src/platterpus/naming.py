@@ -138,6 +138,10 @@ class SampleTrack:
     track: int
     track_total: int
     date: str
+    #: The disc's place in a set, for ``%N`` / ``%M``. A single disc is 1 of 1,
+    #: which is what the backend sends as ``-c`` for one.
+    disc: int = 1
+    disc_total: int = 1
 
     def value_for(self, token: str) -> str:
         """The sample value for a ``%X`` token (already path-sanitised).
@@ -165,6 +169,11 @@ class SampleTrack:
             # cyanrip zero-pads the track number to the disc's width (min 2).
             width = max(2, len(str(self.track_total)))
             raw = str(self.track).zfill(width)
+        elif token == "N":
+            # Filled in by the backend from the checked disc position, unpadded.
+            raw = str(self.disc)
+        elif token == "M":
+            raw = str(self.disc_total)
         else:
             return ""
         return _sanitise_value(raw)
@@ -281,6 +290,10 @@ def preset_for_templates(
     return None
 
 
+#: How the backend writes a brace that is typed in a template.
+_LITERAL_BRACES: dict[str, str] = {"{": "(", "}": ")"}
+
+
 def render_preview(template: str, sample: SampleTrack) -> str:
     """Render `template` with `sample`'s values — a faithful filename preview.
 
@@ -296,7 +309,11 @@ def render_preview(template: str, sample: SampleTrack) -> str:
     while i < n:
         ch = template[i]
         if ch != "%":
-            out.append(ch)
+            # A literal brace becomes a parenthesis, as the backend writes it:
+            # `{...}` is cyanrip's own substitution syntax
+            # (`cyanrip_backend.scheme_from_template`). The preview used to show
+            # the brace the real file never gets.
+            out.append(_LITERAL_BRACES.get(ch, ch))
             i += 1
             continue
         # A "%" at the very end has no token — keep it literally.
@@ -310,7 +327,7 @@ def render_preview(template: str, sample: SampleTrack) -> str:
             value = sample.value_for(token)
             # Unknown token (value "") → pass through verbatim so a typo is
             # visible in the preview rather than silently vanishing.
-            out.append(value if value else f"%{token}")
+            out.append(value if value else "%" + _LITERAL_BRACES.get(token, token))
         i += 2
     return "".join(out) + ".flac"
 

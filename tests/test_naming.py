@@ -206,3 +206,66 @@ def test_a_tag_value_never_adds_or_removes_a_folder_level(
     assert out.removesuffix(".flac").split("/") == [
         sample.value_for(token[1]) for token in tokens
     ]
+
+
+def test_the_preview_fills_in_the_DISC_codes() -> None:
+    """Decision 3A: `%N`/`%M` render as the disc's place in its set."""
+    sample = naming.SampleTrack(
+        album_artist="A",
+        track_artist="A",
+        album="B",
+        title="T",
+        track=1,
+        track_total=9,
+        date="2001",
+        disc=2,
+        disc_total=3,
+    )
+    assert naming.render_preview("CD %N of %M/%t", sample) == "CD 2 of 3/01.flac"
+    # A single disc is 1 of 1 by default, as the backend sends it.
+    assert naming.render_preview("%N-%M", naming.SAMPLE_EASY) == "1-1.flac"
+
+
+def test_the_preview_writes_a_BRACE_the_way_the_file_gets_it() -> None:
+    """The backend turns a typed `{`/`}` into parentheses, because `{...}` is
+    cyanrip's substitution syntax. The preview showed the brace the real file
+    never gets."""
+    assert naming.render_preview("a{b}/%{c", naming.SAMPLE_EASY) == "a(b)/%(c.flac"
+
+
+@settings(max_examples=150, deadline=None)
+@given(
+    st.integers(min_value=1, max_value=99).flatmap(
+        lambda total: st.tuples(
+            st.integers(min_value=1, max_value=total), st.just(total)
+        )
+    ),
+    # Letters that are not codes, so only the codes Platterpus fills in itself
+    # (and literal braces) are in play; cyanrip fills in the rest at rip time.
+    st.text(alphabet="xz {}%NM-/", max_size=16),
+)
+def test_the_preview_and_the_rip_AGREE_on_disc_codes_and_braces(
+    position: tuple[int, int], template: str
+) -> None:
+    """One question, two surfaces: what does this template write? For the codes
+    Platterpus fills in itself (`%N`, `%M`) and for literal braces, the preview
+    and the scheme handed to cyanrip must give the same text."""
+    from platterpus.adapters.cyanrip_backend import scheme_from_template
+
+    disc, total = position
+    sample = naming.SampleTrack(
+        album_artist="A",
+        track_artist="A",
+        album="B",
+        title="T",
+        track=1,
+        track_total=9,
+        date="2001",
+        disc=disc,
+        disc_total=total,
+    )
+    preview = naming.render_preview(template, sample)
+    if template.endswith("%") and not template.endswith("%%"):
+        return  # a trailing bare % is kept by both, handled elsewhere
+    scheme = scheme_from_template(template, disc=str(disc), discs=str(total))
+    assert preview == scheme + ".flac"

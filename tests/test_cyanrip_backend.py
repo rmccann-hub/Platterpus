@@ -304,7 +304,7 @@ def test_rip_argv_always_disables_mb_and_feeds_gui_metadata() -> None:
     # `-c disc/totaldiscs`, which sets `disc` and `totaldiscs` as separate
     # integer keys. Folded into -a as "disc=1/2" it wrote the single Vorbis tag
     # DISCNUMBER=1/2 — the ID3 convention, not the Vorbis one — and dropped
-    # totaldiscs entirely. See _disc_args.
+    # totaldiscs entirely. See _disc_position.
     assert "disc=" not in album_arg
     assert argv[argv.index("-c") + 1] == "1/2"
     assert "musicbrainz_albumid=1e477f68-c407-4eae-ad01-518528cedc2c" in album_arg
@@ -2253,7 +2253,7 @@ def test_an_UNKNOWN_track_total_sends_the_list_and_says_the_check_did_not_run(
 #: the test that proves the check. **A new numeric flag must join one of the two.**
 _RANGED_IN_BUILDER: dict[str, str] = {
     "-l": "test_a_track_the_disc_does_not_have_is_not_sent_in_dash_l",
-    "-c": "the disc position check in `_disc_args` (number >= 1, <= total)",
+    "-c": "the disc position check in `_disc_position` (number >= 1, <= total)",
     "-t": "the track-number drop in `_metadata_args` (2026-08-02, §5.m)",
 }
 
@@ -2307,3 +2307,47 @@ def test_every_NUMERIC_flag_the_builder_sends_has_a_range_check() -> None:
     )
     stale = sorted(set(_RANGED_IN_BUILDER) - numeric)
     assert not stale, f"listed but no longer sent: {stale}"
+
+
+# --- %N / %M: filled in by us, from the checked disc position (decision 3A) ---
+
+
+def _scheme_argv(meta: RipMetadata, template: str) -> list[str]:
+    return _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=6,
+        metadata=meta,
+        track_template=template,
+    )
+
+
+def test_the_DISC_codes_become_the_position_sent_as_dash_c() -> None:
+    """`%N`/`%M` are written from the same checked position as `-c`, so a folder
+    name cannot disagree with the disc tags."""
+    argv = _scheme_argv(
+        RipMetadata(album_title="X", disc_number=2, total_discs=3),
+        "%A/%d/CD %N of %M/%t - %n",
+    )
+    assert argv[argv.index("-c") + 1] == "2/3"
+    assert argv[argv.index("-D") + 1] == "{album_artist}/{album}/CD 2 of 3"
+    assert not any("{disc" in a or "{totaldiscs" in a for a in argv)
+
+
+def test_an_UNUSABLE_disc_position_never_names_a_folder_disc() -> None:
+    """At the pins we ship, cyanrip renders a key with no value as its own NAME
+    (`cyanrip@221a1df:src/naming.c:253` and `:398`), so leaving `%N` to its
+    `{disc}` on a disc whose `-c` was dropped wrote a folder called "disc". The
+    code now drops out instead, as `%Y` does on a dateless disc."""
+    argv = _scheme_argv(
+        RipMetadata(album_title="X", disc_number=3, total_discs=2),
+        "%A/%d/CD %N/%t - %n",
+    )
+    assert "-c" not in argv
+    assert argv[argv.index("-D") + 1] == "{album_artist}/{album}/CD "
+
+
+def test_an_ESCAPED_disc_code_stays_literal() -> None:
+    assert scheme_from_template("%%N", disc="2", discs="3") == "%N"

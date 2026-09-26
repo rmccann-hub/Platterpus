@@ -55,7 +55,7 @@ SEVERITY_WARNING: str = "warning"
 # The ``%``-tokens a naming template may use (see naming.py / cyanrip_backend).
 # Anything else after a ``%`` (other than ``%%``) is an unknown token — legal to
 # type, but almost always a typo, so it's a WARNING, not an error.
-_KNOWN_TEMPLATE_TOKENS: frozenset[str] = frozenset("AadntyY")
+_KNOWN_TEMPLATE_TOKENS: frozenset[str] = frozenset("AadntyYNM")
 
 # Numeric field bounds — the SINGLE source of truth (the Settings spinboxes read
 # these so the widget range and the validator can never drift apart). A
