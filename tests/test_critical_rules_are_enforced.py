@@ -1833,7 +1833,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1526 -> 1589** (2026-09-24): the run-size chooser, asked before anything starts, and its plumbing into the session.
     # **1589 -> 1602** (2026-09-24, #36): the bundle's `COMPONENTS.json` and the run size in its facts.
     # **1602 -> 1607** (2026-09-24, #37 one home per setting): Setup & Updates and the console are handed the window's single-setting writer and Diagnose drive access….
-    "ui/main_window_provision.py": 1607,
+    # **1607 -> 1624** (2026-09-26, the maintainer's quick run): the end-of-run headline asks `RunReport.ok`, so a quick run's size-declined sections do not read as a stopped run.
+    "ui/main_window_provision.py": 1624,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME

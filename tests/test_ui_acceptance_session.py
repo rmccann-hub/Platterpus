@@ -895,6 +895,57 @@ def test_a_clean_run_is_reported_as_passed(
     assert "3 step(s)" in text
 
 
+def test_a_QUICK_run_whose_declined_sections_were_skipped_is_not_incomplete(
+    window, session, process_until, shown_boxes, quick_bundle
+) -> None:
+    """The maintainer's quick run of 2026-09-26: 206 passed, 0 failed, 114 declined
+    by the run size. The transcript said every step it ran passed; this dialog
+    said "DID NOT COMPLETE — it stopped before the last step", because it treated
+    any skip as a stop. It now asks `RunReport.ok`, as the transcript does."""
+    win = _start(window, session, process_until)
+    declined = StepRecord(
+        9,
+        "set rip_goal fast_verified",
+        Outcome.SKIPPED,
+        run_size="standard",
+        declined_by_size=True,
+    )
+    _finish(
+        win,
+        process_until,
+        RunReport(
+            started_at="t",
+            app_version="v",
+            run_size="quick",
+            steps=[*_steps(Outcome.PASS, Outcome.PASS), declined],
+        ),
+    )
+    text = shown_boxes[-1].text()
+    assert "DID NOT COMPLETE" not in text, f"a quick run read as a stopped one:\n{text}"
+    assert text.startswith("✓ Every step this quick run ran PASSED"), text
+    assert "not evidence" in text, "a quick run must not read as evidence"
+
+
+def test_a_skip_that_was_NOT_declined_by_size_still_reads_as_incomplete(
+    window, session, process_until, shown_boxes, quick_bundle
+) -> None:
+    """The other half: only a size's own declines are forgiven, as in
+    `RunReport.ok`. Any other skip is a step that should have run and did not."""
+    win = _start(window, session, process_until)
+    _finish(
+        win,
+        process_until,
+        RunReport(
+            started_at="t",
+            app_version="v",
+            run_size="quick",
+            steps=_steps(Outcome.PASS, Outcome.SKIPPED),
+        ),
+    )
+    text = shown_boxes[-1].text()
+    assert "DID NOT COMPLETE" in text, f"a skipped step read as a pass:\n{text}"
+
+
 def test_a_report_with_no_steps_is_not_reported_as_a_pass(
     window, session, process_until, shown_boxes, quick_bundle
 ) -> None:

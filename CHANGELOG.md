@@ -32,6 +32,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A quick or standard test run is no longer reported as unfinished.** At the
+  end of a smaller test run, the dialog and the bundle's summary said the run
+  "DID NOT COMPLETE" because of the sections that run size leaves out on purpose,
+  while the transcript correctly said every step it ran had passed. Both now say
+  the same thing, and that a smaller run does not count as evidence for a version.
+
 - **A rip that turned the EAC-style log off no longer warns that it is missing.**
   The report warned that the EAC-style log could not be included even when that
   log had been switched off for the rip, so there was nothing to include. It still
