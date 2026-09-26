@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import random
 import zlib
 from pathlib import Path
 
@@ -452,3 +453,175 @@ def test_a_chunk_entirely_OUTSIDE_the_window_contributes_nothing() -> None:
     assert crc_mod.ctdb_crc_offset0_streaming(
         chunks, 20_000
     ) == crc_mod.ctdb_crc_offset0(pcm)
+
+
+# --- Properties that actually REACH the CRC (2026-09-25) ------------------------
+#
+# The never-raises property near the top draws at most 400 bytes, and the smallest
+# disc with a CTDB window is 17,640 frames (70,560 bytes) — so every one of its
+# draws returns None and not one of them computes a checksum. The properties below
+# draw whole-stride discs instead, and each asserts it GOT a number before
+# asserting anything about the number.
+
+#: Bytes in one 16-bit stereo frame.
+_FRAME_BYTES = 4
+#: CTDB's guard band, stated from the spec rather than read back out of
+#: `ctdb_trims`: the front trim is stride/2 = 10 sectors of 588 frames on every
+#: disc, and the back trim is stride/2 plus the disc's length modulo stride/2
+#: (CDRepair.cs's `laststride`). So the checksummed window is always a whole number
+#: of 5880-frame strides, and the smallest disc that has one is three strides long.
+_HALF_STRIDE = 10 * SAMPLES_PER_SECTOR
+_MIN_CRC_FRAMES = 3 * _HALF_STRIDE
+
+
+def _guard_band(total_frames: int) -> tuple[int, int]:
+    """(front, back) trims in frames — the spec, for the tests to hold the code to."""
+    return _HALF_STRIDE, _HALF_STRIDE + total_frames % _HALF_STRIDE
+
+
+def _pcm(seed: int, frames: int) -> bytes:
+    """Seeded pseudo-random PCM — cheap to make at whole-disc-stride sizes."""
+    return random.Random(seed).randbytes(frames * _FRAME_BYTES)
+
+
+_DISC_FRAMES = st.integers(_MIN_CRC_FRAMES, _MIN_CRC_FRAMES + 3 * _HALF_STRIDE)
+_SEEDS = st.integers(0, 2**32 - 1)
+
+
+def test_the_spec_guard_band_reproduces_the_hardware_vector() -> None:
+    """The oracle the properties use is the one real hardware confirmed (KDD-16)."""
+    total, front, back, _offset, _crc = crc_mod.CONFIRMED_VECTOR
+    assert _guard_band(total) == (front, back)
+
+
+@given(frames=_DISC_FRAMES, seed=_SEEDS, data=st.data())
+def test_the_crc_covers_exactly_its_window_and_none_of_the_guard_band(
+    frames: int, seed: int, data: st.DataObject
+) -> None:
+    """Flip one byte in each region: only a flip inside the window may move the CRC.
+
+    This is what the trim IS. CRC-32 detects every single-byte change, so "the CRC
+    moved" is exactly "that byte was checksummed" — a wrong trim in either
+    direction fails here, at any offset inside the guard band.
+    """
+    front, back = _guard_band(frames)
+    offset = data.draw(st.integers(-front, back), label="offset")
+    pcm = _pcm(seed, frames)
+    crc = crc_mod.ctdb_crc(pcm, offset)
+    assert crc is not None, "a whole-stride disc inside its guard band has a CTDB CRC"
+    assert 0 <= crc <= 0xFFFFFFFF
+    start = (front + offset) * _FRAME_BYTES
+    end = len(pcm) - (back - offset) * _FRAME_BYTES
+    regions = {
+        "front guard band": (0, start),
+        "window": (start, end),
+        "back guard band": (end, len(pcm)),
+    }
+    for name, (lo, hi) in regions.items():
+        if hi <= lo:
+            continue  # a guard band this offset has used up entirely
+        at = data.draw(st.integers(lo, hi - 1), label=name)
+        flipped = bytearray(pcm)
+        flipped[at] ^= 0xFF
+        moved = crc_mod.ctdb_crc(bytes(flipped), offset) != crc
+        assert moved == (name == "window"), (
+            f"flipping byte {at} in the {name} {'did not move' if not moved else 'moved'}"
+            " the CRC"
+        )
+
+
+@given(frames=_DISC_FRAMES, seed=_SEEDS, data=st.data())
+def test_an_offset_is_the_audio_arriving_that_many_frames_late(
+    frames: int, seed: int, data: st.DataObject
+) -> None:
+    """What `offset` MEANS: audio read k frames late, CRC'd at offset 0, equals the
+    true audio CRC'd at offset k.
+
+    Stated without any trim arithmetic, so it holds the offset to its meaning
+    rather than to itself — the calibration sweep (`--ctdb-calibrate`) is only
+    sound if this is true.
+    """
+    front, back = _guard_band(frames)
+    k = data.draw(st.integers(-front, back), label="offset")
+    pcm = _pcm(seed, frames)
+    filler = _pcm(seed ^ 0x5A5A5A5A, abs(k))
+    late = (
+        pcm[k * _FRAME_BYTES :] + filler
+        if k >= 0
+        else filler + pcm[: len(pcm) + k * _FRAME_BYTES]
+    )
+    assert len(late) == len(pcm)
+    crc = crc_mod.ctdb_crc(pcm, k)
+    assert crc is not None
+    assert crc_mod.ctdb_crc(late, 0) == crc
+
+
+@given(
+    frames=st.integers(0, _MIN_CRC_FRAMES + 2 * _HALF_STRIDE),
+    seed=_SEEDS,
+    data=st.data(),
+)
+def test_a_crc_exists_exactly_when_the_disc_and_offset_leave_a_window(
+    frames: int, seed: int, data: st.DataObject
+) -> None:
+    """None means "no window here", and it must mean nothing else: a disc under
+    three strides has no CTDB CRC at any offset, and a long-enough disc has one at
+    every offset inside its guard band and none outside it."""
+    front, back = _guard_band(frames)
+    offset = data.draw(st.integers(-front - 40, back + 40), label="offset")
+    has_window = frames >= _MIN_CRC_FRAMES and -front <= offset <= back
+    assert (crc_mod.ctdb_crc(_pcm(seed, frames), offset) is not None) == has_window
+
+
+def _chunked(data: st.DataObject, pcm: bytes, anchors: tuple[int, ...]) -> list[bytes]:
+    """Split `pcm` at drawn byte positions, crowded around `anchors`.
+
+    Uniform cuts almost never land on the window's edges, where the slicing
+    arithmetic is decided, so half the cuts are drawn within a few bytes of one.
+    Repeated cut points make empty chunks, which a real decoder can yield.
+    """
+
+    def near(anchor: int) -> st.SearchStrategy[int]:
+        return st.integers(-6, 6).map(lambda d: min(max(anchor + d, 0), len(pcm)))
+
+    cuts = data.draw(
+        st.lists(
+            st.one_of(st.integers(0, len(pcm)), *[near(a) for a in anchors]),
+            max_size=8,
+        ),
+        label="cuts",
+    )
+    bounds = [0, *sorted(cuts), len(pcm)]
+    chunks = [pcm[a:b] for a, b in zip(bounds, bounds[1:], strict=False)]
+    assert b"".join(chunks) == pcm
+    return chunks
+
+
+@given(frames=_DISC_FRAMES, seed=_SEEDS, data=st.data())
+def test_the_streamed_crc_equals_the_one_shot_crc_for_every_chunking(
+    frames: int, seed: int, data: st.DataObject
+) -> None:
+    """#39's memory fix is only a fix if chunking is invisible — for EVERY chunking,
+    not the one buffer and one split the example test uses. Chunks are handed over
+    as a generator, the way the verify thread decodes one FLAC at a time."""
+    pcm = _pcm(seed, frames)
+    front, back = _guard_band(frames)
+    start, end = front * _FRAME_BYTES, len(pcm) - back * _FRAME_BYTES
+    chunks = _chunked(data, pcm, (start, end))
+    one_shot = crc_mod.ctdb_crc(pcm, 0)
+    assert one_shot is not None, "the disc is long enough; the CRC must be computed"
+    assert one_shot == zlib.crc32(pcm[start:end]) & 0xFFFFFFFF
+    streamed = crc_mod.ctdb_crc_offset0_streaming((c for c in chunks), frames)
+    assert streamed == one_shot
+
+
+@given(frames=st.integers(0, _MIN_CRC_FRAMES - 1), seed=_SEEDS, data=st.data())
+def test_a_disc_too_short_for_a_window_has_no_streamed_crc_for_any_chunking(
+    frames: int, seed: int, data: st.DataObject
+) -> None:
+    """The refusal must survive chunking too: a streamed 0 over an empty window is
+    a checksum of nothing written into an archival record."""
+    pcm = _pcm(seed, frames)
+    chunks = _chunked(data, pcm, (_HALF_STRIDE * _FRAME_BYTES,))
+    assert crc_mod.ctdb_crc(pcm, 0) is None
+    assert crc_mod.ctdb_crc_offset0_streaming(iter(chunks), frames) is None

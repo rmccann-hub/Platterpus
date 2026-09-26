@@ -26,6 +26,7 @@ it exits **0**.
 
 from __future__ import annotations
 
+import re
 import signal
 import subprocess
 import sys
@@ -371,3 +372,60 @@ def test_force_stop_is_recorded_as_a_cancellation_not_a_failure() -> None:
         "_do_force_stop does not mark the rip cancelled, so a deliberate user "
         "stop is permanently recorded as a rip failure in the report and the log"
     )
+
+
+#: A line that uses the word in a thread context. Processes and git checkouts can
+#: legitimately be detached (a `start_new_session=True` child, `git checkout
+#: --detach`), so the subject is narrowed to lines that also say "thread".
+_DETACH_WORD = re.compile(r"\bdetach(?:es|ed|ing)?\b", re.IGNORECASE)
+_THREAD_WORD = re.compile(r"\bq?threads?\b", re.IGNORECASE)
+#: The one legitimate use: quoting the word to say Qt does not have it.
+_QUOTED_NEGATION = re.compile(
+    r"\b(?:no|never|not)\b[^.]*[\"“]detach[\"”]", re.IGNORECASE
+)
+
+
+def _detach_violations(text: str) -> list[int]:
+    return [
+        number
+        for number, line in enumerate(text.splitlines(), start=1)
+        if _DETACH_WORD.search(line)
+        and _THREAD_WORD.search(line)
+        and not _QUOTED_NEGATION.search(line)
+    ]
+
+
+def test_no_module_describes_a_thread_as_detached() -> None:
+    """Critical rule #9, swept over every module rather than one (2026-09-25).
+
+    The test above covered `workers/__init__.py` only. Two dialogs still said a
+    teardown "detaches a still-running thread", which is the wording the rule
+    exists to retire: the word is what made dropping the last reference to a
+    running QThread look supported.
+    """
+    offenders: list[str] = []
+    mentions = 0
+    for path in sorted((REPO_ROOT / "src" / "platterpus").rglob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        mentions += len(_DETACH_WORD.findall(text))
+        offenders += [
+            f"{path.relative_to(REPO_ROOT)}:{n}" for n in _detach_violations(text)
+        ]
+    # Floor: the word is used legitimately (processes, git, the negation itself)
+    # about ten times; a scan that found none would be reading nothing.
+    assert mentions >= 5, (
+        f"only {mentions} mention(s) of 'detach' found; the scan is blind"
+    )
+    assert not offenders, (
+        "say ABANDON and retain the reference; Qt has no detach:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_the_detach_sweep_flags_the_sentences_it_was_written_for() -> None:
+    old = (
+        "briefly, and detaches a still-running thread rather than freezing the\n"
+        '(retaining the reference — Qt has no "detach"), and\n'
+        "start_new_session=True detaches Picard into its own session\n"
+    )
+    assert _detach_violations(old) == [1]

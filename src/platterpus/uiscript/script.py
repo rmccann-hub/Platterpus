@@ -206,8 +206,11 @@ def parse(text: str) -> list[Step]:
         args = tuple(tokens[1:])
         # The verbatim tail, for the match verbs. Split on the FIRST run of
         # whitespace after the verb as it appears in the stripped body, so the
-        # verb's own spelling (any case) is removed and nothing else is.
-        raw_tail = body[len(tokens[0]) :].strip()
+        # verb's own spelling (any case) is removed and nothing else is. Cut at
+        # the end of the verb AS TYPED: a quoted `"log"` is longer than its
+        # token, and cutting by the token's length left `g" ` in the tail.
+        typed_verb = _TOKEN.match(body)
+        raw_tail = body[typed_verb.end() if typed_verb else len(tokens[0]) :].strip()
         if spec.takes_paths:
             # Per verb, not per token: the free-text verbs carry messages and
             # match patterns, and rewriting one of those would quietly turn an
@@ -300,6 +303,7 @@ def sanitise_cyanrip_args(args: list[str]) -> str | None:
     # contract, and taking each from its own home keeps that distinction visible.
     from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
     from platterpus.adapters.rip_backend import RipError
+    from platterpus.settings_validation import is_control_char
     from platterpus.uiscript.verbs import FILE_ONLY_FLAGS, PROBE_FLAGS
 
     if len(args) > 64:
@@ -307,11 +311,16 @@ def sanitise_cyanrip_args(args: list[str]) -> str | None:
     for arg in args:
         if len(arg) > 4000:
             return f"an argument is {len(arg)} characters; the limit is 4000"
-        if "\n" in arg or "\r" in arg or "\x00" in arg:
+        # Any control character or line separator, not just `\n`, `\r` and NUL:
+        # a vertical tab, form feed, record separator, NEL or U+2028 also starts a
+        # new line in a viewer (`str.splitlines` breaks at all of them), so the old
+        # three-character test let a forged log line through (TASKS E12,
+        # 2026-09-25). One definition, shared with the app's own argv chokepoint.
+        if any(is_control_char(ch) for ch in arg):
             return (
-                f"refusing an argument containing a newline or NUL: {arg!r} — "
-                "cyanrip writes its argv into an archival log, and a newline "
-                "could forge a second line in it"
+                "refusing an argument containing a control character or line "
+                f"break: {arg!r} — cyanrip writes its argv into an archival log, "
+                "and a line break could forge a second line in it"
             )
 
     # ALL, not ANY. `any` made one probe flag anywhere exempt the WHOLE command

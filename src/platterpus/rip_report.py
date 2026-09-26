@@ -241,7 +241,15 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     `environment.dependencies` were measured. The probe runs at launch and on
 #     request, so in a long session they can be hours old, and a tool updated in
 #     between would otherwise read as the version that ripped the disc.
-REPORT_SCHEMA_VERSION: int = 27
+# v28: `disc.tag_control_characters_replaced` — the tag-only fields (genre, label,
+#     catalog number, barcode, year, ISRC, release id) whose control characters were
+#     replaced with a space before the rip, with a count each. Maintainer decision
+#     D14: those values come from MusicBrainz and cannot be edited, so a stray
+#     newline is replaced rather than refused, and the record says so.
+# v29: `disc.eac_log_signature_lines_defused` — lines of the EAC-layout log a
+#      metadata value had shaped like a log signature, as rewritten so the log
+#      cannot read as EAC-signed (D16, KDD-38), with an `info` issue beside it.
+REPORT_SCHEMA_VERSION: int = 29
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -1136,6 +1144,7 @@ def _build(
         ripper_log_verification=verify_block,
         dependencies=(environment or {}).get("dependencies"),
         gates=gates,
+        eac_log_requested=_setting_was_on(settings, "write_eac_log_after_rip"),
     )
     built: dict = {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -1796,6 +1805,13 @@ def _log_parse(rip_log: object, override: dict | None) -> dict:
     return {"ok": ok, "note": None}
 
 
+def _setting_was_on(settings: dict | None, key: str) -> bool | None:
+    """``settings.every_setting[key]`` as a bool, or None when it is not recorded."""
+    every = (settings or {}).get("every_setting")
+    value = every.get(key) if isinstance(every, dict) else None
+    return value if isinstance(value, bool) else None
+
+
 def _issues(
     *,
     outcome: dict | None,
@@ -1825,6 +1841,9 @@ def _issues(
     # artifact key pass the checker while silently matching nothing.
     artifacts: ArtifactsBlock | None = None,
     dependencies: dict | None = None,
+    # Whether this rip's own settings asked for the EAC-layout log: True, False,
+    # or None when the report cannot say. Only False makes its absence healthy.
+    eac_log_requested: bool | None = None,
     # The already-serialized v18 block, so this list and the block it summarises
     # read the same verdict.
     ripper_log_verification: dict | None = None,
@@ -1848,6 +1867,31 @@ def _issues(
 
     def add(severity: str, code: str, message: str) -> None:
         issues.append({"severity": severity, "code": code, "message": message})
+
+    replaced = (disc or {}).get("tag_control_characters_replaced")
+    if isinstance(replaced, list) and replaced:
+        fields = ", ".join(
+            f"{entry.get('field')} ({entry.get('replaced')})"
+            for entry in replaced
+            if isinstance(entry, dict)
+        )
+        add(
+            "info",
+            "tag_control_characters_replaced",
+            "control characters in MusicBrainz data were replaced with a space "
+            f"before tagging: {fields}. These tags differ from MusicBrainz by that "
+            "character only.",
+        )
+
+    defused = (disc or {}).get("eac_log_signature_lines_defused")
+    if isinstance(defused, list) and defused:
+        add(
+            "info",
+            "eac_log_signature_line_defused",
+            f"{len(defused)} line(s) of the EAC-layout log came from metadata shaped "
+            "like a log signature and were rewritten ('====' to '----') so the log "
+            "cannot be read as EAC-signed. The tags and file names are unchanged.",
+        )
 
     status = (outcome or {}).get("status")
     if status == "failed":
@@ -2296,6 +2340,13 @@ def _issues(
         if not isinstance(entry, dict) or not entry.get("error"):
             continue
         if name in OPTIONAL_ARTIFACTS and entry.get("missing"):
+            continue
+        # The EAC-layout log is written only when its setting is on, so a rip
+        # that turned it off has no such file and that is the healthy answer
+        # (the maintainer's quick run of 2026-09-26 turned it off and got a
+        # warning anyway). Still a warning whenever the setting was on or cannot
+        # be read: the round-08 `eac_log` entry was a real failure.
+        if name == "eac_log" and entry.get("missing") and eac_log_requested is False:
             continue
         add(
             "warning",

@@ -160,11 +160,17 @@ def verify_rip_log(
         )
     run = (runner or _RUN)([binary, VERIFY_LOG_FLAG, str(path)])
 
-    if not run.started:
+    if run.binary_missing:
         # A missing binary is a fact about this machine, not about the log. The
         # `started` third state exists precisely so these cannot be collapsed —
         # collapsing them is how a missing `flac` came to be reported as a corrupt
         # FLAC.
+        #
+        # **`binary_missing`, not `started`** (2026-09-25; `flac_verify` got the
+        # same fix on 2026-09-21). The host wrapper exists, so `started` is True, and
+        # it exits 127 when the binary inside the container is gone — which fell
+        # through to "the file was altered after the ripper signed it" on a listed
+        # build with a signed log: an accusation from a ripper that never ran.
         return _not_determined(
             f"the ripper could not be run, so {path.name} was not verified against "
             f"its own checksum ({run.summary})",

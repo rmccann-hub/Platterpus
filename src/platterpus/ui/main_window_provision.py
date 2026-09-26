@@ -1176,7 +1176,16 @@ class ProvisioningMixin(MainWindowShared):
                 "ⓘ Run outcome: NOT DETERMINED — the report records no steps at "
                 "all, so nothing was measured. Read the transcript in the bundle."
             )
-        if ended or skipped:
+        # ASK THE REPORT, do not re-derive it. `RunReport.ok` already forgives the
+        # steps a smaller run size DECLINED on purpose, and the transcript's
+        # RESULT line reads it. This headline used its own rule, "any skip means
+        # the run stopped", so the maintainer's quick run of 2026-09-26 got
+        # "DID NOT COMPLETE — it stopped before the last step" in the same bundle
+        # whose transcript said every step it ran passed. Two surfaces answering
+        # one question with two keys.
+        ok = getattr(report, "ok", None)
+        size = str(getattr(report, "run_size", "") or "")
+        if ended or (skipped and ok is not True):
             why = ended or "it stopped before the last step"
             return (
                 f"⚠ The run DID NOT COMPLETE — {why}. {passed} of {total} step(s) "
@@ -1188,6 +1197,14 @@ class ProvisioningMixin(MainWindowShared):
                 f"⚠ The run finished with {failures} FAILURE(S) — {passed} of "
                 f"{total} step(s) passed. Send the file anyway: the failures are "
                 "the point."
+            )
+        if skipped:
+            # `ok` is True, so every skip here is a section this size declines.
+            return (
+                f"✓ Every step this {size or 'smaller'} run ran PASSED — {passed} "
+                f"of {total}. The other {skipped} belong to larger run sizes and "
+                "were left out on purpose, so this run is not evidence for a "
+                "version or a handshake close."
             )
         return f"✓ The run PASSED — all {total} step(s) passed."
 

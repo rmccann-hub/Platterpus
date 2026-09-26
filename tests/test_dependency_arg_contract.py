@@ -19,8 +19,6 @@ never carry a track number the disc does not have.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 from platterpus.adapters.cyanrip_backend import (
@@ -28,13 +26,17 @@ from platterpus.adapters.cyanrip_backend import (
     _metadata_args,
     assert_metadata_lookup_disabled,
 )
-from platterpus.adapters.rip_backend import RipError, RipMetadata
+from platterpus.adapters.rip_backend import RipError, RipMetadata, TrackTag
 
 
 def _meta(count: int) -> RipMetadata:
     return RipMetadata(
         tracks=tuple(
-            SimpleNamespace(number=n, title=f"Track {n}", artist="A", isrc="")
+            # The real frozen `TrackTag`, not a `SimpleNamespace`: the chokepoint
+            # now rebuilds each track with `dataclasses.replace` (D14), which a
+            # namespace cannot do, and a stand-in the product never receives would
+            # hide that difference.
+            TrackTag(number=n, title=f"Track {n}", artist="A", isrc="")
             for n in range(1, count + 1)
         )
     )

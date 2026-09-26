@@ -31,6 +31,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from conftest import repo_markdown_files
+
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _DOCS = _REPO_ROOT / "docs"
 _DOCS_INDEX = _DOCS / "README.md"
@@ -633,7 +635,7 @@ def test_no_prose_cites_a_generated_document_by_line_number() -> None:
     """
     offenders: list[str] = []
     examined = 0
-    for path in sorted(_REPO_ROOT.rglob("*.md")):
+    for path in repo_markdown_files(_REPO_ROOT):
         if ".git" in path.parts or "node_modules" in path.parts:
             continue
         examined += 1
@@ -728,9 +730,7 @@ def _handshake_citations() -> list[tuple[Path, int, str, int]]:
         r"(?P<doc>round-?\d+[a-z]?(?:-lap-?\d+)?\.md):(?P<line>\d+)"
     )
     found: list[tuple[Path, int, str, int]] = []
-    for path in sorted(_REPO_ROOT.rglob("*.md")):
-        if ".git" in path.parts:
-            continue
+    for path in repo_markdown_files(_REPO_ROOT):
         # Skip the round files themselves: a lap quoting a lap uses the OTHER
         # side's layout by design, and rewriting a received artifact to suit our
         # directory names would falsify the record.
@@ -841,3 +841,70 @@ def test_the_handshake_citation_sweep_catches_the_role_flip_that_shipped() -> No
             f"{right} is missing — the file this citation should have named is "
             "gone, and the ledger row citing it is now unverifiable"
         )
+
+
+# --- A NEW document is the last resort (Critical rule #7, obligation 4) -------
+#
+# The rule: a new file is permitted only when no existing home fits, and the
+# commit must name the homes that were rejected. Nothing enforced it (TASKS
+# `rule-7.new-file-last-resort`); four top-level docs once appeared in 71
+# minutes. A test cannot read the commit message reliably, so the burden of
+# proof moves into the ratchet below, where the reviewer of the change sees it.
+
+#: Every top-level document on 2026-09-25 (repo root and `docs/`, not
+#: subdirectories). Names only: their roles live in `docs/README.md`, and a second
+#: map here would be the duplicate the rule warns about. **It may shrink, never
+#: grow** — a new file goes in `_NEW_DOCUMENTS` with its rejected homes.
+_DOCUMENTS_20260925: frozenset[str] = frozenset(
+    {
+        "CHANGELOG.md", "CLAUDE.md", "DEPENDENCIES.md", "PLANNING.md",
+        "README.md", "SECURITY.md", "TASKS.md",
+        "docs/OWNERSHIP.md", "docs/README.md", "docs/TEST-VERIFICATION-CHECKLIST.md",
+        "docs/architecture.md", "docs/ctdb-crc-algorithm.md",
+        "docs/cyanrip-consumer-contract.md", "docs/cyanrip-fork.md",
+        "docs/cyanrip-handshake.md", "docs/cyanrip-known-issues.md",
+        "docs/cyanrip-upstream.md", "docs/dependency-contracts.md",
+        "docs/eac-parity.md", "docs/github-workflow-sop.md",
+        "docs/handshake-protocol.md", "docs/hardware-test-checklist.md",
+        "docs/manual-ctdb-repair.md", "docs/platterpus-research-brief-v2.1.md",
+        "docs/platterpus-session-start.md", "docs/rig-session.md",
+        "docs/script-language.md", "docs/seam-commands.md", "docs/seam-rules.md",
+        "docs/session-log.md", "docs/test-plan.md", "docs/testing.md",
+        "docs/ux-design-principles.md",
+    }
+)  # fmt: skip
+
+#: Documents added since, each with the existing homes that were considered and
+#: why each one failed. The reason must name at least one of those homes by path.
+_NEW_DOCUMENTS: dict[str, str] = {}
+
+
+def _top_level_documents() -> set[str]:
+    root = {p.name for p in _REPO_ROOT.glob("*.md")}
+    docs = {f"docs/{p.name}" for p in _DOCS.glob("*.md")}
+    return root | docs
+
+
+def test_a_NEW_document_names_the_homes_it_rejected() -> None:
+    present = _top_level_documents()
+    # FLOOR: 33 measured. A glob that stopped matching must not pass.
+    assert len(present) >= 30, sorted(present)
+    unexplained = sorted(present - _DOCUMENTS_20260925 - set(_NEW_DOCUMENTS))
+    assert not unexplained, (
+        f"new document(s) {unexplained}. Critical rule #7: a new file is the last "
+        "resort. If no existing home fits (a rule in CLAUDE.md, a KDD in "
+        "PLANNING.md, a section of docs/architecture.md or docs/testing.md, a row "
+        "in TASKS.md), add it to `_NEW_DOCUMENTS` with the homes you considered and "
+        "why each failed, and name them in the commit message too."
+    )
+    for name, reason in _NEW_DOCUMENTS.items():
+        named = [home for home in _DOCUMENTS_20260925 if home in reason]
+        assert named, (
+            f"{name}: the reason names no existing home, so it does not say what "
+            "was rejected"
+        )
+    gone = sorted((_DOCUMENTS_20260925 | set(_NEW_DOCUMENTS)) - present)
+    assert not gone, (
+        f"listed but no longer present: {gone}. Retiring a file is fine; remove it "
+        "here in the same commit (and retire its inbound links)."
+    )

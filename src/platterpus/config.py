@@ -76,8 +76,9 @@ _DEFAULT_OUTPUT_DIR: Path = Path.home() / "Music" / "rips"
 #     repeated the album and artist in every filename and put the full date
 #     on the end — replaced in v3 (see migrate(); a real-user report, 0.4.4).
 #     The Settings dialog offers more presets (year-in-folder, compilation)
-#     and a live preview — see `naming.py`. Multi-disc folders aren't expressible
-#     (cyanrip's scheme has no disc-number token).
+#     and a live preview — see `naming.py`. A multi-disc set can put %N (disc
+#     number) and %M (total discs) in a folder or file name; the backend fills
+#     them in from the disc position it sends as `-c` (see cyanrip_backend).
 #   * Unknown disc → literal "Unknown Artist/Unknown Album/## - Track NN".
 #     We deliberately do NOT use %d here: a disc MusicBrainz can't identify
 #     has no real album title for it (the ripper older versions used filled

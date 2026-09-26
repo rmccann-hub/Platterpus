@@ -105,6 +105,46 @@ jobs:
             target: src/platterpus/eac_log_export.py
             tests: tests/test_eac_log_export.py tests/test_eac_layout_parity.py tests/test_eac_pregap_convention.py
             floor: 30          # of 108 generated, capped at --limit 40
+          # The nine legs below were added 2026-09-25 (TASKS: the modules that
+          # decide a rip's verdict or shape what reaches cyanrip had no mutation
+          # signal at all). Each floor is about 80% of what that module's sweep
+          # actually CHECKED when it was measured, not of what it generated.
+          - name: cyanrip-backend
+            target: src/platterpus/adapters/cyanrip_backend.py
+            tests: tests/test_cyanrip_backend.py tests/test_dependency_arg_contract.py tests/test_tag_hygiene.py
+            floor: 30         # of 114 generated, capped at --limit 40 (39 checked, 2026-09-25)
+          - name: ctdb-decode
+            target: src/platterpus/ctdb/decode.py
+            tests: tests/test_ctdb_decode.py
+            floor: 14         # of 18 generated (18 checked, 2026-09-25)
+          - name: ctdb-toc
+            target: src/platterpus/ctdb/toc.py
+            tests: tests/test_ctdb_toc.py
+            floor: 7          # of 9 generated (9 checked, 2026-09-25)
+          - name: ctdb-diagnose
+            target: src/platterpus/ctdb/diagnose.py
+            tests: tests/test_ctdb_diagnose.py
+            floor: 14         # of 18 generated (18 checked, 2026-09-25)
+          - name: handshake-approval
+            target: src/platterpus/handshake_approval.py
+            tests: tests/test_handshake_approval.py
+            floor: 20         # of 25 generated (25 checked, 2026-09-25)
+          - name: naming
+            target: src/platterpus/naming.py
+            tests: tests/test_naming.py
+            floor: 20         # of 26 generated (25 checked, 2026-09-25)
+          - name: rig-check
+            target: src/platterpus/rig_check.py
+            tests: tests/test_rig_check.py
+            floor: 30         # of 84 generated, capped at --limit 40 (40 checked, 2026-09-25)
+          - name: ripper-identity
+            target: src/platterpus/ripper_identity.py
+            tests: tests/test_ripper_identity.py
+            floor: 21         # of 27 generated (27 checked, 2026-09-25)
+          - name: settings-validation
+            target: src/platterpus/settings_validation.py
+            tests: tests/test_settings_validation.py
+            floor: 30         # of 56 generated, capped at --limit 40 (40 checked, 2026-09-25)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

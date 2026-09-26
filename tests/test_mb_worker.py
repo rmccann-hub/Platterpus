@@ -104,6 +104,7 @@ class _Signals:
         self.releases_returned: list[tuple[str, list[ReleaseSummary]]] = []
         self.release_returned: list[tuple[str, ReleaseDetail]] = []
         self.errors: list[tuple[str, str]] = []
+        self.fetch_failures: list[tuple[str, str]] = []
 
     def attach(self, worker: MusicBrainzWorker) -> None:
         worker.releases_returned.connect(
@@ -113,6 +114,9 @@ class _Signals:
             lambda ctx, det: self.release_returned.append((ctx, det))
         )
         worker.error.connect(lambda ctx, msg: self.errors.append((ctx, msg)))
+        worker.release_fetch_failed.connect(
+            lambda ctx, msg: self.fetch_failures.append((ctx, msg))
+        )
 
 
 def _summary(mbid: str = "x") -> ReleaseSummary:
@@ -244,6 +248,12 @@ def test_fetch_release_emits_release_detail(
 def test_fetch_release_emits_error_on_failure(
     qapp: QApplication,
 ) -> None:
+    """A failed FETCH has its own signal, and does not also claim to be a lookup.
+
+    The window needs the difference: a failed lookup can be a redundant one for a
+    disc already answered, but a failed fetch means the release the user chose
+    never arrived, so the disc must be un-answered (2026-09-25).
+    """
     client = _FakeClient()
     client.raise_in("mbid", MusicBrainzQueryError("server gone"))
     worker = MusicBrainzWorker(client)
@@ -252,5 +262,6 @@ def test_fetch_release_emits_error_on_failure(
 
     worker.fetch_release("any-mbid", "disc-ctx")
 
-    assert sigs.errors == [("disc-ctx", "server gone")]
+    assert sigs.fetch_failures == [("disc-ctx", "server gone")]
+    assert sigs.errors == []
     assert sigs.release_returned == []

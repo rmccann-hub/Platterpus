@@ -426,6 +426,15 @@ comments accurate too — they document *which* mixin owns each concern).
 - **Surface the actionable line to the user; keep the full detail in the log**
   (e.g. the dependency-summary "Install failures" block shows the last error
   line and points at the log).
+- **A text-mode pipe says what to do with a byte it cannot decode.** Every
+  subprocess read with `text=True` (or `encoding=`) passes `errors="replace"`.
+  Without it, the first byte that is not UTF-8 raises `UnicodeDecodeError`, and
+  the read ends, taking the line before the byte with it. Eight reads had no
+  policy until 2026-09-25, the rip's own pipe among them, and a disc's CD-TEXT
+  is a realistic source of such a byte. `tests/test_inbound_text.py` sweeps for
+  it. What such a read then shows a person goes through `inbound_text` (escapes
+  for control characters, a bound on line length, the count of what changed).
+  Parsers read the raw text.
 - **Two audiences, two artifacts (maintainer's call, 2026-07-01).** Platterpus's
   app log lands in exactly two places — *not* redundant — and there is **no**
   standalone `.platterpus.log` sidecar:
@@ -1495,6 +1504,17 @@ situation, including branches that don't have a published release yet.
 | Manual run on **any branch** | `appimage.yml` (`workflow_dispatch`) | Same — a downloadable AppImage artifact for a branch with no release. (Run artifacts expire — 90 days by default; re-run the workflow to regenerate one.) |
 | Push a `vX.Y.Z` tag **or dispatch the Release workflow with the tag as input** (Actions → Release → *Run workflow* — it creates the tag itself; the only route that works from cloud sessions) | `.github/workflows/release.yml` | Builds, checksums, and **publishes** the AppImage + its `.sha256` + `.zsync` (self-update) + `install.sh`/`install-appimage.sh` to a GitHub Release (`v0.*` → pre-release), then dispatches the PyPI publish. |
 
+**Before 2026-09-25, a `main` or branch AppImage was the LAST RELEASE, not the
+tree.** The build pinned `platterpus==<tree version>`, and between releases the tree
+carries the version just published, so PyPI's copy satisfied the pin and pip took
+it. `--version` read the same number, so the smoke test passed; its
+`(source)` suffix, where a locally built wheel prints its build stamp, was the
+only sign. The build now installs the built wheel by its **file path**, which only
+that file can satisfy (`tests/test_build_harness.py` runs the script's own
+substitution snippet). It was found by the bundled-verifier step, which asked a
+branch build for a module the branch had added. **Any hardware test run on a
+non-release AppImage artifact before this date tested the previous release.**
+
 **Testing `main`.** Every push to `main` runs the **AppImage** workflow. Confirm
 it's green in the **Actions** tab. To test the actual binary, open the latest
 `AppImage` run and download the `platterpus-x86_64.AppImage` artifact, then:
@@ -1574,6 +1594,52 @@ by a CI compromise. That's why the key is **offline** and signing happens
 **dormant**: `update_signing.PUBLIC_KEY_B64` is empty, so the updater is
 SHA-256-only and nothing about updates changes. Arming it is the one-time setup
 below.
+
+**Decided 2026-09-25: it is never armed** (maintainer, `PLANNING.md` KDD-37, D9).
+What that buys is releases that run unattended, and no key that can be lost. The
+ritual below is kept so the decision can be reversed without rediscovering it.
+
+**What protects an update instead: the build attestation, checked in the app**
+(added the same day, on the maintainer's yes; `src/platterpus/update_attestation.py`).
+Until then the updater checked only the download's SHA-256, fetched from the same
+release, which proves the file is intact and not who published it. Now, after the
+checksum, it fetches `platterpus-x86_64.AppImage.sigstore.json` from the release
+and refuses the update unless Sigstore confirms three things: the certificate was
+issued by GitHub Actions to `.github/workflows/release.yml` in this repository; the
+run was from `main` or from the release's own tag; and the signed statement names
+the downloaded file's SHA-256. A missing, unreadable or failing attestation blocks
+the install and leaves the current version untouched. Measured on the real v0.6.60
+release: the genuine AppImage installs; the same AppImage with one bit changed and
+a matching `.sha256` beside it — the swap the checksum alone could not catch — is
+refused.
+
+- **The release side.** `release.yml` now attests **before** publishing (it used
+  to attest after, deliberately, while nothing read the attestation), then runs
+  `scripts/release_attestation.py`, which chooses the bundle with the updater's own
+  `select_verified` and stages it as a release asset. So what a release publishes
+  is by construction what the updater accepts, and a release it would refuse fails
+  in the workflow instead.
+- **The shipped bundle's own verifier is checked.** The updater imports `sigstore`
+  lazily, so an AppImage built without a working copy would pass `--version` and
+  then refuse every update it is ever offered, stranding its users with no in-app
+  route off it. Both AppImage workflows therefore extract the build and run
+  `scripts/check_bundled_verifier.py` with the **bundled** interpreter against the
+  committed v0.6.60 attestation. Run on the real v0.6.60 AppImage, which predates
+  the dependency, it fails as it should: *No module named 'sigstore'*.
+- **The trust root.** Sigstore's keys are refreshed over TUF, which is how a key
+  rotation reaches users without a Platterpus release. A stalled network makes the
+  refresh hang for 120 s (measured), so the updater starts it on a daemon thread
+  before the download, waits at most `TRUST_REFRESH_WAIT_S` once the download is
+  done, and falls back to the cached root, or the one inside the `sigstore`
+  package. The log names which one was used.
+- **What it does not prove.** Anyone who can push to `main` can run the release
+  workflow, and `main` is not branch-protected (a maintainer ruling), so the check
+  proves a build is traceable to a public commit here, not that anyone reviewed the
+  commit. It also does not stop a genuine *older* build being served under a newer
+  version; the attested commit is logged, so such a mix-up is visible afterwards.
+- **The rollout.** An installed app checks the release it updates *to*, so the
+  first release carrying this code is installed by the old updater, unchecked, and
+  every update after it is checked.
 
 **One-time setup (do this once, on a trusted machine — never in CI).**
 

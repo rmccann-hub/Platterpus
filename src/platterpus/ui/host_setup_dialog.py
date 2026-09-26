@@ -320,8 +320,9 @@ class HostSetupDialog(CenteredDialog):
 
         A step in flight (dnf, an image pull) can't be interrupted by quit(), so
         we never block the GUI thread waiting for it: stop_thread cancels, waits
-        briefly, and detaches a still-running thread (which finishes its step and
-        reaps itself) rather than blocking or destroying it (real-user report:
+        briefly, and ABANDONS a still-running thread, retaining its reference
+        (Critical rule #9: Qt has no "detach"), so it finishes its step without
+        blocking the window or being destroyed while running (real-user report:
         closing mid-dnf froze the app, then risked a destroyed-while-running
         abort)."""
         from platterpus.workers import stop_thread

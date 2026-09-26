@@ -88,3 +88,41 @@ def test_unlocking_restores_editing(qapp) -> None:
     table.set_locked(True)
     table.set_locked(False)
     assert table._view.editTriggers() != QAbstractItemView.EditTrigger.NoEditTriggers
+
+
+def test_a_locked_table_refuses_a_REWRITE_from_code(qapp, caplog) -> None:
+    """The lock stops the user editing; it must also stop the code rewriting.
+
+    An unknown-album rip is tagged from a snapshot of this table taken when it
+    FINISHES, so a MusicBrainz answer landing mid-rip that rewrote the rows
+    changed what that rip was tagged with (TASKS
+    `stateful:table-immutable-during-rip`, 2026-09-25). Every rewrite method is
+    exercised, and each is shown to work again once the lock is released, so
+    this is not satisfied by a table that simply never changes.
+    """
+    import logging
+
+    from platterpus.adapters.musicbrainz_client import ReleaseDetail, ReleaseSummary
+
+    table = _table(qapp)
+    table.set_placeholder_tracks(3)
+    typed = [t.title for t in table.tracks()]
+    detail = ReleaseDetail(
+        summary=ReleaseSummary(mbid="m", title="Other", artist_credit="Else"),
+        tracks=(TrackSummary(number=1, title="Different"),),
+    )
+    table.set_locked(True)
+    with caplog.at_level(logging.WARNING):
+        table.set_release(detail)
+        table.set_placeholder_tracks(7)
+        table.clear()
+    assert [t.title for t in table.tracks()] == typed, "a locked table was rewritten"
+    assert table.album_metadata().title == "Unknown Album"
+    refused = [r.getMessage() for r in caplog.records if "refused to" in r.getMessage()]
+    assert len(refused) == 3, refused
+
+    table.set_locked(False)
+    table.set_release(detail)
+    assert [t.title for t in table.tracks()] == ["Different"], (
+        "an UNLOCKED table must still load a release; the guard is scoped to a rip"
+    )

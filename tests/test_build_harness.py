@@ -148,6 +148,68 @@ def test_requirements_request_local_platterpus_package() -> None:
     assert "PIP_FIND_LINKS" in script
 
 
+def _pin_snippet() -> str:
+    """The Python the build script runs to rewrite the `platterpus` line, verbatim."""
+    script = (BUILD_DIR / "build_appimage.sh").read_text(encoding="utf-8")
+    match = re.search(r"<<'PIN'\n(.*?)\nPIN\n", script, re.DOTALL)
+    assert match, "the build script's PIN snippet was not found"
+    return match.group(1)
+
+
+def test_the_bundled_platterpus_is_the_wheel_file_not_a_version(tmp_path: Path) -> None:
+    """Regression, 2026-09-25: `platterpus==<tree version>` let pip take PyPI's copy.
+
+    Between releases the tree carries the version just published, so PyPI's wheel
+    satisfies the same `==`, and every non-release AppImage bundled the last
+    release's code while `--version` read the same number. Found when the bundled
+    verifier check asked a branch build for a module the branch had added. The line
+    must become the built wheel's absolute path, which only that file satisfies.
+    """
+    import subprocess
+    import sys
+
+    wheel = tmp_path / "recipe" / "platterpus-0.6.60-py3-none-any.whl"
+    wheel.parent.mkdir()
+    wheel.write_bytes(b"not really a wheel")
+    requirements = tmp_path / "requirements.txt"
+    requirements.write_text("PySide6~=6.11.1\nplatterpus\n", encoding="utf-8")
+    subprocess.run(
+        [sys.executable, "-", str(requirements), str(wheel)],
+        input=_pin_snippet(),
+        text=True,
+        errors="replace",
+        check=True,
+        capture_output=True,
+        timeout=60,
+    )
+    lines = requirements.read_text(encoding="utf-8").splitlines()
+    assert lines == ["PySide6~=6.11.1", str(wheel.resolve())]
+    code = [
+        line
+        for line in (BUILD_DIR / "build_appimage.sh").read_text().splitlines()
+        if not line.lstrip().startswith("#")
+    ]
+    assert not [line for line in code if "platterpus==" in line]
+
+
+def test_the_pin_refuses_a_missing_wheel(tmp_path: Path) -> None:
+    import subprocess
+    import sys
+
+    requirements = tmp_path / "requirements.txt"
+    requirements.write_text("platterpus\n", encoding="utf-8")
+    completed = subprocess.run(
+        [sys.executable, "-", str(requirements), str(tmp_path / "absent.whl")],
+        input=_pin_snippet(),
+        text=True,
+        errors="replace",
+        capture_output=True,
+        timeout=60,
+    )
+    assert completed.returncode != 0 and "missing" in completed.stderr
+    assert requirements.read_text(encoding="utf-8") == "platterpus\n"
+
+
 def test_requirements_have_no_shell_redirection_chars() -> None:
     """python-appimage runs each `pip install` through a shell, so `<`/`>` in
     a version specifier is read as a redirection and crashes the build."""

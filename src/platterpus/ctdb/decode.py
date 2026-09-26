@@ -137,7 +137,12 @@ ProbeRunner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
 
 def _default_probe_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        argv, capture_output=True, text=True, timeout=_PROBE_TIMEOUT_S, check=False
+        argv,
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=_PROBE_TIMEOUT_S,
+        check=False,
     )
 
 

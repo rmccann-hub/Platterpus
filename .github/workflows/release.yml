@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-22.04
     # Bounded like every other job — see tests/test_ci_jobs_are_bounded.py. The
     # widest bound in the repo because this one runs the release gates, builds the
-    # AppImage, uploads assets, attests provenance and dispatches the PyPI publish.
+    # AppImage, attests provenance, uploads assets and dispatches the PyPI publish.
     # An unbounded release job is the worst case of the class: it holds a runner
     # for six hours while a maintainer waits on a release that will never appear.
     timeout-minutes: 60
@@ -327,6 +327,65 @@ jobs:
           fi
           echo "version check: built '$built' == tag '$expected'"
 
+      # The updater imports sigstore lazily, so an AppImage built without a working
+      # copy passes --version and then refuses every update it is ever offered,
+      # stranding its users. Run the BUNDLED Python on a genuine attestation.
+      - name: Check the bundled attestation verifier works
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          work="$(mktemp -d)"
+          (cd "$work" && "$GITHUB_WORKSPACE/platterpus-x86_64.AppImage" --appimage-extract >/dev/null)
+          py="$(ls "$work"/squashfs-root/opt/python*/bin/python3* | head -1)"
+          echo "bundled interpreter: $py"
+          PYTHONNOUSERSITE=1 "$py" scripts/check_bundled_verifier.py --bundle-root "$work/squashfs-root"
+
+      # Build-provenance attestation (2026-07-08 trust-audit follow-up). Emits a
+      # cryptographically signed SLSA provenance statement binding THIS exact
+      # AppImage — by its SHA-256 digest — to the workflow, repo, and commit that
+      # produced it, using GitHub's OIDC identity and the public Sigstore
+      # transparency log. There is NO maintainer-held key: the trust root is
+      # GitHub + Sigstore. A person can check a download with:
+      #   gh attestation verify platterpus-x86_64.AppImage --repo rmccann-hub/Platterpus
+      #
+      # **Since 2026-09-25 the in-app updater checks it too, and REFUSES an update
+      # without one that passes** (src/platterpus/update_attestation.py; PLANNING.md
+      # KDD-37, D9). So this step moved from AFTER the release was published to
+      # BEFORE it. It used to sit after on purpose — "a transient attestation
+      # hiccup can never block shipping the binary" — which was right while nothing
+      # read the attestation. Now a release without one is a release nobody can
+      # update to, and the same draft-first ordering that keeps the .sha256 from
+      # 404ing (see "Publish to GitHub Release") has to cover this asset as well.
+      - name: Attest AppImage build provenance
+        id: attest
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4
+        with:
+          subject-path: platterpus-x86_64.AppImage
+
+      # Check the attestation with the UPDATER'S OWN CODE and stage it as a release
+      # asset. `select_verified` is the function the installed app will run, so a
+      # release whose attestation the updater would refuse fails here, before it is
+      # published. The action writes JSON Lines (actions/attest appends one bundle
+      # per line); the script keeps the one line that verifies. The sigstore pin is
+      # read out of pyproject.toml, so this step cannot drift from what ships.
+      - name: Check the attestation as the updater will, and stage it
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          spec="$(python -c '
+          import pathlib, tomllib
+          deps = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["dependencies"]
+          print(next(d for d in deps if d.startswith("sigstore")))
+          ')"
+          echo "pyproject pins: $spec"
+          python -m pip install "$spec"
+          python scripts/release_attestation.py \
+            --bundle "$BUNDLE" \
+            --artifact platterpus-x86_64.AppImage \
+            --version "${TAG#v}" \
+            --out platterpus-x86_64.AppImage.sigstore.json
+
       - name: Publish to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -358,6 +417,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
               platterpus-x86_64.AppImage platterpus-x86_64.AppImage.sha256 \
+              platterpus-x86_64.AppImage.sigstore.json \
               platterpus-x86_64.AppImage.zsync \
               install.sh install-appimage.sh --clobber
             # Ensure it's published, not left a draft. If a PRIOR run created the
@@ -377,6 +437,7 @@ jobs:
             # present.
             gh release create "$TAG" \
               platterpus-x86_64.AppImage platterpus-x86_64.AppImage.sha256 \
+              platterpus-x86_64.AppImage.sigstore.json \
               platterpus-x86_64.AppImage.zsync \
               install.sh install-appimage.sh \
               --title "Platterpus $TAG" \
@@ -388,27 +449,6 @@ jobs:
             # flag set at create time).
             gh release edit "$TAG" --draft=false
           fi
-
-      # Build-provenance attestation (2026-07-08 trust-audit follow-up). Emits a
-      # cryptographically signed SLSA provenance statement binding THIS exact
-      # AppImage — by its SHA-256 digest — to the workflow, repo, and commit that
-      # produced it, using GitHub's OIDC identity and the public Sigstore
-      # transparency log. There is NO maintainer-held key and NO new runtime
-      # dependency: the trust root is GitHub + Sigstore. A downloader can then
-      # prove the binary genuinely came from this repo's release pipeline (not
-      # swapped by an attacker or a compromised mirror) with:
-      #   gh attestation verify platterpus-x86_64.AppImage --repo rmccann-hub/Platterpus
-      # The .sha256 asset proves a download is INTACT (integrity); this proves it
-      # is AUTHENTIC (built by us). NOTE: the in-app auto-updater still verifies
-      # only the SHA-256 — it does not yet check this attestation (that, plus
-      # minisign signing, is the remaining "update authenticity" work in TASKS.md
-      # / SECURITY.md). Placed AFTER the release is published so a transient
-      # attestation hiccup can never block shipping the binary; the attestation
-      # binds to the artifact's digest, so this ordering doesn't affect it.
-      - name: Attest AppImage build provenance
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4
-        with:
-          subject-path: platterpus-x86_64.AppImage
 
       # Kick off the PyPI publish in its OWN run. We must DISPATCH it rather
       # than rely on a `release: published` trigger: the release above is

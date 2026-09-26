@@ -280,3 +280,119 @@ def test_the_archival_EAC_WRITER_is_swept_and_not_only_the_reader() -> None:
         "reader measures our ability to consume somebody else's log, not our "
         "ability to produce a correct one"
     )
+
+
+#: The modules the mutation audit must keep sweeping. **A ratchet: add a row when
+#: a leg is added, never remove one.** Before this set existed, the only scope
+#: checks were "at least three legs" and "the EAC writer is one of them", so the
+#: AccurateRip verdict, the CTDB CRC and the argv chokepoint could each have been
+#: dropped with the audit still green (TASKS `mutation:_scope_config`). Each row
+#: is a module that decides a rip's verdict, writes an archival record, or shapes
+#: what reaches cyanrip; the last nine were added 2026-09-25.
+_REQUIRED_TARGETS: Final[frozenset[str]] = frozenset(
+    {
+        "src/platterpus/verdict.py",
+        "src/platterpus/ctdb/crc.py",
+        "src/platterpus/parsers/cyanrip_log.py",
+        "src/platterpus/parsers/rip_log.py",
+        "src/platterpus/parsers/eac_log.py",
+        "src/platterpus/eac_log_export.py",
+        "src/platterpus/adapters/cyanrip_backend.py",
+        "src/platterpus/ctdb/decode.py",
+        "src/platterpus/ctdb/toc.py",
+        "src/platterpus/ctdb/diagnose.py",
+        "src/platterpus/handshake_approval.py",
+        "src/platterpus/naming.py",
+        "src/platterpus/rig_check.py",
+        "src/platterpus/ripper_identity.py",
+        "src/platterpus/settings_validation.py",
+    }
+)
+
+
+def test_the_mutation_SCOPE_cannot_silently_shrink() -> None:
+    """Every required module is still a leg, and the requirement did not shrink.
+
+    The size floor on the set is what makes this a ratchet rather than a list:
+    deleting a row from ``_REQUIRED_TARGETS`` together with its leg would
+    otherwise pass, and that pair of deletions is exactly the change to catch.
+    """
+    assert len(_REQUIRED_TARGETS) >= 15, (
+        "the required mutation scope shrank; it may grow, never shrink"
+    )
+    targets, _, _ = _matrix_legs()
+    missing = sorted(_REQUIRED_TARGETS - set(targets))
+    assert not missing, (
+        f"these modules are no longer mutation-swept: {missing}. Each one decides "
+        "a verdict, writes an archival record, or shapes cyanrip's argv, so a "
+        "weekly signal on it was deliberate."
+    )
+    assert len(set(targets)) == len(targets), "a module is swept by two legs"
+
+
+#: The documented one-leg command, in either inline-code or a `\`-continued
+#: block. Captures everything up to the closing backtick or the end of the block.
+_DOCUMENTED_SWEEP: Final[re.Pattern[str]] = re.compile(
+    r"python3 scripts/mutation_sweep\.py(?P<args>(?:[^`\n\\]|\\\n)*)"
+)
+
+
+def _documented_invocations() -> list[tuple[str, list[str]]]:
+    found: list[tuple[str, list[str]]] = []
+    for doc in ("CLAUDE.md", "docs/testing.md"):
+        text = (REPO_ROOT / doc).read_text(encoding="utf-8")
+        for match in _DOCUMENTED_SWEEP.finditer(text):
+            args = match.group("args").replace("\\\n", " ").split()
+            if args:
+                found.append((doc, args))
+    return found
+
+
+def test_the_DOCUMENTED_command_is_the_one_the_workflow_runs() -> None:
+    """The command the docs tell a contributor to run is a real leg, run the real way.
+
+    Both docs published a `mutmut` 2.x command that exited 2 for months after the
+    tool changed under it (TASKS `mutation:_documented_command`). A documented
+    command is an instruction nobody re-reads until it fails, so it is held to the
+    workflow: every flag it uses must be one the script accepts, and its target,
+    tests, limit and floor must be those of an actual matrix leg.
+    """
+    invocations = _documented_invocations()
+    # FLOOR: a regex that stopped matching would make the loop below vacuous.
+    assert len(invocations) >= 2, (
+        f"found {len(invocations)} documented sweep command(s); expected one in "
+        "CLAUDE.md and one in docs/testing.md"
+    )
+    accepted = set(
+        re.findall(r'add_argument\(\s*"(--[a-z-]+)"', SWEEP.read_text(encoding="utf-8"))
+    )
+    assert {"--target", "--tests", "--limit", "--min-checked"} <= accepted, accepted
+    targets, tests, floors = _matrix_legs()
+    legs = {
+        target: (row.split(), floor)
+        for target, row, floor in zip(targets, tests, floors, strict=True)
+    }
+    limit = _declared_limit()
+    for doc, args in invocations:
+        flags = [a for a in args if a.startswith("--")]
+        unknown = sorted(set(flags) - accepted)
+        assert not unknown, f"{doc}: the sweep does not accept {unknown}"
+        values: dict[str, list[str]] = {}
+        for flag, value in zip(args, args[1:], strict=False):
+            if flag.startswith("--") and not value.startswith("--"):
+                values.setdefault(flag, []).append(value)
+        (target,) = values["--target"]
+        assert target in legs, (
+            f"{doc}: documents a leg the workflow does not run: {target}"
+        )
+        leg_tests, leg_floor = legs[target]
+        assert values["--tests"] == leg_tests, (
+            f"{doc}: documents tests {values['--tests']} for {target}; the workflow "
+            f"runs {leg_tests}"
+        )
+        assert values["--limit"] == [str(limit)], (
+            f"{doc}: --limit differs from CI's {limit}"
+        )
+        assert values["--min-checked"] == [str(leg_floor)], (
+            f"{doc}: --min-checked {values['--min-checked']} but the leg's floor is {leg_floor}"
+        )

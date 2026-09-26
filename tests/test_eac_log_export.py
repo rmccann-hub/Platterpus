@@ -13,6 +13,10 @@ import re
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+
 from platterpus.eac_log_export import (
     _UNREPORTED,
     _accuraterip_line,
@@ -23,6 +27,7 @@ from platterpus.eac_log_export import (
     verify_eac_style_log_checksum,
 )
 from platterpus.parity import track_copy_crcs
+from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 from platterpus.parsers.eac_log import looks_like_eac_log
 from platterpus.parsers.rip_log import (
     AccurateRipResult,
@@ -1926,3 +1931,327 @@ def test_the_completion_record_survives_the_log_checksum_round_trip() -> None:
         "the completion record was rendered after the checksum line, so it is "
         "outside the text the checksum attests"
     )
+
+
+# --- Properties: the archival log over every RipLog, not a dozen hand-built ones --
+#
+# `render_eac_style_log` wraps `_render` in a catch-all that emits a stub, so a
+# "never raises" property is satisfied by the stub: a log reading "(log could not
+# be rendered)" never raises. The property that matters is that no input REACHES
+# the stub — every draw below asserts the real render ran, that the SHA-256 footer
+# attests it, and (for the round trip) that every Copy CRC reads back out.
+
+_STUB_MARKER = "(log could not be rendered)"
+#: Production text is decoded with `errors="replace"`, so no field ever carries a
+#: lone surrogate; everything else — control characters, line breaks — is fair.
+_ANY_TEXT = st.text(st.characters(blacklist_categories=["Cs"]), max_size=16)
+#: What a PARSED field can hold: a parser splits with `splitlines`, so no value it
+#: produces contains a line boundary. Used where the property reads the render back.
+_LINE_TEXT = st.text(
+    st.characters(
+        blacklist_characters="\n\r\x0b\x0c\x1c\x1d\x1e\x85  ",
+        blacklist_categories=["Cs"],
+    ),
+    max_size=16,
+)
+_OPT_INT = st.none() | st.integers(-(10**6), 10**12)
+_OPT_FLOAT = st.none() | st.floats(allow_nan=True, allow_infinity=True)
+_OPT_BOOL = st.none() | st.booleans()
+_CRC = st.text("0123456789abcdefABCDEF", min_size=8, max_size=8)
+_STATUS = st.sampled_from(
+    # The cyanrip parser's closed vocabulary, EAC's own phrase, and blank.
+    ["ripped successfully", "ripped with errors", "data track (skipped)", "Copy OK", ""]
+)
+
+
+def _ar(text: st.SearchStrategy[str]) -> st.SearchStrategy[AccurateRipResult | None]:
+    return st.none() | st.builds(
+        AccurateRipResult,
+        version=st.integers(0, 3),
+        result=text,
+        confidence=_OPT_INT,
+        local_crc=st.none() | text,
+        remote_crc=st.none() | text,
+    )
+
+
+def _track(
+    text: st.SearchStrategy[str],
+    *,
+    number: st.SearchStrategy[int],
+    copy_crc: st.SearchStrategy[str],
+    test_crc: st.SearchStrategy[str],
+    status: st.SearchStrategy[str],
+) -> st.SearchStrategy[TrackResult]:
+    return st.builds(
+        TrackResult,
+        number=number,
+        filename=text,
+        peak_level=_OPT_FLOAT,
+        pre_emphasis=_OPT_BOOL,
+        extraction_speed=_OPT_FLOAT,
+        extraction_quality=_OPT_FLOAT,
+        test_crc=test_crc,
+        copy_crc=copy_crc,
+        status=status,
+        accuraterip_v1=_ar(text),
+        accuraterip_v2=_ar(text),
+        accuraterip_offset=_ar(text),
+        accuraterip_lookup=st.none() | text,
+        paranoia_counts=st.dictionaries(text, st.integers(-5, 10**6), max_size=3),
+        paranoia_scope=text,
+        rip_count=_OPT_INT,
+        secure_rerip_converged=_OPT_BOOL,
+        replaygain=st.dictionaries(text, text, max_size=2),
+        start_sector=_OPT_INT,
+        end_sector=_OPT_INT,
+        pregap_sectors=_OPT_INT,
+        pregap_start_lsn=_OPT_INT,
+        pregap_state=text,
+        pregap_unknown_reason=text,
+        pregap_length_frames=_OPT_INT,
+        pregap_source=text,
+        extraction_elapsed_seconds=_OPT_FLOAT,
+        appended_silence_frames=_OPT_INT,
+    )
+
+
+def _rip_log_strategy(
+    text: st.SearchStrategy[str], tracks: st.SearchStrategy[tuple[TrackResult, ...]]
+) -> st.SearchStrategy[RipLog]:
+    return st.builds(
+        RipLog,
+        log_creator=text
+        | st.sampled_from(["cyanrip 0.9.3", "cyanrip 0.9.4 (platterpus-fork-g1)"]),
+        ripper_build=text,
+        creation_date=text | st.sampled_from(["2026-06-28", "2026-06-28T20:01:00Z"]),
+        ripping_info=st.builds(
+            RippingInfo,
+            drive=text,
+            extraction_engine=text,
+            defeat_audio_cache=_OPT_BOOL,
+            read_offset_correction=_OPT_INT,
+            overread_lead_out=_OPT_BOOL,
+            gap_detection=text,
+            cd_r_detected=_OPT_BOOL,
+            speed_changeable=_OPT_BOOL,
+            album=text,
+            album_artist=text,
+            c2_pointers=_OPT_BOOL,
+            paranoia_level=text,
+            overread_mode=text,
+            output_formats=text,
+        ),
+        tracks=tracks,
+        accuraterip_summary=text,
+        health_status=text,
+        sha256_hash=text,
+        partially_accurate_summary=text,
+        partially_accurate_reported=text,
+        disc_duration=text,
+        invoked_as=text,
+        handshake_note=text,
+        consumer=text,
+        rip_completed=_OPT_BOOL,
+        interrupted_at=st.none() | text,
+        rip_completed_tracks=_OPT_INT,
+        rip_completed_total=_OPT_INT,
+        rip_completed_reason=text,
+        read_stalls=text,
+    )
+
+
+_RENDER_OPTIONS = st.fixed_dictionaries(
+    {
+        "outcome_status": st.sampled_from(["", "complete", "cancelled", "failed"]),
+        "disc_track_total": st.none() | st.integers(-2, 120),
+        "secure_rerip": st.none()
+        | st.builds(
+            dict,
+            mode=_ANY_TEXT,
+            engaged=st.booleans(),
+            disc_in_accuraterip=_OPT_BOOL,
+            skipped_reason=st.none() | _ANY_TEXT,
+            interrupted=st.booleans(),
+        ),
+        "encoder_versions": st.dictionaries(_ANY_TEXT, _ANY_TEXT, max_size=2),
+    }
+)
+
+
+def _assert_a_real_attested_render(text: str) -> None:
+    """The render ran (not the stub), and its footer attests exactly its body."""
+    assert _STUB_MARKER not in text, "the renderer fell back to its stub"
+    assert text.splitlines()[0] == (
+        "Exact Audio Copy-compatible log generated by Platterpus"
+    )
+    assert "NOT signed by Exact Audio Copy" in text
+    assert verify_eac_style_log_checksum(text) is True
+
+
+@given(
+    _rip_log_strategy(
+        _ANY_TEXT,
+        st.lists(
+            _track(
+                _ANY_TEXT,
+                number=st.integers(-5, 1000),
+                copy_crc=_ANY_TEXT,
+                test_crc=_ANY_TEXT,
+                status=_ANY_TEXT | _STATUS,
+            ),
+            max_size=4,
+        ).map(tuple),
+    ),
+    _RENDER_OPTIONS,
+)
+def test_every_riplog_the_types_allow_renders_for_real_and_is_attested(
+    rip_log: RipLog, options: dict[str, object]
+) -> None:
+    """Across the whole typed field space — NaN and infinite floats, negative and
+    huge ints, empty and control-character text — the archival log is rendered, not
+    stubbed, and its checksum verifies."""
+    text = render_eac_style_log(
+        rip_log,
+        platterpus_version="0.0.0",
+        build_fingerprint="test",
+        **options,  # type: ignore[arg-type]  # fixed_dictionaries is keyed by name
+    )
+    _assert_a_real_attested_render(text)
+
+
+@st.composite
+def _crc_bearing_log(draw: st.DrawFn) -> RipLog:
+    """A RipLog shaped like parser output, with distinct track numbers and at least
+    one real Copy CRC — so the round trip below always has something to carry."""
+    numbers = draw(st.lists(st.integers(0, 199), min_size=1, max_size=4, unique=True))
+    tracks = [
+        draw(
+            _track(
+                _LINE_TEXT,
+                number=st.just(n),
+                copy_crc=st.just(draw(_CRC)) if i == 0 else st.just("") | _CRC,
+                test_crc=st.just("") | _CRC,
+                status=_STATUS,
+            )
+        )
+        for i, n in enumerate(numbers)
+    ]
+    # The disc-level fields are fuzzed in full by the property above; here only the
+    # ones rendered at column 0 (the album line) could stand in for a track header.
+    return RipLog(
+        log_creator=draw(
+            st.sampled_from(["cyanrip 0.9.3", "legacy-ripper 0.10.0", ""])
+        ),
+        ripping_info=RippingInfo(
+            album=draw(_LINE_TEXT), album_artist=draw(_LINE_TEXT | st.just("Track 7"))
+        ),
+        tracks=tuple(tracks),
+    )
+
+
+@given(_crc_bearing_log(), _RENDER_OPTIONS)
+def test_every_copy_crc_reads_back_out_of_the_rendered_log(
+    rip_log: RipLog, options: dict[str, object]
+) -> None:
+    """The reason the log is EAC-shaped at all: the parity tooling reads its Copy
+    CRCs back, exactly, whatever else the rip recorded around them."""
+    expected = {t.number: t.copy_crc.upper() for t in rip_log.tracks if t.copy_crc}
+    assert expected, "the strategy guarantees a CRC, so there is a round trip to check"
+    text = render_eac_style_log(rip_log, **options)  # type: ignore[arg-type]  # as above
+    _assert_a_real_attested_render(text)
+    assert looks_like_eac_log(text)
+    assert track_copy_crcs(text) == expected
+
+
+_REFERENCE_LINES: list[str] = _CYANRIP_REFERENCE.read_text(
+    encoding="utf-8", errors="replace"
+).splitlines()
+
+
+@given(st.data())
+def test_a_mangled_real_cyanrip_log_still_renders_for_real(data: st.DataObject) -> None:
+    """The production path — parse the ripper's log, render — over the committed
+    reference log with lines dropped, duplicated and garbled: the shapes a cancelled,
+    truncated or hand-edited rip leaves. Parser output is what the renderer receives
+    in production, so this is the domain the stub most needs never to see."""
+    lines = list(_REFERENCE_LINES)
+    for _ in range(data.draw(st.integers(1, 12), label="edits")):
+        at = data.draw(st.integers(0, len(lines) - 1), label="line")
+        edit = data.draw(st.sampled_from(["drop", "dup", "garble", "insert"]))
+        if edit == "drop" and len(lines) > 1:
+            del lines[at]
+        elif edit == "dup":
+            lines.insert(at, lines[at])
+        elif edit == "garble":
+            # Keep the line's label so it still matches its parser rule, and replace
+            # the value — which is where a malformed number or CRC arrives.
+            label, sep, _value = lines[at].partition(":")
+            lines[at] = label + sep + data.draw(_LINE_TEXT, label="value")
+        else:
+            lines.insert(at, data.draw(_LINE_TEXT, label="inserted"))
+    parsed = parse_cyanrip_log("\n".join(lines) + "\n")
+    assert parsed.tracks, "the edits left no track, so the render had nothing to do"
+    _assert_a_real_attested_render(
+        render_eac_style_log(parsed, platterpus_version="0.0.0", disc_track_total=14)
+    )
+
+
+# --- D16: metadata may not forge a log signature -------------------------------
+
+#: EAC's own signature line, as a logchecker would look for it: anywhere in a line.
+_EAC_SIGNATURE = re.compile(r"={2,}\s*Log checksum\s+[0-9A-Fa-f]+\s*={2,}")
+
+
+@pytest.mark.parametrize(
+    "forged",
+    [
+        "==== Log checksum " + "AB" * 32 + " ====",
+        "==== log CHECKSUM deadbeef ====",
+        "==== Platterpus log checksum (SHA-256 of the text above; NOT an EAC "
+        "checksum): " + "0" * 64 + " ====",
+        "==== This log was generated by Platterpus and is NOT signed by Exact "
+        "Audio Copy ====",
+    ],
+)
+def test_metadata_shaped_like_a_SIGNATURE_is_rewritten(forged: str) -> None:
+    """Decision D16 (KDD-38). The album line is echoed at column 0, as EAC does, so
+    an album artist written as EAC's signature put that line in our log, where a
+    tracker's logchecker could read it as EAC-signed."""
+    from platterpus.eac_log_export import (
+        _SIGNATURE_SHAPE,
+        render_eac_style_log_and_defused,
+        verify_eac_style_log_checksum,
+    )
+    from platterpus.parsers.rip_log import RippingInfo
+
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        ripping_info=RippingInfo(album_artist=forged, album="Album"),
+        tracks=(TrackResult(number=1),),
+    )
+    text, defused = render_eac_style_log_and_defused(rip_log)
+    lines = text.splitlines()
+    assert not [line for line in lines if _EAC_SIGNATURE.search(line)]
+    # Exactly our own two lines still have a signature's shape: the not-signed
+    # line and the checksum footer, both written by us, both at the end.
+    shaped = [line for line in lines if _SIGNATURE_SHAPE.search(line)]
+    assert shaped == lines[-2:], shaped
+    assert len(defused) == 1 and "----" in defused[0] and "Album" in defused[0]
+    assert defused[0] in lines, "the rewritten line must be the one in the log"
+    assert verify_eac_style_log_checksum(text) is True
+
+
+def test_ORDINARY_metadata_is_never_rewritten() -> None:
+    """The floor: a guard that rewrote everything would pass the test above."""
+    from platterpus.eac_log_export import render_eac_style_log_and_defused
+    from platterpus.parsers.rip_log import RippingInfo
+
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        ripping_info=RippingInfo(album_artist="The Beatles", album="Abbey Road = Done"),
+        tracks=(TrackResult(number=1),),
+    )
+    text, defused = render_eac_style_log_and_defused(rip_log)
+    assert defused == []
+    assert "The Beatles / Abbey Road = Done" in text
