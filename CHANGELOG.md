@@ -58,6 +58,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `re.sub`/`re.search`/`re.fullmatch` patterns, not only `re.compile`, and times
   each one the way it is called. That wider sweep is what found this one
   (`docs/testing.md` §5.bu).
+- **For contributors: waiting for a worker thread to stop no longer fails when
+  Qt has already deleted it.** Every worker thread deletes itself when it
+  finishes. So a test that pumped events until a thread stopped could see Qt
+  delete it mid-pump, and the next `isRunning()` raised "already deleted" on a
+  thread that had stopped exactly as intended. This failed the pending-installs
+  teardown test once under `-n auto`; it passed alone nine times in nine. The new
+  `thread_has_stopped` fixture reads a deleted thread as stopped, the same way
+  the app's own abandoned-thread count already did. All three polls use it, and a
+  sweep refuses the bare form.
 - **For contributors: the suite runs in parallel, and CI measures coverage on one
   leg.** `pytest-xdist` is a new dev dependency (approved 2026-09-26). CI and
   `scripts/check.py` run `pytest -n auto`; a bare `pytest` stays serial. The
