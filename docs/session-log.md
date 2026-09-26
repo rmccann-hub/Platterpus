@@ -11,6 +11,119 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-26 — LSL is the base, a second checker for it, and the Full run graded `partial`
+
+The maintainer decided four things in one message: *"use LSL as the base and send
+ours as amendments. There were errors so this is not full green. Release and merge.
+Complete anything open."*
+
+- **Our checker became a second implementation of the fork's LSL 1**, written from
+  their spec, not their code. On their lap 6 the two agree: 25 statements, the same
+  census, 0 warnings given both trees. Where they disagree, each difference was
+  measured against their checker:
+  - **F1:** their checker hardcodes "us" as cyanrip, so it refused a correct
+    Platterpus probe lap twice, once for our own commit and once for our own
+    measurement;
+  - **F2:** it refuses unknown fields and malformed values that its spec's list
+    of refusals does not name;
+  - **F3:** a depth-1 clone of their own branch drew 15 refusals on their own lap
+    6, commits it merely could not see.
+
+  On our worked example their checker gives 30 refusals and ours 26. The four
+  extra are F1.
+- **Our language is withdrawn, and never sent.** What it had and LSL lacks became
+  amendments A1–A8 (`docs/handshake/outbound/artifacts/lsl-amendments-1.md`, released
+  in `[ASK D]`). Its header ideas went to a v7 section, because LSL rightly leaves
+  headers to the protocol. Writing it found that our first F1 test was vacuous. It
+  asserted "no refusals", and a checker resolving our commit in the fork's tree only
+  *warns* without that clone. It now asserts no problems at all.
+- **S16, measured end to end, found one wrong sentence of ours.** Our first probe
+  called the legacy parser, not the app's dispatch, and reported a missing banner
+  that was not missing. Re-measured through `looks_like_cyanrip_log` →
+  `parse_cyanrip_log`, the report was right except `unverified`, which blamed the
+  pressing, the database or the offset for a rip that read nothing. Fixed, but only
+  where the log parsed whole.
+- **The Full run is `partial` in the ledger**, on the maintainer's ruling. It is the
+  first run whose every archival check could fail. Nine rows, zero `full-green`.
+- **Closed:** the `+450` label is now `frame 450`; the suite prints warnings and
+  `--durations` before its hard exit; and a SessionStart hook switches the audio
+  guard on in cloud sessions.
+- **Not done:** 0.6.61 waits, as agreed with the fork, for their round 28 lap 1
+  naming `.17`.
+
+## 2026-09-26 — round 27 closed on both gates, and both sides built a body language
+
+The fork's lap 6 (`cyanrip@9e3b76f`, sha256 `d95bb28e…`, released, `GO`) is filed
+byte-exact, and `handshake.py --status` reads round 27 CLOSED on both gates at six
+laps.
+
+- **They were given the same instruction and built their own language, LSL**
+  (`PROPOSAL-lap-statement-language.md` at `cyanrip@f34a96c`). Its lap 6 is the first
+  lap written in it. Their checker passes it against our tree: 25 statements, 0
+  warnings, exit 0, reproduced here.
+- **The two designs overlap and differ in instructive ways.** LSL has kinds we lack
+  (`NONE` with the scope searched, `UNKNOWN`, `FACT relayed`), resolves every
+  citation against the trees, and is released and in use. Ours types the header,
+  checks close conditions and promises across laps, and has findings with origin
+  and portability. Two conventions for one thing is the failure this project's
+  filename rule exists to stop, so the choice goes to the maintainer (their S23).
+- **Their S16 is answerable by measurement**, and half-measured: our parser gives a
+  `.17` early-failure log no tracks and `rip_completed: None`. The report path end
+  to end is a round-28 item.
+
+## 2026-09-26 — the Full run on round 27's pair: 320 of 320, and one sentence of ours was wrong
+
+The maintainer ran our **Full** acceptance at 04:13 UTC on 0.6.60 with `.16`, the
+run round 27's §0.1 had asked for before the override. Graded by reading each rip's
+own report, not the headline:
+
+- **Every archival witness could have failed, and none did.** Derived MP3, WAV and
+  WavPack each report `derived: ran`, 2 of 2 checked (the 2026-09-15 run could not
+  make this check). CTDB `match` on both whole-disc rips. All eight logs
+  self-verify. The secure re-read ran every track. The app log has no error in
+  71,328 lines.
+- **The re-read caught two real misreads.** Track 1 (MP3 rip) and track 3
+  (whole-disc rip) first read as different audio, matching only frame 450. Both
+  were re-read and replaced by v1+v2 matches. This is the default made on in 0.6.57
+  doing its job on hardware.
+- **Ours, and fixed:** the report's note said cyanrip's tally *"does not agree with
+  the tracks listed per track in this log"*. It agreed exactly; our re-read changed
+  the count afterwards. The 2026-08-07 fix recomputed the count and never looked at
+  the note it still appended. The parser now keeps the log's own count, the note
+  says what the re-read did, and a test reads the filed whole-disc log. Two reverts
+  probed, both detected.
+- **Not decided here:** whether it is the ledger's first `full-green`. That unlocks
+  `0.7.100` on paper, and the maintainer has ruled on this grade before, so it is
+  put to them (`TASKS.md`).
+
+## 2026-09-26 — lap language 1: a typed language for the laps themselves
+
+Asked to *"start talking in the handshake files … and make an actual perfect
+language"*. Measured first, across all 150 laps on file: 26% of header values are
+paragraphs, 21 of 61 field names are defined nowhere, and the two gates read
+`HANDSHAKE-PEER-VERDICT-SOURCE` by different keys (ours filename first, theirs
+the first "lap N"). They agree only because of how the sentences happen to be
+phrased.
+
+- **Built**: the spec (`docs/handshake/outbound/artifacts/lap-language-1.md`), a
+  checker (`scripts/laplang/`, split into seven modules by job), and 47 tests. A lap
+  becomes a typed header plus statements of eight kinds, and every rule has an id,
+  `L1`–`L33` within a lap and `R1`–`R10` between laps. `lap_language.py turn`
+  answers "whose turn?" from the files, and says "not determined" for a prose lap
+  rather than guessing.
+- **A real lap found what toy inputs did not.** Rewriting our round 27 lap 5 in the
+  language needed three things the first design lacked: a `pending` state for a
+  close condition, `restates`/`answers` for laps written before the language, and
+  findings already `fixed`. The `pending` revert-probe shows lap 5's `GO` really
+  did rest on the fork's half still to come. Nothing in the prose recorded that.
+- **Held.** Nothing is sent until the maintainer releases it. The standing status
+  carries it as `[ASK D]`, marked held.
+- **The parallel suite's first CI run exposed a real defect**: the drive-name
+  normaliser's regex was quadratic (0.54 s on one CSV row, on the GUI thread
+  before the window shows), and the regex timing sweep missed it because it only
+  collected `re.compile` calls. Both fixed, and #257 merged at 3m08s of CI
+  (`docs/testing.md` §5.bu).
+
 ## 2026-09-26 — faster CI, Phases 2 and 3: the suite runs in parallel
 
 The maintainer approved both. Parallel runs used pytest-xdist; coverage now runs on

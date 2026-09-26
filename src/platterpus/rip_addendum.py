@@ -69,6 +69,11 @@ ADDENDUM_SUFFIX: Final[str] = ".platterpus-addendum.txt"
 #: used, so a parser (ours or a third party's) recognises both layouts.
 ADDENDUM_MARKER: Final[str] = "[Platterpus auto-fix addendum]"
 
+#: The addendum row for cyanrip's `Accurip 450`, and the label older sidecars
+#: carry for the same row.
+ONE_FRAME_LABEL: Final[str] = "AccurateRip frame 450:"
+OLD_ONE_FRAME_LABEL: Final[str] = "AccurateRip +450:"
+
 _RULE: Final[str] = "=" * 72
 
 #: What a re-read did to a track's audio, as three mutually exclusive answers.
@@ -158,7 +163,9 @@ def addendum_path_for(log_path: str | Path) -> Path:
 
 
 def _row(label: str, value: str) -> str:
-    return f"      {label:<22}{value or 'n/a'}"
+    # 24, not 22: the longest label, "AccurateRip frame 450:", is 22 characters,
+    # and a label as wide as its column runs straight into its value.
+    return f"      {label:<24}{value or 'n/a'}"
 
 
 def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
@@ -219,9 +226,12 @@ def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
         lines.append(_row("AccurateRip v1:", entry.accuraterip_v1))
         lines.append(_row("AccurateRip v2:", entry.accuraterip_v2))
         # cyanrip's `Accurip 450`: ONE frame's checksum (see `one_frame_match`).
-        # The label is kept: this sidecar is an artifact the real rig has already
-        # written, and `test_rip_addendum` holds a rebuilt block to that artifact.
-        lines.append(_row("AccurateRip +450:", entry.accuraterip_offset))
+        # Labelled "frame 450", the words round 27 agreed for the EAC-compatible
+        # log. It used to read "+450", which looks like a read offset of +450
+        # samples (the §5.bs misreading). Nothing parses this row, so sidecars
+        # already on disk keep the old label and lose nothing: only a person reads
+        # it, and `test_rip_addendum` compares the value under either label.
+        lines.append(_row(ONE_FRAME_LABEL, entry.accuraterip_offset))
         lines.append(_row("Secure re-read:", entry.secure_reread))
         lines.append("")
     lines.append(_RULE)

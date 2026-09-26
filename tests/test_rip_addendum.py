@@ -603,17 +603,52 @@ def test_the_rebuilt_block_matches_the_real_rigs_sidecar_fact_for_fact() -> None
         ],
     )
     checked = 0
-    for pattern in (
-        r"Track (\d+)",
-        r"CRC ([0-9A-F]{8})",
-        r"Secure re-read:\s+(.+)",
-        r"AccurateRip v1:\s+(.+)",
-        r"AccurateRip v2:\s+(.+)",
-        r"AccurateRip \+450:\s+(.+)",
+    # (what the committed sidecar says, what we write now). The one-frame row was
+    # relabelled from "+450" to "frame 450" on 2026-09-26, after the sidecar was
+    # committed, so its VALUE is compared under each file's own label.
+    for sidecar_pattern, rebuilt_pattern in (
+        (r"Track (\d+)", r"Track (\d+)"),
+        (r"CRC ([0-9A-F]{8})", r"CRC ([0-9A-F]{8})"),
+        (r"Secure re-read:\s+(.+)", r"Secure re-read:\s+(.+)"),
+        (r"AccurateRip v1:\s+(.+)", r"AccurateRip v1:\s+(.+)"),
+        (r"AccurateRip v2:\s+(.+)", r"AccurateRip v2:\s+(.+)"),
+        (r"AccurateRip \+450:\s+(.+)", r"AccurateRip frame 450:\s+(.+)"),
     ):
-        want = re.findall(pattern, sidecar)
-        got = re.findall(pattern, rebuilt)
-        assert want, f"the committed sidecar has no {pattern!r} to compare against"
-        assert want == got, f"{pattern!r}: sidecar={want} rebuilt={got}"
+        want = re.findall(sidecar_pattern, sidecar)
+        got = re.findall(rebuilt_pattern, rebuilt)
+        assert want, (
+            f"the committed sidecar has no {sidecar_pattern!r} to compare against"
+        )
+        assert want == got, f"{rebuilt_pattern!r}: sidecar={want} rebuilt={got}"
         checked += 1
     assert checked == 6, "not every superseded field was compared"
+
+
+def test_the_one_frame_row_is_labelled_frame_450_not_as_an_offset() -> None:
+    """ "+450" reads as a read offset of +450 samples (the §5.bs misreading). The
+    row is cyanrip's checksum of frame 450 alone, so it says so, in the words
+    round 27 agreed for the EAC-compatible log. Each label still has a space
+    before its value: the new label is as long as the old column."""
+    text = ra.render_addendum(
+        "accuraterip",
+        [
+            ra.SupersededTrack(
+                number=3,
+                filename="03.flac",
+                crc="3D8FCF0C",
+                previous_crc="12345678",
+                accuraterip_v1="n/a",
+                accuraterip_v2="n/a",
+                accuraterip_offset="n/a",
+                secure_reread="converged after 3 reads",
+            )
+        ],
+    )
+    assert ra.ONE_FRAME_LABEL in text
+    assert "+450" not in text
+    for line in text.splitlines():
+        if line.startswith("      ") and ":" in line:
+            label, _, rest = line.strip().partition(":")
+            assert line.split(":", 1)[1].startswith(" "), (
+                f"no space after {label!r}: {line!r}"
+            )

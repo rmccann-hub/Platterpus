@@ -39,6 +39,7 @@ os.environ["XDG_CONFIG_HOME"] = os.path.join(
 os.environ["XDG_DATA_HOME"] = os.path.join(os.environ["PLATTERPUS_TEST_HOME"], "data")
 
 import pytest
+from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus import hard_exit
@@ -169,6 +170,19 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     SESSION_COMPLETE_SENTINEL.unlink(missing_ok=True)
 
 
+def _print_durations(config: pytest.Config, reporter: object) -> None:
+    """Print `--durations`, as pytest would after the session-finish hook.
+
+    pytest prints it from its `runner` plugin's terminal-summary hook. The plugin
+    manager hands that plugin over by name, so nothing imports pytest's private
+    modules. A pytest that renames it costs only this section, never the status.
+    """
+    runner = config.pluginmanager.get_plugin("runner")
+    summary = getattr(runner, "pytest_terminal_summary", None)
+    if callable(summary):
+        summary(reporter)
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
     # Defuse the intermittent PySide interpreter-shutdown SIGABRT (a Qt-internal
@@ -220,6 +234,13 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
             reporter.write_line("")
             reporter.summary_failures()
             reporter.summary_errors()
+            # The warnings and `--durations` sections, which the hard exit also
+            # skipped, so slow tests were invisible until timed through JUnit
+            # output (2026-09-26). `--durations` is printed by pytest's own
+            # `runner` plugin in its terminal-summary hook, reached here directly
+            # because calling the whole hook would print coverage twice.
+            reporter.summary_warnings()
+            _print_durations(session.config, reporter)
             reporter.short_test_summary()
             reporter.summary_stats()
         except Exception:  # noqa: BLE001 — reporting must never change the status
@@ -586,6 +607,37 @@ def process_until(qapp: QApplication):
                 gc.enable()
 
     return pump
+
+
+def _qthread_has_stopped(thread: QThread) -> bool:
+    """Has this thread stopped? A thread Qt has already destroyed has, certainly.
+
+    Every worker thread here is wired `finished → deleteLater`
+    (`start_worker_thread`, and the dialogs that wire it by hand), so the moment a
+    thread stops, Qt may destroy its C++ object inside the very pump that is
+    waiting for it to stop. Asking a destroyed thread `isRunning()` raises
+    `RuntimeError: Internal C++ object … already deleted` — which turned a thread
+    that had stopped exactly as intended into a test failure. Seen 2026-09-26 on
+    the pending-installs teardown test under `-n auto`, where load widens the gap
+    between `finished` and the predicate's next read; it passed alone nine times
+    out of nine. The product's own reader treats the error the same way
+    (`workers._prune_finished_abandoned_threads`).
+    """
+    try:
+        return not thread.isRunning()
+    except RuntimeError:
+        # Destroyed by the queued `deleteLater`: nothing is left running.
+        return True
+
+
+@pytest.fixture
+def thread_has_stopped():
+    """The `_qthread_has_stopped` predicate, for `process_until(lambda: …)`.
+
+    Use it instead of `not thread.isRunning()` whenever the thread is wired to
+    delete itself on finish, which is every worker thread in this codebase.
+    """
+    return _qthread_has_stopped
 
 
 @pytest.fixture(autouse=True)

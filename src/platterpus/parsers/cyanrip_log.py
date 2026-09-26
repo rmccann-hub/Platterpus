@@ -1647,7 +1647,11 @@ def partial_summary_denominator(
 
 
 def render_partially_accurate_summary(
-    reported: str, offset_variant_tracks: int, disc_tracks: int
+    reported: str,
+    offset_variant_tracks: int,
+    disc_tracks: int,
+    *,
+    logged: int | None = None,
 ) -> str:
     """Describe the offset-variant tally in words, independent of which build ran.
 
@@ -1677,6 +1681,20 @@ def render_partially_accurate_summary(
     disagreement means one of the two statements in the same artifact is wrong, which
     is a finding for whoever reads the report — not something to smooth over by
     trusting whichever number we happened to render.
+
+    **But first establish which two statements disagree** (2026-09-26). By default
+    ``offset_variant_tracks`` IS the log's own per-track count, which is how the
+    parser calls this. The report calls it with the FINAL count, after our re-read
+    has replaced tracks, and passes the log's count as ``logged``: a difference
+    between those two is our re-read, not the ripper miscounting. The first bundle
+    to show it read *"the ripper's own tally reads 2/14, which does not agree with
+    the 1 one-frame-only track listed per track in this log"* over a log that lists
+    two. The ripper was right; the sentence put our change on them. So:
+
+    * tally agrees with the log, and the final count differs: say the tally counts
+      the first pass and our re-read changed it;
+    * tally disagrees with the log: the original finding, against the log's count,
+      noting any change our re-read then made.
     """
     if not reported:
         return ""
@@ -1692,18 +1710,43 @@ def render_partially_accurate_summary(
     # The words are `one_frame_match`'s, the one wording every surface reads, and
     # its noun agrees with the POPULATION ("1 of 14 tracks"). This sentence said
     # "matched only an offset-variant pressing" until 2026-09-24, which named a
-    # cause the `Accurip 450` check cannot establish. The mismatch clause below
-    # counts a different set, so it keeps its own noun.
-    found_noun = "track" if offset_variant_tracks == 1 else "tracks"
+    # cause the `Accurip 450` check cannot establish. The clauses below count
+    # different sets (the log's, or ours after a re-read), so each keeps its own
+    # noun.
     summary = count_sentence(offset_variant_tracks, disc_tracks)
-    if theirs is None or theirs != offset_variant_tracks:
-        # The ripper's own fraction, and the fact that it does not agree with the
-        # per-track detail in the same log.
-        summary += (
-            f" — NOTE: the ripper's own tally reads {reported}, which does not "
-            f"agree with the {offset_variant_tracks} one-frame-only "
-            f"{found_noun} listed per track in this log"
+    if theirs is not None and theirs == offset_variant_tracks:
+        return summary
+    if logged is not None and theirs == logged:
+        # The ripper agrees with its own log. Our re-read changed the count.
+        rescued = logged - offset_variant_tracks
+        if 0 < rescued == logged:
+            which = "that track" if logged == 1 else f"all {logged}"
+            change = f"our re-read then matched {which} in full"
+        elif rescued > 0:
+            change = (
+                f"our re-read then matched {rescued} of those {logged} tracks in full"
+            )
+        else:
+            change = (
+                f"our re-read then changed the count from {logged} to "
+                f"{offset_variant_tracks}"
+            )
+        return summary + (
+            f" — the ripper's own tally, {reported}, counts its first pass; "
+            f"{change}, as the addendum beside the ripper's log records"
         )
+    # The ripper's fraction does not agree with the per-track detail in its own
+    # log: a real disagreement inside one artifact, reported against the log's
+    # count rather than ours.
+    listed = logged if logged is not None else offset_variant_tracks
+    listed_noun = "track" if listed == 1 else "tracks"
+    summary += (
+        f" — NOTE: the ripper's own tally reads {reported}, which does not "
+        f"agree with the {listed} one-frame-only {listed_noun} listed per "
+        "track in its log"
+    )
+    if logged is not None and logged != offset_variant_tracks:
+        summary += f"; our re-read then changed the count to {offset_variant_tracks}"
     return summary
 
 
@@ -2954,6 +2997,10 @@ def parse_cyanrip_log(text: str) -> RipLog:
         health_status=disc.health_status,
         partially_accurate_summary=partially_accurate_summary,
         partially_accurate_reported=disc.partially_accurate_reported,
+        # Only meaningful beside the ripper's tally, which counts the same population.
+        partially_accurate_logged=(
+            offset_variant_tracks if disc.partially_accurate_reported else None
+        ),
         disc_duration=disc.disc_duration,
         invoked_as=disc.invoked_as,
         handshake_note=disc.handshake_note,

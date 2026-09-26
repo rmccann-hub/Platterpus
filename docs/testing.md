@@ -3594,6 +3594,7 @@ cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
 | 2026-09-15 | 0.6.49 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-22 | 0.6.52 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-24 | 0.6.55 | maintainer | bdr209d | bazzite | partial |
+| 2026-09-26 | 0.6.60 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -3688,6 +3689,28 @@ It does count for something real: the run was the first on the round-26 test pin
 `df91ae7`, and N's three-hour secure re-read, the accuracy claim itself, passed
 (14 of 14 converged, 13 of 14 AccurateRip-verified, CTDB match). What it could not
 test is F's fast whole-disc path, which is precisely what F exists to test (§5.br).
+
+**The 2026-09-26 0.6.60 row reached 320 of 320 on a Full run and is `partial`,
+by the maintainer's ruling the same day: *"There were errors so this is not full
+green."*** It is the first run in which every archival witness could fail and none
+did: all three derived formats checked 2 of 2, CTDB matched on both whole-disc rips,
+all eight ripper logs self-verified, the secure re-read covered 14 of 14 tracks, and
+71,328 app-log lines held no `ERROR`, `CRITICAL` or traceback. The errors were in the
+records the steps passed over, and no step could fail over them:
+- **Our rip report said something false**, and the report is part of the archival
+  record. After our re-read replaced a one-frame-only track, its note said the
+  ripper's tally *"does not agree"* with its own log. The log and the tally agreed
+  (2 of 14); our re-read changed the count. Fixed the same day (CHANGELOG, *Fixed*).
+- **The ripper logged two wrong reads as `Ripping errors: 0`**: track 1 `0E91CD1A`
+  and track 3 `3D8FCF0C`. Our re-reads replaced both. The fork counts track 3's as
+  its tenth filed appearance (`cyanrip@2e9884d`).
+- **The interrupted rip's log says `Encoder errors: none; 1 track encoded` over 0 of
+  14 tracks**, counting the partial file. Found by the fork and theirs to fix.
+
+This is the direction the severity rules allow: the re-grade makes `0.7.100`
+harder to reach, not easier (see the 2026-09-12 row). It still counts as the
+strongest run on file, and the first whose sections could all fail. What it cannot
+be is the error-free pass the `0.7.100` gate asks for.
 
 Every row so far is `partial`, zero `full-green`. **No full-green pass has been
 achieved**, so 0.9.1 is not reachable and the count toward it is zero. Recording

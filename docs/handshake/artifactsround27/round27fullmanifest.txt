@@ -1,0 +1,178 @@
+PLATTERPUS EVIDENCE BUNDLE
+==========================
+
+created            20260926T041308Z
+platterpus         0.6.60
+build              88c09dd
+rip outcome        acceptance test session
+ripper build wanted platterpus-fork-g221a1df ONLY — the build under review
+album folders      8, each archived under album/ unless marked otherwise:
+  secure reread 20260926t041308 platterpus-fork-g221a1df /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/rips/The Police/secure reread 20260926t041308 platterpus-fork-g221a1df
+  derived wav 20260926t041308 platterpus-fork-g221a1df /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/rips/The Police/derived wav 20260926t041308 platterpus-fork-g221a1df
+  derived wavpack 20260926t041308 platterpus-fork-g221a1df /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/rips/The Police/derived wavpack 20260926t041308 platterpus-fork-g221a1df
+  derived mp3 20260926t041308 platterpus-fork-g221a1df /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/rips/The Police/derived mp3 20260926t041308 platterpus-fork-g221a1df
+  after cancel 20260926t041308 platterpus-fork-g221a1df /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/rips/The Police/after cancel 20260926t041308 platterpus-fork-g221a1df
+  cancel me 20260926t041308 platterpus-fork-g221a1df /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/rips/Platterpus Acceptance/cancel me 20260926t041308 platterpus-fork-g221a1df
+  full acceptance_ angle_bracket 20260926t04__us-fork-g221a1df _2_ /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20260926t041308 platterpus-fork-g221a1df (2)
+  full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20260926t041308 platterpus-fork-g221a1df
+
+Raw facts this outcome was derived from (a label can be wrong; these
+are what it was computed from):
+  acceptance script      /tmp/.mount_plattejJhlid/opt/python3.12/lib/python3.12/site-packages/platterpus/rig_scripts/fullacceptance.txt
+  album folders          8
+  album folders dropped  0
+  album folders examined 8
+  run ended              reached the last step
+  run outcome            ✓ The run PASSED — all 320 step(s) passed.
+  run size               full
+  run verdict            pass 320, fail 0, error 0, skipped 0, blocked 0, unreachable 0, info 1
+  session folder         /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z
+  sleep lock             ✓ Sleep lock: held (idle:sleep:handle-lid-switch) — Idle, sleep and lid suspend are held off for this run (idle:sleep:handle-lid-switch). The lock is released automatically when the run ends — there is nothing to undo.
+  sources absent         0
+  sources collected      6
+  sources failed         0
+  your settings          restored after the run; it had changed output_dir, auto_launch_picard, debug_logging, force_overread, secure_rerip_dynamic, recompress_flac_after_rip, write_eac_log_after_rip, rip_goal, update_channel, ripper_channel
+
+INCLUDED (73 file(s))
+----------------------------------------
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/secure reread 20260926t041308 platterpus-fork-g221a1df (EAC-compatible).log      10326 B
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/secure reread 20260926t041308 platterpus-fork-g221a1df.cue       2956 B
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/secure reread 20260926t041308 platterpus-fork-g221a1df.log      42633 B
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/secure reread 20260926t041308 platterpus-fork-g221a1df.platterpus.json    6470344 B
+  album/derived wav 20260926t041308 platterpus-fork-g221a1df/derived wav 20260926t041308 platterpus-fork-g221a1df (EAC-compatible).log       3380 B
+  album/derived wav 20260926t041308 platterpus-fork-g221a1df/derived wav 20260926t041308 platterpus-fork-g221a1df.cue        684 B
+  album/derived wav 20260926t041308 platterpus-fork-g221a1df/derived wav 20260926t041308 platterpus-fork-g221a1df.log       9192 B
+  album/derived wav 20260926t041308 platterpus-fork-g221a1df/derived wav 20260926t041308 platterpus-fork-g221a1df.platterpus.json     505703 B
+  album/derived wavpack 20260926t041308 platterpus-fork-g221a1df/derived wavpack 20260926t041308 platterpus-fork-g221a1df (EAC-compatible).log       3392 B
+  album/derived wavpack 20260926t041308 platterpus-fork-g221a1df/derived wavpack 20260926t041308 platterpus-fork-g221a1df.cue        688 B
+  album/derived wavpack 20260926t041308 platterpus-fork-g221a1df/derived wavpack 20260926t041308 platterpus-fork-g221a1df.log       9256 B
+  album/derived wavpack 20260926t041308 platterpus-fork-g221a1df/derived wavpack 20260926t041308 platterpus-fork-g221a1df.platterpus.json     496708 B
+  album/derived mp3 20260926t041308 platterpus-fork-g221a1df/derived mp3 20260926t041308 platterpus-fork-g221a1df (EAC-compatible).log       3473 B
+  album/derived mp3 20260926t041308 platterpus-fork-g221a1df/derived mp3 20260926t041308 platterpus-fork-g221a1df.cue        684 B
+  album/derived mp3 20260926t041308 platterpus-fork-g221a1df/derived mp3 20260926t041308 platterpus-fork-g221a1df.log       9356 B
+  album/derived mp3 20260926t041308 platterpus-fork-g221a1df/derived mp3 20260926t041308 platterpus-fork-g221a1df.platterpus-addendum.txt       1585 B
+  album/derived mp3 20260926t041308 platterpus-fork-g221a1df/derived mp3 20260926t041308 platterpus-fork-g221a1df.platterpus.json    1051684 B
+  album/after cancel 20260926t041308 platterpus-fork-g221a1df/after cancel 20260926t041308 platterpus-fork-g221a1df (EAC-compatible).log       3343 B
+  album/after cancel 20260926t041308 platterpus-fork-g221a1df/after cancel 20260926t041308 platterpus-fork-g221a1df.cue        685 B
+  album/after cancel 20260926t041308 platterpus-fork-g221a1df/after cancel 20260926t041308 platterpus-fork-g221a1df.log       9198 B
+  album/after cancel 20260926t041308 platterpus-fork-g221a1df/after cancel 20260926t041308 platterpus-fork-g221a1df.platterpus.json     492272 B
+  album/cancel me 20260926t041308 platterpus-fork-g221a1df/cancel me 20260926t041308 platterpus-fork-g221a1df (EAC-compatible).log       2358 B
+  album/cancel me 20260926t041308 platterpus-fork-g221a1df/cancel me 20260926t041308 platterpus-fork-g221a1df.cue        372 B
+  album/cancel me 20260926t041308 platterpus-fork-g221a1df/cancel me 20260926t041308 platterpus-fork-g221a1df.log       4727 B
+  album/cancel me 20260926t041308 platterpus-fork-g221a1df/cancel me 20260926t041308 platterpus-fork-g221a1df.platterpus.json     167119 B
+  album/full acceptance_ angle_bracket 20260926t04__us-fork-g221a1df _2_/full acceptance∶ angle‹bracket 20260926t041308 platterpus-fork-g221a1df (EAC-compatible).log       3446 B
+  album/full acceptance_ angle_bracket 20260926t04__us-fork-g221a1df _2_/full acceptance∶ angle‹bracket 20260926t041308 platterpus-fork-g221a1df.cue        747 B
+  album/full acceptance_ angle_bracket 20260926t04__us-fork-g221a1df _2_/full acceptance∶ angle‹bracket 20260926t041308 platterpus-fork-g221a1df.log       9613 B
+  album/full acceptance_ angle_bracket 20260926t04__us-fork-g221a1df _2_/full acceptance∶ angle‹bracket 20260926t041308 platterpus-fork-g221a1df.platterpus.json     487510 B
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/full acceptance∶ angle‹bracket 20260926t041308 platterpus-fork-g221a1df (EAC-compatible).log       9686 B
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/full acceptance∶ angle‹bracket 20260926t041308 platterpus-fork-g221a1df.cue       3149 B
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/full acceptance∶ angle‹bracket 20260926t041308 platterpus-fork-g221a1df.log      39694 B
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/full acceptance∶ angle‹bracket 20260926t041308 platterpus-fork-g221a1df.platterpus-addendum.txt       1631 B
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/full acceptance∶ angle‹bracket 20260926t041308 platterpus-fork-g221a1df.platterpus.json    5297141 B
+  session/artifacts/02platterpus/log.txt                  8050002 B
+  session/artifacts/04platterpus/config.toml                 1141 B
+  session/run/aftercancel-1-Run-test-script.png            132436 B
+  session/run/aftercancel.png                              143836 B
+  session/run/afterfullrip-1-Run-test-script.png           134351 B
+  session/run/afterfullrip.png                             150834 B
+  session/run/aftermp3-1-Run-test-script.png               134841 B
+  session/run/aftermp3.png                                 131141 B
+  session/run/afteroverwrite-1-Run-test-script.png         134841 B
+  session/run/afteroverwrite.png                           140061 B
+  session/run/afterrecovery-1-Run-test-script.png          134841 B
+  session/run/afterrecovery.png                            130787 B
+  session/run/aftersecurereread-1-Run-test-script.png      134351 B
+  session/run/aftersecurereread.png                        142551 B
+  session/run/afterwav-1-Run-test-script.png               134841 B
+  session/run/afterwav.png                                 131370 B
+  session/run/dialogdependencies-1-Run-test-script.png     130433 B
+  session/run/dialogdependencies.png                        51469 B
+  session/run/dialogdiagnostics-1-Diagnostics.png           81388 B
+  session/run/dialogdiagnostics-2-Run-test-script.png      120616 B
+  session/run/dialogdiagnostics.png                         51469 B
+  session/run/dialogdrive-1-Set-up-drive.png                66542 B
+  session/run/dialogdrive-2-Run-test-script.png            124941 B
+  session/run/dialogdrive.png                               51469 B
+  session/run/dialogsettings-1-Settings.png                162825 B
+  session/run/dialogsettings-2-Run-test-script.png         130022 B
+  session/run/dialogsettings.png                            51469 B
+  session/run/report.json                                  204195 B
+  session/run/rig-check/MANIFEST.txt                        15846 B
+  session/run/rig-check/argv-probe-output.txt                 484 B
+  session/run/rig-check/argv-probe.json                      1628 B
+  session/run/rig-check/ripper-version.txt                     58 B
+  session/run/transcript.txt                               113990 B
+  session/transcript.txt                                   113990 B
+  session/zz-applog-rotations/03platterpus/log.txt.1      8388569 B
+  COMPONENTS.json                                            1339 B
+  DIAGNOSTICS.txt                                            5280 B
+  SETTINGS.json                                              2760 B
+  SOURCES.txt                                                1501 B
+
+NOT INCLUDED (47 file(s))
+----------------------------------------
+  Listed so an absence is visible. A bundle quietly missing an artifact
+  looks exactly like a complete one.
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/03 - Message in a Bottle.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/04 - Walking on the Moon.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/05 - Don’t Stand So Close to Me.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/06 - De Do Do Do, De Da Da Da.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/07 - Every Little Thing She Does Is Magic.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/08 - Invisible Sun.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/09 - Spirits in the Material World.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/10 - Every Breath You Take.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/11 - King of Pain.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/12 - Wrapped Around Your Finger.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/13 - Don’t Stand So Close to Me ’86.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20260926t041308 platterpus-fork-g221a1df/14 - Message in a Bottle (new classic rock mix).flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20260926t041308 platterpus-fork-g221a1df/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20260926t041308 platterpus-fork-g221a1df/01 - Roxanne.wav excluded: '.wav' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20260926t041308 platterpus-fork-g221a1df/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20260926t041308 platterpus-fork-g221a1df/02 - Can’t Stand Losing You.wav excluded: '.wav' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20260926t041308 platterpus-fork-g221a1df/cover.jpg excluded: '.jpg' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20260926t041308 platterpus-fork-g221a1df/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20260926t041308 platterpus-fork-g221a1df/01 - Roxanne.wv excluded: '.wv' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20260926t041308 platterpus-fork-g221a1df/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20260926t041308 platterpus-fork-g221a1df/02 - Can’t Stand Losing You.wv excluded: '.wv' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20260926t041308 platterpus-fork-g221a1df/cover.jpg excluded: '.jpg' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20260926t041308 platterpus-fork-g221a1df/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20260926t041308 platterpus-fork-g221a1df/01 - Roxanne.mp3 excluded: '.mp3' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20260926t041308 platterpus-fork-g221a1df/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20260926t041308 platterpus-fork-g221a1df/02 - Can’t Stand Losing You.mp3 excluded: '.mp3' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20260926t041308 platterpus-fork-g221a1df/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20260926t041308 platterpus-fork-g221a1df/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/cancel me 20260926t041308 platterpus-fork-g221a1df/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__us-fork-g221a1df _2_/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__us-fork-g221a1df _2_/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/01 - Roxanne.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/02 - Can’t Stand Losing You.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/03 - Message in a Bottle.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/04 - Walking on the Moon.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/05 - Don’t Stand So Close to Me.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/06 - De Do Do Do, De Da Da Da.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/07 - Every Little Thing She Does Is Magic.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/08 - Invisible Sun.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/09 - Spirits in the Material World.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/10 - Every Breath You Take.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/11 - King of Pain.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/12 - Wrapped Around Your Finger.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/13 - Don’t Stand So Close to Me ’86.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20260926t04__terpus-fork-g221a1df/14 - Message in a Bottle (new classic rock mix).flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+
+NO AUDIO IS PRESENT — no file of any audio type can enter this archive.
+Everything here passed an allowlist: .cue .json .log .md .md5 .sha256 .toml .txt
+Plus, from this program's own run folder ONLY: .png
+A name is not a guarantee, so two more checks run on every file: its
+first bytes are compared against 14 audio-container
+signatures, and a symbolic link is judged by the name of the file it
+points at as well as by its own.
+(those are screenshots Platterpus took of its own window. An album folder
+is never judged by that wider rule, because its images are record-label
+artwork.) The per-track CRCs in the logs prove bit-perfection without the
+audio.
+
+Caps in force: 16777216 B per file (head+tail kept, elision
+marked inline), 67108864 B across the whole payload, and the
+newest 20 bundles are kept in the bundles folder.

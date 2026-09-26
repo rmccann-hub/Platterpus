@@ -1,0 +1,29 @@
+PLATTERPUS ACCEPTANCE SESSION — SOURCES
+=======================================
+
+session stamp      20260926T041308Z
+session folder     /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z
+deliverable        /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/platterpusbundle20260926t041308z.tar.gz
+
+Every path this session asked for is listed below, INCLUDING the ones
+that were not there. An absence somebody can read is a finding; an
+absence nobody can see reads as a complete bundle.
+
+asked for 6: 6 collected, 0 absent, 0 failed
+
+  /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/evidence/transcript.txt
+      in the session folder — archived as session/transcript.txt
+  /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/evidence/artifacts
+      in the session folder — archived as session/artifacts
+  /home/rmccann/.local/share/platterpus/log.txt
+      archived as session/artifacts/02platterpus/log.txt
+  /home/rmccann/.local/share/platterpus/log.txt.1
+      archived as session/zz-applog-rotations/03platterpus/log.txt.1
+  /home/rmccann/.config/platterpus/config.toml
+      archived as session/artifacts/04platterpus/config.toml
+  /home/rmccann/platterpus-rig/platterpustestsession20260926t041308z/evidence/run
+      in the session folder — archived as session/run
+
+No audio can be in this archive: everything above passed the
+allowlist in evidence_bundle (see MANIFEST.txt, which names every
+file it refused and why).

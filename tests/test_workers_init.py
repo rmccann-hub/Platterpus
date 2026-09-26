@@ -83,7 +83,7 @@ def test_stop_thread_skips_wait_for_an_already_stopped_thread() -> None:
 
 
 def test_names_the_thread_after_the_worker_class(
-    qapp: QApplication, process_until
+    qapp: QApplication, process_until, thread_has_stopped
 ) -> None:
     """The thread is named after the worker class so logs / crash backtraces
     identify which background job is running (observability)."""
@@ -98,11 +98,11 @@ def test_names_the_thread_after_the_worker_class(
     assert thread.objectName() == "_Worker"
 
     # And the standard lifecycle still tears the thread down.
-    assert process_until(lambda: not thread.isRunning())
+    assert process_until(lambda: thread_has_stopped(thread))
 
 
 def test_extra_quit_signal_also_stops_the_thread(
-    qapp: QApplication, process_until
+    qapp: QApplication, process_until, thread_has_stopped
 ) -> None:
     """`also_quit_on` lets a worker that reports failure on a separate signal
     still stop its thread."""
@@ -119,7 +119,7 @@ def test_extra_quit_signal_also_stops_the_thread(
 
     start_worker_thread(worker, thread, on_started, also_quit_on=[worker.failed])
 
-    assert process_until(lambda: not thread.isRunning())
+    assert process_until(lambda: thread_has_stopped(thread))
 
 
 # --- Shared shutdown budget ---------------------------------------------------
@@ -187,4 +187,61 @@ def test_stop_thread_prefers_the_shared_deadline_over_a_per_call_wait() -> None:
     assert waits and waits[0] <= 250, (
         f"stop_thread waited {waits} — it used the per-call wait_ms instead of "
         "the shared budget, so a long-running close could still freeze"
+    )
+
+
+# --- Waiting on a thread that deletes itself ----------------------------------
+# Every worker thread is wired `finished → deleteLater`, so a test pumping events
+# until a thread stops can have Qt destroy that thread inside the pump. Asking a
+# destroyed thread `isRunning()` raises, which failed a teardown test that had
+# stopped its thread exactly as intended (2026-09-26, under `-n auto`).
+
+
+def test_a_thread_qt_has_already_destroyed_reads_as_stopped(
+    qapp: QApplication, thread_has_stopped
+) -> None:
+    """The conftest predicate answers "stopped" for a destroyed thread, not raises.
+
+    Destroyed the way production destroys one: `deleteLater`, then the deferred
+    delete delivered. The first assertion proves the C++ object is really gone, so
+    the second is about a destroyed thread and not a live idle one.
+    """
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    thread = QThread()
+    thread.deleteLater()
+    QCoreApplication.sendPostedEvents(thread, QEvent.Type.DeferredDelete)
+    try:
+        thread.isRunning()
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("the thread was not destroyed, so this proves nothing")
+
+    assert thread_has_stopped(thread) is True
+
+
+def test_no_test_polls_a_self_deleting_thread_with_a_bare_is_running() -> None:
+    """Sweep: a `process_until` over `not <thread>.isRunning()` races deleteLater.
+
+    Three tests had the bare form; one of them failed on it. Found at one site and
+    fixed at all three, so the sweep keeps a fourth from arriving (§5.o).
+    """
+    import re
+    from pathlib import Path
+
+    bare = re.compile(r"lambda:\s*not\s+[\w.]+\.isRunning\(\)")
+    tests_dir = Path(__file__).parent
+    examined = 0
+    offenders: list[str] = []
+    for path in sorted(tests_dir.glob("test_*.py")):
+        examined += 1
+        for number, line in enumerate(path.read_text().splitlines(), start=1):
+            if bare.search(line):
+                offenders.append(f"{path.name}:{number}: {line.strip()}")
+    assert examined >= 100, f"swept only {examined} test files; the glob is wrong"
+    assert not offenders, (
+        "poll with `thread_has_stopped(thread)` (conftest) instead — a thread "
+        "wired finished → deleteLater can be destroyed inside the pump:\n"
+        + "\n".join(offenders)
     )
