@@ -1664,7 +1664,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2494 -> 2495** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **2495 -> 2515** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): schema v28 and the `tag_control_characters_replaced` issue.
     # **2515 -> 2528** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): schema v29 and the `eac_log_signature_line_defused` issue.
-    "rip_report.py": 2528,
+    # **2528 -> 2546** (2026-09-26, the maintainer's quick run): a missing EAC-layout log is healthy when the rip's own settings turned it off (`_setting_was_on`).
+    "rip_report.py": 2546,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED

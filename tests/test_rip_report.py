@@ -1959,6 +1959,43 @@ def test_a_REQUIRED_artifact_going_missing_still_warns() -> None:
     assert "eac_log" in issue["message"]
 
 
+def _missing_eac_log(every_setting: dict | None) -> list[str]:
+    report = build_report(
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+        settings={"every_setting": every_setting}
+        if every_setting is not None
+        else None,
+        artifacts={
+            "note": "n/a",
+            "eac_log": {
+                "path": "/x/a (EAC-compatible).log",
+                "exists": False,
+                "error": "[Errno 2] No such file or directory",
+                "missing": True,
+            },
+        },
+    )
+    return [i["code"] for i in report["issues"]]
+
+
+def test_an_EAC_log_the_rip_turned_OFF_is_not_missing() -> None:
+    """The maintainer's quick run of 2026-09-26 set `write_eac_log_after_rip off`
+    and its report still warned that the EAC log could not be embedded. A file
+    nobody asked for is not missing."""
+    assert "artifact_unavailable" not in _missing_eac_log(
+        {"write_eac_log_after_rip": False}
+    )
+
+
+def test_an_EAC_log_the_rip_ASKED_FOR_or_that_cannot_be_told_still_warns() -> None:
+    """The exemption is only for a setting that is recorded as off. Asked for, or
+    not recorded, a missing EAC log is the round-08 failure and must warn."""
+    assert "artifact_unavailable" in _missing_eac_log({"write_eac_log_after_rip": True})
+    assert "artifact_unavailable" in _missing_eac_log({})
+    assert "artifact_unavailable" in _missing_eac_log(None)
+
+
 def test_the_embedder_records_absence_as_a_field_not_as_errno_text(tmp_path) -> None:
     """The two ends must not agree by string-matching: `missing` is set by the
     embedder and read by the issues layer, so a reader never parses an errno."""
