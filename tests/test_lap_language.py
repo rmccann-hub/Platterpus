@@ -334,14 +334,16 @@ def test_the_worked_example_is_clean_on_its_own_and_in_its_real_round() -> None:
     )
     kinds = {s.kind for s in example.statements}
     assert {"CLAIM", "TERM", "FINDING", "ANSWER", "NOTICE", "PROMISE"} <= kinds
+    # The record as it stood when lap 5 was written: laps 1 to 4. The example
+    # replaces lap 5 at that moment, so later laps (their lap 6 arrived the same
+    # day) are not part of what it is checked against. Pinning "the round holds
+    # four other laps" instead was a snapshot, and it broke when lap 6 landed.
     others = [
-        _load(p)
-        for p in round_files(27)
-        if p.name != "round-27-lap-05.md" or p.parent.name != "outbound"
+        lap
+        for lap in (_load(p) for p in round_files(27))
+        if lap.lap is not None and lap.lap < 5
     ]
-    assert len(others) == 4, (
-        "round 27 held four other laps when the example was written"
-    )
+    assert len(others) == 4, "laps 1 to 4 of round 27 are on file"
     found = [p for owner, p in check_round([*others, example]) if owner is example]
     assert found == [], "\n".join(p.render(EXAMPLE.name) for p in found)
     t = turn([*others, example])

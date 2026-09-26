@@ -535,7 +535,15 @@ def _final_partial_summary(rip_log: object) -> str | None:
             total if isinstance(total, int) else None,
             len(getattr(rip_log, "tracks", ()) or ()),
         )
-        recomputed = render_partially_accurate_summary(reported, partial, disc_tracks)
+        # The log's own count goes with it, so a difference our re-read made is
+        # described as ours rather than as the ripper disagreeing with its log.
+        logged = getattr(rip_log, "partially_accurate_logged", None)
+        recomputed = render_partially_accurate_summary(
+            reported,
+            partial,
+            disc_tracks,
+            logged=logged if isinstance(logged, int) else None,
+        )
         # An empty render means the renderer declined (a malformed fraction). Keep
         # the parser's sentence rather than dropping the line.
         return recomputed or parsed

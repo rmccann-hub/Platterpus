@@ -1,0 +1,27 @@
+========================================================================
+[Platterpus auto-fix addendum]
+========================================================================
+This file accompanies the ripper's whole-disc log in this folder and
+supersedes part of it. The ripper's log is left BYTE-EXACT so that
+`cyanrip --verify-log` still verifies it; that is why this is a separate
+file rather than text appended to it.
+
+The track(s) below did not match AccurateRip on the first pass and were re-ripped to secure them. Every value
+below describes the file ACTUALLY ON DISK and supersedes the value recorded
+for that track in the log beside it — including the AccurateRip results and
+the secure-re-read verdict, which the log records for the read that was
+superseded.
+
+A re-read does not necessarily change the audio. Each track says which
+happened: the first read CONFIRMED, REPLACED, or — when a CRC was
+unavailable — NOT DETERMINED. A confirmed read is a good outcome: it means
+the disc reproduced.
+
+  Track 1 (The Police/derived mp3 20260926t041308 platterpus-fork-g221a1df/01 - Roxanne.flac): CRC B0D122E7
+      Re-read outcome:      the re-read produced different audio and REPLACED the first pass, whose CRC32 was 0E91CD1A
+      AccurateRip v1:       5D3C90CB — accurately ripped, confidence 129 — confidence 129
+      AccurateRip v2:       22B9924D — accurately ripped, confidence 200 — confidence 200
+      AccurateRip +450:     n/a
+      Secure re-read:       converged after 3 reads
+
+========================================================================

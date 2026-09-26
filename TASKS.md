@@ -591,7 +591,7 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
-## Round 27 — CLOSED `GO`/`GO` on our gate 2026-09-26 at five laps on `221a1df` (`+platterpus.16`): a quick run, by the operator's override
+## Round 27 — CLOSED `GO`/`GO` on BOTH gates 2026-09-26 at six laps on `221a1df` (`+platterpus.16`): a quick run by the operator's override, then a Full run on the same pair
 
 Their lap 1 (`cyanrip@87facd5`, sha256 `f44de648…`, 9,767 bytes, released) names `.16`,
 `release_seq` 26 on both channels, and fixes three close conditions under R1, the same shape
@@ -686,12 +686,47 @@ stopped at section A the same day, as their lap 1 predicted.
     Round 27 is CLOSED on our gate; their lap 6 closes it on theirs. The same commit rolled
     `FORK_PIN` `df91ae7` → `221a1df` (`+platterpus.16`) and moved the approval record to
     round 27 for Platterpus 0.6.60. The Full run moves to round 28.
+- [x] **Their lap 6 is filed** (`cyanrip@9e3b76f`, sha256 `d95bb28e…`, 12,247 bytes,
+  released, `GO`), and round 27 is CLOSED on both gates. Its body is written in their
+  **LSL** (their `PROPOSAL-lap-statement-language.md`, added at `cyanrip@f34a96c`); their
+  checker passes it against our tree: 25 statements, 0 warnings, exit 0, reproduced here.
+  Its S7 corrects lap 4: `.17`'s `src/` also carries `ee0221c`, which writes the banner
+  and identity lines as soon as the log opens.
+- [ ] **Answer their lap 6 S16 in our round 28 lap 2 (NEXT-ROUND):** what our report
+  says about a `.17` early-failure log. Measured so far: our parser returns no tracks,
+  `rip_completed: None` and an empty health status for that shape. Still open: the
+  report path end to end, where the fatal line reaches the user from the ripper's own
+  output rather than the log.
+- [ ] **Answer their lap 6 S23 (NEXT-ROUND): write round 28 in LSL, or amend it
+  first?** Both sides built a body language on the same day from the same
+  instruction. The maintainer decides whether ours is released as a rival or turned
+  into amendments to theirs.
 - [ ] **0.6.61, in the order our lap 5 §D names** (the maintainer's choice 2026-09-26: ship
   both together). (1) Their lap 6 closes round 27 on their gate, and they release `.17`.
   (2) Their round 28 lap 1 names `.17` and is released. (3) We move `PIN_UNDER_REVIEW` to
   `.17` (round 28) and cut 0.6.61, which carries the round-27 pin and the round-28 subject.
   Under our lap 2 §D amendment (their §E3), it needs no §6b override. (4) The operator runs
   the Full acceptance on 0.6.61 + `.17`.
+- [ ] **Grade the 2026-09-26 04:13 UTC Full run in the evidence ledger: the
+  maintainer's call** (it would be the ledger's first `full-green` row, and
+  `0.7.100` is gated on one). Filed as `docs/handshake/artifactsround27/round27full*`.
+  For `full-green`, read from the rips' own reports:
+  - 320 of 320 steps, `run_size: full`, `counts_as_evidence: true`;
+  - every archival witness able to fail: derived MP3, WAV and WavPack each
+    `derived: ran`, 2 of 2 checked; CTDB `match` on both whole-disc rips; eight
+    logs self-verified; the secure re-read exercised on 14 of 14 tracks;
+  - 0 `ERROR`/`CRITICAL`/traceback in 71,328 app-log lines, and 0 rig-check
+    failures.
+  Open question for the maintainer: whether this was the *"fresh start"* the
+  `0.7.100` ruling asks for. No version moves until the maintainer says so.
+- [ ] **Tell the fork about the Full run in our round 28 lap 2**, as a NEXT-ROUND
+  item: it is §0.1 as first written, on their pin, and their lap 6 or round 28 lap 1
+  may want to cite it.
+- [ ] **The addendum's `AccurateRip +450:` label reads like an offset** (the §5.bs
+  misreading). It was kept on purpose: `tests/test_rip_addendum.py` rebuilds an
+  addendum and compares it with a real sidecar committed from the rig. Renaming it
+  means deciding how older sidecars are read, so it is a small format decision,
+  not a one-line fix.
 - [~] **Lap language 1: a typed language for the laps themselves** (maintainer, 2026-09-26:
   *"start talking in the handshake files. you can do better, and make an actual perfect
   language"*). Built: the spec `docs/handshake/outbound/artifacts/lap-language-1.md`, the

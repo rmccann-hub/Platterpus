@@ -306,6 +306,12 @@ class RipLog:
     # rendered sentence cannot be turned back into the number the binary printed, and
     # a reader comparing two logs of one disc needs to see the raw values.
     partially_accurate_reported: str = ""
+    # How many one-frame-only tracks the whole-disc LOG itself lists, per track —
+    # the population the ripper's own tally above counts. A re-read can change the
+    # final count afterwards, and the report must not then say the ripper's tally
+    # "does not agree with this log" when it agrees exactly (2026-09-26 bundle).
+    # None when the log shape does not carry per-track one-frame results.
+    partially_accurate_logged: int | None = None
     # "Total time: HH:MM:SS.mmm" from the start report — the disc's AUDIO length,
     # not the rip's wall-clock (which only the GUI measures; see rip_timing).
     disc_duration: str = ""

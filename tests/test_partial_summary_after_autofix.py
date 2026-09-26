@@ -247,3 +247,128 @@ def test_the_REPORT_carries_the_final_count_not_the_parse_time_string() -> None:
     # The property that was violated: the two statements in one report agree.
     message = (report.get("verdict") or {}).get("message") or ""
     assert "on the other 1, only one frame matched" in message, message
+
+
+# --- the NOTE clause: whose number disagrees with whose (2026-09-26) -----------------
+#
+# The recomputation above fixed the COUNT and left the NOTE comparing two different
+# populations: the ripper's tally (its first pass) against our final count (after
+# the re-read). The 2026-09-26 Full run's report read "the ripper's own tally reads
+# 2/14, which does not agree with the 1 one-frame-only track listed per track in
+# this log", over a log that lists exactly two. The tally was right, and the
+# sentence put our re-read on the ripper. Every test above passed, because none
+# looked at the note.
+
+
+def _logged(rip_log: _RipLog, count: int) -> _RipLog:
+    """Give the stand-in the log's own count, as the cyanrip parser records it."""
+    rip_log.partially_accurate_logged = count  # type: ignore[attr-defined]  # the real RipLog field
+    return rip_log
+
+
+def test_a_re_read_is_described_as_ours_not_as_the_ripper_disagreeing() -> None:
+    """The measured case: the log lists 2, the tally says 2, the re-read left 1."""
+    summary = _final_partial_summary(_logged(_police_disc_after_autofix(), 2)) or ""
+    assert "1 of 14" in summary
+    assert "does not agree" not in summary, (
+        f"the ripper's tally agrees with its own log; the difference is our re-read: {summary!r}"
+    )
+    assert "counts its first pass" in summary
+    assert "matched 1 of those 2 tracks in full" in summary
+    assert "addendum" in summary
+
+
+def test_a_fully_rescued_track_reads_naturally() -> None:
+    """The MP3 rip of the same run: the log lists 1, the re-read rescued it."""
+    clean = _RipLog(
+        tracks=[_verified(n) for n in range(1, 15)],
+        partially_accurate_reported="1/14",
+    )
+    summary = _final_partial_summary(_logged(clean, 1)) or ""
+    assert "0 of 14" in summary
+    assert "matched that track in full" in summary
+    assert "does not agree" not in summary
+
+
+def test_a_real_disagreement_inside_the_log_is_still_reported() -> None:
+    """The finding the NOTE exists for survives: the tally against the LOG's count."""
+    summary = (
+        _final_partial_summary(
+            _logged(
+                _RipLog(
+                    tracks=_police_disc_after_autofix().tracks,
+                    partially_accurate_reported="9/14",
+                ),
+                1,
+            )
+        )
+        or ""
+    )
+    assert (
+        "does not agree with the 1 one-frame-only track listed per track in its log"
+        in summary
+    )
+    assert "re-read" not in summary, (
+        "nothing was re-read, so nothing is ours to mention"
+    )
+
+
+def test_a_real_disagreement_and_a_re_read_are_both_said() -> None:
+    summary = (
+        _final_partial_summary(
+            _logged(
+                _RipLog(
+                    tracks=_police_disc_after_autofix().tracks,
+                    partially_accurate_reported="3/14",
+                ),
+                2,
+            )
+        )
+        or ""
+    )
+    assert (
+        "does not agree with the 2 one-frame-only tracks listed per track in its log"
+        in summary
+    )
+    assert "our re-read then changed the count to 1" in summary
+
+
+def test_the_real_full_run_log_agrees_with_its_own_tally() -> None:
+    """Read the artifact, not a stand-in (`docs/testing.md` §5.u).
+
+    `round27fullwholedisc.log` is the 2026-09-26 Full run's whole-disc rip on
+    `.16`. Its first pass lists two one-frame-only tracks (3 and 5) and its tally
+    says `2/14`: the ripper agrees with itself. Our re-read then matched track 3
+    in full, so the report must say that, and must not say they disagree.
+    """
+    from dataclasses import replace
+    from pathlib import Path
+
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    log = Path(__file__).resolve().parents[1] / (
+        "docs/handshake/artifactsround27/round27fullwholedisc.log"
+    )
+    parsed = parse_cyanrip_log(log.read_text(encoding="utf-8"))
+    assert parsed.partially_accurate_reported == "2/14"
+    assert parsed.partially_accurate_logged == 2
+    assert "does not agree" not in parsed.partially_accurate_summary
+
+    # The re-read's outcome, as the addendum beside that log records it: track 3
+    # replaced by a read that matches v1 and v2.
+    tracks = list(parsed.tracks)
+    three = next(i for i, tr in enumerate(tracks) if tr.number == 3)
+    five = next(tr for tr in tracks if tr.number == 5)
+    one = next(tr for tr in tracks if tr.number == 1)
+    tracks[three] = replace(
+        tracks[three],
+        accuraterip_v1=one.accuraterip_v1,
+        accuraterip_v2=one.accuraterip_v2,
+        accuraterip_offset=None,
+    )
+    assert five.accuraterip_offset is not None, "track 5 stays one-frame-only"
+    after = replace(parsed, tracks=tuple(tracks))
+    summary = _final_partial_summary(after) or ""
+    assert "1 of 14" in summary
+    assert "does not agree" not in summary
+    assert "matched 1 of those 2 tracks in full" in summary
