@@ -11,6 +11,26 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-26 — faster CI, Phases 2 and 3: the suite runs in parallel
+
+The maintainer approved both. Parallel runs used pytest-xdist; coverage now runs on
+the py3.14 leg only.
+
+- **xdist was not a drop-in, and the failure depended on timing.** The session-finish
+  sentinel and hard exit ran in every worker. With coverage on, a worker was killed
+  while still reporting, and the controller raised INTERNALERROR. Workers now leave
+  the sentinel to the controller and hand their hard exit to `atexit`.
+- **My first end-to-end test of that fix was VACUOUS.** A scratch suite that small
+  passed on the old code, because a worker had little left to send. What decides the
+  outcome is whether each worker reaches `pytest_unconfigure`, and the test now
+  checks that. Re-probed as detected.
+- **Parallel order found a latent bug.** `logging_setup` binds a handler to the
+  current `sys.stderr`, which is a test's capture file, so it outlived the test.
+  An autouse fixture now removes the handlers a test added.
+- **Measured:** the local `scripts/check.py` went from about 10.5 min before Phase 1
+  to 2m05s, all gates passing and 5,967 tests.
+- **Next:** Phase 4, a `CLAUDE.md` trim drafted as a PR for review and not merged.
+
 ## 2026-09-26 — faster CI and dev loop: measured, Phase 1 done, the rest planned
 
 Asked to shorten CI and "everything else", and to plan any refactor. Measured first.
