@@ -103,9 +103,11 @@ needed we need to plan."* Every number below was measured, not estimated.
     to the rules and pointers would shorten every session. Its rules section is
     locked, so this needs your sign-off, and it is the largest item here that is not
     CI.
-  - The suite's `pytest_sessionfinish` exits before pytest prints its warnings and
-    durations sections, which is why slow tests were invisible until timed with
-    JUnit output. Print them before the hard exit.
+  - **Done 2026-09-26:** the suite's `pytest_sessionfinish` now prints the warnings
+    summary and `--durations` before its hard exit, serial and under `-n auto`
+    (`tests/test_harness_fidelity.py`).
+  - **Done 2026-09-26:** a SessionStart hook switches the audio guard on in cloud
+    sessions (`.claude/hooks/session-start.sh`, `tests/test_session_start_hook.py`).
 
 ## 2026-09-25 — every open row in this file, checked
 
@@ -591,7 +593,7 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
-## Round 27 — CLOSED `GO`/`GO` on our gate 2026-09-26 at five laps on `221a1df` (`+platterpus.16`): a quick run, by the operator's override
+## Round 27 — CLOSED `GO`/`GO` on BOTH gates 2026-09-26 at six laps on `221a1df` (`+platterpus.16`): a quick run by the operator's override, then a Full run on the same pair
 
 Their lap 1 (`cyanrip@87facd5`, sha256 `f44de648…`, 9,767 bytes, released) names `.16`,
 `release_seq` 26 on both channels, and fixes three close conditions under R1, the same shape
@@ -686,12 +688,73 @@ stopped at section A the same day, as their lap 1 predicted.
     Round 27 is CLOSED on our gate; their lap 6 closes it on theirs. The same commit rolled
     `FORK_PIN` `df91ae7` → `221a1df` (`+platterpus.16`) and moved the approval record to
     round 27 for Platterpus 0.6.60. The Full run moves to round 28.
+- [x] **Their lap 6 is filed** (`cyanrip@9e3b76f`, sha256 `d95bb28e…`, 12,247 bytes,
+  released, `GO`), and round 27 is CLOSED on both gates. Its body is written in their
+  **LSL** (their `PROPOSAL-lap-statement-language.md`, added at `cyanrip@f34a96c`); their
+  checker passes it against our tree: 25 statements, 0 warnings, exit 0, reproduced here.
+  Its S7 corrects lap 4: `.17`'s `src/` also carries `ee0221c`, which writes the banner
+  and identity lines as soon as the log opens.
+- [x] **Their lap 6 S16, answered by measurement (2026-09-26); it goes to them in our
+  round 28 lap 2.** A `.17` early-failure log (banner and identity lines, the pre-log
+  replay, the fatal line, no track block, no footer), run through the app's own dispatch
+  (`looks_like_cyanrip_log` → `parse_cyanrip_log`). Most of it was right: the banner is
+  read, the build is named and its approval judged from it, the rip is `rip_failed`, and
+  the fatal line reaches the user from the ripper's own output through the inventory
+  matcher. **One sentence was ours and wrong:** `unverified` said *"no track matched
+  AccurateRip … (an unsubmitted pressing, an unreachable database, or a wrong read
+  offset…)"* of a rip that read nothing. It now says the log records no ripped track,
+  but only when the log parsed and was not cut off. Pinned by
+  `tests/test_early_failure_log_report.py`, and both halves were revert-probed.
+- [x] **Their lap 6 S23: LSL is the base, and ours is sent as amendments** (maintainer,
+  2026-09-26: *"use LSL as the base and send ours as amendments"*). Released in the
+  standing status as `[ASK D]`: `docs/handshake/outbound/artifacts/lsl-amendments-1.md`.
+  Our round 28 lap 2 says it formally, in LSL 1.
 - [ ] **0.6.61, in the order our lap 5 §D names** (the maintainer's choice 2026-09-26: ship
   both together). (1) Their lap 6 closes round 27 on their gate, and they release `.17`.
   (2) Their round 28 lap 1 names `.17` and is released. (3) We move `PIN_UNDER_REVIEW` to
   `.17` (round 28) and cut 0.6.61, which carries the round-27 pin and the round-28 subject.
   Under our lap 2 §D amendment (their §E3), it needs no §6b override. (4) The operator runs
   the Full acceptance on 0.6.61 + `.17`.
+- [x] **The 2026-09-26 04:13 UTC Full run is graded `partial`** (maintainer, 2026-09-26:
+  *"There were errors so this is not full green."*). Added to the `docs/testing.md` §5B
+  ledger with the errors it carried: our report's false note, fixed; two wrong reads
+  logged `Ripping errors: 0`; the interrupted rip's `Encoder errors: none; 1 track
+  encoded`. It is the first run in which every archival witness could fail, and the
+  ledger still has no `full-green` row. README and PLANNING count nine rows.
+- [~] **The Full run and the fork.** They filed it themselves at `cyanrip@2e9884d` and read
+  every cyanrip log in it. All eight verify with `-Y`, both `.16` fixes ran on the drive,
+  and they found a new one of theirs: *"Encoder errors: none; 1 track encoded"* over a rip
+  of 0 of 14 tracks. Our round 28 lap 2 compares our reading with theirs, and says we
+  grade the run `partial`.
+- [x] **The addendum's one-frame row now reads `AccurateRip frame 450:`** (2026-09-26),
+  in the words round 27 agreed for the EAC-compatible log, not `+450`, which reads as a
+  read offset. Nothing parses that row, so sidecars already on disk keep the old label
+  and lose nothing. `tests/test_rip_addendum.py` compares the real rig sidecar's value
+  under its own label. The column widened to 24, because the new label is as long as
+  the old column.
+- [x] **Lap language 1 is withdrawn, never sent, and its strong parts are LSL
+  amendments.** `scripts/laplang/` is now a second, independent implementation of the
+  fork's LSL 1, written from their spec. On their lap 6 it agrees with their checker:
+  25 statements, the same census. Writing it found three things in their checker,
+  each measured: **F1**, "us" is hardcoded as cyanrip, so our own `DID` and measured
+  facts are refused; **F2**, it refuses more than its spec lists, so no amendment
+  field can appear in an LSL 1 lap yet; **F3**, a shallow clone makes it refuse
+  commits it cannot see (15 on their own lap 6 at depth 1). Our amendments A1–A8 are
+  behind `--amend`, one failing case each. The worked example is our round 27 lap 5,
+  in LSL with the amendments. Five reverts probed, all detected; the first F1 test
+  was vacuous (it asserted only "no refusals") and now asserts no problems at all.
+- [ ] **Our round 28 lap 2, in LSL 1, after their lap 1 names `.17`.** Everything
+  NEXT-ROUND (S-14):
+  - S16's answer and the fix above;
+  - S23's answer;
+  - F1–F3 for them to fix or specify;
+  - A1–A8 for their review, by id;
+  - H1–H3 for protocol v7;
+  - the two portable findings: the gate field keyed two ways (H1), and the regex
+    sweep that sees only `re.compile`;
+  - our reading of the Full run beside theirs.
+
+  Run both checkers, and cite F1 beside each statement theirs refuses.
 
 ## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 

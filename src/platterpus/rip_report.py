@@ -535,7 +535,15 @@ def _final_partial_summary(rip_log: object) -> str | None:
             total if isinstance(total, int) else None,
             len(getattr(rip_log, "tracks", ()) or ()),
         )
-        recomputed = render_partially_accurate_summary(reported, partial, disc_tracks)
+        # The log's own count goes with it, so a difference our re-read made is
+        # described as ours rather than as the ripper disagreeing with its log.
+        logged = getattr(rip_log, "partially_accurate_logged", None)
+        recomputed = render_partially_accurate_summary(
+            reported,
+            partial,
+            disc_tracks,
+            logged=logged if isinstance(logged, int) else None,
+        )
         # An empty render means the renderer declined (a malformed fraction). Keep
         # the parser's sentence rather than dropping the line.
         return recomputed or parsed
@@ -1145,6 +1153,16 @@ def _build(
         dependencies=(environment or {}).get("dependencies"),
         gates=gates,
         eac_log_requested=_setting_was_on(settings, "write_eac_log_after_rip"),
+        # Only a log that parsed and was not cut off can say it holds no track: a
+        # missing log, one we could not read, or a truncated one (whose track list
+        # is a floor) says nothing about what was ripped.
+        tracks_in_log=(
+            len(getattr(rip_log, "tracks", None) or ())
+            if rip_log is not None
+            and log_parse_block.get("ok")
+            and not getattr(rip_log, "log_truncated", False)
+            else None
+        ),
     )
     built: dict = {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -1851,6 +1869,9 @@ def _issues(
     # checked against what it actually holds. Passed as the serialized dict for
     # the same reason as every other block here: read what the report shows.
     gates: dict | None = None,
+    # How many tracks the log records, so "nothing matched AccurateRip" is never
+    # said of a rip that read nothing: there, nothing was there to match.
+    tracks_in_log: int | None = None,
 ) -> list[dict]:
     """Derive the consolidated ``issues`` list from the already-assembled blocks.
 
@@ -2005,13 +2026,27 @@ def _issues(
         # list beside a docstring reading "empty on a clean rip" told a triager
         # the opposite (audit finding, 2026-07-28). Informational, not a warning:
         # we are recording an absence of evidence, not evidence of a fault.
-        add(
-            "info",
-            "unverified",
-            "no track matched AccurateRip — this rip is not independently "
-            "verified (an unsubmitted pressing, an unreachable database, or a "
-            "wrong read offset all look like this)",
-        )
+        if tracks_in_log == 0:
+            # A rip that stopped before its first track (the ripper failing on its
+            # arguments, or on opening the drive) has nothing to verify, and its
+            # log, which parsed and was not cut off, says so. The line
+            # below would blame the pressing, the database or the offset for a
+            # read that never happened, in the record a user keeps. Found
+            # answering the fork's round 27 lap 6 S16, 2026-09-26.
+            add(
+                "info",
+                "unverified",
+                "the ripper's log records no ripped track, so nothing was "
+                "checked against AccurateRip",
+            )
+        else:
+            add(
+                "info",
+                "unverified",
+                "no track matched AccurateRip — this rip is not independently "
+                "verified (an unsubmitted pressing, an unreachable database, or a "
+                "wrong read offset all look like this)",
+            )
 
     # CTDB is the whole-disc cross-check. Every other verification sub-block
     # contributes an issue; this one was passed in and then never read, so a

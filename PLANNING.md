@@ -1287,8 +1287,11 @@ is the decision log failing at the one thing it is for. All three were live in
   should not allow a 0.9.1."* Two passes on one rig answer *was it luck* and say
   nothing about *is it green only because of this machine*.
 
-**Status, 2026-09-24:** the ledger carries eight rows, every one `partial`, and
-no `full-green` row. The newest, 2026-09-24 on app 0.6.55 against the round-26
+**Status, 2026-09-26:** the ledger carries nine rows, every one `partial`, and
+no `full-green` row. The newest, 2026-09-26 on app 0.6.60 against `221a1df`
+(`.16`), is the first Full run whose every archival check could fail: 320 of 320,
+graded `partial` by the maintainer because the records carried errors no step
+could fail over (`docs/testing.md` §5B, the 2026-09-26 row). The one before, 2026-09-24 on app 0.6.55 against the round-26
 test pin `df91ae7` (258/261), lost section F's whole-disc rip when the ripper's
 container was stopped from outside the app. F is graded `ARCHIVAL` in advance,
 so the row is `partial` (`docs/testing.md` §5.br). The 2026-09-12 run (238/238, app 0.6.47 against ripper
@@ -1297,7 +1300,7 @@ so the row is `partial` (`docs/testing.md` §5.br). The 2026-09-12 run (238/238,
 the derived-format files they exist to prove (`docs/testing.md` §5.bi). The most
 complete run since, 2026-09-22 on app 0.6.52 against `2cce60d` (247/247), is
 `partial` for the same class of reason: three of eight rips had their post-rip
-checks dropped and no step could see it (§5.bn). All eight rows are **one**
+checks dropped and no step could see it (§5.bn). All nine rows are **one**
 machine and **one** distro, the BDR-209D on Bazzite, so even a full-green row
 would leave 0.9.1's diversity floor untouched. *(Until the 2026-09-22 document
 audit this line still reported the 2026-09-12 row as full-green — nine days past

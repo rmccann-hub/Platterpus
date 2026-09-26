@@ -14,6 +14,29 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **For contributors: cloud sessions switch the audio guard on by themselves.** The
+  git hook that refuses a commit staging a music file runs only once
+  `core.hooksPath` is set, which `dev-setup.sh` does. A Claude Code session on the
+  web starts from a fresh clone that never runs it, so the guard was off there. A
+  SessionStart hook, `.claude/hooks/session-start.sh`, now sets it in cloud sessions
+  only, and never fails the session.
+- **For contributors: a second checker for LSL, the cyanrip fork's lap language,
+  and eight proposed amendments to it.** Both projects built a language for the
+  handshake laps on 2026-09-26, and the maintainer chose the fork's (LSL) as the
+  base. `python3 scripts/lap_language.py check <lap>` checks a lap against LSL 1.
+  It is written from the fork's spec, not their code, and on their round 27 lap 6
+  it agrees with their checker. Writing it found three problems in their checker,
+  each measured:
+  - it refuses our own commits and measurements, because it reads "us" as the
+    fork whoever wrote the lap;
+  - it refuses more than its spec says;
+  - it refuses commits a shallow clone cannot see.
+
+  `--amend` switches on our proposals A1–A8. They add close conditions a `GO` must
+  wait for, pre-commits that are checked, findings that say whose they are first,
+  and facts that name what they hold for. The proposal is
+  `docs/handshake/outbound/artifacts/lsl-amendments-1.md`, released to the fork.
+  Our own language, never sent, is withdrawn.
 - **Updates now prove they were built by Platterpus's own release process before
   they install.** Until now the updater checked only that the download matched a
   checksum published beside it, so anyone able to replace both files could have
@@ -32,6 +55,23 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **For contributors: `--durations` and the warnings summary are printed again.** The
+  suite ends with a hard exit, to avoid a Qt teardown crash, and it skipped both
+  sections, so slow tests could only be found through JUnit output. Both now print
+  before the exit, serial and under `-n auto`.
+- **A rip that stopped before its first track no longer blames the disc.** When the
+  ripper failed on its arguments or on the drive, the report said *"no track matched
+  AccurateRip"* and offered an unsubmitted pressing, an unreachable database or a wrong
+  read offset as causes, for a read that never happened. It now says the ripper's log
+  records no ripped track. The old sentence still appears where the log cannot vouch
+  for having none: a missing log, one we could not read, or one cut off mid-write.
+- **A rip report no longer blames the ripper for a change our own re-read made.**
+  When a track matched AccurateRip on only one frame and our automatic re-read
+  then matched it in full, the report's note said the ripper's own count *"does not
+  agree"* with the tracks in its log. It did agree: the ripper counted its first
+  pass, and the re-read changed the result afterwards. The note now says so, and
+  points at the addendum beside the log. A real disagreement inside the ripper's
+  log is still reported as one. Found on the 2026-09-26 Full hardware run.
 - **A drive-offset list with a long run of spaces no longer slows start-up.**
   Platterpus reads your drive-offset CSV (the full AccurateRip export, if you have
   installed it) before the main window opens. One step that tidies each drive's
@@ -42,6 +82,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `re.sub`/`re.search`/`re.fullmatch` patterns, not only `re.compile`, and times
   each one the way it is called. That wider sweep is what found this one
   (`docs/testing.md` §5.bu).
+- **For contributors: waiting for a worker thread to stop no longer fails when
+  Qt has already deleted it.** Every worker thread deletes itself when it
+  finishes. So a test that pumped events until a thread stopped could see Qt
+  delete it mid-pump, and the next `isRunning()` raised "already deleted" on a
+  thread that had stopped exactly as intended. This failed the pending-installs
+  teardown test once under `-n auto`; it passed alone nine times in nine. The new
+  `thread_has_stopped` fixture reads a deleted thread as stopped, the same way
+  the app's own abandoned-thread count already did. All three polls use it, and a
+  sweep refuses the bare form.
 - **For contributors: the suite runs in parallel, and CI measures coverage on one
   leg.** `pytest-xdist` is a new dev dependency (approved 2026-09-26). CI and
   `scripts/check.py` run `pytest -n auto`; a bare `pytest` stays serial. The
@@ -210,6 +259,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The README's latest-hardware note describes the 2026-09-26 Full run**: 320 of 320
+  steps, the first run in which every archival check could fail, recorded `partial` by
+  the maintainer because the records carried errors no step could fail over. The
+  evidence ledger has nine rows and still no `full-green` one.
+- **The auto-fix addendum's one-frame row reads `AccurateRip frame 450:`**, not
+  `AccurateRip +450:`, which looked like a read offset of +450. The row is AccurateRip's
+  checksum of frame 450 alone, and these are the words round 27 agreed for the
+  EAC-compatible log. Nothing reads this row back, so addenda already on disk keep the
+  old label and lose nothing.
 - **The ripper Platterpus installs by default moves to cyanrip
   `0.9.4-rc2+platterpus.16` (`221a1df`).** Handshake round 27 approved it on a
   quick hardware run, which stood in for the full one by the maintainer's

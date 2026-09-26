@@ -117,6 +117,10 @@ def _satisfiable_names() -> set[str]:
     # wrong would be the joke. `tests/test_mutation_sweep.py` importing
     # `mutation_sweep` is the first such case.
     names |= {p.stem for p in (REPO_ROOT / "scripts").rglob("*.py")}
+    # ...and any PACKAGE under `scripts/`, by its directory name, the same way
+    # `src/`'s packages are counted above. `scripts/laplang/` (2026-09-26) is the
+    # first: its modules' stems were counted, and the name a test imports was not.
+    names |= {p.parent.name for p in (REPO_ROOT / "scripts").rglob("__init__.py")}
     return names
 
 

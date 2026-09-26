@@ -474,7 +474,10 @@ def test_install_row_updates_are_announced_by_display_name(
 
 
 def test_destroying_the_dialog_mid_install_does_not_destroy_a_running_qthread(
-    qapp: QApplication, process_until, monkeypatch: pytest.MonkeyPatch
+    qapp: QApplication,
+    process_until,
+    thread_has_stopped,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Regression: this dialog had no teardown path for its worker thread at all.
 
@@ -540,4 +543,6 @@ def test_destroying_the_dialog_mid_install_does_not_destroy_a_running_qthread(
         )
 
     release.set()
-    process_until(lambda: not thread.isRunning(), timeout=6.0)
+    # `finished → deleteLater` may destroy the thread inside this very pump, so
+    # the predicate must read a destroyed thread as stopped (conftest).
+    process_until(lambda: thread_has_stopped(thread), timeout=6.0)

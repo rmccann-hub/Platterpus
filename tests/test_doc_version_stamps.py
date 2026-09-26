@@ -84,6 +84,12 @@ _EXEMPT_GENERATED: dict[str, str] = {
 # number, and `scripts/handshake.py --status` is what reports it.
 _EXEMPT_CORRESPONDENCE: str = "docs/handshake/"
 
+# Laps written in LSL, kept as test fixtures (2026-09-26). The language
+# refuses any sentence outside a statement, so a footer would make the example fail
+# the language it exists to demonstrate. Like the correspondence above, its currency
+# is the round it re-expresses, and `tests/test_lap_language.py` checks it.
+_EXEMPT_FIXTURE_LAPS: str = "tests/fixtures/lap_language_"
+
 # The SHARED files. Exempt for a stronger reason than the round files: each is
 # **the same document in both repositories and neither project owns it**, so
 # stamping one with *our* version would fork the very files whose entire purpose
@@ -151,6 +157,8 @@ def _is_exempt(rel_path: str) -> bool:
     if rel_path in _EXEMPT_GENERATED:
         return True
     if rel_path.startswith(_EXEMPT_CORRESPONDENCE):
+        return True
+    if rel_path.startswith(_EXEMPT_FIXTURE_LAPS):
         return True
     if not rel_path.startswith(_EXEMPT_DIR):
         return False
