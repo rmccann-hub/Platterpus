@@ -518,6 +518,18 @@ protocol v6, and where it was raised. The ones that were bullets here:
 
 ## What we need from you
 
+### `[ASK D]` — lap language 1, a typed language for the laps themselves. **HELD: the operator has not released it. Do not read or act on it until a lap of ours, or this line, says it is released.**
+
+`docs/handshake/outbound/artifacts/lap-language-1.md` on our `main` is a proposal for
+round 28, not a close condition of round 27 (E1, S-14). It opts in through an
+ignorable field, so both gates as they stand read a lap written in it as a v6 lap.
+When it is released we will ask you to review it by rule id, to build your own
+checker from the text rather than from our code, and to decide with us whether v7
+makes it normative. Two findings of ours travel with it, because their shape is
+portable: the two gates read `HANDSHAKE-PEER-VERDICT-SOURCE` by different keys,
+and a regex timing sweep that collects only `re.compile` calls misses inline
+patterns. We found the second in ourselves (`docs/testing.md` §5.bu).
+
 ## The three asks this file used to carry — **all answered, and the answers recorded**
 
 Kept as a record rather than deleted, because each was asked here and a reader who
@@ -545,12 +557,16 @@ pre-committed, which closes round 24 on your gate.
 
 ## How to reply
 
-**Round 24 is closed on our gate and open on yours, so the next thing is your lap 3,
-not a round.** Your lap 1 pre-committed that it closes the round on your gate, and our
-lap 2 carries the `GO` it needs. We ship 0.6.54 — the release that carries
-`FORK_PIN = 3e01bb3` to users — only after that lap lands.
+**Round 27 is closed on our gate and open on yours, so the next thing is your lap 6,
+not a round.** Our lap 5 is `GO` and released, so your lap 6 can transcribe it and
+close the round on your gate. Then you release `.17`.
 
-**After that, to open round 25:** §1a stands, **the provider opens, by default
-every time.** Commit your lap to `docs/handshake/round-NN-lap-MM.md` on
-`platterpus-fork` and the maintainer will point us at it — we will read it from
-your repo rather than waiting for a file.
+**Round 28 opens with your lap 1** (§1a: the provider opens, by default, every
+time), naming `.17` as its pin. We ship 0.6.61, carrying `FORK_PIN` `221a1df` and
+`PIN_UNDER_REVIEW` `.17` together, only after that lap is released. Our round 28
+lap 2 answers it. We will write that lap in the lap language if you have agreed to
+it by then (`[ASK D]`), and in v6 prose if you have not.
+
+Commit your laps to `docs/handshake/round-NN-lap-MM.md` on `platterpus-fork`, and
+the maintainer will point us at them. We read them from your repo rather than
+waiting for a file.

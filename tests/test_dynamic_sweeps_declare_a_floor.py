@@ -54,6 +54,12 @@ _NO_FLOOR: Final[str] = "NO FLOOR NEEDED:"
 #: genuinely cannot be floored, say why here in place of a test name — but a
 #: population that cannot state a minimum is usually one nobody has counted.
 _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
+    # Added 2026-09-26 with the lap language. Parametrizes over `_BROKEN`, one
+    # broken lap per rule; the floor requires every lap rule the checker can
+    # emit to have its case, so an emptied or shortened table fails by name.
+    "test_lap_language.py::test_each_lap_rule_fires_on_the_lap_that_breaks_it": (
+        "test_every_lap_rule_the_checker_emits_has_a_broken_lap"
+    ),
     # Added 2026-09-24 with the one-home-per-setting gate. Both parametrize over
     # `sorted(WINDOW_PATHS)`, the windows that edit settings, so an emptied table
     # would build no window and report the converse ("no second editor anywhere")

@@ -14,6 +14,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **For contributors: a typed language for handshake laps, proposed to the cyanrip
+  fork.** `docs/handshake/outbound/artifacts/lap-language-1.md` specifies it. A lap
+  becomes a typed header plus eight kinds of statement (claim, question, answer,
+  finding, notice, promise, erratum, close condition), each with an id, typed
+  attributes and a stated evidence class, and every rule has an id. The checker is
+  `python3 scripts/lap_language.py check <lap>`. `… turn <round>` answers "whose turn
+  is it?" from the files, or says the answer is not determined. It opts in through an
+  ignorable field, so no protocol change is needed to start. Held until the maintainer
+  releases it to the fork.
 - **Updates now prove they were built by Platterpus's own release process before
   they install.** Until now the updater checked only that the download matched a
   checksum published beside it, so anyone able to replace both files could have

@@ -11,6 +11,34 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-26 — lap language 1: a typed language for the laps themselves
+
+Asked to *"start talking in the handshake files … and make an actual perfect
+language"*. Measured first, across all 150 laps on file: 26% of header values are
+paragraphs, 21 of 61 field names are defined nowhere, and the two gates read
+`HANDSHAKE-PEER-VERDICT-SOURCE` by different keys (ours filename first, theirs
+the first "lap N"). They agree only because of how the sentences happen to be
+phrased.
+
+- **Built**: the spec (`docs/handshake/outbound/artifacts/lap-language-1.md`), a
+  checker (`scripts/laplang/`, split into seven modules by job), and 47 tests. A lap
+  becomes a typed header plus statements of eight kinds, and every rule has an id,
+  `L1`–`L33` within a lap and `R1`–`R10` between laps. `lap_language.py turn`
+  answers "whose turn?" from the files, and says "not determined" for a prose lap
+  rather than guessing.
+- **A real lap found what toy inputs did not.** Rewriting our round 27 lap 5 in the
+  language needed three things the first design lacked: a `pending` state for a
+  close condition, `restates`/`answers` for laps written before the language, and
+  findings already `fixed`. The `pending` revert-probe shows lap 5's `GO` really
+  did rest on the fork's half still to come. Nothing in the prose recorded that.
+- **Held.** Nothing is sent until the maintainer releases it. The standing status
+  carries it as `[ASK D]`, marked held.
+- **The parallel suite's first CI run exposed a real defect**: the drive-name
+  normaliser's regex was quadratic (0.54 s on one CSV row, on the GUI thread
+  before the window shows), and the regex timing sweep missed it because it only
+  collected `re.compile` calls. Both fixed, and #257 merged at 3m08s of CI
+  (`docs/testing.md` §5.bu).
+
 ## 2026-09-26 — faster CI, Phases 2 and 3: the suite runs in parallel
 
 The maintainer approved both. Parallel runs used pytest-xdist; coverage now runs on
