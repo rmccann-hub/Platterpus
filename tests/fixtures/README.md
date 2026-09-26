@@ -77,3 +77,18 @@ documents (the interrupted sample carries one) at read time.
 ---
 
 *Last updated for Platterpus v0.6.60.*
+
+## attestation_v0660.sigstore.json + sigstore_trusted_root_20260925.json (added 2026-09-25)
+
+**A real release's build attestation, and the trust root that verifies it.** The
+bundle is the Sigstore attestation GitHub holds for the v0.6.60 AppImage (SHA-256
+`dbd7aacd5ab705449a2d99d217d1e6a3bc57bc8725702d6777efd1315bcdd526`), fetched from
+`api.github.com/repos/rmccann-hub/Platterpus/attestations/sha256:<digest>` and
+stored compact. The trust root is Sigstore's production `trusted_root.json` as
+refreshed over TUF the same day, identical to the copy inside `sigstore` 4.5.0.
+Together they let `tests/test_update_attestation.py` verify a genuine release
+**offline**, against the source artifact rather than against another run of our
+code. Neither contains audio or anything private: both are published records of
+public keys and a public build. Verification checks key validity at the time of
+signing, not today, so these stay verifiable; replace them only to test a newer
+bundle format.

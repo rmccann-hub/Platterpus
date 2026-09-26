@@ -1127,7 +1127,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # rather than re-derive it: a second opinion about one fact is the shape
     # `CLAUDE.md` names as guaranteed to drift, and here both opinions
     # produce a `LogVerification`, so the drift would be invisible.
-    "adapters/cyanrip_backend.py": 1577,
+    # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
+    # **1578 -> 1594** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): the chokepoint applies `tag_hygiene` and logs each replacement.
+    # **1594 -> 1638** (2026-09-25, TASKS `conv.argv-range`): `_tracks_on_disc` range-checks `-l` against the disc, which cyanrip enforces by refusing the whole rip. It belongs beside `_disc_position` and the `-t` check in `_metadata_args`, which are the same kind of guard.
+    # **1638 -> 1640** (2026-09-25, the property-test batches): an unknown `%{…}` token's brace becomes a paren, so it cannot reach cyanrip as an unterminated `{` (TASKS `fuzz:adapters.cyanrip_backend.scheme_from_template`).
+    # **1640 -> 1670** (2026-09-25, D18: `%N`/`%M` work everywhere): the disc position is checked once and fills in `%N`/`%M` as well as `-c`, so a folder name cannot disagree with the tags; `_disc_args` folded into `_disc_position`, keeping its reasoning.
+    "adapters/cyanrip_backend.py": 1670,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1141,7 +1146,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # written at 22:02:15 — because the branch above it is the 2026-08-20
     # fix for the same field and a reader needs to see the two are different
     # questions, not a duplicate.
-    "adapters/ripper_log_verify.py": 467,
+    # **467 -> 473** (2026-09-25, the property-test batches): exit 127 from the wrapper is a missing ripper, not an altered log (`binary_missing`, as `flac_verify`).
+    "adapters/ripper_log_verify.py": 473,
     "adapters/transcode.py": 305,
     # **1349 -> 1356 on 2026-09-12** (+7): `--rig-session`'s default output
     # directory moved out of `$HOME` and under the one deletable parent, and the
@@ -1176,7 +1182,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # evidence that turned it (a one-frame match passed wrong audio twice), and the
     # v8->v9 step that flips a saved False once. Migrations live here by design.
     # **847 -> 848** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "config.py": 848,
+    # **848 -> 849** (2026-09-25, D18: `%N`/`%M` work everywhere): the template comment no longer says multi-disc folders are impossible.
+    "config.py": 849,
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
     "deps/checks.py": 437,
@@ -1378,7 +1385,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
-    "diagnostics.py": 685,
+    # **685 -> 691** (2026-09-25, the property-test batches): `bounded_output` clamps its bounds and always keeps the tail.
+    "diagnostics.py": 691,
     # **411 -> 423 on 2026-09-10** (log-verification race, above):
     # `FORCE_STOP_COUNTDOWN_S` moved here from the UI module that arms the
     # timer, because the rip worker's log wait must outlast it. Two
@@ -1405,7 +1413,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # printing "this log carries no end-of-rip summary" over a six-line
     # summary. Rendering rows belongs with the renderer; the growth is the
     # two rows and the tri-state that keeps a footerless log silent here.
-    "eac_log_export.py": 1576,
+    # **1576 -> 1574 on 2026-09-25**: the one-frame AccurateRip wording moved to
+    # `one_frame_match`, agreed in round 27; the narrowing assert it needs is two
+    # of the lines kept.
+    # **1574 -> 1579 on 2026-09-25**: `46a522e` (that one-frame wording, HELD until the
+    # fork's round-27 lap 4) is reverted on the session branch so a merge cannot carry it
+    # onto `main`; this is the renderer's own wording code coming back. Reverting the
+    # revert returns it to 1574.
+    # **1579 -> 1640** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): `_defuse_signature_lines` and `render_eac_style_log_and_defused`, which returns the rewritten lines for the report; the old entry point is a thin wrapper, so no caller changed.
+    "eac_log_export.py": 1640,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1540,7 +1556,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # settings_validation already imports naming and the question is about a
     # naming template; a third module for one pure function would be the new
     # file rule #7 refuses.
-    "naming.py": 359,
+    # **359 -> 376** (2026-09-25, D18: `%N`/`%M` work everywhere): the preview fills in `%N`/`%M` and writes a typed brace as the parenthesis the file gets.
+    "naming.py": 376,
     # +29 on 2026-09-04: `is_secure_rerip_verdict` and its reasoning. It is
     # DELIBERATELY here rather than at the worker that calls it — the point of
     # the fix is that the module owning read stability owns the classification,
@@ -1596,7 +1613,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
     # **690 -> 712** (2026-09-24, #36): `ComponentInventory`, the one inventory type, and v27's `dependencies_measured_at`.
-    "report_types.py": 712,
+    # **712 -> 723** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): `TagFixEntry` and `DiscBlock.tag_control_characters_replaced`.
+    # **723 -> 727** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): `DiscBlock.eac_log_signature_lines_defused`.
+    "report_types.py": 727,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1609,10 +1628,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # names the failure (`_rip_failure`) instead of calling it unexplained; it reads
     # the same report as `_rip_was_cancelled`, so it belongs beside it.
     # **940 -> 976** (2026-09-24): the paranoia row reads `READ` (the fork's 3.02x, not our 2.87x) and grades the bound per counter, which a sum could hide.
-    "rig_check.py": 976,
+    # 976 -> 979 on 2026-09-25: errors="replace" on two probe pipes, and the argv
+    # builder reached through composition.build_cyanrip_backend, not built here.
+    "rig_check.py": 979,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     "rip_addendum.py": 496,
-    "rip_audit.py": 1216,
+    # **1216 -> 1287** (2026-09-25): `_grade_a_reported_completion`, round 21 §C. The
+    # completion check graded OK off the boolean; it now reads the ripper's own
+    # counts and error tally. It is a check of this registry, so it lives here.
+    # **1287 -> 1301** (2026-09-26, the maintainer's quick run): the completion check compares the ripper's count with the tracks ASKED for (`completeness.tracks_expected`), not the disc total, so a deliberate partial rip is not graded as contradicting itself.
+    "rip_audit.py": 1301,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     "rip_files.py": 422,
@@ -1637,7 +1662,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2479 -> 2490** (2026-09-24): schema v26 `album_loudness_covers` plus its history note.
     # **2490 -> 2494** (2026-09-24, #36): schema v27's history note.
     # **2494 -> 2495** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "rip_report.py": 2495,
+    # **2495 -> 2515** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): schema v28 and the `tag_control_characters_replaced` issue.
+    # **2515 -> 2528** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): schema v29 and the `eac_log_signature_line_defused` issue.
+    # **2528 -> 2546** (2026-09-26, the maintainer's quick run): a missing EAC-layout log is healthy when the rip's own settings turned it off (`_setting_was_on`).
+    "rip_report.py": 2546,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1662,8 +1690,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # rather than folded in with its sibling — a path and a version are two
     # shapes, and one check loose enough for both checks neither properly.
     # **896 -> 922** (2026-09-24, #37 one home per setting): `field_error`, the ONE single-setting predicate the `set` verb and every save-as-you-change control share; it moved here from the runner so neither can restate it.
-    "settings_validation.py": 922,
-    "sleep_inhibit.py": 599,
+    # **922 -> 933** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): `is_control_char`, the one definition both rules share.
+    # **933 -> 947** (2026-09-25): `is_control_char` widened to C1 and U+2028/2029, with the reason; the one definition belongs beside the validators that use it.
+    # **947 -> 1004** (2026-09-25, the property-test batches): three rules no longer crash (and so pass) on an unhashable choice, an unknown `~user`, or an over-long component; and `%%` no longer hides a segment from the reserved-name and trailing-dot checks.
+    # **1004 -> 1024** (2026-09-25, D17, KDD-38): a crashing rule becomes a visible warning on its field instead of a silent pass, and the docstring says why it is not an error.
+    "settings_validation.py": 1024,
+    # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
+    "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
     # the single deletable directory every rig artifact of ours now lives under,
     # on the maintainer's "stop polluting my home directory" instruction. The
@@ -1715,7 +1748,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
     # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     "ui/drive_setup_dialog.py": 561,
-    "ui/host_setup_dialog.py": 341,
+    # **341 -> 342** (2026-09-25, Critical rule #9: Qt has no "detach"): the teardown comment now says the dialog ABANDONS a running thread and keeps its reference, which reflowed one line.
+    "ui/host_setup_dialog.py": 342,
     # **1558 -> 1572 on 2026-09-08**: the `Help → Install a cyanrip build…`
     # action, plus the paragraph saying why a SECOND ripper entry exists — the
     # update check reads the fork's release manifest and cannot offer a build the
@@ -1747,7 +1781,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1609 -> 1611** (2026-09-24): the acceptance menu item gets a no-argument slot, so `triggered`'s bool never lands in `size`.
     # **1611 -> 1616** (2026-09-24, #36): the per-instance dependency-check listener list, and About gets its recheck hook.
     # **1616 -> 1599** (2026-09-24, #37 one home per setting): down: Settings' opener moved to `main_window_settings.py`, and Diagnose drive access… left the Tools menu.
-    "ui/main_window.py": 1599,
+    # 1599 -> 1600 on 2026-09-25: a drive change forgets the release detail with the release id.
+    # **1600 -> 1675** (2026-09-25, TASKS `stateful:answered-implies-answerable`, `stateful:table-immutable-during-rip`, `stateful:no-modal-during-rip`): a failed release FETCH now un-answers the disc in its own handler, a redundant lookup failing no longer overwrites the chosen release, and `_rip_holds_the_track_table` keeps every MusicBrainz answer off the table and out of a modal while a rip runs. These are the MusicBrainz slots, which live here.
+    "ui/main_window.py": 1675,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -1759,10 +1795,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/main_window_deps.py": 723,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "ui/main_window_drive.py": 543,
+    # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
+    "ui/main_window_drive.py": 549,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "ui/main_window_helpers.py": 515,
+    # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
+    "ui/main_window_helpers.py": 521,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -1795,7 +1833,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1526 -> 1589** (2026-09-24): the run-size chooser, asked before anything starts, and its plumbing into the session.
     # **1589 -> 1602** (2026-09-24, #36): the bundle's `COMPONENTS.json` and the run size in its facts.
     # **1602 -> 1607** (2026-09-24, #37 one home per setting): Setup & Updates and the console are handed the window's single-setting writer and Diagnose drive access….
-    "ui/main_window_provision.py": 1607,
+    # **1607 -> 1624** (2026-09-26, the maintainer's quick run): the end-of-run headline asks `RunReport.ok`, so a quick run's size-declined sections do not read as a stopped run.
+    "ui/main_window_provision.py": 1624,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1849,7 +1888,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # own outcome, and a rip's own bundle goes to the session folder while one runs.
     # **4710 -> 4717** (2026-09-24, #36): the rip report records when its dependency versions were measured.
     # **4717 -> 4715** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "ui/main_window_rip.py": 4715,
+    # 4715 -> 4730 on 2026-09-25: _release_detail_for, the one check both the rip start and the report use.
+    # **4730 -> 4739** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): the finish record carries the fixes.
+    # **4739 -> 4751** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): the finish path records the rewritten lines after writing the log, so recording them can never cost the log.
+    "ui/main_window_rip.py": 4751,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -1910,8 +1952,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1382 -> 1381** (2026-09-24): shrank by one; recorded at its real length.
     # **1381 -> 1335** (2026-09-24, #37 one home per setting): down: seven controls moved to their homes, net of OK/Apply/Cancel/Restore Defaults.
     # **1335 -> 1336** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "ui/settings_dialog.py": 1336,
-    "ui/track_table.py": 802,
+    # **1336 -> 1337** (2026-09-25, D18: `%N`/`%M` work everywhere): the template tooltip lists `%N` and `%M`.
+    "ui/settings_dialog.py": 1337,
+    # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
+    "ui/track_table.py": 832,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces
@@ -2025,9 +2069,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4314 -> 4297** (2026-09-24, #37 one home per setting): down: the setting validator moved to `settings_validation.field_error`.
     # **4297 -> 4305 (2026-09-24)**: `set` calls the window's one
     # `_refresh_setting_views` after a change, so open windows follow it.
-    "uiscript/runner.py": 4305,  # +116: _do_expect_verification, the assertion section F never had,
+    # 4305 -> 4309 on 2026-09-25: a cyanrip step's recorded output is screened
+    # (inbound_text, Critical rule #12), and why the expect-verbs copy stays raw.
+    # 4309 -> 4398 on 2026-09-25: probe-ripper-wrapper moved onto a helper thread (_WrapperProbeJob); it ran on the GUI thread.
+    "uiscript/runner.py": 4398,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
-    "uiscript/script.py": 339,
+    # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
+    # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
+    "uiscript/script.py": 348,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
     # so a verb declared anywhere else would defeat the file. The comment is
@@ -2042,7 +2091,19 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `-o flac`, so its log is identical whether our transcode ran or not).
     # **759 -> 801** (2026-09-24): four verbs, `run-size`, `keep`, `set-drive-offset` and `expect-drive-offset`. The table is the vocabulary's security boundary, so a verb is an entry here by design.
     "uiscript/verbs.py": 801,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
-    "update_install.py": 304,
+    # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
+    # whether a release's attestation proves the download was built by our
+    # release workflow. It is the only module that imports `sigstore` (Critical
+    # rule #1), so the trust-root refresh lives beside the check that consumes it —
+    # splitting them would make two sigstore-importing modules for one adapter. The
+    # length is mostly the docstrings saying what the check does NOT prove.
+    "update_attestation.py": 316,
+    # **304 -> 358** (2026-09-25): step 3a, the build-attestation gate — fetch the
+    # bundle capped, refuse when missing, oversized, refused or not checked, each
+    # with its own message — plus starting the trust-root refresh before the
+    # download. It belongs here: it is a step of this pipeline, between the checksum
+    # and the swap, and must run on its `.part` file before `replace`.
+    "update_install.py": 358,
     # **521 -> 530** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The banner and the CTDB reconciliation say what matched.
     # **530 -> 531** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "verdict.py": 531,
@@ -2061,7 +2122,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # place that knows whether it sent one, so `_we_stopped_ripper` lives here.
     # **3463 -> 3462 (2026-09-24, round 26 lap 4)**: finished tracks are read through the parser, so its own copy of the pattern is gone.
     # **3462 -> 3464** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "workers/rip_worker.py": 3464,
+    # 3464 -> 3490 on 2026-09-25: every pipe line is screened once (`_screen`), for
+    # the log pane and the record, and the capture ends with what screening changed.
+    # The screen itself lives in inbound_text; this is the wiring and its reasons.
+    "workers/rip_worker.py": 3490,
 }
 
 
@@ -2362,3 +2426,264 @@ def test_no_file_carries_an_unresolved_conflict_marker() -> None:
         "unresolved merge-conflict markers are committed in these files:\n  "
         + "\n  ".join(offenders)
     )
+
+
+# --- Code conventions that were rules with no gate (2026-09-25) -------------
+#
+# Each of these is a convention CLAUDE.md states and nothing checked. Measured the
+# day they were written, so each floor and allowlist below records a real count.
+
+
+def _src_trees() -> list[tuple[str, ast.Module]]:
+    return [
+        (str(path.relative_to(SRC_ROOT)), ast.parse(path.read_text(encoding="utf-8")))
+        for path in sorted(SRC_ROOT.rglob("*.py"))
+    ]
+
+
+def test_every_broad_except_says_why() -> None:
+    """`except Exception` is sometimes right (a worker must always finish), and
+    the codebase marks each one `# noqa: BLE001 — <reason>`. Eleven of 172 had
+    the marker and no reason (2026-09-25), which leaves the next reader unable to
+    tell a deliberate catch-all from a lazy one."""
+    unexplained: list[str] = []
+    handlers = 0
+    for rel, tree in _src_trees():
+        lines = (SRC_ROOT / rel).read_text(encoding="utf-8").splitlines()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler) or node.type is None:
+                continue
+            types = node.type.elts if isinstance(node.type, ast.Tuple) else [node.type]
+            if not any(
+                isinstance(t, ast.Name) and t.id in ("Exception", "BaseException")
+                for t in types
+            ):
+                continue
+            handlers += 1
+            marker = re.search(r"noqa: BLE001(.*)$", lines[node.lineno - 1])
+            if marker is None or not re.search(r"[A-Za-z]{3,}", marker.group(1)):
+                unexplained.append(f"{rel}:{node.lineno}")
+    assert handlers >= 150, f"only {handlers} broad handler(s) found; the scan is blind"
+    assert not unexplained, (
+        "a broad except must say why it is broad, on its own line "
+        "(`# noqa: BLE001 — <reason>`):\n  " + "\n  ".join(unexplained)
+    )
+
+
+#: Modules allowed to `print`, each with the reason. Everything else logs.
+#: **A ratchet: it may shrink, never grow.**
+_PRINT_ALLOWED: Final[dict[str, str]] = {
+    "app.py": "the command-line flags (--version, --doctor, --rig-check…) write to the terminal",
+    "cli_compare.py": "the --compare command writes its table to the terminal",
+    "rip_audit.py": "the --audit command writes its report to the terminal",
+}
+
+
+def test_print_is_used_only_by_command_line_output() -> None:
+    """ "Log with the logging module, not print" (Code conventions). A print in a
+    GUI path goes nowhere a bug report can see."""
+    printing: dict[str, int] = {}
+    for rel, tree in _src_trees():
+        count = sum(
+            1
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "print"
+        )
+        if count:
+            printing[rel] = count
+    assert sum(printing.values()) >= 20, printing  # floor: 47 measured
+    stray = sorted(set(printing) - set(_PRINT_ALLOWED))
+    assert not stray, f"print() outside a command-line module (log instead): {stray}"
+    stale = sorted(set(_PRINT_ALLOWED) - set(printing))
+    assert not stale, f"allowlisted but no longer printing; remove them: {stale}"
+
+
+#: `setattr` on something other than `self`, each a data write onto an instance
+#: whose field name is data. **A ratchet: it may shrink, never grow.**
+_SETATTR_ALLOWED: Final[dict[str, str]] = {
+    "logging_setup.py": "records the handlers on the root logger so a later call finds them",
+    "ui/main_window_rip.py": "writes named fields onto the post-rip record",
+    "uiscript/runner.py": "a script's `set` installs a validated Config on the window",
+    "user_settings.py": "applies named values to a copy of the Config dataclass",
+}
+
+
+def test_no_clever_metaprogramming() -> None:
+    """ "No clever metaprogramming" (Code conventions): no exec/eval, no dynamic
+    classes, no metaclasses, no module __getattr__, no computed imports, and
+    `setattr` only where a named field is written onto a data instance."""
+    forbidden: list[str] = []
+    setattr_files: set[str] = set()
+    for rel, tree in _src_trees():
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name in (
+                "__getattr__",
+                "__dir__",
+            ):
+                forbidden.append(f"{rel}:{node.lineno} module-level {node.name}")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and any(
+                k.arg == "metaclass" for k in node.keywords
+            ):
+                forbidden.append(f"{rel}:{node.lineno} metaclass")
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+            if isinstance(func, ast.Name) and name in ("exec", "eval", "__import__"):
+                forbidden.append(f"{rel}:{node.lineno} {name}()")
+            if isinstance(func, ast.Name) and name == "type" and len(node.args) == 3:
+                forbidden.append(f"{rel}:{node.lineno} type() building a class")
+            if (
+                name == "import_module"
+                and node.args
+                and not isinstance(node.args[0], ast.Constant)
+            ):
+                forbidden.append(f"{rel}:{node.lineno} computed import")
+            if isinstance(func, ast.Name) and name == "setattr":
+                target = node.args[0] if node.args else None
+                if not (isinstance(target, ast.Name) and target.id == "self"):
+                    setattr_files.add(rel)
+    assert not forbidden, "metaprogramming the conventions forbid:\n  " + "\n  ".join(
+        forbidden
+    )
+    assert setattr_files, (
+        "no setattr found at all; the scan is blind"
+    )  # 7 sites measured
+    grown = sorted(setattr_files - set(_SETATTR_ALLOWED))
+    assert not grown, f"setattr on a non-self object in a new module: {grown}"
+    stale = sorted(set(_SETATTR_ALLOWED) - setattr_files)
+    assert not stale, f"allowlisted setattr modules that no longer use it: {stale}"
+
+
+def test_the_metaprogramming_gate_fires_on_what_it_forbids() -> None:
+    sample = ast.parse(
+        "exec('x')\nKlass = type('K', (), {})\nclass M(metaclass=Meta): pass\n"
+        "import importlib\nimportlib.import_module(name)\n"
+    )
+    names = [
+        n.func.id if isinstance(n.func, ast.Name) else n.func.attr
+        for n in ast.walk(sample)
+        if isinstance(n, ast.Call)
+    ]
+    assert {"exec", "type", "import_module"} <= set(names)
+
+
+def test_output_parsers_do_not_split_tool_output_into_columns() -> None:
+    """ "Named-group regexes, not column-index splits" (Code conventions), for the
+    packages that read external tools: `parsers/` and `adapters/`.
+
+    Scoped deliberately and said so: a whitespace `.split()[N]` there reads a
+    COLUMN of a tool's output, which moves when the tool's layout does. A split at
+    a named separator (`.split(":", 1)[1]`, `.rsplit("}", 1)[-1]`) is not column
+    indexing and is allowed. None existed on 2026-09-25; this keeps it so.
+    """
+    columns: list[str] = []
+    examined = 0
+    for rel, tree in _src_trees():
+        if not rel.startswith(("parsers/", "adapters/")):
+            continue
+        examined += 1
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Subscript)
+                and isinstance(node.value, ast.Call)
+                and isinstance(node.value.func, ast.Attribute)
+                and node.value.func.attr in ("split", "rsplit")
+            ):
+                continue
+            call = node.value
+            whitespace = not call.args or (
+                isinstance(call.args[0], ast.Constant) and call.args[0].value is None
+            )
+            if whitespace:
+                columns.append(f"{rel}:{node.lineno}: {ast.unparse(node)[:60]}")
+    assert examined >= 15, f"only {examined} parser/adapter module(s) examined"
+    assert not columns, (
+        "a whitespace column split of tool output; use a named-group regex:\n  "
+        + "\n  ".join(columns)
+    )
+
+
+def test_the_appimage_is_built_by_python_appimage_only() -> None:
+    """Critical rule #2: `python-appimage` is the builder, and `appimage-builder`
+    needs the maintainer's sign-off. Nothing asserted which tool the build ran."""
+    script = (REPO_ROOT / "build" / "build_appimage.sh").read_text(encoding="utf-8")
+    code = [ln for ln in script.splitlines() if not ln.lstrip().startswith("#")]
+    assert any("python_appimage build app" in ln for ln in code), (
+        "build_appimage.sh no longer invokes python-appimage"
+    )
+    for workflow in ("release.yml", "appimage.yml"):
+        text = (REPO_ROOT / ".github" / "workflows" / workflow).read_text(
+            encoding="utf-8"
+        )
+        assert "bash build/build_appimage.sh" in text, (
+            f"{workflow} does not use the recipe"
+        )
+    users = [
+        str(path.relative_to(REPO_ROOT))
+        for folder in ("build", ".github", "scripts")
+        for path in (REPO_ROOT / folder).rglob("*")
+        if path.is_file()
+        and path.suffix in {".sh", ".yml", ".yaml", ".py", ".txt", ".toml"}
+        and re.search(
+            r"appimage[-_]builder", path.read_text(encoding="utf-8", errors="replace")
+        )
+    ]
+    assert not users, f"appimage-builder is used without sign-off: {users}"
+
+
+#: Modules that run a container tool as a PROGRAM, each with its reason
+#: (Critical rule #3: the GUI rips through the host-exported ripper, never by
+#: entering the container itself). **A ratchet: it may shrink, never grow.**
+_CONTAINER_TOOL_ALLOWED: Final[dict[str, str]] = {
+    "drive_control.py": "rule #3's one scoped exception: force-stopping a runaway reader on cancel",
+    "deps/fork_source.py": "builds the pinned fork inside the container and exports it (the setup wizard and --install-ripper)",
+    "deps/host_setup.py": "creates the `ripping` container during setup",
+    "deps/host_teardown.py": "removes what setup created, on uninstall",
+    "deps/ripper_wrapper_probe.py": "times `distrobox-enter -- true` to diagnose a wrapper that hangs",
+}
+
+#: A string constant that IS a container tool (optionally a path to one), as it
+#: would appear as argv[0]. Prose that merely mentions Distrobox does not match.
+_CONTAINER_TOOL: Final[re.Pattern[str]] = re.compile(
+    r"^(?:\S*/)?(?:distrobox(?:-enter|-export|-create|-rm|-stop)?|podman|docker|toolbox)$"
+)
+
+#: The modules on the RIP path. Named so that allowlisting one of them is a
+#: separate, visible failure rather than an edit to the dict above.
+_RIP_PATH: Final[frozenset[str]] = frozenset(
+    {
+        "adapters/cyanrip_backend.py",
+        "composition.py",
+        "rig_check.py",
+        "uiscript/runner.py",
+        "workers/rip_worker.py",
+    }
+)
+
+
+def test_only_setup_and_the_scoped_exception_enter_the_container() -> None:
+    """Critical rule #3, which no test enforced (TASKS `rule-3.routing`)."""
+    running: set[str] = set()
+    for rel, tree in _src_trees():
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and _CONTAINER_TOOL.match(node.value.strip())
+            ):
+                running.add(rel)
+    assert len(running) >= 4, f"only {sorted(running)} found; the scan is blind"
+    assert not (set(_CONTAINER_TOOL_ALLOWED) & _RIP_PATH), (
+        "a rip-path module was allowlisted to enter the container"
+    )
+    stray = sorted(running - set(_CONTAINER_TOOL_ALLOWED))
+    assert not stray, (
+        "these modules run a container tool directly; the rip path goes through "
+        f"the host-exported ~/.local/bin/cyanrip (Critical rule #3): {stray}"
+    )
+    stale = sorted(set(_CONTAINER_TOOL_ALLOWED) - running)
+    assert not stale, f"allowlisted but no longer running one; remove them: {stale}"

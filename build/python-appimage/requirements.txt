@@ -51,4 +51,10 @@ tomli-w~=1.0
 # is vulnerable turns CI red with no change to our code, which is the floating-tool
 # problem (Critical rule #11) arriving through a dependency instead of a linter.
 cryptography~=50.0
+# Release build-attestation verification (update_attestation.py). MINOR-PINNED:
+# `~=4.5.0` is `>=4.5.0,<4.6`, the range pyproject states. The updater refuses an
+# update this check cannot pass, so an API change here would strand every user on
+# their current version. Bump both together; tests/test_gating_tools_are_pinned.py
+# fails if they disagree.
+sigstore~=4.5.0
 platterpus

@@ -41,7 +41,9 @@ from pathlib import Path
 
 import pytest
 
-from platterpus import cue_validate, rip_audit
+from platterpus import cue_validate, rip_audit, tag_hygiene
+from platterpus.adapters.cyanrip_backend import CyanripImpl, _metadata_args
+from platterpus.adapters.rip_backend import RipMetadata, TrackTag
 from platterpus.cue_validate import (
     COLON_SUBSTITUTE,
     LEVEL_NOTE,
@@ -55,6 +57,7 @@ from platterpus.cue_validate import (
     sent_track_metadata,
     validate_cue,
 )
+from platterpus.settings_validation import path_segment_issue
 
 _REFERENCE = (
     Path(__file__).resolve().parent.parent / "output_reference" / "cyanrip_fork_flac"
@@ -1052,6 +1055,180 @@ def test_no_input_makes_the_cue_seam_raise(text: str) -> None:
     restored, changes = restore_metadata_colons(text)
     assert changes >= 0
     assert COLON_SUBSTITUTE not in restored or changes >= 0
+
+
+# --- the argv readers: the other half of the same seam ------------------------
+#
+# `sent_track_metadata`, `sent_album_metadata` and `sent_track_selection` read
+# back the command line we SENT, and that reading is what makes the ISRC and
+# title checks an independent comparison. The property above never reached them.
+# Two things are asserted here, and the first is the one that matters:
+#
+#  1. **Round trip against the real builder.** Whatever `_metadata_args` and
+#     `_build_rip_argv` put on the command line, the readers recover exactly —
+#     including values full of the separators (`:` `=` `\` `'`) the escaping
+#     exists for. A reader that disagrees with the writer would make the cue be
+#     judged against something we never sent. This is the source-artifact
+#     comparison: the builder is the thing that produced the argv.
+#  2. **Hostile argv never raises, and the answers keep their shape.** The argv
+#     is read out of a report file on disk, so it is external input by the time
+#     these see it.
+
+#: Text that exercises the escaping: every separator the -a/-t blob grammar has,
+#: plus a colon-bearing title from a real disc.
+_SEPARATOR_HEAVY = st.one_of(
+    st.text(max_size=12),
+    st.text(alphabet=":='\\ x", max_size=12),
+    st.sampled_from(["Every Breath You Take: The Classics", "a=b", "\\", "'"]),
+)
+
+#: A value cyanrip also turns into a folder or file name. The builder refuses a
+#: control character or a "."/".." here (`_reject_path_reference_values`), so the
+#: round trip is only asked of values it accepts.
+_PATH_VALUE = _SEPARATOR_HEAVY.filter(lambda v: not path_segment_issue("x", v))
+
+
+@st.composite
+def _sent_metadata(draw: st.DrawFn) -> tuple[RipMetadata, int | None]:
+    numbers = draw(
+        st.lists(st.integers(min_value=1, max_value=40), unique=True, max_size=8)
+    )
+    tracks = tuple(
+        TrackTag(
+            number=n,
+            title=draw(_PATH_VALUE),
+            artist=draw(_PATH_VALUE),
+            isrc=draw(_SEPARATOR_HEAVY),
+        )
+        for n in numbers
+    )
+    meta = RipMetadata(
+        album_artist=draw(_PATH_VALUE),
+        album_title=draw(_PATH_VALUE),
+        year=draw(_SEPARATOR_HEAVY),
+        genre=draw(_SEPARATOR_HEAVY),
+        catalog_number=draw(_SEPARATOR_HEAVY),
+        barcode=draw(_SEPARATOR_HEAVY),
+        label=draw(_SEPARATOR_HEAVY),
+        tracks=tracks,
+    )
+    total = draw(st.one_of(st.none(), st.integers(min_value=1, max_value=40)))
+    return meta, total
+
+
+# The shape that broke the naive reader this module used to carry: a colon in the
+# album title, and every other separator in a track's values.
+@hypothesis.example(
+    (
+        RipMetadata(
+            album_title="Every Breath You Take: The Classics",
+            album_artist="The Police",
+            tracks=(TrackTag(number=2, title="a=b\\", artist="x'y", isrc="GB:1"),),
+        ),
+        None,
+    ),
+    "",
+)
+@hypothesis.settings(max_examples=200, deadline=None)
+@hypothesis.given(_sent_metadata(), _SEPARATOR_HEAVY)
+def test_the_argv_readers_recover_exactly_what_the_builder_sent(
+    case: tuple[RipMetadata, int | None], release_id: str
+) -> None:
+    meta, total = case
+    argv = _metadata_args(meta, release_id, disc_track_total=total)
+
+    # The TAG-ONLY fields reach the argv with control characters replaced by a
+    # space (D14, `tag_hygiene`), so what the builder SENT is the cleaned value.
+    # Taken from the module that decides it rather than restated here; this
+    # property was written before D14 landed and met it on 2026-09-25.
+    def sent(value: str) -> str:
+        return tag_hygiene.clean_value(value)[0]
+
+    album_expected = {
+        key: value
+        for key, value in (
+            ("album", meta.album_title),
+            ("album_artist", meta.album_artist),
+            ("date", sent(meta.year)),
+            ("genre", sent(meta.genre)),
+            ("catalognumber", sent(meta.catalog_number)),
+            ("barcode", sent(meta.barcode)),
+            ("label", sent(meta.label)),
+            ("musicbrainz_albumid", sent(release_id)),
+        )
+        if value
+    }
+    assert sent_album_metadata(argv) == album_expected
+
+    tracks_expected: dict[int, dict[str, str]] = {}
+    for track in meta.tracks:
+        if total and track.number > total:
+            continue  # the builder drops a -t cyanrip would refuse the rip over
+        pairs = {
+            key: value
+            for key, value in (
+                ("title", track.title),
+                ("artist", track.artist),
+                ("isrc", sent(track.isrc)),
+            )
+            if value
+        }
+        if pairs:
+            tracks_expected[track.number] = pairs
+    assert sent_track_metadata(argv) == tracks_expected
+
+
+@hypothesis.settings(max_examples=100, deadline=None)
+@hypothesis.given(
+    st.lists(st.integers(min_value=1, max_value=99), min_size=1, max_size=12)
+)
+def test_the_track_selection_reader_recovers_what_the_builder_sent(
+    only_tracks: list[int],
+) -> None:
+    argv = CyanripImpl(binary_path="cyanrip")._build_rip_argv(
+        "/dev/sr0",
+        unknown=True,
+        cover_art="",
+        max_retries=5,
+        read_offset_override=None,
+        only_tracks=tuple(only_tracks),
+    )
+    assert "-l" in argv, "floor: the builder must have emitted a selection"
+    assert cue_validate.sent_track_selection(argv) == frozenset(only_tracks)
+
+
+_HOSTILE_ARGV_TOKEN = st.one_of(
+    st.sampled_from(["-t", "-a", "-l", "-N", "=", ":", "1=", "3,5", ",", "\\"]),
+    st.text(max_size=30),
+    st.text(alphabet="-talN0123456789=:,\\ ", max_size=12),
+)
+
+
+@hypothesis.settings(max_examples=300, deadline=None)
+@hypothesis.given(st.lists(_HOSTILE_ARGV_TOKEN, max_size=16))
+def test_the_argv_readers_never_raise_and_keep_their_shape(argv: list[str]) -> None:
+    def followed(flag: str) -> bool:
+        """``flag`` appears with an argument after it."""
+        return flag in argv[:-1]
+
+    tracks = sent_track_metadata(argv)
+    assert all(isinstance(n, int) for n in tracks)
+    if not followed("-t"):
+        assert tracks == {}, "no -t with an argument, so nothing to report"
+    for pairs in [*tracks.values(), sent_album_metadata(argv)]:
+        for key, value in pairs.items():
+            assert key and key == key.strip().lower(), repr(key)
+            assert isinstance(value, str)
+    if not followed("-a"):
+        assert sent_album_metadata(argv) == {}
+
+    selection = cue_validate.sent_track_selection(argv)
+    if selection is not None:
+        # Never an EMPTY narrowing: that would stop the cue check examining
+        # every track while reporting that it ran.
+        assert selection and all(isinstance(n, int) for n in selection)
+    if not followed("-l"):
+        assert selection is None
 
 
 # --- Title fidelity: the check that cannot pass by finding nothing -----------

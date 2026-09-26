@@ -12,6 +12,10 @@ in-app updating. This module does it, with the release's published
   2. stream the AppImage to ``<dest>/.platterpus-update.part``
      (progress + cancel callbacks between chunks)
   3. verify the download's SHA-256 against step 1 — mismatch → abort+delete
+  3a. verify the release's build attestation (``update_attestation``): the file
+      must have been built by this repository's ``release.yml`` — anything else
+      → abort+delete. Added 2026-09-25; the checksum alone proves the download is
+      intact, not who published it.
   4. mark executable, then atomically rename over
      ``~/Applications/platterpus-x86_64.AppImage``
 
@@ -33,7 +37,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from platterpus import update_signing
+from platterpus import update_attestation, update_signing
 from platterpus.appimage_integration import (
     APPLICATIONS_DIR,
     CANONICAL_APPIMAGE_NAME,
@@ -172,6 +176,9 @@ def download_and_install(
     # seam simple — a fake response can be any object with read()/__enter__).
     opener: Callable[[str], Any] | None = None,
     status: Callable[[str], None] | None = None,
+    # The attestation check's trust root. None starts the real one (Sigstore,
+    # refreshed over the network); tests pass one built from a fixture.
+    trust: update_attestation.TrustRefresh | None = None,
 ) -> Path:
     """Download release `version`, verify it, install it. Returns the path.
 
@@ -191,6 +198,11 @@ def download_and_install(
     def _status(message: str) -> None:
         if status is not None:
             status(message)
+
+    # 0. Start refreshing Sigstore's trust root now, on a daemon thread, so its
+    # network round trip overlaps the download (step 3a waits for it, bounded).
+    if trust is None:
+        trust = update_attestation.TrustRefresh().start()
 
     # 1. The published checksum is the integrity gate for the download.
     _status("Checking for the update…")
@@ -258,6 +270,43 @@ def download_and_install(
             f"(expected {expected[:12]}…, got {actual[:12]}…)"
         )
 
+    # 3a. Build-attestation gate (fail-closed, always on). The checksum above
+    # proves the bytes match what the release published; this proves the release
+    # workflow in this repository built them, which somebody able to replace
+    # both the AppImage and its .sha256 cannot fake. A missing or unfetchable
+    # attestation is a REFUSAL: accepting it would let anyone defeat the check by
+    # deleting one file. `release.yml` uploads it before a release is visible.
+    _status("Verifying the build attestation…")
+    try:
+        with open_url(url + update_attestation.ATTESTATION_SUFFIX) as response:
+            bundle_bytes = response.read(update_attestation.MAX_BUNDLE_BYTES + 1)
+    except Exception as exc:  # noqa: BLE001 — network/shape errors alike
+        part.unlink(missing_ok=True)
+        raise UpdateInstallError(
+            "couldn't fetch the update's build attestation, which is required "
+            f"to install it: {exc}"
+        ) from exc
+    if len(bundle_bytes) > update_attestation.MAX_BUNDLE_BYTES:
+        part.unlink(missing_ok=True)
+        raise UpdateInstallError(
+            "the update's build attestation is larger than any real one — not installed"
+        )
+    attestation = update_attestation.verify_update(
+        bundle_bytes.decode("utf-8", "replace"), actual, version, trust, cancelled
+    )
+    if not attestation.verified:
+        part.unlink(missing_ok=True)
+        if attestation.verdict == "not_checked":
+            raise UpdateInstallError(
+                "couldn't check that the update was built by the Platterpus "
+                f"release process, so it was not installed ({attestation.reason})"
+            )
+        raise UpdateInstallError(
+            "the update's build attestation did not check out, so it may not "
+            "have been built by the Platterpus release process — not installed "
+            f"({attestation.reason})"
+        )
+
     # 3b. Authenticity gate (fail-closed) — armed only once a maintainer signing
     # key is baked into update_signing.PUBLIC_KEY_B64. SHA-256 above proves the
     # bytes match what was published; the signature proves WHO published them,
@@ -300,5 +349,10 @@ def download_and_install(
         part.unlink(missing_ok=True)
         raise UpdateInstallError(f"couldn't install the update: {exc}") from exc
 
-    log.info("installed update v%s at %s", version, target)
+    log.info(
+        "installed update v%s at %s (attested: built from commit %s)",
+        version,
+        target,
+        attestation.source_commit or "unknown",
+    )
     return target

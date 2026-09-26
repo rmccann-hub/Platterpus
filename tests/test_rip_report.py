@@ -1132,7 +1132,10 @@ def test_schema_version_is_27() -> None:
     # rather than folded into `checksums`, because a SHA256 mismatch after a
     # retag is expected while an audio-MD5 mismatch never is, and a reader must
     # not be able to confuse the two.
-    assert REPORT_SCHEMA_VERSION == 27
+    #
+    # v29 added `disc.eac_log_signature_lines_defused` (D16): lines of the
+    # EAC-layout log a metadata value had shaped like a log signature.
+    assert REPORT_SCHEMA_VERSION == 29
 
 
 def _issue_codes(report: dict) -> set[str]:
@@ -1956,6 +1959,43 @@ def test_a_REQUIRED_artifact_going_missing_still_warns() -> None:
     assert "eac_log" in issue["message"]
 
 
+def _missing_eac_log(every_setting: dict | None) -> list[str]:
+    report = build_report(
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+        settings={"every_setting": every_setting}
+        if every_setting is not None
+        else None,
+        artifacts={
+            "note": "n/a",
+            "eac_log": {
+                "path": "/x/a (EAC-compatible).log",
+                "exists": False,
+                "error": "[Errno 2] No such file or directory",
+                "missing": True,
+            },
+        },
+    )
+    return [i["code"] for i in report["issues"]]
+
+
+def test_an_EAC_log_the_rip_turned_OFF_is_not_missing() -> None:
+    """The maintainer's quick run of 2026-09-26 set `write_eac_log_after_rip off`
+    and its report still warned that the EAC log could not be embedded. A file
+    nobody asked for is not missing."""
+    assert "artifact_unavailable" not in _missing_eac_log(
+        {"write_eac_log_after_rip": False}
+    )
+
+
+def test_an_EAC_log_the_rip_ASKED_FOR_or_that_cannot_be_told_still_warns() -> None:
+    """The exemption is only for a setting that is recorded as off. Asked for, or
+    not recorded, a missing EAC log is the round-08 failure and must warn."""
+    assert "artifact_unavailable" in _missing_eac_log({"write_eac_log_after_rip": True})
+    assert "artifact_unavailable" in _missing_eac_log({})
+    assert "artifact_unavailable" in _missing_eac_log(None)
+
+
 def test_the_embedder_records_absence_as_a_field_not_as_errno_text(tmp_path) -> None:
     """The two ends must not agree by string-matching: `missing` is set by the
     embedder and read by the issues layer, so a reader never parses an errno."""
@@ -2011,3 +2051,41 @@ def test_a_rip_that_never_finished_is_not_called_read_unstable() -> None:
         )
         codes = [i["code"] for i in report["issues"]]
         assert ("read_unstable" in codes) is expected, (status, unstable, codes)
+
+
+def test_replaced_tag_control_characters_are_an_info_issue() -> None:
+    """Decision D14: the tag differs from MusicBrainz, and the report says why."""
+    disc = {
+        "unknown": False,
+        "musicbrainz_release_id": "mbid",
+        "tag_control_characters_replaced": [{"field": "genre", "replaced": 1}],
+    }
+    report = build_report(_sample_log(), disc=disc)
+    issue = next(
+        i for i in report["issues"] if i["code"] == "tag_control_characters_replaced"
+    )
+    assert issue["severity"] == "info" and "genre (1)" in issue["message"]
+    clean = build_report(
+        _sample_log(), disc={**disc, "tag_control_characters_replaced": []}
+    )
+    assert "tag_control_characters_replaced" not in _issue_codes(clean)
+
+
+def test_a_defused_signature_line_is_an_info_issue() -> None:
+    """Decision D16: the EAC-layout log differs from the metadata by its fences,
+    and the report says so."""
+    disc = {
+        "unknown": False,
+        "musicbrainz_release_id": "mbid",
+        "tag_control_characters_replaced": [],
+        "eac_log_signature_lines_defused": ["---- Log checksum AB ---- / Album"],
+    }
+    report = build_report(_sample_log(), disc=disc)
+    issue = next(
+        i for i in report["issues"] if i["code"] == "eac_log_signature_line_defused"
+    )
+    assert issue["severity"] == "info" and "1 line(s)" in issue["message"]
+    clean = build_report(
+        _sample_log(), disc={**disc, "eac_log_signature_lines_defused": []}
+    )
+    assert "eac_log_signature_line_defused" not in _issue_codes(clean)

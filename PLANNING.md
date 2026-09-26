@@ -188,7 +188,8 @@ Platterpus/
         ├── report_types.py              # the .platterpus.json shape, as TypedDicts (schema v9)
         ├── report_artifacts.py          # embed a rip's companion text files inside the JSON report
         ├── update_check.py              # "is a newer release published?" (self-update, KDD-17b)
-        ├── update_install.py            # download + checksum-verify + atomic self-install (KDD-17b)
+        ├── update_install.py            # download + checksum + attestation verify + atomic self-install (KDD-17b)
+        ├── update_attestation.py        # verify a release's Sigstore build attestation before it installs (KDD-37)
         ├── update_signing.py            # verify a release's minisign signature — the authenticity gate (KDD-26)
         ├── drive_access.py              # diagnose no-drive cause (no_device / permission / ok)
         ├── drive_control.py             # eject + force-stop a runaway drive on cancel (Critical Rule #3)
@@ -210,6 +211,7 @@ Platterpus/
         │   ├── run_sizes.py            # Quick / Standard / Full, nested by construction; only Full is evidence
         │   └── find_script.py          # resolve a typed script path, ignoring case/separators
         ├── settings_validation.py       # pure Settings/Config input validation (type/range/charset/format)
+        ├── tag_hygiene.py               # replace control characters in tag-only fields, and say which (D14)
         ├── sleep_inhibit.py             # hold off sleep/idle/lid for an unattended run (probe, then adopt)
         ├── test_session.py              # plan/prepare/collect an in-app acceptance session into ONE sendable file
         ├── rig_scripts/                 # the acceptance + situational test scripts, shipped INSIDE the package
@@ -217,6 +219,7 @@ Platterpus/
         ├── one_frame_match.py           # what cyanrip's `Accurip 450` match is (ONE frame), in the words every surface uses
         ├── album_loudness.py            # what the ripper's "Album" loudness rows were measured over (whole disc, or only what was read)
         ├── container_scope.py           # keep the ripping container off our own systemd unit; name who owns it (--doctor)
+        ├── inbound_text.py              # screen dependency output before it is shown or stored (Critical rule #12, inbound)
         ├── tool_paths.py                # resolve an external tool off PATH (~/.local/bin distrobox exports)
         ├── read_speed_ladder.py         # adaptive read-speed ladder decision logic (pure, never-raises)
         ├── rip_report.py                # machine-readable `.platterpus.json` rip report (pure, never-raises)
@@ -407,11 +410,14 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`naming.py`** — file-naming presets (the `%`-token path templates for the rip's folder+file layout) plus a pure `render_preview()` so the Settings dialog shows the exact filename before the user commits.
 - **`goal_presets.py`** — the three rip "goal" presets (Fast Verified / Archival Exact / Portable); each just bundles existing `Config` fields (progressive disclosure — the rip still reads the individual fields, presets are never a new code path).
 - **`settings_validation.py`** — the pure validator for Settings/Config inputs (type, range, character set, format) — the "validate every input" boundary; returns a list of `ValidationIssue`, no Qt and no persistence, so tests assert against it directly (Code conventions).
+- **`tag_hygiene.py`** — the pure half of maintainer decision D14: in the seven tag fields that only ever become tags (genre, label, catalog number, barcode, year, ISRC, release id — MusicBrainz data the user cannot edit), each control character becomes a space, and `clean_tag_only_fields` returns what it changed. The argv chokepoint (`_metadata_args`) applies it so nothing reaches cyanrip unreplaced; the rip-finish path applies it to the same metadata to fill `disc.tag_control_characters_replaced` (report v28). The four path-bearing fields are left alone, because they still refuse a control character; both rules use `settings_validation.is_control_char`.
 - **`sleep_inhibit.py`** — holds sleep, idle and lid-suspend off for the duration of an unattended run, and reports **tri-state** whether it managed to (`held` / `unavailable` / `not_installed`) because a missing tool and a refused lock need different advice. It **probes then adopts**: `systemd-inhibit` is frequently present and non-functional (no session bus over ssh or cron; no polkit privilege on a CI runner), so the capability is measured by running the real thing over `true` rather than inferred from the binary existing — and the probe asks for *byte-identical* `--what` to the real lock, which the shell version got wrong once. Moved here out of `platterpusovernight.sh` (2026-08-28) so the program holds its own lock.
 - **`test_session.py`** — the Qt-free core of an in-app acceptance session: decide the folder layout (`plan_session` is **pure**, so it is assertable without a filesystem), create it, gather the sources, and pack **one** file for the operator to send. The archive itself is delegated to `evidence_bundle.build_bundle` rather than reimplemented, so the text-extension allowlist, the manifest that names every omission and the never-raises contract are inherited, not restated. This is what lets the GUI absorb what three shell scripts used to hand back.
-- **`update_signing.py`** — ed25519 (minisign-format) verification of a release's signature, used **fail-closed** by `update_install.py`: a present-but-invalid signature aborts the update (KDD-26). Dormant until `PUBLIC_KEY_B64` is baked in; until then the gate is SHA-256 only, which `SECURITY.md` states plainly.
+- **`update_attestation.py`** — the adapter over `sigstore` (the only module that imports it, lazily): verifies a release's build-provenance attestation, **fail-closed**, before `update_install.py` swaps an update in. It passes only if the certificate was issued by GitHub Actions to `.github/workflows/release.yml` in this repository, run from `main` or from the release's own tag, and the signed statement names the downloaded file's SHA-256. Every answer is an `AttestationResult` (`verified` / `refused` / `not_checked`), never an exception. `TrustRefresh` starts Sigstore's trust-root refresh on a daemon thread before the download and waits for it a bounded time, falling back to the cached root. `release.yml` stages the asset with the same `select_verified`, so what a release publishes is what the updater accepts (KDD-37, D9; added 2026-09-25).
+- **`update_signing.py`** — ed25519 (minisign-format) verification of a release's signature, used **fail-closed** by `update_install.py`: a present-but-invalid signature aborts the update (KDD-26). Dormant, and will stay so: the maintainer decided on 2026-09-25 never to arm it (KDD-37, D9), and the build attestation above is the authenticity check instead.
 - **`tool_paths.py`** — one search order for every external binary: `PATH`, then `~/.local/bin` (where `distrobox-export` puts the container's tools), then the usual system directories, then the bare name. A GUI launched from a desktop icon does not inherit a login shell's `PATH`, so without this the wizard could report a tool installed while the dependency probe reported it missing.
 - **`verdict.py`** — the single, pure, Qt-free AccurateRip "is this rip trustworthy?" whole-disc verdict, so every surface (results-pane banner, JSON report) shares one definition; builds on `parsers/rip_log.track_accuraterip_verified` (confidence ≥ 1).
+- **`inbound_text.py`** — the inbound half of Critical rule #12, which the rule described and no code did until 2026-09-25. `screen_line` turns control characters and NULs into visible `\xNN` escapes, bounds a line at `MAX_LINE_CHARS` (head and tail kept, the elision marked with its count), and counts U+FFFD, which is what a byte that was not UTF-8 becomes now every text-mode pipe sets `errors="replace"`. For display and storage only: parsers read the raw line. `Tally` totals a stream, so the rip worker's captured output ends with a line saying what screening changed. Pure, never raises. `tests/test_inbound_text.py`, which also sweeps every text-mode subprocess read for an `errors=` policy.
 - **`container_scope.py`** — where the `ripping` container's monitor process (`conmon`) lives, and keeping it out of our own systemd unit. podman leaves `conmon` in the caller's cgroup while `INVOCATION_ID` is set (`containers/podman@5866b09:libpod/oci_conmon_linux.go:183-186`), and KDE runs every app as a service that has it, so a container any of our Distrobox exports started belonged to that window and died when its unit ended. That is what killed section F's rip on 2026-09-23. `release_launcher_unit_hold` removes the variable at the top of `app.main`, before anything spawns; `container_owner` reads `/proc` (read-only, never raises) so `--doctor` can name the app or terminal that owns a running container. It never starts, stops or enters the container (Critical rule #3). `tests/test_container_scope.py`, with the rig reproduction in `docs/testing.md` §5.bt.
 - **`one_frame_match.py`** — what cyanrip's `Accurip 450` match establishes, and the one wording every surface uses for it. Derived from the fork's source: the checksum covers **one frame** (frame 450, six seconds in) and is printed only after both whole-track checksums missed, so a match means one frame agrees with a well-confirmed submission and the track as a whole matches none. For two months this project called it "an offset-variant pressing" and "usually fine", which was wrong on the mechanism (a shifted pressing would move frame 450 too; a submitted pressing would match on its own whole-track entry) and wrong in practice (section J's track 1 on 2026-09-24 held wrong audio and passed it). The words say what matched and name no cause. `tests/test_one_frame_match.py` sweeps every surface against the real section J log. The EAC-compatible log is deliberately left out: both projects agreed in round 7 that neither rewords it unilaterally, so its new wording goes through round 27.
 - **`album_loudness.py`** — what cyanrip's four album loudness rows (`Album integrated loudness (R128):` and siblings, or FFmpeg's summary block as a fallback) were measured over, and the label they get. The rows cover whatever audio was read, so on a `-l` rip or an interrupted one they are not the album's: the fork found an "Album integrated loudness" for 40% of one track (round 26 lap 4, `cancel-me.log:75`). Coverage is derived from the same log's `Rip completed:` footer and `Interrupted at:` line, tri-state (`whole_disc` / `part_of_disc` / `not_determined`), and reaches the report as `album_loudness_covers` (schema v26) and the results pane as the line's label. Needs nothing from the fork. `tests/test_album_loudness.py` reads the three real 2026-09-24 logs that show the three states.
@@ -1379,3 +1385,85 @@ a goal, not polish — which raises, not lowers, the bar for what may go in it. 
 field must be something we *observed*, the tri-state rule applies to all of it, and
 a gap is recorded as a gap rather than filled with a plausible value. That is the
 only way a format earns the standing this KDD aims at.
+
+### KDD-37 — Fifteen maintainer rulings on product, release and seam questions (decided 2026-09-25)
+
+**Context.** The 2026-09-25 TASKS triage found fifteen rows that only the maintainer
+could settle. They were put as questions with options, their ups and downs, and a
+recommendation (`TASKS.md` → *Maintainer decisions D1–D15*, where each one's full
+options are kept). The maintainer answered all fifteen the same day. Recorded here
+because several of them change what the code will do, and three differ from the
+recommendation, which is exactly when the reason has to survive.
+
+| # | Question | Ruling |
+|---|---|---|
+| D1 | May a new cyanrip build reach stable before a round reviews it? | **No.** Beta first; stable only after a round reviews it. Proposed to the fork as v7 release-ordering text. |
+| D2 | Tag-key casing | **Uniform capitals, written by cyanrip**, with both `DISCTOTAL` and `TOTALDISCS`. A tag-format change, so it costs a round; that cost is accepted and the ruling is firm. |
+| D3 | Where "Copy diagnostics…" lives | **Help**, where people look when something is wrong. |
+| D4 | The testing items in Tools | **A Tools → Advanced ▸ submenu.** Uninstall stays visible. |
+| D5 | How the app learns a build accepts `--consumer` | **Ask the binary**: read `cyanrip -h`, cached per build; send no flag when it cannot be read. Replaces the shipped accept-set. |
+| D6 | May the Goal label describe settings no preset controls? | **No.** Rename the presets to descriptive names, and show state outside every preset on its own line. Stored goal IDs do not change. |
+| D7 | CHANGELOG entries for versions with no GitHub tag | **Mark them as history and remove the dead links.** Done the same day. |
+| D8 | Measure the read offset with `-f`? | **Yes, as a cross-check**, and as the answer for a drive missing from the AccurateRip list. Both values shown, never a silent overwrite; hardware-validated before it ships. |
+| D9 | When to arm update signing | **Never.** Asked the follow-up, the maintainer said yes to checking the build attestation in the updater instead, fail-closed (built the same day). |
+| D10 | README screenshots | **From the next Full run's bundle**, two picked and approved. |
+| D11 | Where the automatic re-rip's own log goes | **Inside the rip's `.platterpus.json`.** No second `.log` in the album folder. |
+| D12 | Hide the test-script console behind a setting? | **No.** Keep today's arrangement; it moves under Advanced with D4. |
+| D13 | What a cancelled rip says about itself | **The JSON report only.** cyanrip's log stays exact; no sidecar. |
+| D14 | A control character in a MusicBrainz-only tag | **Replace it with a space and record the change in the report.** The four path fields still refuse. |
+| D15 | Should a beta stop being offered? | **Yes, when its round closes or a newer beta appears.** |
+
+**The three that differ from the recommendation, and what was accepted with them.**
+
+- **D2 (recommended A, keep the casing and document it).** **Firm, and not up for
+  negotiation with the fork**: told they might push back because it costs them a
+  round, the maintainer said *"dont let them, this is important."* So it is sent as
+  a ruling with its cost accepted; the fork shapes how and when, not whether, and a
+  refusal goes back to the maintainer rather than being traded away in a lap.
+  Accepted: one handshake round for a change nothing needed functionally, and a
+  library whose earlier rips differ from later ones. Bought: tags that match EAC and Picard key for key, which
+  is what makes a diff against an EAC rip of the same disc readable. Our side's
+  obligation before it lands: check that nothing of ours reads a tag key
+  case-sensitively (the folder prediction in `known_album_folder` included).
+- **D8 (recommended leaving it until after 1.0).** Accepted: a new parser and a
+  hardware test on the setup path now. Bought: a drive missing from the AccurateRip
+  list gets a measured offset rather than a typed one, and a wrong list entry gets
+  caught. The 2026-06 removal was for silently overwriting the offset, and that is
+  forbidden by the ruling itself.
+- **D9 (recommended arming just before 1.0.0).** Accepted: an update is only as
+  trustworthy as whoever can publish a release. The app checks a SHA-256 fetched from
+  the same release, which proves the download is intact and not who published it; the
+  build-provenance attestation is published for a person to check, and the updater does
+  not check it. (The question put to the maintainer said the attestation protected
+  updates. It did not, and the correction is recorded under D9 in `TASKS.md`.)
+  **Follow-up, same day: the maintainer said yes** to verifying the attestation in
+  the app, which needed a new dependency (`sigstore`, `DEPENDENCIES.md`). The
+  updater now refuses an update unless Sigstore confirms it was built by this
+  repository's `release.yml`, from `main` or the release's tag, and the signed
+  statement names the downloaded file (`update_attestation.py`). What that still
+  leaves: anyone able to push to `main` can run the release workflow, and `main` is
+  unprotected by a separate ruling, so the check proves a build is traceable to a
+  public commit, not that the commit was reviewed. Bought: releases stay
+  unattended from a session, and no key exists that can be lost, which would end
+  updates for good. The verify side stays in the code, dormant, so the decision can
+  be reversed by the ritual in `docs/architecture.md` §6.2 without rediscovering it.
+
+**Consequence.** D3, D9 and D12 need nothing built, D7 is done, and the rest are
+ready-to-build rows in `TASKS.md`, each naming its decision. One new question came out
+of recording D9, whether to verify the attestation inside the updater, and the
+maintainer said yes; it is built.
+
+### KDD-38 — Four rulings from the property-test sweep (decided 2026-09-25)
+
+**Context.** The property tests and the small-rows sweep of 2026-09-25 left four questions
+only the maintainer could settle (`TASKS.md` → *Maintainer decisions D16–D19*, where each
+one's options are kept). The maintainer took the recommendation on all four.
+
+| # | Question | Ruling |
+|---|---|---|
+| D16 | A line shaped like EAC's signature, from album metadata, in our EAC-style log | **Neutralise it when the log is written** and record the change in the rip report; the rip continues. The honesty line of KDD-24 is "never forge EAC provenance", and a metadata value is not allowed to forge it on our behalf. |
+| D17 | A Settings check that crashes | **A warning, not a pass and not an error**: keep the value, show that it could not be checked, log the full error. Failing closed would reset a correct setting, the read offset included, whenever a validator has a bug. |
+| D18 | `%N` / `%M` in a template | **They work everywhere**: Settings accepts them, the preview shows the number, and the backend fills them in from the disc position it sends as `-c`. Not left to cyanrip's `{disc}`, which renders its own name when no disc number was sent. |
+| D19 | The session branch | **Merge once CI is green; release when round 27 closes.** The held round-27 EAC wording is reverted on the branch so the merge cannot carry it. |
+
+**Consequence.** D16, D17 and D18 were built the same day; D19 is PR #253.

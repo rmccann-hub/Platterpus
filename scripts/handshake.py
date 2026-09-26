@@ -896,7 +896,8 @@ def emit_outbound(round_number: int) -> str:
     # from this list, so the next added field cannot go missing here quietly.
     header = "\n".join(
         [
-            f"HANDSHAKE-PROTOCOL: {PROTOCOL_VERSION}",
+            # What we DECLARE, not what we implement: v6 §14 separates the two.
+            f"HANDSHAKE-PROTOCOL: {DECLARED_PROTOCOL}",
             f"HANDSHAKE-ROUND: {round_number}",
             "HANDSHAKE-LAP: 1",
             "HANDSHAKE-FROM: platterpus",
@@ -962,6 +963,22 @@ def emit_outbound(round_number: int) -> str:
             f"HANDSHAKE-PEER-PIN: {_fork_pin()}",
             "HANDSHAKE-PEER-PIN-SOURCE: <where you read it, and whether you "
             "RESOLVED it in their tree or merely transcribed it>",
+            # THE FIELDS WE HAD BEEN TYPING BY HAND. Every lap since round 9 has
+            # carried the first, and every lap since round 22 the other two, written
+            # from memory because the skeleton did not emit them — so a lap's shape
+            # depended on which earlier lap its author copied. Row C23 (HELD on a
+            # round >= 9 file), v6 K2 (OBSERVED beside it) and row C44 (the ledger
+            # on a GO file declaring 6) are now enforced by `--check`, so the
+            # skeleton must carry them or it fails its own checker.
+            f"{INBOUND_HELD_FIELD}: <each RELEASED peer lap of this round you hold: "
+            "its filename, its declared verdict, its sha256 and byte count — or "
+            "`none`>",
+            f"{INBOUND_OBSERVED_FIELD}: <each peer lap of this round you can see "
+            "that is NOT released: its filename and the commit you read it at, and "
+            "no hash — or `none`>",
+            f"{AGREED_CHANGES_FIELD}: <every change this round agreed, and every "
+            "`not landed` entry an earlier round's ledger carried: the commit that "
+            "landed it, or `not landed` and whose it is — or `none`>",
             "CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ <commit>",
         ]
     )
@@ -1167,7 +1184,27 @@ _FENCE_BLOCK = re.compile(
 #: because the round-24 rehearsal measured what staying at 4 would do: a peer lap
 #: declaring 5 was refused by ``--check``, and — worse — closed a round anyway on the
 #: gate path, which never asked the version question. See :func:`round_status`.
-PROTOCOL_VERSION: int = 5
+#:
+#: **6 since 2026-09-25** (§5e and rows C43–C45, the amended C13a, the K2 field
+#: split). Both of v6 §14's conditions for *implementing* it hold: the shared file is
+#: byte-identical in both trees (sha256 ``05abdfde…``, compared against
+#: ``cyanrip@3ad160f:docs/handshake/PROTOCOL.md``), and the fork's gate implements 6
+#: from ``cyanrip@643631b``, which their round 25 lap 5 said in a lap. Implementing
+#: is not *declaring* — see :data:`DECLARED_PROTOCOL`.
+PROTOCOL_VERSION: int = 6
+
+#: The protocol version OUR laps declare, which may trail :data:`PROTOCOL_VERSION`.
+#:
+#: v6 §14: *"Neither side declares 6 until both have said, in a lap, that their gate
+#: implements it."* The fork has said it (round 25 lap 5, *"Our gate implements
+#: protocol 6, from 643631b … This is our half"*); we have not yet, because no lap of
+#: ours has been released since our gate reached 6. So a lap emitted today still
+#: declares 5, and is read by the rules both gates implement. **Raise this to 6 in the
+#: commit after our first released lap that says our gate implements 6** — that lap
+#: itself declares 5, the same order the fork took. Held apart from
+#: :data:`PROTOCOL_VERSION` because the two answer different questions: what this gate
+#: can read, and what we have told the other side it can read.
+DECLARED_PROTOCOL: int = 5
 
 #: Sentinel for a field declared more than once with conflicting values. A real
 #: value can never equal it, and every consumer treats it as "not closed".
@@ -1872,6 +1909,13 @@ def close_blockers(text: str, round_hint: int | None = None) -> list[str]:
         elif value == AMBIGUOUS:
             blockers.append(f"{key} declared more than once (§2 rule 3)")
     blockers.extend(evidence_blockers(fields))
+    # Rows C23 and K2 (what the lap says it holds) and C44 (the §5e ledger). C23 is a
+    # v3/v4 row and binds on a closing file exactly as C9's identity fields do; the
+    # grandfathered rounds predate it. C45 is the other half of C44 and is why the
+    # ledger's CONTENT is never read here.
+    if not grandfathered:
+        blockers.extend(inbound_field_problems(text, num))
+    blockers.extend(agreed_changes_blockers(text))
     peer = fields.get("HANDSHAKE-PEER-VERDICT")
     if peer is not None and peer != AMBIGUOUS and peer.split()[:1] != [AFFIRMATIVE]:
         # "They did not object" is never "they agreed" — and the peer verdict is
@@ -2098,6 +2142,121 @@ def v5_field_problems(text: str) -> list[str]:
         elif value == AMBIGUOUS:
             problems.append(f"{key} declared more than once (§2 rule 3)")
     return problems
+
+
+# --- Protocol v6: what a lap says it holds, and what the round agreed ---------
+#
+# Three fields both sides have written into every lap for rounds, and which this gate
+# never read: `HANDSHAKE-INBOUND-HELD` (row C23, a v3/v4 row, binding since round 9),
+# its v6 companion `HANDSHAKE-INBOUND-OBSERVED` (K2), and v6's
+# `HANDSHAKE-AGREED-CHANGES` (§5e, rows C44/C45). The first went unenforced for
+# eighteen rounds because the coverage check exempted every v3/v4 row as "pending"
+# unconditionally (see `tests/test_handshake_conformance.py`); the fields were
+# carried by habit, and a habit is what the §5e paragraph says does not survive a
+# round boundary.
+
+#: §5a, row C23: every RELEASED peer lap of this round the writer holds.
+INBOUND_HELD_FIELD: Final[str] = "HANDSHAKE-INBOUND-HELD"
+#: v6 K2: peer laps the writer can see that are NOT released — a commit, and no hash.
+INBOUND_OBSERVED_FIELD: Final[str] = "HANDSHAKE-INBOUND-OBSERVED"
+#: v6 §5e: the agreed-change ledger.
+AGREED_CHANGES_FIELD: Final[str] = "HANDSHAKE-AGREED-CHANGES"
+
+#: Row C23: *"`HANDSHAKE-INBOUND-HELD` absent on a round ≥ 9 file → refuse"*.
+INBOUND_HELD_FROM_ROUND: Final[int] = 9
+
+#: The first protocol version whose files owe `-OBSERVED` (K2) and, on a `GO`, the
+#: ledger (C44). Keyed on the file's DECLARED version, the C29 reasoning: a file's
+#: version is a request to be read by that version's rules, so a lap declaring 5 is
+#: not failed for a v6 field.
+V6_FIELDS_FROM_PROTOCOL: Final[int] = 6
+
+#: Sent files that break row C23, pinned by sha256 of their exact bytes. **A ratchet:
+#: it may shrink and never grow**, and `tests/test_handshake_conformance.py` asserts
+#: each entry still exists and still lacks the field. A sent file is never edited
+#: (§4a: `SENT` is irreversible), so a historical miss is recorded, not repaired.
+#:
+#: ``verified/round-13-lap-03.md`` — our round-13 verification, which declares
+#: protocol 4 and omits the field. Found 2026-09-25 by the first run of this check
+#: over the record: the only file in rounds 9–27, on either side, without it.
+INBOUND_HELD_EXEMPT_SHA256: frozenset[str] = frozenset(
+    {"4c5dd6966ddf133ba7809326c80a59c1caf1434ffa4a4559f92814a4f6e8d4cd"}
+)
+
+
+def _declares(fields: dict[str, str], key: str) -> str | None:
+    """Why ``key`` is not usably declared, or None if it is.
+
+    Written out by the caller, so the refusal names the field (C44: *"refuse,
+    naming the field"*). An empty value is absent: `_WIRE_FIELD` needs a
+    non-space character, the same reading as the fork's ``(.+?)``.
+    """
+    value = fields.get(key)
+    if value is None:
+        return "absent"
+    if value == AMBIGUOUS:
+        return "declared more than once (§2 rule 3)"
+    return None
+
+
+def inbound_field_problems(text: str, round_hint: int | None = None) -> list[str]:
+    """Rows C23 and K2, on any verdict: what a lap must say it holds.
+
+    Any verdict, like C41: a lap that does not say what it holds cannot be
+    reconciled later, whatever it decided, and an opener's honest answer is
+    ``none``, which is a value.
+    """
+    fields = wire_fields(text)
+    problems: list[str] = []
+    num = round_hint if round_hint is not None else declared_round(text)
+    exempt = (
+        hashlib.sha256(text.encode("utf-8")).hexdigest() in INBOUND_HELD_EXEMPT_SHA256
+    )
+    if num is not None and num >= INBOUND_HELD_FROM_ROUND and not exempt:
+        why = _declares(fields, INBOUND_HELD_FIELD)
+        if why is not None:
+            problems.append(
+                f"{INBOUND_HELD_FIELD} is {why} on a round {num} file (row C23) — "
+                "`none` is a legal value and is written out; silence about what you "
+                "hold is the failure this field exists for"
+            )
+    version = declared_protocol(text)
+    if version is not None and version >= V6_FIELDS_FROM_PROTOCOL:
+        why = _declares(fields, INBOUND_OBSERVED_FIELD)
+        if why is not None:
+            problems.append(
+                f"{INBOUND_OBSERVED_FIELD} is {why} on a file declaring "
+                f"HANDSHAKE-PROTOCOL: {version} (v6 K2) — a peer lap you can see "
+                "but that is not released goes here, with the commit and no hash, "
+                "and `none` is written out"
+            )
+    return problems
+
+
+def agreed_changes_blockers(text: str) -> list[str]:
+    """Row C44: a GO file declaring 6 or later must carry the §5e ledger.
+
+    **Presence only, never content — row C45.** `none` closes, and so does a ledger
+    full of ``not landed`` entries: *"the ledger records delivery and does not gate
+    the close"*. A check that read the entries would turn a record of what is still
+    owed into a reason a correct round cannot close, which is the opposite of what
+    §5e was written for — K1–K3 went unbuilt because nothing carried them forward,
+    not because anything refused a close over them.
+    """
+    version = declared_protocol(text)
+    if version is None or version < V6_FIELDS_FROM_PROTOCOL:
+        return []
+    fields = wire_fields(text)
+    if (fields.get("HANDSHAKE-VERDICT") or "").split()[:1] != [AFFIRMATIVE]:
+        return []
+    why = _declares(fields, AGREED_CHANGES_FIELD)
+    if why is None:
+        return []
+    return [
+        f"a GO file declaring HANDSHAKE-PROTOCOL: {version} must declare "
+        f"{AGREED_CHANGES_FIELD}, and it is {why} (§5e, row C44) — `none` is "
+        "legal and is written out"
+    ]
 
 
 _SOURCE_NAMED_LAP: Final[re.Pattern[str]] = re.compile(r"round-0*\d+-lap-0*(\d+)")
@@ -2350,6 +2509,11 @@ def check_wire_header(path: Path, *, expect_from: str | None = None) -> list[str
 
     # Row C41, on any verdict: a file declaring 5 carries both peer-verdict fields.
     problems.extend(f"{path.name}: {p}" for p in v5_field_problems(text))
+    # Rows C23 and v6 K2, on any verdict: what the lap says it holds. The round comes
+    # from the filename, the same hint the close check uses for the grandfather.
+    problems.extend(
+        f"{path.name}: {p}" for p in inbound_field_problems(text, round_number(path))
+    )
 
     if expect_from and fields.get("HANDSHAKE-FROM") not in (None, expect_from):
         problems.append(
@@ -2733,6 +2897,424 @@ def _round_files(directory: Path, number: int) -> list[Path]:
     )
 
 
+def _grade_round(
+    name: str, num: int, sent: list[Path], back: list[Path], done: list[Path]
+) -> tuple[str, list[str]]:
+    """One round's state and its status lines, from exactly these files.
+
+    Extracted from :func:`round_status` unchanged (2026-09-25) so row C13a can grade
+    the round as it stood at an earlier lap by passing that lap's files, rather than
+    by a second implementation of what a close is — two readings of one rule is how
+    the two halves of one gate come to disagree.
+    """
+    lines: list[str] = []
+    # A ROUND WHOSE FILES CANNOT BE ORDERED IS OPEN, and the reason is named.
+    #
+    # Both blockers are states in which "the newest file" is not a well-defined
+    # question (`ordering_blockers`), and in both the wrong answer is the
+    # permissive one — a file that sorts oldest by omission, or one that sorts
+    # last on the strength of a round it does not belong to. Reported before the
+    # verdicts are read, because the verdicts are read *off the ordering*.
+    unorderable = ordering_blockers([*sent, *back, *done])
+
+    # The verdict comes from the NEWEST verification file for the round —
+    # `_round_files` sorts by `sort_key`, so a later lap supersedes the file it
+    # corrects. Reading the oldest would let a since-withdrawn GO keep a round
+    # closed.
+    # OUR NEWEST LAP SPANS BOTH OF OUR DIRECTORIES.
+    #
+    # **The fork's round-9 lap 11 §B corrected our diagnosis of the bug below and
+    # the correction opened a second hole.** We had said the outbound requirement
+    # hid for eight rounds "because we opened all eight"; every one of their nine
+    # round-8 laps declares `HANDSHAKE-OPENER: cyanrip`, and round-08-lap-01 is
+    # theirs. **They opened round 8 too.** What actually differs between rounds 8
+    # and 9 is where *our* reply was filed: round 8's went to `outbound/`, round
+    # 9's to `verified/`. Their words: *"a fix reasoned from it may not cover the
+    # case that actually fires."*
+    #
+    # They were right, and reading it made the symmetric hole visible: `verdict`
+    # came from `done` — `verified/` only — so a round whose newest lap of ours
+    # sits in `outbound/` reads its verdict from an older file, or from none at
+    # all, and can never close. Same coupling, other directory, and the first fix
+    # would not have caught it because it only removed the requirement without
+    # making the *reading* filing-agnostic.
+    #
+    # So: our contribution is every lap of ours in the round, `outbound/` and
+    # `verified/` alike, ordered by declared lap number. Where a lap is filed is
+    # local bookkeeping; it must not decide whether a round can close.
+    # **Tie-break on "declares a verdict", because merging the two directories
+    # created key collisions that did not exist when each was read alone.**
+    # `outbound/round-9.md` and `verified/round-9.md` have the SAME sort key —
+    # same round, both header-less so both `DEFAULT_LAP`, and identical stems —
+    # so which one landed last was arbitrary. A header-less legacy file winning
+    # the tie became "our newest lap" and reported no verdict, turning a closed
+    # round OPEN. Caught by `test_the_release_gate_blocks_a_release_while_a_round
+    # _is_open`, whose final assertion is the floor that the gate can still say
+    # yes — the reason that floor exists.
+    #
+    # A file that declares no verdict is not our latest *word*, so it loses a tie
+    # to one that does. Ordering is still by (round, lap) first; this only decides
+    # between files the primary key cannot separate.
+    def _states_a_verdict(path: Path) -> int:
+        text = _safe_read(path)
+        return 1 if (wire_verdict(text) or verification_verdict(text)) else 0
+
+    ours = sorted([*sent, *done], key=lambda p: (sort_key(p), _states_a_verdict(p)))
+    # Names of laps that DECLARE a verdict the operator has not released. Kept so
+    # the status line can distinguish "said nothing" from "said something we have
+    # not stood behind" — see the comment at the assignment below.
+    our_held: str | None = None
+    their_held: str | None = None
+    verdict: str | None = None
+    if ours:
+        our_text = ours[-1].read_text(encoding="utf-8")
+        # The shared header is authoritative (protocol §8). Our own bolded
+        # prose form is the fallback, and only for rounds that predate the
+        # format — otherwise the two representations could disagree and the
+        # older, looser one would win.
+        verdict = wire_verdict(our_text)
+        # A LAP THE OPERATOR HAS NOT RELEASED DOES NOT SPEAK FOR US.
+        #
+        # Writing a verdict and standing behind it are two acts (maintainer
+        # directive, 2026-09-14). A lap sitting in the tree marked
+        # `HANDSHAKE-READY-TO-READ: no` is a draft, and a draft must not close a
+        # round — otherwise committing a file is enough to release, which is the
+        # whole thing the directive separates.
+        #
+        # Recorded on `our_held` rather than silently dropped, because the status
+        # line has to say WHICH reason it is reporting: "no verdict" and "a
+        # verdict we have not released" are different states, and a gate that
+        # renders them identically sends the reader looking for a missing file.
+        if verdict is not None and not is_released_for_reading(
+            our_text, round_hint=num
+        ):
+            our_held = ours[-1].name
+            verdict = None
+        if verdict is None and num in OUR_PRE_HEADER_ROUNDS:
+            verdict = verification_verdict(our_text)
+        if verdict is None and num in RETROSPECTIVE_ROUNDS:
+            verdict = "GO"
+    # THEIR verdict, read from the newest inbound file for the round.
+    #
+    # **The handshake is affirmative and BILATERAL** (maintainer directive,
+    # 2026-08-04): *"Both of you should not make a new release until you are
+    # both happy with the handshake files."* Reading only our own verdict made
+    # their HOLD unable to block our release — which is the same
+    # one-half-of-a-two-half-contract error §7 of the protocol already records
+    # twice, arriving a third time. Their lap-2 file declares
+    # `HANDSHAKE-VERDICT: HOLD` at column 0; nothing here was reading it.
+    theirs: str | None = None
+    if back:
+        their_text = back[-1].read_text(encoding="utf-8")
+        theirs = wire_verdict(their_text)
+        # THE SAME RULE IN THE DIRECTION IT MATTERS MOST. Under git transport we
+        # can read their tree before their operator has released a lap, so a file
+        # we *can* fetch is not automatically one we may act on. Reading a held
+        # lap and closing a round on it would make their draft our decision.
+        if theirs is not None and not is_released_for_reading(
+            their_text, round_hint=num
+        ):
+            their_held = back[-1].name
+            theirs = None
+        if theirs is None and num in THEIR_PRE_HEADER_ROUNDS:
+            theirs = "GO"
+    # A round closes on BOTH VERDICTS, not on the files existing. Round 7 is
+    # the case that proved the first half matters: its verification is a
+    # deliberate mid-round HOLD ("your §15 asked us to hold"), and a
+    # presence-only check reported it CLOSED and let `--release-gate` pass —
+    # while the deviation policy forbids releasing or moving the pin with a
+    # round open. A gate that a HOLD satisfies is not a gate (CLAUDE.md: *can
+    # this check be satisfied by the wrong thing?*).
+    # A GO that cannot close is not a close (§5). Reading only the verdict is
+    # what let a round-8 file with no identity fields close — see
+    # `close_blockers`. Checked on BOTH sides' newest file.
+    # `close_blockers` is a check on a §5 *header*, so it only applies to rounds
+    # that have one. The pre-header rounds state their verdict in prose, and
+    # running the header check over them reported "no HANDSHAKE-VERDICT
+    # declared" for every closed round in the record — the grandfather clause
+    # defeated by the very absence it exists to permit. Second time in one
+    # change: the first was keying the exemption on a field those files lack.
+    pre_header = num in (OUR_PRE_HEADER_ROUNDS | THEIR_PRE_HEADER_ROUNDS)
+    our_blockers: list[str] = []
+    their_blockers: list[str] = []
+    if not pre_header:
+        if ours:
+            our_blockers = close_blockers(
+                ours[-1].read_text(encoding="utf-8"), round_hint=num
+            )
+        if back:
+            their_blockers = close_blockers(
+                back[-1].read_text(encoding="utf-8"), round_hint=num
+            )
+    # DISCHARGE A STALE PEER TRANSCRIPTION — the ONE blocker that a correct
+    # round can be unable to clear. See `close_blockers` for why `OPEN` is not
+    # an objection. Two conditions, both required, and each one is the reason
+    # the other is not enough on its own:
+    #
+    #   * **Our own verdict is GO** — read first-hand from our own newest file,
+    #     not from their copy of it. A stale mirror must never outrank the
+    #     original it is a mirror of; that is the whole defect.
+    #   * **Our closing lap came AFTER theirs.** This is what makes their
+    #     `OPEN` *stale* rather than *wrong*. If our GO predated their file and
+    #     they still transcribed `OPEN`, the two sides disagree about what we
+    #     said — a real discrepancy, and it must still block.
+    #
+    # Laps are read from `HANDSHAKE-LAP` via `_lap_of`, header-first, so this
+    # cannot be steered by a filename. An undeterminable lap on either side
+    # leaves the blocker standing: the discharge needs positive evidence of the
+    # ordering, and "I could not tell" is not that. Fail-closed, as everywhere
+    # else in this gate.
+    # PROTOCOL v5 — a closing file that declares 5 has its peer verdict RESOLVED
+    # under §5b instead of taken from its transcription alone. Only a file whose
+    # own verdict is GO is attempting a close; resolving a peer verdict for an
+    # OPEN or HOLD lap answers a question nobody asked, and printing "cannot be
+    # resolved" under an opener reads as a fault (it did, in the rehearsal). The v4
+    # transcription blocker is replaced, not added to: §5b is the rule that
+    # decides it for such a file. Files declaring 4 or less keep v4 semantics,
+    # including the stale-transcription discharge just below.
+    v5_notes: list[str] = []
+    # (peer's closing file, our newer lap it does not list) — set only when the
+    # peer's close was decided by §5b step 3. See CLOSED_ONE_LAP_EARLY_NOTE.
+    closes_early_on: tuple[Path, Path] | None = None
+    if not pre_header:
+        # A file refused on version grounds is refused first and alone — the
+        # same rule `check_wire_header` applies: grading it under v5 would report
+        # problems against rules we may be applying wrongly, and would let the
+        # version refusal hide behind a v5 blocker (it did, in the first version
+        # of the C15 gate test — the revert probe caught it).
+        if (
+            ours
+            and protocol_refusal(_safe_read(ours[-1])) is None
+            and is_v5_file(_safe_read(ours[-1]))
+            and wire_verdict(_safe_read(ours[-1])) == AFFIRMATIVE
+        ):
+            resolution = resolve_peer_verdict(
+                ours[-1], back, peer_from="cyanrip-fork", round_num=num
+            )
+            our_blockers = [b for b in our_blockers if not _is_peer_verdict_blocker(b)]
+            our_blockers += v5_field_problems(_safe_read(ours[-1]))
+            our_blockers += list(resolution.blockers)
+            v5_notes += list(resolution.notes)
+            v5_notes += [f"{SOURCE_LINE_PREFIX}{b}" for b in resolution.blockers]
+        if (
+            back
+            and protocol_refusal(_safe_read(back[-1])) is None
+            and is_v5_file(_safe_read(back[-1]))
+            and wire_verdict(_safe_read(back[-1])) == AFFIRMATIVE
+        ):
+            resolution = resolve_peer_verdict(
+                back[-1], [*sent, *done], peer_from="platterpus", round_num=num
+            )
+            their_blockers = [
+                b for b in their_blockers if not _is_peer_verdict_blocker(b)
+            ]
+            their_blockers += v5_field_problems(_safe_read(back[-1]))
+            their_blockers += list(resolution.blockers)
+            v5_notes += list(resolution.notes)
+            v5_notes += [f"{SOURCE_LINE_PREFIX}{b}" for b in resolution.blockers]
+            if resolution.superseded and resolution.source is not None:
+                closes_early_on = (back[-1], resolution.source)
+    # ROW C15 ON THE GATE PATH — see `refused_round_files`.
+    refused = refused_round_files([*sent, *back, *done])
+    our_lap = _lap_of(ours[-1]) if ours else None
+    their_lap = _lap_of(back[-1]) if back else None
+    if (
+        PEER_VERDICT_NOT_YET_SPOKEN in their_blockers
+        and verdict == AFFIRMATIVE
+        and our_lap not in (None, AMBIGUOUS_LAP)
+        and their_lap not in (None, AMBIGUOUS_LAP)
+        and our_lap > their_lap  # type: ignore[operator]  # both are ints here
+    ):
+        their_blockers = [b for b in their_blockers if b != PEER_VERDICT_NOT_YET_SPOKEN]
+    both_go = (
+        verdict == "GO"
+        and theirs == "GO"
+        and not our_blockers
+        and not their_blockers
+        and not unorderable
+        and not refused
+    )
+    # OUR CONTRIBUTION IS A LAP OF OURS, WHEREVER IT LIVES — not an outbound file.
+    #
+    # **This condition could not be satisfied by a round the PEER opened, and
+    # round 9 is the first one.** Protocol v4 §1a — adopted in round 9 itself —
+    # says *the provider opens, because only the provider can mint the unit of
+    # work*. When they open, we never write an opening file: every lap of ours is
+    # a verification, and verifications live in `verified/`. So `sent` was empty
+    # for the whole round, and `--status` reported round 9 `OPEN` with **both
+    # sides declaring GO** — a gate condition no correctly-shaped peer-opened
+    # round can ever meet, which would have blocked every release indefinitely.
+    #
+    # Invisible for eight rounds because we opened all eight, so `outbound/` was
+    # always non-empty and the coupling never showed. The same shape the fork
+    # found in their own gate one lap earlier (round 9 lap 7 §C): a gate reading
+    # the wrong directory. Theirs failed **open** and permitted a release it
+    # should have refused; ours failed **closed** and refused one it should have
+    # permitted. Fail-closed is the right direction to be wrong in, and it is
+    # still wrong.
+    #
+    # `done` rather than `sent or done`: `both_go` already requires `verdict`,
+    # which is read from `done[-1]`, so a round cannot reach here with our GO and
+    # no verification file. Naming `done` states the real requirement instead of
+    # accepting either.
+    state = "CLOSED" if (ours and back and both_go) else "OPEN"
+
+    def shown_verdict(value: str | None, held: str | None = None) -> str:
+        if value is None:
+            # HELD IS NOT SILENCE. Without this the line reads `we-verified=NO`
+            # for a lap that plainly declares GO, and the next reader goes looking
+            # for a missing file. Name the lap, so the fix (`--announce`) is
+            # obvious from the output rather than from reading this function.
+            if held is not None:
+                return f"NO (written in {held}, NOT released to read)"
+            return "NO"
+        return "yes (GO)" if value == "GO" else f"yes ({value} — not closed)"
+
+    lines.append(
+        f"{name}: sent={'yes' if sent else 'NO'} "
+        f"returned={'yes' if back else 'NO'} "
+        f"we-verified={shown_verdict(verdict, our_held)} "
+        f"they-verified={shown_verdict(theirs, their_held)}  -> {state}"
+    )
+    # Named, not merely counted: a gate that refuses without saying which file
+    # and which rule is a gate people route around.
+    lines.extend(f"  cannot order {problem}" for problem in unorderable)
+    # Ends in ")" by construction — `protocol_refusal` ends "(§3)" — so a
+    # refusal line is never itself counted as an open round by the gate.
+    lines.extend(f"  refused {problem}" for problem in refused)
+    lines.extend(v5_notes)
+    if state == "CLOSED" and closes_early_on is not None:
+        peer_file, our_file = closes_early_on
+        lines.append(
+            SOURCE_LINE_PREFIX
+            + CLOSED_ONE_LAP_EARLY_NOTE.format(
+                name=name,
+                peer_file=f"{peer_file.parent.name}/{peer_file.name}",
+                our_file=f"{our_file.parent.name}/{our_file.name}",
+            )
+        )
+    return state, lines
+
+
+#: Prefix of the line naming the lap at which a round became terminal (row C13a).
+#: Informational; never ends in ``OPEN``.
+TERMINAL_NOTE_PREFIX: Final[str] = "  §4a "
+
+#: Prefix of every row-C13a refusal: a later lap that declared a different verdict
+#: after the round closed. :func:`illegal_transition_blockers` reads these.
+ILLEGAL_TRANSITION_PREFIX: Final[str] = "  §4a illegal transition refused: "
+
+_ROUND_LINE: Final[re.Pattern[str]] = re.compile(r"^round-(\d+): ")
+_ILLEGAL_ROUND: Final[re.Pattern[str]] = re.compile(
+    re.escape(ILLEGAL_TRANSITION_PREFIX) + r"round-(\d+): "
+)
+
+
+def _terminal_at(
+    name: str,
+    num: int,
+    sent: list[Path],
+    back: list[Path],
+    done: list[Path],
+    full_state: str,
+) -> list[str] | None:
+    """Row C13a: once a round is CLOSED it stays CLOSED. None when that changes nothing.
+
+    §4a: *"any terminal → (nothing) — a terminal state is final"*, and C13a: a later
+    lap after the round reached a terminal state, *"declaring a verdict other than
+    the one that made it terminal"*, is refused **as a file**, and the round stays
+    in its terminal state. *"A later lap declaring the same verdict is not a
+    transition"* — under §5b the second side's closing lap follows the close on the
+    first side's gate, which is the amendment v6 made after the fork's replay found
+    six such laps in their record.
+
+    **Graded lap by lap, from the grading the gate already has.** The round is
+    graded as it stood at each lap in turn (:func:`_grade_round` on that lap's
+    files) until a lap closes it; everything after that lap is a candidate
+    transition. Until 2026-09-25 this gate read only the newest file on each side,
+    so a lap after a close became the round's new state — v2's reopen, which v3
+    removed — and C13a sat in the conformance suite's known-divergence list.
+
+    Returns None — the caller's full grading stands — when the round never closed
+    before its newest lap, when it closed and nothing after the close disagrees
+    (the output is then identical to what it was before this row existed), and
+    when the round cannot be graded lap by lap at all: pre-header rounds (graded by
+    their prose), unorderable files, and any file refused on version grounds (row
+    C43 refuses the whole round, and a closed prefix must not outrank it).
+    """
+    if num in (OUR_PRE_HEADER_ROUNDS | THEIR_PRE_HEADER_ROUNDS):
+        return None
+    files = [*sent, *back, *done]
+    if ordering_blockers(files) or refused_round_files(files):
+        return None
+    laps = {path: _lap_of(path) for path in files}
+    if AMBIGUOUS_LAP in laps.values():
+        return None
+    ordered = sorted(set(laps.values()))
+    # The newest lap's prefix is the full grading, which the caller already has.
+    for lap in ordered[:-1]:
+
+        def upto(paths: list[Path], lap: int = lap) -> list[Path]:
+            return [path for path in paths if laps[path] <= lap]
+
+        state, closed_lines = _grade_round(
+            name, num, upto(sent), upto(back), upto(done)
+        )
+        if state != "CLOSED":
+            continue
+        refusals: list[str] = []
+        for path in sorted((p for p in files if laps[p] > lap), key=sort_key):
+            text = _safe_read(path)
+            # A lap its operator has not released is a draft (§4a, K1): it was never
+            # sent, so it is not a transition. Nothing to refuse.
+            if not is_released_for_reading(text, round_hint=num):
+                continue
+            declared = wire_verdict(text)
+            if declared == AFFIRMATIVE:
+                continue  # the same verdict: not a transition
+            refusals.append(
+                f"{ILLEGAL_TRANSITION_PREFIX}{name}: {path.parent.name}/{path.name} "
+                f"declares {declared or 'no verdict'} after the round closed at lap "
+                f"{lap} (row C13a). The round stays CLOSED. New evidence opens a new "
+                "round, and a release waits until one exists (v6 leaves the release "
+                "effect to v7; this gate fails closed)"
+            )
+        if full_state == "CLOSED" and not refusals:
+            return None
+        return [
+            *closed_lines,
+            f"{TERMINAL_NOTE_PREFIX}{name} reached CLOSED at lap {lap}, and a terminal "
+            "state is final: graded as it stood then (row C13a)",
+            *refusals,
+        ]
+    return None
+
+
+def illegal_transition_blockers(lines: Sequence[str]) -> list[str]:
+    """The row-C13a refusals that hold a release: those with no later round yet.
+
+    **Why a later round releases the hold.** C13a keeps a closed round closed and
+    refuses the lap that tried to reopen it, so the objection has nowhere to live
+    until the next round opens — *"new evidence opens a new round"* (§4a). Until
+    then a release would ship past an objection the record carries, so it waits.
+    Once a later round exists, that round's own state governs a release, which is
+    where the objection belongs.
+
+    **Why not permanently.** The refused lap is sent, and a sent lap is never
+    edited, so a hold with no way out would be a wall on every future release.
+    v6 §14 leaves *"C13a's effect on a release"* to v7; this is our reading,
+    proposed to the fork in a lap, and it fails closed in the only window where
+    the objection is not already carried by an open round.
+    """
+    rounds = [int(m.group(1)) for ln in lines if (m := _ROUND_LINE.match(ln))]
+    newest = max(rounds, default=0)
+    return [
+        ln
+        for ln in lines
+        if (m := _ILLEGAL_ROUND.match(ln)) is not None and int(m.group(1)) >= newest
+    ]
+
+
 def round_status(root: Path | None = None, *, floor: int | None = None) -> list[str]:
     """Describe the state of every round found under ``docs/handshake/``.
 
@@ -2797,298 +3379,20 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         sent = _round_files(outbound, num)
         back = _round_files(inbound, num)
         done = _round_files(verified, num)
-        # A ROUND WHOSE FILES CANNOT BE ORDERED IS OPEN, and the reason is named.
-        #
-        # Both blockers are states in which "the newest file" is not a well-defined
-        # question (`ordering_blockers`), and in both the wrong answer is the
-        # permissive one — a file that sorts oldest by omission, or one that sorts
-        # last on the strength of a round it does not belong to. Reported before the
-        # verdicts are read, because the verdicts are read *off the ordering*.
-        unorderable = ordering_blockers([*sent, *back, *done])
-
-        # The verdict comes from the NEWEST verification file for the round —
-        # `_round_files` sorts by `sort_key`, so a later lap supersedes the file it
-        # corrects. Reading the oldest would let a since-withdrawn GO keep a round
-        # closed.
-        # OUR NEWEST LAP SPANS BOTH OF OUR DIRECTORIES.
-        #
-        # **The fork's round-9 lap 11 §B corrected our diagnosis of the bug below and
-        # the correction opened a second hole.** We had said the outbound requirement
-        # hid for eight rounds "because we opened all eight"; every one of their nine
-        # round-8 laps declares `HANDSHAKE-OPENER: cyanrip`, and round-08-lap-01 is
-        # theirs. **They opened round 8 too.** What actually differs between rounds 8
-        # and 9 is where *our* reply was filed: round 8's went to `outbound/`, round
-        # 9's to `verified/`. Their words: *"a fix reasoned from it may not cover the
-        # case that actually fires."*
-        #
-        # They were right, and reading it made the symmetric hole visible: `verdict`
-        # came from `done` — `verified/` only — so a round whose newest lap of ours
-        # sits in `outbound/` reads its verdict from an older file, or from none at
-        # all, and can never close. Same coupling, other directory, and the first fix
-        # would not have caught it because it only removed the requirement without
-        # making the *reading* filing-agnostic.
-        #
-        # So: our contribution is every lap of ours in the round, `outbound/` and
-        # `verified/` alike, ordered by declared lap number. Where a lap is filed is
-        # local bookkeeping; it must not decide whether a round can close.
-        # **Tie-break on "declares a verdict", because merging the two directories
-        # created key collisions that did not exist when each was read alone.**
-        # `outbound/round-9.md` and `verified/round-9.md` have the SAME sort key —
-        # same round, both header-less so both `DEFAULT_LAP`, and identical stems —
-        # so which one landed last was arbitrary. A header-less legacy file winning
-        # the tie became "our newest lap" and reported no verdict, turning a closed
-        # round OPEN. Caught by `test_the_release_gate_blocks_a_release_while_a_round
-        # _is_open`, whose final assertion is the floor that the gate can still say
-        # yes — the reason that floor exists.
-        #
-        # A file that declares no verdict is not our latest *word*, so it loses a tie
-        # to one that does. Ordering is still by (round, lap) first; this only decides
-        # between files the primary key cannot separate.
-        def _states_a_verdict(path: Path) -> int:
-            text = _safe_read(path)
-            return 1 if (wire_verdict(text) or verification_verdict(text)) else 0
-
-        ours = sorted([*sent, *done], key=lambda p: (sort_key(p), _states_a_verdict(p)))
-        # Names of laps that DECLARE a verdict the operator has not released. Kept so
-        # the status line can distinguish "said nothing" from "said something we have
-        # not stood behind" — see the comment at the assignment below.
-        our_held: str | None = None
-        their_held: str | None = None
-        verdict: str | None = None
-        if ours:
-            our_text = ours[-1].read_text(encoding="utf-8")
-            # The shared header is authoritative (protocol §8). Our own bolded
-            # prose form is the fallback, and only for rounds that predate the
-            # format — otherwise the two representations could disagree and the
-            # older, looser one would win.
-            verdict = wire_verdict(our_text)
-            # A LAP THE OPERATOR HAS NOT RELEASED DOES NOT SPEAK FOR US.
-            #
-            # Writing a verdict and standing behind it are two acts (maintainer
-            # directive, 2026-09-14). A lap sitting in the tree marked
-            # `HANDSHAKE-READY-TO-READ: no` is a draft, and a draft must not close a
-            # round — otherwise committing a file is enough to release, which is the
-            # whole thing the directive separates.
-            #
-            # Recorded on `our_held` rather than silently dropped, because the status
-            # line has to say WHICH reason it is reporting: "no verdict" and "a
-            # verdict we have not released" are different states, and a gate that
-            # renders them identically sends the reader looking for a missing file.
-            if verdict is not None and not is_released_for_reading(
-                our_text, round_hint=num
-            ):
-                our_held = ours[-1].name
-                verdict = None
-            if verdict is None and num in OUR_PRE_HEADER_ROUNDS:
-                verdict = verification_verdict(our_text)
-            if verdict is None and num in RETROSPECTIVE_ROUNDS:
-                verdict = "GO"
-        # THEIR verdict, read from the newest inbound file for the round.
-        #
-        # **The handshake is affirmative and BILATERAL** (maintainer directive,
-        # 2026-08-04): *"Both of you should not make a new release until you are
-        # both happy with the handshake files."* Reading only our own verdict made
-        # their HOLD unable to block our release — which is the same
-        # one-half-of-a-two-half-contract error §7 of the protocol already records
-        # twice, arriving a third time. Their lap-2 file declares
-        # `HANDSHAKE-VERDICT: HOLD` at column 0; nothing here was reading it.
-        theirs: str | None = None
-        if back:
-            their_text = back[-1].read_text(encoding="utf-8")
-            theirs = wire_verdict(their_text)
-            # THE SAME RULE IN THE DIRECTION IT MATTERS MOST. Under git transport we
-            # can read their tree before their operator has released a lap, so a file
-            # we *can* fetch is not automatically one we may act on. Reading a held
-            # lap and closing a round on it would make their draft our decision.
-            if theirs is not None and not is_released_for_reading(
-                their_text, round_hint=num
-            ):
-                their_held = back[-1].name
-                theirs = None
-            if theirs is None and num in THEIR_PRE_HEADER_ROUNDS:
-                theirs = "GO"
-        # A round closes on BOTH VERDICTS, not on the files existing. Round 7 is
-        # the case that proved the first half matters: its verification is a
-        # deliberate mid-round HOLD ("your §15 asked us to hold"), and a
-        # presence-only check reported it CLOSED and let `--release-gate` pass —
-        # while the deviation policy forbids releasing or moving the pin with a
-        # round open. A gate that a HOLD satisfies is not a gate (CLAUDE.md: *can
-        # this check be satisfied by the wrong thing?*).
-        # A GO that cannot close is not a close (§5). Reading only the verdict is
-        # what let a round-8 file with no identity fields close — see
-        # `close_blockers`. Checked on BOTH sides' newest file.
-        # `close_blockers` is a check on a §5 *header*, so it only applies to rounds
-        # that have one. The pre-header rounds state their verdict in prose, and
-        # running the header check over them reported "no HANDSHAKE-VERDICT
-        # declared" for every closed round in the record — the grandfather clause
-        # defeated by the very absence it exists to permit. Second time in one
-        # change: the first was keying the exemption on a field those files lack.
-        pre_header = num in (OUR_PRE_HEADER_ROUNDS | THEIR_PRE_HEADER_ROUNDS)
-        our_blockers: list[str] = []
-        their_blockers: list[str] = []
-        if not pre_header:
-            if ours:
-                our_blockers = close_blockers(
-                    ours[-1].read_text(encoding="utf-8"), round_hint=num
-                )
-            if back:
-                their_blockers = close_blockers(
-                    back[-1].read_text(encoding="utf-8"), round_hint=num
-                )
-        # DISCHARGE A STALE PEER TRANSCRIPTION — the ONE blocker that a correct
-        # round can be unable to clear. See `close_blockers` for why `OPEN` is not
-        # an objection. Two conditions, both required, and each one is the reason
-        # the other is not enough on its own:
-        #
-        #   * **Our own verdict is GO** — read first-hand from our own newest file,
-        #     not from their copy of it. A stale mirror must never outrank the
-        #     original it is a mirror of; that is the whole defect.
-        #   * **Our closing lap came AFTER theirs.** This is what makes their
-        #     `OPEN` *stale* rather than *wrong*. If our GO predated their file and
-        #     they still transcribed `OPEN`, the two sides disagree about what we
-        #     said — a real discrepancy, and it must still block.
-        #
-        # Laps are read from `HANDSHAKE-LAP` via `_lap_of`, header-first, so this
-        # cannot be steered by a filename. An undeterminable lap on either side
-        # leaves the blocker standing: the discharge needs positive evidence of the
-        # ordering, and "I could not tell" is not that. Fail-closed, as everywhere
-        # else in this gate.
-        # PROTOCOL v5 — a closing file that declares 5 has its peer verdict RESOLVED
-        # under §5b instead of taken from its transcription alone. Only a file whose
-        # own verdict is GO is attempting a close; resolving a peer verdict for an
-        # OPEN or HOLD lap answers a question nobody asked, and printing "cannot be
-        # resolved" under an opener reads as a fault (it did, in the rehearsal). The v4
-        # transcription blocker is replaced, not added to: §5b is the rule that
-        # decides it for such a file. Files declaring 4 or less keep v4 semantics,
-        # including the stale-transcription discharge just below.
-        v5_notes: list[str] = []
-        # (peer's closing file, our newer lap it does not list) — set only when the
-        # peer's close was decided by §5b step 3. See CLOSED_ONE_LAP_EARLY_NOTE.
-        closes_early_on: tuple[Path, Path] | None = None
-        if not pre_header:
-            # A file refused on version grounds is refused first and alone — the
-            # same rule `check_wire_header` applies: grading it under v5 would report
-            # problems against rules we may be applying wrongly, and would let the
-            # version refusal hide behind a v5 blocker (it did, in the first version
-            # of the C15 gate test — the revert probe caught it).
-            if (
-                ours
-                and protocol_refusal(_safe_read(ours[-1])) is None
-                and is_v5_file(_safe_read(ours[-1]))
-                and wire_verdict(_safe_read(ours[-1])) == AFFIRMATIVE
-            ):
-                resolution = resolve_peer_verdict(
-                    ours[-1], back, peer_from="cyanrip-fork", round_num=num
-                )
-                our_blockers = [
-                    b for b in our_blockers if not _is_peer_verdict_blocker(b)
-                ]
-                our_blockers += v5_field_problems(_safe_read(ours[-1]))
-                our_blockers += list(resolution.blockers)
-                v5_notes += list(resolution.notes)
-                v5_notes += [f"{SOURCE_LINE_PREFIX}{b}" for b in resolution.blockers]
-            if (
-                back
-                and protocol_refusal(_safe_read(back[-1])) is None
-                and is_v5_file(_safe_read(back[-1]))
-                and wire_verdict(_safe_read(back[-1])) == AFFIRMATIVE
-            ):
-                resolution = resolve_peer_verdict(
-                    back[-1], [*sent, *done], peer_from="platterpus", round_num=num
-                )
-                their_blockers = [
-                    b for b in their_blockers if not _is_peer_verdict_blocker(b)
-                ]
-                their_blockers += v5_field_problems(_safe_read(back[-1]))
-                their_blockers += list(resolution.blockers)
-                v5_notes += list(resolution.notes)
-                v5_notes += [f"{SOURCE_LINE_PREFIX}{b}" for b in resolution.blockers]
-                if resolution.superseded and resolution.source is not None:
-                    closes_early_on = (back[-1], resolution.source)
-        # ROW C15 ON THE GATE PATH — see `refused_round_files`.
-        refused = refused_round_files([*sent, *back, *done])
-        our_lap = _lap_of(ours[-1]) if ours else None
-        their_lap = _lap_of(back[-1]) if back else None
-        if (
-            PEER_VERDICT_NOT_YET_SPOKEN in their_blockers
-            and verdict == AFFIRMATIVE
-            and our_lap not in (None, AMBIGUOUS_LAP)
-            and their_lap not in (None, AMBIGUOUS_LAP)
-            and our_lap > their_lap  # type: ignore[operator]  # both are ints here
-        ):
-            their_blockers = [
-                b for b in their_blockers if b != PEER_VERDICT_NOT_YET_SPOKEN
-            ]
-        both_go = (
-            verdict == "GO"
-            and theirs == "GO"
-            and not our_blockers
-            and not their_blockers
-            and not unorderable
-            and not refused
-        )
-        # OUR CONTRIBUTION IS A LAP OF OURS, WHEREVER IT LIVES — not an outbound file.
-        #
-        # **This condition could not be satisfied by a round the PEER opened, and
-        # round 9 is the first one.** Protocol v4 §1a — adopted in round 9 itself —
-        # says *the provider opens, because only the provider can mint the unit of
-        # work*. When they open, we never write an opening file: every lap of ours is
-        # a verification, and verifications live in `verified/`. So `sent` was empty
-        # for the whole round, and `--status` reported round 9 `OPEN` with **both
-        # sides declaring GO** — a gate condition no correctly-shaped peer-opened
-        # round can ever meet, which would have blocked every release indefinitely.
-        #
-        # Invisible for eight rounds because we opened all eight, so `outbound/` was
-        # always non-empty and the coupling never showed. The same shape the fork
-        # found in their own gate one lap earlier (round 9 lap 7 §C): a gate reading
-        # the wrong directory. Theirs failed **open** and permitted a release it
-        # should have refused; ours failed **closed** and refused one it should have
-        # permitted. Fail-closed is the right direction to be wrong in, and it is
-        # still wrong.
-        #
-        # `done` rather than `sent or done`: `both_go` already requires `verdict`,
-        # which is read from `done[-1]`, so a round cannot reach here with our GO and
-        # no verification file. Naming `done` states the real requirement instead of
-        # accepting either.
-        state = "CLOSED" if (ours and back and both_go) else "OPEN"
-
-        def shown_verdict(value: str | None, held: str | None = None) -> str:
-            if value is None:
-                # HELD IS NOT SILENCE. Without this the line reads `we-verified=NO`
-                # for a lap that plainly declares GO, and the next reader goes looking
-                # for a missing file. Name the lap, so the fix (`--announce`) is
-                # obvious from the output rather than from reading this function.
-                if held is not None:
-                    return f"NO (written in {held}, NOT released to read)"
-                return "NO"
-            return "yes (GO)" if value == "GO" else f"yes ({value} — not closed)"
-
-        lines.append(
-            f"{name}: sent={'yes' if sent else 'NO'} "
-            f"returned={'yes' if back else 'NO'} "
-            f"we-verified={shown_verdict(verdict, our_held)} "
-            f"they-verified={shown_verdict(theirs, their_held)}  -> {state}"
-        )
-        # Named, not merely counted: a gate that refuses without saying which file
-        # and which rule is a gate people route around.
-        lines.extend(f"  cannot order {problem}" for problem in unorderable)
-        # Ends in ")" by construction — `protocol_refusal` ends "(§3)" — so a
-        # refusal line is never itself counted as an open round by the gate.
-        lines.extend(f"  refused {problem}" for problem in refused)
-        lines.extend(v5_notes)
-        if state == "CLOSED" and closes_early_on is not None:
-            peer_file, our_file = closes_early_on
-            lines.append(
-                SOURCE_LINE_PREFIX
-                + CLOSED_ONE_LAP_EARLY_NOTE.format(
-                    name=name,
-                    peer_file=f"{peer_file.parent.name}/{peer_file.name}",
-                    our_file=f"{our_file.parent.name}/{our_file.name}",
-                )
-            )
+        state, round_lines = _grade_round(name, num, sent, back, done)
+        # ROW C13a: a terminal state is final. Graded lap by lap, because the newest
+        # lap is not the round's state once an earlier one closed it.
+        terminal = _terminal_at(name, num, sent, back, done, state)
+        lines.extend(terminal if terminal is not None else round_lines)
     if any(line.endswith("OPEN") for line in lines):
         lines.append("")
         lines.append("A round is OPEN: do not release, and do not switch the pin.")
+    elif illegal_transition_blockers(lines):
+        lines.append("")
+        lines.append(
+            "A closed round carries a refused later lap (row C13a): do not release "
+            "until the next round exists."
+        )
     return lines
 
 
@@ -3408,7 +3712,8 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.write("\n")
             for line in close_by:
                 sys.stdout.write(line + "\n")
-        return 1 if any(ln.endswith("OPEN") for ln in status_lines) else 0
+        held = any(ln.endswith("OPEN") for ln in status_lines)
+        return 1 if held or illegal_transition_blockers(status_lines) else 0
     if args.release_gate:
         # A PRE-RELEASE is permitted while a round is open. A stable release is not.
         #
@@ -3439,7 +3744,10 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.prerelease and not stable_offered:
             lines = round_status(record_root)
+            # Row C13a's refusals are listed with the open rounds: a pre-release
+            # claims no joint verification, so neither holds it, and both are shown.
             open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
+            open_rounds += illegal_transition_blockers(lines)
             # ROW C42 ON THE PATH THAT ACTUALLY RUNS. `release.yml` passes
             # `--prerelease` for every `v0.*` tag, so this branch — not the strict one
             # below — is what every release this project has shipped went through. It
@@ -3478,6 +3786,19 @@ def main(argv: list[str] | None = None) -> int:
         # called it. This subcommand exists so the workflow can.
         lines = round_status(record_root)
         open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
+        # ROW C13a. Not overridable here: an operator override is for releasing
+        # while a round is OPEN (§6b), and the round these lines name is CLOSED. The
+        # way out is the one §4a names — the next round — whose own OPEN state an
+        # override can then cover in the ordinary way.
+        illegal = illegal_transition_blockers(lines)
+        if illegal:
+            sys.stderr.write(
+                "handshake: a closed round carries a refused later lap, so this "
+                "release is blocked until the next round exists (row C13a):\n"
+            )
+            for line in illegal:
+                sys.stderr.write(f"  - {line.strip()}\n")
+            return 1
         if not open_rounds:
             # ROW C42: a close resolved under §5b rests on a file in the peer's tree,
             # so the release it permits must say which file — every time, not only

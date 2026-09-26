@@ -6,10 +6,253 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project
 adheres to [Semantic Versioning](https://semver.org/); dates are ISO-8601
 (YYYY-MM-DD). The version itself is single-sourced from
 `src/platterpus/__init__.py` (`__version__`); at release time the `[Unreleased]`
-entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
+entries move under a dated `## [X.Y.Z]` heading. A heading with no link names a
+version that has no tag on GitHub; see *Earlier versions* near the end. (Design decisions live in
 `PLANNING.md` KDDs and `docs/session-log.md` — not here.)
 
 ## [Unreleased]
+
+### Added
+
+- **Updates now prove they were built by Platterpus's own release process before
+  they install.** Until now the updater checked only that the download matched a
+  checksum published beside it, so anyone able to replace both files could have
+  replaced the app. Now it also checks the release's signed build record
+  (Sigstore), and installs only if it confirms the file was built by this
+  project's release workflow on GitHub. If the record is missing or does not match,
+  the update is not installed and your current version is untouched. The check
+  takes effect from the next update after this release. New dependency:
+  `sigstore`.
+- **Releases publish that build record next to the app, and check it first**
+  (contributor-facing). The release workflow now creates the record before the
+  release is visible, checks it with the updater's own code, and fails rather than
+  publish a release no installed app could update to. Every AppImage build also runs
+  the bundle's own Python on a genuine record, so an app that could not check its
+  next update is never shipped.
+
+### Fixed
+
+- **A quick or standard test run is no longer reported as unfinished.** At the
+  end of a smaller test run, the dialog and the bundle's summary said the run
+  "DID NOT COMPLETE" because of the sections that run size leaves out on purpose,
+  while the transcript correctly said every step it ran had passed. Both now say
+  the same thing, and that a smaller run does not count as evidence for a version.
+
+- **A rip that turned the EAC-style log off no longer warns that it is missing.**
+  The report warned that the EAC-style log could not be included even when that
+  log had been switched off for the rip, so there was nothing to include. It still
+  warns when the log was asked for and is not there.
+
+- **Album or track names can no longer make the EAC-style log look signed by EAC.**
+  That log repeats the album line the way EAC does, so an album artist written to
+  look like EAC's `==== Log checksum … ====` line put a line in our log that a
+  tracker's log checker could take for EAC's signature. Such a line now has its
+  `====` changed to `----`, and the rip's report says which lines were changed.
+  Tags and file names are not affected.
+
+- **A Settings value that could not be checked now says so.** If one of the
+  checks behind Settings failed with an internal error, the value was treated
+  as fine and nobody was told. Now Settings shows "Platterpus couldn't check
+  this setting" beside it and the log records the error. The value is kept
+  rather than reset, so a bug in a check can never quietly change a setting such
+  as the read offset.
+
+- **`%N` (disc number) and `%M` (total discs) now work in folder and file
+  templates.** Settings called `%N` an unknown code, the preview showed it as
+  typed, `%M` did nothing at all, and on a disc with no usable disc position the
+  ripper would have named the folder with the word "disc". Both codes are now
+  filled in from the same disc number and total that go into the tags. The
+  preview also shows a typed `{` or `}` as the `(` or `)` the file actually gets.
+  For contributors: the template translator's property test now gives both codes
+  their meaning. It had still expected them to be kept as unknown codes, and
+  CI's draw found `%M` where the local run had not. That case is now pinned as
+  an `@example`.
+
+- **Fixed six problems found by new property tests.** Each could reach a rip or
+  its record:
+  - A folder or file template with a code the app did not recognise inside
+    braces, such as `%{album}`, reached the ripper with an unmatched brace, and
+    every rip then failed at the start. The brace now becomes a parenthesis.
+  - When the ripper could not run at all, the log check could report a genuine
+    archival log as "altered after the ripper signed it". It now says the log
+    was not checked.
+  - Two logs with the same unreadable Copy CRC (such as `n/a`) could be reported
+    as a bit-perfect match. Only real CRCs are compared now.
+  - Some Settings values (an unknown `~user` path, an over-long folder name, a
+    list where a choice belongs) crashed their check, which then counted as
+    passing. They are now caught and reset, and you are shown the reset. A
+    template segment containing `%%` is now checked for reserved names and a
+    trailing dot like any other.
+  - An unknown-album folder name could come out as `..` or crash on an unusual
+    character. It can do neither now.
+  - In a test script, a quoted command name corrupted the text an
+    `expect-cyanrip` step compares.
+
+- **Ticking a track the disc does not have no longer stops the whole rip.** The
+  track list comes from MusicBrainz, which can list more tracks than the disc
+  has. Ripping only some tracks sent their numbers to the ripper unchecked, and
+  it refuses the entire rip if any number is out of range. Tracks the disc does
+  not have are now left out (and logged). If none of the ticked tracks is on the
+  disc, you get a message saying how many tracks it has, instead of a failed rip.
+
+- **A MusicBrainz answer that arrives during a rip no longer changes it.** A
+  slow lookup could finish while a rip was running and rewrite the track list,
+  and an unknown-album rip is tagged from that list when it ends, so its files
+  could get different tags from the ones you typed. The release picker could also
+  open on top of the rip's progress. Now nothing from MusicBrainz touches the
+  track list or opens a window until the rip ends; Rescan afterwards to use it.
+
+- **A failed download of the release you picked can be retried.** If you picked
+  a release and fetching it failed, the app still believed the disc was
+  identified, refused to show the picker again, and left placeholder tracks. Now
+  the disc goes back to unidentified, so the next lookup asks again. A second,
+  redundant lookup failing also no longer replaces tracks you already have with
+  placeholders.
+
+- **Every kind of line break is now treated as one.** Checks that keep invisible
+  characters out of tags, file names, Settings paths and test-script commands
+  caught newline, carriage return and NUL, but not the rarer characters that also
+  start a new line (vertical tab, form feed, NEL, the Unicode line separators) or
+  the C1 control range. They now all use one definition that covers every line
+  break Python itself recognises, and a test derives that list from Python.
+
+- **A stray control character in MusicBrainz data no longer goes into your tags.**
+  Genre, label, catalog number, barcode, year, ISRC and the release ID come from
+  MusicBrainz and cannot be edited before a rip, so a newline or similar character
+  in one of them went straight into the file's tags. It is now replaced with a
+  space, and the rip's report names each field that was changed. Album and track
+  titles and artists, which become folder and file names, still stop the rip with a
+  message so you can fix them.
+
+- **A rip is no longer marked complete when its own numbers disagree.** The rip
+  check that runs after every rip marked a rip "completed" just because the ripper
+  said so. It ignored the ripper's own track count ("12 of 14") and its error count
+  in the same summary. Now a rip counts as complete only if every track you asked
+  for finished (all of them, or the ones you ticked) and no errors were counted.
+  Otherwise the report says what does not add up, or that it could not be checked.
+
+- **A character on the disc that is not valid UTF-8 no longer stops Platterpus
+  reading the rip.** The ripper's output was read in a mode where one such byte
+  raised an error and ended the read, losing the line before it too. A disc's
+  CD-TEXT, which is often in an older encoding, can contain one. That byte now shows
+  as �, and reading continues. The same applied to eight places that read a tool's
+  output, and all eight are fixed.
+- **Odd characters in the ripper's output are now shown, not hidden.** Control
+  characters are shown as `\xNN` escapes in the log pane and the rip's record, and
+  over-long lines are shortened with the cut marked. The record ends with a line
+  saying what was changed. The project's rules said this happened, and it did not.
+- **A rip of an album MusicBrainz does not know no longer borrows the previous
+  disc's details.** If you ripped a known album and then an unknown one, the second
+  rip's record stated which disc of a multi-disc release it was, copied from the
+  first. The record now uses those details only when they belong to the rip.
+- **A new disc no longer inherits the previous disc's identity.** Platterpus clears
+  the old disc's details when it sees the drive go empty. If one drive check in
+  between failed, the clearing was skipped, and the new disc was scanned on top of
+  the old one's release and disc ID. A new disc now always starts clean.
+- **The acceptance test's wrapper check no longer freezes the window.** It ran on
+  the window's own thread, for up to about a minute. It now runs in the
+  background, like the other checks that start processes.
+- **A test build of the AppImage now contains the code it was built from**
+  (contributor-facing). Builds of `main` or a branch between releases had been
+  bundling the last published release instead, because the build asked for "this
+  version" and PyPI already had it. They reported the right version number, so it
+  went unnoticed. The build now installs the package file it just made. Releases
+  were not affected: a release's version is new, so only the local build matched.
+- **The rig check builds its test command the same way everything else does**
+  (contributor-facing). It had built the ripper adapter directly, outside the one
+  place that is meant to. A test now refuses that.
+- **This changelog's links now all lead somewhere.** 85 versions it lists have no tag
+  on GitHub: everything before 0.6.4, and seventeen later ones. Their comparison
+  links led nowhere and are removed, and a note near the end says which versions
+  they are. Three links that compared from an untagged version now compare from the
+  previous tagged one, and 0.6.4's opens its release page. A test refuses a link to
+  an untagged version.
+
+### Changed
+
+- **Property tests for fourteen functions that handle outside input**
+  (contributor-facing): the CTDB CRC (with draws long enough to reach the CRC,
+  which the old test's never were), cue-sheet reading, the EAC-style log
+  writer, log decoding, output truncation, the argv readers, the name
+  sanitisers, Settings validation and the test-script parser. Each was
+  revert-probed; 65 reverts in all.
+
+- **Agent worktrees inside the repository are ignored by git** (contributor-facing).
+  `.claude/worktrees/` holds separate checkouts the tooling creates; they are
+  never part of this repository.
+
+- **The documentation checks no longer read another checkout's files**
+  (contributor-facing). A git worktree nested inside the repository was walked
+  as part of it, so one check failed on a copy of the handshake record that was
+  not ours. The four repository-wide Markdown walks now share one helper that
+  leaves nested checkouts out. Walks over other file types (shell scripts, every
+  file) still do not, so a local run with a worktree present still fails there.
+
+- **Every route to the ripper outside the adapter layer is now named and
+  checked** (contributor-facing). Only two exist, each with its reason; the
+  test-script runner must start the ripper through the adapter, never its own
+  subprocess call.
+
+- **Adding a new top-level document now needs a stated reason**
+  (contributor-facing). A test lists today's documents; a new one fails until it
+  is added with the existing homes that were considered and why each did not
+  fit, which is what the project's documentation rule asks for.
+
+- **The on-screen target-size check now sees every size we set**
+  (contributor-facing). It read literal minimum and fixed heights and widths
+  only; it now also reads maximum sizes, `setFixedSize`, `QSize` and sizes given
+  through a named constant, has a floor, and holds buttons that commit an action
+  to 44 px as the accessibility convention says.
+
+- **The rule that rips go through the host-exported ripper is now a test**
+  (contributor-facing). One test pins the backend to `~/.local/bin/cyanrip`;
+  another allows only setup, uninstall, the wrapper diagnosis and the scoped
+  cancel exception to run a container tool directly.
+
+- **Thirteen tests that could pass while checking nothing now fail when they
+  should** (contributor-facing). Each was shown to pass under a condition it
+  exists to catch: a commented-out call, a renamed field that meant nothing was
+  compared, an empty table, a skip. They now check behaviour or parse the code,
+  carry a floor on what they examined, and were each shown to fail under the
+  same condition.
+
+- **The weekly mutation audit now covers fifteen modules, up from six**
+  (contributor-facing). Added: the cyanrip argument builder, CTDB decode, TOC and
+  diagnosis, the per-rip handshake approval, the ripper identity check, file
+  naming, the rig check and Settings validation, each with a floor set from its
+  measured first run. A test now lists the modules that must stay covered, and
+  may only grow, and another checks that the command in the docs is one the
+  workflow actually runs.
+
+- **Five coding rules that nothing checked are now tests** (contributor-facing).
+  Every broad `except` must say why it is broad (eleven did not, and now do);
+  `print` is allowed only in the three command-line modules; no
+  metaprogramming (`exec`, dynamic classes, computed imports); no
+  whitespace-column splits of tool output in the parsers and adapters; and the
+  AppImage is built by `python-appimage` only. The "never say detach" check for
+  threads now covers every module, not one, and two dialogs' comments were
+  corrected. Each gate has a floor so it cannot pass by finding nothing, and
+  each was shown to fail on the thing it forbids.
+
+- **A comment in the acceptance test script is corrected.** It said leaving the retry
+  count at 3 was "not dangerous". That holds for cyanrip `.15` and later; on `.14`, a
+  retry count that is not a multiple of 5 could hang on an unreadable sector. It changes
+  no step.
+- **The handshake gate implements protocol 6** (contributor-facing: `scripts/handshake.py`).
+  - A `GO` file declaring 6 must carry the agreed-change ledger,
+    `HANDSHAKE-AGREED-CHANGES`, and the gate refuses it by name without one. What the
+    ledger says never decides a close.
+  - A file declaring 6 must say which unreleased peer laps it can see,
+    `HANDSHAKE-INBOUND-OBSERVED`.
+  - Every file from round 9 on must say which peer laps it holds,
+    `HANDSHAKE-INBOUND-HELD`. That rule has been in force since round 9 and was never
+    checked. One sent file of ours lacks it and is recorded by its hash.
+  - Once a round has closed, it stays closed. A later lap that declares a different
+    verdict is refused, and a release waits until the next round exists. Before this,
+    such a lap turned the round back to open.
+  - Our laps still declare protocol 5 until one of ours has told the fork that our gate
+    implements 6, as the shared spec requires. The lap skeleton now writes the three
+    fields above.
 
 ## [0.6.60] — 2026-09-25
 
@@ -10580,6 +10823,15 @@ for the two builds by name.
   round, four rounds in. Two tests now derive the expected rounds from the directories and
   assert the file does not teach the superseded rule.
 
+## Earlier versions (history only: no tag on GitHub)
+
+**Every version from here down has no tag or release on GitHub**, so its heading has
+no comparison link. GitHub's tags and releases start at v0.6.4 (59 tags, checked
+2026-09-25). These entries are kept as the record of what each version contained.
+Seventeen later versions have no tag either, and their headings are unlinked for the
+same reason: 0.6.4b1–b11, 0.6.4b13–b15, 0.6.7, 0.6.27 and 0.6.46. The links for
+0.6.8, 0.6.28 and 0.6.47 compare from the previous version that has a tag.
+
 ## [0.6.3] — 2026-08-03
 
 ### Added
@@ -15557,8 +15809,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 [0.6.50]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.49...v0.6.50
 [0.6.49]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.48...v0.6.49
 [0.6.48]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.47...v0.6.48
-[0.6.47]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.46...v0.6.47
-[0.6.46]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...v0.6.46
+[0.6.47]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.45...v0.6.47
 [0.6.45]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.44...v0.6.45
 [0.6.44]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.43...v0.6.44
 [0.6.43]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.42...v0.6.43
@@ -15576,8 +15827,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 [0.6.31]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.30...v0.6.31
 [0.6.30]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.29...v0.6.30
 [0.6.29]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.28...v0.6.29
-[0.6.28]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.27...v0.6.28
-[0.6.27]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...v0.6.27
+[0.6.28]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.26...v0.6.28
 [0.6.26]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.25...v0.6.26
 [0.6.25]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.24...v0.6.25
 [0.6.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.23...v0.6.24
@@ -15601,93 +15851,10 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 [0.6.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.10...v0.6.11
 [0.6.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.9...v0.6.10
 [0.6.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.8...v0.6.9
-[0.6.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.7...v0.6.8
-[0.6.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.6...v0.6.7
+[0.6.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.6...v0.6.8
 [0.6.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4...v0.6.5
-[0.6.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b15...v0.6.4
-[0.6.4b15]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b14...v0.6.4b15
-[0.6.4b14]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b13...v0.6.4b14
-[0.6.4b13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...v0.6.4b13
-[0.6.4b11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b10...v0.6.4b11
-[0.6.4b10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...v0.6.4b10
-[0.6.4b9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...v0.6.4b9
-[0.6.4b8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b7...v0.6.4b8
-[0.6.4b7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b6...v0.6.4b7
-[0.6.4b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b5...v0.6.4b6
-[0.6.4b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b4...v0.6.4b5
-[0.6.4b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b3...v0.6.4b4
-[0.6.4b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b2...v0.6.4b3
-[0.6.4b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b1...v0.6.4b2
-[0.6.4b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...v0.6.4b1
-[0.6.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.2...v0.6.3
-[0.6.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.1...v0.6.2
-[0.6.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...v0.6.1
-[0.6.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.21...v0.6.0
-[0.5.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.20...v0.5.21
-[0.5.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.19...v0.5.20
-[0.5.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.18...v0.5.19
-[0.5.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.17...v0.5.18
-[0.5.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.16...v0.5.17
-[0.5.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.15...v0.5.16
-[0.5.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.14...v0.5.15
-[0.5.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...v0.5.14
-[0.5.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...v0.5.13
-[0.5.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...v0.5.12
-[0.5.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.10...v0.5.11
-[0.5.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.9...v0.5.10
-[0.5.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.8...v0.5.9
-[0.5.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.7...v0.5.8
-[0.5.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.6...v0.5.7
-[0.5.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...v0.5.6
-[0.5.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...v0.5.5
-[0.5.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...v0.5.0
-[0.4.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...v0.4.24
-[0.4.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.22...v0.4.23
-[0.4.22]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.21...v0.4.22
-[0.4.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.20...v0.4.21
-[0.4.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.19...v0.4.20
-[0.4.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.18...v0.4.19
-[0.4.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.17...v0.4.18
-[0.4.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.16...v0.4.17
-[0.4.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.15...v0.4.16
-[0.4.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.14...v0.4.15
-[0.4.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.13...v0.4.14
-[0.4.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.12...v0.4.13
-[0.4.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.11...v0.4.12
-[0.4.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.10...v0.4.11
-[0.4.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.9...v0.4.10
-[0.4.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.8...v0.4.9
-[0.4.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.7...v0.4.8
-[0.4.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.6...v0.4.7
-[0.4.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.5...v0.4.6
-[0.4.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.4...v0.4.5
-[0.4.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.2...v0.4.4
-[0.4.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.1...v0.4.2
-[0.4.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.10...v0.4.0
-[0.3.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.9...v0.3.10
-[0.3.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.8...v0.3.9
-[0.3.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.7...v0.3.8
-[0.3.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.6...v0.3.7
-[0.3.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.5...v0.3.6
-[0.3.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.4...v0.3.5
-[0.3.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.3...v0.3.4
-[0.3.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.2...v0.3.3
-[0.3.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.1...v0.3.2
-[0.3.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.0...v0.3.1
-[0.3.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.8...v0.3.0
-[0.2.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.7...v0.2.8
-[0.2.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.6...v0.2.7
-[0.2.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.5...v0.2.6
-[0.2.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.4...v0.2.5
-[0.2.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.3...v0.2.4
-[0.2.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.2...v0.2.3
-[0.2.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.1...v0.2.2
-[0.2.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.1
-[0.2.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.1.0
-[0.0.1]: https://github.com/rmccann-hub/Platterpus/releases
+[0.6.4]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.6.4
 
 ---
 

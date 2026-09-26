@@ -48,10 +48,10 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QSystemTrayIcon
 
-    from platterpus.adapters.musicbrainz_client import TrackSummary
+    from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
 
-from platterpus import drive_control, rip_addendum, rip_files
+from platterpus import drive_control, rip_addendum, rip_files, tag_hygiene
 from platterpus.adapters import cover_art
 from platterpus.adapters.derived_verify import DerivedVerifyResult
 from platterpus.adapters.flac_recompress import (
@@ -806,8 +806,8 @@ class RipMixin(MainWindowShared):
         # passthroughs (not editable in the table), so they come from the stored
         # release — and only when it matches THIS rip (guards a stale detail from
         # a previous disc, and unknown-album rips where release_id is "").
-        detail = self._current_release_detail
-        if detail is not None and detail.summary.mbid == params.release_id:
+        detail = self._release_detail_for(params.release_id)
+        if detail is not None:
             genre = detail.summary.genre
             disc_number = detail.summary.disc_number
             total_discs = detail.summary.total_discs
@@ -1513,6 +1513,19 @@ class RipMixin(MainWindowShared):
             # Hook for tests to know that finish-time post-processing is done.
             self.rip_post_processing_done.emit()
 
+    def _release_detail_for(self, release_id: str) -> ReleaseDetail | None:
+        """The stored MusicBrainz detail, only if it is THIS rip's release.
+
+        The detail outlives the disc it came from, so every reader must check it
+        belongs to the rip in hand. One predicate, used by the rip-start snapshot
+        and the report alike: the report once skipped the check and recorded a
+        previous disc's medium provenance for an unknown-album rip.
+        """
+        detail = self._current_release_detail
+        if detail is None or not release_id or detail.summary.mbid != release_id:
+            return None
+        return detail
+
     def _finish_rip(self, success: bool, log_path: str) -> None:
         """Body of the finish handler, after the auto-heal decision.
 
@@ -1631,10 +1644,12 @@ class RipMixin(MainWindowShared):
         _meta = params.metadata if params is not None else None
         # The release summary this rip's tags came from, for the medium
         # provenance below. None on an unknown-album rip, which has no
-        # MusicBrainz release and so no medium to have resolved.
-        _summary = getattr(
-            getattr(self, "_current_release_detail", None), "summary", None
-        )
+        # MusicBrainz release and so no medium to have resolved — and None when
+        # the stored detail is a PREVIOUS disc's. It used to be read with no
+        # check, so an unknown-album rip made after a MusicBrainz one recorded
+        # that earlier disc's medium basis as its own (found 2026-09-25).
+        _detail = self._release_detail_for(params.release_id) if params else None
+        _summary = _detail.summary if _detail is not None else None
         self._last_disc = {
             "unknown": bool(params.unknown) if params is not None else None,
             "musicbrainz_release_id": (self._current_release_id or None),
@@ -1653,6 +1668,18 @@ class RipMixin(MainWindowShared):
             "medium_undetermined": bool(
                 getattr(_summary, "medium_undetermined", False)
             ),
+            # What the argv chokepoint replaced in the tag-only fields (D14),
+            # recomputed from the metadata that was sent, with the same function.
+            "tag_control_characters_replaced": (
+                tag_hygiene.fixes_block(
+                    tag_hygiene.clean_tag_only_fields(_meta, params.release_id).fixes
+                )
+                if params is not None
+                else []
+            ),
+            # Filled in when the EAC-layout log is written, at the end of the rip
+            # (D16): lines a metadata value had shaped like a log signature.
+            "eac_log_signature_lines_defused": [],
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the
         # report's settings.read_offset.effective is the truth, not just config.
@@ -3653,7 +3680,7 @@ class RipMixin(MainWindowShared):
             return
         try:
             from platterpus import __version__, build_info
-            from platterpus.eac_log_export import render_eac_style_log
+            from platterpus.eac_log_export import render_eac_style_log_and_defused
 
             # Software provenance for the archival text artifact, all from
             # already-resolved state (never a fresh probe — that would enter the
@@ -3682,7 +3709,7 @@ class RipMixin(MainWindowShared):
             outcome_status = (
                 str(outcome.get("status") or "") if isinstance(outcome, dict) else ""
             )
-            text = render_eac_style_log(
+            text, defused = render_eac_style_log_and_defused(
                 rip_log,
                 platterpus_version=__version__,
                 build_fingerprint=build_info.build_fingerprint(),
@@ -3696,6 +3723,15 @@ class RipMixin(MainWindowShared):
             )
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
             target.write_text(text, encoding="utf-8")
+            # D16: a metadata value shaped like a log signature was rewritten so
+            # the log cannot read as EAC-signed. Say so in the log and the report.
+            # AFTER the write, and read with getattr: this bookkeeping must never
+            # be the reason the log itself is not written.
+            for line in defused:
+                log.warning("EAC-layout log: rewrote a signature-shaped line: %r", line)
+            disc_block = getattr(self, "_last_disc", None)
+            if isinstance(disc_block, dict):
+                disc_block["eac_log_signature_lines_defused"] = list(defused)
             log.info("wrote EAC-layout companion log: %s", target)
             # The JSON report embeds this file's text (v12 `artifacts`), and it
             # is written AFTER the report's first write — so without this the

@@ -11,6 +11,358 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-26 — D16–D19 built, and a quick hardware run read before the merge
+
+The maintainer answered the four questions the property-test sweep left open
+(`TASKS.md` → *Maintainer decisions D16–D19*; KDD-38): **1A, 2C, 3A, 4A**. All
+three code rulings are built, and the merge was held until a quick hardware run
+the maintainer made on the round-27 test build had been read.
+
+- **D16: metadata can no longer forge a log signature.** An album artist shaped
+  like `==== Log checksum … ====` used to land at column 0 of our EAC-style log,
+  where a log checker reads it as a signature. Any such line now has its `=` runs
+  rewritten to `-` before our own `_NOT_SIGNED` footer is added. The report lists
+  each rewritten line (`disc.eac_log_signature_lines_defused`, schema v29, plus an
+  `info` issue), so the log is never silently different from the tags.
+  **My first version disabled the log it was meant to protect.** It read
+  `self._last_disc` *before* writing the file, inside the export's broad
+  `except`, so the `AttributeError` was swallowed and no EAC log was written at
+  all. Four UI tests caught it. The bookkeeping now runs after the write, through
+  `getattr`. A probe showed a direct attribute read would still skip the report
+  rewrite, so the test pins that too. It is the *guard that drops the work*
+  shape from `CLAUDE.md`, arriving as bookkeeping instead of a guard; no new
+  rule, but it is the second time this month.
+- **D17: a Settings check that crashes is a visible warning.** The value is kept,
+  saving is not blocked, and the traceback goes to the log. Before this, a
+  crashing rule reported nothing, which reads as a pass.
+- **D18: `%N` and `%M` work in every surface.** Read the fork source first, at
+  both `221a1df` and `df91ae7`: a `{key}` with no value renders as its own name
+  (`cyanrip@221a1df:src/naming.c:253` and `:398`), so handing cyanrip `{disc}`
+  would have named a folder `disc`. We fill the disc position ourselves, as we
+  already do for `%Y`, and the same position goes out as `-c`. An unusable
+  position (0, or larger than the disc count) names no folder instead of a wrong
+  one. The Settings preview, the validator and the tooltip all learned the two
+  codes.
+- **D19: PR #253, merge on green CI, release when round 27 closes.** Before the
+  merge, one commit on the branch had to come off: `46a522e`, the round-27
+  one-frame EAC wording, is held until the fork's lap 4 is released, and a squash
+  merge would have carried it to `main`. It is reverted on the branch (`55d51c9`).
+  To land it later, revert that revert. Lap 4 exists on neither fork branch yet.
+- **The maintainer's quick run (bundle 2026-09-26T00:04Z)** covered 2 of 14
+  tracks on `0.9.4-rc2+platterpus.16 (221a1df)`: 206 pass, 0 fail, 114 declined by
+  run size. Bit-perfect against AccurateRip (confidence 129+). FLAC integrity, the
+  MP3 transcode and the derived check were all ok. `rig-check` was OK with all 16
+  flag tokens intact. The ripper verdict is `unapproved`, which is correct while
+  round 27 is open. **Three defects, all ours, all fixed before the merge:**
+  - **The completion check from the previous session would have graded every
+    partial rip as contradicting itself.** It compared the ripper's `2 of 14`
+    with the disc total. It now compares with what the rip was *asked* for
+    (`completeness.tracks_expected`). This is the one that mattered: it was
+    unreleased, and the run caught it before `main` did.
+  - **An EAC log the run had turned off raised `artifact_unavailable`.** The
+    report now reads the rip's own recorded setting. A missing log is exempt only
+    when that setting is recorded `False`.
+  - **The end-of-run dialog said "DID NOT COMPLETE" while the transcript said
+    every step passed.** Same bundle, same question, two keys: the headline
+    treated any skip as a stop, while `RunReport.ok` forgives size-declined
+    skips. The headline now asks `report.ok`.
+  Each was reproduced on the real report from the bundle before the fix, and each
+  was revert-probed.
+- **Not settled here:** this run is a quick run, so it is not evidence for a
+  version (KDD-35). The CTDB result was `not_in_db`, so the CTDB comparison path
+  was not exercised on hardware.
+
+## 2026-09-25 — the known gaps, and a sweep of the small open rows
+
+Asked to fix the known gaps from the last round of work and look for other small
+open tasks. Three real defects turned up among the rows (two in how MusicBrainz
+answers reach the track table, one in the argv); the rest were rules with no test
+behind them. Delegated property tests found eight more.
+
+- **A failed release fetch left the disc "answered" with nothing loaded.** The
+  chosen-release marker is set before the fetch is sent, and the error handler never
+  cleared it, so the next lookup for that disc was refused as "already chosen".
+  Result: placeholder rows and no way back short of Rescan. The worker now reports a
+  failed fetch on its own signal, and that handler un-answers the disc. A failed
+  *redundant* lookup no longer overwrites a release already chosen.
+- **Nothing stopped a MusicBrainz answer rewriting the table under a running rip.**
+  An unknown-album rip is tagged from a snapshot of the table taken when it
+  finishes, so a slow lookup landing mid-rip changed its tags. The picker or the
+  unknown-album dialog could also open over the progress view. Every MusicBrainz
+  slot now checks `_rip_holds_the_track_table` at the point the result lands, and
+  the table refuses a rewrite from code while locked. A stale docstring said edits
+  "don't feed the rip yet"; they do, and that is why this matters.
+- **`-l` had no range check, and cyanrip refuses the whole rip on one out of
+  range.** The track numbers come from the MusicBrainz rows, not from the disc. It
+  is the `-t 17=` failure one flag over. `docs/dependency-contracts.md` already
+  listed the constraint, and nothing enforced it. A sweep now drives the builder
+  with every option on and fails on any numeric flag without a range check.
+- **Gates for rules nothing checked:** broad excepts must say why (11 did not),
+  `print` only in the three CLI modules, no metaprogramming, no column splits of
+  tool output, python-appimage only, "detach" across every module, Critical rule
+  #3's routing (host export pinned; container tools only in five named modules),
+  target sizes (all nine sizing calls, constants, and 44 px for commit controls),
+  a new top-level doc must name the homes it rejected, and the two ripper routes
+  outside `adapters/` named with reasons. Every one was revert-probed and has a
+  floor.
+- **The TASKS audit overstated one row.** It listed `uiscript/runner.py` as
+  spawning cyanrip outside the adapters. Its only spawn is the adapter's
+  `run_capture`. Checked by reading the call, not by trusting the row.
+- **Mutation audit: 6 modules to 15**, with floors set from a first sweep run in a
+  separate worktree (in-place mutation must never touch the working tree). The
+  scope is now a ratchet, and the documented command is pinned to a real leg. The
+  first run left 77 survivors of 241; some are `frozen=True` flips that only show
+  nothing asserts immutability. They are an open row, not a claim of good coverage.
+- **Delegated work, verified rather than relayed.** A vacuity agent fixed 13 tests
+  that passed under the condition they exist to catch. I re-ran all 13 here and
+  independently probed three (commented-out calls in `app.py` and `preflight.py`);
+  all were detected. Two property-test agents covered fourteen functions that take outside input and found **eight defects**. The worst: a `%{album}`-style template reached cyanrip with an unterminated brace, which refuses every rip. Exit 127 from the wrapper made the log check call a genuine archival log "altered". A garbled legacy Copy CRC compared as a bit-perfect match. Three Settings rules crashed and so counted as passing. I re-probed three of those fixes here; one agent's property needed D14's cleaned values once the batches met (`161ee84`).
+- **Open for the maintainer, from the agents:** an album artist shaped like EAC's `==== Log checksum … ====` line lands at column 0 of our EAC-style log; and whether `validate_config`'s `run()` should fail closed when a rule crashes (it resets a valid setting if a validator has a bug, which is why it was not changed).
+- **Lesson, graduated to the helper's docstring:** a git worktree nested in the tree
+  holds a `.git` *file*, so the `".git" in path.parts` filter four doc walks used did
+  not see it, and they read another checkout's files as ours. The four walks now
+  share one helper.
+
+## 2026-09-25 — the small archival items, started: the completion check and D14
+
+The maintainer asked whether to start on the small open items (248 rows open, 56
+tagged small). Archival correctness first.
+
+- **`rip_audit` graded a rip complete on the ripper's flag alone** (our round-21
+  §C). It printed the ripper's own `done of total` and compared neither, and read
+  the error count nowhere. It is now OK only when the counts agree and are
+  non-zero and the tally reads `No errors occurred`; otherwise it WARNs or says
+  "not determined". Built on constructed cases, since every real disc since has
+  been clean. Four reverts probed, four detected.
+- **D14 built.** The seven tag-only fields get control characters replaced with a
+  space at the argv chokepoint (`tag_hygiene.py`), and the report records which
+  (`disc.tag_control_characters_replaced`, schema v28, plus an `info` issue).
+  The path-bearing four still refuse, and both rules now share one definition
+  (`settings_validation.is_control_char`). The property the fuzz row asked for
+  holds over all eleven fields. Four reverts probed, four detected.
+- **Two stand-in lessons from D14.** The argv-contract suite built tracks from
+  `SimpleNamespace`, which the product never passes; it is now the real frozen
+  `TrackTag`. And a real caller passes `None` for an absent release id where the
+  type says `str`, so the cleaner passes non-strings through rather than raising.
+- **A year-old stale paragraph corrected on the way.** `docs/dependency-contracts.md`
+  still said a colon in a tag was swapped for a look-alike; it has been
+  backslash-escaped since round 7 lap 31.
+
+## 2026-09-25 — updates verify their build attestation before installing
+
+The maintainer said yes to the follow-up from D9. The updater now refuses an update
+unless its Sigstore build attestation names the downloaded file and was signed for
+`.github/workflows/release.yml` in this repository, run from `main` or from the
+release's tag (`update_attestation.py`, the adapter over the new `sigstore`
+dependency). `release.yml` attests **before** publishing and stages the bundle with
+the updater's own `select_verified`, so a release no app could update to fails in
+the workflow.
+
+- **Vetted before any code depended on it.** `sigstore` 4.5.0: wheels for Python
+  3.11 and 3.14 (31 wheels, about 14 MB), `pip-audit` clean, and its only overlap
+  with our pins (`cryptography>=42`) is satisfied. Minor-pinned, because a verifier
+  API change would silently stop every user's updates rather than redden a build.
+- **Measured, not assumed:** the real v0.6.60 attestation verifies online and
+  offline; a stalled network makes the trust-root refresh hang **120 s** before
+  failing, so the refresh starts before the download and the wait is bounded; the
+  pinned `actions/attest` writes JSON Lines in append mode (read from its source),
+  so the verifier tries each line.
+- **End to end on the real release, in scratch:** the genuine 243 MB AppImage
+  installs through the new gate in 1.2 s; the same file with one bit changed and a
+  matching `.sha256`, the swap the checksum alone let through, is refused with the
+  current version untouched; with the network broken the cached root is used and the
+  log says so. Offline tests use the real bundle and trust root as fixtures, and
+  pass with the proxy deliberately broken.
+- **Eight guards revert-probed, eight detected**, from the gate itself to the
+  re-upload branch of the workflow dropping the asset.
+- **What it does not cover, written where a reader will find it** (`SECURITY.md`,
+  `docs/architecture.md` §6.2): anyone who can push to `main` can run the release,
+  and `main` is unprotected by ruling, so this proves a build is traceable to a
+  public commit, not that the commit was reviewed. The first release carrying the
+  code is installed unchecked by the old updater.
+- **The gap no existing check covered: the shipped bundle.** `sigstore` is imported
+  lazily, so an AppImage without a working copy passes `--version` and then
+  refuses every update, stranding its users. `scripts/check_bundled_verifier.py`
+  runs the bundle's own interpreter on a genuine attestation, in both AppImage
+  workflows. Run on the real v0.6.60 AppImage it fails, as it should.
+- **The new check's first CI run found an older, bigger defect.** The branch's
+  AppImage contained PyPI's 0.6.60, not the branch: `build_appimage.sh` pinned
+  `platterpus==<tree version>`, which PyPI satisfies between releases. So every
+  non-release AppImage artifact has been the last release, with `--version` reading
+  the right number and `(source)` the only sign. Fixed by bundling the built wheel
+  by file path; tested by running the script's own substitution snippet;
+  revert-probed. Releases were never affected, since their version is new. Any
+  hardware run on a non-release artifact tested the previous release.
+- **A sweep taught rather than exempted.** The in-toto key `_type` tripped the
+  dead-attribute sweep, whose allowlist may not grow. It now skips mapping keys
+  (`d["_x"]`, `d.get("_x")`) and still catches both shapes that shipped, and its
+  self-test now calls the sweep's own collector instead of a copy of it.
+- **D2 is firm.** The maintainer, told the fork may push back because tag casing
+  costs them a round: *"dont let them, this is important."* Recorded in `TASKS.md`
+  (next-lap item (e)) and KDD-37: the lap sends it as a ruling with the cost accepted,
+  and a refusal goes back to the maintainer rather than being conceded.
+
+## 2026-09-25 — the maintainer's fifteen answers, recorded; two of my own claims corrected
+
+The maintainer answered D1–D15. Each answer is on its `Answer:` line in `TASKS.md`,
+and the reasoning is in `PLANNING.md` KDD-37. Three answers differ from my
+recommendation: D2 (tags in capitals, written by cyanrip), D8 (`-f` offset
+measurement now), and D9 (update signing never armed).
+
+- **Every row the questions blocked now says what to build**, not *waiting on the
+  maintainer*. Five closed on the answer alone. One new row carries D6's build. D1,
+  D2 and D15 join our next lap as `NEXT-ROUND` items. A table in `TASKS.md` says
+  where each answer's work lives.
+- **D7 is done: the CHANGELOG's dead links.** Checking the question's own number
+  against GitHub's tag list found it was too small. I had said 63 headings; there
+  are 67 before v0.6.4, and 17 more after it (fourteen 0.6.4 betas, 0.6.7, 0.6.27,
+  0.6.46). All 85 of their link rows are removed, including one (`[0.5.6]`) with no
+  heading. Three links that compared from an untagged version now compare from the
+  previous tag. The link test's floor went from 100 to 55, with the reason written
+  beside it, because the floor guards a broken pattern and 60 rows remain. Two new
+  tests keep dead links out and live ones in; three reverts probed, three detected.
+- **D9's question was wrong about what protects an update, and that matters more
+  than the answer.** I wrote that an update is protected by its SHA-256 *and* the
+  build attestation. The updater checks only the SHA-256, fetched from the same
+  release, so it proves the file is intact, not who published it. Nothing in the
+  app checks the attestation. An audit note from the same day said *"verification
+  is wired in update_install.py"*. That is the dormant minisign check, and I
+  carried the note into the question without opening the file. The correction is
+  under D9, in KDD-37, in `docs/architecture.md` §6.2 and in `CLAUDE.md`. A new row
+  asks whether to verify the attestation in the app, which needs a new dependency.
+  The lesson is already a rule here (*"am I answering from the artifact, or from my
+  memory of it?"*). It was broken inside a question put to the maintainer for a
+  decision, which is where it costs most.
+
+## 2026-09-25 — the audit's findings fixed, and a triage of everything still open
+
+**The two findings, fixed** (fb92105):
+- **The inbound sanitiser Critical rule #12 described now exists** (`inbound_text.py`).
+- **Building it found something worse, and that fix matters more.** Eight of the
+  fourteen text-mode subprocess reads set no `errors` policy, the rip's own pipe
+  among them. One byte that was not UTF-8 raised `UnicodeDecodeError` and ended the
+  read, losing the line before it. It is reproduced end to end through
+  `CyanripImpl.rip()` against a stand-in binary printing Latin-1. A disc's CD-TEXT is
+  a realistic source. A sweep now refuses a text-mode read with no policy.
+- **`rig_check.py` builds the adapter through the composition root.** A sweep
+  refuses a direct construction.
+
+**A triage of all 344 open rows.** Three read-only passes worked from a frozen copy
+of `TASKS.md`, asking who can close each row and what would close it:
+- 91 closed: 57 duplicates, 19 withdrawn, 9 lessons that cannot become a test, and
+  the rows the fixes settled.
+- Four more defects the triage named in code, each verified by reading before
+  fixing, and revert-probed:
+  - **The report took a previous disc's medium provenance for an unknown-album
+    rip.** The rip-start snapshot checked the stored detail's MusicBrainz ID; the
+    report did not. Both now call `_release_detail_for`.
+  - **An insert could scan on top of the old disc's identity.** The watcher fires
+    REMOVED only on disc → empty, so disc → unknown → empty → disc never cleared
+    it.
+  - **`probe-ripper-wrapper` ran on the GUI thread**, for up to about seventy
+    seconds, under a docstring saying it did not. The script runner's `QTimer`
+    fires on the GUI thread.
+  - **The `%%` order in `cross_fs_hazards`** is real and harmless: it only ever
+    strips letters, which are never reserved. It is left open at low priority.
+
+**Two of my own mistakes, both caught by the next check.**
+- I told the maintainer there were 53 text-mode reads, 39 of them fine. There
+  were 14, and 6 were fine; my 39 was every `errors="replace"`, file reads
+  included. The sweep's floor caught it, because I had set the floor from my wrong
+  number.
+- Writing the sanitiser through the tool, my ` `, ` ` and `�`
+  escapes arrived as the literal characters. The code behaved identically, which
+  is why the tests passed. But the source became unreadable at exactly the
+  characters it is about. I rewrote them as escapes and checked that the compiled
+  pattern was unchanged.
+
+**What is left** (253 rows):
+- mostly ours, with no hardware needed: about 80 small and 75 medium;
+- about 21 for our next lap;
+- about 15 each waiting on the fork and on hardware;
+- 12 waiting on a maintainer decision;
+- 10 unscheduled feature ideas.
+
+The summary heads `TASKS.md`.
+
+## 2026-09-25 — our handshake gate implements protocol 6
+
+**Why now.** Nothing in round 27 can move until the operator runs the Full test on
+0.6.60, and they have no access to the rig. Implementing 6 was the largest open
+engineering item that needed neither the rig nor the fork. Both of v6 §14's
+conditions held: the shared file is byte-identical in both trees (`05abdfde…`, compared
+against `cyanrip@3ad160f`), and the fork's gate implements 6 from `643631b`, which
+their round 25 lap 5 says. Their round-25 ledger listed ours as *"not landed"*.
+
+**What landed** (`scripts/handshake.py`):
+- **C44/C45.** A `GO` file declaring 6 must carry `HANDSHAKE-AGREED-CHANGES`, refused by
+  name without it. Its content is never read, because the ledger records delivery and
+  does not gate a close.
+- **K2.** A file declaring 6 must carry `HANDSHAKE-INBOUND-OBSERVED`. No §8 row names
+  this; it is our reading, and both sides have written the field on every lap since
+  round 22.
+- **C23**, binding since round 9 and never checked, because the coverage test exempted
+  every v3/v4 row as pending. Its first run over the record found one miss: our own
+  `verified/round-13-lap-03.md`, a sent file, now pinned by hash.
+- **The amended C13a**, which neither gate had. A round is graded lap by lap
+  (`_grade_round`, extracted unchanged from `round_status`). Once one lap closes it, a
+  later lap declaring a different verdict is refused and the round stays `CLOSED`; a
+  later lap declaring the same verdict is not a transition. Replaying our record found
+  ten such later laps in eight rounds, all `GO`, which is exactly the case v6's
+  amendment exists for.
+- **Implementing is not declaring.** `PROTOCOL_VERSION` is 6 and `DECLARED_PROTOCOL`
+  is 5, and the emitter uses the second. Our next released lap says our gate implements
+  6; the commit after it raises the declaration.
+
+**One decision is ours, because v6 leaves it to v7: what a C13a refusal does to a
+release.** It holds a release until a later round exists, and then that round
+governs. Holding forever would be a wall, since the refused lap is sent and can never
+be edited. Permitting a release would ship past an objection the record carries.
+The fork's gate still reopens on such a lap, so on that record the two gates would
+print different round states, and both would hold the release. No such lap exists in
+either record. This goes to the fork as a `NEXT-ROUND` item in our next lap.
+
+**Two tests were pinning the divergence as if it were the rule.** `test_C13_…` built
+C13a's case (a complete close, then a HOLD) and asserted v2's reopen. The fork found
+the same mislabel in their suite two days earlier
+(`cyanrip@3ad160f:tests/release_gate.py:191-192`). A file-naming test put the peer's GO
+before our HOLD, so the round closed first. Each keeps its property with a corrected
+fixture.
+
+**Evidence.** Twelve reverts probed with `scripts/revert_probe.py`; twelve detected.
+`--status` on the real record is byte-identical before and after. The three test
+stand-ins lacked `INBOUND-HELD`, which every real lap from round 9 carries. They were
+more permissive than the record, and once the gate read the field they stopped
+closing. That is `CLAUDE.md`'s *"what does my stand-in do that the real thing does
+not?"*, and no new rule is needed.
+
+**Three red gates I had left on this branch, caught by the next full run.** 46a522e
+(the held EAC wording) passed `int | None` where an `int` is required. It also shrank
+`eac_log_export.py` below its recorded size, so the size ratchet reported room to
+grow. The protocol-6 commit changed `docs/cyanrip-handshake.md` without moving its
+version stamp. None of this reached `main`; 6a2f81a fixes all three. **The lesson is
+not new:** `CLAUDE.md` says to run `scripts/check.py` rather than a subset. I ran a
+subset for 46a522e.
+
+**Then an audit of every open row in `TASKS.md`**, while the round waits on the rig.
+There were 454 open rows, checked by six read-only passes. I spot-checked the evidence
+behind most of the DONE verdicts before marking them, not all 62: one had loose evidence
+and still held, and I downgraded one to PARTLY. The results:
+- 110 closed (62 done, 48 superseded).
+- 97 marked `[~]`.
+- 30 left open as not ours to verify.
+- About 215 confirmed open.
+
+The summary heads `TASKS.md`. **My first count missed 120 rows** written as
+`- **[ ]**` or `N. **[ ]`, which a pass found by reading instead of trusting my regex.
+That is *"is the population closed?"* asked of my own grep. It also found two
+things bigger than a row:
+- Critical rule #12 describes an inbound output sanitiser that the audit could not
+  find in code.
+- `rig_check.py` constructs the backend outside the composition root.
+
+Both are open rows now, reported to the maintainer.
+
 ## 2026-09-25 — 0.6.59 swapped out the build under test; 0.6.60 keeps it
 
 **What happened.** 0.6.59 was released, the fork confirmed it from our tag and

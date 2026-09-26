@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING, Final
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
-from platterpus import __version__, build_info
+from platterpus import __version__, build_info, inbound_text
 from platterpus.uiscript import run_sizes
 from platterpus.uiscript.report import (
     CONCEPT,
@@ -65,6 +65,7 @@ if TYPE_CHECKING:  # pragma: no cover — types only
     # Imported for annotations only. The runtime imports stay lazy and
     # inside the handlers, keeping the ui-script layer free of a hard
     # dependency on the parsers while still giving mypy a real type.
+    from platterpus.deps.ripper_wrapper_probe import WrapperReport
     from platterpus.parsers.rip_log import RipLog
 
 #: Verbs that declare the run's SHAPE rather than testing anything. They are
@@ -152,6 +153,12 @@ CYANRIP_VERB_GRACE_S: float = 20.0
 #: unreapable — same case, same reasoning, as `CYANRIP_VERB_GRACE_S`. Generous
 #: enough to cover both probes plus a cold container exec, and still finite.
 RIG_CHECK_VERB_TIMEOUT_S: float = 360.0
+
+#: Outer bound on the `probe-ripper-wrapper` verb. Its four invocations are each
+#: bounded inside `deps.ripper_wrapper_probe` (12 s, the first with 8 s of
+#: cold-container grace, each with 3 s after a kill), so about 70 s is its worst
+#: case. This fires only when a child is unreapable, and the batch then continues.
+WRAPPER_PROBE_VERB_TIMEOUT_S: float = 180.0
 
 
 def _coerce_setting(current: object, raw: str) -> tuple[object, str]:
@@ -303,6 +310,25 @@ class _RigCheckJob:
     #: died before producing one — tri-state, never written as 0.
     code: int | None = None
     lines: list[str] = field(default_factory=list)
+    error: str = ""
+
+
+@dataclass
+class _WrapperProbeJob:
+    """A `probe-ripper-wrapper` verb running on a helper thread, watched by the tick.
+
+    Same reasoning as :class:`_RigCheckJob`. The probe spawns the host wrapper up
+    to four times, each bounded, so it is subprocess work and the never-block rule
+    applies. **It used to run straight from the tick, and the tick runs on the GUI
+    thread**, because the runner's ``QTimer`` lives there: up to about seventy
+    seconds of a frozen window during an acceptance run, under a docstring that
+    said it ran on the runner's own thread (found 2026-09-25 by the TASKS triage).
+    """
+
+    step: Step
+    started: float
+    done: threading.Event
+    report: WrapperReport | None = None
     error: str = ""
 
 
@@ -459,6 +485,7 @@ class ScriptRunner(QObject):
         #: keeps a five-minute ripper call off the GUI thread.
         self._pending_cyanrip: _CyanripJob | None = None
         self._pending_rig_check: _RigCheckJob | None = None
+        self._pending_wrapper_probe: _WrapperProbeJob | None = None
         self._timer: QTimer = QTimer(self)
         self._timer.setInterval(TICK_MS)
         self._timer.timeout.connect(self._tick)
@@ -571,6 +598,22 @@ class ScriptRunner(QObject):
                 )
             )
             self._pending_rig_check = None
+        # The wrapper probe likewise: bounded children, a daemon thread, and a row
+        # in the transcript so a stop mid-probe does not read as a probe never run.
+        if self._pending_wrapper_probe is not None:
+            probe_job = self._pending_wrapper_probe
+            log.info("ui script stopping with a wrapper probe in flight; abandoning it")
+            self._report.steps.append(
+                StepRecord(
+                    probe_job.step.line_no,
+                    probe_job.step.source,
+                    Outcome.INFO,
+                    "stopped while the wrapper probe was still running; recorded as "
+                    "not determined, which is not a pass",
+                    time.monotonic() - probe_job.started,
+                )
+            )
+            self._pending_wrapper_probe = None
         for step in self._steps[self._index :]:
             self._report.steps.append(
                 # PREVENTED: the batch aborted, so this step wanted to run and
@@ -600,6 +643,9 @@ class ScriptRunner(QObject):
                 return
             if self._pending_rig_check is not None:
                 self._service_rig_check()
+                return
+            if self._pending_wrapper_probe is not None:
+                self._service_wrapper_probe()
                 return
             if self._deadline is not None:
                 self._service_deadline()
@@ -1626,7 +1672,11 @@ class ScriptRunner(QObject):
         self._record(
             job.step,
             Outcome.PASS,
-            f"argv: {' '.join(job.argv)}\nexit: {code}\n{_bounded_output(output)}",
+            # Screened for the record a person reads (Critical rule #12, inbound).
+            # `_last_cyanrip_output` above stays raw: the `expect-*` verbs match
+            # what the ripper said, not our rendering of it.
+            f"argv: {' '.join(job.argv)}\nexit: {code}\n"
+            f"{_bounded_output(inbound_text.screen_text(output).text)}",
             elapsed=elapsed,
         )
 
@@ -3569,30 +3619,73 @@ class ScriptRunner(QObject):
         that the verdict reaches the transcript, because the transcript is the
         one file the operator uploads.
 
-        Runs on the script runner's own thread, which is not the GUI thread — the
-        probe spawns processes and bounds them, and doing that in a dialog slot is
-        the freeze this project has paid for three times.
+        **Runs on a helper thread, watched by the tick** (:class:`_WrapperProbeJob`).
+        The probe spawns processes and bounds them, and the tick runs on the GUI
+        thread. Until 2026-09-25 this docstring said the opposite and the probe ran
+        inline, freezing the window for as long as the probes took.
+        """
+        job = _WrapperProbeJob(
+            step=step, started=time.monotonic(), done=threading.Event()
+        )
+
+        def _work() -> None:
+            # The boundary rule of `_do_cyanrip`: nothing Qt, no widget, no report.
+            from platterpus.deps import ripper_wrapper_probe
+
+            try:
+                job.report = ripper_wrapper_probe.probe()
+            except Exception as exc:  # noqa: BLE001 — a helper thread must not die silently
+                job.error = repr(exc)
+            finally:
+                job.done.set()  # LAST, always: the tick reads the fields after this
+
+        self._pending_wrapper_probe = job
+        threading.Thread(
+            target=_work, name="uiscript-wrapper-probe", daemon=True
+        ).start()
+
+    def _service_wrapper_probe(self) -> None:
+        """Poll the pending wrapper probe; record it once, when it finishes.
+
+        It never records FAIL (see :meth:`_do_probe_ripper_wrapper`): a probe that
+        could not run, or ran out of time, is INFO and "not determined".
         """
         from platterpus.deps import ripper_wrapper_probe
 
-        try:
-            report = ripper_wrapper_probe.probe()
-        except Exception as exc:  # noqa: BLE001 — a diagnostic must not end the run
-            log.exception("probe-ripper-wrapper: the probe itself failed")
+        job = self._pending_wrapper_probe
+        assert job is not None
+        elapsed = time.monotonic() - job.started
+        if not job.done.is_set():
+            if elapsed <= WRAPPER_PROBE_VERB_TIMEOUT_S:
+                return
+            self._pending_wrapper_probe = None
             self._record(
-                step,
+                job.step,
                 Outcome.INFO,
-                f"the wrapper probe could not run: {exc!r} — recorded as "
+                f"the wrapper probe did not return after {elapsed:.0f}s (a child is "
+                "unreapable); recorded as not determined, which is not a pass",
+                elapsed=elapsed,
+            )
+            return
+        self._pending_wrapper_probe = None
+        if job.report is None:
+            log.error("probe-ripper-wrapper: the probe itself failed: %s", job.error)
+            self._record(
+                job.step,
+                Outcome.INFO,
+                f"the wrapper probe could not run: {job.error} — recorded as "
                 f"not determined, which is not a pass",
+                elapsed=elapsed,
             )
             return
         # The whole rendered record, not just the verdict: a diagnosis we captured
         # and did not surface is the same bug from the reader's side.
         self._record(
-            step,
+            job.step,
             Outcome.INFO,
-            f"{report.verdict.value}: {report.summary}\n"
-            f"{ripper_wrapper_probe.render(report)}",
+            f"{job.report.verdict.value}: {job.report.summary}\n"
+            f"{ripper_wrapper_probe.render(job.report)}",
+            elapsed=elapsed,
         )
 
     def _do_expect_refused(self, step: Step) -> None:

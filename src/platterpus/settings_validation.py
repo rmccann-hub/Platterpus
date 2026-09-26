@@ -55,7 +55,7 @@ SEVERITY_WARNING: str = "warning"
 # The ``%``-tokens a naming template may use (see naming.py / cyanrip_backend).
 # Anything else after a ``%`` (other than ``%%``) is an unknown token — legal to
 # type, but almost always a typo, so it's a WARNING, not an error.
-_KNOWN_TEMPLATE_TOKENS: frozenset[str] = frozenset("AadntyY")
+_KNOWN_TEMPLATE_TOKENS: frozenset[str] = frozenset("AadntyYNM")
 
 # Numeric field bounds — the SINGLE source of truth (the Settings spinboxes read
 # these so the widget range and the validator can never drift apart). A
@@ -127,8 +127,17 @@ def validate_config(config: Config) -> list[ValidationIssue]:
 
     Never raises — a validator that crashed would be worse than the invalid
     input it was meant to catch (it would take the Settings dialog down). Any
-    unexpected failure is logged and treated as "no issue for that check" so the
-    rest still run.
+    unexpected failure is logged with its traceback and reported as a WARNING on
+    that field, so the rest still run.
+
+    **A crash is a warning: not a pass, and not an error** (maintainer ruling
+    D17, KDD-38, 2026-09-25). It used to count as "no
+    issue", so a value its check could not evaluate passed silently; three such
+    crashes were found by the property tests that day. An error would be worse:
+    at startup an error resets the field to its default, so a bug in a validator
+    would reset a correct setting (the read offset included) and the next disc
+    would rip wrong with a clean-looking log. A warning keeps the value, shows
+    the user that it could not be checked, and does not block Save.
 
     **Each rule is isolated.** This used to be one big ``try`` around every
     check, which failed *open*: a hand-edited ``config.toml`` with, say, an
@@ -143,11 +152,22 @@ def validate_config(config: Config) -> list[ValidationIssue]:
     def run(
         rule: str, check: Callable[..., list[ValidationIssue]], *args: object
     ) -> None:
-        """Run one rule; a crash in it costs only that rule's findings."""
+        """Run one rule; a crash in it becomes a warning on that field (D17)."""
         try:
             issues.extend(check(*args))
         except Exception:  # noqa: BLE001 — a validator must never crash the dialog
-            log.exception("settings validation rule %r raised; skipping it", rule)
+            log.exception(
+                "settings validation rule %r raised; its value is kept, unchecked",
+                rule,
+            )
+            issues.append(
+                ValidationIssue(
+                    rule,
+                    f"Platterpus couldn't check this setting ({rule}), so its value "
+                    "was kept as it is. The log has the details.",
+                    SEVERITY_WARNING,
+                )
+            )
 
     run(
         "output_dir", _validate_dir, "output_dir", config.output_dir, "Output directory"
@@ -284,15 +304,21 @@ def _validate_test_script_path(value: object) -> list[ValidationIssue]:
     text = value.strip()
     if not text:
         return []
-    path = Path(text).expanduser()
-    if not path.exists():
-        return [ValidationIssue("test_script_path", f"No file at: {text}")]
-    if path.is_dir():
-        return [
-            ValidationIssue("test_script_path", f"{text} is a folder, not a script.")
-        ]
-    if not os.access(path, os.R_OK):
-        return [ValidationIssue("test_script_path", f"{text} cannot be read.")]
+    try:
+        path = Path(text).expanduser()
+        if not path.exists():
+            return [ValidationIssue("test_script_path", f"No file at: {text}")]
+        if path.is_dir():
+            return [
+                ValidationIssue(
+                    "test_script_path", f"{text} is a folder, not a script."
+                )
+            ]
+        if not os.access(path, os.R_OK):
+            return [ValidationIssue("test_script_path", f"{text} cannot be read.")]
+    except (OSError, RuntimeError) as exc:  # see _probe_failure
+        reason = _probe_failure(exc)
+        return [ValidationIssue("test_script_path", f"No file at: {text} ({reason})")]
     return []
 
 
@@ -789,12 +815,16 @@ def cross_fs_hazards(template: str) -> list[str]:
         listed = " ".join(bad_chars)
         hazards.append(f"the character(s) {listed} are reserved on Windows")
     for segment in template.split("/"):
-        if "%" in segment:
+        # Only a TAG token makes a segment value-dependent. This used to skip any
+        # segment containing a "%", but "%%" is a literal percent and an unknown
+        # "%q" is kept as typed — so "CON.%%" (the device name CON) went unjudged.
+        text, has_tag = _segment_text(segment)
+        if has_tag:
             continue  # value-dependent — judged at rip time, not here
-        stem = segment.split(".", 1)[0].strip().lower()
+        stem = text.split(".", 1)[0].strip().lower()
         if stem in _WINDOWS_RESERVED_NAMES:
             hazards.append(f"“{segment}” is a reserved device name on Windows")
-        if segment != segment.rstrip(". "):
+        if text != text.rstrip(". "):
             hazards.append(
                 f"“{segment}” ends in a dot/space, which Windows strips or rejects"
             )
@@ -832,12 +862,33 @@ def _validate_tool_path(field: str, value: object, tool: str) -> list[Validation
             ValidationIssue(field, f"{tool} path may not contain control characters.")
         ]
     if "/" in text:
-        p = Path(text).expanduser()
-        if not p.exists():
-            return [ValidationIssue(field, f"No {tool} executable at: {text}")]
-        if p.is_dir() or not os.access(p, os.X_OK):
-            return [ValidationIssue(field, f"{text} is not an executable file.")]
+        try:
+            p = Path(text).expanduser()
+            if not p.exists():
+                return [ValidationIssue(field, f"No {tool} executable at: {text}")]
+            if p.is_dir() or not os.access(p, os.X_OK):
+                return [ValidationIssue(field, f"{text} is not an executable file.")]
+        except (OSError, RuntimeError) as exc:
+            reason = _probe_failure(exc)
+            return [
+                ValidationIssue(field, f"No {tool} executable at: {text} ({reason})")
+            ]
     return []
+
+
+def _probe_failure(exc: OSError | RuntimeError) -> str:
+    """Why a path could not be looked up at all, in words for the user.
+
+    Two shapes reach here: ``~nobody/…`` names a user who does not exist
+    (``expanduser`` raises ``RuntimeError``), and a component past the
+    filesystem's name limit makes ``exists()`` raise ``ENAMETOOLONG``. Both used
+    to escape their rule — and ``validate_config`` reports a rule that raises as
+    NO issue, so the value was accepted. A path we cannot look up is not a path we
+    can call fine.
+    """
+    if isinstance(exc, OSError) and exc.strerror:
+        return exc.strerror
+    return str(exc)
 
 
 def _validate_int(
@@ -855,7 +906,10 @@ def _validate_choice(
     field: str, value: object, allowed: frozenset[str], label: str
 ) -> list[ValidationIssue]:
     """A field that must be one of a fixed set of string values."""
-    if value not in allowed:
+    # Type first: `[] in frozenset(...)` RAISES (a list is unhashable), and a
+    # raising rule is reported as no issue at all — so `output_format = ["flac"]`
+    # in a hand-edited config.toml used to be accepted.
+    if not isinstance(value, str) or value not in allowed:
         shown = ", ".join(sorted(repr(a) for a in allowed))
         return [ValidationIssue(field, f"{label} must be one of: {shown}.")]
     return []
@@ -884,19 +938,67 @@ def _validate_plain_int(field: str, value: object) -> list[ValidationIssue]:
     return []
 
 
+#: The two Unicode line and paragraph separators. Not control characters by
+#: category (they are Zl and Zp), but every text widget and `str.splitlines`
+#: breaks a line at them, which is the harm the rule below exists to stop.
+_LINE_SEPARATORS: frozenset[str] = frozenset({"\u2028", "\u2029"})
+
+
+def is_control_char(ch: str) -> bool:
+    """True for a character that has no place in a value we store or send.
+
+    C0 (NUL, tab, newline…), DEL, C1 (U+0080–U+009F, which holds NEL, a line
+    break), and the Unicode line and paragraph separators. So every character
+    `str.splitlines` treats as a line boundary is covered, and a test derives that
+    set from Python rather than listing it by hand.
+
+    **Widened 2026-09-25.** It stopped at DEL, so a C1 character or U+2028 passed
+    every check that used it, while the inbound screen (`inbound_text`) already
+    flagged both. The ONE definition for outbound values: the path-bearing tag
+    fields refuse these (:func:`path_segment_issue`), the tag-only fields replace
+    them with a space (``tag_hygiene``, decision D14), and the script console's
+    passthrough refuses them (``uiscript.script.sanitise_cyanrip_args``).
+    """
+    code = ord(ch)
+    return code < 0x20 or 0x7F <= code <= 0x9F or ch in _LINE_SEPARATORS
+
+
 def _has_control_char(text: str) -> bool:
-    """True if ``text`` holds a NUL or other C0 control character.
+    """True if ``text`` holds a character :func:`is_control_char` names.
 
     Security/robustness: a NUL truncates a C string (path/argv) and other control
     characters have no business in a path or template — rejecting them keeps a
     crafted or pasted value from doing something surprising downstream.
     """
-    return any(ord(ch) < 0x20 or ch == "\x7f" for ch in text)
+    return any(is_control_char(ch) for ch in text)
 
 
 def _allowed_goals() -> frozenset[str]:
     """Valid goal keys: the presets plus the 'custom' sentinel."""
     return frozenset(set(goal_presets.PRESETS) | {goal_presets.GOAL_CUSTOM})
+
+
+def _segment_text(segment: str) -> tuple[str, bool]:
+    """``(the literal text this segment writes into the path, holds a tag token)``.
+
+    Scans left to right the way the translator does, so ``%%`` is one literal
+    ``%`` (never the start of a token) and an unknown ``%q`` stays as typed.
+    """
+    out: list[str] = []
+    has_tag = False
+    i = 0
+    while i < len(segment):
+        if segment[i] == "%" and i + 1 < len(segment):
+            token = segment[i + 1]
+            if token in _KNOWN_TEMPLATE_TOKENS:
+                has_tag = True
+            else:
+                out.append("%" if token == "%" else segment[i : i + 2])
+            i += 2
+            continue
+        out.append(segment[i])
+        i += 1
+    return "".join(out), has_tag
 
 
 def _unknown_tokens(template: str) -> list[str]:

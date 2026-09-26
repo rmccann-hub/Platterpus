@@ -282,7 +282,8 @@ class CyanripImpl(RipBackend):
         # speed change — the lever that works on a speed-locked drive). Empty =
         # rip the whole disc, so a normal rip omits `-l` entirely.
         if only_tracks:
-            argv += ["-l", ",".join(str(n) for n in only_tracks)]
+            wanted = _tracks_on_disc(only_tracks, disc_track_total)
+            argv += ["-l", ",".join(str(n) for n in wanted)]
         # Always -N: the GUI is the single metadata source (see docstring).
         # `unknown` just means the GUI has placeholder tags instead of MB
         # ones — either way cyanrip itself stays offline.
@@ -309,7 +310,11 @@ class CyanripImpl(RipBackend):
         # deliberately upstream's plus build metadata, so it cannot be ordered.
         if consumer_tag_for_build(ripper_build_tag):
             argv += ["--consumer", consumer_tag()]
-        argv += _disc_args(metadata)
+        # Checked once: `-c` and the %N/%M template tokens below read the same
+        # position, so a folder name cannot disagree with the disc tags.
+        position = _disc_position(metadata)
+        if position is not None:
+            argv += ["-c", f"{position[0]}/{position[1]}"]
         argv += _metadata_args(metadata, release_id, disc_track_total)
         # Naming: translate Platterpus's %-token templates to cyanrip schemes.
         # The directory part (before the last "/") becomes -D, the filename
@@ -322,11 +327,23 @@ class CyanripImpl(RipBackend):
         # folder would literally contain "%Y". Empty when there's no year (the
         # token then vanishes, same as cyanrip's own {date} on a dateless disc).
         year = _year_token(metadata.year if metadata else "")
+        # %N / %M (disc number / total discs) are filled in HERE too, from the
+        # same checked position `-c` sends, not left to cyanrip's `{disc}`. At the
+        # pins we ship, a key with no value falls back to its own NAME
+        # (`cyanrip@221a1df:src/naming.c:253` and `:398`, same at `df91ae7`), so
+        # a disc whose `-c` was dropped would get a folder called "disc".
+        disc, discs = (str(position[0]), str(position[1])) if position else ("", "")
         dir_part, _, file_part = track_template.rpartition("/")
         if dir_part:
-            argv += ["-D", scheme_from_template(dir_part, year=year)]
+            argv += [
+                "-D",
+                scheme_from_template(dir_part, year=year, disc=disc, discs=discs),
+            ]
         if file_part:
-            argv += ["-F", scheme_from_template(file_part, year=year)]
+            argv += [
+                "-F",
+                scheme_from_template(file_part, year=year, disc=disc, discs=discs),
+            ]
         # `-G` UNCONDITIONALLY. It used to be `if not cover_art`, which read as
         # "let the ripper embed art when the user wants art" — but nothing else in
         # the program agrees with that reading. `main_window_rip` calls
@@ -471,6 +488,7 @@ class CyanripImpl(RipBackend):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            errors="replace",
             bufsize=1,
             start_new_session=True,
         )
@@ -901,8 +919,54 @@ def _reject_path_reference_values(meta: RipMetadata) -> None:
             raise RipError(problem)
 
 
-def _disc_args(metadata: RipMetadata | None) -> list[str]:
-    """Build cyanrip's ``-c <disc>/<totaldiscs>`` argument, or ``[]``.
+def _tracks_on_disc(
+    only_tracks: tuple[int, ...], disc_track_total: int | None
+) -> tuple[int, ...]:
+    """The ``-l`` track list, range-checked against the disc being ripped.
+
+    cyanrip validates ``-l N`` against the disc's real track count and refuses
+    the WHOLE rip on one out of range (provider contract,
+    ``round-26-lap-01-provider-contract-g37f946b.md:115``) — the ``-t 17=``
+    failure of 2026-08-02 in a different flag. The numbers come from the track
+    table, whose rows come from the MusicBrainz release, not from the disc, so a
+    medium listing more tracks than the disc has put an unrippable ``-l`` one
+    tick away (TASKS ``conv.argv-range``).
+
+    Surplus numbers are dropped with a warning, as ``-t`` drops surplus tags:
+    they name tracks the disc does not have. If NONE is on the disc the rip is
+    refused, because dropping ``-l`` entirely would mean "rip the whole disc",
+    which is not what was asked.
+    """
+    if not disc_track_total:
+        log.warning(
+            "the -l track range check did NOT run: the disc's track total is "
+            "unknown, so the track list %s goes to cyanrip unchecked",
+            list(only_tracks),
+        )
+        return only_tracks
+    on_disc = tuple(n for n in only_tracks if 1 <= n <= disc_track_total)
+    dropped = [n for n in only_tracks if not 1 <= n <= disc_track_total]
+    if dropped:
+        log.warning(
+            "not asking cyanrip for track(s) %s: the disc has %d track(s), and "
+            "cyanrip refuses the whole rip on an out-of-range -l",
+            dropped,
+            disc_track_total,
+        )
+    if not on_disc:
+        raise RipError(
+            f"None of the selected tracks ({', '.join(map(str, only_tracks))}) is on "
+            f"this disc, which has {disc_track_total} track(s). Rescan the disc, or "
+            f"choose tracks from 1 to {disc_track_total}."
+        )
+    return on_disc
+
+
+def _disc_position(metadata: RipMetadata | None) -> tuple[int, int] | None:
+    """The disc's ``(number, total)`` when usable, else ``None`` (logged).
+
+    It feeds cyanrip's ``-c <disc>/<totaldiscs>`` and the ``%N``/``%M`` template
+    tokens, from one check, so a folder name cannot disagree with the disc tags.
 
     **Why a dedicated flag instead of an ``-a disc=…`` tag.** Platterpus used to
     fold the disc number into the album tag string as ``disc=2/3``. cyanrip
@@ -938,7 +1002,7 @@ def _disc_args(metadata: RipMetadata | None) -> list[str]:
     the same defect shape as the ``-t 17=`` on a 16-track disc that killed a real
     rip in two seconds (docs/testing.md §5.m): an out-of-range value we could
     have caught, handed to a tool that treats it as fatal. When the numbers are
-    not usable we drop the flag and log why — losing a disc tag is survivable,
+    not usable ``-c`` is dropped and the reason logged — losing a disc tag is survivable,
     losing the rip is not.
     """
     meta = metadata or RipMetadata()
@@ -950,7 +1014,7 @@ def _disc_args(metadata: RipMetadata | None) -> list[str]:
             number,
             total,
         )
-        return []
+        return None
     if number < 1 or total < 1 or number > total:
         log.warning(
             "not passing -c: disc %r of %r is not a usable disc position "
@@ -958,8 +1022,8 @@ def _disc_args(metadata: RipMetadata | None) -> list[str]:
             number,
             total,
         )
-        return []
-    return ["-c", f"{number}/{total}"]
+        return None
+    return number, total
 
 
 def _metadata_args(
@@ -980,6 +1044,22 @@ def _metadata_args(
     # Before anything is turned into argv: no value that becomes a path segment
     # may be a directory reference. See _reject_path_reference_values.
     _reject_path_reference_values(meta)
+    # The seven tag-only values (genre, label, ISRC…) come from MusicBrainz and
+    # cannot be edited, so a control character in one is REPLACED with a space
+    # rather than refused (maintainer decision D14). Done here, at the chokepoint,
+    # so nothing reaches cyanrip unreplaced; the rip-finish path records the same
+    # fixes in the report (`disc.tag_control_characters_replaced`).
+    from platterpus import tag_hygiene
+
+    cleaned = tag_hygiene.clean_tag_only_fields(meta, release_id)
+    meta, release_id = cleaned.metadata, cleaned.release_id
+    for fixed in cleaned.fixes:
+        log.warning(
+            "replaced %d control character(s) with a space in the %s tag "
+            "(MusicBrainz data; not editable, so not refused)",
+            fixed.replaced,
+            fixed.field,
+        )
     if meta.album_title:
         album_pairs.append(f"album={_escape_meta_value(meta.album_title)}")
     if meta.album_artist:
@@ -989,7 +1069,7 @@ def _metadata_args(
     if meta.genre:
         album_pairs.append(f"genre={_escape_meta_value(meta.genre)}")
     # NOTE: the disc number is deliberately NOT in `-a`. It goes through
-    # cyanrip's own `-c` flag — see `_disc_args`, which explains why.
+    # cyanrip's own `-c` flag — see `_disc_position`, which explains why.
     # Release identifiers, Picard-style Vorbis keys, so the archived files carry
     # the disc's canonical IDs. Escaped like every other value (the -a colon-split
     # trap — a catalog number can contain a colon).
@@ -1074,7 +1154,6 @@ _TOKEN_MAP: dict[str, str] = {
     "%n": "{title}",
     "%t": "{track}",
     "%y": "{date}",
-    "%N": "{disc}",
 }
 
 
@@ -1519,7 +1598,9 @@ def _year_token(raw: str) -> str:
     return "".join(digits)
 
 
-def scheme_from_template(template: str, *, year: str = "") -> str:
+def scheme_from_template(
+    template: str, *, year: str = "", disc: str = "", discs: str = ""
+) -> str:
     """Translate a Platterpus %-token path template into a cyanrip -D/-F scheme.
 
     Known %x tokens map per _TOKEN_MAP; an unrecognized %x is kept
@@ -1533,6 +1614,12 @@ def scheme_from_template(template: str, *, year: str = "") -> str:
     release year). Doing the substitution inside this single scanner — rather
     than a blind ``str.replace("%Y", …)`` upstream — keeps ``%%`` escapes intact
     (``%%Y`` stays a literal percent + "Y", never a stray year).
+
+    ``%N`` / ``%M`` (disc number / total discs) are substituted the same way, from
+    ``disc`` / ``discs``: the caller passes the position it sends as ``-c``, and ""
+    when that position was unusable (the token then drops out, as ``%Y`` does on a
+    dateless disc). cyanrip's own ``{disc}`` is not used because a missing key
+    renders as the word "disc".
     """
     out: list[str] = []
     i = 0
@@ -1558,13 +1645,19 @@ def scheme_from_template(template: str, *, year: str = "") -> str:
                 out.append(year)
                 i += 2
                 continue
+            if token in ("%N", "%M"):
+                out.append(disc if token == "%N" else discs)
+                i += 2
+                continue
             mapped = _TOKEN_MAP.get(token)
             if mapped is not None:
                 out.append(mapped)
                 i += 2
                 continue
             log.warning("no cyanrip mapping for template token %r — kept", token)
-            out.append(token)
+            # Kept, but a brace in it is still a brace: "%{album}" used to reach
+            # cyanrip as "%{album)", an unterminated "{" that refuses the rip.
+            out.append(token.replace("{", "(").replace("}", ")"))
             i += 2
             continue
         if ch == "{":

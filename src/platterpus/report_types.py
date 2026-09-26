@@ -165,6 +165,13 @@ class SettingsBlock(TypedDict):
     mp3_vbr_quality: NotRequired[int | None]
 
 
+class TagFixEntry(TypedDict):
+    """One tag-only field whose control characters were replaced (v28, D14)."""
+
+    field: str
+    replaced: int
+
+
 class DiscBlock(TypedDict):
     unknown: bool | None
     musicbrainz_release_id: str | None
@@ -180,6 +187,14 @@ class DiscBlock(TypedDict):
     medium_basis: str | None
     medium_detail: str | None
     medium_undetermined: bool
+    #: v28: tag-only fields whose control characters were replaced with a space
+    #: before the rip (maintainer decision D14, `tag_hygiene`). Empty when none
+    #: were: a positive statement, not an absence.
+    tag_control_characters_replaced: list[TagFixEntry]
+    #: Lines of the EAC-layout log that a metadata value had shaped like a log
+    #: signature, as rewritten (`====` to `----`) so the log cannot read as
+    #: EAC-signed (D16, KDD-38). Empty on almost every rip; v29.
+    eac_log_signature_lines_defused: list[str]
 
 
 class DependencyEntry(TypedDict):

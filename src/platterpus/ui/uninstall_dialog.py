@@ -244,8 +244,9 @@ class UninstallDialog(CenteredDialog):
     def _stop(self) -> None:
         # Don't block the GUI thread joining a step in flight (podman/container
         # teardown can't be interrupted by quit()); stop_thread cancels, waits
-        # briefly, and detaches a still-running thread rather than freezing the
-        # window or destroying a live QThread.
+        # briefly, and ABANDONS a still-running thread, retaining its reference
+        # (Critical rule #9: Qt has no "detach"), rather than freezing the window
+        # or destroying a live QThread.
         from platterpus.workers import stop_thread
 
         stop_thread(self._thread, self._worker)

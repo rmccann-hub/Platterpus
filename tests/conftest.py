@@ -42,6 +42,26 @@ from platterpus import hard_exit
 # which is why the per-test QThread-join backstop below is still essential).
 
 
+def repo_markdown_files(root: Path) -> list[Path]:
+    """Every Markdown file of THIS checkout, sorted: none from ``.git`` and none
+    from a separate checkout nested inside it.
+
+    A git worktree nested in the tree (an agent's ``.claude/worktrees/…``) holds a
+    ``.git`` FILE, not a directory, so the ``".git" in path.parts`` test each walk
+    used did not see it, and every repository-wide walk read the other tree's
+    copies as ours. One walk failed on them (2026-09-25); the other three passed
+    only because the copies happened to match. Callers keep their own further
+    filters, so no walk's population changes except that the other trees leave it.
+    """
+    nested = [git.parent for git in root.rglob(".git") if git.parent != root]
+    return sorted(
+        path
+        for path in root.rglob("*.md")
+        if ".git" not in path.relative_to(root).parts
+        and not any(checkout in path.parents for checkout in nested)
+    )
+
+
 # The file the session-completion guard writes. Absent ⇒ this run never reached
 # session finish, so its exit status means nothing. See `pytest_sessionstart`.
 SESSION_COMPLETE_SENTINEL: Path = (

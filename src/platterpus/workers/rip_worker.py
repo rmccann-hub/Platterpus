@@ -32,7 +32,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus import diagnostics, drive_control, ripper_exit
+from platterpus import diagnostics, drive_control, inbound_text, ripper_exit
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -873,6 +873,10 @@ class RipWorker(QObject):
         # How many lines fell out of that rolling window. Reported in the
         # captured text rather than leaving an unexplained gap.
         self._stdout_elided: int = 0
+        # What screening changed in the ripper's output (Critical rule #12, the
+        # inbound half — `inbound_text`). Reported at the end of `captured_stdout`
+        # so a reader knows an escape was ours, not the ripper's.
+        self._inbound: inbound_text.Tally = inbound_text.Tally()
         # The ripper's exit status, and the exact argv we invoked it with. Both
         # were computed (or built) and then discarded, so the report could say a
         # rip failed but not *how*: exit 1 (the ripper refused an argument),
@@ -2144,6 +2148,10 @@ class RipWorker(QObject):
             # branch below can pull the ripper's last words off the pipe.
             lines = iter(self._handle.log_lines())
             for line in lines:
+                # SCREENED ONCE, HERE: what a person sees and what the report keeps.
+                # Parsing below still reads the raw `line`, so what the program
+                # concludes is exactly what the ripper wrote.
+                shown = self._screen(line)
                 if self._cancelled:
                     # KEEP THIS LINE, THEN LEAVE. It was already read off the pipe
                     # by the iterator above, and it is the ripper's FIRST output
@@ -2161,7 +2169,7 @@ class RipWorker(QObject):
                     # redraw is the diagnostic — it says how far the rip had got
                     # when the user stopped it. One line, and the buffer is
                     # head+tail bounded anyway.
-                    self._retain_stdout_line(line)
+                    self._retain_stdout_line(shown)
                     self._retain_last_words(lines, line)
                     break
                 # `_progress_for` both classifies the line (a numeric progress
@@ -2175,7 +2183,7 @@ class RipWorker(QObject):
                 # a *stop*, not a ring buffer, because the head is where the
                 # header and the early tracks are.
                 if not is_progress:
-                    self._retain_stdout_line(line)
+                    self._retain_stdout_line(shown)
                 # Forward the line to the GUI's log pane — but RATE-LIMIT the
                 # high-frequency progress redraws. Appending to the log widget
                 # (text layout + repaint) is the expensive per-tick work; at
@@ -2192,7 +2200,7 @@ class RipWorker(QObject):
                         # never shows an ETA that contradicts our smoothed album
                         # ETA in the status line (real-user report). Detection
                         # below still uses the raw `line`.
-                        forwarded = _CYANRIP_ETA_CLAUSE.sub("", line)
+                        forwarded = _CYANRIP_ETA_CLAUSE.sub("", shown)
                         self.log_line.emit(forwarded)
                         # Persist the forwarded stream to log.txt in real time
                         # (DEBUG-gated, so it only lands when Debug logging is on
@@ -2203,8 +2211,8 @@ class RipWorker(QObject):
                         # the volume bounded.
                         log.debug("cyanrip │ %s", forwarded)
                 else:
-                    self.log_line.emit(line)
-                    log.debug("cyanrip │ %s", line)
+                    self.log_line.emit(shown)
+                    log.debug("cyanrip │ %s", shown)
                 # Watch for the "no online metadata" abort so the GUI can heal
                 # by re-ripping as unknown (only worth it if this rip wasn't
                 # already unknown). Inert pre-cyanrip seam — cyanrip runs -N and
@@ -2326,7 +2334,7 @@ class RipWorker(QObject):
                     self.track_completed.emit(finished[0])
                     if incremental:
                         self._write_incremental_report(out_dir)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 — logged with its trace; the worker must always finish and hand over what it captured
             log.exception("error reading ripper stdout")
             # The stdout we DID capture before the break is the only account of how
             # far the rip got; hand it over rather than letting the traceback stand
@@ -2417,7 +2425,7 @@ class RipWorker(QObject):
             nxt = next(lines, None)
             if nxt is None:  # the ripper exited; nothing more to take
                 return
-            self._retain_stdout_line(nxt)
+            self._retain_stdout_line(self._screen(nxt))
             line = nxt
 
     def _we_stopped_ripper(self) -> bool:
@@ -2445,6 +2453,23 @@ class RipWorker(QObject):
             line.strip() == ripper_exit.QUIT_NOTICE
             for line in (*self._stdout_lines, *self._stdout_tail)
         )
+
+    def _screen(self, line: str) -> str:
+        """One line off the pipe, screened for display and the record, and tallied.
+
+        Called exactly once per line read, so the tally counts each line once. The
+        first line that needs screening is logged at WARNING, bounded, so a bug
+        report carries what arrived without the log repeating it every line.
+        """
+        screened = inbound_text.screen_line(line)
+        if screened.flagged and not self._inbound.lines_flagged:
+            log.warning(
+                "ripper output needed screening (control characters, bytes that were "
+                "not UTF-8, or an over-long line); first such line, screened: %.300s",
+                screened.text,
+            )
+        self._inbound.add(screened)
+        return screened.text
 
     def _retain_stdout_line(self, line: str) -> None:
         """Keep one line of the ripper's output in the diagnostic record.
@@ -2991,14 +3016,15 @@ class RipWorker(QObject):
         marker matters as much as the tail does: an unmarked jump would read as
         a ripper that fell silent, which is a different (and alarming) fact.
         """
+        note = [self._inbound.note()] if self._inbound.lines_flagged else []
         if not self._stdout_tail:
-            return "\n".join(self._stdout_lines)
+            return "\n".join([*self._stdout_lines, *note])
         middle = (
             [_STDOUT_ELISION.format(count=self._stdout_elided)]
             if self._stdout_elided
             else []
         )
-        return "\n".join([*self._stdout_lines, *middle, *self._stdout_tail])
+        return "\n".join([*self._stdout_lines, *middle, *self._stdout_tail, *note])
 
     @property
     def ripper_exit_code(self) -> int | None:

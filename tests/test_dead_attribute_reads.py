@@ -124,6 +124,51 @@ def _assigned_names(files: list[Path]) -> set[str]:
     return assigned
 
 
+def _mapping_keys(tree: ast.AST) -> set[int]:
+    """``id()`` of every string constant used as a MAPPING KEY: ``d["_x"]`` or
+    ``d.get("_x")``.
+
+    Those name a key in somebody else's data, not an attribute of ours, so they
+    cannot be the bug this sweep hunts. Taught 2026-09-25, when the in-toto
+    statement's ``_type`` key (``update_attestation.py``) tripped the sweep: the
+    key is fixed by the in-toto spec, and the allowlist is a ratchet that may not
+    grow, so the right move was to teach the sweep the difference rather than
+    exempt the subject. **Narrow on purpose:** only a subscript index and the
+    first argument of a ``.get(...)`` call. A ``getattr`` argument and a tuple
+    element — the two shapes that shipped — are still collected, and the self-test
+    below proves it.
+    """
+    keys: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
+            keys.add(id(node.slice))
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+        ):
+            keys.add(id(node.args[0]))
+    return keys
+
+
+def _private_literals(tree: ast.AST) -> dict[str, int]:
+    """``{name: line}`` for every private-attribute-shaped string in ``tree``
+    that is not a mapping key."""
+    keys = _mapping_keys(tree)
+    found: dict[str, int] = {}
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and _PRIVATE_ATTR.match(node.value)
+            and id(node) not in keys
+        ):
+            found.setdefault(node.value, node.lineno)
+    return found
+
+
 def _read_names(files: list[Path]) -> dict[str, tuple[Path, int]]:
     """Every private-attribute-shaped name the product mentions as a STRING.
 
@@ -134,13 +179,8 @@ def _read_names(files: list[Path]) -> dict[str, tuple[Path, int]]:
     reads: dict[str, tuple[Path, int]] = {}
     for path in files:
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.Constant)
-                and isinstance(node.value, str)
-                and _PRIVATE_ATTR.match(node.value)
-            ):
-                reads.setdefault(node.value, (path, node.lineno))
+        for name, line in _private_literals(tree).items():
+            reads.setdefault(name, (path, line))
     return reads
 
 
@@ -200,15 +240,23 @@ def test_the_sweep_catches_both_defects_it_was_written_for() -> None:
         ("getattr argument", tree1, "_observed_ripper_banner"),
         ("tuple element", tree2, "_cache_defeat_value"),
     ):
-        found = {
-            node.value
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Constant)
-            and isinstance(node.value, str)
-            and _PRIVATE_ATTR.match(node.value)
-        }
+        # The collector the sweep itself uses, not a copy of it.
+        found = _private_literals(tree)
         assert wanted in found, f"the collector misses the {label} spelling"
         assert wanted not in assigned, f"{label}: fixture is wrong, not the sweep"
+
+
+def test_a_mapping_key_is_not_an_attribute_read() -> None:
+    """The one exclusion, and its limit: a key in data is skipped; the same name
+    as a getattr argument in the same file is still caught."""
+    tree = ast.parse(
+        'a = statement.get("_type")\n'
+        'b = statement["_type"]\n'
+        'c = getattr(obj, "_type", None)\n'
+    )
+    found = _private_literals(tree)
+    assert found == {"_type": 3}, found
+    assert _private_literals(ast.parse('x = d.get("_only_a_key")')) == {}
 
 
 def test_every_allowlist_entry_is_still_needed() -> None:

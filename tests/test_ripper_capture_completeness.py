@@ -29,6 +29,7 @@ from __future__ import annotations
 import subprocess
 import sys
 
+from platterpus import inbound_text
 from platterpus.adapters.rip_backend import RipHandle
 from platterpus.rip_report import build_outcome
 from platterpus.workers import rip_worker as rw
@@ -49,6 +50,10 @@ class _Sink:
         self._stdout_lines: list[str] = []
         self._stdout_tail: list[str] = []
         self._stdout_elided: int = 0
+        # The worker's screening tally (`inbound_text`), which `captured_stdout`
+        # reads to decide whether to add its note. Mirrored, like the fields
+        # above, so the borrowed method runs against the worker's real state.
+        self._inbound: inbound_text.Tally = inbound_text.Tally()
 
     def feed(self, line: str) -> None:
         if len(self._stdout_lines) < rw._MAX_STDOUT_LINES:

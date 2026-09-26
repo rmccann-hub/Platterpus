@@ -7,7 +7,9 @@ never-raises guarantee (a validator that crashed would take Settings down)."""
 
 from __future__ import annotations
 
+import dataclasses
 import logging
+import typing
 from pathlib import Path
 
 import pytest
@@ -15,6 +17,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from platterpus import settings_validation as sv
+from platterpus.adapters.cyanrip_backend import scheme_from_template
 from platterpus.config import Config
 
 
@@ -256,6 +259,183 @@ def test_validate_never_raises_on_garbage() -> None:
     assert isinstance(result, list)
 
 
+# --- validate_config over the whole field space -------------------------------
+#
+# The example above hand-sets three fields. `validate_config` cannot raise by
+# construction — every rule runs inside `run()`, which catches and logs — so
+# "never raises" is the WEAK claim here. The strong one is what `run()` hides:
+# a rule that crashes is logged and reports NO issue, which is a pass. A crash is
+# therefore a validator failing OPEN, and the dialog, `field_error` and the
+# config loader all read it as "this value is fine". So, for every Config field
+# (derived from the dataclass, not listed by hand) and values of every type:
+#
+#  * no rule's safety net fires (checked on the logger, where `run()` reports it);
+#  * a value of the wrong TYPE is always an error for that field — and
+#    `field_error`, the predicate every single-setting writer asks, agrees;
+#  * every issue names a real field, with a real severity and a message.
+
+_CONFIG_TYPES: dict[str, type] = typing.get_type_hints(Config)
+_CONFIG_FIELDS: tuple[str, ...] = tuple(f.name for f in dataclasses.fields(Config))
+
+#: Strings shaped like the paths these fields hold, including the two shapes a
+#: path probe cannot answer: "~someone/" for a user who does not exist, and a
+#: component longer than any filesystem allows.
+_PATH_SHAPED = st.builds(
+    str.__add__,
+    st.sampled_from(
+        ["", "~", "~/", "~nosuchuser_platterpus/", "/", "/tmp/", "./", "/" + "a" * 300]
+    ),
+    st.text(max_size=12),
+)
+_ANY_VALUE = st.one_of(
+    st.none(),
+    st.booleans(),
+    st.integers(),
+    st.floats(),
+    st.text(max_size=20),
+    _PATH_SHAPED,
+    st.binary(max_size=8),
+    st.lists(st.integers(), max_size=3),
+    st.dictionaries(st.text(max_size=3), st.integers(), max_size=2),
+)
+
+
+def _is_declared_type(value: object, declared: type) -> bool:
+    """``value`` has the field's declared type — and a bool is NOT an int."""
+    if declared is int:
+        return isinstance(value, int) and not isinstance(value, bool)
+    return isinstance(value, declared)
+
+
+class _RuleCrashes(logging.Handler):
+    """Collects the records `validate_config`'s `run()` writes when a rule raises."""
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.DEBUG)
+        self.crashes: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if record.getMessage().startswith("settings validation rule"):
+            self.crashes.append(record.getMessage())
+
+
+def test_the_field_space_is_derived_and_fully_typed() -> None:
+    """Floor for the property below: it must be sweeping every field, and every
+    declared type must be one `_is_declared_type` can judge."""
+    assert len(_CONFIG_FIELDS) >= 35
+    assert set(_CONFIG_FIELDS) == sv.validated_field_names()
+    assert {_CONFIG_TYPES[name] for name in _CONFIG_FIELDS} <= {str, int, bool}
+
+
+@given(
+    values=st.dictionaries(
+        st.sampled_from(_CONFIG_FIELDS), _ANY_VALUE, min_size=1, max_size=8
+    )
+)
+@settings(max_examples=300, deadline=None)
+def test_validate_config_never_fails_open_on_any_field(
+    values: dict[str, object],
+) -> None:
+    cfg = Config()
+    for name, value in values.items():
+        setattr(cfg, name, value)
+
+    watcher = _RuleCrashes()
+    logger = logging.getLogger(sv.__name__)
+    logger.addHandler(watcher)
+    try:
+        issues = sv.validate_config(cfg)
+    finally:
+        logger.removeHandler(watcher)
+
+    assert watcher.crashes == [], (
+        f"a rule raised on {values!r}, so run() reported NO issue for it — the "
+        f"validator failed open: {watcher.crashes}"
+    )
+    for issue in issues:
+        assert issue.field in _CONFIG_FIELDS, issue
+        assert issue.severity in {sv.SEVERITY_ERROR, sv.SEVERITY_WARNING}, issue
+        assert isinstance(issue.message, str) and issue.message, issue
+    for name, value in values.items():
+        if _is_declared_type(value, _CONFIG_TYPES[name]):
+            continue
+        assert any(i.field == name and i.is_error() for i in issues), (
+            f"{name}={value!r} is not a {_CONFIG_TYPES[name].__name__}, and "
+            "nothing refused it"
+        )
+        assert sv.field_error(cfg, name), f"field_error passed {name}={value!r}"
+
+
+_STR_FIELDS: tuple[str, ...] = tuple(
+    name for name in _CONFIG_FIELDS if _CONFIG_TYPES[name] is str
+)
+
+
+@given(
+    values=st.dictionaries(
+        st.sampled_from(_STR_FIELDS), _PATH_SHAPED, min_size=1, max_size=8
+    )
+)
+@settings(max_examples=200, deadline=None)
+def test_no_path_shaped_text_crashes_a_rule(values: dict[str, str]) -> None:
+    """The same "no rule fails open" check, aimed where the probes live.
+
+    The broad property above spreads its draws over every type, so a text field
+    meets a path shape a probe cannot answer only now and then. Here every draw
+    is one — a "~user" who does not exist, an over-long component — into the
+    fields whose rules look at the filesystem.
+    """
+    cfg = Config()
+    for name, value in values.items():
+        setattr(cfg, name, value)
+    watcher = _RuleCrashes()
+    logger = logging.getLogger(sv.__name__)
+    logger.addHandler(watcher)
+    try:
+        sv.validate_config(cfg)
+    finally:
+        logger.removeHandler(watcher)
+    assert watcher.crashes == [], (values, watcher.crashes)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        # An unhashable value in a choice field: `value not in frozenset` raised
+        # TypeError, and a list is what a hand-edited `output_format = ["flac"]`
+        # in config.toml loads as.
+        ("output_format", ["flac"]),
+        ("update_channel", {"stable": 1}),
+        # A "~user" nobody has: Path.expanduser raises RuntimeError.
+        ("metaflac_path", "~nosuchuser_platterpus/bin/metaflac"),
+        ("test_script_path", "~nosuchuser_platterpus/batch.pscript"),
+        # A component longer than NAME_MAX: Path.exists raises ENAMETOOLONG.
+        ("metaflac_path", "/" + "a" * 300 + "/metaflac"),
+        ("test_script_path", "/" + "a" * 300),
+    ],
+    ids=[
+        "choice-list",
+        "choice-dict",
+        "tool-unknown-user",
+        "script-unknown-user",
+        "tool-name-too-long",
+        "script-name-too-long",
+    ],
+)
+def test_a_value_that_crashed_its_rule_is_now_refused(
+    field: str, value: object
+) -> None:
+    """Regression (found by the property above, 2026-09-25).
+
+    Each of these made its rule raise. `run()` caught it, logged it, and reported
+    no issue — so `field_error` returned "" and the value was accepted by the
+    Settings dialog, the script `set` verb and the config loader alike.
+    """
+    cfg = Config()
+    setattr(cfg, field, value)
+    assert sv.field_error(cfg, field), f"{field}={value!r} was accepted"
+
+
 # --- Enforcement: every field is covered, and reacts to a bad value ---------
 
 # A deliberately-bad value for EVERY Config field, so the meta-tests can prove
@@ -489,6 +669,129 @@ def test_cross_fs_trailing_dot_or_space_flagged() -> None:
     assert cross_fs_hazards("Best Of/%t") == []
 
 
+# --- cross_fs_hazards: the properties ----------------------------------------
+#
+# The portability warning makes two claims, and each is checked against
+# something other than its own implementation:
+#
+#  1. **Characters.** It names exactly the Windows-reserved characters that the
+#     template writes into EVERY rip's path — so the reference is what the argv
+#     builder actually hands cyanrip (`scheme_from_template`), not a second
+#     scanner. (This is also where the "%%-unfold runs before token blanking"
+#     question is settled: blanking only ever removes a "%" and a letter, and no
+#     letter is reserved, so the order cannot change which characters are named.)
+#  2. **Segments.** A segment holding a TAG token is value-dependent and is not
+#     judged; every other segment is judged on the text it puts in the path. The
+#     oracle is built with the template: each segment is drawn with the verdict it
+#     must get.
+
+_RESERVED_CHARS = frozenset('<>:"\\|?*')
+
+
+def _named_characters(hazards: list[str]) -> set[str]:
+    """The reserved characters a hazard list names (the one char-scan message)."""
+    prefix, suffix = "the character(s) ", " are reserved on Windows"
+    named: set[str] = set()
+    for hazard in hazards:
+        if hazard.startswith(prefix) and hazard.endswith(suffix):
+            named |= set(hazard[len(prefix) : -len(suffix)].split(" "))
+    return named
+
+
+@given(
+    template=st.one_of(
+        st.text(max_size=40),
+        st.text(alphabet='<>:"\\|?*%AadntyYNz{}/ .', max_size=30),
+    )
+)
+@settings(max_examples=300, deadline=None)
+def test_cross_fs_names_exactly_the_reserved_chars_that_reach_the_path(
+    template: str,
+) -> None:
+    from platterpus.settings_validation import cross_fs_hazards
+
+    written = set(scheme_from_template(template, year="1995")) & _RESERVED_CHARS
+    assert _named_characters(cross_fs_hazards(template)) == written
+
+
+def _quoted_segments(hazards: list[str], marker: str) -> set[str]:
+    """The segments named by every hazard containing ``marker``."""
+    return {h.split("“", 1)[1].split("”", 1)[0] for h in hazards if marker in h}
+
+
+#: A plain word that is neither a reserved name nor ends in a dot or space.
+_CLEAN_WORD = st.text(alphabet="abcxyz019-_()", min_size=1, max_size=6).filter(
+    lambda w: w.lower() not in {"con", "prn", "aux", "nul"}
+)
+#: Letters that are not tokens anywhere: an unknown "%q" is kept in the path as
+#: typed. ("N" and "M" became known tokens on 2026-09-25, so they are not here.)
+_UNKNOWN_TOKEN = st.sampled_from("bcefgqzBCDEFG").map(lambda c: "%" + c)
+#: A piece of text containing a "%" that is NOT a tag token.
+_PERCENT_LITERAL = st.one_of(st.just("%%"), _UNKNOWN_TOKEN)
+
+
+@st.composite
+def _segment_with_verdict(draw: st.DrawFn) -> tuple[str, bool, bool]:
+    """``(segment, is_reserved_name, ends_in_dot_or_space)`` as the path sees it."""
+    kind = draw(st.sampled_from(["reserved", "trailing", "clean", "token"]))
+    percent = draw(st.one_of(st.just(""), _PERCENT_LITERAL))
+    if kind == "reserved":
+        name = draw(st.sampled_from(sorted(sv._WINDOWS_RESERVED_NAMES)))
+        name = "".join(c.upper() if draw(st.booleans()) else c for c in name)
+        # Windows reserves "CON.anything" too; a "%" after the dot is still text.
+        ext = draw(st.sampled_from(["", ".flac", ".txt"]))
+        return (name + (ext + percent if ext else ""), True, False)
+    if kind == "trailing":
+        word = draw(_CLEAN_WORD)
+        tail = draw(st.sampled_from([".", " ", "..", ". "]))
+        return (word + percent + tail, False, True)
+    if kind == "clean":
+        word = draw(_CLEAN_WORD)
+        return (word + percent + draw(_CLEAN_WORD), False, False)
+    # A tag token makes the segment value-dependent, however hazardous the rest
+    # of it looks: "aux %A" is a name the ALBUM ARTIST decides.
+    token = "%" + draw(st.sampled_from(sorted(sv._KNOWN_TEMPLATE_TOKENS)))
+    decoy = draw(st.sampled_from(["aux ", "CON.", "Best Of.", ""]))
+    return (
+        decoy + token + percent + draw(st.sampled_from(["", ".", " "])),
+        False,
+        False,
+    )
+
+
+@given(segments=st.lists(_segment_with_verdict(), min_size=1, max_size=6))
+@settings(max_examples=300, deadline=None)
+def test_cross_fs_judges_every_segment_that_holds_no_tag_token(
+    segments: list[tuple[str, bool, bool]],
+) -> None:
+    from platterpus.settings_validation import cross_fs_hazards
+
+    hazards = cross_fs_hazards("/".join(seg for seg, _, _ in segments))
+    assert _quoted_segments(hazards, "reserved device name") == {
+        seg for seg, reserved, _ in segments if reserved
+    }
+    assert _quoted_segments(hazards, "dot/space") == {
+        seg for seg, _, trailing in segments if trailing
+    }
+
+
+def test_a_percent_that_is_not_a_tag_token_does_not_hide_a_segment() -> None:
+    """Regression (found by the property above, 2026-09-25).
+
+    The segment checks skipped any segment containing a "%", on the reasoning
+    that a TOKEN makes it value-dependent. But "%%" is a literal percent and an
+    unknown "%q" is kept as typed, so those segments reach the path verbatim —
+    and "CON.%%" is the reserved device name CON with an extension.
+    """
+    from platterpus.settings_validation import cross_fs_hazards
+
+    assert any("reserved device name" in h for h in cross_fs_hazards("CON.%%/%t"))
+    assert any("dot/space" in h for h in cross_fs_hazards("Bonus%%./%t"))
+    assert any("dot/space" in h for h in cross_fs_hazards("Take %q./%t"))
+    # A real tag token still defers the verdict to rip time.
+    assert cross_fs_hazards("CON.%A/%t") == []
+
+
 # --- Library folder (optional dir — auto-move feature) ------------------------
 
 
@@ -662,3 +965,51 @@ def test_resolve_input_directory_logs_the_failure(
     with caplog.at_level(logging.ERROR, logger="platterpus.settings_validation"):
         sv.resolve_input_directory("--ctdb-calibrate folder", tmp_path / "nope")
     assert any("does not exist" in r.message for r in caplog.records)
+
+
+def test_the_DISC_codes_are_known_so_settings_does_not_warn_about_them() -> None:
+    """Maintainer decision 3A, 2026-09-25: `%N` and `%M` work in every surface.
+
+    Settings used to warn that `%N` was an unknown code while the rip mapped it,
+    so the preview and the real name disagreed.
+    """
+    issues = sv.validate_config(Config(track_template="%A/%d/CD %N of %M/%t - %n"))
+    assert not [i for i in issues if i.field == "track_template"], issues
+
+
+# --- D17: a crashing check is a WARNING, not a pass and not an error ----------
+
+
+def _crash(*_args: object) -> list[sv.ValidationIssue]:
+    raise RuntimeError("a validator bug")
+
+
+def test_a_CRASHING_check_is_a_visible_warning_and_is_logged(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Maintainer ruling D17 (KDD-38, 2026-09-25). A crashing rule used to count as
+    "no issue", so a value its check could not evaluate passed silently."""
+    monkeypatch.setattr(sv, "_validate_dir", _crash)
+    with caplog.at_level(logging.ERROR):
+        issues = sv.validate_config(Config())
+    crashed = [i for i in issues if i.field == "output_dir"]
+    assert len(crashed) == 1, issues
+    assert not crashed[0].is_error(), "a crash must not be an error: that resets"
+    assert "couldn't check" in crashed[0].message
+    assert any(r.exc_info for r in caplog.records), "the traceback must reach the log"
+
+
+def test_a_CRASHING_check_neither_resets_the_value_nor_blocks_saving(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reason D17 is a warning and not an error: at startup an error resets
+    the field to its default, so a validator bug would reset a correct setting.
+    Checked through the real load path and the real save check."""
+    from platterpus import config as config_module
+
+    monkeypatch.setattr(sv, "_validate_dir", _crash)
+    mine = Config(output_dir="/srv/music/rips")
+    config_module.take_load_resets()  # start from an empty record
+    assert config_module._sanitized(mine).output_dir == "/srv/music/rips"
+    assert config_module.take_load_resets() == []
+    assert sv.field_error(mine, "output_dir") == ""

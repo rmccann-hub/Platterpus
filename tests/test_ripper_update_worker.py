@@ -560,15 +560,42 @@ def test_the_launch_path_does_arm_it() -> None:
     Asserted on `app.py`'s source rather than by launching the app: the call sits
     inside the `QApplication` branch, and reaching it for real means a window and an
     event loop, which is the very thing this pair is about not doing in a test.
+
+    **On its AST, not its text (2026-09-25).** The first version was a substring
+    search over the whole of `app.py`, so ``pass  #
+    window.schedule_ripper_update_check()`` — the call commented out, the check
+    armed by nothing — passed it (revert-probed). A comment is not in the AST,
+    and neither is a string, so this looks for a real `Call` node whose callee is
+    ``window.schedule_ripper_update_check``, inside `main` (the launch path), and
+    requires exactly one: two would mean the check can be armed twice.
     """
+    import ast
     from pathlib import Path
 
     app_source = (
         Path(__file__).resolve().parents[1] / "src" / "platterpus" / "app.py"
     ).read_text(encoding="utf-8")
-    assert "window.schedule_ripper_update_check()" in app_source, (
-        "app.py no longer arms the automatic cyanrip check, so nothing does — the "
-        "'do not arm it in __init__' test above would still pass"
+    tree = ast.parse(app_source)
+    mains = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "main"
+    ]
+    assert len(mains) == 1, "app.py has no single top-level `main` to inspect"
+    calls = [
+        node
+        for node in ast.walk(mains[0])
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "schedule_ripper_update_check"
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "window"
+    ]
+    assert len(calls) == 1, (
+        f"app.py's launch path has {len(calls)} real calls to "
+        "`window.schedule_ripper_update_check()` (expected exactly 1). With none, "
+        "nothing arms the automatic cyanrip check — and the 'do not arm it in "
+        "__init__' test above would still pass."
     )
 
 

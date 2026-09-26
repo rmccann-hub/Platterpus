@@ -81,13 +81,26 @@ Only the default (no flag) is archival-safe, which is why it's the only mode we
 use. See `docs/eac-parity.md` Part A (pre-gaps in the cue) for the `INDEX 00`
 cue-metadata question (separate, decision-gated).
 
-**Tag string syntax (`-a`/`-t`) — a real trap:** the value list is
-`key=value:key=value`, parsed by FFmpeg's `av_dict_parse_string`, **but** cyanrip
-first runs it through `append_missing_keys()` which splits on `:` *naïvely*
-(ignoring backslash/quote escapes). So a literal `:` in a value cannot be escaped
-— we substitute the look-alike `∶` (U+2236) and restore the real colon in the
-FLAC tags post-rip via metaflac (`_escape_meta_value` / `restore_substituted_colons`).
-Other tokenizer-special chars (`\ = '`) are backslash-escaped.
+**Tag string syntax (`-a`/`-t`) — a real trap, now escaped rather than substituted:**
+the value list is `key=value:key=value`, parsed by FFmpeg's `av_dict_parse_string`
+after cyanrip's `append_missing_keys()` pre-splitter. That pre-splitter used to
+split on `:` naïvely, so until round 7 lap 31 we swapped a literal `:` for the
+look-alike `∶` (U+2236) and repaired it post-rip. It is escape-aware in both the
+fork and upstream (verified in their `src/naming.c`), so every tokenizer-special
+character (`: \ = '`) is now **backslash-escaped** and the real colon goes in and
+comes back out (`_escape_meta_value`; this paragraph said "substitute" until
+2026-09-25, a year-old description of code that had changed).
+
+**Control characters in tag values** (maintainer decision D14, 2026-09-25). The
+four values that become folder and file names (album artist, album title, track
+title, track artist) **refuse** a C0 control character or DEL before the rip
+starts. The seven that only ever become tags (genre, label, catalog number,
+barcode, year, ISRC, release id) come from MusicBrainz and cannot be edited, so
+each such character is **replaced with a space** at the argv chokepoint
+(`tag_hygiene`, applied in `_metadata_args`), logged, and recorded in the
+report's `disc.tag_control_characters_replaced`. One definition of "control
+character" serves both rules (`settings_validation.is_control_char`), and a
+property test holds that no control character reaches `-a`/`-t` from any field.
 
 **Filename / path cross-filesystem safety (the `-D`/`-F` output on disk).**
 cyanrip builds each folder/file segment from the naming template with the fetched
@@ -358,6 +371,15 @@ used listed 18; we passed `-t 17=` and `-t 18=`; cyanrip refused the whole rip
 in two seconds. Guarded now in `_metadata_args` and pinned by
 `tests/test_dependency_arg_contract.py`.
 
+**The `-l` row sat in this table with no guard behind it until 2026-09-25**,
+the same shape one flag over: the track numbers come from the track table,
+whose rows come from the MusicBrainz release. `_tracks_on_disc` now drops a
+number the disc does not have and refuses the rip if none is left (dropping
+`-l` itself would mean "rip everything"). So that a table row cannot outrun its
+guard again, `tests/test_cyanrip_backend.py::test_every_NUMERIC_flag_the_builder_sends_has_a_range_check`
+drives the builder with every option on and fails on any numeric flag that is
+not range-checked at the chokepoint or in the builder.
+
 **The rule this implies for any new flag:** if a value is derived from
 *anything other than the disc we are about to rip* — a metadata service, a
 config file, a previous disc — it needs a range check against the disc before
@@ -539,6 +561,36 @@ per-file failure leaves the source FLAC untouched (the master is never at risk).
   stdout and hash it, proving the derived file bit-identical to the master;
   MP3 is only checked as cleanly decodable (lossy by design — Critical
   rule #4). Watchdog timeout; never raises.
+
+## sigstore — release build-attestation check (`update_attestation.py`)
+
+- **Input:** the release asset `platterpus-x86_64.AppImage.sigstore.json`, read
+  capped at `MAX_BUNDLE_BYTES` (256 KiB; the v0.6.60 bundle is 10,887 bytes). One
+  Sigstore bundle (`application/vnd.dev.sigstore.bundle.v0.3+json`), or JSON Lines
+  of them, which is what `actions/attest` writes: it appends one bundle per line
+  (`actions/attest@a1948c3:src/main.ts:94-110`). Each line is tried; any that
+  verifies is enough.
+- **Calls:** `Bundle.from_json(text)`, then `Verifier.verify_dsse(bundle, policy)`
+  with `Verifier.production(offline=…)`. It returns `(payload_type, payload)` and
+  does **not** check either, by its own docstring, so we do: payload type
+  `application/vnd.in-toto+json`, `_type` `https://in-toto.io/Statement/v1`,
+  `predicateType` `https://slsa.dev/provenance/v1`, and a `subject` whose
+  `digest.sha256` equals the downloaded file's.
+- **Identity policy (the certificate's Fulcio extensions):** issuer (`…57264.1.8`)
+  `https://token.actions.githubusercontent.com`; source repository URI (`…1.12`)
+  `https://github.com/rmccann-hub/Platterpus`; build signer URI (`…1.9`)
+  `…/.github/workflows/release.yml@refs/heads/main` **or**
+  `…@refs/tags/v<version>`. Measured on v0.6.60: a dispatched release signs as
+  `refs/heads/main`, trigger `workflow_dispatch`, commit = the tag's commit.
+- **Errors we map:** `sigstore.errors.Error` (and its `VerificationError`,
+  `InvalidBundle`, `TUFError`) become a `refused` result; anything else becomes
+  `not_checked`, logged with its traceback. Nothing raises to the updater.
+- **Network:** a TUF refresh of the trust root from `tuf-repo-cdn.sigstore.dev`
+  (honours `HTTPS_PROXY`; 30 s socket timeout with retries, so a stalled network
+  takes 120 s to fail, measured). The updater bounds its wait and falls back to the
+  cached root, which is `~/.cache/sigstore-python/` after a refresh or the copy
+  inside the package before one. `verify_dsse` itself makes no network call: the
+  inclusion proof and timestamps are inside the bundle.
 
 ## Cover Art Archive (`adapters/cover_art.py`)
 

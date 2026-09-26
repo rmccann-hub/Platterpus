@@ -20,6 +20,8 @@ import pytest
 # The one canonical window teardown (see its docstring — a second copy of it
 # is how CI segfaulted on 2026-07-28).
 from conftest import HardExitCalled, stop_window_threads
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from platterpus import report_writer, rip_report
@@ -639,6 +641,116 @@ def test_a_dropped_detail_unanswers_the_disc_so_the_picker_can_reopen(
         "the disc is still marked answered after its answer was thrown away, so "
         "the recovery picker stays suppressed and no tracks can ever load"
     )
+
+
+def test_a_FAILED_FETCH_unanswers_the_disc_so_the_picker_can_reopen(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The error path, which the belt above never covered (2026-09-25).
+
+    The chosen marker is set BEFORE the fetch is emitted. When that fetch
+    failed, the disc stayed marked answered with no answer loaded, and the next
+    lookup for it was refused as "already chosen": placeholder rows, and no way
+    to ask again short of a Rescan. The recovery lookup is driven here, so the
+    test is about the user's symptom and not only the marker.
+    """
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    window._current_num_tracks = 3
+    window._mb_release_chosen_for = "disc-A"  # the user chose; the fetch is out
+
+    window._on_mb_release_fetch_failed("disc-A", "server gone")
+    assert window._mb_release_chosen_for == "", "still marked answered"
+    assert [t.title for t in window._track_table.tracks()] == [
+        "Track 01",
+        "Track 02",
+        "Track 03",
+    ]
+
+    fetched: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        window, "_fetch_release_detail", lambda mbid, ctx: fetched.append((mbid, ctx))
+    )
+    window._on_mb_releases("disc-A", _releases(1))
+    assert fetched == [("mbid-0", "disc-A")], (
+        "the recovery lookup was refused, so the disc can never load its tracks"
+    )
+
+
+def test_a_REDUNDANT_lookup_failure_keeps_the_release_already_chosen(
+    teardown_threads,
+) -> None:
+    """Two lookups can race for one disc. When the first was answered, the second
+    one failing used to overwrite the chosen release's tracks with placeholders."""
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    window._current_num_tracks = 2
+    window._mb_release_chosen_for = "disc-A"
+    window._on_mb_release_detail("disc-A", _detail())
+    assert [t.title for t in window._track_table.tracks()] == ["One", "Two"]
+
+    window._on_mb_error("disc-A", "timed out")
+    assert [t.title for t in window._track_table.tracks()] == ["One", "Two"], (
+        "a redundant lookup's failure replaced the chosen release with placeholders"
+    )
+    assert window._mb_release_chosen_for == "disc-A"
+
+
+def test_a_lookup_failure_for_an_UNANSWERED_disc_still_shows_placeholders(
+    teardown_threads,
+) -> None:
+    """The other half: the redundant-lookup rule must not swallow a real failure."""
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    window._current_num_tracks = 2
+    window._on_mb_error("disc-A", "timed out")
+    assert [t.title for t in window._track_table.tracks()] == ["Track 01", "Track 02"]
+
+
+def test_no_musicbrainz_answer_rewrites_the_table_or_opens_a_modal_UNDER_A_RIP(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A running rip owns the track table (TASKS `stateful:table-immutable-during-rip`
+    and `stateful:no-modal-during-rip`, 2026-09-25).
+
+    An unknown-album rip is tagged from a snapshot of the table taken when it
+    finishes, so every MusicBrainz path that could land mid-rip is driven here:
+    a release detail, a lookup error, a fetch failure, several candidates (which
+    would open the picker) and none (which would open the unknown-album dialog).
+    """
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    window._current_num_tracks = 2
+    window._track_table.set_placeholder_tracks(2)
+    before = [t.title for t in window._track_table.tracks()]
+
+    def _no_modal(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("a modal opened over a running rip")
+
+    monkeypatch.setattr(ReleasePickerDialog, "exec", _no_modal)
+    monkeypatch.setattr(window, "open_unknown_album_dialog", _no_modal)
+    window._rip_worker = object()  # type: ignore[assignment]  # a rip is running
+    window._track_table.set_locked(True)
+    try:
+        window._mb_release_chosen_for = "disc-A"
+        window._on_mb_release_detail("disc-A", _detail())
+        assert window._mb_release_chosen_for == "", (
+            "the dropped detail must un-answer the disc, so a Rescan asks again"
+        )
+        window._on_mb_error("disc-A", "timed out")
+        window._on_mb_release_fetch_failed("disc-A", "server gone")
+        window._on_mb_releases("disc-A", _releases(3))
+        window._on_mb_releases("disc-A", [])
+    finally:
+        window._rip_worker = None
+        window._track_table.set_locked(False)
+    assert [t.title for t in window._track_table.tracks()] == before
+    assert window._current_release_detail is None, "a detail was applied mid-rip"
+
+    # NOT satisfied by a window that ignores MusicBrainz altogether: with the rip
+    # over, the same detail loads.
+    window._on_mb_release_detail("disc-A", _detail())
+    assert [t.title for t in window._track_table.tracks()] == ["One", "Two"]
 
 
 # --- Rip request: validation gate ---------------------------------------
@@ -2252,6 +2364,91 @@ def test_safe_path_segment_i18n_and_robustness() -> None:
     out = _safe_path_segment(long_cjk)
     assert len(out.encode("utf-8")) <= 255
     assert out and all(ch == "あ" for ch in out)  # no mojibake from a split char
+
+
+# --- safe_path_segment: the properties -----------------------------------------
+#
+# The examples above pin one shape each. The value is whatever the user typed for
+# an unknown disc, dropped LITERALLY into `-D`/`-F`, so the promises are checked
+# over every `str` — including lone surrogates, which a Python str can hold and
+# which no UTF-8 filename can:
+#
+#  * the result is one creatable path segment: never "." or "..", no "/", no
+#    "%" (a template token), no NUL/C0/DEL, no surrogate, no edge whitespace,
+#    at most NAME_MAX bytes — and it is idempotent;
+#  * and the non-triviality half, without which returning "" for everything
+#    would pass: an ordinary title comes back unchanged.
+
+#: Every code point, surrogates included — `st.text()` excludes them by default.
+_ANY_CHAR = st.characters(codec=None, exclude_categories=())
+#: Short enough to stay under the byte cap, dense in the characters that matter.
+_TRICKY = st.text(alphabet=" ./%\x00\x1f\x7f\ud800あa", max_size=12)
+
+
+def _long_title() -> st.SearchStrategy[str]:
+    """Past the 255-byte cap, starting with a directory reference.
+
+    The cap strips whatever it cuts to, so a title of ".." and a long run of
+    spaces is the shape that reaches the cap and leaves only the dots behind.
+    """
+    return st.builds(
+        lambda head, pad, tail: head + " " * pad + tail,
+        st.sampled_from([".", "..", "a"]),
+        st.integers(min_value=240, max_value=300),
+        st.text(alphabet="xあ", min_size=1, max_size=20),
+    )
+
+
+@given(
+    value=st.one_of(st.text(alphabet=_ANY_CHAR, max_size=40), _TRICKY, _long_title())
+)
+@settings(max_examples=300, deadline=None)
+def test_safe_path_segment_always_yields_one_creatable_segment(value: str) -> None:
+    from platterpus.ui.main_window_helpers import safe_path_segment
+
+    out = safe_path_segment(value)
+    assert out not in (".", ".."), (value, out)
+    assert "/" not in out and "%" not in out, out
+    assert all(ch >= " " and ch != "\x7f" for ch in out), repr(out)
+    assert not any("\ud800" <= ch <= "\udfff" for ch in out), repr(out)
+    assert out == out.strip(), repr(out)
+    assert len(out.encode("utf-8")) <= 255
+    assert safe_path_segment(out) == out, "a second pass must change nothing"
+
+
+@given(
+    value=st.text(
+        alphabet=st.characters(
+            codec="utf-8",
+            exclude_categories=("Cc", "Cs", "Zs", "Zl", "Zp"),
+            exclude_characters="/%.",
+        ),
+        min_size=1,
+        max_size=40,
+    )
+)
+@settings(max_examples=200, deadline=None)
+def test_safe_path_segment_leaves_an_ordinary_title_alone(value: str) -> None:
+    """Floor: a title with nothing to remove comes back exactly as typed."""
+    from platterpus.ui.main_window_helpers import safe_path_segment
+
+    assert safe_path_segment(value) == value.strip()
+
+
+def test_safe_path_segment_regressions_found_by_the_property() -> None:
+    """Regression (found by the property above, 2026-09-25).
+
+    * The "."/".." refusal ran BEFORE the 255-byte cap, and the cap strips what
+      it cuts to — so ".." + 253 spaces + "x" came back as "..", a traversing
+      segment from the function whose job includes refusing exactly that.
+    * A lone surrogate reached `str.encode("utf-8")` and raised
+      UnicodeEncodeError, on the rip-start path.
+    """
+    from platterpus.ui.main_window_helpers import safe_path_segment
+
+    assert safe_path_segment(".." + " " * 253 + "x") == ""
+    assert safe_path_segment("." + " " * 254 + "x") == ""
+    assert safe_path_segment("a\ud800b") == "ab"
 
 
 def test_unique_album_title_never_overwrites_a_previous_unknown_rip(
@@ -4873,6 +5070,10 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
         "medium_basis": None,
         "medium_detail": None,
         "medium_undetermined": False,
+        # v28 (D14): a positive "nothing was replaced", not an absent key.
+        "tag_control_characters_replaced": [],
+        # v29 (D16): filled in when the EAC-layout log is written.
+        "eac_log_signature_lines_defused": [],
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}
     assert report["environment"]["dependencies"]["cyanrip"] == {
@@ -5622,6 +5823,126 @@ def test_reset_disc_view_clears_disc_state(teardown_threads) -> None:
     assert window._current_disc_id == ""
 
 
+def test_a_disc_inserted_clears_the_previous_discs_identity_before_scanning(
+    teardown_threads,
+) -> None:
+    """The removal reset does not always run before an insert.
+
+    The watcher fires REMOVED only on disc → empty and INSERTED on empty → disc,
+    so disc → unknown (a probe glitch) → empty → disc fires INSERTED with no
+    REMOVED. The new disc's scan then started on top of the old disc's release
+    and disc id. The insert now resets first. Found 2026-09-25 by the TASKS triage.
+    """
+    window = teardown_threads()
+    window._rip_thread = None
+    window._disc_info_thread = None
+    window._current_release_id = "old-release"
+    window._current_release_detail = _detail()
+    window._current_disc_id = "old-disc"
+    seen_at_scan: list[tuple[str, object, str]] = []
+    window._start_disc_info = lambda _device: seen_at_scan.append(  # type: ignore[assignment]
+        (
+            window._current_release_id,
+            window._current_release_detail,
+            window._current_disc_id,
+        )
+    )
+    window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
+    window._media_watcher.reset()
+    statuses = iter(["disc", "unknown", "empty", "disc"])
+    window._disc_status_probe = lambda _dev: next(statuses)  # type: ignore[assignment]
+
+    for _ in range(4):
+        window._poll_disc_media()
+
+    assert seen_at_scan == [("", None, "")], seen_at_scan
+
+
+def test_reset_disc_view_forgets_the_release_detail_too(teardown_threads) -> None:
+    """The detail is cleared wherever the release id is, never only one of them."""
+    window = teardown_threads()
+    window._current_release_id = "rel-123"
+    window._current_release_detail = _detail()
+    window._reset_disc_view()
+    assert window._current_release_detail is None
+
+
+def _detail_with_medium(mbid: str) -> ReleaseDetail:
+    from dataclasses import replace
+
+    base = _detail()
+    return ReleaseDetail(
+        summary=replace(
+            base.summary,
+            mbid=mbid,
+            medium_basis="disc-id",
+            medium_detail="disc 2 of 2, matched by disc id",
+        ),
+        tracks=base.tracks,
+    )
+
+
+@pytest.mark.parametrize(
+    ("release_id", "expected_basis"),
+    [("", None), ("a-different-release", None), ("previous-mbid", "disc-id")],
+)
+def test_the_report_takes_medium_provenance_only_from_this_rips_release(
+    teardown_threads, release_id: str, expected_basis: str | None
+) -> None:
+    """An unknown-album rip after a MusicBrainz one recorded the EARLIER disc's
+    medium basis as its own: the report read the stored detail with no check that
+    it belonged to this rip, while the rip-start snapshot did check. Both now use
+    one predicate. The last case is the positive control: the matching release
+    still reports its provenance."""
+    from types import SimpleNamespace
+
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._current_release_detail = _detail_with_medium("previous-mbid")
+    window._current_release_id = release_id
+    window._rip_worker = SimpleNamespace(failure_hint="")  # type: ignore[assignment]
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id=release_id,
+        output_dir=Path("/tmp/x"),
+        track_template="t",
+        disc_template="d",
+        unknown=not release_id,
+    )
+
+    window._finish_rip(success=False, log_path="")
+
+    assert window._last_disc["medium_basis"] == expected_basis
+
+
+def test_the_disc_record_says_which_tag_only_fields_were_cleaned(
+    teardown_threads,
+) -> None:
+    """D14: the report records what the argv chokepoint replaced, computed from the
+    same metadata with the same function, so the two cannot disagree."""
+    from types import SimpleNamespace
+
+    from platterpus.adapters.rip_backend import RipMetadata, TrackTag
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(failure_hint="")  # type: ignore[assignment]
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=Path("/tmp/x"),
+        track_template="t",
+        disc_template="d",
+        metadata=RipMetadata(genre="Rock\nPop", tracks=(TrackTag(2, isrc="GB\x00X"),)),
+    )
+    window._finish_rip(success=False, log_path="")
+    assert window._last_disc["tag_control_characters_replaced"] == [
+        {"field": "genre", "replaced": 1},
+        {"field": "track 2 isrc", "replaced": 1},
+    ]
+
+
 def test_notify_rip_complete_respects_toggle_and_cancel(teardown_threads) -> None:
     """The completion notification is gated by the setting and never fires for a
     user-cancelled rip; otherwise it reaches the tray step (None here → no-op)."""
@@ -5664,6 +5985,43 @@ def test_write_eac_log_respects_toggle(teardown_threads, tmp_path) -> None:
     assert companion.read_text(encoding="utf-8").startswith(
         "Exact Audio Copy-compatible"
     )
+
+
+def test_a_defused_signature_line_reaches_the_report_and_the_log_is_still_written(
+    teardown_threads, tmp_path
+) -> None:
+    """D16, end to end on the real write path. The rewritten lines land in the
+    disc block the report reads, and recording them can never be the reason the
+    companion log is missing: the first version read `self._last_disc` BEFORE the
+    write, and a window without it lost the log to the broad except."""
+    from platterpus.parsers.rip_log import RippingInfo
+
+    window = teardown_threads()
+    window._config.write_eac_log_after_rip = True
+    log_file = tmp_path / "X - Album.log"
+    log_file.write_text("cyanrip log", encoding="utf-8")
+    rip_log = RipLog(
+        ripping_info=RippingInfo(
+            album_artist="==== Log checksum ABCD ====", album="Album"
+        ),
+        tracks=(TrackResult(number=1),),
+    )
+    companion = tmp_path / "X - Album (EAC-compatible).log"
+
+    window._last_disc = {"eac_log_signature_lines_defused": []}
+    window._write_eac_log(rip_log, log_file)
+    assert companion.exists()
+    recorded = window._last_disc["eac_log_signature_lines_defused"]
+    assert len(recorded) == 1 and recorded[0].startswith("---- Log checksum ABCD ----")
+
+    companion.unlink()
+    del window._last_disc  # a window with no disc block still writes the log...
+    rearmed: list[bool] = []
+    window._schedule_rip_report_write = lambda: rearmed.append(True)  # type: ignore[method-assign]
+    window._write_eac_log(rip_log, log_file)
+    assert companion.exists()
+    # ...and still re-arms the report, which is what embeds the log beside it.
+    assert rearmed == [True]
 
 
 def test_poll_disc_media_skips_while_ripping(teardown_threads) -> None:

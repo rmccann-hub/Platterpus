@@ -17,6 +17,8 @@ unattended run that is the whole session.
 from __future__ import annotations
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from platterpus.uiscript import report as report_mod
 from platterpus.uiscript import script as script_mod
@@ -172,6 +174,162 @@ def test_absurd_input_is_bounded_and_says_so() -> None:
 def test_the_parser_never_raises_on_any_input(text: str) -> None:
     """It is fed pasted text; a traceback here loses the whole run."""
     script_mod.parse(text)
+
+
+# --- The parser, as properties ---------------------------------------------
+#
+# The eleven shapes above are the ones somebody thought of. The parser's
+# documented contract is stronger than "does not raise", and each half is
+# asserted over generated scripts:
+#
+#  * **Every line is accounted for.** Blank and comment-only lines produce no
+#    step; every other line produces exactly ONE, valid or not, carrying its own
+#    line number — so one bad line can never swallow, merge or renumber its
+#    neighbours. An executable step names a real verb at a legal arity; a step
+#    that cannot run says why.
+#  * **What you wrote is what runs.** A line written in the documented grammar
+#    (a verb in any case, bare words, "double-quoted values" with spaces, `#` and
+#    em dashes in them, a trailing comment) parses to exactly that verb and those
+#    values — and `raw_tail`, the verbatim tail the match verbs compare against,
+#    re-tokenises to the same values.
+
+#: Whitespace-free, quote-free, hash-free: a bare word in the grammar.
+_BARE_WORD = st.one_of(
+    st.text(
+        alphabet=st.characters(
+            exclude_characters='"#', exclude_categories=("Z", "Cc", "Cs")
+        ),
+        min_size=1,
+        max_size=10,
+    ),
+    # Dense in what the parser treats specially: a "~/" path, "=", ":".
+    st.text(alphabet="~/.=:ab", min_size=1, max_size=8),
+)
+#: Anything but a quote or a backslash (the escape is not part of the documented
+#: grammar) or a line break — spaces, `#` and em dashes included.
+_QUOTED_VALUE = st.one_of(
+    st.text(
+        alphabet=st.characters(
+            exclude_characters='"\\', exclude_categories=("Cc", "Cs", "Zl", "Zp")
+        ),
+        max_size=12,
+    ),
+    # Dense in what a naive splitter would break on: a "#" that is NOT a comment,
+    # spaces, an em dash, a "~/" that must still expand on a path verb.
+    st.text(alphabet=" #—~/a", max_size=10),
+)
+_VERB_NAMES: list[str] = sorted(verbs_mod.VERBS)
+
+
+@st.composite
+def _written_line(draw: st.DrawFn) -> tuple[str, str, list[str]]:
+    """``(line, verb, values)`` — a line in the documented grammar, and its meaning."""
+    name = draw(st.sampled_from(_VERB_NAMES))
+    spec = verbs_mod.VERBS[name]
+    most = spec.max_args if spec.max_args is not None else spec.min_args + 3
+    values: list[str] = []
+    written: list[str] = []
+    for _ in range(draw(st.integers(spec.min_args, most))):
+        if draw(st.booleans()):
+            value = draw(_QUOTED_VALUE)
+            written.append(f'"{value}"')
+        else:
+            value = draw(_BARE_WORD)
+            written.append(value)
+        values.append(value)
+    verb = "".join(c.upper() if draw(st.booleans()) else c for c in name)
+    if draw(st.booleans()):
+        verb = f'"{verb}"'  # a quoted word is one value, the verb included
+    gap = draw(st.sampled_from([" ", "  ", "\t", " 　 "]))
+    line = draw(st.sampled_from(["", "  ", "\t"])) + gap.join([verb, *written])
+    line += draw(st.sampled_from(["", " # a comment", "\t#", ' # with "quotes"']))
+    return line, name, values
+
+
+@settings(max_examples=300, deadline=None)
+@given(_written_line())
+def test_a_line_in_the_grammar_parses_to_exactly_what_was_written(
+    case: tuple[str, str, list[str]],
+) -> None:
+    line, name, values = case
+    steps = script_mod.parse(line)
+    assert len(steps) == 1, (line, steps)
+    step = steps[0]
+    assert step.ok, (line, step.error)
+    assert step.verb == name
+    spec = verbs_mod.VERBS[name]
+    expected = (
+        [script_mod.expand_home(v) for v in values] if spec.takes_paths else values
+    )
+    assert list(step.args) == expected, line
+    # The verbatim tail holds exactly the values after the verb, as typed.
+    assert script_mod._tokenise(step.raw_tail) == (values, ""), (line, step.raw_tail)
+
+
+def test_a_quoted_verb_does_not_leak_its_closing_quote_into_the_raw_tail() -> None:
+    """Regression (found by the property above, 2026-09-25).
+
+    ``raw_tail`` was cut at ``len(tokens[0])`` — the verb's length AFTER its
+    quotes were consumed — so a quoted verb left its last letter and closing
+    quote at the front of the tail: ``"expect-cyanrip" Missing …`` compared the
+    ripper's output against ``p" Missing …`` and could never match.
+    """
+    step = script_mod.parse('"expect-cyanrip" Missing "=" in track')[0]
+    assert step.ok, step.error
+    assert step.raw_tail == 'Missing "=" in track'
+
+
+def _is_meaningful(line: str) -> bool:
+    """A line the parser owes a step for: not blank, not only a comment."""
+    if len(line) > script_mod.MAX_LINE_CHARS:
+        return True  # reported as too long, whatever it holds
+    stripped = line.strip()
+    return bool(stripped) and not stripped.startswith("#")
+
+
+_JUNK_LINE = st.one_of(
+    st.just(""),
+    st.just("   "),
+    st.just("# just a comment"),
+    st.just('  # "quoted" comment'),
+    st.just('log "never closed'),
+    st.just("frobnicate the drive"),
+    st.just("ok extra args"),
+    st.just('""'),
+    st.just("log " + "x" * (script_mod.MAX_LINE_CHARS + 1)),
+    st.text(max_size=30),
+)
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    st.one_of(
+        st.text(
+            alphabet=st.characters(codec=None, exclude_categories=()), max_size=200
+        ),
+        st.lists(
+            st.one_of(_written_line().map(lambda case: case[0]), _JUNK_LINE),
+            max_size=12,
+        ).map("\n".join),
+    )
+)
+def test_every_line_of_any_script_is_accounted_for(text: str) -> None:
+    steps = script_mod.parse(text)
+    lines = text.splitlines()
+    owed = [
+        number
+        for number, line in enumerate(lines[: script_mod.MAX_LINES], start=1)
+        if _is_meaningful(line)
+    ]
+    if len(lines) > script_mod.MAX_LINES:
+        owed.append(script_mod.MAX_LINES + 1)  # the "rest was not parsed" marker
+    assert [step.line_no for step in steps] == owed
+    for step in steps:
+        if step.ok:
+            spec = verbs_mod.VERBS[step.verb]
+            assert spec.arity_problem(len(step.args)) is None, step
+        else:
+            assert step.error, f"a step that cannot run must say why: {step}"
 
 
 def test_unsafe_use_is_detectable_before_the_run_starts() -> None:
@@ -408,7 +566,36 @@ def test_a_newline_in_an_argument_is_refused_as_log_forgery() -> None:
         ["-N", "-a", "album=x\nInvoked as: lies"]
     )
     assert refusal is not None
-    assert "newline" in refusal
+    assert "line break" in refusal
+
+
+#: Every character Python itself treats as a line boundary, derived rather than
+#: listed, so a character added to that set in a future Python is covered too.
+_LINE_BREAKS: tuple[str, ...] = tuple(
+    chr(code) for code in range(0x110000) if len(f"a{chr(code)}b".splitlines()) > 1
+)
+
+
+def test_every_line_break_python_knows_is_refused_not_only_newline() -> None:
+    """Regression, 2026-09-25 (TASKS E12): only `\n`, `\r` and NUL were refused,
+    so a vertical tab, form feed, record separator, NEL or U+2028 started a new
+    line in a viewer of the archival log and passed."""
+    assert len(_LINE_BREAKS) >= 10, _LINE_BREAKS  # floor: the set did not vanish
+    # No `:` or `=` in the value: either would be refused by the tag-syntax check
+    # further down for a different reason, and the revert probe showed this test
+    # passing on that reason alone (2026-09-25). The message pins the right one.
+    for ch in _LINE_BREAKS:
+        refusal = script_mod.sanitise_cyanrip_args(
+            ["-N", "-a", f"album=x{ch}Invoked as lies"]
+        )
+        assert refusal is not None and "line break" in refusal, repr(ch)
+
+
+def test_ordinary_text_is_not_refused_by_the_wider_rule() -> None:
+    assert (
+        script_mod.sanitise_cyanrip_args(["-N", "-a", "album=Café Ñ 日本 — «x»"])
+        is None
+    )
 
 
 def test_a_malformed_consumer_tag_is_refused_by_the_same_delegation() -> None:
@@ -567,16 +754,56 @@ def test_the_production_adapter_really_does_omit_dash_N() -> None:
     """The floor under the test above. If the adapter started passing `-N`, the
     justification for this exemption would be gone and nothing else would say so
     — the argument would keep citing an adapter that no longer behaves that way.
-    Read the source rather than trusting the claim (`CLAUDE.md`: answer from the
-    artifact, and name which one)."""
-    import inspect
+    Answer from the artifact, and name which one (`CLAUDE.md`) — and the artifact
+    is the argv the adapter actually hands its runner, not its source text.
+
+    **Behavioural, not an exact-source-string match (2026-09-25).** The first
+    version asserted that ``"[binary, VERIFY_LOG_FLAG, str(path)]"`` appeared in
+    the adapter's source. That is satisfied by a comment beside a call that sends
+    ``-N`` anyway (revert-probed: ``# was: [binary, VERIFY_LOG_FLAG, str(path)]``
+    above ``[binary, "-N", VERIFY_LOG_FLAG, str(path)]`` passed), and it fails on
+    a harmless reformat. So this runs `verify_rip_log` with a recording stand-in
+    runner and asserts on the argv it received: no ``-N``, exactly
+    ``[binary, --verify-log, <log>]`` — and that this exact argv, minus the
+    binary, is one the script surface's exemption waves through. That last clause
+    ties the exemption to what the adapter does, which is the claim the exemption
+    rests on.
+    """
+    from pathlib import Path
 
     from platterpus.adapters import ripper_log_verify
+    from platterpus.adapters.tool_run import ToolRun
+    from platterpus.cyanrip_cli import VERIFY_LOG_FLAG
 
-    src = inspect.getsource(ripper_log_verify)
-    assert "[binary, VERIFY_LOG_FLAG, str(path)]" in src, (
-        "the verify-log argv has changed shape; re-derive the exemption "
+    log_path = (
+        Path(__file__).resolve().parents[1]
+        / "output_reference"
+        / "cyanrip_fork_flac"
+        / "cyanrip_fork_police_classics.log"
+    )
+    assert log_path.is_file(), f"missing corpus log {log_path}"
+
+    sent: list[list[str]] = []
+
+    def _recording(argv: list[str]) -> ToolRun:
+        sent.append(list(argv))
+        return ToolRun(exit_code=0, argv=tuple(argv))
+
+    ripper_log_verify.verify_rip_log(log_path, "cyanrip", runner=_recording)
+    assert len(sent) == 1, f"expected one verifier invocation, got {sent}"
+    argv = sent[0]
+    assert "-N" not in argv, (
+        f"the verify-log adapter now sends -N ({argv}); the exemption in "
+        "verbs.FILE_ONLY_FLAGS cites an adapter that no longer behaves that way — "
+        "re-derive it instead of leaving its reason stale"
+    )
+    assert argv == ["cyanrip", VERIFY_LOG_FLAG, str(log_path)], (
+        f"the verify-log argv has changed shape: {argv}. Re-derive the exemption "
         "in verbs.FILE_ONLY_FLAGS instead of leaving its reason stale"
+    )
+    assert script_mod.sanitise_cyanrip_args(argv[1:]) is None, (
+        f"the script surface refuses the exact argv the product sends ({argv[1:]}),"
+        " so a script cannot exercise what the app does"
     )
 
 

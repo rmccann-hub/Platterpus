@@ -96,24 +96,84 @@ def test_every_implemented_verb_appears_in_the_page() -> None:
     assert not missing, f"verbs absent from the generated page: {missing}"
 
 
-def test_an_unimplemented_verb_is_marked_not_omitted() -> None:
+def test_an_unimplemented_verb_is_marked_not_omitted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """A documented capability that is not a capability fails at *run* time.
 
     For an unattended batch that means dying mid-run, so the page marks such a
     verb rather than hiding it. This also keeps the generator honest: quietly
     filtering them out would make the page read as if everything works.
+
+    **No longer skips when the population is empty (2026-09-25).** It used to
+    `pytest.skip` the moment every verb was implemented, and a skip is green in
+    CI, so the day `eval`/`call` land the marking rule would stop being tested
+    with nothing to say so. Worse, it only ever read the *committed* page: a
+    generator that stopped writing the mark passed it too, because the page on
+    disk still carried the mark from the last regeneration (revert-probed).
+    Three parts now, none of which depends on how many verbs are unimplemented:
+
+    1. **The generator's rule**, on a synthetic table: two real verbs, one
+       flipped to unimplemented, rendered through `_document()`. The flipped row
+       must carry the mark and the other must not — so the rule is tested even
+       on the day the real population is empty, and "mark everything" fails too.
+    2. **Committed page → vocabulary:** every row the page marks is a verb that
+       exists and really is unimplemented. This is the half that notices a verb
+       being implemented (or removed) without the page being regenerated.
+    3. **Vocabulary → committed page:** every unimplemented verb is marked, and
+       every implemented one is not. An empty unimplemented set is fine here; the
+       implemented side carries a floor (43 of 45 when measured, 2026-09-25).
     """
     from platterpus.uiscript.verbs import VERBS
 
-    unimplemented = [v.name for v in VERBS.values() if not v.implemented]
-    if not unimplemented:
-        pytest.skip("every verb is implemented — nothing to mark")
-    text = DOC.read_text(encoding="utf-8")
-    for name in unimplemented:
-        row = next(
-            line for line in text.splitlines() if line.startswith(f"| `{name}` |")
-        )
-        assert "NOT IMPLEMENTED" in row, f"{name} is unimplemented but unmarked"
+    marked_rows = {
+        line.split("`")[1]
+        for line in DOC.read_text(encoding="utf-8").splitlines()
+        if line.startswith("| `") and "NOT IMPLEMENTED" in line
+    }
+
+    # (1) The generator's own rule, on a table whose population we choose.
+    generator = _load_generator()
+    real_rows = generator._verb_rows()
+    assert len(real_rows) >= 2, "need two verbs to build the synthetic table"
+    flipped = dict(real_rows[0], implemented=False)
+    kept = dict(real_rows[1], implemented=True)
+    monkeypatch.setattr(generator, "_verb_rows", lambda: [flipped, kept])
+    rendered = generator._document()
+    row_of = {
+        line.split("`")[1]: line
+        for line in rendered.splitlines()
+        if line.startswith("| `")
+    }
+    assert "NOT IMPLEMENTED" in row_of[flipped["name"]], (
+        "the generator does not mark an unimplemented verb — it would ship a page "
+        "that reads as if every verb works"
+    )
+    assert "NOT IMPLEMENTED" not in row_of[kept["name"]], (
+        "the generator marks an implemented verb as NOT IMPLEMENTED"
+    )
+
+    # (2) Every mark on the committed page names a real, unimplemented verb.
+    stale = sorted(
+        name for name in marked_rows if name not in VERBS or VERBS[name].implemented
+    )
+    assert not stale, (
+        f"docs/script-language.md marks {stale} NOT IMPLEMENTED, but the vocabulary "
+        "no longer has them as unimplemented verbs — regenerate the page"
+    )
+
+    # (3) Every unimplemented verb is marked; every implemented one is not.
+    unimplemented = {n for n, v in VERBS.items() if not v.implemented}
+    implemented = set(VERBS) - unimplemented
+    assert unimplemented <= marked_rows, (
+        f"unimplemented but unmarked: {sorted(unimplemented - marked_rows)}"
+    )
+    assert not (implemented & marked_rows), (
+        f"implemented but marked NOT IMPLEMENTED: {sorted(implemented & marked_rows)}"
+    )
+    assert len(implemented) >= 35, (
+        f"only {len(implemented)} implemented verbs — is the vocabulary loading?"
+    )
 
 
 def test_the_limits_table_carries_real_numbers() -> None:

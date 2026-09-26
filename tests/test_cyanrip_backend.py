@@ -14,10 +14,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
 from platterpus.adapters.cyanrip_backend import (
+    _TOKEN_MAP,
     DIAGNOSTICS_RECORD_PREFIX,
     CyanripImpl,
     _escape_meta_value,
@@ -26,6 +27,7 @@ from platterpus.adapters.cyanrip_backend import (
     scheme_from_template,
 )
 from platterpus.adapters.rip_backend import RipError, RipMetadata, TrackTag
+from platterpus.settings_validation import _KNOWN_TEMPLATE_TOKENS, _unknown_tokens
 
 #: Repo root, for loading `scripts/` helpers that are part of the contract
 #: surface these tests assert on.
@@ -302,7 +304,7 @@ def test_rip_argv_always_disables_mb_and_feeds_gui_metadata() -> None:
     # `-c disc/totaldiscs`, which sets `disc` and `totaldiscs` as separate
     # integer keys. Folded into -a as "disc=1/2" it wrote the single Vorbis tag
     # DISCNUMBER=1/2 — the ID3 convention, not the Vorbis one — and dropped
-    # totaldiscs entirely. See _disc_args.
+    # totaldiscs entirely. See _disc_position.
     assert "disc=" not in album_arg
     assert argv[argv.index("-c") + 1] == "1/2"
     assert "musicbrainz_albumid=1e477f68-c407-4eae-ad01-518528cedc2c" in album_arg
@@ -547,6 +549,165 @@ def test_scheme_collapses_escaped_percent() -> None:
     assert scheme_from_template("100%%") == "100%"
     assert scheme_from_template("%%A") == "%A"
     assert scheme_from_template("%%n - %n") == "%n - {title}"
+
+
+# --- scheme_from_template: the properties, not the examples ------------------
+#
+# The examples above pin one shape each. The translator sits on the argv path
+# (`-D`/`-F`) and reads a Settings value the user types, so the properties below
+# hold it to its documented contract over the whole input space:
+#
+#  1. **Brace discipline.** Every `{` or `}` in the output is part of one of OUR
+#     `{key}` substitutions — never a stray. cyanrip parses `{…}` as its own
+#     syntax and refuses the whole scheme on an unterminated one
+#     (`cyanrip@f8ebf48:src/naming.c:213-216`, *"Invalid scheme syntax,
+#     unterminated "{"!"*), so a stray brace is a rip that fails at start.
+#  2. **Composition.** A template built from pieces translates piece by piece:
+#     a literal, a known token, a `%%` escape, `%Y`, and an unknown `%x` each
+#     mean one thing and never bleed into their neighbours. The oracle is the
+#     documented meaning of each piece, not a second scanner.
+#  3. **The validator and the translator agree about "known".** A token the
+#     Settings validator accepts without a warning is one this translator turns
+#     into something cyanrip understands — never a `%x` left in the filename.
+
+#: One of our own substitutions, as it appears in the scheme.
+_OUR_SUBSTITUTION: re.Pattern[str] = re.compile(
+    "|".join(re.escape(value) for value in sorted(_TOKEN_MAP.values()))
+)
+
+#: The token letters `scheme_from_template` gives a meaning to. `N` and `M`
+#: joined on 2026-09-26 (D18): this set lagged the change by one commit, so the
+#: property below drew `%M` as an "unknown" token and expected it kept, and CI's
+#: draw found it where the local one had not.
+_MEANINGFUL_LETTERS: frozenset[str] = frozenset(
+    {key[1] for key in _TOKEN_MAP} | {"Y", "N", "M", "%"}
+)
+
+
+def test_an_unknown_token_does_not_smuggle_a_brace_to_cyanrip() -> None:
+    """Regression (found by the property below, 2026-09-25).
+
+    "%{" is not one of our tokens, so it took the *unknown token — kept* path,
+    which appended both characters verbatim. The template's own braces were
+    flattened, the one behind a ``%`` was not, and ``%{album}`` became
+    ``%{album)``: an unterminated brace cyanrip refuses the whole scheme over. The
+    Settings validator only *warns* about an unknown code, so the template saved.
+    """
+    assert scheme_from_template("%{album}") == "%(album)"
+    assert scheme_from_template("%{a%}") == "%(a%)"
+    assert scheme_from_template("100%}") == "100%)"
+
+
+def _stray_braces(scheme: str) -> str:
+    """The braces left once every one of our ``{key}`` substitutions is removed."""
+    return "".join(ch for ch in _OUR_SUBSTITUTION.sub("", scheme) if ch in "{}")
+
+
+# A dense alphabet, so a draw lands on "%{" / "%}" / "{…}" constantly rather than
+# once in a thousand runs of full-range text. The two `@example`s are the shapes
+# that found the defect: "%{" is not a token, and it was kept VERBATIM — brace
+# included — so `%{album}` reached cyanrip as `%{album)`, an unterminated brace.
+@example("%{album}")
+@example("%{a%}")
+@settings(max_examples=300, deadline=None)
+@given(st.text(alphabet="%{}AadntYNz/ -", max_size=40))
+def test_the_scheme_never_carries_a_stray_brace(template: str) -> None:
+    scheme = scheme_from_template(template, year="1995")
+    assert _stray_braces(scheme) == "", (
+        f"{template!r} → {scheme!r}: a brace that is not one of our {{key}} "
+        "substitutions reaches cyanrip as its own scheme syntax"
+    )
+
+
+@settings(max_examples=200, deadline=None)
+@given(st.text(max_size=80))
+def test_the_scheme_never_carries_a_stray_brace_on_any_text(template: str) -> None:
+    """The same invariant over full-range text, for breadth."""
+    assert _stray_braces(scheme_from_template(template, year="1995")) == ""
+
+
+def _literal_piece() -> st.SearchStrategy[tuple[str, str]]:
+    """A run of text with no ``%`` in it: braces flatten, everything else stays."""
+    text = st.one_of(
+        st.text(alphabet=st.characters(blacklist_characters="%"), max_size=6),
+        st.sampled_from(["{", "}", "{title}", "/", " - ", "(", "Disc 1"]),
+    )
+    return text.map(lambda s: (s, s.replace("{", "(").replace("}", ")")))
+
+
+def _token_piece(
+    year: str, disc: str, discs: str
+) -> st.SearchStrategy[tuple[str, str]]:
+    """One ``%``-sequence and what it is documented to become."""
+    known = st.sampled_from(sorted(_TOKEN_MAP)).map(lambda t: (t, _TOKEN_MAP[t]))
+    escape = st.just(("%%", "%"))
+    year_token = st.just(("%Y", year))
+    disc_token = st.sampled_from([("%N", disc), ("%M", discs)])
+    # An unknown token is kept so a typo stays visible — but a brace in it is
+    # still a brace, and flattens like any other literal one.
+    unknown_char = st.one_of(
+        st.characters(blacklist_characters="".join(_MEANINGFUL_LETTERS)),
+        st.sampled_from(["{", "}"]),
+    )
+    unknown = unknown_char.map(
+        lambda c: ("%" + c, "%" + c.replace("{", "(").replace("}", ")"))
+    )
+    return st.one_of(known, escape, year_token, disc_token, unknown)
+
+
+@st.composite
+def _template_with_meaning(draw: st.DrawFn) -> tuple[str, str, str, str, str]:
+    """``(template, year, disc, discs, expected scheme)``, from pieces of known meaning."""
+    year = draw(st.sampled_from(["", "1995", "2020"]))
+    # "" is the unusable-position case: the codes drop out, as %Y does undated.
+    disc, discs = draw(st.sampled_from([("", ""), ("1", "1"), ("2", "3")]))
+    pieces = draw(
+        st.lists(
+            st.one_of(_literal_piece(), _token_piece(year, disc, discs)),
+            max_size=12,
+        )
+    )
+    # A lone "%" can only be a literal at the very END — anywhere else it would
+    # pair with the next character and become a token.
+    if draw(st.booleans()):
+        pieces.append(("%", "%"))
+    template = "".join(source for source, _ in pieces)
+    expected = "".join(meaning for _, meaning in pieces)
+    return template, year, disc, discs, expected
+
+
+# The first `@example` is the draw CI's py3.11/3.13/3.14 legs found on
+# 2026-09-26 (`%M` expected kept as unknown); pinned so it runs every time
+# rather than whenever the random draw happens to land on it.
+@example(("%M", "", "", "", ""))
+@example(("%N/%M - %n", "", "2", "3", "2/3 - {title}"))
+@settings(max_examples=300, deadline=None)
+@given(_template_with_meaning())
+def test_the_scheme_translates_a_template_piece_by_piece(
+    case: tuple[str, str, str, str, str],
+) -> None:
+    template, year, disc, discs, expected = case
+    assert scheme_from_template(template, year=year, disc=disc, discs=discs) == expected
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    st.lists(
+        st.one_of(
+            st.sampled_from(sorted(f"%{letter}" for letter in _KNOWN_TEMPLATE_TOKENS)),
+            st.text(alphabet=st.characters(blacklist_characters="%"), max_size=6),
+        ),
+        min_size=1,
+        max_size=10,
+    ).map("".join)
+)
+def test_every_token_the_validator_accepts_is_translated(template: str) -> None:
+    """A template the Settings validator passes without an *unknown code* warning
+    must reach cyanrip with no ``%`` left in it — a leftover ``%d`` is written into
+    the folder name literally, because cyanrip treats ``%`` as an ordinary
+    character."""
+    assert not _unknown_tokens(template), "floor: the draw must be all-known"
+    assert "%" not in scheme_from_template(template, year="1995")
 
 
 def test_rip_argv_preexpands_year_only_token_from_release_date() -> None:
@@ -2022,3 +2183,187 @@ def test_the_track_range_check_says_so_when_it_CANNOT_run(
     assert not any("range check did NOT run" in r.message for r in caplog.records), (
         "the warning fired when the total WAS known, so it says nothing"
     )
+
+
+def test_a_rip_keeps_reading_past_a_byte_that_is_not_utf8(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real rip Popen, against a stand-in binary that prints Latin-1.
+
+    Until 2026-09-25 the rip pipe was opened ``text=True`` with no ``errors``
+    policy, so the first byte that was not UTF-8 raised ``UnicodeDecodeError``
+    and the worker's read loop stopped reading the ripper, losing the line
+    before it too. A disc's CD-TEXT is a realistic source: it is often Latin-1.
+    """
+    binary = tmp_path / "cyanrip"
+    binary.write_text(
+        "#!/bin/sh\nprintf 'before\\nCD-TEXT: caf\\351\\nafter\\n'\n", encoding="utf-8"
+    )
+    binary.chmod(0o755)
+    impl = CyanripImpl(binary_path=str(binary))
+    monkeypatch.setattr(impl, "version", lambda: "cyanrip 0.9.3")
+    handle = impl.rip(
+        drive="/dev/sr0",
+        release_id="",
+        output_dir=tmp_path / "out",
+        track_template="%t - %n",
+        disc_template="",
+    )
+    lines = list(handle.log_lines())
+    handle.wait(timeout=10)
+    assert lines == ["before", "CD-TEXT: caf\ufffd", "after"]
+
+
+# --- -l is range-checked against the disc (TASKS conv.argv-range, 2026-09-25) ---
+
+
+def _l_argv(only_tracks: tuple[int, ...], total: int | None) -> list[str]:
+    return _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=6,
+        only_tracks=only_tracks,
+        disc_track_total=total,
+    )
+
+
+def test_a_track_the_disc_does_not_have_is_not_sent_in_dash_l(caplog) -> None:
+    """cyanrip refuses the WHOLE rip on an out-of-range `-l N` (provider contract,
+    round-26-lap-01-provider-contract-g37f946b.md:115), the `-t 17=` failure in a
+    different flag. The track table's rows come from the MusicBrainz release, so
+    a medium listing 18 tracks for a 16-track disc put `-l 17` one tick away."""
+    with caplog.at_level(logging.WARNING):
+        argv = _l_argv((3, 17, 0), 16)
+    assert argv[argv.index("-l") + 1] == "3"
+    assert any("[17, 0]" in r.getMessage() for r in caplog.records), (
+        "the dropped tracks were not logged"
+    )
+
+
+def test_no_selected_track_on_the_disc_REFUSES_rather_than_ripping_everything() -> None:
+    """Dropping every number would drop `-l` itself, which means "rip the whole
+    disc". That is not what was asked, so the rip is refused with a message the
+    user can act on."""
+    with pytest.raises(RipError, match=r"has 16 track\(s\)"):
+        _l_argv((17, 18), 16)
+
+
+def test_an_in_range_track_list_is_sent_unchanged() -> None:
+    argv = _l_argv((1, 16), 16)
+    assert argv[argv.index("-l") + 1] == "1,16"
+
+
+def test_an_UNKNOWN_track_total_sends_the_list_and_says_the_check_did_not_run(
+    caplog,
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        argv = _l_argv((3, 17), None)
+    assert argv[argv.index("-l") + 1] == "3,17"
+    assert any("did NOT run" in r.getMessage() for r in caplog.records)
+
+
+#: Numeric flags range-checked by the BUILDER, which knows the disc, rather than
+#: by the chokepoint's `_load_arg_ranges`, which sees only the argv. Each names
+#: the test that proves the check. **A new numeric flag must join one of the two.**
+_RANGED_IN_BUILDER: dict[str, str] = {
+    "-l": "test_a_track_the_disc_does_not_have_is_not_sent_in_dash_l",
+    "-c": "the disc position check in `_disc_position` (number >= 1, <= total)",
+    "-t": "the track-number drop in `_metadata_args` (2026-08-02, §5.m)",
+}
+
+#: A value that is a number, a number list, a position (`1/2`) or a
+#: numbered tag (`3=title=…`): the shapes whose meaning is a range.
+_NUMERIC_VALUE = re.compile(r"^(?:-?\d+(?:,\d+)*|\d+/\d+|\d+=.*)$")
+
+
+def test_every_NUMERIC_flag_the_builder_sends_has_a_range_check() -> None:
+    """The half of `conv.argv-range` nothing enforced: a sweep, not a list.
+
+    The builder is driven with every option on, and every flag whose value is
+    numeric must be range-checked either at the chokepoint or in the builder.
+    A new numeric flag added with no range check fails here, before a hardware
+    run finds out that cyanrip refuses it.
+    """
+    from platterpus.adapters.cyanrip_backend import _load_arg_ranges
+
+    meta = RipMetadata(
+        album_title="A",
+        disc_number=1,
+        total_discs=2,
+        tracks=(TrackTag(1, "One", "X"), TrackTag(2, "Two", "X")),
+    )
+    argv = _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=6,
+        metadata=meta,
+        secure_rerip_matches=3,
+        read_speed=8,
+        only_tracks=(1, 2),
+        disc_track_total=2,
+    )
+    numeric = {
+        flag
+        for flag, value in zip(argv, argv[1:], strict=False)
+        if flag.startswith("-") and _NUMERIC_VALUE.match(value)
+    }
+    # FLOOR: seven measured (-s -r -Z -S -l -c -t). A builder that stopped
+    # emitting them, or a pattern that stopped matching, must not pass.
+    assert len(numeric) >= 7, sorted(numeric)
+    covered = set(_load_arg_ranges()) | set(_RANGED_IN_BUILDER)
+    unchecked = sorted(numeric - covered)
+    assert not unchecked, (
+        f"numeric flag(s) {unchecked} reach cyanrip with no range check. Add the "
+        "range to `_load_arg_ranges` (the chokepoint) or check it in the builder "
+        "and list it in `_RANGED_IN_BUILDER` with the test that proves it."
+    )
+    stale = sorted(set(_RANGED_IN_BUILDER) - numeric)
+    assert not stale, f"listed but no longer sent: {stale}"
+
+
+# --- %N / %M: filled in by us, from the checked disc position (decision 3A) ---
+
+
+def _scheme_argv(meta: RipMetadata, template: str) -> list[str]:
+    return _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=6,
+        metadata=meta,
+        track_template=template,
+    )
+
+
+def test_the_DISC_codes_become_the_position_sent_as_dash_c() -> None:
+    """`%N`/`%M` are written from the same checked position as `-c`, so a folder
+    name cannot disagree with the disc tags."""
+    argv = _scheme_argv(
+        RipMetadata(album_title="X", disc_number=2, total_discs=3),
+        "%A/%d/CD %N of %M/%t - %n",
+    )
+    assert argv[argv.index("-c") + 1] == "2/3"
+    assert argv[argv.index("-D") + 1] == "{album_artist}/{album}/CD 2 of 3"
+    assert not any("{disc" in a or "{totaldiscs" in a for a in argv)
+
+
+def test_an_UNUSABLE_disc_position_never_names_a_folder_disc() -> None:
+    """At the pins we ship, cyanrip renders a key with no value as its own NAME
+    (`cyanrip@221a1df:src/naming.c:253` and `:398`), so leaving `%N` to its
+    `{disc}` on a disc whose `-c` was dropped wrote a folder called "disc". The
+    code now drops out instead, as `%Y` does on a dateless disc."""
+    argv = _scheme_argv(
+        RipMetadata(album_title="X", disc_number=3, total_discs=2),
+        "%A/%d/CD %N/%t - %n",
+    )
+    assert "-c" not in argv
+    assert argv[argv.index("-D") + 1] == "{album_artist}/{album}/CD "
+
+
+def test_an_ESCAPED_disc_code_stays_literal() -> None:
+    assert scheme_from_template("%%N", disc="2", discs="3") == "%N"

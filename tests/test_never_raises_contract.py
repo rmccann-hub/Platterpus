@@ -256,6 +256,12 @@ _PARSER_MODULES: tuple[str, ...] = (
     # lesson of the `workers/rip_worker.py` entry above: the sweep is only as
     # wide as somebody remembered to make it.
     "cue_validate.py",
+    # Added 2026-09-25 (TASKS.md fuzz:uiscript.script.parse). A rig script is
+    # pasted by a person and its parser is documented never-raises, because one
+    # traceback loses every result of an unattended batch. It holds no integer
+    # conversion today; being on the roster is what keeps the next one guarded.
+    # Its behavioural properties live in tests/test_uiscript.py.
+    "uiscript/script.py",
 )
 
 # Exceptions that make an `int()` call safe to leave bare inside a `try`.

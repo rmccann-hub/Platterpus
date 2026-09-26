@@ -70,6 +70,16 @@ dependencies = [
     # so it picked the vulnerable 49.0.0 and CI went red with no change to our
     # code. A ceiling that can exclude the only fix is not a safety margin.
     "cryptography>=50.0.0,<51",
+    # Verifies a release's build-provenance attestation before an in-app update
+    # installs (src/platterpus/update_attestation.py; PLANNING.md KDD-37, D9 —
+    # added with the maintainer's yes on 2026-09-25). MINOR-PINNED like PySide6,
+    # and for a sharper reason: the updater refuses to install on ANY failure of
+    # this check, so a verifier API change would not break a build, it would
+    # silently stop every user's updates. Its verification API has changed across
+    # releases (2.x, 3.x and 4.x each reshaped it). Bump deliberately, with
+    # tests/test_update_attestation.py run against the real release bundle.
+    # `build/python-appimage/requirements.txt` states the same range.
+    "sigstore>=4.5.0,<4.6",
 ]
 
 [project.optional-dependencies]
