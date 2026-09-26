@@ -2012,7 +2012,9 @@ def test_no_live_doc_names_a_rig_script_path_that_does_not_exist() -> None:
         if path.suffix.lower() not in {".md", ".py", ".sh", ".txt", ".toml", ".yml"}:
             continue
         rel = path.relative_to(root).as_posix()
-        if rel.startswith((".git/", ".venv/", "build/", "mutants/")):
+        if rel.startswith(
+            (".git/", ".venv/", "build/", "mutants/", ".claude/worktrees/")
+        ):  # a worktree-isolated agent's full copy of the repo (gitignored)
             continue
         # THIS FILE, because its non-triviality twin must contain example
         # paths — including deliberately dead ones — and a sweep that

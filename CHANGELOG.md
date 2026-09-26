@@ -55,6 +55,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **For contributors: the whole-tree sweeps skip an agent's worktree.** An agent run
+  in its own git worktree puts a full copy of the repository under
+  `.claude/worktrees/`, which is gitignored. Three sweeps walked the filesystem, found
+  that copy, and failed seven tests on files that are not ours twice. They now skip
+  it. The shell sweep also matches its skip list against paths relative to the
+  repository, so a run from inside a worktree still sweeps something.
 - **For contributors: the lap checker no longer refuses our own laps on `main`.** It
   required every commit a lap cites to be reachable from `HEAD`. Our laps are
   written on a session branch and squash-merged, so the commits they cite never
