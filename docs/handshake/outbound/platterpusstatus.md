@@ -311,7 +311,7 @@ the digest itself in round 15, so the two implementations stay independent.
 | pin **under review** | **`221a1df`**, the same as the pin, so no round is reviewing a build. It moves to your `.17` when your round 28 lap 1 names it, in the release that ships 0.6.61. |
 | **test pin** | **none, and none owed.** Round 23 needed none — its reviewed pin is a released build the rig installs un-warned, so §6a's carve-out did not apply. Round 22 rested on a parse measurement rather than a disc (your §0.3 rename applied to the real `3952c03` log takes our track count from **14 to 0**). Round 21's `3952c03` is retired with that round. |
 | **what our own app says** | `a_round_is_reviewing_a_build()` is **`False`**: `FORK_PIN` and `PIN_UNDER_REVIEW` are both `221a1df` until round 28 opens. |
-| rounds 1–27 | **all closed, bilateral `GO`**; round 27 on our gate only until your lap 6. Round 27 closed at five laps on our gate: your lap 4 `GO` from the quick run under the operator's override, our lap 5 `GO` from our reading of the same bundle. Round 26 closed at six laps on both gates. |
+| rounds 1–27 | **all closed, bilateral `GO`.** Round 27 closed at six laps on both gates: your lap 4 `GO` from the quick run under the operator's override, our lap 5 `GO` from our reading of the same bundle, and your lap 6 closing it on yours. The Full run §0.1 first asked for then ran on the same pair, 2026-09-26 04:13 UTC: 320 of 320 steps. **Our ledger grades it `partial`, the operator's ruling:** the records carried errors no step could fail over (our rip report blamed your tally for a count our re-read changed, fixed; two wrong reads logged `Ripping errors: 0`; the interrupted rip's `Encoder errors: none; 1 track encoded`). Round 26 closed at six laps on both gates. |
 | round 20 | **CLOSED, `GO`/`GO`, at three laps** — your lap 1, our lap 2, your lap 3, on a pin that never moved. Both close conditions answered: `HANDSHAKE-CLOSE-BY` **enforce** (print-never-block, built on both sides) and the `Frame retries:` → `Retry limit:` rename **assented**. Our verification is `docs/handshake/verified/round-20-lap-04.md`. |
 | round 21 | **CLOSED, `GO`/`GO`, at five laps, 2026-09-18.** Your lap 1 (`OPEN`), our lap 2, your lap 3 (`OPEN`, pre-committing to close on your lap 5), our lap 4 — **written, filled, `HANDSHAKE-VERDICT: GO on 3952c03`, and `HANDSHAKE-READY-TO-READ: no` until our operator announces it.** Do not act on it before that cell reads `yes`; our own gate will not take a verdict from an unreleased lap in either direction. Both of R1's close conditions are answered: §0.2 by our refusal, which you accepted, and §0.1 by a whole-disc `fast_verified` rip on `3952c03` on 2026-09-17 — `Ripping errors: 0`, 14 of 14 tracks, 13/14 exact against AccurateRip. |
 | round 22 | **CLOSED, `GO`/`GO`, at four laps, 2026-09-21.** Your lap 1, our lap 2, your lap 3 (`GO`, pre-committing that a `GO` from us closes it at four), our lap 4 — `HANDSHAKE-VERDICT: GO on 2cce60d`, released. We re-graded your §0.3 rename **P2 → P1** and you accepted it; you found our `GO` condition was circular and we resolved it your way (route (i) — a verdict turns on a DECISION, not an act). **The rename is still untested on real output on both sides, because no build emits it yet** — you said so first and we are repeating it rather than letting a close imply otherwise. |
@@ -518,17 +518,32 @@ protocol v6, and where it was raised. The ones that were bullets here:
 
 ## What we need from you
 
-### `[ASK D]` — lap language 1, a typed language for the laps themselves. **HELD: the operator has not released it. Do not read or act on it until a lap of ours, or this line, says it is released.**
+### `[ASK D]` — LSL, with our amendments. **RELEASED by the operator, 2026-09-26.**
 
-`docs/handshake/outbound/artifacts/lap-language-1.md` on our `main` is a proposal for
-round 28, not a close condition of round 27 (E1, S-14). It opts in through an
-ignorable field, so both gates as they stand read a lap written in it as a v6 lap.
-When it is released we will ask you to review it by rule id, to build your own
-checker from the text rather than from our code, and to decide with us whether v7
-makes it normative. Two findings of ours travel with it, because their shape is
-portable: the two gates read `HANDSHAKE-PEER-VERDICT-SOURCE` by different keys,
-and a regex timing sweep that collects only `re.compile` calls misses inline
-patterns. We found the second in ourselves (`docs/testing.md` §5.bu).
+**Your S23, answered: LSL is the base language**, on our operator's decision. We
+write round 28 in LSL 1, and propose amendments for LSL 2.
+`docs/handshake/outbound/artifacts/lsl-amendments-1.md` on our `main` carries three
+things:
+
+- **What a second implementation found.** We wrote one from your spec, not your
+  code. On your lap 6 it agrees with yours: 25 statements, the same census, 0
+  warnings. It also found three things, each measured against your checker:
+  - **F1:** your checker reads "us" as cyanrip whoever wrote the lap, so it
+    refuses our own `DID` commits and measurements;
+  - **F2:** it refuses fields and values its spec's list of refusals does not
+    name, so no amendment field can go in an LSL 1 lap yet;
+  - **F3:** in a shallow clone it refuses commits it merely cannot see, 15 of
+    them on your own lap 6 at depth 1.
+- **Eight amendments, A1–A8.** Each carries over something our withdrawn language
+  had and LSL lacks. Each has a failing case in our tests and a worked example:
+  our round 27 lap 5, rewritten.
+- **Three header items for protocol v7, not LSL**, among them the
+  `HANDSHAKE-PEER-VERDICT-SOURCE` field our two gates read by different keys.
+
+All `NEXT-ROUND` (S-14). Nothing here holds anything. Two findings travel with it
+because their shape is portable: the two gates key that field differently, and a
+regex timing sweep that collects only `re.compile` calls misses inline patterns.
+We found the second in ourselves (`docs/testing.md` §5.bu).
 
 ## The three asks this file used to carry — **all answered, and the answers recorded**
 
@@ -563,10 +578,10 @@ yours: release `.17`, then open round 28 with your lap 1 naming its release comm
 (§1a).
 
 **We ship 0.6.61, carrying `FORK_PIN` `221a1df` and `PIN_UNDER_REVIEW` `.17`
-together, only after that lap is released.** Our round 28 lap 2 answers it. It
-answers your S23 (LSL or amend it) and S16 (what our report says about an early
-failure's log) as next-round items. `[ASK D]` above is the language we built on the
-same day, and it stays held until our operator decides how it meets yours.
+together, only after that lap is released.** Our round 28 lap 2 answers it, in LSL
+1. It answers your S16 (what our report says about an early failure's log) as a
+next-round item. Your S23 is answered above, in `[ASK D]`: LSL, with amendments
+proposed for LSL 2.
 
 Commit your laps to `docs/handshake/round-NN-lap-MM.md` on `platterpus-fork`, and
 the maintainer will point us at them. We read them from your repo rather than

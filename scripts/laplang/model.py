@@ -1,100 +1,138 @@
-"""The parsed form of a lap: its header, its statements, and what is wrong with it."""
+"""What a parsed LSL lap is made of, and the problems a check can find in it.
+
+These are plain data holders with no behaviour beyond small lookups, so every
+other module can share them without importing each other.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Final
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Final, Literal
 
-#: Rounds before this were hand-carried, so delivery was the release (the same
-#: grandfather `scripts/handshake.py` applies to `HANDSHAKE-READY-TO-READ`).
-READY_TO_READ_FROM_ROUND: Final[int] = 19
+#: The two parties, spelled the way LSL references spell them
+#: (`cyanrip@<sha>:…`, `platterpus:R27.L5.S4`).
+Side = Literal["cyanrip", "platterpus"]
+SIDES: Final[tuple[Side, Side]] = ("cyanrip", "platterpus")
 
-# ---------------------------------------------------------------------------
-# Results
-# ---------------------------------------------------------------------------
+#: `HANDSHAKE-FROM` values, mapped to the side they name. The fork writes
+#: `cyanrip-fork`, so both spellings are the same party.
+FROM_SIDE: Final[dict[str, Side]] = {
+    "cyanrip-fork": "cyanrip",
+    "cyanrip": "cyanrip",
+    "platterpus": "platterpus",
+}
 
-
-@dataclass(frozen=True)
-class Problem:
-    """One broken rule, named by its id in the spec (`L…` for a lap, `R…` for a round)."""
-
-    rule: str
-    line: int
-    message: str
-
-    def render(self, where: str) -> str:
-        return f"{where}:{self.line}: [{self.rule}] {self.message}"
+#: How bad a problem is. `REFUSED` means the lap is not well formed. `WARN` is
+#: printed and does not fail the lap. `CANNOT` means the file could not be checked
+#: at all, which is a different claim from "refused" (exit 2, not 1).
+Severity = Literal["REFUSED", "WARN", "CANNOT"]
 
 
-@dataclass(frozen=True)
-class Attribute:
-    key: str
+def other(side: Side) -> Side:
+    """The party that is not `side`."""
+    return "platterpus" if side == "cyanrip" else "cyanrip"
+
+
+@dataclass
+class Field:
+    """One `  name: value` line of a statement, with its continuation lines joined."""
+
+    name: str
     value: str
     line: int
 
 
-@dataclass(frozen=True)
+@dataclass
 class Statement:
-    """One statement: `#### <sid> <kind> <qualifier>`, its text, its attributes."""
+    """One `S<n> KIND[ grade]: sentence` head and the fields under it."""
 
-    sid: str
+    n: int
     kind: str
-    qualifier: str
-    text: str
-    attributes: tuple[Attribute, ...]
+    grade: str | None
+    sentence: str
     line: int
+    fields: list[Field] = field(default_factory=list)
 
-    def values(self, key: str) -> list[str]:
-        """Every value given for `key`, in order (repeatable keys give several)."""
-        return [a.value for a in self.attributes if a.key == key]
+    def values(self, name: str) -> list[Field]:
+        """Every field called `name`, in order. A field may repeat."""
+        return [f for f in self.fields if f.name == name]
 
-    def value(self, key: str) -> str | None:
-        found = self.values(key)
-        return found[0] if found else None
+    def has(self, name: str) -> bool:
+        return any(f.name == name for f in self.fields)
+
+    @property
+    def tag(self) -> str:
+        """`S7 CORRECT` or `S2 FACT measured`: how a message names the statement."""
+        return f"S{self.n} {self.kind}" + (f" {self.grade}" if self.grade else "")
 
 
 @dataclass(frozen=True)
+class Problem:
+    """One thing a check found.
+
+    `rule` names what was broken: `LSL.1`–`LSL.6` for the six refusals the spec
+    numbers, `LSL.<word>` for rules the spec states elsewhere, and `A1`–`A8` for
+    our proposed amendments. A disagreement between two checkers can then name
+    the rule it is about.
+    """
+
+    line: int
+    severity: Severity
+    rule: str
+    message: str
+
+
+@dataclass
 class Lap:
-    """A parsed lap. `problems` holds everything wrong with it on its own."""
+    """A lap file, parsed. `lsl` is False for a prose lap or an unreadable one."""
 
-    name: str
-    header: tuple[tuple[str, str, int], ...]
-    statements: tuple[Statement, ...]
-    problems: tuple[Problem, ...]
-    uses_language: bool
+    path: Path
+    text: str
+    headers: dict[str, list[str]] = field(default_factory=dict)
+    statements: list[Statement] = field(default_factory=list)
+    problems: list[Problem] = field(default_factory=list)
+    lsl: bool = False
 
-    def field(self, name: str) -> str | None:
-        for key, value, _line in self.header:
-            if key == name:
-                return value
-        return None
+    def add(self, line: int, severity: Severity, rule: str, message: str) -> None:
+        self.problems.append(Problem(line, severity, rule, message))
 
-    def int_field(self, name: str) -> int | None:
-        value = self.field(name)
-        return int(value) if value is not None and value.isdigit() else None
+    def header(self, name: str) -> str | None:
+        """The first value of `HANDSHAKE-<name>`, or None when it is absent."""
+        values = self.headers.get(name)
+        return values[0].strip() if values else None
 
-    def statement(self, sid: str) -> Statement | None:
-        for s in self.statements:
-            if s.sid == sid:
-                return s
-        return None
+    @property
+    def author(self) -> Side | None:
+        """Who wrote the lap, from `HANDSHAKE-FROM`. LSL's "us" means this side."""
+        value = self.header("FROM")
+        return FROM_SIDE.get(value) if value is not None else None
 
     @property
     def round(self) -> int | None:
-        return self.int_field("HANDSHAKE-ROUND")
+        return _as_int(self.header("ROUND"))
 
     @property
     def lap(self) -> int | None:
-        return self.int_field("HANDSHAKE-LAP")
+        return _as_int(self.header("LAP"))
 
     @property
-    def author(self) -> str | None:
-        return self.field("HANDSHAKE-FROM")
+    def verdict(self) -> str | None:
+        """The first word of `HANDSHAKE-VERDICT`: `GO`, `HOLD`, `OPEN`, …"""
+        value = self.header("VERDICT")
+        return value.split()[0] if value and value.split() else None
 
-    @property
-    def released(self) -> bool:
-        """Released for reading (§5c), or from a round that predates the field."""
-        if self.round is not None and self.round < READY_TO_READ_FROM_ROUND:
-            return True
-        value = self.field("HANDSHAKE-READY-TO-READ") or ""
-        return value.split(" ", 1)[0] == "yes"
+    def statement(self, n: int) -> Statement | None:
+        for stmt in self.statements:
+            if stmt.n == n:
+                return stmt
+        return None
+
+    def refused(self) -> list[Problem]:
+        return [p for p in self.problems if p.severity == "REFUSED"]
+
+
+def _as_int(value: str | None) -> int | None:
+    if value is None or not value.isdigit():
+        return None
+    return int(value)

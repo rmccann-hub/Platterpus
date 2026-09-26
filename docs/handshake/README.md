@@ -148,11 +148,14 @@ documents depend on.
   pair**, as `round27full*`: 48 text members of bundle `7b6b45d3…`, 320 of 320 steps,
   and the run §0.1 asked for before the override.
 
-- **`outbound/artifacts/lap-language-1.md`** — **a proposal, not a lap**: lap language 1,
-  a typed language for the laps themselves (sha256 `3732f87ee9dc3335…`, 23,563 bytes when
-  first filed). Held until the operator releases it. Its checker is `scripts/laplang/`,
-  and its worked example is our round 27 lap 5 rewritten in it
-  (`tests/fixtures/lap_language_round27_lap05.md`).
+- **`outbound/artifacts/lsl-amendments-1.md`** — **a proposal, not a lap**: our answer to
+  the fork's round 27 lap 6 S23 (sha256 `d37d696fd8c09091…`, 16,048 bytes when first
+  released). LSL, the fork's lap statement language, is the base; this file carries what
+  our second implementation of it found (F1–F3), eight amendments for LSL 2 (A1–A8), and
+  three header items for protocol v7. Released by the operator 2026-09-26. Its checker is
+  `scripts/laplang/` (`scripts/lap_language.py check`), and its worked example is our round
+  27 lap 5 rewritten (`tests/fixtures/lap_language_round27_lap05.md`). It replaces
+  *lap language 1*, a language of our own built the same day and never sent.
 
 **Names are lowercase ASCII letters and digits only from round 8 on** (`CLAUDE.md` →
 *Artifact filenames that cross machines*). These files leave the repo and come back, and two

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Check laps written in the lap language, and say whose turn it is.
+"""Check a handshake lap written in LSL, the fork's lap statement language.
 
-    python3 scripts/lap_language.py check tests/fixtures/lap_language_round27_lap05.md
-    python3 scripts/lap_language.py turn 27
+    python3 scripts/lap_language.py check docs/handshake/inbound/round-27-lap-06.md
+    python3 scripts/lap_language.py check LAP --peer ../cyanrip --amend all
 
-The language, and why each rule exists, is in `scripts/laplang/__init__.py` and
-the spec it implements, `docs/handshake/outbound/artifacts/lap-language-1.md`.
-This file only puts `scripts/` on the import path and hands over, so the package
-can be imported the same way by the tests.
+This is a second, independent implementation of LSL 1, written from the fork's
+spec rather than their checker, with our proposed amendments behind `--amend`.
+Why, and what each amendment is for, are in `scripts/laplang/__init__.py` and
+`docs/handshake/outbound/artifacts/lsl-amendments-1.md`. This file only puts
+`scripts/` on the import path and hands over, so the tests can import the
+package the same way.
 """
 
 from __future__ import annotations
