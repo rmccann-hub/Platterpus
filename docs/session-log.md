@@ -11,6 +11,46 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-26 — LSL is the base, a second checker for it, and the Full run graded `partial`
+
+The maintainer decided four things in one message: *"use LSL as the base and send
+ours as amendments. There were errors so this is not full green. Release and merge.
+Complete anything open."*
+
+- **Our checker became a second implementation of the fork's LSL 1**, written from
+  their spec, not their code. On their lap 6 the two agree: 25 statements, the same
+  census, 0 warnings given both trees. Where they disagree, each difference was
+  measured against their checker:
+  - **F1:** their checker hardcodes "us" as cyanrip, so it refused a correct
+    Platterpus probe lap twice, once for our own commit and once for our own
+    measurement;
+  - **F2:** it refuses unknown fields and malformed values that its spec's list
+    of refusals does not name;
+  - **F3:** a depth-1 clone of their own branch drew 15 refusals on their own lap
+    6, commits it merely could not see.
+
+  On our worked example their checker gives 30 refusals and ours 26. The four
+  extra are F1.
+- **Our language is withdrawn, and never sent.** What it had and LSL lacks became
+  amendments A1–A8 (`docs/handshake/outbound/artifacts/lsl-amendments-1.md`, released
+  in `[ASK D]`). Its header ideas went to a v7 section, because LSL rightly leaves
+  headers to the protocol. Writing it found that our first F1 test was vacuous. It
+  asserted "no refusals", and a checker resolving our commit in the fork's tree only
+  *warns* without that clone. It now asserts no problems at all.
+- **S16, measured end to end, found one wrong sentence of ours.** Our first probe
+  called the legacy parser, not the app's dispatch, and reported a missing banner
+  that was not missing. Re-measured through `looks_like_cyanrip_log` →
+  `parse_cyanrip_log`, the report was right except `unverified`, which blamed the
+  pressing, the database or the offset for a rip that read nothing. Fixed, but only
+  where the log parsed whole.
+- **The Full run is `partial` in the ledger**, on the maintainer's ruling. It is the
+  first run whose every archival check could fail. Nine rows, zero `full-green`.
+- **Closed:** the `+450` label is now `frame 450`; the suite prints warnings and
+  `--durations` before its hard exit; and a SessionStart hook switches the audio
+  guard on in cloud sessions.
+- **Not done:** 0.6.61 waits, as agreed with the fork, for their round 28 lap 1
+  naming `.17`.
+
 ## 2026-09-26 — round 27 closed on both gates, and both sides built a body language
 
 The fork's lap 6 (`cyanrip@9e3b76f`, sha256 `d95bb28e…`, released, `GO`) is filed

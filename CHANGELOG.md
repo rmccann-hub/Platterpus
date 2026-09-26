@@ -259,6 +259,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The README's latest-hardware note describes the 2026-09-26 Full run**: 320 of 320
+  steps, the first run in which every archival check could fail, recorded `partial` by
+  the maintainer because the records carried errors no step could fail over. The
+  evidence ledger has nine rows and still no `full-green` one.
 - **The auto-fix addendum's one-frame row reads `AccurateRip frame 450:`**, not
   `AccurateRip +450:`, which looked like a read offset of +450. The row is AccurateRip's
   checksum of frame 450 alone, and these are the words round 27 agreed for the
