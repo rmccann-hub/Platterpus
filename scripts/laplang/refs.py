@@ -227,6 +227,9 @@ class Trees:
         three answers, not two: on the ref of record (fine), on another branch
         only (a warning, `offrecord`), or on nothing (refused). Found 2026-09-26,
         when `main`'s CI refused the worked example that the PR's CI had passed.
+        The same day, session branches began merging into `main` with a merge
+        commit, so an off-record commit now reaches the record at the merge. The
+        warning still applies to any lap read before that merge.
         """
         at = self.at.get(side, "HEAD")
         on_record = _git(root, "merge-base", "--is-ancestor", sha, at)

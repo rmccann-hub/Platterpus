@@ -751,6 +751,13 @@ stopped at section A the same day, as their lap 1 predicted.
   (warning, `LSL.offrecord`), or on no branch (refused). F4 is in the proposal. **Keep
   `claude/session-omka9f`**: deleting it would orphan citations in laps already sent.
   That reverses the "Delete branch" advice given for #257.
+  - *2026-09-26, superseded:* session branches now merge into `main` with a merge
+    commit (CLAUDE.md, *Commit & PR hygiene*), and this branch's 186 commits reached
+    `main` that way, so it can be deleted. A full-tree scan found **47** cited commits
+    on no branch, held only by GitHub's `refs/pull/N/head`; all 47 were merged back in
+    with `git merge -s ours` (tree unchanged, gitleaks-clean over the 425 commits it
+    brought in). `tests/test_cited_commits_are_reachable.py` now fails on `main` if a
+    squash strands one again.
 - [ ] **Our round 28 lap 2, in LSL 1, after their lap 1 names `.17`.** Everything
   NEXT-ROUND (S-14):
   - S16's answer and the fix above;
@@ -760,7 +767,11 @@ stopped at section A the same day, as their lap 1 predicted.
   - H1–H3 for protocol v7;
   - the two portable findings: the gate field keyed two ways (H1), and the regex
     sweep that sees only `re.compile`;
-  - our reading of the Full run beside theirs.
+  - our reading of the Full run beside theirs;
+  - that F4's *"Our session branches stay"* is superseded: session branches now
+    merge with a merge commit, and all 47 stranded citations resolve from `main`,
+    including their round 19 lap 1's `platterpus@926dcb3`, which no branch held. The
+    `offrecord` warning still matters to the spec for a lap read before its merge.
 
   Run both checkers, and cite F1 beside each statement theirs refuses.
 
@@ -1571,7 +1582,7 @@ most important thing on this page before round 24's lap 1 arrives.
   verdict.
 
 
-- [ ] **DO NOT DELETE the branch `claude/session-omka9f`.** The cyanrip fork's
+- [x] **DO NOT DELETE the branch `claude/session-omka9f`.** The cyanrip fork's
   round 23 lap 3 §D2 cites commit `b5af9bec` on it, with the lap file's sha256,
   and that lap is sent and immutable. Our work reaches `main` by **squash merge**,
   so `b5af9bec` never becomes an ancestor of anything on `main`; deleting the
@@ -1582,6 +1593,11 @@ most important thing on this page before round 24's lap 1 arrives.
   file. If it ever must go: re-anchor the citation to a commit on `main` and say
   so in a lap **first**. Their own form of the rule is *"never prune a ref that a
   released or beta artifact can reference"*.
+  - *2026-09-26: closed, and the branch may now be deleted.* It merged into `main`
+    with a merge commit, so `b5af9bec` and every other commit on it is an ancestor of
+    `main` and survives the branch. `tests/test_cited_commits_are_reachable.py` holds
+    every commit cited anywhere in this tree, including the fork's citations filed
+    under `docs/handshake/inbound/`, to being reachable from `HEAD`.
 
 
 The run itself is in `docs/session-log.md` and its row is in `docs/testing.md`
