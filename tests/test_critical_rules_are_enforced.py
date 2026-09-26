@@ -1420,7 +1420,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # fork's round-27 lap 4) is reverted on the session branch so a merge cannot carry it
     # onto `main`; this is the renderer's own wording code coming back. Reverting the
     # revert returns it to 1574.
-    "eac_log_export.py": 1579,
+    # **1579 -> 1640** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): `_defuse_signature_lines` and `render_eac_style_log_and_defused`, which returns the rewritten lines for the report; the old entry point is a thin wrapper, so no caller changed.
+    "eac_log_export.py": 1640,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1613,7 +1614,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
     # **690 -> 712** (2026-09-24, #36): `ComponentInventory`, the one inventory type, and v27's `dependencies_measured_at`.
     # **712 -> 723** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): `TagFixEntry` and `DiscBlock.tag_control_characters_replaced`.
-    "report_types.py": 723,
+    # **723 -> 727** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): `DiscBlock.eac_log_signature_lines_defused`.
+    "report_types.py": 727,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1660,7 +1662,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2490 -> 2494** (2026-09-24, #36): schema v27's history note.
     # **2494 -> 2495** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **2495 -> 2515** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): schema v28 and the `tag_control_characters_replaced` issue.
-    "rip_report.py": 2515,
+    # **2515 -> 2528** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): schema v29 and the `eac_log_signature_line_defused` issue.
+    "rip_report.py": 2528,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1884,7 +1887,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4717 -> 4715** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 4715 -> 4730 on 2026-09-25: _release_detail_for, the one check both the rip start and the report use.
     # **4730 -> 4739** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): the finish record carries the fixes.
-    "ui/main_window_rip.py": 4739,
+    # **4739 -> 4751** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): the finish path records the rewritten lines after writing the log, so recording them can never cost the log.
+    "ui/main_window_rip.py": 4751,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared

@@ -1132,7 +1132,10 @@ def test_schema_version_is_27() -> None:
     # rather than folded into `checksums`, because a SHA256 mismatch after a
     # retag is expected while an audio-MD5 mismatch never is, and a reader must
     # not be able to confuse the two.
-    assert REPORT_SCHEMA_VERSION == 28
+    #
+    # v29 added `disc.eac_log_signature_lines_defused` (D16): lines of the
+    # EAC-layout log a metadata value had shaped like a log signature.
+    assert REPORT_SCHEMA_VERSION == 29
 
 
 def _issue_codes(report: dict) -> set[str]:
@@ -2029,3 +2032,23 @@ def test_replaced_tag_control_characters_are_an_info_issue() -> None:
         _sample_log(), disc={**disc, "tag_control_characters_replaced": []}
     )
     assert "tag_control_characters_replaced" not in _issue_codes(clean)
+
+
+def test_a_defused_signature_line_is_an_info_issue() -> None:
+    """Decision D16: the EAC-layout log differs from the metadata by its fences,
+    and the report says so."""
+    disc = {
+        "unknown": False,
+        "musicbrainz_release_id": "mbid",
+        "tag_control_characters_replaced": [],
+        "eac_log_signature_lines_defused": ["---- Log checksum AB ---- / Album"],
+    }
+    report = build_report(_sample_log(), disc=disc)
+    issue = next(
+        i for i in report["issues"] if i["code"] == "eac_log_signature_line_defused"
+    )
+    assert issue["severity"] == "info" and "1 line(s)" in issue["message"]
+    clean = build_report(
+        _sample_log(), disc={**disc, "eac_log_signature_lines_defused": []}
+    )
+    assert "eac_log_signature_line_defused" not in _issue_codes(clean)

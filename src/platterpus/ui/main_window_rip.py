@@ -1677,6 +1677,9 @@ class RipMixin(MainWindowShared):
                 if params is not None
                 else []
             ),
+            # Filled in when the EAC-layout log is written, at the end of the rip
+            # (D16): lines a metadata value had shaped like a log signature.
+            "eac_log_signature_lines_defused": [],
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the
         # report's settings.read_offset.effective is the truth, not just config.
@@ -3677,7 +3680,7 @@ class RipMixin(MainWindowShared):
             return
         try:
             from platterpus import __version__, build_info
-            from platterpus.eac_log_export import render_eac_style_log
+            from platterpus.eac_log_export import render_eac_style_log_and_defused
 
             # Software provenance for the archival text artifact, all from
             # already-resolved state (never a fresh probe — that would enter the
@@ -3706,7 +3709,7 @@ class RipMixin(MainWindowShared):
             outcome_status = (
                 str(outcome.get("status") or "") if isinstance(outcome, dict) else ""
             )
-            text = render_eac_style_log(
+            text, defused = render_eac_style_log_and_defused(
                 rip_log,
                 platterpus_version=__version__,
                 build_fingerprint=build_info.build_fingerprint(),
@@ -3720,6 +3723,15 @@ class RipMixin(MainWindowShared):
             )
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
             target.write_text(text, encoding="utf-8")
+            # D16: a metadata value shaped like a log signature was rewritten so
+            # the log cannot read as EAC-signed. Say so in the log and the report.
+            # AFTER the write, and read with getattr: this bookkeeping must never
+            # be the reason the log itself is not written.
+            for line in defused:
+                log.warning("EAC-layout log: rewrote a signature-shaped line: %r", line)
+            disc_block = getattr(self, "_last_disc", None)
+            if isinstance(disc_block, dict):
+                disc_block["eac_log_signature_lines_defused"] = list(defused)
             log.info("wrote EAC-layout companion log: %s", target)
             # The JSON report embeds this file's text (v12 `artifacts`), and it
             # is written AFTER the report's first write — so without this the

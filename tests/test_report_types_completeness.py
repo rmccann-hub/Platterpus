@@ -262,6 +262,7 @@ def _real_report_kwargs() -> dict:
             "medium_detail": "disc 1 of 2",
             "medium_undetermined": False,
             "tag_control_characters_replaced": [{"field": "genre", "replaced": 1}],
+            "eac_log_signature_lines_defused": ["---- Log checksum AB ----"],
         },
         "disc_track_total": 1,
     }
