@@ -55,6 +55,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **For contributors: the lap checker no longer refuses our own laps on `main`.** It
+  required every commit a lap cites to be reachable from `HEAD`. Our laps are
+  written on a session branch and squash-merged, so the commits they cite never
+  reach `main`: `main`'s CI refused the worked example that the pull request's CI
+  had passed. A commit on another branch only is now a warning
+  (`LSL.offrecord`), and a commit on no branch is still refused. This is F4 in the
+  LSL proposal, and it applies to the fork's checker too.
 - **For contributors: `--durations` and the warnings summary are printed again.** The
   suite ends with a hard exit, to avoid a Qt teardown crash, and it skipped both
   sections, so slow tests could only be found through JUnit output. Both now print
