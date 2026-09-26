@@ -122,9 +122,12 @@ SENT_LAPS: dict[str, str] = {
     # lap has not been sent. This row is what makes the immutability true rather
     # than stated.
     #
-    # **This is also why `claude/session-omka9f` must not be deleted** (their §D2,
-    # recorded in TASKS.md): we squash-merge, so the commit they cite never becomes
-    # an ancestor of `main`, and a branch delete plus routine `gc` destroys it.
+    # **This is also why `claude/session-omka9f` was kept** (their §D2, recorded in
+    # TASKS.md): we squash-merged, so the commit they cite never became an ancestor
+    # of `main`, and a branch delete plus routine `gc` would have destroyed it.
+    # Since 2026-09-26 the branch is merged into `main` with a merge commit, so
+    # the commit is on `main` and `tests/test_cited_commits_are_reachable.py`
+    # keeps it there.
     "outbound/round-23-lap-02.md": "4d1fd006ee5dff274c32b9f715e4d2e8e95020d3699b08e81740356a66ef38b8",
     # Round 20 lap 2. **The closing lap of round 20, peer-confirmed with a git
     # blob as well as a digest.** Their lap 3 names it at sha256/16

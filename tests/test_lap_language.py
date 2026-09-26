@@ -458,6 +458,9 @@ def test_the_worked_example_is_clean_with_every_amendment() -> None:
     # Lap 5 cites commits squash merging never put on main (finding F4). The
     # example keeps them, because they are what the real lap cited, and each is
     # named here so that a new off-record citation cannot slip in unremarked.
+    # Since 2026-09-26 the session branch merges into main with a merge commit,
+    # so on main these warnings are gone; on a pull request they remain until
+    # the merge. A subset check covers both.
     branch_only = {"3d2566f", "9c44f5f", "a7b51a8", "caa04f0", "f7519d9", "fafa565"}
     for problem in lap.problems:
         if problem.rule == "LSL.offrecord":
