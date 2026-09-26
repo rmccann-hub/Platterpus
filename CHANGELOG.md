@@ -49,6 +49,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **For contributors: `--durations` and the warnings summary are printed again.** The
+  suite ends with a hard exit, to avoid a Qt teardown crash, and it skipped both
+  sections, so slow tests could only be found through JUnit output. Both now print
+  before the exit, serial and under `-n auto`.
 - **A rip that stopped before its first track no longer blames the disc.** When the
   ripper failed on its arguments or on the drive, the report said *"no track matched
   AccurateRip"* and offered an unsubmitted pressing, an unreachable database or a wrong
