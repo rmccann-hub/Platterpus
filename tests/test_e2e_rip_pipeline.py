@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import stop_window_threads
 from PySide6.QtWidgets import QApplication
 
 from platterpus.adapters.musicbrainz_client import (
@@ -200,13 +201,11 @@ def e2e_window(qapp: QApplication, monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     try:
         yield window, metaflac, Path(config.output_dir)
     finally:
-        # Teardown: stop the persistent MB worker thread + any rip thread.
-        if window._mb_thread.isRunning():
-            window._mb_thread.quit()
-            window._mb_thread.wait(2000)
-        if window._rip_thread is not None and window._rip_thread.isRunning():
-            window._rip_thread.quit()
-            window._rip_thread.wait(2000)
+        # Teardown through the one shared copy, which stops the MB and rip
+        # threads this used to stop by hand and also the rip-report writer the
+        # window's closeEvent would stop. Without the last, the leak backstop
+        # waited 5 s for the writer on every run (2026-09-26).
+        stop_window_threads(window)
         window.deleteLater()
         if gc_was_enabled:
             gc.enable()

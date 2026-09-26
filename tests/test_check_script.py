@@ -236,3 +236,34 @@ def test_every_gate_runs_without_a_shell() -> None:
                 "If this ever needs a pipeline, the status must come from the "
                 "first stage, not the last."
             )
+
+
+def test_the_gates_run_at_the_same_time(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Every gate is started before any has to finish (2026-09-26).
+
+    Each stand-in waits at a barrier sized to the number of gates. Run one after
+    another, the first would wait alone until the barrier timed out; run together,
+    all of them reach it. The report must still come out in the fixed gate order,
+    with every gate's own exit code.
+    """
+    import threading
+
+    fakes = [
+        check.Gate(name, [sys.executable, "-c", "pass"])
+        for name in ("lint (x)", "format (x)", "types (x)")
+    ]
+    barrier = threading.Barrier(len(fakes), timeout=10)
+
+    def fake_run(gate: object) -> None:
+        barrier.wait()
+        gate.code = 0  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(check, "_build_gates", lambda only, coverage: fakes)
+    monkeypatch.setattr(check, "_run", fake_run)
+    assert check.main(["--log-dir", str(tmp_path)]) == 0
+    printed = capsys.readouterr().out
+    order = [printed.index(f"==> {gate.name}") for gate in fakes]
+    assert order == sorted(order), "the report is not in the fixed gate order"
+    assert all(gate.code == 0 for gate in fakes)

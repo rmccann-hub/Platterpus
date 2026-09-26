@@ -40,6 +40,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import shutil
 import subprocess
 import sys
@@ -191,13 +192,26 @@ def main(argv: list[str] | None = None) -> int:
         # one. Same reason `pytest_sessionstart` clears it.
         SENTINEL.unlink(missing_ok=True)
 
+    runnable: list[Gate] = []
     for gate in gates:
-        print(f"==> {gate.name}")
         if shutil.which(gate.argv[0]) is None and not Path(gate.argv[0]).exists():
             gate.notes.append(f"interpreter {gate.argv[0]!r} not found")
+            continue
+        runnable.append(gate)
+    # **The gates run at the same time.** They are independent processes that
+    # share nothing but the checkout, so lint, format and mypy now finish inside
+    # the suite's time instead of in front of it (2026-09-26: about 40 s off a
+    # local run). Each result is still read from its own process's exit code, and
+    # the report below is printed in the fixed gate order once all have ended.
+    if runnable:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(runnable)) as pool:
+            list(pool.map(_run, runnable))
+
+    for gate in gates:
+        print(f"==> {gate.name}")
+        if gate not in runnable:
             print(f"    SKIPPED: {gate.notes[-1]}")
             continue
-        _run(gate)
         log_path = log_dir / (gate.name.split()[0] + ".log")
         log_path.write_text(gate.output, encoding="utf-8")
         verdict = "ok" if gate.code == 0 else "FAILED"

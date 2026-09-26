@@ -35,6 +35,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import importlib.util
 import re
@@ -1522,7 +1523,20 @@ def wire_fields(text: str) -> dict[str, str]:
     """Every column-0 ``KEY: value`` declaration, fenced examples excluded.
 
     A key declared twice with *different* values maps to :data:`AMBIGUOUS`.
+
+    **Cached by text, and a fresh dict every call.** ``--status`` grades every
+    round against every lap, and measured on 2026-09-26 it parsed each of the
+    record's files about 30 times: 9,389 calls, 3.3 s per ``round_status()``,
+    paid again by every test and every release gate that asks. The answer depends
+    on the text alone, so it is parsed once. A copy is returned so a caller that
+    edits its result cannot change what the next caller reads.
     """
+    return dict(_parse_wire_fields(text))
+
+
+@functools.lru_cache(maxsize=4096)
+def _parse_wire_fields(text: str) -> tuple[tuple[str, str], ...]:
+    """The parse behind :func:`wire_fields`, as an immutable value it can cache."""
     seen: dict[str, str] = {}
     for match in _WIRE_FIELD.finditer(_strip_fences(text)):
         key, value = match.group("key"), match.group("value")
@@ -1530,7 +1544,7 @@ def wire_fields(text: str) -> dict[str, str]:
             seen[key] = AMBIGUOUS
         elif key not in seen:
             seen[key] = value
-    return seen
+    return tuple(seen.items())
 
 
 def wire_verdict(text: str) -> str | None:

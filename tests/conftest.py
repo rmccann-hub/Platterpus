@@ -13,6 +13,7 @@ real display.
 from __future__ import annotations
 
 import os
+import tempfile
 import threading
 from collections.abc import Generator
 from pathlib import Path
@@ -22,10 +23,28 @@ from pathlib import Path
 # never draw to a real display.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+# **No test may touch the real config, log or data folders**, and before
+# 2026-09-26 they did. `platterpus.paths` computes every path at import from
+# `XDG_CONFIG_HOME` and `XDG_DATA_HOME`, and nothing set them, so a script-runner
+# test wrote a 4 MB evidence bundle into the real `~/.local/share/platterpus/
+# bundles/` and gzipped the real app log to do it: about a second per test, and
+# a developer's own Platterpus log rotated full of test output. Set here, before
+# anything imports `platterpus`, for the same reason the Qt platform is. One
+# folder per process, removed at session finish. (Only `os.environ` statements
+# sit above the imports, which is the one shape the import-order lint allows.)
+os.environ["PLATTERPUS_TEST_HOME"] = tempfile.mkdtemp(prefix="platterpus-tests-")
+os.environ["XDG_CONFIG_HOME"] = os.path.join(
+    os.environ["PLATTERPUS_TEST_HOME"], "config"
+)
+os.environ["XDG_DATA_HOME"] = os.path.join(os.environ["PLATTERPUS_TEST_HOME"], "data")
+
 import pytest
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus import hard_exit
+
+#: The per-process folder standing in for the user's config and data homes.
+TEST_HOME: Path = Path(os.environ["PLATTERPUS_TEST_HOME"])
 
 # --- Defuse the PySide interpreter-shutdown abort -------------------------
 #
@@ -184,6 +203,9 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
         SESSION_COMPLETE_SENTINEL.write_text(f"{status}\n", encoding="utf-8")
     except OSError:  # read-only checkout: better to exit than to fail here
         pass
+    import shutil
+
+    shutil.rmtree(TEST_HOME, ignore_errors=True)
     os._exit(status)
 
 
@@ -429,6 +451,17 @@ def stop_window_threads(window: object) -> None:
     # Plain daemon threads. These have no event loop to quit, so all we can do is
     # wait for them; every one of them is a bounded piece of post-rip work
     # (hashing, verifying, transcoding, moving) that finishes on its own.
+    # The rip-report writer is one daemon thread for the whole process. The
+    # window's `closeEvent` stops it (`_flush_rip_report(wait=True)` →
+    # `report_writer.writer().stop()`); a fixture that tears down without closing
+    # skipped that, so the writer outlived the test and the leak backstop below
+    # waited its full 5 s on every such test and then warned (2026-09-26: seven
+    # tests, 35 s, most of the suite's warnings). Stopping it here is the
+    # teardown the window itself performs, not a tidy-up production lacks.
+    from platterpus import report_writer
+
+    if report_writer._WRITER is not None:
+        report_writer._WRITER.stop()
     for name in (
         "_post_rip_thread",
         "_ctdb_thread",

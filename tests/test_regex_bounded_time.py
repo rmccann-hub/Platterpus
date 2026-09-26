@@ -111,7 +111,9 @@ def _compiled_patterns() -> list[tuple[str, str]]:
     return found
 
 
-def _seconds_per_search(compiled: re.Pattern[str], text: str) -> float:
+def _seconds_per_search(
+    compiled: re.Pattern[str], text: str, *, enough_s: float | None = None
+) -> float:
     """Cost of one ``.search``, averaged over enough repeats to beat clock noise.
 
     Timed with ``.search`` because that is how these patterns are used on
@@ -130,6 +132,13 @@ def _seconds_per_search(compiled: re.Pattern[str], text: str) -> float:
     bound, so the test reported a quadratic pattern where there was none — and a
     timing gate that reddens CI at random is a gate people switch off, which is
     worse than not having it.
+
+    ``enough_s`` stops after the first round whose single search took at least
+    that long. Only the known-quadratic proof passes it (2026-09-26): its search
+    on 2,000 spaces takes about 3.6 s, three rounds of that cost 11 s, and
+    scheduler noise cannot move a measurement that size by the 8x the threshold
+    asks. It is never used where a false alarm is the risk: there a single long
+    sample is exactly the noise the minimum exists to discard.
     """
     best = float("inf")
     for _ in range(_TIMING_ROUNDS):
@@ -143,19 +152,33 @@ def _seconds_per_search(compiled: re.Pattern[str], text: str) -> float:
                 best = min(best, elapsed / repeats)
                 break
             repeats *= _REPEAT_STEP
+        if enough_s is not None and best >= enough_s:
+            break
     return best
 
 
-def _worst_growth(pattern: str) -> tuple[float, str, float]:
-    """Return the worst (growth_ratio, fill, large_seconds) over the fills."""
+def _worst_growth(
+    pattern: str, *, stop_above: float | None = None
+) -> tuple[float, str, float]:
+    """Return the worst (growth_ratio, fill, large_seconds) over the fills.
+
+    ``stop_above`` returns as soon as one fill exceeds it. Only the test that
+    must show a known-quadratic pattern IS caught passes it: one fill over the
+    threshold is the whole proof, and timing a quadratic pattern on all eight
+    fills at full size cost 22 s of every suite run (2026-09-26). The sweep of
+    ``src/`` never passes it, because there the worst fill is the answer.
+    """
     compiled = re.compile(pattern)
     worst = (0.0, "", 0.0)
+    enough_s = 0.25 if stop_above is not None else None
     for fill in _FILLS:
-        small = _seconds_per_search(compiled, fill * _SMALL)
-        large = _seconds_per_search(compiled, fill * _LARGE)
+        small = _seconds_per_search(compiled, fill * _SMALL, enough_s=enough_s)
+        large = _seconds_per_search(compiled, fill * _LARGE, enough_s=enough_s)
         ratio = large / max(small, 1e-12)
         if ratio > worst[0]:
             worst = (ratio, fill, large)
+        if stop_above is not None and worst[0] > stop_above:
+            break
     return worst
 
 
@@ -237,7 +260,7 @@ def test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one() -> Non
     only the pair rules out both.
     """
     quadratic = r"^\s*(?P<name>.+?)\s*,\s*(?P<offset>-?\d+)\s*$"
-    quad_ratio, _, quad_large_s = _worst_growth(quadratic)
+    quad_ratio, _, quad_large_s = _worst_growth(quadratic, stop_above=_MAX_GROWTH)
     assert quad_ratio > _MAX_GROWTH, (
         f"the known-quadratic CSV row measured only {quad_ratio:.1f}x growth "
         f"({quad_large_s * 1000:.3f} ms at {_LARGE} chars) — under the "
