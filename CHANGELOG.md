@@ -14,6 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **For contributors: cloud sessions switch the audio guard on by themselves.** The
+  git hook that refuses a commit staging a music file runs only once
+  `core.hooksPath` is set, which `dev-setup.sh` does. A Claude Code session on the
+  web starts from a fresh clone that never runs it, so the guard was off there. A
+  SessionStart hook, `.claude/hooks/session-start.sh`, now sets it in cloud sessions
+  only, and never fails the session.
 - **For contributors: a second checker for LSL, the cyanrip fork's lap language,
   and eight proposed amendments to it.** Both projects built a language for the
   handshake laps on 2026-09-26, and the maintainer chose the fork's (LSL) as the
