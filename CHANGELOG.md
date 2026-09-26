@@ -32,6 +32,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **`%N` (disc number) and `%M` (total discs) now work in folder and file
+  templates.** Settings called `%N` an unknown code, the preview showed it as
+  typed, `%M` did nothing at all, and on a disc with no usable disc position the
+  ripper would have named the folder with the word "disc". Both codes are now
+  filled in from the same disc number and total that go into the tags. The
+  preview also shows a typed `{` or `}` as the `(` or `)` the file actually gets.
+
 - **Fixed six problems found by new property tests.** Each could reach a rip or
   its record:
   - A folder or file template with a code the app did not recognise inside

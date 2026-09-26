@@ -1129,9 +1129,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # produce a `LogVerification`, so the drift would be invisible.
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     # **1578 -> 1594** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): the chokepoint applies `tag_hygiene` and logs each replacement.
-    # **1594 -> 1638** (2026-09-25, TASKS `conv.argv-range`): `_tracks_on_disc` range-checks `-l` against the disc, which cyanrip enforces by refusing the whole rip. It belongs beside `_disc_args` and the `-t` check in `_metadata_args`, which are the same kind of guard.
+    # **1594 -> 1638** (2026-09-25, TASKS `conv.argv-range`): `_tracks_on_disc` range-checks `-l` against the disc, which cyanrip enforces by refusing the whole rip. It belongs beside `_disc_position` and the `-t` check in `_metadata_args`, which are the same kind of guard.
     # **1638 -> 1640** (2026-09-25, the property-test batches): an unknown `%{…}` token's brace becomes a paren, so it cannot reach cyanrip as an unterminated `{` (TASKS `fuzz:adapters.cyanrip_backend.scheme_from_template`).
-    "adapters/cyanrip_backend.py": 1640,
+    # **1640 -> 1670** (2026-09-25, D18: `%N`/`%M` work everywhere): the disc position is checked once and fills in `%N`/`%M` as well as `-c`, so a folder name cannot disagree with the tags; `_disc_args` folded into `_disc_position`, keeping its reasoning.
+    "adapters/cyanrip_backend.py": 1670,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1181,7 +1182,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # evidence that turned it (a one-frame match passed wrong audio twice), and the
     # v8->v9 step that flips a saved False once. Migrations live here by design.
     # **847 -> 848** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "config.py": 848,
+    # **848 -> 849** (2026-09-25, D18: `%N`/`%M` work everywhere): the template comment no longer says multi-disc folders are impossible.
+    "config.py": 849,
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
     "deps/checks.py": 437,
@@ -1553,7 +1555,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # settings_validation already imports naming and the question is about a
     # naming template; a third module for one pure function would be the new
     # file rule #7 refuses.
-    "naming.py": 359,
+    # **359 -> 376** (2026-09-25, D18: `%N`/`%M` work everywhere): the preview fills in `%N`/`%M` and writes a typed brace as the parenthesis the file gets.
+    "naming.py": 376,
     # +29 on 2026-09-04: `is_secure_rerip_verdict` and its reasoning. It is
     # DELIBERATELY here rather than at the worker that calls it — the point of
     # the fix is that the module owning read stability owns the classification,
@@ -1941,7 +1944,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1382 -> 1381** (2026-09-24): shrank by one; recorded at its real length.
     # **1381 -> 1335** (2026-09-24, #37 one home per setting): down: seven controls moved to their homes, net of OK/Apply/Cancel/Restore Defaults.
     # **1335 -> 1336** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "ui/settings_dialog.py": 1336,
+    # **1336 -> 1337** (2026-09-25, D18: `%N`/`%M` work everywhere): the template tooltip lists `%N` and `%M`.
+    "ui/settings_dialog.py": 1337,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     "ui/track_table.py": 832,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker

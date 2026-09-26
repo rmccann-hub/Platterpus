@@ -724,8 +724,7 @@ _CLEAN_WORD = st.text(alphabet="abcxyz019-_()", min_size=1, max_size=6).filter(
     lambda w: w.lower() not in {"con", "prn", "aux", "nul"}
 )
 #: Letters that are not tokens anywhere: an unknown "%q" is kept in the path as
-#: typed. "N" is excluded on purpose — the backend maps "%N" to cyanrip's {disc}
-#: while this validator does not know it, so its verdict is not settled here.
+#: typed. ("N" and "M" became known tokens on 2026-09-25, so they are not here.)
 _UNKNOWN_TOKEN = st.sampled_from("bcefgqzBCDEFG").map(lambda c: "%" + c)
 #: A piece of text containing a "%" that is NOT a tag token.
 _PERCENT_LITERAL = st.one_of(st.just("%%"), _UNKNOWN_TOKEN)
@@ -966,3 +965,13 @@ def test_resolve_input_directory_logs_the_failure(
     with caplog.at_level(logging.ERROR, logger="platterpus.settings_validation"):
         sv.resolve_input_directory("--ctdb-calibrate folder", tmp_path / "nope")
     assert any("does not exist" in r.message for r in caplog.records)
+
+
+def test_the_DISC_codes_are_known_so_settings_does_not_warn_about_them() -> None:
+    """Maintainer decision 3A, 2026-09-25: `%N` and `%M` work in every surface.
+
+    Settings used to warn that `%N` was an unknown code while the rip mapped it,
+    so the preview and the real name disagreed.
+    """
+    issues = sv.validate_config(Config(track_template="%A/%d/CD %N of %M/%t - %n"))
+    assert not [i for i in issues if i.field == "track_template"], issues

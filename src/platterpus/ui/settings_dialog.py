@@ -196,7 +196,8 @@ class SettingsDialog(CenteredDialog):
         self._track_template_edit: QLineEdit = QLineEdit(config.track_template, self)
         self._track_template_edit.setToolTip(
             "Path for identified discs. Codes: %A artist, %d album, "
-            "%t track #, %n title, %a track artist, %y date, %Y year (4-digit).\n"
+            "%t track #, %n title, %a track artist, %y date, %Y year (4-digit), "
+            "%N disc number, %M total discs.\n"
             "Pick a preset above, or hand-edit here."
         )
         form.addRow("Track template:", self._track_template_edit)

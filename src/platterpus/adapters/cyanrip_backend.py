@@ -310,7 +310,11 @@ class CyanripImpl(RipBackend):
         # deliberately upstream's plus build metadata, so it cannot be ordered.
         if consumer_tag_for_build(ripper_build_tag):
             argv += ["--consumer", consumer_tag()]
-        argv += _disc_args(metadata)
+        # Checked once: `-c` and the %N/%M template tokens below read the same
+        # position, so a folder name cannot disagree with the disc tags.
+        position = _disc_position(metadata)
+        if position is not None:
+            argv += ["-c", f"{position[0]}/{position[1]}"]
         argv += _metadata_args(metadata, release_id, disc_track_total)
         # Naming: translate Platterpus's %-token templates to cyanrip schemes.
         # The directory part (before the last "/") becomes -D, the filename
@@ -323,11 +327,23 @@ class CyanripImpl(RipBackend):
         # folder would literally contain "%Y". Empty when there's no year (the
         # token then vanishes, same as cyanrip's own {date} on a dateless disc).
         year = _year_token(metadata.year if metadata else "")
+        # %N / %M (disc number / total discs) are filled in HERE too, from the
+        # same checked position `-c` sends, not left to cyanrip's `{disc}`. At the
+        # pins we ship, a key with no value falls back to its own NAME
+        # (`cyanrip@221a1df:src/naming.c:253` and `:398`, same at `df91ae7`), so
+        # a disc whose `-c` was dropped would get a folder called "disc".
+        disc, discs = (str(position[0]), str(position[1])) if position else ("", "")
         dir_part, _, file_part = track_template.rpartition("/")
         if dir_part:
-            argv += ["-D", scheme_from_template(dir_part, year=year)]
+            argv += [
+                "-D",
+                scheme_from_template(dir_part, year=year, disc=disc, discs=discs),
+            ]
         if file_part:
-            argv += ["-F", scheme_from_template(file_part, year=year)]
+            argv += [
+                "-F",
+                scheme_from_template(file_part, year=year, disc=disc, discs=discs),
+            ]
         # `-G` UNCONDITIONALLY. It used to be `if not cover_art`, which read as
         # "let the ripper embed art when the user wants art" — but nothing else in
         # the program agrees with that reading. `main_window_rip` calls
@@ -946,8 +962,11 @@ def _tracks_on_disc(
     return on_disc
 
 
-def _disc_args(metadata: RipMetadata | None) -> list[str]:
-    """Build cyanrip's ``-c <disc>/<totaldiscs>`` argument, or ``[]``.
+def _disc_position(metadata: RipMetadata | None) -> tuple[int, int] | None:
+    """The disc's ``(number, total)`` when usable, else ``None`` (logged).
+
+    It feeds cyanrip's ``-c <disc>/<totaldiscs>`` and the ``%N``/``%M`` template
+    tokens, from one check, so a folder name cannot disagree with the disc tags.
 
     **Why a dedicated flag instead of an ``-a disc=…`` tag.** Platterpus used to
     fold the disc number into the album tag string as ``disc=2/3``. cyanrip
@@ -983,7 +1002,7 @@ def _disc_args(metadata: RipMetadata | None) -> list[str]:
     the same defect shape as the ``-t 17=`` on a 16-track disc that killed a real
     rip in two seconds (docs/testing.md §5.m): an out-of-range value we could
     have caught, handed to a tool that treats it as fatal. When the numbers are
-    not usable we drop the flag and log why — losing a disc tag is survivable,
+    not usable ``-c`` is dropped and the reason logged — losing a disc tag is survivable,
     losing the rip is not.
     """
     meta = metadata or RipMetadata()
@@ -995,7 +1014,7 @@ def _disc_args(metadata: RipMetadata | None) -> list[str]:
             number,
             total,
         )
-        return []
+        return None
     if number < 1 or total < 1 or number > total:
         log.warning(
             "not passing -c: disc %r of %r is not a usable disc position "
@@ -1003,8 +1022,8 @@ def _disc_args(metadata: RipMetadata | None) -> list[str]:
             number,
             total,
         )
-        return []
-    return ["-c", f"{number}/{total}"]
+        return None
+    return number, total
 
 
 def _metadata_args(
@@ -1050,7 +1069,7 @@ def _metadata_args(
     if meta.genre:
         album_pairs.append(f"genre={_escape_meta_value(meta.genre)}")
     # NOTE: the disc number is deliberately NOT in `-a`. It goes through
-    # cyanrip's own `-c` flag — see `_disc_args`, which explains why.
+    # cyanrip's own `-c` flag — see `_disc_position`, which explains why.
     # Release identifiers, Picard-style Vorbis keys, so the archived files carry
     # the disc's canonical IDs. Escaped like every other value (the -a colon-split
     # trap — a catalog number can contain a colon).
@@ -1135,7 +1154,6 @@ _TOKEN_MAP: dict[str, str] = {
     "%n": "{title}",
     "%t": "{track}",
     "%y": "{date}",
-    "%N": "{disc}",
 }
 
 
@@ -1580,7 +1598,9 @@ def _year_token(raw: str) -> str:
     return "".join(digits)
 
 
-def scheme_from_template(template: str, *, year: str = "") -> str:
+def scheme_from_template(
+    template: str, *, year: str = "", disc: str = "", discs: str = ""
+) -> str:
     """Translate a Platterpus %-token path template into a cyanrip -D/-F scheme.
 
     Known %x tokens map per _TOKEN_MAP; an unrecognized %x is kept
@@ -1594,6 +1614,12 @@ def scheme_from_template(template: str, *, year: str = "") -> str:
     release year). Doing the substitution inside this single scanner — rather
     than a blind ``str.replace("%Y", …)`` upstream — keeps ``%%`` escapes intact
     (``%%Y`` stays a literal percent + "Y", never a stray year).
+
+    ``%N`` / ``%M`` (disc number / total discs) are substituted the same way, from
+    ``disc`` / ``discs``: the caller passes the position it sends as ``-c``, and ""
+    when that position was unusable (the token then drops out, as ``%Y`` does on a
+    dateless disc). cyanrip's own ``{disc}`` is not used because a missing key
+    renders as the word "disc".
     """
     out: list[str] = []
     i = 0
@@ -1617,6 +1643,10 @@ def scheme_from_template(template: str, *, year: str = "") -> str:
             if token == "%Y":
                 # Literal year (e.g. "1995"); "" on a dateless disc → drops out.
                 out.append(year)
+                i += 2
+                continue
+            if token in ("%N", "%M"):
+                out.append(disc if token == "%N" else discs)
                 i += 2
                 continue
             mapped = _TOKEN_MAP.get(token)
