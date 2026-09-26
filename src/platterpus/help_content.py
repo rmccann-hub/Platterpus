@@ -116,8 +116,8 @@ report**.
 
 - **"One frame only" / "partially accurate"** (a `~` in the table, and an amber
   verdict): the track as a whole matched no AccurateRip submission, but **one
-  frame** of it did — frame 450, 1/75 of a second, six seconds in. cyanrip calls
-  this "partially accurately ripped". It verifies that one frame and nothing
+  frame** of it did — frame 450, 1/75 of a second, six seconds in. In cyanrip's
+  own log it is the "Accurip 450" line. It verifies that one frame and nothing
   else: the rest of the track may hold a read error, or audio that differs from
   every submission, and the check cannot tell which. (Older versions of this
   guide said such a track was usually fine. That was wrong: on one test disc it

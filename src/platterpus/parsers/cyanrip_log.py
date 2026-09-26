@@ -435,6 +435,7 @@ _ACCURIP_TRACK = re.compile(
 )
 # "    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, track is
 # partially accurately ripped)" — ONE frame's checksum (see `one_frame_match`).
+# `.17` rewords the tail (round 27 lap 4); only `confidence N` is read, so both parse.
 _ACCURIP_OFFSET = re.compile(
     r"^\s+Accurip 450:\s+(?P<crc>[0-9A-Fa-f]{8})"
     r"(?:\s+\((?P<result>[^)]*)\))?"

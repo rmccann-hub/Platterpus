@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.60 — out of beta.** Handshake rounds **1 through 26** are all closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.15` at **`df91ae7`** and Platterpus **`0.6.55`**, approved by **round 26** — the first pin this project has approved on its own real hardware test: the full acceptance run on 0.6.55 with `.15` installed, eight rips on the Pioneer BDR-209D, whose only failures were one rip killed when its container was stopped from outside the app. 0.6.56 was the first release to install `df91ae7` by default. **0.6.57 re-reads "partially accurate" tracks by default**, because that AccurateRip match checks only **one frame** of the track, and on that test one such track held wrong audio. It also says so in plain words everywhere it used to say "offset-variant pressing". **Round 27 is open**: it reviews the fork's `.16` (`221a1df`) on a real test, run on **0.6.60**, the release that carries it. 0.6.59 also stops a rip from being killed by closing a different Platterpus window, and 0.6.60 stops the update check and setup from swapping out the build under test.
+> **Status: v0.6.60 — out of beta.** Handshake rounds **1 through 27** are all closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.16` at **`221a1df`** and Platterpus **`0.6.60`**, approved by **round 27** on a quick acceptance run on the Pioneer BDR-209D: 206 steps passed and none failed, and both ripped tracks matched AccurateRip exactly. The quick run stood in for the full one by the maintainer's decision, and the full run moves to round 28, on both projects' next releases together. **0.6.61 will be the first release to install `221a1df` by default**; 0.6.60 installs `df91ae7` (`.15`), which round 26 approved on a full hardware run. **0.6.57 re-reads "partially accurate" tracks by default**, because that AccurateRip match checks only **one frame** of the track, and on that test one such track held wrong audio. It also says so in plain words everywhere it used to say "offset-variant pressing". **Round 28 will review the fork's `.17`**, on the full run of 0.6.61. 0.6.59 also stops a rip from being killed by closing a different Platterpus window, and 0.6.60 stops the update check and setup from swapping out the build under test.
 >
 > **One hardware-gated item remains, and it is a drive limitation rather than a gap in the app.** **Overread is `-O`, it has run on the Pioneer BDR-209D, and it hung the drive ~23 minutes** — do not reach for that toggle on this drive (`docs/dependency-contracts.md`). The fork's `-x` **cache probe** is no longer outstanding, and not because anyone fixed it: `-x` is a *modifier*, not a mode — it proceeds into a full rip by design, which the fork [declined to change](docs/handshake/inbound/round-14-lap-03.md) — and `-x -I` is the probe-only invocation that writes no audio. Platterpus always passes both, and that pairing ran clean on 2026-08-26 (`-N -x -I`, exit 0), as did the C1 detector (`-N -l 1`, exit 1, *Offset is unset*, no hang). The next minor is **0.7.100**, gated on a full hardware pass — and the bar was sharpened by the maintainer on 2026-08-26: **zero failures in the archival sections** — accuracy, provenance, and the records that make a rip trustworthy — with UX failures recorded, triaged and non-blocking. Severity is declared per section *before* the disc goes in, never decided after seeing a failure: of 21 sections, 17 are archival and 4 are UX.
 >
@@ -263,8 +263,8 @@ You're now inside the container. The prompt should change to show you're in the 
 >
 > **Neither the script nor the manual steps below install the ripper Platterpus
 > is verified against.** Both add the `barsnick/non-fed` COPR, which ships
-> **stock cyanrip 0.9.3.1**. Platterpus pins a *fork* — currently `df91ae7`,
-> `cyanrip 0.9.4-rc2+platterpus.15`, approved by handshake round 26 — and a rip
+> **stock cyanrip 0.9.3.1**. Platterpus pins a *fork* — currently `221a1df`,
+> `cyanrip 0.9.4-rc2+platterpus.16`, approved by handshake round 27 — and a rip
 > made with any other build is stamped **`unapproved`** in its rip report, its
 > cyanrip log and its EAC-compatible export. That is not a warning about
 > quality: the audio is still bit-perfect and still AccurateRip-verified. It is
@@ -310,7 +310,7 @@ metaflac --version
 ```
 
 `cyanrip --version` should report
-`cyanrip 0.9.4-rc2+platterpus.15 (platterpus-fork-gdf91ae7)`. The parenthetical is
+`cyanrip 0.9.4-rc2+platterpus.16 (platterpus-fork-g221a1df)`. The parenthetical is
 the part that matters: it names the **fork**, which is the build Platterpus is
 verified against — and it is what `approved` versus `unapproved` in every rip
 report is keyed on.
@@ -366,7 +366,7 @@ which cyanrip
 # → /home/<you>/.local/bin/cyanrip
 
 cyanrip --version
-# → cyanrip 0.9.4-rc2+platterpus.15 (platterpus-fork-gdf91ae7)
+# → cyanrip 0.9.4-rc2+platterpus.16 (platterpus-fork-g221a1df)
 #   (`--version`, not `-V` — see the flag table above. A stock build prints
 #    its own version with no `platterpus-fork` parenthetical.)
 #   This must match the banner named earlier on this page — and it is now

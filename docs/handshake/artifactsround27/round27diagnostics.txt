@@ -1,0 +1,29 @@
+=== Platterpus diagnostics ===
+
+Approved pair: Platterpus 0.6.60 + cyanrip 0.9.4-rc2+platterpus.15 (platterpus-fork-gdf91ae7) — verified by handshake round 26 (approved for Platterpus 0.6.55). This names what the record APPROVES, not what is installed — the build that produced a given rip is named in that rip's own log and report.
+
+--- Environment ---
+install_channel: appimage
+platform: Linux-7.2.4-ogc3.1.fc44.x86_64-x86_64-with-glibc2.43
+pyside6: 6.11.2
+python: 3.12.14
+
+--- Dependencies ---
+measured 9 minutes ago (00:02 UTC)
+cdparanoia: present=True version=10.2 min_version_met=True
+cyanrip: present=True version=0.9.4 min_version_met=True
+ffmpeg: present=True version=8.1.2 min_version_met=True
+flac: present=True version=1.5.0 min_version_met=True
+metaflac: present=True version=1.5.0 min_version_met=True
+musicbrainzngs: present=True version=0.7.1 min_version_met=True
+picard: present=True version=2.13.3 min_version_met=True
+
+--- Diagnostics ---
+errors: 0  warnings: 0  info: 0
+worst: none recorded
+scope: process session (not only this rip)
+(nothing recorded this session — which means nothing REPORTED a problem, not that everything was verified)
+
+--- Where the rest lives ---
+app log: /home/rmccann/.local/share/platterpus/log.txt
+per-rip report: a `.platterpus.json` beside each album's audio — it embeds the ripper's own output and that session's debug log.

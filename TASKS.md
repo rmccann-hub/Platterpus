@@ -504,7 +504,7 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
-## Round 27 — OPEN 2026-09-24 on `221a1df` (`+platterpus.16`): the real test of `.16`
+## Round 27 — CLOSED `GO`/`GO` on our gate 2026-09-26 at five laps on `221a1df` (`+platterpus.16`): a quick run, by the operator's override
 
 Their lap 1 (`cyanrip@87facd5`, sha256 `f44de648…`, 9,767 bytes, released) names `.16`,
 `release_seq` 26 on both channels, and fixes three close conditions under R1, the same shape
@@ -550,25 +550,50 @@ stopped at section A the same day, as their lap 1 predicted.
 - [x] **0.6.60 released 2026-09-25** (release run 158 on `88c09dd`, after `main`'s CI run
   36138712820 was green; AppImage, `.sha256`, `.zsync` and install scripts published), under
   the §6b override in our lap 3. `PIN_UNDER_REVIEW` `221a1df`, `FORK_PIN` `df91ae7`.
-- [~] **Done inside round 27 rather than round 28 (maintainer, 2026-09-25), without making them
+- [x] **Done inside round 27 rather than round 28 (maintainer, 2026-09-25), without making them
   close conditions (S-13):** the fork's reading of its own tests by name and the check of
   the "restores the approved build mid-round" shape, both theirs, for `.17`; and the
   EAC-compatible log's `Accurip 450` wording, which is ours to change once they accept or
   amend it in their next lap (round 7 H4), for our closing release. Asked in the operator's
   message with 0.6.60.
-  - [~] **The EAC wording is built, and HELD off `main` until their lap 4 is released.**
+  - [x] **The EAC wording is built, and HELD off `main` until their lap 4 is released.**
+    **Landed 2026-09-26.** Their lap 4 was released that day at `cyanrip@e9d3868` (sha256
+    `90b7f401…`, filed here as `docs/handshake/inbound/round-27-lap-04.md`): the summary line accepted
+    as written, and the per-track line in exactly the amended form `46a522e` already
+    carried (§D3). The revert `55d51c9` is reverted. Our help text and tooltip now name
+    the `Accurip 450` line rather than quoting its wording, because `.17` rewords its
+    tail (`ec0fe47`, their §C); a test parses both wordings to the same reading.
     `one_frame_match.eac_track_line` / `eac_summary_line`, with the per-track amendment
     their STATUS records for lap 4 (*"whole-track checksums not found"*, not
     *"unverified"*, which reads as not checked). Tests updated; one revert probed and
     detected. If their released lap 4 words it differently, change the two functions.
-    **Reverted on the session branch 2026-09-25** so the maintainer's merge of that
-    branch (decision 4A) could not carry it onto `main`: their lap 4 existed on neither
-    fork branch that day (`master`, `platterpus-fork`). To land it once lap 4 is released
-    with these words, revert the revert commit; its CHANGELOG bullet goes back with it.
     - *Audit 2026-09-25: partly done.* Built: one_frame_match.eac_track_line / eac_summary_line (46a522e). Held off main until the fork's lap 4 is released with the same words.
   - *Audit 2026-09-25: partly done.* The fork's two items are done by their STATUS (cyanrip@2966369 STATUS.md:60), but their lap 4 is not written. Our EAC wording is built at 46a522e, on this branch only.
-- [ ] **The real test on 0.6.60**, then each side's reading and the closing laps.
+- [ ] **`rip_audit._ar_matched` keys on result TEXT, and `.17` puts "not found" in a
+  match** (found 2026-09-26 verifying their lap 4 §C). It returns False for any result
+  containing "not found", and `.17`'s `Accurip 450` match ends *"whole-track checksums
+  not found"*. **Nothing it reports changes today:** it is applied only to the v1 and v2
+  blocks (`rip_audit.py:285`), whose wording is unchanged. Fix: delegate to
+  `parsers.rip_log.accuraterip_is_match` (confidence ≥ 1, never an all-zero CRC), the
+  rule every other surface uses, so no reader of AccurateRip results keys on a producer's
+  words. That also changes how legacy-format reports count (`"Found, exact match"` holds
+  neither phrase it looks for), so it is its own change with its own test, not a rider
+  on round 27. NEXT-ROUND (S-14): it breaks nothing in the pin under review.
+- [x] **The real test on 0.6.60**, then each side's reading and the closing laps.
   - *Audit 2026-09-25: not ours to verify.* The operator's hardware run on 0.6.60. No round-27 bundle exists yet.
+  - *2026-09-26:* **Done, as a quick run, by the operator's override of R1.** The run: 206 pass,
+    0 fail, 114 declined by size, bundle `827d43da…`, filed as `artifactsround27/`. Their lap 4
+    (`GO`, `cyanrip@e9d3868`, `90b7f401…`) recorded the override and read the one rip. Our lap 5
+    (`GO`, `33ab7dac…`) was released on the maintainer's word ("release the lap when ready").
+    Round 27 is CLOSED on our gate; their lap 6 closes it on theirs. The same commit rolled
+    `FORK_PIN` `df91ae7` → `221a1df` (`+platterpus.16`) and moved the approval record to
+    round 27 for Platterpus 0.6.60. The Full run moves to round 28.
+- [ ] **0.6.61, in the order our lap 5 §D names** (the maintainer's choice 2026-09-26: ship
+  both together). (1) Their lap 6 closes round 27 on their gate, and they release `.17`.
+  (2) Their round 28 lap 1 names `.17` and is released. (3) We move `PIN_UNDER_REVIEW` to
+  `.17` (round 28) and cut 0.6.61, which carries the round-27 pin and the round-28 subject.
+  Under our lap 2 §D amendment (their §E3), it needs no §6b override. (4) The operator runs
+  the Full acceptance on 0.6.61 + `.17`.
 
 ## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 

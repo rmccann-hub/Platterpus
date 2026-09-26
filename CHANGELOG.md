@@ -170,6 +170,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The ripper Platterpus installs by default moves to cyanrip
+  `0.9.4-rc2+platterpus.16` (`221a1df`).** Handshake round 27 approved it on a
+  quick hardware run, which stood in for the full one by the maintainer's
+  decision, so rips made with it are no longer stamped `unapproved`. Compared
+  with `.15`, the `media` tag no longer says HDCD just because HDCD decoding
+  was requested, and a track interrupted mid-rip is left out of the AccurateRip
+  tally.
+
 - **Property tests for fourteen functions that handle outside input**
   (contributor-facing): the CTDB CRC (with draws long enough to reach the CRC,
   which the old test's never were), cue-sheet reading, the EAC-style log
@@ -234,6 +242,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   corrected. Each gate has a floor so it cannot pass by finding nothing, and
   each was shown to fail on the thing it forbids.
 
+- **The EAC-compatible log now says what a one-frame AccurateRip match is.** A track
+  whose whole-track checksums matched nothing, but whose one checked frame did, used to
+  read "Matched an offset-variant pressing — partially accurate". It now reads "Only one
+  frame matched AccurateRip (confidence N); whole-track checksums not found", and the
+  summary says "N track(s) matched AccurateRip on one frame only". The words were agreed
+  with the cyanrip fork, because both projects read this log. The help and the results
+  table's tooltip now point at cyanrip's `Accurip 450` line instead of quoting it,
+  because the fork's next build rewords that line; both wordings read the same here.
 - **A comment in the acceptance test script is corrected.** It said leaving the retry
   count at 3 was "not dangerous". That holds for cyanrip `.15` and later; on `.14`, a
   retry count that is not a multiple of 5 could hang on an unreadable sector. It changes

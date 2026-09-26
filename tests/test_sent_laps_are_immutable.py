@@ -106,6 +106,10 @@ SENT_LAPS: dict[str, str] = {
     # files their re-released lap 1 (c3a7a2a4...). Released on the maintainer's word
     # 2026-09-25 ("no i want this fixed and in a new release").
     "outbound/round-27-lap-03.md": "f4af4c8caeafd582f31395487f48b1e768f683fa69f61538db0a3db970032f58",
+    # Round 27 lap 5 — our `GO` on `221a1df` from the quick run, released on the
+    # maintainer's word 2026-09-26 ("release the lap when ready"). Its release closes
+    # round 27 on our gate, and the same commit rolls `FORK_PIN`.
+    "outbound/round-27-lap-05.md": "33ab7dacfaa44aa2e8235a97c27e6cfbc7d1d8269715fdee3c5d4ebf57e9e98b",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and
