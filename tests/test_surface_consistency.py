@@ -333,9 +333,7 @@ def test_an_offset_variant_track_is_never_called_absent_or_exact() -> None:
     assert "not present in AccurateRip" not in text
     # Per-track lines only: the status report now also carries an
     # offset-variant count line, which is a summary, not a track.
-    per_track = [
-        x for x in text.splitlines() if x.startswith("     Only one frame matched")
-    ]
+    per_track = [x for x in text.splitlines() if x.startswith("     Matched an offset")]
     assert len(per_track) == len(variants)
     for track in variants:
         entry = next(t for t in report["tracks"] if t["number"] == track.number)
@@ -492,7 +490,7 @@ def _state_from_log_line(line: str) -> str:
     """Classify the EAC-compatible log's per-track AccurateRip line."""
     if line.startswith("Accurately ripped"):
         return _STATE_VERIFIED
-    if line.startswith("Only one frame matched AccurateRip"):
+    if line.startswith("Matched an offset-variant pressing"):
         return _STATE_OFFSET
     if line.startswith("Cannot be verified as accurate"):
         return _STATE_NO_MATCH
