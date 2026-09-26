@@ -1648,7 +1648,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # builder reached through composition.build_cyanrip_backend, not built here.
     "rig_check.py": 979,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
-    "rip_addendum.py": 496,
+    # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
+    "rip_addendum.py": 506,
     # **1216 -> 1287** (2026-09-25): `_grade_a_reported_completion`, round 21 §C. The
     # completion check graded OK off the boolean; it now reads the ripper's own
     # counts and error tally. It is a check of this registry, so it lives here.
