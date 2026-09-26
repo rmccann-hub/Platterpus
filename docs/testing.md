@@ -249,9 +249,11 @@ tiers. "I added a happy-path test" is not done.
 4. **Coverage gate.** CI runs branch coverage with `--cov-fail-under` (currently
    **91%**, TOTAL ~93%). The gate **ratchets up, never down** — raise it when
    TOTAL comfortably clears it; never lower it to make a build green.
-5. **Version matrix.** CI runs the suite on every supported Python (3.11–3.14).
-   Add a version when users move to it; we've been bitten by version-specific
-   breakage before.
+5. **Version matrix.** CI runs the suite on every supported Python (3.11–3.14),
+   each leg in parallel (`pytest -n auto`). The coverage floor runs on the 3.14
+   leg only (2026-09-26), because its `sys.monitoring` tracer is the fast one;
+   every leg still runs every test. Add a version when users move to it; we've
+   been bitten by version-specific breakage before.
 6. **The hardware gate is explicit.** Anything that can only be proven on real
    hardware goes in [test-plan.md](test-plan.md) with a checkbox, and the code is
    structured to **fail safe** until that box is ticked (e.g. CTDB CRC returns
@@ -3337,6 +3339,45 @@ regression test spawns a real child and reads *its* environment, and a second te
 `--doctor` now names the container's owner, because a container started from a terminal
 still belongs to that terminal. `tests/test_container_scope.py`.
 
+### §5.bu — A sweep's population is what it collects, not what its name says: inline regexes went untimed
+
+**2026-09-26, found by turning the suite parallel.** The first parallel CI run failed
+`test_a_pathological_csv_row_does_not_stall_the_loader` on two legs, at 1.15 s and
+1.06 s against a 1-second bound. It read like CPU contention between workers, and
+contention was only the trigger. Serially the loader already took **0.54 s**, and
+all of it was one inline `re.sub(r"\s+-\s+", …)` in the drive-name normaliser.
+That pattern is quadratic on a run of spaces with no hyphen: 0.010 s, 0.033 s,
+0.135 s, 0.54 s as the run doubles from 2,500 to 20,000. It runs on every row of the
+user's drive-offset CSV, on the GUI thread, before the window is shown.
+
+`tests/test_regex_bounded_time.py` exists to catch exactly this, and reported the
+codebase clean. **Its collector read only `re.compile(...)` calls**, 154 of the 163
+literal patterns in `src/`. The 9 inline `re.sub`/`re.search`/`re.fullmatch`
+patterns were outside its population, and nothing in its output said so. Widening
+it found two super-linear patterns, and one of them was a false alarm the
+measurement made: `.+\.txt\.\d+` is quadratic under `.search`, but its only call is
+`re.fullmatch` on a filename, which is anchored and linear. So an inline pattern is
+now timed the way its call site runs it, and `compile` keeps the worst case because
+a compiled pattern does not say how it will be used.
+
+Three things to carry:
+
+- **A sweep's population is a claim, and needs a test of its own.** "Every
+  compiled regex" was true of the collector's name and false of the codebase.
+  `test_the_sweep_reads_inline_calls_and_times_each_as_it_runs` pins the pattern
+  that was missing, so the population cannot quietly narrow again. Two calls remain
+  outside it (their pattern is not a literal), and the docstring names them.
+- **A test near its bound is a measurement, not a pass.** The loader test sat at 54%
+  of its budget for weeks. A generous bound is right for "not stalled", and it also
+  hides a regression until something else moves the timing. The fix added a test
+  that names the function and asks for milliseconds.
+- **Parallelism is a new state, and this is what it exposed.** Phase 2 asked
+  whether each test was safe to run concurrently and did not ask which timing
+  bounds would move. Every wall-clock assertion now shares a CPU with three others.
+  This one was worth failing over, because it was hiding a real defect; the next
+  one may be a real flake, and it gets diagnosed the same way before its bound is
+  touched: time it serially, and look at where the time goes.
+
 ## 5B. What a version number is allowed to claim (the road to 1.0)
 
 **Maintainer ruling, 2026-08-19.** *"I think your current gate to v1.0.0 is
@@ -3817,8 +3858,8 @@ is about. The gates written on the day are
 # Fast local loop (no coverage overhead):
 pytest
 
-# Exactly what CI enforces (branch coverage + gate):
-pytest --cov=platterpus --cov-report=term-missing --cov-fail-under=91
+# Exactly what CI's coverage leg enforces (parallel, branch coverage + gate):
+pytest -n auto --cov=platterpus --cov-report=term-missing --cov-fail-under=91
 
 # Property tests only (more examples for a deeper sweep):
 pytest tests/test_parsers_property.py --hypothesis-seed=random

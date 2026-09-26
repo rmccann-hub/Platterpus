@@ -527,6 +527,14 @@ jobs:
         # (2025-10) is the newest — added 2026-07-02 (nothing the project uses
         # was removed in it; PySide6 6.11 supports it).
         python-version: ["3.11", "3.12", "3.13", "3.14"]
+        # The coverage gate runs on ONE leg (maintainer, 2026-09-26). Every leg
+        # still runs every test. py3.14 measures branch coverage with
+        # `sys.monitoring`, and 3.11-3.13 pay for it with the slower C tracer,
+        # which is most of why their legs took 590-640 s against 3.14's 394 s.
+        # The floor is still enforced on every push and PR, on this leg.
+        include:
+          - python-version: "3.14"
+            coverage: true
     name: test (py${{ matrix.python-version }})
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -633,15 +641,16 @@ jobs:
       # line. That mattered more than it looks: the summary is the only
       # human-visible proof in the log that the run *reached the end*, so its
       # absence looked normal and hid a run that died at 76% (2026-07-29).
-      - name: Run tests (with coverage gate)
+      # `-n auto`: one pytest-xdist worker per CPU (4 on these runners). The
+      # session-finish hooks in tests/conftest.py are controller-only under it, so
+      # the completion sentinel checked below still speaks for the whole run.
+      - name: Run tests (coverage gate on the py3.14 leg)
         env:
           QT_QPA_PLATFORM: offscreen
         timeout-minutes: 15
         run: >-
-          pytest
-          --cov=platterpus
-          --cov-report=term-missing
-          --cov-fail-under=91
+          pytest -n auto
+          ${{ matrix.coverage && '--cov=platterpus --cov-report=term-missing --cov-fail-under=91' || '' }}
 
       # The exit code above is NOT sufficient on its own. conftest.py ends the
       # session with `os._exit(status)` (to dodge a PySide teardown abort), so any

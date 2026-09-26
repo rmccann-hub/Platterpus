@@ -1082,7 +1082,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **428 -> 464** (2026-09-24): `run_size` and `counts_as_evidence` in the report, the not-evidence banner, and `ok` forgiving ONLY size-declined steps.
     "uiscript/report.py": 464,
     # **308 -> 314** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "adapters/accuraterip_offsets.py": 314,
+    # **314 -> 322** (2026-09-26): the drive-name normaliser's separator pattern became linear, and its comment says why the lookbehind is load-bearing (docs/testing.md §5.bu).
+    "adapters/accuraterip_offsets.py": 322,
     "adapters/accuraterip_offsets_data.py": 388,
     "adapters/cache_probe.py": 372,
     # **566 -> 567** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
