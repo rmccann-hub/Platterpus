@@ -11,6 +11,38 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-26 — Round 28 opened on `.17`; 0.6.61 staged and held for a §6b decision
+
+The maintainer said to wait for the fork's round 28 lap 1 and have everything ready.
+It arrived during the branch merge: `+platterpus.17` at `e0471f4`, released by their
+operator, fixing three close conditions (S6–S8) around our Full run on 0.6.61.
+
+- **Every fact in their lap was re-derived in their tree before any constant moved**:
+  the manifest at `8ea8bee` (both channels, `release_seq` 27), `meson.build:21`, the three
+  `src/` commits since `.16` (none parses an option), and `.17`'s provider contract, which
+  equals `.16`'s in every flag. `PIN_UNDER_REVIEW` moves to `e0471f4` for round 28; the rig
+  sheet, the handshake map and the standing status name the pair.
+- **The argv table lag goes to 2 rather than filing `.17`'s contract ourselves.** Filing
+  it under their lap's name would claim their lap sent it. The lag is recorded with its
+  derivation, and the contract is asked for as a NEXT-ROUND item.
+- **Our own round 27 lap 5 was wrong about the override, and the gate caught it.** It said
+  0.6.61 would need no §6b override because its naming lap is released first. Our round 27
+  lap 2, which proposed that amendment, said it *"lands with the next protocol change"* and
+  *"until then we record the override"*. `--release-gate --tag v0.6.61` refuses with round 28
+  open, and it is right to. The correction is lap 2's S1, and the override is the operator's
+  to give.
+- **Lap 2 is written in LSL 1 and held.** Both checkers call it well formed with 0 warnings.
+  The fork's first refused all seven references to their laps. That was my invocation
+  error, not their defect: their tool resolves laps relative to its own location
+  (`tools/lap-statements.py:63`), and I had copied it out of their tree. Run from a
+  worktree of their branch, it passes. A number that does not reproduce is a statement
+  about my method first.
+- **Found and sent as portable shapes**: a scan that reports clean over nothing, a
+  wall-clock library default in a parallel suite, and trusting a pointer to "the current
+  one" after it has gone.
+
+---
+
 ## 2026-09-26 — Every branch merged into `main`, and 47 stranded citations brought back
 
 The maintainer asked for *"a full merge"* of *"all bracnhes, so they can be removed
