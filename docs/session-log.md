@@ -11,6 +11,67 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-26 — D16–D19 built, and a quick hardware run read before the merge
+
+The maintainer answered the four questions the property-test sweep left open
+(`TASKS.md` → *Maintainer decisions D16–D19*; KDD-38): **1A, 2C, 3A, 4A**. All
+three code rulings are built, and the merge was held until a quick hardware run
+the maintainer made on the round-27 test build had been read.
+
+- **D16: metadata can no longer forge a log signature.** An album artist shaped
+  like `==== Log checksum … ====` used to land at column 0 of our EAC-style log,
+  where a log checker reads it as a signature. Any such line now has its `=` runs
+  rewritten to `-` before our own `_NOT_SIGNED` footer is added. The report lists
+  each rewritten line (`disc.eac_log_signature_lines_defused`, schema v29, plus an
+  `info` issue), so the log is never silently different from the tags.
+  **My first version disabled the log it was meant to protect.** It read
+  `self._last_disc` *before* writing the file, inside the export's broad
+  `except`, so the `AttributeError` was swallowed and no EAC log was written at
+  all. Four UI tests caught it. The bookkeeping now runs after the write, through
+  `getattr`. A probe showed a direct attribute read would still skip the report
+  rewrite, so the test pins that too. It is the *guard that drops the work*
+  shape from `CLAUDE.md`, arriving as bookkeeping instead of a guard; no new
+  rule, but it is the second time this month.
+- **D17: a Settings check that crashes is a visible warning.** The value is kept,
+  saving is not blocked, and the traceback goes to the log. Before this, a
+  crashing rule reported nothing, which reads as a pass.
+- **D18: `%N` and `%M` work in every surface.** Read the fork source first, at
+  both `221a1df` and `df91ae7`: a `{key}` with no value renders as its own name
+  (`cyanrip@221a1df:src/naming.c:253` and `:398`), so handing cyanrip `{disc}`
+  would have named a folder `disc`. We fill the disc position ourselves, as we
+  already do for `%Y`, and the same position goes out as `-c`. An unusable
+  position (0, or larger than the disc count) names no folder instead of a wrong
+  one. The Settings preview, the validator and the tooltip all learned the two
+  codes.
+- **D19: PR #253, merge on green CI, release when round 27 closes.** Before the
+  merge, one commit on the branch had to come off: `46a522e`, the round-27
+  one-frame EAC wording, is held until the fork's lap 4 is released, and a squash
+  merge would have carried it to `main`. It is reverted on the branch (`55d51c9`).
+  To land it later, revert that revert. Lap 4 exists on neither fork branch yet.
+- **The maintainer's quick run (bundle 2026-09-26T00:04Z)** covered 2 of 14
+  tracks on `0.9.4-rc2+platterpus.16 (221a1df)`: 206 pass, 0 fail, 114 declined by
+  run size. Bit-perfect against AccurateRip (confidence 129+). FLAC integrity, the
+  MP3 transcode and the derived check were all ok. `rig-check` was OK with all 16
+  flag tokens intact. The ripper verdict is `unapproved`, which is correct while
+  round 27 is open. **Three defects, all ours, all fixed before the merge:**
+  - **The completion check from the previous session would have graded every
+    partial rip as contradicting itself.** It compared the ripper's `2 of 14`
+    with the disc total. It now compares with what the rip was *asked* for
+    (`completeness.tracks_expected`). This is the one that mattered: it was
+    unreleased, and the run caught it before `main` did.
+  - **An EAC log the run had turned off raised `artifact_unavailable`.** The
+    report now reads the rip's own recorded setting. A missing log is exempt only
+    when that setting is recorded `False`.
+  - **The end-of-run dialog said "DID NOT COMPLETE" while the transcript said
+    every step passed.** Same bundle, same question, two keys: the headline
+    treated any skip as a stop, while `RunReport.ok` forgives size-declined
+    skips. The headline now asks `report.ok`.
+  Each was reproduced on the real report from the bundle before the fix, and each
+  was revert-probed.
+- **Not settled here:** this run is a quick run, so it is not evidence for a
+  version (KDD-35). The CTDB result was `not_in_db`, so the CTDB comparison path
+  was not exercised on hardware.
+
 ## 2026-09-25 — the known gaps, and a sweep of the small open rows
 
 Asked to fix the known gaps from the last round of work and look for other small
