@@ -1357,7 +1357,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2362 -> 2382 (2026-09-25)**: `is_the_build_under_review`, the one predicate
     # the update offer and the setup wizard now both ask, so neither can replace the
     # build a round is reviewing (0.6.59 did, before the first Full run).
-    "deps/fork_source.py": 2382,
+    # **2382 -> 2397 (2026-09-26, round 27 closed on our gate)**: `FORK_PIN` rolls to
+    # `221a1df` and `FORK_EXPECTED_VERSION` to `.16`, each with the dated record of
+    # where it was read and cross-checked, as every roll before it.
+    "deps/fork_source.py": 2397,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1421,7 +1424,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # onto `main`; this is the renderer's own wording code coming back. Reverting the
     # revert returns it to 1574.
     # **1579 -> 1640** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): `_defuse_signature_lines` and `render_eac_style_log_and_defused`, which returns the rewritten lines for the report; the old entry point is a thin wrapper, so no caller changed.
-    "eac_log_export.py": 1640,
+    # **1640 -> 1635 on 2026-09-26**: the fork released round 27 lap 4 with these words
+    # (the summary accepted, the per-track line in the amended form `46a522e`
+    # already carried), so the revert is reverted and the wording code leaves again.
+    "eac_log_export.py": 1635,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1530,7 +1536,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # pin as the current one (§5.bq).
     # **674 -> 683 (2026-09-24, round 26 close)**: the approval record moved to round
     # 26 for 0.6.55, with the provenance the record's own rule requires beside it.
-    "handshake_approval.py": 683,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # 683 -> 693 on 2026-09-26: round 27's approval (0.6.60, round 27) and why a quick
+    # run approves the build without having exercised `.16`'s two changes.
+    "handshake_approval.py": 693,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
@@ -1590,7 +1598,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `partial_summary_denominator` are made public HERE so the rip worker and the
     # report stop keeping their own copies — the copies are what drifted.
     # **2973 -> 2975** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "parsers/cyanrip_log.py": 2975,
+    # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
+    "parsers/cyanrip_log.py": 2976,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1598,7 +1607,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # a line count.
     # **883 -> 884** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The `accuraterip_offset` comment corrected.
     # **884 -> 889** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "parsers/rip_log.py": 889,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
+    "parsers/rip_log.py": 890,  # +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -1800,7 +1810,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
-    "ui/main_window_helpers.py": 521,
+    # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
+    "ui/main_window_helpers.py": 522,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix

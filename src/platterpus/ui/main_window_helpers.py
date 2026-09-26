@@ -463,7 +463,8 @@ def fidelity_summary(
 def _partial_accurate_clause(rip_log: object) -> str:
     """A short note when on some tracks only one frame matched AccurateRip.
 
-    cyanrip reports these "partially accurately ripped". This docstring used to
+    cyanrip reports these as "partially accurately ripped" up to +platterpus.16,
+    and as "one frame only" from .17. This docstring used to
     say the audio was "almost certainly correct (it matches AccurateRip at the
     common pressing offset)", and on 2026-09-24 one such track held wrong audio:
     one frame matching verifies one frame (see :mod:`platterpus.one_frame_match`).

@@ -138,18 +138,24 @@ def test_the_settings_option_says_one_frame(qapp: QApplication) -> None:
     _check("Settings option tooltip", box.toolTip())
 
 
-def test_the_EAC_compatible_log_is_NOT_reworded_until_round_27() -> None:
-    """The one surface deliberately left alone, pinned so that a change is a decision.
+def test_the_EAC_compatible_log_uses_the_words_agreed_in_round_27() -> None:
+    """The log the fork diffs against, reworded only as both sides agreed.
 
     In round 7 (lap 11, H4) both projects agreed that neither rewords this log
-    unilaterally, because it is what the cyanrip fork diffs against. So its line
-    keeps the old words until round 27 settles new ones, where we answer first.
-    When that lands, this test is the one to change, and the round is its reason.
+    unilaterally. Round 27 settled the words: our proposal (lap 2 §B1), with the
+    fork's amendment to the per-track line (their lap 4). Fed the real section J
+    track 1, the one that held wrong audio and passed the one-frame check.
     """
     _, track1 = _section_j()
     line = _accuraterip_line(track1)
-    assert line.startswith("Matched an offset-variant pressing — partially accurate"), (
-        line
+    assert line.startswith(
+        "Only one frame matched AccurateRip (confidence 200); whole-track checksums "
+        "not found"
+    ), line
+    assert line.endswith("(AR frame 450)"), line
+    _check("EAC-compatible log line", line)
+    assert one_frame_match.eac_summary_line(1) == (
+        " 1 track(s) matched AccurateRip on one frame only"
     )
 
 

@@ -214,6 +214,65 @@ def test_offset_variant_match_is_captured_but_not_a_plain_match() -> None:
     assert track_accuraterip_verified(track) is False
 
 
+#: cyanrip's `Accurip 450` match wording from `+platterpus.17`, announced in the
+#: fork's round 27 lap 4 (`cyanrip@ec0fe47:src/cyanrip_log.c:625`). `.16` and
+#: earlier print the `_MARGINAL_LOG` form above.
+_LINE_450_FROM_17: str = (
+    "    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; "
+    "whole-track checksums not found)"
+)
+
+
+def test_both_accurip_450_wordings_mean_the_same_thing_everywhere() -> None:
+    """Round 27: `.17` rewords the match's tail, and nothing of ours may notice.
+
+    The fork read our parser and said only `confidence N` is taken out of the
+    parenthetical. This checks it here, on every consumer of the parsed 450 line:
+    the parser, the match rule, the verified rule and the EAC-compatible log's
+    per-track line. A consumer keyed on the removed words ("partially accurately
+    ripped") would make the two logs disagree.
+
+    Not here: `rip_audit._ar_matched`, which keys on result text and would read
+    the new tail's "not found" as no match. It is applied only to the v1 and v2
+    blocks (`rip_audit.py:285`), so nothing it reports changes; the hazard is a
+    TASKS row rather than a test of behaviour we do not have.
+    """
+    from platterpus.eac_log_export import _accuraterip_line
+    from platterpus.parsers.rip_log import (
+        accuraterip_is_match,
+        track_accuraterip_verified,
+    )
+
+    old_line = next(
+        line for line in _MARGINAL_LOG.splitlines() if "Accurip 450:" in line
+    )
+    assert "partially accurately ripped" in old_line
+    new_log = _MARGINAL_LOG.replace(old_line, _LINE_450_FROM_17)
+    assert new_log != _MARGINAL_LOG, "the .17 line did not replace the .16 one"
+
+    tracks = [parse_cyanrip_log(text).tracks[0] for text in (_MARGINAL_LOG, new_log)]
+    readings = []
+    for track in tracks:
+        offset = track.accuraterip_offset
+        assert offset is not None
+        readings.append(
+            (
+                offset.version,
+                offset.confidence,
+                offset.local_crc,
+                accuraterip_is_match(offset),
+                track_accuraterip_verified(track),
+                _accuraterip_line(track),
+            )
+        )
+    old, new = readings
+    assert old == new
+    # And the shared reading is the one-frame state, not a blank that happens to
+    # agree: a match at confidence 200 that is NOT verified.
+    assert old[:5] == (450, 200, "BF62B1DA", True, False)
+    assert old[5].startswith("Only one frame matched AccurateRip (confidence 200)")
+
+
 def test_partial_accurate_summary_and_paranoia_counts() -> None:
     log = parse_cyanrip_log(_MARGINAL_LOG)
     # THIS FIXTURE IS DELIBERATELY SELF-INCONSISTENT: it declares `2/2` while listing
