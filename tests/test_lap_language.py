@@ -211,6 +211,18 @@ class Case:
     amend: frozenset[str] = frozenset()
     #: Extra laps to hold in a scratch record, as {relative path: text}.
     record: tuple[tuple[str, str], ...] = ()
+    #: Answer git from a stand-in, for a case whose rule is about the state of a
+    #: tree (which branches hold a commit) that no fixed repository can promise.
+    branch_only_git: bool = False
+
+
+def _branch_only_git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """A tree where every commit exists, only on `origin/claude/x`, never on main."""
+    if args[:2] == ("merge-base", "--is-ancestor"):
+        return subprocess.CompletedProcess(list(args), 1, "", "")
+    if args[:3] == ("branch", "-r", "--contains"):
+        return subprocess.CompletedProcess(list(args), 0, "  origin/claude/x\n", "")
+    return subprocess.CompletedProcess(list(args), 0, "line\n" * 50, "")
 
 
 _BODY_END = "S2 VERDICT: GO\n  basis: S1\n"
@@ -262,6 +274,15 @@ _BROKEN: dict[str, Case] = {
         _header() + "LSL: 2\n\n" + PLAIN_FACT + _BODY_END, severity="CANNOT"
     ),
     "LSL.file": Case("", severity="CANNOT"),
+    "LSL.offrecord": Case(
+        _header(verdict="OPEN")
+        + "LSL: 1\n\n"
+        + "S1 DID: A commit that lives only on a session branch.\n"
+        + "  commit: 1234567\n"
+        + "S2 VERDICT: OPEN\n  basis: S1\n",
+        severity="WARN",
+        branch_only_git=True,
+    ),
     "LSL.relayed": Case(
         _header()
         + "LSL: 1\n\nS1 FACT relayed: The operator said so.\n  source: the operator\n"
@@ -373,6 +394,10 @@ def test_each_lap_rule_fires_on_the_lap_that_breaks_it(
         lap = check_path(
             tmp_path, root=root, amendments=case.amend
         )  # a directory cannot be read
+    elif case.branch_only_git:
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(refs, "_git", _branch_only_git)
+            lap = _check(tmp_path, case.text, amend=case.amend, root=root)
     else:
         lap = _check(tmp_path, case.text, amend=case.amend, root=root)
     assert rule in _rules(lap, case.severity), [
@@ -426,9 +451,18 @@ def test_the_worked_example_is_clean_with_every_amendment() -> None:
     assert lap.refused() == [], [p.message for p in lap.refused()]
     assert len(lap.statements) == 31
     warned = {p.rule for p in lap.problems if p.severity == "WARN"}
-    assert warned <= {"LSL.unchecked"}, (
-        "the only warnings allowed are the fork's tree, absent here"
+    assert warned <= {"LSL.unchecked", "LSL.offrecord"}, (
+        "the only warnings allowed are the fork's tree (absent here) and our "
+        "session-branch commits"
     )
+    # Lap 5 cites commits squash merging never put on main (finding F4). The
+    # example keeps them, because they are what the real lap cited, and each is
+    # named here so that a new off-record citation cannot slip in unremarked.
+    branch_only = {"3d2566f", "9c44f5f", "a7b51a8", "caa04f0", "f7519d9", "fafa565"}
+    for problem in lap.problems:
+        if problem.rule == "LSL.offrecord":
+            sha = problem.message.split()[1]
+            assert sha in branch_only, problem.message
 
 
 def test_lsl_1_alone_refuses_only_what_the_amendments_add() -> None:

@@ -87,7 +87,9 @@ def _live_docs() -> list[str]:
         if not path.is_file() or path.suffix.lower() not in {".md", ".txt"}:
             continue
         rel = path.relative_to(REPO_ROOT).as_posix()
-        if rel.startswith((".git/", ".venv/", "node_modules/")):
+        if rel.startswith(
+            (".git/", ".venv/", "node_modules/", ".claude/worktrees/")
+        ):  # a worktree-isolated agent's full copy of the repo (gitignored)
             continue
         if any(rel == skip or rel.startswith(skip) for skip in DATED_RECORD):
             continue
