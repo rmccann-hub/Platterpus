@@ -96,6 +96,7 @@ dependencies = [
 dev = [
     "pytest>=8,<10",
     "pytest-cov>=5",      # coverage measurement + the CI --cov-fail-under gate
+    "pytest-xdist>=3.6,<4",  # parallel runs: CI and scripts/check.py pass `-n auto`
     "hypothesis>=6",      # property-based tests (tests/test_parsers_property.py)
     # --- gating: pinned to the measured minor, bump deliberately ---
     "ruff>=0.15.22,<0.16",  # `lint` + `format --check`; 0.16 may reformat

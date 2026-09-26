@@ -61,8 +61,17 @@ needed we need to plan."* Every number below was measured, not estimated.
     imports `platterpus`.
   - `scripts/check.py` runs its four gates at the same time (about 40 s off a local
     run).
-- [ ] **Phase 2 — run the suite in parallel. NEEDS: approval of a new dev dependency,
-  `pytest-xdist` (MIT, actively maintained).** Measured with it installed locally
+- [x] **Phase 2 — run the suite in parallel. APPROVED 2026-09-26; done the same day.**
+  `pytest-xdist` is in the dev extra and `DEPENDENCIES.md`. CI and `check.py` pass
+  `-n auto`. The session-start and session-finish hooks ask `is_xdist_worker`: a
+  worker neither clears nor writes the sentinel, and it hands its hard exit to
+  `atexit`, so it can finish reporting to the controller first. An end-to-end test
+  runs the real conftest on two workers with coverage, passing and failing, and
+  requires each worker to reach `unconfigure`. The old code never did, and the
+  first version of the test passed on it anyway, because the failure depended on
+  how much a worker still had to send; revert-probed. Also fixed: root log handlers
+  a test added outlived its captured stream (`drop_root_handlers_added_since`).
+  Details below, as planned: Measured with it installed locally
   and not added to the project: **4 workers ran all 5,960 tests green in 2m08s**,
   against 7m22s serially. It is not a drop-in, and this is the refactor to plan:
   - `pytest_sessionfinish` writes `.pytest-session-complete` and calls `os._exit`
@@ -76,14 +85,18 @@ needed we need to plan."* Every number below was measured, not estimated.
   - One logging error was seen: a post-rip thread logging after pytest closed its
     stream. It is a test leaving a thread running, so fix it rather than hide it.
   - Expected: CI test legs ~3 min instead of ~10.
-- [ ] **Phase 3 — the CI matrix. NEEDS: a decision, because it changes what CI
-  enforces.** Coverage is measured on all four legs, and py3.11–3.13 pay for branch
+- [x] **Phase 3 — the CI matrix. APPROVED 2026-09-26 (coverage on py3.14 only);
+  done the same day.** `ci.yml` sets `coverage: true` on the 3.14 leg only. Every
+  leg runs every test with `-n auto`. `CLAUDE.md` → *Test commands*,
+  `docs/testing.md` and `docs/architecture.md` now say so. Planned as: Coverage is measured on all four legs, and py3.11–3.13 pay for branch
   coverage with the slower C tracer. py3.14's `sys.monitoring` tracer is why that
   leg is fastest. Proposal: run the coverage gate on py3.14 only and plain pytest
   on 3.11–3.13. This changes the rule in `CLAUDE.md` → *Test commands* that the
   gate runs on the matrix, so it needs your yes. Not recommended: dropping legs from
   PRs, because it saves runner minutes but not the wall-clock you wait for.
-- [ ] **Phase 4 — the rest of the loop.**
+- [~] **Phase 4 — the rest of the loop.** The `CLAUDE.md` trim was approved as a
+  draft for review (2026-09-26); it goes in its own PR and is not merged without
+  the maintainer's review.
   - Releases wait for `main`'s CI, so they speed up with Phases 2–3 automatically.
   - **`CLAUDE.md` is 142 KB, about 35k tokens, read into every session.** Much of it
     is dated incident narrative that already lives in `docs/testing.md`. Trimming it

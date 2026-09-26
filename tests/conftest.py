@@ -132,6 +132,19 @@ def print_coverage_report(session: pytest.Session, reporter: object) -> None:
         )
 
 
+def is_xdist_worker(config: pytest.Config) -> bool:
+    """True inside a pytest-xdist worker process, which carries ``workerinput``.
+
+    The suite runs in parallel from 2026-09-26 (``-n auto``). A worker runs tests
+    and reports them; the **controller** is the process that prints the summary,
+    applies the coverage floor, writes the completion sentinel and exits. Every
+    session hook below that speaks for the whole run asks this first, because four
+    workers each vouching for "the run finished" would let one early finisher
+    vouch for a sibling that died.
+    """
+    return hasattr(config, "workerinput")
+
+
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Clear the completion sentinel so a stale one can't vouch for this run.
 
@@ -147,7 +160,12 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     gone — so the check has to be an artefact something *else* verifies. CI does
     (`.github/workflows/ci.yml`, the "confirm the suite actually finished" step);
     locally, `test -f .pytest-session-complete` after a run does the same job.
+
+    Only the controller clears it (see :func:`is_xdist_worker`); a worker starting
+    late must not touch the run's own record.
     """
+    if is_xdist_worker(session.config):
+        return
     SESSION_COMPLETE_SENTINEL.unlink(missing_ok=True)
 
 
@@ -173,6 +191,24 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
     import sys
 
     status = int(session.exitstatus)
+    if is_xdist_worker(session.config):
+        # **A worker does not speak for the run, and must not exit here.** xdist
+        # sends the worker's results to the controller in its own session-finish,
+        # and the channel is closed only after this hook returns. An `os._exit`
+        # here killed workers mid-report: with coverage on, the controller saw
+        # `worker_errordown` after `workerfinished` and raised INTERNALERROR
+        # (2026-09-26). So the hard exit — still needed, for the Qt teardown race
+        # described above — is handed to `atexit`, which runs once the worker has
+        # finished talking to the controller and before the interpreter teardown
+        # that race lives in. `atexit` runs handlers newest first, so this one runs
+        # before any registered at import. No summary, no coverage table and no
+        # sentinel from a worker: the controller prints and writes those.
+        import atexit
+
+        sys.stdout.flush()
+        sys.stderr.flush()
+        atexit.register(os._exit, status)
+        return
     # Print the terminal summary OURSELVES before the hard exit. Without this the
     # `os._exit` below skipped it entirely — a red CI run produced only progress
     # dots, with no failing test names and no tracebacks, and `--durations` was
@@ -744,6 +780,50 @@ def _join_leaked_worker_threads():
             "drive the worker to completion in the test (see docs/testing.md).",
             stacklevel=2,
         )
+
+
+@pytest.fixture(autouse=True)
+def _root_logging_handlers_restored() -> Generator[None, None, None]:
+    """Remove the root-logger handlers a test added, so none outlives its stream.
+
+    `logging_setup.configure_logging` attaches a `StreamHandler` to whatever
+    `sys.stderr` is at that moment. Called from a test (anything that runs
+    `app.main()`), that is pytest's capture file for the test, which is closed
+    when the test ends. The handler stayed on the root logger, and the next test
+    whose thread logged got *"--- Logging error --- I/O operation on closed
+    file"*: order-dependent, so seen first when the suite ran in parallel
+    (2026-09-26). Production configures logging once, for a stream that lives as
+    long as the process, so this removes nothing it keeps.
+
+    pytest's own capture handlers are left alone: it adds and removes them around
+    each test phase itself.
+    """
+    import logging
+
+    root = logging.getLogger()
+    before = list(root.handlers)
+    level = root.level
+    yield
+    drop_root_handlers_added_since(before)
+    root.setLevel(level)
+
+
+def drop_root_handlers_added_since(before: list[object]) -> list[object]:
+    """Remove and close every root handler not in ``before``, except pytest's own.
+
+    Returns what it removed. Split out of the fixture above so a test can call it.
+    """
+    import logging
+
+    root = logging.getLogger()
+    dropped: list[object] = []
+    for handler in list(root.handlers):
+        if handler in before or type(handler).__module__.startswith("_pytest"):
+            continue
+        root.removeHandler(handler)
+        handler.close()
+        dropped.append(handler)
+    return dropped
 
 
 @pytest.fixture(autouse=True)
