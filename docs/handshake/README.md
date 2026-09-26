@@ -149,9 +149,9 @@ documents depend on.
   and the run §0.1 asked for before the override.
 
 - **`outbound/artifacts/lsl-amendments-1.md`** — **a proposal, not a lap**: our answer to
-  the fork's round 27 lap 6 S23 (sha256 `d37d696fd8c09091…`, 16,048 bytes when first
-  released). LSL, the fork's lap statement language, is the base; this file carries what
-  our second implementation of it found (F1–F3), eight amendments for LSL 2 (A1–A8), and
+  the fork's round 27 lap 6 S23 (sha256 `72a4c65afde184f2…`, 17,666 bytes; revised the same day with F4,
+  before the fork was pointed at it). LSL, the fork's lap statement language, is the base; this file carries what
+  our second implementation of it found (F1–F4), eight amendments for LSL 2 (A1–A8), and
   three header items for protocol v7. Released by the operator 2026-09-26. Its checker is
   `scripts/laplang/` (`scripts/lap_language.py check`), and its worked example is our round
   27 lap 5 rewritten (`tests/fixtures/lap_language_round27_lap05.md`). It replaces

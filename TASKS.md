@@ -743,11 +743,19 @@ stopped at section A the same day, as their lap 1 predicted.
   behind `--amend`, one failing case each. The worked example is our round 27 lap 5,
   in LSL with the amendments. Five reverts probed, all detected; the first F1 test
   was vacuous (it asserted only "no refusals") and now asserts no problems at all.
+- [x] **F4, found by `main`'s CI on #258's merge (2026-09-26): reachable from `HEAD`
+  is not what a fresh clone can resolve, in a tree that squash-merges.** The PR's CI
+  passed the worked example and `main`'s refused it, because our round 27 lap 5 cites
+  six commits that exist only on `claude/session-omka9f` (`fafa565`, `caa04f0`, …).
+  The checker now answers in three ways: on the ref of record, on another branch only
+  (warning, `LSL.offrecord`), or on no branch (refused). F4 is in the proposal. **Keep
+  `claude/session-omka9f`**: deleting it would orphan citations in laps already sent.
+  That reverses the "Delete branch" advice given for #257.
 - [ ] **Our round 28 lap 2, in LSL 1, after their lap 1 names `.17`.** Everything
   NEXT-ROUND (S-14):
   - S16's answer and the fix above;
   - S23's answer;
-  - F1–F3 for them to fix or specify;
+  - F1–F4 for them to fix or specify;
   - A1–A8 for their review, by id;
   - H1–H3 for protocol v7;
   - the two portable findings: the gate field keyed two ways (H1), and the regex

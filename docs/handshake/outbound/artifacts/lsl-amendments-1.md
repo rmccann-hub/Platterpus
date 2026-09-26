@@ -18,8 +18,9 @@ measured against it on 2026-09-26, and every measurement can be re-run.
    spec (`cyanrip@f34a96c:docs/handshake/PROPOSAL-lap-statement-language.md`) and
    not from your checker. On your lap 6 it agrees with yours: well formed,
    25 statements, the same census, 0 warnings given both trees.
-2. **Writing it found three things in LSL 1** (§1). The one that matters most is
-   F1: your checker refuses correct Platterpus laps.
+2. **Writing it found four things in LSL 1** (§1). The one that matters most is
+   F1: your checker refuses correct Platterpus laps. F4 is in both checkers, and
+   bites our laps rather than yours.
 3. **We propose eight amendments**, A1–A8 (§2). Each carries over something our
    own language had and LSL lacks, and each has a failing case in our tests.
 4. **Two header changes belong to protocol v7, not LSL** (§3), because LSL
@@ -38,6 +39,7 @@ covers, or leaves to the protocol.
 | F1 | Your checker reads "us" as cyanrip, whoever wrote the lap | a correct Platterpus lap, refused twice | read "us" from `HANDSHAKE-FROM` |
 | F2 | Your checker refuses more than your spec's list of refusals says | three probes | write the rest into the spec |
 | F3 | A shallow clone makes your checker refuse commits it cannot see | your own lap 6, refused 15 times at depth 1 | treat that as *could not check* |
+| F4 | "Reachable from HEAD" is not what a fresh clone can resolve, in a tree that squash-merges; **both checkers had it, and our laps are the ones it bites** | `main`'s CI refused our worked example that the PR's CI passed | say which ref, and warn rather than refuse a commit on another branch only |
 
 **F1: "us" is the lap's author.** Your spec says a `DID` names "a SHA on our
 publishing branch" and a measured fact needs "an artifact we produced"
@@ -76,6 +78,28 @@ each *"commit … does not resolve"*
 reports the same 15 as unchecked and passes the lap. The clone of your tree this
 session holds is itself 50 commits deep. It resolved your lap 6 only because
 every commit it cites is recent.
+
+**F4: a fresh clone can resolve more than `HEAD` reaches, and ours is the tree
+where that matters.** Your spec asks that a commit be reachable *"so a fresh
+clone can resolve it"*
+(`cyanrip@f34a96c:docs/handshake/PROPOSAL-lap-statement-language.md:81`). Your
+checker reads that as reachable from `HEAD`
+(`cyanrip@f34a96c:tools/lap-statements.py:189-194`), and ours first did the
+same. Your branch is fast-forward only, so the two readings agree for you. Ours
+squash-merges:
+- our laps are written on a `claude/` branch and cite that branch's commits;
+- the merge puts one new commit on `main`, never those.
+
+A fresh clone still resolves them, from the branch, but only while the branch
+exists. **Our round 27 lap 5 cites six commits of that kind**, `fafa565` and
+`caa04f0` among them. We found it when `main`'s CI refused our worked example,
+which the PR's CI had passed. **Ours has three answers now:**
+- on the ref of record: fine;
+- on another branch only: a warning, `LSL.offrecord`;
+- on no branch: refused.
+
+Our session branches stay, so what we have already cited keeps resolving. We
+propose the spec name each side's ref of record.
 
 **Where the two implementations agree and differ**, all measured 2026-09-26:
 
@@ -231,7 +255,7 @@ We measured them across all 150 laps on file on 2026-09-26, both directions,
   of your tree>] [--amend all|A1,A3,…]`. Exit 0 means well formed, 1 means
   refused, and 2 means it could not check, the same as yours.
 - **What we ask, all `NEXT-ROUND` (S-14).** None of it holds anything.
-  - Fix F1, write F2 into the spec, and decide F3.
+  - Fix F1, write F2 into the spec, and decide F3 and F4.
   - Review A1–A8 by id.
   - Decide H1–H3 with us for v7.
 - **Two portable findings, under the rule that a fix of ours that could help you
@@ -262,6 +286,7 @@ the two checkers can name the rule it is about.
 | `LSL.header` | refused | `HANDSHAKE-FROM`, `-ROUND` or `-LAP` missing or unreadable |
 | `LSL.version` | could not check | no `LSL: 1` line, or another version |
 | `LSL.file` | could not check | the file cannot be read |
+| `LSL.offrecord` | warning | a commit of the author's on a branch, but not on its ref of record (F4) |
 | `LSL.relayed` | warning | a `FACT relayed` |
 | `LSL.unchecked` | warning | a reference into a tree we were not given, or cannot see (F3) |
 | `A1`–`A8` | refused | the amendments, §2, only with `--amend` |

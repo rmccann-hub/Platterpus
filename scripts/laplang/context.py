@@ -55,6 +55,8 @@ class Context:
             self.refuse(line, rule, resolution.message)
         elif resolution.outcome == "unchecked":
             self.warn(line, "LSL.unchecked", resolution.message)
+        elif resolution.outcome == "offrecord":
+            self.warn(line, "LSL.offrecord", resolution.message)
 
     def statement(self, token: str, line: int, rule: str) -> Found | None | bool:
         """Resolve a statement or section reference.
