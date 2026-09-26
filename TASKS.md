@@ -20,6 +20,80 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Faster CI and dev loop — measured, and planned in phases (maintainer, 2026-09-26)
+
+*"We need to shorten CI times and everything else. We need optimise. If a refactor is
+needed we need to plan."* Every number below was measured, not estimated.
+
+**Baseline.**
+- CI takes **~10.7 min**, and the test matrix is all of it: py3.12 642 s, py3.13
+  612 s, py3.11 586 s, py3.14 394 s. Every other job is 36 s or less. Each test leg
+  spends ~50 s on setup (checkout, Python, apt Qt libraries, pip) and the rest in
+  pytest with branch coverage.
+- Locally (4 CPUs, py3.11): **7m22s** without coverage, ~9m40s with.
+- The suite is 5,978 tests. **5,173 of them (87%) take under 0.05 s each, 34 s in
+  total. 93 tests took 250 s (57%)**, mostly waiting, not working.
+- Around the suite: the app starts in 0.36 s to its event loop, so the app is not the
+  problem. AppImage takes ~1m50, release ~2m10 (plus the wait for `main`'s CI), PyPI
+  ~40 s. `CLAUDE.md` is 142 KB, read into every session.
+
+- [x] **Phase 1 — no new dependency, no refactor (2026-09-26).** Serial suite
+  **7m22s → 4m18s (−42%)**, warnings 20 → 12:
+  - The rip-report writer outlived tests that tore their window down without closing
+    it, so the leak backstop waited 5 s on each (7 tests, 35 s). `stop_window_threads`
+    now stops it as `closeEvent` does; the end-to-end fixture uses that helper.
+  - The console harness waited out its 10 s deadline whenever a script was refused,
+    which both refusal tests intend (20 s).
+  - `handshake.py round_status()` parsed each lap about 30 times: 3.3 s per call, in
+    ~12 tests and every `--status` and release gate. The parse is cached by text,
+    and the output is byte-identical to before: **3.3 s → 0.4 s**.
+  - The regex sweep's own proof timed a known-quadratic pattern on every fill, three
+    rounds each: 22 s → 3.8 s. It now stops at the first fill over the threshold,
+    and a 3.6 s search is taken in one round. Only the positive proof does that;
+    the sweep of `src/` is unchanged.
+  - Eight failure-path script tests waited out a 1 s timeout for a verdict already
+    on disk; they now pass 0.2 s.
+  - **A hermeticity defect, found while timing:** no test set `XDG_CONFIG_HOME`/
+    `XDG_DATA_HOME`, so script-runner tests wrote 4 MB evidence bundles into the
+    real `~/.local/share/platterpus/bundles/`, gzipping the real app log each time
+    (about 1 s a test), and a developer's own log rotated full of test output.
+    `conftest.py` now points both at a per-process temp folder before anything
+    imports `platterpus`.
+  - `scripts/check.py` runs its four gates at the same time (about 40 s off a local
+    run).
+- [ ] **Phase 2 — run the suite in parallel. NEEDS: approval of a new dev dependency,
+  `pytest-xdist` (MIT, actively maintained).** Measured with it installed locally
+  and not added to the project: **4 workers ran all 5,960 tests green in 2m08s**,
+  against 7m22s serially. It is not a drop-in, and this is the refactor to plan:
+  - `pytest_sessionfinish` writes `.pytest-session-complete` and calls `os._exit`
+    in every process. Under xdist each worker does it, so an early-finishing worker
+    could vouch for a run whose other worker died, and coverage workers were torn
+    down mid-report (`INTERNALERROR … worker_errordown` with coverage on). The
+    marker and the hard exit must run in the controller only, after every worker
+    has reported.
+  - The coverage printer and the CI "suite actually finished" step read that marker.
+  - `TEST_HOME` is already per process, so workers do not share a data folder.
+  - One logging error was seen: a post-rip thread logging after pytest closed its
+    stream. It is a test leaving a thread running, so fix it rather than hide it.
+  - Expected: CI test legs ~3 min instead of ~10.
+- [ ] **Phase 3 — the CI matrix. NEEDS: a decision, because it changes what CI
+  enforces.** Coverage is measured on all four legs, and py3.11–3.13 pay for branch
+  coverage with the slower C tracer. py3.14's `sys.monitoring` tracer is why that
+  leg is fastest. Proposal: run the coverage gate on py3.14 only and plain pytest
+  on 3.11–3.13. This changes the rule in `CLAUDE.md` → *Test commands* that the
+  gate runs on the matrix, so it needs your yes. Not recommended: dropping legs from
+  PRs, because it saves runner minutes but not the wall-clock you wait for.
+- [ ] **Phase 4 — the rest of the loop.**
+  - Releases wait for `main`'s CI, so they speed up with Phases 2–3 automatically.
+  - **`CLAUDE.md` is 142 KB, about 35k tokens, read into every session.** Much of it
+    is dated incident narrative that already lives in `docs/testing.md`. Trimming it
+    to the rules and pointers would shorten every session. Its rules section is
+    locked, so this needs your sign-off, and it is the largest item here that is not
+    CI.
+  - The suite's `pytest_sessionfinish` exits before pytest prints its warnings and
+    durations sections, which is why slow tests were invisible until timed with
+    JUnit output. Print them before the hard exit.
+
 ## 2026-09-25 — every open row in this file, checked
 
 Six read-only passes checked all **454** open rows, in all four checkbox forms

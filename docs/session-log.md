@@ -11,6 +11,33 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-26 — faster CI and dev loop: measured, Phase 1 done, the rest planned
+
+Asked to shorten CI and "everything else", and to plan any refactor. Measured first.
+
+- **CI is the test matrix and nothing else**: ~10.7 min wall-clock, and every other
+  job finishes in 36 s or less. The suite's time was a long tail of waits: 87% of
+  tests took under 0.05 s, and 93 tests took 57% of the run.
+- **Phase 1, no new dependency, took a serial run from 7m22s to 4m18s.** Five of the
+  six causes were waits: a report-writer thread left alive at teardown (5 s × 7), a
+  harness waiting out 10 s on a refused script, a handshake parse done ~30× per status
+  check (3.3 s → 0.4 s, output byte-identical), a timing proof measuring every fill
+  three times, and failure tests waiting 1 s for a verdict already on disk.
+  `check.py` now runs its gates at once. Five reverts probed, each detected.
+- **The sixth was a hermeticity defect found by timing.** Nothing set the XDG homes,
+  so script-runner tests wrote 4 MB bundles into the real
+  `~/.local/share/platterpus/bundles/` and gzipped the real log; this container's
+  data folder had reached 232 MB. A test run was modifying the user's own app data,
+  and "slow" was the only symptom. Now a per-process temp folder, pinned by a test.
+- **Measured before planning Phase 2:** `pytest-xdist` on 4 workers ran every test
+  green in 2m08s. It is not a drop-in: the session-finish marker and hard exit run in
+  every worker, and with coverage on the workers were torn down mid-report. That, a
+  coverage-on-one-leg CI change, and trimming the 142 KB `CLAUDE.md` are the three
+  decisions put to the maintainer (`TASKS.md` → *Faster CI and dev loop*).
+- **Lesson, graduated to the plan's Phase 4 row:** the suite's own session-finish
+  hard exit suppresses pytest's warnings and durations sections, which is why the
+  slowest tests had been invisible. The data was always there; the report dropped it.
+
 ## 2026-09-26 — D16–D19 built, and a quick hardware run read before the merge
 
 The maintainer answered the four questions the property-test sweep left open
