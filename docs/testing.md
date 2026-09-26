@@ -242,7 +242,12 @@ tiers. "I added a happy-path test" is not done.
    permanent CI coverage.
 2. **Parsers never raise.** Any new parser of external output gets a
    property-based "never raises on arbitrary input" test alongside its example
-   tests. Degrade to empty/default; never throw into the GUI.
+   tests. Degrade to empty/default; never throw into the GUI. **No per-example
+   deadline**: `tests/conftest.py` loads a Hypothesis profile with
+   `deadline=None`, because the default 200 ms reads a wall clock the parallel
+   suite shares, and a correct test failed at 211 ms on a busy runner
+   (2026-09-26). A test that really bounds time measures it itself
+   (`tests/test_regex_bounded_time.py`).
 3. **Fail loud, never silent.** Error paths surface to the log *and* the user
    (dialog / placeholder). Tests assert the surfacing, not just the absence of a
    crash.
