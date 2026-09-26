@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.6.61] — 2026-09-26
+
 ### Added
 
 - **The acceptance run accepts cyanrip `.17` as the build under review.** Handshake
@@ -15949,7 +15951,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.60...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.61...HEAD
+[0.6.61]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.60...v0.6.61
 [0.6.60]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.59...v0.6.60
 [0.6.59]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.58...v0.6.59
 [0.6.58]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.57...v0.6.58
@@ -16012,4 +16015,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.60.*
+*Last updated for Platterpus v0.6.61.*
