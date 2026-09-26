@@ -22,6 +22,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from conftest import ROUND_STATES, supply_round_state
 
 from platterpus.deps import fork_source
 from platterpus.deps.host_setup import DEFAULT_CONTAINER
@@ -1285,7 +1286,10 @@ class TestTheRipperBuildMenu:
             f"the operator needs to expect it: {why!r}"
         )
 
-    def test_exactly_one_choice_tells_the_operator_to_install_it(self) -> None:
+    @pytest.mark.parametrize("round_state", ROUND_STATES)
+    def test_exactly_one_choice_tells_the_operator_to_install_it(
+        self, round_state: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """**The menu offered two candidates and named the wrong one mandatory.**
 
         `UNDER_REVIEW_TARGET.why` read *"what an acceptance run must be on"* —
@@ -1299,6 +1303,9 @@ class TestTheRipperBuildMenu:
         provenance — a rip tagged `ga9aedf0` when both projects' records say the
         session ran `gddc1e8c`.
         """
+        # Every state, supplied: read live, the test-pin half ran only in a round
+        # that named one, and none has since round 21 (2026-09-26).
+        supply_round_state(monkeypatch, round_state)
         choices = fork_source.ripper_choices()
         marked = [c for c in choices if "INSTALL THIS ONE" in c.why]
         if not fork_source.rig_installs_the_test_pin():
@@ -1316,7 +1323,9 @@ class TestTheRipperBuildMenu:
             f"is {fork_source.FORK_TEST_PIN}"
         )
 
-    def test_no_other_choice_also_claims_an_acceptance_run_needs_it(self) -> None:
+    def test_no_other_choice_also_claims_an_acceptance_run_needs_it(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """The contradiction half, which is what an operator actually reads.
 
         One entry saying *"INSTALL THIS ONE"* while another says *"what an
@@ -1324,8 +1333,9 @@ class TestTheRipperBuildMenu:
         differently. Asserted separately from the test above because that one
         passes on a menu where BOTH entries make the claim.
         """
-        if not fork_source.rig_installs_the_test_pin():
-            return
+        # The state it is about is supplied. It returned early in every round
+        # without a separate test pin, so it had not checked anything since round 21.
+        supply_round_state(monkeypatch, "round-with-test-pin")
         for choice in fork_source.ripper_choices():
             if choice.pin == fork_source.FORK_TEST_PIN:
                 continue

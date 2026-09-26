@@ -1209,3 +1209,94 @@ def test_with_NO_record_of_what_was_asked_the_disc_total_is_the_bar() -> None:
     """Absent `tracks_expected` (an offline parse), the whole-disc rule stands."""
     findings = _asked_for(None, rip_completed_tracks=2, rip_completed_total=14)
     assert LEVEL_WARN in [level for level, _ in findings]
+
+
+# --- The AccurateRip match rule reads the confidence, not the words ------------
+#
+# Found 2026-09-26 while verifying the fork's round 27 lap 4: `.17` rewords its
+# one-frame match to end "whole-track checksums not found", and `_ar_matched`
+# rejected any result containing "not found". The rule now delegates to
+# `accuraterip_is_match`, the one every other reader of AccurateRip results uses.
+
+_ONE_FRAME_FROM_17 = "matches Accurip DB, confidence 200, one frame only; whole-track checksums not found"
+
+
+@pytest.mark.parametrize(
+    ("block", "matched"),
+    [
+        (
+            {
+                "result": "accurately ripped, confidence 129",
+                "confidence": 129,
+                "local_crc": "5D3C90CB",
+            },
+            True,
+        ),
+        (
+            {
+                "result": "not found, either a new pressing, or bad rip",
+                "confidence": None,
+                "local_crc": "0E91CD1A",
+            },
+            False,
+        ),
+        # `.17`'s one-frame match: a match whose words contain "not found".
+        (
+            {"result": _ONE_FRAME_FROM_17, "confidence": 200, "local_crc": "BF62B1DA"},
+            True,
+        ),
+        # The legacy log format's wording holds neither phrase the text rule knew.
+        (
+            {"result": "Found, exact match", "confidence": 5, "local_crc": "95E6A189"},
+            True,
+        ),
+        # A zero checksum compares equal to every zero in the database.
+        (
+            {
+                "result": "matches Accurip DB, confidence 200",
+                "confidence": 200,
+                "local_crc": "00000000",
+            },
+            False,
+        ),
+        # Read from disk, so anything can be there; none of it may raise.
+        ({"result": "accurately ripped", "confidence": "200"}, False),
+        ({"result": "accurately ripped", "confidence": True}, False),
+        ({"result": "accurately ripped", "confidence": 3, "local_crc": 7}, True),
+        ({}, False),
+        (None, False),
+        ("accurately ripped", False),
+    ],
+)
+def test_the_match_rule_reads_the_confidence_not_the_words(
+    block: object, matched: bool
+) -> None:
+    assert rip_audit._ar_matched(block) is matched
+
+
+@pytest.mark.parametrize(
+    ("report", "expected"),
+    [
+        # The maintainer's 2026-09-26 quick run: two exact v1 and v2 matches.
+        ("artifactsround27/round27derivedmp3report.json", "4/4"),
+        # Round 26's section J: track 1 matched on frame 450 alone, so it is the
+        # one track whose 450 line counts toward the ceiling.
+        ("artifactsround26/round26aftercancelreport.json", "5/5"),
+    ],
+)
+def test_the_inventory_on_real_reports_is_unchanged_by_the_rule(
+    report: str, expected: str
+) -> None:
+    """The move to the confidence rule changes nothing on cyanrip's own output.
+
+    Both real reports grade the same as they did under the text rule: every
+    v1 and v2 line there is either "accurately ripped, confidence N" or "not
+    found" with no confidence, and the two rules agree on both.
+    """
+    root = Path(__file__).resolve().parents[1]
+    data = json.loads((root / "docs" / "handshake" / report).read_text("utf-8"))
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_checksum_inventory(data, album)
+    texts = [f.text for f in album.findings if "AccurateRip inventory" in f.text]
+    assert texts, [f.text for f in album.findings]
+    assert f"AccurateRip inventory complete: {expected}" in texts[0], texts

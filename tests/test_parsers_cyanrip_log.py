@@ -228,20 +228,20 @@ def test_both_accurip_450_wordings_mean_the_same_thing_everywhere() -> None:
 
     The fork read our parser and said only `confidence N` is taken out of the
     parenthetical. This checks it here, on every consumer of the parsed 450 line:
-    the parser, the match rule, the verified rule and the EAC-compatible log's
-    per-track line. A consumer keyed on the removed words ("partially accurately
-    ripped") would make the two logs disagree.
+    the parser, the match rule, the verified rule, the EAC-compatible log's
+    per-track line, and the audit's match rule. A consumer keyed on the removed
+    words ("partially accurately ripped") would make the two logs disagree.
 
-    Not here: `rip_audit._ar_matched`, which keys on result text and would read
-    the new tail's "not found" as no match. It is applied only to the v1 and v2
-    blocks (`rip_audit.py:285`), so nothing it reports changes; the hazard is a
-    TASKS row rather than a test of behaviour we do not have.
+    The audit's rule is in the list since 2026-09-26: it used to reject any result
+    containing "not found", which the new tail contains, and now reads the
+    confidence through the shared rule.
     """
     from platterpus.eac_log_export import _accuraterip_line
     from platterpus.parsers.rip_log import (
         accuraterip_is_match,
         track_accuraterip_verified,
     )
+    from platterpus.rip_audit import _ar_matched
 
     old_line = next(
         line for line in _MARGINAL_LOG.splitlines() if "Accurip 450:" in line
@@ -262,6 +262,13 @@ def test_both_accurip_450_wordings_mean_the_same_thing_everywhere() -> None:
                 offset.local_crc,
                 accuraterip_is_match(offset),
                 track_accuraterip_verified(track),
+                _ar_matched(
+                    {
+                        "result": offset.result,
+                        "confidence": offset.confidence,
+                        "local_crc": offset.local_crc,
+                    }
+                ),
                 _accuraterip_line(track),
             )
         )
@@ -269,8 +276,8 @@ def test_both_accurip_450_wordings_mean_the_same_thing_everywhere() -> None:
     assert old == new
     # And the shared reading is the one-frame state, not a blank that happens to
     # agree: a match at confidence 200 that is NOT verified.
-    assert old[:5] == (450, 200, "BF62B1DA", True, False)
-    assert old[5].startswith("Only one frame matched AccurateRip (confidence 200)")
+    assert old[:6] == (450, 200, "BF62B1DA", True, False, True)
+    assert old[6].startswith("Only one frame matched AccurateRip (confidence 200)")
 
 
 def test_partial_accurate_summary_and_paranoia_counts() -> None:
