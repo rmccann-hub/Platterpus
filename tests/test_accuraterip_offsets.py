@@ -200,6 +200,28 @@ def test_lookup_never_raises(vendor: str, model: str) -> None:
 # --- bounded parse time on user-edited input (perf audit, 2026-07-30) --------
 
 
+def test_the_drive_name_normaliser_is_linear_in_a_run_of_spaces() -> None:
+    """A long run of spaces with no hyphen normalises in linear time.
+
+    `normalize_combined`'s separator pattern was `\\s+-\\s+`, which retried from
+    every space in a run: 0.54 s on the 20,000-space row the loader test below
+    feeds it, on the GUI thread before the window is shown. The loader test's
+    1-second bound hid it at 54% of the budget until the suite ran in parallel
+    (2026-09-26). This names the function, and asks for milliseconds rather than
+    "under a second": the linear form takes about 0.3 ms here.
+    """
+    from platterpus.adapters.accuraterip_offsets import normalize_combined
+
+    text = "A" + " " * 20_000 + "B"
+    start = time.perf_counter()
+    assert normalize_combined(text) == "A B"
+    elapsed = time.perf_counter() - start
+    assert elapsed < 0.05, (
+        f"normalize_combined took {elapsed * 1000:.0f} ms on a 20,000-space run; "
+        "the separator pattern is backtracking from every space again"
+    )
+
+
 def test_a_pathological_csv_row_does_not_stall_the_loader(tmp_path: Path) -> None:
     """A long row must parse in linear time, because this runs on the GUI thread.
 
