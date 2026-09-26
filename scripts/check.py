@@ -128,7 +128,10 @@ def _run(gate: Gate) -> None:
 
 def _build_gates(only: set[str], coverage: bool) -> list[Gate]:
     py = sys.executable
-    pytest_argv = [py, "-m", "pytest"]
+    # `-n auto`: the suite runs on one pytest-xdist worker per CPU, as CI does
+    # (2026-09-26). The completion sentinel is written by the controller only, so
+    # the check below still reads a verdict for the whole run.
+    pytest_argv = [py, "-m", "pytest", "-n", "auto"]
     if coverage:
         pytest_argv += [
             "--cov=platterpus",

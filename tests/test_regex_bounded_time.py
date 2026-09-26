@@ -20,6 +20,21 @@ per-pattern test would never have been written for.
 The others: ``parsers/cd_info._NUM_TRACKS`` (unbounded ``\\d+``, 4000 digits →
 141 ms), ``rip_timing._ETA_PIECE``, and ``deps.version.DEFAULT_VERSION_PATTERN``.
 
+**Its population was not closed, and the gap was found by a stopwatch
+(2026-09-26).** It swept module-level ``re.compile`` calls only, and reported a
+clean sweep over them while an inline ``re.sub(r"\\s+-\\s+", ...)`` in the
+drive-name normaliser went quadratic on a long run of spaces: 0.54 s on the
+drive-offset CSV test's 20,000-space row, which parses on the GUI thread before
+the window is shown. It surfaced only when the suite went parallel and that test's
+wall-clock bound tipped over. Now every ``re.<function>(<literal>, ...)`` call is
+in the population, and each inline one is timed the way its call site uses it:
+``re.match``/``re.fullmatch`` anchored, everything else by ``.search``. Timing a
+``fullmatch`` on a filename by ``.search`` would report a quadratic pattern that
+cannot run quadratically. **Two calls remain outside it**, because their pattern
+is not a literal a sweep can read: ``adapters/cache_probe.py`` (a pattern passed
+in) and ``ripper_messages.py`` (built from the ripper's published format
+strings, bounded by ``_TAIL_LIMIT``).
+
 **What this test is not.** It is not a benchmark and must not fail because CI was
 busy. It compares each pattern against *itself* at two input sizes and only
 objects to super-linear **growth**, with a generous factor — so a uniformly slow
@@ -76,14 +91,32 @@ _REPEAT_STEP = 8
 _FILLS: tuple[str, ...] = ("0", " ", "a", "\t", ",", ":", "-", ".")
 
 
-def _compiled_patterns() -> list[tuple[str, str]]:
-    """Every module-level ``re.compile`` in ``src/``, as (location, pattern).
+#: The `re` functions whose first argument is a pattern, and how each one runs
+#: it. `compile` does not say how the pattern will be used, so it is timed by
+#: the worst case, `.search`, which retries at every start position.
+_HOW_EACH_CALL_RUNS: dict[str, str] = {
+    "compile": "search",
+    "search": "search",
+    "sub": "search",
+    "subn": "search",
+    "split": "search",
+    "findall": "search",
+    "finditer": "search",
+    "match": "match",
+    "fullmatch": "fullmatch",
+}
 
-    Read from the source with ``ast`` rather than by importing, so a pattern is
-    checked even if its module has import side effects, and so the location in the
-    failure message is a real file:line a reader can open.
+
+def _compiled_patterns() -> list[tuple[str, str, str]]:
+    """Every literal pattern handed to ``re`` in ``src/``: (location, pattern, how).
+
+    ``how`` is the method a measurement must use to time it the way it runs (see
+    ``_HOW_EACH_CALL_RUNS``). Read from the source with ``ast`` rather than by
+    importing, so a pattern is checked even if its module has import side
+    effects, and so the location in the failure message is a real file:line a
+    reader can open.
     """
-    found: list[tuple[str, str]] = []
+    found: list[tuple[str, str, str]] = []
     for path in sorted(_SRC.rglob("*.py")):
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -96,23 +129,29 @@ def _compiled_patterns() -> list[tuple[str, str]]:
             if not isinstance(node, ast.Call):
                 continue
             func = node.func
-            is_compile = (
+            is_re_call = (
                 isinstance(func, ast.Attribute)
-                and func.attr == "compile"
+                and func.attr in _HOW_EACH_CALL_RUNS
                 and isinstance(func.value, ast.Name)
                 and func.value.id == "re"
             )
-            if not is_compile or not node.args:
+            if not is_re_call or not node.args:
                 continue
+            assert isinstance(func, ast.Attribute)  # narrowed by is_re_call
             first = node.args[0]
             if isinstance(first, ast.Constant) and isinstance(first.value, str):
                 rel = path.relative_to(_SRC.parent.parent)
-                found.append((f"{rel}:{node.lineno}", first.value))
+                how = _HOW_EACH_CALL_RUNS[func.attr]
+                found.append((f"{rel}:{node.lineno}", first.value, how))
     return found
 
 
 def _seconds_per_search(
-    compiled: re.Pattern[str], text: str, *, enough_s: float | None = None
+    compiled: re.Pattern[str],
+    text: str,
+    *,
+    enough_s: float | None = None,
+    how: str = "search",
 ) -> float:
     """Cost of one ``.search``, averaged over enough repeats to beat clock noise.
 
@@ -139,14 +178,18 @@ def _seconds_per_search(
     scheduler noise cannot move a measurement that size by the 8x the threshold
     asks. It is never used where a false alarm is the risk: there a single long
     sample is exactly the noise the minimum exists to discard.
+
+    ``how`` names the method to time (``search``, ``match`` or ``fullmatch``), so
+    an inline call is measured the way its call site runs it.
     """
+    run = getattr(compiled, how)
     best = float("inf")
     for _ in range(_TIMING_ROUNDS):
         repeats = 1
         while True:
             start = time.perf_counter()
             for _ in range(repeats):
-                compiled.search(text)
+                run(text)
             elapsed = time.perf_counter() - start
             if elapsed >= _NOISE_FLOOR_S or repeats >= _MAX_REPEATS:
                 best = min(best, elapsed / repeats)
@@ -158,7 +201,7 @@ def _seconds_per_search(
 
 
 def _worst_growth(
-    pattern: str, *, stop_above: float | None = None
+    pattern: str, *, stop_above: float | None = None, how: str = "search"
 ) -> tuple[float, str, float]:
     """Return the worst (growth_ratio, fill, large_seconds) over the fills.
 
@@ -172,8 +215,8 @@ def _worst_growth(
     worst = (0.0, "", 0.0)
     enough_s = 0.25 if stop_above is not None else None
     for fill in _FILLS:
-        small = _seconds_per_search(compiled, fill * _SMALL, enough_s=enough_s)
-        large = _seconds_per_search(compiled, fill * _LARGE, enough_s=enough_s)
+        small = _seconds_per_search(compiled, fill * _SMALL, enough_s=enough_s, how=how)
+        large = _seconds_per_search(compiled, fill * _LARGE, enough_s=enough_s, how=how)
         ratio = large / max(small, 1e-12)
         if ratio > worst[0]:
             worst = (ratio, fill, large)
@@ -198,14 +241,14 @@ def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
         "stopped finding them, which would make it pass by examining nothing"
     )
 
-    suspects: list[tuple[str, str, float, str]] = []
+    suspects: list[tuple[str, str, str, float, str]] = []
     measured = 0
-    for location, pattern in patterns:
-        ratio, fill, _ = _worst_growth(pattern)
+    for location, pattern, how in patterns:
+        ratio, fill, _ = _worst_growth(pattern, how=how)
         if ratio > 0.0:
             measured += 1
         if ratio > _MAX_GROWTH:
-            suspects.append((location, pattern, ratio, fill))
+            suspects.append((location, pattern, how, ratio, fill))
 
     # The floor that matters. Counting *collected* patterns above only proves the
     # `ast` walk still works; it says nothing about whether any of them were
@@ -221,12 +264,12 @@ def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
 
     # Re-measure the suspects. Only a pattern that is slow twice is a finding.
     confirmed: list[str] = []
-    for location, pattern, first_ratio, fill in suspects:
-        second_ratio, _, large_s = _worst_growth(pattern)
+    for location, pattern, how, first_ratio, fill in suspects:
+        second_ratio, _, large_s = _worst_growth(pattern, how=how)
         if second_ratio > _MAX_GROWTH:
             confirmed.append(
                 f"{location}\n"
-                f"    pattern: {pattern!r}\n"
+                f"    pattern: {pattern!r}, timed by .{how}\n"
                 f"    a 4x longer input of {fill!r} cost {first_ratio:.1f}x then "
                 f"{second_ratio:.1f}x more time ({large_s * 1000:.2f} ms at "
                 f"{_LARGE} chars)"
@@ -301,4 +344,29 @@ def test_the_known_offenders_stay_bounded(module: str, attribute: str) -> None:
     assert elapsed < 0.020, (
         f"{module}.{attribute} took {elapsed * 1000:.1f} ms on 4000 digits — an "
         "unbounded quantifier has come back"
+    )
+
+
+def test_the_sweep_reads_inline_calls_and_times_each_as_it_runs() -> None:
+    """The population is every literal pattern handed to `re`, not only compiles.
+
+    Pinned by the pattern that was missing: the drive-name normaliser's inline
+    `re.sub`, quadratic until 2026-09-26 and invisible to a sweep of
+    `re.compile` alone. And an anchored call must be timed anchored, or a
+    `fullmatch` on a filename reads as quadratic when it cannot run that way.
+    """
+    patterns = _compiled_patterns()
+    normaliser = [
+        pattern
+        for location, pattern, how in patterns
+        if location.startswith("src/platterpus/adapters/accuraterip_offsets.py")
+        and "-" in pattern
+        and how == "search"
+    ]
+    assert normaliser, (
+        "the drive-name normaliser's inline re.sub is not in the sweep's "
+        "population; the sweep is back to reading re.compile calls only"
+    )
+    assert any(how == "fullmatch" for _location, _pattern, how in patterns), (
+        "no anchored call was found, so nothing is being timed as it runs"
     )

@@ -77,7 +77,15 @@ def normalize_combined(combined: str) -> str:
     # AccurateRip's "<vendor>  - <model>" separator (spaces around a hyphen).
     # In-token hyphens like BD-RW / BDR-209D have no surrounding spaces, so
     # they're untouched.
-    combined = re.sub(r"\s+-\s+", " ", combined)
+    #
+    # The `(?<!\s)` is what keeps this linear, and it is load-bearing: this runs
+    # on every row of the user's drive-offset CSV, on the GUI thread, before the
+    # window is shown. Without it, a long run of spaces with no hyphen made the
+    # engine retry from every space in the run, each retry scanning to the end:
+    # quadratic, measured at 0.54 s for one 20,000-space row (2026-09-26). The
+    # lookbehind only lets a match START where a run of whitespace starts, so a
+    # retry inside the run fails at once. Same matches as before, every one.
+    combined = re.sub(r"(?<!\s)\s+-\s+", " ", combined)
     combined = re.sub(r"^\s*-\s+", "", combined)  # vendorless: leading "- "
     return canonical_token(combined)
 

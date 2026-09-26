@@ -32,6 +32,24 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A drive-offset list with a long run of spaces no longer slows start-up.**
+  Platterpus reads your drive-offset CSV (the full AccurateRip export, if you have
+  installed it) before the main window opens. One step that tidies each drive's
+  name went quadratically slower on a long run of spaces with no hyphen, about half
+  a second for one 20,000-space row, and every extra space made it worse. It now
+  takes a fraction of a millisecond, and every drive name comes out exactly as
+  before. **For contributors:** the regex timing sweep now covers inline
+  `re.sub`/`re.search`/`re.fullmatch` patterns, not only `re.compile`, and times
+  each one the way it is called. That wider sweep is what found this one
+  (`docs/testing.md` §5.bu).
+- **For contributors: the suite runs in parallel, and CI measures coverage on one
+  leg.** `pytest-xdist` is a new dev dependency (approved 2026-09-26). CI and
+  `scripts/check.py` run `pytest -n auto`; a bare `pytest` stays serial. The
+  session-finish hooks are controller-only, so the completion sentinel still speaks
+  for the whole run, and workers no longer hard-exit while still reporting. The
+  coverage floor (91%) runs on the py3.14 leg, whose tracer is the fast one; every
+  leg still runs every test.
+
 - **For contributors: the test suite runs 42% faster, and no longer touches your
   real Platterpus folders.** A serial run went from 7m22s to 4m18s. Most of the
   time was waits, not work: a report-writer thread left running at teardown, a
