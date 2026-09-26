@@ -208,6 +208,12 @@ first time someone reaches for `setShortcut("R")`.
    that claim true so the exemption cannot outlive its reason. Diagnostics and
    the file viewer `setPlainText` once and never append, so neither rule applies.
 
+### Moved from `CLAUDE.md` (2026-09-26): Accessibility is a code convention — the convention in full
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Code conventions, the accessibility bullet), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**Accessibility is a code convention, not a polish pass — target WCAG 2.2 AA.** Full audit, the numbers, and what does *not* transfer from web guidance live in `docs/ux-design-principles.md` → *Conformance target*; enforcement is `tests/test_accessibility_standards.py`. The three that bite in code review: **(1) status is never colour alone** — every level carries a marker (`✓`/`⚠`/`ⓘ`) because ~8% of men have red/green CVD and a greyscale screenshot or a forced-colors theme drops hue entirely; **(2) no single-character keyboard shortcuts** — use `QKeySequence.StandardKey` or add a modifier, because a bare letter fires while a speech-input user is dictating (WCAG 2.1.4, the one the standards review names as most-often-missed); **(3) an explicit size is a size you own** — Qt's platform-style default is the user-agent exception, but `setFixedHeight(20)` forfeits it, so ours are held to a 24 px floor and 44 px for anything that commits. And the rule that generalises them: **a gesture must never change a value** — a scroll over a spin box that edits it is a data-integrity defect here, not an annoyance, because those controls are calibration that reaches cyanrip's argv and a nudged read offset rips the next disc wrong with a clean-looking log (`ui/scroll_guards.py`, 2026-08-13).
+
 ## The bar for new features
 
 Before a rip-related feature is "done," ask: does it make trust **more visible**,

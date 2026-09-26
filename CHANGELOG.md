@@ -259,6 +259,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **For contributors: CLAUDE.md is trimmed to its rules and pointers (draft, for the
+  maintainer's review).** It is read into every session, and at 142 KB most of it was
+  dated incident narrative. Each rule keeps its operative sentence and points at the
+  section that holds its full statement. Passages whose facts were not already in that
+  home were moved there verbatim first, under headings that say they came from
+  CLAUDE.md: `docs/testing.md` §5 (and a new §5.bw), `docs/cyanrip-handshake.md` §7.7,
+  `docs/architecture.md` §3.2, §3.10, §3.12a and §6.3, `docs/ux-design-principles.md`
+  and `PLANNING.md` KDD-20. Nothing was summarised away.
 - **The README's latest-hardware note describes the 2026-09-26 Full run**: 320 of 320
   steps, the first run in which every archival check could fail, recorded `partial` by
   the maintainer because the records carried errors no step could fail over. The
