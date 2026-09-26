@@ -49,6 +49,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A rip that stopped before its first track no longer blames the disc.** When the
+  ripper failed on its arguments or on the drive, the report said *"no track matched
+  AccurateRip"* and offered an unsubmitted pressing, an unreachable database or a wrong
+  read offset as causes, for a read that never happened. It now says the ripper's log
+  records no ripped track. The old sentence still appears where the log cannot vouch
+  for having none: a missing log, one we could not read, or one cut off mid-write.
 - **A rip report no longer blames the ripper for a change our own re-read made.**
   When a track matched AccurateRip on only one frame and our automatic re-read
   then matched it in full, the report's note said the ripper's own count *"does not

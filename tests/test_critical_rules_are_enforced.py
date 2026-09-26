@@ -1684,7 +1684,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2515 -> 2528** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): schema v29 and the `eac_log_signature_line_defused` issue.
     # **2528 -> 2546** (2026-09-26, the maintainer's quick run): a missing EAC-layout log is healthy when the rip's own settings turned it off (`_setting_was_on`).
     # **2546 -> 2554** (2026-09-26): the report passes the log's own count to the one-frame note, so our re-read is not described as the ripper disagreeing (the Full run).
-    "rip_report.py": 2554,
+    # **2554 -> 2581** (2026-09-26, the fork's S16): a rip whose log records no track is no longer blamed on the pressing, the database or the offset, and only a log that parsed whole can say so.
+    "rip_report.py": 2581,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
