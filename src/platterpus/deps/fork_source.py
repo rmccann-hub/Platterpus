@@ -201,7 +201,16 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: lap 5 said this commit would roll it, so this time promise and binding agree. As in
 #: round 24 the fork's gate closes one lap later, on their lap 6; the RELEASE that
 #: ships this constant (0.6.56) waits for that lap and for their `.16`.
-FORK_PIN: Final[str] = "df91ae7"
+#: **Rolled to `221a1df` (`+platterpus.16`) on round 27's close on OUR gate
+#: (2026-09-26)** — our lap 5 `GO`, released on the maintainer's word ("release the
+#: lap when ready"), against their lap 4 `GO`. Round 27's evidence is a QUICK run on
+#: 0.6.60 with `221a1df` installed, 206 of 320 steps with 0 failed and every skip
+#: declined by the run size, standing in for the Full run by the operator's override
+#: of R1 (`docs/handshake/artifactsround27/`). Our lap 5 said this commit would roll
+#: it. The RELEASE that ships this constant (0.6.61) waits for their lap 6, their
+#: `.17`, and their round 28 lap 1, so it carries `.17` as the next subject too
+#: (the maintainer's choice, 2026-09-26: ship both together).
+FORK_PIN: Final[str] = "221a1df"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -442,7 +451,11 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: round 26 lap 4's `HANDSHAKE-RIPPER-VERSION` — `cyanrip 0.9.4-rc2+platterpus.15
 #: (platterpus-fork-gdf91ae7)` — and cross-checked against `meson.build` at
 #: `df91ae7` in their tree (line 21), which declares the same string.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.15"
+#: **Rolled to `0.9.4-rc2+platterpus.16` on 2026-09-26, with `FORK_PIN`**, read off
+#: round 27 lap 4's `HANDSHAKE-RIPPER-VERSION` — `cyanrip 0.9.4-rc2+platterpus.16
+#: (platterpus-fork-g221a1df)` — and cross-checked against `meson.build` at
+#: `221a1df` in their tree (line 21), which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.16"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -604,7 +617,8 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: build (their lap 1 §0.1), so moving this constant is what lets section A accept
 #: it. A quick run on 0.6.58 with `.16` installed stopped at section A the same day,
 #: exactly as their lap 1 predicted. **`FORK_PIN` stays `df91ae7` until round 27
-#: closes.**
+#: closes.** **It closed on our gate on 2026-09-26 and `FORK_PIN` rolled with it**,
+#: so this is now also the release pin until round 28 opens on `.17`.
 PIN_UNDER_REVIEW: Final[str] = "221a1df"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
@@ -1556,17 +1570,18 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 26 approved, GO on both sides, and published by the fork "
-        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 25 — read "
+        "the build round 27 approved, GO on both sides, and published by the fork "
+        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 26 — read "
         "from their live release-manifest.json, and the version cross-checked "
         "against meson.build at the pin itself rather than taken from the lap). "
-        "Over +platterpus.14 it makes any per-frame retry limit safe: -r is "
-        "rounded up to a multiple of 5, the only values libcdio-paranoia checks, "
-        "and the log's 'Retry limit:' line says so. Round 26's evidence is the "
-        "real test on a drive, installed through Platterpus 0.6.55: eight rips, "
-        "258 of 261 steps, and the three failures one external stop of the "
-        "container. A read that fails, the path the fix protects, was not "
-        "reached on that disc. See docs/handshake/inbound/round-26-lap-04.md"
+        "Over +platterpus.15 its media tag no longer says HDCD just because -H "
+        "was set, and an interrupted track is left out of the AccurateRip tally. "
+        "Round 27's "
+        "evidence is a quick run on a drive, installed through Platterpus 0.6.60: "
+        "206 steps passed, none failed, and the one rip's two tracks matched "
+        "AccurateRip exactly. That run declined the sections that reach both "
+        "changes, so they are not yet tested on hardware; the Full run is round "
+        "28's. See docs/handshake/inbound/round-27-lap-04.md"
     ),
 )
 

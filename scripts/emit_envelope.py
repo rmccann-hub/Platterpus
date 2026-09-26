@@ -73,7 +73,15 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-27-lap-03.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-27-lap-05.md",)
+
+# WHY IT MOVED TO ROUND-27 LAP 5 (2026-09-26).
+#
+# **Our closing lap for round 27**: `GO` on `221a1df` from our reading of the quick
+# run, accepting the operator's override of R1, `.17`'s `Accurip 450` rewording and
+# their amendment to our EAC-compatible wording, and naming 0.6.61 as the release
+# that carries both pins. Moved once the lap was RELEASED. Travels alone: the bundle
+# it cites is committed in both trees, not carried.
 
 # WHY IT MOVED TO ROUND-27 LAP 3 (2026-09-25).
 #

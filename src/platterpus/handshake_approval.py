@@ -147,7 +147,11 @@ from platterpus.deps import fork_source
 #: (sha256 `7a56b1d2…`, 12,904 bytes, `cyanrip@9764970`), the release the real test
 #: ran on. A new pin (`3e01bb3` -> `df91ae7`, `+platterpus.15`), and the first pin
 #: this record approves on the round's own hardware evidence.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.55"
+#: **Round 27 moves it to 0.6.60**, read from the peer's closing lap as the rule
+#: requires: round 27 lap 4 declares `HANDSHAKE-APP-VERSION: platterpus 0.6.60`
+#: (sha256 `90b7f401…`, 14,585 bytes, `cyanrip@e9d3868`), the release the quick run
+#: ran on. A new pin (`df91ae7` -> `221a1df`, `+platterpus.16`).
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.60"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -245,7 +249,13 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.55"
 #: real test, our lap 5 `GO` from our reading of the same bundle. It approves a NEW
 #: pin, `df91ae7`, and unlike 24 and 25 it rests on a drive: the acceptance run on
 #: 0.6.55 with `df91ae7` installed (`docs/handshake/artifactsround26/`).
-APPROVED_BY_ROUND: Final[int] = 26
+#: **27 on 2026-09-26**, closed on our gate at five laps — their lap 4 `GO`, our lap 5
+#: `GO`, both from the quick run on 0.6.60 with `221a1df` installed
+#: (`docs/handshake/artifactsround27/`), which stands in for the Full run by the
+#: operator's override of R1. It approves a NEW pin, `221a1df`, on a drive, but a
+#: quick run declined the sections that reach both of `.16`'s changes: the approval
+#: rests on the build ripping correctly, not on those changes having been exercised.
+APPROVED_BY_ROUND: Final[int] = 27
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

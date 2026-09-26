@@ -87,6 +87,16 @@ the maintainer made on the round-27 test build had been read.
   landed (`fafa565`, the revert reverted). The bundle is filed as
   `artifactsround27/`, 15 of 15 blob ids equal to theirs. Our lap 5 declares GO
   and is **held**: `--announce` waits for the maintainer.
+- **Lap 5 released on the maintainer's word ("release the lap when ready"), and
+  round 27 closed on our gate.** Before announcing I re-read their branch: still
+  `eb9bc06`, with no round-27 lap after lap 4, so nothing crossed. The same commit
+  rolled `FORK_PIN` to `221a1df` and moved the approval record to round 27 for
+  0.6.60. It updated the rig sheet (rewritten in place: no run is due until
+  0.6.61), the standing status, README, DEPENDENCIES and the hardware checklist, and
+  regenerated the contract. One question went back to the maintainer mid-release:
+  their "I'd rather do this" could have meant either release order. They chose
+  **ship both together**, so 0.6.61 waits for `.17` and their round 28 lap 1, as
+  lap 5 §D already said.
 
 ## 2026-09-25 — the known gaps, and a sweep of the small open rows
 
