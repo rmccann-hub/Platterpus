@@ -55,6 +55,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Test scripts no longer refuse to rip behind a dialog nobody can see.** Before
+  pressing Start, a script checks that no dialog is waiting for an answer. Qt can
+  go on calling a dialog "active" after it has closed, and the check believed it,
+  so a closed Setup & Updates could stop a script's `rip` with nothing on screen.
+  Only a dialog that is actually showing counts now, for `rip`, `expect-dialog`
+  and `cancel` alike.
+- **For contributors: two causes of a red parallel run that had nothing to do
+  with the code.** Hypothesis failed any example slower than 200 ms, a limit that
+  reads a clock every worker shares, and one correct property test failed at
+  211 ms on a busy machine. The whole suite now runs with no deadline (34 tests
+  had already opted out one at a time). And a screenshot test left a dialog on
+  screen for the rest of its worker's run; it now closes it.
 - **For contributors: the whole-tree sweeps skip an agent's worktree.** An agent run
   in its own git worktree puts a full copy of the repository under
   `.claude/worktrees/`, which is gitignored. Three sweeps walked the filesystem, found

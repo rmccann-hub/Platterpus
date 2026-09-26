@@ -3183,5 +3183,11 @@ def test_screenshot_photographs_only_windows_on_screen_main_window_first(
         assert step.detail.count("no picture: not on screen") >= 2, step.detail
         assert not any("never" in name or "hidden" in name for name in pngs), pngs
     finally:
+        # Close before deleting: `deleteLater` alone leaves the window on screen
+        # until an event loop processes the delete, and a test's pump does not.
+        # "another window" was still visible at the start of 112 later tests
+        # across two suite runs (2026-09-26), in front of every check for an
+        # open dialog.
         for widget in (main, never_shown, was_shown, other):
+            widget.close()
             widget.deleteLater()

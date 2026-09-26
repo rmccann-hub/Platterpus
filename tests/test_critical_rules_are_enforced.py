@@ -2094,7 +2094,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4305 -> 4309 on 2026-09-25: a cyanrip step's recorded output is screened
     # (inbound_text, Critical rule #12), and why the expect-verbs copy stays raw.
     # 4309 -> 4398 on 2026-09-25: probe-ripper-wrapper moved onto a helper thread (_WrapperProbeJob); it ran on the GUI thread.
-    "uiscript/runner.py": 4398,  # +116: _do_expect_verification, the assertion section F never had,
+    # 4398 -> 4407 on 2026-09-26: _active_dialog counts only a VISIBLE dialog; a hidden one Qt still called active blocked `rip`.
+    "uiscript/runner.py": 4407,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.

@@ -28,6 +28,8 @@ import inspect
 import textwrap
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 
 
@@ -524,3 +526,19 @@ def test_a_handler_a_test_added_does_not_outlive_it() -> None:
     assert dropped == [stray]
     assert stray not in root.handlers
     assert all(h in root.handlers for h in before), "a pre-existing handler was lost"
+
+
+def test_hypothesis_examples_have_no_wall_clock_deadline() -> None:
+    """Hypothesis's 200 ms default deadline reads a clock the parallel suite shares.
+
+    `tests/conftest.py` loads a profile with `deadline=None`, because on a loaded
+    runner a correct property test failed with `DeadlineExceeded` (211.55 ms, one
+    example of `test_an_accusation_needs_positive_evidence_on_every_axis`,
+    2026-09-26). The check is on the loaded default and on a decorator that sets
+    only `max_examples`, which is how most of the suite's property tests are
+    written, so it fails if the profile stops being loaded or stops being
+    inherited.
+    """
+    hypothesis = pytest.importorskip("hypothesis")
+    assert hypothesis.settings.default.deadline is None
+    assert hypothesis.settings(max_examples=20).deadline is None

@@ -47,6 +47,30 @@ from platterpus import hard_exit
 #: The per-process folder standing in for the user's config and data homes.
 TEST_HOME: Path = Path(os.environ["PLATTERPUS_TEST_HOME"])
 
+# --- No wall-clock deadline on Hypothesis examples ------------------------
+#
+# Hypothesis fails any example slower than 200 ms by default. That limit reads the
+# wall clock, and since the suite runs in parallel (`pytest -n auto`, 2026-09-26),
+# the wall clock is shared with every other worker on the machine. Measured the
+# same day: `test_an_accusation_needs_positive_evidence_on_every_axis` runs the
+# whole categorical product in each example, and on a loaded runner one example
+# took 211.55 ms and failed with `DeadlineExceeded`. The code was correct; the
+# machine was busy. 34 tests had already opted out one at a time with
+# `deadline=None`, so the per-test fix was the pattern, and a pattern that each new
+# test has to remember is the shape this repository keeps paying for.
+#
+# So it is the default for every test here. A test that genuinely bounds time
+# measures it itself (`tests/test_regex_bounded_time.py`), with a budget chosen for
+# the thing being bounded rather than a library default. Guarded because
+# `hypothesis` is a dev extra, and a bare `pytest` without it should still run.
+try:
+    from hypothesis import settings as _hypothesis_settings
+except ImportError:  # pragma: no cover - only without the dev extra
+    pass
+else:
+    _hypothesis_settings.register_profile("platterpus", deadline=None)
+    _hypothesis_settings.load_profile("platterpus")
+
 # --- Defuse the PySide interpreter-shutdown abort -------------------------
 #
 # With many QThread-using tests, PySide6 intermittently SIGABRTs during
