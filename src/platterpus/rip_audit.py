@@ -40,6 +40,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
+from platterpus.parsers.rip_log import AccurateRipResult, accuraterip_is_match
+
 log = logging.getLogger(__name__)
 
 #: A FLAC smaller than this is not plausibly a track. The fork measured that a
@@ -128,15 +130,34 @@ def _ar_matched(block: Any) -> bool:
 
     A block's *presence* is not a match — cyanrip prints a line for "not found,
     either a new pressing, or bad rip" too, and counting the line was how a track
-    that matched nothing once got reported as an offset-variant match. Keyed on the
-    result text, which is what the ripper actually said.
+    that matched nothing once got reported as an offset-variant match.
+
+    **Keyed on the confidence, through the rule every other reader uses**
+    (:func:`platterpus.parsers.rip_log.accuraterip_is_match`: confidence >= 1 and
+    never an all-zero CRC), not on the result text. Until 2026-09-26 this keyed on
+    the words, rejecting any result containing "not found". cyanrip `.17` rewords
+    its one-frame match to end *"whole-track checksums not found"*, so a text rule
+    would have read a match as a miss. It was applied only to v1 and v2 lines, so
+    nothing it reported had changed. The legacy log format's *"Found, exact
+    match"* contains neither phrase the text rule looked for, so it counted a real
+    legacy match as a miss; the confidence rule counts it.
+
+    The report is read from disk, so a confidence that is not a plain integer
+    reads as no match rather than raising.
     """
     if not isinstance(block, dict):
         return False
-    result = str(block.get("result") or "").casefold()
-    if not result or "not found" in result:
+    confidence = block.get("confidence")
+    if isinstance(confidence, bool) or not isinstance(confidence, int):
         return False
-    return "accurately ripped" in result or "matches accurip" in result
+    local_crc = block.get("local_crc")
+    return accuraterip_is_match(
+        AccurateRipResult(
+            version=0,
+            confidence=confidence,
+            local_crc=local_crc if isinstance(local_crc, str) else None,
+        )
+    )
 
 
 def _audit_handshake_note(report: dict[str, Any], album: AlbumAudit) -> None:

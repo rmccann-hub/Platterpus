@@ -32,6 +32,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Platterpus's library check counts every real AccurateRip match.** It
+  used to decide a match from the result's words, so it would have counted
+  cyanrip `.17`'s one-frame match, which ends "whole-track checksums not found",
+  as a miss. It also missed matches written in the legacy log format. It now
+  reads the confidence, the same way every other part of the app does. Nothing
+  it reported on cyanrip's current output changes.
+
 - **A quick or standard test run is no longer reported as unfinished.** At the
   end of a smaller test run, the dialog and the bundle's summary said the run
   "DID NOT COMPLETE" because of the sections that run size leaves out on purpose,
