@@ -504,7 +504,7 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
-## Round 27 — OPEN 2026-09-24 on `221a1df` (`+platterpus.16`): the real test of `.16`
+## Round 27 — CLOSED `GO`/`GO` on our gate 2026-09-26 at five laps on `221a1df` (`+platterpus.16`): a quick run, by the operator's override
 
 Their lap 1 (`cyanrip@87facd5`, sha256 `f44de648…`, 9,767 bytes, released) names `.16`,
 `release_seq` 26 on both channels, and fixes three close conditions under R1, the same shape
@@ -579,8 +579,21 @@ stopped at section A the same day, as their lap 1 predicted.
   words. That also changes how legacy-format reports count (`"Found, exact match"` holds
   neither phrase it looks for), so it is its own change with its own test, not a rider
   on round 27. NEXT-ROUND (S-14): it breaks nothing in the pin under review.
-- [ ] **The real test on 0.6.60**, then each side's reading and the closing laps.
+- [x] **The real test on 0.6.60**, then each side's reading and the closing laps.
   - *Audit 2026-09-25: not ours to verify.* The operator's hardware run on 0.6.60. No round-27 bundle exists yet.
+  - *2026-09-26:* **Done, as a quick run, by the operator's override of R1.** The run: 206 pass,
+    0 fail, 114 declined by size, bundle `827d43da…`, filed as `artifactsround27/`. Their lap 4
+    (`GO`, `cyanrip@e9d3868`, `90b7f401…`) recorded the override and read the one rip. Our lap 5
+    (`GO`, `33ab7dac…`) was released on the maintainer's word ("release the lap when ready").
+    Round 27 is CLOSED on our gate; their lap 6 closes it on theirs. The same commit rolled
+    `FORK_PIN` `df91ae7` → `221a1df` (`+platterpus.16`) and moved the approval record to
+    round 27 for Platterpus 0.6.60. The Full run moves to round 28.
+- [ ] **0.6.61, in the order our lap 5 §D names** (the maintainer's choice 2026-09-26: ship
+  both together). (1) Their lap 6 closes round 27 on their gate, and they release `.17`.
+  (2) Their round 28 lap 1 names `.17` and is released. (3) We move `PIN_UNDER_REVIEW` to
+  `.17` (round 28) and cut 0.6.61, which carries the round-27 pin and the round-28 subject.
+  Under our lap 2 §D amendment (their §E3), it needs no §6b override. (4) The operator runs
+  the Full acceptance on 0.6.61 + `.17`.
 
 ## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 

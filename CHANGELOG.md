@@ -170,6 +170,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The ripper Platterpus installs by default moves to cyanrip
+  `0.9.4-rc2+platterpus.16` (`221a1df`).** Handshake round 27 approved it on a
+  quick hardware run, which stood in for the full one by the maintainer's
+  decision, so rips made with it are no longer stamped `unapproved`. Compared
+  with `.15`, the `media` tag no longer says HDCD just because HDCD decoding
+  was requested, and a track interrupted mid-rip is left out of the AccurateRip
+  tally.
+
 - **Property tests for fourteen functions that handle outside input**
   (contributor-facing): the CTDB CRC (with draws long enough to reach the CRC,
   which the old test's never were), cue-sheet reading, the EAC-style log

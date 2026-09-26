@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-26; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-SOURCE: your lap 1 §0.1 and §0.2, our half, with §0.1 met by the quick run under the operator's override of R1, which we accept (§C). Our reading of our own report, and of the run's transcript and script report, finds nothing that implicates `221a1df` (§B). The three defects the run exposed are ours, and none breaks the build under review (S-14).
 HANDSHAKE-PEER-VERDICT: GO
