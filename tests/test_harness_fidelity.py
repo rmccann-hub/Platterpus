@@ -423,3 +423,46 @@ def test_session_finish_actually_calls_the_coverage_printer() -> None:
         "coverage table is still lost to the os._exit below it — and the three "
         "tests above would not notice. Calls found: " + repr(sorted(called))
     )
+
+
+def test_the_window_teardown_stops_the_report_writer_as_close_does() -> None:
+    """`stop_window_threads` does what the window's own `closeEvent` does for the
+    rip-report writer (2026-09-26).
+
+    Without it, a test that tore its window down without closing it left the
+    process-wide writer running, and the leak backstop waited its full 5 s on it:
+    seven tests, 35 s a run, and most of the suite's warnings. This is not a
+    tidy-up production lacks: `closeEvent` stops the writer the same way.
+    """
+    from conftest import stop_window_threads
+
+    from platterpus import report_writer
+    from platterpus.ui import main_window_rip
+
+    assert "report_writer.writer().stop()" in inspect.getsource(main_window_rip), (
+        "the window no longer stops the writer on close; then the harness must not"
+    )
+    report_writer.writer().submit(lambda: None)
+    thread = report_writer.writer()._thread
+    assert thread is not None and thread.is_alive(), "fixture: the writer is running"
+    stop_window_threads(object())
+    thread.join(2.0)
+    assert not thread.is_alive(), "the teardown left the report writer running"
+
+
+def test_no_test_resolves_a_path_in_the_real_homes() -> None:
+    """Every config, log and data path the suite resolves is inside `TEST_HOME`.
+
+    Before 2026-09-26 nothing redirected them, so script-runner tests wrote
+    evidence bundles into the real `~/.local/share/platterpus/bundles/` and
+    gzipped the real app log to build them, and a developer's own log rotated
+    full of test output.
+    """
+    from conftest import TEST_HOME
+
+    from platterpus import paths
+
+    for name in ("CONFIG_DIR", "CONFIG_PATH", "LOG_DIR", "LOG_PATH"):
+        value = getattr(paths, name)
+        assert value.is_relative_to(TEST_HOME), f"paths.{name} is {value}"
+    assert not TEST_HOME.is_relative_to(Path.home() / ".local"), TEST_HOME
