@@ -1452,3 +1452,18 @@ recommendation, which is exactly when the reason has to survive.
 ready-to-build rows in `TASKS.md`, each naming its decision. One new question came out
 of recording D9, whether to verify the attestation inside the updater, and the
 maintainer said yes; it is built.
+
+### KDD-38 — Four rulings from the property-test sweep (decided 2026-09-25)
+
+**Context.** The property tests and the small-rows sweep of 2026-09-25 left four questions
+only the maintainer could settle (`TASKS.md` → *Maintainer decisions D16–D19*, where each
+one's options are kept). The maintainer took the recommendation on all four.
+
+| # | Question | Ruling |
+|---|---|---|
+| D16 | A line shaped like EAC's signature, from album metadata, in our EAC-style log | **Neutralise it when the log is written** and record the change in the rip report; the rip continues. The honesty line of KDD-24 is "never forge EAC provenance", and a metadata value is not allowed to forge it on our behalf. |
+| D17 | A Settings check that crashes | **A warning, not a pass and not an error**: keep the value, show that it could not be checked, log the full error. Failing closed would reset a correct setting, the read offset included, whenever a validator has a bug. |
+| D18 | `%N` / `%M` in a template | **They work everywhere**: Settings accepts them, the preview shows the number, and the backend fills them in from the disc position it sends as `-c`. Not left to cyanrip's `{disc}`, which renders its own name when no disc number was sent. |
+| D19 | The session branch | **Merge once CI is green; release when round 27 closes.** The held round-27 EAC wording is reverted on the branch so the merge cannot carry it. |
+
+**Consequence.** D18 is built. D16 and D17 are rows to build; D19 is PR #253.
