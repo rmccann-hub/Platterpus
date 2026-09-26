@@ -95,10 +95,12 @@ bundle format.
 
 ## lap_language_round27_lap05.md (added 2026-09-26)
 
-**Our round 27 lap 5, rewritten in lap language 1**
-(`docs/handshake/outbound/artifacts/lap-language-1.md`). It is an example, not a sent
+**Our round 27 lap 5, rewritten in LSL with our proposed amendments**
+(`docs/handshake/outbound/artifacts/lsl-amendments-1.md`). It is an example, not a sent
 lap: the real lap 5 is `docs/handshake/outbound/round-27-lap-05.md`, and that one is
 unchanged. Every fact in it is the real lap's, and each citation names a commit, file
-and line that `tests/test_lap_language.py` resolves against this tree. It lives here,
+and line that `tests/test_lap_language.py` resolves against this tree. It is clean
+with every amendment on, and LSL 1 alone refuses exactly the 12 statements and 14
+fields the amendments add. It lives here,
 not under `docs/handshake/`, so that no gate ever reads its header as a lap.
 

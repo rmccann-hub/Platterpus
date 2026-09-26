@@ -84,7 +84,7 @@ _EXEMPT_GENERATED: dict[str, str] = {
 # number, and `scripts/handshake.py --status` is what reports it.
 _EXEMPT_CORRESPONDENCE: str = "docs/handshake/"
 
-# Laps written in lap language 1, kept as test fixtures (2026-09-26). The language
+# Laps written in LSL, kept as test fixtures (2026-09-26). The language
 # refuses any sentence outside a statement, so a footer would make the example fail
 # the language it exists to demonstrate. Like the correspondence above, its currency
 # is the round it re-expresses, and `tests/test_lap_language.py` checks it.

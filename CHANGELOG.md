@@ -14,15 +14,23 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
-- **For contributors: a typed language for handshake laps, proposed to the cyanrip
-  fork.** `docs/handshake/outbound/artifacts/lap-language-1.md` specifies it. A lap
-  becomes a typed header plus eight kinds of statement (claim, question, answer,
-  finding, notice, promise, erratum, close condition), each with an id, typed
-  attributes and a stated evidence class, and every rule has an id. The checker is
-  `python3 scripts/lap_language.py check <lap>`. `… turn <round>` answers "whose turn
-  is it?" from the files, or says the answer is not determined. It opts in through an
-  ignorable field, so no protocol change is needed to start. Held until the maintainer
-  releases it to the fork.
+- **For contributors: a second checker for LSL, the cyanrip fork's lap language,
+  and eight proposed amendments to it.** Both projects built a language for the
+  handshake laps on 2026-09-26, and the maintainer chose the fork's (LSL) as the
+  base. `python3 scripts/lap_language.py check <lap>` checks a lap against LSL 1.
+  It is written from the fork's spec, not their code, and on their round 27 lap 6
+  it agrees with their checker. Writing it found three problems in their checker,
+  each measured:
+  - it refuses our own commits and measurements, because it reads "us" as the
+    fork whoever wrote the lap;
+  - it refuses more than its spec says;
+  - it refuses commits a shallow clone cannot see.
+
+  `--amend` switches on our proposals A1–A8. They add close conditions a `GO` must
+  wait for, pre-commits that are checked, findings that say whose they are first,
+  and facts that name what they hold for. The proposal is
+  `docs/handshake/outbound/artifacts/lsl-amendments-1.md`, released to the fork.
+  Our own language, never sent, is withdrawn.
 - **Updates now prove they were built by Platterpus's own release process before
   they install.** Until now the updater checked only that the download matched a
   checksum published beside it, so anyone able to replace both files could have
