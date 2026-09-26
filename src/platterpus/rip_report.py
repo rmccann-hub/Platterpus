@@ -1144,6 +1144,7 @@ def _build(
         ripper_log_verification=verify_block,
         dependencies=(environment or {}).get("dependencies"),
         gates=gates,
+        eac_log_requested=_setting_was_on(settings, "write_eac_log_after_rip"),
     )
     built: dict = {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -1804,6 +1805,13 @@ def _log_parse(rip_log: object, override: dict | None) -> dict:
     return {"ok": ok, "note": None}
 
 
+def _setting_was_on(settings: dict | None, key: str) -> bool | None:
+    """``settings.every_setting[key]`` as a bool, or None when it is not recorded."""
+    every = (settings or {}).get("every_setting")
+    value = every.get(key) if isinstance(every, dict) else None
+    return value if isinstance(value, bool) else None
+
+
 def _issues(
     *,
     outcome: dict | None,
@@ -1833,6 +1841,9 @@ def _issues(
     # artifact key pass the checker while silently matching nothing.
     artifacts: ArtifactsBlock | None = None,
     dependencies: dict | None = None,
+    # Whether this rip's own settings asked for the EAC-layout log: True, False,
+    # or None when the report cannot say. Only False makes its absence healthy.
+    eac_log_requested: bool | None = None,
     # The already-serialized v18 block, so this list and the block it summarises
     # read the same verdict.
     ripper_log_verification: dict | None = None,
@@ -2329,6 +2340,13 @@ def _issues(
         if not isinstance(entry, dict) or not entry.get("error"):
             continue
         if name in OPTIONAL_ARTIFACTS and entry.get("missing"):
+            continue
+        # The EAC-layout log is written only when its setting is on, so a rip
+        # that turned it off has no such file and that is the healthy answer
+        # (the maintainer's quick run of 2026-09-26 turned it off and got a
+        # warning anyway). Still a warning whenever the setting was on or cannot
+        # be read: the round-08 `eac_log` entry was a real failure.
+        if name == "eac_log" and entry.get("missing") and eac_log_requested is False:
             continue
         add(
             "warning",

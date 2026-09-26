@@ -32,6 +32,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A rip that turned the EAC-style log off no longer warns that it is missing.**
+  The report warned that the EAC-style log could not be included even when that
+  log had been switched off for the rip, so there was nothing to include. It still
+  warns when the log was asked for and is not there.
+
 - **Album or track names can no longer make the EAC-style log look signed by EAC.**
   That log repeats the album line the way EAC does, so an album artist written to
   look like EAC's `==== Log checksum … ====` line put a line in our log that a
