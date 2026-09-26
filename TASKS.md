@@ -386,14 +386,17 @@ options and a recommendation; **the maintainer took the recommendation on all fo
     rip report (the D14 pattern).
   - B. Refuse the rip with a message. C. Leave it and document it.
   - **Recommended: A.** **Answer: A** — the maintainer, 2026-09-25. To build.
-- [ ] **D17. A Settings check that crashes counts as a pass.** `validate_config`'s `run()`
+- [x] **D17. A Settings check that crashes counts as a pass.** `validate_config`'s `run()`
   logs a raising rule and skips it, so the value passes. Three such crashes were found and
   fixed; the rule was still fail-open.
   - A. Keep it. B. Fail closed (a crash is an error: reset at startup, Save blocked), which
     could reset a correct read offset on a validator bug.
   - **C. Treat a crash as a warning**: keep the value, show "Platterpus couldn't check this
     setting" in Settings, and log the full error.
-  - **Recommended: C.** **Answer: C** — the maintainer, 2026-09-25. To build.
+  - **Recommended: C.** **Answer: C** — the maintainer, 2026-09-25. **Built the same day**:
+    `run()` appends a warning naming the field and logs the traceback; startup keeps the value
+    and Save is not blocked. Tests: `test_a_CRASHING_check_is_a_visible_warning_and_is_logged`,
+    `test_a_CRASHING_check_neither_resets_the_value_nor_blocks_saving`.
 - [x] **D18. What should `%N` (disc number) do in a template?** The rip mapped it to
   cyanrip's `{disc}`, Settings called it an unknown code, the preview showed it literally,
   and `%M` was documented and mapped nowhere.

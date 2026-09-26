@@ -32,6 +32,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A Settings value that could not be checked now says so.** If one of the
+  checks behind Settings failed with an internal error, the value was treated
+  as fine and nobody was told. Now Settings shows "Platterpus couldn't check
+  this setting" beside it and the log records the error. The value is kept
+  rather than reset, so a bug in a check can never quietly change a setting such
+  as the read offset.
+
 - **`%N` (disc number) and `%M` (total discs) now work in folder and file
   templates.** Settings called `%N` an unknown code, the preview showed it as
   typed, `%M` did nothing at all, and on a disc with no usable disc position the
