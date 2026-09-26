@@ -370,6 +370,47 @@ which row that is. Three answers differ from my recommendation (D2, D8, D9).
 | D14 | B | **Built 2026-09-25**: `tag_hygiene`, report v28 `disc.tag_control_characters_replaced` | E12 (partly); the `_metadata_args` fuzz row, closed |
 | D15 | B | Tell the fork: a beta stops at its round's close or a newer beta | Same next-lap row (f); F8 |
 
+## Maintainer decisions D16–D19 (asked and answered 2026-09-25)
+
+Four questions that came out of the property-test and small-rows sweep. Each was put with
+options and a recommendation; **the maintainer took the recommendation on all four**
+(`PLANNING.md` KDD-38).
+
+- [ ] **D16. A line shaped like EAC's signature can appear in our EAC-style log.** The log
+  echoes the album line at column 0, as EAC does, so an album artist written as
+  `==== Log checksum <64 hex> ====` puts a line of EAC's signature shape in our log. Our own
+  checksum is not fooled (it reads only our differently-worded footer, the last one); a
+  tracker's logchecker might be. Found by the `render_eac_style_log` property batch.
+  - **A. Neutralise it when the log is written**: change only the fence characters on a
+    line that would look like a signature, keep the rip, and record the change in the
+    rip report (the D14 pattern).
+  - B. Refuse the rip with a message. C. Leave it and document it.
+  - **Recommended: A.** **Answer: A** — the maintainer, 2026-09-25. To build.
+- [ ] **D17. A Settings check that crashes counts as a pass.** `validate_config`'s `run()`
+  logs a raising rule and skips it, so the value passes. Three such crashes were found and
+  fixed; the rule was still fail-open.
+  - A. Keep it. B. Fail closed (a crash is an error: reset at startup, Save blocked), which
+    could reset a correct read offset on a validator bug.
+  - **C. Treat a crash as a warning**: keep the value, show "Platterpus couldn't check this
+    setting" in Settings, and log the full error.
+  - **Recommended: C.** **Answer: C** — the maintainer, 2026-09-25. To build.
+- [x] **D18. What should `%N` (disc number) do in a template?** The rip mapped it to
+  cyanrip's `{disc}`, Settings called it an unknown code, the preview showed it literally,
+  and `%M` was documented and mapped nowhere.
+  - **A. Make `%N` and `%M` work everywhere**, after reading the fork's source for what a
+    missing disc number does. B. Remove both. C. Leave it.
+  - **Recommended: A.** **Answer: A** — the maintainer, 2026-09-25. **Built the same day**:
+    their source says a key with no value renders as its own name
+    (`cyanrip@221a1df:src/naming.c:253`, `:398`; same at `df91ae7`), so we fill `%N`/`%M` in
+    ourselves from the position we send as `-c`.
+- [~] **D19. What happens to the session branch?** 147 commits since 0.6.60, nothing
+  merged, round 27 open.
+  - **A. PR, merge once CI is green, release when round 27 closes.** B. Merge and release
+    now under §6b. C. Hold.
+  - **Recommended: A.** **Answer: A** — the maintainer, 2026-09-25. PR #253 opened. The held
+    round-27 EAC wording (`46a522e`) is reverted on the branch first (`55d51c9`), because
+    the fork's lap 4 existed on neither of their branches that day.
+
 ## Round 24 — CLOSED on both gates 2026-09-23 on `3e01bb3` (`+platterpus.14`): ours at our lap 2, theirs at their lap 3
 
 One close condition, fixed at their lap 1: **our verdict on `3e01bb3`**. Filed
