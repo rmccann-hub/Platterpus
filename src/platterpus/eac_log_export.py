@@ -48,7 +48,6 @@ import logging
 import re
 from datetime import datetime
 
-from platterpus import one_frame_match
 from platterpus.parsers.rip_log import (
     AccurateRipResult,
     RipLog,
@@ -966,10 +965,13 @@ def _status_report(
         if neither:
             out.append(f"{neither:2} track(s) could not be verified as accurate")
         if partial:
-            # The per-track blocks say only one frame matched; the summary used to
-            # discard that and report only the bare failure, leaving it strictly
-            # less informative than the body above it. Words agreed in round 27.
-            out.append(one_frame_match.eac_summary_line(partial))
+            # The per-track blocks say "Matched an offset-variant pressing"; the
+            # summary used to discard that and report only the bare failure,
+            # leaving it strictly less informative than the body above it.
+            out.append(
+                f"{partial:2} track(s) matched only an offset-variant pressing "
+                "(partially accurate)"
+            )
         out.append("")
         # `accuraterip_counts` only counts tracks that produced *some* result, so
         # a track that failed outright is invisible to `unverified`. Compare
@@ -1485,10 +1487,10 @@ def _accuraterip_line(track: TrackResult) -> str:
     # this log claimed the tracks weren't in the database at all — three surfaces
     # disagreeing about the same parsed RipLog.
     #
-    # The words are `one_frame_match`'s, agreed with the fork in round 27 (this log
-    # is theirs to diff against, so neither side rewords it alone — round 7 H4).
-    # It never claims a plain match: one frame matching is deliberately NOT
-    # "verified" (see accuraterip_is_match's callers and KDD-27).
+    # Reuse the project's ONE wording for this state ("offset-variant … partially
+    # accurate", as in verdict.py and the results table) so no surface invents its
+    # own phrasing. It never claims a plain match — offset-variant is deliberately
+    # NOT "verified" (see accuraterip_is_match's callers and KDD-27).
     offset_variant = track.accuraterip_offset
     if accuraterip_is_match(offset_variant):
         # A match has a confidence of at least 1 (`accuraterip_is_match`), so it is
@@ -1496,7 +1498,10 @@ def _accuraterip_line(track: TrackResult) -> str:
         assert isinstance(offset_variant, AccurateRipResult)
         assert offset_variant.confidence is not None
         crc = f"  [{offset_variant.local_crc}]" if offset_variant.local_crc else ""
-        return one_frame_match.eac_track_line(offset_variant.confidence, crc)
+        return (
+            "Matched an offset-variant pressing — partially accurate "
+            f"(confidence {offset_variant.confidence}){crc}  (AR +450)"
+        )
     # A track with an AR result that simply didn't match is NOT absent from the
     # database — cyanrip logs "disc found in database" alongside a per-track
     # "not found, either a new pressing, or bad rip". Saying "not present" there

@@ -514,6 +514,10 @@ stopped at section A the same day, as their lap 1 predicted.
     their STATUS records for lap 4 (*"whole-track checksums not found"*, not
     *"unverified"*, which reads as not checked). Tests updated; one revert probed and
     detected. If their released lap 4 words it differently, change the two functions.
+    **Reverted on the session branch 2026-09-25** so the maintainer's merge of that
+    branch (decision 4A) could not carry it onto `main`: their lap 4 existed on neither
+    fork branch that day (`master`, `platterpus-fork`). To land it once lap 4 is released
+    with these words, revert the revert commit; its CHANGELOG bullet goes back with it.
     - *Audit 2026-09-25: partly done.* Built: one_frame_match.eac_track_line / eac_summary_line (46a522e). Held off main until the fork's lap 4 is released with the same words.
   - *Audit 2026-09-25: partly done.* The fork's two items are done by their STATUS (cyanrip@2966369 STATUS.md:60), but their lap 4 is not written. Our EAC wording is built at 46a522e, on this branch only.
 - [ ] **The real test on 0.6.60**, then each side's reading and the closing laps.
