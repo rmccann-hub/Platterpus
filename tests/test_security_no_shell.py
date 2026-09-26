@@ -26,6 +26,9 @@ _ROOT = Path(__file__).resolve().parents[1]
 # which invoke external tools. (This is how #8's blocking-behind-indirection and
 # the "no-shell guard was src/-only" gap were closed — audit #16.)
 _BUILD_LIB = _ROOT / "build" / "lib"  # generated copy of src/ — skip it
+#: A worktree-isolated agent's full copy of the repo (gitignored). Its scripts are
+#: ours, and counted once, at the root.
+_AGENT_WORKTREES = ".claude/worktrees/"
 _SCAN_ROOTS = (_ROOT / "src" / "platterpus", _ROOT / "scripts", _ROOT / "build")
 
 
@@ -100,7 +103,13 @@ def _shell_scripts() -> list[Path]:
     for path in _ROOT.rglob("*"):
         if not path.is_file():
             continue
-        if _BUILD_LIB in path.parents or skip.intersection(path.parts):
+        # Parts RELATIVE to the repo root: matched against the absolute path, a
+        # checkout that itself sits under one of these names (an agent's worktree
+        # at `.claude/worktrees/…`) would skip everything and sweep nothing.
+        rel = path.relative_to(_ROOT)
+        if _BUILD_LIB in path.parents or skip.intersection(rel.parts):
+            continue
+        if rel.as_posix().startswith(_AGENT_WORKTREES):
             continue
         if _is_received_record(path):
             continue
@@ -119,7 +128,10 @@ def test_the_inbound_exclusion_covers_only_received_records() -> None:
     excluded = [
         p
         for p in _ROOT.rglob("*")
-        if p.is_file() and _looks_like_shell(p) and _is_received_record(p)
+        if p.is_file()
+        and not p.relative_to(_ROOT).as_posix().startswith(_AGENT_WORKTREES)
+        and _looks_like_shell(p)
+        and _is_received_record(p)
     ]
     for path in excluded:
         rel = path.relative_to(_ROOT).as_posix()
