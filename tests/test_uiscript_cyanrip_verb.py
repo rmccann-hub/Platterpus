@@ -33,6 +33,7 @@ import time
 from typing import Any
 
 import pytest
+from conftest import supply_round_state
 from PySide6.QtWidgets import QApplication, QWidget
 
 from platterpus.uiscript import runner as runner_mod
@@ -319,12 +320,16 @@ class TestTheUnderReviewFailureNamesTheRightBuild:
         return rows[0].detail
 
     def test_it_names_the_TEST_pin_not_the_reviewed_one(
-        self, window: QWidget, fake_capture: _FakeCapture
+        self,
+        window: QWidget,
+        fake_capture: _FakeCapture,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from platterpus.deps import fork_source
 
-        if not fork_source.rig_installs_the_test_pin():
-            pytest.skip("no separate test pin this round; the else-branch applies")
+        # Supplied, not read: this skipped in every round that named no separate
+        # test pin, which was every round after 21 (2026-09-26).
+        supply_round_state(monkeypatch, "round-with-test-pin")
         detail = self._message(
             window, fake_capture, "cyanrip 0.9.4 (platterpus-fork-gdeadbee)\n"
         )
@@ -337,7 +342,10 @@ class TestTheUnderReviewFailureNamesTheRightBuild:
         )
 
     def test_it_does_not_send_them_to_a_route_that_cannot_work(
-        self, window: QWidget, fake_capture: _FakeCapture
+        self,
+        window: QWidget,
+        fake_capture: _FakeCapture,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """The in-app check reads a RELEASE manifest; a test pin is not a release.
 
@@ -346,10 +354,7 @@ class TestTheUnderReviewFailureNamesTheRightBuild:
         section A. The acceptance script's own header says this at length; the
         failure message used to contradict it.
         """
-        from platterpus.deps import fork_source
-
-        if not fork_source.rig_installs_the_test_pin():
-            pytest.skip("no separate test pin this round; the else-branch applies")
+        supply_round_state(monkeypatch, "round-with-test-pin")
         detail = self._message(
             window, fake_capture, "cyanrip 0.9.4 (platterpus-fork-gdeadbee)\n"
         )

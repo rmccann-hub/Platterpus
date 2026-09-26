@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Final
 
 import pytest
+from conftest import ROUND_STATES, supply_round_state
 
 from platterpus.config import Config
 from platterpus.goal_presets import GOAL_CUSTOM, apply_preset
@@ -2117,7 +2118,10 @@ def _offer_for(commit: str):  # noqa: ANN202 - RipperOffer, imported lazily
     )
 
 
-def test_the_app_can_install_every_build_its_acceptance_run_demands() -> None:
+@pytest.mark.parametrize("round_state", ROUND_STATES)
+def test_the_app_can_install_every_build_its_acceptance_run_demands(
+    round_state: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """**The contradiction of 2026-09-03, as a standing check.**
 
     The maintainer's run aborted at L165 — *"the installed cyanrip is NOT
@@ -2144,6 +2148,9 @@ def test_the_app_can_install_every_build_its_acceptance_run_demands() -> None:
     """
     from platterpus.deps import fork_source
 
+    # Supplied, so both branches below run every time; read live, each ran only
+    # in the rounds whose state it describes (2026-09-26).
+    supply_round_state(monkeypatch, round_state)
     offer = _offer_for(fork_source_pin_under_review())
 
     # **BOTH BRANCHES ASSERT, because between rounds there is genuinely nothing to
@@ -2186,7 +2193,10 @@ def fork_source_pin_under_review() -> str:
     return fork_source.PIN_UNDER_REVIEW
 
 
-def test_the_offer_no_longer_hands_back_a_shell_command_for_that_build() -> None:
+@pytest.mark.parametrize("round_state", ROUND_STATES)
+def test_the_offer_no_longer_hands_back_a_shell_command_for_that_build(
+    round_state: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The *symptom* the maintainer reported, not just the flag behind it.
 
     A future change could set the flag and leave the sentence, so the sentence is
@@ -2196,6 +2206,7 @@ def test_the_offer_no_longer_hands_back_a_shell_command_for_that_build() -> None
     """
     from platterpus.deps import fork_source
 
+    supply_round_state(monkeypatch, round_state)
     offer = _offer_for(fork_source_pin_under_review())
 
     # UNCONDITIONAL. The symptom the maintainer reported is a shell command in a
