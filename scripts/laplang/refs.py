@@ -116,8 +116,10 @@ def is_run(value: str) -> bool:
     return value.startswith("run: ")
 
 
-#: What resolving a reference found. `unchecked` is not a pass.
-Outcome = Literal["ok", "refused", "unchecked"]
+#: What resolving a reference found. `unchecked` is not a pass. `offrecord` means
+#: the commit resolves, but only from a branch other than the side's ref of record,
+#: so a lap citing it holds only while that branch exists.
+Outcome = Literal["ok", "refused", "unchecked", "offrecord"]
 
 
 @dataclass(frozen=True)
@@ -136,7 +138,9 @@ class Trees:
     def __init__(self, roots: dict[Side, Path | None], at: dict[Side, str]) -> None:
         self.roots = roots
         self.at = at
-        self._cache: dict[tuple[Side, str, str, bool], Resolution | int] = {}
+        self._cache: dict[
+            tuple[Side, str, str, bool], Resolution | tuple[int, Resolution]
+        ] = {}
         self._shallow: dict[Side, bool] = {}
 
     def artifact(self, ref: ArtifactRef, author: Side | None) -> Resolution:
@@ -156,7 +160,9 @@ class Trees:
         got = self._cache[key]
         if isinstance(got, Resolution):
             return got
-        return _check_lines(ref, got)
+        line_count, reach = got
+        lines = _check_lines(ref, line_count)
+        return lines if lines.outcome != "ok" else reach
 
     def commit(self, side: Side, sha: str) -> Resolution:
         """Resolve a `DID` commit: it must be on `side`'s publishing ref."""
@@ -173,13 +179,14 @@ class Trees:
 
     def _resolve_path(
         self, root: Path, ref: ArtifactRef, must_reach: bool
-    ) -> Resolution | int:
+    ) -> Resolution | tuple[int, Resolution]:
         found = self._commit_exists(root, ref.side, ref.sha)
         if found.outcome != "ok":
             return found
+        reach = Resolution("ok")
         if must_reach:
             reach = self._reachable(root, ref.side, ref.sha)
-            if reach.outcome != "ok":
+            if reach.outcome in ("refused", "unchecked"):
                 return reach
         shown = _git(root, "show", f"{ref.sha}:{ref.path}")
         if shown is None:
@@ -190,7 +197,7 @@ class Trees:
             return Resolution(
                 "refused", f"{ref.path} does not exist at {ref.side}@{ref.sha}"
             )
-        return shown.stdout.count("\n")
+        return (shown.stdout.count("\n"), reach)
 
     def _commit_exists(self, root: Path, side: Side, sha: str) -> Resolution:
         result = _git(root, "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}")
@@ -209,21 +216,47 @@ class Trees:
         return Resolution("refused", f"commit {sha} does not resolve in {side}'s tree")
 
     def _reachable(self, root: Path, side: Side, sha: str) -> Resolution:
+        """Is `sha` on `side`'s ref of record, on some other branch, or nowhere?
+
+        The spec asks that a commit be reachable *"so a fresh clone can resolve
+        it"*, and both checkers first read that as "reachable from HEAD". For a
+        repository that squash-merges, those differ. A Platterpus lap is written
+        on a `claude/` branch and cites that branch's commits, and a squash merge
+        puts a new commit on `main`, never those. A fresh clone still resolves
+        them, from the branch, but only while the branch exists. So there are
+        three answers, not two: on the ref of record (fine), on another branch
+        only (a warning, `offrecord`), or on nothing (refused). Found 2026-09-26,
+        when `main`'s CI refused the worked example that the PR's CI had passed.
+        """
         at = self.at.get(side, "HEAD")
-        result = _git(root, "merge-base", "--is-ancestor", sha, at)
-        if result is None:
+        on_record = _git(root, "merge-base", "--is-ancestor", sha, at)
+        if on_record is None:
             return Resolution(
                 "unchecked", f"UNCHECKED {side}@{sha}: git did not answer"
             )
-        if result.returncode == 0:
+        if on_record.returncode == 0:
             return Resolution("ok")
-        if result.returncode == 1:
+        if on_record.returncode != 1:
             return Resolution(
-                "refused",
-                f"commit {sha} is not reachable from {side}'s {at}, so a fresh "
-                "clone cannot resolve it",
+                "unchecked", f"UNCHECKED {side}@{sha}: {at} does not resolve"
             )
-        return Resolution("unchecked", f"UNCHECKED {side}@{sha}: {at} does not resolve")
+        holders = _git(root, "branch", "-r", "--contains", sha)
+        names = [
+            line.strip().split(" ")[0]
+            for line in (holders.stdout.splitlines() if holders is not None else [])
+            if line.strip() and "->" not in line
+        ]
+        if names:
+            return Resolution(
+                "offrecord",
+                f"commit {sha} is on {', '.join(names[:3])} but not on {side}'s "
+                f"{at}; a lap citing it holds only while that branch exists",
+            )
+        return Resolution(
+            "refused",
+            f"commit {sha} is on no branch of {side}'s tree, so a fresh clone "
+            "cannot resolve it",
+        )
 
     def _is_shallow(self, root: Path, side: Side) -> bool:
         if side not in self._shallow:
