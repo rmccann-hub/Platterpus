@@ -61,6 +61,13 @@ needed we need to plan."* Every number below was measured, not estimated.
     imports `platterpus`.
   - `scripts/check.py` runs its four gates at the same time (about 40 s off a local
     run).
+  - *2026-09-27, the rest of the leak warnings:* with them raised as errors a full
+    parallel run failed 14 tests. Thirteen tests built a window outside the fixture
+    that joins it; the console tests' stand-in `exec()` returned with its window open;
+    and a torn-down window's timers, queued results and late emits ran in later
+    tests (the TASKS row on the evidence-bundle hang, closed below). After the fix a
+    full run with `-W error::UserWarning` passed. The sweeps that hold it are in
+    `tests/test_harness_fidelity.py`.
 - [x] **Phase 2 — run the suite in parallel. APPROVED 2026-09-26; done the same day.**
   `pytest-xdist` is in the dev extra and `DEPENDENCIES.md`. CI and `check.py` pass
   `-n auto`. The session-start and session-finish hooks ask `is_xdist_worker`: a
@@ -2411,8 +2418,15 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       waiting is the trade this row refuses.
   - *Audit 2026-09-25: done.* `_known_pairing_for` in fork_source.py (c59b3ee, 0.6.43); test_fork_source::test_a_known_pin_typed_by_hand_gets_its_MEASURED_version.
 
-- [ ] **A leaked evidence-bundle callback can hang an unrelated test, and only one
-      matrix leg saw it.** `main`'s CI on `65b20f0` failed `test (py3.12)` with a
+- [x] **A leaked evidence-bundle callback can hang an unrelated test, and only one
+      matrix leg saw it.** *Closed 2026-09-27, by mechanism: the hang itself never
+      reproduced, so this is a claim about the route, not about that run.*
+      `stop_window_threads` now blocks the torn-down window's signals (so a late
+      emit from an unjoined daemon, such as the evidence bundle's, is a no-op),
+      stops its child timers, and drops the events already posted to it. One full
+      run before the fix counted 132 report writes by torn-down windows inside
+      later tests. `test_harness_fidelity.py::test_the_window_teardown_leaves_nothing_scheduled_to_run_later`
+      pins all three and was revert-probed on each. The original entry follows. `main`'s CI on `65b20f0` failed `test (py3.12)` with a
       5-minute pytest-timeout whose faulthandler dump reads:
       `rip_progress.py:787 append_log_line` ← `main_window_rip.py:2893
       _on_evidence_bundle_done` ← `conftest.py:418 pump` ←

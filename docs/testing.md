@@ -610,6 +610,22 @@ So, the obligations:
   stopping. If reverting the fix leaves the suite green, the test is decoration.
 * **Ask what the stand-in does that the real thing does not** — for every fixture,
   fake, stub and helper you add. Then either delete the difference or pin it.
+* **A thing the harness has finished with must be as finished as production makes
+  it** (added 2026-09-27). In production, closing the window ends the process, so
+  nothing the window scheduled ever runs. In the suite the window lingers
+  (`deleteLater()` waits for an event loop), and one full run measured 132 report
+  writes by torn-down windows inside later tests: 57 from timers `closeEvent`
+  stops and the teardown did not (the evidence-bundle poll and the report
+  debounce), 75 from results a joined daemon had already queued to the window. They restarted the report writer in three tests that write
+  no report, and the leak warning named those three. `stop_window_threads` now
+  stops the window's timers and drops the events posted to it. The same day, a
+  fake `QApplication.exec` returned with the window open, which the real one never
+  does, and 13 tests built windows outside the fixture that joins them. The sweep
+  that should have caught the second asked whether a file *mentioned*
+  `stop_window_threads`, and the file did, in its fixture: a label, not the pair.
+  `tests/test_harness_fidelity.py` now checks the build and the join together, and
+  that a fake `exec()` closes a window. **A warning that names a test says where a
+  leak was noticed, not where it was made.**
 
 #### Moved from `CLAUDE.md` (2026-09-26): Would this test fail if I reverted the fix?
 

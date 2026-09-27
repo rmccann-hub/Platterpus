@@ -26,6 +26,7 @@ from __future__ import annotations
 import ast
 import inspect
 import textwrap
+import threading
 from pathlib import Path
 
 import pytest
@@ -483,6 +484,71 @@ def test_the_window_teardown_stops_the_report_writer_as_close_does() -> None:
     assert not thread.is_alive(), "the teardown left the report writer running"
 
 
+def test_the_window_teardown_leaves_nothing_scheduled_to_run_later(qapp) -> None:
+    """After `stop_window_threads` the window runs nothing, ever (2026-09-27).
+
+    A window outlives its teardown: `deleteLater()` needs an event loop, so the
+    object lingers into later tests. One full run measured 132 report writes by a
+    torn-down window inside a later test, from two routes: its timers (the
+    evidence-bundle poll, the 750 ms report debounce) and results already queued
+    to it by a daemon the teardown had joined (`tagging_done`). They restarted
+    the report writer in three tests that write no report. Production cannot do
+    either, because after `closeEvent` the application exits; this pins the
+    harness to that.
+    """
+    from conftest import stop_window_threads
+    from PySide6.QtCore import QCoreApplication, QEvent, QObject
+    from test_ui_main_window import _make_window
+
+    from platterpus.ui import main_window
+
+    # The timer half has a production anchor: close stops the report debounce.
+    assert "self._flush_rip_report(wait=True)" in inspect.getsource(
+        main_window.MainWindow.closeEvent
+    ), "closeEvent no longer flushes the report; revisit what the harness stops"
+
+    delivered: list[int] = []
+
+    class _Watch(QObject):
+        def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802
+            if event.type() == QEvent.Type.User:
+                delivered.append(1)
+            return False
+
+    watch = _Watch()
+    window = _make_window(qapp)
+    # A late emit, as the evidence-bundle daemon's was: the signal is the
+    # window's own, and a worker the teardown never joined emits it afterwards.
+    late: list[object] = []
+    window.evidence_bundle_done.connect(late.append)
+    try:
+        window.installEventFilter(watch)
+        window._rip_report_timer.start()
+        window._evidence_bundle_timer.start()
+        QCoreApplication.postEvent(window, QEvent(QEvent.Type.User))
+        assert window._rip_report_timer.isActive(), "fixture: the timer is armed"
+    finally:
+        stop_window_threads(window)
+    try:
+        assert not window._rip_report_timer.isActive(), "the report debounce survived"
+        assert not window._evidence_bundle_timer.isActive(), "the bundle poll survived"
+        qapp.processEvents()
+        assert delivered == [], "an event queued before teardown was delivered after it"
+        emitter = threading.Thread(target=window.evidence_bundle_done.emit, args=("x",))
+        emitter.start()
+        emitter.join(5.0)
+        qapp.processEvents()
+        assert late == [], "a signal emitted after teardown reached its slot"
+        # Non-triviality: the filter does see a User event posted AFTER teardown,
+        # so an empty list above is the teardown's doing, not a deaf filter.
+        QCoreApplication.postEvent(window, QEvent(QEvent.Type.User))
+        qapp.processEvents()
+        assert delivered == [1], "the watch cannot see User events; the test is blind"
+    finally:
+        window.removeEventFilter(watch)
+        window.deleteLater()
+
+
 def test_no_test_resolves_a_path_in_the_real_homes() -> None:
     """Every config, log and data path the suite resolves is inside `TEST_HOME`.
 
@@ -542,3 +608,190 @@ def test_hypothesis_examples_have_no_wall_clock_deadline() -> None:
     hypothesis = pytest.importorskip("hypothesis")
     assert hypothesis.settings.default.deadline is None
     assert hypothesis.settings(max_examples=20).deadline is None
+
+
+# --- Every window a test builds is joined ------------------------------------
+
+# `MainWindow` itself, plus every test helper that returns one (found below).
+_WINDOW_CONSTRUCTOR: str = "MainWindow"
+
+
+def _called_name(node: ast.Call) -> str | None:
+    """The bare name a call is made through: `f(...)` or `mod.f(...)` gives `f`."""
+    if isinstance(node.func, ast.Name):
+        return node.func.id
+    if isinstance(node.func, ast.Attribute):
+        return node.func.attr
+    return None
+
+
+def _window_builders(trees: dict[Path, ast.Module]) -> set[str]:
+    """Names of test helpers whose `return` is a call to a window constructor.
+
+    `_make_window` returns `MainWindow(...)` and is imported by other files, so a
+    call to it is as much a window as a call to the class. Iterated to a fixed
+    point so a helper that returns another helper's window counts too.
+    """
+    builders = {_WINDOW_CONSTRUCTOR}
+    while True:
+        found = set(builders)
+        for tree in trees.values():
+            for fn in ast.walk(tree):
+                if not isinstance(fn, ast.FunctionDef):
+                    continue
+                for ret in ast.walk(fn):
+                    if (
+                        isinstance(ret, ast.Return)
+                        and isinstance(ret.value, ast.Call)
+                        and _called_name(ret.value) in builders
+                    ):
+                        found.add(fn.name)
+        if found == builders:
+            return builders
+        builders = found
+
+
+def _unjoined_window_builds(
+    tree: ast.Module, builders: set[str]
+) -> tuple[int, list[str]]:
+    """(window builds examined, the ones no enclosing function joins).
+
+    A build is a call to a window constructor. It is JOINED when some function
+    enclosing it, at any depth, also calls `stop_window_threads` — which is the
+    shape of every window fixture: the factory builds, the fixture around it
+    joins on teardown. A builder's own `return <build>` is not a build site; its
+    callers are.
+    """
+    examined: list[int] = []  # line numbers, so the nested visitor can append
+    unjoined: list[str] = []
+
+    def calls_join(fn: ast.AST) -> bool:
+        return any(
+            isinstance(n, ast.Call) and _called_name(n) == "stop_window_threads"
+            for n in ast.walk(fn)
+        )
+
+    def visit(node: ast.AST, enclosing: list[ast.FunctionDef]) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.FunctionDef):
+                visit(child, [*enclosing, child])
+                continue
+            if isinstance(child, ast.Return) and isinstance(child.value, ast.Call):
+                if _called_name(child.value) in builders and enclosing:
+                    # A builder handing its window to its caller.
+                    for arg in ast.iter_child_nodes(child.value):
+                        visit(arg, enclosing)
+                    continue
+            if isinstance(child, ast.Call) and _called_name(child) in builders:
+                examined.append(child.lineno)
+                if not any(calls_join(fn) for fn in enclosing):
+                    where = enclosing[-1].name if enclosing else "<module>"
+                    unjoined.append(f"{where}:{child.lineno}")
+            visit(child, enclosing)
+
+    visit(tree, [])
+    return len(examined), unjoined
+
+
+def test_every_window_a_test_builds_is_joined_by_the_shared_helper() -> None:
+    """A test that builds a `MainWindow` must stop its threads (2026-09-27).
+
+    Thirteen tests in `test_ui_main_window.py` called `_make_window(qapp)`
+    directly instead of the `teardown_threads` fixture. Their windows' startup
+    threads outlived them and were joined, with a warning, at the teardown of
+    whichever test ran next, which is how two unrelated files were charged with
+    leaks they did not make. The sweep this replaces only asked whether a file
+    *mentions* `stop_window_threads`, and that file does: its fixture does. A
+    mention is a label; the pair it needs is the build and the join, lexically
+    together.
+    """
+    files = sorted((REPO_ROOT / "tests").glob("test_*.py")) + [
+        REPO_ROOT / "tests" / "conftest.py"
+    ]
+    trees = {path: ast.parse(path.read_text(encoding="utf-8")) for path in files}
+    builders = _window_builders(trees)
+    # Non-triviality: the builders this suite actually has were recognised.
+    assert {"MainWindow", "_make_window"} <= builders, builders
+
+    examined = 0
+    unjoined: list[str] = []
+    for path, tree in trees.items():
+        count, bad = _unjoined_window_builds(tree, builders)
+        examined += count
+        unjoined += [f"{path.name}:{site}" for site in bad]
+    # Floor: a sweep that found no window builds would pass by finding nothing.
+    assert examined >= 5, f"only {examined} window builds found; the sweep is blind"
+    assert not unjoined, (
+        "these build a MainWindow with no stop_window_threads around them; use "
+        "the `teardown_threads` fixture (or one like it) so the window's threads "
+        f"are joined before the next test: {unjoined}"
+    )
+
+
+def test_the_window_sweep_catches_a_bare_build() -> None:
+    """The sweep above, fed the exact shape it exists to refuse."""
+    bare = ast.parse(
+        "def test_x(qapp):\n    window = _make_window(qapp)\n    assert window\n"
+    )
+    fixture = ast.parse(
+        "def fx(qapp):\n"
+        "    made = []\n"
+        "    def factory():\n"
+        "        w = _make_window(qapp)\n"
+        "        made.append(w)\n"
+        "        return w\n"
+        "    yield factory\n"
+        "    for w in made:\n"
+        "        stop_window_threads(w)\n"
+    )
+    builders = {"MainWindow", "_make_window"}
+    assert _unjoined_window_builds(bare, builders) == (1, ["test_x:2"])
+    assert _unjoined_window_builds(fixture, builders) == (1, [])
+
+
+def test_a_fake_application_exec_closes_the_window_as_the_real_one_does() -> None:
+    """A stand-in `QApplication.exec` must end with a window closing (2026-09-27).
+
+    The real `exec()` returns only after the last window has closed, so by then
+    `closeEvent` has stopped the window's workers. `test_script_console`'s stand-in
+    returned with the window open, which the product never does, and four tests
+    left their window's startup threads running. Every function monkeypatched
+    over `QApplication.exec` must call `.close()` on a WINDOW: the first version
+    of this sweep accepted any `.close()`, and the stand-in it was written for
+    passed it by closing the script console. The receiver's name is still only a
+    label, so `test_script_console._run_main_with` also asserts the subject: the
+    window `main()` showed is no longer visible when the fake returns.
+    """
+    found = 0
+    offenders: list[str] = []
+    for path in sorted((REPO_ROOT / "tests").glob("test_*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        patched: set[str] = set()
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and _called_name(node) == "setattr"
+                and len(node.args) == 3
+                and isinstance(node.args[0], ast.Name)
+                and node.args[0].id == "QApplication"
+                and isinstance(node.args[1], ast.Constant)
+                and node.args[1].value == "exec"
+                and isinstance(node.args[2], ast.Name)
+            ):
+                patched.add(node.args[2].id)
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.FunctionDef) and fn.name in patched:
+                found += 1
+                closes = any(
+                    isinstance(n, ast.Call)
+                    and isinstance(n.func, ast.Attribute)
+                    and n.func.attr == "close"
+                    and isinstance(n.func.value, ast.Name)
+                    and "win" in n.func.value.id.lower()
+                    for n in ast.walk(fn)
+                )
+                if not closes:
+                    offenders.append(f"{path.name}:{fn.lineno} {fn.name}")
+    # Floor: `test_app_smoke` and `test_script_console` both fake it today.
+    assert found >= 2, f"found {found} fake exec(s); the sweep is blind"
+    assert not offenders, f"a fake exec() returns without closing a window: {offenders}"
