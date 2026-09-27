@@ -11,6 +11,37 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-27 — Their round 28 lap 3 acted on, and our lap 4 released
+
+The maintainer: *"Our round 28 lap 3 is published at fd05b12 … if there are any known
+gaps, any risks, do what you can to fix them close them … then give me the next lap and
+release it"*.
+
+- **Their lap 3 checked, not accepted.** Well formed as LSL 1 with every reference
+  resolved. Digest and all four shared hashes recomputed. Every claim about our tree
+  matched line for line. Both contract counts derived (306, 308). Two things their
+  prose did not say:
+  - their tip's contract also rewords one existing stable row, not only two new ones;
+  - S9's before-and-after needs their binary built, so it is relayed, not reproduced.
+- **`.17`'s contract filed, and our own naming test caught the provenance.** The first
+  filename named the lap's commit (`e0471f4`). The banner names `74872db`, the parent of
+  the commit that last regenerated the contract, and nothing under `src/` changed in
+  between. The file is named by what it says about itself.
+- **`Partial files:` ignored on purpose, after first writing a rule for it.** The rule
+  stored a value nothing read: a dead field. The completeness sweep's other option,
+  an ignore entry with its reason, is the honest one, because `Rip completed:` already
+  says the rip did not finish.
+- **Their two LSL 2 holes are ours too.** A1 passes a `GO` over nothing, and A7 counts a
+  `NOTE`'s `answers:`. B2 and B3 fix them in LSL 3, next round. Until then the checker
+  prints what a `GO` was checked against.
+- **The blockSignals risk closed by enumeration:**
+  - nothing runs a torn-down window's signals afterwards: the 8 autouse fixtures and
+    the 12 other `stop_window_threads` call sites were each read;
+  - the smoke test now asserts its window closed.
+- **Lap 4's first draft cited a branch commit as its `FROM-COMMIT`.** Our test refused
+  it, since the peer cannot fetch a commit that is not on `main`. The code went in as
+  #265 first, as lap 2's did, and the lap was written from that merge commit.
+
 ## 2026-09-27 — The known risks worked through: test leaks, the timing clock, CLAUDE.md's pointers
 
 The maintainer: *"Fix everything know, double check risks and address if needed.
