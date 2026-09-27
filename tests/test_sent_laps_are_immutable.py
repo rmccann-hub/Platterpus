@@ -110,6 +110,10 @@ SENT_LAPS: dict[str, str] = {
     # maintainer's word 2026-09-26 ("release the lap when ready"). Its release closes
     # round 27 on our gate, and the same commit rolls `FORK_PIN`.
     "outbound/round-27-lap-05.md": "33ab7dacfaa44aa2e8235a97c27e6cfbc7d1d8269715fdee3c5d4ebf57e9e98b",
+    # Round 28 lap 2: OPEN, accepting their lap 1's close conditions, correcting
+    # our round 27 lap 5's §6b claim, and carrying the operator's §6b override for
+    # v0.6.61. Released on the maintainer's word 2026-09-27.
+    "outbound/round-28-lap-02.md": "c1b8d15d29d200a7a453a31ff9a78ad2f483ae2309114ade8c0e5897e890d380",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and
