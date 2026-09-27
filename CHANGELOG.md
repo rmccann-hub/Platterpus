@@ -57,6 +57,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   nothing is substituted must be refused, and every (character, glyph) pair is also
   checked one by one. The rule's comment no longer claims it accepts the `'` that
   `-T simple` writes for `"`. It does not, on purpose: we pin `unicode`.
+- **For contributors: the doc-stamp release check now fails in CI instead of skipping
+  when git cannot answer.** It skipped whenever no release tag or diff was available.
+  CI checks out full history with tags, so there a skip meant the check had stopped
+  running while the run stayed green. It still skips on a local shallow clone. A fake
+  git now exercises both outcomes on every run.
 
 ### Fixed
 
