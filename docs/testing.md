@@ -3489,6 +3489,16 @@ Three things to carry:
   where fixed per-call costs stop swamping a 50 microsecond search and a real
   offender still fails. That is *my two witnesses are related*, arriving through a
   retry.
+  - *Corrected the same day: that named the wrong mechanism, and the larger pair
+    did not fix it.* Under a loaded full-suite run the larger pair failed too:
+    `uiscript.script._TOKEN` at 9.6x and 9.6x. Reproduced with eight busy-loop
+    processes on four cores: single sizes read 4x their idle cost as a block (178 us
+    against 47), because the whole measurement landed in someone else's timeslice.
+    The three rounds whose minimum was meant to drop a hiccup run back to back, in
+    the same slice, so they share it. The sweep now times on the thread's CPU clock
+    (`time.thread_time`), which does not count descheduled time; the same
+    experiment then read 3.6-4.9x at double and quadruple oversubscription. **Ask of
+    any timing check what its clock counts besides the thing being timed.**
 - **A test near its bound is a measurement, not a pass.** The loader test sat at 54%
   of its budget for weeks. A generous bound is right for "not stalled", and it also
   hides a regression until something else moves the timing. The fix added a test

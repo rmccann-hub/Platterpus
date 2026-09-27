@@ -634,6 +634,13 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
     3.11, 3.12 and 3.13). The sweep now confirms a suspect at a 4x larger input
     pair; the self-test measures each side up to three times and lists every
     attempt. Revert-probed five ways, all detected.
+  - *2026-09-27, later: that was not the cause.* A loaded full-suite run failed the
+    larger pair too (`uiscript.script._TOKEN`, 9.6x and 9.6x; 3.8-4.2x idle).
+    Reproduced with eight busy loops on four cores: wall-clock timing counts time
+    spent descheduled, and the three back-to-back rounds share one timeslice. The
+    sweep now times on `time.thread_time`: the same experiment read 3.6-4.9x, and
+    the regex file passed 12 of 12 runs under that load (`docs/testing.md`, the
+    lesson's correction).
 - [ ] **NEXT-ROUND: ask them to ship `.17`'s `PROVIDER-CONTRACT.md` as a round
   artifact**, so the argv check reads the round's own table again (lag back to 0).
 

@@ -33,6 +33,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   A suspect is now confirmed at a 4x larger input pair, which a genuinely
   super-linear pattern also fails. The detector's self-test now measures each side
   up to three times before concluding, and its failure message lists every attempt.
+- **For contributors: the regex timing checks now time CPU use, not elapsed time.**
+  The fix above was not enough. On a loaded full-suite run the larger input pair
+  also failed, on `uiscript.script._TOKEN` at 9.6x both times, a pattern that grows
+  3.8-4.2x per 4x of input when idle. With eight busy-loop processes on four cores,
+  single sizes read about 4x their idle cost as a block, because the whole
+  measurement fell in another process's timeslice. The sweep now uses the thread's
+  CPU clock, which does not count that time; the same experiment then read
+  3.6-4.9x, and the regex file passed 12 of 12 runs at twice as many busy
+  processes as cores.
 
 ## [0.6.61] — 2026-09-27
 
