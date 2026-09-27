@@ -1773,9 +1773,9 @@ def target_for_commit(
 ) -> ForkTarget:
     """A build target for an ARBITRARY fork commit, for ``--install-ripper <commit>``.
 
-    ``version`` and ``meson_options`` are for the **one caller that genuinely knows
-    them**: the in-app ripper update, which is building a commit the fork's own
-    release manifest described. Everything the manifest states there has already been
+    ``version`` and ``meson_options`` are for the **callers that genuinely know
+    them**: the in-app ripper update and ``--install-ripper latest``, each building a
+    commit the fork's release manifest described. What the manifest states has been
     validated at that boundary (``ripper_manifest._clean_version`` and
     ``_clean_build_options``), so passing them through is carrying a measured fact
     rather than widening what an operator can inject — an operator typing a commit on

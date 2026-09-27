@@ -1167,7 +1167,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1374 -> 1380 (2026-09-24)**: the startup call that removes INVOCATION_ID
     # before anything spawns, so a container we start is not owned by this
     # window's unit (`container_scope.py`). It has to be here: it must run first.
-    "app.py": 1379,
+    # **1380 -> 1379 -> 1391 (2026-09-27)**: -1 when metaflac moved to the composition
+    # root (`composition.build_metaflac`), then +12 for `--install-ripper latest` /
+    # `latest-beta`. The resolver is its own module (`deps/ripper_latest.py`); what
+    # lands here is the call, the refusal's exit, and three help-text lines naming the
+    # keywords, beside the `target` resolution they feed.
+    "app.py": 1391,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the

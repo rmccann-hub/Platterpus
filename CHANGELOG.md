@@ -147,6 +147,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   so a script you downloaded still wins. The log says which copy ran and, when yours
   wins over a shipped one of the same name, whether the two differ. A bare name now
   finds `name.txt` in each of those folders, not only the current one.
+- **`--install-ripper latest` and `latest-beta`** install the newest build the fork's
+  release manifest lists on its stable or beta channel, for a script that wants the
+  channel's newest build without naming a commit. The commit it resolves to is
+  printed first, and it installs exactly as `--install-ripper <commit>` would. It is
+  never the default, and if the manifest can't be read nothing is installed.
 
 ### Removed
 

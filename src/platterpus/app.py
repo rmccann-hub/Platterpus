@@ -688,7 +688,9 @@ def main(argv: list[str] | None = None) -> int:
         "satisfied report 'already present'. Same steps the GUI's setup wizard "
         "runs; this is the no-GUI front end for them. Optionally takes a fork "
         "COMMIT to build instead of the pinned one, so a pin that moves mid-round "
-        "is reachable without waiting for a Platterpus release",
+        "is reachable without waiting for a Platterpus release. COMMIT may also be "
+        "'list' (show the builds), or 'latest' / 'latest-beta' (the newest build "
+        "the fork's release manifest publishes on that channel — never the default)",
     )
     parser.add_argument(
         "--run-script",
@@ -909,11 +911,21 @@ def main(argv: list[str] | None = None) -> int:
         # every line below — the banner we print, the build, and the verify — reads the
         # same target; the whole reason `ForkTarget` bundles the pin with the tag it must
         # print is that "build X, verify Y" was once two independent edits.
-        target = (
-            target_for_commit(args.install_ripper)
-            if args.install_ripper
-            else WIZARD_TARGET
-        )
+        # `latest` / `latest-beta` resolve to a commit from the fork's manifest and are
+        # then exactly `--install-ripper <commit>`. Opt-in only: an unreadable manifest
+        # is a refusal, never the approved build instead (`deps/ripper_latest.py`).
+        from platterpus.deps.ripper_latest import resolve_keyword
+
+        latest = resolve_keyword(args.install_ripper)
+        if latest is not None:
+            print(f"{latest.detail}\n")
+            if latest.target is None:
+                return 1
+            target = latest.target
+        elif args.install_ripper:
+            target = target_for_commit(args.install_ripper)
+        else:
+            target = WIZARD_TARGET
         # Name the build being installed AND, when it is not the approved one, say so
         # here — before minutes of dnf and meson, not in the rip report afterwards.
         # A test pin is installed on purpose during a session and reports
