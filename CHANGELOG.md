@@ -35,6 +35,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   CLAUDE.md: `docs/testing.md` §5 (and a new §5.bw), `docs/cyanrip-handshake.md` §7.7,
   `docs/architecture.md` §3.2, §3.10, §3.12a and §6.3, `docs/ux-design-principles.md`
   and `PLANNING.md` KDD-20. Nothing was summarised away.
+- **The acceptance script's header shows what the Full run measured.** Beside its
+  "4 to 6 hours" it now names the two complete Full runs: 4h14m on 2026-09-22 and
+  5h33m on 2026-09-26.
 
 ### Fixed
 
