@@ -87,6 +87,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   round 15, two of ours do not reproduce, both explained: round 15 lap 2 used the
   construction this method replaced, and round 27 lap 2 was computed over the
   fork's first copy of their lap 1, which they later re-released.
+- **For contributors: the handshake checker enforces R6, from round 29.** R6
+  requires every lap from the fifth to say "our next lap is `GO` unless X", with X
+  an event, never a lap number. Nothing checked it, and most laps from the fifth in
+  the record carry no pre-commit in that form. `handshake.py --check` now refuses,
+  in both directions, a lap from the fifth with no pre-commit, and one whose
+  pre-commit names its lap by number ("our lap 15"). A lap whose own verdict is
+  `GO` is exempt. The rule starts at round 29, so no lap already sent changes
+  meaning, and it changes nothing the checker says about the current record.
 
 ## [0.6.61] — 2026-09-27
 

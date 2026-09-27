@@ -1328,8 +1328,14 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [x] **C4. `--status` prints close-by countdowns for CLOSED rounds** (rounds 9–14,
   19–23 today). Fix at the print site.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"handshake.py --status prints close-by countdowns for CLOSED rounds —"*, which stays open.
-- [ ] **C5. No R6 gate** — nothing refuses a pre-commit that names a lap number instead
+- [x] **C5. No R6 gate** — nothing refuses a pre-commit that names a lap number instead
   of an event.
+  - *Done 2026-09-27:* `scripts/handshake.py` `pre_commit_problems`, wired into both
+    `check_outbound_paths` and `check_inbound`, from `R6_GATE_FROM_ROUND` 29 and lap 5:
+    refuses a pre-commit whose subject is "our lap N", and a lap with none (a lap whose
+    own verdict is `GO` is exempt, our reading, to be put to the fork). The record's
+    `--check` output is byte-identical before and after. Tests:
+    `tests/test_handshake_tooling.py::test_r6_*`, revert-probed 4 of 4.
 - [ ] **C6. `_strip_fences` misses unterminated and indented fences**
   (`handshake.py`, the fence regex needs a closing column-0 fence), so a field inside
   one counts as a declaration. Portable shape — tell the fork. TASKS@b8f89a2:2014.
