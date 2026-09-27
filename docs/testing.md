@@ -610,6 +610,22 @@ So, the obligations:
   stopping. If reverting the fix leaves the suite green, the test is decoration.
 * **Ask what the stand-in does that the real thing does not** — for every fixture,
   fake, stub and helper you add. Then either delete the difference or pin it.
+* **A thing the harness has finished with must be as finished as production makes
+  it** (added 2026-09-27). In production, closing the window ends the process, so
+  nothing the window scheduled ever runs. In the suite the window lingers
+  (`deleteLater()` waits for an event loop), and one full run measured 132 report
+  writes by torn-down windows inside later tests: 57 from timers `closeEvent`
+  stops and the teardown did not (the evidence-bundle poll and the report
+  debounce), 75 from results a joined daemon had already queued to the window. They restarted the report writer in three tests that write
+  no report, and the leak warning named those three. `stop_window_threads` now
+  stops the window's timers and drops the events posted to it. The same day, a
+  fake `QApplication.exec` returned with the window open, which the real one never
+  does, and 13 tests built windows outside the fixture that joins them. The sweep
+  that should have caught the second asked whether a file *mentioned*
+  `stop_window_threads`, and the file did, in its fixture: a label, not the pair.
+  `tests/test_harness_fidelity.py` now checks the build and the join together, and
+  that a fake `exec()` closes a window. **A warning that names a test says where a
+  leak was noticed, not where it was made.**
 
 #### Moved from `CLAUDE.md` (2026-09-26): Would this test fail if I reverted the fix?
 
@@ -3489,6 +3505,16 @@ Three things to carry:
   where fixed per-call costs stop swamping a 50 microsecond search and a real
   offender still fails. That is *my two witnesses are related*, arriving through a
   retry.
+  - *Corrected the same day: that named the wrong mechanism, and the larger pair
+    did not fix it.* Under a loaded full-suite run the larger pair failed too:
+    `uiscript.script._TOKEN` at 9.6x and 9.6x. Reproduced with eight busy-loop
+    processes on four cores: single sizes read 4x their idle cost as a block (178 us
+    against 47), because the whole measurement landed in someone else's timeslice.
+    The three rounds whose minimum was meant to drop a hiccup run back to back, in
+    the same slice, so they share it. The sweep now times on the thread's CPU clock
+    (`time.thread_time`), which does not count descheduled time; the same
+    experiment then read 3.6-4.9x at double and quadruple oversubscription. **Ask of
+    any timing check what its clock counts besides the thing being timed.**
 - **A test near its bound is a measurement, not a pass.** The loader test sat at 54%
   of its budget for weeks. A generous bound is right for "not stalled", and it also
   hides a regression until something else moves the timing. The fix added a test

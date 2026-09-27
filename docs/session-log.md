@@ -11,6 +11,45 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-27 — The known risks worked through: test leaks, the timing clock, CLAUDE.md's pointers
+
+The maintainer: *"Fix everything know, double check risks and address if needed.
+Release and merge next version if possible"*.
+
+- **Leaked threads: the warning named where a leak was noticed, not where it was
+  made.** With leak warnings raised as errors, a full parallel run failed 14 tests.
+  Four causes, each found by reproducing it rather than by reading the warning:
+  - thirteen tests in `test_ui_main_window.py` built a window without the fixture
+    that joins it;
+  - the script-console tests' stand-in for `exec()` returned with the window open,
+    which the real one never does;
+  - a torn-down window kept running its timers and the results already queued to
+    it. A probe plugin counted 132 report writes by torn-down windows inside later
+    tests (57 from timers, 75 from queued results), which restarted the report
+    writer and blamed three tests that write no report;
+  - an unjoined daemon (the evidence bundle's) could emit after the teardown. That
+    is the route of the one CI hang on `65b20f0`, the TASKS row now closed.
+  `stop_window_threads` now blocks the window's signals, stops its timers and drops
+  its posted events; production cannot run any of those after `closeEvent`, because
+  the process ends. The old sweep asked whether a file *mentioned* the join helper;
+  the new one pairs every window build with a join. The first version of my
+  fake-`exec()` sweep was vacuous (it accepted the console's `.close()`) and the
+  revert probe said so. On the final code, eight reverts were probed in one batch
+  and all eight were detected, with restores verified by hash.
+- **The regex fix from earlier today named the wrong mechanism.** Under a loaded run
+  the larger input pair failed too (9.6x, 9.6x, on a pattern that is 4x idle).
+  Reproduced with busy loops: wall-clock time counts time spent descheduled, and
+  three back-to-back rounds share one timeslice. Timing on the thread's CPU clock
+  fixed it: 3.6-4.9x under two and four times oversubscription, and 12 of 12 runs of
+  the regex file at twice as many busy processes as cores. The earlier lesson in
+  `docs/testing.md` carries the correction beside it rather than being rewritten.
+- **CLAUDE.md's 61 section pointers all resolve**, and a new sweep keeps them so; the
+  existing one checked only that the named files existed.
+- **No 0.6.62.** Nothing here changes `src/`: a release would ship the same app
+  under a new number. It would also need a §6b override in a newly released lap,
+  and round 28's close condition names 0.6.61 as the build for the Full run. The
+  work went to `main` without a release.
+
 ## 2026-09-27 — 0.6.61 released under §6b, lap 2 released, the trim merged, and two timing flakes fixed
 
 The maintainer: *"Merge all, release. Then release s new lap"*, then *"And fix anything

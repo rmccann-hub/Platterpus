@@ -33,6 +33,29 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   A suspect is now confirmed at a 4x larger input pair, which a genuinely
   super-linear pattern also fails. The detector's self-test now measures each side
   up to three times before concluding, and its failure message lists every attempt.
+- **For contributors: the regex timing checks now time CPU use, not elapsed time.**
+  The fix above was not enough. On a loaded full-suite run the larger input pair
+  also failed, on `uiscript.script._TOKEN` at 9.6x both times, a pattern that grows
+  3.8-4.2x per 4x of input when idle. With eight busy-loop processes on four cores,
+  single sizes read about 4x their idle cost as a block, because the whole
+  measurement fell in another process's timeslice. The sweep now uses the thread's
+  CPU clock, which does not count that time; the same experiment then read
+  3.6-4.9x, and the regex file passed 12 of 12 runs at twice as many busy
+  processes as cores.
+- **For contributors: tests no longer leave a window's threads running into the
+  next test.** Found by running the suite with the leak warnings as errors. Thirteen
+  tests built a main window outside the fixture that joins its threads. The script
+  console tests' stand-in for `exec()` returned with the window still open, which the
+  real one never does. And a torn-down window kept running its timers and the
+  results queued to it: one run counted 132 report writes by torn-down windows
+  inside later tests. Those restarted the report writer and blamed three tests that
+  write no report. The window teardown now stops the window's timers and drops the
+  events queued to it, and `tests/test_harness_fidelity.py` checks both. It also
+  checks that every window a test builds is joined, and that a stand-in `exec()`
+  closes its window.
+- **For contributors: a section CLAUDE.md points at must exist.** The trim above
+  left 61 pointers such as "`docs/testing.md` §5.t". The existing check proved each
+  named file existed. It did not check that the named section did.
 
 ## [0.6.61] — 2026-09-27
 

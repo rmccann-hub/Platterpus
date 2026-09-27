@@ -532,17 +532,6 @@ def stop_window_threads(window: object) -> None:
     # Plain daemon threads. These have no event loop to quit, so all we can do is
     # wait for them; every one of them is a bounded piece of post-rip work
     # (hashing, verifying, transcoding, moving) that finishes on its own.
-    # The rip-report writer is one daemon thread for the whole process. The
-    # window's `closeEvent` stops it (`_flush_rip_report(wait=True)` →
-    # `report_writer.writer().stop()`); a fixture that tears down without closing
-    # skipped that, so the writer outlived the test and the leak backstop below
-    # waited its full 5 s on every such test and then warned (2026-09-26: seven
-    # tests, 35 s, most of the suite's warnings). Stopping it here is the
-    # teardown the window itself performs, not a tidy-up production lacks.
-    from platterpus import report_writer
-
-    if report_writer._WRITER is not None:
-        report_writer._WRITER.stop()
     for name in (
         "_post_rip_thread",
         "_ctdb_thread",
@@ -562,6 +551,60 @@ def stop_window_threads(window: object) -> None:
                 worker.join(5.0)
         except RuntimeError:
             continue
+
+    # THE WINDOW MUST BE INERT once this returns, and joining its threads does not
+    # make it so. It outlives this call: `deleteLater()` waits for an event loop,
+    # so the object lingers into later tests, and every later test that pumps
+    # events runs whatever the window still has scheduled. Measured 2026-09-27,
+    # one full run: 132 report writes from a torn-down window inside a later test,
+    # which restarted the report writer there and charged three tests that write
+    # no report with a leaked `platterpus-report-writer`. Two routes, both closed:
+    #
+    #   * its TIMERS (57 of the 132) — `_evidence_bundle_timer` (40) and the
+    #     750 ms `_rip_report_timer` (17), which `closeEvent` stops and this
+    #     helper did not;
+    #   * results ALREADY QUEUED to it (75 of the 132) — a daemon joined above had
+    #     emitted, say, `checksums_done` (40) before it ended, and that queued
+    #     call waited in the event queue for the next test to deliver it.
+    #
+    # And a third, which is why signals are blocked FIRST: a worker this helper
+    # does not know about can emit AFTER the drain. The evidence-bundle daemon is
+    # not stored on the window, so only the per-test backstop joins it, and that
+    # autouse fixture tears down after this one. Its late `evidence_bundle_done`
+    # reached a later test's `pump()` and hung CI once (`main` at `65b20f0`,
+    # `test (py3.12)`: `_on_evidence_bundle_done` inside
+    # `test_install_one_mode_records_failures`; see TASKS.md). With the window's
+    # signals blocked, an emit from any thread is a no-op (Qt still sends
+    # `destroyed`).
+    #
+    # Production cannot do any of these: after `closeEvent` the application
+    # exits, so nothing the window scheduled or was sent ever runs. Refusing new
+    # emits, stopping every child timer and dropping the events already posted
+    # to it is that, and not a clean-up the product lacks. (Stand-ins that are
+    # not QObjects are skipped.)
+    from PySide6.QtCore import QCoreApplication, QObject, QTimer
+
+    if isinstance(window, QObject):
+        try:
+            window.blockSignals(True)
+            for timer in window.findChildren(QTimer):
+                timer.stop()
+            QCoreApplication.removePostedEvents(window)
+        except RuntimeError:
+            pass  # the C++ window is already gone, and everything it owned
+
+    # The rip-report writer is one daemon thread for the whole process. The
+    # window's `closeEvent` stops it (`_flush_rip_report(wait=True)` →
+    # `report_writer.writer().stop()`); a fixture that tears down without closing
+    # skipped that, so the writer outlived the test and the leak backstop below
+    # waited its full 5 s on every such test and then warned (2026-09-26: seven
+    # tests, 35 s, most of the suite's warnings). Stopping it here is the
+    # teardown the window itself performs, not a tidy-up production lacks. It is
+    # stopped LAST, after the window can no longer submit to it.
+    from platterpus import report_writer
+
+    if report_writer._WRITER is not None:
+        report_writer._WRITER.stop()
 
 
 # Hold the QApplication in a module global so it is NEVER garbage-collected —
@@ -770,10 +813,15 @@ def _join_leaked_qthreads(monkeypatch: pytest.MonkeyPatch):
     yield
 
     leaked = 0
+    names: list[str] = []
     for thread in started:
         try:
             if not thread.isRunning():
                 continue
+            # Named, because "1 QThread was still running" does not say which
+            # worker a test forgot to drive (2026-09-27: fourteen tests warned
+            # and the message could not tell them apart).
+            names.append(thread.objectName() or type(thread).__name__)
         except RuntimeError:
             continue  # underlying C++ QThread already deleted — nothing to do
         leaked += 1
@@ -792,9 +840,9 @@ def _join_leaked_qthreads(monkeypatch: pytest.MonkeyPatch):
     if leaked:
         warnings.warn(
             f"{leaked} QThread(s) were still running at test teardown and were "
-            "joined to avoid a destroyed-while-running abort. Drive workers to "
-            "completion in the test (bounded processEvents pump) — see "
-            "docs/testing.md.",
+            f"joined to avoid a destroyed-while-running abort: {', '.join(names)}. "
+            "Drive workers to completion in the test (bounded processEvents "
+            "pump) — see docs/testing.md.",
             stacklevel=2,
         )
 

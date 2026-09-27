@@ -82,6 +82,33 @@ _NOISE_FLOOR_S = 200e-6
 #: Timing rounds per measurement; the MINIMUM is reported. Three is enough to
 #: drop a single scheduler hiccup and cheap enough not to slow the sweep.
 _TIMING_ROUNDS = 3
+
+
+def _pick_clock() -> Callable[[], float]:
+    """The CPU time THIS THREAD has used, where the platform measures it finely.
+
+    **Not wall-clock time, and that is the fix for every flake this file has had.**
+    Wall-clock time counts the time the test spent descheduled, and on a runner
+    running the suite on every core (`pytest -n auto`) that is most of the error.
+    Measured here on 2026-09-27, four cores with eight busy-loop processes beside
+    the test: a linear pattern (`uiscript.script._TOKEN` on spaces, idle growth
+    3.8-4.2x per 4x of input) timed on the wall clock read 14.5x and 20.5x,
+    because one size's whole measurement landed in someone else's timeslice (178
+    us against its idle 47 us). The three rounds whose minimum was meant to drop
+    such a hiccup run back to back, inside the same slice, so they shared it. On
+    this clock the same experiment read 3.6-4.9x at double and quadruple
+    oversubscription. Descheduled time is not the pattern's cost; CPU time is.
+
+    Falls back to `perf_counter` where the thread clock is coarser than a
+    microsecond (Windows reports 15.6 ms), because a coarse clock would put every
+    fast pattern under the noise floor and this sweep would then time nothing.
+    """
+    if time.get_clock_info("thread_time").resolution <= 1e-6:
+        return time.thread_time
+    return time.perf_counter
+
+
+_clock: Callable[[], float] = _pick_clock()
 _MAX_REPEATS = 4096
 _REPEAT_STEP = 8
 
@@ -188,10 +215,10 @@ def _seconds_per_search(
     for _ in range(_TIMING_ROUNDS):
         repeats = 1
         while True:
-            start = time.perf_counter()
+            start = _clock()
             for _ in range(repeats):
                 run(text)
-            elapsed = time.perf_counter() - start
+            elapsed = _clock() - start
             if elapsed >= _NOISE_FLOOR_S or repeats >= _MAX_REPEATS:
                 best = min(best, elapsed / repeats)
                 break
@@ -454,9 +481,9 @@ def test_the_known_offenders_stay_bounded(module: str, attribute: str) -> None:
 
     pattern = getattr(importlib.import_module(module), attribute)
     text = "9" * 4000
-    start = time.perf_counter()
+    start = _clock()
     pattern.search(text)
-    elapsed = time.perf_counter() - start
+    elapsed = _clock() - start
     # 141 ms was the unbounded `\d+` measurement on this exact input; 20 ms is far
     # above what the bounded form needs (0.3 ms) and far below the bug.
     assert elapsed < 0.020, (
@@ -488,3 +515,27 @@ def test_the_sweep_reads_inline_calls_and_times_each_as_it_runs() -> None:
     assert any(how == "fullmatch" for _location, _pattern, how in patterns), (
         "no anchored call was found, so nothing is being timed as it runs"
     )
+
+
+def test_the_timings_do_not_count_time_spent_off_the_cpu() -> None:
+    """The sweep's clock must not count time the test was not running (2026-09-27).
+
+    Sleeping is the plainest form of being descheduled. On the wall clock this
+    reads 50 ms; on the thread's CPU clock it reads almost nothing, and that
+    difference is what stopped a busy runner reading a linear pattern as 20x.
+    """
+    if time.get_clock_info("thread_time").resolution > 1e-6:
+        pytest.skip("this platform's thread clock is coarse; the sweep uses wall time")
+    start = _clock()
+    time.sleep(0.05)
+    asleep = _clock() - start
+    assert asleep < 0.01, (
+        f"the sweep's clock counted {asleep * 1000:.1f} ms of sleep, so it measures "
+        "time spent descheduled, which is the noise that made linear patterns fail"
+    )
+    # Non-triviality: the same clock does advance while this thread computes.
+    start = _clock()
+    total = 0
+    while _clock() - start < 0.02:
+        total += 1
+    assert total > 0
