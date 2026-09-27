@@ -271,7 +271,7 @@ _BROKEN: dict[str, Case] = {
         _header(author="nobody") + "LSL: 1\n\n" + PLAIN_FACT + _BODY_END
     ),
     "LSL.version": Case(
-        _header() + "LSL: 2\n\n" + PLAIN_FACT + _BODY_END, severity="CANNOT"
+        _header() + "LSL: 9\n\n" + PLAIN_FACT + _BODY_END, severity="CANNOT"
     ),
     "LSL.file": Case("", severity="CANNOT"),
     "LSL.offrecord": Case(
@@ -441,6 +441,56 @@ def test_the_spec_and_the_checker_define_the_same_rule_ids() -> None:
 def test_a_clean_lap_passes_every_amendment(tmp_path: Path) -> None:
     lap = _check(tmp_path, _header() + "LSL: 1\n\n" + GOOD_FACT + _BODY_END, amend=ALL)
     assert lap.problems == []
+
+
+def test_lsl_2_is_lsl_1_with_every_amendment_on(tmp_path: Path) -> None:
+    """`LSL: 2` switches A1-A8 on by itself (the fork's round 28 lap 3 S14, S18).
+
+    The same statement is refused under `LSL: 2` for lacking A4's and A5's fields,
+    and accepted once it carries them, with no `--amend` given either time: the
+    version line, not the command line, decides what a lap is held to.
+    """
+    plain = _check(tmp_path, _header() + "LSL: 2\n\n" + PLAIN_FACT + _BODY_END)
+    assert plain.lsl_version == 2
+    assert _rules(plain) == {"A4", "A5"}, [(p.rule, p.message) for p in plain.problems]
+    good = _check(tmp_path, _header() + "LSL: 2\n\n" + GOOD_FACT + _BODY_END)
+    assert good.refused() == [], [p.message for p in good.refused()]
+    # And LSL 1 is unchanged: the plain statement passes, the fields are refused.
+    assert (
+        _check(tmp_path, _header() + "LSL: 1\n\n" + PLAIN_FACT + _BODY_END).refused()
+        == []
+    )
+    assert _rules(
+        _check(tmp_path, _header() + "LSL: 1\n\n" + GOOD_FACT + _BODY_END)
+    ) == {"LSL.field"}
+
+
+def test_a_go_says_how_much_it_was_checked_against(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A `GO` checked against no close condition passes A1 by finding nothing.
+
+    The fork found that in their checker (round 28 lap 3 S19), and it holds in
+    ours: this lap has no `TERM set` anywhere in its round and passes every
+    amendment. Until B2 makes that a refusal, the count is printed, so the
+    vacuous pass is on the page rather than hidden behind "well formed".
+    """
+    path = tmp_path / "lap.md"
+    path.write_text(_header() + "LSL: 2\n\n" + GOOD_FACT + _BODY_END, encoding="utf-8")
+    lap = check_path(path)
+    assert lap.refused() == []
+    assert lap.go_checked_against == {"A1": 0, "A7": 0}
+    assert main(["check", str(path)]) == 0
+    out = capsys.readouterr().out
+    assert "A1: this GO was checked against 0 close condition(s)" in out
+    assert "nothing to wait for" in out
+    assert "A7: this GO was checked against 0 blocking question(s)" in out
+
+
+def test_the_worked_examples_go_names_what_it_waited_on() -> None:
+    """Non-triviality for the count above: a GO with close conditions counts them."""
+    lap = check_path(FIXTURE, amendments=ALL)
+    assert lap.go_checked_against.get("A1", 0) >= 1, lap.go_checked_against
 
 
 # --- the worked example ------------------------------------------------------------

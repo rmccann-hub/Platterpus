@@ -21,7 +21,7 @@ from .grammar import read_lap
 from .model import Lap, Side
 from .record import Record
 from .refs import Trees, default_at
-from .tables import AMENDMENTS, tables_for
+from .tables import AMENDMENTS, LSL_VERSIONS, tables_for
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 
@@ -31,6 +31,13 @@ REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 PUBLISHING_REFS: Final[dict[Side, tuple[str, ...]]] = {
     "platterpus": ("origin/main", "main", "HEAD"),
     "cyanrip": ("origin/platterpus-fork", "platterpus-fork", "HEAD"),
+}
+
+
+#: What each amendment's count in `Lap.go_checked_against` counts, for `render`.
+_WAITED_ON: Final[dict[str, str]] = {
+    "A1": "close condition(s) written as TERM set in this round's held laps",
+    "A7": "blocking question(s) the other side asked in this round's held laps",
 }
 
 
@@ -61,8 +68,11 @@ def check_path(
     lap = read_lap(path)
     if not lap.lsl:
         if not lap.problems:
-            lap.add(0, "CANNOT", "LSL.version", "not an LSL lap: no 'LSL: 1' line")
+            lap.add(0, "CANNOT", "LSL.version", "not an LSL lap: no 'LSL: N' line")
         return lap
+    # `LSL: 2` means LSL 1 with A1-A8 on, whatever `--amend` asked for; `--amend`
+    # can add amendments to a lap, never take away what its version declares.
+    amendments = amendments | LSL_VERSIONS[lap.lsl_version]
     checking = None
     if lap.author is not None and lap.round is not None and lap.lap is not None:
         checking = (lap.author, lap.round, lap.lap)
@@ -99,6 +109,12 @@ def render(lap: Lap) -> tuple[str, int]:
         census[stmt.kind] = census.get(stmt.kind, 0) + 1
     listed = ", ".join(f"{n} {kind}" for kind, n in sorted(census.items()))
     lines.append(f"\n{len(lap.statements)} statement(s): {listed or 'none'}")
+    for amendment, count in sorted(lap.go_checked_against.items()):
+        waited = _WAITED_ON[amendment]
+        lines.append(
+            f"{amendment}: this GO was checked against {count} {waited}"
+            + ("; none is, so it had nothing to wait for" if count == 0 else "")
+        )
     refused = lap.refused()
     warnings = [p for p in lap.problems if p.severity == "WARN"]
     if refused:
@@ -109,7 +125,9 @@ def render(lap: Lap) -> tuple[str, int]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Check a lap written in LSL 1.")
+    parser = argparse.ArgumentParser(
+        description="Check a lap written in LSL 1 or LSL 2."
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     check = sub.add_parser("check", help="check one lap")
     check.add_argument("lap", type=Path)

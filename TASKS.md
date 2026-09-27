@@ -639,6 +639,11 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   not finish), and a test on the `.18` block of their interrupted sample. The reworded
   `Encoder errors:` zero arm (`no whole track was encoded`) already fell through as not a
   failure; now pinned. The generated consumer contract lists 24 ignored lines.
+- [x] **Their S18: our checker reads `LSL: 2`** as LSL 1 with A1-A8 on, and prints how many
+  close conditions and blocking questions a `GO` was checked against. Their S19 and S20
+  hold for our checker too, by the same reading of A1 and A7.
+- [ ] **NEXT-ROUND: B2 and B3 in our checker, behind `LSL: 3`** (their S22, S23, S25), once
+  the text of B1 as amended, B2 and B3 is in the shared proposal.
 - [ ] **The Full run on 0.6.61 + `.17`** (close condition 1), then both readings (S7).
 - [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
 - [x] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
