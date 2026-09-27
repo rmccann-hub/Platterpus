@@ -249,6 +249,85 @@ def test_every_docs_path_named_in_claude_md_resolves() -> None:
     )
 
 
+#: A backticked doc path followed by one or more section marks joined only by
+#: spaces, commas, "and" or "or": "`docs/testing.md` §5.t and §5.s". A semicolon
+#: ends the run, because "(`docs/seam-rules.md`; §7.7h.)" points the § at the
+#: handshake doc named earlier in the sentence, not at the one beside it.
+_SECTION_POINTER = re.compile(
+    r"`((?:docs/)?[\w./-]+\.md)`((?:(?:,|\s|\band\b|\bor\b)*§[\w.]*\w)+)"
+)
+#: "`docs/testing.md` → *Acceptance tiers*": a heading named by its words.
+_HEADING_POINTER = re.compile(r"`((?:docs/)?[\w./-]+\.md)` → \*([^*]+)\*")
+
+
+def _section_pointers(text: str) -> list[tuple[str, str]]:
+    """Every (doc, "§X" or heading words) pair `text` points a reader at."""
+    pairs = [
+        (doc, "§" + sec)
+        for doc, run in _SECTION_POINTER.findall(text)
+        for sec in re.findall(r"§([\w.]*\w)", run)
+    ]
+    return pairs + _HEADING_POINTER.findall(text)
+
+
+def _has_heading(doc_text: str, target: str) -> bool:
+    """Whether a markdown heading in `doc_text` is the one `target` names.
+
+    "§5.t" matches a heading numbered `5.t` (with or without its own §), and
+    not `5.ta`; heading words match as a substring of a heading line.
+    """
+    headings = [line for line in doc_text.splitlines() if line.startswith("#")]
+    if target.startswith("§"):
+        number = re.escape(target[1:])
+        rx = re.compile(rf"^#+\s*(?:§\s*)?{number}(?![\w])|§{number}(?![\w])")
+        return any(rx.search(h) for h in headings)
+    return any(target in h for h in headings)
+
+
+def test_every_section_claude_md_points_at_exists() -> None:
+    """`CLAUDE.md` sends a reader to a SECTION; the section must be there.
+
+    The 2026-09-26 trim cut `CLAUDE.md` from ~124 KB to ~77 KB by moving each
+    rule's full text into a numbered section elsewhere and leaving a pointer:
+    *"Full reasoning in `docs/testing.md` §5.t and §5.s"*. The path sweep above
+    proves the FILE exists; nothing proved the section did, so a renumbered or
+    retired heading would leave the always-loaded file pointing at nothing, and
+    the rule it summarises with no full text anyone can find.
+    """
+    claude = _CLAUDE_MD.read_text(encoding="utf-8")
+    pointers = _section_pointers(claude)
+    dangling = sorted(
+        {
+            f"{doc} {target}"
+            for doc, target in pointers
+            if not (_REPO_ROOT / doc).is_file()
+            or not _has_heading((_REPO_ROOT / doc).read_text(encoding="utf-8"), target)
+        }
+    )
+    assert not dangling, (
+        "CLAUDE.md points at these sections, and no heading in the named doc "
+        "matches: " + ", ".join(dangling)
+    )
+    # FLOOR: 61 pointers (42 distinct) on 2026-09-27. A style change under the regex must not
+    # read as "every pointer resolves".
+    assert len(pointers) >= 40, f"only {len(pointers)} section pointers found"
+
+
+def test_the_section_sweep_catches_a_retired_heading() -> None:
+    """The sweep above, against text built to fail it and text built to pass."""
+    doc = "# T\n\n## 5.t Revert it\n\n### §7.7a Bilateral\n\n## Acceptance tiers\n"
+    assert _has_heading(doc, "§5.t")
+    assert _has_heading(doc, "§7.7a")
+    assert _has_heading(doc, "Acceptance tiers")
+    assert not _has_heading(doc, "§5.s"), "a missing section must not resolve"
+    assert not _has_heading(doc, "§7.7"), "§7.7 must not resolve on §7.7a alone"
+    assert _section_pointers("See `docs/testing.md` §5.t and §5.s.") == [
+        ("docs/testing.md", "§5.t"),
+        ("docs/testing.md", "§5.s"),
+    ]
+    assert _section_pointers("(`docs/seam-rules.md`; §7.7h.)") == []
+
+
 def test_the_docs_path_sweep_catches_a_vanished_file() -> None:
     """Proven against constructed text, not by reasoning about the regex.
 

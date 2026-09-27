@@ -53,6 +53,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   events queued to it, and `tests/test_harness_fidelity.py` checks both. It also
   checks that every window a test builds is joined, and that a stand-in `exec()`
   closes its window.
+- **For contributors: a section CLAUDE.md points at must exist.** The trim above
+  left 61 pointers such as "`docs/testing.md` §5.t". The existing check proved each
+  named file existed. It did not check that the named section did.
 
 ## [0.6.61] — 2026-09-27
 
