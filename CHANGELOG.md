@@ -95,6 +95,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   pre-commit names its lap by number ("our lap 15"). A lap whose own verdict is
   `GO` is exempt. The rule starts at round 29, so no lap already sent changes
   meaning, and it changes nothing the checker says about the current record.
+- **For contributors: `handshake.py --status` prints what each verdict rests on.**
+  The gate closes a round on two `GO` verdicts, which is the spec, so in round 24 it
+  read a round as closed while one `GO` rested on a condition not yet met. It now
+  prints each side's newest lap, whether that lap is released, its verdict, and its
+  stated basis. That covers every round not closed, and the newest closed one. The
+  basis is printed and never graded, and the exit status does not read it. A long
+  basis is cut, with the number of characters left out.
 
 ## [0.6.61] — 2026-09-27
 

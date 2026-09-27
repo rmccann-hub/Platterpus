@@ -1666,13 +1666,20 @@ most important thing on this page before round 24's lap 1 arrives.
   sent.
   - *Audit 2026-09-25: done.* round-24-lap-02.md corrects lap 4 §C ("false at the ref you read"); also in platterpusstatus.md.
 
-- [ ] **ROUND-24: our `--status` cannot see a premature GO.** It closes a round
+- [x] **ROUND-24: our `--status` cannot see a premature GO.** It closes a round
   on two `GO` verdicts, which is the spec (*the verdict closes a round, not the
   file's existence*) — so when our own GO rested on an unmet condition, our gate
   read CLOSED while theirs correctly held OPEN. Ours trusts the thing it exists
   to check. Candidate: have `--status` print the closing lap's stated conditions
   rather than grade them, so the gap is visible without coupling the gate to a
   verdict.
+  - *Done 2026-09-27:* the candidate as written: `scripts/handshake.py`
+    `verdict_source_lines`, called only at the `--status` print site after the exit status
+    is decided, prints each side's newest lap, its release state, verdict and
+    `HANDSHAKE-VERDICT-SOURCE` (cut at 400 characters with the count left out), for every
+    round not CLOSED plus the newest CLOSED one. Tests:
+    `tests/test_handshake_tooling.py::test_status_prints_what_each_verdict_rests_on_and_never_grades_it`,
+    `::test_a_long_verdict_source_is_cut_with_its_count`; revert-probed 2 of 2.
 
 
 - [x] **DO NOT DELETE the branch `claude/session-omka9f`.** The cyanrip fork's
