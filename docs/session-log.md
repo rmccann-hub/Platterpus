@@ -11,6 +11,52 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-26 — Every branch merged into `main`, and 47 stranded citations brought back
+
+The maintainer asked for *"a full merge"* of *"all bracnhes, so they can be removed
+without consequence"*, and to wait for round 28 before the next release while getting
+everything ready for it.
+
+- **The measurement came first.** Three branches exist: `main`,
+  `claude/session-omka9f` (186 commits ahead, same tree) and `claude/claude-md-trim`
+  (draft #260, for review). A scan of every tracked file for commit-shaped tokens
+  resolved **159** of our commits once GitHub's pull-request refs were fetched.
+  **47** of them were on no branch at all: only `refs/pull/N/head` held them, and a
+  plain clone never fetches those refs. One, `926dcb3`, is cited in the fork's round
+  19 lap 1, which our own tree could not resolve.
+- **The repair keeps history and leaves the tree alone.** Two `git merge -s ours`
+  commits brought in eight tips covering all 47, plus the 38 commits of a round 20–21
+  branch. The tree stayed byte-identical to `main`. Before pushing: no audio, disc
+  image or secret path in any recovered commit, and gitleaks 8.28.0 found nothing in
+  the 425 non-merge commits of the range or in the whole history (1,678 commits).
+- **The first gitleaks run read 0 commits and printed "no leaks found".** The range
+  argument did not parse. It was caught because the count was read, not the verdict.
+  That is *can this be satisfied by finding nothing?*, and it is why the new test
+  carries a floor.
+- **The convention changed, not just the branches.** Session-branch pull requests
+  now merge with a merge commit (CLAUDE.md, *Commit & PR hygiene*, divergence 6).
+  `git log --first-parent main` keeps the one-node-per-change view. Dependabot PRs
+  still squash, because the changelog job exempts a Dependabot push to `main` by the
+  head commit's author, and a merge commit would replace it.
+- **`tests/test_cited_commits_are_reachable.py`** fails on `main` if a squash strands
+  a citation again. It passes on the pull request by construction, the §5.bv
+  asymmetry used on purpose. A `platterpus@<sha>` citation must also resolve. Two
+  reverts probed, both detected. The broken case is built in a throwaway repository.
+- **The gate run found three reds unrelated to the change, and each was measured
+  before it was fixed** (`5896efe`). The runner's `_active_dialog()` believed Qt's
+  active window without checking it was visible. A probe at every test start found it
+  returning a closed Setup & Updates 91 times in two runs, and one `rip` test failed
+  behind it. Hypothesis's 200 ms deadline failed a correct property test at 211 ms
+  under load, reproduced with the CPU busy. A screenshot test left a dialog on screen
+  for its whole worker. Honest limit: Qt keeping a hidden window active did not
+  reproduce in isolation, so the regression test builds that state directly.
+- **Left for the maintainer:** CLAUDE.md rule #12 (the locked section) still says our
+  work *"reaches `main` by squash merge"*. The failure it describes, a lap committed
+  but not yet on `main`, is unchanged, but the mechanism is now a merge commit.
+  Editing the locked section needs their word. The F4 sentence *"Our session branches
+  stay"* in the sent amendments artifact is corrected in round 28 lap 2 rather than
+  edited, and is queued in TASKS.
+
 ## 2026-09-26 — LSL is the base, a second checker for it, and the Full run graded `partial`
 
 The maintainer decided four things in one message: *"use LSL as the base and send

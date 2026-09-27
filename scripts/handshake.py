@@ -776,10 +776,12 @@ def our_pin() -> str:
     from platterpus import __version__ as _app_version  # noqa: PLC0415
 
     # **THE PUBLISHED HISTORY IS SEARCHED FIRST, and that ordering is the whole
-    # point.** This repository squash-merges, so every commit on a session branch
-    # is DISCARDED at merge and replaced by one new commit on the default branch.
-    # A pin taken from the branch therefore names a commit that exists only in the
-    # author's clone: `git cat-file -e` passes locally and the value is unfetchable
+    # point.** Until 2026-09-26 this repository squash-merged, so every commit on
+    # a session branch was DISCARDED at merge and replaced by one new commit on
+    # the default branch. Session branches now merge with a merge commit, but a
+    # branch commit is still not on `main` until that merge happens, and the peer
+    # reads `main`. A pin taken from the branch names a commit only the
+    # author's clone can be sure of: `git cat-file -e` passes locally and the value is unfetchable
     # for the peer, which is the opposite of what a pin is for.
     #
     # Measured, not reasoned: lap 18 went out declaring `ed4f300`, taken from the

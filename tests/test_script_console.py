@@ -260,6 +260,46 @@ class TestTheConsoleIsTheHarnessNotTheApplication:
             window.close()
             window.deleteLater()
 
+    def test_a_hidden_dialog_is_not_waiting_for_an_answer(
+        self, qapp, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Qt's focus can keep naming a dialog after it is hidden.
+
+        Measured 2026-09-26 in the parallel suite: a closed Setup & Updates left by
+        an earlier test was still `QApplication.activeWindow()`, so `rip` refused
+        to start behind a dialog nobody could see. The stand-in reproduces that
+        state directly, because which test leaves it depends on how the tests
+        were shared out between workers.
+        """
+        from platterpus.uiscript import runner
+
+        hidden = QDialog()
+        hidden.setWindowTitle("Setup & Updates")
+        assert not hidden.isVisible(), "the premise: nothing is on screen"
+
+        class _StaleFocus:
+            modal: QDialog | None = None
+
+            @staticmethod
+            def activeModalWidget() -> QDialog | None:
+                return _StaleFocus.modal
+
+            @staticmethod
+            def activeWindow() -> QDialog:
+                return hidden
+
+            @staticmethod
+            def topLevelWidgets() -> list[QDialog]:
+                return [hidden]
+
+        monkeypatch.setattr(runner, "QApplication", _StaleFocus)
+        try:
+            assert runner._active_dialog() is None, "stale active window counted"
+            _StaleFocus.modal = hidden
+            assert runner._active_dialog() is None, "stale modal widget counted"
+        finally:
+            hidden.deleteLater()
+
 
 def _bare_window():
     """A plain top-level to parent dialogs to, so nothing is orphaned."""
