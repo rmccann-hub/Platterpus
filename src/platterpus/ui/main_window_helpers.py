@@ -88,10 +88,10 @@ def unique_album_title(
 
 
 # A substituted character is replaced one-for-one, so a real rendering and our
-# prediction have the same length and differ only at substitution points. These
-# are the shapes a REPLACEMENT may take: cyanrip's `unicode` modes use look-alike
-# glyphs (all non-ASCII), its `simple` modes use plain ASCII stand-ins. Kept
-# narrow on the ASCII side so a merely-similar album title cannot match.
+# prediction differ only at substitution points. `unicode` modes write look-alike
+# glyphs (all non-ASCII); `simple` modes write `_` (P7b), and `'` for `"`, which is
+# left out: we pin `unicode`, which never writes it, so it could only add a second
+# candidate, and two make the guard stand down. Narrow, so a near-title never matches.
 _SUBSTITUTION_TARGETS_ASCII: frozenset[str] = frozenset({"_", "-", " "})
 
 
