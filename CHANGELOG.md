@@ -45,6 +45,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   nineteenth, round 14 lap 18, is not: the fork holds the version we sent, and ours
   was edited in place afterwards, on 2026-08-26, before the pin registry existed.
   It stays unpinned, with that reason recorded.
+- **For contributors: the filename look-alike table is now checked against the fork's
+  contract.** `naming._VALUE_SANITISE` says it was read from the provider contract's
+  P7b table, and nothing compared the two. A test now reads P7b from the newest filed
+  contract and requires our table to equal its column for the pinned `-T` mode, in
+  both directions, with the quote left out. The parser fails loudly if the section
+  goes missing, the header changes or a row cannot be read.
 
 ### Fixed
 

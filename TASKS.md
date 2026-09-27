@@ -3771,7 +3771,11 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *2026-09-25:* **Done** (delegated, verified on integration). **Found a defect.** `raw_tail` was cut at the verb's length after its quotes were removed, so a quoted verb corrupted the tail an `expect-cyanrip` compares. Every line gets exactly its own step; the documented grammar round-trips. Added to the never-raises list.
 - [x] **`fuzz:uiscript.script.sanitise_cyanrip_args`** (partial, small) — Scripted argv log-forgery check covers \n, \r, \x00 — and misses every other line terminator our own parser splits on
   - *2026-09-25:* **Done.** The check now refuses any character `settings_validation.is_control_char` names — C0, DEL, C1 (NEL) and U+2028/2029 — so every line boundary `str.splitlines` knows is refused; the test derives that set from Python. Its first version was satisfied by the wrong check (a `:` in the input tripped the tag-syntax refusal), which the revert probe caught; fixed to pin the message.
-- [ ] **`fuzz:naming._VALUE_SANITISE`** (ungated, medium) — The substitution table is documented as "derived, not observed" from the fork's contract P7b — and nothing compares it to P7b
+- [x] **`fuzz:naming._VALUE_SANITISE`** (ungated, medium) — The substitution table is documented as "derived, not observed" from the fork's contract P7b — and nothing compares it to P7b
+  - *Done 2026-09-27:* no product bug. `tests/test_naming.py` parses P7b from the newest
+    filed contract (all 15 filed contracts with a P7b parse to the same 10 rows) and
+    requires `_VALUE_SANITISE` to equal the pinned mode's column (floors: 10 rows, 8
+    compared), plus that the overwrite guard covers every P7b character. Revert-probed 5/5.
 - [ ] **`fuzz:rip_report.build_report`** (ungated, medium) — The JSON rip report has no never-raises property test over parser output
 - [ ] **`fuzz:ripper_messages.format_to_pattern`** (ungated, medium) — The fatal-message matcher builds regexes from external format strings with no property test
 - [ ] **`fuzz:scripts.handshake._strip_fences`** (ungated, medium) — An illustrated close inside an UNTERMINATED or INDENTED fence is adopted as a real declaration — a round closes on a fabricated…
