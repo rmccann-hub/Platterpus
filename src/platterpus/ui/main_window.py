@@ -370,6 +370,9 @@ class MainWindow(
         # at the start of every new scan.
         self._current_disc_id: str = ""
         self._mb_release_chosen_for: str = ""
+        # The disc whose release picker is on screen right now, "" when none is.
+        # Lives exactly as long as the picker's `exec()`; see `_on_mb_releases`.
+        self._mb_picker_open_for: str = ""
         # Track count for the current disc (from cyanrip cd info). Used to
         # render numbered blank rows when MusicBrainz has no match.
         self._current_num_tracks: int = 0
@@ -1440,6 +1443,21 @@ class MainWindow(
                 context,
             )
             return
+        # AND NOT WHILE ITS PICKER IS STILL OPEN. The marker above is written only
+        # once the user answers, and `exec()` below runs a nested event loop, so
+        # a second lookup's result queued behind the first lands inside it with
+        # the marker still empty. It opened a second picker over the first, and
+        # the later answer replaced the earlier one's tags (TASKS
+        # `stateful:one-picker-per-scan`). The open picker is already asking.
+        if self._mb_picker_open_for == context:
+            log.info(
+                "MusicBrainz returned %d candidates for disc %r while its release "
+                "picker is still open — not opening a second one; the open "
+                "picker's answer is the one used.",
+                len(releases),
+                context,
+            )
+            return
         self._last_mb_releases = list(releases)
         self._disc_info_panel.set_mb_matches(releases)
 
@@ -1471,7 +1489,14 @@ class MainWindow(
             )
             dialog = ReleasePickerDialog(releases, self)
             waited_from = time.monotonic()
-            accepted = dialog.exec() == QDialog.DialogCode.Accepted
+            # Restored, not cleared, when the picker closes: pickers for two
+            # discs can nest, and the outer one is still open.
+            outer_picker = self._mb_picker_open_for
+            self._mb_picker_open_for = context
+            try:
+                accepted = dialog.exec() == QDialog.DialogCode.Accepted
+            finally:
+                self._mb_picker_open_for = outer_picker
             waited = time.monotonic() - waited_from
             if accepted:
                 mbid = dialog.selected_mbid()
