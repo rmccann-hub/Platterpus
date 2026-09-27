@@ -1720,11 +1720,17 @@ What it left:
   fallback at all. Not breaking today because the dependency probe uses bare
   PATH too, so a failure shows as "missing" rather than degrading silently.
 
-- [ ] **`handshake.py --status` prints close-by countdowns for CLOSED rounds** —
+- [x] **`handshake.py --status` prints close-by countdowns for CLOSED rounds** —
   six "N days remaining" and four "has PASSED" lines, every one on a finished
   round. Fix at the PRINT SITE: `close_by_lines()` is deliberately decoupled from
   `round_status` so a CLOSE-BY can never reach a verdict, and wiring them
   together to silence the noise would undo the thing the decoupling protects.
+  - *Done 2026-09-27:* filtered at the print site, `scripts/handshake.py`
+    `close_by_lines_to_print`; `close_by_lines` is unchanged and still never called by
+    `round_status`. Dropped rounds are counted on a line of their own.
+    Tests: `tests/test_handshake_tooling.py::test_status_prints_close_by_only_for_rounds_that_are_not_closed`
+    and `::test_status_on_the_real_record_counts_the_closed_rounds_it_leaves_out`, both
+    shown to fail with the filter reverted (`scripts/revert_probe.py`).
 
 - [ ] **The rig is left on `max_retries = 3` and `ripper_channel = "beta"`** after
   a run (defaults 5 and `stable`). Fixed in the script for the NEXT run; the
