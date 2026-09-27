@@ -619,14 +619,21 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   next protocol change"*, and *"until then we record the override"*. v6 is still in
   force and our gate refuses `v0.6.61` with round 28 open (`--release-gate`, measured
   2026-09-26). Once given, the override goes in our lap 2's header before it is released.
+- [x] **0.6.61 released 2026-09-27** (release run `36314386792`), carrying `FORK_PIN`
+  `221a1df` and `PIN_UNDER_REVIEW` `e0471f4`, under the operator's §6b override.
 - [ ] **The Full run on 0.6.61 + `.17`** (close condition 1), then both readings (S7).
 - [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
-- [ ] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
+- [x] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
   failed once in about six full parallel runs on 2026-09-26**, and passed 8 of 8 alone
   under six busy loops on four cores. It is timing-based in both directions, and the
   failing run's message was not kept, so which side tripped is unknown. Next time it
   fails, keep `.check-logs/tests.log` before rerunning. Do not widen a threshold on a
   guess: the linear side guards against a detector that flags everything.
+  - *2026-09-27, fixed without widening anything:* the same family then failed the
+    sweep itself on #260's 3.13 leg (8.4x, 8.5x on a pattern measured linear on
+    3.11, 3.12 and 3.13). The sweep now confirms a suspect at a 4x larger input
+    pair; the self-test measures each side up to three times and lists every
+    attempt. Revert-probed five ways, all detected.
 - [ ] **NEXT-ROUND: ask them to ship `.17`'s `PROVIDER-CONTRACT.md` as a round
   artifact**, so the argv check reads the round's own table again (lag back to 0).
 

@@ -3479,6 +3479,16 @@ Three things to carry:
   `test_the_sweep_reads_inline_calls_and_times_each_as_it_runs` pins the pattern
   that was missing, so the population cannot quietly narrow again. Two calls remain
   outside it (their pattern is not a literal), and the docstring names them.
+- **A second measurement under the same conditions is not a second witness**
+  (added 2026-09-27). The sweep called a pattern super-linear only if it was slow
+  twice, and it took the second timing immediately, at the same two sizes. On a
+  loaded CI leg that flagged `cyanrip_log._TRACK_ELAPSED_SECONDS` at 8.4x and then
+  8.5x; measured here it grows 3.8-4.3x per 4x of input on Python 3.11, 3.12 and
+  3.13, to 32,000 characters. The same noise produced both numbers, so they agreed
+  without being independent. The confirmation now times a 4x larger input pair,
+  where fixed per-call costs stop swamping a 50 microsecond search and a real
+  offender still fails. That is *my two witnesses are related*, arriving through a
+  retry.
 - **A test near its bound is a measurement, not a pass.** The loader test sat at 54%
   of its budget for weeks. A generous bound is right for "not stalled", and it also
   hides a regression until something else moves the timing. The fix added a test

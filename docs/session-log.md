@@ -11,6 +11,44 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-27 — 0.6.61 released under §6b, lap 2 released, the trim merged, and two timing flakes fixed
+
+The maintainer: *"Merge all, release. Then release s new lap"*, then *"And fix anything
+known before the new release"*.
+
+- **The gate set the order, not the sentence.** The release gate lets `v0.6.61` through
+  only once a released lap records the override, so lap 2 was released first, with the
+  maintainer's words as the override's reason (`a881716`). Then #262 merged with a merge
+  commit (`59f4c00`), `main`'s CI went green, and the release ran: tag at `59f4c00`, all
+  six assets including the attestation bundle, and 0.6.61 on PyPI.
+- **"Before the new release" arrived while the release was in its publish step.**
+  Cancelling there could have left a tag with half its assets, which is worse than
+  letting it finish. Every known item was a doc or a test anyway. Round 28's close
+  condition names 0.6.61, so a 0.6.62 cut to carry them would have moved the round's
+  subject mid-round. They went to `main` without a release.
+- **#260, the CLAUDE.md trim, merged** on "merge all". Two merges of `main` into it:
+  - the first conflicted in the CI / release block, where #261's one sentence was
+    carried into the trimmed text;
+  - the second was clean, but it had put the trim's CHANGELOG bullet inside the 0.6.61
+    section, and a doc the trim changes was still stamped v0.6.60.
+  Neither second problem was a conflict, so neither was reported. Both were found by
+  reading the result.
+- **Two timing flakes, one family, fixed without widening the 8x threshold.** #260's
+  3.13 leg failed the regex sweep on a pattern measured linear on 3.11, 3.12 and 3.13
+  (about 4x per 4x, to 32,000 characters). CI had flagged it at 8.4x and then 8.5x. The
+  sweep's "slow twice" confirmation re-timed at the same sizes inside the same noisy
+  window, so the two numbers agreed without being independent. A suspect is now
+  confirmed at a 4x larger input pair. The detector's self-test measures each side up
+  to three times, and lists every attempt. Five reverts probed, all detected.
+- **One of my own commit messages was wrong**, and it could not be amended once pushed:
+  `a881716`'s says the LSL body did not change. The release script also rewrote one body
+  sentence. Both checkers were rerun on the final bytes and pass. The PR says so.
+- **The 0.6.61 heading carried the day the bump was written (09-26), not the release
+  day.** Corrected to 2026-09-27 in the post-release record, with the standing status
+  and the rig sheet.
+
+---
+
 ## 2026-09-26 — Round 28 opened on `.17`; 0.6.61 staged and held for a §6b decision
 
 The maintainer said to wait for the fork's round 28 lap 1 and have everything ready.
