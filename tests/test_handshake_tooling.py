@@ -4335,3 +4335,91 @@ def test_wire_fields_is_cached_but_never_shares_its_result() -> None:
     # And the cache is real: the parse ran once for the three calls above.
     info = hs._parse_wire_fields.cache_info()
     assert info.hits >= 2, info
+
+
+# ---------------------------------------------------------------------------
+# R6: a pre-commit is mandatory from lap 5, and names an event, never a lap number
+# (TASKS row C5, "No R6 gate"). From round 29, so no sent lap changes meaning.
+# ---------------------------------------------------------------------------
+
+
+def _r6_lap(round_no: int, lap_no: int, body: str, verdict: str = "OPEN") -> str:
+    return (
+        f"HANDSHAKE-ROUND: {round_no}\nHANDSHAKE-LAP: {lap_no}\n"
+        f"HANDSHAKE-VERDICT: {verdict}\n\n# lap\n\n{body}\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("body", "verdict", "expect"),
+    [
+        # R6's own right form, and ours from round 28 lap 4.
+        (
+            "Our next lap is `GO` unless your run finds a defect in the pin.",
+            "OPEN",
+            None,
+        ),
+        (
+            "S33 WILL: Our lap after the Full run's bundle is committed to our tree "
+            "is `GO` unless our reading of it finds a defect.",
+            "OPEN",
+            None,
+        ),
+        # A peer's lap number INSIDE the event is R6's own example, and is fine.
+        (
+            "The first lap we send after receiving your lap 10 is **GO** unless it "
+            "shows a regression.",
+            "OPEN",
+            None,
+        ),
+        # The form R6 forbids by name.
+        ("Our lap 15 is `GO` unless the rerun fails.", "OPEN", "names a lap NUMBER"),
+        # Absent from lap 5 on.
+        ("We have nothing to promise.", "OPEN", "carries no pre-commit"),
+        # Our reading: a lap that is itself GO has nothing left to promise.
+        ("We have nothing to promise.", "GO", None),
+    ],
+)
+def test_r6_refuses_a_missing_or_numbered_pre_commit(
+    body: str, verdict: str, expect: str | None
+) -> None:
+    hs = _load()
+    problems = hs.pre_commit_problems(
+        _r6_lap(29, 5, body, verdict), "round-29-lap-05.md"
+    )
+    if expect is None:
+        assert problems == [], problems
+    else:
+        assert len(problems) == 1 and expect in problems[0], problems
+
+
+def test_r6_binds_from_lap_5_of_round_29_only() -> None:
+    """The floor, pinned on both axes, so a later edit cannot quietly widen it
+    over sent laps (a gate that refuses what was legal when sent rewrites the
+    record) or narrow it to nothing."""
+    hs = _load()
+    bare = "Nothing to promise."
+    assert hs.R6_GATE_FROM_ROUND == 29 and hs.R6_FROM_LAP == 5
+    assert hs.pre_commit_problems(_r6_lap(28, 9, bare), "x") == []
+    assert hs.pre_commit_problems(_r6_lap(29, 4, bare), "x") == []
+    assert hs.pre_commit_problems(_r6_lap(29, 5, bare), "x") != []
+    # A bad pre-commit QUOTED in a fence is quoted, not stated.
+    fenced = "```\nOur lap 15 is `GO` unless X.\n```\nOur next lap is `GO` unless X."
+    assert hs.pre_commit_problems(_r6_lap(29, 6, fenced), "x") == []
+
+
+def test_r6_runs_on_both_directions_of_check(tmp_path: Path) -> None:
+    """Wired into both checkers: a gate function with no caller is the failure
+    `check_outbound_paths`'s own docstring records."""
+    hs = _load()
+    for directory in ("outbound", "inbound"):
+        folder = tmp_path / directory
+        folder.mkdir()
+        path = folder / "round-29-lap-05.md"
+        path.write_text(
+            _r6_lap(29, 5, "Our lap 15 is `GO` unless X."), encoding="utf-8"
+        )
+        checker = (
+            hs.check_outbound_paths if directory == "outbound" else hs.check_inbound
+        )
+        assert any("R6" in p for p in checker(path)), directory

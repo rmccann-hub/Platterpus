@@ -444,6 +444,7 @@ def check_inbound(*paths: Path) -> list[str]:
         num = round_number(path)
         if num is not None and num not in THEIR_PRE_HEADER_ROUNDS:
             problems.extend(check_wire_header(path, expect_from="cyanrip-fork"))
+        problems.extend(pre_commit_problems(_safe_read(path), path.name))
     # A MID-ROUND LAP IS NOT A FULL ROUND FILE, and demanding all ten sections of
     # one is the over-strictness this checker's own notes warn about — the failure
     # whose fix people reach for is switching the checker off. A round opens with a
@@ -653,6 +654,7 @@ def check_outbound_paths(*paths: Path) -> list[str]:
         problems.extend(check_outbound(text))
         if num is not None and num >= PIN_ROLL_TRIGGER_FROM_ROUND:
             problems.extend(pin_policy_problems(text, path.name))
+        problems.extend(pre_commit_problems(text, path.name))
     return problems
 
 
@@ -879,6 +881,83 @@ def pin_policy_problems(text: str, where: str) -> list[str]:
             "by hand, and the code did what the code does."
         ]
     return []
+
+
+#: The first round whose laps our gate holds to R6 (`handshake-protocol.md`, R6: a
+#: pre-commit is mandatory from lap 5, and it names an EVENT, never a lap number).
+#: TASKS row C5: nothing refused either half before, and the record shows why it
+#: mattered — most laps from the fifth carry no pre-commit in R6's form at all.
+#: From the NEXT round rather than retroactively: a gate that starts refusing sent
+#: laps changes what they meant when they were sent.
+R6_GATE_FROM_ROUND: Final[int] = 29
+
+#: The lap from which R6 requires a pre-commit.
+R6_FROM_LAP: Final[int] = 5
+
+#: A pre-commit in R6's form, in prose or as an LSL `WILL` statement: some lap of
+#: the writer's "is `GO` unless" something. The subject may be long — our round 28
+#: lap 4 wrote "Our lap after the Full run's bundle is committed to our tree is
+#: `GO` unless …" — so it is allowed up to one sentence.
+_PRE_COMMIT: Final[re.Pattern[str]] = re.compile(
+    r"\blap\b[^.\n]{0,200}?\bis\s+[`*_]*GO[`*_]*\s+unless\b", re.IGNORECASE
+)
+
+#: The shape R6 forbids by name: the bound lap given as a NUMBER ("our lap 15 is
+#: `GO` unless"), which the writer's own later choices can overtake. A peer's lap
+#: number inside the event ("the first lap we send after receiving your lap 10")
+#: is R6's own example of the right form, and does not match.
+_PRE_COMMIT_BY_NUMBER: Final[re.Pattern[str]] = re.compile(
+    r"\bour\s+lap\s+\d+\b[^.\n]{0,120}?\bis\s+[`*_]*GO[`*_]*\s+unless\b",
+    re.IGNORECASE,
+)
+
+
+def pre_commit_problems(text: str, where: str) -> list[str]:
+    """Why a lap does not meet R6. Empty when it does, or when R6 does not apply.
+
+    Applies from :data:`R6_GATE_FROM_ROUND`, to laps numbered
+    :data:`R6_FROM_LAP` and above. **One exemption, our gate's reading and said out
+    loud:** a lap whose own verdict is `GO` needs none, because it has already
+    declared what a pre-commit would promise. Fenced blocks are skipped, so a lap
+    QUOTING a bad pre-commit (this docstring's kind of text) is not refused for it.
+    """
+    fields = wire_fields(text)
+    try:
+        round_no = int(fields.get("HANDSHAKE-ROUND", "").split()[0])
+        lap_no = int(fields.get("HANDSHAKE-LAP", "").split()[0])
+    except (IndexError, ValueError):
+        return []  # an unreadable header is check_wire_header's to report
+    if round_no < R6_GATE_FROM_ROUND or lap_no < R6_FROM_LAP:
+        return []
+    body = _unfenced_body(text)
+    problems: list[str] = []
+    for match in _PRE_COMMIT_BY_NUMBER.finditer(body):
+        problems.append(
+            f"{where}: R6: a pre-commit names a lap NUMBER, not an event: "
+            f"{match.group(0)!r}. Name what happens, as R6's own example does: "
+            '"the first lap we send after receiving your lap 10", not "our lap 15"'
+        )
+    verdict = fields.get("HANDSHAKE-VERDICT", "").split()
+    if not problems and not _PRE_COMMIT.search(body) and verdict[:1] != ["GO"]:
+        problems.append(
+            f"{where}: R6: lap {lap_no} carries no pre-commit — from lap "
+            f'{R6_FROM_LAP} every lap states "our next lap is `GO` unless X", '
+            "naming X"
+        )
+    return problems
+
+
+def _unfenced_body(text: str) -> str:
+    """``text`` without the contents of fenced code blocks."""
+    out: list[str] = []
+    inside = False
+    for line in text.splitlines():
+        if re.match(r"^[ \t]{0,3}(?:```|~~~)", line):
+            inside = not inside
+            continue
+        if not inside:
+            out.append(line)
+    return "\n".join(out)
 
 
 def emit_outbound(round_number: int) -> str:
