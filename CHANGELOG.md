@@ -70,6 +70,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **For contributors: a section CLAUDE.md points at must exist.** The trim above
   left 61 pointers such as "`docs/testing.md` §5.t". The existing check proved each
   named file existed. It did not check that the named section did.
+- **For contributors: `handshake.py --status` no longer prints deadlines for
+  finished rounds.** It printed a countdown or a "has PASSED" line for each of the
+  20 closed rounds since round 8, above the one open round's. Those lines are now
+  dropped where they are printed, and one line names the rounds it left out. The
+  close-by report still cannot reach the verdict, and a round whose state it
+  cannot read keeps its lines.
 
 ## [0.6.61] — 2026-09-27
 

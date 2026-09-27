@@ -3870,6 +3870,66 @@ def test_the_close_by_report_refuses_a_bare_date_rather_than_assuming_midnight()
     assert "has PASSED" in passed, f"a past instant must say so; got {passed!r}"
 
 
+def test_status_prints_close_by_only_for_rounds_that_are_not_closed() -> None:
+    """TASKS row 1723: a countdown on a finished round is noise above the one that
+    matters, so `--status` drops it at the PRINT SITE, and counts what it dropped.
+
+    Three states are pinned: a CLOSED round's lines go; an OPEN round's stay; and a
+    round with no status line at all stays, so a round the filter cannot read is
+    never hidden. The dropped rounds are named on a line of their own, because a
+    list that shrank without saying so reads as "no other round declared one".
+    """
+    hs = _load()
+    status = [
+        "round-19: sent=yes returned=yes we-verified=yes they-verified=yes -> CLOSED",
+        "round-28: sent=yes returned=yes we-verified=NO they-verified=yes -> OPEN",
+    ]
+    close_by = [
+        "round 19 close-by: 2026-09-28T23:59:59Z, 1 day(s) remaining",
+        "round 19 close-by: set in lap 3, not lap 1 -- R2 says lap 1",
+        "round 28 close-by: 2026-10-24T23:59:59Z, 27 day(s) remaining",
+        "round 29 close-by: none declared -- R2 requires one in lap 1",
+    ]
+    printed = hs.close_by_lines_to_print(close_by, status)
+    assert not any(line.startswith("round 19 ") for line in printed), printed
+    assert "round 28 close-by: 2026-10-24T23:59:59Z, 27 day(s) remaining" in printed
+    assert "round 29 close-by: none declared -- R2 requires one in lap 1" in printed
+    assert printed[-1].startswith("close-by: not shown for 1 CLOSED round(s) (19)")
+    # Nothing to drop, nothing added: the count line appears only for a real drop.
+    assert hs.close_by_lines_to_print(close_by[2:], status) == close_by[2:]
+
+
+def test_status_on_the_real_record_counts_the_closed_rounds_it_leaves_out(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The same, through `main`, on the committed record, where rounds 8 to 27 are
+    CLOSED and each declared (or failed to declare) a close-by. The exit status is
+    still read from the verdict lines alone.
+    """
+    hs = _load()
+    status_exit = hs.main(["--status"])
+    out = capsys.readouterr().out
+    verdict_lines = hs.round_status()
+    assert status_exit == (
+        1
+        if any(ln.endswith("OPEN") for ln in verdict_lines)
+        or hs.illegal_transition_blockers(verdict_lines)
+        else 0
+    )
+    closed = [
+        int(m.group(1))
+        for ln in verdict_lines
+        if (m := re.match(r"^round-(\d+): .* -> CLOSED", ln))
+        and int(m.group(1)) >= hs.CLOSE_BY_FROM_ROUND
+    ]
+    # NON-TRIVIALITY: the record has closed rounds that declare a close-by, so the
+    # filter has something to drop.
+    assert len(closed) >= 10, closed
+    for num in closed:
+        assert f"round {num:2d} close-by:" not in out, num
+    assert f"not shown for {len(closed)} CLOSED round(s)" in out, out
+
+
 def test_close_by_is_attributed_to_the_earliest_lap_across_every_directory() -> None:
     """Round 20 §1, found by the fork in our code within hours of it shipping.
 

@@ -3510,6 +3510,57 @@ def close_by_lines(root: Path | None = None) -> list[str]:
     return out
 
 
+#: A round's own line in `round_status`'s output, `round-28: … -> OPEN`, read back
+#: at the PRINT SITE only. `close_by_lines` never sees it (see below).
+_STATUS_ROUND_RE: Final[re.Pattern[str]] = re.compile(
+    r"^round-(?P<num>\d+): .* -> (?P<state>[A-Z][A-Z-]*)"
+)
+
+#: A line of `close_by_lines`'s output, `round 19 close-by: …`.
+_CLOSE_BY_ROUND_RE: Final[re.Pattern[str]] = re.compile(
+    r"^round\s+(?P<num>\d+) close-by:"
+)
+
+
+def close_by_lines_to_print(close_by: list[str], status_lines: list[str]) -> list[str]:
+    """The close-by lines worth printing: those of rounds that are not CLOSED.
+
+    TASKS row 1723. `--status` printed a countdown or a "has PASSED" line for every
+    round since 8, and all but one of those rounds were finished: ten lines of
+    deadline on rounds nobody can act on, above the one that mattered. The fix is
+    HERE, where the two outputs are printed side by side, and not inside
+    `close_by_lines`: that function is kept unable to reach a verdict, and teaching
+    it the round state would be the first step towards letting it form one.
+
+    A round is dropped only when its own status line says `CLOSED`. A round with
+    no status line, or any other state, keeps its lines, so a round this cannot
+    read stays visible. And **the drop is counted and named** on a line of its own:
+    a list that silently shrank would read as "no other round declared a close-by".
+    """
+    closed: set[int] = set()
+    for line in status_lines:
+        match = _STATUS_ROUND_RE.match(line)
+        if match is not None and match.group("state") == "CLOSED":
+            closed.add(int(match.group("num")))
+    kept: list[str] = []
+    omitted: list[int] = []
+    for line in close_by:
+        match = _CLOSE_BY_ROUND_RE.match(line)
+        if match is not None and int(match.group("num")) in closed:
+            num = int(match.group("num"))
+            if num not in omitted:
+                omitted.append(num)
+            continue
+        kept.append(line)
+    if omitted:
+        kept.append(
+            f"close-by: not shown for {len(omitted)} CLOSED round(s) "
+            f"({', '.join(str(n) for n in omitted)}): a deadline on a finished "
+            "round has nothing left to bound"
+        )
+    return kept
+
+
 def _declared_lap(path: Path, fields: dict[str, str], num: int) -> int:
     """A lap's number, from its OWN declaration — the filename is the fallback.
 
@@ -3723,7 +3774,7 @@ def main(argv: list[str] | None = None) -> int:
         # from a separate function that `round_status` never calls. Round 20 §0.1:
         # advisory, print-never-block. The exit status below is computed from
         # `status_lines` alone, so no arrangement of close-by output can change it.
-        close_by = close_by_lines(record_root)
+        close_by = close_by_lines_to_print(close_by_lines(record_root), status_lines)
         if close_by:
             sys.stdout.write("\n")
             for line in close_by:
