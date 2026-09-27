@@ -101,7 +101,7 @@ needed we need to plan."* Every number below was measured, not estimated.
   on 3.11–3.13. This changes the rule in `CLAUDE.md` → *Test commands* that the
   gate runs on the matrix, so it needs your yes. Not recommended: dropping legs from
   PRs, because it saves runner minutes but not the wall-clock you wait for.
-- [~] **Phase 4 — the rest of the loop.** The `CLAUDE.md` trim was approved as a
+- [x] **Phase 4 — the rest of the loop.** The `CLAUDE.md` trim was approved as a
   draft for review (2026-09-26); it goes in its own PR and is not merged without
   the maintainer's review.
   - Releases wait for `main`'s CI, so they speed up with Phases 2–3 automatically.
@@ -115,6 +115,7 @@ needed we need to plan."* Every number below was measured, not estimated.
     (`tests/test_harness_fidelity.py`).
   - **Done 2026-09-26:** a SessionStart hook switches the audio guard on in cloud
     sessions (`.claude/hooks/session-start.sh`, `tests/test_session_start_hook.py`).
+  - *Closed 2026-09-27:* the trim merged after the maintainer's review, #260 (`2ef25de1`), and `tests/test_doc_index_completeness.py::test_every_section_claude_md_points_at_exists` holds its section pointers.
 
 ## 2026-09-25 — every open row in this file, checked
 
@@ -505,13 +506,14 @@ options and a recommendation; **the maintainer took the recommendation on all fo
     their source says a key with no value renders as its own name
     (`cyanrip@221a1df:src/naming.c:253`, `:398`; same at `df91ae7`), so we fill `%N`/`%M` in
     ourselves from the position we send as `-c`.
-- [~] **D19. What happens to the session branch?** 147 commits since 0.6.60, nothing
+- [x] **D19. What happens to the session branch?** 147 commits since 0.6.60, nothing
   merged, round 27 open.
   - **A. PR, merge once CI is green, release when round 27 closes.** B. Merge and release
     now under §6b. C. Hold.
   - **Recommended: A.** **Answer: A** — the maintainer, 2026-09-25. PR #253 opened. The held
     round-27 EAC wording (`46a522e`) is reverted on the branch first (`55d51c9`), because
     the fork's lap 4 existed on neither of their branches that day.
+  - *Closed 2026-09-27:* done as answered. #253 merged, round 27 closed GO/GO, and 0.6.60 and 0.6.61 released from `main`.
 
 ## Round 24 — CLOSED on both gates 2026-09-23 on `3e01bb3` (`+platterpus.14`): ours at our lap 2, theirs at their lap 3
 
@@ -794,7 +796,7 @@ stopped at section A the same day, as their lap 1 predicted.
   2026-09-26: *"use LSL as the base and send ours as amendments"*). Released in the
   standing status as `[ASK D]`: `docs/handshake/outbound/artifacts/lsl-amendments-1.md`.
   Our round 28 lap 2 says it formally, in LSL 1.
-- [ ] **0.6.61, in the order our lap 5 §D names** (the maintainer's choice 2026-09-26: ship
+- [x] **0.6.61, in the order our lap 5 §D names** (the maintainer's choice 2026-09-26: ship
   both together). (1) Their lap 6 closes round 27 on their gate, and they release `.17`.
   (2) Their round 28 lap 1 names `.17` and is released. (3) We move `PIN_UNDER_REVIEW` to
   `.17` (round 28) and cut 0.6.61, which carries the round-27 pin and the round-28 subject.
@@ -802,17 +804,19 @@ stopped at section A the same day, as their lap 1 predicted.
   the Full acceptance on 0.6.61 + `.17`.
   - *2026-09-26, corrected:* it does need one. The amendment lands with protocol v7, as
     our round 27 lap 2 §D said; see round 28 above. Steps (1) and (2) are done.
+  - *Closed 2026-09-27:* steps (1)–(3) are done and 0.6.61 is released (`59f4c00c`, #262). Step (4), the Full run, is round 28's close condition 1 and is tracked in the round 28 section, not here.
 - [x] **The 2026-09-26 04:13 UTC Full run is graded `partial`** (maintainer, 2026-09-26:
   *"There were errors so this is not full green."*). Added to the `docs/testing.md` §5B
   ledger with the errors it carried: our report's false note, fixed; two wrong reads
   logged `Ripping errors: 0`; the interrupted rip's `Encoder errors: none; 1 track
   encoded`. It is the first run in which every archival witness could fail, and the
   ledger still has no `full-green` row. README and PLANNING count nine rows.
-- [~] **The Full run and the fork.** They filed it themselves at `cyanrip@2e9884d` and read
+- [x] **The Full run and the fork.** They filed it themselves at `cyanrip@2e9884d` and read
   every cyanrip log in it. All eight verify with `-Y`, both `.16` fixes ran on the drive,
   and they found a new one of theirs: *"Encoder errors: none; 1 track encoded"* over a rip
   of 0 of 14 tracks. Our round 28 lap 2 compares our reading with theirs, and says we
   grade the run `partial`.
+  - *Closed 2026-09-27:* our round 28 lap 2 (released) sets our reading beside theirs and grades the run `partial` in the evidence ledger (`docs/testing.md` §5B).
 - [x] **The addendum's one-frame row now reads `AccurateRip frame 450:`** (2026-09-26),
   in the words round 27 agreed for the EAC-compatible log, not `+450`, which reads as a
   read offset. Nothing parses that row, so sidecars already on disk keep the old label
@@ -845,7 +849,7 @@ stopped at section A the same day, as their lap 1 predicted.
     with `git merge -s ours` (tree unchanged, gitleaks-clean over the 425 commits it
     brought in). `tests/test_cited_commits_are_reachable.py` now fails on `main` if a
     squash strands one again.
-- [ ] **Our round 28 lap 2, in LSL 1, after their lap 1 names `.17`.** Everything
+- [x] **Our round 28 lap 2, in LSL 1, after their lap 1 names `.17`.** Everything
   NEXT-ROUND (S-14):
   - S16's answer and the fix above;
   - S23's answer;
@@ -861,6 +865,7 @@ stopped at section A the same day, as their lap 1 predicted.
     `offrecord` warning still matters to the spec for a lap read before its merge.
 
   Run both checkers, and cite F1 beside each statement theirs refuses.
+  - *Closed 2026-09-27:* released with 0.6.61 (#262), carrying every item listed.
 
 ## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 
@@ -1445,8 +1450,9 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   - *2026-09-25:* **Decided:** D13 A (a cancelled rip's kept tracks and their checksums go in the JSON report only; cyanrip's log is untouched and no sidecar is written; ready to build) and D2 B (the fork writes every tag key in capitals, plus both `DISCTOTAL` and `TOTALDISCS`; asked in our next lap).
 - [ ] **E16. AccurateRip skip discrimination** (round 8 J13) — ours to answer; the
   track-3 CRC puzzle is related. KI:1388.
-- [ ] **E17. Does cyanrip emit `Accurip` lines under `-l`?** — gates the AR-carryover
+- [x] **E17. Does cyanrip emit `Accurip` lines under `-l`?** — gates the AR-carryover
   finding; derive from their source. TASKS@b8f89a2:4523.
+  - *Closed 2026-09-27, answered from hardware:* yes. The maintainer's subset rip under `-l` (`Tracks to rip: 3, 4, …, 16`) carried `Accurip:` and all three local CRCs per track (`docs/cyanrip-upstream.md:716`). A drive log is stronger evidence than a reading of their source, so no source derivation is owed.
 - [ ] **E18. Long-standing optional asks** — a severity column on the message inventory
   (:1842); the C2-pointers row (:4674); their H3 sanitiser question (:2966); `-f` in the
   wizard (:3545); upstream PR asks (:3918–3921); their eight unfiled upstream defect
@@ -3380,9 +3386,10 @@ SKIP-passes-as-zero, and `abort-if-failed`'s scope.
 - [x] **FIXED in 0.6.38 — it FAILS when `_panel_fields` returns empty.** `snapshot` was the one evidence verb with no floor — 22 unfailable
   PASSes; a snapshot that captured nothing reads like one that captured
   everything. `[CLAIMED]`
-- [ ] **The acceptance header still advertises "4 to 6 hours"**, contradicted by
+- [x] **The acceptance header still advertises "4 to 6 hours"**, contradicted by
   a measurement 370 lines below it in the same file. The T1 README claim was
   corrected this session; this one was not.
+  - *Closed 2026-09-27:* the row is from 2026-08-28, when the only measurement was shorter. Since then two complete Full runs took 4h14m (2026-09-22, 247 steps) and 5h33m (2026-09-26, 320 steps, the sum of `round27fullscriptreport.json`'s step times), both inside the range. The header now cites both (`src/platterpus/rig_scripts/fullacceptance.txt`).
 - [ ] **§B's archival claim is that settings reach cyanrip's argv, and every
   assertion reads the in-memory `Config`** rather than the argv. `[CLAIMED]`
 - [x] **`probe-ripper-wrapper` blocks the GUI thread for up to ~68s under a
@@ -3553,6 +3560,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Sixteen binding conformance rows have never had a named test: C21–C36."*, which stays open.
 - [~] **`§5.x`** (partial, small) — Test the wiring, at the call site
   - *Audit 2026-09-25: partly done.* test_dead_attribute_reads (b96922d) plus per-site wiring tests. No sweep for getattr-with-default, or for wiring tests going through the entry point.
+  - *2026-09-27:* the getattr-with-default half is covered: `tests/test_dead_attribute_reads.py` reads string attribute names, which is how the `getattr` defect was spelled. Still open: no sweep that wiring tests go through the entry point.
 - [x] **`§5.al`** (partial, medium) — Two surfaces answering one question by different keys will disagree
   - *Audit 2026-09-25: partly done.* Instance: test_handshake_approval::test_the_offer_and_the_rip_never_disagree_about_approval. No general gate.
   - *2026-09-25:* **Closed: this cannot be a test.** "The same question" cannot be detected mechanically. The known pair has its relation test (the offer and the rip's approval never disagree). The lesson stays in `CLAUDE.md` as a question to ask.
