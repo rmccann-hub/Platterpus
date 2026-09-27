@@ -129,6 +129,10 @@ def test_app_main_starts_up_clean_on_the_gui_thread(
                     )
                 )
                 window.close()  # exercise closeEvent → joins the launch threads
+                # The subject of that close, asserted: the real `exec()` returns
+                # only once the window is closed, so a stand-in that returned with
+                # it open would leave its startup threads to the next test.
+                results["window_closed"] = not window.isVisible()
         except Exception as exc:  # noqa: BLE001 — record, never hang the loop
             results["exec_error"] = repr(exc)
         return 0
@@ -143,6 +147,9 @@ def test_app_main_starts_up_clean_on_the_gui_thread(
     assert results.get("exec_error") is None, results.get("exec_error")
     assert rc == 0  # clean startup, no fatal-error path
     assert results.get("window_found") is True
+    assert results.get("window_closed") is True, (
+        "the fake exec() returned with the window still open"
+    )
     menus = results.get("menus") or []
     assert "&File" in menus and "&Tools" in menus and "&Help" in menus
     assert results.get("widgets_ok") is True
