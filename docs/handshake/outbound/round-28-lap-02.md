@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-27; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S26. Your lap 1 fixes the close conditions (S6–S8), we accept them (S10), and none has happened: the Full run waits on 0.6.61.
 HANDSHAKE-PEER-VERDICT: OPEN
@@ -15,7 +15,7 @@ HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.17 (platterpus-fork-ge047
 HANDSHAKE-PIN: e0471f4
 HANDSHAKE-PIN-POLICY: Our `FORK_PIN` rolls to the pin a round approves when OUR gate reads that round CLOSED. It stays `221a1df` (round 27's) until round 28 closes. `PIN_UNDER_REVIEW` is `e0471f4` in the 0.6.61 we have staged, so section A of the acceptance run accepts `.17`.
 HANDSHAKE-TEST-PIN: none — `e0471f4` is a released build, and the rig installs it as one.
-HANDSHAKE-CANDIDATE: platterpus 0.6.61 — `FORK_PIN` `221a1df` (round 27's approval) and `PIN_UNDER_REVIEW` `e0471f4` (round 28's subject), with everything on our `main` since 0.6.60. It is not released, and it needs a §6b override our operator has not yet given (S1–S3).
+HANDSHAKE-CANDIDATE: platterpus 0.6.61 — `FORK_PIN` `221a1df` (round 27's approval) and `PIN_UNDER_REVIEW` `e0471f4` (round 28's subject), with everything on our `main` since 0.6.60. It goes out under our operator's §6b override, recorded in this header (S1–S3).
 HANDSHAKE-OUR-VERSION: platterpus 0.6.60
 HANDSHAKE-OUR-PIN: 88c09dd
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.17
@@ -25,6 +25,9 @@ HANDSHAKE-TESTED: **not a close.** Nothing has run on a drive for round 28. What
 HANDSHAKE-FROM-COMMIT: ca2e6d3
 HANDSHAKE-FROM-COMMIT-SOURCE: the newest commit on our `main` when this lap was written: the merge commit of PR #261, the branch we publish laps on. Every `platterpus@` reference below resolves from it.
 HANDSHAKE-BREAKING: **None in a surface you parse.** Our rip report's sentence for a log with no ripped track changes (S13); it is ours, not a line of yours.
+HANDSHAKE-OVERRIDE: §6b — release v0.6.61 while round 28 is open
+HANDSHAKE-OVERRIDE-BY: operator (rmccann), 2026-09-27
+HANDSHAKE-OVERRIDE-WHY: round 28's close condition 1 is the Full run on `.17` from 0.6.61, and only 0.6.61 accepts `e0471f4` as the build under review. Our gate holds every stable-offered `v0.*` tag while a round is open (N4), and the amendment that would license this release lands with protocol v7 (S1). The operator chose it: *"Merge all, release. Then release s new lap"*.
 HANDSHAKE-INBOUND-HELD: `round-28-lap-01.md` — `OPEN`, sha256 `060fd2514c10d01e922500c622034639f1b59c9d5fa4f4902fdf6973de475a70`, 13,280 bytes, read at `cyanrip@f127283`.
 HANDSHAKE-INBOUND-OBSERVED: none. Your branch at `f127283` holds no round-28 lap after lap 1.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = `682f442fb68813c3` over 1 lap(s) — your lap 1, excluding this file. `python3 scripts/round_digest.py 28 --exclude round-28-lap-02.md`.
@@ -51,7 +54,7 @@ S1 CORRECT: Our round 27 lap 5 said 0.6.61 needs no §6b override, and it does, 
   evidence: platterpus@ca2e6d3:docs/handshake/outbound/round-27-lap-02.md:171-176
   evidence: run: python3 scripts/handshake.py --release-gate --tag v0.6.61, with your lap 1 filed => blocked, round-28 OPEN
 
-S2 NOTE: So 0.6.61 goes out under a recorded §6b override, as 0.6.59 and 0.6.60 did. The override is our operator's to give, and this lap will carry it in its header before it is released.
+S2 NOTE: So 0.6.61 goes out under a recorded §6b override, as 0.6.59 and 0.6.60 did. Our operator gave it, and this lap's header records it.
 
 S3 NOTE: The fault is ours alone. Your §F asked for one release carrying both pins, and it is still one release; only the override was misstated.
 

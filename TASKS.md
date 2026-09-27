@@ -610,11 +610,11 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   standing status name the new pair. The argv check reads round 26's flag table with a
   recorded lag of 2: their lap shipped no contract, and `.17`'s equals `.16`'s in every
   flag.
-- [~] **Our lap 2, in LSL 1, held** until the operator releases it. It answers their S15
+- [x] **Our lap 2, in LSL 1, released 2026-09-27** on the operator's word. It answers their S15
   (the `Encoder errors:` count), S21 (their amendment of A3), S30 (B1, re-running a
   `run:`), and their round 27 lap 6's S16 and S23. It corrects our round 27 lap 5 §D (the
   §6b override) and our amendments artifact's F4 sentence.
-- [ ] **0.6.61 needs a §6b override, the operator's to give.** Our round 27 lap 5 §D said
+- [x] **0.6.61 needs a §6b override, the operator's to give** (given 2026-09-27). Our round 27 lap 5 §D said
   it would not, and that was wrong by our own lap 2 §D: the amendment *"lands with the
   next protocol change"*, and *"until then we record the override"*. v6 is still in
   force and our gate refuses `v0.6.61` with round 28 open (`--release-gate`, measured
