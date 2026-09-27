@@ -438,6 +438,288 @@ worse than one long home**, because the reader now holds two maps with no way to
 tell which is current. Collapsed 2026-08-27; the content was moved, not summarised
 away.
 
+## 7.7 Critical rule #12 in full — the standing seam rules, moved from `CLAUDE.md` (2026-09-26)
+
+`CLAUDE.md` Critical rule #12 is the always-loaded statement of the seam. Until 2026-09-26 it carried every obligation below at full length, with its incident record inline. When `CLAUDE.md` was trimmed to its rules and pointers, each obligation kept its operative sentence there and its full text moved here, verbatim, because this file is the protocol's single home (its header says so, and `tests/test_handshake_protocol.py` holds `CLAUDE.md` to linking rather than restating it). Obligations whose substance already lived in §7.1–§7.3, §9 or `PLANNING.md` KDD-34 were not duplicated here; `CLAUDE.md` points at those directly.
+
+### 7.7a The handshake is AFFIRMATIVE, BILATERAL, and checked at the drive
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Critical rules, rule #12), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**The handshake is AFFIRMATIVE, BILATERAL, and checked at the drive** (maintainer directive, 2026-08-04: *"Both of you should not make a new release until you are both happy with the handshake files, and proper testing is needed… This needs to be an affirmative handshake and include what versions you both are and what to use, and verify at the time of rip as well so we can confirm."*). Four obligations, each enforced by code rather than remembered: **(1)** a round closes only when **both** sides declare `GO` — one side's GO against the other's HOLD is an open round, and reading only our own verdict made their HOLD unable to block our release (one half of a two-half contract, for the third time in this protocol's life); **(2)** every handshake file from either side opens with the **shared wire header** at column 0, specified in **`docs/handshake-protocol.md` — the SAME FILE in both repos, which neither project owns** (a faithful restatement is still a second spec that can drift; editing it unilaterally is a version bump both sides must ship before the next close). Its §8 is a **conformance table, and it is run, not read** — `tests/test_handshake_conformance.py`, one test per row; running it found an empty record passing our own release gate, which four prose statements of the same principle had not. A declaration is what a file *states*, never what it *quotes*: fenced examples are stripped before matching, because a format's own documentation is the likeliest place to trip its parser; **(3)** **both** versions are named, ours and the ripper's, because a round approves a pin *for a named app version* and two artifacts from the same ripper under different app versions are not interchangeable evidence; **(4)** **every rip verifies its own ripper** against the approved build (`handshake_approval.py` → the report's `ripper_handshake_approval*` fields, added in schema **v15**; the live number is `rip_report.REPORT_SCHEMA_VERSION` — read it, do not quote it here), because a release gate runs once on a machine that never rips a disc and the rig is where an unapproved binary would actually be used. Tri-state as always: `not_determined` is not a pass, and an unrecognised build tag is never reported as unapproved.
+
+### 7.7b Each round is two files and two verifications
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Critical rules, rule #12), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**Each round is two files and two verifications.** `scripts/handshake.py --emit N` builds our outbound skeleton with every required section; `--check <file>` validates a received one and exits non-zero listing what is absent, including the two failures worse than a missing section (present-but-empty, and a null case left silent); `--status` reports every round as OPEN or CLOSED off `docs/handshake/{outbound,inbound,verified}/`. **A round is OPEN until **both** verifications declare GO — ours *and* theirs. No release, no pin switch while one is open. (Stated as *"our verification file"* until 2026-08-27, which contradicted obligation **(1)** one line above and is exactly the one-half-of-a-two-half-contract failure that obligation exists to name.)** The verdict closes the round, not the file's existence: a verification may deliberately be a mid-round `**HOLD**` (round 7 was, at the fork's own request), and a gate that counts a HOLD as a close is not a gate. Every verification file from round 4 on opens with a bolded `**GO on <pin>`/`**HOLD on <pin>` line at a line start; a missing verdict fails closed. Committing the round files is how the record survives the session.
+
+### 7.7c Both halves of the seam are checked, mechanically, every commit
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Critical rules, rule #12), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**Both halves of the seam are checked, mechanically, every commit.** The *output* half (their log lines vs our parser) had a standing test; the *input* half (their flag table vs our argv) did not, and that gap shipped a release blocker — every version probe sent `-V`, which cyanrip removed after 0.9.3, and a rejected version flag exits non-zero, which every probe here reads as *"the tool is not installed."* The app would have reported the ripper missing immediately after the wizard built it. Their published flag table had said so for a full round. `tests/test_argv_surface_agreement.py` now diffs every flag we send against the newest inbound round's table, and `tests/test_cyanrip_version_flag.py` pins the probe against each build shape.
+
+### 7.7d State the range a contract claim covers, not the snapshot
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Critical rules, rule #12), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**State the range a contract claim covers, not the snapshot.** Their note *"`-v` is version; there is no `-V`"* was true when written and one commit from being the misleading kind of true. Same shape as our dependency dialog reading `cyanrip 0.9.3` / `0 missing`: every word accurate, the message wrong. A contract line should say *which builds* it holds for.
+
+### 7.7e An upstream change cannot be escaped by rolling back to upstream
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Critical rules, rule #12), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**An upstream change cannot be escaped by rolling back to upstream.** The `-V` removal came from upstream, not the fork, so "revert to stock cyanrip" was never a mitigation — only pinning 0.9.3 or fixing the probe was. **Twice now, which makes it a pattern rather than a special case:** the `HH:MM:SS.mmm` → `MM:SS.FF` duration-shape change is also upstream's (PR #130), inherited by the fork, and rolling to stock does not restore the old shape either — we had it filed as a fork change until they corrected us in round 7. When planning a rollback, check whether the failure is *ours*, the fork's, or upstream's; the third kind has the fewest exits, and it is the kind whose origin is easiest to misattribute because the fork is the binary in front of you.
+
+### 7.7f Both directions are sanitised and error-checked, at the boundary, by code
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Critical rules, rule #12), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**Both directions are sanitised and error-checked, at the boundary, by code.** The rules themselves live in **`docs/seam-rules.md` — one file, byte-identical in both repos, which neither project owns** (same mechanism as `docs/handshake-protocol.md`). Every rule there is tagged `[BOTH]` / `[PLATTERPUS]` / `[CYANRIP]` so each side knows what binds it *and* what the other has promised, and §4 tables **every value that crosses the seam with its type** — because a rule saying "validate the inputs" without naming which inputs and of what type is satisfied by whoever last read it. Summary: The seam has an *outbound* half (the argv we hand them) and an *inbound* half (the log and output we take back and show a user), and **each needs its own validator** — not one, and not a shared intention. Found 2026-08-06 by the maintainer asking the question in both directions on the same day, and both halves were holed:
+- **Outbound.** Every rip argv the app builds passes `assert_metadata_lookup_disabled` — one chokepoint, which refuses an argv lacking `-N` and validates the `--consumer` tag. But a **straight-passthrough** path that skips the chokepoint is a hole in a rule the rest of the codebase enforces, and the new script verb was exactly that. Any new route to the ripper — a script verb, a debug console, a CLI flag — **re-establishes the guard by delegating to the chokepoint**, never by restating its rule; a second copy of a safety check is a second thing to drift, and a test asserts the refusal text is byte-identical. The failure this prevents is not a wrong result but a **hang**: without `-N` the ripper runs its own lookup and can block on an interactive prompt with no terminal attached.
+- **Inbound.** Their output is **external input** and gets the same treatment: control characters and NULs flagged, absurd line lengths bounded (a multi-megabyte single line freezes the GUI thread rendering it), everything else verbatim, and **any elision counted and marked** — never a silent drop. And the rendering surface is pinned: Qt's default `Qt::AutoText` **auto-detects HTML**, so a captured line that merely looks like markup is *interpreted* rather than shown. The content is not the ripper's own — album and track titles come from MusicBrainz — so a title containing `<` is swallowed as an unknown tag and **the user never learns text went missing**. Every widget carrying dependency output is `PlainText`. **The sweep is `tests/test_message_boxes_are_plaintext.py`, and it covers `QMessageBox` only** — 6 sites, all pinned, with a ratcheted allowlist for literal-text boxes that is empty. Said precisely because this sentence used to read *"swept rather than fixed one at a time"* when **no sweep existed**: three of the six boxes had been fixed individually and three had not, including `_show_fatal_dialog`, whose `{exc}` is arbitrary external text in the one dialog a user screenshots to report a crash (found 2026-08-20 by an audit that went looking for the sweep this rule claimed). The 13 `QLabel(<non-literal>)` sites are **not** swept — most build their text from our own constants, so a blanket rule would need a long allowlist and a list of excuses enforces nothing; they are tracked in `TASKS.md`. Scoping a sweep is fine. Scoping it silently while the rule claims everything is the defect.
+- **Nothing crosses the seam unchecked in either direction, and neither half is evidence for the other.** The input half had a contract test and the output half did not; that asymmetry is what let the `-V` blocker sit in a committed file for a full round. Both halves are checked mechanically, every commit.
+- **A FIX WE FIND IN OURSELVES THAT COULD HELP THEM IS SENT, AND THE BAR IS
+  *could in any possible way*, not *certainly does*** (maintainer directive,
+  2026-09-13: *"make sure any fixes you find on yourself that could in any
+  possible way help the other repo, you tell them"*). This is the missing
+  direction of the seam. The protocol already carries a §H *"Found in our
+  output"* for defects we find in **their** artifacts, and the challenge
+  mandate has them auditing **us** — nothing obliged either side to report a
+  defect found in its **own** code whose *shape* the peer might share.
+  **The trigger is the shape, not the subject.** A truncation that drops the
+  identifying end of a name, a gate satisfied by the document that documents
+  it, a checker scoped to one artifact role and applied to all — none of
+  those is about cyanrip, and each is a bug either project can hold. So the
+  test is *"is the MECHANISM portable?"*, never *"is their code affected?"* —
+  the second question requires reading their tree to answer, and under the
+  rule above we will not assert a mechanism in their code anyway. **Report
+  the shape with our citation and let them check their own side**; that costs
+  us three sentences and costs them one grep.
+  **Cheap to over-report and expensive to under-report, so err loudly.** A
+  finding they already knew is a paragraph they skim. A finding withheld
+  because it looked parochial is the class of defect this seam exists to
+  catch, found twice and shared zero times.
+  Vehicle: a NEXT-ROUND item in the current lap — not a new round, not a new
+  file, and never a reason to hold a round open (S-14: a finding defaults to
+  the next round).
+  **Bilateral, and it travels.** Unlike the two carve-outs below, this is a
+  term of the seam rather than a rule about our own operator: it is worth
+  exactly as much in the other direction, and a one-sided version would read
+  as us auditing them while keeping our own lessons.
+
+- **The fork does the same, as a double check.** Two independent validators at one boundary are worth more than one careful one, because a value either side waves through still meets a guard. They validate what they receive from us and what they emit to us; we do the same. Neither side treats the other's checking as a reason to skip its own.
+
+### 7.7g The fork has a standing CHALLENGE MANDATE, and it is asymmetric on purpose
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Critical rules, rule #12), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**The fork has a standing CHALLENGE MANDATE, and it is asymmetric on purpose** (maintainer, 2026-08-26). They were told they are *"the adult in the room"*: as the ripping engine, most of the accuracy and correctness burden is theirs, so they are to **double-check, fact-check, and call out or question** us. Three consequences, and the third is the one that is easy to skip:
+- **Expect over-asking, and do not treat it as a process defect.** The maintainer said plainly to expect more questions than normal. A lap that asks four things we think are settled is the mandate working, not a convergence problem — do not answer it with S-16 or a complaint about lap count. Answer the questions.
+- **It absolves us of nothing** — the maintainer said so in the same breath, and it is already the rule directly above: *neither side treats the other's checking as a reason to skip its own*. A second validator is worth having precisely because it is second, not because the first one can now relax. Every claim we make still carries its measurement.
+- **Find out WHETHER they are more often right, by counting — then find out WHY, and adopt the mechanism rather than the conclusion.** The instruction was *"if they tend to be more correct than wrong, you should find out why and adopt the logic if possible, but let them try it out until you have measurable results either way."* So: **do not pre-judge it in either direction**, and do not decide it from the feel of the last lap. The ledger is `docs/cyanrip-handshake.md` → *Challenge ledger*, one row per substantive challenge with its outcome, cited to the lap that made it and the artifact that settled it. This is the same discipline as the round-7 lap count one bullet down — *counted, not felt*, and there the fork had the numbers first while we had them and had not looked. Adopting **the logic** matters more than the verdict: a peer who is right more often is running a better procedure, and the procedure is the transferable part.
+
+### 7.7h A round must be able to end. Round 7 took 37 laps, 10 test pins and 8 pre-releases to produce 0 releases; rounds 5 and 6 took one lap each
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Critical rules, rule #12), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**A round must be able to end. Round 7 took 37 laps, 10 test pins and 8 pre-releases to produce 0 releases; rounds 5 and 6 took one lap each.** Counted, not felt — the fork tabled it and we had the same numbers and had not looked. *Nothing in round 7 was bad work*: it found a memory disclosure into an archival record, four segfaults, a gate that graded a crash as a clean refusal, a subsystem with no way to open it. **The round failed anyway, because it had no closing condition that could not be extended** — the properties that make the work good are exactly the ones that keep it open. Four mechanisms, each with a rule, all adopted from the fork's round-7 convergence proposal and binding on both sides:
+- **S-13 — a round's close conditions are fixed in its lap 1 and cannot grow.** A criterion discovered later belongs to the *next* round, unless it is a regression in the pin under review. (Round 7 opened with three acceptance criteria; the fourth arrived at lap 31 — correct, and it moved the finish line 30 laps in.)
+- **S-14 — a finding defaults to the next round.** Promoting one to blocking requires naming **what it breaks in the artifact under review**. *"It is a real defect"* is an argument for fixing it, never on its own for holding a release. Not one of round 7's findings made the reviewed pin unsafe; every one of them blocked it anyway, because nothing ever asked the question.
+- **S-15 — an agreed test pin does not move for the rest of the round**, unless it is found unsafe. Fixes queue for the next one. Ten pins meant the hardware evidence was always about a build nobody was reviewing any more.
+- **S-16 — questions carry a target, `BLOCKING` or `NEXT-ROUND`**, and `BLOCKING` must satisfy S-14. **A questions section may be empty**; "no questions" is a complete section and is written out. A spec that *requires* questions makes inventing work mandatory, and a round cannot converge faster than it invents work.
+- **Pre-commit, and it is the one that actually ends rounds.** A lap may declare *"our next lap is GO unless X"*, naming X, and it binds. Both sides did this in round 7 laps 36–37.
+- **The failure in one sentence: release-grade rigour was being applied to the *round* rather than to the *release*.** The rigour is right. Attaching it to a process that must terminate is what produced 37 laps and no release.
+
+### 7.7i THE FORK IS THE CORE, AND MAKING SURE THEY PERFORM CORRECTLY IS OUR JOB — not a courtesy, and not discharged by their having checked it themselves
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Critical rules, rule #12), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**THE FORK IS THE CORE, AND MAKING SURE THEY PERFORM CORRECTLY IS OUR JOB —
+not a courtesy, and not discharged by their having checked it themselves**
+(maintainer directive, 2026-09-04: *"they do it, you double check their work,
+even if they did, if you can"*). This is the mirror of the challenge mandate
+above and the two are one arrangement, not two favours. Five obligations:
+- **Their correctness is load-bearing in a way ours is not, so hold them to
+  it.** `docs/OWNERSHIP.md` §1's RECOVERABILITY test already says why: get a
+  fact wrong that needs the disc in the drive and the disc has to go back in;
+  get one wrong that is derivable afterwards and it is fixed by re-reading
+  files already on disk. They own the first kind. That is the reason to hold
+  the ripping engine to the higher bar — **and the reason our own bar is
+  barely lower, because everything they get right can still reach a user
+  wrong through us.**
+- **Verifying their emissions is a duty we have already signed, every lap.**
+  `docs/OWNERSHIP.md` §3 assigns Platterpus *"The gate over incoming
+  artifacts, and the systematic feedback duty"*, and the fork agreed to it.
+  So this rule adds no imposition on them and needs no lap: it is us being
+  told to actually do a job the shared file already gives us. **Their having
+  verified something is not a reason to skip it** — that is the rule one
+  bullet up, applied in the direction it is easier to forget.
+- **Where their source is reachable, DERIVE the number; do not accept the
+  lap's.** Their repository is public and can be cloned into the session
+  (`add_repo` / `git clone`, 2026-09-04). On that day their lap 10 published a
+  16-row table; instrumenting *their* generator over the 121 published rows
+  reproduced it exactly — `total_error_count++` 8, `ret = N;` 6, `err = N` 1,
+  combined 1 — and separately confirmed that `FAIL_PATH` really had seven
+  alternatives while its preamble named five. **That is the standard now.** A
+  claim we could have derived and merely repeated is a claim we asserted. And
+  it cuts the other way too: the same session produced **three** different
+  answers from correct code (19, 15, 16) before the population was closed
+  correctly, so derive, then ask *"is the population I measured closed?"*
+  before publishing the number.
+- **NEVER put a defect on them that we started, or whose root is not theirs.**
+  Establish the origin before attributing it — ours, theirs, or **upstream's**,
+  the third being the kind this file already names as easiest to misattribute
+  *"because the fork is the binary in front of you"*. A lap's framing is an
+  attribution whether or not it uses the word: writing *"your P5 said it was
+  fatal"* about a line we chose to grade as fatal is blame, however true the
+  clause is. When both sides contributed, say which half is ours **first**.
+- **The user sees us and never them, so a failure that reaches a user is ours
+  to own in front of that user.** Not *"the ripper failed"* — the sentence a
+  user reads names what went wrong and what to do, and the dependency's own
+  text is shown as evidence, never as the culprit. This is not politeness: a
+  user cannot act on an attribution, and blaming a component they have never
+  heard of reads as an excuse. It is also, plainly, what will happen anyway —
+  they will hold Platterpus responsible whether or not that is fair, and a
+  rule that pretends otherwise costs us the chance to have already fixed it.
+- **And our own standard does not drop because we are downstream.** A gate of
+  ours that catches us is the system working: on 2026-09-04
+  `tests/test_handshake_artifact_naming.py` refused a filing of mine — an
+  artifact named `…-ga20d0a6.md` for a document carrying no build banner —
+  **one lap after I wrote that very rule into lap 9 and the fork adopted it as
+  v5's clause 5b.5.** Apply to our own work the scrutiny this rule demands we
+  apply to theirs.
+- **NOT bilateral, and it does not travel.** Same carve-out as the bullet
+  below: it governs a duty of ours, not a term of the seam contract. Sending
+  the fork a rule about how closely we intend to check them would impose
+  nothing on them, restate a duty `OWNERSHIP.md` §3 already assigns us, and
+  read as a demotion of a peer this project depends on. Do the checking; do
+  not publish the intention.
+
+### 7.7j LAPS TRAVEL BY GIT. Write the lap, commit it, push it, then tell the maintainer to point the peer at it
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Critical rules, rule #12), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**LAPS TRAVEL BY GIT. Write the lap, commit it, push it, then tell the
+maintainer to point the peer at it** (maintainer directive, 2026-09-13:
+*"no more laps i send manually, you make the doc and put into the repo,
+then tell me to have the other repo take a look"*). This **supersedes** the
+2026-09-04 rule that said to ask before writing a lap, and it supersedes it
+by removing the reason rather than by overruling it: that rule existed
+because *only the maintainer can perform the send*, so a written lap could
+sit unsent indefinitely — and three did.
+**BUT PUBLISHING IS NOT SENDING, AND THIS FILE SAID IT WAS FOR ONE DAY.**
+Corrected 2026-09-14 on the maintainer's instruction: *"a lap should not be
+seen as ready to read and use until I am told to do so and let the other repo
+know. And it should confirm that in the file as well."* **Committing makes a
+lap AVAILABLE; the operator's announcement makes it LIVE**, and the two are
+separate acts — which is what *"publishing is sending"* collapsed. The error
+is instructive rather than careless: under hand transport the operator **was**
+the transport, so a lap nobody had weighed simply never moved, and the
+separation was invisible because it was structural. Move the transport and the
+structure stops enforcing it. Ask of any mechanism being replaced: *what was
+the old one doing that nobody wrote down?*
+**The file declares its own state**, so a peer never infers it from a commit
+date: `HANDSHAKE-READY-TO-READ: no` at emit,
+`handshake.py --announce <lap>` flips it to `yes` with the date and who
+released it, and **`--announce` is run on the maintainer's word, never on our
+own judgement.** Tri-state (`ready_to_read`), fail-closed, with a grandfather
+at round 19 because every earlier lap was hand-carried and delivery *was* the
+announcement. Our gate will not take a verdict from an unreleased lap **in
+either direction** — theirs included, because we can now read their tree
+before their operator has released anything, and acting on their draft would
+make their draft our decision. It says *which* lap it is holding rather than
+reporting a bare "no verdict"; **`--announce` refuses an inbound lap**, since
+the peer's operator releases the peer's laps.
+Permitted without a protocol bump by the shared spec's own §3 — *"unknown
+fields are ignored by both parsers, so either side may add one without
+breaking the other"* — so it is **emitted and enforced here, and proposed to
+them as normative**, the same shape as `HANDSHAKE-TO`/`-FROM-REPO` in round 16.
+**Both repos are public and either side can read the other. That premise was
+wrong in both trees for the entire life of this protocol.** The fork found it
+in themselves first — their `CLAUDE.md` asserted it twice and a round-18 lap
+a third time — ran the check instead of repeating the claim, and told us;
+ours said it too, in `docs/cyanrip-known-issues.md` and a session-log entry.
+It is the class this file already names: **a note asserting an absence needs
+a check that fails when the absence ends.** Same shape as *"there is no
+`-V`"* and *"the suite has no network"*. This one is the most expensive of
+the three, because it shaped the protocol: round 12 cost a whole round to a
+mechanism we asserted in their build and could simply have read.
+**`main` is the ref of record, and that is the new failure mode.** Work
+happens on a `claude/…` branch and reaches `main` by squash merge, so a lap
+can be committed, correct and invisible. Measured the day the rule changed:
+`main` was **107 commits behind** and carried **none** of round 18's six
+files. So the gate that used to be unable to see a send can now see one —
+*is this lap on `main`?* is a question with an answer — and
+`tests/test_no_lap_is_left_unsent.py` is where that answer belongs.
+**What it does NOT license, and the fork said it first and better:** reading
+their tree is not a substitute for a lap and not a licence to author their
+half. *"The seam's value is two independent implementations catching each
+other, and a convention re-derived from their source is one implementation
+copied twice. Read to verify, never to decide for them."* And the citation
+rule is unchanged — a mechanism claimed in their code carries
+`cyanrip@<sha>:<path>:<line>` — it has merely gone from impossible to cheap.
+**The half that stays with the maintainer is the NOTIFICATION**, which is why
+the directive ends *"then tell me"*. A published lap nobody has been pointed
+at is discoverable rather than lost, which is strictly better than the old
+failure, but it is still not delivered. Say which commit it is on.
+
+### 7.7k This rule lives in both repos
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Critical rules, rule #12), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**This rule lives in both repos.** When it changes here, send the change to the fork in the same round so their `CLAUDE.md` (or equivalent) matches. Two projects with different copies of the protocol is the failure this rule exists to prevent. **The bullet directly above USED to be the exception and no longer is** — when it was *"ask our maintainer before writing a lap"* it governed our operator and shipping it would have handed the fork a rule about a person they do not work with. Now that it is *"laps travel by git"* it is a **term of the seam**: it names where each side publishes and which ref the other reads, and a transport only one side has adopted is not a transport. It travels. (The two carve-outs that remain are the ones that still govern a duty of ours rather than a term between us — *the fork is the core* and the checking we owe them.)
+
+### 7.7l Artifact filenames that cross machines — the full convention
+
+*Verbatim from `CLAUDE.md` at `f5305a7` (Project operations → Artifact filenames that cross machines), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
+
+**ASCII letters and digits only. No hyphens, no underscores, no spaces.
+Numbers zero-padded.**
+
+**Case is the one deliberate exception, and it is there to serve the rule's own
+purpose** (2026-09-07). The hazard was never capitals — it was *two conventions*,
+one artifact spelled two ways, which is how a rig run was lost. When the fork
+adopted direction-in-the-filename in round 16 they spelled it
+`round16lap01FROMcyanripTOplatterpus.md`, so ours is
+`round16lap03FROMplatterpusTOcyanrip.md` — matched, not merely correct. The
+operator holds both files in one folder and is the only reader either naming
+convention exists for. `round08joint.txt`, `round08lap07.md`.
+
+**Scope: artifacts a PERSON handles by hand** — rig scripts, the transport
+envelope, anything named in a command an operator will type or paste, anything
+that leaves this repo and comes back through a chat client or a file manager.
+
+**NOT the committed handshake laps.** Those are `round-14-lap-18.md`, generated
+by `handshake.py::handshake_filename()` and held to that shape by `_LAP_NAME`;
+nobody types them and they never leave the repo by hand. The two conventions are
+deliberate and this rule said otherwise until 2026-08-27, condemning the repo's
+own enforced practice — which is the sort of rule that gets ignored wholesale
+rather than obeyed selectively. The envelope that *does* cross by hand
+(`round14lap16platterpus.md`) follows the rule, and
+`tests/test_handshake_file_naming.py` enforces both shapes separately.
+
+Added 2026-08-13, on the maintainer's instruction, after a rig run was lost to
+it. The same artifact was `round08joint.txt` on their disk and
+`round-08-joint.txt` in the instructions written for them. A path is an
+exact-match string, so the load failed — and (separately fixed) the app then ran
+a *different* script without saying so. The maintainer's words: *"every file you
+talk about has a `-` or emdash, every file has none… it should be machine
+readable, os agnostic, language agnostic."*
+
+Why this spelling and not a prettier one: it is the intersection of what every
+filesystem, shell, chat client and file manager in this project's path handles
+without quoting or transformation. Hyphens are individually fine; *two
+conventions* are not, and this is the one the artifacts already had.
+
+**The rule is a convention; `uiscript/find_script.py` is the guarantee.** A rule
+binds whoever last read it, and this artifact crosses two repositories, a chat
+client and a file manager — none of which read anything. So `--run-script`
+resolves the path by comparing names with separators and case removed, which is
+symmetric (it works whichever convention either side picks) and refuses rather
+than guesses when two files match. Legislate the name *and* stop depending on it.
+
 ## 8. The wire format — the shared protocol file
 
 **The specification is [`handshake-protocol.md`](handshake-protocol.md), and it is
