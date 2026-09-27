@@ -9564,9 +9564,11 @@ def _fourteen_track_release() -> ReleaseDetail:
     )
 
 
-def test_the_track_list_opens_showing_several_rows(qapp: QApplication) -> None:
+def test_the_track_list_opens_showing_several_rows(
+    qapp: QApplication, teardown_threads: Any
+) -> None:
     """THE REGRESSION: it used to open on two rows of fourteen."""
-    window = _make_window(qapp)
+    window = teardown_threads()
     try:
         window.show()
         qapp.processEvents()
@@ -9592,10 +9594,11 @@ def test_the_track_list_opens_showing_several_rows(qapp: QApplication) -> None:
 
 def test_the_initial_pane_split_is_applied_once_and_not_on_every_show(
     qapp: QApplication,
+    teardown_threads: Any,
 ) -> None:
     """Applying it on every show would silently undo the user's own dragging — the
     fix's own new failure mode, so it gets its own test."""
-    window = _make_window(qapp)
+    window = teardown_threads()
     try:
         window.show()
         qapp.processEvents()
@@ -9644,7 +9647,9 @@ def test_the_default_window_size_is_clamped_to_the_screen() -> None:
         )
 
 
-def test_the_taller_default_is_what_buys_the_extra_rows(qapp: QApplication) -> None:
+def test_the_taller_default_is_what_buys_the_extra_rows(
+    qapp: QApplication, teardown_threads: Any
+) -> None:
     """The height change, tested where it is observable.
 
     `_default_window_size` clamps to the screen, and CI's virtual screen (800x800
@@ -9657,7 +9662,7 @@ def test_the_taller_default_is_what_buys_the_extra_rows(qapp: QApplication) -> N
     """
     from platterpus.ui.main_window import _DEFAULT_WINDOW_H, _DEFAULT_WINDOW_W
 
-    window = _make_window(qapp)
+    window = teardown_threads()
     try:
         window.show()
         qapp.processEvents()
@@ -9796,7 +9801,9 @@ def test_a_single_candidate_does_not_claim_a_picker_was_opened(
 # --- The cancel rescue must not eject a drive the cancel already freed -------
 
 
-def test_a_finished_rip_disarms_the_force_stop_rescue(qapp: QApplication) -> None:
+def test_a_finished_rip_disarms_the_force_stop_rescue(
+    qapp: QApplication, teardown_threads: Any
+) -> None:
     """A cancel that works must not be followed by an eject five seconds later.
 
     **The defect.** `_on_rip_cancel` arms `_force_stop_timer` for 5 s "in case it
@@ -9816,7 +9823,7 @@ def test_a_finished_rip_disarms_the_force_stop_rescue(qapp: QApplication) -> Non
 
     Found 2026-08-18 by auditing the rig script, not by the suite.
     """
-    window = _make_window(qapp)
+    window = teardown_threads()
 
     # Arm the rescue exactly as a cancel does, without needing a real rip.
     window._force_stop_done = False
@@ -9838,6 +9845,7 @@ def test_a_finished_rip_disarms_the_force_stop_rescue(qapp: QApplication) -> Non
 
 def test_the_rescue_still_fires_for_a_rip_that_never_finishes(
     qapp: QApplication,
+    teardown_threads: Any,
 ) -> None:
     """The counter-test: the fix must not disable the rescue it narrows.
 
@@ -9846,7 +9854,7 @@ def test_the_rescue_still_fires_for_a_rip_that_never_finishes(
     rescue unconditionally it would have removed the drive recovery, so this pins
     that the timer survives when no completion arrives.
     """
-    window = _make_window(qapp)
+    window = teardown_threads()
     window._force_stop_done = False
     window._force_stop_timer.start(5000)
 
@@ -9879,7 +9887,7 @@ def _armed_bundle(window: MainWindow, tmp_path: Path, **kwargs: Any):
 
 
 def test_a_deliberate_single_track_rip_is_not_labelled_partial(
-    qapp: QApplication, tmp_path: Path
+    qapp: QApplication, teardown_threads: Any, tmp_path: Path
 ) -> None:
     """v0.6.17 called the maintainer's own clean 1-track rip `partial`.
 
@@ -9891,7 +9899,7 @@ def test_a_deliberate_single_track_rip_is_not_labelled_partial(
     """
     from platterpus.workers.rip_worker import RipParameters
 
-    window = _make_window(qapp)
+    window = teardown_threads()
     window._current_num_tracks = 14
     window._active_rip_params = RipParameters(
         drive="/dev/sr0",
@@ -9916,7 +9924,7 @@ def test_a_deliberate_single_track_rip_is_not_labelled_partial(
 
 
 def test_a_genuinely_short_rip_is_still_labelled_partial(
-    qapp: QApplication, tmp_path: Path
+    qapp: QApplication, teardown_threads: Any, tmp_path: Path
 ) -> None:
     """The counter-test: the denominator fix must not retire the label.
 
@@ -9925,7 +9933,7 @@ def test_a_genuinely_short_rip_is_still_labelled_partial(
     """
     from platterpus.workers.rip_worker import RipParameters
 
-    window = _make_window(qapp)
+    window = teardown_threads()
     window._current_num_tracks = 14
     window._active_rip_params = RipParameters(
         drive="/dev/sr0",
@@ -9944,12 +9952,12 @@ def test_a_genuinely_short_rip_is_still_labelled_partial(
 
 
 def test_a_whole_disc_rip_still_measures_against_the_disc(
-    qapp: QApplication, tmp_path: Path
+    qapp: QApplication, teardown_threads: Any, tmp_path: Path
 ) -> None:
     """`only_tracks` is empty for a whole-disc rip, which is why the fallback exists."""
     from platterpus.workers.rip_worker import RipParameters
 
-    window = _make_window(qapp)
+    window = teardown_threads()
     window._current_num_tracks = 14
     window._active_rip_params = RipParameters(
         drive="/dev/sr0",
@@ -9970,7 +9978,7 @@ def test_a_whole_disc_rip_still_measures_against_the_disc(
 
 
 def test_the_bundle_waits_for_the_post_rip_checks_it_claims_to_have_waited_for(
-    qapp: QApplication, tmp_path: Path
+    qapp: QApplication, teardown_threads: Any, tmp_path: Path
 ) -> None:
     """The headline v0.6.17 defect, asserted as the RELATION that was false.
 
@@ -9984,7 +9992,7 @@ def test_the_bundle_waits_for_the_post_rip_checks_it_claims_to_have_waited_for(
     still running", and the poll is driven directly rather than through a live
     event loop so the ordering is exact rather than probable.
     """
-    window = _make_window(qapp)
+    window = teardown_threads()
     window._last_rip_log = RipLog(tracks=[TrackResult(number=1)])
     window._current_num_tracks = 1
     pending = _armed_bundle(window, tmp_path)
@@ -10016,7 +10024,7 @@ def test_the_bundle_waits_for_the_post_rip_checks_it_claims_to_have_waited_for(
 
 
 def test_the_bundle_does_not_race_the_library_move_of_the_folder_it_reads(
-    qapp: QApplication, tmp_path: Path
+    qapp: QApplication, teardown_threads: Any, tmp_path: Path
 ) -> None:
     """The new state the settlement fix created, and what tests it.
 
@@ -10027,7 +10035,7 @@ def test_the_bundle_does_not_race_the_library_move_of_the_folder_it_reads(
     relocating, producing a bundle silently missing the album's log, report and
     cue. No exception, no manifest line, just fewer files.
     """
-    window = _make_window(qapp)
+    window = teardown_threads()
     window._last_rip_log = RipLog(tracks=[TrackResult(number=1)])
     window._current_num_tracks = 1
     pending = _armed_bundle(window, tmp_path)
@@ -10056,7 +10064,7 @@ def test_the_bundle_does_not_race_the_library_move_of_the_folder_it_reads(
 
 
 def test_the_bundle_follows_the_album_folder_to_its_new_home(
-    qapp: QApplication, tmp_path: Path
+    qapp: QApplication, teardown_threads: Any, tmp_path: Path
 ) -> None:
     """If the move already happened, the archive must read the NEW location.
 
@@ -10065,7 +10073,7 @@ def test_the_bundle_follows_the_album_folder_to_its_new_home(
     keeping its own older answer, and it records the relocation in the facts so a
     reader is never left guessing which directory was archived.
     """
-    window = _make_window(qapp)
+    window = teardown_threads()
     window._last_rip_log = RipLog(tracks=[TrackResult(number=1)])
     window._current_num_tracks = 1
     pending = _armed_bundle(window, tmp_path)
@@ -10842,6 +10850,7 @@ def test_a_failed_flush_is_never_reported_as_a_successful_one(
 
 def test_a_finished_dependency_probe_reaches_the_subsystem_store(
     qapp: QApplication,
+    teardown_threads: Any,
 ) -> None:
     """The write half of the contract the Diagnostics dialog reads.
 
@@ -10863,7 +10872,7 @@ def test_a_finished_dependency_probe_reaches_the_subsystem_store(
     dep_manager.remember_report(None)
     assert dep_manager.latest_report() is None, "the store must start empty"
 
-    window = _make_window(qapp)
+    window = teardown_threads()
     try:
         report = DependencyReport(
             ok=[_NS(dep_id="cyanrip")],
@@ -11054,6 +11063,7 @@ def test_a_rips_own_bundle_lands_in_the_acceptance_session_folder(
 
 def test_check_again_is_told_once_when_the_dependency_check_lands(
     qapp: QApplication,
+    teardown_threads: Any,
 ) -> None:
     """The window half of Help → About's Check again.
 
@@ -11066,7 +11076,7 @@ def test_check_again_is_told_once_when_the_dependency_check_lands(
     from platterpus.deps import manager as dep_manager
     from platterpus.deps.manager import DependencyReport
 
-    window = _make_window(qapp)
+    window = teardown_threads()
     try:
         # A check that is "already running", so the hook waits on it.
         window._dep_check_thread = object()  # type: ignore[assignment]  # stand-in
