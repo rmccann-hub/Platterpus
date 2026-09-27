@@ -4121,4 +4121,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.60.*
+*Last updated for Platterpus v0.6.61.*
