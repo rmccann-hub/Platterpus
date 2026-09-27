@@ -118,6 +118,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   install and verify scripts no longer fill the terminal: each appears as
   `<N-line script, M chars: full text in the log file>`, and the log file still
   records every command in full. A failing command's own output is still shown.
+- **For contributors: three of the ripper's error messages are now matched by their
+  own inventory entries.** Each of these formats contains a line break, which the
+  fork's contract writes as `\n`, the way C source does. The pattern treated it as
+  literal text, so it could never match anything cyanrip prints. Users still saw
+  these lines, through a similar entry or the opening-word fallback. Each pattern now
+  describes the message's first printed line. Found by a new property test: whatever
+  `printf` prints for a generated format must match the pattern built from that
+  format, and the function must never raise.
 
 ### Added
 

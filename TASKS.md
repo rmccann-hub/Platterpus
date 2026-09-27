@@ -3777,7 +3777,13 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
     requires `_VALUE_SANITISE` to equal the pinned mode's column (floors: 10 rows, 8
     compared), plus that the overwrite guard covers every P7b character. Revert-probed 5/5.
 - [ ] **`fuzz:rip_report.build_report`** (ungated, medium) — The JSON rip report has no never-raises property test over parser output
-- [ ] **`fuzz:ripper_messages.format_to_pattern`** (ungated, medium) — The fatal-message matcher builds regexes from external format strings with no property test
+- [x] **`fuzz:ripper_messages.format_to_pattern`** (ungated, medium) — The fatal-message matcher builds regexes from external format strings with no property test
+  - *Done 2026-09-27, and it found a bug:* three published formats carry an interior `\n`
+    written C-style, which `format_to_pattern` matched as a literal backslash-n, so none
+    matched its own first printed line (reproduced). Fixed in `ripper_messages.py`: the
+    pattern is built from the format's first non-blank printed line. Tests in
+    `tests/test_ripper_messages.py`: never raises, round trip against Python's own printf,
+    the three real formats, and a scope guard. Revert-probed 8/8.
 - [ ] **`fuzz:scripts.handshake._strip_fences`** (ungated, medium) — An illustrated close inside an UNTERMINATED or INDENTED fence is adopted as a real declaration — a round closes on a fabricated…
 - [x] **`fuzz:ui.main_window_helpers._is_sanitised_rendering_of`** (partial, medium) — The overwrite guard's match rule is exercised on exactly one character and one glyph pair
   - *Done 2026-09-27:* `tests/test_overwrite_guard_match_rule.py` over the pinned `unicode`
