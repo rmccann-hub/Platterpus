@@ -86,6 +86,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   dropped where they are printed, and one line names the rounds it left out. The
   close-by report still cannot reach the verdict, and a round whose state it
   cannot read keeps its lines.
+- **Tagging finds metaflac in `~/.local/bin` when the app is launched from a desktop
+  icon.** A desktop launch does not always put `~/.local/bin` on the search path,
+  and that is where the setup wizard installs the container's tools. Every other
+  tool was also looked for there; metaflac alone was not, so tagging could fail on
+  a machine where it was installed. The three copies of the tool search are now
+  one. The drive force-stop tools still look only in the host's own directories,
+  never in `~/.local/bin`, which holds container tools.
 
 ### Added
 

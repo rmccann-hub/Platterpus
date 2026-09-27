@@ -1215,13 +1215,12 @@ def main(argv: list[str] | None = None) -> int:
         # GUI and `--doctor` can never wire the adapters differently.
         from platterpus import composition
         from platterpus.adapters.ctdb_client import CtdbHttpImpl
-        from platterpus.adapters.metaflac import MetaflacAdapter
         from platterpus.deps.manager import DependencyManager
         from platterpus.ui.main_window import MainWindow
 
         backend, _backend_name = composition.build_backend(cfg)
         mb_client = composition.build_musicbrainz_client()
-        metaflac = MetaflacAdapter(binary_name=cfg.metaflac_path)
+        metaflac = composition.build_metaflac(cfg)
 
         # CTDB lookup transport (KDD-14 Phase 1) — only used when the user
         # enables "Verify with CTDB after a rip".
