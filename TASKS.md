@@ -1408,10 +1408,17 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 
 ### E — Contract, argv and log surface
 
-- [~] **E1. Round 23's `Handshake:` qualifier** — `(draft — lap not released for
+- [x] **E1. Round 23's `Handshake:` qualifier** — `(draft — lap not released for
   reading)`, agreed, due in `+platterpus.15`, not built. Theirs; ours to re-run our four
   banner shapes when it ships. KI:1127.
   - *Audit 2026-09-25: partly done.* Theirs landed at cyanrip@20a5aca (in .15). Ours has a parser test (test_golden_reference_parse.py, 40c05a7), but no classifier/approval re-run of the four banner shapes.
+  - *Done 2026-09-27:* all five `Handshake:` shapes the fork can emit, derived from
+    `cyanrip@fd05b12:tools/gen-handshake-state.py:112-156` and `src/cyanrip_log.c:813-815`
+    (unknown; closed and released, with its disclaimer; closed and not released; open; open
+    with the draft qualifier), run through our real parser on the round 25 reference log and
+    then `cross_check_note`:
+    `tests/test_handshake_approval.py::test_every_handshake_shape_the_fork_can_emit_reads_and_cross_checks`.
+    All five read and cross-check correctly; no code change was needed. Revert-probed.
 - [ ] **E2. `File(s):` lists what was requested, not what was written.** Theirs. KI:1213.
   - *Audit 2026-09-25: not ours to verify.* The fork's; their KNOWN-ISSUES says STILL OPEN.
 - [ ] **E3. The loudness block is measured before the filter graph** — wrong under `-H`

@@ -676,3 +676,63 @@ def test_the_pair_line_says_which_question_it_answers() -> None:
     assert __version__ in line, line
     assert ha.APPROVED_BY_ROUND is not None
     assert str(ha.APPROVED_BY_ROUND) in line, line
+
+
+#: EVERY `Handshake:` shape the fork's build can emit, DERIVED from their source
+#: rather than remembered (TASKS row E1): `cyanrip@fd05b12:tools/gen-handshake-state.py:112-156`
+#: builds the state, and `cyanrip@fd05b12:src/cyanrip_log.c:813-815` appends the
+#: release suffix and, for a declared release, the indented disclaimer. Each row is
+#: (the rendered lines, whether the binary says it is NOT a released build).
+_FORK_HANDSHAKE_SHAPES: list[tuple[str, bool]] = [
+    ("unknown (no handshake record found) -- NOT a released build", True),
+    (
+        "round 28 lap 6 closed, verdict GO -- released build\n"
+        "                (declared at build time, not verified by cyanrip)",
+        False,
+    ),
+    ("round 28 lap 6 closed, verdict GO -- NOT a released build", True),
+    ("round 28 lap 3 OPEN, verdict OPEN -- NOT a released build", True),
+    (
+        "round 28 lap 5 OPEN, verdict GO (draft — lap not released for reading)"
+        " -- NOT a released build",
+        True,
+    ),
+]
+
+_GOLDEN_R25_LOG = (
+    Path(__file__).resolve().parents[1]
+    / "docs/handshake/inbound/artifacts/round-25-lap-02-golden-reference-gbceb35d.log"
+)
+
+
+@pytest.mark.parametrize(
+    ("shape", "says_unreleased"),
+    _FORK_HANDSHAKE_SHAPES,
+    ids=["unknown", "closed-released", "closed-unreleased", "open", "open-draft"],
+)
+def test_every_handshake_shape_the_fork_can_emit_reads_and_cross_checks(
+    shape: str, says_unreleased: bool
+) -> None:
+    """Round 23's draft qualifier shipped in `.15` (`cyanrip@20a5aca`), and our half
+    of E1 was to re-run the banner shapes through OUR code when it did: the real
+    parser, on a real log, then the cross-check that reads its note.
+
+    * the parser keeps the whole state, and for a declared release it keeps the
+      disclaimer too, never only the confident half;
+    * an APPROVED verdict disagrees exactly when the binary says it is not a
+      released build, the draft shape included;
+    * an UNAPPROVED verdict is never a finding, whatever the shape.
+    """
+    text = _GOLDEN_R25_LOG.read_text(encoding="utf-8")
+    old = "Handshake:      round 25 lap 2 OPEN, verdict OPEN -- NOT a released build"
+    assert text.count(old) == 1, "the reference log's Handshake line moved"
+    parsed = parse_cyanrip_log(text.replace(old, f"Handshake:      {shape}", 1))
+    note = parsed.handshake_note
+    assert note is not None
+    first, *rest = shape.split("\n")
+    assert note.startswith(first), note
+    if rest:
+        assert "(declared at build time, not verified by cyanrip)" in note, note
+    assert bool(ha.cross_check_note(ha.APPROVED, note)) is says_unreleased, note
+    assert ha.cross_check_note(ha.UNAPPROVED, note) == ""
+    assert first in ha.cross_check_note(ha.NOT_DETERMINED, note)

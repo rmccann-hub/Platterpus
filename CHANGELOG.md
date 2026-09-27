@@ -112,6 +112,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   stated basis. That covers every round not closed, and the newest closed one. The
   basis is printed and never graded, and the exit status does not read it. A long
   basis is cut, with the number of characters left out.
+- **For contributors: every `Handshake:` line the fork can print is tested.** The
+  five shapes are read from the fork's generator, not remembered, and each one is run
+  through our log reader and our approval cross-check. The fork's "draft" qualifier
+  is one of them. All five were already read correctly.
 
 ## [0.6.61] — 2026-09-27
 
