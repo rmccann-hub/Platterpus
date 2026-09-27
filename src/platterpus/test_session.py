@@ -9,11 +9,11 @@ all verify and do it itself"*.
 
 That is the rule `CLAUDE.md` already states about handing back instruction
 files: **every manual step in a procedure is a thing the software was supposed
-to do.** Three shell scripts — `docs/rig-scripts/platterpusovernight.sh`,
-`docs/rig-scripts/platterpusmorning.sh` and the harness in `rig_session.sh` —
-between them make a session folder, run the acceptance script, collect the
-artifacts, and pack **one** `.tar.gz`. This module is the Qt-free core of the
-same job, so the app can do it from a button.
+to do.** Three shell scripts — the former `platterpusovernight.sh` and
+`platterpusmorning.sh` (both retired once this route replaced them) and the
+harness in `rig_session.sh` — between them made a session folder, ran the
+acceptance script, collected the artifacts, and packed **one** `.tar.gz`. This
+module is the Qt-free core of the same job, so the app can do it from a button.
 
 **Everything a session makes lives in ONE folder** (maintainer, 2026-09-24:
 *"stop polluting my home folder, keep this all contained to 1 folder, build a
@@ -68,6 +68,7 @@ from typing import Final
 
 from platterpus import __version__
 from platterpus.evidence_bundle import BundleResult, build_bundle, bundle_filename
+from platterpus.uiscript.find_script import PACKAGED_SCRIPT_DIR_NAME
 
 log = logging.getLogger(__name__)
 
@@ -78,8 +79,9 @@ log = logging.getLogger(__name__)
 #: Directory *inside the package* holding scripts we ship. It lives here rather
 #: than in `docs/` or `scripts/` for the same reason `rig_session.sh` does: a
 #: hardware session must not need a source clone at the right commit. One file,
-#: reachable identically from a checkout, a `pipx` install and the AppImage.
-BUILTIN_SCRIPT_DIR_NAME: Final[str] = "rig_scripts"
+#: reachable identically from a checkout, a `pipx` install and the AppImage. Its
+#: one home is `uiscript.find_script`, so `--run-script` looks in the same place.
+BUILTIN_SCRIPT_DIR_NAME: Final[str] = PACKAGED_SCRIPT_DIR_NAME
 
 #: The full overnight acceptance run. Named as a constant rather than typed at
 #: each call site so the name has exactly one home.

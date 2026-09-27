@@ -32,9 +32,21 @@ product's gap invisible.
 >
 > **The `.txt` scripts moved into the package** (`src/platterpus/rig_scripts/`)
 > so the app ships them; an AppImage user used to have no copy of the acceptance
-> test at all. The `.sh` wrappers below stay for now as the **legacy route** —
-> they still work, and they are what has actually run on the rig before — but
-> they are no longer the answer to *"how do I run the acceptance test?"*.
+> test at all. **`--run-script` finds them there with nothing downloaded** —
+> `--run-script fullacceptance` or `--run-script securereread` just works. The
+> packaged copy is the **last** place it looks, after the folder you named,
+> `~/Downloads`, `~/Desktop` and the current folder, so a newer script you
+> downloaded still wins over the one baked into your build. The app log always
+> says which copy ran, and when yours wins over a packaged one of the same name
+> it says whether the two differ.
+>
+> **The overnight and morning shell wrappers are retired.** The former
+> `platterpusovernight.sh` and `platterpusmorning.sh` did, from a terminal, what
+> Tools → Run acceptance test… now does inside the app — hold sleep off, run the
+> batch, gather every rip folder into one file. Two routes to one bundle is two
+> answers to *"which file do I upload"*, so the app's route is the only one. A
+> build older than v0.6.32 has no menu item; both files are still in the source
+> tree of every release up to v0.6.61.
 
 ## The T1-only path: `securereread.txt`
 
@@ -56,68 +68,29 @@ and runs the one `rig-check` that reads the counters.
 about the disc, not a pass — it means the disc converged on the first read and
 the test did not get to measure anything.
 
-## The overnight path — LEGACY, superseded by Tools → Run acceptance test…
+## Which collector gathers what
 
-**Prefer the menu action** (see the note at the top). This wrapper predates it
-and does the same job from a terminal; it is kept because it is the path with
-real rig hours behind it, and because a build older than v0.6.32 has no menu
-action to offer.
+Four things can pack a session into a file, and **only one of them gathers every
+rip**. Worth stating because the others look as if they do.
 
-Put an ordinary audio CD in the drive and run this. Nothing else.
-
-```sh
-bash platterpusovernight.sh
-```
-
-It holds sleep, idle and lid-suspend off for the whole run (`systemd-inhibit`,
-so the lock dies with the process — nothing to undo), drives the acceptance
-script, and then runs the collector for you. **In the morning there is one file
-in `~/Downloads` to upload**, named on the `SEND THIS ONE FILE` line.
-
-It is a caller, not a third implementation: the run is still `--run-script
-fullacceptance.txt` and the collection is still `platterpusmorning.sh`. Run
-either by hand if you want to:
-
-```sh
-# The night before — any ordinary audio CD in the drive, then walk away.
-~/Applications/platterpus-x86_64.AppImage --run-script fullacceptance.txt
-
-# The morning after — no disc needed, never touches the drive.
-bash platterpusmorning.sh
-```
-
-**The sleep lock covers the collection as well as the rip.** That is not
-belt-and-braces: the collector tars up to a few hundred megabytes, and an
-archive interrupted mid-write still opens and still lists — the night's most
-important artifact simply is not in it.
-
-`platterpusmorning.sh` exists for one reason, and it is worth stating because
-three other collectors look like they already do it: **none of them gathers the
-rips.**
-
-| collector | app log | script transcript + screenshots | the run's SEVEN rip folders |
+| collector | app log | script transcript + screenshots | the run's rip folders |
 |---|---|---|---|
-| the script run's own bundle (*"SEND THIS ONE FILE"*) | ✅ | ✅ | ❌ — `build_bundle()` is called without `album_dir` |
-| `--rig-session` | ✅ | ❌ | ❌ — audits the **newest** `.platterpus.json` only |
+| **Tools → Run acceptance test…** (the one session bundle) | ✅ | ✅ | ✅ **every rip the session made** (capped at 40; any dropped are counted in the bundle) |
+| a `--run-script` run's own bundle (*"SEND THIS ONE FILE"*) | ✅ | ✅ | ❌ — `build_bundle()` is called without `album_dir` (open in `TASKS.md`) |
+| `--rig-session` | ✅ | ❌ | the **newest** `.platterpus.json` only |
 | `platterpuscollect.sh` | ✅ | partial | **newest rip only** |
-| **`platterpusmorning.sh`** | ✅ | ✅ (folds the bundles in) | ✅ **all of them** |
 
-The overnight script performs seven rips. "The newest" is the one beside the
-cache probe — **not** the whole-disc uniform secure re-read from its section N,
-which is the artifact round 14 closed on, and the one the next round will ask
-for again. Collecting the newest loses the night, and loses it *silently*: the
-bundle arrives looking complete.
+The acceptance run performs several rips. "The newest" is whichever ran last —
+**not** the whole-disc uniform secure re-read from its section N, which is
+the artifact round 14 closed on and the one a round asks for again. Collecting the
+newest loses the night, and loses it *silently*: the bundle arrives looking
+complete. So run the full acceptance test from the menu. For a script that makes
+**one** rip (`securereread.txt`), `--rig-session` afterwards is enough, because the
+newest rip is the only one.
 
-It never copies audio (Critical rule #8) — only the eight text suffixes the
-app's own bundler admits — and it then sweeps the staged tree and prints **how
-many files it examined**, because a sweep that reports "clean" without a
-denominator is satisfied by an empty directory. Every external command is
-bounded with `timeout -k`; a bare `timeout` waits forever for a SIGTERM a wedged
-drive ioctl will never take.
-
-It prints a count per category and refuses to look healthy on a short bundle:
-zero rip artifacts, or fewer than fourteen, is called out in the summary rather
-than left for you to notice.
+No collector copies audio (Critical rule #8): each admits files by a text-suffix
+allowlist, and the shell collector also sweeps its staging folder for audio before
+it packs.
 
 ## The normal path: rip by hand, then run one command
 
@@ -378,4 +351,4 @@ disappointment is still true. What we still do not know, said out loud so nobody
 the silence as a pass: whether 32 sectors is this drive's real cache, and which of the
 `Cache probe:` states a different drive would report.
 
-*Last updated for Platterpus v0.6.60.*
+*Last updated for Platterpus v0.6.61.*

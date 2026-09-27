@@ -572,9 +572,9 @@ class ProvisioningMixin(MainWindowShared):
     # ----------------------------------------------------------------------
     #
     # **What this replaces, and why it is in the app.** Running an acceptance
-    # session used to mean downloading `docs/rig-scripts/platterpusovernight.sh`,
-    # typing a command, and then remembering to run `platterpusmorning.sh` in the
-    # morning to collect and tar the result. The maintainer's ruling was that this
+    # session used to mean downloading the former `platterpusovernight.sh`, typing
+    # a command, and remembering to run the former `platterpusmorning.sh` in the
+    # morning to collect the result (both retired). The maintainer's ruling: this
     # is work handed back: *"make the app make the rig folder and anything else,
     # this was supposed to be a no cli program, not give me commands to use"* and
     # *"i should just be able to run this with an specific script file i can use

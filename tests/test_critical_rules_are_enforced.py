@@ -1743,7 +1743,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the stager refuses a rip folder by name — the rule that keeps album artwork out.
     # **851 -> 861 (2026-09-24, the 0.6.55 acceptance bundle)**: `SessionLayout.rip_bundles`,
     # so each rip's own bundle lands in the one session folder too.
-    "test_session.py": 861,
+    # **861 -> 863 (2026-09-27, `--run-script` reaches the packaged scripts)**: the
+    # shipped-scripts directory name now comes from `uiscript.find_script`, whose
+    # resolver falls back to it — one import and one comment line saying so, so the
+    # menu and the command line cannot name two directories.
+    "test_session.py": 863,
     "ui/dialogs/pending_installs.py": 419,
     # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
     # channels (they live above the checks they steer), a Drive section holding

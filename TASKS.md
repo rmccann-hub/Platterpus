@@ -3960,7 +3960,7 @@ shell wrapper is one step better than prose, not the destination.
       Fall back rather than `mkdir`: inventing the directory puts the file
       somewhere the operator has no habit of looking.
   - *Audit 2026-09-25: superseded.* The maintainer's 2026-09-24 ruling put everything in one session folder (test_session.plan_session); downloads_dir now only suggests where to save a transcript.
-- [~] **Ship `docs/rig-scripts/*` INSIDE the AppImage, so an acceptance run needs
+- [x] **Ship `docs/rig-scripts/*` INSIDE the AppImage, so an acceptance run needs
       zero downloads.** Measured cost of not doing it, 2026-08-27: handing over
       tonight's run took **three** raw-file fetches (`platterpusovernight.sh`,
       `platterpusmorning.sh`, `fullacceptance.txt`) plus one command — and the
@@ -3975,11 +3975,22 @@ shell wrapper is one step better than prose, not the destination.
       without saying so" defect that module exists to end. Print which copy was
       resolved, always.
   - *Audit 2026-09-25: partly done.* The scripts ship in src/platterpus/rig_scripts/ and the menu uses builtin_acceptance_script, but find_script.FALLBACK_DIRS has no packaged fallback, so `--run-script fullacceptance` does not resolve to it.
-- [ ] **Retire `platterpusovernight.sh` and `platterpusmorning.sh` in the same
+  - *Done 2026-09-27:* `uiscript/find_script.py` appends `packaged_scripts_dir()` LAST, and
+    `_which_copy` labels every answer (packaged, or yours, and whether yours differs from a
+    shipped copy of the same name). A bare name widens to `.txt`/`.pscript` in every folder,
+    so a download still beats the packaged copy. Tests: `tests/test_script_console.py`
+    (including a `main()`-driven one) and `tests/test_test_session.py` (menu and CLI name one
+    folder).
+- [x] **Retire `platterpusovernight.sh` and `platterpusmorning.sh` in the same
       commit that lands the above** — including their rows in
       `docs/rig-scripts/README.md`. Two routes to one bundle is two answers to
       *"which file do I upload"*, which is the question this work exists to make
       unambiguous.
+  - *Done 2026-09-27, in the same commit as the row above:* both scripts deleted, their
+    README section replaced by "Which collector gathers what", `securereread.txt` points at
+    `--rig-session`, and live comments name them as labels. `platterpuscollect.sh` stays.
+    Guarded by `tests/test_rig_scripts.py` (no live instruction to run a retired wrapper,
+    and the files cannot come back).
 
 ## Round 14 lap 12, 2026-08-25 — a header that promised a stop it could not perform
 

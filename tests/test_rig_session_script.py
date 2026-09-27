@@ -198,8 +198,9 @@ def test_every_timeout_in_the_harness_escalates_to_sigkill() -> None:
     # EVERY shell harness, DERIVED from the filesystem rather than listed. The
     # docstring above promised "the next one added is caught too" while the
     # population was one hardcoded file — and a second harness with its own
-    # timeouts duly arrived (`docs/rig-scripts/platterpusmorning.sh`, the
-    # morning-after collector). Scoping a sweep is fine; scoping it silently
+    # timeouts duly arrived (the former `platterpusmorning.sh`, the
+    # morning-after collector, since retired). Scoping a sweep is fine;
+    # scoping it silently
     # while its own docstring claims otherwise is the defect `CLAUDE.md` names.
     for script in _shell_harnesses():
         lines = [

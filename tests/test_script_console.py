@@ -175,7 +175,16 @@ class TestARunScriptThatCannotLoadRunsNothing:
         transcript mentions the path would pass on code that ran the sample and
         *also* mentioned it.
         """
-        missing = tmp_path / "not-here" / "round08joint.txt"
+        # A name NO packaged script has. It used to be `round08joint.txt`, which
+        # the package now ships — and the packaged directory is the resolver's
+        # last fallback, so that name would (correctly, and saying so) run the
+        # shipped copy. The subject here is a name that matches nothing at all.
+        from platterpus.uiscript.find_script import packaged_scripts_dir
+
+        missing = tmp_path / "not-here" / "nosuchrigscript08.txt"
+        assert not (packaged_scripts_dir() / missing.name).exists(), (
+            "the premise: this name must not be one the package ships"
+        )
         seen = _run_main_with(monkeypatch, tmp_path, ["--run-script", str(missing)])
 
         assert seen["console_found"], "the console did not open at all"
@@ -445,6 +454,198 @@ class TestSeparatorStyleCannotCostARun:
 
         assert seen["ran"] is True, "the mis-separated name was not resolved"
         assert "resolved by normalising the name" in str(seen["transcript"])
+
+
+def _nowhere_else(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """An empty HOME and an empty working directory, so only the package has it.
+
+    Returns the fake HOME. `~/Downloads` and `~/Desktop` are expanded from
+    ``$HOME`` at call time, so pointing it at an empty folder is what makes "the
+    packaged copy was the only one" true rather than true-on-this-machine.
+    """
+    home = tmp_path / "home"
+    (home / "Downloads").mkdir(parents=True)
+    work = tmp_path / "cwd"
+    work.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir(work)
+    return home
+
+
+class TestThePackagedCopyIsTheLastFallbackNeverTheFirst:
+    """`--run-script fullacceptance` with nothing downloaded (TASKS, 2026-08-27).
+
+    The scripts ship inside the package so an AppImage user has them; the
+    resolver reaches them only after every place an operator might have put a
+    newer one. Silently preferring the packaged copy would be the "ran a
+    different script without saying so" defect this module was written to end,
+    so every answer says which copy it is.
+    """
+
+    def test_a_bare_name_reaches_the_script_the_menu_runs(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """The relation between the two routes, not a fact about either.
+
+        Tools → Run acceptance test… opens `builtin_acceptance_script_path()`;
+        `--run-script fullacceptance` must open the SAME file, or the two
+        routes to one test can run two different scripts.
+        """
+        from platterpus.test_session import builtin_acceptance_script_path
+        from platterpus.uiscript.find_script import resolve_script_path
+
+        _nowhere_else(monkeypatch, tmp_path)
+        menu = builtin_acceptance_script_path()
+        assert menu.is_file(), f"the premise: this build ships {menu}"
+
+        found, why = resolve_script_path("fullacceptance")
+
+        assert found is not None, why
+        assert found.resolve() == menu.resolve(), why
+        assert "packaged inside this Platterpus build" in why, why
+        # It says where it looked first, so "used the packaged copy" arrives
+        # with its reason rather than as a bare assertion.
+        assert "nothing matching was found first in" in why, why
+
+    def test_a_downloaded_copy_wins_and_the_answer_says_they_differ(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """An operator who fetched a newer script must still get THAT one."""
+        from platterpus.uiscript.find_script import resolve_script_path
+
+        home = _nowhere_else(monkeypatch, tmp_path)
+        mine = home / "Downloads" / "fullacceptance.txt"
+        mine.write_text("log my newer copy\n", encoding="utf-8")
+
+        found, why = resolve_script_path("fullacceptance")
+
+        assert found == mine, why
+        assert "your copy" in why, why
+        assert "packaged inside this Platterpus build" not in why, (
+            f"the operator's own file was described as the packaged one:\n{why}"
+        )
+        # Theirs wins, and they are told a shipped copy exists and differs —
+        # a stale download quietly beating a newer build is the one outcome of
+        # this ordering nobody would otherwise see.
+        assert "DIFFERENT" in why, why
+        assert "rig_scripts" in why, "the packaged copy it shadowed is not named"
+
+    def test_an_identical_download_is_called_identical(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """The non-triviality twin: a comparison that always said DIFFERENT
+        would pass the test above perfectly."""
+        from platterpus.test_session import builtin_acceptance_script_path
+        from platterpus.uiscript.find_script import resolve_script_path
+
+        home = _nowhere_else(monkeypatch, tmp_path)
+        mine = home / "Downloads" / "fullacceptance.txt"
+        mine.write_bytes(builtin_acceptance_script_path().read_bytes())
+
+        found, why = resolve_script_path("fullacceptance")
+
+        assert found == mine, why
+        assert "identical" in why and "DIFFERENT" not in why, why
+
+    def test_two_downloads_are_a_refusal_not_a_fall_through(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Ambiguity stops the search; it never falls through to the package.
+
+        A bare name matches every script suffix, so `x.txt` and `x.pscript`
+        side by side are two candidates. Resolving that by running the packaged
+        copy instead would be a guess dressed as a fallback.
+        """
+        from platterpus.uiscript.find_script import resolve_script_path
+
+        home = _nowhere_else(monkeypatch, tmp_path)
+        (home / "Downloads" / "fullacceptance.txt").write_text("log a\n", "utf-8")
+        (home / "Downloads" / "fullacceptance.pscript").write_text("log b\n", "utf-8")
+
+        found, why = resolve_script_path("fullacceptance")
+
+        assert found is None, f"it guessed:\n{why}"
+        assert "more than one" in why, why
+
+    def test_a_miss_names_the_packaged_directory_last(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from platterpus.uiscript.find_script import (
+            packaged_scripts_dir,
+            resolve_script_path,
+        )
+
+        _nowhere_else(monkeypatch, tmp_path)
+        found, why = resolve_script_path("nothing-like-this")
+
+        assert found is None
+        searched = [
+            line.strip()
+            for line in why.split("Searched:\n", 1)[1].splitlines()
+            if line.startswith("  ") and not line.startswith("  (")
+        ]
+        assert len(searched) >= 4, f"too few directories listed: {searched}"
+        assert searched[-1] == str(packaged_scripts_dir()), (
+            f"the packaged directory is not the LAST place searched: {searched}"
+        )
+
+    def test_an_explicit_path_to_either_copy_is_labelled(self, tmp_path: Path) -> None:
+        """ "Print which copy was resolved, always" — including an exact path."""
+        from platterpus.test_session import builtin_acceptance_script_path
+        from platterpus.uiscript.find_script import (
+            is_packaged_copy,
+            resolve_script_path,
+        )
+
+        shipped = builtin_acceptance_script_path()
+        _, why = resolve_script_path(str(shipped))
+        assert "packaged inside this Platterpus build" in why, why
+        assert is_packaged_copy(shipped)
+
+        mine = tmp_path / "fullacceptance.txt"
+        mine.write_text("log mine\n", encoding="utf-8")
+        _, why = resolve_script_path(str(mine))
+        assert "your copy" in why, why
+        assert not is_packaged_copy(mine), "a same-named file elsewhere is not packaged"
+
+    def test_run_script_by_bare_name_runs_the_packaged_copy(
+        self,
+        qapp,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Through the real `main()`: the fallback is wired, and it is said.
+
+        The packaged directory is pointed at a stand-in holding a one-line
+        script, because the real `fullacceptance.txt` would start rips. What
+        this proves is the wiring — `--run-script <bare name>` reaches the
+        package and the log names it the packaged copy — which the resolver's
+        own tests cannot, since a fallback nothing calls passes all of them.
+        """
+        from platterpus.uiscript import find_script
+
+        shipped = tmp_path / "shipped"
+        shipped.mkdir()
+        (shipped / "demoscript.txt").write_text(
+            "log only the packaged demo says this\n", encoding="utf-8"
+        )
+        monkeypatch.setattr(find_script, "packaged_scripts_dir", lambda: shipped)
+        _nowhere_else(monkeypatch, tmp_path)
+
+        with caplog.at_level("INFO", logger="platterpus.app"):
+            seen = _run_main_with(
+                monkeypatch, tmp_path, ["--run-script", "demo-script"]
+            )
+
+        assert seen["ran"] is True, "the packaged fallback was not reached"
+        assert "only the packaged demo says this" in str(seen["transcript"])
+        said = [
+            r.getMessage() for r in caplog.records if "--run-script" in r.getMessage()
+        ]
+        assert any("packaged inside this Platterpus build" in m for m in said), (
+            f"the run started without saying it used the packaged copy: {said}"
+        )
 
 
 def test_the_console_contains_only_the_next_run(qapp, tmp_path: Path) -> None:

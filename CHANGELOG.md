@@ -137,6 +137,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   say the goal is to leave beta for a release users can test, but not at the expense
   of quality. Our laps from rounds 20 to 24 said it once. The skeleton now carries
   those words, and a test checks them against the lap they are quoted from.
+- **`--run-script fullacceptance` works with nothing downloaded.** If no copy of the
+  named script is in the folder you named, `~/Downloads`, `~/Desktop` or the current
+  folder, `--run-script` uses the copy shipped inside the app. It looks there last,
+  so a script you downloaded still wins. The log says which copy ran and, when yours
+  wins over a shipped one of the same name, whether the two differ. A bare name now
+  finds `name.txt` in each of those folders, not only the current one.
+
+### Removed
+
+- **The overnight and morning shell scripts are retired.** Tools → Run acceptance
+  test… does their whole job in the app: it holds sleep off, runs the batch and packs
+  every rip into one file. `platterpuscollect.sh` stays. `securereread.txt` now ends
+  by pointing at `--rig-session` instead of the retired morning script.
 
 ## [0.6.61] — 2026-09-27
 
