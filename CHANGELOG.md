@@ -12,8 +12,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.6.61] — 2026-09-26
+
 ### Added
 
+- **The acceptance run accepts cyanrip `.17` as the build under review.** Handshake
+  round 28 opened on the fork's `0.9.4-rc2+platterpus.17` (`e0471f4`), so section A of
+  the acceptance run now accepts that build, and Setup & Updates offers it as the build
+  the run needs. The default install is still `.16` (`221a1df`), the build round 27
+  approved; `.17` becomes the default only once round 28 approves it.
 - **For contributors: cloud sessions switch the audio guard on by themselves.** The
   git hook that refuses a commit staging a music file runs only once
   `core.hooksPath` is set, which `dev-setup.sh` does. A Claude Code session on the
@@ -15944,7 +15951,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.60...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.61...HEAD
+[0.6.61]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.60...v0.6.61
 [0.6.60]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.59...v0.6.60
 [0.6.59]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.58...v0.6.59
 [0.6.58]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.57...v0.6.58
@@ -16007,4 +16015,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.60.*
+*Last updated for Platterpus v0.6.61.*
