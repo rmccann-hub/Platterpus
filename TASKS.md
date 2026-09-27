@@ -2781,7 +2781,7 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       and its tests are what keep it honest, since their lap 5 means the live
       record no longer exercises it.
 
-- [ ] **OURS, found by their §H2: we have NEVER mechanically verified a declared
+- [x] **OURS, found by their §H2: we have NEVER mechanically verified a declared
       round digest, in either direction.** Their digest checker had a real defect
       — `tools/round-digest.py --check` matched a literal `sha256/16 = <hex>` with
       the hex bare, so it skipped **every** declaration in round 22 and exited 0,
@@ -2804,6 +2804,17 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       **fail** rather than count as absent. Their fix is the reference; write ours
       from their published rule rather than their code, as round 15 did, so the
       two implementations stay independent.
+  - *Done 2026-09-27:* `scripts/round_digest.py` `read_declaration`, `check_round` and
+    `--check`, written from the fork's round 22 lap 5 §H2 rule, not their code: the head
+    is read first, markup stripped from it alone, and a `sha256/16` head showing an
+    unreadable digest is `unparsed` and fails. `tests/test_round_digest.py` pins the
+    whole record since round 15 (≥ 60 matches) with two explained mismatches: our round
+    15 lap 2 (pre-adoption construction), and our round 27 lap 2, whose
+    `3d3696c4dc884152` reproduces exactly over the fork's first copy of round 27 lap 1
+    (sha256 `f44de648…`, at `183073bf`), which they re-released as `c3a7a2a4…`.
+    Rounds 9–14 are out of scope: our laps from them are filed under the hand-carried
+    names the committed-lap glob does not read, so the population is short by our own
+    laps. Revert-probed: 3 of 3 detected.
 
 - [x] **Answer their J1 (`NEXT-ROUND`) — committed-is-sent.** They propose making
       *committed* stand in for *sent*: once a lap is committed to the branch the
