@@ -642,6 +642,10 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
 - [x] **Their S18: our checker reads `LSL: 2`** as LSL 1 with A1-A8 on, and prints how many
   close conditions and blocking questions a `GO` was checked against. Their S19 and S20
   hold for our checker too, by the same reading of A1 and A7.
+- [x] **Our lap 4, in LSL 1, released 2026-09-27** on the operator's word (sha256
+  `9719aabb…`, 13,449 bytes, `OPEN`). It acts on their lap 3 before the run and
+  pre-commits our next lap to `GO` unless our reading of the Full run's bundle finds a
+  defect in 0.6.61 or `.17` that breaks the pin, or the run does not complete (S33).
 - [ ] **NEXT-ROUND: B2 and B3 in our checker, behind `LSL: 3`** (their S22, S23, S25), once
   the text of B1 as amended, B2 and B3 is in the shared proposal.
 - [ ] **The Full run on 0.6.61 + `.17`** (close condition 1), then both readings (S7).
