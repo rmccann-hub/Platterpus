@@ -1364,7 +1364,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2397 -> 2417 (2026-09-26)**: the two targets' menu lines became functions
     # (`test_target_why`, `under_review_target_why`) so a test can supply a round
     # state and reach them (`docs/testing.md` §5.bq); production text is unchanged.
-    "deps/fork_source.py": 2417,
+    # **2417 -> 2441 (2026-09-26, round 28 open)**: `PIN_UNDER_REVIEW` moves to
+    # `e0471f4` (`+platterpus.17`) with why, its release sequence, its build tag in
+    # the `--consumer` accept-set with the contract that licenses it, the re-derived
+    # same-program flag, and the round-28 pairing line.
+    "deps/fork_source.py": 2441,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
