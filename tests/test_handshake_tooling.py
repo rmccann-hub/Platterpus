@@ -4423,3 +4423,48 @@ def test_r6_runs_on_both_directions_of_check(tmp_path: Path) -> None:
             hs.check_outbound_paths if directory == "outbound" else hs.check_inbound
         )
         assert any("R6" in p for p in checker(path)), directory
+
+
+def test_status_prints_what_each_verdict_rests_on_and_never_grades_it(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """ROUND-24 row: our gate read CLOSED on two GO verdicts while one of them
+    rested on an unmet condition. `--status` now prints each side's stated basis
+    beside the verdict, for every round not CLOSED and the newest CLOSED one, and
+    the exit status is still decided from the verdict lines alone."""
+    hs = _load()
+    status = hs.round_status()
+    lines = hs.verdict_source_lines(status)
+    states = {
+        int(m.group(1)): m.group(2)
+        for ln in status
+        if (m := re.match(r"^round-(\d+): .* -> ([A-Z-]+)", ln))
+    }
+    closed = sorted(n for n, s in states.items() if s == "CLOSED")
+    shown = {int(ln.split()[1]) for ln in lines}
+    expected = {n for n, s in states.items() if s != "CLOSED"} | set(closed[-1:])
+    assert shown == expected, (shown, expected)
+    # NON-TRIVIALITY: the record has a closed round older than the newest, which
+    # must NOT be shown, and each shown round prints a line per side.
+    assert len(closed) >= 2 and closed[-2] not in shown
+    for num in expected:
+        assert sum(1 for ln in lines if ln.startswith(f"round {num:2d} ")) == 2, num
+    assert all("rests on:" in ln for ln in lines)
+    hs.main(["--status"])
+    out = capsys.readouterr().out
+    assert all(ln in out for ln in lines)
+
+
+def test_a_long_verdict_source_is_cut_with_its_count(tmp_path: Path) -> None:
+    """Bounded, and the elision says how much it dropped."""
+    hs = _load()
+    (tmp_path / "outbound").mkdir()
+    (tmp_path / "inbound").mkdir()
+    source = "x" * (hs.VERDICT_SOURCE_PRINT_CHARS + 37)
+    (tmp_path / "outbound" / "round-40-lap-02.md").write_text(
+        "HANDSHAKE-ROUND: 40\nHANDSHAKE-LAP: 2\nHANDSHAKE-VERDICT: OPEN\n"
+        f"HANDSHAKE-VERDICT-SOURCE: {source}\n\n# lap\n",
+        encoding="utf-8",
+    )
+    lines = hs.verdict_source_lines(["round-40: sent=yes -> OPEN"], tmp_path)
+    assert len(lines) == 1 and lines[0].endswith("[... 37 more characters]"), lines

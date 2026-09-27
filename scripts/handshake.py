@@ -3640,6 +3640,67 @@ def close_by_lines_to_print(close_by: list[str], status_lines: list[str]) -> lis
     return kept
 
 
+#: How much of one `HANDSHAKE-VERDICT-SOURCE` `--status` prints. Longer values are
+#: cut with the count of characters left out, never silently.
+VERDICT_SOURCE_PRINT_CHARS: Final[int] = 400
+
+
+def verdict_source_lines(
+    status_lines: list[str], root: Path | None = None
+) -> list[str]:
+    """What each side's newest lap says its verdict RESTS ON, for the rounds worth
+    reading: every round not CLOSED, and the newest CLOSED one. **Printed, never
+    graded.**
+
+    TASKS row ROUND-24 (`--status` cannot see a premature GO): the gate closes a
+    round on two GO verdicts, which is the spec, so when one GO rested on an unmet
+    condition our gate read CLOSED while the fork's correctly held OPEN. Teaching
+    the gate to grade a stated condition would couple it to the verdict's prose.
+    Printing the stated basis beside the verdict makes the gap readable instead,
+    and, like the close-by report, this is called only at the print site, after the
+    exit status is already decided from ``status_lines``.
+    """
+    base = root if root is not None else HANDSHAKE_DIR
+    states: dict[int, str] = {}
+    for line in status_lines:
+        match = _STATUS_ROUND_RE.match(line)
+        if match is not None:
+            states[int(match.group("num"))] = match.group("state")
+    closed = [n for n, s in states.items() if s == "CLOSED"]
+    newest_closed = {max(closed)} if closed else set()
+    wanted = sorted({n for n, s in states.items() if s != "CLOSED"} | newest_closed)
+    out: list[str] = []
+    for num in wanted:
+        for directory, side in (("outbound", "ours"), ("inbound", "theirs")):
+            folder = base / directory
+            if not folder.is_dir():
+                continue
+            laps = [
+                (path, fields, _declared_lap(path, fields, num))
+                for path in folder.glob("round-*.md")
+                if round_number(path) == num
+                for fields in (wire_fields(_safe_read(path)),)
+            ]
+            if not laps:
+                continue
+            path, fields, lap = max(laps, key=lambda row: row[2])
+            source = " ".join(fields.get("HANDSHAKE-VERDICT-SOURCE", "").split())
+            verdict = fields.get("HANDSHAKE-VERDICT", "none declared").split()[:1]
+            released = is_released_for_reading(_safe_read(path), round_hint=num)
+            if len(source) > VERDICT_SOURCE_PRINT_CHARS:
+                cut = len(source) - VERDICT_SOURCE_PRINT_CHARS
+                source = (
+                    f"{source[:VERDICT_SOURCE_PRINT_CHARS]} [... {cut} more characters]"
+                )
+            out.append(
+                f"round {num:2d} {side}, lap {lap} "
+                f"({'released' if released else 'NOT released'}), "
+                f"{' '.join(verdict) or 'none declared'}, rests on: "
+                f"{source or '(no HANDSHAKE-VERDICT-SOURCE)'}"
+            )
+    return out
+
+
 def _declared_lap(path: Path, fields: dict[str, str], num: int) -> int:
     """A lap's number, from its OWN declaration — the filename is the fallback.
 
@@ -3857,6 +3918,13 @@ def main(argv: list[str] | None = None) -> int:
         if close_by:
             sys.stdout.write("\n")
             for line in close_by:
+                sys.stdout.write(line + "\n")
+        # WHAT EACH VERDICT RESTS ON, printed beside it and never graded (the
+        # ROUND-24 row): the same print-site placement as the close-by report.
+        rests_on = verdict_source_lines(status_lines, record_root)
+        if rests_on:
+            sys.stdout.write("\n")
+            for line in rests_on:
                 sys.stdout.write(line + "\n")
         held = any(ln.endswith("OPEN") for ln in status_lines)
         return 1 if held or illegal_transition_blockers(status_lines) else 0
