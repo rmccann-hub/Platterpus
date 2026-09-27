@@ -48,6 +48,7 @@ from __future__ import annotations
 import ast
 import re
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -225,6 +226,69 @@ def _worst_growth(
     return worst
 
 
+#: How many times the detector proof below may measure one side before it
+#: concludes. The sweep calls a pattern super-linear only when it is slow twice;
+#: the proof holds its own two answers to the same standard. Noise can only make a
+#: timing LONGER, so a broken clock or a wrong threshold still fails every attempt,
+#: and only a spike on one attempt is forgiven. Added 2026-09-27 after the proof
+#: failed once in about six parallel runs and passed 8 of 8 when re-run under load.
+_PROOF_ATTEMPTS = 3
+
+Growth = tuple[float, str, float]
+
+
+def _settled(
+    measure: Callable[[], Growth], holds: Callable[[float], bool]
+) -> list[Growth]:
+    """Measure until ``holds(ratio)`` or the attempts run out; return every attempt.
+
+    Every attempt is returned, not only the last, so a failure message can show
+    the whole series. The one unreproduced failure of this proof left no record of
+    which side tripped, and that is the reason this function reports all of them.
+    """
+    attempts: list[Growth] = []
+    for _ in range(_PROOF_ATTEMPTS):
+        attempts.append(measure())
+        if holds(attempts[-1][0]):
+            break
+    return attempts
+
+
+def _series(attempts: list[Growth]) -> str:
+    return ", ".join(f"{ratio:.1f}x" for ratio, _, _ in attempts)
+
+
+#: One search this slow on a ``_LARGE``-character line is a stall whatever its
+#: growth, so a suspect that slow is confirmed without timing a longer line. For the
+#: CSV row that started this file, the longer line would take about a minute.
+_STALL_S = 0.1
+
+
+def _confirm_at_scale(
+    pattern: str, fill: str, how: str, first_large_s: float
+) -> tuple[bool, float, float]:
+    """Does a suspect grow super-linearly at a LARGER input pair too?
+
+    Returns ``(confirmed, ratio, seconds)``. The first measurement compares
+    ``_SMALL`` to ``_LARGE`` characters, where a fast pattern's whole search is
+    tens of microseconds and fixed per-call costs are a large share of it.
+    Re-measuring at the same sizes, as this sweep first did, repeats that
+    weakness inside the same noisy window: on 2026-09-27 CI flagged
+    ``cyanrip_log._TRACK_ELAPSED_SECONDS`` at 8.4x and then 8.5x, while measured
+    here it grew 3.8-4.3x per 4x of input on Python 3.11, 3.12 and 3.13 all the
+    way to 32,000 characters. A genuinely super-linear pattern grows at least as
+    fast at the larger pair, so this is a stronger second witness, not a weaker
+    threshold.
+    """
+    if first_large_s >= _STALL_S:
+        return True, first_large_s / _STALL_S, first_large_s
+    compiled = re.compile(pattern)
+    base = _seconds_per_search(compiled, fill * _LARGE, how=how)
+    bigger = _seconds_per_search(compiled, fill * (_LARGE * 4), enough_s=0.25, how=how)
+    ratio = bigger / max(base, 1e-12)
+    return ratio > _MAX_GROWTH, ratio, bigger
+
+
 def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
     """Sweep every pattern; re-measure anything that looks super-linear.
 
@@ -241,14 +305,14 @@ def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
         "stopped finding them, which would make it pass by examining nothing"
     )
 
-    suspects: list[tuple[str, str, str, float, str]] = []
+    suspects: list[tuple[str, str, str, float, str, float]] = []
     measured = 0
     for location, pattern, how in patterns:
-        ratio, fill, _ = _worst_growth(pattern, how=how)
+        ratio, fill, large_s = _worst_growth(pattern, how=how)
         if ratio > 0.0:
             measured += 1
         if ratio > _MAX_GROWTH:
-            suspects.append((location, pattern, how, ratio, fill))
+            suspects.append((location, pattern, how, ratio, fill, large_s))
 
     # The floor that matters. Counting *collected* patterns above only proves the
     # `ast` walk still works; it says nothing about whether any of them were
@@ -262,17 +326,21 @@ def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
         "usable measurement, so this sweep is passing by not looking"
     )
 
-    # Re-measure the suspects. Only a pattern that is slow twice is a finding.
+    # Confirm each suspect at a larger input pair. Only a pattern that is also
+    # super-linear there is a finding (see `_confirm_at_scale` for why the same
+    # sizes twice was not a second witness).
     confirmed: list[str] = []
-    for location, pattern, how, first_ratio, fill in suspects:
-        second_ratio, _, large_s = _worst_growth(pattern, how=how)
-        if second_ratio > _MAX_GROWTH:
+    for location, pattern, how, first_ratio, fill, first_large_s in suspects:
+        is_real, second_ratio, second_s = _confirm_at_scale(
+            pattern, fill, how, first_large_s
+        )
+        if is_real:
             confirmed.append(
                 f"{location}\n"
                 f"    pattern: {pattern!r}, timed by .{how}\n"
-                f"    a 4x longer input of {fill!r} cost {first_ratio:.1f}x then "
-                f"{second_ratio:.1f}x more time ({large_s * 1000:.2f} ms at "
-                f"{_LARGE} chars)"
+                f"    a 4x longer input of {fill!r} cost {first_ratio:.1f}x more at "
+                f"{_SMALL}->{_LARGE} chars, then {second_ratio:.1f}x at "
+                f"{_LARGE}->{_LARGE * 4} ({second_s * 1000:.2f} ms)"
             )
 
     assert not confirmed, (
@@ -303,20 +371,70 @@ def test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one() -> Non
     only the pair rules out both.
     """
     quadratic = r"^\s*(?P<name>.+?)\s*,\s*(?P<offset>-?\d+)\s*$"
-    quad_ratio, _, quad_large_s = _worst_growth(quadratic, stop_above=_MAX_GROWTH)
+    quad = _settled(
+        lambda: _worst_growth(quadratic, stop_above=_MAX_GROWTH),
+        lambda ratio: ratio > _MAX_GROWTH,
+    )
+    quad_ratio, _, quad_large_s = quad[-1]
     assert quad_ratio > _MAX_GROWTH, (
-        f"the known-quadratic CSV row measured only {quad_ratio:.1f}x growth "
-        f"({quad_large_s * 1000:.3f} ms at {_LARGE} chars) — under the "
-        f"{_MAX_GROWTH}x threshold, so the sweep above would have passed it. The "
-        "timing machinery is broken, and every 'clean' result it gives is worthless."
+        f"the known-quadratic CSV row measured only {_series(quad)} growth over "
+        f"{len(quad)} attempts ({quad_large_s * 1000:.3f} ms at {_LARGE} chars on "
+        f"the last) — under the {_MAX_GROWTH}x threshold every time, so the sweep "
+        "above would have passed it. The timing machinery is broken, and every "
+        "'clean' result it gives is worthless."
     )
 
     linear = r"Ripping track (?P<track>\d{1,3}) of (?P<total>\d{1,3})"
-    lin_ratio, lin_fill, _ = _worst_growth(linear)
+    lin = _settled(lambda: _worst_growth(linear), lambda ratio: ratio <= _MAX_GROWTH)
+    lin_ratio, lin_fill, _ = lin[-1]
     assert lin_ratio <= _MAX_GROWTH, (
-        f"a bounded linear pattern measured {lin_ratio:.1f}x growth on "
-        f"{lin_fill!r} — the threshold is too tight and the sweep will cry wolf"
+        f"a bounded linear pattern measured {_series(lin)} growth over {len(lin)} "
+        f"attempts ({lin_fill!r} on the last) — over the {_MAX_GROWTH}x threshold "
+        "every time, so the threshold is too tight and the sweep will cry wolf"
     )
+
+
+def test_the_confirmation_clears_the_pattern_ci_flagged_on_noise() -> None:
+    """The pattern flagged on 2026-09-27 at 8.4x then 8.5x is linear at scale."""
+    flagged = (
+        r"^\s+(?:Elapsed(?: time)?|Rip time|Extraction time|Time taken):\s+"
+        r"(?P<s>\d{1,7}(?:\.\d{1,6})?)\s*(?:s|sec|secs|seconds)\b"
+    )
+    is_real, ratio, _ = _confirm_at_scale(flagged, " ", "search", 0.00005)
+    assert not is_real, f"a linear pattern confirmed at {ratio:.1f}x"
+
+
+def test_the_confirmation_still_catches_a_real_offender() -> None:
+    """The drive-name normaliser before its 2026-09-26 fix, which is quadratic on a
+    run of spaces with no hyphen, is confirmed at the larger pair too."""
+    is_real, ratio, _ = _confirm_at_scale(r"\s+-\s+", " ", "search", 0.005)
+    assert is_real, f"a quadratic pattern measured only {ratio:.1f}x at scale"
+
+
+def test_a_stall_is_confirmed_without_timing_a_longer_line() -> None:
+    """Passed a pattern that is not even valid, so a version that times anything
+    raises instead of passing."""
+    is_real, _, seconds = _confirm_at_scale("(", " ", "search", _STALL_S)
+    assert is_real and seconds == _STALL_S
+
+
+def test_a_spike_on_one_attempt_is_forgiven_and_a_real_failure_is_not() -> None:
+    """The re-measure forgives noise and nothing else, shown with stand-ins.
+
+    Noise only lengthens a timing, so one bad attempt followed by a good one is
+    noise. A measurement that is bad every time is a real finding, and it must
+    still fail after every attempt has been spent.
+    """
+    noisy = iter([(10.9, "0", 0.001), (3.8, "0", 0.001)])
+    attempts = _settled(lambda: next(noisy), lambda ratio: ratio <= _MAX_GROWTH)
+    assert [a[0] for a in attempts] == [10.9, 3.8]
+
+    always_bad = _settled(
+        lambda: (10.9, "0", 0.001), lambda ratio: ratio <= _MAX_GROWTH
+    )
+    assert len(always_bad) == _PROOF_ATTEMPTS
+    assert not always_bad[-1][0] <= _MAX_GROWTH
+    assert _series(always_bad) == ", ".join(["10.9x"] * _PROOF_ATTEMPTS)
 
 
 @pytest.mark.parametrize(
