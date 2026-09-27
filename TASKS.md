@@ -3779,7 +3779,11 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 - [ ] **`fuzz:rip_report.build_report`** (ungated, medium) — The JSON rip report has no never-raises property test over parser output
 - [ ] **`fuzz:ripper_messages.format_to_pattern`** (ungated, medium) — The fatal-message matcher builds regexes from external format strings with no property test
 - [ ] **`fuzz:scripts.handshake._strip_fences`** (ungated, medium) — An illustrated close inside an UNTERMINATED or INDENTED fence is adopted as a real declaration — a round closes on a fabricated…
-- [ ] **`fuzz:ui.main_window_helpers._is_sanitised_rendering_of`** (partial, medium) — The overwrite guard's match rule is exercised on exactly one character and one glyph pair
+- [x] **`fuzz:ui.main_window_helpers._is_sanitised_rendering_of`** (partial, medium) — The overwrite guard's match rule is exercised on exactly one character and one glyph pair
+  - *Done 2026-09-27:* `tests/test_overwrite_guard_match_rule.py` over the pinned `unicode`
+    column of P7b, parsed from the contract: recognised, refused, and every pair (floor 10).
+    The rule's comment at `ui/main_window_helpers.py` was corrected (it does not accept
+    `-T simple`'s `'`, on purpose). Revert-probed 5/5.
 
 ### 8. Event-ordering / stateful testing (12)
 

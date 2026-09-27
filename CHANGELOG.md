@@ -51,6 +51,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   contract and requires our table to equal its column for the pinned `-T` mode, in
   both directions, with the quote left out. The parser fails loudly if the section
   goes missing, the header changes or a row cannot be read.
+- **For contributors: the overwrite guard's match rule is fuzzed over the whole of
+  cyanrip's substitution table.** It was tested on one character and one glyph. Now
+  every rendering the fork's contract allows must be recognised, a difference where
+  nothing is substituted must be refused, and every (character, glyph) pair is also
+  checked one by one. The rule's comment no longer claims it accepts the `'` that
+  `-T simple` writes for `"`. It does not, on purpose: we pin `unicode`.
 
 ### Fixed
 
