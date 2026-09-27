@@ -12,6 +12,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **For contributors: the regex timing checks no longer fail on a busy runner.**
+  The sweep that proves no pattern in `src/` stalls on long input confirmed a
+  suspect by timing it again at the same sizes, inside the same noisy moment, so
+  on 2026-09-27 it failed a pattern that grows linearly: 8.4x, then 8.5x, against
+  an 8x ceiling, on Python 3.13 in CI. Measured here the same pattern grows
+  3.8-4.3x per 4x of input on Python 3.11, 3.12 and 3.13, up to 32,000 characters.
+  A suspect is now confirmed at a 4x larger input pair, which a genuinely
+  super-linear pattern also fails. The detector's self-test now measures each side
+  up to three times before concluding, and its failure message lists every attempt.
+
 ## [0.6.61] — 2026-09-26
 
 ### Added
