@@ -14,6 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The log reader knows the fork's next build's new line before that build ships.**
+  `+platterpus.18`, announced in the fork's round 28 lap 3, adds `Partial files:` below
+  `Encoder errors:` when a track's file holds only part of a read, and that line's
+  zero arm then reads `no whole track was encoded`. Both are recognised now. The new
+  line changes no verdict: every log that prints it also says the rip did not finish,
+  in lines already read. The ripper message inventory is regenerated from `.17`'s
+  provider contract; only source line numbers moved.
 - **For contributors: CLAUDE.md is trimmed to its rules and pointers.** It is read into every session, and at 142 KB most of it was
   dated incident narrative. Each rule keeps its operative sentence and points at the
   section that holds its full statement. Passages whose facts were not already in that

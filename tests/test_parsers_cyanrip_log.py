@@ -2832,6 +2832,59 @@ def test_not_applicable_is_not_a_failure_and_not_an_absence() -> None:
     assert parse_cyanrip_log(log).health_status == "No errors occurred"
 
 
+#: The `.18` block of the fork's interrupted sample, verbatim from
+#: `cyanrip@fa410c0:docs/sample-interrupted.log:88-93` (their round 28 lap 3 S8).
+#: `.18` is announced, not released: no real log of it is committed yet.
+_R18_INTERRUPTED_BLOCK = (
+    "Ripping errors: 1\n"
+    "Encoder errors: not applicable; no whole track was encoded\n"
+    "Partial files:  1 track (1), read not completed; encoder failures: none\n"
+    "Read stalls:    none (no read exceeded 10s)\n"
+    "Rip completed:  no (interrupted by SIGTERM, 0 of 3 tracks)\n"
+    "Interrupted at: track 1, mid-read\n"
+)
+
+
+def test_the_18_lines_are_claimed_before_any_18_log_is_committed() -> None:
+    """Their S12: the completeness sweep fails on a top-level line no rule claims.
+
+    So `Partial files:` and the reworded `Encoder errors:` arm are claimed now,
+    before the first real `.18` log arrives, rather than under its pressure.
+    """
+    for line in _R18_INTERRUPTED_BLOCK.splitlines():
+        assert _classify_top_level(line) is not None, line
+
+
+def test_a_partial_file_changes_no_verdict_the_log_does_not_already_give() -> None:
+    """`Partial files:` is ignored on purpose: `Rip completed:` says it already.
+
+    Its encoder count is about a file that was never a whole track, so the health
+    line is the same whether that count is `none` or `1`, and the same as with the
+    line absent. The rip is reported incomplete by the lines that exist to say so.
+    """
+    without = _R18_INTERRUPTED_BLOCK.replace(
+        "Partial files:  1 track (1), read not completed; encoder failures: none\n", ""
+    )
+    failed = _R18_INTERRUPTED_BLOCK.replace(
+        "encoder failures: none", "encoder failures: 1"
+    )
+    readings = [parse_cyanrip_log(t) for t in (_R18_INTERRUPTED_BLOCK, without, failed)]
+    assert {r.health_status for r in readings} == {"1 ripping errors"}
+    for reading in readings:
+        assert reading.rip_completed is False
+        assert (reading.rip_completed_tracks, reading.rip_completed_total) == (0, 3)
+        assert reading.interrupted_at == "track 1, mid-read"
+
+
+def test_the_18_zero_arm_is_still_not_a_failure() -> None:
+    """`no whole track was encoded` is the `.18` wording of the third arm."""
+    log = (
+        "Ripping errors: 0\n"
+        "Encoder errors: not applicable; no whole track was encoded\n"
+    )
+    assert parse_cyanrip_log(log).health_status == "No errors occurred"
+
+
 def test_ripping_and_encoder_failures_are_both_reported() -> None:
     """Two different failures, both worth reading — neither masks the other."""
     log = (
