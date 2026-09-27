@@ -93,6 +93,14 @@ class Lap:
     statements: list[Statement] = field(default_factory=list)
     problems: list[Problem] = field(default_factory=list)
     lsl: bool = False
+    #: The N of the lap's `LSL: N` line; 0 when it has none.
+    lsl_version: int = 0
+    #: How many things a `GO` waited on, by the amendment that counted them:
+    #: `A1` close conditions, `A7` the other side's blocking questions. Printed,
+    #: because a GO checked against nothing passes by finding nothing, and a
+    #: reader can see that only if the count is on the page (the fork's round 28
+    #: lap 3 S19-S21, which holds for this checker too).
+    go_checked_against: dict[str, int] = field(default_factory=dict)
 
     def add(self, line: int, severity: Severity, rule: str, message: str) -> None:
         self.problems.append(Problem(line, severity, rule, message))

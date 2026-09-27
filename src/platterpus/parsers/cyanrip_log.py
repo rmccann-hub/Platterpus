@@ -1778,7 +1778,8 @@ def _take_encoder_errors(disc: _Disc, match: re.Match[str]) -> bool:
     * ``none; N tracks encoded`` — nothing to say, the rip verdict stands.
     * ``N tracks failed (…); M tracks encoded`` — the disc is NOT clean, whatever
       the ripping-error count says.
-    * ``not applicable; no track was encoded`` — **not a failure**, and must not be
+    * ``not applicable; no track was encoded`` (from `.18`, ``no whole track`` when
+      a partial file exists) — **not a failure**, and must not be
       rendered as one. Their spec keeps this arm separate precisely so `none` is
       never asserted over an empty population; collapsing it into either of the
       others would be us undoing that distinction one layer down.
@@ -2032,6 +2033,14 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 # graduating one means adding it to `_INDENTED_LINE_PATTERNS` and to that test's
 # `must_read` set. Two different enumerations, one habit: write the decision down.
 _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
+    # `Partial files:` (`.18`+, the fork's round 28 lap 3 S6-S8), listed before any
+    # `.18` log is committed so the completeness sweep never trips on it (their
+    # S12). Ignored, not parsed: every log that prints it also prints `Rip
+    # completed: no (...)`, and its encoder count is about a partial file.
+    (
+        re.compile(r"^Partial files:\s"),
+        "partial-read files (.18+); Rip completed says it",
+    ),
     # The device node we ripped from. The GUI already knows which device it
     # asked for, and EAC has no equivalent field.
     (re.compile(r"^System device:\s"), "device node; GUI already knows it"),

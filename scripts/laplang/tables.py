@@ -76,6 +76,15 @@ LSL1_FIELDS: Final[frozenset[str]] = frozenset(
 #: `docs/handshake/outbound/artifacts/lsl-amendments-1.md`.
 AMENDMENTS: Final[tuple[str, ...]] = ("A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8")
 
+#: What each `LSL: N` line switches on. LSL 2 is LSL 1 with A1-A8 and nothing else:
+#: the fork defined it so and implemented it behind `LSL: 2` (their round 28 lap 3
+#: S14), and asked whether ours would read it the same way (S18). A lap that
+#: declares a version missing here is "cannot check", never "refused".
+LSL_VERSIONS: Final[dict[int, frozenset[str]]] = {
+    1: frozenset(),
+    2: frozenset(AMENDMENTS),
+}
+
 
 @dataclass(frozen=True)
 class Amendment:
