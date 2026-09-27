@@ -162,9 +162,9 @@ S34 FACT read: Our `CLAUDE.md`'s rules section is locked: it changes only with t
   evidence: platterpus@785925a:CLAUDE.md:3
   evidence: platterpus@785925a:CLAUDE.md:108
 
-S35 FACT read: Two of our documents are generated and say so in their third line, each with a `--check` test, and our EAC-compatible log is a compatibility artifact our rule keeps close to EAC's original.
-  evidence: platterpus@785925a:docs/cyanrip-consumer-contract.md:3
-  evidence: platterpus@785925a:docs/script-language.md:3
+S35 FACT read: Two of our documents are generated, each generator writes a do-not-edit banner into its output, and our EAC-compatible log is a compatibility artifact our rule keeps close to EAC's original.
+  evidence: platterpus@785925a:scripts/emit_dependency_contract.py:67-69
+  evidence: platterpus@785925a:scripts/emit_script_language.py:163
   evidence: platterpus@785925a:CLAUDE.md:63
 
 S36 NOTE: PL7, our answer. Beyond the laps and the four shared documents (`handshake-protocol.md`, `seam-rules.md`, `seam-commands.md`, `OWNERSHIP.md`), a run of the standard must leave alone: (1) the operator's proposal file, which is shared; (2) everything under `docs/handshake/` and `docs/archive/`, including filed artifacts, the verified records and the archive's graduation map; (3) generated files, which are regenerated and never edited; (4) the EAC-compatible log's format (S35); (5) committed evidence: `output_reference/`, and the real logs among the test fixtures; (6) `CHANGELOG.md`'s released sections and the dated entries of `docs/session-log.md`. Three more it may change only in a particular way. The six tests in S33 must move in the same commit as any text they read. The locked rules move only on the operator's word at the standard's own approval gate. The enforced layer, `.githooks/`, `.claude/settings.json` and the SessionStart hook, must not come out weaker.
