@@ -38,6 +38,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **The acceptance script's header shows what the Full run measured.** Beside its
   "4 to 6 hours" it now names the two complete Full runs: 4h14m on 2026-09-22 and
   5h33m on 2026-09-26.
+- **For contributors: 18 more of our sent laps are pinned to the bytes the fork
+  holds.** Nineteen laps from rounds 9 to 15 were known to be held by the fork but
+  never pinned. Their filed copies are in their public tree, so each was compared
+  there instead of asking. Eighteen are byte-identical and are now pinned. The
+  nineteenth, round 14 lap 18, is not: the fork holds the version we sent, and ours
+  was edited in place afterwards, on 2026-08-26, before the pin registry existed.
+  It stays unpinned, with that reason recorded.
 
 ### Fixed
 
