@@ -30,6 +30,7 @@ from pathlib import Path
 
 from platterpus import __version__
 from platterpus.adapters.cyanrip_backend import CyanripImpl
+from platterpus.adapters.metaflac import MetaflacAdapter
 from platterpus.adapters.musicbrainz_client import (
     MusicBrainzClient,
     MusicBrainzNgsImpl,
@@ -37,6 +38,7 @@ from platterpus.adapters.musicbrainz_client import (
 from platterpus.adapters.rip_backend import RipBackend
 from platterpus.config import Config
 from platterpus.paths import CYANRIP_BINARY_DEFAULT
+from platterpus.tool_paths import resolve_tool
 
 log = logging.getLogger(__name__)
 
@@ -81,3 +83,17 @@ def build_musicbrainz_client() -> MusicBrainzClient:
     return MusicBrainzNgsImpl(
         app="platterpus", version=__version__, contact=CONTACT_URL
     )
+
+
+def build_metaflac(cfg: Config) -> MetaflacAdapter:
+    """Construct the metaflac adapter, with its binary resolved like every other tool.
+
+    TASKS row "Three copies of one tool-search order": `MetaflacAdapter` ran the
+    configured name bare, so it alone had no `~/.local/bin` fallback, and a
+    desktop-launched app whose PATH omits that directory could not tag. Resolved
+    HERE, at construction, rather than inside the adapter, so the adapter's argv is
+    exactly what it was given and a test of it does not depend on whether the
+    machine running the test has metaflac installed. A configured absolute path is
+    kept as it is.
+    """
+    return MetaflacAdapter(binary_name=resolve_tool(cfg.metaflac_path))

@@ -1753,11 +1753,17 @@ What it left:
   then P3's grade is a claim about a check that cannot fail.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"We cannot settle clause 2 ourselves, and the missing piece is a digest"*, which stays open.
 
-- [ ] **Three copies of one tool-search order**, in `tool_paths.resolve_tool`,
+- [x] **Three copies of one tool-search order**, in `tool_paths.resolve_tool`,
   `ctdb/decode._which` and `drive_control` — in a module whose docstring says it
   exists so there would be one — and `MetaflacAdapter` has no `~/.local/bin`
   fallback at all. Not breaking today because the dependency probe uses bare
   PATH too, so a failure shows as "missing" rather than degrading silently.
+  - *Done 2026-09-27:* one search, `tool_paths.find_tool(name, search_dirs=None)`, with
+    `resolve_tool` on top; `ctdb/decode._which` and `drive_control` delegate to it (the
+    latter names its directories, and its host force-stop tools leave `~/.local/bin`
+    out on purpose: that is where CONTAINER tools are exported). `MetaflacAdapter` is
+    built by `composition.build_metaflac`, which resolves the binary, so the adapter's
+    argv stays what it is given. Tests: `tests/test_tool_paths.py`; revert-probed 3 of 3.
 
 - [x] **`handshake.py --status` prints close-by countdowns for CLOSED rounds** —
   six "N days remaining" and four "has PASSED" lines, every one on a finished

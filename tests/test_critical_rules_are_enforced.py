@@ -1167,7 +1167,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1374 -> 1380 (2026-09-24)**: the startup call that removes INVOCATION_ID
     # before anything spawns, so a container we start is not owned by this
     # window's unit (`container_scope.py`). It has to be here: it must run first.
-    "app.py": 1380,
+    "app.py": 1379,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
@@ -1405,7 +1405,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # could stop agreeing; this file is the one whose docstring already
     # explains why the countdown exists at all.
     # **423 -> 411** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "drive_control.py": 411,
+    "drive_control.py": 405,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     "drive_profiles.py": 447,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the

@@ -23,6 +23,7 @@ adapter inventing its own.
 from __future__ import annotations
 
 import shutil
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
@@ -36,7 +37,32 @@ _FALLBACK_DIRS: Final[tuple[str, ...]] = (
 )
 
 
-def resolve_tool(name: str) -> str:
+def find_tool(name: str, search_dirs: Sequence[str] | None = None) -> str | None:
+    """Absolute path to ``name``, or ``None`` if it cannot be found.
+
+    **The one implementation of the search.** PATH first, then ``search_dirs`` in
+    order, or :data:`_FALLBACK_DIRS` when the caller names none. There were three
+    copies of this loop (here, `ctdb/decode._which` and `drive_control._resolve`),
+    in a module whose own docstring says it exists so there would be one (TASKS row
+    "Three copies of one tool-search order"). A caller that needs a DIFFERENT
+    order passes it, so the order is a named decision at the call site rather than
+    a fourth copy of the loop: `drive_control` does, because its force-stop tools
+    must be the host's, never a container export in `~/.local/bin`.
+
+    ``_FALLBACK_DIRS`` is read at call time, not bound as a default, so a test that
+    replaces it reaches every caller.
+    """
+    found = shutil.which(name)
+    if found:
+        return found
+    for directory in _FALLBACK_DIRS if search_dirs is None else search_dirs:
+        candidate = Path(directory) / name
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def resolve_tool(name: str, search_dirs: Sequence[str] | None = None) -> str:
     """Absolute path to ``name``, or the bare name if it cannot be found.
 
     Returning the bare name on failure is deliberate: the caller then gets the
@@ -44,11 +70,4 @@ def resolve_tool(name: str) -> str:
     this can be dropped in without changing any error path. It can only ever
     improve resolution, never break it.
     """
-    found = shutil.which(name)
-    if found:
-        return found
-    for directory in _FALLBACK_DIRS:
-        candidate = Path(directory) / name
-        if candidate.is_file():
-            return str(candidate)
-    return name
+    return find_tool(name, search_dirs) or name

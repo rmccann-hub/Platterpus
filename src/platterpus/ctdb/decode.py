@@ -15,10 +15,11 @@ tests never shell out.
 from __future__ import annotations
 
 import logging
-import shutil
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
+
+from platterpus.tool_paths import find_tool
 
 log = logging.getLogger(__name__)
 
@@ -40,22 +41,14 @@ class DecoderUnavailable(RuntimeError):
 
 
 def _which(name: str) -> str | None:
-    """Resolve `name` on PATH, then common absolute locations (minimal PATH)."""
-    found = shutil.which(name)
-    if found:
-        return found
-    # ~/.local/bin FIRST: that is where distrobox-export puts the container's
-    # flac/metaflac, and it was the one directory this list omitted (audit,
-    # 2026-07-28) — so a desktop-launched AppImage decided they were missing.
-    for candidate in (
-        str(Path.home() / ".local" / "bin" / name),
-        f"/usr/bin/{name}",
-        f"/usr/local/bin/{name}",
-        f"/bin/{name}",
-    ):
-        if Path(candidate).exists():
-            return candidate
-    return None
+    """Resolve `name` on PATH, then the exported-tool directories (minimal PATH).
+
+    Delegates to :func:`platterpus.tool_paths.find_tool`, the one search order,
+    whose first fallback is `~/.local/bin`: that is where distrobox-export puts the
+    container's flac/metaflac, and a desktop-launched AppImage whose PATH omits it
+    used to decide they were missing (audit, 2026-07-28).
+    """
+    return find_tool(name)
 
 
 def _stderr_tail(stderr: str | bytes | None, lines: int = 3) -> str:

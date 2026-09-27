@@ -145,18 +145,25 @@ def test_decode_failure_carries_flac_stderr(
     assert "got error while decoding data" in caplog.text
 
 
-def test_which_falls_back_to_absolute_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    # PATH lookup fails, but the binary exists at a known absolute location.
-    monkeypatch.setattr(decode.shutil, "which", lambda name: None)
-    monkeypatch.setattr(
-        decode.Path, "exists", lambda self: str(self) == "/usr/bin/flac"
-    )
-    assert decode._which("flac") == "/usr/bin/flac"
+def test_which_falls_back_to_the_exported_tool_dirs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """PATH lookup fails, but the binary is in a fallback directory. The search is
+    `tool_paths.find_tool`'s (TASKS row "Three copies of one tool-search order"), so
+    this drives the real search with a real file rather than patching a copy."""
+    from platterpus import tool_paths
+
+    (tmp_path / "flac").write_text("", encoding="utf-8")
+    monkeypatch.setattr(tool_paths.shutil, "which", lambda name: None)
+    monkeypatch.setattr(tool_paths, "_FALLBACK_DIRS", (str(tmp_path),))
+    assert decode._which("flac") == str(tmp_path / "flac")
 
 
 def test_which_returns_none_when_nothing_found(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(decode.shutil, "which", lambda name: None)
-    monkeypatch.setattr(decode.Path, "exists", lambda self: False)
+    from platterpus import tool_paths
+
+    monkeypatch.setattr(tool_paths.shutil, "which", lambda name: None)
+    monkeypatch.setattr(tool_paths, "_FALLBACK_DIRS", (str(tmp_path),))
     assert decode._which("flac") is None
