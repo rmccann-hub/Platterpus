@@ -3540,7 +3540,12 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *2026-09-25:* **Done.** Now runs `verify_rip_log` with a recording runner and checks the exact argv. Old version passed with `-N` added beside a comment. Revert-probed: the old test passed the vacuous condition; the new one fails it.
 - [x] **`vacuity:tests/test_uiscript_settings.py::test_a_warning_does_not_block_a_set`** (partial, small) — Picks its subject from a live computation and skips when the list comes back empty
   - *2026-09-25:* **Done.** Now an empty warning population fails instead of skipping, and a stubbed validator feeds one warning, then one error, for the same field. Revert-probed: the old test passed the vacuous condition; the new one fails it.
-- [ ] **`vacuity:tests/test_doc_version_stamps.py::test_docs_changed_since_last_release_are_stamped_current`** (partial, medium) — A release-checklist gate that skips itself whenever git cannot answer
+- [x] **`vacuity:tests/test_doc_version_stamps.py::test_docs_changed_since_last_release_are_stamped_current`** (partial, medium) — A release-checklist gate that skips itself whenever git cannot answer
+  - *Done 2026-09-27:* `tests/test_doc_version_stamps.py` `_cannot_answer` skips locally and
+    fails when `CI` is set (anything but an explicit no), also used by `_tracked_markdown`;
+    a fake git drives both outcomes. No workflow change: ci.yml's `test` job already fetches
+    full history. Revert-probed 6/6 (the first version's meta-test passed vacuously and was
+    fixed).
 - [ ] **`vacuity:tests/test_handshake_protocol.py::test_the_cyanrip_return_spec_enumerates_every_section`** (partial, medium) — Nine markers checked anywhere in a 29 KB doc, none tied to the return spec
 - [ ] **`vacuity:tests/test_report_writer.py::test_close_waits_for_the_pending_write`** (partial, medium) — The final-report-survives-close guard is a substring match on closeEvent's text
 - [ ] **`vacuity:tests/test_scroll_guards.py::test_every_module_with_a_value_widget_installs_the_guard`** (partial, medium) — The wheel-guard sweep tests for a name in the file, not a call in the constructor
