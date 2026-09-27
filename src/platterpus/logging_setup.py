@@ -7,7 +7,9 @@ three destinations:
   1. A rotating file at `LOG_PATH` — INFO by default, DEBUG when the
      "Debug logging" setting is on (`set_debug_logging`). The always-on,
      cross-session catch-all for problems with no rip folder to attach to.
-  2. The console (INFO and up, configurable).
+  2. The console (INFO and up, configurable). A record may carry a shorter
+     rendering for the terminal (:func:`console_summary`); the file and the
+     buffer always keep the full message.
   3. An in-memory `SessionLogBuffer` — **always DEBUG**, independent of the
      toggle. It's the sole source for the `.platterpus.json` rip report's
      embedded log, so that per-album debug record is always fully verbose
@@ -24,6 +26,7 @@ from __future__ import annotations
 
 import logging
 from logging.handlers import RotatingFileHandler
+from typing import Final
 
 from platterpus.log_buffer import SessionLogBuffer, set_session_buffer
 from platterpus.paths import LOG_DIR, LOG_PATH
@@ -59,6 +62,46 @@ _CONFIGURED_ATTR: str = "_platterpus_configured"
 _FILE_HANDLER_ATTR: str = "_platterpus_file_handler"
 # Same idea for the in-memory session buffer (embedded in the rip report).
 _BUFFER_HANDLER_ATTR: str = "_platterpus_buffer_handler"
+
+
+#: The ``LogRecord`` attribute a caller sets, through ``extra=``, to give the
+#: TERMINAL a shorter line for the same event. Namespaced so it cannot collide with
+#: a standard record attribute or another library's ``extra``.
+CONSOLE_SUMMARY_ATTR: Final[str] = "platterpus_console_summary"
+
+
+def console_summary(text: str) -> dict[str, str]:
+    """The ``extra=`` for a record whose terminal line should read ``text``.
+
+    **Why a record can say two things.** The log file is the diagnostic record and
+    must keep everything — `CLAUDE.md` requires the exact argv of every dependency
+    we spawn. The terminal is what a person is reading while `--install-ripper`
+    runs, and there the same record was the whole of a multi-line ``sh -c`` build
+    script, escaped onto one enormous line, between the progress rows. Both needs
+    are real and they are separable: one record, the full text for the file and
+    the session buffer, this summary for the console handler only. Nothing is
+    dropped — the file line is unchanged.
+    """
+    return {CONSOLE_SUMMARY_ATTR: text}
+
+
+class _ConsoleFormatter(logging.Formatter):
+    """The console's formatter: a record's :func:`console_summary` if it has one.
+
+    Formats a COPY of the record rather than editing it. Handlers share one record
+    object and the file handler may format it after this one, so changing
+    ``record.msg`` here would put the summary in the file too — the one place it
+    must not replace the full text.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        summary = getattr(record, CONSOLE_SUMMARY_ATTR, None)
+        if not isinstance(summary, str) or not summary:
+            return super().format(record)
+        shown = logging.makeLogRecord(record.__dict__)
+        shown.msg = summary
+        shown.args = None
+        return super().format(shown)
 
 
 class _BannerRotatingFileHandler(RotatingFileHandler):
@@ -147,7 +190,9 @@ def configure_logging(console_level: int = logging.INFO, debug: bool = False) ->
 
     console_handler = logging.StreamHandler()
     console_handler.setLevel(console_level)
-    console_handler.setFormatter(formatter)
+    # The console's own formatter, so a record can give the terminal a short line
+    # while the file keeps the full one (see `console_summary`).
+    console_handler.setFormatter(_ConsoleFormatter(_LOG_FORMAT))
 
     # In-memory session buffer: ALWAYS DEBUG, independent of the file handler and
     # the Debug-logging toggle. Rationale: this buffer is the SOLE source for the

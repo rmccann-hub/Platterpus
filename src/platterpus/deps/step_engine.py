@@ -25,6 +25,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Protocol
 
+from platterpus.logging_setup import console_summary
+
 log = logging.getLogger(__name__)
 
 # Generous timeout: a `dnf install` inside a fresh container or an image pull
@@ -37,6 +39,13 @@ _STEP_TIMEOUT_S: float = 1800.0
 _OUTPUT_HEAD_LINES: int = 40
 _OUTPUT_TAIL_LINES: int = 60
 _OUTPUT_ELISION: str = "  … [{count} line(s) omitted] …"
+
+# The longest single-line argument the TERMINAL shows whole. A real argv word is a
+# few dozen characters; the longest ordinary one here is the distrobox installer's
+# curl pipeline at about a hundred. Past this, the console shows the head and says
+# how much more the log file holds.
+_CONSOLE_ARG_CHARS: int = 160
+_CONSOLE_ARG_HEAD: int = 80
 
 
 def one_line_argv(argv: list[str]) -> str:
@@ -68,6 +77,40 @@ def one_line_argv(argv: list[str]) -> str:
         .replace("\t", "\\t")
         for arg in argv
     )
+
+
+def console_argv(argv: list[str]) -> str:
+    """An argv as ONE SHORT line for the terminal. The log file keeps the whole.
+
+    **The problem this finishes.** :func:`one_line_argv` made the logged argv one
+    line, and that fixed the log file. It did not fix the terminal, because the
+    console handler prints the same record: a routine ``--install-ripper`` still
+    put the fork's build, install and verify scripts on screen — escaped onto one
+    line each, several thousand characters wide, between the progress rows.
+    Excellent diagnostics and poor terminal UX, and the two are separable.
+
+    So each multi-line argument (an ``sh -c`` script, a repo file's contents)
+    becomes a marker naming its size, and an over-long single-line one is cut to
+    its head with the rest counted. **Every elision is counted and says where the
+    full text is**: a summary that silently dropped the script would read as a
+    command with no script in it. Everything else is verbatim, so the ``$0`` label
+    each script carries (``build-cyanrip-fork``) still says which one ran.
+    """
+    shown: list[str] = []
+    for arg in argv:
+        if "\n" in arg or "\r" in arg:
+            lines = len(arg.splitlines())
+            shown.append(
+                f"<{lines}-line script, {len(arg)} chars: full text in the log file>"
+            )
+        elif len(arg) > _CONSOLE_ARG_CHARS:
+            more = len(arg) - _CONSOLE_ARG_HEAD
+            shown.append(
+                f"{arg[:_CONSOLE_ARG_HEAD]}…<+{more} chars: full text in the log file>"
+            )
+        else:
+            shown.append(arg)
+    return " ".join(shown)
 
 
 def _bounded_output(output: str) -> str:
@@ -148,7 +191,13 @@ class SubprocessRunner:
         return path.exists()
 
     def run(self, argv: list[str]) -> tuple[int, str]:
-        log.info("host-setup: %s", one_line_argv(argv))
+        # The file gets the exact argv; the terminal gets `console_argv`'s short
+        # line. Same record, two renderings (`logging_setup.console_summary`).
+        log.info(
+            "host-setup: %s",
+            one_line_argv(argv),
+            extra=console_summary(f"host-setup: {console_argv(argv)}"),
+        )
         try:
             proc = subprocess.run(
                 argv,
@@ -168,6 +217,10 @@ class SubprocessRunner:
                 "host-setup: timed out after %.0fs: %s",
                 _STEP_TIMEOUT_S,
                 one_line_argv(argv),
+                extra=console_summary(
+                    f"host-setup: timed out after {_STEP_TIMEOUT_S:.0f}s: "
+                    f"{console_argv(argv)}"
+                ),
             )
             return (
                 124,
@@ -195,11 +248,19 @@ class SubprocessRunner:
         # a fatal message is the LAST thing a tool prints and a head-only cap drops
         # precisely the line that explains the failure.
         if proc.returncode != 0:
+            # The terminal still gets the command's OUTPUT, bounded — that is the
+            # dependency's own sentence about why it failed, and a person watching
+            # needs it there. Only the argv is summarised on screen.
+            bounded = _bounded_output(output)
             log.error(
                 "host-setup: exit %d from %s\n%s",
                 proc.returncode,
                 one_line_argv(argv),
-                _bounded_output(output),
+                bounded,
+                extra=console_summary(
+                    f"host-setup: exit {proc.returncode} from "
+                    f"{console_argv(argv)}\n{bounded}"
+                ),
             )
         elif output.strip():
             log.debug(
