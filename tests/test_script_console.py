@@ -35,6 +35,7 @@ import time
 from pathlib import Path
 
 import pytest
+from conftest import stop_window_threads
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
 pytest.importorskip("PySide6.QtWidgets")
@@ -92,11 +93,15 @@ def _run_main_with(
     # looked exactly like "the script did not run". Wrapping the real method
     # cannot pick the wrong object.
     opened: list[object] = []
+    # The window that opened it, kept so the fake `exec()` below can end the way
+    # the real one does: by the window closing.
+    windows: list[MainWindow] = []
     real_open = MainWindow.open_script_console
 
     def capturing_open(self: MainWindow, **kwargs: object) -> object:
         console = real_open(self, **kwargs)  # type: ignore[arg-type]
         opened.append(console)
+        windows.append(self)
         return console
 
     monkeypatch.setattr(MainWindow, "open_script_console", capturing_open)
@@ -134,10 +139,29 @@ def _run_main_with(
             seen["ran"] = console.runner is not None  # type: ignore[attr-defined]
             console.close()  # type: ignore[attr-defined]
             console.deleteLater()  # type: ignore[attr-defined]
+        # The real `exec()` returns only after the last window has closed, so the
+        # window's own `closeEvent` has stopped its workers by then. This stand-in
+        # used to return with the window still open, which the product never does,
+        # and left the window's startup threads running into whichever test ran
+        # next (four tests here, found 2026-09-27 with `-W error::UserWarning`).
+        # Close it through the real `closeEvent`, then join what that may have
+        # abandoned, with the one helper every window fixture uses.
+        for window in windows:
+            window.close()
+            stop_window_threads(window)
+            window.deleteLater()
         return 0
 
     monkeypatch.setattr(QApplication, "exec", fake_exec)
     app_module.main(argv)
+    # The subject of the close above, asserted rather than trusted: `main()`
+    # showed this window, and the real `exec()` never returns while it is open.
+    # (No window captured means the console never opened, which every caller
+    # asserts against with its own message.)
+    assert not any(w.isVisible() for w in windows), (
+        "the fake exec() returned with the window still open, which the real one "
+        "never does; its startup threads then outlive this test"
+    )
     return seen
 
 
