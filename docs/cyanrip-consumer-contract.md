@@ -158,7 +158,7 @@ the log **and** its addendum (`rip_addendum.with_addendum`), because the
 addendum is the only statement in the folder about which bytes actually
 shipped after an auto-fix re-rip.
 
-## 2. Log lines we knowingly ignore (23)
+## 2. Log lines we knowingly ignore (24)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -167,6 +167,7 @@ dropped.
 
 | pattern | why we ignore it |
 |---|---|
+| `^Partial files:\\s` | partial-read files (.18+); Rip completed says it |
 | `^System device:\\s` | device node; GUI already knows it |
 | `^(?:Over\|Under)read:\\s` | derived from offset; not a verdict |
 | `^Repeating ripping\\s+\\(` | secure re-rip attempt; the Done; line carries the verdict |

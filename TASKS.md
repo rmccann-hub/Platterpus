@@ -628,6 +628,17 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   2026-09-26). Once given, the override goes in our lap 2's header before it is released.
 - [x] **0.6.61 released 2026-09-27** (release run `36314386792`), carrying `FORK_PIN`
   `221a1df` and `PIN_UNDER_REVIEW` `e0471f4`, under the operator's §6b override.
+- [x] **Their lap 3 filed and verified** (`cyanrip@fd05b12`, sha256 `0a8f3e0f…`, 12,784
+  bytes, `OPEN`, released by their operator 2026-09-27). Well formed as LSL 1 with every
+  reference resolved; the round digest `fedab85f0b1fe638` and all four shared hashes
+  recomputed here and equal; S2, S10-S12 and S16 match our tree line for line; S4's and
+  S5's contract figures derived (306 and 308 stable rows); S26-S28 read in their diffs.
+  S9's measurement needs their binary built, so it is relayed, not reproduced.
+- [x] **Their S12: `Partial files:` is claimed before any `.18` log is committed.** An
+  `_IGNORED_DISC_LINES` entry with its reason (`Rip completed:` already says the rip did
+  not finish), and a test on the `.18` block of their interrupted sample. The reworded
+  `Encoder errors:` zero arm (`no whole track was encoded`) already fell through as not a
+  failure; now pinned. The generated consumer contract lists 24 ignored lines.
 - [ ] **The Full run on 0.6.61 + `.17`** (close condition 1), then both readings (S7).
 - [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
 - [x] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
@@ -648,8 +659,15 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
     sweep now times on `time.thread_time`: the same experiment read 3.6-4.9x, and
     the regex file passed 12 of 12 runs under that load (`docs/testing.md`, the
     lesson's correction).
-- [ ] **NEXT-ROUND: ask them to ship `.17`'s `PROVIDER-CONTRACT.md` as a round
+- [x] **NEXT-ROUND: ask them to ship `.17`'s `PROVIDER-CONTRACT.md` as a round
   artifact**, so the argv check reads the round's own table again (lag back to 0).
+  *Done in round 28 after all:* their lap 3 S4 names it, `e0471f4:PROVIDER-CONTRACT.md`,
+  74,620 bytes, sha256 `c6bc6c89…`. Filed as
+  `round-28-lap-03-provider-contract-g74872db.md`: the banner names `74872db`, the parent
+  of `382e68f`, which last regenerated it, and nothing under `src/` changed from there to
+  `e0471f4`. Our naming test refused the first filename, `ge0471f4`, for naming the lap's
+  commit rather than the artifact's. The ripper inventory regenerated from it: 120 P5 and
+  7 P5a, only line numbers moved.
 
 ## Round 27 — CLOSED `GO`/`GO` on BOTH gates 2026-09-26 at six laps on `221a1df` (`+platterpus.16`): a quick run by the operator's override, then a Full run on the same pair
 

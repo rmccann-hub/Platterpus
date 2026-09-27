@@ -1608,7 +1608,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2973 -> 2975** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
     # **2976 -> 3023** (2026-09-26): the one-frame note now says whose number differs — the log keeps its own count, and the note tells a re-read of ours apart from the ripper disagreeing with its own log (the Full run).
-    "parsers/cyanrip_log.py": 3023,
+    # **3023 -> 3032** (2026-09-27, round 28 lap 3 S12): `Partial files:`, announced for `.18`, joins `_IGNORED_DISC_LINES` with its reason. The table is what the completeness sweep and the generated consumer contract read, so the entry cannot live elsewhere.
+    "parsers/cyanrip_log.py": 3032,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
