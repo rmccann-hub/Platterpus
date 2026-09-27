@@ -29,10 +29,11 @@ from pathlib import Path
 from typing import Final
 
 from .model import Field, Lap, Statement
+from .tables import LSL_VERSIONS
 
-#: The one line that starts an LSL body. Any other `LSL:` value is a version this
-#: checker does not implement, which is "cannot check", not "refused".
-LSL_LINE: Final[str] = "LSL: 1"
+#: The line that starts an LSL body. A version missing from `LSL_VERSIONS` is one
+#: this checker does not implement, which is "cannot check", not "refused".
+LSL_RE: Final[re.Pattern[str]] = re.compile(r"^LSL: (?P<version>[1-9][0-9]{0,2})$")
 
 HEAD_RE: Final[re.Pattern[str]] = re.compile(
     r"^S(?P<n>\d+) (?P<kind>[A-Z]+)(?: (?P<grade>[a-z]+))?: (?P<sentence>\S.*)$"
@@ -90,14 +91,17 @@ def _read_headers(lap: Lap, lines: list[str]) -> int | None:
             continue
         stripped = line.rstrip()
         if stripped.startswith("LSL:"):
-            if stripped != LSL_LINE:
+            version = LSL_RE.match(stripped)
+            if version is None or int(version["version"]) not in LSL_VERSIONS:
+                known = " and ".join(str(v) for v in sorted(LSL_VERSIONS))
                 lap.add(
                     i + 1,
                     "CANNOT",
                     "LSL.version",
-                    f"declares {stripped!r}; this checker implements LSL 1 only",
+                    f"declares {stripped!r}; this checker implements LSL {known}",
                 )
                 return None
+            lap.lsl_version = int(version["version"])
             return i + 1
     return None
 
