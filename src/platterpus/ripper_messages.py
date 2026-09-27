@@ -66,6 +66,27 @@ _CONVERSION = re.compile(r"%%|%[-+ #0-9.*]*(?:hh|h|ll|l|j|z|t|L)?[diuoxXeEfgGaAc
 #: the world; ``"cdio: \"%s\""`` has seven and is a real fingerprint.
 _MIN_LITERAL_CHARS: Final[int] = 6
 
+#: A line break inside a published format. The provider contract prints each
+#: format the way the C source spells it, so an interior newline arrives as the
+#: two characters backslash and ``n`` (three published formats carry one,
+#: measured at round 28 lap 3). A real newline is treated the same way.
+_LINE_BREAK: Final[re.Pattern[str]] = re.compile(r"\\n|\n")
+
+
+def _first_printed_line(fmt: str) -> str:
+    """The first non-blank line of output ``fmt`` prints, stripped.
+
+    Live output is matched one line at a time, and a ``\\n`` in a format ends the
+    line it is on. ``"Unable to get AccuRIP DB data: %s\\n!"`` prints the
+    diagnostic and then a ``!`` on a line of its own, so its pattern is built
+    from the first of those. Any later line is a separate line of output, and
+    this format's pattern does not try to match it.
+    """
+    for line in _LINE_BREAK.split(fmt):
+        if line.strip():
+            return line.strip()
+    return ""
+
 
 def format_to_pattern(fmt: str) -> str | None:
     """Turn one published ``printf`` format into a regex, or ``None``.
@@ -74,8 +95,17 @@ def format_to_pattern(fmt: str) -> str | None:
     — see :data:`_MIN_LITERAL_CHARS`. Returning ``None`` rather than a
     permissive pattern is the point: a bad pattern here would classify ordinary
     progress output as a fatal error, which is worse than missing the message.
+
+    **The pattern describes the format's first printed line** (see
+    :func:`_first_printed_line`). Until 2026-09-27 the ``\\n`` was escaped as
+    literal text, so each of the three published formats that carry one built a
+    pattern demanding a backslash then ``n`` — which no build prints. None of
+    the three ever matched its own first line. The lines still reached the user,
+    but only through a sibling format or the prefix fallback: the inventory
+    entry that was meant to carry them carried nothing. Found by the round-trip
+    property in ``tests/test_ripper_messages.py``.
     """
-    text = fmt.strip()
+    text = _first_printed_line(fmt)
     if not text:
         return None
 
