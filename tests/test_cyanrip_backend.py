@@ -1574,11 +1574,18 @@ def test_a_dangling_backslash_is_refused_it_eats_the_separator() -> None:
 
 
 def test_a_track_arg_without_the_leading_number_equals_is_refused() -> None:
-    """cyanrip steps over the '=' of `-t N=` without checking one is there.
+    """A cyanrip WITHOUT the fork's round-7 fix steps over the '=' of `-t N=`
+    without checking one is there.
 
     `strtol()` then `end += 1` — so `-t 12` moves its pointer one past the NUL
     and parses whatever follows in memory. We can never emit that, and that is
     exactly why it is worth a guard: the cost of being wrong is not a bad tag.
+
+    **The range, stated (TASKS row D7, 2026-09-27):** the fork fixed it, and our
+    pin carries the fix (`cyanrip@221a1df:src/cyanrip_main.c:2353-2358` logs
+    `Missing "=" in track metadata`). The guard stays, because refusing a
+    malformed argument before spawning is the argv-chokepoint rule whatever the
+    build does with it, and its message now says which builds overread.
     """
     from platterpus.adapters.cyanrip_backend import assert_meta_args_are_parseable
 

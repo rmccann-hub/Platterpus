@@ -93,6 +93,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   a machine where it was installed. The three copies of the tool search are now
   one. The drive force-stop tools still look only in the host's own directories,
   never in `~/.local/bin`, which holds container tools.
+- **A test script's assertion can no longer pass on the command before a refused
+  one.** When a `cyanrip` step in a test script is refused, nothing runs, so the
+  next `expect-exit` or `expect-cyanrip` has nothing to check and says so. In round 8
+  that was fixed for the refusals that existed then. Two later paths skipped it:
+  an `(offset)` step with no drive offset set, and a `cyanrip` line that fails to
+  parse. On either, the next assertion checked the previous command instead, and
+  could pass for a command that never ran. Every `cyanrip` step now clears the
+  last result before it can be refused, so a refusal added later cannot bring
+  this back.
 
 ### Added
 
