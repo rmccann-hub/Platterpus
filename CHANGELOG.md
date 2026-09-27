@@ -77,6 +77,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   close-by report still cannot reach the verdict, and a round whose state it
   cannot read keeps its lines.
 
+### Added
+
+- **For contributors: `round_digest.py --check` reads a declared round digest back
+  and recomputes it.** Until now nothing did: every digest agreement reported in a
+  lap was a person comparing printed output with a value in a file. `--check`
+  reads each lap's declaration head-first, the fork's published rule, and exits 1
+  on a mismatch or on a declaration it cannot read. Run over the whole record since
+  round 15, two of ours do not reproduce, both explained: round 15 lap 2 used the
+  construction this method replaced, and round 27 lap 2 was computed over the
+  fork's first copy of their lap 1, which they later re-released.
+
 ## [0.6.61] — 2026-09-27
 
 ### Added
