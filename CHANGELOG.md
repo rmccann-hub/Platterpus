@@ -102,6 +102,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   could pass for a command that never ran. Every `cyanrip` step now clears the
   last result before it can be refused, so a refusal added later cannot bring
   this back.
+- **`--install-ripper` prints one short line per container command.** The build,
+  install and verify scripts no longer fill the terminal: each appears as
+  `<N-line script, M chars: full text in the log file>`, and the log file still
+  records every command in full. A failing command's own output is still shown.
 
 ### Added
 

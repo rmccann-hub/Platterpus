@@ -4618,7 +4618,7 @@ Neither made a build unsafe, so both are **NEXT-ROUND under S-14**.
   what landed is what was checked.
   - *Audit 2026-09-25: done.* 2180e85: the build script refuses a wrong banner before installing (deps/fork_source.py).
 
-- [~] **`--install-ripper` prints its own shell scripts to the terminal.** The
+- [x] **`--install-ripper` prints its own shell scripts to the terminal.** The
   step engine logs each container command at INFO, and the fork build/install/
   verify steps *are* multi-line `sh -c` scripts, so a routine install dumps
   roughly a hundred lines of shell source between the progress rows. It is
@@ -4627,6 +4627,10 @@ Neither made a build unsafe, so both are **NEXT-ROUND under S-14**.
   The maintainer's standing bar — *"at the end of the day people need to use
   it"* — applies to a command an end user is told to run during setup.
   - *Audit 2026-09-25: partly done.* 2180e85: one_line_argv collapses the script to one escaped line for the step view, but the console log still gets the whole script.
+  - *Done 2026-09-27:* `deps/step_engine.py` `console_argv` for the start, timeout and
+    failure lines, and `logging_setup.console_summary` + `_ConsoleFormatter`, which formats
+    a COPY so the file and the session buffer keep the full command. Tests: end to end
+    through the real handlers in `tests/test_logging_setup.py`.
 
 ## Ripper install: find the newest build automatically, and let the user pick its channel (2026-08-07)
 
