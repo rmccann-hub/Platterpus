@@ -1534,9 +1534,14 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [ ] **G11. Version-gate evidence** — zero full-green rows; a second drive, machine and
   distro missing. `docs/testing.md` §5B.
   - *Audit 2026-09-25: not ours to verify.* Needs hardware runs and the maintainer: every ledger row so far is partial, none full-green.
-- [ ] **G12. The leaving-beta objective has dropped out of our laps** — the rule says it
+- [~] **G12. The leaving-beta objective has dropped out of our laps** — the rule says it
   *"must appear in every lap we write"*; round 20–24 outbound laps mention it once
   (round 23 lap 4). *Derived; rule text re-read 2026-09-23.* Carry it in our round-25 lap.
+  - *2026-09-27:* `scripts/handshake.py` `LEAVING_BETA_WORDS` / `LEAVING_BETA_OBJECTIVE`,
+    stated in `--emit`'s skeleton under *The objective*, and checked word for word against
+    `docs/handshake/verified/round-08-lap-10.md` §A by
+    `tests/test_handshake_tooling.py::test_the_skeleton_states_the_maintainers_objective_in_their_words`
+    (revert-probed 2 of 2). Our round 28 lap 5 carries it. Closes when that lap is released.
 - [ ] **G13. The audit we owe ourselves** — *"a file you declined to file is a file you
   will reason about without opening"*; we said we had not audited our side. r23 lap 4 §A.
 

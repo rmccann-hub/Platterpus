@@ -4468,3 +4468,22 @@ def test_a_long_verdict_source_is_cut_with_its_count(tmp_path: Path) -> None:
     )
     lines = hs.verdict_source_lines(["round-40: sent=yes -> OPEN"], tmp_path)
     assert len(lines) == 1 and lines[0].endswith("[... 37 more characters]"), lines
+
+
+def test_the_skeleton_states_the_maintainers_objective_in_their_words() -> None:
+    """TASKS row G12: round 8 lap 10 §A says the objective is carried into every
+    round after it, and rounds 20-24 carried it once. `--emit` states it, and each
+    quoted sentence is checked against the file it quotes, not against a copy."""
+    hs = _load()
+    assert hs.LEAVING_BETA_OBJECTIVE in hs.emit_outbound(29)
+    source = " ".join(
+        (_REPO_ROOT / "docs/handshake/verified/round-08-lap-10.md")
+        .read_text(encoding="utf-8")
+        .replace(">", " ")
+        .replace("*", " ")
+        .split()
+    )
+    assert len(hs.LEAVING_BETA_WORDS) == 2
+    for words in hs.LEAVING_BETA_WORDS:
+        assert words in hs.LEAVING_BETA_OBJECTIVE
+        assert " ".join(words.split()) in source, words
