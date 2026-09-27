@@ -15,7 +15,8 @@ round 28    OPEN on e0471f4. Close condition 1 is this sheet's run.
 ```
 
 > **Header last moved 2026-09-26**, when round 28 opened on `.17` (the fork's lap 1,
-> sha256 `060fd251…`) and 0.6.61 was staged to carry it. Before that, the same day,
+> sha256 `060fd251…`), and on 2026-09-27 when 0.6.61 was released to carry it. Before
+> that, 2026-09-26,
 > when round 27 closed on our gate and `FORK_PIN` rolled to
 > `221a1df`, on the quick run that stood in for the Full one by the maintainer's override.
 > Before that, 2026-09-25, to 0.6.60. The first Full attempt on 0.6.59 stopped at

@@ -34,7 +34,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   super-linear pattern also fails. The detector's self-test now measures each side
   up to three times before concluding, and its failure message lists every attempt.
 
-## [0.6.61] — 2026-09-26
+## [0.6.61] — 2026-09-27
 
 ### Added
 
