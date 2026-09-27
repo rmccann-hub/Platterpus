@@ -619,6 +619,8 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   next protocol change"*, and *"until then we record the override"*. v6 is still in
   force and our gate refuses `v0.6.61` with round 28 open (`--release-gate`, measured
   2026-09-26). Once given, the override goes in our lap 2's header before it is released.
+- [x] **0.6.61 released 2026-09-27** (release run `36314386792`), carrying `FORK_PIN`
+  `221a1df` and `PIN_UNDER_REVIEW` `e0471f4`, under the operator's §6b override.
 - [ ] **The Full run on 0.6.61 + `.17`** (close condition 1), then both readings (S7).
 - [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
 - [x] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
