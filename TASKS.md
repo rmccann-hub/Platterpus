@@ -1395,9 +1395,22 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   2026-09-23); :82 names our `FORK_PIN = "2cce60d"`, stale once 0.6.54 ships. *Derived.*
   - *Audit 2026-09-25: not ours to verify.* The fork's; landed (the three stale STATUS.md lines are gone).
   - *2026-09-25:* **Withdrawn.** Done by the fork: the three stale STATUS.md lines are gone.
-- [ ] **D7. Their "Open, theirs" table lists our round-8 defects as blocking** — at least
+- [x] **D7. Their "Open, theirs" table lists our round-8 defects as blocking** — at least
   one is fixed (a literal `"` is expressible in the script language). Ours to confirm
   each, theirs to retire. KI:1400.
+  - *Checked 2026-09-27, against our HEAD:* their five rows (`cyanrip@fd05b12:docs/KNOWN-ISSUES.md:1755-1760`).
+    (1) duplicate `drive changed`: **fixed**, `ui/drive_picker.py:216`, `effe24d3` (2026-08-12).
+    (2) a refused command leaves the last result live: **it had come back**, through the
+    `(offset)` refusal (2026-09-24) and a malformed line, and is now fixed at the root:
+    `uiscript/runner.py` `_forget_last_cyanrip_result`, called first by every `cyanrip`
+    step, with `tests/test_uiscript.py::test_no_refused_cyanrip_step_leaves_the_previous_result_to_be_graded`
+    over all four refusal paths (revert-probed 2 of 2).
+    (3) `wait-for-rip` ok after a failed rip: **fixed**, `effe24d3`.
+    (4) a literal `"`: **fixed** for `expect-cyanrip` (`Step.raw_tail`, `70716251`), and
+    still stripped by `expect-status` and `expect-contains`.
+    (5) the `-t` guard: **kept on purpose**, and its message now says which builds
+    overread (our pin has their fix, `cyanrip@221a1df:src/cyanrip_main.c:2353`).
+    Reported in our round 28 lap 5, NEXT-ROUND, so they can retire the rows.
 - [x] **D8. A record correction we never sent** — their r16 lap 8 §3 credits `bc2ef8e`
   for work in `a0830e0`. Low. TASKS@b8f89a2:985.
   - *2026-09-25:* **Withdrawn.** Sent, and the fork corrected it (inbound/round-25-lap-02.md, "Your D8 … corrected").

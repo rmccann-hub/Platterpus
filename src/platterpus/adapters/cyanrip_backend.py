@@ -1471,8 +1471,8 @@ def assert_meta_args_are_parseable(argv: list[str]) -> None:
             if not number.isdigit() or not _:
                 raise RipError(
                     f"refusing to run cyanrip: the {flag} argument {blob!r} is not "
-                    "'<track number>=<tags>'. cyanrip steps over the '=' without "
-                    "checking it is there, so this reads past the end of the string"
+                    "'<track number>=<tags>'. The approved build rejects it; a cyanrip "
+                    "without the fork's round-7 fix reads past the end of the string"
                 )
             blob = rest
         for field in split_on_unescaped(blob, ":"):

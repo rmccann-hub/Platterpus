@@ -805,6 +805,10 @@ class ScriptRunner(QObject):
 
     def _execute(self, step: Step) -> None:
         if step.error:
+            if step.source.split(maxsplit=1)[:1] == ["cyanrip"]:
+                # A `cyanrip` line that did not parse ran nothing either (D7). A
+                # parse error carries no verb, so the line's first word is read.
+                self._forget_last_cyanrip_result()
             self._record(step, Outcome.ERROR, step.error)
             return
         # RUN SIZE: a step the chosen size does not include is DECLINED, recorded
@@ -1489,6 +1493,19 @@ class ScriptRunner(QObject):
 
     # --- Verbs: cyanrip, for real --------------------------------------------
 
+    def _forget_last_cyanrip_result(self) -> None:
+        """No `cyanrip` command has a result until this step's own one runs.
+
+        **Called FIRST by every `cyanrip` step, before anything can refuse it.** The
+        round-8 fix cleared it at each refusal that existed then; a later one
+        (`(offset)` unexpandable, 2026-09-24) and a malformed line did not, so the
+        next `expect-exit` graded the command before them (TASKS row D7). Clearing
+        first makes every early return safe, including the next one added.
+        """
+        self._last_cyanrip_argv = []
+        self._last_cyanrip_output = ""
+        self._last_cyanrip_exit = None
+
     def _do_cyanrip(self, step: Step) -> None:
         """Start the host-exported ripper on a helper thread; the tick collects it.
 
@@ -1512,6 +1529,7 @@ class ScriptRunner(QObject):
         from platterpus.adapters.rip_backend import RipError, run_capture
         from platterpus.paths import CYANRIP_BINARY_DEFAULT
 
+        self._forget_last_cyanrip_result()
         args = list(step.args)
         # `(offset)` is the drive's read offset, the one `set-drive-offset` set:
         # a script that typed a number here would be right for one drive only.
@@ -1547,9 +1565,6 @@ class ScriptRunner(QObject):
 
         is_probe = bool(args) and all(arg in PROBE_FLAGS for arg in args)
         if not is_probe and getattr(self._window, "_rip_worker", None) is not None:
-            self._last_cyanrip_argv = []
-            self._last_cyanrip_output = ""
-            self._last_cyanrip_exit = None
             self._record(
                 step,
                 Outcome.FAIL,
@@ -1579,10 +1594,8 @@ class ScriptRunner(QObject):
             # `-f` exited 1, that assertion would have PASSED for a command that
             # never ran** — an assertion satisfied by the wrong thing, inside the
             # surface this project writes its tests in. Found by the cyanrip fork
-            # reading their own transcript (round 8 lap 7 §0b, item 2).
-            self._last_cyanrip_argv = []
-            self._last_cyanrip_output = ""
-            self._last_cyanrip_exit = None
+            # reading their own transcript (round 8 lap 7 §0b, item 2). The clear
+            # itself is `_forget_last_cyanrip_result`, at the top of this method.
             self._record(step, Outcome.FAIL, refusal)
             return
         argv = [str(CYANRIP_BINARY_DEFAULT), *args]
