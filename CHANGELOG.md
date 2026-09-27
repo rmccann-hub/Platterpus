@@ -116,6 +116,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   five shapes are read from the fork's generator, not remembered, and each one is run
   through our log reader and our approval cross-check. The fork's "draft" qualifier
   is one of them. All five were already read correctly.
+- **For contributors: a new lap started from `handshake.py --emit` states the
+  maintainer's objective.** In round 8 the maintainer asked that every handshake
+  say the goal is to leave beta for a release users can test, but not at the expense
+  of quality. Our laps from rounds 20 to 24 said it once. The skeleton now carries
+  those words, and a test checks them against the lap they are quoted from.
 
 ## [0.6.61] — 2026-09-27
 

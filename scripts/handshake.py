@@ -960,6 +960,21 @@ def _unfenced_body(text: str) -> str:
     return "\n".join(out)
 
 
+#: The maintainer's standing objective, which round 8 lap 10 §A says to carry into
+#: every round after it, in their words (TASKS row G12: rounds 20-24 carried it
+#: once). The skeleton states it so a lap started from `--emit` cannot drop it.
+LEAVING_BETA_WORDS: Final[tuple[str, str]] = (
+    "our goal is to get us out of beta and into a user release testable release, "
+    "if possible, as soon as we can, make sure that is clear in all handshakes and "
+    "objectives.",
+    "but not at the expense of quality, functionality, or reducing bugs.",
+)
+LEAVING_BETA_OBJECTIVE: Final[str] = (
+    f'The maintainer\'s objective, in their words: *"{LEAVING_BETA_WORDS[0]}"* '
+    f'and *"{LEAVING_BETA_WORDS[1]}"* (round 8 lap 10 §A)'
+)
+
+
 def emit_outbound(round_number: int) -> str:
     """Build a skeleton outbound handshake file for ``round_number``."""
     sections = "\n\n".join(
@@ -1071,6 +1086,13 @@ def emit_outbound(round_number: int) -> str:
 <!-- Skeleton from scripts/handshake.py. Every section below is required by
      docs/cyanrip-handshake.md §3; the checker will not let a round go out with
      one missing. Replace each TODO. -->
+
+## The objective
+
+<!-- TASKS row G12: stated in EVERY lap we write, by the maintainer's instruction
+     in round 8 (docs/handshake/verified/round-08-lap-10.md, §A). -->
+
+{LEAVING_BETA_OBJECTIVE}
 
 **What I need back:** one markdown file matching *The return-file spec* below.
 I will verify every claim in it against the real parser and the committed
