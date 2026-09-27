@@ -12,8 +12,25 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **For contributors: CLAUDE.md is trimmed to its rules and pointers.** It is read into every session, and at 142 KB most of it was
+  dated incident narrative. Each rule keeps its operative sentence and points at the
+  section that holds its full statement. Passages whose facts were not already in that
+  home were moved there verbatim first, under headings that say they came from
+  CLAUDE.md: `docs/testing.md` §5 (and a new §5.bw), `docs/cyanrip-handshake.md` §7.7,
+  `docs/architecture.md` §3.2, §3.10, §3.12a and §6.3, `docs/ux-design-principles.md`
+  and `PLANNING.md` KDD-20. Nothing was summarised away.
+
+## [0.6.61] — 2026-09-26
+
 ### Added
 
+- **The acceptance run accepts cyanrip `.17` as the build under review.** Handshake
+  round 28 opened on the fork's `0.9.4-rc2+platterpus.17` (`e0471f4`), so section A of
+  the acceptance run now accepts that build, and Setup & Updates offers it as the build
+  the run needs. The default install is still `.16` (`221a1df`), the build round 27
+  approved; `.17` becomes the default only once round 28 approves it.
 - **For contributors: cloud sessions switch the audio guard on by themselves.** The
   git hook that refuses a commit staging a music file runs only once
   `core.hooksPath` is set, which `dev-setup.sh` does. A Claude Code session on the
@@ -294,14 +311,6 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
-- **For contributors: CLAUDE.md is trimmed to its rules and pointers (draft, for the
-  maintainer's review).** It is read into every session, and at 142 KB most of it was
-  dated incident narrative. Each rule keeps its operative sentence and points at the
-  section that holds its full statement. Passages whose facts were not already in that
-  home were moved there verbatim first, under headings that say they came from
-  CLAUDE.md: `docs/testing.md` §5 (and a new §5.bw), `docs/cyanrip-handshake.md` §7.7,
-  `docs/architecture.md` §3.2, §3.10, §3.12a and §6.3, `docs/ux-design-principles.md`
-  and `PLANNING.md` KDD-20. Nothing was summarised away.
 - **The README's latest-hardware note describes the 2026-09-26 Full run**: 320 of 320
   steps, the first run in which every archival check could fail, recorded `partial` by
   the maintainer because the records carried errors no step could fail over. The
@@ -15952,7 +15961,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.60...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.61...HEAD
+[0.6.61]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.60...v0.6.61
 [0.6.60]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.59...v0.6.60
 [0.6.59]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.58...v0.6.59
 [0.6.58]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.57...v0.6.58
@@ -16015,4 +16025,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.60.*
+*Last updated for Platterpus v0.6.61.*
