@@ -4,8 +4,9 @@ From: the operator (Ryan). Date: 2026-09-27. Status: a proposal. Not a lap,
 not protocol, and not a round-28 close condition. Nothing here is
 implemented until both sides answer and I approve.
 
-Facts checked at 2026-09-27 16:21 UTC against cyanrip@fd05b12 and
-platterpus@404fe8e. If your tree has moved since, say what changed.
+Facts checked at 2026-09-27 16:35 UTC against cyanrip@fd05b12,
+platterpus@785925a, and claude-code-skills@d655752. If your tree has moved
+since, say what changed.
 
 ## Why I am sending this
 
@@ -21,7 +22,9 @@ The fork's precedent for a proposal file is docs/handshake/PROPOSAL-<topic>.md
 (PROPOSAL-lap-statement-language.md, added at f34a96c). File this text
 unmodified, as docs/handshake/PROPOSAL-operator-seam-automation.md or
 wherever your rules put operator input. Put any annotation in a lap, not in
-the file, so both trees hold the same bytes. The message that carries this
+the file, so both trees hold the same bytes. Once filed it is a
+byte-identical shared file, which my standard (F11) treats as owned by
+neither side, so nobody edits it afterward. The message that carries this
 file gives its sha256.
 
 R1 and S-13 fix a round's close conditions at lap 1, and a later criterion
@@ -38,13 +41,14 @@ bytes, sha256 d95bb28e…).
 
 F2. Round 28 is open on .17 (e0471f4, published at 8ea8bee). Fork lap 1 is
 at 52a8a30 (13,280 bytes, sha256 060fd251…). Platterpus lap 2 is OPEN
-(11,541 bytes, sha256 c1b8d15d…). Fork lap 3 was released on 2026-09-27.
-It was added at e8e3cc2 (12,784 bytes, sha256 0a8f3e0f…) and is not yet
-filed in Platterpus's inbound. The next hardware step is mine: the Full run
-on .17 with 0.6.61.
+(11,541 bytes, sha256 c1b8d15d…). Fork lap 3 (12,784 bytes, sha256
+0a8f3e0f…) was added at e8e3cc2 and filed in Platterpus's inbound at
+1724c47. Platterpus lap 4 is released and OPEN (13,449 bytes, sha256
+9719aabb…, merged by PR #266 at 785925a). The next hardware step is mine:
+the Full run on .17 with 0.6.61. The fork's lap 5 follows it.
 
 F3. The fork's tools ran from a plain clone with no build. seam-sync-check.py
---peer reported IN SYNC at platterpus@404fe8e, exit 0. release-gate.py
+--peer reported IN SYNC at platterpus@785925a, exit 0. release-gate.py
 exits 0 in report mode even while a release is not allowed, and exits 1
 with --release-gate. seam-check.py --held exited 0 with 0 FAIL.
 
@@ -87,6 +91,18 @@ F10. No community log checker scores cyanrip logs today. cambia PR #20,
 which adds experimental support for cyanrip logs, scores them 0 ("could
 not determine ripper"). Upstream issue #162 asks for EAC or XLD formats.
 
+F11. My repository standard, PROJECT-BOOTSTRAP-AND-AUDIT v0.38.0, lives in
+rmccann-hub/claude-code-skills at d655752, under
+skills/project-bootstrap-and-audit/. I have not run it on either repo yet,
+and I plan to run it on each. It budgets CLAUDE.md as a shim of about 30
+lines that imports AGENTS.md, AGENTS.md at under about 150 lines and 300 at
+most, and a rule file at about 50 lines. Neither repo has AGENTS.md or
+.claude/rules/ today. It requires every workflow to set permissions:
+contents: read or narrower, and pins actions to full commit SHAs. Its
+Cross-Repository Contracts section gives the consumer a check that detects
+a moved contract, and says every patch a fork carries needs a retirement
+condition.
+
 ## Proposal
 
 P1. A seam watch in GitHub Actions, hosted on Platterpus main because of
@@ -95,7 +111,10 @@ rmccann-hub/cyanrip at platterpus-fork anonymously. It runs the fork's
 seam-sync-check.py --peer, release-gate.py in report mode, and
 seam-check.py --held, plus Platterpus's handshake.py --status. It writes
 nothing, reports in the job summary, and fails only on drift or a tool
-error. It spends no tokens. I create the file in GitHub's web editor.
+error. It spends no tokens. It is the consumer's drift check that F11's
+contract section asks for, and it follows the standard's workflow rules:
+permissions: contents: read at the top, and every action pinned to a full
+commit SHA. I create the file in GitHub's web editor.
 
 P2. Get the fork's own CI running. Two options, and the choice is the
 fork's:
@@ -121,15 +140,21 @@ manifest, opens or merges a PR, files upstream, or starts the peer's reply.
 Nothing fires anything automatically. The announce gate stays exactly as
 it is.
 
-P6. CLAUDE.md scoping. Each side moves handshake-only and file-specific
-rules into .claude/rules/ with paths:, verbatim and with pointers, by the
-method of PR #260. Rules that must always hold stay in the root file. The
-fork's file is the larger saving.
+P6. CLAUDE.md scoping follows my standard (F11) instead of a method of my
+own. When I run the standard on each repo, CLAUDE.md becomes the
+@AGENTS.md shim, rules move to AGENTS.md and to .claude/rules/ files with
+paths:, and reference prose moves to docs/ with an inbound link. Text moves
+verbatim and leaves its old place in the same commit. Laps, sent
+artifacts, and the shared seam documents are left alone. The standard's
+own approval gate decides the details for each repo, not this proposal.
+The fork's file is the larger saving.
 
 P7. Upstream. I file docs/upstream-cachemodel-report.md myself once the
 fork confirms it is still accurate. The fork says whether f8ebf48 merges
-forward now and corrects the rc2 sync note's status line. It also lists
-the SETTLED.md fixes that could each become one small upstream issue.
+forward now and corrects the rc2 sync note's status line. The fork also
+lists the patches it carries, each with a retirement condition: landed
+upstream, superseded, or no longer needed. The SETTLED.md fixes that could
+each become one small upstream issue are the first candidates to retire.
 
 ## Questions for Platterpus
 
@@ -152,6 +177,9 @@ pushing, and the audio guard, given F8 and your SessionStart hook?
 PL6. Can the "EAC-compatible log" ever be mistaken for, or scored as, a
 genuine EAC log? If so, what prevents it?
 
+PL7. When I run the standard on this repo, what must it leave alone beyond
+the laps and the shared seam documents?
+
 ## Questions for the fork
 
 FK1. Where do operator proposals go under your protocol, and when may you
@@ -171,6 +199,9 @@ FK5. Which sections of your CLAUDE.md would move to path-scoped rules?
 FK6. Is f8ebf48 merging forward now, and if not, what blocks it? Is the
 cache-model report still accurate for me to file?
 
+FK7. Does the fork list its carried patches anywhere today? If not, where
+should that list live?
+
 ## Joint questions
 
 J1. Which checks, run in CI, would each of you accept as evidence you
@@ -185,6 +216,9 @@ without touching round 28?
 J4. Where I restated a rule you already hold, point me to it so I can cite
 it instead.
 
+J5. May changes approved in a standard run land while a round is open, or
+do they wait until it closes?
+
 ## Constraints
 
 C1. The announce gate stays. Only I announce.
@@ -192,7 +226,7 @@ C1. The announce gate stays. Only I announce.
 C2. No agent-to-agent auto-triggering and no unattended loops.
 
 C3. No routine, CI, settings, or CLAUDE.md change until both sides answer
-and I approve.
+and I approve. A standard run still stops at its own approval gate.
 
 C4. Round 28 goes first. This proposal adds nothing to it.
 
