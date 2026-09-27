@@ -1347,8 +1347,16 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [~] **C7. The receiving half of the omission gate** — nothing checks that every
   artifact a lap names was filed; answering 5b.3 honestly needs it.
   - *Audit 2026-09-25: partly done.* tests/test_named_artifacts_are_filed.py (7fc3946) checks inbound|outbound/artifacts/ only. It is not in the gate, and misses docs/handshake/artifactsround26/, which laps cite.
-- [ ] **C8. `PEER_CONFIRMED_UNPINNED` holds 19 laps** — ask the fork for sha256 values of
+- [x] **C8. `PEER_CONFIRMED_UNPINNED` holds 19 laps** — ask the fork for sha256 values of
   their filed copies so the rows graduate. `tests/test_sent_laps_are_immutable.py`.
+  - *Done 2026-09-27, by derivation rather than asking:* the fork's filed copies are in
+    their public tree. At `cyanrip@fd05b12:docs/handshake/inbound/`, 18 of the 19 are
+    byte-identical to ours and are pinned in `SENT_LAPS`; the ratchet holds 1. The 19th,
+    `round-14-lap-18.md`, is a finding: their copy (`74635eff…`, 19,056 bytes) is our
+    revision at `2cba3912`, the bytes we sent, and ours was revised in place at
+    `43a33b47` (2026-08-26, adding §7 and a new digest line) before the guard existed.
+    Open, and not done here: whether to restore the sent bytes, as round 8 lap 10 was.
+    It would drop §7 from the file (it stays in history at `43a33b47`).
 - [ ] **C10. The challenge ledger stops at round 21 lap 4** — unrecorded: r22 C1 (our
   circular `GO`, they were right), r22 lap 5 (our withdrawn `handshake_round` claim),
   r22 lap 3 §H1, r23 §A (tracks 3 and 5, we were right), r23 lap 1 §H6, r24 §B3 (the
