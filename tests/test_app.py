@@ -823,6 +823,97 @@ def test_the_unapproved_note_still_fires_for_a_different_commit(
     assert "unapproved" in out
 
 
+# --- --install-ripper latest / latest-beta: the channel head, never the default ----
+#
+# TASKS (2026-08-07): a resolver in front of `target_for_commit` for a SCRIPT that
+# wants "whatever the channel says" without pinning. The row's closing warning is
+# the constraint: the default stays "install what a closed round approved".
+
+
+def _serve_manifest(monkeypatch: pytest.MonkeyPatch, body: str | None) -> list[str]:
+    """Stand in for the network at the one function that reads it.
+
+    `body=None` makes the fetch fail the way an offline machine does. Returns the
+    URLs asked for, so a test can prove the manifest was — or was not — read.
+    """
+    from platterpus.deps import ripper_manifest
+
+    asked: list[str] = []
+
+    def fetch(url: str) -> str:
+        asked.append(url)
+        if body is None:
+            raise OSError("network is unreachable")
+        return body
+
+    monkeypatch.setattr(ripper_manifest, "_default_fetch", fetch)
+    return asked
+
+
+def test_install_ripper_latest_beta_builds_the_beta_head(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The resolved commit reaches the thing that BUILDS, and is named first."""
+    import json
+
+    from test_ripper_latest import _BETA_COMMIT, _document
+
+    from platterpus.deps import host_setup as host_setup_module
+
+    asked = _serve_manifest(monkeypatch, json.dumps(_document()))
+    _install_ripper_stub(monkeypatch, ready=True)
+
+    assert app_module.main(["--install-ripper", "latest-beta"]) == 0
+    assert asked, "the manifest was never read"
+    target = host_setup_module.HostSetup.last_kwargs.get("fork_target")
+    assert target is not None and target.pin == _BETA_COMMIT, (
+        f"latest-beta did not build the beta channel's head: {target!r}"
+    )
+    out = capsys.readouterr().out
+    assert "head of the fork's beta channel" in out
+    assert f"platterpus-fork-g{_BETA_COMMIT}" in out, "the tag the build must print"
+    # A head no closed round here approved is still announced as such.
+    assert "this is not the handshake-approved build" in out
+
+
+def test_install_ripper_latest_refuses_rather_than_install_something_else(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Offline: nothing is built — in particular not the approved pin instead."""
+    from platterpus.deps import host_setup as host_setup_module
+
+    _serve_manifest(monkeypatch, None)
+    _install_ripper_stub(monkeypatch, ready=True)
+
+    assert app_module.main(["--install-ripper", "latest"]) == 1
+    assert host_setup_module.HostSetup.last_kwargs == {}, (
+        "an unresolvable `latest` constructed an install anyway"
+    )
+    out = capsys.readouterr().out
+    assert "Nothing was installed" in out
+    assert "installing the ripping stack" not in out
+
+
+def test_a_bare_install_ripper_never_reads_the_manifest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The default is untouched: no network, and the approved build."""
+    import json
+
+    from test_ripper_latest import _document
+
+    from platterpus.deps import host_setup as host_setup_module
+    from platterpus.deps.fork_source import WIZARD_TARGET
+
+    asked = _serve_manifest(monkeypatch, json.dumps(_document()))
+    _install_ripper_stub(monkeypatch, ready=True)
+
+    assert app_module.main(["--install-ripper"]) == 0
+    assert asked == [], "a bare --install-ripper consulted the manifest"
+    target = host_setup_module.HostSetup.last_kwargs.get("fork_target")
+    assert target is not None and target.pin == WIZARD_TARGET.pin
+
+
 def test_startup_logs_the_argv_it_was_invoked_with(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:

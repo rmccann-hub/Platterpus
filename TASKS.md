@@ -4670,11 +4670,17 @@ up to date"; it has to be "notice, and offer."
   which is exactly what *"do not make any of this the default"* was protecting. A
   build no round here has verified keeps the old treatment: consequence stated,
   never the default action, `--install-ripper <commit>` handed over.
-- [ ] **`--install-ripper latest` / `latest-beta`**, resolving the newest commit
+- [x] **`--install-ripper latest` / `latest-beta`**, resolving the newest commit
   from the manifest instead of requiring a sha. **Still open, and now lower
   priority**: the GUI covers the case a person hits, so this is for a *script* that
   wants "whatever the channel says" without pinning. A resolver in front of
   `target_for_commit`, not a new install path.
+  - *Done 2026-09-27:* `deps/ripper_latest.py` `resolve_latest` / `resolve_keyword`, a
+    resolver in front of `target_for_commit`, called from `app.py`. The default is
+    unchanged (a bare `--install-ripper` builds the approved target and touches no
+    network), and an unreadable manifest refuses with exit 1 rather than falling back.
+    Tests: `tests/test_ripper_latest.py` (including agreement with the GUI's offer) and
+    `tests/test_app.py`.
 
 **Do not** make any of this the default. The default stays: install what a closed
 round approved. The automation's job is to stop the *maintainer* hand-editing a
