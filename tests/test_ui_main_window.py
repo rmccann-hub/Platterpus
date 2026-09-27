@@ -10311,6 +10311,113 @@ def test_a_second_lookup_for_the_same_disc_does_not_open_a_second_picker(
         ReleasePickerDialog.selected_mbid = original_selected  # type: ignore[method-assign]
 
 
+def test_a_lookup_that_lands_WHILE_the_picker_is_open_does_not_open_a_second(
+    teardown_threads: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """At most one release picker per disc per scan, including DURING the first.
+
+    TASKS `stateful:one-picker-per-scan`. The test above covers a duplicate that
+    lands after the first picker was ANSWERED, when `_mb_release_chosen_for` is
+    already set. That marker is written only once the user answers, and
+    `exec()` runs a nested event loop, so a second lookup's result queued behind
+    the first is delivered INSIDE it, with the marker still empty. Before the fix
+    that delivery opened a second picker over the first, and whichever the user
+    answered last replaced the tags the other had chosen.
+
+    Delivered the way production delivers it: a queued signal (the MB worker's
+    `releases_returned` shape) flushed by the nested loop the stand-in `exec`
+    runs, not a direct re-entrant call. And the delivery is asserted to have
+    HAPPENED while the picker was open, because a stand-in loop that never
+    delivered it would pass this test with the bug in place.
+    """
+    from PySide6.QtCore import QCoreApplication, QObject, Qt, Signal  # noqa: PLC0415
+
+    window = teardown_threads()
+    disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
+    window._current_disc_id = disc
+    window._mb_release_chosen_for = ""
+    chosen = "aaaaaaaa-0000-0000-0000-000000000001"
+    # Two candidates, so the picker branch is the one taken.
+    releases = [
+        ReleaseSummary(
+            mbid=f"aaaaaaaa-0000-0000-0000-00000000000{n}",
+            title=f"Candidate {n}",
+            artist_credit="The Police",
+            date="2003",
+            country="GB",
+            track_count=14,
+        )
+        for n in (1, 2)
+    ]
+
+    class _SecondLookup(QObject):
+        releases_returned = Signal(str, list)  # (context, list[ReleaseSummary])
+
+    second_lookup = _SecondLookup()
+    open_pickers: list[int] = [0]
+    #: How many pickers were open at each moment the second result was delivered.
+    delivered_while_open: list[int] = []
+
+    def _deliver(context: str, found: list[ReleaseSummary]) -> None:
+        delivered_while_open.append(open_pickers[0])
+        window._on_mb_releases(context, found)
+
+    second_lookup.releases_returned.connect(
+        _deliver, Qt.ConnectionType.QueuedConnection
+    )
+
+    presented: list[int] = []
+    outcomes: list[QDialog.DialogCode] = []
+
+    def _fake_exec(self: ReleasePickerDialog) -> int:
+        presented.append(len(presented) + 1)
+        open_pickers[0] += 1
+        try:
+            if len(presented) == 1:
+                # The second lookup lands while this picker is on screen; the
+                # nested loop exec() runs is what delivers it.
+                second_lookup.releases_returned.emit(disc, releases)
+                QCoreApplication.processEvents()
+            return int(outcomes.pop(0) if outcomes else QDialog.DialogCode.Accepted)
+        finally:
+            open_pickers[0] -= 1
+
+    fetched: list[tuple[str, str]] = []
+    monkeypatch.setattr(ReleasePickerDialog, "exec", _fake_exec)
+    monkeypatch.setattr(ReleasePickerDialog, "selected_mbid", lambda self: chosen)
+    monkeypatch.setattr(
+        window,
+        "_fetch_release_detail",
+        lambda mbid, context: fetched.append((mbid, context)),
+    )
+
+    window._on_mb_releases(disc, releases)
+
+    assert delivered_while_open == [1], (
+        "the second lookup's result was not delivered inside the open picker's "
+        f"event loop ({delivered_while_open}), so this test proved nothing"
+    )
+    assert presented == [1], (
+        f"{len(presented)} release pickers were presented for one disc in one "
+        "scan: the second opened over the first while it was still waiting"
+    )
+    assert fetched == [(chosen, disc)], (
+        f"expected one release fetch, for the one answer; got {fetched}"
+    )
+    assert window._mb_release_chosen_for == disc
+
+    # THE NEW STATE IS RELEASED. Whatever says "a picker is open" must end with
+    # the picker, on every exit: a deliberate new question for this disc (a
+    # rescan clears the marker) must open a picker again after an answer, and
+    # after a cancel too.
+    window._mb_release_chosen_for = ""
+    outcomes.append(QDialog.DialogCode.Rejected)
+    window._on_mb_releases(disc, releases)
+    assert presented == [1, 2], "no picker after the first one closed: it stuck open"
+    window._on_mb_releases(disc, releases)
+    assert presented == [1, 2, 3], "a cancelled picker left the disc unable to ask"
+
+
 def test_every_place_that_clears_the_disc_id_also_clears_the_chosen_marker() -> None:
     """Two reset sites; updating one and not the other is how the next bug lands.
 

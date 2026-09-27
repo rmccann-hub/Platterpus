@@ -126,6 +126,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   describes the message's first printed line. Found by a new property test: whatever
   `printf` prints for a generated format must match the pattern built from that
   format, and the function must never raise.
+- **A second MusicBrainz result can no longer open a second release picker while the
+  first is still waiting.** The picker waits for you inside its own event loop, and a
+  duplicate lookup result for the same disc could land in that loop before you had
+  answered. It opened another picker on top of the first, and whichever you answered
+  last replaced the tags the other had chosen. The open picker is now the only one,
+  and a new lookup after it closes, whether answered or cancelled, still asks again.
 
 ### Added
 

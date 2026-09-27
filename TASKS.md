@@ -3811,8 +3811,15 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *Audit 2026-09-25: partly done.* test_a_rescan_between_opening_the_picker_and_answering_it_keeps_the_answer covers one ordering; no exploration.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"stateful:harness (ungated, large) — No test anywhere explores event ORDERING; every …"*, which stays open.
 - [ ] **`stateful:missed-swap`** (partial, medium) — A disc swap the poller does not observe leaves the whole app describing the wrong disc
-- [~] **`stateful:one-picker-per-scan`** (partial, medium) — At most one release picker per disc per scan
+- [x] **`stateful:one-picker-per-scan`** (partial, medium) — At most one release picker per disc per scan
   - *Audit 2026-09-25: partly done.* test_a_second_lookup_for_the_same_disc_does_not_open_a_second_picker covers the duplicate after an answer. A result arriving during the first picker's exec() is untested.
+  - *Done 2026-09-27, and it found a bug:* a second result delivered inside the open
+    picker's `exec()` opened a second picker and ran the fetch twice (reproduced). Fixed:
+    `_mb_picker_open_for` is set around `exec()` and restored in a `finally`, and
+    `_on_mb_releases` declines that disc's candidates while it is open, at INFO
+    (`ui/main_window.py`). Test: `tests/test_ui_main_window.py`, the second result arrives
+    by a queued signal inside the stand-in `exec()`, asserted delivered while open, and the
+    state cleared after accept and cancel. Revert-probed 3/3.
 - [ ] **`stateful:rip-identity`** (ungated, medium) — The argv the ripper receives must describe the disc in the drive
 - [ ] **`stateful:staleness-key-is-a-value`** (ungated, medium) — The disc/MB pipeline keys staleness on a mutable value; the rip pipeline uses a monotonic generation, and only one of them has …
 - [ ] **`stateful:harness`** (ungated, large) — No test anywhere explores event ORDERING; every fixture starts in an end state

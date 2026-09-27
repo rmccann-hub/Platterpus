@@ -1818,7 +1818,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1616 -> 1599** (2026-09-24, #37 one home per setting): down: Settings' opener moved to `main_window_settings.py`, and Diagnose drive access… left the Tools menu.
     # 1599 -> 1600 on 2026-09-25: a drive change forgets the release detail with the release id.
     # **1600 -> 1675** (2026-09-25, TASKS `stateful:answered-implies-answerable`, `stateful:table-immutable-during-rip`, `stateful:no-modal-during-rip`): a failed release FETCH now un-answers the disc in its own handler, a redundant lookup failing no longer overwrites the chosen release, and `_rip_holds_the_track_table` keeps every MusicBrainz answer off the table and out of a modal while a rip runs. These are the MusicBrainz slots, which live here.
-    "ui/main_window.py": 1675,
+    # **1675 -> 1700** (2026-09-27, TASKS `stateful:one-picker-per-scan`): `_on_mb_releases` declines a second lookup's candidates for a disc whose release picker is still open (they land inside its nested event loop), and `_mb_picker_open_for` lives exactly as long as the picker's `exec()`. The guard belongs beside the one it completes, in the same slot.
+    "ui/main_window.py": 1700,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
