@@ -25,6 +25,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   A1-A8 switched on, as the fork's checker does. It also prints how many close
   conditions and blocking questions a `GO` was checked against, so a `GO` that passed
   by finding nothing to check says so.
+- **For contributors: the app smoke test checks that its stand-in `exec()` closes
+  the window**, as the script console tests' one does.
+
 - **For contributors: CLAUDE.md is trimmed to its rules and pointers.** It is read into every session, and at 142 KB most of it was
   dated incident narrative. Each rule keeps its operative sentence and points at the
   section that holds its full statement. Passages whose facts were not already in that
