@@ -79,6 +79,7 @@ def _check_go_over_terms(ctx: Context) -> None:
         if target is not None:
             status[target] = item
     go_line = verdict_line(ctx.lap)
+    ctx.lap.go_checked_against["A1"] = len(conditions)
     for condition in conditions:
         latest = status.get(condition.key)
         name = _name(ctx, condition)
@@ -160,12 +161,15 @@ def _check_go_over_questions(ctx: Context) -> None:
             ref = parse_statement(first_token(fld.value))
             if ref is not None and ref.number is not None and ref.side is not None:
                 answered.add((ref.side, ref.lap, ref.number))
-    for item in placed:
-        s = item.statement
-        if item.lap.author == author or s.kind != "ASK":
-            continue
-        if [f.value for f in s.values("target")] != ["BLOCKING"]:
-            continue
+    blocking = [
+        item
+        for item in placed
+        if item.lap.author != author
+        and item.statement.kind == "ASK"
+        and [f.value for f in item.statement.values("target")] == ["BLOCKING"]
+    ]
+    ctx.lap.go_checked_against["A7"] = len(blocking)
+    for item in blocking:
         if item.key not in answered:
             ctx.refuse(
                 verdict_line(ctx.lap),
