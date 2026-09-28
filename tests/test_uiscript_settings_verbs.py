@@ -19,6 +19,7 @@ archival goal" and rip with exactly the settings it was avoiding.
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -32,11 +33,17 @@ from platterpus.uiscript.script import parse
 
 
 @pytest.fixture
-def window(qapp: QApplication) -> QWidget:
-    """A bare top-level carrying a config, which is all these verbs touch."""
+def window(qapp: QApplication, tmp_path: Path) -> QWidget:
+    """A bare top-level carrying a config, which is all these verbs touch.
+
+    The rips folder is a temporary one, not the default: a `cyanrip` step runs
+    the ripper there and creates it first, as the app's own rip does, and the
+    default is the developer's real `~/Music/rips` (it appeared on this machine
+    the first time the full suite ran after that change, 2026-09-28).
+    """
     del qapp
     widget = QWidget()
-    widget._config = Config()  # type: ignore[attr-defined]
+    widget._config = Config(output_dir=str(tmp_path / "rips"))  # type: ignore[attr-defined]  # the window's settings slot, as MainWindow has it
     return widget
 
 

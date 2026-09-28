@@ -290,6 +290,9 @@ class _CyanripJob:
     done: threading.Event
     result: tuple[int, str] | None = None
     error: str = ""
+    #: The folder the ripper ran in, recorded beside the argv: a relative `-D`
+    #: in the argv means nothing without it. ``None`` only for a job a test builds.
+    cwd: Path | None = None
 
 
 @dataclass
@@ -1617,6 +1620,9 @@ class ScriptRunner(QObject):
         unchanged — the *same* function, the *same* arguments — it simply happens
         on a daemon thread while the tick keeps returning to the event loop. See
         :class:`_CyanripJob`.
+
+        **It runs in the rips folder** — the one the app's own rips run in, so a
+        relative ``-D`` lands beside them (see :func:`_ripper_workdir`).
         """
         from platterpus.adapters.rip_backend import RipError, run_capture
         from platterpus.paths import CYANRIP_BINARY_DEFAULT
@@ -1690,6 +1696,13 @@ class ScriptRunner(QObject):
             # itself is `_forget_last_cyanrip_result`, at the top of this method.
             self._record(step, Outcome.FAIL, refusal)
             return
+        # WHERE IT RUNS: the rips folder, read NOW, when the step runs (a `set
+        # output_dir` earlier in the script counts). See `_ripper_workdir` for
+        # the 2026-09-28 run whose `-D r16deemphon` landed outside the session.
+        workdir, no_workdir = _ripper_workdir(self._window)
+        if workdir is None:
+            self._record(step, Outcome.ERROR, no_workdir)
+            return
         argv = [str(CYANRIP_BINARY_DEFAULT), *args]
         self._last_cyanrip_argv = argv
         job = _CyanripJob(
@@ -1697,6 +1710,7 @@ class ScriptRunner(QObject):
             argv=argv,
             started=time.monotonic(),
             done=threading.Event(),
+            cwd=workdir,
         )
 
         def _work() -> None:
@@ -1704,15 +1718,27 @@ class ScriptRunner(QObject):
             # `job`; it never touches Qt, a widget, or the report. That is the
             # rule the GUI-thread boundary is made of.
             try:
+                # Created HERE, off the GUI thread: the rips folder can be on a
+                # network share, and a `mkdir` on a stalled mount blocks. Same
+                # step as the app's own rip (`cyanrip_backend`), for the same
+                # reason — a first run has no rips folder yet.
+                workdir.mkdir(parents=True, exist_ok=True)
                 job.result = run_capture(
                     "cyanrip",
                     str(CYANRIP_BINARY_DEFAULT),
                     args,
                     timeout=CYANRIP_VERB_TIMEOUT_S,
                     stdin_devnull=True,  # cyanrip reads stdin; it must be closed
+                    cwd=workdir,
                 )
             except RipError as exc:
                 job.error = str(exc)
+            except OSError as exc:
+                # The folder could not be made. Named as the folder, so the reader
+                # does not go looking for a ripper fault.
+                job.error = (
+                    f"could not create the ripper's working folder {workdir}: {exc}"
+                )
             except Exception as exc:  # noqa: BLE001 — a helper thread must not die silently
                 job.error = f"unexpected {type(exc).__name__}: {exc}"
             finally:
@@ -1749,7 +1775,7 @@ class ScriptRunner(QObject):
             self._record(
                 job.step,
                 Outcome.ERROR,
-                f"argv: {' '.join(job.argv)}\nexit: null (never reaped)\n"
+                f"{_job_invocation(job)}\nexit: null (never reaped)\n"
                 f"the ripper did not return after {elapsed:.0f}s and did not "
                 "respond to a kill — the child is unreapable (a reader wedged in "
                 "a drive ioctl is in uninterruptible sleep). The batch continues.",
@@ -1766,7 +1792,7 @@ class ScriptRunner(QObject):
             self._record(
                 job.step,
                 Outcome.ERROR,
-                f"argv: {' '.join(job.argv)}\nexit: null (never reaped)\n{job.error}",
+                f"{_job_invocation(job)}\nexit: null (never reaped)\n{job.error}",
                 elapsed=elapsed,
             )
             return
@@ -1780,7 +1806,7 @@ class ScriptRunner(QObject):
             # Screened for the record a person reads (Critical rule #12, inbound).
             # `_last_cyanrip_output` above stays raw: the `expect-*` verbs match
             # what the ripper said, not our rendering of it.
-            f"argv: {' '.join(job.argv)}\nexit: {code}\n"
+            f"{_job_invocation(job)}\nexit: {code}\n"
             f"{_bounded_output(inbound_text.screen_text(output).text)}",
             elapsed=elapsed,
         )
@@ -4141,6 +4167,66 @@ def _drive_in_offset_list(window: object) -> tuple[str, int | None]:
         return "", None
     label = f"{drive.vendor.strip()} {drive.model.strip()}".strip()
     return label, database.lookup(drive.vendor, drive.model)
+
+
+def _ripper_workdir(window: object) -> tuple[Path | None, str]:
+    """The folder the `cyanrip` verb runs the ripper in, or ``None`` and why not.
+
+    **Why it matters.** cyanrip resolves a relative ``-D``, ``-F`` or ``-j``
+    against the folder it runs in, and this verb used to give it none: on the
+    2026-09-28 Full run, P3's ``-D r16deemphon`` wrote a commercial track, its log
+    and its cue into whichever folder the app had been launched from — outside
+    the session folder, and missing from the bundle.
+
+    **The rips folder — the window's own output directory.** Not a second
+    setting: the app's own rip spawns cyanrip with ``cwd=output_dir``
+    (``adapters.cyanrip_backend``), so a script's relative ``-D`` lands exactly
+    where the app's rips do, and the two cannot disagree about where that is.
+
+    * **In an acceptance session** that is the session's ``rips`` folder (the
+      session points ``output_dir`` there for the run and restores it after), so
+      the verb's folders sit with the run's rips, where the album scan finds them.
+    * **Anywhere else** (the script console, ``--run-script``) it is the rips
+      folder in Settings, ``~/Music/rips`` unless moved: the documented default,
+      because it is where this user's rips already go. **Never the folder the app
+      was started from** — from a source checkout that is the public repository
+      (Critical rule #8).
+
+    **Refuses rather than guesses** when there are no settings or ``output_dir``
+    is not absolute: a relative one resolves against the process's folder again.
+    A refusal costs one step; a wrong guess costs a commercial track written
+    somewhere nobody looks. The value was validated where it entered
+    (`settings_validation`); this checks only the property the verb depends on.
+
+    PURE: reads two attributes, touches no disk. Creating the folder is the
+    helper thread's job, because a `mkdir` on an unmounted share can block.
+    """
+    config = getattr(window, "_config", None)
+    if config is None:
+        return None, (
+            "refusing to run the ripper: there are no application settings to "
+            "say where the rips folder is, and cyanrip writes its -D/-F/-j paths "
+            "relative to the folder it runs in"
+        )
+    raw = getattr(config, "output_dir", None)
+    if not isinstance(raw, str) or not raw or not Path(raw).is_absolute():
+        return None, (
+            f"refusing to run the ripper: the rips folder (output_dir) is {raw!r}, "
+            "not an absolute path, so a relative -D would land in whatever folder "
+            "the app was started from. Set the output directory in Settings."
+        )
+    return Path(raw), ""
+
+
+def _job_invocation(job: _CyanripJob) -> str:
+    """The argv AND the folder it ran in, as the transcript records them.
+
+    A relative ``-D r16deemphon`` says nothing about where the folder is, so
+    reproducing the command by hand needs the ``cwd`` too (``CLAUDE.md`` —
+    diagnostic completeness). An unrecorded folder is said, never left blank.
+    """
+    where = str(job.cwd) if job.cwd is not None else "(not recorded)"
+    return f"argv: {' '.join(job.argv)}\ncwd: {where}"
 
 
 def _is_section_header(step: Step) -> bool:

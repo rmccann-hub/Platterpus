@@ -757,6 +757,42 @@ def finish_session(
 #: overwritten).
 RIP_REPORT_GLOB: Final[str] = "*.platterpus.json"
 
+#: The SECOND thing that marks a rip folder: a log **cyanrip itself** wrote.
+#:
+#: A script's `cyanrip` verb runs the ripper directly, with no app rip around it,
+#: so its folder (`cyanrip ... -D r16deemphon`, the acceptance script's P3) has
+#: cyanrip's log and cue and audio but **no `*.platterpus.json`** — and the scan
+#: above never saw it. On the 2026-09-28 Full run those folders were also written
+#: outside the session (the verb had no working folder; fixed in the same change),
+#: so their logs were missing from the bundle twice over.
+#:
+#: Judged by CONTENT, not by the `.log` suffix alone: an album folder routinely
+#: holds our own EAC-compatible export and could hold anybody's log, and only a
+#: file cyanrip wrote is evidence that the ripper wrote into this folder. The
+#: predicate is the parsers' own (`looks_like_cyanrip_log`), so the scan and the
+#: log reader cannot disagree about what a cyanrip log is.
+RIPPER_LOG_GLOB: Final[str] = "*.log"
+
+#: How much of a candidate log the scan reads to find cyanrip's banner. The banner
+#: is the first line today and within the first five non-blank lines by contract
+#: (`parsers.cyanrip_log._BANNER_SEARCH_LINES`); 16 KiB covers those lines even
+#: behind cyanrip's `Invoked as:` line, which carries the whole argv (2 KB for a
+#: fourteen-track rip). Bounded so a huge unrelated `.log` costs a read, not a load.
+_RIPPER_LOG_SNIFF_BYTES: Final[int] = 16 * 1024
+
+
+def _is_ripper_log(path: Path) -> bool:
+    """Did cyanrip write this file? Reads a bounded head. Never raises."""
+    from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log
+
+    try:
+        with path.open("rb") as handle:
+            head = handle.read(_RIPPER_LOG_SNIFF_BYTES)
+    except OSError as exc:
+        log.warning("could not read %s to see whether cyanrip wrote it: %r", path, exc)
+        return False
+    return looks_like_cyanrip_log(head.decode("utf-8", errors="replace"))
+
 
 class AlbumScan(list[Path]):
     """The album folders a scan kept, carrying what it had to leave behind.
@@ -809,6 +845,13 @@ def session_album_dirs(
     of previous rips does not end up in the archive, and a rip from this session
     does even if its folder existed before.
 
+    **Two markers, one folder each.** A folder is a rip folder when it holds this
+    app's rip report (:data:`RIP_REPORT_GLOB`) *or* a log cyanrip wrote
+    (:data:`RIPPER_LOG_GLOB`) — the second is how the folders a script's
+    ``cyanrip`` verb makes are found, since no app rip ran to write a report. Both
+    go through ``build_bundle``'s strict album channel: their log and cue go in,
+    their audio is refused and named.
+
     ``limit`` bounds a pathological case rather than a normal one: a
     misconfigured output directory pointing at a whole music library would
     otherwise put hundreds of folders through the bundler. Ordering newest-first
@@ -840,6 +883,32 @@ def session_album_dirs(
                 if modified < since:
                     continue
                 folder = report.parent
+                found[folder] = max(found.get(folder, 0.0), modified)
+            # The folders a script's `cyanrip` verb wrote (see `RIPPER_LOG_GLOB`).
+            # An app rip's folder qualifies both ways and is counted once: `found`
+            # is keyed by folder.
+            for ripper_log in root.rglob(RIPPER_LOG_GLOB):
+                try:
+                    modified = ripper_log.stat().st_mtime
+                except OSError:
+                    continue
+                # Cheap test first: only a log from THIS session is read at all.
+                if modified < since or not _is_ripper_log(ripper_log):
+                    continue
+                folder = ripper_log.parent
+                if folder == root:
+                    # `-D .` put the log in the search root itself. Taking the
+                    # ROOT as an album folder would archive every album in it a
+                    # second time under another name, pushing later files out of
+                    # the size budget, so it is left out — and said so, because
+                    # the app log is in the bundle and a reader can find this.
+                    log.warning(
+                        "a cyanrip log sits directly in the rips folder %s (a -D "
+                        "that named the folder itself); it is NOT collected: %s",
+                        root,
+                        ripper_log.name,
+                    )
+                    continue
                 found[folder] = max(found.get(folder, 0.0), modified)
         except OSError as exc:
             # A search root we cannot read is a fact about this machine, not a
