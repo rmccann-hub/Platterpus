@@ -10502,6 +10502,45 @@ def test_the_embedded_debug_log_excludes_other_albums_rips(teardown_threads) -> 
     assert block is not None and set(block) >= {"scope", "truncated", "lines"}
 
 
+def test_the_report_s_debug_block_carries_the_buffer_s_own_count(
+    teardown_threads,
+) -> None:
+    """The WIRING half of the round-28 fix: the window hands the report the count
+    the buffer kept, from the same read as the lines. A `build_debug_log` that can
+    state a count is no use if the caller still passes only `truncated=True`."""
+    from platterpus.log_buffer import (
+        SessionLogBuffer,
+        get_session_buffer,
+        set_session_buffer,
+    )
+
+    window = teardown_threads()
+    window._rip_windows = []
+    window._current_rip_window = None
+    small = SessionLogBuffer(head=2, tail=3)
+    small.setFormatter(logging.Formatter("%(message)s"))
+    for i in range(12):
+        record = logging.LogRecord("t", logging.INFO, __file__, 0, f"l{i}", None, None)
+        record.created = float(2_000 + i)
+        small.emit(record)
+    previous = get_session_buffer()
+    set_session_buffer(small)
+    try:
+        block = window._build_rip_debug_log()
+    finally:
+        set_session_buffer(previous)
+    assert block is not None
+    assert small.dropped == 7
+    assert block["truncated"] is True
+    assert "7 line(s) of the session" in block["scope"], block["scope"]
+    assert block["lines"][:2] == ["l0", "l1"] and block["lines"][-3:] == [
+        "l9",
+        "l10",
+        "l11",
+    ]
+    assert block["lines"][2].startswith("… [7 line(s) of this session"), block["lines"]
+
+
 def test_an_in_progress_report_does_not_claim_bit_perfect_for_the_whole_disc(
     teardown_threads, tmp_path: Path
 ) -> None:

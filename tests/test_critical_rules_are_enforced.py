@@ -1742,7 +1742,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2554 -> 2581** (2026-09-26, the fork's S16): a rip whose log records no track is no longer blamed on the pressing, the database or the offset, and only a log that parsed whole can say so.
     # **2581 -> 2587** (2026-09-28, the Full run's track 3): the schema v30 note, beside the version it describes.
     # **2587 -> 2609** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `NOT_WHOLE_DISC_GATE` beside its sibling gate states, and the one place `_build` corrects `gates.ctdb` from the verdict, where the settings-derived gate and the result meet. The verdict's value is imported from `ctdb/coverage.py`, so the builder stays adapter-free.
-    "rip_report.py": 2609,
+    # **2581 -> 2639** (2026-09-28, the round-28 Full run: a debug block marked truncated, tail-only, uncounted, under a scope saying "since launch"): `_debug_scope`, the scope sentence built from what the lines ARE — the buffer's counted drop with its span, and this report's own elision — and `build_debug_log` taking the count. The sentence describes the report's block, so it lives with the block.
+    "rip_report.py": 2667,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -2033,7 +2034,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4820 -> 4830 on 2026-09-28: the overwrite guard decides on folders that exist, and does not promise an overwrite of a look-alike (review Q4).
     # **4830 -> 4852** (2026-09-28, the Full run's track 3): two auto-fix sentences, one per reason a re-read is kept, since a read kept on AccurateRip's word may not have read consistently; and the unstable-track warning names the read the album keeps.
     # **4852 -> 4861** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `_start_ctdb_verify` hands the worker the rip's parsed log and the probe's track count, read at launch on the GUI thread, because the daemon runs later.
-    "ui/main_window_rip.py": 4861,
+    # 4830 -> 4836 on 2026-09-28 (the round-28 Full run): the debug block is built from ONE buffer snapshot, so the count in its scope is the count in its marker.
+    "ui/main_window_rip.py": 4867,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared

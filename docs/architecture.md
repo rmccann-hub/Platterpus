@@ -484,6 +484,13 @@ comments accurate too — they document *which* mixin owns each concern).
      capturing DEBUG is free, and it means every report is verbose enough to
      debug from *out of the box* rather than only after a user enables the toggle.
      The toggle governs only the on-disk `log.txt`'s verbosity (item 1).
+     **Bounded as head and tail, the gap counted** (2026-09-28): the first
+     `_HEAD_RECORDS` lines of the session are kept for its whole life, the most
+     recent slide, and what falls between is counted, so `debug.lines` carries
+     one marker naming how many lines were dropped and when, and `debug.scope`
+     says `INCOMPLETE` with the same count. The cap used to evict oldest-first,
+     silently: a long session's report lost its launch context and still called
+     itself "since launch".
   We deliberately do NOT also write a plain-text `.platterpus.log` sidecar — it
   duplicated cyanrip's human `.log` (for people) and the JSON's `debug` block (for
   machines), so it earned its place in neither. The global log is the program-

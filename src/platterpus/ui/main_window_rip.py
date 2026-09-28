@@ -3559,8 +3559,14 @@ class RipMixin(MainWindowShared):
         # then. Falls back to the live value for callers with no record.
         mine = rip_window if rip_window is not None else self._current_rip_window
         others = [w for w in self._rip_windows if w is not mine]
+        # ONE read of the buffer: the lines and the count of what it dropped come
+        # from the same moment, so the scope's number is the marker's number.
+        snapshot = buffer.snapshot_excluding(others)
         return build_debug_log(
-            buffer.lines_excluding(others), truncated=buffer.truncated
+            snapshot.lines,
+            truncated=snapshot.dropped > 0,
+            buffer_dropped=snapshot.dropped,
+            buffer_dropped_between=snapshot.dropped_between,
         )
 
     def _confirm_offset_from_accuraterip(self, rip_log: object) -> None:

@@ -90,6 +90,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   (whose value the log now keeps before the reset replaces it). One function writes
   the line, and it is called where the refusal is decided, so no caller has to
   remember to log.
+- **A long session's rip report keeps the start of the session and counts what it
+  left out.** The in-memory copy of the log that each report embeds dropped its
+  oldest lines once it was full, and said only `truncated: true`. The round-28 secure
+  re-read report's log began at 01:17:49 for a rip that started at 23:52:41, gave no
+  count of the missing lines, and still described itself as "this session since
+  launch". The buffer now keeps the first 5,000 lines of the session and the most
+  recent 45,000, and counts every line between. The report's lines carry one marker
+  at the gap with the count and the times it covers. The report's `scope` says
+  `INCOMPLETE` with the same count, and also names any lines the report itself
+  elided to fit its size limit. `log.txt` still has every line.
 
 ### Changed
 
