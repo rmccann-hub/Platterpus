@@ -11,7 +11,7 @@ Order:
   4. construct adapters  — CyanripImpl, MusicBrainzNgsImpl,
                            MetaflacAdapter, DependencyManager
   5. construct MainWindow
-  6. run_dependency_check(show_summary=False) — silent unless missing
+  6. run_dependency_check_async() — off the GUI thread, silent unless missing
   7. window.show() and refresh_drives()
   8. app.exec()
 """

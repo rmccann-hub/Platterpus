@@ -12514,3 +12514,66 @@ def test_check_again_is_told_once_when_the_dependency_check_lands(
         window._dep_check_thread = None
         window.close()
         dep_manager.remember_report(None)
+
+
+def test_open_dependencies_in_a_script_probes_off_the_gui_thread(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A script's `open dependencies` froze the window until 2026-09-28.
+
+    It named `run_dependency_check`, the synchronous form kept for tests, so every
+    probe (a cold container's start included) ran on the GUI thread. Driven here
+    through the real runner and a real window with the probe HELD: the step must
+    return at once, the event loop must keep turning while the probe waits, the
+    step must not record before its check lands, and the status bar must say a
+    check is running. Released, the step passes and the summary is shown once.
+    """
+    from platterpus.uiscript.report import Outcome
+    from platterpus.uiscript.runner import ScriptRunner
+    from platterpus.uiscript.script import parse
+
+    window = teardown_threads(config=_quiet_config())
+    release = threading.Event()
+    calls: list[str] = []
+    window._dependency_manager = DependencyManager(
+        specs=[_dep_spec("slow", _blocking_probe(release, calls, "slow"))]
+    )
+    summaries: list[object] = []
+    monkeypatch.setattr(
+        window,
+        "_show_dep_summary",
+        lambda report, optional_missing=None: summaries.append(report),
+    )
+    runner = ScriptRunner(window)
+    try:
+        started = time.monotonic()
+        runner._execute(parse("open dependencies")[0])
+        assert time.monotonic() - started < 2.0, "the step held the GUI thread"
+        _pump_until(qapp, lambda: bool(calls))
+        # The probe is running and held. The GUI thread is free: events are
+        # processed and the wait is serviced without anything landing.
+        turned = 0
+        for _ in range(20):
+            qapp.processEvents()
+            runner._service_deadline()
+            turned += 1
+        assert turned == 20
+        assert runner._deadline is not None, "the step ended before its check landed"
+        assert not runner._report.steps, runner._report.steps
+        assert "Checking dependencies" in window.statusBar().currentMessage()
+        assert not summaries
+
+        release.set()
+        until = time.monotonic() + 15.0
+        while runner._deadline is not None and time.monotonic() < until:
+            qapp.processEvents()
+            runner._service_deadline()
+            time.sleep(0.01)
+        assert runner._deadline is None, "the step never saw its check land"
+        record = runner._report.steps[-1]
+        assert record.outcome is Outcome.PASS, record
+        assert "the dependency check finished" in record.detail, record.detail
+        assert len(summaries) == 1, summaries
+    finally:
+        release.set()
+        _pump_until(qapp, lambda: window._dep_check_thread is None)

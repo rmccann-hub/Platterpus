@@ -16,7 +16,7 @@ Contract this mixin expects from the host window (set in
 ``MainWindow.__init__``): ``self._config``, ``self._save_config``,
 ``self._backend``; ``self`` is a ``QWidget`` (dialog parent); and the
 cross-mixin methods ``self._maybe_offer_drive_setup`` (DriveMixin),
-``self.refresh_drives`` / ``self.run_dependency_check`` (assembler /
+``self.refresh_drives`` / ``self.run_dependency_check_async`` (assembler /
 DependencyMixin) — all resolved via inheritance at call time.
 
 Future contributors: a new install channel (e.g. a different packaging

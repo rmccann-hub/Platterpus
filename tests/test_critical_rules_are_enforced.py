@@ -2172,7 +2172,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4309 -> 4398 on 2026-09-25: probe-ripper-wrapper moved onto a helper thread (_WrapperProbeJob); it ran on the GUI thread.
     # 4398 -> 4407 on 2026-09-26: _active_dialog counts only a VISIBLE dialog; a hidden one Qt still called active blocked `rip`.
     # 4407 -> 4420 on 2026-09-27: _forget_last_cyanrip_result, called first by every cyanrip step (TASKS D7).
-    "uiscript/runner.py": 4420,  # +116: _do_expect_verification, the assertion section F never had,
+    # 4420 -> 4512 on 2026-09-28: `open dependencies` probed on the GUI thread; it now starts the check on a worker and waits on this file's deadline machinery (_open_dependency_check), and `stop` records a step that was mid-wait.
+    "uiscript/runner.py": 4512,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
