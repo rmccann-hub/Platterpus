@@ -72,15 +72,40 @@ class Problem:
     """One thing a check found.
 
     `rule` names what was broken: `LSL.1`–`LSL.6` for the six refusals the spec
-    numbers, `LSL.<word>` for rules the spec states elsewhere, and `A1`–`A8` for
-    our proposed amendments. A disagreement between two checkers can then name
-    the rule it is about.
+    numbers, `LSL.<word>` for rules the spec states elsewhere, `A1`–`A8` for the
+    amendments LSL 2 adopted, and `B1`–`B3` for what LSL 3 adds. A disagreement
+    between two checkers can then name the rule it is about.
     """
 
     line: int
     severity: Severity
     rule: str
     message: str
+
+
+@dataclass
+class RunCoverage:
+    """What B1 covered in one lap: its `run:` results, and what became of each.
+
+    Printed, because a B1 that re-ran nothing passes by finding nothing, and a
+    reader can see that only if the counts are on the page (the proposal: "The
+    checker prints what B1 covered"). `matched + mismatched + not_rerun == total`
+    whenever `rerun` is True; without `--rerun` nothing is executed and all
+    three stay 0.
+    """
+
+    #: Every `run:` in an `evidence:` field of the lap.
+    total: int = 0
+    #: True when `--rerun` was given, so the counts below mean something.
+    rerun: bool = False
+    matched: int = 0
+    mismatched: int = 0
+    #: Reported `UNCHECKED run:` with a reason: not a command B1 re-runs, a
+    #: result that quotes nothing, or a re-run that could not be done.
+    not_rerun: int = 0
+    #: Scratch worktrees that `git worktree remove` would not remove, by path,
+    #: so a person can remove them; never removed by force of `rm`.
+    leftovers: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -101,6 +126,8 @@ class Lap:
     #: reader can see that only if the count is on the page (the fork's round 28
     #: lap 3 S19-S21, which holds for this checker too).
     go_checked_against: dict[str, int] = field(default_factory=dict)
+    #: What B1 covered; None unless B1 is on (an `LSL: 3` lap).
+    runs: RunCoverage | None = None
 
     def add(self, line: int, severity: Severity, rule: str, message: str) -> None:
         self.problems.append(Problem(line, severity, rule, message))

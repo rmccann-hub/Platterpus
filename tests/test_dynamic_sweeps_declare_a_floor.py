@@ -60,6 +60,17 @@ _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
     "test_lap_language.py::test_each_lap_rule_fires_on_the_lap_that_breaks_it": (
         "test_every_lap_rule_the_checker_emits_has_a_broken_lap"
     ),
+    # Added 2026-09-28 with LSL 3. The first parametrizes over the pinned reports
+    # of the committed round-28 laps; its floor requires all five, each still on
+    # disk and still declaring `LSL: 1`, so an emptied table cannot pass LSL 2's
+    # "unchanged" by pinning nothing. The second parametrizes over one statement
+    # per kind; its floor requires both sides of the A6/B3 relation to be there.
+    "test_lap_language.py::test_lsl_1_and_2_reports_on_round_28_are_unchanged": (
+        "test_the_round_28_pin_covers_every_lap_it_was_measured_on"
+    ),
+    "test_lap_language.py::test_b3_refuses_an_answers_exactly_where_a6_refuses_weight": (
+        "test_the_weight_relation_is_not_trivial"
+    ),
     # Added 2026-09-24 with the one-home-per-setting gate. Both parametrize over
     # `sorted(WINDOW_PATHS)`, the windows that edit settings, so an emptied table
     # would build no window and report the converse ("no second editor anywhere")

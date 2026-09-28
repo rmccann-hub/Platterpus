@@ -34,11 +34,22 @@ class Found:
 class Context:
     """One lap under check, with what its references resolve against."""
 
-    def __init__(self, lap: Lap, record: Record, trees: Trees, tables: Tables) -> None:
-        self.lap = lap
-        self.record = record
-        self.trees = trees
-        self.tables = tables
+    def __init__(
+        self,
+        lap: Lap,
+        record: Record,
+        trees: Trees,
+        tables: Tables,
+        *,
+        rerun: bool = False,
+    ) -> None:
+        self.lap: Lap = lap
+        self.record: Record = record
+        self.trees: Trees = trees
+        self.tables: Tables = tables
+        #: `--rerun`: B1 may execute the author's committed commands. False by
+        #: default, so nothing is ever executed unless a person asked for it.
+        self.rerun: bool = rerun
 
     @property
     def me(self) -> tuple[Side | None, int | None, int | None]:

@@ -301,6 +301,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   handshake folders of the checkout it runs in and runs no git command, so its
   output can depend on nothing but the commit. It is the only file marked; a test
   holds the set to it.
+- **For contributors: the lap checker reads `LSL: 3`**, which is LSL 2 plus the
+  fork's B1–B3. A `run:` must name the commit it ran at (an `at:` or the lap's
+  `HANDSHAKE-FROM-COMMIT`). A `GO` over a round that set no close condition is
+  refused. An `answers:` on a statement that carries no weight answers nothing.
+  With `--rerun` the checker repeats each `run:` whose command can depend only on
+  its commit, in a scratch worktree that is removed afterwards, and refuses one whose
+  quoted result it did not print. Without `--rerun` nothing is executed, and the
+  report says so. LSL 1 and LSL 2 laps are checked exactly as before.
 
 ### Removed
 

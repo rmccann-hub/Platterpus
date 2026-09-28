@@ -27,9 +27,17 @@ sent as amendments to it. So this package does two jobs:
   whether their population is closed, weight only for checkable claims, answers
   that name their question, and corrections with evidence.
 
+**The versions.** Both sides adopted A1–A8 as **LSL 2** in round 28, and a lap
+that declares `LSL: 2` is held to them without `--amend`. **LSL 3** is LSL 2 plus
+`B1`–`B3` (the fork's proposal, §"LSL 3", `cyanrip@889a375`): B1 a `run:` names
+the commit it ran at, and with `--rerun` a command that can depend on nothing
+but that commit is re-run and its quoted result compared; B2 a `GO` needs a
+close condition to have waited on; B3 an `answers:` counts only on a statement
+that can carry weight. An LSL 1 or LSL 2 lap is checked exactly as before.
+
 The spec for the amendments, and the findings, is
-`docs/handshake/outbound/artifacts/lsl-amendments-1.md`. `tests/test_lap_language.py`
-holds this package to it.
+`docs/handshake/outbound/artifacts/lsl-amendments-1.md`; the spec for LSL 3 is the
+fork's proposal. `tests/test_lap_language.py` holds this package to both.
 
 Parsing and checking never raise (`CLAUDE.md`: parsers of external output never
 raise), since the fork's laps are external input. Problems come back as data.
@@ -43,5 +51,9 @@ The package, one responsibility per module:
 * `record` — the laps we hold, as this tree files them.
 * `check` — LSL 1's checks, by the spec's numbered refusals.
 * `amend` — the amendments' checks.
+* `round_rules` — the checks that read the whole round: A1, A2, A7, B2, B3.
+* `lsl3` — LSL 3's checks of one lap: B1 and B3.
+* `rerun` — which `run:` commands B1 may repeat, and matching their results (pure).
+* `scratch` — repeating them: a detached scratch worktree, bounded, no shell.
 * `cli` — the command line, run as `scripts/lap_language.py`.
 """
