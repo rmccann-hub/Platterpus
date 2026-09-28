@@ -17,7 +17,7 @@ a disc that still can't read clean at the floor is FLAGGED, never papered over).
     a per-track "with errors" status. This is what TRIGGERS the step-down
     (:func:`read_errors_present`); it means the drive gave up on a read.
   * *Read instability* — cyanrip's secure re-read (``-Z N``) hit its repeat limit
-    without any two reads agreeing (:func:`unstable_tracks`). A real disc proved
+    before enough reads agreed (:func:`unstable_tracks`). A real disc proved
     the error COUNT stays 0 even then, so this is the reliable per-track quality
     tell — but per the maintainer's call it is **flagged, not auto-re-ripped**
     (a whole-disc re-rip to retry one track can cost hours with no guarantee).

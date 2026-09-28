@@ -2282,12 +2282,14 @@ class RipWorker(QObject):
                 # message inventory, so the matcher built from that inventory
                 # matches it — but "cyanrip publishes this string" and "cyanrip
                 # failed" are different claims, and `_RIPPER_ERROR_RE` can only
-                # ever answer the first. `Done; (no matches found, but hit repeat
-                # limit of 3)` is a track that did not converge: a fact about the
-                # DISC, already parsed, already rendered as read stability, and
-                # already carried in the report. Grading it as a fatal made the
-                # 2026-09-03 bundle report `errors: 13 / worst: error` for a rip
-                # that finished `Ripping errors: 0` with all 14 tracks written.
+                # ever answer the first. `Done; (no matches found, but hit repeat limit
+                # of 3)`, or the fork's proposed `Done; (repeat limit of 3 reads
+                # reached; …)` (the predicate reads both), is a track that did not
+                # converge: a fact about the DISC, already parsed, already rendered as
+                # read stability, and already carried in the report. Grading it as a
+                # fatal made the 2026-09-03 bundle report `errors: 13 / worst: error`
+                # for a rip that finished `Ripping errors: 0` with all 14 tracks
+                # written.
                 #
                 # Recorded rather than dropped: a deliberate reclassify is not a
                 # licence to lose the line, and a silent drop reads as
@@ -2299,9 +2301,9 @@ class RipWorker(QObject):
                 # run).** Every verdict used to be filed at `info`, converged or
                 # not, and none named its track — so that run's diagnostics file
                 # read `warnings: 1 … worst: warning` with its one warning a
-                # deliberate negative test, while four verdicts whose reads never
-                # agreed sat at `info` among thirteen that converged. A track
-                # whose reads never agreed is a real degradation of the rip's
+                # deliberate negative test, while four verdicts that hit the repeat
+                # limit sat at `info` among thirteen that converged. A track
+                # whose reads did not converge is a real degradation of the rip's
                 # evidence (the module's own definition of WARNING: "something
                 # degraded … the rip may be fine"); a converged one is not. Not
                 # ERROR, for the reason above: it is a fact about the disc, and

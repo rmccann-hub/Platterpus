@@ -4147,6 +4147,43 @@ def test_a_verdict_before_any_progress_line_names_no_track(
     assert items[0].severity == "warning"
 
 
+def test_the_forks_proposed_repeat_limit_wording_is_graded_like_the_old_one(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Round 29 lap 1 S38: the same verdict in the fork's proposed wording.
+
+    Graded a warning on its track, kept word for word (that is where its "at most
+    2 reads agreed" count survives — the parser stores no field for it), and never
+    promoted to the rip's failure hint. The worker learns all of that from the
+    parser's predicate, so this is the relation, checked from the stream end.
+    """
+    line = "Done; (repeat limit of 3 reads reached; at most 2 reads agreed)"
+    diagnostics.clear()
+    worker = RipWorker(
+        _FakeBackend(
+            handle=_FakeHandle(
+                lines=["Ripping and encoding track 5, progress - 99.97%", line],
+                exit_code=0,
+            )
+        ),
+        _params(tmp_path),
+    )
+    worker.start_rip()
+    items = [
+        item
+        for item in diagnostics.default_log().items()
+        if item.code == "ripper.secure_rerip_verdict"
+    ]
+    diagnostics.clear()
+    # Floor: the verdict was recorded at all — every assertion below is vacuous
+    # on an empty list.
+    assert len(items) == 1, items
+    assert items[0].severity == "warning"
+    assert items[0].track == 5
+    assert items[0].message == line
+    assert worker.failure_hint == "", worker.failure_hint
+
+
 def test_the_round28_fixture_is_the_artifacts_own_text() -> None:
     """The streams above are copied from the committed app log; hold them to it.
 

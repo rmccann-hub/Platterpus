@@ -11,6 +11,39 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-28 — Round 29 opens on `.18`: the pin under review moves, and 0.6.63 is prepared
+
+**Asked:** the fork released round 29 lap 1 (`566d3fa`, sha256 `2e275d2f…`). The operator
+then answered three questions: the tag key set is accepted as landed; 0.6.63 goes out
+under §6b, carrying `.18` as the build under review; and our lap 2 is announced when
+it is ready.
+
+**Built:**
+- *Their lap filed and checked* (`241b87c8`). Both checkers accept it, its digest
+  reproduces, and every pin fact was derived from their tree. Two of their claims needed
+  correcting:
+  - S2's command lists 39 commits, because the upstream merge brings upstream's own
+    history; `--first-parent` gives their six.
+  - S19 said nothing of ours reads tags back, but the colon-restore step does.
+  Both conclusions hold. `PIN_UNDER_REVIEW` moves to `51cc789`.
+- *`--status` now prints a line for a side that has no lap in a round.* Round 29 showed
+  only theirs, which could not be told apart from our lap saying nothing.
+- *Three changes from helpers, each in its own worktree, integrated by cherry-pick:*
+  - the parser reads the fork's proposed repeat-limit wording beside the current one
+    (`e64260d6`, their S39);
+  - the EAC-compatible log's first line begins with "Platterpus" (`da100ab5`, their
+    S31);
+  - our lap checker reads B1 as round 29 agreed (`df6d4dd5`, their S28 and S29).
+
+**Learned:**
+- *A `--no-merges` log across an upstream merge counts upstream's history, not the
+  change.* The fork's "6 commits, closed" was true of the content and false of the
+  command. `--first-parent` plus the merge's own diff is the measurement that matches
+  the claim. Graduated to the TASKS row, and sent to them as a correction.
+- *A premise can be false while the conclusion holds, and both get said.* S19's "nothing
+  reads a tag back" was wrong, and harmless only because the reader is case-blind.
+  Reporting it names the reader, so a later change to it knows it is on the seam.
+
 ## 2026-09-28 — The round-28 Full run read: two archival defects fixed, round 28 closed on our gate, `FORK_PIN` → `e0471f4`
 
 **Asked:** the operator uploaded the Full run's bundle with no text (0.6.61 with `.17`,

@@ -60,6 +60,7 @@ from laplang.rerun import (  # noqa: E402
     plan_command,
     quoted_parts,
     split_run,
+    stated_exits,
 )
 from laplang.tables import (  # noqa: E402
     AMENDMENTS,
@@ -883,7 +884,7 @@ def _handshake_module() -> ModuleType:
 def test_r6_counts_exactly_the_pre_commits_a2_accepts(
     tmp_path: Path, version: int, owner: str, refused_by: tuple[str, ...]
 ) -> None:
-    """A lap 5 of round 29 whose only pre-commit is A2's structured `WILL`. When
+    """A lap 5 of round 99 whose only pre-commit is A2's structured `WILL`. When
     the lap's own LSL accepts it, R6 must count it; when LSL refuses it, R6 must
     not. Before R15, R6 refused the LSL 2 lap A2 accepted, as "carries no
     pre-commit". Before Q6, R6 counted the LSL 1 one, which LSL 1 refuses because
@@ -895,7 +896,13 @@ def test_r6_counts_exactly_the_pre_commits_a2_accepts(
     # LSL 3's B1 wants the commit a `run:` ran at; the lap header names it.
     commit = _FROM_COMMIT if version == 3 else ""
     text = (
-        _header(round_number=29, lap=5, verdict="HOLD").rstrip("\n")
+        # **Round 99, not 29** (moved 2026-09-28). The checker reads the REAL laps
+        # of the lap's round for A2's cross-lap promise, and this used to name
+        # round 29, which had none. Once our real round 29 lap 2 pre-committed a
+        # `GO`, this made-up lap 5 was bound by it and refused under A2 for
+        # declaring HOLD: the case was testing the repository's state, not the
+        # rule. A round no real lap will reach keeps it about the rule alone.
+        _header(round_number=99, lap=5, verdict="HOLD").rstrip("\n")
         + "\n"
         + commit
         + f"\nLSL: {version}\n\n"
@@ -920,7 +927,7 @@ def test_r6_counts_exactly_the_pre_commits_a2_accepts(
     # NON-TRIVIALITY: the sentence does not carry the prose form, so the
     # structured fields are the only thing R6 can count.
     assert "is `GO` unless" not in text and "is GO unless" not in text
-    r6 = _handshake_module().pre_commit_problems(text, "round-29-lap-05.md")
+    r6 = _handshake_module().pre_commit_problems(text, "round-99-lap-05.md")
     assert (r6 == []) == lsl_accepts, r6
     if not lsl_accepts:
         assert len(r6) == 1 and "carries no pre-commit" in r6[0], r6
@@ -998,20 +1005,58 @@ def test_b1_refuses_an_at_that_is_not_a_commit_of_the_authors_tree(
     ]
 
 
-def test_b1_a_header_that_names_no_commit_is_warned_not_refused(
+@pytest.mark.parametrize("at", ["da766ca", "platterpus@da766ca"])
+def test_b1_an_at_that_is_a_commit_alone_is_accepted(tmp_path: Path, at: str) -> None:
+    """The two forms an `at:` has: a commit, bare or with its side."""
+    lap = _check(tmp_path, _lsl3(_numbered(_measured(1, "true => ok", at=at))))
+    assert lap.problems == [], [(p.rule, p.message) for p in lap.problems]
+
+
+@pytest.mark.parametrize(
+    ("at", "rest"),
+    [
+        ("da766ca (the release)", "'(the release)'"),
+        # Continuation spacing and all: whatever follows the commit's word.
+        ("platterpus@da766ca   the tip then", "'the tip then'"),
+    ],
+)
+def test_b1_refuses_an_at_with_anything_after_its_commit(
+    tmp_path: Path, at: str, rest: str
+) -> None:
+    """Round 29's reading (the fork's lap 1 S29, accepted): an `at:` is a commit
+    and nothing else. We used to read its first word and drop the rest, so both
+    of these were accepted as `da766ca`, a commit that resolves here: the commit
+    is good, so only the prose after it can be what is refused."""
+    lap = _check(tmp_path, _lsl3(_numbered(_measured(1, "true => ok", at=at))))
+    assert _rules(lap) == {"B1"}, [(p.rule, p.message) for p in lap.problems]
+    [problem] = lap.refused()
+    assert "an at: names a commit and nothing else" in problem.message
+    assert rest in problem.message, problem.message
+    at_line = next(f.line for f in lap.statements[0].fields if f.name == "at")
+    assert problem.line == at_line
+
+
+_PROSE_HEADER = "HANDSHAKE-FROM-COMMIT: see §H, a lap cannot carry its own\n"
+
+
+def test_b1_refuses_each_run_leaning_on_a_header_that_names_no_single_commit(
     tmp_path: Path,
 ) -> None:
-    """B1's row asks whether the header is THERE; the header is PROTOCOL.md's."""
-    lap = _check(
-        tmp_path,
-        _lsl3(
-            _numbered(_measured(1, "true => ok")),
-            extra_header="HANDSHAKE-FROM-COMMIT: see §H, a lap cannot carry its own\n",
-        ),
-    )
-    assert lap.refused() == []
-    assert [p.rule for p in lap.problems] == ["LSL.unchecked"]
-    assert "not a commit" in lap.problems[0].message
+    """Round 29's reading (the fork's lap 1 S29, accepted): a `run:` with no
+    `at:` needs the lap's `HANDSHAKE-FROM-COMMIT` to name one commit, and is
+    refused when it names none. We used to warn, reading B1's row as asking only
+    whether the header is there. It is each `run:` that is refused, once each."""
+    runs = _numbered(_measured(1, "true => ok"), _measured(2, "false => no"))
+    lap = _check(tmp_path, _lsl3(runs, extra_header=_PROSE_HEADER))
+    assert _rules(lap) == {"B1"}, [(p.rule, p.message) for p in lap.problems]
+    assert [p.rule for p in lap.problems] == ["B1", "B1"], lap.problems
+    assert sorted(p.line for p in lap.refused()) == [
+        lap.statements[0].fields[0].line,
+        lap.statements[1].fields[0].line,
+    ]
+    for problem in lap.refused():
+        assert "names no single commit" in problem.message, problem.message
+        assert "not a commit" in problem.message, problem.message
     # Declared twice, it names no single commit: the protocol does not let a
     # reader settle a doubly-declared field by taking the first.
     twice = _check(
@@ -1021,9 +1066,38 @@ def test_b1_a_header_that_names_no_commit_is_warned_not_refused(
             extra_header=_FROM_COMMIT + "HANDSHAKE-FROM-COMMIT: 785925a\n",
         ),
     )
-    assert twice.refused() == []
-    assert [p.rule for p in twice.problems] == ["LSL.unchecked"]
-    assert "declared 2 times" in twice.problems[0].message
+    assert _rules(twice) == {"B1"}, [(p.rule, p.message) for p in twice.problems]
+    [problem] = twice.refused()
+    assert "declared 2 times" in problem.message
+
+
+def test_b1_does_not_refuse_such_a_header_where_no_run_needs_it(
+    tmp_path: Path,
+) -> None:
+    """The header is `PROTOCOL.md`'s, not LSL's: B1 refuses the `run:` that leans
+    on it, so a lap whose every `run:` names its own commit by an `at:`, or that
+    has no `run:` at all, is not refused for it."""
+    by_at = _check(
+        tmp_path,
+        _lsl3(
+            _numbered(_measured(1, "true => ok", at="da766ca")),
+            extra_header=_PROSE_HEADER,
+        ),
+    )
+    assert by_at.problems == [], [(p.rule, p.message) for p in by_at.problems]
+    no_run = _check(
+        tmp_path,
+        _lsl3(
+            _numbered(
+                "S1 FACT read: Our README's first line is its title.\n"
+                "  evidence: platterpus@da766ca:README.md:1\n"
+                "  holds: platterpus@da766ca\n"
+            ),
+            extra_header=_PROSE_HEADER,
+        ),
+    )
+    assert no_run.problems == [], [(p.rule, p.message) for p in no_run.problems]
+    assert no_run.runs is not None and no_run.runs.total == 0
 
 
 def test_rerun_on_an_lsl_2_lap_says_it_re_ran_nothing(
@@ -1194,23 +1268,30 @@ def test_rerun_matches_refuses_and_reports_each_run(tmp_path: Path) -> None:
     ) in report
 
 
+#: A marked tool that prints a count and FAILS, and one that prints the words
+#: `exit 0` and fails, for the exit-status cases.
+_FAILING_TOOLS: dict[str, str] = {
+    **_TOOLS,
+    "tools/fails.py": "# LSL-RERUN: commit-only\nimport sys\n"
+    "print('round 27: 12 lap(s), 10 failed')\nsys.exit(1)\n",
+    "tools/says_exit.py": "# LSL-RERUN: commit-only\nimport sys\n"
+    "print('exit 0')\nsys.exit(1)\n",
+}
+
+
 def test_a_rerun_that_failed_is_matched_but_never_silently(tmp_path: Path) -> None:
-    """Review finding R13. B1 compares a result's quoted strings, stdout and
-    stderr together, and nothing else: "exit 0" is prose (the proposal, "What B1
-    re-runs", item 4), so a failed command is not REFUSED for failing. But it
-    was reported as a plain match: "0 failed" is in "10 failed", and sha256sum's
-    error message repeats the file name it could not open. Each is now a match
-    with an UNCHECKED exit: warning, counted apart on the report line."""
-    repo, sha = _git_repo(
-        tmp_path,
-        {
-            **_TOOLS,
-            "tools/fails.py": "# LSL-RERUN: commit-only\nimport sys\n"
-            "print('round 27: 12 lap(s), 10 failed')\nsys.exit(1)\n",
-        },
-    )
+    """Review finding R13, for a result that states NO exit code. B1 compares
+    such a result's quoted strings, stdout and stderr together, and nothing
+    else, so a failed command is not REFUSED for failing. But it was reported as
+    a plain match: "0 failed" is in "10 failed", and sha256sum's error message
+    repeats the file name it could not open. Each is a match with an UNCHECKED
+    exit: warning, counted apart on the report line. Round 29 left this case
+    exactly as it was (the fork's lap 1 S28: "a result that states none is
+    UNCHECKED when the command exits non-zero"); a result that states `exit N`
+    is held to it, below."""
+    repo, sha = _git_repo(tmp_path, _FAILING_TOOLS)
     runs = [
-        'python3 tools/fails.py => exit 0, "0 failed"',
+        'python3 tools/fails.py => "0 failed"',
         'sha256sum "all 91 tests passed" => "all 91 tests passed"',
         'python3 tools/marked.py => "hello 42"',
     ]
@@ -1235,13 +1316,136 @@ def test_a_rerun_that_failed_is_matched_but_never_silently(tmp_path: Path) -> No
     ), warned
     # The exact argv, quoting kept, so the echoed argument is visible as one.
     assert "sha256sum 'all 91 tests passed'" in warned[evidence_line[2]]
+    assert all("states no exit code" in m for m in warned.values()), warned
     report, code = render(lap)
     assert code == 0
     assert (
-        "B1: 3 run: result(s): 3 re-run and matched (2 of them exited non-zero, "
-        "which B1 does not compare: each an UNCHECKED exit: above), 0 re-run and "
-        "not matched, 0 could not be re-run"
+        "B1: 3 run: result(s): 3 re-run and matched (2 of them exited non-zero "
+        "with no exit code stated, which B1 does not compare: each an UNCHECKED "
+        "exit: above), 0 re-run and not matched, 0 could not be re-run"
     ) in report
+
+
+def _rerun_lap(tmp_path: Path, runs: list[str]) -> Lap:
+    """`runs` as S1.. of an LSL 3 lap, each at the one commit of a repository of
+    `_FAILING_TOOLS`, checked with --rerun."""
+    repo, sha = _git_repo(tmp_path, _FAILING_TOOLS)
+    path = tmp_path / "lap.md"
+    path.write_text(
+        _lsl3(_numbered(*[_measured(n, r, at=sha) for n, r in enumerate(runs, 1)])),
+        encoding="utf-8",
+    )
+    return check_path(path, root=repo, rerun=True)
+
+
+def test_a_stated_exit_code_that_the_rerun_reproduces_is_a_plain_match(
+    tmp_path: Path,
+) -> None:
+    """Round 29's reading (the fork's lap 1 S28, accepted): a result that states
+    `exit N` outside its quotes is held to it. A re-run that exits N is a plain
+    match, with no UNCHECKED exit: warning, even when N is not 0: the lap said
+    the command fails, and it does. Before, the first two were `UNCHECKED exit:`
+    and counted as failed matches, because `exit N` was read as prose."""
+    runs = [
+        'python3 tools/fails.py => exit 1, "10 failed"',
+        'python3 tools/fails.py => "10 failed", exit 1',
+        'python3 tools/marked.py => "hello 42", exit 0',
+    ]
+    lap = _rerun_lap(tmp_path, runs)
+    assert lap.problems == [], [(p.rule, p.message) for p in lap.problems]
+    assert lap.runs is not None
+    assert (
+        lap.runs.total,
+        lap.runs.matched,
+        lap.runs.matched_nonzero,
+        lap.runs.mismatched,
+        lap.runs.not_rerun,
+    ) == (3, 3, 0, 0, 0)
+    report, code = render(lap)
+    assert code == 0
+    assert "exited non-zero" not in report, report
+
+
+def test_a_stated_exit_code_the_rerun_does_not_reproduce_is_refused(
+    tmp_path: Path,
+) -> None:
+    """Held to it both ways: a failure the lap called a success, and a success it
+    called a failure. The refusal names both codes and quotes the output, as a
+    missing quoted string's refusal does. Before, the first was matched with an
+    UNCHECKED exit: warning and the second a plain match."""
+    runs = [
+        'python3 tools/fails.py => exit 0, "10 failed"',
+        'python3 tools/marked.py => exit 3, "hello 42"',
+        # Two codes stated: no single run can end with both, so B1 refuses it
+        # rather than choosing one.
+        'python3 tools/fails.py => exit 0 at first, then exit 1, "10 failed"',
+    ]
+    lap = _rerun_lap(tmp_path, runs)
+    assert _rules(lap) == {"B1"}, [(p.rule, p.message) for p in lap.problems]
+    assert lap.runs is not None
+    assert (lap.runs.matched, lap.runs.mismatched, lap.runs.not_rerun) == (0, 3, 0)
+    evidence_line = {s.n: s.fields[0].line for s in lap.statements if s.fields}
+    refused = {p.line: p.message for p in lap.refused()}
+    assert set(refused) == {evidence_line[n] for n in (1, 2, 3)}, refused
+    assert [p for p in lap.problems if p.severity == "WARN"] == [], lap.problems
+    first = refused[evidence_line[1]]
+    assert "its result states exit 0, but it exited 1" in first, first
+    assert "'round 27: 12 lap(s), 10 failed\\n'" in first, first
+    second = refused[evidence_line[2]]
+    assert "its result states exit 3, but it exited 0" in second, second
+    assert "'hello 42\\n'" in second, second
+    third = refused[evidence_line[3]]
+    assert "states exit 0 and exit 1, and no run ends with two codes" in third, third
+
+
+def test_a_result_that_states_only_an_exit_code_is_still_prose(
+    tmp_path: Path,
+) -> None:
+    """Unchanged by round 29: a result that quotes nothing is prose and is not
+    re-run (the proposal, "What B1 re-runs", item 4), whatever it states. S28
+    adds a rule for the exit code of a result B1 compares, and does not amend
+    item 4. So a false `=> exit 0` is reported, not refused."""
+    lap = _rerun_lap(tmp_path, ["python3 tools/fails.py => exit 0"])
+    assert lap.refused() == [], [(p.rule, p.message) for p in lap.problems]
+    assert lap.runs is not None
+    assert (lap.runs.matched, lap.runs.mismatched, lap.runs.not_rerun) == (0, 0, 1)
+    [warning] = lap.problems
+    assert "its result quotes nothing, so it is prose" in warning.message
+
+
+def test_an_exit_inside_the_quotes_is_output_not_a_stated_code(
+    tmp_path: Path,
+) -> None:
+    """`"exit 0"` quotes what the command printed; it states nothing about how it
+    ended. So this failing tool, which prints `exit 0`, is the no-code-stated
+    case: matched, and warned about as UNCHECKED exit:, exactly as before."""
+    lap = _rerun_lap(tmp_path, ['python3 tools/says_exit.py => "exit 0"'])
+    assert lap.refused() == [], [(p.rule, p.message) for p in lap.problems]
+    assert lap.runs is not None
+    assert (lap.runs.matched, lap.runs.matched_nonzero) == (1, 1)
+    [warning] = lap.problems
+    assert warning.message.startswith("UNCHECKED exit:"), warning.message
+    assert "it exited 1" in warning.message
+
+
+def test_the_exit_codes_a_result_states_outside_its_quotes() -> None:
+    assert stated_exits('"IN SYNC", exit 0') == [0]
+    assert stated_exits('exit 1, "refused"') == [1]
+    assert stated_exits("**exit 0**, and `exit 0` again") == [0]
+    assert stated_exits("exit 0 … exit 2") == [0, 2]
+    assert stated_exits('"a" exit\t2 "b"') == [2]
+    # Inside its quotes, the words are output, not a stated code.
+    assert stated_exits('"exit 0"') == []
+    assert stated_exits('"IN SYNC, exit 0"') == []
+    # A quotation is replaced by a space, so its two sides cannot join into one.
+    assert stated_exits('ex"x"it 0') == []
+    # Literal, as the fork's S28 writes it: these are prose, not `exit N`.
+    for prose in ("exited 1", "pre-exit 1", "exit code 1", "Exit 1", "exit 0x1"):
+        assert stated_exits(prose) == [], prose
+    # A code no process can exit with is still a stated code, held and refused.
+    assert stated_exits("exit 1234") == [1234]
+    assert stated_exits("exit 1234567890") == [], "ten digits: past the bound"
+    assert stated_exits("no exit stated") == []
 
 
 def test_rerun_runs_at_the_commit_named_not_at_the_clones_tip(tmp_path: Path) -> None:
@@ -1868,6 +2072,7 @@ def test_planning_and_matching_arbitrary_text_never_raises(
     claim = split_run("run: " + text)
     for parts in quoted_parts(claim.result or text):
         appears(parts, text)
+    assert all(0 <= code <= 999_999_999 for code in stated_exits(text))
 
 
 @settings(

@@ -521,7 +521,8 @@ class SettingsDialog(CenteredDialog):
         #
         # It is an AGREEMENT count, not a ceiling. The ceiling is `-r` (Max
         # retries), which is why cyanrip prints "no matches found, but hit repeat
-        # limit of 5" when it gives up, and it has to be MORE than this number or
+        # limit of 5" when it gives up (the fork proposes "repeat limit of 5 reads
+        # reached; at most N reads agreed"), and it has to be MORE than this number or
         # the re-read can never succeed (the validator refuses that pair).
         self._secure_rerip_spin: QSpinBox = QSpinBox(self)
         self._secure_rerip_spin.setRange(

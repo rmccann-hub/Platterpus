@@ -8,7 +8,8 @@ an LSL lap, or an LSL version this checker does not implement). *Refused* and
 
 `--rerun` is LSL 3's B1: a `run:` whose command can depend on nothing but the
 commit it names is re-run in a scratch worktree of the author's clone, and a
-quoted result it did not print is a refusal. It executes the author's committed
+quoted result it did not print is a refusal, as is an exit code other than the
+`exit N` its result states outside its quotes. It executes the author's committed
 code, so it is off unless asked for, and the report always says how many `run:`
 results there were and what became of each (`render_runs`).
 """
@@ -158,11 +159,14 @@ def render_runs(runs: RunCoverage) -> list[str]:
             "given, so nothing was executed"
         )
     else:
-        # A match whose command failed is still a match by B1's text, and is
-        # never folded silently into one: the count says so on this line.
+        # A match whose command failed, and whose result stated no exit code to
+        # hold it to, is still a match by B1's text, and is never folded
+        # silently into one: the count says so on this line. (A result that
+        # states `exit N` is held to it, so its failure is a refusal or, when
+        # it stated the failure, a plain match; the round 29 reading, S28.)
         failed = (
-            f" ({runs.matched_nonzero} of them exited non-zero, which B1 does not "
-            "compare: each an UNCHECKED exit: above)"
+            f" ({runs.matched_nonzero} of them exited non-zero with no exit code "
+            "stated, which B1 does not compare: each an UNCHECKED exit: above)"
             if runs.matched_nonzero
             else ""
         )
@@ -218,7 +222,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="LSL 3's B1: re-run each run: whose command can depend on nothing but "
         "its commit, in a scratch worktree of the author's clone, and refuse one "
-        "whose quoted result is not in the output. This EXECUTES the author's "
+        "whose quoted result is not in the output, or that exits with a code other "
+        "than the exit N its result states. This EXECUTES the author's "
         "committed code, the fork's when checking their lap",
     )
     check.add_argument("--root", type=Path, default=REPO_ROOT, help=argparse.SUPPRESS)

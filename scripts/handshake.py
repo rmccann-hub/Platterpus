@@ -1455,7 +1455,7 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 OUR_REPO_URL: Final[str] = "https://github.com/rmccann-hub/Platterpus"
 FORK_REPO_URL: Final[str] = "https://github.com/rmccann-hub/cyanrip"
 
-CURRENT_ROUND: Final[int] = 28
+CURRENT_ROUND: Final[int] = 29
 
 
 # --- The shared wire format (protocol §8) -----------------------------------
@@ -3913,6 +3913,13 @@ def verdict_source_lines(
                 for fields in (wire_fields(_safe_read(path)),)
             ]
             if not laps:
+                # SAID, not skipped (2026-09-28). A round the peer has opened and we
+                # have not yet answered printed ONE line, theirs, and nothing for
+                # ours, so a reader could not tell "our lap says nothing" from "our
+                # lap does not exist" without listing the folder. An absence in a
+                # report is a fact about the reporter first (`CLAUDE.md`), so the
+                # missing side gets its line, which says so in plain words.
+                out.append(f"round {num:2d} {side}, no lap yet, so nothing rests on it")
                 continue
             path, fields, lap = max(laps, key=lambda row: row[2])
             source = " ".join(fields.get("HANDSHAKE-VERDICT-SOURCE", "").split())

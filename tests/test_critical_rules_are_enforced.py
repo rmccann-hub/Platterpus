@@ -1403,7 +1403,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2441 -> 2452 (2026-09-28, round 28 closed on our gate)**: `FORK_PIN` rolls to
     # `e0471f4` and `FORK_EXPECTED_VERSION` to `.17`, each with the dated record of
     # where it was read and cross-checked, as every roll before it.
-    "deps/fork_source.py": 2452,
+    # **2452 -> 2477 (2026-09-28, round 29 open)**: `PIN_UNDER_REVIEW` moves to
+    # `51cc789` (`+platterpus.18`) with why, its release sequence, its build tag in
+    # the `--consumer` accept-set with the contract that licenses it, the re-derived
+    # same-program flag, and the round-29 pairing line.
+    "deps/fork_source.py": 2477,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1485,7 +1489,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and the "RIP STOPPED" branch for a complete selection). It is this document's
     # own banner, so it stays beside the renderer; most of the growth is the comments
     # saying which record each number comes from.
-    "eac_log_export.py": 1764,
+    # **1764 -> 1779 on 2026-09-28** (handshake round 29 lap 1 S31): the first line
+    # no longer begins "Exact Audio Copy". The code change is one string; the growth
+    # is the comment beside `_BANNER` giving the reason (the first-words misfiling,
+    # KDD-24's no-forging line) and naming the parser table that must learn any
+    # rewording. The reason belongs beside the line it explains.
+    "eac_log_export.py": 1779,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1669,7 +1678,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3023 -> 3032** (2026-09-27, round 28 lap 3 S12): `Partial files:`, announced for `.18`, joins `_IGNORED_DISC_LINES` with its reason. The table is what the completeness sweep and the generated consumer contract read, so the entry cannot live elsewhere.
     # **3032 -> 3064** (2026-09-28, the round-28 Full run): `secure_rerip_verdict_converged`, the one home of which way a `-Z` verdict went, so the rip worker can grade its diagnostic by it; the parser's own loop now calls it instead of restating the `agreed >= 1` rule.
     # **3064 -> 3189** (2026-09-28, the Full run's F5/F6): `Tracks to rip:` graduates from the ignore list to a line rule, and `interruption_point` classifies the two published `Interrupted at:` shapes. The patterns must live here: the completeness sweep walks this module's own regex constants, and the rule table is what the generated consumer contract publishes.
-    "parsers/cyanrip_log.py": 3189,
+    # **3189 -> 3233** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): `_SECURE_DONE_FAIL` reads it beside `no matches found`, before any build prints it (round 20's order). Nearly all of it is the reasoning: why "no matches found" never meant "no two reads agreed" (the round-28 artifact, lines 381-385), and why the new arm matches only the prefix — too strict a pattern fails toward a false "Test and Copy CRC identical".
+    "parsers/cyanrip_log.py": 3233,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1680,7 +1690,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
     # **890 -> 896** (2026-09-26): `partially_accurate_logged`, the log's own one-frame count beside the ripper's tally (the Full run).
     # **896 -> 904** (2026-09-28, the Full run's F5): `tracks_to_rip` and `tracks_to_rip_numbers`, the ripper's own statement of which tracks it was told to extract.
-    "parsers/rip_log.py": 904,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **904 -> 905** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the `secure_rerip_converged` comment names both wordings and no longer says a hit limit means no two reads agreed.
+    "parsers/rip_log.py": 905,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -1782,7 +1793,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # for five rounds. The growth is three more published rows plus the reasons
     # for the rows we retain past P5 — a line count is not a cohesion signal for
     # a table.
-    "ripper_message_inventory.py": 1081,
+    # **1081 -> 1086** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): a comment at the retained repeat-limit row saying why the new wording gets no row until a contract of theirs publishes it, and why it is graded right without one.
+    "ripper_message_inventory.py": 1086,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
@@ -2058,7 +2070,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4830 -> 4852** (2026-09-28, the Full run's track 3): two auto-fix sentences, one per reason a re-read is kept, since a read kept on AccurateRip's word may not have read consistently; and the unstable-track warning names the read the album keeps.
     # **4852 -> 4861** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `_start_ctdb_verify` hands the worker the rip's parsed log and the probe's track count, read at launch on the GUI thread, because the daemon runs later.
     # 4861 -> 4867 on 2026-09-28 (the round-28 Full run): the debug block is built from ONE buffer snapshot, so the count in its scope is the count in its marker.
-    "ui/main_window_rip.py": 4867,
+    # **4867 -> 4868** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the `failure_hint` comment names both wordings.
+    "ui/main_window_rip.py": 4868,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2130,7 +2143,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1337 -> 1340** (2026-09-28, the round-28 Full run): a blocked save hands the form's values to `log_issues`, so the log names the refused value.
     # **1337 -> 1362** (2026-09-28, the `-Z` wording): the secure re-read row is "Extra matching reads to trust a track" (N+1 identical reads, not N), Max retries' tooltip says it is also the whole-track read ceiling and what 0 really does, and the comment that claimed the 2026-09-21 rename fixed every place says which one it missed.
     # **1362 -> 1378** (2026-09-28, Max retries vs the secure re-read): both spin boxes join the validated widgets and revalidate as they move, because two in-range spin boxes can now make an invalid pair; the banner lists a pair rule's message once.
-    "ui/settings_dialog.py": 1381,
+    # **1381 -> 1382** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the secure re-read row's comment names both wordings.
+    "ui/settings_dialog.py": 1382,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     "ui/track_table.py": 832,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
@@ -2313,7 +2327,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3523 -> 3586** (2026-09-28, the Full run's track 3): the auto-fix asks `verdict.reread_supersedes` instead of convergence alone, so it is handed the first pass's parsed tracks, records why a re-read was kept, says so in its log line and addendum row, and its docstrings describe the new rule.
     # **3586 -> 3611** (2026-09-28, the round-28 Full run): the secure re-read verdict diagnostic is graded by its direction (warning when the reads never agreed) and names its track, with why the progress lines' track is the verdict's. The worker is the only place that sees both lines in stream order.
     # **3523 -> 3531** (2026-09-28, `-Z` that `-r` cannot satisfy): the ladder and the instability auto-fix ask `recovery_secure_rerip_ceiling` instead of `secure_rerip_matches or MAX_SECURE_REREP`; the decision lives in `read_speed_ladder.py`, only the calls and their comments are here.
-    "workers/rip_worker.py": 3619,
+    # **3619 -> 3621** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the verdict-grading comment names both wordings, and "four verdicts whose reads never agreed" now says they hit the repeat limit.
+    "workers/rip_worker.py": 3621,
 }
 
 
