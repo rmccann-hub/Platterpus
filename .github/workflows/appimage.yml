@@ -15,6 +15,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege: this workflow builds, smoke-tests and uploads an artifact, and
+# none of that writes to the repository (artifact upload uses the runner's own
+# token). Without this block it ran with the repository's default token.
+permissions:
+  contents: read
+
 jobs:
   build:
     # Match release.yml: an older glibc keeps the bundled manylinux CPython

@@ -67,6 +67,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   sent, before the pin registry existed, and the fork holds the original. The file is
   restored to the bytes we sent and pinned. Every line the edit added, including a §7
   that never reached the fork, is kept word for word in the session log.
+- **For contributors: every workflow's default token is read-only.** `appimage.yml`
+  had no `permissions:` block, so it ran with the repository's default token, and
+  `release.yml` granted its four writes to the whole workflow. The AppImage build now
+  reads only, and the release workflow grants its writes to its one job, so a job
+  added later starts read-only. A new test holds every workflow to that shape. A
+  comment in `ci.yml` that said cloud sessions cannot trigger CI is corrected: this
+  project's sessions do.
 
 ### Fixed
 
