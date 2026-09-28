@@ -12148,6 +12148,67 @@ def _pump_until(qapp: QApplication, done: Any, timeout: float = 15.0) -> None:
     assert done(), "timed out waiting for the dependency check"
 
 
+def _status_bar_text(window: MainWindow) -> str:
+    """What the status bar paints. A temporary message (a menu item's status tip)
+    covers the bar's normal widgets, which Qt hides while one shows; otherwise it
+    is the dependency sentence's label, if one was built and is not hidden."""
+    bar = window.statusBar()
+    if bar.currentMessage():
+        return bar.currentMessage()
+    label = window._dep_status_label
+    if label is None or not label.isVisibleTo(window):
+        return ""
+    return str(label.text())
+
+
+@pytest.mark.parametrize("tip", ["", "an item's own status tip"])
+def test_opening_a_menu_does_not_wipe_the_dependency_sentence(
+    teardown_threads, qapp: QApplication, tip: str
+) -> None:
+    """Code review 2026-09-28 (R8): the sentence went on the bar as a TEMPORARY
+    message, and Qt replaces that with each menu item's status tip — empty for
+    every Tools item — so opening Tools blanked it, while its tooltip kept the
+    old text. `incomplete_background_message` tells the user to open Tools →
+    Setup & Updates, and doing so wiped the only notice that the ripper's state
+    was unknown. Driven through a real menu on a shown window, since the wipe is
+    Qt's own status-tip handling. The second case is the state the fix creates:
+    an item that HAS a tip covers the sentence while it is hovered, and the
+    sentence must come back when the menu closes."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    window = teardown_threads()
+    window.show()
+    try:
+        qapp.processEvents()
+        window._show_dependency_status("ⓘ probe sentence")
+        qapp.processEvents()  # a bar built on a shown window is shown by a queued call
+        before = _status_bar_text(window)
+        assert before.endswith("ⓘ probe sentence"), before
+
+        bar = window.menuBar()
+        tools = next(a for a in bar.actions() if "Tools" in a.text())
+        menu = tools.menu()
+        assert menu is not None and menu.actions(), "no Tools menu to open"
+        for action in menu.actions():
+            action.setStatusTip(tip)
+        bar.setActiveAction(tools)
+        qapp.processEvents()
+        QTest.keyClick(menu, Qt.Key.Key_Down)  # moves through an item's status tip
+        qapp.processEvents()
+        assert _status_bar_text(window) == (tip or before), "the tip was not shown"
+        QTest.keyClick(menu, Qt.Key.Key_Escape)
+        qapp.processEvents()
+
+        assert _status_bar_text(window) == before, "the menu wiped the sentence"
+        label = window._dep_status_label
+        assert label is not None and label.toolTip() == before
+        assert label.textFormat() == Qt.TextFormat.PlainText
+        assert not window.statusBar().toolTip(), "a second copy that can go stale"
+    finally:
+        window.hide()
+
+
 def test_a_user_check_says_it_is_running_and_the_outcome_replaces_it(
     teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -12168,7 +12229,7 @@ def test_a_user_check_says_it_is_running_and_the_outcome_replaces_it(
         button = center._buttons["dep_check"]
         button.click()
 
-        status = window.statusBar().currentMessage()
+        status = _status_bar_text(window)
         assert "Checking dependencies" in status, status
         assert "can take up to a minute" in status, status
         assert not button.isEnabled(), "the button stayed live while its check ran"
@@ -12179,7 +12240,7 @@ def test_a_user_check_says_it_is_running_and_the_outcome_replaces_it(
         release.set()
         _pump_until(qapp, lambda: window._dep_check_thread is None and shown)
 
-        status = window.statusBar().currentMessage()
+        status = _status_bar_text(window)
         assert "Checking" not in status, (
             f"the running message outlived its check: {status}"
         )
@@ -12223,12 +12284,12 @@ def test_a_second_click_says_so_starts_no_second_probe_and_shows_the_result(
         # A silent check leaves the button usable: clicking is how the user asks
         # for its result. And it puts nothing on the status bar.
         assert button.isEnabled()
-        assert window.statusBar().currentMessage() == ""
+        assert _status_bar_text(window) == ""
 
         button.click()
 
         assert window._dep_check_thread is running, "a second check was started"
-        assert "already running" in window.statusBar().currentMessage()
+        assert "already running" in _status_bar_text(window)
         assert window._dep_check_show_summary is True, (
             "the silent check was not upgraded"
         )
@@ -12305,7 +12366,7 @@ def test_the_deadline_stops_a_wedged_check_and_the_summary_says_what_it_skipped(
         assert offers == [], "an incomplete check offered optional installs"
         assert reached_after == [], "a spec after the deadline was still probed"
 
-        status = window.statusBar().currentMessage()
+        status = _status_bar_text(window)
         assert "Check incomplete" in status and "cyanrip" in status, status
         assert center._dependency_label is not None
         line = center._dependency_label.text()
@@ -12334,14 +12395,25 @@ def test_a_silent_check_that_did_not_finish_says_so_on_the_status_bar(
     window._dep_check_manager = window._dependency_manager
     window._dep_check_show_summary = False
     window._on_dependency_check_done(report)
-    status = window.statusBar().currentMessage()
+    status = _status_bar_text(window)
     assert "did not finish" in status and "cyanrip" in status, status
     assert shown == [], "a silent check opened a dialog"
 
-    complete = DependencyReport()
-    window.statusBar().clearMessage()
-    window._on_dependency_check_done(complete)
-    assert window.statusBar().currentMessage() == "", "a complete silent check nagged"
+    # The sentence now stays until it is replaced (code review R8), so a later
+    # silent check that completes must replace it, or "did not finish" would
+    # outlive the check that did finish.
+    window._dep_check_manager = window._dependency_manager
+    window._on_dependency_check_done(DependencyReport())
+    status = _status_bar_text(window)
+    assert "did not finish" not in status, status
+    assert "All required tools present" in status, status
+    assert shown == [], "a silent check opened a dialog"
+
+    quiet = teardown_threads()
+    quiet._dep_check_manager = quiet._dependency_manager
+    quiet._dep_check_show_summary = False
+    quiet._on_dependency_check_done(DependencyReport())
+    assert _status_bar_text(quiet) == "", "a complete silent check nagged"
 
 
 def test_giving_up_on_a_user_check_says_so_on_screen(
@@ -12365,10 +12437,10 @@ def test_giving_up_on_a_user_check_says_so_on_screen(
 
     report = SimpleNamespace(missing=[], install_results=[])
     window._apply_dependency_report(object(), report, show_summary=True)
-    assert "will be shown when the dialog" in window.statusBar().currentMessage()
+    assert "will be shown when the dialog" in _status_bar_text(window)
     for _ in range(main_window_deps._DEP_RESOLVE_MAX_DEFERRALS):
         window._apply_dependency_report(object(), report, show_summary=True)
-    status = window.statusBar().currentMessage()
+    status = _status_bar_text(window)
     assert "was not shown" in status and "Setup & Updates" in status, status
 
     silent = teardown_threads()
@@ -12380,7 +12452,7 @@ def test_giving_up_on_a_user_check_says_so_on_screen(
     silent_report = SimpleNamespace(missing=[required], install_results=[])
     for _ in range(main_window_deps._DEP_RESOLVE_MAX_DEFERRALS + 1):
         silent._apply_dependency_report(object(), silent_report, show_summary=False)
-    assert silent.statusBar().currentMessage() == "", "the launch check nagged"
+    assert _status_bar_text(silent) == "", "the launch check nagged"
 
 
 def test_a_report_held_for_another_dialog_keeps_its_optional_tools(
@@ -12446,13 +12518,11 @@ def test_an_overrunning_check_is_reported_even_if_a_probe_ignores_the_deadline(
     shown = _capture_message_boxes(monkeypatch)
     try:
         window.run_dependency_check_async(show_summary=False)
-        _pump_until(
-            qapp, lambda: "did not stop" in window.statusBar().currentMessage(), 5.0
-        )
+        _pump_until(qapp, lambda: "did not stop" in _status_bar_text(window), 5.0)
         assert window._dep_check_thread is not None, "the backstop fired too late"
         release.set()
         _pump_until(qapp, lambda: window._dep_check_thread is None)
-        status = window.statusBar().currentMessage()
+        status = _status_bar_text(window)
         assert "did not stop" not in status, (
             "the overdue warning outlived the check it described"
         )
@@ -12894,7 +12964,7 @@ def test_open_dependencies_in_a_script_probes_off_the_gui_thread(
         assert turned == 20
         assert runner._deadline is not None, "the step ended before its check landed"
         assert not runner._report.steps, runner._report.steps
-        assert "Checking dependencies" in window.statusBar().currentMessage()
+        assert "Checking dependencies" in _status_bar_text(window)
         assert not summaries
 
         release.set()
