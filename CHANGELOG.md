@@ -73,6 +73,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   through the fork, publish a higher version, and confirm the offer is gone. Every
   step works from a browser, and the section says why the order matters: withdrawing
   stops new offers, but only a higher version reaches someone who already updated.
+- **The README says what "out of beta" means, and dates its figures.** It said
+  "out of beta" while PyPI's classifier says *Beta*. Both stand (the maintainer's
+  choice, 2026-09-28): the README now says the phrase means the `bN` test labels ended
+  with 0.6.12, and that a pre-1.0 project is why PyPI says Beta and GitHub marks every
+  `v0.*` release a pre-release. Its figures went from "5,400+ tests at 91.9%" to the
+  numbers measured on 2026-09-28, with how they were measured.
 - **`docs/testing.md` no longer calls `tests-touched` advisory.** Its tier table still
   described the job as a "nudge" five weeks after it became a gating job (2026-08-20).
   It now says what the job refuses and how a change states a reason instead.
