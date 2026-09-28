@@ -6829,6 +6829,45 @@ def test_a_disc_that_becomes_ready_after_every_retry_failed_is_still_read(
     assert len(_inserted_lines(caplog)) == 1, _inserted_lines(caplog)
 
 
+def test_a_disc_removed_while_a_retry_waits_ends_the_retry_and_the_no_disc_line_stays(
+    teardown_threads, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Code review 2026-09-28 (R9): the removal ends the read the retry was for.
+
+    The read failed and a retry was pending when the disc was ejected. The panel
+    said "the drive reports no disc", and when the retry's timer fired it was
+    replaced by an error about the read of the disc that had since left. The
+    real timer is left to fire, so the check is the one the product makes.
+    """
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip failed (exit 1). It said: Unable to open device!"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    tray = ["disc"]
+    window, _retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, tray
+    )
+    assert process_until(lambda: window._disc_retries.pending is not None)
+    window._media_poll_timer.stop()
+    window._disc_retry_timer.start(200)  # long enough for the eject to land first
+    match = window._disc_info_panel._mb_match_value
+
+    window._poll_disc_media()  # baseline: the disc is in
+    tray[0] = "open"
+    window._poll_disc_media()  # ejected
+    no_disc = match.text()
+    assert no_disc.startswith("the drive reports no disc"), no_disc
+    pending_after_removal = window._disc_retries.pending
+    timer_after_removal = window._disc_retry_timer.isActive()
+
+    process_until(lambda: False, timeout=0.5)  # past the retry's old due time
+    # The symptom first, then the mechanism, so a failure shows what the user saw.
+    assert match.text() == no_disc, "an error about the removed disc replaced it"
+    assert pending_after_removal is None, "the retry outlived the removal"
+    assert not timer_after_removal, "the retry's timer outlived the removal"
+    assert backend.disc_info_calls == ["/dev/sr0"]
+
+
 def test_reset_disc_view_forgets_the_release_detail_too(teardown_threads) -> None:
     """The detail is cleared wherever the release id is, never only one of them."""
     window = teardown_threads()

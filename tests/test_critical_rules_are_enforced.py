@@ -1898,7 +1898,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 651 -> 655 on 2026-09-28: the poll puts "reading disc…" up on an insertion and the no-disc line on a removal, where both left only dashes.
     # 655 -> 656 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
     # 656 -> 658 on 2026-09-28 (code review R0): the insertion comment says a scan that read the disc tells the watcher, so an eject after it is a removal.
-    "ui/main_window_drive.py": 658,
+    # 658 -> 668 on 2026-09-28 (code review R9): a disc removal ends the read a pending automatic retry was for, so its timer cannot replace the no-disc line with an error about the disc that left.
+    "ui/main_window_drive.py": 668,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.

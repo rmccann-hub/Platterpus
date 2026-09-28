@@ -426,6 +426,16 @@ class DriveMixin(MainWindowShared):
                     status,
                     bridged,
                 )
+                # The removal ends the read a pending retry was for. Left armed,
+                # its timer replaced the no-disc line with an error about the
+                # disc that had left (code review, 2026-09-28). The next disc is
+                # read by the insertion, with a fresh budget.
+                if self._disc_retries.pending is not None:
+                    log.info(
+                        "pending automatic re-read of %s dropped: the disc left",
+                        device,
+                    )
+                self._begin_disc_request()
                 self._reset_disc_view()
                 self._disc_info_panel.set_no_disc()
         except Exception:  # noqa: BLE001 — a background poll must never crash the UI
