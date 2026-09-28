@@ -3702,6 +3702,42 @@ def test_tools_menu_has_uninstall_action(teardown_threads) -> None:
     assert any("Uninstall Platterpus" in t.replace("&", "") for t in actions)
 
 
+def test_the_test_tools_menu_items_live_under_tools_advanced(teardown_threads) -> None:
+    """D4 A (maintainer, 2026-09-25): *Run test script…* and *Run acceptance
+    test…* sit in a Tools → Advanced ▸ submenu, and Uninstall stays in Tools.
+
+    Read off the BUILT menu, not the source: `menuBar().findChildren(QMenu)`
+    recurses, so the other menu tests would go on finding both items whether they
+    were in Tools or under Advanced. This one says which, in both directions.
+    """
+    from PySide6.QtWidgets import QMenu
+
+    window = teardown_threads()
+    tools = next(
+        m for m in window.menuBar().findChildren(QMenu) if m.title() == "&Tools"
+    )
+    direct = [a.text().replace("&", "") for a in tools.actions()]
+    submenus = [a.menu() for a in tools.actions() if a.menu() is not None]
+    assert [m.title() for m in submenus] == ["&Advanced"], direct
+    inside = [a.text().replace("&", "") for a in submenus[0].actions()]
+    assert inside == ["Run test script…", "Run acceptance test…"], inside
+    assert not {"Run test script…", "Run acceptance test…"} & set(direct), direct
+    # Uninstall stays where a user can see it — the half of D4 A that is easy to
+    # lose by sweeping "the rarely used items" into the submenu together.
+    assert "Uninstall Platterpus…" in direct
+
+    # Moving the acceptance item did not unhook it from the rip lock: it rips
+    # discs itself, so starting one on top of a live rip is still refused.
+    acceptance = submenus[0].actions()[1]
+    assert acceptance.isEnabled()
+    window._set_rip_lock(True)
+    try:
+        assert not acceptance.isEnabled()
+    finally:
+        window._set_rip_lock(False)
+    assert acceptance.isEnabled()
+
+
 def test_uninstall_finished_offers_quit_on_success(
     teardown_threads, monkeypatch
 ) -> None:

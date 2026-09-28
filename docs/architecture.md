@@ -939,7 +939,7 @@ uiscript/report.py    RunReport -> text / dict      the transcript
 ui/dialogs/script_console.py                        the SURFACE (menu, buttons)
 ```
 
-Three entry points, **one method**: the Tools menu item, `--run-script FILE`, and
+Three entry points, **one method**: the Tools → Advanced menu item, `--run-script FILE`, and
 the config's `test_script_autorun` all call
 `MainWindow.open_script_console(autorun=...)`. Adding a fourth (a D-Bus hook, a
 hotkey) means calling that method, never re-describing how a batch starts.

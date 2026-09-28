@@ -105,7 +105,7 @@ class ScriptSettingsBox(QGroupBox):
         builtin.setToolTip(
             "Use the full acceptance test that ships inside Platterpus as the "
             "startup script. It does not start anything: press Run, or use "
-            "Tools → Run acceptance test… for the whole session."
+            "Tools → Advanced → Run acceptance test… for the whole session."
         )
         builtin.clicked.connect(self.use_builtin_acceptance_script)
         row.addWidget(builtin)

@@ -5,8 +5,9 @@ argv the app builds, the same ripper binary. There is no simulation layer, which
 is deliberate — a harness that is safer or simpler than the product makes the
 product's gap invisible.
 
-> **Read this first (v0.6.32).** The full acceptance run is now **Tools → Run
-> acceptance test…** inside the app, and that is the route to use. It makes the
+> **Read this first (v0.6.32).** The full acceptance run is now
+> **Tools → Advanced → Run acceptance test…** inside the app (directly under
+> **Tools** on v0.6.61 and earlier), and that is the route to use. It makes the
 > session folder, holds off sleep, runs the batch, releases the lock and packs
 > one `.tar.gz` into `~/Downloads` — then names it, with a button that opens the
 > folder. **There is nothing to download and no second command in the morning.**
@@ -42,7 +43,7 @@ product's gap invisible.
 >
 > **The overnight and morning shell wrappers are retired.** The former
 > `platterpusovernight.sh` and `platterpusmorning.sh` did, from a terminal, what
-> Tools → Run acceptance test… now does inside the app — hold sleep off, run the
+> Tools → Advanced → Run acceptance test… now does inside the app — hold sleep off, run the
 > batch, gather every rip folder into one file. Two routes to one bundle is two
 > answers to *"which file do I upload"*, so the app's route is the only one. A
 > build older than v0.6.32 has no menu item; both files are still in the source
@@ -75,7 +76,7 @@ rip**. Worth stating because the others look as if they do.
 
 | collector | app log | script transcript + screenshots | the run's rip folders |
 |---|---|---|---|
-| **Tools → Run acceptance test…** (the one session bundle) | ✅ | ✅ | ✅ **every rip the session made** (capped at 40; any dropped are counted in the bundle) |
+| **Tools → Advanced → Run acceptance test…** (the one session bundle) | ✅ | ✅ | ✅ **every rip the session made** (capped at 40; any dropped are counted in the bundle) |
 | a `--run-script` run's own bundle (*"SEND THIS ONE FILE"*) | ✅ | ✅ | ❌ — `build_bundle()` is called without `album_dir` (open in `TASKS.md`) |
 | `--rig-session` | ✅ | ❌ | the **newest** `.platterpus.json` only |
 | `platterpuscollect.sh` | ✅ | partial | **newest rip only** |
@@ -150,7 +151,7 @@ two lines below edited for your disc.
 ./platterpus-x86_64.AppImage --run-script police-rerip.txt
 ```
 
-or, in a running window: **Tools → Run test script…** → **Load** → **Run**.
+or, in a running window: **Tools → Advanced → Run test script…** → **Load** → **Run**.
 
 The window is real and on screen while it runs — the script drives it. This is
 "no person needed", not "no display needed".
@@ -258,7 +259,7 @@ Artifacts land under `~/.local/share/platterpus/uiscript/<timestamp>/`.
 
 ## What the script surface can and cannot reach
 
-Run `Tools → Run test script…` and read the built-in reference — it is rendered
+Run `Tools → Advanced → Run test script…` and read the built-in reference — it is rendered
 from the vocabulary table itself, so it cannot drift from what actually works.
 
 **Reaches:** the disc pipeline (`rescan`), album metadata (`album`,

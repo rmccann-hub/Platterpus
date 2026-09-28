@@ -7,7 +7,7 @@
 > 2026-09-26 on a quick run, and shipping in 0.6.61 — 0.6.60 as released still
 > installs `df91ae7`),
 > and the primary hardware
-> route is now **Tools → Run acceptance test…** inside the app, which keeps
+> route is now **Tools → Advanced → Run acceptance test…** inside the app, which keeps
 > everything a run makes — rips, screenshots, transcript and one `.tar.gz` — in one
 > session folder under `~/platterpus-rig/` (`docs/rig-scripts/README.md`,
 > `docs/rig-session.md`).
