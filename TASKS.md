@@ -648,8 +648,17 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   `9719aabb…`, 13,449 bytes, `OPEN`). It acts on their lap 3 before the run and
   pre-commits our next lap to `GO` unless our reading of the Full run's bundle finds a
   defect in 0.6.61 or `.17` that breaks the pin, or the run does not complete (S33).
-- [ ] **NEXT-ROUND: B2 and B3 in our checker, behind `LSL: 3`** (their S22, S23, S25), once
+- [x] **NEXT-ROUND: B2 and B3 in our checker, behind `LSL: 3`** (their S22, S23, S25), once
   the text of B1 as amended, B2 and B3 is in the shared proposal.
+  -   - *Closed 2026-09-28 in 72c8f053, with d8a49329 and 9b2a9e46*, from the proposal's
+        text at `cyanrip@889a375` (sha256 `3ce01f58…`), not from their checker. The
+        version is `scripts/laplang/tables.py` (`LSL3_RULES`, `LSL_VERSIONS[3]`); B1 is
+        `scripts/laplang/lsl3.py` with `--rerun` in `rerun.py` and `scratch.py`; B2 is in
+        `round_rules.py`, counting with the function A1 uses; B3 shares A6's
+        `carries_no_weight`. LSL 1 and LSL 2 reports are byte-identical before and after
+        (54 captured reports, `cmp` exit 0). Compared with their checker only afterwards:
+        20 of 27 constructed laps agree; the differences, with citations into
+        `tools/lap-statements.py`, go to the fork as next-round items.
 - [ ] **The Full run on 0.6.61 + `.17`** (close condition 1), then both readings (S7).
 - [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
 - [x] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
