@@ -78,6 +78,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   The cyanrip adapter's comment beside `-T` still argued for `os_unicode`, although
   the pinned mode is `unicode`, and the script runner said the test-script language
   has no quoting, although it groups a double-quoted value into one argument.
+- **Two look-alike album folders now always get a question, even when both are
+  empty.** The rip would otherwise land in whichever one cyanrip picks, beside its
+  twin. With neither holding a rip, the prompt's title is "Which album folder?" and
+  it says neither holds one, rather than claiming the album was already ripped. One
+  empty folder still rips with no question.
 
 ### Fixed
 
