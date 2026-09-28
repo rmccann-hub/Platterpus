@@ -1194,6 +1194,40 @@ def test_a_non_converged_track_never_gets_the_test_and_copy_pair() -> None:
     )
 
 
+def test_the_forks_proposed_repeat_limit_wording_never_earns_the_test_copy_pair() -> (
+    None
+):
+    """The reason the parser reads the new wording BEFORE any build prints it.
+
+    The fork proposes (round 29 lap 1, S38) `Done; (repeat limit of %i reads
+    reached; at most %i reads agreed)` in place of `no matches found`. If our
+    parser did not recognise it, the track would carry NO verdict (`None`), and
+    this renderer infers convergence for an unmeasured track read two or more
+    times — so a stock-shaped log (no labelled `Secure re-read:` row to rescue it)
+    would print EAC's `Test and Copy CRC identical` for reads that never
+    converged. That is the failure direction the parser's prefix match exists to
+    avoid, asserted here where it would show.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.4 (release)\n"
+        "Done; (repeat limit of 3 reads reached; at most 2 reads agreed)\n"
+        "Track 1 read successfully!\n"
+        "  EAC CRC32:     AAAA1111 (after 3 rips)\n"
+    )
+    # Floor: the track parsed, and it was read more than once — the case in which
+    # a missing verdict would be inferred as convergence.
+    assert [t.number for t in log.tracks] == [1]
+    assert log.tracks[0].rip_count == 3
+    text = render_eac_style_log(log)
+    assert "confirmed across" not in text, (
+        "a track that hit the repeat limit was given EAC's strongest "
+        "reproducibility claim:\n" + text
+    )
+    assert "did NOT agree" in text, text
+
+
 def test_gap_handling_reads_cyanrips_own_wording_not_eacs() -> None:
     """Driven with cyanrip's strings as INPUT, which is the whole point.
 

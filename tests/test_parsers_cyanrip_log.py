@@ -449,6 +449,117 @@ def test_secure_rerip_verdict_never_raises_when_dangling() -> None:
     assert log.tracks == ()
 
 
+# --- The repeat-limit line in two wordings (round 29 lap 1, S37-S39) -------------
+#
+# The fork proposes replacing "Done; (no matches found, but hit repeat limit of %i)"
+# — which says "no matches" whatever the count — with the wording below, and asks
+# (S39) whether a release of ours will read both, so theirs can ship after it:
+# round 20's order. These pin that both wordings mean NOT converged, and that the
+# new one can never be read as convergence.
+
+#: The fork's proposed format string (S38), filled in the way the round-28 Full
+#: run's track 5 would have printed it: `-r 3`, two of the three reads agreed.
+_NEW_LIMIT_LINE = "Done; (repeat limit of 3 reads reached; at most 2 reads agreed)"
+#: The wording every build so far prints, for that same track.
+_OLD_LIMIT_LINE = "Done; (no matches found, but hit repeat limit of 3)"
+
+
+def test_the_forks_proposed_repeat_limit_wording_is_not_convergence() -> None:
+    """Both wordings -> ``False``, at any indentation; neither is ever ``True``."""
+    from platterpus.parsers.cyanrip_log import (
+        _SECURE_DONE_FAIL,
+        _SECURE_DONE_MATCH,
+        is_secure_rerip_verdict,
+        secure_rerip_verdict_converged,
+    )
+
+    for line in (_NEW_LIMIT_LINE, _OLD_LIMIT_LINE):
+        for shown in (line, "  " + line, "\t" + line):
+            assert secure_rerip_verdict_converged(shown) is False, shown
+            assert is_secure_rerip_verdict(shown), shown
+            # The pair is the check: the limit-hit arm claims it AND the
+            # convergence arm does not. S38's own reason it is safe ("it does not
+            # begin `Done; (N out of`") is asserted, not taken on trust.
+            assert _SECURE_DONE_FAIL.match(shown), shown
+            assert _SECURE_DONE_MATCH.match(shown) is None, shown
+
+    # Near misses stay "not a verdict", so the new arm has not swallowed its
+    # neighbours: a word that merely STARTS with "limit", the progress line, and
+    # the phrase anywhere but straight after "Done; (".
+    for line in (
+        "Done; (repeat limitless reads)",
+        "Repeating ripping (repeat limit of 3 reads reached; at most 2 reads agreed)",
+        "Done; hit the repeat limit of 3",
+    ):
+        assert secure_rerip_verdict_converged(line) is None, line
+
+
+def test_each_track_keeps_its_own_limit_verdict_in_either_wording() -> None:
+    """Through the real parser: old wording, new wording, converged, in that order.
+
+    Three DIFFERENT outcomes, so a verdict handed to the wrong track shows. The
+    order matters too: a new-wording line that fell through as "not a verdict"
+    would leave track 2 with no verdict at all (``None``), and ``None`` is the
+    value the EAC-style log reads as "unmeasured", not as "failed".
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.4+platterpus.19 (platterpus-fork-g0000000)\n"
+        f"{_OLD_LIMIT_LINE}\n"
+        "Track 1 read successfully!\n"
+        "  EAC CRC32:     AAAA1111 (after 3 rips)\n"
+        f"  {_NEW_LIMIT_LINE}\n"
+        "Track 2 read successfully!\n"
+        "  EAC CRC32:     BBBB2222 (after 3 rips)\n"
+        "Done; (2 out of 2 matches for current checksum CCCC3333)\n"
+        "Track 3 read successfully!\n"
+        "  EAC CRC32:     CCCC3333 (after 3 rips)\n"
+    )
+    by_number = {t.number: t.secure_rerip_converged for t in log.tracks}
+    # Floor: all three tracks parsed, or the comparison below proves nothing.
+    assert sorted(by_number) == [1, 2, 3], by_number
+    assert by_number == {1: False, 2: False, 3: True}, by_number
+
+
+def test_the_new_wording_in_the_labelled_row_is_still_not_convergence() -> None:
+    """The in-block ``Secure re-read:`` row is matched by PHRASE, and the new
+    wording holds a positive phrase ("agreed") as well as a negative one ("repeat
+    limit"). The negative must win. S38 proposes rewording only the ``Done;``
+    line, but if the row ever copies it, this is the direction that must hold.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.4+platterpus.19 (platterpus-fork-g0000000)\n"
+        "Track 1 read successfully!\n"
+        "  EAC CRC32:     AAAA1111 (after 3 rips)\n"
+        "  Secure re-read:  repeat limit of 3 reads reached; at most 2 reads agreed\n"
+    )
+    assert log.tracks[0].secure_rerip_converged is False
+
+
+def test_the_old_wording_is_printed_even_when_reads_agreed() -> None:
+    """The premise of the corrected comment, read from the committed artifact.
+
+    The comment at ``_SECURE_DONE_FAIL`` used to say "no matches found" meant no
+    two reads agreed. The round-28 Full run's secure re-read log disproves it at
+    lines 381-385: track 5 printed a "1 out of 2 matches" progress line — two
+    reads agreed — and then "no matches found". This reads the artifact rather
+    than a copy of it, so the claim cannot drift from the evidence.
+    """
+    path = _REPO / "docs/handshake/artifactsround28/round28fullsecurereread.log"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    # Lines 381-386 of the file, 1-based as the comment cites them.
+    window = lines[380:386]
+    assert window[0].startswith("Repeating ripping (0 out of 2 matches"), window
+    assert window[2].startswith("Repeating ripping (1 out of 2 matches"), window
+    assert window[4] == _OLD_LIMIT_LINE, window
+    assert window[5] == "Track 5 read successfully!", window
+    # And the parser reads THAT line as not converged. Only the window is parsed:
+    # the whole file also carries track 5's labelled `Secure re-read:` row, which
+    # would decide the field on its own and hide whether the `Done;` line did.
+    log = parse_cyanrip_log(lines[0] + "\n" + "\n".join(window) + "\n")
+    assert [t.number for t in log.tracks] == [5], log.tracks
+    assert log.tracks[0].secure_rerip_converged is False
+
+
 def test_unstable_tracks_picks_only_the_non_converged_track() -> None:
     # The read-speed ladder's unstable_tracks() must flag track 2 only — not the
     # offset-variant-but-converged track 3 (the real-disc track-3-vs-5 lesson).

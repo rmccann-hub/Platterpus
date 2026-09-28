@@ -224,6 +224,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   8.9x on CI for a pattern that measures 3.9x. Both now retry up to three times and
   judge the confirmation's verdict, not just its ratio, so a wrong answer on every
   attempt still fails. The threshold is unchanged.
+- **The log parser now reads the fork's proposed wording of the secure re-read's
+  repeat-limit line, beside the current one.** cyanrip prints `Done; (no matches
+  found, but hit repeat limit of N)` whenever a track's re-reads hit the limit, even
+  when some of them agreed. The fork proposes `Done; (repeat limit of N reads reached;
+  at most M reads agreed)` instead (round 29 lap 1, S37-S39). Both wordings now mean
+  "not converged" in the parser, the rip worker's diagnostics and the EAC-style log,
+  and the new one is never read as convergence. We ship this first, so the fork's next
+  release can print the new wording and no build of ours will misread it. The parser's
+  comment used to say the current line meant no two reads agreed. That was wrong: in
+  the round-28 Full run, track 5 printed "1 out of 2 matches" and then "no matches
+  found". The comment, and the others that repeated it, are corrected. The generated
+  consumer contract is regenerated.
 
 ## [0.6.62] — 2026-09-28
 
