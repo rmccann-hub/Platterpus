@@ -1,11 +1,10 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.62        the current release. It installs 221a1df by default, and
-                           accepts e0471f4 as the build under review, not .18.
-            v0.6.63        not yet released: the release for round 29's run. It will
-                           install e0471f4 by default and accept 51cc789 as the build
-                           under review.
+Platterpus  v0.6.63        the release for round 29's run. It installs e0471f4 by
+                           default, and accepts 51cc789 as the build under review.
+            v0.6.62        the release before it: it accepts e0471f4 as the build under
+                           review, not .18, so section A stops a run on it.
 cyanrip     e0471f4        0.9.4-rc2+platterpus.17  (platterpus-fork-ge0471f4)  <- PRODUCTION PIN
                            approved by round 28, for Platterpus 0.6.61, on the Full run
             51cc789        0.9.4-rc2+platterpus.18  (platterpus-fork-g51cc789)  <- UNDER REVIEW
@@ -84,6 +83,10 @@ a recorded response (`5b7493c`, `a646d54`); the disc-level `AccurateRip:` line c
 `mismatch` or `not found` (`64642db`); and upstream's `f8ebf48`, a MusicBrainz retry,
 which Platterpus never reaches because it runs cyanrip with `-N`.
 
+**What 0.6.63 changes for the person at the rig.** Nothing to do differently. A track
+whose re-read AccurateRip verifies keeps that re-read, a partial rip is no longer looked
+up in CTDB, and the EAC-compatible log's first line begins with "Platterpus".
+
 **What 0.6.62 changes for the person at the rig.** A disc that the drive briefly
 reports as unavailable is read again when it comes back, and a first read that fails
 on a cold container is retried, so you should not need to open and close the drive or
@@ -143,4 +146,4 @@ known to be correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.62.*
+*Last updated for Platterpus v0.6.63.*
