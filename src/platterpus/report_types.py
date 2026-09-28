@@ -395,6 +395,9 @@ class RetriedTrackBlock(TypedDict):
     reripped_z: int
     converged: bool
     replaced: bool
+    # Why the re-read was kept, when it was: "accuraterip" or "converged"
+    # (verdict.REREAD_KEPT_FOR_*). None when it was not kept. Schema v30.
+    replaced_because: str | None
 
 
 class SecureReripBlock(TypedDict):

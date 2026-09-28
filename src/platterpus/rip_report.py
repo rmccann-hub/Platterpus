@@ -249,7 +249,13 @@ def _atomic_write_text(target: Path, text: str) -> None:
 # v29: `disc.eac_log_signature_lines_defused` — lines of the EAC-layout log a
 #      metadata value had shaped like a log signature, as rewritten so the log
 #      cannot read as EAC-signed (D16, KDD-38), with an `info` issue beside it.
-REPORT_SCHEMA_VERSION: int = 29
+# v30: `read_speed.retried_tracks[].replaced_because` — why the auto-fix kept a
+#      re-read (`accuraterip` or `converged`), or null. A re-read is now kept when
+#      it matches AccurateRip and the first read did not, even if it did not
+#      converge (verdict.reread_supersedes), so `converged: false, replaced: true`
+#      is a real record and needs its reason beside it (2026-09-28 Full run,
+#      track 3).
+REPORT_SCHEMA_VERSION: int = 30
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold

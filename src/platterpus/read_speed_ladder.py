@@ -361,6 +361,9 @@ def attempts_to_report(
                     reripped_z=r["reripped_z"],
                     converged=r["converged"],
                     replaced=r["replaced"],
+                    # `.get`, not `[]`: a record written before schema v30
+                    # has no reason, and "not recorded" is what None says.
+                    replaced_because=r.get("replaced_because"),
                 )
                 for r in (retried or [])
             ],

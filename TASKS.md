@@ -1473,6 +1473,19 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [ ] **E4. A marker for a superseded or abandoned read** — theirs to propose; ours:
   capture the discarded re-rip's log (schema bump), record re-read attempts not only
   swaps, tighten "kept the best read". KI:1171; TASKS@b8f89a2:197, 4327.
+  - *2026-09-28, part done:* "kept the best read" is gone; the warning names the read
+    the album keeps, and the auto-fix messages name why a re-read was kept. The rule
+    behind it changed too: the Full run of that day deleted a re-read AccurateRip had
+    verified (track 3), so which read to keep is now `verdict.reread_supersedes`,
+    AccurateRip first (PLANNING KDD-27, amended). **Still open:** the discarded
+    re-read's log still dies with its temp folder; its output survives only in the
+    report's `artifacts.ripper_stdout`.
+- [ ] **The ripper-stdout capture drops every `Track N read successfully!` header** with
+  the progress redraws, so the parser cannot open a track from the capture alone. Found
+  2026-09-28 building a test on the Full run's embedded re-read
+  (`round28fullwholediscreport.json`, `artifacts.ripper_stdout`, lines 1182-1229): the
+  track blocks are all there, without the lines that start them. Matters when the
+  capture is the only copy, as it is for every discarded re-read (E4).
 - [ ] **E5. The `-j` diagnostics record goes nowhere** — lands in the rips root, nothing
   reads it, the auto-bundle does not collect it; and **`Encoder errors:` has no `-j`
   field in P8 at `3e01bb3`** (*derived*), leaving half of TASKS@b8f89a2:805 open. Both.

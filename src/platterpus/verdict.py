@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from typing import Final
 
 from platterpus.parsers.rip_log import accuraterip_is_match, track_accuraterip_verified
 
@@ -529,3 +530,64 @@ def reconcile_ar_ctdb(rip_log: object, ctdb_result: object) -> str | None:
         )
     except Exception:  # noqa: BLE001 — a results-pane footnote must never crash
         return None
+
+
+# --- Which read of a track to keep -------------------------------------------
+#
+# The auto-fix re-reads a track that did not match AccurateRip, or did not read
+# the same way twice, and then has to decide which file the album keeps: the
+# first pass's, or the re-read's. These are the two reasons it may keep the
+# re-read, as the report records them (`read_speed.retried_tracks[].replaced_because`).
+
+#: The re-read matched AccurateRip and the first pass did not.
+REREAD_KEPT_FOR_ACCURATERIP: Final[str] = "accuraterip"
+#: The re-read converged (cyanrip's `-Z`: enough reads agreed) and AccurateRip
+#: did not say the first pass was the better read.
+REREAD_KEPT_FOR_CONVERGENCE: Final[str] = "converged"
+
+
+def reread_supersedes(first_pass: object | None, reread: object) -> str | None:
+    """Should a track's re-read replace the first pass's file? Returns why, or None.
+
+    **AccurateRip decides first, in both directions, and convergence decides the
+    rest.** The two are different kinds of evidence. Convergence is our drive
+    agreeing with itself: `-Z N` kept reading until N more reads matched. An
+    AccurateRip match is other people's rips of the same pressing agreeing with
+    ours, which is independent of this drive and this disc's scratches. So when
+    they point different ways, AccurateRip wins:
+
+    * **The re-read matches AccurateRip and the first pass does not: keep the
+      re-read**, even if it did not converge. On the 2026-09-28 Full run the
+      first whole-disc rip read track 3 as ``15D16895`` (no whole-track match).
+      The re-read's reads were ``59D352DD``, ``E5BEB068``, ``59D352DD`` (cyanrip
+      prints each read's EAC CRC with its bits inverted,
+      ``cyanrip@faec4a8:src/checksums.h:61`` and ``:86``): two agreed, which is one short of what ``-Z 2`` asks, so it "did not converge"
+      and the old rule deleted it. The read it deleted matched AccurateRip v1
+      (confidence 128) and v2 (confidence 200), and it was the read the secure
+      re-read rip of the same disc converged on three times
+      (``docs/handshake/artifactsround28/README.md``).
+    * **The first pass matches AccurateRip and the re-read does not: keep the
+      first pass**, even if the re-read converged. The old rule would have
+      swapped a converged read over a verified one on the instability trigger,
+      where the first pass can match AccurateRip and still have read unevenly.
+      A converged read the database rejects is not better than one it accepts.
+    * **Otherwise the old rule stands:** keep the re-read only if it converged.
+      Neither read has an independent witness, so our drive agreeing with itself
+      is the best evidence either has.
+
+    ``first_pass`` may be None when the first pass's record for the track is not
+    known; it then counts as unverified, because keeping a verified read cannot
+    make a track worse than one nothing verified. Reads every field with
+    ``getattr``; never raises.
+    """
+    reread_verified = track_accuraterip_verified(reread)
+    first_verified = (
+        track_accuraterip_verified(first_pass) if first_pass is not None else False
+    )
+    if reread_verified and not first_verified:
+        return REREAD_KEPT_FOR_ACCURATERIP
+    if first_verified and not reread_verified:
+        return None
+    if getattr(reread, "secure_rerip_converged", None) is True:
+        return REREAD_KEPT_FOR_CONVERGENCE
+    return None

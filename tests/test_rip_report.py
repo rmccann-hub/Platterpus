@@ -303,8 +303,16 @@ def test_read_speed_block_records_auto_fix_retries() -> None:
     )
     rs = report["read_speed"]
     assert rs["unstable_tracks"] == []  # rescued
+    # The input record predates schema v30 and carries no reason, so the report
+    # says "not recorded" rather than inventing one.
     assert rs["retried_tracks"] == [
-        {"track": 3, "reripped_z": 3, "converged": True, "replaced": True}
+        {
+            "track": 3,
+            "reripped_z": 3,
+            "converged": True,
+            "replaced": True,
+            "replaced_because": None,
+        }
     ]
     # An auto-fixed-and-clean rip is not "unresolved".
     assert rs["unresolved"] is False
@@ -1135,7 +1143,10 @@ def test_schema_version_is_27() -> None:
     #
     # v29 added `disc.eac_log_signature_lines_defused` (D16): lines of the
     # EAC-layout log a metadata value had shaped like a log signature.
-    assert REPORT_SCHEMA_VERSION == 29
+    #
+    # v30 added `read_speed.retried_tracks[].replaced_because`: a re-read kept on
+    # AccurateRip's word may not have converged, so the record says why.
+    assert REPORT_SCHEMA_VERSION == 30
 
 
 def _issue_codes(report: dict) -> set[str]:
