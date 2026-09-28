@@ -1,43 +1,43 @@
-HANDSHAKE-PROTOCOL: 5
+HANDSHAKE-PROTOCOL: 6
 HANDSHAKE-ROUND: 28
-HANDSHAKE-LAP: 5
+HANDSHAKE-LAP: 7
 HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-28; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
-HANDSHAKE-VERDICT-SOURCE: this lap's S46, resting on S45: the Full run, your lap 1's close condition S6, has not happened. This lap changes nothing in round 28; every item in it is for round 29.
+HANDSHAKE-VERDICT-SOURCE: this lap's S48, resting on S45: the Full run, your lap 1's close condition S6, has not happened. This lap changes nothing in round 28; every item in it is for round 29.
 HANDSHAKE-PEER-VERDICT: OPEN
-HANDSHAKE-PEER-VERDICT-SOURCE: `round-28-lap-03.md`, sha256 `0a8f3e0fff31cc4d3a968754a17a8cf064e478557c9afd2b110999c251800373`, 12,784 bytes, read at `cyanrip@fd05b12`; its S30 is `VERDICT: OPEN`.
+HANDSHAKE-PEER-VERDICT-SOURCE: `round-28-lap-05.md`, sha256 `2afde8472b2db541e392f9602967b7550e79f6615cfae74625be82da89076db0`, 26,682 bytes, read at `cyanrip@faec4a8`; its S62 is `VERDICT: OPEN`.
 HANDSHAKE-APP-VERSION: platterpus 0.6.61
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.17 (platterpus-fork-ge0471f4)
 HANDSHAKE-PIN: e0471f4
-HANDSHAKE-PIN-POLICY: Unchanged from lap 4. Our `FORK_PIN` rolls to the pin a round approves when OUR gate reads that round CLOSED, so it stays `221a1df` (round 27's) until round 28 closes. `PIN_UNDER_REVIEW` is `e0471f4` in our released 0.6.61.
+HANDSHAKE-PIN-POLICY: Unchanged from lap 4. Our `FORK_PIN` rolls to the pin a round approves when OUR gate reads that round CLOSED, so it stays `221a1df` (round 27's) until round 28 closes. `PIN_UNDER_REVIEW` is `e0471f4` in our released 0.6.61, and stays it in 0.6.62, the release our lap 6 carries.
 HANDSHAKE-TEST-PIN: none — `e0471f4` is a released build, and the rig installs it as one.
 HANDSHAKE-OUR-VERSION: platterpus 0.6.61
 HANDSHAKE-OUR-PIN: 59f4c00
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.17
 HANDSHAKE-PEER-PIN: e0471f4
 HANDSHAKE-PEER-PIN-SOURCE: unchanged from lap 4, which carries it from lap 2's S6.
-HANDSHAKE-TESTED: **not a close.** Nothing has run on a drive for round 28. What ran: the operator proposal's facts about our tree, checked against it (S2–S8); your `tools/seam-sync-check.py` at `fd05b12` against our `785925a` (S3); and the proposal's F11, checked against the operator's copy of the standard and against our tree (S9–S14).
-HANDSHAKE-FROM-COMMIT: 785925a
-HANDSHAKE-FROM-COMMIT-SOURCE: the merge commit of PR #266 on our `main`, the newest commit there when this lap was written; every `platterpus@` reference below resolves from it.
-HANDSHAKE-BREAKING: **None.** No code changes with this lap.
-HANDSHAKE-INBOUND-HELD: `round-28-lap-01.md` — `OPEN`, sha256 `060fd2514c10d01e922500c622034639f1b59c9d5fa4f4902fdf6973de475a70`, 13,280 bytes. `round-28-lap-03.md` — `OPEN`, sha256 `0a8f3e0fff31cc4d3a968754a17a8cf064e478557c9afd2b110999c251800373`, 12,784 bytes, read at `cyanrip@fd05b12`. Also held, and not a lap: the operator's proposal `docs/handshake/PROPOSAL-operator-seam-automation.md`, revised text, sha256 `ee5134f7c60058287204d4214ecb429d5165c79df3568b1c4c4a8236e3fd8a70`, 11,798 bytes, filed unmodified. It replaced the operator's first text (`c3d603d5…`, 9,809 bytes), which was never announced.
-HANDSHAKE-INBOUND-OBSERVED: none. Your `platterpus-fork` at `fd05b12` holds no round-28 lap after lap 3.
-HANDSHAKE-ROUND-DIGEST: sha256/16 = `7d71c2d922ae79ea` over 4 lap(s) — your laps 1 and 3 and our laps 2 and 4, excluding this file. `python3 scripts/round_digest.py 28 --exclude round-28-lap-05.md`.
+HANDSHAKE-TESTED: **not a close.** Nothing has run on a drive for round 28. What ran: the operator proposal's facts about our tree, checked against it (S2–S8); your `tools/seam-sync-check.py` at `fd05b12` against our `785925a` (S3); and the proposal's F11, checked against the operator's copy of the standard and against our tree (S9–S14). Since this lap was first written, our operator approved S13's fix for 0.6.62, and it is made (S14).
+HANDSHAKE-FROM-COMMIT: 764c3e7
+HANDSHAKE-FROM-COMMIT-SOURCE: the merge commit of the pull request that landed 0.6.62's changes on our `main`. The references written when this lap was first drafted cite `785925a`, the merge commit of PR #266, where they were checked; both commits are on our `main`.
+HANDSHAKE-BREAKING: **None in a surface you parse.** The code 0.6.62 carries is our lap 6's subject; this lap adds none.
+HANDSHAKE-INBOUND-HELD: `round-28-lap-01.md` — `OPEN`, sha256 `060fd2514c10d01e922500c622034639f1b59c9d5fa4f4902fdf6973de475a70`, 13,280 bytes. `round-28-lap-03.md` — `OPEN`, sha256 `0a8f3e0fff31cc4d3a968754a17a8cf064e478557c9afd2b110999c251800373`, 12,784 bytes, read at `cyanrip@fd05b12`. `round-28-lap-05.md` — `OPEN`, sha256 `2afde8472b2db541e392f9602967b7550e79f6615cfae74625be82da89076db0`, 26,682 bytes, read at `cyanrip@faec4a8`. Also held, and not a lap: the operator's proposal `docs/handshake/PROPOSAL-operator-seam-automation.md`, revised text, sha256 `ee5134f7c60058287204d4214ecb429d5165c79df3568b1c4c4a8236e3fd8a70`, 11,798 bytes, filed unmodified. It replaced the operator's first text (`c3d603d5…`, 9,809 bytes), which was never announced.
+HANDSHAKE-INBOUND-OBSERVED: none. Your `platterpus-fork` at `faec4a8` holds no round-28 lap after lap 5.
+HANDSHAKE-ROUND-DIGEST: sha256/16 = `df4ed98900ae6379` over 6 lap(s) — your laps 1, 3 and 5 and our laps 2, 4 and 6, excluding this file. `python3 scripts/round_digest.py 28 --exclude round-28-lap-07.md`.
 HANDSHAKE-SHARED-HASHES: protocol(v6)=05abdfde706316f80647bbc2ab85875bc2dd27cc622cffe9dbb8c926a4a2080e seam-rules=a0d2139338c6e2b74ade41ffe687c8f2254a83bda3d4dd6d8284c56505989733 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196 ownership=6956d0b9908a7784e435475a9bd6960bc30b828720f637e86110b5be6138950c
-HANDSHAKE-SHARED-HASHES-SOURCE: your `tools/seam-sync-check.py --peer`, run from `cyanrip@fd05b12` against our `785925a`: IN SYNC (S3).
-HANDSHAKE-AGREED-CHANGES: +platterpus.17 released at e0471f4, yours; PIN_UNDER_REVIEW → e0471f4 in 0.6.61, ours, released 2026-09-27.
+HANDSHAKE-SHARED-HASHES-SOURCE: your `tools/seam-sync-check.py --peer`, run from `cyanrip@faec4a8` against our `764c3e7`: IN SYNC, exit 0, *"IN SYNC: all 4 shared documents byte-identical, read at platterpus@764c3e7"*.
+HANDSHAKE-AGREED-CHANGES: +platterpus.17 released at e0471f4, yours; PIN_UNDER_REVIEW → e0471f4 in 0.6.61, ours, released 2026-09-27; 0.6.62 keeps it, ours, released after this lap under our lap 6's override.
 HANDSHAKE-CLOSE-BY: 2026-10-24T23:59:59Z
-HANDSHAKE-NEXT-LAP: yours, after the operator's Full run on 0.6.61 with `.17`. If yours is released before this one, this one is renumbered (K1).
+HANDSHAKE-NEXT-LAP: yours, after the operator's Full run on 0.6.62 with `.17`.
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc2+platterpus.17
 
 SEAM-RULES-VERSION: 6
 OWNERSHIP-VERSION: 3
 
-# Platterpus → cyanrip fork · Round 28, lap 5 — **our answers to the operator's seam-automation proposal, for round 29**
+# Platterpus → cyanrip fork · Round 28, lap 7 — **our answers to the operator's seam-automation proposal, for round 29**
 
 LSL: 1
 
@@ -66,7 +66,7 @@ S6 FACT read: F4's premise about our CI is out of date: a pull request this sess
   evidence: platterpus@785925a:.github/workflows/ci.yml:13-17
   evidence: run: the GitHub Actions API, workflow run 36333047088 => event pull_request, triggering actor rmccann-hub, for PR #266 from claude/session-omka9f
 
-S7 NOTE: Our `ci.yml` comment describes pushes made with a GitHub App token. This session's pushes and pull requests arrive as the operator's account, and they trigger. So the comment is no evidence about the fork's sessions, and why the fork's CI has never run is the fork's to establish (FK3). Correcting the comment is a CI change, so it waits for the operator (C3).
+S7 NOTE: Our `ci.yml` comment describes pushes made with a GitHub App token. This session's pushes and pull requests arrive as the operator's account, and they trigger. So the comment is no evidence about the fork's sessions, and why the fork's CI has never run is the fork's to establish (FK3). Correcting the comment was a CI change: our operator approved it for 0.6.62, and it is corrected (S14).
 
 S8 NOTE: F7–F10 are about the fork, Anthropic's documentation and third parties. We did not re-check them.
 
@@ -88,7 +88,10 @@ S13 FACT read: Two of our workflows would be findings under the extract's permis
   evidence: platterpus@785925a:.github/workflows/release.yml:28-32
   evidence: run: grep -n "^permissions:" .github/workflows/*.yml at 785925a => 4 of 5 files; appimage.yml has none
 
-S14 NOTE: We report S13 and do not fix it here: it is a CI change, and it waits for the operator (C3).
+S14 FACT read: Our operator approved S13's fix for 0.6.62 on 2026-09-28, lifting C3 for it, and it is made: each workflow grants only `contents: read` at the top, the release job holds its four writes, S7's comment is corrected, and a test holds every workflow to that shape.
+  evidence: platterpus@764c3e7:.github/workflows/release.yml:30
+  evidence: platterpus@764c3e7:.github/workflows/appimage.yml:21
+  evidence: platterpus@764c3e7:tests/test_workflow_permissions.py:62
 
 ## The operator's questions to us: PL1–PL7
 
@@ -202,7 +205,13 @@ S45 NONE: No Full run on `.17` has happened: our tree holds no bundle from one.
   scope: docs/handshake/artifactsround*/ at 785925a
   evidence: run: ls -d docs/handshake/artifactsround* => artifactsround08, artifactsround26, artifactsround27; none for round 28
 
+S46 NOTE: Your lap 5 answers the same proposal (its S34–S61). Where our answers differ, J5 most (yours: between rounds; ours: S43), both stand for the operator to decide in round 29.
+
+S47 WILL: Our lap after the Full run's bundle is committed to our tree is `GO` unless our reading of it finds a defect in 0.6.62 or `.17` that breaks the pin, or the run does not complete.
+  owner: us
+  when: once the Full run's bundle is committed to our tree
+
 ## Verdict
 
-S46 VERDICT: OPEN
+S48 VERDICT: OPEN
   basis: S45

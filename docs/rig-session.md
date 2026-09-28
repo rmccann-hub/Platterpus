@@ -1,10 +1,10 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.61        the release for round 28's run. It installs 221a1df by
+Platterpus  v0.6.62        the release for round 28's run. It installs 221a1df by
                            default, and accepts e0471f4 as the build under review.
-            v0.6.60        the release before it: installs df91ae7 and cannot run
-                           round 28's test (section A refuses e0471f4).
+            v0.6.61        the release before it: accepts e0471f4 too, but round 28's
+                           close condition now names 0.6.62 (our lap 5, R1 override).
 cyanrip     221a1df        0.9.4-rc2+platterpus.16  (platterpus-fork-g221a1df)  <- PRODUCTION PIN
                            approved by round 27, for Platterpus 0.6.60, on a quick run
             e0471f4        0.9.4-rc2+platterpus.17  (platterpus-fork-ge0471f4)  <- UNDER REVIEW
@@ -14,9 +14,10 @@ rounds 1-27 ALL CLOSED on our gate, bilateral GO.
 round 28    OPEN on e0471f4. Close condition 1 is this sheet's run.
 ```
 
-> **Header last moved 2026-09-26**, when round 28 opened on `.17` (the fork's lap 1,
-> sha256 `060fd251…`), and on 2026-09-27 when 0.6.61 was released to carry it. Before
-> that, 2026-09-26,
+> **Header last moved 2026-09-28**, to 0.6.62: the operator moved round 28's Full run
+> from 0.6.61 to it, an override of R1 our lap 5 records (S36). Before that,
+> 2026-09-26, when round 28 opened on `.17` (the fork's lap 1, sha256 `060fd251…`),
+> and on 2026-09-27 when 0.6.61 was released to carry it. Before that, 2026-09-26,
 > when round 27 closed on our gate and `FORK_PIN` rolled to
 > `221a1df`, on the quick run that stood in for the Full one by the maintainer's override.
 > Before that, 2026-09-25, to 0.6.60. The first Full attempt on 0.6.59 stopped at
@@ -50,8 +51,8 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 ## What the next run is for
 
 **Round 28's close condition 1** (their lap 1 S6): our **Full** acceptance run on the rig,
-with `.17` installed through the app, from 0.6.61, whose `PIN_UNDER_REVIEW` is
-`e0471f4`, and the bundle committed to both repositories. Then each side reads it (S7):
+with `.17` installed through the app, from **0.6.62**, whose `PIN_UNDER_REVIEW` is
+`e0471f4` (the fork's S6 named 0.6.61; the operator moved it, our lap 5 S36), and the bundle committed to both repositories. Then each side reads it (S7):
 they read every cyanrip log in the bundle and we read our reports. Round 28 closes when
 both closing laps name their releases (S8): ours rolls `FORK_PIN` to `e0471f4`, and
 theirs is `+platterpus.18`.
@@ -64,8 +65,16 @@ in every report, correctly, while round 28 is open. That stamp is not an archiva
 failure: it is the record saying truthfully that the approval is still pending. **Only a
 Full run counts as evidence**; Quick and Standard are for checking the setup.
 
-**A run on 0.6.60 is a setup check, not evidence**: 0.6.60 does not accept `.17` as the
-build under review, so section A stops it in its first seconds.
+**A run on 0.6.61 or earlier is a setup check, not this round's evidence**: the close
+condition names 0.6.62. 0.6.60 does not even accept `.17` as the build under review,
+so section A stops it in its first seconds.
+
+**What 0.6.62 changes for the person at the rig.** A disc that the drive briefly
+reports as unavailable is read again when it comes back, and a first read that fails
+on a cold container is retried, so you should not need to open and close the drive or
+restart the app. The dependency check says it is running and stops within two
+minutes, and the script's `open dependencies` step no longer freezes the window. The
+acceptance test is under **Tools → Advanced**.
 
 **What `.17` carries** over `.16`, three commits in `src/`: an Accurip 450 lookup compares
 only 450 checksums (`10f36fe`); a one-frame match says what it covers, *"one frame only;
@@ -89,12 +98,11 @@ a container that is already running.
 1. **Put the reference disc in the drive** (any ordinary audio CD works; the script
    needs no album name, track count or path) and open Platterpus from the applications
    menu.
-2. **Update Platterpus to 0.6.61 first.** Then check **Tools → Setup & Updates…**: the
+2. **Update Platterpus to 0.6.62 first.** Then check **Tools → Setup & Updates…**: the
    cyanrip line should read `platterpus-fork-ge0471f4` (`0.9.4-rc2+platterpus.17`). If it
    reads anything else, **Check for cyanrip updates** offers `.17` as *"the build the
-   acceptance test needs"*; choose **Install it anyway**. Then **Tools → Advanced → Run acceptance test…** (on 0.6.61 it is directly in
-   **Tools**), choose **Full**, and
-   leave it. It holds sleep off, runs every section (4–6 hours), stops in its first
+   acceptance test needs"*; choose **Install it anyway**. Then **Tools → Advanced → Run acceptance test…**,
+   choose **Full**, and leave it. It holds sleep off, runs every section (4–6 hours), stops in its first
    seconds if the ripper is not the build under review, and puts your own settings back
    when it ends. **During the run, don't close any other Platterpus window or any
    terminal you have used distrobox in.**
@@ -124,4 +132,4 @@ known to be correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.61.*
+*Last updated for Platterpus v0.6.62.*

@@ -1508,15 +1508,16 @@ PROTOCOL_VERSION: int = 6
 #: The protocol version OUR laps declare, which may trail :data:`PROTOCOL_VERSION`.
 #:
 #: v6 §14: *"Neither side declares 6 until both have said, in a lap, that their gate
-#: implements it."* The fork has said it (round 25 lap 5, *"Our gate implements
-#: protocol 6, from 643631b … This is our half"*); we have not yet, because no lap of
-#: ours has been released since our gate reached 6. So a lap emitted today still
-#: declares 5, and is read by the rules both gates implement. **Raise this to 6 in the
-#: commit after our first released lap that says our gate implements 6** — that lap
-#: itself declares 5, the same order the fork took. Held apart from
-#: :data:`PROTOCOL_VERSION` because the two answer different questions: what this gate
-#: can read, and what we have told the other side it can read.
-DECLARED_PROTOCOL: int = 5
+#: implements it."* The fork said it in round 25 lap 5 (*"Our gate implements
+#: protocol 6, from 643631b … This is our half"*), and **6 since 2026-09-28**: their
+#: round 28 lap 5 declared 6 on the operator's choice, and under C29 a later lap of the
+#: same record declaring 5 would refuse the round, so our round 28 lap 6 both says our
+#: gate implements 6 and declares it. That is one step shorter than the order this
+#: comment planned (say it in a lap declaring 5, then declare 6), and C29 is why.
+#: Held apart from :data:`PROTOCOL_VERSION` because the two answer different
+#: questions: what this gate can read, and what we have told the other side it can
+#: read.
+DECLARED_PROTOCOL: int = 6
 
 #: Sentinel for a field declared more than once with conflicting values. A real
 #: value can never equal it, and every consumer treats it as "not closed".
