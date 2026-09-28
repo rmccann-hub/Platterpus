@@ -28,7 +28,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   The status is the same check every rip records (`handshake_approval.approve_ripper`),
   so About cannot describe the ripper differently from the rips it makes. The
   ripper's own version text is escaped, so it cannot render as Markdown. The words
-  live in one new module, `ripper_standing.py`.
+  live in one new module, `ripper_standing.py`. **Help → Copy diagnostics** gains an
+  `Installed ripper:` line under `Approved pair:`, and each dependency row carries the
+  tool's own build (`build=0.9.4-rc2+platterpus.18`). A diagnostics paste on
+  2026-09-28 could not show whether `.18` was installed.
 
 ## [0.6.63] — 2026-09-28
 

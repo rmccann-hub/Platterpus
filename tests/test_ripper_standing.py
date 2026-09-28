@@ -210,3 +210,36 @@ def test_the_update_offer_names_both_builds_and_explains_the_numbers() -> None:
     assert "you have release" not in offer.detail
     assert "in *this* repository" not in offer.detail
     assert f"round {fork_source.PIN_UNDER_REVIEW_ROUND} is testing" in offer.detail
+
+
+def test_diagnostics_names_the_installed_ripper_beside_the_approved_pair() -> None:
+    """The maintainer pasted a diagnostics file on 2026-09-28 that said only
+    ``cyanrip: … version=0.9.4``, so it could not show whether `.18` was installed."""
+    from platterpus.ui.dialogs.diagnostics_dialog import build_diagnostics_text
+
+    dep_manager.remember_report(
+        _report(
+            _UNDER_REVIEW,
+            fork_source.UNDER_REVIEW_TARGET.version,
+            fork_source.UNDER_REVIEW_TARGET.build_tag,
+        )
+    )
+    try:
+        text = build_diagnostics_text()
+    finally:
+        dep_manager.remember_report(None)
+    lines = text.splitlines()
+    pair = next(i for i, line in enumerate(lines) if line.startswith("Approved pair:"))
+    installed = lines[pair + 1]
+    assert installed.startswith("Installed ripper: "), installed
+    assert f"commit {fork_source.PIN_UNDER_REVIEW}" in installed
+    assert "Being tested, not approved yet" in installed
+    row = next(line for line in lines if line.startswith("cyanrip: "))
+    assert f"build={fork_source.UNDER_REVIEW_TARGET.version}" in row
+
+
+def test_diagnostics_before_any_check_says_not_checked() -> None:
+    from platterpus.ui.dialogs.diagnostics_dialog import build_diagnostics_text
+
+    dep_manager.remember_report(None)
+    assert "Installed ripper: Not checked yet." in build_diagnostics_text()
