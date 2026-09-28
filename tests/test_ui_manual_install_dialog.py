@@ -162,7 +162,7 @@ def test_setup_wizard_button_shown_and_runs_for_wizard_dep(
     )
     assert dialog._setup_button is not None
     assert dialog._setup_button.isDefault() is True
-    assert "Set it up automatically" in dialog._intro_text()
+    assert "Set it up automatically" in dialog._intro_markup(escaped_name="cyanrip")
 
     dialog._setup_button.click()
 

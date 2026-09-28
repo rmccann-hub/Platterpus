@@ -1817,9 +1817,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy ripper-config offset line, both moved from Settings, with the tooltip the offset's control had there.
     # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
     # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "ui/drive_setup_dialog.py": 561,
+    # **561 -> 577** (2026-09-28, every label built from a value states its format): its three labels state PlainText or RichText, the drive's vendor/model is html-escaped into the RichText one, and each site says which parts are ours (tests/test_labels_state_their_text_format.py).
+    "ui/drive_setup_dialog.py": 577,
     # **341 -> 342** (2026-09-25, Critical rule #9: Qt has no "detach"): the teardown comment now says the dialog ABANDONS a running thread and keeps its reference, which reflowed one line.
-    "ui/host_setup_dialog.py": 342,
+    # **342 -> 353** (2026-09-28, every label built from a value states its format): the intro states RichText, and `SetupCopy.intro` documents that it is markup whose builders must escape what they interpolate.
+    "ui/host_setup_dialog.py": 353,
     # **1558 -> 1572 on 2026-09-08**: the `Help → Install a cyanrip build…`
     # action, plus the paragraph saying why a SECOND ripper entry exists — the
     # update check reads the fork's release manifest and cannot offer a build the
@@ -2027,7 +2029,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # resolution of a missing required dependency because the window was not yet
     # visible.
     # 1019 -> 1020 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
-    "ui/main_window_update.py": 1020,
+    # **1020 -> 1023 (2026-09-28)**: `import html`, and the ripper update's build
+    # pin is html-escaped into the setup dialog's RichText intro, with the comment
+    # saying so (tests/test_labels_state_their_text_format.py checks this builder).
+    "ui/main_window_update.py": 1023,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "ui/rip_progress.py": 1659,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.

@@ -89,6 +89,11 @@ class AboutDialog(CenteredDialog):
             from PySide6.QtWidgets import QLabel
 
             logo = QLabel(self)
+            # A picture and no text, so the format changes nothing today. Stated
+            # anyway: every label built without a literal states its format
+            # (tests/test_labels_state_their_text_format.py), and an exemption
+            # list is how a sweep stops enforcing anything.
+            logo.setTextFormat(Qt.TextFormat.PlainText)
             logo.setPixmap(pixmap)  # type: ignore[arg-type]
             logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(logo)

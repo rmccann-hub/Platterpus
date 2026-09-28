@@ -68,6 +68,12 @@ class ReleasePickerDialog(CenteredDialog):
             f"MusicBrainz returned {len(self._releases)} matches. "
             "Pick the release that matches the disc in the drive."
         )
+        # PlainText, stated rather than left to Qt's AutoText, which reads text
+        # as HTML when its first line happens to hold a known tag (CLAUDE.md
+        # Critical rule #12). Only a count reaches this label; the releases'
+        # own titles and artists go into the table's cells below, and a table
+        # cell shows its text as written.
+        intro.setTextFormat(Qt.TextFormat.PlainText)
         intro.setWordWrap(True)
         root.addWidget(intro)
 
