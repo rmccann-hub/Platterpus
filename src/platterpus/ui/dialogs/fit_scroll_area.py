@@ -11,8 +11,16 @@ dialog this tall?" finds the whole answer in one file.
 
 from __future__ import annotations
 
+from typing import Final
+
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QDialog, QFrame, QScrollArea, QWidget
+
+#: How many times :func:`fit_dialog_to_screen` re-measures a scrolling body after
+#: growing the window. More than one because a scrollbar appearing or going changes
+#: the width the text wraps at (see the loop for the measured case); a small fixed
+#: number because each pass only grows the window and the screen caps it.
+_UNMET_PASSES: Final[int] = 3
 
 
 class FitScrollArea(QScrollArea):
@@ -175,9 +183,22 @@ def fit_dialog_to_screen(dialog: QDialog, avail: QSize, margin: int) -> None:
         return
     # Second pass, at the real width: a scrolling body whose size hint was
     # measured at another width may still be short of its content.
-    layout.activate()
-    unmet = max(
-        (a.unmet_height() for a in dialog.findChildren(FitScrollArea)), default=0
-    )
-    if unmet:
-        dialog.resize(width, min(height + unmet, max_h))
+    #
+    # **Repeated, because growing the window can change the width the text gets.**
+    # Found by the conformance matrix on 2026-09-28, when round 28's close left the
+    # build picker with one row instead of two: at 150% text on a 1024x768 screen
+    # the body was measured 42 px short with no scrollbar showing, the window grew
+    # by 42, and the scrollbar that had appeared in the meantime took 14 px of
+    # width, so the text wrapped onto another line and came up 21 px short again.
+    # Measuring once assumed the width stays put; it does not while a scrollbar can
+    # come or go. Bounded: each pass only ever grows the window, the cap stops it
+    # at the screen, and three passes settle every case the matrix measures.
+    for _ in range(_UNMET_PASSES):
+        layout.activate()
+        unmet = max(
+            (a.unmet_height() for a in dialog.findChildren(FitScrollArea)), default=0
+        )
+        grown = min(dialog.height() + unmet, max_h)
+        if not unmet or grown <= dialog.height():
+            break
+        dialog.resize(width, grown)

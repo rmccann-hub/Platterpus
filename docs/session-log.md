@@ -11,6 +11,72 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-28 — The round-28 Full run read: two archival defects fixed, round 28 closed on our gate, `FORK_PIN` → `e0471f4`
+
+**Asked:** the operator uploaded the Full run's bundle with no text (0.6.61 with `.17`,
+01:48–07:08Z, 320 of 320), then chose that round 28 closes on this run rather than a
+0.6.62 one, and said to announce when ready. The fork released their lap 8 (`GO`,
+`59f1d6a`) first, so ours is lap 9 (K1). "Release the lap when ready" confirmed it.
+
+**Built (one PR on the session branch, merged to `main` with a merge commit):**
+- *The bundle*, filed byte for byte: 46 text members in
+  `docs/handshake/artifactsround28/` with a README computed from the copies
+  (`c8e67f4f`). No audio.
+- *Track 3 shipped unverified* (`1824274b`). The automatic re-read read `59D352DD`,
+  which AccurateRip v1 and v2 matched and the fork's secure re-read converged on, but
+  it was one agreeing read short of `-Z 2`, and our rule kept a re-read only if it
+  converged. `verdict.reread_supersedes` now decides by AccurateRip first, in both
+  directions, then by convergence; the report records why (schema 30).
+- *Five partial rips said the disc is not in CTDB* (`cecbeb5e`): the lookup built a
+  TOC from the two files ripped. A partial rip is now not looked up and says so.
+- *Section B's `-r 3` governed every re-read of the run.* By cyanrip's loop
+  (`cyanrip@e0471f4:src/cyanrip_main.c:1005`, `:1011`) `-Z N` needs N+1 identical
+  reads, so no disagreeing read was tolerated. The script now restores 5 before it
+  rips (`cea16f5c`), settings refuse a pair that cannot converge (`e6c63ea4`,
+  `46cef35f`), and the recovery re-read caps its own `-Z` (`385f488c`). The argv-side
+  refusal changes `docs/seam-commands.md`, a jointly held file, so it is held for
+  round 29 (patch in the TASKS row).
+- *Smaller fixes of ours*, from five parallel helpers integrated by cherry-pick: the
+  cancelled rip's EAC log, the rip audit's unnamed files, diagnostics severity, the
+  approved-pair line, refused settings logged, the session log's head and tail, the
+  `cyanrip` verb's folder, and `\r` line breaks in ripper messages.
+- *Our lap 9* (`GO`, 26 statements, LSL 1), built by a script that resolves every
+  `platterpus@` and `cyanrip@` reference against the trees it cites. It rolls
+  `FORK_PIN` to `e0471f4`, `APPROVED_BY_ROUND` to 28 for 0.6.61, and the records.
+  The code went to `main` first (#270), because a lap's `FROM-COMMIT` must be
+  fetchable by the peer, and the lap followed in its own PR.
+- *What the roll exposed.* With round 28 closed the build picker lists one build,
+  and at 150% text on 1024×768 its body scrolled 21 px in a window that could still
+  grow: the fit grew the window once, then the scrollbar re-wrapped the text a line
+  taller. The fit now re-measures (up to three passes), and the matrix measures the
+  picker at one, two and eight rows whatever the round state. A fixture's
+  "unapproved beta head" was `e0471f4`, now the approved pin; it moved past it and
+  asserts it stays unapproved. A log-buffer test starved its writer thread under
+  the parallel suite (`387 > 387`); it now gives the writer a turn between
+  snapshots, and a revert probe still catches an unlocked snapshot.
+
+**Learned:**
+- *A run ends before the laps that describe it are written, and the laps did not
+  know.* Our lap 6 S39 said no Full run on `.17` had happened. It was true of our tree
+  and false of the rig: the run had finished an hour before. The fork's S12 caught it
+  from the timestamps. A lap's "nothing has happened" is a claim about the tree it
+  was written from, and should say so.
+- *The app log's clock is local time.* 03:08 in the log is 07:08Z; the report's
+  `started_at` is UTC. Two clocks in one bundle are worth naming whenever a time
+  crosses the seam.
+- *"No matches found" is not a count.* cyanrip prints it at the repeat limit whatever
+  the matches were, and encodes the last read rather than the one that agreed. Both
+  are upstream's, so they go to round 29 as NEXT-ROUND items, not as defects in `.17`.
+- **Correction:** commit `1824274b`'s message says its tests were revert-probed "seven
+  ways", and the list under that sentence has five probes: the worker back to
+  convergence-only (detected), the same revert against the converged case
+  (unaffected), each of the two AccurateRip branches removed (detected), and the
+  addendum's old wording (detected). The count is wrong; the list is the record.
+
+**Still open:** 0.6.63, our closing release, waits for the fork's next lap: their lap
+8 does not list our lap 9, so their gate closes round 28 one lap after ours. Theirs is
+`+platterpus.18`. Round 29's lap 1 is theirs.
+
 ## 2026-09-28 — 0.6.62: nothing looks frozen, the drive is read again, the overwrite guard checks the real folder; round 28 laps 6 and 7 at protocol 6
 
 **Asked:** "fix all. merge all to main, when done tell me when i can delete all

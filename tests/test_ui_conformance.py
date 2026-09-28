@@ -555,24 +555,38 @@ def _measure_all() -> dict[str, object]:
 
 
 def _measure_long_picker() -> dict[str, object]:
-    """The picker with more rows than any round has offered."""
+    """The picker with one, two and eight rows, whatever the round state is."""
     from unittest import mock
 
     # FUTURE-PROOFING, measured rather than promised. The picker lists whatever
     # builds the handshake record names; the maintainer asked that it keep
     # working "in case there are more options later". Eight rows is more than
     # any round has ever offered.
+    #
+    # **AND ONE ROW AND TWO, because the row count follows the round state and a
+    # shape the matrix only sees in one state is a shape it stops seeing.** One
+    # row is what the picker shows between rounds (production pin only); two is
+    # what it shows while a round reviews a build. On 2026-09-28 round 28 closed,
+    # the picker dropped to one row, and at 150% text on 1024x768 its body
+    # scrolled 21 px in a window that could still grow: `fit_dialog_to_screen`
+    # grew the window once, and the scrollbar that then appeared re-wrapped the
+    # text a line taller. The un-suffixed `RipperPickerDialog` measures whichever
+    # state the tree is in; these pin every state regardless of it.
     from platterpus.deps import fork_source
     from platterpus.ui.ripper_picker import RipperPickerDialog
 
     real = fork_source.ripper_choices()
-    many = [real[0]] * 8
-    with mock.patch.object(fork_source, "ripper_choices", return_value=many):
-        picker = RipperPickerDialog()
-        report = _measure_one(picker)
-        bar = picker._body_scroll.verticalScrollBar()
-        report["scroll_range"] = bar.maximum() - bar.minimum()
-    return {"RipperPickerDialog[8 rows]": report}
+    measured: dict[str, object] = {}
+    for rows, key in ((1, "1 row"), (2, "2 rows"), (8, "8 rows")):
+        with mock.patch.object(
+            fork_source, "ripper_choices", return_value=[real[0]] * rows
+        ):
+            picker = RipperPickerDialog()
+            report = _measure_one(picker)
+            bar = picker._body_scroll.verticalScrollBar()
+            report["scroll_range"] = bar.maximum() - bar.minimum()
+        measured[f"RipperPickerDialog[{key}]"] = report
+    return measured
 
 
 #: Windows measured in a STATE rather than as they open. A window that has just
