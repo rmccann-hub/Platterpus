@@ -484,6 +484,13 @@ comments accurate too — they document *which* mixin owns each concern).
      capturing DEBUG is free, and it means every report is verbose enough to
      debug from *out of the box* rather than only after a user enables the toggle.
      The toggle governs only the on-disk `log.txt`'s verbosity (item 1).
+     **Bounded as head and tail, the gap counted** (2026-09-28): the first
+     `_HEAD_RECORDS` lines of the session are kept for its whole life, the most
+     recent slide, and what falls between is counted, so `debug.lines` carries
+     one marker naming how many lines were dropped and when, and `debug.scope`
+     says `INCOMPLETE` with the same count. The cap used to evict oldest-first,
+     silently: a long session's report lost its launch context and still called
+     itself "since launch".
   We deliberately do NOT also write a plain-text `.platterpus.log` sidecar — it
   duplicated cyanrip's human `.log` (for people) and the JSON's `debug` block (for
   machines), so it earned its place in neither. The global log is the program-
@@ -993,7 +1000,7 @@ a handler must not exist for a verb flagged otherwise. That sweep exists because
 at **run** time, which for an unattended batch means dying mid-run against a
 reference that promised the command would work.
 
-**Two hard constraints on any new verb:**
+**Three hard constraints on any new verb:**
 
 1. **Nothing blocks the tick.** The runner lives on the GUI thread and its whole
    design (§3.2) is that a modal dialog's nested event loop still delivers timer
@@ -1005,6 +1012,13 @@ reference that promised the command would work.
    `assert_metadata_lookup_disabled` raises, byte-for-byte, and a test asserts the
    text is identical. A second copy of a safety check is a second thing to drift
    (Critical rule #12, the outbound half).
+3. **A route to the ripper that can write gives it a working folder: the rips
+   folder.** cyanrip resolves `-D`, `-F` and `-j` against the folder it runs in.
+   The `cyanrip` verb ran with none until 2026-09-28, and that night's Full run
+   wrote section P3's `-D r16deemphon` (a commercial track, its log and its cue)
+   into whichever folder the app had been launched from. The verb now reads
+   `output_dir` when the step runs (`runner._ripper_workdir`), the same field the
+   app's own rip passes as `cwd`, and refuses when it has none.
 
 **Everything a run makes lives in ONE folder, and nothing is written outside it.**
 Maintainer, 2026-09-11: *"stop polluting my home directory"*. That gave the rig
@@ -1020,7 +1034,10 @@ library. Two of those files were each logged as "SEND THIS ONE FILE".
 - `evidence/` — the transcript, the runner's `run/` folder (report and
   screenshots) and the staged logs;
 - `rips/` — the run's `output_dir`, with `library_dir` emptied for the run and
-  both restored afterwards;
+  both restored afterwards. It is also the `cyanrip` verb's working folder, so a
+  script's relative `-D` lands here, and the album scan finds such a folder by
+  the log cyanrip wrote in it (`test_session.RIPPER_LOG_GLOB`), since no app rip
+  wrote a report there;
 - the one bundle, built from there.
 
 The runner is contained with `ScriptRunner.contain_in`, which makes it write
@@ -1271,7 +1288,8 @@ threads through one fixed path: `Config` field → `RipParameters` (frozen) →
 the `RipBackend.rip()` ABC signature → each adapter's argv builder. A
 backend with no equivalent **accepts and ignores** it (`del param`), and its
 Settings widget is greyed out for that backend. `secure_rerip_matches` (cyanrip
-`-Z N` "re-rip until N reads match", for marginal discs) is the worked
+`-Z N` "re-read until one read matches N earlier ones" — N+1 identical
+reads — for marginal discs) is the worked
 example — copy its shape for the next one.
 
 > **Comment hygiene after a backend swap (hard-won, 2026-06-30).** When the

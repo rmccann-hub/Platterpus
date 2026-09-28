@@ -48,6 +48,7 @@ import os
 import signal
 import subprocess
 import threading
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -142,6 +143,7 @@ class KillableCommand:
         *,
         timeout: float,
         stdin_devnull: bool = True,
+        cwd: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
         """Run `argv` to completion, capturing text output. Cancellable.
 
@@ -153,6 +155,14 @@ class KillableCommand:
         `stdin_devnull` defaults True because every current caller must not inherit
         the parent's stdin — a tool that reads stdin would otherwise block forever
         on a GUI process with no terminal.
+
+        `cwd` is the folder the child starts in; ``None`` keeps ours, which is what
+        every probe that writes no file wants. A caller whose child writes to a
+        RELATIVE path must pass one — without it, where the files land is decided
+        by whichever folder the app happened to be launched from (the ui-script
+        `cyanrip` verb's `-D`, 2026-09-28). A `cwd` that cannot be entered raises
+        from `Popen` with the folder as ``exc.filename``, which is how a caller
+        tells it apart from a missing binary.
         """
         # Claim a sequence number BEFORE spawning, so a cancel racing this call
         # can tell "the run that is starting" from "a run that starts later".
@@ -161,6 +171,7 @@ class KillableCommand:
             seq = self._issued
         proc = subprocess.Popen(  # noqa: S603 — callers pass a resolved binary
             argv,
+            cwd=cwd,
             stdin=subprocess.DEVNULL if stdin_devnull else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

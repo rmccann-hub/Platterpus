@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import signal
 import subprocess
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -260,6 +262,69 @@ def test_run_capture_timeout_raises_riperror(monkeypatch: pytest.MonkeyPatch) ->
     with pytest.raises(RipError) as info:
         run_capture("cyanrip", "/x/cyanrip", ["-V"], timeout=5)
     assert "timed out" in str(info.value)
+
+
+# --- `cwd`: where a child that WRITES starts (the script verb's `-D`, 2026-09-28) --
+#
+# REAL children, not a patched `INFO_PROBE.run`: the claim is that the folder
+# reaches the child, and only a child can say where it started.
+
+
+def test_run_capture_starts_the_child_in_the_folder_it_is_given(
+    tmp_path: Path,
+) -> None:
+    rc, output = run_capture(
+        "probe",
+        sys.executable,
+        ["-c", "import os; print(os.getcwd())"],
+        timeout=30,
+        cwd=tmp_path,
+    )
+    assert rc == 0, output
+    assert Path(output.strip()) == tmp_path.resolve(), output
+
+
+def test_run_capture_without_a_cwd_keeps_ours(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The default is unchanged for every probe that writes nothing."""
+    monkeypatch.chdir(tmp_path)
+    _rc, output = run_capture(
+        "probe", sys.executable, ["-c", "import os; print(os.getcwd())"], timeout=30
+    )
+    assert Path(output.strip()) == tmp_path.resolve(), output
+
+
+@pytest.mark.parametrize("shape", ["missing", "a file"])
+def test_a_folder_that_cannot_be_entered_is_reported_as_the_folder(
+    tmp_path: Path, shape: str
+) -> None:
+    """`Popen` raises the SAME type for a missing folder as for a missing binary.
+
+    Read off ``exc.filename`` rather than guessed: without it an unmounted rips
+    disk reads "cyanrip binary not found", and the reader reinstalls a ripper
+    that is fine.
+    """
+    folder = tmp_path / "rips"
+    if shape == "a file":
+        folder.write_text("not a folder", encoding="utf-8")
+    with pytest.raises(RipError) as info:
+        run_capture("cyanrip", sys.executable, ["-c", "pass"], timeout=30, cwd=folder)
+    message = str(info.value)
+    assert "working folder" in message and str(folder) in message, message
+    assert "binary not found" not in message, message
+
+
+def test_a_missing_binary_is_still_a_missing_binary_when_a_folder_is_given(
+    tmp_path: Path,
+) -> None:
+    """The other half of the discrimination: a good folder must not absorb a
+    bad binary."""
+    with pytest.raises(RipError) as info:
+        run_capture(
+            "cyanrip", str(tmp_path / "no-such-cyanrip"), [], timeout=30, cwd=tmp_path
+        )
+    assert "binary not found" in str(info.value), str(info.value)
 
 
 # --- ABC discipline --------------------------------------------------------

@@ -40,6 +40,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
+from platterpus.parsers.cyanrip_log import INTERRUPTED_MID_READ, interruption_point
 from platterpus.parsers.rip_log import AccurateRipResult, accuraterip_is_match
 
 log = logging.getLogger(__name__)
@@ -584,6 +585,13 @@ def _audit_files_check(report: dict[str, Any], album: AlbumAudit) -> None:
     So a track's presence in the log is *not* evidence its file is playable, and
     an app that reports such a track as verified is making a claim it cannot
     support. Nothing here deletes anything; it reports.
+
+    **The converse, since 2026-09-28**: a file with bytes in it is not evidence it
+    is a track. A cancelled rip leaves a partial read of the track in progress,
+    which no track record in the log names, and this check used to count it into
+    "N audio files, all with content" at OK (the Full run, F6). Such a file is now
+    named on its own line — see :func:`_audio_accounting` — and never counted into
+    the OK.
     """
     folder = album.folder
     try:
@@ -609,16 +617,27 @@ def _audit_files_check(report: dict[str, Any], album: AlbumAudit) -> None:
             empty.append((path.name, size))
 
     album.empty_files = len(empty)
+    unfinished = _rip_did_not_finish(report, album)
+    # A file the ripper's log does not name is reported on its own line, and it
+    # is never counted into the OK below — that OK is what graded the Full run's
+    # partial read of track 1 as "1 audio files, all with content" (F6).
+    unaccounted, floor_reason = _audio_accounting(report, flacs)
+    if unaccounted:
+        _report_unaccounted(report, album, unaccounted, floor_reason, unfinished)
     if not empty:
-        album.add(LEVEL_OK, f"{len(flacs)} audio files, all with content")
+        if not unaccounted:
+            album.add(LEVEL_OK, f"{len(flacs)} audio files, all with content")
+        elif len(unaccounted) < len(flacs):
+            album.add(
+                LEVEL_OK,
+                f"{len(flacs) - len(unaccounted)} audio file(s) the ripper's log "
+                "accounts for, all with content",
+            )
         return
 
     names = ", ".join(f"{n} ({s} B)" for n, s in empty[:5])
     more = f" and {len(empty) - 5} more" if len(empty) > 5 else ""
-    if (
-        album.completed is False
-        or (report.get("outcome") or {}).get("status") != "success"
-    ):
+    if unfinished:
         album.add(
             LEVEL_WARN,
             f"{len(empty)} empty/truncated audio file(s) after an incomplete rip "
@@ -631,6 +650,129 @@ def _audit_files_check(report: dict[str, Any], album: AlbumAudit) -> None:
             f"{len(empty)} empty/truncated audio file(s) in a rip that reports "
             f"SUCCESS — this should not happen; please report it. {names}{more}",
         )
+
+
+def _rip_did_not_finish(report: dict[str, Any], album: AlbumAudit) -> bool:
+    """True when the ripper's footer or our outcome says the rip stopped early.
+
+    One predicate for both findings in :func:`_audit_files_check`, so an empty file
+    and an unnamed one are never judged against two different ideas of "finished".
+    """
+    status = (report.get("outcome") or {}).get("status")
+    return album.completed is False or status != "success"
+
+
+def _audio_accounting(
+    report: dict[str, Any], flacs: list[Path]
+) -> tuple[list[Path], str]:
+    """The audio files the ripper's log does NOT name, and why that may be a floor.
+
+    **What "accounts for" means.** Each track block in the ripper's log ends with a
+    ``File(s):`` line; the report carries it as that track's ``filename``. A file in
+    the folder whose name no track record carries is one the ripper never claimed
+    to have finished. On the Full run of 2026-09-28 that was the cancelled rip's
+    partial read of track 1: the log listed no track at all, and this check called
+    the file a track "with content" (F6).
+
+    Returns ``(unaccounted, floor_reason)``. ``floor_reason`` is ``""`` when the
+    report's track list is a complete account, and otherwise says why it is not:
+    a truncated log (``log_parse.note``), or a track record with no file name. A
+    file named in the floor case may be a track the ripper finished and never
+    recorded, so the caller must not call it incomplete.
+
+    **Not determined** — an empty list — when the report cannot say which files
+    its log names at all: no parsed log (``log_parse.ok`` not true) or no track
+    list. Old reports and hand-built ones land here and keep the old finding,
+    rather than having every file in them called unaccounted for. Matching is on
+    the file's base name, because the log records the path the ripper wrote (in
+    its own container), not the path this folder has on the host.
+    """
+    log_parse = report.get("log_parse")
+    tracks = report.get("tracks")
+    if not (isinstance(log_parse, dict) and log_parse.get("ok") is True):
+        return [], ""
+    if not isinstance(tracks, list):
+        return [], ""
+    named: set[str] = set()
+    unnamed = 0
+    for track in tracks:
+        filename = track.get("filename") if isinstance(track, dict) else None
+        if isinstance(filename, str) and filename.strip():
+            named.add(filename.strip().rsplit("/", 1)[-1])
+        else:
+            unnamed += 1
+    note = log_parse.get("note")
+    if isinstance(note, str) and note.strip():
+        floor_reason = f"the report says its track list is incomplete ({note})"
+    elif unnamed:
+        floor_reason = f"{unnamed} of its track record(s) name no file"
+    else:
+        floor_reason = ""
+    return [path for path in flacs if path.name not in named], floor_reason
+
+
+def _report_unaccounted(
+    report: dict[str, Any],
+    album: AlbumAudit,
+    unaccounted: list[Path],
+    floor_reason: str,
+    unfinished: bool,
+) -> None:
+    """Name every audio file the ripper's log does not account for, and grade it.
+
+    Three cases, three grades, read off what this module's levels mean:
+
+    * **The rip did not finish** — a NOTE. A cancelled rip is expected to leave the
+      file it was reading, so this is a statement of fact, not a fault: the rip's
+      own WARN (``rip did NOT complete``) already tells the user what to do. It is
+      not OK either, because the file is not a finished track. When the ripper
+      recorded ``Interrupted at: track K, mid-read``, the finding says so, read
+      through the same :func:`interruption_point` the EAC-compatible log uses.
+    * **The rip reports success** — a WARN. No track record names the file, so
+      nothing in this rip vouches for it, and that should not happen.
+    * **The track list is a floor** (``floor_reason``) — a NOTE that says whether
+      they are tracks is not determined, because it is not.
+    """
+    count = len(unaccounted)
+    them = "it" if count == 1 else "them"
+    shown: list[str] = []
+    for path in unaccounted[:5]:
+        try:
+            shown.append(f"{path.name} ({path.stat().st_size} B)")
+        except OSError:
+            shown.append(f"{path.name} (size unreadable)")
+    names = ", ".join(shown) + (f" and {count - 5} more" if count > 5 else "")
+    lead = f"{count} audio file(s) the ripper's log does not account for: {names}"
+    if floor_reason:
+        album.add(
+            LEVEL_NOTE,
+            f"{lead} — {floor_reason}, so whether they are tracks the ripper "
+            "finished is not determined",
+        )
+        return
+    if not unfinished:
+        album.add(
+            LEVEL_WARN,
+            f"{lead} — in a rip that reports SUCCESS, and no track record in the "
+            "log names them, so check where they came from before trusting this "
+            "folder",
+        )
+        return
+    point = interruption_point((report.get("rip") or {}).get("interrupted_at"))
+    if point is not None and point.kind == INTERRUPTED_MID_READ:
+        album.add(
+            LEVEL_NOTE,
+            f"{lead}. The rip stopped while reading track {point.track} (the ripper "
+            f'records "Interrupted at: {point.where}"), so a partial file of that '
+            f"track is expected here: treat {them} as incomplete, not as a "
+            "finished track of this rip",
+        )
+        return
+    album.add(
+        LEVEL_NOTE,
+        f"{lead}. The rip did not finish and its log claims no finished track in "
+        f"{them}: treat {them} as incomplete, not as a finished track of this rip",
+    )
 
 
 def _audit_argv_agreement(report: dict[str, Any], album: AlbumAudit) -> None:

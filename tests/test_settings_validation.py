@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import re
 import typing
 from pathlib import Path
 
@@ -27,6 +28,77 @@ def _fields(issues) -> set[str]:
 
 def _errors(issues) -> list:
     return sv.errors_only(issues)
+
+
+# --- Messages name controls the user can find -------------------------------
+
+
+def _names_the_settings_dialog_shows() -> set[str]:
+    """Every row label and accessible name in the Settings dialog, normalised.
+
+    Accessible names count too: a screen-reader user finds a control by its
+    accessible name, and `read_speed`'s rule names "Fixed read speed", which is
+    that spin box's accessible name, beside a visible row reading "Fixed speed (×)".
+    """
+    import ast
+    import re
+
+    source = (
+        Path(__file__).resolve().parent.parent
+        / "src"
+        / "platterpus"
+        / "ui"
+        / "settings_dialog.py"
+    ).read_text(encoding="utf-8")
+    names: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in ("addRow", "setAccessibleName")
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            names.add(re.sub(r"[^a-z0-9]+", " ", node.args[0].value.lower()).strip())
+    return names
+
+
+@pytest.mark.parametrize(
+    ("field", "bad"),
+    [
+        ("read_offset", 99999),
+        ("max_retries", 101),
+        ("secure_rerip_matches", 11),
+        ("read_speed", 999),
+        ("mp3_vbr_quality", 10),
+    ],
+)
+def test_every_numeric_rule_names_a_control_the_user_can_find(
+    field: str, bad: int
+) -> None:
+    """A refusal that names a control nobody can find is half a message.
+
+    The secure re-read rule said "Max reads to confirm a shaky track" for a week
+    after that row was renamed (found 2026-09-28). Swept over every range rule
+    rather than fixed at the one where it was found.
+    """
+    import re
+
+    issues = [
+        i
+        for i in sv.validate_config(dataclasses.replace(Config(), **{field: bad}))
+        if i.field == field and i.is_error()
+    ]
+    assert issues, f"{field}={bad} was not refused, so there is no message to check"
+    label = issues[0].message.split(" must be ", 1)[0]
+    wanted = re.sub(r"[^a-z0-9]+", " ", label.lower()).strip()
+    shown = _names_the_settings_dialog_shows()
+    assert len(shown) >= 20, "floor: the extractor found almost nothing"
+    assert any(wanted == name or name.startswith(wanted) for name in shown), (
+        f"{field}'s refusal names {label!r}, which is not a row label or accessible "
+        "name in the Settings dialog"
+    )
 
 
 # --- Happy path -------------------------------------------------------------
@@ -616,6 +688,61 @@ def test_log_issues_writes_errors_and_warnings(caplog) -> None:
     assert "metaflac_path" in text and "not on path" in text
 
 
+def test_field_error_logs_each_refusal_once_with_the_value(caplog) -> None:
+    """The one predicate every single-setting writer asks logs what it refuses.
+
+    The round-28 Full run's five scripted refusals (a read offset of 99999 among
+    them) wrote nothing to the log, because no caller of `field_error` logged and
+    `field_error` did not either. It does now — once, with the value — and a
+    value it ACCEPTS writes nothing, which is the control that stops "log on
+    every call" from passing.
+    """
+    with caplog.at_level(logging.WARNING, logger="platterpus.settings_validation"):
+        refused = sv.field_error(Config(read_offset=99999), "read_offset")
+        accepted = sv.field_error(Config(read_offset=667), "read_offset")
+    assert refused and accepted == ""
+    lines = [r.getMessage() for r in caplog.records if "refused" in r.getMessage()]
+    assert lines == [f"settings input refused: read_offset = 99999 — {refused}"], lines
+    assert all(r.levelno == logging.WARNING for r in caplog.records)
+
+
+def test_log_issues_names_the_refused_value_when_given_the_config(caplog) -> None:
+    """The Settings dialog and a hand-edited config pass the config, so the log line
+    carries the value that was refused — the one thing a reset destroys."""
+    cfg = Config(read_offset=-99999)
+    issues = [i for i in sv.validate_config(cfg) if i.field == "read_offset"]
+    assert issues and issues[0].is_error()
+    with caplog.at_level(logging.WARNING, logger="platterpus.settings_validation"):
+        sv.log_issues(issues, cfg)
+    assert caplog.records[-1].getMessage() == (
+        f"settings input refused: read_offset = -99999 — {issues[0].message}"
+    )
+
+
+def test_a_refused_value_is_logged_escaped_and_bounded_with_a_count() -> None:
+    """`repr`, so a newline in a refused value cannot forge a second log line; and
+    head and tail with the gap counted, so the counts add up to the original."""
+    from platterpus.settings_validation import (
+        _REFUSED_VALUE_HEAD,
+        _REFUSED_VALUE_TAIL,
+        _loggable_value,
+    )
+
+    forged = _loggable_value("/tmp/x\n2026-09-28 WARNING forged line")
+    assert "\n" not in forged and "\\n" in forged, forged
+
+    value = "H" * 500 + "T" * 500
+    text = _loggable_value(value)
+    match = re.search(r"… \[(\d+) character\(s\) elided\] …", text)
+    assert match is not None, text
+    head, tail = text[: match.start()], text[match.end() :]
+    assert head == repr(value)[:_REFUSED_VALUE_HEAD]
+    assert tail == repr(value)[-_REFUSED_VALUE_TAIL:]
+    assert len(head) + int(match.group(1)) + len(tail) == len(repr(value))
+    # A short value is untouched.
+    assert _loggable_value(99999) == "99999"
+
+
 # --- Cross-filesystem portability warning (maintainer-approved 2026-07-21) --
 
 
@@ -1013,3 +1140,133 @@ def test_a_CRASHING_check_neither_resets_the_value_nor_blocks_saving(
     assert config_module._sanitized(mine).output_dir == "/srv/music/rips"
     assert config_module.take_load_resets() == []
     assert sv.field_error(mine, "output_dir") == ""
+
+
+# --- Max retries vs the secure re-read: the PAIR ------------------------------
+#
+# `-Z N` needs N+1 identical reads and cyanrip stops after `-r` whole-track reads
+# (cyanrip@faec4a8:src/cyanrip_main.c:997-1012), so Max retries <= N can never
+# converge. Each value is in range alone; the pair is the defect.
+
+
+def _pair_issues(max_retries: int, matches: int) -> list[sv.ValidationIssue]:
+    config = dataclasses.replace(
+        Config(), max_retries=max_retries, secure_rerip_matches=matches
+    )
+    return [
+        i
+        for i in sv.validate_config(config)
+        if i.field in ("max_retries", "secure_rerip_matches")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("max_retries", "matches", "reads"),
+    [(2, 2, 2), (1, 1, 1), (3, 3, 3), (4, 10, 4), (0, 10, 10)],
+)
+def test_a_max_retries_the_secure_re_read_cannot_fit_is_refused_on_both_fields(
+    max_retries: int, matches: int, reads: int
+) -> None:
+    issues = _pair_issues(max_retries, matches)
+    errors = [i for i in issues if i.is_error()]
+    assert {i.field for i in errors} == {"max_retries", "secure_rerip_matches"}
+    message = errors[0].message
+    # Specific: both labels, the number of identical reads needed, and how many
+    # reads -r allows — including cyanrip's own 10 when the setting is 0.
+    assert sv.MAX_RETRIES_LABEL in message and sv.SECURE_REREP_LABEL in message
+    assert f"{matches + 1} of its reads are identical" in message
+    assert f"only {reads} time" in message
+    if max_retries == 0:
+        assert "default of 10" in message
+
+
+@pytest.mark.parametrize(("max_retries", "matches"), [(3, 2), (2, 1), (0, 9)])
+def test_a_pair_with_no_room_for_one_bad_read_is_a_warning_not_an_error(
+    max_retries: int, matches: int
+) -> None:
+    """The Full run's `-r 3 -Z 2`: possible, but one bad read fails the track."""
+    issues = _pair_issues(max_retries, matches)
+    assert issues, "the zero-tolerance pair went unmentioned"
+    assert not [i for i in issues if i.is_error()], issues
+    assert {i.field for i in issues} == {"max_retries", "secure_rerip_matches"}
+    assert "no room for a read that disagrees" in issues[0].message
+
+
+@pytest.mark.parametrize(
+    ("max_retries", "matches"),
+    [
+        (5, 2),
+        (4, 2),
+        (3, 1),
+        (100, 10),
+        (0, 8),
+        # Off is never judged: with no -Z of the user's own, the only -Z a rip
+        # sends is the worker's recovery bound, which caps itself below -r.
+        (0, 0),
+        (1, 0),
+        (2, 0),
+        (3, 0),
+    ],
+)
+def test_pairs_that_leave_room_and_off_are_not_mentioned(
+    max_retries: int, matches: int
+) -> None:
+    assert _pair_issues(max_retries, matches) == []
+
+
+@pytest.mark.parametrize(("max_retries", "matches"), [(101, 2), (2, 11), (-1, 3)])
+def test_an_out_of_range_half_is_the_range_rules_finding_alone(
+    max_retries: int, matches: int
+) -> None:
+    """One cause per message (S-12): no pair verdict about a value already refused."""
+    messages = [i.message for i in _pair_issues(max_retries, matches)]
+    assert messages, "floor: the range rule itself must still refuse"
+    assert all(" must be between " in m for m in messages), messages
+
+
+def test_either_half_of_the_pair_is_refused_to_a_single_setting_writer() -> None:
+    """`set max_retries 2` and `set secure_rerip_matches 5` must both be refused.
+
+    `field_error` is what the script verb and every save-as-you-change control
+    ask, about the ONE field they are writing. A pair rule reported on one field
+    would let the other half be written.
+    """
+    too_low = dataclasses.replace(Config(), max_retries=2)  # with the default -Z 2
+    assert "must be more than" in sv.field_error(too_low, "max_retries")
+    too_many = dataclasses.replace(Config(), secure_rerip_matches=5)  # with -r 5
+    assert "must be more than" in sv.field_error(too_many, "secure_rerip_matches")
+    # The floor: the shipped defaults are writable, or both refusals above could
+    # be a validator that refuses everything.
+    assert sv.field_error(Config(), "max_retries") == ""
+    assert sv.field_error(Config(), "secure_rerip_matches") == ""
+
+
+def test_a_hand_edited_impossible_pair_is_reset_whole_and_said_so(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """At startup both halves go back to their defaults, which converge.
+
+    Resetting only one would not do: `-r 5` with a saved `-Z 7` is still
+    impossible. And the reset is logged at WARNING and recorded for display.
+    """
+    from platterpus import config as config_module
+    from platterpus.cyanrip_cli import retries_flag_value, secure_reread_problem
+
+    config_module.take_load_resets()
+    hand_edited = dataclasses.replace(Config(), max_retries=5, secure_rerip_matches=7)
+    with caplog.at_level(logging.WARNING, logger="platterpus.settings_validation"):
+        sanitized = config_module._sanitized(hand_edited)
+    assert (sanitized.max_retries, sanitized.secure_rerip_matches) == (
+        Config().max_retries,
+        Config().secure_rerip_matches,
+    )
+    assert (
+        secure_reread_problem(
+            repeat_rips=sanitized.secure_rerip_matches,
+            retries=retries_flag_value(sanitized.max_retries),
+        )
+        == ""
+    )
+    resets = {r.field for r in config_module.take_load_resets()}
+    assert {"max_retries", "secure_rerip_matches"} <= resets
+    assert "max_retries" in caplog.text and "must be more than" in caplog.text

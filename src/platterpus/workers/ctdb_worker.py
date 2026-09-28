@@ -27,6 +27,7 @@ from pathlib import Path
 
 from platterpus import rip_files
 from platterpus.adapters.ctdb_client import CTDBClient
+from platterpus.ctdb.coverage import disc_track_count
 from platterpus.ctdb.toc import SamplesProbe
 from platterpus.ctdb.verify import (
     CtdbVerifyResult,
@@ -49,6 +50,8 @@ def verify_rip_dir(
     client: CTDBClient,
     rip_dir: Path,
     *,
+    rip_log: object | None = None,
+    disc_tracks_hint: int | None = None,
     decoder: PcmDecoder | None = None,
     samples_probe: SamplesProbe | None = None,
     wait_for: threading.Thread | None = None,
@@ -61,6 +64,13 @@ def verify_rip_dir(
     defaults shell out to host ``flac``/``metaflac`` via ``ctdb.verify``.
     ``wait_for`` is the post-rip metaflac thread, if running — joined first so
     we never decode a FLAC mid-rewrite.
+
+    ``rip_log`` is the rip's already-parsed log when the caller holds one (the
+    finish handler does); otherwise it is read back out of ``rip_dir``.
+    ``disc_tracks_hint`` is the caller's own count of the disc's tracks, used
+    only when the log's footer states none (see :mod:`platterpus.ctdb.coverage`).
+    Together they decide whether the files are the whole disc — a partial rip is
+    answered :attr:`Verdict.NOT_WHOLE_DISC` without any lookup.
     """
     # Let post-rip tagging / cover-art embedding settle first (see above).
     if wait_for is not None and wait_for.is_alive():
@@ -81,15 +91,32 @@ def verify_rip_dir(
     # disc: CTDB then reports "not in database" for a flawless rip. rip_files
     # falls back to the old non-recursive glob (and says so in the log) when no
     # log names the files, which also keeps the nested-folder exclusion (#40).
-    file_set = rip_files.rip_master_files(rip_dir)
+    file_set = rip_files.rip_master_files(rip_dir, rip_log=rip_log)
     flac_paths = list(file_set.files)
     if not flac_paths:
         return CtdbVerifyResult(
             Verdict.LOOKUP_ERROR, message="no FLAC files found to verify"
         )
+    # How many tracks the DISC has, from the same record that named the files
+    # (`file_set.rip_log`), so the count and the list cannot come from two logs.
+    # A 2-of-14 rip then stops here instead of asking CTDB about a two-track disc
+    # that does not exist (the 2026-09-28 Full run: five "not in CTDB" reports).
+    disc_tracks = disc_track_count(file_set.rip_log, fallback=disc_tracks_hint)
+    if disc_tracks is not None and len(flac_paths) < disc_tracks:
+        log.info(
+            "CTDB verify of %s not run: the rip covers %d of the disc's %d "
+            "tracks, and CTDB verifies whole discs",
+            rip_dir,
+            len(flac_paths),
+            disc_tracks,
+        )
     try:
         return verify_rip(
-            flac_paths, client, decoder=decoder, samples_probe=samples_probe
+            flac_paths,
+            client,
+            disc_tracks=disc_tracks,
+            decoder=decoder,
+            samples_probe=samples_probe,
         )
     except Exception as exc:  # noqa: BLE001 — verify must always return a verdict
         # verify_rip is built to never raise for expected failures; this

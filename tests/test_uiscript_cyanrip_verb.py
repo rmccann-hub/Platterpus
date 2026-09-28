@@ -30,22 +30,42 @@ from __future__ import annotations
 
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import pytest
 from conftest import supply_round_state
 from PySide6.QtWidgets import QApplication, QWidget
 
+from platterpus.config import Config
 from platterpus.uiscript import runner as runner_mod
 from platterpus.uiscript.report import Outcome
 from platterpus.uiscript.script import parse
 
 
+def _window_with_rips_folder(rips: str) -> QWidget:
+    """A bare top-level carrying the ONE setting the verb reads: the rips folder.
+
+    Deliberately a real :class:`Config` on ``_config``, the attribute the real
+    window carries, rather than a stand-in object: the verb reads
+    ``output_dir`` off it exactly as it reads it off `MainWindow`.
+    """
+    widget = QWidget()
+    widget._config = Config(output_dir=rips)  # type: ignore[attr-defined]  # the window's settings slot, as MainWindow has it
+    return widget
+
+
 @pytest.fixture
-def window(qapp: QApplication) -> QWidget:
-    """A bare top-level. The `cyanrip` verb never touches the window."""
+def rips(tmp_path: Path) -> Path:
+    """Where the verb must run the ripper. Not created: the verb creates it."""
+    return tmp_path / "rips"
+
+
+@pytest.fixture
+def window(qapp: QApplication, rips: Path) -> QWidget:
+    """A bare top-level whose only relevant state is its rips folder."""
     del qapp
-    return QWidget()
+    return _window_with_rips_folder(str(rips))
 
 
 def _steps(text: str) -> list[Any]:
@@ -65,6 +85,8 @@ class _FakeCapture:
         self.released: threading.Event = threading.Event()
         self.entered: threading.Event = threading.Event()
         self.calls: list[list[str]] = []
+        #: The working folder each call was handed, in call order.
+        self.cwds: list[Path | None] = []
         self._result: tuple[int, str] = result or (0, "cyanrip 0.9.4-rc1\n")
         self.raise_riperror: str = ""
 
@@ -76,9 +98,11 @@ class _FakeCapture:
         *,
         timeout: float,
         stdin_devnull: bool = False,
+        cwd: Path | None = None,
     ) -> tuple[int, str]:
         del tool_name, timeout, stdin_devnull
         self.calls.append([binary, *args])
+        self.cwds.append(cwd)
         self.entered.set()
         # Bounded so a broken test cannot hang the suite; the assertions below
         # all release it explicitly long before this expires.
@@ -465,3 +489,162 @@ class TestTheWrapperProbeDoesNotBlockTheGuiThread:
         [step] = run._report.steps
         assert step.outcome == Outcome.INFO
         assert "could not run" in step.detail and "no such wrapper" in step.detail
+
+
+class TestItRunsInTheRipsFolder:
+    """**The 2026-09-28 Full run's P3 folders were written somewhere nobody looked.**
+
+    Section P3 of the acceptance script runs ``cyanrip ... -D r16deemphon`` and
+    ``... -D r16deemphoff``. cyanrip resolves a relative ``-D`` against the folder
+    it runs in, and the verb gave it no folder, so each one — a commercial track,
+    its log and its cue — landed in whatever folder the app had been launched
+    from: outside the session folder, and absent from the bundle the run existed
+    to produce (``docs/handshake/artifactsround28/``, transcript L1207 and L1213).
+    The script's own comment said they would land "beside the run's other
+    output". The verb now runs the ripper in the rips folder, the same one the
+    app's own rips run in.
+    """
+
+    def test_the_ripper_is_started_in_the_rips_folder(
+        self, window: QWidget, rips: Path, fake_capture: _FakeCapture
+    ) -> None:
+        fake_capture.released.set()
+        run = runner_mod.ScriptRunner(window)
+        run.start(_steps("cyanrip -N -l 1 -H -E -D r16deemphon"))
+        _pump(run)
+        [record] = run._report.steps
+        assert record.outcome is Outcome.PASS, record.detail
+        assert fake_capture.cwds == [rips], (
+            f"the ripper was not started in the rips folder: {fake_capture.cwds}"
+        )
+        # Made first, as the app's own rip makes it: a first run has none yet.
+        assert rips.is_dir(), "the rips folder was not created before the ripper ran"
+        # AND WRITTEN DOWN. A relative -D in the argv is not reproducible without
+        # the folder it was relative to.
+        assert f"cwd: {rips}" in record.detail, record.detail
+
+    def test_the_folder_is_the_one_set_when_the_step_RUNS(
+        self, window: QWidget, tmp_path: Path, fake_capture: _FakeCapture
+    ) -> None:
+        """Read at the step, not at `start()`: a `set output_dir` before it counts."""
+        fake_capture.released.set()
+        run = runner_mod.ScriptRunner(window)
+        run.start(_steps("cyanrip -N -l 1 -D later"))
+        moved = tmp_path / "moved rips"
+        window._config = Config(output_dir=str(moved))  # type: ignore[attr-defined]  # the window's settings slot
+        _pump(run)
+        assert fake_capture.cwds == [moved], fake_capture.cwds
+
+    def test_with_no_settings_it_refuses_and_runs_nothing(
+        self, qapp: QApplication, fake_capture: _FakeCapture
+    ) -> None:
+        """The safe direction: no rips folder known means no ripper started.
+
+        Guessing would mean the process's own folder, which is the defect itself;
+        from a source checkout that folder is the public repository.
+        """
+        del qapp
+        fake_capture.released.set()
+        run = runner_mod.ScriptRunner(QWidget())
+        run.start(_steps("cyanrip -N -l 1 -D r16deemphon"))
+        _pump(run)
+        [record] = run._report.steps
+        assert record.outcome is Outcome.ERROR, record.detail
+        assert "refusing to run the ripper" in record.detail, record.detail
+        assert fake_capture.calls == [], "the ripper ran with no known folder"
+
+    def test_a_relative_rips_folder_is_refused(
+        self, qapp: QApplication, fake_capture: _FakeCapture
+    ) -> None:
+        """A relative folder resolves against the process's folder: the same
+        defect by another route."""
+        del qapp
+        fake_capture.released.set()
+        run = runner_mod.ScriptRunner(_window_with_rips_folder("Music/rips"))
+        run.start(_steps("cyanrip -N -l 1 -D r16deemphon"))
+        _pump(run)
+        [record] = run._report.steps
+        assert record.outcome is Outcome.ERROR, record.detail
+        assert "'Music/rips'" in record.detail, record.detail
+        assert fake_capture.calls == []
+
+    def test_a_relative_minus_D_lands_in_the_session_and_its_text_reaches_the_bundle(
+        self,
+        qapp: QApplication,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The symptom, reproduced with a REAL child process and no fake capture.
+
+        The stand-in ripper does the one thing that matters here the way cyanrip
+        does it: it writes its folder at the RELATIVE path `-D` names, so where it
+        lands is decided by the working folder alone. The app is "launched" from a
+        folder of its own, which must stay empty. Then the session's own album
+        scan and bundler run over the result: the log and cue must be in the
+        archive, and the audio stand-in (eight zero bytes, generated here) must
+        not.
+
+        What this stand-in does that cyanrip does not: it reads no disc and
+        encodes nothing. Neither is what the defect was about.
+        """
+        import sys
+        import tarfile
+        from datetime import UTC, datetime
+
+        from platterpus.test_session import (
+            finish_session,
+            plan_session,
+            prepare_session,
+            session_album_dirs,
+        )
+
+        del qapp
+        banner = "cyanrip 0.9.4-rc2+platterpus.17 (platterpus-fork-ge0471f4)"
+        stand_in = tmp_path / "cyanrip"
+        stand_in.write_text(
+            f"#!{sys.executable}\n"
+            "import pathlib, sys\n"
+            "folder = pathlib.Path(sys.argv[sys.argv.index('-D') + 1])\n"
+            "folder.mkdir(parents=True, exist_ok=True)\n"
+            f"(folder / 'Unknown disc.log').write_text({banner!r} + '\\n')\n"
+            "(folder / 'Unknown disc.cue').write_text('FILE \"x\" WAVE\\n')\n"
+            "(folder / '01 - Unknown track.flac').write_bytes(b'\\0' * 8)\n"
+            f"print({banner!r})\n",
+            encoding="utf-8",
+        )
+        stand_in.chmod(0o755)
+        monkeypatch.setattr("platterpus.paths.CYANRIP_BINARY_DEFAULT", stand_in)
+        launched_from = tmp_path / "launched from here"
+        launched_from.mkdir()
+        monkeypatch.chdir(launched_from)
+
+        layout = plan_session(home=tmp_path / "home", stamp="20260928T014808Z")
+        prepare_session(layout)
+        started = datetime.now(UTC).timestamp() - 1.0
+        run = runner_mod.ScriptRunner(_window_with_rips_folder(str(layout.rips)))
+        run.start(_steps("cyanrip -N -l 1 -H -E -D r16deemphon"))
+        _pump(run, until=30.0)
+        [record] = run._report.steps
+        assert record.outcome is Outcome.PASS, record.detail
+
+        assert list(launched_from.iterdir()) == [], (
+            "the ripper wrote into the folder the app was launched from: "
+            f"{list(launched_from.rglob('*'))}"
+        )
+        folder = layout.rips / "r16deemphon"
+        assert (folder / "Unknown disc.log").is_file(), list(tmp_path.rglob("*.log"))
+
+        albums = session_album_dirs([layout.rips], since=started)
+        assert folder in albums, f"the album scan did not find {folder}: {albums}"
+        result = finish_session(layout, sources=[], album_dirs=albums)
+        assert result.ok and result.path is not None, result.error
+        with tarfile.open(result.path, "r:gz") as tar:
+            members = tar.getnames()
+            manifest_member = tar.extractfile("MANIFEST.txt")
+            assert manifest_member is not None
+            manifest = manifest_member.read().decode("utf-8")
+        # FLOOR: the text arrived, so the audio's absence is the filter's doing.
+        assert any(m.endswith("Unknown disc.log") for m in members), members
+        assert any(m.endswith("Unknown disc.cue") for m in members), members
+        assert not [m for m in members if m.endswith(".flac")], members
+        assert "01 - Unknown track.flac" in manifest, "the refused audio is not named"

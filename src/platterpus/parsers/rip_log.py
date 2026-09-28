@@ -344,6 +344,14 @@ class RipLog:
     #: line, which is every completed rip and every log written before the fork
     #: added it (round 13, answering our round-12 ask).
     interrupted_at: str | None = None
+    #: Which tracks the ripper was TOLD to extract, from its own `Tracks to rip:`
+    #: line: verbatim (`all`, `1, 2, 3`; "" when the line is absent), and as numbers
+    #: when it is a plain list. The numbers are None for `all`, for an absent line
+    #: and for a value we do not recognise, so "no selection known" never reads as
+    #: "an empty selection". This is what lets a cancelled 3-of-14 rip say 2 tracks
+    #: were never extracted rather than 14 (the 2026-09-28 Full run).
+    tracks_to_rip: str = ""
+    tracks_to_rip_numbers: tuple[int, ...] | None = None
     rip_completed_tracks: int | None = None
     rip_completed_total: int | None = None
     #: Why it did not complete, in the ripper's own words ("interrupted by

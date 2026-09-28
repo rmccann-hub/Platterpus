@@ -35,8 +35,9 @@
 # only case anyone could construct.
 #
 # `secure_rerip_dynamic off` is UNIFORM mode — EAC-style Test & Copy, every track
-# read until two reads agree rather than only the tracks AccurateRip could not
-# confirm. So the counters move on every track whatever the disc's condition.
+# read until three reads are identical (`-Z 2`) rather than only the tracks
+# AccurateRip could not confirm. So the counters move on every track whatever
+# the disc's condition.
 #
 # THE PROPERTY IS AN INEQUALITY, NOT A RATIO:
 #

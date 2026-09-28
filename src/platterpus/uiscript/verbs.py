@@ -642,8 +642,10 @@ _VERB_LIST: tuple[Verb, ...] = (
         "cyanrip",
         1,
         None,
-        "cyanrip <args…> — run the host-exported ripper for real and capture "
-        "its exit code, exact argv and complete output",
+        "cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS "
+        "FOLDER (the output directory; an acceptance session's own rips folder), "
+        "so a relative -D lands beside the app's rips; capture its exit code, "
+        "exact argv, that folder and complete output",
         takes_paths=True,
     ),
     Verb(

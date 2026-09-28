@@ -95,6 +95,37 @@ def cancel_info_probe() -> None:
     INFO_PROBE.cancel()
 
 
+def _raise_if_cwd_failed(
+    tool_name: str, argv: list[str], cwd: Path | None, exc: OSError
+) -> None:
+    """Raise a :class:`RipError` naming the FOLDER if entering ``cwd`` failed.
+
+    ``Popen`` reports a working directory it could not enter with the same
+    exception types as a binary it could not run — ``FileNotFoundError`` for both
+    — and sets ``exc.filename`` to whichever it was. Read that, rather than guess:
+    without this, a rips folder on an unmounted disk was reported as *"cyanrip
+    binary not found"*, which sends the reader to reinstall a ripper that is fine.
+    Returns normally when the failure was not about ``cwd``.
+    """
+    if cwd is None or exc.filename is None:
+        return
+    if Path(os.fspath(exc.filename)) != cwd:
+        return
+    reason = exc.strerror or type(exc).__name__
+    diagnostics.error(
+        "deps.command_failed",
+        f"{tool_name} could not be started in {cwd}: {reason}",
+        tool=tool_name,
+        argv=argv,
+        exit_code=None,  # tri-state: nothing was launched, so nothing was reaped
+        where="adapters.rip_backend.run_capture",
+    )
+    raise RipError(
+        f"{tool_name} could not be started: its working folder {cwd} could not "
+        f"be entered ({reason})"
+    ) from exc
+
+
 def run_capture(
     tool_name: str,
     binary: str,
@@ -102,6 +133,7 @@ def run_capture(
     *,
     timeout: float,
     stdin_devnull: bool = False,
+    cwd: Path | None = None,
 ) -> tuple[int, str]:
     """Run a one-shot ripper subprocess; return (returncode, combined output).
 
@@ -123,12 +155,27 @@ def run_capture(
     never hands it out, which left every worker built on this with nothing to
     signal — the disc-info probe enters the container and can sit there for two
     minutes. The exceptions raised are unchanged, so callers are unaffected.
+
+    ``cwd`` is where the child starts; ``None`` (every probe) keeps ours. The
+    ripper resolves its relative ``-D``/``-F``/``-j`` paths there, so a caller
+    whose invocation WRITES must name it — the app's own rip runs with
+    ``cwd=output_dir`` for exactly this reason (``cyanrip_backend``). A ``cwd``
+    that cannot be entered is reported as that, never as a missing binary: both
+    arrive from ``Popen`` as the same exception type.
     """
     argv: list[str] = [binary, *args]
-    log.debug("%s: %s", tool_name, " ".join(argv))
+    log.debug("%s: %s (cwd=%s)", tool_name, " ".join(argv), cwd or "inherited")
     try:
-        proc = INFO_PROBE.run(argv, timeout=timeout, stdin_devnull=stdin_devnull)
+        proc = INFO_PROBE.run(
+            argv, timeout=timeout, stdin_devnull=stdin_devnull, cwd=cwd
+        )
+    except (NotADirectoryError, PermissionError) as exc:
+        # Only a folder we were asked to enter is ours to explain; anything else
+        # (a binary that is not executable) propagates exactly as before.
+        _raise_if_cwd_failed(tool_name, argv, cwd, exc)
+        raise
     except FileNotFoundError as exc:
+        _raise_if_cwd_failed(tool_name, argv, cwd, exc)
         # RECORD BEFORE RAISING. The argv was logged at DEBUG, which `log.txt` does
         # not keep by default — so on a stock install a probe that could not find its
         # binary left the exception message and nothing else. `RipError` reaches a
@@ -407,8 +454,8 @@ class RipBackend(ABC):
         read offset for this rip (cyanrip's `-s`). `cover_art` (one of the
         backend's accepted values, or "" to skip) and `max_retries` map to the
         matching rip flags — the EAC bit-perfect parity gaps (KDD-13).
-        `secure_rerip_matches`, when > 0, is cyanrip's `-Z N` (re-rip a track
-        until N reads' checksums agree) for marginal discs. `force_overread`,
+        `secure_rerip_matches`, when > 0, is cyanrip's `-Z N` (re-read a track
+        until N+1 reads are identical) for marginal discs. `force_overread`,
         when True, asks the drive to read into the lead-in/lead-out (cyanrip's
         `-O`) instead of zero-padding the offset-shifted edge samples — opt-in,
         drive-dependent. `read_speed`, when

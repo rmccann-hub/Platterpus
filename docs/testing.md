@@ -308,6 +308,15 @@ tiers. "I added a happy-path test" is not done.
       corrupts each field in turn and asserts an issue is raised — so a new
       setting **cannot ship unvalidated** (the test goes red). The dialog shows a
       visible error and blocks OK on any error, and `log_issues` records it.
+      **Every refusal is logged once, on every surface, by one function**:
+      `settings_validation.log_refusal` writes `settings input refused: <field> =
+      <value> — <reason>` at WARNING, with the value `repr`-escaped and bounded
+      head-and-tail. `field_error` calls it for its own answers, so no
+      single-setting writer (`set`, `expect-refused`, the save-as-you-change
+      controls) logs a refusal itself; `log_issues(issues, config)` does it for the
+      dialog and a hand-edited config. Added 2026-09-28, when the round-28 Full
+      run's five scripted refusals — a read offset of 99999 among them — were found
+      to have written nothing to the log (`tests/test_uiscript_settings_verbs.py`).
     - **Security:** exploit-shaped inputs are rejected — path traversal (`..`),
       control chars/NUL, absolute templates. And there is **no shell**:
       `test_security_no_shell` statically forbids `shell=True` / `os.system` /
@@ -3841,6 +3850,7 @@ cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
 | 2026-09-22 | 0.6.52 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-24 | 0.6.55 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-26 | 0.6.60 | maintainer | bdr209d | bazzite | partial |
+| 2026-09-28 | 0.6.61 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -3957,6 +3967,27 @@ This is the direction the severity rules allow: the re-grade makes `0.7.100`
 harder to reach, not easier (see the 2026-09-12 row). It still counts as the
 strongest run on file, and the first whose sections could all fail. What it cannot
 be is the error-free pass the `0.7.100` gate asks for.
+
+**The 2026-09-28 0.6.61 row reached 320 of 320 on a Full run with `.17` and is
+`partial`, by the 2026-09-26 ruling's standard: there were errors in the records.**
+Again every archival witness could fail and none did: the derived formats checked 2 of
+2, every ripper log verified against its own FUN512 footer, and 137,189 app-log lines
+held no `ERROR`, `CRITICAL` or traceback. It closes round 28 (the fork's round 28 lap 1
+S6, on the operator's decision). The errors, both ours and both archival
+(`docs/handshake/artifactsround28/README.md`):
+- **The first whole-disc rip shipped an unverified track 3 after our re-read had a
+  verified one.** The re-read's kept read matched AccurateRip v1 and v2 and was the
+  read the secure re-read rip converged on; our swap rule accepted converged re-reads
+  only, so it was deleted and the status line said we had *"kept the best read"*. Every
+  step passed over it: `expect-rip-complete` reports read instability without grading
+  it, and nothing compared the shipped read with the one discarded. Fixed the same day
+  (`verdict.reread_supersedes`, PLANNING KDD-27 amended).
+- **Five partial-rip reports said the disc is not in CTDB**, from a lookup whose table
+  of contents was built from the two files ripped. `expect-verification` passed on all
+  five, because it grades that a check left a result, not what the result says.
+Section B's retry limit of 3 also governed every secure re-read of the run, one
+agreeing read more than `-Z 2` needs, so the run measured convergence under a stricter
+ceiling than users get. That makes its instability findings harder to pass, not easier.
 
 Every row so far is `partial`, zero `full-green`. **No full-green pass has been
 achieved**, so 0.9.1 is not reachable and the count toward it is zero. Recording

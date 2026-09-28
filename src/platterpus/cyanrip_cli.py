@@ -325,3 +325,102 @@ def split_meta_blob(blob: str) -> dict[str, str]:
         # truncated — the failure this whole change is about.
         pairs[key] = unescape_meta_value(META_KEY_SEPARATOR.join(halves[1:]))
     return pairs
+
+
+# --- -r and -Z: one ceiling, shared by two loops -----------------------------
+#
+# The third fact both layers need. `adapters/cyanrip_backend.py` refuses an argv
+# whose secure re-read cannot succeed, `settings_validation.py` refuses the
+# Settings pair that would build one, and `workers/rip_worker.py` keeps its own
+# internal recovery re-read inside the same limit. Three callers, one rule, so it
+# lives here rather than as three restatements that can drift.
+#
+# THE MECHANISM, read from the fork's source (`cyanrip@faec4a8:src/cyanrip_main.c:997-1012`):
+# every whole-track read of a secure re-read increments `total_repeats`; a read
+# CONVERGES when its checksum equals at least `-Z N` of the EARLIER reads; and the
+# loop stops with "hit repeat limit" once `total_repeats` reaches `-r`. The
+# convergence test runs before the limit test on each read, so the read that
+# reaches the limit may still converge. Consequences:
+#
+#   * `-Z N` needs N+1 identical reads (the one being judged plus N earlier ones);
+#   * so it can converge only if `-r` allows N+1 reads: `-r` > N;
+#   * `-r` <= N can NEVER converge, on any disc, however clean;
+#   * `-r` == N+1 converges only if every read agrees: one bad read and the track
+#     is left unverified. Each read beyond N+1 is room for one read that disagrees.
+#
+# Measured on the rig, not only read: the 2026-09-28 Full run's secure re-read rip
+# was invoked `-r 3 -Z 2` and its log says "converged after 3 reads" for every
+# track that converged (docs/handshake/artifactsround28/round28fullsecurereread.log).
+#
+# `-r` also caps libcdio-paranoia's per-frame retries (rounded up to a multiple of
+# 5, `crip_frame_retry_limit()` in the fork's `src/cyanrip_main.h`), which is the
+# half of the flag its name describes. The whole-track half is the one that
+# decides whether `-Z` can succeed, and it keeps the value as given.
+
+#: cyanrip's own ``-r`` when the argv carries none:
+#: ``GEN_OPT_ONE(opts_list, int32_t, retries, "r", 1, 1, 10, 0, INT32_MAX, …)`` at
+#: ``cyanrip@faec4a8:src/cyanrip_main.c:1593``. It matters because our argv builder
+#: sends no ``-r`` at all when the setting is 0 (see :func:`retries_flag_value`),
+#: and a check that assumed "no ``-r``" meant "no limit", or "zero", would judge a
+#: command line cyanrip does not run.
+DEFAULT_MAX_RETRIES: Final[int] = 10
+
+
+def retries_flag_value(max_retries: int) -> int | None:
+    """The ``-r`` value a rip's argv carries for the ``max_retries`` setting.
+
+    ``None`` means the argv carries **no** ``-r``, so cyanrip applies
+    :data:`DEFAULT_MAX_RETRIES`. That is what the setting's 0 does today: the
+    builder has always omitted the flag for 0 rather than sending ``-r 0``. One
+    function, called by the builder AND by everything that predicts the builder,
+    so the prediction cannot drift from the command line.
+    """
+    return max_retries if max_retries else None
+
+
+def whole_track_reads_allowed(retries: int | None) -> int:
+    """How many whole-track reads a ``-Z`` loop may make under ``-r retries``.
+
+    ``retries`` is the value ON THE ARGV — ``None`` for no ``-r`` at all. Never
+    less than 1: the loop reads the track once before it tests the limit, so
+    ``-r 0`` and ``-r 1`` both allow exactly one read.
+    """
+    limit = DEFAULT_MAX_RETRIES if retries is None else retries
+    return max(limit, 1)
+
+
+def highest_convergeable_repeat_rips(retries: int | None) -> int:
+    """The largest ``-Z N`` that can still converge under ``-r retries``.
+
+    ``0`` means none can: with one read allowed there is nothing to compare it to,
+    so a secure re-read is impossible rather than merely unlikely.
+    """
+    return whole_track_reads_allowed(retries) - 1
+
+
+def secure_reread_problem(*, repeat_rips: int, retries: int | None) -> str:
+    """``""`` when ``-Z repeat_rips`` can converge under ``-r retries``, else why not.
+
+    ``repeat_rips`` of 0 or less sends no secure re-read at all, so there is
+    nothing to converge and nothing to refuse. The message names both numbers and
+    the arithmetic, because "invalid combination" would tell a caller only that
+    something was wrong, which it already knew (seam rule S-12).
+    """
+    if repeat_rips <= 0:
+        return ""
+    reads = whole_track_reads_allowed(retries)
+    if repeat_rips < reads:
+        return ""
+    where = (
+        f"-r {retries}"
+        if retries is not None
+        else f"no -r, so cyanrip's own default of {DEFAULT_MAX_RETRIES}"
+    )
+    return (
+        f"-Z {repeat_rips} can never converge with {where}: -Z {repeat_rips} is "
+        f"satisfied only when {repeat_rips + 1} reads are identical (the latest "
+        f"read matching {repeat_rips} earlier ones), and cyanrip stops re-reading "
+        f"a track after {reads} whole-track read{'s' if reads != 1 else ''} "
+        f"(cyanrip_main.c:997-1012 at faec4a8). Every such track would be left "
+        f"unverified after the full {reads} reads, whatever the disc is like"
+    )

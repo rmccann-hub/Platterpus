@@ -2726,3 +2726,84 @@ def test_every_kept_setting_says_why_on_the_line_above() -> None:
         assert above >= 0 and lines[above].strip().startswith("#"), (
             f"`{raw.strip()}` has no reason written above it"
         )
+
+
+# --- every rip runs on the shipped retry ceiling ------------------------------
+
+
+def _acceptance_lines() -> list[str]:
+    return (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8").splitlines()
+
+
+def test_every_acceptance_rip_runs_on_the_shipped_retry_ceiling() -> None:
+    """**The 2026-09-28 Full run's secure re-reads all ran at `-r 3 -Z 2`.**
+
+    Section B set `max_retries 3` to prove the validator round-trips it, and left
+    it there until section Q, so every rip in between — F and N, the two
+    whole-disc accuracy sections, and their automatic re-reads — ran with a
+    ceiling of three whole-track reads for a `-Z 2` that needs three identical
+    ones: no room for a single read that disagrees (cyanrip@faec4a8:
+    src/cyanrip_main.c:997-1012). The shipped default is 5.
+
+    Replayed rather than read: the script is simulated up to each `rip` step and
+    the ceiling that rip would run on is checked, so a `set` added anywhere above
+    a rip is seen. Two properties per rip: `max_retries` is the shipped default,
+    and whatever secure re-read it runs leaves room for at least one read that
+    disagrees (the property the first one exists to protect).
+    """
+    from platterpus.cyanrip_cli import retries_flag_value, whole_track_reads_allowed
+
+    lines = _acceptance_lines()
+    shipped = Config()
+    sites: list[int] = []
+    offenders: list[str] = []
+    for index, raw in enumerate(lines):
+        parts = raw.split()
+        if not parts or parts[0] != "rip":
+            continue
+        sites.append(index + 1)
+        state = _simulate("\n".join(lines[:index]))
+        if state.max_retries != shipped.max_retries:
+            offenders.append(
+                f"L{index + 1}: rips at max_retries {state.max_retries}, not the "
+                f"shipped {shipped.max_retries}"
+            )
+        matches = state.secure_rerip_matches
+        if matches > 0:
+            reads = whole_track_reads_allowed(retries_flag_value(state.max_retries))
+            if reads < matches + 2:
+                offenders.append(
+                    f"L{index + 1}: -Z {matches} needs {matches + 1} identical reads "
+                    f"and -r allows {reads}, so one bad read fails a track"
+                )
+    # Floor: the eight rips this file has (F, H, I, J, K1-K3, N). Fewer means the
+    # scan stopped finding them, and the check above would pass by not looking.
+    assert len(sites) >= 8, f"only {len(sites)} rip step(s) found: {sites}"
+    assert not offenders, "\n  ".join(["a rip runs on the wrong ceiling:", *offenders])
+
+
+def test_every_expect_on_a_retry_setting_matches_what_the_script_set() -> None:
+    """An `expect` on the retry pair must agree with the replayed state above it.
+
+    Moving section B's restore changed what section C's floor must expect (3 to
+    5), and nothing but the rig would have noticed a mismatch. **Scope, stated:**
+    the two retry fields only. Every other `expect` is checked by the rig run,
+    not here — widening this to all fields is a separate sweep that has not been
+    audited, and saying so is better than implying it.
+    """
+    lines = _acceptance_lines()
+    checked = 0
+    for index, raw in enumerate(lines):
+        parts = raw.split()
+        if len(parts) != 3 or parts[0] != "expect":
+            continue
+        field = parts[1]
+        if field not in ("max_retries", "secure_rerip_matches"):
+            continue
+        state = _simulate("\n".join(lines[:index]))
+        assert getattr(state, field) == int(parts[2]), (
+            f"L{index + 1}: `{raw.strip()}`, but the script has set {field} to "
+            f"{getattr(state, field)} by then"
+        )
+        checked += 1
+    assert checked >= 4, f"floor: only {checked} retry expect(s) found"

@@ -78,7 +78,8 @@ class GoalPreset:
 #
 # The difference is now the one an archival goal should actually have: **effort**.
 # `secure_rerip_dynamic=False` makes it EAC-style Test and Copy — every track read
-# until two reads agree, not just the tracks AccurateRip failed to confirm. That
+# until three reads are identical (`-Z 2`), not just the tracks AccurateRip
+# failed to confirm. That
 # costs rip time, which is the trade an archival goal exists to make.
 #
 # `rerip_offset_variant=True` USED to be Archival's second difference and is now

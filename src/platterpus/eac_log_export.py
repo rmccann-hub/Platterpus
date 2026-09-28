@@ -49,6 +49,11 @@ import re
 from datetime import datetime
 
 from platterpus import one_frame_match
+from platterpus.parsers.cyanrip_log import (
+    INTERRUPTED_MID_READ,
+    INTERRUPTED_NOT_DETERMINED,
+    interruption_point,
+)
 from platterpus.parsers.rip_log import (
     AccurateRipResult,
     RipLog,
@@ -59,7 +64,7 @@ from platterpus.parsers.rip_log import (
 from platterpus.report_types import SecureReripBlock
 from platterpus.ripper_identity import identify_ripper
 from platterpus.safe_int import int_or_none
-from platterpus.verdict import accuraterip_lookup_happened
+from platterpus.verdict import accuraterip_lookup_happened, expected_track_total
 
 log = logging.getLogger(__name__)
 
@@ -1286,7 +1291,9 @@ def _incomplete_notice(
     Rendered only when the caller actually tells us the outcome was not a success
     (``outcome_status`` is the rip report's own status, e.g. ``"cancelled"`` /
     ``"failed"``). Every number in it is measured — the track count is
-    ``len(rip_log.tracks)`` and the disc total is what the TOC reported — so the
+    ``len(rip_log.tracks)``, the disc total is what the TOC reported, and which
+    tracks were asked for and which one was being read when the rip stopped are the
+    ripper's own ``Tracks to rip:`` and ``Interrupted at:`` lines — so the
     never-invent rule holds. An unknown outcome renders nothing, exactly as before.
 
     **A non-success outcome does not always mean an incomplete rip**, which this used
@@ -1316,6 +1323,24 @@ def _incomplete_notice(
             "runs AFTER extraction may not have: see the status report. ***",
             "",
         ]
+    # THE SAME SHAPE FOR A SELECTION. A rip asked for tracks 1-2 of 14 whose every
+    # requested track is below has a complete extraction too. Before the ripper's
+    # `Tracks to rip:` line was read (2026-09-28) this could not be told apart from a
+    # cut-short whole-disc rip, and the banner called the 12 tracks nobody asked for
+    # "never extracted". A truncated log is excluded for the reason given below.
+    selection = _requested_subset(rip_log, disc_track_total)
+    if (
+        selection is not None
+        and set(selection) <= _logged_track_numbers(rip_log)
+        and not bool(getattr(rip_log, "log_truncated", False))
+    ):
+        return [
+            f"*** RIP STOPPED ({status}) — every one of the {len(selection)} track(s) "
+            "this rip was asked for is present below, so the extraction itself is "
+            "complete. Whatever runs AFTER extraction may not have: see the status "
+            "report. ***",
+            "",
+        ]
     # "were never extracted" is a claim about the DISC, and the source log is the
     # only evidence for it. When that log was cut off mid-write we cannot make
     # the claim: on the rig (2026-08-01) cyanrip was killed with 4 KiB unflushed,
@@ -1325,23 +1350,127 @@ def _incomplete_notice(
     # So a truncated log gets the honest sentence instead: what it omits is
     # unknown, not absent.
     truncated = bool(getattr(rip_log, "log_truncated", False))
-    missing = ""
     if truncated:
         missing = (
             " The ripper's log was cut off mid-write (it was killed before "
             "flushing), so this is a FLOOR, not a count: tracks missing below "
             "may have been ripped and verified. Check the ripper's own output."
         )
-    elif disc_track_total and disc_track_total > ripped:
-        missing = (
-            f" The remaining {disc_track_total - ripped} track(s) were never "
-            "extracted and are absent below."
-        )
+    else:
+        missing = _absent_tracks_sentence(rip_log, disc_track_total, selection)
     return [
         f"*** INCOMPLETE RIP ({status}) — this log covers {ripped}{of_total} "
         f"disc tracks.{missing} ***",
         "",
     ]
+
+
+def _logged_track_numbers(rip_log: RipLog) -> set[int]:
+    """The track numbers this log has a block for. A malformed number is skipped."""
+    return {
+        track.number
+        for track in rip_log.tracks
+        if isinstance(track.number, int) and not isinstance(track.number, bool)
+    }
+
+
+def _requested_subset(
+    rip_log: RipLog, disc_track_total: int | None
+) -> tuple[int, ...] | None:
+    """The tracks the ripper was told to extract, when that is FEWER than the disc.
+
+    Read from the ripper's own ``Tracks to rip:`` line (``RipLog.
+    tracks_to_rip_numbers``), never from our request: this document is rendered
+    from the ripper's log, and every number in the banner has to be one that log
+    states. ``None`` means "the whole disc, or not known", and the banner then counts
+    against the disc total exactly as it always has.
+
+    A selection naming a track the disc does not have is not trusted: the log and
+    the TOC disagree, and the disc total is the safer denominator.
+    """
+    numbers = rip_log.tracks_to_rip_numbers
+    if not isinstance(numbers, tuple) or not numbers:
+        return None
+    # How many the rip was ASKED for, through the one predicate every other surface
+    # uses, so this banner and the verdict cannot count the same request two ways.
+    asked = expected_track_total(disc_track_total, numbers)
+    if disc_track_total and (asked is None or asked >= disc_track_total):
+        return None
+    if disc_track_total and max(numbers) > disc_track_total:
+        return None
+    return numbers
+
+
+def _absent_tracks_sentence(
+    rip_log: RipLog, disc_track_total: int | None, selection: tuple[int, ...] | None
+) -> str:
+    """What happened to the tracks the rip was asked for and this log does not list.
+
+    **Two different fates, and this used to name one.** A cancelled rip leaves
+    tracks it never started, and — when cyanrip was stopped mid-read — one track it
+    had partly read, whose file sits in the album folder, incomplete. The banner
+    said every absent track was "never extracted" while the same document quoted
+    ``Interrupted at : track 1, mid-read`` forty lines lower (the 2026-09-28 Full
+    run, F5). So the in-progress track is now named from the ripper's own
+    interruption record, through :func:`interruption_point`, and only the rest are
+    counted as never extracted.
+
+    **Counted against what the rip was asked for**, which the ripper's
+    ``Tracks to rip:`` line states: that same run asked for 3 of 14 tracks and was
+    told "the remaining 14 track(s) were never extracted".
+
+    An interruption record in a shape we do not recognise makes no count claim it
+    cannot support: it says a partial file may exist rather than asserting none
+    does. No interruption record at all keeps the old sentence, because a log from
+    before the fork printed one says nothing either way.
+    """
+    logged = _logged_track_numbers(rip_log)
+    ripped = len(rip_log.tracks)
+    asked_line = ""
+    if selection is not None:
+        absent = sum(1 for number in selection if number not in logged)
+        asked_line = f" The rip was asked for {len(selection)} track(s): " + (
+            ", ".join(str(number) for number in selection) + "."
+        )
+    elif disc_track_total and disc_track_total > ripped:
+        absent = disc_track_total - ripped
+    else:
+        absent = 0
+    point = interruption_point(rip_log.interrupted_at)
+    partial = ""
+    if (
+        point is not None
+        and point.kind == INTERRUPTED_MID_READ
+        and point.track is not None
+        and point.track not in logged
+        and (selection is None or point.track in selection)
+        and (not disc_track_total or point.track <= disc_track_total)
+    ):
+        # The ripper's own words, quoted, so a reader can check this sentence
+        # against the status report below without trusting our reading of it.
+        partial = (
+            f" Track {point.track} was being read when the rip stopped (the ripper "
+            f'records "Interrupted at: {point.where}"), so it was only partly read: '
+            "its file is incomplete, and it is absent below."
+        )
+        absent -= 1
+    if absent <= 0:
+        return asked_line + partial
+    if point is not None and point.kind == INTERRUPTED_NOT_DETERMINED:
+        return asked_line + (
+            f" The remaining {absent} track(s) are absent below. The ripper stopped "
+            f'at "{point.where}", which does not say in a form Platterpus recognises '
+            "whether one of them was being read, so one may have left an incomplete "
+            "file."
+        )
+    return (
+        asked_line
+        + partial
+        + (
+            f" The remaining {absent} track(s) were never extracted and are absent "
+            "below."
+        )
+    )
 
 
 def _provenance_lines(
@@ -1461,7 +1590,7 @@ def _crc_lines(track: TrackResult) -> list[str]:
 
     EAC's secure mode prints a **Test CRC** and a **Copy CRC** — two full read
     passes whose match is the proof the extraction is reproducible. cyanrip's
-    equivalent is ``-Z N`` (re-rip a track until N reads' checksums agree): a
+    equivalent is ``-Z N`` (re-read a track until N+1 reads are identical): a
     track that *converged* was read at least twice and produced the identical
     CRC each time — the same two-reads-agree guarantee, by a cheaper mechanism.
 

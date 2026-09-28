@@ -6,9 +6,22 @@ Focus: the shared AccurateRip counter and the AR↔CTDB reconciliation added
 
 from __future__ import annotations
 
+import json
+import re
+from pathlib import Path
+
+import pytest
+
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
+from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
-from platterpus.verdict import accuraterip_counts, reconcile_ar_ctdb
+from platterpus.verdict import (
+    REREAD_KEPT_FOR_ACCURATERIP,
+    REREAD_KEPT_FOR_CONVERGENCE,
+    accuraterip_counts,
+    reconcile_ar_ctdb,
+    reread_supersedes,
+)
 
 
 def _verified(number: int, conf: int = 200) -> TrackResult:
@@ -692,3 +705,134 @@ def test_two_verdict_mutants_are_EQUIVALENT_and_here_is_the_proof() -> None:
     for falsy in (None, 0):
         assert expected_track_total(falsy, None) is None
     assert expected_track_total(-1, None) is None
+
+
+# --- Which read of a track to keep: verdict.reread_supersedes ----------------
+#
+# The 2026-09-28 Full run shipped an unverified track 3 because the auto-fix kept
+# a re-read only when it converged. These tests hold the decision to its order:
+# AccurateRip first, in both directions, then convergence.
+
+_ROUND28 = Path(__file__).resolve().parents[1] / "docs/handshake/artifactsround28"
+
+
+def _read(*, verified: bool, converged: bool | None) -> TrackResult:
+    """A track record that is (or is not) an AccurateRip match, and did (or did
+    not) converge. A match is confidence >= 1 over a non-zero CRC, which is the
+    rule `track_accuraterip_verified` applies."""
+    v2 = (
+        AccurateRipResult(
+            version=2, result="accurately ripped", confidence=200, local_crc="96DF8C22"
+        )
+        if verified
+        else AccurateRipResult(version=2, result="not found", confidence=None)
+    )
+    return TrackResult(number=3, accuraterip_v2=v2, secure_rerip_converged=converged)
+
+
+@pytest.mark.parametrize(
+    ("first_verified", "reread_verified", "converged", "expected"),
+    [
+        # The 2026-09-28 case: a verified re-read that fell one read short.
+        (False, True, False, REREAD_KEPT_FOR_ACCURATERIP),
+        (False, True, True, REREAD_KEPT_FOR_ACCURATERIP),
+        # Never trade a verified first pass for an unverified re-read, even a
+        # converged one.
+        (True, False, True, None),
+        (True, False, False, None),
+        # No independent witness either way: convergence decides, as before.
+        (False, False, True, REREAD_KEPT_FOR_CONVERGENCE),
+        (False, False, False, None),
+        (True, True, True, REREAD_KEPT_FOR_CONVERGENCE),
+        (True, True, False, None),
+    ],
+)
+def test_accuraterip_decides_which_read_to_keep_before_convergence_does(
+    first_verified: bool,
+    reread_verified: bool,
+    converged: bool,
+    expected: str | None,
+) -> None:
+    first = _read(verified=first_verified, converged=None)
+    reread = _read(verified=reread_verified, converged=converged)
+    assert reread_supersedes(first, reread) == expected
+
+
+def test_an_unknown_first_pass_counts_as_unverified() -> None:
+    """Keeping a verified re-read cannot make a track worse than a first pass
+    nothing is known about, and an unverified one still needs to converge."""
+    assert (
+        reread_supersedes(None, _read(verified=True, converged=False))
+        == REREAD_KEPT_FOR_ACCURATERIP
+    )
+    assert reread_supersedes(None, _read(verified=False, converged=False)) is None
+    assert (
+        reread_supersedes(None, _read(verified=False, converged=True))
+        == REREAD_KEPT_FOR_CONVERGENCE
+    )
+
+
+def test_the_full_runs_track_3_re_read_is_now_kept() -> None:
+    """The decision, on the real reads the 2026-09-28 Full run made and threw away.
+
+    The first pass is the album log itself, parsed by the production parser. The
+    re-read's log died with its temp folder; its output survives in the report's
+    `artifacts.ripper_stdout`, where the capture dropped the `Track 3 read
+    successfully!` header with the progress redraws, so the parser cannot open
+    the track. The four values the decision reads are therefore taken from the
+    re-read's track-3 block by pattern, from the committed file.
+    """
+    first = parse_cyanrip_log(
+        (_ROUND28 / "round28fullwholedisc.log").read_text(encoding="utf-8")
+    )
+    first_track_3 = next(t for t in first.tracks if t.number == 3)
+    # The shipped read: no whole-track AccurateRip match (frame 450 only).
+    assert first_track_3.copy_crc == "15D16895"
+    assert reread_supersedes(None, first_track_3) is None
+
+    report = json.loads(
+        (_ROUND28 / "round28fullwholediscreport.json").read_text(encoding="utf-8")
+    )
+    stdout = report["artifacts"]["ripper_stdout"]["text"]
+    rerip = stdout[stdout.index("Tracks to rip:  3, 5") :]
+    block = rerip[: rerip.index("    track:                         3")]
+    crc = re.search(r"EAC CRC32:\s+([0-9A-F]{8})", block)
+    converged = re.search(r"Secure re-read:\s+did NOT converge", block)
+    v1 = re.search(
+        r"Accurip v1:\s+([0-9A-F]{8}) \(accurately ripped, confidence (\d+)\)", block
+    )
+    v2 = re.search(
+        r"Accurip v2:\s+([0-9A-F]{8}) \(accurately ripped, confidence (\d+)\)", block
+    )
+    assert crc and converged and v1 and v2, "the re-read's track-3 block moved"
+    reread_track_3 = TrackResult(
+        number=3,
+        copy_crc=crc.group(1),
+        secure_rerip_converged=False,
+        accuraterip_v1=AccurateRipResult(
+            version=1,
+            result="accurately ripped",
+            confidence=int(v1.group(2)),
+            local_crc=v1.group(1),
+        ),
+        accuraterip_v2=AccurateRipResult(
+            version=2,
+            result="accurately ripped",
+            confidence=int(v2.group(2)),
+            local_crc=v2.group(1),
+        ),
+    )
+    # The read the secure re-read rip of the same disc converged on.
+    assert reread_track_3.copy_crc == "59D352DD"
+    assert (
+        reread_supersedes(first_track_3, reread_track_3) == REREAD_KEPT_FOR_ACCURATERIP
+    )
+
+    # Track 5's re-read matched nothing either, so it is still not kept.
+    first_track_5 = next(t for t in first.tracks if t.number == 5)
+    assert (
+        reread_supersedes(
+            first_track_5, TrackResult(number=5, secure_rerip_converged=False)
+        )
+        is None
+    )

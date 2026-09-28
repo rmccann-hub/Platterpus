@@ -73,8 +73,9 @@ TOOLTIP: Final[str] = (
     "in) matched one. In cyanrip's own log it is the “Accurip 450” line. It "
     "verifies that one frame and nothing else: the rest of the track may hold a "
     "read error, or audio that differs from every submission, and this check "
-    "cannot tell which. Platterpus re-reads such tracks until two reads agree "
-    "(on by default in Settings). If a re-rip gives a different checksum here, "
+    "cannot tell which. Platterpus re-reads such tracks until its reads agree "
+    "(three identical reads at the default; on by default in Settings). If a "
+    "re-rip gives a different checksum here, "
     "the track has a read problem."
 )
 

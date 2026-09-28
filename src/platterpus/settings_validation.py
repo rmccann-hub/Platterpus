@@ -44,6 +44,12 @@ from pathlib import Path
 
 from platterpus import goal_presets
 from platterpus.config import Config
+from platterpus.cyanrip_cli import (
+    DEFAULT_MAX_RETRIES,
+    retries_flag_value,
+    secure_reread_problem,
+    whole_track_reads_allowed,
+)
 from platterpus.deps.ripper_manifest import CHANNELS as RIPPER_CHANNELS
 from platterpus.update_check import CHANNELS
 
@@ -71,6 +77,15 @@ SECURE_REREP_MIN: int = 0
 SECURE_REREP_MAX: int = 10
 READ_SPEED_MIN: int = 0
 READ_SPEED_MAX: int = 72  # CD ×-speeds; 0 = drive max
+
+# The Settings row labels for the two retry settings, as the validator's
+# messages name them. A message that names a control must name one the user can
+# find: the secure re-read row was renamed on 2026-09-21 and this module kept
+# saying "Max reads to confirm a shaky track" for a week. The dialog spells the
+# label as a literal (its source is swept for row labels), and
+# `tests/test_secure_reread_can_converge.py` holds the two equal.
+MAX_RETRIES_LABEL: str = "Max retries"
+SECURE_REREP_LABEL: str = "Extra matching reads to trust a track"
 MP3_QUALITY_MIN: int = 0
 MP3_QUALITY_MAX: int = 9
 
@@ -202,12 +217,12 @@ def validate_config(config: Config) -> list[ValidationIssue]:
 
     for field_name, low, high, label in (
         ("read_offset", OFFSET_MIN, OFFSET_MAX, "Read offset"),
-        ("max_retries", MAX_RETRIES_MIN, MAX_RETRIES_MAX, "Max retries"),
+        ("max_retries", MAX_RETRIES_MIN, MAX_RETRIES_MAX, MAX_RETRIES_LABEL),
         (
             "secure_rerip_matches",
             SECURE_REREP_MIN,
             SECURE_REREP_MAX,
-            "Max reads to confirm a shaky track",
+            SECURE_REREP_LABEL,
         ),
         ("read_speed", READ_SPEED_MIN, READ_SPEED_MAX, "Fixed read speed"),
         ("mp3_vbr_quality", MP3_QUALITY_MIN, MP3_QUALITY_MAX, "MP3 VBR quality"),
@@ -221,6 +236,16 @@ def validate_config(config: Config) -> list[ValidationIssue]:
             high,
             label,
         )
+
+    # The PAIR, after each half's own range rule. Max retries is also the ceiling
+    # on a secure re-read's whole-track reads, and `-Z N` needs N+1 of them, so a
+    # pair of in-range values can still describe a re-read that never succeeds.
+    run(
+        "max_retries",
+        _validate_secure_reread_ceiling,
+        config.max_retries,
+        config.secure_rerip_matches,
+    )
 
     for field_name, allowed, label in (
         ("output_format", _ALLOWED_OUTPUT_FORMATS, "Output format"),
@@ -417,16 +442,87 @@ def field_error(candidate: Config, field: str) -> str:
     an attribute it is a bound method, always truthy, and every warning would be
     reported as a refusal (pinned by ``tests/test_uiscript_settings.py``).
     Never raises: a validator fault is reported as a refusal, never as a pass.
+
+    **Every refusal it answers is logged, here, once** (:func:`log_refusal`).
+    Because this is the one predicate every single-setting writer asks, logging
+    at the answer covers all of them without any caller remembering to — which
+    is what they had all been forgetting (2026-09-28, the round-28 Full run: five
+    deliberate script refusals, including a read offset of 99999, wrote nothing
+    to the log at all). A caller must therefore NOT log the refusal again.
     """
     try:
         issues = validate_config(candidate)
     except Exception:  # noqa: BLE001 — a validator fault must not become a silent set
         log.exception("settings validation raised while checking %s", field)
-        return "the settings validator could not evaluate this value"
+        reason = "the settings validator could not evaluate this value"
+        log_refusal(field, getattr(candidate, field, _VALUE_UNAVAILABLE), reason)
+        return reason
     for issue in issues:
         if issue.field == field and issue.is_error():
+            log_refusal(
+                field, getattr(candidate, field, _VALUE_UNAVAILABLE), issue.message
+            )
             return issue.message
     return ""
+
+
+#: What a refusal line says when the refused value cannot be read off the config
+#: (the field name is not an attribute). Stated, so it never reads as an empty value.
+_VALUE_UNAVAILABLE: str = "<value unavailable>"
+
+#: How much of a refused value's ``repr`` a log line carries. A template or a path
+#: can be long, and a hand-edited config can hold anything; the log line must stay
+#: one readable line. Head and tail, with the gap counted, like every other bound.
+_REFUSED_VALUE_HEAD: int = 160
+_REFUSED_VALUE_TAIL: int = 60
+
+
+def _loggable_value(value: object) -> str:
+    """``repr(value)``, bounded, for a log line. **Never raises.**
+
+    ``repr`` rather than ``str`` on purpose: it escapes control characters, so a
+    refused value holding a newline cannot forge a second log line — and control
+    characters are exactly what several rules here refuse. Bounded to a head and
+    a tail with the elided count marked, because a silent truncation reads as
+    completeness (CLAUDE.md).
+    """
+    if value is _VALUE_UNAVAILABLE:
+        return _VALUE_UNAVAILABLE
+    try:
+        text = repr(value)
+    except Exception:  # noqa: BLE001 — a log line must not fail over its own subject
+        return f"<unrepresentable {type(value).__name__}>"
+    limit = _REFUSED_VALUE_HEAD + _REFUSED_VALUE_TAIL
+    if len(text) <= limit:
+        return text
+    dropped = len(text) - limit
+    return (
+        f"{text[:_REFUSED_VALUE_HEAD]}… [{dropped} character(s) elided] …"
+        f"{text[-_REFUSED_VALUE_TAIL:]}"
+    )
+
+
+def log_refusal(field: str, value: object, reason: str) -> None:
+    """THE log line for a settings value the input boundary refused.
+
+    CLAUDE.md (*Validate every input*): invalid input gets a visible error at the
+    point of entry **and is logged to the log file**. The visible half was in
+    place on every surface; the log half was not — the uiscript ``set`` and
+    ``expect-refused`` verbs and the save-as-you-change controls refused without a
+    word to the log. One function, so the line has one shape — setting name, the
+    refused value, the validator's own reason — wherever it was refused, and a
+    bug report can grep for ``settings input refused`` and find every one.
+
+    Called by :func:`field_error` (every single-setting writer), by
+    :func:`log_issues` for the Settings dialog and a hand-edited config file, and
+    by the script runner for a value it could not even coerce to the setting's
+    type. WARNING, because a refused value is an input the user or a script
+    actually tried. Never raises: ``_loggable_value`` cannot, and ``logging``
+    routes a handler's own failure to ``handleError`` rather than to its caller.
+    """
+    log.warning(
+        "settings input refused: %s = %s — %s", field, _loggable_value(value), reason
+    )
 
 
 # --- Values that become a path SEGMENT inside a dependency -------------------
@@ -582,18 +678,27 @@ def resolve_input_directory(
     return resolved, ""
 
 
-def log_issues(issues: list[ValidationIssue]) -> None:
+def log_issues(issues: list[ValidationIssue], config: Config | None = None) -> None:
     """Record validation issues to the log file (CLAUDE.md: log input failures).
 
     Errors log at WARNING (they blocked a save the user attempted); warnings log
     at INFO. Called by the dialog when the user tries to save with issues, so a
     bug report's log shows exactly what was rejected and why.
+
+    **Pass the ``config`` the issues were found in**, and each error is logged
+    through :func:`log_refusal` with the refused VALUE beside the setting and the
+    reason — the same line every other surface writes. Without it the value is
+    not known here, and the line says only what it can.
     """
     for issue in issues:
         if issue.is_error():
-            log.warning(
-                "settings validation error: %s — %s", issue.field, issue.message
-            )
+            if config is not None:
+                value = getattr(config, issue.field, _VALUE_UNAVAILABLE)
+                log_refusal(issue.field, value, issue.message)
+            else:
+                log.warning(
+                    "settings validation error: %s — %s", issue.field, issue.message
+                )
         else:
             log.info("settings validation warning: %s — %s", issue.field, issue.message)
 
@@ -899,6 +1004,86 @@ def _validate_int(
         return [ValidationIssue(field, f"{label} must be a whole number.")]
     if value < lo or value > hi:
         return [ValidationIssue(field, f"{label} must be between {lo} and {hi}.")]
+    return []
+
+
+def _validate_secure_reread_ceiling(
+    max_retries: object, matches: object
+) -> list[ValidationIssue]:
+    """Max retries must let the configured secure re-read succeed.
+
+    cyanrip's ``-Z N`` converges when the latest read matches N EARLIER reads, so
+    it needs N+1 identical reads, and it stops re-reading a track after ``-r``
+    whole-track reads (``cyanrip@faec4a8:src/cyanrip_main.c:997-1012``). The rule
+    is :func:`platterpus.cyanrip_cli.secure_reread_problem`, the same one the argv
+    chokepoint refuses at; this is where a person editing Settings, a script's
+    ``set``, or a hand-edited ``config.toml`` meets it first.
+
+    **Which settings actually send ``-Z``.** ``secure_rerip_matches`` > 0 sends
+    ``-Z <that>`` in both modes: on every pass in uniform mode (Test & Copy), and
+    on the targeted re-read of the tracks AccurateRip did not confirm in dynamic
+    mode. The ladder never escalates past it. With it Off (0) the only ``-Z`` a
+    rip sends is the worker's own recovery bound, which
+    ``read_speed_ladder.recovery_secure_rerip_ceiling`` caps below ``-r`` itself,
+    so Off never makes an impossible pair and is not refused here. ``-r`` is the
+    argv's: ``cyanrip_cli.retries_flag_value`` sends none for 0, and cyanrip then
+    uses its own default of 10.
+
+    **Reported on BOTH fields**, because either one can be the one to fix, and
+    because each consumer asks about one field: the ``set`` verb and every
+    save-as-you-change control ask ``field_error`` about the field they are
+    writing, and the startup reset puts each errored field back to its default.
+    Reported on one field only, a script could write the other half of an
+    impossible pair, and a reset could leave one half still impossible.
+
+    **A zero-tolerance pair is a WARNING, not an error.** ``-r`` == N+1 can
+    converge, but only if every read agrees: one bad read and the track is left
+    unverified. Legal, and probably not intended — the 2026-09-28 Full run spent
+    every secure re-read at ``-r 3 -Z 2`` that way without anyone choosing it.
+
+    Values out of their own range, or of the wrong type, are the range rules'
+    finding and are skipped here, so each message names one cause.
+    """
+    if isinstance(max_retries, bool) or not isinstance(max_retries, int):
+        return []
+    if isinstance(matches, bool) or not isinstance(matches, int):
+        return []
+    if not MAX_RETRIES_MIN <= max_retries <= MAX_RETRIES_MAX:
+        return []
+    if not SECURE_REREP_MIN < matches <= SECURE_REREP_MAX:
+        return []  # Off, or out of range: nothing for this rule to judge
+    retries = retries_flag_value(max_retries)
+    reads = whole_track_reads_allowed(retries)
+    shown = (
+        f"{max_retries}"
+        if retries is not None
+        else f"0, which leaves cyanrip's own default of {DEFAULT_MAX_RETRIES}"
+    )
+    needed = matches + 1
+    if secure_reread_problem(repeat_rips=matches, retries=retries):
+        message = (
+            f"{MAX_RETRIES_LABEL} ({shown}) must be more than {SECURE_REREP_LABEL} "
+            f"({matches}). A track is trusted once {needed} of its reads are "
+            f"identical, and {MAX_RETRIES_LABEL} lets cyanrip read it only {reads} "
+            f"time{'s' if reads != 1 else ''}, so no track could ever be verified. "
+            f"Raise {MAX_RETRIES_LABEL} to at least {needed}, or lower "
+            f"{SECURE_REREP_LABEL}."
+        )
+        return [
+            ValidationIssue("max_retries", message),
+            ValidationIssue("secure_rerip_matches", message),
+        ]
+    if reads == needed:
+        message = (
+            f"{MAX_RETRIES_LABEL} ({shown}) leaves no room for a read that "
+            f"disagrees: a track needs {needed} identical reads and cyanrip may read "
+            f"it only {reads} times, so a single bad read leaves it unverified. "
+            f"{MAX_RETRIES_LABEL} at {needed + 2} would allow two."
+        )
+        return [
+            ValidationIssue("max_retries", message, SEVERITY_WARNING),
+            ValidationIssue("secure_rerip_matches", message, SEVERITY_WARNING),
+        ]
     return []
 
 

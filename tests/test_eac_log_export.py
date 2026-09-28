@@ -7,8 +7,10 @@ parser so the per-track Copy CRCs read straight back out for a parity diff.
 
 from __future__ import annotations
 
+import difflib
 import hashlib
 import importlib.util
+import json
 import re
 from dataclasses import replace
 from pathlib import Path
@@ -2257,3 +2259,196 @@ def test_ORDINARY_metadata_is_never_rewritten() -> None:
     text, defused = render_eac_style_log_and_defused(rip_log)
     assert defused == []
     assert "The Beatles / Abbey Road = Done" in text
+
+
+# --- A rip interrupted mid-read (the 2026-09-28 Full run, F5) -------------------
+#
+# The cancelled rip of that run asked for tracks 1-3 of 14 and was stopped 39.63%
+# into track 1. Its EAC-compatible log said "The remaining 14 track(s) were never
+# extracted" while quoting `Interrupted at : track 1, mid-read` in the same
+# document, and a partial FLAC of track 1 sat beside it.
+
+_ROUND28 = _REPO_ROOT / "docs" / "handshake" / "artifactsround28"
+
+
+def _banner(text: str) -> str:
+    """The one `***` banner line a rendered log carries."""
+    lines = [line for line in text.splitlines() if line.startswith("*** ")]
+    assert len(lines) == 1, lines
+    return lines[0]
+
+
+def test_the_full_runs_cancelled_rip_says_track_1_was_partly_read() -> None:
+    """Rendered from the COMMITTED ripper log, with the committed report's own
+    provenance, the new log differs from the committed EAC-compatible log in the
+    banner line and nowhere else.
+
+    That is two claims at once: the defect the run recorded is gone, and nothing
+    else in a document the fork diffs against moved. Every input is read from the
+    artifacts (the report's outcome, generator and encoder versions, its recorded
+    cache-defeat verdict, and the disc total the committed banner shows production
+    passed), so the test pins the artifact, not a belief about it.
+    """
+    ripper_log = (_ROUND28 / "round28fullcancelme.log").read_text(encoding="utf-8")
+    committed = (_ROUND28 / "round28fullcancelmeeac.log").read_text(encoding="utf-8")
+    report = json.loads(
+        (_ROUND28 / "round28fullcancelmereport.json").read_text(encoding="utf-8")
+    )
+    # The symptom, as the run recorded it — or this test would be about nothing.
+    old_banner = _banner(committed)
+    assert "The remaining 14 track(s) were never extracted" in old_banner
+    disc_total = re.search(r"covers \d+ of (\d+) disc tracks", old_banner)
+    assert disc_total is not None
+
+    parsed = parse_cyanrip_log(ripper_log)
+    # Non-triviality: the artifact really has the shape this fix is about.
+    assert parsed.tracks == ()
+    assert parsed.interrupted_at == "track 1, mid-read"
+    assert parsed.tracks_to_rip_numbers == (1, 2, 3)
+    parsed = replace(
+        parsed,
+        ripping_info=replace(
+            parsed.ripping_info, defeat_audio_cache=report["rip"]["defeat_audio_cache"]
+        ),
+    )
+    deps = report["environment"]["dependencies"]
+    rendered = render_eac_style_log(
+        parsed,
+        platterpus_version=report["generator"]["version"],
+        build_fingerprint=report["generator"]["build_fingerprint"],
+        encoder_versions={
+            "flac": deps["flac"]["version"],
+            "metaflac": deps["metaflac"]["version"],
+        },
+        outcome_status=report["outcome"]["status"],
+        disc_track_total=int(disc_total.group(1)),
+    )
+
+    banner = _banner(rendered)
+    assert "Track 1 was being read when the rip stopped" in banner
+    assert '"Interrupted at: track 1, mid-read"' in banner
+    assert "only partly read: its file is incomplete" in banner
+    assert "The rip was asked for 3 track(s): 1, 2, 3." in banner
+    assert "The remaining 2 track(s) were never extracted" in banner
+    assert "remaining 14" not in banner and "remaining 3 " not in banner
+    # The same request, counted by the report and by this log, agrees.
+    assert report["completeness"]["tracks_expected"] == 3
+
+    changed = [
+        line
+        for line in difflib.unified_diff(
+            committed.splitlines(), rendered.splitlines(), lineterm="", n=0
+        )
+        if line[:1] in "+-" and not line.startswith(("+++", "---"))
+    ]
+    # The banner, and the checksum footer that covers it. Nothing else.
+    assert changed == [
+        "-" + old_banner,
+        "+" + banner,
+        "-" + committed.splitlines()[-1],
+        "+" + rendered.splitlines()[-1],
+    ], changed
+    assert verify_eac_style_log_checksum(rendered) is True
+
+
+def _interrupted(
+    *numbers: int, where: str | None, selection: tuple[int, ...] | None = None
+) -> RipLog:
+    """A cancelled rip's log: blocks for ``numbers``, the given interruption record
+    and the ripper's ``Tracks to rip:`` selection (``None`` = `all`)."""
+    return replace(
+        _log_with_tracks(0),
+        tracks=tuple(
+            TrackResult(number=n, copy_crc=f"{n:08X}", status="ripped successfully")
+            for n in numbers
+        ),
+        rip_completed=False,
+        interrupted_at=where,
+        tracks_to_rip="all" if selection is None else ", ".join(map(str, selection)),
+        tracks_to_rip_numbers=selection,
+    )
+
+
+def test_a_whole_disc_rip_stopped_mid_read_names_the_partial_track() -> None:
+    notice = _incomplete_notice(
+        _interrupted(1, 2, where="track 3, mid-read"), "cancelled", 14
+    )[0]
+    assert "covers 2 of 14 disc tracks" in notice
+    assert "Track 3 was being read when the rip stopped" in notice
+    assert "The remaining 11 track(s) were never extracted" in notice
+    # A whole-disc rip names no selection: every disc track was asked for.
+    assert "was asked for" not in notice
+
+
+def test_a_rip_stopped_between_tracks_claims_no_partial_file() -> None:
+    """The other published shape: no read was in progress, so every absent track
+    really was never extracted, and none of them is called partly read."""
+    notice = _incomplete_notice(
+        _interrupted(1, 2, where="between tracks, no read in progress"),
+        "cancelled",
+        14,
+    )[0]
+    assert "partly read" not in notice
+    assert "The remaining 12 track(s) were never extracted" in notice
+
+
+def test_an_unrecognised_interruption_record_makes_no_count_claim() -> None:
+    """A third wording from the ripper must not be read as "no read in progress":
+    that is the direction that calls a partial file never extracted."""
+    notice = _incomplete_notice(
+        _interrupted(1, where="somewhere in track 2"), "cancelled", 14
+    )[0]
+    assert "never extracted" not in notice
+    assert "The remaining 13 track(s) are absent below" in notice
+    assert '"somewhere in track 2"' in notice
+    assert "may have left an incomplete file" in notice
+
+
+def test_a_log_with_no_interruption_record_keeps_the_old_sentence() -> None:
+    """Logs from before the fork printed `Interrupted at:` say nothing either way,
+    so they get exactly the sentence they always got."""
+    notice = _incomplete_notice(_interrupted(1, 2, where=None), "cancelled", 14)[0]
+    assert "partly read" not in notice
+    assert "The remaining 12 track(s) were never extracted" in notice
+
+
+def test_a_track_the_log_lists_is_never_called_partly_read() -> None:
+    """If the interruption record names a track that also has a block below, the
+    two records disagree; the banner does not add a partial file on top."""
+    notice = _incomplete_notice(
+        _interrupted(1, 2, where="track 2, mid-read"), "cancelled", 14
+    )[0]
+    assert "partly read" not in notice
+    assert "The remaining 12 track(s) were never extracted" in notice
+
+
+def test_a_selection_whose_every_track_is_present_is_a_stopped_rip() -> None:
+    """A 2-of-14 rip whose securing pass was cancelled extracted everything it was
+    asked for. It used to read "INCOMPLETE RIP ... The remaining 12 track(s) were
+    never extracted" about tracks nobody asked for."""
+    notice = _incomplete_notice(
+        _interrupted(1, 2, where=None, selection=(1, 2)), "cancelled", 14
+    )[0]
+    assert "INCOMPLETE RIP" not in notice
+    assert "RIP STOPPED (cancelled)" in notice
+    assert "every one of the 2 track(s) this rip was asked for is present" in notice
+    assert "never extracted" not in notice
+
+
+def test_a_truncated_selection_log_is_still_a_floor() -> None:
+    """The early return above must not swallow a truncated log: every requested
+    track "present" in a cut-off log is exactly the claim that cannot be made."""
+    log = replace(_interrupted(1, 2, where=None, selection=(1, 2)), log_truncated=True)
+    notice = _incomplete_notice(log, "cancelled", 14)[0]
+    assert "RIP STOPPED" not in notice
+    assert "FLOOR, not a count" in notice
+
+
+def test_a_selection_naming_a_track_the_disc_lacks_is_not_trusted() -> None:
+    """The ripper's selection and the TOC disagree, so the disc total is the
+    denominator, as it was before the selection was read."""
+    notice = _incomplete_notice(
+        _interrupted(1, where=None, selection=(1, 17)), "cancelled", 14
+    )[0]
+    assert "was asked for" not in notice
+    assert "The remaining 13 track(s) were never extracted" in notice

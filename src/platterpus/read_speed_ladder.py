@@ -44,6 +44,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from platterpus.cyanrip_cli import (
+    highest_convergeable_repeat_rips,
+    retries_flag_value,
+)
 from platterpus.parsers.rip_log import (
     accuraterip_is_match,
     track_accuraterip_verified,
@@ -70,10 +74,47 @@ DEFAULT_LADDER: tuple[int, ...] = (0, 8, 4, 2)
 FLOOR_SPEED: int = DEFAULT_LADDER[-1]
 
 # At the floor speed, if a disc STILL won't read clean, escalate cyanrip's `-Z N`
-# (re-rip a track until N reads' checksums agree) instead of going slower. Start
-# at 2 (two agreeing reads) and climb to this ceiling, then give up (and FLAG).
+# (re-read a track until one read matches N earlier ones: N+1 identical reads)
+# instead of going slower. Start at 2 (three identical reads) and climb to this
+# ceiling, then give up (and FLAG).
 _Z_FLOOR: int = 2
 MAX_SECURE_REREP: int = 3
+
+
+def recovery_secure_rerip_ceiling(
+    *, secure_rerip_matches: int, max_retries: int
+) -> int:
+    """The highest ``-Z`` a RECOVERY re-read may use on this rip.
+
+    Two callers in the rip worker ask this: the ladder's ``-Z`` escalation after
+    a pass with read errors, and the auto-fix that re-reads a track whose ``-Z``
+    pass never converged. One answer, so the two cannot disagree.
+
+    * **The user set a ``-Z``** (``secure_rerip_matches > 0``): their number is the
+      ceiling and is returned as it is. It is never lowered here — quietly asking
+      for fewer matching reads than they chose would weaken their verification
+      without telling them. Whether it can converge under their ``-r`` is refused
+      at the input boundary (``settings_validation``) and again at the argv
+      chokepoint, which is where a caller that skipped Settings is caught.
+    * **They left it Off** (0): the recovery still needs SOME ``-Z``, so it falls
+      back to :data:`MAX_SECURE_REREP` — but **capped at what their ``-r`` lets
+      converge**. That bound is ours, not theirs, so it is ours to keep inside
+      their limit. Until 2026-09-28 it was not: with Max retries at 3 the ladder
+      sent ``-Z 3 -r 3``, a pass that reads every track three times and can never
+      converge (``cyanrip@faec4a8:src/cyanrip_main.c:997-1012``), then flagged
+      every track unstable and re-read them all again the same way.
+
+    Returns 0 when no ``-Z`` can converge at all (one read allowed); both callers
+    already treat 0 as "no secure re-read", so nothing is attempted rather than
+    something doomed. Never raises.
+    """
+    if secure_rerip_matches > 0:
+        return secure_rerip_matches
+    return min(
+        MAX_SECURE_REREP,
+        highest_convergeable_repeat_rips(retries_flag_value(max_retries)),
+    )
+
 
 # A hard backstop on total passes, independent of the ladder maths, so a bug can
 # never spin a disc forever: ladder rungs + the -Z escalations, plus slack.
@@ -119,9 +160,10 @@ def next_step(
 
     Escalation order: step DOWN the speed ladder first (slower reads are often
     more accurate), and only once at the floor speed, escalate ``-Z`` (re-read
-    until N passes agree). Returns None when both are exhausted — the caller then
-    stops and FLAGS the disc as still-failing. Never raises: an unknown current
-    speed is treated as the top rung so escalation still makes progress.
+    until N+1 passes are identical). Returns None when both are exhausted — the
+    caller then stops and FLAGS the disc as still-failing. Never raises: an
+    unknown current speed is treated as the top rung so escalation still makes
+    progress.
 
     ``speed_locked`` (real-hardware finding, 2026-07-01): when the drive can't
     change read speed, cyanrip **aborts** the rip if handed ``-S`` — so the speed
@@ -158,12 +200,14 @@ def next_step(
         step_speed = current_speed if speed_locked else floor
         next_z = max(current_secure_rerip + 1, _Z_FLOOR)
         if next_z <= max_secure_rerip:
+            # `-Z N` is satisfied by N+1 identical passes, so that is the number
+            # the reason names; it said "{N} passes agree" until 2026-09-28.
             reason = (
                 "drive can't change speed — re-reading until "
-                f"{next_z} passes agree (-Z {next_z})"
+                f"{next_z + 1} passes are identical (-Z {next_z})"
                 if speed_locked
                 else f"still failing at {_speed_label(floor)} — re-reading until "
-                f"{next_z} passes agree (-Z {next_z})"
+                f"{next_z + 1} passes are identical (-Z {next_z})"
             )
             return LadderStep(
                 speed=step_speed,
@@ -208,8 +252,9 @@ def read_errors_present(rip_log: object) -> bool:
 def unstable_tracks(rip_log: object) -> list[int]:
     """Track numbers whose cyanrip secure re-read (``-Z``) never converged.
 
-    cyanrip re-reads a track until N reads' checksums agree; when it instead hits
-    the repeat limit with no two reads agreeing, that track's data is UNSTABLE (a
+    cyanrip re-reads a track until N+1 reads are identical; when it instead hits
+    the repeat limit first (two reads MAY have agreed: at `-Z 2` it takes three),
+    that track's data is UNSTABLE (a
     scratch/dirt region) and may not be bit-perfect. This is the reliable
     per-track read-quality signal — distinct from cyanrip's whole-disc
     ripping-error count (which stays 0 even then; see :func:`read_errors_present`)
@@ -361,6 +406,9 @@ def attempts_to_report(
                     reripped_z=r["reripped_z"],
                     converged=r["converged"],
                     replaced=r["replaced"],
+                    # `.get`, not `[]`: a record written before schema v30
+                    # has no reason, and "not recorded" is what None says.
+                    replaced_because=r.get("replaced_because"),
                 )
                 for r in (retried or [])
             ],

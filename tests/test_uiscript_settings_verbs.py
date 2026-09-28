@@ -18,7 +18,9 @@ archival goal" and rip with exactly the settings it was avoiding.
 
 from __future__ import annotations
 
+import logging
 import time
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -32,11 +34,17 @@ from platterpus.uiscript.script import parse
 
 
 @pytest.fixture
-def window(qapp: QApplication) -> QWidget:
-    """A bare top-level carrying a config, which is all these verbs touch."""
+def window(qapp: QApplication, tmp_path: Path) -> QWidget:
+    """A bare top-level carrying a config, which is all these verbs touch.
+
+    The rips folder is a temporary one, not the default: a `cyanrip` step runs
+    the ripper there and creates it first, as the app's own rip does, and the
+    default is the developer's real `~/Music/rips` (it appeared on this machine
+    the first time the full suite ran after that change, 2026-09-28).
+    """
     del qapp
     widget = QWidget()
-    widget._config = Config()  # type: ignore[attr-defined]
+    widget._config = Config(output_dir=str(tmp_path / "rips"))  # type: ignore[attr-defined]  # the window's settings slot, as MainWindow has it
     return widget
 
 
@@ -68,6 +76,11 @@ def _run(window: QWidget, text: str) -> list[Any]:
         ("max_retries", "101"),  # MAX_RETRIES_MAX is 100
         ("secure_rerip_matches", "11"),  # SECURE_REREP_MAX is 10
         ("mp3_vbr_quality", "10"),  # MP3_QUALITY_MAX is 9
+        # In range, refused as a PAIR: beside the default 2 extra matching reads
+        # (three identical reads needed) Max retries 2 can never let a secure
+        # re-read succeed. The acceptance script's section C runs exactly this.
+        ("max_retries", "2"),
+        ("secure_rerip_matches", "5"),  # beside the default Max retries 5
     ],
 )
 def test_a_value_outside_the_validated_range_is_refused(
@@ -144,6 +157,74 @@ def test_an_unknown_setting_is_an_error_not_a_pass(window: QWidget) -> None:
     steps = _run(window, "expect-refused not_a_setting 1")
     assert steps[0].outcome is Outcome.ERROR, steps[0].detail
     assert "no setting called" in steps[0].detail
+
+
+# --- Every refusal reaches the log -------------------------------------------
+#
+# The round-28 Full run (2026-09-28): section C's five deliberate refusals passed
+# (`round28fulltranscript.txt` L194-L202, script lines L380-L384) and wrote NOTHING
+# to the app log — `round28fullplatterpusapplog1.txt` holds nothing between the
+# `config saved` at 21:48:17.837 (L97) and the drive wizard at 21:48:19.709 (L98).
+# CLAUDE.md: invalid input is refused visibly AND logged. These are that section's
+# own steps.
+_R28_SECTION_C: tuple[str, ...] = (
+    "expect-refused read_offset 99999",
+    "expect-refused read_offset -99999",
+    "expect-refused max_retries 101",
+    "expect-refused secure_rerip_matches 11",
+    "expect-refused mp3_vbr_quality 10",
+)
+
+#: The one line `settings_validation.log_refusal` writes, from any surface.
+_REFUSAL_PREFIX = "settings input refused: "
+
+
+def _refusals(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [r for r in caplog.records if r.getMessage().startswith(_REFUSAL_PREFIX)]
+
+
+def test_every_scripted_refusal_is_logged_once_with_its_value_and_reason(
+    window: QWidget, caplog: pytest.LogCaptureFixture
+) -> None:
+    """One WARNING per refusal, naming the setting, the refused value and the
+    validator's own reason — the same reason the transcript shows."""
+    with caplog.at_level(logging.WARNING):
+        steps = _run(window, "\n".join(_R28_SECTION_C))
+    # Floor: all five really were refusals, or "five log lines" proves nothing.
+    assert [s.outcome for s in steps] == [Outcome.PASS] * 5, [s.detail for s in steps]
+    records = _refusals(caplog)
+    assert len(records) == len(_R28_SECTION_C), [r.getMessage() for r in records]
+    for script_line, record, step in zip(_R28_SECTION_C, records, steps, strict=True):
+        _verb, field, value = script_line.split()
+        text = record.getMessage()
+        assert record.levelno == logging.WARNING, text
+        assert text.startswith(f"{_REFUSAL_PREFIX}{field} = {value} — "), text
+        # The log and the transcript give the SAME reason: one validator sentence.
+        reason = step.detail.split(" — ", 1)[1]
+        assert text.endswith(reason), (text, step.detail)
+
+
+def test_a_set_refused_by_the_validator_or_the_coercer_is_logged_and_an_accepted_one_is_not(
+    window: QWidget, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`set` is the accidental twin of `expect-refused` and logs the same way — at
+    BOTH layers that can refuse. The accepted value is the control: a logger that
+    fired on every `set` would satisfy the counts above and mean nothing."""
+    with caplog.at_level(logging.WARNING):
+        steps = _run(
+            window,
+            "set read_offset 99999\nset read_offset abc\nset read_offset 667",
+        )
+    assert [s.outcome for s in steps] == [Outcome.FAIL, Outcome.ERROR, Outcome.PASS]
+    texts = [r.getMessage() for r in _refusals(caplog)]
+    assert len(texts) == 2, texts
+    assert texts[0].startswith(f"{_REFUSAL_PREFIX}read_offset = 99999 — "), texts
+    # The coercer's refusal carries the raw text, quoted, and the coercer's reason.
+    assert (
+        texts[1]
+        == f"{_REFUSAL_PREFIX}read_offset = 'abc' — 'abc' is not a whole number"
+    )
+    assert window._config.read_offset == 667  # type: ignore[attr-defined]
 
 
 # --- set rip_goal applies the preset -----------------------------------------

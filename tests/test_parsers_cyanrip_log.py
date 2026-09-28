@@ -404,6 +404,42 @@ def test_secure_rerip_convergence_recorded_per_track() -> None:
     assert by_number[4].secure_rerip_converged is None
 
 
+def test_the_verdict_direction_is_one_rule_for_every_reader() -> None:
+    """`secure_rerip_verdict_converged` is the one home of "which way did it go".
+
+    The rip worker grades its diagnostic by it (a warning when the reads never
+    agreed, 2026-09-28) and the parser files it on the track by it, so the two
+    cannot disagree about one sentence. Each shape the ripper prints, and a zero
+    numerator, which is a failure to reproduce and never convergence.
+    """
+    from platterpus.parsers.cyanrip_log import (
+        is_secure_rerip_verdict,
+        secure_rerip_verdict_converged,
+    )
+
+    cases: dict[str, bool | None] = {
+        "Done; (2 out of 2 matches for current checksum 4F2EDD18)": True,
+        "  Done; (2 out of 2 matches for current checksum ABCD1234)": True,
+        "Done; (no matches found, but hit repeat limit of 3)": False,
+        "Done; (0 out of 5 matches for current checksum AAAA1111)": False,
+        "Repeating ripping (0 out of 1 matches for current checksum AAAA1111)": None,
+        "Track 3 read successfully!": None,
+        "": None,
+    }
+    for line, expected in cases.items():
+        assert secure_rerip_verdict_converged(line) is expected, line
+        # The older predicate is DERIVED from this one, so it cannot drift from it.
+        assert is_secure_rerip_verdict(line) is (expected is not None), line
+    # And the parser's per-track field agrees with the function, shape by shape.
+    for line, expected in cases.items():
+        if expected is None:
+            continue
+        log = parse_cyanrip_log(
+            f"cyanrip 0.9.3 (release)\n{line}\nTrack 1 read successfully!\n"
+        )
+        assert log.tracks[0].secure_rerip_converged is expected, line
+
+
 def test_secure_rerip_verdict_never_raises_when_dangling() -> None:
     # A "Done; …" line with no following track (a crash right after) must not
     # raise and must simply be dropped (parser discipline).
@@ -768,7 +804,11 @@ def test_rule_tables_are_a_complete_enumeration_of_this_module() -> None:
     )
     # The fragment group must not become a dumping ground: it is small, every entry is
     # applied to a captured substring, and it may not swallow a line-level pattern.
-    assert len(cyanrip_log._FRAGMENT_PATTERNS) <= 6, (
+    # 6 -> 8 on 2026-09-28: `interrupted_mid_read` and `interrupted_between_tracks`,
+    # the fork's two published `Interrupted at:` values. Both are applied only by
+    # `interruption_point`, to the `where` group `_INTERRUPTED_AT` already captured,
+    # never to a line (the Full run's F5/F6 fixes).
+    assert len(cyanrip_log._FRAGMENT_PATTERNS) <= 8, (
         "the fragment group is growing; check each entry really is matched against a "
         "captured fragment rather than a whole line"
     )
@@ -2899,3 +2939,105 @@ def test_a_build_that_prints_no_encoder_line_is_unchanged() -> None:
         parse_cyanrip_log("Ripping errors: 0\n").health_status == "No errors occurred"
     )
     assert parse_cyanrip_log("Ripping errors: 2\n").health_status == "2 ripping errors"
+
+
+# --- `Tracks to rip:` and the `Interrupted at:` shapes (the 2026-09-28 Full run) --
+#
+# Both read so the EAC-compatible log and the rip audit can say what a cancelled rip
+# left behind (F5, F6). `Tracks to rip:` had been an ignored "candidate" since
+# 2026-07-31; the cancelled rip that asked for 3 of 14 tracks is what it cost.
+
+
+@pytest.mark.parametrize(
+    ("value", "numbers"),
+    [
+        ("all", None),
+        ("1, 2, 3", (1, 2, 3)),
+        ("1, 3, 5, 6, 7", (1, 3, 5, 6, 7)),
+        ("14", (14,)),
+        # Not a list of track numbers, so no selection is claimed.
+        ("1, x", None),
+        ("0", None),
+        ("100", None),
+        ("1,, 2", None),
+        ("²", None),
+        ("3, 4, …, 16", None),
+    ],
+)
+def test_tracks_to_rip_reads_the_rippers_own_selection(
+    value: str, numbers: tuple[int, ...] | None
+) -> None:
+    """The verbatim value is always kept; the numbers only for a plain list."""
+    parsed = parse_cyanrip_log(f"cyanrip 0.9.3\nTracks to rip:  {value}\n")
+    assert parsed.tracks_to_rip == value
+    assert parsed.tracks_to_rip_numbers == numbers
+
+
+def test_an_unreadable_selection_is_logged_and_all_is_not(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Dependency output we cannot read is logged, never dropped silently. `all` is
+    the ordinary whole-disc shape, so logging it would be noise that buries the
+    real case."""
+    with caplog.at_level(logging.WARNING, logger="platterpus.parsers.cyanrip_log"):
+        parse_cyanrip_log("cyanrip 0.9.3\nTracks to rip:  all\n")
+    assert not [r for r in caplog.records if "Tracks to rip" in r.getMessage()]
+    with caplog.at_level(logging.WARNING, logger="platterpus.parsers.cyanrip_log"):
+        parse_cyanrip_log("cyanrip 0.9.3\nTracks to rip:  1 to 3\n")
+    assert [r for r in caplog.records if "'1 to 3'" in r.getMessage()]
+
+
+def test_every_committed_tracks_to_rip_value_is_recognised() -> None:
+    """Every `Tracks to rip:` line in a committed cyanrip log parses as `all` or as
+    a list, so none of them silently falls back to "not determined".
+
+    Floored, because a sweep that found no logs would pass: 52 such lines were in
+    the tree on 2026-09-28, across `all`, `1, 2`, `1, 2, 3` and `1, 3, 5, 6, 7`.
+    """
+    examined = 0
+    subsets = 0
+    for path in sorted(_REPO.rglob("*.log")):
+        if any(part.startswith(".") for part in path.relative_to(_REPO).parts):
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if "\nTracks to rip:" not in text or not looks_like_cyanrip_log(text):
+            continue
+        parsed = parse_cyanrip_log(text)
+        examined += 1
+        assert parsed.tracks_to_rip == "all" or parsed.tracks_to_rip_numbers, (
+            f"{path.relative_to(_REPO)}: {parsed.tracks_to_rip!r} was not recognised"
+        )
+        subsets += parsed.tracks_to_rip_numbers is not None
+    assert examined >= 30, examined
+    assert subsets >= 5, subsets
+
+
+@pytest.mark.parametrize(
+    ("where", "kind", "track"),
+    [
+        ("track 1, mid-read", cyanrip_log.INTERRUPTED_MID_READ, 1),
+        ("track 12, mid-read", cyanrip_log.INTERRUPTED_MID_READ, 12),
+        (
+            "between tracks, no read in progress",
+            cyanrip_log.INTERRUPTED_BETWEEN_TRACKS,
+            None,
+        ),
+        # A third wording is neither of the two published ones: not determined,
+        # never guessed into one of them.
+        ("track 1 mid-read", cyanrip_log.INTERRUPTED_NOT_DETERMINED, None),
+        ("track 0, mid-read", cyanrip_log.INTERRUPTED_NOT_DETERMINED, None),
+        ("during track 3", cyanrip_log.INTERRUPTED_NOT_DETERMINED, None),
+    ],
+)
+def test_interruption_point_reads_only_the_two_published_shapes(
+    where: str, kind: str, track: int | None
+) -> None:
+    point = cyanrip_log.interruption_point(where)
+    assert point is not None
+    assert (point.kind, point.track, point.where) == (kind, track, where)
+
+
+@pytest.mark.parametrize("where", [None, "", "   ", 7])
+def test_no_interruption_record_is_not_an_interruption_point(where: object) -> None:
+    """No line at all is a different answer from a line we cannot read."""
+    assert cyanrip_log.interruption_point(where) is None

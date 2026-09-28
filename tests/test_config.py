@@ -406,15 +406,23 @@ def test_v6_zero_bumps_to_two_but_nonzero_is_preserved(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The v6→v7 bump only rescues an inherited 0. A user who deliberately set a
-    non-zero ceiling keeps exactly that — the migration never lowers or clobbers a
-    real choice."""
+    non-zero value keeps exactly that — the migration never lowers or clobbers a
+    real choice.
+
+    The saved value was 5 until 2026-09-28. Beside the default Max retries of 5
+    that pair can never converge (`-Z 5` needs six identical reads and `-r 5`
+    stops at five), so the startup check now resets it — correctly, and not the
+    migration's doing; that reset is tested in `test_settings_validation.py`.
+    3 is a deliberate non-default choice the default `-r` can satisfy, which is
+    what this test is about.
+    """
     config_file = _redirect_config(tmp_path, monkeypatch)
-    config_file.write_text("schema_version = 6\nsecure_rerip_matches = 5\n")
+    config_file.write_text("schema_version = 6\nsecure_rerip_matches = 3\n")
 
     cfg = config_module.load()
 
     assert cfg.schema_version == SCHEMA_VERSION
-    assert cfg.secure_rerip_matches == 5  # deliberate value untouched
+    assert cfg.secure_rerip_matches == 3  # deliberate value untouched
 
 
 def test_v7_zero_is_left_alone_the_bump_is_one_time(
@@ -665,6 +673,30 @@ def test_an_out_of_range_read_offset_is_recorded_for_display(
     assert resets[0].old_value == "99999"  # so the user can put it back
     assert resets[0].new_value == "0"
     assert "-5000" in resets[0].message  # specific, not "invalid value"
+
+
+def test_a_hand_edited_value_about_to_be_reset_is_logged_with_its_value(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The reset destroys the value, so the log line is where it survives: the same
+    `settings input refused` line every other input surface writes, with 99999."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text(
+        "schema_version = 8\nread_offset = 99999\noverride_read_offset = true\n",
+        encoding="utf-8",
+    )
+    with caplog.at_level("WARNING"):
+        config_module.load()
+    config_module.take_load_resets()
+    lines = [
+        r.getMessage()
+        for r in caplog.records
+        if r.getMessage().startswith("settings input refused: read_offset = ")
+    ]
+    assert len(lines) == 1, [r.getMessage() for r in caplog.records]
+    assert lines[0].startswith("settings input refused: read_offset = 99999 — ")
 
 
 def test_take_load_resets_is_empty_for_a_clean_config(

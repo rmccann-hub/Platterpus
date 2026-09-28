@@ -673,10 +673,20 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   `FORK_PIN` `221a1df` and `PIN_UNDER_REVIEW` `e0471f4`, under the operator's §6b override
   in our lap 6. The AppImage build on `main` first failed on a GitHub API rate limit
   inside `python_appimage` (HTTP 403), and its rerun passed; no code changed between.
-- [ ] **Their reading of our lap 6 S37 (BLOCKING):** do they read S6 as met by a Full run
+- [x] **Their reading of our lap 6 S37 (BLOCKING):** do they read S6 as met by a Full run
   from 0.6.62 under the R1 override?
-- [ ] **The Full run on 0.6.62 + `.17`** (close condition 1, moved from 0.6.61 by the
-  operator's R1 override, our lap 6 S36), then both readings (S7).
+  - *Withdrawn 2026-09-28 by the operator's decision:* the Full run happened on 0.6.61,
+    as S6 was written, so round 28 closes on it and S36's move is not needed (our lap 8).
+- [x] **The Full run** (close condition 1): on 0.6.61 with `.17`, 2026-09-28 01:48-07:08
+  UTC, 320 of 320, `counts_as_evidence: true`. Its 46 text members are filed in
+  `docs/handshake/artifactsround28/` (bundle sha256 `91822017…`). It started before our
+  lap 6 moved the run to 0.6.62; the operator chose to close the round on it. Ledger
+  row: `partial` (`docs/testing.md` §5B, the 2026-09-28 row).
+- [ ] **Both readings (S7).** Ours is our lap 8: `GO`, with two archival defects of ours
+  fixed (the discarded verified track 3, and the partial-rip CTDB claim), neither
+  touching the pin. Theirs is their first lap after the bundle is committed to their
+  tree, bound to `GO` by their lap 3 S29 unless they find a defect in `.17` that breaks
+  the pin.
 - [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
 - [x] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
   failed once in about six full parallel runs on 2026-09-26**, and passed 8 of 8 alone
@@ -1473,6 +1483,31 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [ ] **E4. A marker for a superseded or abandoned read** — theirs to propose; ours:
   capture the discarded re-rip's log (schema bump), record re-read attempts not only
   swaps, tighten "kept the best read". KI:1171; TASKS@b8f89a2:197, 4327.
+  - *2026-09-28, part done:* "kept the best read" is gone; the warning names the read
+    the album keeps, and the auto-fix messages name why a re-read was kept. The rule
+    behind it changed too: the Full run of that day deleted a re-read AccurateRip had
+    verified (track 3), so which read to keep is now `verdict.reread_supersedes`,
+    AccurateRip first (PLANNING KDD-27, amended). **Still open:** the discarded
+    re-read's log still dies with its temp folder; its output survives only in the
+    report's `artifacts.ripper_stdout`.
+- [ ] **Round 29: refuse `-Z N` with `-r` ≤ N at the argv chokepoint, and ship the
+  regenerated `docs/seam-commands.md` §1a both ways.** Written and revert-probed on
+  2026-09-28 by a helper (`assert_secure_reread_can_converge`; the commit was not
+  integrated, so it has no id on our `main`),
+  held back from round 28's close because it changes a jointly held file whose hash
+  both gates check (the `-Z 10` probe row becomes `raised`), and S-14 puts a finding in
+  the next round. What landed without it: the settings validator refuses the pair
+  (`e6c63ea4`), the recovery re-read caps its own `-Z` (`385f488c`), and the Full
+  script runs its rips on Max retries 5. **Also then:** the rig check's reference argv
+  moves from `-r 3 -Z 3` (which can never converge; it probes a nonexistent cue and never
+  rips) to the shipped defaults, and the fork is asked whether cyanrip's own argument
+  parsing should refuse the pair (`cyanrip@e0471f4:src/cyanrip_main.c:1005`, `:1011`).
+- [ ] **The ripper-stdout capture drops every `Track N read successfully!` header** with
+  the progress redraws, so the parser cannot open a track from the capture alone. Found
+  2026-09-28 building a test on the Full run's embedded re-read
+  (`round28fullwholediscreport.json`, `artifacts.ripper_stdout`, lines 1182-1229): the
+  track blocks are all there, without the lines that start them. Matters when the
+  capture is the only copy, as it is for every discarded re-read (E4).
 - [ ] **E5. The `-j` diagnostics record goes nowhere** — lands in the rips root, nothing
   reads it, the auto-bundle does not collect it; and **`Encoder errors:` has no `-j`
   field in P8 at `3e01bb3`** (*derived*), leaving half of TASKS@b8f89a2:805 open. Both.

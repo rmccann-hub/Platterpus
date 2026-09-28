@@ -24,6 +24,7 @@ from platterpus.adapters.ctdb_client import CTDBClient, CtdbHttpImpl
 from platterpus.ctdb import crc as crc_mod
 from platterpus.ctdb import decode
 from platterpus.ctdb.calibrate import calibrate, crc_at_offset
+from platterpus.ctdb.coverage import disc_track_count
 from platterpus.ctdb.crc import CTDB_OFFSET_RANGE, ctdb_trims
 from platterpus.ctdb.toc import SamplesProbe, disc_toc_from_files
 from platterpus.ctdb.verify import PcmDecoder, Verdict, verify_rip
@@ -32,8 +33,8 @@ from platterpus.ctdb.verify import PcmDecoder, Verdict, verify_rip
 Out = Callable[[str], None]
 
 
-def find_flacs(folder: Path) -> list[Path]:
-    """The album's FLACs in track order.
+def find_rip(folder: Path) -> rip_files.RipFileSet:
+    """The album's FLACs in track order, with the parsed log that named them.
 
     Asks the shared "which files did this rip write?" helper
     (:mod:`platterpus.rip_files`) rather than listing the folder, so a folder that
@@ -43,8 +44,17 @@ def find_flacs(folder: Path) -> list[Path]:
     helper falls back to the old filename-sorted glob (and logs that it did) when
     the folder has no usable rip log, which is common here: this is the
     ``--ctdb-calibrate`` path, aimed at any folder the maintainer names.
+
+    The log comes back with the files (``RipFileSet.rip_log``) because it also
+    says how many tracks the DISC has, which decides whether these files can be
+    looked up in CTDB at all.
     """
-    return list(rip_files.rip_master_files(folder).files)
+    return rip_files.rip_master_files(folder)
+
+
+def find_flacs(folder: Path) -> list[Path]:
+    """Just the files of :func:`find_rip` — the list the diagnostics works over."""
+    return list(find_rip(folder).files)
 
 
 def run_diagnostics(
@@ -71,7 +81,8 @@ def run_diagnostics(
     decode_pcm = decoder or decode.decode_flac_to_pcm
     probe = samples_probe or decode.total_samples
 
-    flacs = find_flacs(folder)
+    file_set = find_rip(folder)
+    flacs = list(file_set.files)
     if not flacs:
         out(f"No .flac files found in {folder}")
         return 2
@@ -79,6 +90,16 @@ def run_diagnostics(
     out(f"Found {len(flacs)} track(s):")
     for p in flacs:
         out(f"  - {p.name}")
+    disc_tracks = disc_track_count(file_set.rip_log)
+    partial = disc_tracks is not None and len(flacs) < disc_tracks
+    if partial:
+        # Said BEFORE the TOC is printed, because the TOC below is built from
+        # these files and would otherwise read as the disc's.
+        out(
+            f"\nNOTE: the rip's log says the disc has {disc_tracks} tracks and "
+            f"{len(flacs)} are here. The TOC below is built from these files "
+            "only, so it is not the disc's TOC, and CTDB is not asked about it."
+        )
 
     # Show the TOC + lookup URL so the wire format can be eyeballed/confirmed.
     try:
@@ -95,7 +116,13 @@ def run_diagnostics(
     out(f"\nFLAC decoder present: {decode.flac_available()}")
     out(f"CRC algorithm validated (KDD-16): {crc_mod.CRC_VALIDATED}\n")
 
-    result = verify_rip(flacs, client, decoder=decode_pcm, samples_probe=probe)
+    result = verify_rip(
+        flacs,
+        client,
+        disc_tracks=disc_tracks,
+        decoder=decode_pcm,
+        samples_probe=probe,
+    )
     out(f"Verdict:    {result.verdict.value}")
     out(f"Confidence: {result.confidence}")
     if result.our_crc is not None:
@@ -111,7 +138,16 @@ def run_diagnostics(
             "confirmed bit-exact on hardware (KDD-16)."
         )
 
-    if calibrate_crc:
+    if calibrate_crc and partial:
+        # Calibration re-runs the lookup with the same file-built TOC, so on a
+        # partial rip it would ask CTDB about a disc that does not exist and then
+        # report "this disc isn't in CTDB" — the false claim the verify just
+        # declined to make.
+        out(
+            "\nCalibration skipped: it needs the whole disc, and this folder holds "
+            f"{len(flacs)} of its {disc_tracks} tracks."
+        )
+    elif calibrate_crc:
         _run_calibration(flacs, client, decode_pcm, probe, out)
     return 0
 
