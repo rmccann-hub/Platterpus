@@ -94,6 +94,14 @@ def normalise(name: str) -> str:
     return "".join(ch for ch in name.lower() if ch.isascii() and ch.isalnum())
 
 
+def _resolved(directory: Path) -> Path:
+    """``directory`` made absolute, or as given if that fails (never raises)."""
+    try:
+        return directory.resolve()
+    except (OSError, RuntimeError):  # RuntimeError: a symlink loop
+        return directory
+
+
 def _candidates_in(directory: Path, keys: frozenset[str]) -> list[Path]:
     """Every readable file in ``directory`` whose name normalises to one of ``keys``."""
     try:
@@ -119,6 +127,34 @@ def _keys_for(name: str, *, bare: bool) -> frozenset[str]:
     if not key or not bare:
         return frozenset({key}) if key else frozenset()
     return frozenset({key, *(key + normalise(suffix) for suffix in SCRIPT_SUFFIXES)})
+
+
+def _what_differed(typed: str, found: str) -> str:
+    """What separates the name typed from the name matched, said as it happened.
+
+    A bare name widened with a suffix is "added .txt"; one that differed only in
+    separators or case is said so; both, when both. This used to say "same name
+    once separators and case are ignored" for every match that was not identical,
+    so `--run-script fullacceptance` reaching `fullacceptance.txt` reported a
+    normalisation that never took place (review R11, 2026-09-28): a false note
+    about a true result, in the module whose job is saying which file ran and why.
+    """
+    added = next(
+        (
+            suffix
+            for suffix in SCRIPT_SUFFIXES
+            if not Path(typed).suffix
+            and found.lower().endswith(suffix)
+            and normalise(found[: -len(suffix)]) == normalise(typed)
+        ),
+        None,
+    )
+    if added is None:
+        return "same name once separators and case are ignored"
+    written = found[-len(added) :]  # the suffix as it is spelled on disk
+    if found[: -len(added)] == typed:
+        return f"added {written}"
+    return f"added {written}, and the same name once separators and case are ignored"
 
 
 def _which_copy(found: Path, keys: frozenset[str]) -> str:
@@ -181,9 +217,12 @@ def resolve_script_path(raw: str) -> tuple[Path | None, str]:
     # The directory the operator named comes first: if they pointed at a folder,
     # a match there is what they meant, even if a same-named file sits in
     # ~/Downloads too. The packaged directory comes LAST (module docstring).
+    # Resolved, like the fallbacks, so the check below sees that a bare name's
+    # parent `.` and the fallback `.` are one directory. Unresolved, the current
+    # directory was searched twice and listed twice in the answer (review R11).
     searched: list[Path] = []
-    ordered: list[Path] = [given.parent]
-    ordered += [Path(d).expanduser().resolve() for d in FALLBACK_DIRS]
+    ordered: list[Path] = [_resolved(given.parent)]
+    ordered += [_resolved(Path(d).expanduser()) for d in FALLBACK_DIRS]
     ordered.append(packaged_scripts_dir())
 
     for directory in ordered:
@@ -206,8 +245,8 @@ def resolve_script_path(raw: str) -> tuple[Path | None, str]:
                 return found, f"found: {found}\n{copy}"
             return found, (
                 f"found: {found}\n"
-                f"  (you typed {given.name!r}; matched {found.name!r} — same name "
-                f"once separators and case are ignored)\n{copy}"
+                f"  (you typed {given.name!r}; matched {found.name!r} — "
+                f"{_what_differed(given.name, found.name)})\n{copy}"
             )
         if len(matches) > 1:
             names = ", ".join(sorted(p.name for p in matches))
