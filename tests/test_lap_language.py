@@ -884,7 +884,7 @@ def _handshake_module() -> ModuleType:
 def test_r6_counts_exactly_the_pre_commits_a2_accepts(
     tmp_path: Path, version: int, owner: str, refused_by: tuple[str, ...]
 ) -> None:
-    """A lap 5 of round 29 whose only pre-commit is A2's structured `WILL`. When
+    """A lap 5 of round 99 whose only pre-commit is A2's structured `WILL`. When
     the lap's own LSL accepts it, R6 must count it; when LSL refuses it, R6 must
     not. Before R15, R6 refused the LSL 2 lap A2 accepted, as "carries no
     pre-commit". Before Q6, R6 counted the LSL 1 one, which LSL 1 refuses because
@@ -896,7 +896,13 @@ def test_r6_counts_exactly_the_pre_commits_a2_accepts(
     # LSL 3's B1 wants the commit a `run:` ran at; the lap header names it.
     commit = _FROM_COMMIT if version == 3 else ""
     text = (
-        _header(round_number=29, lap=5, verdict="HOLD").rstrip("\n")
+        # **Round 99, not 29** (moved 2026-09-28). The checker reads the REAL laps
+        # of the lap's round for A2's cross-lap promise, and this used to name
+        # round 29, which had none. Once our real round 29 lap 2 pre-committed a
+        # `GO`, this made-up lap 5 was bound by it and refused under A2 for
+        # declaring HOLD: the case was testing the repository's state, not the
+        # rule. A round no real lap will reach keeps it about the rule alone.
+        _header(round_number=99, lap=5, verdict="HOLD").rstrip("\n")
         + "\n"
         + commit
         + f"\nLSL: {version}\n\n"
@@ -921,7 +927,7 @@ def test_r6_counts_exactly_the_pre_commits_a2_accepts(
     # NON-TRIVIALITY: the sentence does not carry the prose form, so the
     # structured fields are the only thing R6 can count.
     assert "is `GO` unless" not in text and "is GO unless" not in text
-    r6 = _handshake_module().pre_commit_problems(text, "round-29-lap-05.md")
+    r6 = _handshake_module().pre_commit_problems(text, "round-99-lap-05.md")
     assert (r6 == []) == lsl_accepts, r6
     if not lsl_accepts:
         assert len(r6) == 1 and "carries no pre-commit" in r6[0], r6
