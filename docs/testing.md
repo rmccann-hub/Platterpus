@@ -3851,6 +3851,7 @@ cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
 | 2026-09-24 | 0.6.55 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-26 | 0.6.60 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-28 | 0.6.61 | maintainer | bdr209d | bazzite | partial |
+| 2026-09-28 | 0.6.62 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -3988,6 +3989,22 @@ S6, on the operator's decision). The errors, both ours and both archival
 Section B's retry limit of 3 also governed every secure re-read of the run, one
 agreeing read more than `-Z 2` needs, so the run measured convergence under a stricter
 ceiling than users get. That makes its instability findings harder to pass, not easier.
+
+**The 2026-09-28 0.6.62 row is a second Full run on `.17`, 320 of 320, and is `partial`
+for the same reason as the row before it: the errors are in our records, not in any
+step.** It is the cleanest rip on file. The whole-disc rip matches the EAC baseline on
+all 14 tracks, including track 5, which CTDB verifies; the secure re-read converged on
+every track at the first attempt; every ripper log verified; and 125,777 app-log lines
+held no `ERROR`, `CRITICAL` or traceback. But 0.6.62 still carries the record defects
+0.6.63 fixed, and this run shows them again: five partial-rip reports say the disc is
+not in CTDB, the cancelled rip's EAC-layout log says tracks were *"never extracted"*,
+and `DIAGNOSTICS` names 0.6.62 beside an approval for 0.6.60
+(`docs/handshake/artifactsround28/README.md`, second run). **It is not a second witness
+for the run before it** in the sense `0.7.100` needs: the same machine, drive, disc
+and ripper build, one day, the same person, and the same blind spots, so it adds
+nothing towards the "two machines, two distros" bar. What it does add is a second
+reading of track 5: `E0036697` four times in one rip, EAC's value, against `6902BCF0`
+three times in the next.
 
 Every row so far is `partial`, zero `full-green`. **No full-green pass has been
 achieved**, so 0.9.1 is not reachable and the count toward it is zero. Recording
