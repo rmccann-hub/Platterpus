@@ -40,6 +40,7 @@ from platterpus.deps.resolvers import (
 from platterpus.deps.version import format_version
 from platterpus.paths import LOG_PATH
 from platterpus.ui import dependency_check_status as dep_status
+from platterpus.ui import message_boxes
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.manual_install import ManualInstallDialog
 from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
@@ -427,9 +428,7 @@ class DependencyMixin(MainWindowShared):
         """
         if report is None:
             if show_summary:
-                from PySide6.QtWidgets import QMessageBox
-
-                QMessageBox.warning(
+                message_boxes.warning(
                     self,
                     "Couldn't check dependencies",
                     "The dependency check stopped with an unexpected error, so "
@@ -627,7 +626,7 @@ class DependencyMixin(MainWindowShared):
                 f"For reference, {plural} installed — none of it is required to "
                 f"rip:\n\n{bullets}\n\nInstall it now?"
             )
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Optional components",
             lead,
@@ -638,7 +637,7 @@ class DependencyMixin(MainWindowShared):
             return
         opt_report = DependencyReport(missing=list(optional_missing))
         self._resolve_missing_unified(opt_report)
-        QMessageBox.information(
+        message_boxes.information(
             self,
             "Optional components",
             "Done. Re-run Tools → Setup & Updates… → Check dependencies to "
@@ -928,8 +927,8 @@ class DependencyMixin(MainWindowShared):
         # attention; inform when nothing does. An incomplete check is not
         # "complete", so it does not say so in its title either.
         if not_checked:
-            QMessageBox.warning(self, "Dependency check incomplete", message)
+            message_boxes.warning(self, "Dependency check incomplete", message)
         elif attention:
-            QMessageBox.warning(self, "Dependency check complete", message)
+            message_boxes.warning(self, "Dependency check complete", message)
         else:
-            QMessageBox.information(self, "Dependency check complete", message)
+            message_boxes.information(self, "Dependency check complete", message)

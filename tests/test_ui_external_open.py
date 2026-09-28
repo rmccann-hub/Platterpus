@@ -21,8 +21,9 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QUrl
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
 
+from platterpus.ui import message_boxes
 from platterpus.ui.dialogs.file_viewer import FileViewerDialog
 from platterpus.ui.external_open import open_path_externally
 from platterpus.ui.rip_progress import RipProgress
@@ -36,7 +37,7 @@ def shown(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     def fake_information(_parent: object, _title: str, text: str, *a: object) -> None:
         bodies.append(text)
 
-    monkeypatch.setattr(QMessageBox, "information", fake_information)
+    monkeypatch.setattr(message_boxes, "information", fake_information)
     return bodies
 
 

@@ -4359,8 +4359,10 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
   rounds are CLOSED as of this commit, so the release gate itself is clear.
 
 - [ ] **The 13 `QLabel(<non-literal>)` sites are outside the PlainText sweep.**
-  `tests/test_message_boxes_are_plaintext.py` covers `QMessageBox` (6 sites, all
-  pinned). These are not covered, and the reason is honest rather than principled:
+  `tests/test_message_boxes_are_plaintext.py` covers `QMessageBox`: the functions
+  that construct one (10 sites, all pinned) and, since 2026-09-28, Qt's static
+  helpers too, which it refuses outright (the 38 calls it had never seen now go
+  through `ui/message_boxes.py`, which pins PlainText). These are not covered, and the reason is honest rather than principled:
   most build their text from our own constants, so a blanket rule would need a long
   allowlist, and an allowlist that fills up enforces nothing. Assess them
   individually and pin the ones that carry external text:

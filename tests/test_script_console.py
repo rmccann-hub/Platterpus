@@ -48,6 +48,7 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     pattern; kept in step with it deliberately rather than invented afresh.
     """
     from platterpus import config as config_module
+    from platterpus.ui import message_boxes
 
     monkeypatch.setattr(config_module, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / "config.toml")
@@ -64,9 +65,9 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     for name in ("warning", "information", "question", "critical"):
         monkeypatch.setattr(
-            QMessageBox,
+            message_boxes,
             name,
-            staticmethod(lambda *a, **k: QMessageBox.StandardButton.No),
+            lambda *a, **k: QMessageBox.StandardButton.No,
         )
     monkeypatch.setattr(QDialog, "exec", lambda self: 0)
 

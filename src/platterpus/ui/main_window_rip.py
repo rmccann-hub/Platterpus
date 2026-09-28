@@ -75,6 +75,7 @@ from platterpus.parsers.rip_log import RipLog, TrackResult, parse_rip_log
 from platterpus.paths import LOG_PATH
 from platterpus.report_types import ArtifactsBlock, DebugBlock, TimingBlock
 from platterpus.rip_addendum import read_log_with_addendum
+from platterpus.ui import message_boxes
 from platterpus.ui.main_window_helpers import (
     _dir_has_audio,
     ambiguous_overwrite_text,
@@ -465,7 +466,7 @@ class RipMixin(MainWindowShared):
             # No offset configured AND we don't know this drive's offset →
             # the only case that still needs the wizard. (A known drive is
             # auto-applied above, so the user is never blocked for it.)
-            answer = QMessageBox.warning(
+            answer = message_boxes.warning(
                 self,
                 "Set up your drive first",
                 "No read offset is configured for your drive, so ripping can't "
@@ -514,7 +515,7 @@ class RipMixin(MainWindowShared):
                 )
                 if not deliberate:
                     label = f"{drive.vendor.strip()} {drive.model.strip()}".strip()
-                    answer = QMessageBox.warning(
+                    answer = message_boxes.warning(
                         self,
                         "Read offset disagreement",
                         f"The saved read offset is {self._config.read_offset:+d}, "
@@ -572,7 +573,7 @@ class RipMixin(MainWindowShared):
         if not params.unknown:
             ok, message = self._track_table.validate()
             if not ok:
-                QMessageBox.warning(self, "Cannot start rip", message)
+                message_boxes.warning(self, "Cannot start rip", message)
                 return
             # Known-disc overwrite guard (2026-07-08 trust audit): a re-rip of an
             # ALREADY-identified album to the same folder used to overwrite the
@@ -1400,7 +1401,7 @@ class RipMixin(MainWindowShared):
         file is validated to be a real JPEG/PNG/GIF at pick time so a wrong file
         is caught here, not silently at rip end.
         """
-        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        from PySide6.QtWidgets import QFileDialog
 
         from platterpus.adapters.cover_art import image_extension
 
@@ -1415,10 +1416,10 @@ class RipMixin(MainWindowShared):
         try:
             head = Path(path_str).read_bytes()[:16]
         except OSError as exc:
-            QMessageBox.warning(self, "Cover art", f"Couldn't read that file:\n{exc}")
+            message_boxes.warning(self, "Cover art", f"Couldn't read that file:\n{exc}")
             return
         if not image_extension(head):
-            QMessageBox.warning(
+            message_boxes.warning(
                 self, "Cover art", "That file isn't a JPEG, PNG, or GIF image."
             )
             return
@@ -2118,7 +2119,7 @@ class RipMixin(MainWindowShared):
         click Start without needing a MusicBrainz release ID.
         """
         if not self._drive_picker.current_device():
-            QMessageBox.warning(
+            message_boxes.warning(
                 self,
                 "Cannot rip",
                 "Select a drive first.",

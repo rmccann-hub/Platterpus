@@ -54,6 +54,21 @@ _NO_FLOOR: Final[str] = "NO FLOOR NEEDED:"
 #: genuinely cannot be floored, say why here in place of a test name — but a
 #: population that cannot state a minimum is usually one nobody has counted.
 _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
+    # Added 2026-09-28 with `ui/message_boxes.py`. The first two parametrize over
+    # the four kinds of stock box; their floor derives the kinds from the module's
+    # own public functions, so a new kind without a case, or an emptied table,
+    # fails by name. The third parametrizes over every (kind, buttons, action)
+    # compared against Qt's real static helpers; its floor requires every kind,
+    # every way of closing a box and at least 60 cases.
+    "test_message_boxes_are_plaintext.py::test_the_builder_pins_plaintext_for_every_kind": (
+        "test_every_kind_the_module_offers_is_in_the_population"
+    ),
+    "test_message_boxes_are_plaintext.py::test_each_function_shows_the_built_box": (
+        "test_every_kind_the_module_offers_is_in_the_population"
+    ),
+    "test_ui_message_boxes.py::test_each_function_answers_as_qts_static_helper_does": (
+        "test_the_comparison_covers_every_kind_and_every_way_to_close"
+    ),
     # Added 2026-09-26 with the lap language. Parametrizes over `_BROKEN`, one
     # broken lap per rule; the floor requires every lap rule the checker can
     # emit to have its case, so an emptied or shortened table fails by name.

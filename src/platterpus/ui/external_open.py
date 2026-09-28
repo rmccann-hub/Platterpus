@@ -33,7 +33,9 @@ from pathlib import Path
 
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QWidget
+
+from platterpus.ui import message_boxes
 
 log = logging.getLogger(__name__)
 
@@ -69,7 +71,7 @@ def open_path_externally(
     # state, and the recovery is "here is the path". Logged at warning because
     # a user reporting "the button does nothing" needs this line to exist.
     log.warning("desktop declined to open %s: %s", what, path)
-    QMessageBox.information(
+    message_boxes.information(
         parent,
         f"Open {what}",
         f"Your {what} is here:\n{path}\n\n"
@@ -107,7 +109,7 @@ def open_web_url(
     if opener(QUrl(url)):
         return True
     log.warning("desktop declined to open %s: %s", what, url)
-    QMessageBox.information(
+    message_boxes.information(
         parent,
         f"Open {what}",
         f"The {what} is here:\n{url}\n\n"
