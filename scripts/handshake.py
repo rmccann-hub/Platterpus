@@ -894,12 +894,22 @@ R6_GATE_FROM_ROUND: Final[int] = 29
 #: The lap from which R6 requires a pre-commit.
 R6_FROM_LAP: Final[int] = 5
 
-#: A pre-commit in R6's form, in prose or as an LSL `WILL` statement: some lap of
-#: the writer's "is `GO` unless" something. The subject may be long — our round 28
-#: lap 4 wrote "Our lap after the Full run's bundle is committed to our tree is
-#: `GO` unless …" — so it is allowed up to one sentence.
+#: One character of a pre-commit's subject: anything but a line end or a
+#: sentence end. A dot followed directly by a letter or digit ends no sentence —
+#: "v0.6.62", "e.g", "round-28-lap-05.md" — so it may stand in the subject (review
+#: finding R15, 2026-09-28: "Our next lap after v0.6.62 ships is `GO` unless the
+#: run fails" was read as carrying no pre-commit, because the dots stopped it).
+_SUBJECT_CHAR: Final[str] = r"(?:[^.\n]|\.(?=\w))"
+
+#: A pre-commit in R6's form, in prose, anywhere in a lap (an LSL `WILL`'s
+#: sentence included): some lap of the writer's "is `GO` unless" something. The
+#: subject may be long — our round 28 lap 4 wrote "Our lap after the Full run's
+#: bundle is committed to our tree is `GO` unless …" — so it is allowed up to one
+#: sentence. The structured form, a `WILL` with `verdict: GO` and `unless:`, is
+#: read by LSL's own parser instead (:func:`_lsl_go_pre_commits`).
 _PRE_COMMIT: Final[re.Pattern[str]] = re.compile(
-    r"\blap\b[^.\n]{0,200}?\bis\s+[`*_]*GO[`*_]*\s+unless\b", re.IGNORECASE
+    rf"\blap\b{_SUBJECT_CHAR}{{0,200}}?\bis\s+[`*_]*GO[`*_]*\s+unless\b",
+    re.IGNORECASE,
 )
 
 #: The shape R6 forbids by name: the bound lap given as a NUMBER ("our lap 15 is
@@ -916,10 +926,66 @@ _PRE_COMMIT: Final[re.Pattern[str]] = re.compile(
 #: out loud: "our lap 15, after your lap 10, is `GO` unless" is not refused, because
 #: a regular expression cannot tell that clause from the recall.
 _PRE_COMMIT_BY_NUMBER: Final[re.Pattern[str]] = re.compile(
-    r"\bour\s+lap\s+\d+\b(?:(?!\blap\b)[^.\n\"“”:;]){0,120}?"
+    r"\bour\s+lap\s+\d+\b(?:(?!\blap\b)(?![\"“”:;])"
+    rf"{_SUBJECT_CHAR}){{0,120}}?"
     r"\bis\s+[`*_]*GO[`*_]*\s+unless\b",
     re.IGNORECASE,
 )
+
+#: "Our lap 15" in a structured pre-commit's `when:` — the numbered form, said in
+#: a field instead of a sentence.
+_OUR_LAP_NUMBER: Final[re.Pattern[str]] = re.compile(
+    r"\bour\s+lap\s+\d+\b", re.IGNORECASE
+)
+
+#: Where `laplang`, LSL's own reader, lives: beside this file.
+_SCRIPTS_DIR: Final[Path] = Path(__file__).resolve().parent
+
+
+@dataclass(frozen=True)
+class LslPreCommit:
+    """One LSL `WILL` that pre-commits `GO`: its tag, and what its `when:` says."""
+
+    tag: str
+    when: tuple[str, ...]
+
+
+def _lsl_go_pre_commits(text: str) -> list[LslPreCommit]:
+    """Every pre-commit in LSL's structured form (amendment A2): a `WILL` whose
+    `owner:` is `us`, with `verdict: GO` and an `unless:` naming X.
+
+    That is R6's "our next lap is `GO` unless X", said in fields: A2 binds the
+    author's NEXT lap by construction, and `unless:` is the X. Review finding
+    R15 (2026-09-28): this gate read only the prose sentence, so a lap that
+    `lap_language.py` accepted, and would hold its author to, was refused here as
+    carrying no pre-commit — two checkers of one seam disagreeing about one
+    statement. **Read by LSL's own parser, not by a second pattern of ours**, so
+    the two cannot disagree about what a statement and its fields are. A lap
+    that is not LSL, or declares a version the parser does not implement, has no
+    statements, and only the prose form counts for it. Never raises: the parser
+    does not.
+    """
+    # Imported here, not at the top: `laplang` is a package beside this script,
+    # which `python3 scripts/handshake.py` finds on its own and a test that loads
+    # this file by path does not, so the directory is put on the path first.
+    if str(_SCRIPTS_DIR) not in sys.path:
+        sys.path.append(str(_SCRIPTS_DIR))
+    from laplang.grammar import parse_lap  # noqa: PLC0415
+
+    found: list[LslPreCommit] = []
+    for stmt in parse_lap(text, Path("lap.md")).statements:
+        if stmt.kind != "WILL":
+            continue
+        if [f.value for f in stmt.values("owner")] != ["us"]:
+            continue  # only the author can pre-commit its own verdict (A2)
+        if [f.value for f in stmt.values("verdict")] != ["GO"]:
+            continue
+        if not any(f.value.strip() for f in stmt.values("unless")):
+            continue  # R6 names X
+        found.append(
+            LslPreCommit(stmt.tag, tuple(f.value for f in stmt.values("when")))
+        )
+    return found
 
 
 def pre_commit_problems(text: str, where: str) -> list[str]:
@@ -949,17 +1015,25 @@ def pre_commit_problems(text: str, where: str) -> list[str]:
         return []
     body = _unfenced_body(text)
     problems: list[str] = []
-    for match in _PRE_COMMIT_BY_NUMBER.finditer(body):
+    numbered = [repr(m.group(0)) for m in _PRE_COMMIT_BY_NUMBER.finditer(body)]
+    structured = _lsl_go_pre_commits(body)
+    for will in structured:
+        numbered.extend(
+            f"{will.tag}'s when: {value!r}"
+            for value in will.when
+            if _OUR_LAP_NUMBER.search(value)
+        )
+    for shape in numbered:
         problems.append(
             f"{where}: R6: a pre-commit names a lap NUMBER, not an event: "
-            f"{match.group(0)!r}. Name what happens, as R6's own example does: "
+            f"{shape}. Name what happens, as R6's own example does: "
             '"the first lap we send after receiving your lap 10", not "our lap 15"'
         )
-    if not problems and not _PRE_COMMIT.search(body):
+    if not problems and not _PRE_COMMIT.search(body) and not structured:
         problems.append(
             f"{where}: R6: lap {lap_no} carries no pre-commit — from lap "
             f'{R6_FROM_LAP} every lap states "our next lap is `GO` unless X", '
-            "naming X"
+            "naming X, in a sentence or as an LSL WILL with verdict: GO and unless:"
         )
     return problems
 

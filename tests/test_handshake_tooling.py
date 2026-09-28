@@ -4476,6 +4476,74 @@ def test_r6_still_finds_every_numbered_pre_commit_in_the_record() -> None:
     } <= found, found
 
 
+#: LSL's structured pre-commit (amendment A2), in the form `tests/
+#: test_lap_language.py` uses for it. The cases below add to it by concatenation,
+#: never by a call, so the population stays written out
+#: (`tests/test_dynamic_sweeps_declare_a_floor.py`).
+_A2_HEAD: Final[str] = "LSL: 3\n\nS2 WILL: Declare GO in our next lap.\n"
+_A2_GO_UNLESS: Final[str] = "  verdict: GO\n  unless: the Full run fails\n"
+
+
+@pytest.mark.parametrize(
+    ("body", "expect"),
+    [
+        # R15 (a): the structured form, which lap_language.py accepts and holds
+        # its author to, is a pre-commit here too.
+        (_A2_HEAD + "  owner: us\n  when: our next lap\n" + _A2_GO_UNLESS, None),
+        # ... and it names no lap NUMBER in its when:, or it is refused as one.
+        (
+            _A2_HEAD + "  owner: us\n  when: our lap 15\n" + _A2_GO_UNLESS,
+            "S2 WILL's when: 'our lap 15'",
+        ),
+        # Not R6's form: a HOLD, no X named, or a promise the author cannot make.
+        (
+            _A2_HEAD + "  owner: us\n  when: our next lap\n  verdict: HOLD\n"
+            "  unless: the Full run passes\n",
+            "carries no pre-commit",
+        ),
+        (
+            _A2_HEAD + "  owner: us\n  when: our next lap\n  verdict: GO\n",
+            "carries no pre-commit",
+        ),
+        (
+            _A2_HEAD + "  owner: them\n  when: our next lap\n" + _A2_GO_UNLESS,
+            "carries no pre-commit",
+        ),
+        # Quoted in a fence, it is quoted, not stated.
+        (
+            "```\n"
+            + _A2_HEAD
+            + "  owner: us\n  when: our next lap\n"
+            + _A2_GO_UNLESS
+            + "```\n",
+            "carries no pre-commit",
+        ),
+        # R15 (b): a dot that ends no sentence may stand in the subject...
+        ("Our next lap after v0.6.62 ships is `GO` unless the run fails.", None),
+        (
+            "Our lap 15, after v0.6.62 ships, is `GO` unless the run fails.",
+            "names a lap NUMBER",
+        ),
+        # ... and one that ends a sentence still stops it.
+        ("That lap is late. It is `GO` unless the run fails.", "carries no pre-commit"),
+    ],
+)
+def test_r6_reads_lsl_s_structured_pre_commit_and_a_dotted_subject(
+    body: str, expect: str | None
+) -> None:
+    """Review finding R15: R6 read only a one-line prose sentence with no dot in
+    its subject, so LSL's own pre-commit and "our next lap after v0.6.62 ships"
+    were both refused as carrying none."""
+    hs = _load()
+    problems = hs.pre_commit_problems(
+        _r6_lap(29, 5, body, "HOLD"), "round-29-lap-05.md"
+    )
+    if expect is None:
+        assert problems == [], problems
+    else:
+        assert len(problems) == 1 and expect in problems[0], problems
+
+
 def test_r6_binds_from_lap_5_of_round_29_only() -> None:
     """The floor, pinned on both axes, so a later edit cannot quietly widen it
     over sent laps (a gate that refuses what was legal when sent rewrites the
