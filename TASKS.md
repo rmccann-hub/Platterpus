@@ -1490,6 +1490,17 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     AccurateRip first (PLANNING KDD-27, amended). **Still open:** the discarded
     re-read's log still dies with its temp folder; its output survives only in the
     report's `artifacts.ripper_stdout`.
+- [ ] **Round 29: refuse `-Z N` with `-r` ≤ N at the argv chokepoint, and ship the
+  regenerated `docs/seam-commands.md` §1a both ways.** Written and revert-probed on
+  2026-09-28 (helper branch commit `167e0d4c`, `assert_secure_reread_can_converge`),
+  held back from round 28's close because it changes a jointly held file whose hash
+  both gates check (the `-Z 10` probe row becomes `raised`), and S-14 puts a finding in
+  the next round. What landed without it: the settings validator refuses the pair
+  (`fddd4825`), the recovery re-read caps its own `-Z` (`9ff21de7`), and the Full
+  script runs its rips on Max retries 5. **Also then:** the rig check's reference argv
+  moves from `-r 3 -Z 3` (which can never converge; it probes a nonexistent cue and never
+  rips) to the shipped defaults, and the fork is asked whether cyanrip's own argument
+  parsing should refuse the pair (`cyanrip@e0471f4:src/cyanrip_main.c:1005`, `:1011`).
 - [ ] **The ripper-stdout capture drops every `Track N read successfully!` header** with
   the progress redraws, so the parser cannot open a track from the capture alone. Found
   2026-09-28 building a test on the Full run's embedded re-read
