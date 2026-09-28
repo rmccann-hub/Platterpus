@@ -74,6 +74,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   added later starts read-only. A new test holds every workflow to that shape. A
   comment in `ci.yml` that said cloud sessions cannot trigger CI is corrected: this
   project's sessions do.
+- **For contributors: two comments that described the code wrongly are corrected.**
+  The cyanrip adapter's comment beside `-T` still argued for `os_unicode`, although
+  the pinned mode is `unicode`, and the script runner said the test-script language
+  has no quoting, although it groups a double-quoted value into one argument.
 
 ### Fixed
 
