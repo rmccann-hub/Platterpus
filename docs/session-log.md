@@ -11,7 +11,7 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-## 2026-09-28 — Round 29 opens on `.18`: the pin under review moves, and 0.6.63 is prepared
+## 2026-09-28 — Round 29 opens on `.18`: the pin under review moves, our lap 2 is released, and 0.6.63 ships under §6b
 
 **Asked:** the fork released round 29 lap 1 (`566d3fa`, sha256 `2e275d2f…`). The operator
 then answered three questions: the tag key set is accepted as landed; 0.6.63 goes out
@@ -34,12 +34,30 @@ it is ready.
   - the EAC-compatible log's first line begins with "Platterpus" (`da100ab5`, their
     S31);
   - our lap checker reads B1 as round 29 agreed (`df6d4dd5`, their S28 and S29).
+- *Our lap 2, released on the operator's word* (`5eea3524`): sha256 `fa50847a…`, 14,646
+  bytes, `OPEN`, written from `561551ec` (the merge of #272), carrying the §6b override for
+  v0.6.63. It sends our two `-Z`/`-r` rows for the shared `docs/seam-commands.md` and asks
+  the order (S24, `NEXT-ROUND`).
+- *The Tools entry for "Set cover art from file…" is gone* (`4db0f65f`): the 0.6.63 bump
+  failed until it was, as the transitional test intended.
+- *0.6.63 released* from `d226c03b` (the merge of #273), release run `36475984863`, once
+  main's own CI on that commit (`36475375918`) was green. It installs `e0471f4` by default
+  and accepts `51cc789` as the build under review.
+- *The held `-Z`/`-r` chokepoint patch is kept on `main` without being applied*
+  (`d7cea503`, a `-s ours` merge of `167e0d4c`). The branch check before telling the
+  maintainer which branches can go found that it lived only in one container's helper
+  worktree. Every other helper commit was already on `main` as a cherry-pick. The TASKS
+  row says how to land it.
 
 **Learned:**
 - *A `--no-merges` log across an upstream merge counts upstream's history, not the
   change.* The fork's "6 commits, closed" was true of the content and false of the
   command. `--first-parent` plus the merge's own diff is the measurement that matches
   the claim. Graduated to the TASKS row, and sent to them as a correction.
+- *Of any unintegrated commit, ask where it would still exist if this container were
+  reclaimed now.* A helper's worktree is not a home. The held patch had a TASKS row that
+  said it had "no id on our main" and did not say it had no copy anywhere else. A
+  `-s ours` merge gives such a commit a home without applying it.
 - *A premise can be false while the conclusion holds, and both get said.* S19's "nothing
   reads a tag back" was wrong, and harmless only because the reader is case-blind.
   Reporting it names the reader, so a later change to it knows it is on the seam.

@@ -673,8 +673,11 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     command we could re-run matched. A held draft of it went in with #272, because a
     lap's `FROM-COMMIT` must be on `main`. The released lap was rebuilt from the
     merge commit. `--release-gate --tag v0.6.63` exits 0 under its override.
-- [ ] **0.6.63 released under §6b**, installing `e0471f4` by default and accepting
-  `51cc789` as the build under review.
+- [x] **0.6.63 released 2026-09-28 under §6b** (release run `36475984863`, from
+  `d226c03b`, the merge of #273), installing `e0471f4` by default and accepting
+  `51cc789` as the build under review. Main's own CI on `d226c03b` (run `36475375918`)
+  was green before the dispatch. The release carries the AppImage, `.sha256`, `.zsync`
+  and `.sigstore.json`.
 - [ ] **The Full run** (S6) on `.18` from 0.6.63, and its bundle filed in both trees.
 - [ ] **Both readings (S7).** Their pre-commit (S43): their first lap after the bundle is
   in their tree is `GO` unless the run shows a defect in `.18` that breaks the pin, or
@@ -773,11 +776,15 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   CTDB claim), neither touching the pin, and three upstream behaviours sent for round 29
   (keep-last-read at the repeat limit, "no matches found" whatever the count, and
   refusing `-Z N` with `-r` at N or less). Round 28 reads CLOSED on our gate.
-- [~] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
+- [x] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
   - *2026-09-28:* `FORK_PIN` and `FORK_EXPECTED_VERSION` rolled to `e0471f4` / `.17`, with
     `APPROVED_BY_ROUND` 28 for Platterpus 0.6.61, in the commit that releases our lap 9.
     **0.6.63 waits for the fork's next lap**: their lap 8 does not list our lap 9, so
     their gate closes round 28 one lap after ours (`handshake.py --status`, §5b).
+  - *Both released 2026-09-28:* theirs is `.18` at `51cc789` (`release_seq` 28, both
+    channels), and their round 29 lap 1 answers our lap 9 (its *Your lap 9's three*
+    section). Ours is 0.6.63 (release run `36475984863`), the first release to install
+    `e0471f4` by default.
 - [x] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
   failed once in about six full parallel runs on 2026-09-26**, and passed 8 of 8 alone
   under six busy loops on four cores. It is timing-based in both directions, and the
@@ -1582,8 +1589,13 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     report's `artifacts.ripper_stdout`.
 - [ ] **Round 29: refuse `-Z N` with `-r` ≤ N at the argv chokepoint, and ship the
   regenerated `docs/seam-commands.md` §1a both ways.** Written and revert-probed on
-  2026-09-28 by a helper (`assert_secure_reread_can_converge`; the commit was not
-  integrated, so it has no id on our `main`),
+  2026-09-28 by a helper (`assert_secure_reread_can_converge`, commit `167e0d4c`). The
+  commit is not applied. It is kept on `main` by a `-s ours` merge that leaves the tree
+  unchanged (`d7cea503`), because until then it lived only in one container.
+  **To land it:** `git cherry-pick 167e0d4c`, not `git merge`, which would do nothing.
+  On the 0.6.63 tree it conflicts in `CHANGELOG.md`, `docs/dependency-contracts.md` (the
+  stamp) and `tests/test_secure_reread_can_converge.py`, which has grown since.
+  Then regenerate §1a with `scripts/probe_argv_surface.py`. It was
   held back from round 28's close because it changes a jointly held file whose hash
   both gates check (the `-Z 10` probe row becomes `raised`), and S-14 puts a finding in
   the next round. What landed without it: the settings validator refuses the pair
@@ -2030,12 +2042,14 @@ the sprawl is concentrated in two of them.
     test… (`ui/main_window.py`), pinned by `tests/test_ui_main_window.py`; Uninstall stays in
     Tools; the guide, tooltip, rig-script headers and rig docs follow, and
     `tests/test_help_documents_the_menu.py` now reads submenus to any depth.
-- [~] **"Set cover art from file…" is a per-album action in a global menu.** It
+- [x] **"Set cover art from file…" is a per-album action in a global menu.** It
       belongs with the album it acts on (File, or the album context menu).
   - *2026-09-28, the maintainer's ruling (album context menu):* one `QAction`, shown in the
     disc panel's right-click menu (`ui/album_menu.py`) and, for this release only, in Tools,
     so both run one slot with one enabled state. Left: remove the Tools entry in 0.6.63; the
     0.6.63 version bump fails until it is gone.
+  - *Done in 0.6.63* (`4db0f65f`): the Tools entry is gone, and the action lives only in the
+    album menu. A revert probe detects its return.
 - [x] **Check every regrouping against the accessibility rules before landing**:
       submenus must keep their mnemonics unique within their parent, and no
       single-character shortcuts (`CLAUDE.md` code conventions; enforcement is
