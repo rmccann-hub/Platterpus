@@ -120,6 +120,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   inside the container. Those tools are now always looked up outside
   `~/.local/bin`, and a missing one fails cleanly instead of falling back to the
   container's copy.
+- **For contributors: these release notes are checked for menu paths that do not
+  exist.** One note here still gave *Run acceptance test…* its old place directly
+  in the Tools menu, though this release moved it under Advanced, and another
+  named an *About* item the Help menu does not have. Both are corrected, and the test
+  that checks every menu path the app and its guides name now reads the
+  `[Unreleased]` section too. Released sections stay unchecked: they describe the
+  menu as it was.
 - **Every message box now shows its text exactly as written.** What a tool told
   us — a version, a build tag, an install error from its own output — could be
   read as formatting instead of shown: Qt's ready-made message boxes guess
@@ -271,8 +278,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   container, and seven tools in a row against a stuck container meant up to about
   seven minutes before any answer. The whole check now stops at 120 seconds. A check
   that stops early names the tools it did not check and why, and never lists them as
-  installed or missing, or says everything is installed. Help → About and Diagnostics
-  say the same.
+  installed or missing, or says everything is installed. Help → About Platterpus…
+  and Help → Copy diagnostics… say the same.
 - **Check dependencies no longer looks dead while it works.** Tools → Setup & Updates…
   → Check dependencies now says on the status bar that a check is running; the first
   check of a session starts the ripping container and can take up to a minute. Its
@@ -427,9 +434,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Removed
 
-- **The overnight and morning shell scripts are retired.** Tools → Run acceptance
-  test… does their whole job in the app: it holds sleep off, runs the batch and packs
-  every rip into one file. `platterpuscollect.sh` stays. `securereread.txt` now ends
+- **The overnight and morning shell scripts are retired.** Tools → Advanced → Run
+  acceptance test… does their whole job in the app: it holds sleep off, runs the
+  batch and packs every rip into one file. `platterpuscollect.sh` stays. `securereread.txt` now ends
   by pointing at `--rig-session` instead of the retired morning script.
 
 ## [0.6.61] — 2026-09-27

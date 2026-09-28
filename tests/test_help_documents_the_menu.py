@@ -279,9 +279,11 @@ SCRIPT_SETTINGS_BOX: Final[Path] = (
 )
 
 #: User-facing documents scanned in full. The chronological records (the session
-#: log, the CHANGELOG, `docs/archive/`, the handshake laps) are deliberately NOT
-#: here: they describe the menu as it was on their date, and rewriting history to
-#: match today's menu would be a falsified record.
+#: log, the CHANGELOG's released sections, `docs/archive/`, the handshake laps) are
+#: deliberately NOT here: they describe the menu as it was on their date, and
+#: rewriting history to match today's menu would be a falsified record. The
+#: CHANGELOG's `[Unreleased]` section is scanned (`_unreleased_notes`): it is not
+#: history yet.
 _USER_FACING_DOCS: Final[tuple[str, ...]] = (
     "README.md",
     "docs/hardware-test-checklist.md",
@@ -422,7 +424,22 @@ def _user_facing_texts() -> dict[str, str]:
         texts[str(path.relative_to(REPO_ROOT))] = path.read_text(encoding="utf-8")
     for doc in _USER_FACING_DOCS:
         texts[doc] = (REPO_ROOT / doc).read_text(encoding="utf-8")
+    texts["CHANGELOG.md [Unreleased]"] = _unreleased_notes()
     return texts
+
+
+def _unreleased_notes() -> str:
+    """The CHANGELOG's ``[Unreleased]`` section, and nothing older.
+
+    The released sections are history and stay out (see `_USER_FACING_DOCS`).
+    This one is not yet: it becomes the next release's notes, which describe the
+    menu that release ships. It named `Tools → Run acceptance test…` after the
+    item had moved under Advanced in the same release (review R10, 2026-09-28).
+    """
+    text = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    start = text.index("## [Unreleased]")
+    end = text.index("\n## [", start + 1)
+    return text[start:end]
 
 
 def _longest_label_at(remainder: str, labels: list[str]) -> str | None:
@@ -525,6 +542,14 @@ def test_the_menu_path_sweep_resolves_real_paths_and_rejects_dead_ones() -> None
         "Tools → Advanced → Run test script… → Reload",
     ):
         assert _dead_paths(bad, model), f"accepted a dead path: {bad}"
+
+
+def test_the_sweep_reads_the_next_releases_notes_and_no_older_ones() -> None:
+    """The `[Unreleased]` section is scanned, and a released one is not."""
+    notes = _unreleased_notes()
+    assert notes.startswith("## [Unreleased]"), notes[:80]
+    assert "\n## [" not in notes, "a released section leaked into the scan"
+    assert _user_facing_texts()["CHANGELOG.md [Unreleased]"] == notes
 
 
 def test_no_user_facing_text_shows_a_qt_ampersand_escape() -> None:
