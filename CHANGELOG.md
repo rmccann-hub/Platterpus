@@ -236,6 +236,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the round-28 Full run, track 5 printed "1 out of 2 matches" and then "no matches
   found". The comment, and the others that repeated it, are corrected. The generated
   consumer contract is regenerated.
+- **The lap checker now reads LSL 3's rule B1 the way both projects agreed in round
+  29.** The fork proposed three readings of B1's text in their round 29 lap 1 (S28 and
+  S29) and we accepted them. An `at:` is a commit and nothing else, so `at: 785925a
+  (the release)` is refused where it used to be read as `785925a`. A `run:` with no
+  `at:` needs the lap's `HANDSHAKE-FROM-COMMIT` to name one commit, so a header that is
+  prose or is declared twice now refuses each `run:` that leans on it, where it used to
+  be a warning. And an `exit N` a result states outside its quotes is checked on
+  `--rerun`: a different exit code is refused, and the stated one is a plain match
+  even when it is non-zero. A result that states no exit code is checked as before.
+  Every committed lap, and the fork's round 29 lap 1, gets the same report as before.
+  The fork will write these readings into the shared proposal (their S30).
+  (`scripts/laplang/lsl3.py`, `scripts/laplang/rerun.py`.)
 
 ## [0.6.62] — 2026-09-28
 
