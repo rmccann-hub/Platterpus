@@ -133,6 +133,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   that checks every menu path the app and its guides name now reads the
   `[Unreleased]` section too. Released sections stay unchecked: they describe the
   menu as it was.
+- **A disc that was read on the automatic second try is no longer read a third
+  time.** When the first read failed while the drive was still spinning up and the
+  automatic retry then read the disc, the next drive check could still take it for
+  a newly inserted disc: the log recorded an insertion that never happened, the
+  disc panel was cleared, and the disc was read and looked up again. A disc
+  Platterpus has just read now counts as being in the drive. A disc that only
+  becomes ready after every retry failed is still read as soon as the drive
+  reports it.
 - **Every message box now shows its text exactly as written.** What a tool told
   us — a version, a build tag, an install error from its own output — could be
   read as formatting instead of shown: Qt's ready-made message boxes guess

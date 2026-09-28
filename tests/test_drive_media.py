@@ -147,6 +147,31 @@ def test_not_ready_to_disc_fires() -> None:
     assert w.observe(DISC) is True
 
 
+def test_a_disc_the_app_read_is_not_an_insertion_when_the_drive_reports_it() -> None:
+    """Code review 2026-09-28 (R0): a retry read the disc while the last reading
+    was `not_ready`, and the drive's next `disc` fired INSERTED — a third read of
+    a disc already on screen. The read is recorded silently instead."""
+    for before in (NOT_READY, EMPTY, OPEN):
+        w = MediaWatcher()
+        w.observe_event(DISC)
+        w.observe_event(before)  # the last reading before the read
+        w.note_disc_present()  # the app read the disc
+        assert w.observe_event(DISC) == NO_CHANGE, before
+        # The disc it read is what a later removal is measured against.
+        assert w.observe_event(OPEN) == REMOVED, before
+        assert w.observe_event(DISC) == INSERTED, before
+
+
+def test_noting_a_read_clears_the_unreadable_streak_and_keeps_the_readings() -> None:
+    w = MediaWatcher()
+    w.observe_event(NOT_READY)
+    w.observe_event(UNAVAILABLE)
+    w.note_disc_present()
+    assert w.observe_event(DISC) == NO_CHANGE
+    assert w.bridge_note() == "", "a read, not a reading, bridged the gap"
+    assert w.last_status == DISC
+
+
 def test_reset_forgets_baseline() -> None:
     # After a drive switch the caller resets; the next reading is a fresh
     # baseline (no fire even if it's a disc).

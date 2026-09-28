@@ -126,7 +126,10 @@ class MediaWatcher:
       * an ``UNAVAILABLE`` reading (or any value this module does not know) is
         never a trigger AND never overwrites the last known state. It is
         "no information", so the next known reading is compared with the last
-        known one, straight across the gap.
+        known one, straight across the gap;
+      * a disc the app has just read (:meth:`note_disc_present`) is recorded as
+        :data:`DISC` without firing, so the drive saying so afterwards is not
+        an insertion.
 
     **Why the last rule changed (2026-09-28).** An unknown reading used to be
     remembered as the previous state, so ``empty → unavailable → disc`` compared
@@ -180,6 +183,26 @@ class MediaWatcher:
         observation re-establishes it without firing."""
         self._last_known = None
         self._last_status = None
+        self._unknown_streak = 0
+        self._bridged = 0
+
+    def note_disc_present(self) -> None:
+        """A disc was just READ from the drive: remember that a disc is in, and
+        fire nothing.
+
+        **Why (code review, 2026-09-28).** The app reads a disc on its own now (a
+        failed read is retried), and a retry can succeed while the last reading
+        the watcher took was ``not_ready`` — a disc still spinning up, which the
+        watcher counts as an empty tray. Nothing told it the read had worked, so
+        the next ``disc`` reading looked like an insertion: a log line for an
+        insertion that never happened, a cleared view, and the disc read a third
+        time. A successful read is better evidence than any status reading, so it
+        becomes the last known state. It is not an event: the caller already has
+        the disc on screen. A FAILED read tells the watcher nothing, so a disc
+        that becomes ready after every read failed is still an insertion.
+        :attr:`last_status` is left alone; it is the stream of readings.
+        """
+        self._last_known = DISC
         self._unknown_streak = 0
         self._bridged = 0
 

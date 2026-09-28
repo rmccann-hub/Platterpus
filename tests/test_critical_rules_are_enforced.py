@@ -1865,7 +1865,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1718 -> 1731** (2026-09-27, cover art moves to the album): the one cover-art QAction is handed to the disc panel as well as Tools, with the comment saying the Tools entry is transitional and exactly how to remove it in 0.6.63.
     # **1731 -> 1732** (2026-09-27): that comment names the check that fails the 0.6.63 bump while the Tools entry remains.
     # **1732 -> 1745** (2026-09-28, rig report "restart the app"): the disc-read retry's state and single-shot timer are built with the window's other timers, `closeEvent` stops it, `_start_disc_info` opens a new retry budget for every read that was ASKED for, and `_on_disc_info_failed` hands the failure to the retry instead of ending on an error line.
-    "ui/main_window.py": 1745,
+    # 1745 -> 1749 on 2026-09-28 (code review R0): a successful disc read tells the media watcher a disc is in, so a retry that read the disc is not followed by a phantom insertion and a third read.
+    "ui/main_window.py": 1749,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -1896,7 +1897,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 574 -> 651 on 2026-09-28: the window side of the bounded automatic retry of a failed disc read. The policy, its state and every branch are in the new pure `disc_probe_retry.py`; what stays here is reading the facts it asks for (`_disc_retry_conditions`) and applying its decision, beside the media poll that is the other half of "the disc gets read without the user".
     # 651 -> 655 on 2026-09-28: the poll puts "reading disc…" up on an insertion and the no-disc line on a removal, where both left only dashes.
     # 655 -> 656 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
-    "ui/main_window_drive.py": 656,
+    # 656 -> 658 on 2026-09-28 (code review R0): the insertion comment says a scan that read the disc tells the watcher, so an eject after it is a removal.
+    "ui/main_window_drive.py": 658,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
