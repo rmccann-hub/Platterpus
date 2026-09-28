@@ -10,6 +10,10 @@ thread, where the resolver dialogs must live.
 
 Same minimal worker pattern as UpdateCheckWorker.
 
+The whole check is bounded by `deps.manager.CHECK_DEADLINE_S`; a check that runs
+out of time still emits, with the tools it did not reach listed in
+`report.unchecked`.
+
 Signals:
   finished(object) — a `DependencyReport`, or None if the probe crashed
 """
@@ -22,6 +26,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QObject, Signal, Slot
 
 from platterpus import diagnostics
+from platterpus.deps import manager as dep_manager
 from platterpus.deps.checks import cancel_version_probes
 
 if TYPE_CHECKING:
@@ -66,7 +71,14 @@ class DependencyCheckWorker(QObject):
     @Slot()
     def run(self) -> None:
         try:
-            report = self._manager.check_all(cancelled=lambda: self._cancelled)
+            # The overall deadline is read HERE, at run time, rather than bound at
+            # import: it is the one number that decides how long a user waits for
+            # any answer at all, and a test must be able to shorten it. The check
+            # itself enforces it where the waiting happens (see `check_all`).
+            report = self._manager.check_all(
+                cancelled=lambda: self._cancelled,
+                deadline_s=dep_manager.CHECK_DEADLINE_S,
+            )
         except Exception as exc:  # noqa: BLE001 — a worker must always finish
             log.exception("dependency check crashed")
             # RECORD IT, not merely log it. The GUI half returns immediately on a
@@ -82,9 +94,12 @@ class DependencyCheckWorker(QObject):
                 where="workers.dependency_worker.DependencyWorker.run",
             )
             report = None
-        # A cancelled check yields the partial report; don't announce it as a
-        # finished result, or the GUI would render "these deps are missing" from a
-        # list we stopped building. The window is closing in this case anyway.
+        # A CANCELLED check is not announced: the window cancels only while it is
+        # closing, so there is nobody left to show it to. A check stopped by its
+        # DEADLINE is announced — the user is waiting for exactly that answer — and
+        # is safe to announce, because `check_all` marks everything it did not
+        # reach as `unchecked` rather than leaving it out and calling the rest the
+        # whole picture.
         if self._cancelled:
             log.info("dependency check cancelled; not emitting a partial report")
             return

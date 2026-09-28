@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QMessageBox
 
+from platterpus.deps import manager as dep_manager
 from platterpus.deps.resolvers import (
     AutoInstaller,
     InstallResult,
@@ -37,6 +38,7 @@ from platterpus.deps.resolvers import (
 )
 from platterpus.deps.version import format_version
 from platterpus.paths import LOG_PATH
+from platterpus.ui import dependency_check_status as dep_status
 from platterpus.ui.dialogs.manual_install import ManualInstallDialog
 from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
 from platterpus.ui.main_window_shared import MainWindowShared
@@ -294,6 +296,9 @@ class DependencyMixin(MainWindowShared):
         # report.missing in place and only appends results, so we'd lose the
         # "was anything required actually wrong?" signal otherwise.
         had_required_missing = bool(report.missing)
+        # A check that stopped part-way (`report.unchecked`) must not be summarised
+        # as "everything required is installed": it did not look at everything.
+        complete = not dep_manager.unchecked_names(report)
         # **NOTHING BELOW MAY OPEN A DIALOG WHILE SOMETHING ELSE HAS THE FLOOR.**
         #
         # This method runs from `_on_dependency_check_done`, a QUEUED SLOT off the
@@ -337,7 +342,11 @@ class DependencyMixin(MainWindowShared):
         # as a contradiction to a real user on 0.4.2 ("it told me 0 dependencies
         # then gave me this option"). Launch-time checks (show_summary=False)
         # stay silent so optional deps never nag.
-        if show_summary and optional_missing and not had_required_missing:
+        #
+        # NOT for an incomplete check: "Everything required is installed" is the
+        # one sentence a check that stopped part-way cannot say, so it gets the
+        # full summary, which names what was not checked.
+        if show_summary and optional_missing and not had_required_missing and complete:
             self._offer_optional_install(
                 gui_manager, optional_missing, required_all_ok=True
             )
@@ -347,8 +356,9 @@ class DependencyMixin(MainWindowShared):
             self._show_dep_summary(report, optional_missing=optional_missing)
         # When required deps also needed attention we still show the full summary
         # first (above), then offer the optional extras so the user has an in-app
-        # way to add Picard/flac.
-        if optional_missing and show_summary:
+        # way to add Picard/flac. Not after an incomplete check: the right next
+        # step there is to check again, and a second dialog would bury that.
+        if optional_missing and show_summary and complete:
             self._offer_optional_install(gui_manager, optional_missing)
 
     def _defer_if_floor_is_busy(
@@ -649,6 +659,12 @@ class DependencyMixin(MainWindowShared):
             "Install failures:"           ← only when failures exist
             "  - <dep>: <error message>"  ← one per failure
 
+        **An incomplete check leads with that fact** — "Check incomplete: N tools
+        were not checked" — and ends with which ones, why, and how to check again,
+        under a warning icon and its own title. The counts below the headline are
+        still true of what WAS checked; what they may not do is read as the whole
+        picture, which is what a stopped check's partial report used to do.
+
         **Why the build notes are here at all.** This dialog is the surface a
         user actually reads at launch, and it used to print a bare version —
         which for cyanrip is the one fact that cannot distinguish the
@@ -678,9 +694,15 @@ class DependencyMixin(MainWindowShared):
             if not r.success and not getattr(r, "user_declined", False)
         ]
 
+        not_checked = dep_manager.unchecked_names(report)
         message = (
             f"{ok_count} ok, {missing_count + len(attention)} missing/needs-attention."
         )
+        if not_checked:
+            message = (
+                f"Check incomplete: {len(not_checked)} tool(s) were not checked, so "
+                f"this is not the full picture.\n{message}"
+            )
         # Stamp the detected version next to each OK dep so the user knows
         # exactly what's installed (reproducibility), not just that it's there —
         # plus the build, where the version alone doesn't identify the binary.
@@ -712,12 +734,25 @@ class DependencyMixin(MainWindowShared):
                 # they conclude no log exists.
                 f"Full output is in {LOG_PATH}."
             )
+        if not_checked:
+            reason = str(getattr(report, "unchecked_reason", "") or "") or (
+                "the check stopped before it reached them"
+            )
+            message += (
+                f"\n\nNot checked: {', '.join(not_checked)}.\n"
+                f"Why: {reason}.\n"
+                "These are neither confirmed present nor confirmed missing. Check "
+                f"again in a minute: {dep_status.RERUN_PATH}."
+            )
 
         # The icon is part of the message. A wrong-build cyanrip reported with
         # an "information" ⓘ reads as "all fine, here are the details" — which
         # is how a stock install went unnoticed. Warn when something needs
-        # attention; inform when nothing does.
-        if attention:
+        # attention; inform when nothing does. An incomplete check is not
+        # "complete", so it does not say so in its title either.
+        if not_checked:
+            QMessageBox.warning(self, "Dependency check incomplete", message)
+        elif attention:
             QMessageBox.warning(self, "Dependency check complete", message)
         else:
             QMessageBox.information(self, "Dependency check complete", message)

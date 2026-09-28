@@ -11740,6 +11740,144 @@ def test_the_dependency_line_separates_required_from_optional() -> None:
 
 
 # ---------------------------------------------------------------------------
+# "CHECK DEPENDENCIES SEEMS TO FREEZE, NOT RESPOND, OR GIVE NO ERROR."
+#
+# The maintainer's report, 2026-09-28. The probe runs off the GUI thread, so the
+# window never froze — it LOOKED dead four ways. The tests here drive the real path
+# for the third: a wedged container meant minutes with no result, and a check that
+# stopped early returned a partial report with no marker, which the summary then
+# called complete.
+# ---------------------------------------------------------------------------
+
+
+def _dep_spec(
+    dep_id: str, probe: Any, *, optional: bool = False, display: str = ""
+) -> Any:
+    from platterpus.deps.registry import DependencySpec, Tier
+
+    return DependencySpec(
+        dep_id=dep_id,
+        display_name=display or dep_id,
+        probe=probe,
+        min_version=(0, 0, 0),
+        tier=Tier.MANUAL,
+        install_command=None,
+        search_string=f"install {dep_id}",
+        optional=optional,
+    )
+
+
+def _quiet_config() -> Config:
+    """First-run offers answered, so no deferred offer opens a modal mid-poll."""
+    return Config(
+        host_setup_prompted=True,
+        drive_setup_prompted=True,
+        appimage_integration_prompted=True,
+    )
+
+
+def _capture_message_boxes(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
+    shown: list[tuple[str, str]] = []
+    for kind in ("information", "warning"):
+        monkeypatch.setattr(
+            QMessageBox,
+            kind,
+            lambda _parent, title, text, *_a, **_k: shown.append((title, text)),
+        )
+    return shown
+
+
+def _pump_until(qapp: QApplication, done: Any, timeout: float = 15.0) -> None:
+    deadline = time.monotonic() + timeout
+    while not done() and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+    assert done(), "timed out waiting for the dependency check"
+
+
+def test_the_deadline_stops_a_wedged_check_and_the_summary_says_what_it_skipped(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """(3) A wedged ripper is killed at the deadline, and nothing claims "all present".
+
+    A real child that never answers, so the kill is real. The spec list is built
+    so the pre-fix code would have said the ONE sentence an incomplete check must
+    not: the only thing missing is optional, which used to lead to "✓ Everything
+    required is installed — you're ready to rip", while cyanrip had not been
+    checked at all.
+    """
+    from platterpus.deps import manager as dep_manager
+    from platterpus.deps.checks import ProbeResult, check_cyanrip
+
+    tool = tmp_path / "cyanrip"
+    tool.write_text("#!/bin/sh\nexec sleep 20\n", encoding="utf-8")
+    tool.chmod(0o755)
+    reached_after: list[str] = []
+
+    def after() -> ProbeResult:
+        reached_after.append("after")
+        return ProbeResult(present=True, version=(1, 0, 0), location="/x")
+
+    monkeypatch.setattr(dep_manager, "CHECK_DEADLINE_S", 0.5)
+    window = teardown_threads(config=_quiet_config())
+    window._dependency_manager = DependencyManager(
+        specs=[
+            _dep_spec(
+                "extra",
+                lambda: ProbeResult(present=False, version=None, location=None),
+                optional=True,
+            ),
+            _dep_spec("cyanrip", lambda: check_cyanrip(tool)),
+            _dep_spec("after", after, display="metaflac (FLAC tag editor)"),
+        ]
+    )
+    shown = _capture_message_boxes(monkeypatch)
+    offers: list[bool] = []
+    monkeypatch.setattr(
+        window,
+        "_offer_optional_install",
+        lambda _m, _items, required_all_ok=False: offers.append(required_all_ok),
+    )
+    started = time.monotonic()
+    window._on_check_dependencies()
+    _pump_until(qapp, lambda: window._dep_check_thread is None and shown)
+    assert time.monotonic() - started < 10.0, "the deadline did not stop the check"
+
+    title, text = shown[0]
+    assert title == "Dependency check incomplete", title
+    assert "Not checked: cyanrip, metaflac (FLAC tag editor)." in text, text
+    assert "stopped after 0.5 s" in text, text
+    assert "Optional (not installed): extra." in text, text
+    for claim in ("All required tools present", "Everything required is installed"):
+        assert claim not in text, f"an incomplete check said {claim!r}"
+    assert offers == [], "an incomplete check offered optional installs"
+    assert reached_after == [], "a spec after the deadline was still probed"
+
+
+def test_the_dependency_line_never_says_all_present_for_an_incomplete_check() -> None:
+    """Whatever the checked tools said, a stopped check is ⚠ and names the rest."""
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.resolvers import MissingItem
+    from platterpus.ui.dialogs.setup_center import dependency_summary_line
+
+    cyanrip = _dep_spec("cyanrip", lambda: None)
+    line = dependency_summary_line(
+        DependencyReport(unchecked=[cyanrip], unchecked_reason="it stopped")
+    )
+    assert line.startswith("⚠"), line
+    assert "cyanrip" in line and "it stopped" in line, line
+    assert "All required tools present" not in line, line
+    # And a REAL MissingItem is named by its spec, not rendered as "?".
+    missing = MissingItem(
+        spec=_dep_spec("metaflac", lambda: None, display="metaflac (FLAC tag editor)"),
+        probe=ProbeResult(present=False, version=None, location=None),
+    )
+    named = dependency_summary_line(DependencyReport(missing=[missing]))
+    assert "metaflac (FLAC tag editor)" in named and "?" not in named, named
+
+
+# ---------------------------------------------------------------------------
 # THE BUNDLE STAMP MAY NOT ASSERT THE FLUSH BEFORE THE FLUSH HAPPENS.
 #
 # Found by the cyanrip fork in our own 2026-09-19 evidence bundle (round 23 lap 1

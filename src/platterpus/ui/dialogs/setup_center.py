@@ -69,6 +69,17 @@ from PySide6.QtWidgets import (
 
 from platterpus import offset_config
 from platterpus.ui.accessibility import announce
+
+# The dependency line lives in `dependency_check_status`, beside the marker
+# vocabulary, so every surface that shows the verdict reads one function.
+# Re-exported under this module's name because tests and callers already import
+# it from here.
+from platterpus.ui.dependency_check_status import (
+    INFO_MARK,
+    OK_MARK,
+    WARN_MARK,
+    dependency_summary_line,
+)
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
 from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
@@ -87,43 +98,11 @@ log = logging.getLogger(__name__)
 #: setting one forfeits it.
 _COMMIT_HEIGHT: int = 44
 
-#: The status marker vocabulary. **Never colour alone** — around 8% of men have
-#: red/green colour-vision deficiency, and a greyscale screenshot or a
-#: forced-colors theme drops hue entirely, so every level carries a glyph.
-_OK: str = "✓"
-_WARN: str = "⚠"
-_INFO: str = "ⓘ"
-
-
-def dependency_summary_line(report: object | None) -> str:
-    """One line describing the last dependency probe, for a person.
-
-    Pure, and separated from the widget so it can be tested without a display —
-    the same split the rest of this project makes between what a value *is* and
-    how it is drawn.
-
-    **Tri-state, like every other verdict here.** "We have not looked yet" is a
-    real answer and must not render as "nothing is wrong": a window that says
-    `✓ All present` before any probe has run would be asserting something it
-    cannot know, which is the failure mode this project keeps a marker
-    vocabulary for.
-    """
-    if report is None:
-        return f"{_INFO} Not checked yet in this session."
-    missing = list(getattr(report, "missing", []) or [])
-    required = [
-        m for m in missing if not getattr(getattr(m, "spec", None), "optional", False)
-    ]
-    optional = [
-        m for m in missing if getattr(getattr(m, "spec", None), "optional", False)
-    ]
-    if required:
-        names = ", ".join(str(getattr(m, "name", "?")) for m in required)
-        return f"{_WARN} {len(required)} required missing: {names}"
-    if optional:
-        names = ", ".join(str(getattr(m, "name", "?")) for m in optional)
-        return f"{_OK} All required tools present. Optional not installed: {names}"
-    return f"{_OK} All required tools present."
+#: The status marker vocabulary, from the one place it is defined. **Never colour
+#: alone** — every level carries a glyph (`dependency_check_status`).
+_OK: str = OK_MARK
+_WARN: str = WARN_MARK
+_INFO: str = INFO_MARK
 
 
 class SetupCenterDialog(CenteredDialog):

@@ -106,7 +106,12 @@ def build_diagnostics_text() -> str:
                 continue  # rendered below, one row per tool
             lines.append(f"{key}: {env_items[key]}")
         deps = env_items.get("dependencies")
-        if isinstance(deps, dict) and deps:
+        # The tools a check that stopped part-way never reached. They are in
+        # neither `ok` nor `missing`, so the rows below simply omit them; this
+        # line is what stops a shorter list reading as the whole machine — and
+        # what stops a check that reached NOTHING printing "not probed yet".
+        unchecked = dep_manager.describe_unchecked(dep_report)
+        if isinstance(deps, dict) and (deps or unchecked):
             lines += [
                 "",
                 "--- Dependencies ---",
@@ -123,6 +128,8 @@ def build_diagnostics_text() -> str:
                         f"version={info.get('version') or '(unknown)'} "
                         f"min_version_met={info.get('min_version_met')}"
                     )
+            if unchecked:
+                lines.append(f"NOTE: {unchecked}")
         else:
             # SAY SO. A missing dependency section is "the launch check has not run
             # yet", which is a real answer and reads nothing like "no dependencies".

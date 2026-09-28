@@ -220,6 +220,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   removed it says the drive reports no disc and what to do (Rescan disc if the disc is
   actually still in). After a disc is inserted it says it is reading it. The ripper's
   own error text is always shown in full.
+- **Check dependencies gives up after two minutes instead of up to seven, and a check
+  that stops early says so.** Each tool's check waits up to a minute for the ripping
+  container, and seven tools in a row against a stuck container meant up to about
+  seven minutes before any answer. The whole check now stops at 120 seconds. A check
+  that stops early names the tools it did not check and why, and never lists them as
+  installed or missing, or says everything is installed. Help → About and Diagnostics
+  say the same.
 
 ### Added
 
