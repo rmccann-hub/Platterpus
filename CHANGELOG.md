@@ -237,6 +237,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   will be shown when that dialog closes, or, if it cannot be, where to find it. The
   Setup & Updates line now updates when a check finishes, and names a missing tool
   instead of showing "?".
+- **A test script's `open dependencies` no longer freezes the window.** It ran the
+  dependency check on the window's own thread, so while the ripping container
+  answered (a minute or more on a cold start) the window showed "Not Responding".
+  It now starts the same check as Setup & Updates → Check dependencies, off the
+  window's thread, and the step waits for the result. That wait is bounded by the
+  check's own deadline, so a script's next step still finds the summary on screen.
+  A test run stopped during any waiting step now records that step as stopped.
+  Before, the transcript had no row for it.
 
 ### Added
 
