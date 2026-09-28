@@ -2,19 +2,22 @@
 
 ```
 Platterpus  v0.6.62        the current release. It installs 221a1df by default, and
-                           accepts e0471f4 as the build under review.
-            v0.6.63        not yet released: our round 28 closing release, the first
-                           to install e0471f4 by default.
+                           accepts e0471f4 as the build under review, not .18.
+            v0.6.63        not yet released: the release for round 29's run. It will
+                           install e0471f4 by default and accept 51cc789 as the build
+                           under review.
 cyanrip     e0471f4        0.9.4-rc2+platterpus.17  (platterpus-fork-ge0471f4)  <- PRODUCTION PIN
                            approved by round 28, for Platterpus 0.6.61, on the Full run
-            221a1df        0.9.4-rc2+platterpus.16  (platterpus-fork-g221a1df)
-                           the pin 0.6.61 and 0.6.62 install; approved by round 27
+            51cc789        0.9.4-rc2+platterpus.18  (platterpus-fork-g51cc789)  <- UNDER REVIEW
+                           released, release_seq 28, both channels; round 29's subject
 drive       Pioneer BDR-209D 1.51, read offset +667
-rounds 1-28 ALL CLOSED on our gate, bilateral GO.
-round 29    not opened yet; its lap 1 is the fork's.
+rounds 1-28 ALL CLOSED on both gates, bilateral GO.
+round 29    OPEN on 51cc789. Close condition 1 is this sheet's run.
 ```
 
-> **Header last moved 2026-09-28**, when round 28 closed on our gate and `FORK_PIN`
+> **Header last moved 2026-09-28**, when round 29 opened on `.18` (the fork's lap 1,
+> sha256 `2e275d2f…`): the next run is round 29's Full run on `.18` from 0.6.63.
+> Before that, the same day, when round 28 closed on our gate and `FORK_PIN`
 > rolled to `e0471f4`, on the Full run of 0.6.61 (320 of 320 steps), which the operator
 > chose to close the round on. Before that, the same day, to 0.6.62: the operator had
 > moved round 28's Full run from 0.6.61 to it, an override of R1 our lap 6 records
@@ -53,21 +56,33 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 
 ## What the next run is for
 
-**Round 28's run has happened.** The Full run on 0.6.61 with `.17` installed ran on
-2026-09-28, passed 320 of 320 steps, and closed round 28 on our gate (our lap 9, their
-lap 8). Its bundle is in both trees: ours is `docs/handshake/artifactsround28/`.
+**Round 29's close condition 1** (the fork's round 29 lap 1 S6): our **Full** acceptance
+run on the rig, with `.18` installed through the app, from **0.6.63**, whose
+`PIN_UNDER_REVIEW` is `51cc789`, and the bundle committed to both repositories. Then
+each side reads it (S7): they read every cyanrip log in the bundle and we read our
+reports. Round 29 closes when the tag change is read (S8, done on our side: our
+operator accepted the key set as landed) and both closing laps name their releases
+(S9): ours rolls `FORK_PIN` to `51cc789`, and theirs is `+platterpus.19`.
 
-**No round is open, so the next run has no round's close condition to meet yet.**
-Round 29's subject is named in the fork's round 29 lap 1. Until then, a run is a setup
-check or a candidate for the evidence ledger, not a round's evidence.
+**A run on 0.6.62 or earlier is a setup check, not this round's evidence**: 0.6.62
+accepts `e0471f4` as the build under review, not `.18`, so section A stops it in its
+first seconds with `.18` installed.
 
-**The next run is still a candidate full-green pass, which the project has never had.**
-The field-evidence ledger (`docs/testing.md` §5B) has no `full-green` row; the
-2026-09-28 run is graded `partial`, because our own records carried two archival
-defects, both fixed for 0.6.63. `0.7.100` is gated on a run with **zero failures in the
-ARCHIVAL sections**; `0.9.1` needs two such runs on at least two machines and two
-distros. **Only a Full run counts as evidence**; Quick and Standard are for checking
-the setup.
+**The run is also a candidate full-green pass, which the project has never had.** The
+field-evidence ledger (`docs/testing.md` §5B) has no `full-green` row; the 2026-09-28
+run is graded `partial`, because our own records carried two archival defects, both
+fixed for 0.6.63. `0.7.100` is gated on a run with **zero failures in the ARCHIVAL
+sections**; `0.9.1` needs two such runs on at least two machines and two distros. Its
+ripper will be stamped `unapproved` in every report, correctly, while round 29 is open.
+**Only a Full run counts as evidence**; Quick and Standard are for checking the setup.
+
+**What `.18` carries** over `.17`, five commits of the fork's in `src/` and one merge of
+upstream's: `Encoder errors:` counts only tracks whose read completed, and a new line,
+`Partial files:`, names a partial file (`f150c0c`); `Stopping, ripping incomplete!`
+prints on every signal stop of a read (`9d52271`); the AccurateRip parse is tested on
+a recorded response (`5b7493c`, `a646d54`); the disc-level `AccurateRip:` line can read
+`mismatch` or `not found` (`64642db`); and upstream's `f8ebf48`, a MusicBrainz retry,
+which Platterpus never reaches because it runs cyanrip with `-N`.
 
 **What 0.6.62 changes for the person at the rig.** A disc that the drive briefly
 reports as unavailable is read again when it comes back, and a first read that fails
@@ -76,14 +91,10 @@ restart the app. The dependency check says it is running and stops within two
 minutes, and the script's `open dependencies` step no longer freezes the window. The
 acceptance test is under **Tools → Advanced**.
 
-**What `.17` carries** over `.16`, three commits in `src/`: an Accurip 450 lookup compares
-only 450 checksums (`10f36fe`); a one-frame match says what it covers, *"one frame only;
-whole-track checksums not found"*, instead of *"partially accurately ripped"* (`ec0fe47`);
-and the banner is written as soon as the log opens, so the log of a rip that fails early
-still names its build (`ee0221c`). **What `.16` carries**, now the production pin: every
-file is tagged `media: CD` whatever `-H` says, and an interrupted track is left out of
-the AccurateRip tally. The round 27 quick run declined the sections that reach both, so
-this Full run is their first test on a drive too.
+**`.17`, now the production pin**, compares only frame-450 checksums on a frame-450
+AccurateRip lookup, says a one-frame match covers one frame only, and writes its banner
+as soon as the log opens (`10f36fe`, `ec0fe47`, `ee0221c`). The 2026-09-28 Full run
+tested it on this drive.
 
 **Why section F should hold this time.** In round 26, section F's whole-disc rip was
 killed 95 seconds in when the `ripping` container died underneath it. The container
@@ -98,9 +109,9 @@ a container that is already running.
 1. **Put the reference disc in the drive** (any ordinary audio CD works; the script
    needs no album name, track count or path) and open Platterpus from the applications
    menu.
-2. **Update Platterpus to 0.6.62 first.** Then check **Tools → Setup & Updates…**: the
-   cyanrip line should read `platterpus-fork-ge0471f4` (`0.9.4-rc2+platterpus.17`). If it
-   reads anything else, **Check for cyanrip updates** offers `.17` as *"the build the
+2. **Update Platterpus to 0.6.63 first.** Then check **Tools → Setup & Updates…**: the
+   cyanrip line should read `platterpus-fork-g51cc789` (`0.9.4-rc2+platterpus.18`). If it
+   reads anything else, **Check for cyanrip updates** offers `.18` as *"the build the
    acceptance test needs"*; choose **Install it anyway**. Then **Tools → Advanced → Run acceptance test…**,
    choose **Full**, and leave it. It holds sleep off, runs every section (4–6 hours), stops in its first
    seconds if the ripper is not the build under review, and puts your own settings back

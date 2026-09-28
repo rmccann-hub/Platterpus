@@ -602,7 +602,63 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
-## Round 28 — CLOSED on our gate on `e0471f4` (`+platterpus.17`), 2026-09-28: the Full run on 0.6.61 + `.17`
+## Round 29 — OPEN on `51cc789` (`+platterpus.18`): the Full run on 0.6.63 + `.18`, and the tag change
+
+Their lap 1 (`cyanrip@566d3fa`, sha256 `2e275d2f…`, 19,353 bytes, `OPEN`, LSL 3, released
+by their operator 2026-09-28) opens on `.18`, `release_seq` 28 on both channels. Its
+close conditions (S6–S9): our **Full** acceptance run with `.18` installed through our
+app from a release whose `PIN_UNDER_REVIEW` is `51cc789`, with the bundle in both repos;
+each side's reading of it; the tag change our operator ruled, and our reading of it; and
+both closing releases (ours rolls `FORK_PIN` to `51cc789`, theirs is `+platterpus.19`).
+Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gates.
+
+- [x] **File their lap 1 and move `PIN_UNDER_REVIEW` to `51cc789`** (round 29), with its
+  release sequence, its build tag in the `--consumer` accept-set, the round-29 pairing
+  line and the re-derived same-program flag. Both our checkers accept the lap (44
+  statements, 0 warnings) and its empty-set digest reproduces. Derived from their tree,
+  not taken from the lap: the manifest at `ef34a96` names `51cc789`, `release_seq` 28,
+  on both channels; `meson.build:21` at `51cc789` declares `+platterpus.18`;
+  `PROVIDER-CONTRACT.md` at `51cc789` (built at `g3770a32`, the same program) equals
+  `.17`'s in every P1 flag, so the argv check still reads round 28's table.
+- [x] **Checked their claims and found two to correct**, for our lap 2. **S2**'s
+  claim holds but its command does not. `git log --no-merges e0471f4..51cc789 -- src/`
+  lists 39 commits, not 6, because the merge of upstream's `f8ebf48` brings upstream's own
+  history. `--first-parent` gives their six, and `git diff 1fb6f07^1 1fb6f07 -- src/`
+  shows the merge changes only `musicbrainz.c`. **S19**'s conclusion holds but its
+  premise does not: we do read tags back, in the colon-restore step
+  (`cyanrip_backend.py:861`). That step keys on values, so capital keys change nothing.
+  S34 (the finalised repeat checksum) touches nothing we compute, because no code of
+  ours reads that value.
+- [x] **S8, our reading of the tag change: our operator accepted the key set as landed**
+  (2026-09-28). Every key cyanrip writes is in capitals, and `DISCTOTAL` and `TOTALDISCS`
+  are written as a pair. The two lower-case keys, `encoder` and `creation_time`, are
+  written by libavformat and fall outside the ruling. Our lap 2 says so.
+- [~] **S39: accept their proposed repeat-limit wording beside the current one**, in
+  0.6.63, so their `.19` can ship it after us (round 20's order). Our parser comment
+  claimed the old line means no two reads agreed; the corrected comment ships with it.
+- [~] **S31: the EAC-compatible log's first line no longer begins with "Exact Audio
+  Copy"**, in 0.6.63, with our parser still reading old exports.
+- [~] **S28/S29: our lap checker reads B1 as they propose.** An `at:` is a commit and
+  nothing else; a `run:` needs a `HANDSHAKE-FROM-COMMIT` that names one commit; and a
+  stated `exit N` is checked. The other six of their S29 readings already match ours.
+- [ ] **S40/S41: refuse `-Z N` with `-r` ≤ N, with one move of the shared
+  `docs/seam-commands.md`.** They refuse it at argument parsing and regenerate their argv
+  table, and our two §1a rows ride the same change (the held patch in the *Round 29:
+  refuse `-Z N`* row further down).
+  Our lap 2 sends our rows and asks for the order.
+- [ ] **Our lap 2**, `OPEN`, carrying the operator's §6b override for v0.6.63 (given
+  2026-09-28, *"Yes, release under §6b"*), announced on their word (*"Announce when
+  ready"*).
+- [ ] **0.6.63 released under §6b**, installing `e0471f4` by default and accepting
+  `51cc789` as the build under review.
+- [ ] **The Full run** (S6) on `.18` from 0.6.63, and its bundle filed in both trees.
+- [ ] **Both readings (S7).** Their pre-commit (S43): their first lap after the bundle is
+  in their tree is `GO` unless the run shows a defect in `.18` that breaks the pin, or
+  does not complete.
+- [ ] **Closing releases (S9):** ours rolls `FORK_PIN` to `51cc789`; theirs is `.19`,
+  carrying the tag change (S13) and the finalised checksum (S34).
+
+## Round 28 — CLOSED on both gates on `e0471f4` (`+platterpus.17`), 2026-09-28: the Full run on 0.6.61 + `.17`
 
 Their lap 1 (`cyanrip@52a8a30`, sha256 `060fd251…`, 13,280 bytes, released by their
 operator 2026-09-26) opens on `.17`, `release_seq` 27 on both channels. It fixes three
