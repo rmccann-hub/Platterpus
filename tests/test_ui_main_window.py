@@ -345,6 +345,44 @@ def test_new_disc_scan_resets_unknown_mode(teardown_threads) -> None:
     assert window._rip_controls.is_unknown_mode() is False
 
 
+def test_a_rescan_stops_the_old_probe_as_superseded_not_as_a_fault(
+    teardown_threads: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The call site half of TASKS (rig run 2026-08-20).
+
+    `stop_thread` logs a declared supersession at INFO, and that only helps if
+    the one caller that abandons by design declares it. The recorder stands in
+    for `stop_thread` so the fake "still running" probe is never put in the
+    module's abandoned list, where it would outlive this test.
+    """
+    from platterpus import workers
+
+    calls: list[dict[str, object]] = []
+    real_stop_thread = workers.stop_thread
+
+    def recorder(thread: object, worker: object = None, **kwargs: object) -> None:
+        calls.append({"thread": thread, **kwargs})
+
+    window = teardown_threads(backend=_FakeBackend(), mb_client=_FakeMb())
+    old_probe = type("RunningProbe", (), {"isRunning": lambda self: True})()
+    window._disc_info_thread = old_probe
+    window._disc_info_worker = None
+    monkeypatch.setattr(workers, "stop_thread", recorder)
+    try:
+        window._start_disc_info("/dev/sr0")
+    finally:
+        # Restored before teardown, which stops the NEW probe for real.
+        monkeypatch.setattr(workers, "stop_thread", real_stop_thread)
+
+    superseding = [c for c in calls if c["thread"] is old_probe]
+    assert len(superseding) == 1, calls
+    assert superseding[0]["wait_ms"] == 0, "the no-wait supersession changed"
+    assert "newer" in str(superseding[0].get("superseded_by", "")), (
+        "the rescan no longer declares the old probe superseded, so its planned "
+        "abandonment is logged as a WARNING again"
+    )
+
+
 def test_disc_info_ready_no_mb_id_shows_blank_track_rows(
     teardown_threads,
     monkeypatch: pytest.MonkeyPatch,

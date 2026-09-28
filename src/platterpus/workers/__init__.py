@@ -130,6 +130,7 @@ def stop_thread(
     *,
     wait_ms: int | None = None,
     deadline: ShutdownDeadline | None = None,
+    superseded_by: str = "",
 ) -> None:
     """Stop a one-shot worker thread on close WITHOUT a GUI-thread freeze or a
     destroyed-while-running abort.
@@ -164,6 +165,15 @@ def stop_thread(
     path). Give at most one — a deadline wins if both are supplied, because the
     shared budget is the stronger guarantee. With neither, the wait is
     ``DEFAULT_STOP_WAIT_MS``.
+
+    ``superseded_by`` names what REPLACED the worker, for the one caller that
+    abandons on purpose: a rescan hands in a newer disc probe and stops the old
+    one with ``wait_ms=0``, so it is abandoned every time by design. That case is
+    logged at INFO, in words that say so. Every other abandonment (a shutdown, a
+    real timeout) stays a WARNING, because there it means something did not stop
+    when asked. Before this, each rescan put a WARNING in a rig transcript for
+    normal operation, and a warning that fires on healthy runs is one a reader
+    learns to skip (TASKS, rig run 2026-08-20).
     """
     if thread is None:
         return
@@ -190,12 +200,25 @@ def stop_thread(
             return
         # Still running — a step can't be interrupted by quit(). Abandon it so we
         # neither block the GUI thread longer nor destroy a live QThread.
-        log.warning(
-            "worker thread %s did not stop within %dms — abandoning it "
-            "(reference retained; process exit must now bypass teardown)",
-            thread.objectName() or type(thread).__name__,
-            effective_wait_ms,
-        )
+        name = thread.objectName() or type(thread).__name__
+        if superseded_by:
+            # Planned, not a fault: the caller replaced this worker and chose not
+            # to wait for it. Same abandonment, same retained reference, same
+            # consequence for exit; only the level and the wording differ.
+            log.info(
+                "worker thread %s was superseded by %s — abandoned while it "
+                "finishes its current step (by design; reference retained, so "
+                "process exit bypasses teardown until it finishes)",
+                name,
+                superseded_by,
+            )
+        else:
+            log.warning(
+                "worker thread %s did not stop within %dms — abandoning it "
+                "(reference retained; process exit must now bypass teardown)",
+                name,
+                effective_wait_ms,
+            )
         thread.setParent(None)
         _abandoned_threads.append(thread)
     except Exception:  # noqa: BLE001 — teardown must never crash close

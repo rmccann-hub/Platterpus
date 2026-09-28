@@ -137,6 +137,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   answered. It opened another picker on top of the first, and whichever you answered
   last replaced the tags the other had chosen. The open picker is now the only one,
   and a new lookup after it closes, whether answered or cancelled, still asks again.
+- **A rescan no longer writes a warning into the log for normal operation.** Every
+  rescan stops the disc probe it replaces without waiting for it, by design, and the
+  log recorded that as `WARNING … did not stop within 0ms — abandoning it`, the same
+  line a worker that ignored a shutdown gets. It is now an INFO line saying the probe
+  was superseded by a newer one. Every other case where a worker is abandoned, such as
+  on shutdown or after a real timeout, is still a warning.
 
 ### Added
 

@@ -4169,7 +4169,7 @@ shell wrapper is one step better than prose, not the destination.
   set, which is exactly what `docs/test-plan.md` Part E predicts.
 - [x] The cancelled rip's FUN512 "rejection" and `rig-check`'s zero-track FAIL
   were both reports that were accurate word-by-word and wrong in kind. Fixed.
-- [ ] **NOT a defect, recorded so it is not re-investigated:** `worker thread
+- [x] **NOT a defect, recorded so it is not re-investigated:** `worker thread
   DiscInfoWorker did not stop within 0ms — abandoning it` on every rescan is
   deliberate and heavily commented (`main_window.py`, the `wait_ms=0` call) — the
   old 2 s wait was a dead stutter on the GUI thread and `quit()` cannot interrupt
@@ -4177,6 +4177,10 @@ shell wrapper is one step better than prose, not the destination.
   the log line reads like a fault. Consider phrasing it as an INFO that says
   "superseded by a newer probe" so a rig transcript does not carry a WARNING for
   normal operation.
+  - *Done 2026-09-27:* `stop_thread(…, superseded_by=…)` logs a planned supersession at
+    INFO (`workers/__init__.py`), and the rescan passes it (`ui/main_window.py`). All other
+    abandonments stay WARNING. Tests: `tests/test_workers_init.py`,
+    `tests/test_ui_main_window.py`. Revert-probed.
 - [x] **Still unproven, and it needs the next run:** a *completed* second rip
   after a cancel, which is what exercises `rig-check`'s parser path against a real
   subject and what closes Task #53 outright.
