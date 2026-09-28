@@ -4385,15 +4385,67 @@ def _r6_lap(round_no: int, lap_no: int, body: str, verdict: str = "OPEN") -> str
         ("Our lap 15, after the run, is `GO` unless X.", "HOLD", "names a lap NUMBER"),
         # RECALLING a correct pre-commit is not making a numbered one (R12): the
         # subject of "is GO unless" is "our next lap", after a colon and a quote.
+        # Nor is it making one at all (Q7): the quoted promise is an earlier
+        # lap's, so a lap whose only pre-commit text is the quotation carries
+        # none of its own. One problem, and it is not the numbered one.
         (
             'Our lap 3 bound us: *"our next lap is `GO` unless the run fails."*',
             "HOLD",
-            None,
+            "carries no pre-commit",
         ),
         (
             'This honours the pre-commit our lap 2 made — *"our next lap is GO '
             'unless the run fails"*.',
             "OPEN",
+            "carries no pre-commit",
+        ),
+        # The same with curly quotes, and with a quotation that wraps a line, as
+        # the record's do.
+        (
+            "Our lap 3 bound us: “our next lap is `GO` unless the run fails.”",
+            "HOLD",
+            "carries no pre-commit",
+        ),
+        (
+            'Our lap 3 bound us: *"our next lap is `GO` unless\nthe run fails."*',
+            "HOLD",
+            "carries no pre-commit",
+        ),
+        # A recall beside the lap's OWN pre-commit, stated unquoted, passes.
+        (
+            'Our lap 3 bound us: *"our next lap is `GO` unless the run fails."* '
+            "It failed. Our next lap is `GO` unless the re-run fails too.",
+            "HOLD",
+            None,
+        ),
+        # A quotation INSIDE the lap's own pre-commit is not the pre-commit.
+        (
+            'Our next lap is `GO` unless the "Full" run fails.',
+            "HOLD",
+            None,
+        ),
+        # Backticks are code, not quotation marks, and a `"` in a code span
+        # opens no quotation that could swallow the pre-commit after it.
+        (
+            'The marker is `"`. Our next lap is `GO` unless the run fails, "as" '
+            "agreed.",
+            "HOLD",
+            None,
+        ),
+        # A stray `"` (an inch mark) can hide at most the rest of its own
+        # paragraph, never the pre-commit in the next one, even with another
+        # stray one after it for it to pair with.
+        (
+            'A 5" disc was used.\n\nOur next lap is `GO` unless the run fails.'
+            '\n\nThe next was a 12" one.',
+            "HOLD",
+            None,
+        ),
+        # And a `>` blockquote is how the fork sets out its OWN pre-commit
+        # (their round 21 lap 3), so it is not read as a quotation.
+        (
+            "> **Our next lap is `GO` unless the hardware session fails.**",
+            "HOLD",
             None,
         ),
         # Absent from lap 5 on.
@@ -4428,22 +4480,38 @@ def _relabelled(relative: str, **fields: str) -> str:
     return text
 
 
-def test_r6_does_not_refuse_the_record_s_recalled_pre_commits() -> None:
-    """Review finding R12, on the record rather than a paraphrase of it. The fork's
-    round 21 lap 5 and our round 23 lap 4 each RECALL a pre-commit made in R6's
-    form; sent in round 29 or later, the numbered-form refusal fired on both. Each
-    is held here as a HOLD lap too, so the GO exemption cannot be what passes it.
+def test_r6_reads_the_record_s_recalled_pre_commits_as_recalls() -> None:
+    """Review findings R12 and Q7, on the record rather than a paraphrase of it.
+    The fork's round 21 lap 5 and our round 23 lap 4 each RECALL, in quotation
+    marks, a pre-commit an earlier lap made in R6's form, and make none of their
+    own. Sent in round 29 or later:
+
+    * as `GO` laps, as they were sent, neither is refused: a `GO` lap has
+      nothing left to promise;
+    * as HOLD laps, each gets exactly one problem, "carries no pre-commit". Not
+      the numbered-form refusal, which fired on both before R12 though the
+      subject of "is GO unless" is "our next lap"; and not a pass, which is what
+      R12's fix gave them, because the quotation stood in for a pre-commit of
+      their own (Q7). A HOLD lap that recalls a promise is the lap after its X
+      happened, and the one R6 most needs a fresh promise from.
     """
     hs = _load()
     for relative, lap in (
         ("inbound/round-21-lap-05.md", "5"),
         ("outbound/round-23-lap-04.md", "5"),
     ):
-        for verdict in ("GO", "HOLD"):
-            text = _relabelled(relative, ROUND="29", LAP=lap, VERDICT=verdict)
-            assert hs.pre_commit_problems(text, relative) == [], (relative, verdict)
-    # NON-TRIVIALITY: the recall is in each file, where the numbered form's old
-    # reading (anything after "our lap N" up to "is GO unless") still finds it.
+        go = _relabelled(relative, ROUND="29", LAP=lap, VERDICT="GO")
+        assert hs.pre_commit_problems(go, relative) == [], relative
+        hold = _relabelled(relative, ROUND="29", LAP=lap, VERDICT="HOLD")
+        problems = hs.pre_commit_problems(hold, relative)
+        assert len(problems) == 1, (relative, problems)
+        assert "carries no pre-commit" in problems[0], (relative, problems)
+        assert "names a lap NUMBER" not in problems[0], (relative, problems)
+    # NON-TRIVIALITY, both halves: the recall is in each file, where the numbered
+    # form's old reading (anything after "our lap N" up to "is GO unless") still
+    # finds it, and where the pre-commit form finds it too until the quotations
+    # are set aside. So each file is a real recall, and it is the quotation that
+    # the presence half no longer counts.
     old = re.compile(
         r"\bour\s+lap\s+\d+\b[^.\n]{0,120}?\bis\s+[`*_]*GO[`*_]*\s+unless\b", re.I
     )
@@ -4452,6 +4520,56 @@ def test_r6_does_not_refuse_the_record_s_recalled_pre_commits() -> None:
             (_REPO_ROOT / "docs" / "handshake" / relative).read_text(encoding="utf-8")
         )
         assert old.search(body), relative
+        assert hs._PRE_COMMIT.search(body), relative
+        assert not hs._PRE_COMMIT.search(hs._unquoted(body)), relative
+
+
+#: Every lap of rounds 1-27 whose only prose pre-commit text is inside quotation
+#: marks, so that setting quotations aside (Q7) takes away its pre-commit. Each
+#: was read, and each is a RECALL of an earlier lap's promise, or of R6's own
+#: form, not a promise of its own: round 8 lap 11 quotes its lap 9 (and restates
+#: its own across a line break, which the pattern does not read either way);
+#: round 21 lap 5 its lap 3; round 22 lap 5 R6's form; round 15 lap 7 its lap 6;
+#: round 23 lap 4 its lap 2.
+_QUOTED_ONLY_RECALLS: Final[frozenset[str]] = frozenset(
+    {
+        "inbound/round-08-lap-11.md",
+        "inbound/round-21-lap-05.md",
+        "inbound/round-22-lap-05.md",
+        "outbound/round-15-lap-07.md",
+        "outbound/round-23-lap-04.md",
+    }
+)
+
+#: The newest round whose laps are all sent, so the population below is closed.
+_Q7_CLOSED_TO_ROUND: Final[int] = 27
+
+
+def test_setting_quotations_aside_changes_presence_only_for_the_known_recalls() -> None:
+    """Q7's effect on the whole closed record, not a sample of it: across every
+    lap of rounds 1-27, the laps whose pre-commit disappears once quotations are
+    set aside are exactly the five recalls named above. So the change takes no
+    lap's OWN pre-commit away, which a quotation rule that also took backticks,
+    apostrophes or blockquotes would have done."""
+    hs = _load()
+    examined = 0
+    lost: set[str] = set()
+    for direction in ("inbound", "outbound"):
+        for path in sorted(
+            (_REPO_ROOT / "docs" / "handshake" / direction).glob("round-*.md")
+        ):
+            match = re.match(r"round-(\d+)", path.name)
+            if match is None or int(match.group(1)) > _Q7_CLOSED_TO_ROUND:
+                continue
+            examined += 1
+            body = hs._unfenced_body(path.read_text(encoding="utf-8", errors="replace"))
+            if hs._PRE_COMMIT.search(body) and not hs._PRE_COMMIT.search(
+                hs._unquoted(body)
+            ):
+                lost.add(f"{direction}/{path.name}")
+    # A floor, so an emptied or moved record cannot pass by finding nothing.
+    assert examined >= 150, examined
+    assert lost == _QUOTED_ONLY_RECALLS, sorted(lost ^ _QUOTED_ONLY_RECALLS)
 
 
 def test_r6_still_finds_every_numbered_pre_commit_in_the_record() -> None:
