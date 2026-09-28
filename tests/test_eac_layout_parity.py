@@ -155,7 +155,10 @@ def test_the_status_report_uses_eac_s_own_wording() -> None:
 def test_the_document_never_impersonates_eac() -> None:
     """Layout parity stops exactly at provenance — that line is not moved."""
     text = _rendered()
-    assert not text.startswith("Exact Audio Copy V")
+    # Not even EAC's first WORDS (handshake round 29 lap 1 S31): a tool that
+    # sniffs the format from them would file the whole document as EAC's.
+    assert not text.startswith("Exact Audio Copy")
+    assert text.startswith("Platterpus")
     assert "NOT a genuine EAC log" in text
     # EAC's own checksum marker must never appear; ours is separately labelled.
     assert "==== Log checksum " not in text

@@ -1489,7 +1489,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and the "RIP STOPPED" branch for a complete selection). It is this document's
     # own banner, so it stays beside the renderer; most of the growth is the comments
     # saying which record each number comes from.
-    "eac_log_export.py": 1764,
+    # **1764 -> 1779 on 2026-09-28** (handshake round 29 lap 1 S31): the first line
+    # no longer begins "Exact Audio Copy". The code change is one string; the growth
+    # is the comment beside `_BANNER` giving the reason (the first-words misfiling,
+    # KDD-24's no-forging line) and naming the parser table that must learn any
+    # rewording. The reason belongs beside the line it explains.
+    "eac_log_export.py": 1779,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
