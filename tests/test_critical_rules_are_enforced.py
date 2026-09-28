@@ -1790,7 +1790,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **320 -> 366** (2026-09-27, cover art moves to the album): the panel owns its right-click menu's wiring — the album actions it is handed, the background and per-value connections, and why. Building the menu (Copy, Select All, the popup) is its own module, `ui/album_menu.py`, so what grew here is only what the panel must hold.
     # 366 -> 377 on 2026-09-28: `set_disc_info_retrying`, the panel's "trying again automatically" state beside the error state it precedes (a failed disc read is now retried; disc_probe_retry).
-    "ui/disc_info_panel.py": 377,
+    # 377 -> 396 on 2026-09-28: `set_no_disc` (a removal said nothing but dashes) and every value label pinned to PlainText, since the error line carries the ripper's own words (TASKS' unswept QLabel row names `ui/disc_info_panel.py`).
+    "ui/disc_info_panel.py": 396,
     # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy ripper-config offset line, both moved from Settings, with the tooltip the offset's control had there.
     # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
     # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
@@ -1851,7 +1852,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
     # 549 -> 574 on 2026-09-28: the media poll logs the drive's raw status on change and names it (and any unreadable checks bridged) in the insert/remove lines; the rig lost an insertion and the log could not say what the drive had reported. The poll is the only reader of the watcher, so the lines live beside it.
     # 574 -> 651 on 2026-09-28: the window side of the bounded automatic retry of a failed disc read. The policy, its state and every branch are in the new pure `disc_probe_retry.py`; what stays here is reading the facts it asks for (`_disc_retry_conditions`) and applying its decision, beside the media poll that is the other half of "the disc gets read without the user".
-    "ui/main_window_drive.py": 651,
+    # 651 -> 655 on 2026-09-28: the poll puts "reading disc…" up on an insertion and the no-disc line on a removal, where both left only dashes.
+    "ui/main_window_drive.py": 655,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
