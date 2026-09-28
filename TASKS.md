@@ -1492,11 +1492,12 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     report's `artifacts.ripper_stdout`.
 - [ ] **Round 29: refuse `-Z N` with `-r` ≤ N at the argv chokepoint, and ship the
   regenerated `docs/seam-commands.md` §1a both ways.** Written and revert-probed on
-  2026-09-28 (helper branch commit `167e0d4c`, `assert_secure_reread_can_converge`),
+  2026-09-28 by a helper (`assert_secure_reread_can_converge`; the commit was not
+  integrated, so it has no id on our `main`),
   held back from round 28's close because it changes a jointly held file whose hash
   both gates check (the `-Z 10` probe row becomes `raised`), and S-14 puts a finding in
   the next round. What landed without it: the settings validator refuses the pair
-  (`fddd4825`), the recovery re-read caps its own `-Z` (`9ff21de7`), and the Full
+  (`e6c63ea4`), the recovery re-read caps its own `-Z` (`385f488c`), and the Full
   script runs its rips on Max retries 5. **Also then:** the rig check's reference argv
   moves from `-r 3 -Z 3` (which can never converge; it probes a nonexistent cue and never
   rips) to the shipped defaults, and the fork is asked whether cyanrip's own argument
