@@ -222,16 +222,16 @@ class CyanripImpl(RipBackend):
         # prompt. A default is not a contract, and this one had been selectable
         # since the fork's round-4 flag table said so.
         #
-        # `os_unicode` is the observed behaviour of the approved build, derived
-        # rather than assumed: the two mappings we have measured are look-alike
-        # glyphs (so `unicode`, not `simple`) and one of them is `<`, which is
-        # reserved on Windows but perfectly legal on ext4 (so `os_`, not plain).
-        # Pinning it is therefore a no-op on the build we ship against today and
-        # a fence against the default moving underneath us tomorrow — and it is
-        # the mode we WANT regardless: it is the one that keeps a library
-        # copyable to an NTFS/exFAT volume, the residual limitation
-        # `docs/dependency-contracts.md` has carried since the 2026-07-08 naming
-        # audit.
+        # The mode is `unicode` (`SANITISE_MODE`, whose comment has the measurement).
+        # This comment once argued for `os_unicode`, on reasoning the fork's round-13
+        # lap 1 §B1 corrected: an `os_` mode substitutes only what the OS FORBIDS, so
+        # on ext4 it would have written a literal `:` and `<`, where the rig wrote the
+        # look-alike glyphs. Pinning `unicode` is a no-op against the build we ship on
+        # and a fence against the default moving underneath us. What it does not buy
+        # is a library that copies cleanly to NTFS/exFAT: `unicode` substitutes the
+        # look-alikes it knows, and the residual limitation
+        # `docs/dependency-contracts.md` has carried since the 2026-07-08 naming audit
+        # still stands. (Stale-comment finding, 2026-09-27, while fuzzing P7b.)
         argv += ["-T", SANITISE_MODE]
         if max_retries:
             argv += ["-r", str(max_retries)]
