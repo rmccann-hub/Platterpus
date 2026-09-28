@@ -1902,7 +1902,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **522 -> 568** (2026-09-27, maintainer ruling: two look-alike folders ask, they do not stand down): the resolver returns EVERY folder the rip could land in and follows a tie into each branch, "Rip to a new folder" is free only if free under all of them, and the ambiguous prompt's wording is a pure function here beside the resolver it describes.
     # 568 -> 574 on 2026-09-28: a tie between look-alike folders asks even when neither holds a rip, with a title and text that do not claim one (maintainer: "fix all").
     # 574 -> 578 on 2026-09-28 (review R4, R5): `known_album_folders` and `free_album_folder_templates` take the track template and the rip's metadata and delegate the prediction to the backend; the docstring says why the disc template was the wrong key.
-    "ui/main_window_helpers.py": 578,
+    # 578 -> 585 on 2026-09-28 (review R3): an existing literal folder no longer ends the resolver's search, so an empty `a"b` cannot hide a full `a“b`; the docstring records the case, beside the loop it changes.
+    "ui/main_window_helpers.py": 585,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
