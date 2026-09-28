@@ -933,6 +933,14 @@ offset. Critical rule #12 is the reason; this is how to follow it in a widget.
 - **RichText means every value inside the markup goes through `html.escape`**,
   and the comment at the site says which parts are ours and which are escaped.
   Where the markup arrives from a caller (`SetupCopy.intro`), the caller escapes.
+  The check follows each value, not the function: every `{…}` in the markup, and
+  every name or call joined into it, must be an `html.escape(...)` call, a number
+  with a numeric format (`{offset:+d}`), a literal of ours, or a name bound only
+  to those. It traces a name through each assignment and a call into the method
+  or function of ours that builds the markup, and reads each caller of a carrier
+  such as `SetupCopy` the same way. What it cannot trace fails. (Until 2026-09-28
+  it asked only whether the building function called `html.escape` once, on
+  anything, so one escaped value vouched for every value beside it.)
 - **Plain text keeps line breaks; markup does not.** In RichText a `\n` is a
   space, so a multi-line RichText label needs `<br>`.
 - **Enforced by `tests/test_labels_state_their_text_format.py`, with no
