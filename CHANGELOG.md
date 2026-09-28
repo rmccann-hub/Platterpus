@@ -111,6 +111,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   existed, for example left by an earlier unknown-disc rip, the check looked only
   at that one, found it empty, and started the rip over the curly-quote folder
   without asking. It now looks at every folder the rip could land in, and asks.
+- **Stopping a runaway drive after a cancel now uses your system's own tools
+  first, as intended.** To stop the drive, Platterpus stops whatever holds it
+  using the system's `fuser` and `pkill`, tries inside the ripping container only
+  if those found nothing, and then ejects with `eject`. If `~/.local/bin` was on your PATH,
+  which most login and desktop sessions arrange, a copy of one of these tools
+  exported from the container there could be used instead, so the first step ran
+  inside the container. Those tools are now always looked up outside
+  `~/.local/bin`, and a missing one fails cleanly instead of falling back to the
+  container's copy.
 - **Every message box now shows its text exactly as written.** What a tool told
   us — a version, a build tag, an install error from its own output — could be
   read as formatting instead of shown: Qt's ready-made message boxes guess

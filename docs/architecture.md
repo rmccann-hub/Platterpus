@@ -323,9 +323,13 @@ The GUI shells out constantly (cyanrip, flatpak, eject, pkill):
   this is the single most important subprocess-security practice.
 - **Resolve executables to absolute paths when the environment is hostile.** A
   GUI launched from a desktop icon (not a shell) inherits a *minimal* `PATH`
-  that can miss `~/.local/bin` and even `/usr/bin`. `drive_control._resolve()`
-  falls back through common absolute locations; do the same for any tool a
-  desktop-launched process must reach.
+  that can miss `~/.local/bin` and even `/usr/bin`. `tool_paths.find_tool` is
+  the one search (PATH, then common absolute locations); use it for any tool a
+  desktop-launched process must reach. A tool that must be the HOST's, as the
+  force-stop's `pkill`/`fuser`/`eject` must (Critical rule #3's exception), passes
+  `exclude_dirs=(tool_paths.exported_tools_dir(),)`: leaving `~/.local/bin` out of
+  the fallback list is not enough, because PATH is searched first and a login
+  session puts it there (`drive_control._host_tool`, review R6, 2026-09-28).
 - **Always set a `timeout`** (install commands cap at 300 s; force-stop probes
   at 20 s) — a wedged child must not hang forever. **But budget container-
   entering commands for the cold-start.** The *first* `cyanrip` call of

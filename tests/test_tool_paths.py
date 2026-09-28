@@ -12,6 +12,8 @@ the composition root's resolution of metaflac.
 from __future__ import annotations
 
 import ast
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -101,6 +103,99 @@ def test_the_host_force_stop_tools_never_search_the_exported_tool_directory() ->
     # NON-TRIVIALITY: the one host tool that does live there when installed per user
     # still searches it, so the check above is a split and not a blanket omission.
     assert exported in drive_control._DISTROBOX_DIRS
+
+
+# --- The exclusion reaches PATH, where the lookup starts (review R6) --------
+#
+# The tuples above were the whole protection, and a test of the tuples passed while
+# the lookup did the opposite: PATH is searched first, a login or Plasma session
+# puts `~/.local/bin` on it, and an exported `pkill` there won. The tests below run
+# the lookup with that PATH.
+
+
+def _tool(directory: Path, name: str) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / name
+    path.write_text("#!/bin/sh\n", encoding="utf-8")
+    path.chmod(0o755)
+    return path
+
+
+def _export_on_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, names: tuple[str, ...]
+) -> tuple[Path, Path]:
+    """A home whose `~/.local/bin` holds ``names`` and leads PATH, and a host dir."""
+    home = tmp_path / "home"
+    exported = home / ".local" / "bin"
+    host = tmp_path / "host"
+    for name in names:
+        _tool(exported, name)
+    host.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("PATH", os.pathsep.join((str(exported), str(host))))
+    assert tool_paths.exported_tools_dir() == str(exported)
+    return exported, host
+
+
+def test_an_excluded_directory_is_skipped_on_PATH_too(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    exported, host = _export_on_path(monkeypatch, tmp_path, ("pkill",))
+    host_pkill = _tool(host, "pkill")
+    # The fixture is live: without the exclusion, PATH hands back the export.
+    assert tool_paths.find_tool("pkill", (str(host),)) == str(exported / "pkill")
+    assert tool_paths.find_tool(
+        "pkill", (str(host),), exclude_dirs=(str(exported),)
+    ) == str(host_pkill)
+    # Another spelling of the same directory is the same directory.
+    alias = tmp_path / "alias"
+    alias.symlink_to(exported)
+    monkeypatch.setenv("PATH", os.pathsep.join((str(alias) + "/", str(host))))
+    assert tool_paths.find_tool(
+        "pkill", (str(host),), exclude_dirs=(str(exported),)
+    ) == str(host_pkill)
+
+
+def test_an_excluded_tool_the_host_lacks_resolves_to_a_path_that_fails_cleanly(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A bare name would be searched on PATH again when it runs, and find the
+    export. So the answer names the first allowed directory, which lacks it."""
+    exported, host = _export_on_path(monkeypatch, tmp_path, ("eject",))
+    got = tool_paths.resolve_tool("eject", (str(host),), exclude_dirs=(str(exported),))
+    assert got == str(host / "eject"), got
+    # Without an exclusion the old contract holds: the bare name when absent.
+    assert tool_paths.resolve_tool("nowhere-at-all", (str(host),)) == "nowhere-at-all"
+
+
+def test_the_force_stop_runs_the_hosts_tools_when_the_export_leads_PATH(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """End to end through the three call sites rule #3's exception uses."""
+    names = ("pkill", "fuser", "eject")
+    exported, host = _export_on_path(monkeypatch, tmp_path, names)
+    for name in names:
+        _tool(host, name)
+    for attr in (
+        "_HOST_TOOL_DIRS_PKILL",
+        "_HOST_TOOL_DIRS_FUSER",
+        "_HOST_TOOL_DIRS_EJECT",
+    ):
+        monkeypatch.setattr(drive_control, attr, (str(host),))
+    ran: list[str] = []
+
+    def runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
+        ran.append(argv[0])
+        return subprocess.CompletedProcess(argv, 1, "", "")
+
+    drive_control.free_device_holders("/dev/sr0", runner=runner)
+    drive_control.kill_reader_on_host(runner=runner)
+    drive_control.eject_drive("/dev/sr0", runner=runner)
+    # A floor, so this cannot pass by running nothing.
+    assert {Path(p).name for p in ran} == set(names), ran
+    assert all(Path(p).parent == host for p in ran), (
+        f"a force-stop tool ran from the container exports ({exported}): {ran}"
+    )
 
 
 def test_the_composition_root_resolves_metaflac_like_every_other_tool(
