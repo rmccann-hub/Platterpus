@@ -1690,7 +1690,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **370 -> 373** (2026-09-28, the Full run's track 3): the retried-track copy carries `replaced_because`.
     # **370 -> 410** (2026-09-28, `-Z` that `-r` cannot satisfy): `recovery_secure_rerip_ceiling`, which caps the ladder's own fallback `-Z` (`MAX_SECURE_REREP`, defined here) at what the user's `-r` lets converge. Beside the bound it caps, and shared by the ladder and the auto-fix so they cannot disagree.
     # **410 -> 414** (2026-09-28, the `-Z` wording): the ladder's reason strings name N+1 identical passes for `-Z N`, and two comments say so.
-    "read_speed_ladder.py": 417,
+    # **414 -> 415** (2026-09-28, same): `unstable_tracks`' docstring stops saying a track that hit the limit had no two reads agree.
+    "read_speed_ladder.py": 418,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
@@ -1758,7 +1759,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2581 -> 2587** (2026-09-28, the Full run's track 3): the schema v30 note, beside the version it describes.
     # **2587 -> 2609** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `NOT_WHOLE_DISC_GATE` beside its sibling gate states, and the one place `_build` corrects `gates.ctdb` from the verdict, where the settings-derived gate and the result meet. The verdict's value is imported from `ctdb/coverage.py`, so the builder stays adapter-free.
     # **2609 -> 2667** (2026-09-28, the round-28 Full run: a debug block marked truncated, tail-only, uncounted, under a scope saying "since launch"): `_debug_scope`, the scope sentence built from what the lines ARE — the buffer's counted drop with its span, and this report's own elision — and `build_debug_log` taking the count. The sentence describes the report's block, so it lives with the block.
-    "rip_report.py": 2667,
+    # **2581 -> 2582** (2026-09-28, the `-Z` wording): the `secure_rerip_converged` comment says a hit repeat limit can follow two reads that agreed, which "without any two agreeing" denied.
+    "rip_report.py": 2668,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED

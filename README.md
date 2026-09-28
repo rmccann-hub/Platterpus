@@ -53,7 +53,7 @@ Mapped directly to the settings the *Archival-Grade Extraction* master guide cal
 
 | EAC "perfect rip" setting | Platterpus / cyanrip equivalent | Match |
 |---|---|---|
-| **Secure Mode** — re-read sectors until statistical parity | cyanrip paranoia = **max** + `-Z N` consensus re-read (re-rips a track until N reads agree) | ✅ |
+| **Secure Mode** — re-read sectors until statistical parity | cyanrip paranoia = **max** + `-Z N` consensus re-read (re-reads a track until N+1 reads are identical) | ✅ |
 | **Accurate Stream** drive feature | assumed by the paranoia read path | ✅ |
 | **Drive caches audio data** → flush cache between re-reads (cache-defeat) | libcdio-paranoia attempts cache-defeat every rip, and *Set up drive → **Analyse cache*** now **measures** the verdict with `cd-paranoia -A` — libcdio's own copy of that same read engine — recording a real Yes/No per drive into the EAC-compatible log (KDD-29). Inconclusive stays honestly "(unknown)", never a faked "Yes" (KDD-25) | ✅ |
 | **C2 error info — leave UNCHECKED** (disable, even if supported) | We don't use C2 → **exactly what the guide prescribes** | ✅ |
@@ -631,7 +631,7 @@ After a rip, the results pane shows an at-a-glance **verification verdict** (gre
 
 ### How ripping works
 
-Platterpus rips the disc **once at full speed** and checks every track against AccurateRip. A track that matches the database on that first read is already proven bit-perfect, so it's left alone. Only the tracks that *didn't* match are then **secure-re-ripped** — re-read until "Max reads to confirm a shaky track" reads agree on the checksum (cyanrip's `-Z`, on by default) — and the better read is kept. So a clean disc is a single fast pass (roughly real-time), and the careful, slow work happens only where it's actually needed. If read errors appear, an adaptive read-speed ladder also re-reads the disc more slowly. The FLAC master is always kept and, unless disabled, decode-verified against its stored MD5; any non-FLAC output is derived from that verified master.
+Platterpus rips the disc **once at full speed** and checks every track against AccurateRip. A track that matches the database on that first read is already proven bit-perfect, so it's left alone. Only the tracks that *didn't* match are then **secure-re-ripped** — re-read until enough reads are identical — *Extra matching reads to trust a track* plus one, so three at the default of 2 (cyanrip's `-Z`, on by default; *Max retries* caps how many reads that may take) — and the better read is kept. So a clean disc is a single fast pass (roughly real-time), and the careful, slow work happens only where it's actually needed. If read errors appear, an adaptive read-speed ladder also re-reads the disc more slowly. The FLAC master is always kept and, unless disabled, decode-verified against its stored MD5; any non-FLAC output is derived from that verified master.
 
 See [TASKS.md](TASKS.md) under "EAC bit-perfect parity gaps" for the history.
 

@@ -578,7 +578,7 @@ _POST_RIP_BAND_START: float = 95.0
 #
 # WHAT CAN HONESTLY BE ESTIMATED HERE, and what deliberately is not.
 #
-# A `-Z N` re-rip reads one track over and over until N reads agree. **How many
+# A `-Z N` re-rip reads one track over and over until N+1 reads are identical. **How many
 # more reads that will take is unknowable** — that is the whole point of the
 # b8 lesson (`_album_eta_text`): "the extra time the re-read costs is unknowable
 # until it converges". So we do NOT invent a total for the securing pass.
@@ -1327,7 +1327,7 @@ class RipWorker(QObject):
         **What this estimates, and what it refuses to.** It estimates the time left
         in the read that is running right now, measured from that read's own
         percentage over a short trailing window. It does NOT estimate the securing
-        pass as a whole, because a ``-Z N`` re-rip runs until N reads agree and the
+        pass as a whole, because a ``-Z N`` re-rip runs until N+1 reads are identical and the
         number of reads that will take is genuinely unknowable — inventing a total
         for it is the same class of mistake as the album estimate this replaces,
         just with a smaller denominator. So the wording is scoped too: "about 20s

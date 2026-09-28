@@ -315,7 +315,7 @@ recovers, never hangs or silently fails). One row = one test.
 | D7 | **Disc not ready** (scanned while spinning up) | friendly "couldn't read the TOC… click Rescan disc" — *not* a traceback | **Rescan disc** |
 | D8 | **Disc unknown to MusicBrainz** | numbered blank rows + offer to *Rip as Unknown Album*; no TTY prompt | rip as unknown |
 | D9 | **CD-R (home-burned)** | just works — cyanrip is CD-R-native (no toggle) | — |
-| D10 | **Scratched / unreadable track** | clear "Track N couldn't be read… clean it" hint; the `-Z` secure re-read ceiling + stall detection (0.4.13) bound the retry time | clean the disc, or raise "Max reads to confirm a shaky track" |
+| D10 | **Scratched / unreadable track** | clear "Track N couldn't be read… clean it" hint; the secure re-read's ceiling (Max retries, `-r`) + stall detection (0.4.13) bound the retry time | clean the disc, or raise "Extra matching reads to trust a track" (keeping Max retries above it) |
 | D11 | **Drive offset unknown** (drive not in the list) | rip is blocked with a "set up your drive first" prompt → wizard | type the offset from the AccurateRip list |
 | D12 | **Cancel mid-rip** | drive spins down; if not, auto-force-stop after a few seconds (or **Force stop**) | — |
 | D13 | **Update downloaded over the old file's path** | integration still offered; menu entry/icon fixed | accept the offer |
@@ -561,12 +561,12 @@ partial→exact). What remains open here is the deliberate `-Z` convergence
 re-rip below. *(The original test's backend-switch/wizard-install steps died
 with the previous backend — that install path is now covered by A4; text in git history.)*
 
-**Goal:** prove on a marginal track that raising **Max reads to confirm a
-shaky track** (`-Z N`) converges a near-miss to the AccurateRip consensus.
+**Goal:** prove on a marginal track that raising **Extra matching reads to
+trust a track** (`-Z N`) converges a near-miss to the AccurateRip consensus.
 
 **Steps**
 1. Rip the Police disc (A6). If a track reads as a near-miss/offset-variant
-   (T3-class), set Settings → **Max reads to confirm a shaky track → 2** and
+   (T3-class), set Settings → **Extra matching reads to trust a track → 2** and
    re-rip.
    - [ ] The re-rip's argv includes `-Z 2` (visible in the log).
    - [ ] The track converges to the consensus CRC (matches Part B). (T5 is a
@@ -901,4 +901,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.6.60.*
+*Last updated for Platterpus v0.6.62.*
