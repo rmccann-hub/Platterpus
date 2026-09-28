@@ -101,6 +101,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   recipe said the bundled `cryptography` version was fixed by `requirements.lock`.
   That lock is not committed, so every AppImage build installs online within the `~=`
   ranges, and `build/python-appimage/requirements.txt` now says so.
+- **The configuration audit's full report is archived.**
+  `docs/archive/config-audit-2026-09-28.md` holds every phase's block, the branch survey
+  of Platterpus, the fork and claude-code-skills, the changes it proposes to the audit
+  standard itself, and five things found while applying. KDD-39 stays the record of
+  what was decided; the archive is the evidence behind it.
 - **The 2026-09-28 configuration audit is on the record.** `PLANNING.md` KDD-39 records
   the standard and version that ran, the tier the maintainer confirmed (T3), the three
   rulings, what was applied, the eight amendments approved and held until the
