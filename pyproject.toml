@@ -10,7 +10,7 @@ dynamic = ["version"]
 description = "A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3)"
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "Platterpus contributors" }]
+authors = [{ name = "rmccann-hub" }]
 # "cyanrip" is kept as a keyword: it's the rip backend Platterpus drives (the
 # Platterpus fork of cyanrip), which is what someone searching for a GUI for it
 # would look up.

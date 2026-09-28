@@ -1047,6 +1047,14 @@ Build / dev tooling:
 
 See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
+Copyright (C) 2026 rmccann-hub.
+
+Platterpus is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, version 3 only. It is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full terms.
+
 ---
 
 *Last updated for Platterpus v0.6.63.*
