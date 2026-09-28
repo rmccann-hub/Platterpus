@@ -1101,7 +1101,10 @@ class SettingsDialog(CenteredDialog):
         """Show and log any hard error; True when saving must be refused."""
         issues = self._own_issues()
         if settings_validation.errors_only(issues):
-            settings_validation.log_issues(issues)
+            # With the form's values, so each refusal is logged WITH the value
+            # that was refused (`settings_validation.log_refusal`), not only
+            # its name and reason.
+            settings_validation.log_issues(issues, self.to_config())
             self._render_validation(issues)
             return True
         return False

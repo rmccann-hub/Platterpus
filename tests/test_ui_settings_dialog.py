@@ -764,6 +764,26 @@ def test_accept_logs_validation_errors(qapp: QApplication, caplog) -> None:
     assert "track_template" in caplog.text
 
 
+def test_a_blocked_save_logs_the_refused_value_not_only_its_name(
+    qapp: QApplication, caplog
+) -> None:
+    """The log line a bug report greps for carries WHAT was refused, the same line
+    the script verbs and the save-as-you-change controls write."""
+    import logging
+
+    dialog = SettingsDialog(Config())
+    dialog._output_dir_edit.setText("nope")  # relative: an error
+    with caplog.at_level(logging.WARNING):
+        dialog.accept()
+    lines = [
+        r.getMessage()
+        for r in caplog.records
+        if r.getMessage().startswith("settings input refused: output_dir = ")
+    ]
+    assert len(lines) == 1, [r.getMessage() for r in caplog.records]
+    assert lines[0].startswith("settings input refused: output_dir = 'nope' — ")
+
+
 # --- Accessible names + validation announcements (a11y gap #4) ---------------
 
 

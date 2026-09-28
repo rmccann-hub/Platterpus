@@ -606,7 +606,9 @@ def _sanitized(cfg: Config) -> Config:
         issues = settings_validation.validate_config(cfg)
         if not issues:
             return cfg
-        settings_validation.log_issues(issues)
+        # With `cfg`, so a hand-edited value that is about to be reset is logged
+        # WITH the value the file held — the one thing the reset destroys.
+        settings_validation.log_issues(issues, cfg)
         errors = settings_validation.errors_only(issues)
         if not errors:
             return cfg

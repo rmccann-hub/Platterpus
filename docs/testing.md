@@ -308,6 +308,15 @@ tiers. "I added a happy-path test" is not done.
       corrupts each field in turn and asserts an issue is raised — so a new
       setting **cannot ship unvalidated** (the test goes red). The dialog shows a
       visible error and blocks OK on any error, and `log_issues` records it.
+      **Every refusal is logged once, on every surface, by one function**:
+      `settings_validation.log_refusal` writes `settings input refused: <field> =
+      <value> — <reason>` at WARNING, with the value `repr`-escaped and bounded
+      head-and-tail. `field_error` calls it for its own answers, so no
+      single-setting writer (`set`, `expect-refused`, the save-as-you-change
+      controls) logs a refusal itself; `log_issues(issues, config)` does it for the
+      dialog and a hand-edited config. Added 2026-09-28, when the round-28 Full
+      run's five scripted refusals — a read offset of 99999 among them — were found
+      to have written nothing to the log (`tests/test_uiscript_settings_verbs.py`).
     - **Security:** exploit-shaped inputs are rejected — path traversal (`..`),
       control chars/NUL, absolute templates. And there is **no shell**:
       `test_security_no_shell` statically forbids `shell=True` / `os.system` /

@@ -138,6 +138,33 @@ def test_save_user_setting_refuses_what_the_validator_refuses(
     assert saved == []
 
 
+def test_a_control_s_refusal_is_logged_exactly_once_with_its_value(
+    make_window: Any, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`field_error` logs every refusal now, so the writer must not log it again.
+
+    Before 2026-09-28 this writer was the one surface that DID log a refusal
+    (`setting X refused: <reason>`, without the value). With the logging moved into
+    the shared predicate, keeping both would write each refusal twice — so the
+    count is the assertion, not the presence.
+    """
+    import logging
+
+    window = make_window(save_cfg=lambda _cfg: None)
+    missing = str(tmp_path / "no-such-script.txt")
+    with caplog.at_level(logging.WARNING):
+        result = window._save_user_setting("test_script_path", missing)
+    assert result.applied is False
+    about_it = [
+        r.getMessage()
+        for r in caplog.records
+        if "refused" in r.getMessage() and "test_script_path" in r.getMessage()
+    ]
+    assert about_it == [
+        f"settings input refused: test_script_path = {missing!r} — {result.message}"
+    ], about_it
+
+
 def test_save_user_setting_refuses_a_name_that_is_not_a_setting(
     make_window: Any,
 ) -> None:

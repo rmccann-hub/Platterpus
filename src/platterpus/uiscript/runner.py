@@ -196,6 +196,29 @@ def _coerce_setting(current: object, raw: str) -> tuple[object, str]:
     return None, f"settings of type {type(current).__name__} cannot be set by script"
 
 
+def _coerce_script_input(field: str, current: object, raw: str) -> tuple[object, str]:
+    """:func:`_coerce_setting` for a value a script is trying to WRITE, logged if refused.
+
+    A script's ``set read_offset abc`` is invalid input refused at the boundary
+    exactly as ``set read_offset 99999`` is — one by the coercer, one by the
+    validator — and CLAUDE.md requires both to reach the log. The validator's
+    refusals are logged by ``settings_validation.field_error``; this logs the
+    coercer's, through the same :func:`~platterpus.settings_validation.log_refusal`
+    so the two read as one kind of line (2026-09-28, the round-28 Full run, whose
+    five scripted refusals wrote nothing to the log).
+
+    Used by ``set`` and ``expect-refused`` — the verbs whose value is an input to
+    a setting. NOT by ``expect``: its value is an assertion operand, and a typo
+    there is a broken script step, recorded as an ERROR in the transcript.
+    """
+    from platterpus.settings_validation import log_refusal
+
+    coerced, problem = _coerce_setting(current, raw)
+    if problem:
+        log_refusal(field, raw, problem)
+    return coerced, problem
+
+
 def _validation_error_for(candidate: object, field: str) -> str:
     """The validator's own complaint about ``field``, or ``""`` if it has none.
 
@@ -3529,7 +3552,7 @@ class ScriptRunner(QObject):
             )
             return
 
-        coerced, problem = _coerce_setting(getattr(current, field), raw)
+        coerced, problem = _coerce_script_input(field, getattr(current, field), raw)
         if problem:
             self._record(step, Outcome.ERROR, f"{field}: {problem}")
             return
@@ -3834,8 +3857,9 @@ class ScriptRunner(QObject):
         refusal cannot see that, and *"can this check be satisfied by the wrong
         thing?"* is the question this project keeps paying for.
 
-        Delegates to the same `_coerce_setting` + `_validation_error_for` pair
-        `_do_set` uses, never a second copy: a validator a test calls differently
+        Delegates to the same `_coerce_script_input` + `_validation_error_for` pair
+        `_do_set` uses, never a second copy — so a deliberate probe's refusal is
+        logged exactly as an accidental one is: a validator a test calls differently
         from the product is a validator two things can disagree about.
         """
         field = step.args[0]
@@ -3853,7 +3877,7 @@ class ScriptRunner(QObject):
             return
         before = getattr(current, field)
 
-        coerced, problem = _coerce_setting(before, raw)
+        coerced, problem = _coerce_script_input(field, before, raw)
         if problem:
             # A value the COERCER rejects never reaches the validator, and that is
             # still a refusal at the boundary — which is what this verb asserts.

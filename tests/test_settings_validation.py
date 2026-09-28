@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import re
 import typing
 from pathlib import Path
 
@@ -614,6 +615,61 @@ def test_log_issues_writes_errors_and_warnings(caplog) -> None:
     text = caplog.text
     assert "output_dir" in text and "bad dir" in text
     assert "metaflac_path" in text and "not on path" in text
+
+
+def test_field_error_logs_each_refusal_once_with_the_value(caplog) -> None:
+    """The one predicate every single-setting writer asks logs what it refuses.
+
+    The round-28 Full run's five scripted refusals (a read offset of 99999 among
+    them) wrote nothing to the log, because no caller of `field_error` logged and
+    `field_error` did not either. It does now — once, with the value — and a
+    value it ACCEPTS writes nothing, which is the control that stops "log on
+    every call" from passing.
+    """
+    with caplog.at_level(logging.WARNING, logger="platterpus.settings_validation"):
+        refused = sv.field_error(Config(read_offset=99999), "read_offset")
+        accepted = sv.field_error(Config(read_offset=667), "read_offset")
+    assert refused and accepted == ""
+    lines = [r.getMessage() for r in caplog.records if "refused" in r.getMessage()]
+    assert lines == [f"settings input refused: read_offset = 99999 — {refused}"], lines
+    assert all(r.levelno == logging.WARNING for r in caplog.records)
+
+
+def test_log_issues_names_the_refused_value_when_given_the_config(caplog) -> None:
+    """The Settings dialog and a hand-edited config pass the config, so the log line
+    carries the value that was refused — the one thing a reset destroys."""
+    cfg = Config(read_offset=-99999)
+    issues = [i for i in sv.validate_config(cfg) if i.field == "read_offset"]
+    assert issues and issues[0].is_error()
+    with caplog.at_level(logging.WARNING, logger="platterpus.settings_validation"):
+        sv.log_issues(issues, cfg)
+    assert caplog.records[-1].getMessage() == (
+        f"settings input refused: read_offset = -99999 — {issues[0].message}"
+    )
+
+
+def test_a_refused_value_is_logged_escaped_and_bounded_with_a_count() -> None:
+    """`repr`, so a newline in a refused value cannot forge a second log line; and
+    head and tail with the gap counted, so the counts add up to the original."""
+    from platterpus.settings_validation import (
+        _REFUSED_VALUE_HEAD,
+        _REFUSED_VALUE_TAIL,
+        _loggable_value,
+    )
+
+    forged = _loggable_value("/tmp/x\n2026-09-28 WARNING forged line")
+    assert "\n" not in forged and "\\n" in forged, forged
+
+    value = "H" * 500 + "T" * 500
+    text = _loggable_value(value)
+    match = re.search(r"… \[(\d+) character\(s\) elided\] …", text)
+    assert match is not None, text
+    head, tail = text[: match.start()], text[match.end() :]
+    assert head == repr(value)[:_REFUSED_VALUE_HEAD]
+    assert tail == repr(value)[-_REFUSED_VALUE_TAIL:]
+    assert len(head) + int(match.group(1)) + len(tail) == len(repr(value))
+    # A short value is untouched.
+    assert _loggable_value(99999) == "99999"
 
 
 # --- Cross-filesystem portability warning (maintainer-approved 2026-07-21) --

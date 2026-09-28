@@ -80,6 +80,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   says which app is running and whether that round approved it: yes, no, or not
   determined when the record names no app version. The Copy diagnostics dialog and
   every evidence bundle render this one line.
+- **A refused setting is now written to the log, with the value that was refused.**
+  In the round-28 Full run, the acceptance script's five deliberate refusals (a read
+  offset of 99999 and -99999, 101 retries, 11 re-reads, MP3 quality 10) were each
+  refused on screen and wrote nothing to the log. Every refusal now writes one
+  warning, `settings input refused: <setting> = <value> — <reason>`, from every
+  place a value can be refused: the script's `set` and `expect-refused`, the controls
+  that save as you change them, the Settings dialog, and a hand-edited config file
+  (whose value the log now keeps before the reset replaces it). One function writes
+  the line, and it is called where the refusal is decided, so no caller has to
+  remember to log.
 
 ### Changed
 

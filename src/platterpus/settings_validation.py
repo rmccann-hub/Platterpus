@@ -417,16 +417,87 @@ def field_error(candidate: Config, field: str) -> str:
     an attribute it is a bound method, always truthy, and every warning would be
     reported as a refusal (pinned by ``tests/test_uiscript_settings.py``).
     Never raises: a validator fault is reported as a refusal, never as a pass.
+
+    **Every refusal it answers is logged, here, once** (:func:`log_refusal`).
+    Because this is the one predicate every single-setting writer asks, logging
+    at the answer covers all of them without any caller remembering to — which
+    is what they had all been forgetting (2026-09-28, the round-28 Full run: five
+    deliberate script refusals, including a read offset of 99999, wrote nothing
+    to the log at all). A caller must therefore NOT log the refusal again.
     """
     try:
         issues = validate_config(candidate)
     except Exception:  # noqa: BLE001 — a validator fault must not become a silent set
         log.exception("settings validation raised while checking %s", field)
-        return "the settings validator could not evaluate this value"
+        reason = "the settings validator could not evaluate this value"
+        log_refusal(field, getattr(candidate, field, _VALUE_UNAVAILABLE), reason)
+        return reason
     for issue in issues:
         if issue.field == field and issue.is_error():
+            log_refusal(
+                field, getattr(candidate, field, _VALUE_UNAVAILABLE), issue.message
+            )
             return issue.message
     return ""
+
+
+#: What a refusal line says when the refused value cannot be read off the config
+#: (the field name is not an attribute). Stated, so it never reads as an empty value.
+_VALUE_UNAVAILABLE: str = "<value unavailable>"
+
+#: How much of a refused value's ``repr`` a log line carries. A template or a path
+#: can be long, and a hand-edited config can hold anything; the log line must stay
+#: one readable line. Head and tail, with the gap counted, like every other bound.
+_REFUSED_VALUE_HEAD: int = 160
+_REFUSED_VALUE_TAIL: int = 60
+
+
+def _loggable_value(value: object) -> str:
+    """``repr(value)``, bounded, for a log line. **Never raises.**
+
+    ``repr`` rather than ``str`` on purpose: it escapes control characters, so a
+    refused value holding a newline cannot forge a second log line — and control
+    characters are exactly what several rules here refuse. Bounded to a head and
+    a tail with the elided count marked, because a silent truncation reads as
+    completeness (CLAUDE.md).
+    """
+    if value is _VALUE_UNAVAILABLE:
+        return _VALUE_UNAVAILABLE
+    try:
+        text = repr(value)
+    except Exception:  # noqa: BLE001 — a log line must not fail over its own subject
+        return f"<unrepresentable {type(value).__name__}>"
+    limit = _REFUSED_VALUE_HEAD + _REFUSED_VALUE_TAIL
+    if len(text) <= limit:
+        return text
+    dropped = len(text) - limit
+    return (
+        f"{text[:_REFUSED_VALUE_HEAD]}… [{dropped} character(s) elided] …"
+        f"{text[-_REFUSED_VALUE_TAIL:]}"
+    )
+
+
+def log_refusal(field: str, value: object, reason: str) -> None:
+    """THE log line for a settings value the input boundary refused.
+
+    CLAUDE.md (*Validate every input*): invalid input gets a visible error at the
+    point of entry **and is logged to the log file**. The visible half was in
+    place on every surface; the log half was not — the uiscript ``set`` and
+    ``expect-refused`` verbs and the save-as-you-change controls refused without a
+    word to the log. One function, so the line has one shape — setting name, the
+    refused value, the validator's own reason — wherever it was refused, and a
+    bug report can grep for ``settings input refused`` and find every one.
+
+    Called by :func:`field_error` (every single-setting writer), by
+    :func:`log_issues` for the Settings dialog and a hand-edited config file, and
+    by the script runner for a value it could not even coerce to the setting's
+    type. WARNING, because a refused value is an input the user or a script
+    actually tried. Never raises: ``_loggable_value`` cannot, and ``logging``
+    routes a handler's own failure to ``handleError`` rather than to its caller.
+    """
+    log.warning(
+        "settings input refused: %s = %s — %s", field, _loggable_value(value), reason
+    )
 
 
 # --- Values that become a path SEGMENT inside a dependency -------------------
@@ -582,18 +653,27 @@ def resolve_input_directory(
     return resolved, ""
 
 
-def log_issues(issues: list[ValidationIssue]) -> None:
+def log_issues(issues: list[ValidationIssue], config: Config | None = None) -> None:
     """Record validation issues to the log file (CLAUDE.md: log input failures).
 
     Errors log at WARNING (they blocked a save the user attempted); warnings log
     at INFO. Called by the dialog when the user tries to save with issues, so a
     bug report's log shows exactly what was rejected and why.
+
+    **Pass the ``config`` the issues were found in**, and each error is logged
+    through :func:`log_refusal` with the refused VALUE beside the setting and the
+    reason — the same line every other surface writes. Without it the value is
+    not known here, and the line says only what it can.
     """
     for issue in issues:
         if issue.is_error():
-            log.warning(
-                "settings validation error: %s — %s", issue.field, issue.message
-            )
+            if config is not None:
+                value = getattr(config, issue.field, _VALUE_UNAVAILABLE)
+                log_refusal(issue.field, value, issue.message)
+            else:
+                log.warning(
+                    "settings validation error: %s — %s", issue.field, issue.message
+                )
         else:
             log.info("settings validation warning: %s — %s", issue.field, issue.message)
 

@@ -88,7 +88,9 @@ class SettingsMixin(MainWindowShared):
         candidate = with_values(self._config, {field: value})
         problem = settings_validation.field_error(candidate, field)
         if problem:
-            log.warning("setting %s refused: %s", field, problem)
+            # Already logged, with the refused value, by `field_error` itself —
+            # the one place every single-setting writer's refusal is recorded.
+            # Logging it again here would write each refusal twice.
             return SettingWrite(False, problem)
         self._config = candidate
         self._rip_controls.set_config(self._config)

@@ -1205,7 +1205,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # v8->v9 step that flips a saved False once. Migrations live here by design.
     # **847 -> 848** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **848 -> 849** (2026-09-25, D18: `%N`/`%M` work everywhere): the template comment no longer says multi-disc folders are impossible.
-    "config.py": 849,
+    # **849 -> 851** (2026-09-28, the round-28 Full run): a hand-edited value about to be reset is logged WITH the value (`log_issues(issues, cfg)`), since the reset destroys it.
+    "config.py": 851,
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
     # **437 -> 522** (2026-09-28, Check dependencies "seems to freeze, not respond, or give no
@@ -1770,7 +1771,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **933 -> 947** (2026-09-25): `is_control_char` widened to C1 and U+2028/2029, with the reason; the one definition belongs beside the validators that use it.
     # **947 -> 1004** (2026-09-25, the property-test batches): three rules no longer crash (and so pass) on an unhashable choice, an unknown `~user`, or an over-long component; and `%%` no longer hides a segment from the reserved-name and trailing-dot checks.
     # **1004 -> 1024** (2026-09-25, D17, KDD-38): a crashing rule becomes a visible warning on its field instead of a silent pass, and the docstring says why it is not an error.
-    "settings_validation.py": 1024,
+    # **1024 -> 1104** (2026-09-28, the round-28 Full run: five scripted refusals wrote nothing to the log): `log_refusal`, the ONE log line for refused input, and `_loggable_value`, its escaped head-and-tail bound. `field_error` calls it, so every single-setting writer logs without a caller remembering to. The input boundary is this module's job, so its log line lives here.
+    "settings_validation.py": 1104,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -2100,7 +2102,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1381 -> 1335** (2026-09-24, #37 one home per setting): down: seven controls moved to their homes, net of OK/Apply/Cancel/Restore Defaults.
     # **1335 -> 1336** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **1336 -> 1337** (2026-09-25, D18: `%N`/`%M` work everywhere): the template tooltip lists `%N` and `%M`.
-    "ui/settings_dialog.py": 1337,
+    # **1337 -> 1340** (2026-09-28, the round-28 Full run): a blocked save hands the form's values to `log_issues`, so the log names the refused value.
+    "ui/settings_dialog.py": 1340,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     "ui/track_table.py": 832,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
@@ -2223,7 +2226,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4407 -> 4420 on 2026-09-27: _forget_last_cyanrip_result, called first by every cyanrip step (TASKS D7).
     # 4420 -> 4512 on 2026-09-28: `open dependencies` probed on the GUI thread; it now starts the check on a worker and waits on this file's deadline machinery (_open_dependency_check), and `stop` records a step that was mid-wait.
     # 4512 -> 4598 on 2026-09-28: the `cyanrip` verb runs the ripper in the rips folder (`_ripper_workdir`, beside `_drive_in_offset_list`) and records it (`_job_invocation`); the 2026-09-28 Full run's relative `-D r16deemphon` wrote a commercial track outside the session folder and its logs never reached the bundle.
-    "uiscript/runner.py": 4598,  # +116: _do_expect_verification, the assertion section F never had,
+    # 4512 -> 4536 on 2026-09-28 (the round-28 Full run): `_coerce_script_input`, the coercer as `set` and `expect-refused` use it, logging the value it refuses through `settings_validation.log_refusal`; `expect` keeps the bare coercer, because its value is an assertion, not an input.
+    "uiscript/runner.py": 4622,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
