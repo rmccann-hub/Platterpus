@@ -3515,6 +3515,18 @@ Three things to carry:
     (`time.thread_time`), which does not count descheduled time; the same
     experiment then read 3.6-4.9x at double and quadruple oversubscription. **Ask of
     any timing check what its clock counts besides the thing being timed.**
+  - *2026-09-28: a test of the detector must be held to the detector's standard.*
+    `test_the_confirmation_clears_the_pattern_ci_flagged_on_noise` read 8.9x on
+    #269's 3.12 leg, a docs-only change, for a pattern that measures 3.9x here
+    (median of 300; max 4.8x with the whole suite on every core beside it). The
+    runner's noise was not reproduced. The sweep calls a pattern super-linear only
+    when two measurements agree, and this test failed on one, so it was failing at
+    the rate of a single noisy sample. It and its quadratic twin now settle as the
+    detector proof does (`_settled`): one wrong answer is forgiven, a wrong answer
+    on every attempt fails. They settle on the confirmation's **verdict**, not the
+    ratio printed beside it, because a confirmation that answered `True` with an
+    honest ratio would pass a test that read the ratio; the revert probe of that
+    case is what caught the first draft doing exactly that.
 - **A test near its bound is a measurement, not a pass.** The loader test sat at 54%
   of its budget for weeks. A generous bound is right for "not stalled", and it also
   hides a regression until something else moves the timing. The fix added a test

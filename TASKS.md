@@ -696,6 +696,12 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
     sweep now times on `time.thread_time`: the same experiment read 3.6-4.9x, and
     the regex file passed 12 of 12 runs under that load (`docs/testing.md`, the
     lesson's correction).
+  - *2026-09-28, a third reading:* the confirmation's own self-test failed on #269's
+    3.12 leg (8.9x; 3.9x median and 4.8x max here over 300 runs under full-suite
+    load, so not reproduced). It was a single measurement testing a detector that
+    needs two; it now settles over up to three attempts on the verdict, as the
+    detector proof does. Revert-probed five ways, all as expected. Next time any of
+    this family fails, keep the failing leg's log before rerunning.
 - [x] **NEXT-ROUND: ask them to ship `.17`'s `PROVIDER-CONTRACT.md` as a round
   artifact**, so the argv check reads the round's own table again (lag back to 0).
   *Done in round 28 after all:* their lap 3 S4 names it, `e0471f4:PROVIDER-CONTRACT.md`,
