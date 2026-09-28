@@ -52,7 +52,7 @@ SCRIPT_SUFFIXES: tuple[str, ...] = (".txt", ".pscript")
 
 #: The directory, *inside the package*, holding the scripts this build ships.
 #: The one home of the name: `test_session.BUILTIN_SCRIPT_DIR_NAME` (the Tools →
-#: Run acceptance test… route) is this constant, so the menu and `--run-script`
+#: Advanced → Run acceptance test… route) is this constant, so the menu and `--run-script`
 #: cannot name two different directories. `pyproject.toml`'s package-data entry
 #: is what puts the files there.
 PACKAGED_SCRIPT_DIR_NAME: Final[str] = "rig_scripts"

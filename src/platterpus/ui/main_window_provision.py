@@ -515,7 +515,7 @@ class ProvisioningMixin(MainWindowShared):
         return dialog
 
     def open_script_console(self, *, autorun: bool = False) -> ScriptConsoleDialog:
-        """Open Tools → Run test script…, the unattended-batch console.
+        """Open Tools → Advanced → Run test script…, the unattended-batch console.
 
         **Modeless and kept alive by a reference on the window.** A script drives
         *this* window and opens other dialogs, so an ``exec()`` here would sit in
@@ -568,7 +568,7 @@ class ProvisioningMixin(MainWindowShared):
         return console
 
     # ----------------------------------------------------------------------
-    # The overnight acceptance session — Tools → Run acceptance test…
+    # The overnight acceptance session — Tools → Advanced → Run acceptance test…
     # ----------------------------------------------------------------------
     #
     # **What this replaces, and why it is in the app.** Running an acceptance
@@ -876,8 +876,8 @@ class ProvisioningMixin(MainWindowShared):
         console.contain_next_run_in(layout.run_dir)
         console.size_next_run(self._acceptance_run_size)
         # **The start is CHECKED, not assumed.** `run_now()` declines when a run
-        # is already in flight — the operator triggered Tools → Run acceptance
-        # test twice, or left a console running from earlier — and until it
+        # is already in flight — the operator started the acceptance test from
+        # the menu twice, or left a console running from earlier — and until it
         # returned a value this method logged *"starting the batch"* and then
         # armed a session around a batch that never began: the sleep lock held,
         # the layout armed, and the window waiting on a `run_finished` that
@@ -923,8 +923,8 @@ class ProvisioningMixin(MainWindowShared):
             # cannot place. Say so rather than inventing one.
             reason = "the test-script console declined to start it, for a reason this window could not read."
             what_to_do = (
-                "Open Tools → Run test script… to see what the console says, then "
-                "start the acceptance test again."
+                "Open Tools → Advanced → Run test script… to see what the console "
+                "says, then start the acceptance test again."
             )
         log.error("acceptance session: the batch did not start — %s", reason)
         self._show_acceptance_notice(f"⚠ The acceptance test did not start — {reason}")
@@ -1498,7 +1498,7 @@ class ProvisioningMixin(MainWindowShared):
         return changed
 
     def _on_run_acceptance_action(self) -> None:
-        """Tools → Run acceptance test…: ask the size, then run the session."""
+        """Tools → Advanced → Run acceptance test…: ask the size, then run it."""
         self.run_acceptance_session()
 
     def _ask_acceptance_run_size(self) -> str | None:

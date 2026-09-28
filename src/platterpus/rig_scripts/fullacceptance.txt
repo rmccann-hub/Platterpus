@@ -2,8 +2,8 @@
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
 #
-#   How to run it:  Tools -> Run acceptance test...  (the app does the rest:
-#                   session folder, sleep lock, the run, and one file to send)
+#   How to run it:  Tools -> Advanced -> Run acceptance test...  (the app does
+#                   the rest: session folder, sleep lock, the run, one file)
 #   Where it lives: INSIDE the app, since v0.6.32 — there is nothing to download.
 #                   Source: src/platterpus/rig_scripts/fullacceptance.txt
 #   What it costs:  it depends on the RUN SIZE you pick when it starts:

@@ -223,7 +223,7 @@ def describe_rip_plan(
     )
     lines.append(
         f"{PLAN_PREFIX}   Cache probe (-x): NEVER sent by a rip. Not part of our "
-        "argv surface; run it directly against the ripper (Tools → Run test "
-        "script, or the rig-session harness) if you need that measurement."
+        "argv surface; run it directly against the ripper (Tools → Advanced → Run "
+        "test script, or the rig-session harness) if you need that measurement."
     )
     return lines

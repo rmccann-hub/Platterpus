@@ -450,8 +450,8 @@ without it, ripping is unaffected — only this verdict stays unmeasured.)
 
 ## Running the full acceptance test
 
-**Tools → Run acceptance test…** is the whole thing in one click. Put an
-ordinary audio CD in the drive, choose it, and walk away — Platterpus makes a
+**Tools → Advanced → Run acceptance test…** is the whole thing in one click. Put
+an ordinary audio CD in the drive, choose it, and walk away — Platterpus makes a
 session folder, holds off sleep, idle and lid-suspend for the duration, runs the
 built-in acceptance batch, drops the sleep lock again, and packs everything into
 **one** `.tar.gz`. **Everything the run makes stays in that one session folder**
@@ -496,11 +496,11 @@ archive's `MANIFEST.txt` rather than dropped quietly.
 
 ## Running your own tests without being there
 
-Platterpus can drive its own interface. **Tools → Run test script…** opens a
-console where you type (or load) a batch of steps — open a dialog, check what is
-on screen, take a screenshot, run the ripper and assert its exit code — and each
-step runs against the real window, one at a time, the way a person would. Press
-**Commands** in that console for the full list of steps.
+Platterpus can drive its own interface. **Tools → Advanced → Run test script…**
+opens a console where you type (or load) a batch of steps — open a dialog, check
+what is on screen, take a screenshot, run the ripper and assert its exit code —
+and each step runs against the real window, one at a time, the way a person
+would. Press **Commands** in that console for the full list of steps.
 
 Two settings, both in the console under *Script settings* and both saved the
 moment you change them, make it usable when you are not at the machine:

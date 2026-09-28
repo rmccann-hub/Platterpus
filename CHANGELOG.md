@@ -83,6 +83,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   twin. With neither holding a rip, the prompt's title is "Which album folder?" and
   it says neither holds one, rather than claiming the album was already ripped. One
   empty folder still rips with no question.
+- **The two test tools are under Tools → Advanced.** *Run test script…* and *Run
+  acceptance test…* moved from Tools into an *Advanced* submenu, so the everyday items
+  come first. *Uninstall Platterpus…* stays in Tools. The User Guide, the rig-session
+  sheet and the rig-scripts guide name the new path.
 
 ### Fixed
 

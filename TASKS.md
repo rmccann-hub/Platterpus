@@ -1860,7 +1860,7 @@ the sprawl is concentrated in two of them.
       *Updates ▸* submenu (or a single *Check for updates…* that covers both the
       app and the ripper) replaces three top-level items with one.
   - *Audit 2026-09-25: done.* One "Setup & Updates…" window (ui/dialogs/setup_center.py, 3fbf568).
-- [~] **Tools mixes three unrelated jobs**: everyday (*Settings*, *Set cover art
+- [x] **Tools mixes three unrelated jobs**: everyday (*Settings*, *Set cover art
       from file*), one-time setup (*Set up Platterpus*, *Add app shortcut*, *Set
       up drive*, *Uninstall*), and developer/test (*Run test script*, *Run
       acceptance test*). Proposal: *Setup ▸* submenu for the second group;
@@ -1869,6 +1869,10 @@ the sprawl is concentrated in two of them.
       for running them.
   - *Audit 2026-09-25: partly done.* The setup items are folded into Setup & Updates (3fbf568). Uninstall, Run test script and Run acceptance test are still top-level in Tools.
   - *2026-09-25:* **Decided (D4 A):** Run test script and Run acceptance test move into a Tools → Advanced ▸ submenu; Uninstall stays where users can see it. Ready to build: mnemonics unique within the submenu, no single-character shortcuts, and the in-app guide (`help_content.py`), `docs/rig-session.md` and `docs/rig-scripts/README.md` follow the menu (`tests/test_help_documents_the_menu.py` checks the guide).
+  - *Done 2026-09-28 (D4 A):* Tools → Advanced ▸ holds Run test script… and Run acceptance
+    test… (`ui/main_window.py`), pinned by `tests/test_ui_main_window.py`; Uninstall stays in
+    Tools; the guide, tooltip, rig-script headers and rig docs follow, and
+    `tests/test_help_documents_the_menu.py` now reads submenus to any depth.
 - [ ] **"Set cover art from file…" is a per-album action in a global menu.** It
       belongs with the album it acts on (File, or the album context menu).
 - [~] **Check every regrouping against the accessibility rules before landing**:

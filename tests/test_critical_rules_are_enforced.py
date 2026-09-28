@@ -1829,7 +1829,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1600 -> 1675** (2026-09-25, TASKS `stateful:answered-implies-answerable`, `stateful:table-immutable-during-rip`, `stateful:no-modal-during-rip`): a failed release FETCH now un-answers the disc in its own handler, a redundant lookup failing no longer overwrites the chosen release, and `_rip_holds_the_track_table` keeps every MusicBrainz answer off the table and out of a modal while a rip runs. These are the MusicBrainz slots, which live here.
     # **1675 -> 1700** (2026-09-27, TASKS `stateful:one-picker-per-scan`): `_on_mb_releases` declines a second lookup's candidates for a disc whose release picker is still open (they land inside its nested event loop), and `_mb_picker_open_for` lives exactly as long as the picker's `exec()`. The guard belongs beside the one it completes, in the same slot.
     # **1700 -> 1708** (2026-09-27, TASKS rig run 2026-08-20): the rescan's superseded disc probe is stopped with `superseded_by=`, so its planned abandonment logs at INFO rather than as a WARNING; the call wraps to four arguments and gains a two-line reason.
-    "ui/main_window.py": 1708,
+    # **1708 -> 1718** (2026-09-27, D4 A): the Tools → Advanced ▸ submenu the two test tools moved into, and the eight-line comment saying why and why its Alt-letter is free. Menu construction lives in `_build_menus`, so it grows where the menu is built.
+    "ui/main_window.py": 1718,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most

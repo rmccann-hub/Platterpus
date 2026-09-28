@@ -1047,11 +1047,21 @@ class MainWindow(
         # Diagnose drive access… lives in Setup & Updates → Drive, beside Set up
         # drive… (2026-09-24): one place for the drive, not one item per menu.
 
+        # THE TWO TEST TOOLS LIVE UNDER Tools → Advanced ▸ (maintainer decision
+        # D4 A, 2026-09-25). Tools mixed everyday items with two only a person
+        # running a hardware session needs, and somebody who has never written a
+        # rig script should not have to read past two entries for running them.
+        # Uninstall stays in Tools itself, where people can see it. Alt+A is free
+        # for the submenu because "Run acceptance test…" moved inside it; an
+        # Alt-letter only has to be unique within the menu that is open, and
+        # `tests/test_ui_conformance.py` checks every submenu as its own group.
+        advanced_menu = tools_menu.addMenu("&Advanced")
+
         # The unattended-test console. The scripting subsystem it opens has
         # existed, fully tested, since v0.6.4b12 — with nothing in the
         # application able to reach it. This one line is what makes it a feature
         # rather than a package (docs/testing.md §5.p).
-        script_action = tools_menu.addAction("Run &test script…")
+        script_action = advanced_menu.addAction("Run &test script…")
         script_action.triggered.connect(self.open_script_console)
 
         # The whole overnight acceptance session, as one menu item. It used to be
@@ -1060,7 +1070,7 @@ class MainWindow(
         # ("this was supposed to be a no cli program"). See the block comment above
         # `ProvisioningMixin.run_acceptance_session`.
         #
-        acceptance_action = tools_menu.addAction("Run &acceptance test…")
+        acceptance_action = advanced_menu.addAction("Run &acceptance test…")
         # A no-argument slot, not `run_acceptance_session` itself: `triggered`
         # hands its slot a `checked` bool, which would land in `size`.
         acceptance_action.triggered.connect(self._on_run_acceptance_action)

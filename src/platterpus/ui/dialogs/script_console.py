@@ -1,4 +1,4 @@
-"""Tools → Run test script… — the console that makes the batch runner reachable.
+"""Tools → Advanced → Run test script… — the console that reaches the batch runner.
 
 **The gap this closes.** :mod:`platterpus.uiscript` was built to the maintainer's
 own specification — *"give me a debug testing option where i can copy and paste
