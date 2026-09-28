@@ -443,6 +443,54 @@ def check_round(round_number: int) -> list[CheckResult]:
     return results
 
 
+#: `--check`'s exit statuses. 0 is only ever "at least one declaration was read
+#: and every one reproduced": a gate that found nothing to compare must not read
+#: as one that passed (review finding R17, 2026-09-28: a round with no laps, a
+#: typo'd round number, or a record whose declarations no longer parse all
+#: exited 0). 2 is the tool's refusal status, as for a `DigestError`.
+CHECK_PASSED: Final[int] = 0
+CHECK_FAILED: Final[int] = 1
+CHECK_NO_LAPS: Final[int] = 2
+CHECK_NOTHING_DECLARED: Final[int] = 3
+
+
+def _report_check(round_number: int, results: list[CheckResult]) -> int:
+    """Print `--check`'s lines and summary, and return its exit status.
+
+    A failure outranks an empty check: a declaration that names sha256/16 and
+    cannot be read is a failure even when nothing else was declared. The summary
+    names the population whatever happens, and says NOTHING CHECKED rather than
+    "0 failed" when no declaration was compared, so neither a script reading the
+    status nor a person quoting the line can take an empty check for a pass.
+    """
+    if not results:
+        # Named relative to the checkout, never by absolute path: B1's marker
+        # at the top of this file promises output that depends on the commit
+        # alone, and an absolute path depends on where the checkout sits.
+        where = " or ".join(f"docs/handshake/{d}/" for d in _DIRECTIONS)
+        print(
+            f"round-digest: round {round_number} has no laps in {where}, so "
+            "--check compared nothing",
+            file=sys.stderr,
+        )
+        return CHECK_NO_LAPS
+    for result in results:
+        print(result.render())
+    parsed = sum(1 for r in results if r.declaration.state == "parsed")
+    failed = [r for r in results if r.failed]
+    population = (
+        f"round {round_number}: {len(results)} lap(s), {parsed} declared a digest"
+    )
+    if failed:
+        print(f"{population}, {len(failed)} failed")
+        return CHECK_FAILED
+    if parsed == 0:
+        print(f"{population}: NOTHING CHECKED, so this is not a pass")
+        return CHECK_NOTHING_DECLARED
+    print(f"{population}, 0 failed")
+    return CHECK_PASSED
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("round", type=int, help="round number")
@@ -464,8 +512,10 @@ def main(argv: list[str] | None = None) -> int:
         "--check",
         action="store_true",
         help="read every lap's declared HANDSHAKE-ROUND-DIGEST in the round and "
-        "compare it with the value recomputed from the record; exit 1 on a "
-        "mismatch or on a declaration that names sha256/16 and cannot be read",
+        "compare it with the value recomputed from the record; exit 0 only when "
+        "at least one was compared and every one reproduced, 1 on a mismatch or "
+        "on a declaration that names sha256/16 and cannot be read, 2 when the "
+        "round has no laps, and 3 when no lap of it declares a digest",
     )
     args = parser.parse_args(argv)
     if args.check:
@@ -476,15 +526,7 @@ def main(argv: list[str] | None = None) -> int:
         except DigestError as exc:
             print(f"round-digest: {exc}", file=sys.stderr)
             return 2
-        for result in results:
-            print(result.render())
-        parsed = sum(1 for r in results if r.declaration.state == "parsed")
-        failed = [r for r in results if r.failed]
-        print(
-            f"round {args.round}: {len(results)} lap(s), {parsed} declared a digest, "
-            f"{len(failed)} failed"
-        )
-        return 1 if failed else 0
+        return _report_check(args.round, results)
     try:
         if args.show_rows:
             laps = laps_after_exclusions(args.round, args.exclude)

@@ -320,6 +320,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   printed. But each now gets an `UNCHECKED exit:` warning with its exit code, and
   the report line counts them apart. Changing what B1 refuses is for both sides to
   agree.
+- **For contributors: `round_digest.py --check` no longer passes when it checked
+  nothing.** It exited 0 for a round with no laps, such as a mistyped round number,
+  and for a round whose laps declare no digest, printing "0 failed" either way. It
+  now exits 2 when the round has no laps and 3 when no lap declares a digest, and
+  the summary says NOTHING CHECKED instead of "0 failed". Exit 0 now means at least
+  one declaration was compared and every one reproduced. On the committed record,
+  rounds 1-6 now exit 2 and rounds 7, 8 and 12 exit 3.
 
 ### Added
 

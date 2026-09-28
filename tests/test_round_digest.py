@@ -648,3 +648,88 @@ def test_check_exits_by_the_round_it_reads(capsys: pytest.CaptureFixture[str]) -
     out = capsys.readouterr().out
     assert "outbound/round-27-lap-02.md: declared 3d3696c4dc884152" in out
     assert "MISMATCH" in out
+
+
+def _record(tmp_path: Path, laps: dict[str, str | None]) -> Path:
+    """A `docs/handshake` of `laps` (``direction/name`` -> digest field or None)."""
+    handshake = tmp_path / "handshake"
+    for direction in ("inbound", "outbound"):
+        (handshake / direction).mkdir(parents=True)
+    for relative, digest in laps.items():
+        lap = int(relative.split("-lap-")[1].split(".")[0])
+        sender = "cyanrip-fork" if relative.startswith("inbound/") else "platterpus"
+        field = f"HANDSHAKE-ROUND-DIGEST: {digest}\n" if digest is not None else ""
+        (handshake / relative).write_text(
+            f"HANDSHAKE-ROUND: 99\nHANDSHAKE-LAP: {lap}\nHANDSHAKE-FROM: {sender}\n"
+            f"{field}\n# lap\n",
+            encoding="utf-8",
+        )
+    return handshake
+
+
+@pytest.mark.parametrize(
+    ("laps", "status", "said"),
+    [
+        # A round with no laps at all: a typo'd round number reads like this.
+        ({}, 2, "has no laps in docs/handshake/inbound/ or docs/handshake/outbound/"),
+        # Laps, and not one declaration to compare.
+        (
+            {"inbound/round-99-lap-01.md": None, "outbound/round-99-lap-02.md": None},
+            3,
+            "2 lap(s), 0 declared a digest: NOTHING CHECKED",
+        ),
+        # A declaration that declares nothing is not a comparison either.
+        (
+            {"inbound/round-99-lap-01.md": "not computable in the file it covers"},
+            3,
+            "NOTHING CHECKED",
+        ),
+        # A failure outranks an empty check.
+        (
+            {"inbound/round-99-lap-01.md": "sha256/16 = `01ba4719c80b` over 0 lap(s)"},
+            1,
+            "0 declared a digest, 1 failed",
+        ),
+        # And the pass still passes: their lap 1's value over zero laps.
+        (
+            {
+                "inbound/round-99-lap-01.md": (
+                    "sha256/16 = `01ba4719c80b6fe9` over 0 lap(s)"
+                )
+            },
+            0,
+            "1 declared a digest, 0 failed",
+        ),
+    ],
+)
+def test_check_cannot_pass_by_finding_nothing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    laps: dict[str, str | None],
+    status: int,
+    said: str,
+) -> None:
+    """Review finding R17: `--check` exited 0 for a round with no laps, and for
+    one whose laps declare no digest, so a lap quoting its exit status as a
+    green digest check could rest on nothing having been compared. 0 now means
+    at least one declaration was read and every one reproduced."""
+    rd = _module()
+    monkeypatch.setattr(rd, "_HANDSHAKE", _record(tmp_path, laps))
+    assert rd.main(["99", "--check"]) == status
+    captured = capsys.readouterr()
+    assert said in captured.out + captured.err
+    if status != 0:
+        assert "0 failed" not in captured.out, "an empty check read as a pass"
+
+
+def test_check_of_the_record_s_rounds_without_declarations_is_not_a_pass(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """On the committed record, not a fixture: round 8 has laps and no digest
+    declaration (the field did not exist yet), and exited 0 before R17."""
+    rd = _module()
+    assert rd.main(["8", "--check"]) == rd.CHECK_NOTHING_DECLARED == 3
+    out = capsys.readouterr().out
+    assert "NOTHING CHECKED" in out
+    assert "lap(s), 0 declared a digest" in out
