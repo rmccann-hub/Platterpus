@@ -1833,7 +1833,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1700 -> 1708** (2026-09-27, TASKS rig run 2026-08-20): the rescan's superseded disc probe is stopped with `superseded_by=`, so its planned abandonment logs at INFO rather than as a WARNING; the call wraps to four arguments and gains a two-line reason.
     # **1708 -> 1718** (2026-09-27, D4 A): the Tools → Advanced ▸ submenu the two test tools moved into, and the eight-line comment saying why and why its Alt-letter is free. Menu construction lives in `_build_menus`, so it grows where the menu is built.
     # **1718 -> 1731** (2026-09-27, cover art moves to the album): the one cover-art QAction is handed to the disc panel as well as Tools, with the comment saying the Tools entry is transitional and exactly how to remove it in 0.6.63.
-    "ui/main_window.py": 1731,
+    # **1731 -> 1732** (2026-09-27): that comment names the check that fails the 0.6.63 bump while the Tools entry remains.
+    "ui/main_window.py": 1732,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
