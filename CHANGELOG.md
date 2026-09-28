@@ -120,6 +120,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   inside the container. Those tools are now always looked up outside
   `~/.local/bin`, and a missing one fails cleanly instead of falling back to the
   container's copy.
+- **`--run-script` now says how it matched the name you typed.** Typing
+  `--run-script fullacceptance` finds `fullacceptance.txt` by adding `.txt`, but
+  the explanation said the two names were the same "once separators and case are
+  ignored", which is not what happened. It now says "added .txt", or both when
+  both happened. And the folder you ran it from is listed once among the places
+  searched, not twice.
 - **For contributors: these release notes are checked for menu paths that do not
   exist.** One note here still gave *Run acceptance test…* its old place directly
   in the Tools menu, though this release moved it under Advanced, and another

@@ -589,6 +589,51 @@ class TestThePackagedCopyIsTheLastFallbackNeverTheFirst:
         assert searched[-1] == str(packaged_scripts_dir()), (
             f"the packaged directory is not the LAST place searched: {searched}"
         )
+        # The working directory is searched, and listed, ONCE. The bare name's
+        # own parent `.` and the fallback `.` used to be two entries (review R11),
+        # spelled differently, so the comparison is by the directory they name.
+        named = [str(Path(entry).resolve()) for entry in searched]
+        assert len(named) == len(set(named)), searched
+
+    @pytest.mark.parametrize(
+        ("typed", "said"),
+        [
+            # Nothing but a suffix was added: say that, and only that.
+            ("fullacceptance", "— added .txt)"),
+            # A suffix AND a separator/case difference: say both.
+            (
+                "Full-Acceptance",
+                "— added .txt, and the same name once separators and case are ignored)",
+            ),
+            # Typed with its suffix: only separators and case differed.
+            (
+                "full_acceptance.txt",
+                "— same name once separators and case are ignored)",
+            ),
+        ],
+        ids=["suffix-only", "suffix-and-separators", "separators-only"],
+    )
+    def test_the_answer_says_what_actually_differed(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, typed: str, said: str
+    ) -> None:
+        """Review R11: `--run-script fullacceptance` reported a separators-and-case
+        match when the only difference was the `.txt` it appended — the module
+        whose job is saying which file ran and why, saying something that did not
+        happen."""
+        from platterpus.test_session import builtin_acceptance_script_path
+        from platterpus.uiscript.find_script import resolve_script_path
+
+        _nowhere_else(monkeypatch, tmp_path)
+        found, why = resolve_script_path(typed)
+
+        assert found is not None and found.resolve() == (
+            builtin_acceptance_script_path().resolve()
+        ), why
+        assert f"you typed {typed!r}; matched 'fullacceptance.txt' {said}" in why, why
+        earlier = why.split("nothing matching was found first in: ", 1)[1]
+        places = earlier.split(")", 1)[0].split(", ")
+        named = [str(Path(place).resolve()) for place in places]
+        assert len(named) == len(set(named)), f"a directory listed twice: {places}"
 
     def test_an_explicit_path_to_either_copy_is_labelled(self, tmp_path: Path) -> None:
         """ "Print which copy was resolved, always" — including an exact path."""
