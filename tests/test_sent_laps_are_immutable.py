@@ -145,6 +145,11 @@ SENT_LAPS: dict[str, str] = {
     "outbound/round-14-lap-13.md": "eecafaf7057e5c5594994207eab95a3e93e947d05767dbfe3905c24549e5e1d7",
     "outbound/round-14-lap-16.md": "de58b0dce37bdd35e8eb254a6300d9ce37fa2e438f9e0915f26b1fb74b345319",
     "outbound/round-15-lap-02.md": "80c86fd4608f19afa9414860c6281b48898e336904988729be6176f5de5393fb",
+    # The nineteenth, round 14 lap 18, RESTORED 2026-09-28 to the bytes we sent (the
+    # maintainer's choice): ours had been revised in place at `43a33b47`, and the
+    # fork's filed copy is our `2cba3912`. Every removed line is kept verbatim in
+    # `docs/session-log.md` (its 2026-09-28 entry), as round 8 lap 10 was restored.
+    "outbound/round-14-lap-18.md": "74635eff8f350bb1d43218d6372ea6d513aeaccce6382a6a7b11d842fe67bfe6",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and
@@ -777,17 +782,9 @@ def test_a_repeated_mention_of_one_lap_is_one_subject() -> None:
 #: set may SHRINK and must never grow: a new send is pinned in `SENT_LAPS` when the
 #: operator confirms it, and if it reaches this set instead, the window it names has
 #: claimed another lap.
-PEER_CONFIRMED_UNPINNED: Final[frozenset[str]] = frozenset(
-    {
-        # Did not graduate with the other eighteen (2026-09-27): the fork's filed
-        # copy (sha256 74635eff8f35…, 19,056 bytes) is our revision at `2cba3912`,
-        # the bytes we SENT. Ours was then revised in place at `43a33b47`
-        # (2026-08-26, +§7 and a new digest line), before this guard existed. So
-        # today's bytes are not the sent bytes, and pinning them would record a
-        # send that never happened. Restoring the sent bytes is a separate change.
-        "outbound/round-14-lap-18.md",
-    }
-)
+#: EMPTY since 2026-09-28: all nineteen graduated, eighteen by measurement against
+#: the fork's filed copies and round 14 lap 18 by restoring the bytes we sent.
+PEER_CONFIRMED_UNPINNED: Final[frozenset[str]] = frozenset()
 
 
 def test_a_hash_the_peer_DECLARES_for_our_lap_matches_our_copy() -> None:

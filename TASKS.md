@@ -1398,7 +1398,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [x] **D7. Their "Open, theirs" table lists our round-8 defects as blocking** — at least
   one is fixed (a literal `"` is expressible in the script language). Ours to confirm
   each, theirs to retire. KI:1400.
-  - *Checked 2026-09-27, against our HEAD:* their five rows (`cyanrip@fd05b12:docs/KNOWN-ISSUES.md:1755-1760`).
+  - *Checked 2026-09-27, against our HEAD:* their five rows (their KNOWN-ISSUES file at `cyanrip@fd05b12`, lines 1755-1760).
     (1) duplicate `drive changed`: **fixed**, `ui/drive_picker.py:216`, `effe24d3` (2026-08-12).
     (2) a refused command leaves the last result live: **it had come back**, through the
     `(offset)` refusal (2026-09-24) and a malformed line, and is now fixed at the root:

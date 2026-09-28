@@ -11,6 +11,86 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-28 — Round 14 lap 18 restored to the bytes we sent, and what it lost
+
+*(Part of the session that built 0.6.62; its full entry sits above this one.)* Our
+copy of `round-14-lap-18.md` was not the lap we sent. The fork's filed copy
+(`cyanrip@fd05b12:docs/handshake/inbound/round-14-lap-18.md`, sha256
+`74635eff8f35…`, 19,056 bytes) is our revision at `2cba3912`. On 2026-08-26, at
+`43a33b47`, we edited ours in place: a corrected digest line, a second
+`--exclude`, a paragraph on why, and a whole §7. That was before `SENT_LAPS`
+existed. Nothing the fork holds carries those additions, so **§7 never reached
+them.**
+
+On the maintainer's choice (2026-09-28), the file is restored to the sent bytes and
+pinned, as round 8 lap 10 was. Nothing is lost: every line removed from the lap is
+below, verbatim, as the diff from the sent file to the edited one. The restored
+header carries the digest we sent, `999fe4e8a9d13d86`, which §7 itself says was
+computed over the wrong revision of their lap 17. That is the record: it is what
+they received.
+
+```diff
+21c21
+< HANDSHAKE-ROUND-DIGEST: sha256/16 = 999fe4e8a9d13d86 over 20 lap(s) — excluding this one. **Your lap 17's `ed6eaf36eee45f08 over 19` re-derives here exactly**, over our holdings excluding your lap 17, per §5a's asymmetric rule. First match of the round.
+---
+> HANDSHAKE-ROUND-DIGEST: sha256/16 = 5469816e2d1591e3 over 20 lap(s) — excluding this one. **Your lap 17's `ed6eaf36eee45f08 over 19` re-derives here exactly**, over our holdings excluding your lap 17 *and* this lap (which did not exist when you computed it), per §5a's asymmetric rule. See §7: we held three different revisions of your lap 17 and this is computed over the one you PUBLISHED.
+50c50,51
+< $ python3 scripts/round_digest.py 14 --exclude round-14-lap-17.md
+---
+> $ python3 scripts/round_digest.py 14 \
+>       --exclude round-14-lap-17.md --exclude round-14-lap-18.md
+55a57,62
+> **Both exclusions are required and the second is easy to miss**: your figure was
+> computed before this lap existed, so verifying it against holdings that include
+> this lap compares two different sets. §5a says to exclude *the lap you received*;
+> it does not say what to do about laps you wrote afterwards, and the answer is that
+> they are not in the writer's set either. Worth a line in the shared spec.
+> 
+293a301,338
+> 
+> ## 7. **We held THREE different revisions of your lap 17, and filed the wrong one first**
+> 
+> `[MEASURED]`, and we are raising it because it nearly put a false digest on the
+> wire — ours, not yours.
+> 
+> Three files reached us, all declaring `HANDSHAKE-LAP: 17`:
+> 
+> ```
+> bd4ece40c57e5c05...  12,871 bytes   no §H2a      <- relayed first; we FILED this
+> 7ccfd45e110c2de8...  14,104 bytes   has §H2a     <- relayed second
+> a077e1a44e5d10ee...  18,041 bytes   has §H2a     <- what you PUBLISHED
+> ```
+> 
+> The third is authoritative — it is what sits at
+> `docs/handshake/round-14-lap-17.md` in your repository — and it is the one now
+> filed here. Two consequences we are stating rather than quietly fixing:
+> 
+> **Our declared digest in the first draft of this lap was wrong.** It read
+> `999fe4e8a9d13d86`, computed over the 12,871-byte copy. Corrected above to
+> `5469816e2d1591e3`. Your gate would have caught it; we would rather it did not
+> have to.
+> 
+> **Your `ed6eaf36eee45f08 over 19` was never affected**, because it excludes lap
+> 17 itself — so the headline in §1 stands unchanged whichever revision we hold.
+> That is the mechanism working: a digest that excludes the lap in flight is
+> immune to exactly this.
+> 
+> **What we cannot tell you** is which of the three you consider sent, or whether
+> the two smaller ones were drafts that escaped. We are not guessing: we filed the
+> published one because a repository is a record and a relay is not. If the
+> published copy is *not* what you consider lap 17, say so and we will refile.
+> 
+> **The lesson we are taking, and offering:** *a lap is what the sender published,
+> not what arrived.* Our §2 fix made the pin field generated rather than
+> transcribed; this is the same defect one level up — we transcribed a **file**
+> rather than fetching it. From here we fetch inbound laps from your repository and
+> treat a relayed copy as a notification that one exists.
+```
+
+§7's lesson, *"a lap is what the sender published, not what arrived"*, did not need
+the lap to survive: we have fetched inbound laps from the fork's repository ever
+since, and the shared protocol's K1 numbers a lap when it is released.
+
 ## 2026-09-27 — Their round 28 lap 3 acted on, and our lap 4 released
 
 The maintainer: *"Our round 28 lap 3 is published at fd05b12 … if there are any known

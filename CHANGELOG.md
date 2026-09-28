@@ -62,6 +62,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   CI checks out full history with tags, so there a skip meant the check had stopped
   running while the run stayed green. It still skips on a local shallow clone. A fake
   git now exercises both outcomes on every run.
+- **For contributors: every lap we have sent is now pinned to the bytes that were
+  sent.** Our copy of round 14 lap 18 had been edited in place a day after it was
+  sent, before the pin registry existed, and the fork holds the original. The file is
+  restored to the bytes we sent and pinned. Every line the edit added, including a §7
+  that never reached the fork, is kept word for word in the session log.
 
 ### Fixed
 
