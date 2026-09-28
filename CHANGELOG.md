@@ -153,16 +153,6 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   track then re-read again the same way. That fallback is now capped at what `-r`
   lets converge (`-Z 2` at `-r 3`; none at all at `-r 1`), and a number you set
   yourself is never lowered.
-- **A rip whose secure re-read could never succeed is now refused before cyanrip
-  starts.** `-Z N` with Max retries (`-r`) at N or less reads every track `-r` times
-  and cannot verify one, on any disc. Each number was in range on its own, so
-  nothing caught the pair. The argv check every route to the ripper passes now
-  refuses it with both numbers and the arithmetic, reading a missing `-r` as
-  cyanrip's own default of 10 and a repeated one as the last, as cyanrip does. Its
-  first catch was our own rig check, whose reference command line was
-  `-r 3 -Z 3`; it now uses the shipped defaults (`-r 5 -Z 2`). The argv probe table
-  in `docs/seam-commands.md` and the `-r`/`-Z` rows of
-  `docs/dependency-contracts.md` say so.
 - **The secure re-read setting now counts what cyanrip counts.** `-Z 2` needs three
   identical reads (the rig logs say "converged after 3 reads"), so the Settings row
   that read *Reads that must agree to trust a track: 2* was one short. It is now
