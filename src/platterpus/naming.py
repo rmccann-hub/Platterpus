@@ -361,7 +361,13 @@ def render_scheme(scheme: str, tags: Mapping[str, str]) -> str:
         raw = tags.get(key, "")
         return _sanitise_value(raw) if raw else key
 
-    return _SCHEME_KEY_RE.sub(value, scheme)
+    # cyanrip then trims spaces and tabs from both edges of every path component
+    # (`crip_trim_path_components`, cyanrip@e0471f4:src/naming.c:416-450, called
+    # at :497, and the same at 221a1df). Without this, `%Y - %d` on a disc with no
+    # year would be predicted as " - Alb" while cyanrip writes "- Alb", and the
+    # overwrite guard would look in a folder the rip never writes.
+    rendered = _SCHEME_KEY_RE.sub(value, scheme)
+    return "/".join(part.strip(" \t") for part in rendered.split("/"))
 
 
 #: Why a naming template or a rendered cyanrip scheme would write outside the

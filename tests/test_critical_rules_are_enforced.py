@@ -1605,7 +1605,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # file rule #7 refuses.
     # **359 -> 376** (2026-09-25, D18: `%N`/`%M` work everywhere): the preview fills in `%N`/`%M` and writes a typed brace as the parenthesis the file gets.
     # 376 -> 408 on 2026-09-28 (review R4, R5): `render_scheme` renders a cyanrip `{key}` scheme with the look-alike table this module owns, for the overwrite guard's folder; beside `render_preview`, its %-template twin.
-    "naming.py": 408,
+    # 408 -> 414 on 2026-09-28: `render_scheme` trims each path component's edges, as cyanrip's `crip_trim_path_components` does.
+    "naming.py": 414,
     # +29 on 2026-09-04: `is_secure_rerip_verdict` and its reasoning. It is
     # DELIBERATELY here rather than at the worker that calls it — the point of
     # the fix is that the module owning read stability owns the classification,

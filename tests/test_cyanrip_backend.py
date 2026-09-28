@@ -2443,6 +2443,10 @@ def test_the_overwrite_guards_folder_scheme_IS_the_argvs_dash_D() -> None:
         ("%A/%d - %n/%t", {}, "Art/Alb - title"),
         # No folder part: no `-D` is sent, so there is no folder to predict.
         ("%t - %n", {}, None),
+        # cyanrip trims spaces and tabs at the edges of every path component
+        # (`cyanrip@e0471f4:src/naming.c:416-450`, called at :497), so the folder
+        # it writes has none; a prediction that kept them names another folder.
+        ("%A / %d \t/%t - %n", {}, "Art/Alb"),
     ],
 )
 def test_predicted_album_folder_renders_the_dash_D_the_rip_sends(
