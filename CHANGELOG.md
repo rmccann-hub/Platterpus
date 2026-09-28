@@ -310,6 +310,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   tag did this every time: git checked out the commit the tag points at. Every
   checkout made is now removed, a tag is reported as not a commit before anything
   is checked out, and a leftover is named as a checkout or as a directory.
+- **For contributors: `lap_language.py check --rerun` no longer reports a failed
+  command as a plain match.** LSL 3's B1 compares a result's quoted strings with
+  what the command printed, and nothing else; "exit 0" in a result is prose. So a
+  tool that printed "10 failed" and exited 1 matched a lap claiming `"0 failed"`,
+  and `sha256sum` matched a quoted file name because its error message repeats
+  it. Both were counted as "re-run and matched" with no warning. They are still
+  matches, because the shared spec refuses only a quoted string that was not
+  printed. But each now gets an `UNCHECKED exit:` warning with its exit code, and
+  the report line counts them apart. Changing what B1 refuses is for both sides to
+  agree.
 
 ### Added
 

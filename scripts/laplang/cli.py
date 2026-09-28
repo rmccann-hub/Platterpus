@@ -156,10 +156,18 @@ def render_runs(runs: RunCoverage) -> list[str]:
             "given, so nothing was executed"
         )
     else:
+        # A match whose command failed is still a match by B1's text, and is
+        # never folded silently into one: the count says so on this line.
+        failed = (
+            f" ({runs.matched_nonzero} of them exited non-zero, which B1 does not "
+            "compare: each an UNCHECKED exit: above)"
+            if runs.matched_nonzero
+            else ""
+        )
         lines.append(
-            f"B1: {runs.total} run: result(s): {runs.matched} re-run and matched, "
-            f"{runs.mismatched} re-run and not matched, {runs.not_rerun} could not "
-            "be re-run (each an UNCHECKED run: above, with its reason)"
+            f"B1: {runs.total} run: result(s): {runs.matched} re-run and matched"
+            f"{failed}, {runs.mismatched} re-run and not matched, {runs.not_rerun} "
+            "could not be re-run (each an UNCHECKED run: above, with its reason)"
         )
     for left in runs.leftovers:
         if left.checkout:

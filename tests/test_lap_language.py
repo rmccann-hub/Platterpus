@@ -1145,6 +1145,56 @@ def test_rerun_matches_refuses_and_reports_each_run(tmp_path: Path) -> None:
     ) in report
 
 
+def test_a_rerun_that_failed_is_matched_but_never_silently(tmp_path: Path) -> None:
+    """Review finding R13. B1 compares a result's quoted strings, stdout and
+    stderr together, and nothing else: "exit 0" is prose (the proposal, "What B1
+    re-runs", item 4), so a failed command is not REFUSED for failing. But it
+    was reported as a plain match: "0 failed" is in "10 failed", and sha256sum's
+    error message repeats the file name it could not open. Each is now a match
+    with an UNCHECKED exit: warning, counted apart on the report line."""
+    repo, sha = _git_repo(
+        tmp_path,
+        {
+            **_TOOLS,
+            "tools/fails.py": "# LSL-RERUN: commit-only\nimport sys\n"
+            "print('round 27: 12 lap(s), 10 failed')\nsys.exit(1)\n",
+        },
+    )
+    runs = [
+        'python3 tools/fails.py => exit 0, "0 failed"',
+        'sha256sum "all 91 tests passed" => "all 91 tests passed"',
+        'python3 tools/marked.py => "hello 42"',
+    ]
+    path = tmp_path / "lap.md"
+    path.write_text(
+        _lsl3(_numbered(*[_measured(n, r, at=sha) for n, r in enumerate(runs, 1)])),
+        encoding="utf-8",
+    )
+    lap = check_path(path, root=repo, rerun=True)
+    assert lap.refused() == [], "B1's text refuses only a quoted string not printed"
+    assert lap.runs is not None
+    assert (lap.runs.matched, lap.runs.matched_nonzero, lap.runs.not_rerun) == (
+        3,
+        2,
+        0,
+    ), [(p.rule, p.message) for p in lap.problems]
+    evidence_line = {s.n: s.fields[0].line for s in lap.statements if s.fields}
+    warned = {p.line: p.message for p in lap.problems if p.severity == "WARN"}
+    assert set(warned) == {evidence_line[1], evidence_line[2]}, warned
+    assert all(
+        m.startswith("UNCHECKED exit:") and "it exited 1" in m for m in warned.values()
+    ), warned
+    # The exact argv, quoting kept, so the echoed argument is visible as one.
+    assert "sha256sum 'all 91 tests passed'" in warned[evidence_line[2]]
+    report, code = render(lap)
+    assert code == 0
+    assert (
+        "B1: 3 run: result(s): 3 re-run and matched (2 of them exited non-zero, "
+        "which B1 does not compare: each an UNCHECKED exit: above), 0 re-run and "
+        "not matched, 0 could not be re-run"
+    ) in report
+
+
 def test_rerun_runs_at_the_commit_named_not_at_the_clones_tip(tmp_path: Path) -> None:
     """The commit is the statement's at:, else the header's; never the clone's tip."""
     repo, first = _git_repo(tmp_path, {"v.txt": "one\n"})
