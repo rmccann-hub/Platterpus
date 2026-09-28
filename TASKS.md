@@ -1355,8 +1355,9 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     `round-14-lap-18.md`, is a finding: their copy (`74635eff…`, 19,056 bytes) is our
     revision at `2cba3912`, the bytes we sent, and ours was revised in place at
     `43a33b47` (2026-08-26, adding §7 and a new digest line) before the guard existed.
-    Open, and not done here: whether to restore the sent bytes, as round 8 lap 10 was.
-    It would drop §7 from the file (it stays in history at `43a33b47`).
+    *2026-09-28, the maintainer's choice:* restored to the sent bytes and pinned, as round
+    8 lap 10 was; every removed line, §7 included, is kept verbatim in
+    `docs/session-log.md`'s 2026-09-28 entry. `PEER_CONFIRMED_UNPINNED` is now empty.
 - [ ] **C10. The challenge ledger stops at round 21 lap 4** — unrecorded: r22 C1 (our
   circular `GO`, they were right), r22 lap 5 (our withdrawn `handshake_round` claim),
   r22 lap 3 §H1, r23 §A (tracks 3 and 5, we were right), r23 lap 1 §H6, r24 §B3 (the
