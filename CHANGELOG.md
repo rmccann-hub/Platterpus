@@ -285,6 +285,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   whose own verdict is `GO` is now exempt from both halves of R6. Before, it was
   exempt only from needing a pre-commit, though the entry for the gate under
   *Added* says it is exempt.
+- **For contributors: the R6 gate reads LSL's own pre-commit, and a subject with a
+  version number in it.** A lap in LSL 2 or 3 can pre-commit as a `WILL` with
+  `verdict: GO` and `unless: X`, which `lap_language.py` accepts and holds its
+  author to. The handshake checker read only the prose sentence, so it refused that
+  lap as carrying no pre-commit, and two checkers of one seam disagreed about one
+  statement. It now reads the `WILL` with LSL's own parser, and refuses one whose
+  `when:` names our lap by number. And "Our next lap after v0.6.62 ships is `GO`
+  unless …" was also refused as carrying no pre-commit, because the dots in the
+  version stopped the match; a dot followed by a letter or digit no longer ends
+  the subject. Relabelled as round 29, no committed lap changes outcome for this.
 
 ### Added
 

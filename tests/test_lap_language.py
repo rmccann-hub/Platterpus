@@ -24,11 +24,13 @@ that document defines is emitted by the code.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 from hypothesis import HealthCheck, given, settings
@@ -831,6 +833,50 @@ def test_lsl_1_and_2_reports_on_round_28_are_unchanged(
     assert by_rule == refusals, report
     assert (code, _digest(report)) == (1, as_lsl_2), report
     assert lap.runs is None and "B1:" not in report
+
+
+# The relation between this checker and the handshake gate's R6: two surfaces
+# answering "is this a pre-commit?", which must agree (review finding R15).
+
+
+def _handshake_module() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "handshake_for_lsl_relation", REPO_ROOT / "scripts" / "handshake.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("owner", ["us", "them"])
+def test_r6_counts_exactly_the_pre_commits_a2_accepts(
+    tmp_path: Path, owner: str
+) -> None:
+    """A lap 5 of round 29, in LSL 2, whose only pre-commit is A2's structured
+    `WILL`. When A2 accepts it, R6 must count it; when A2 refuses it (a promise
+    the author cannot make, `owner: them`), R6 must not. Before R15, R6 refused
+    the lap A2 accepted, as "carries no pre-commit"."""
+    text = (
+        _header(round_number=29, lap=5, verdict="HOLD")
+        + "LSL: 2\n\n"
+        + GOOD_FACT
+        + f"S2 WILL: Declare GO in our next lap.\n  owner: {owner}\n"
+        "  when: our next lap\n  verdict: GO\n  unless: the Full run fails\n"
+        "S3 VERDICT: HOLD\n  basis: S1\n"
+    )
+    lap = _check(tmp_path, text)
+    a2_accepts = "A2" not in _rules(lap)
+    # The only difference between the two laps is the one A2 refuses.
+    assert {p.rule for p in lap.problems} == (set() if owner == "us" else {"A2"}), [
+        (p.rule, p.message) for p in lap.problems
+    ]
+    # NON-TRIVIALITY: the sentence does not carry the prose form, so the
+    # structured fields are the only thing R6 can count.
+    assert "is `GO` unless" not in text and "is GO unless" not in text
+    r6 = _handshake_module().pre_commit_problems(text, "round-29-lap-05.md")
+    assert (r6 == []) == a2_accepts, r6
 
 
 # B1 without --rerun: every run: names the commit it ran at.
