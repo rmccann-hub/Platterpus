@@ -906,8 +906,18 @@ _PRE_COMMIT: Final[re.Pattern[str]] = re.compile(
 #: `GO` unless"), which the writer's own later choices can overtake. A peer's lap
 #: number inside the event ("the first lap we send after receiving your lap 10")
 #: is R6's own example of the right form, and does not match.
+#:
+#: **"Our lap N" must be the SUBJECT of "is GO unless", not merely come before it.**
+#: So nothing between them may be another lap, a quotation mark, a colon or a
+#: semicolon, each of which starts a new clause with its own subject. Without that,
+#: a lap RECALLING a correct pre-commit was refused for it: the fork's round 21 lap
+#: 5 reads *Our lap 3 bound us: "our next lap is `GO` unless …"*, whose subject is
+#: "our next lap", R6's own form (review finding R12, 2026-09-28). The price, said
+#: out loud: "our lap 15, after your lap 10, is `GO` unless" is not refused, because
+#: a regular expression cannot tell that clause from the recall.
 _PRE_COMMIT_BY_NUMBER: Final[re.Pattern[str]] = re.compile(
-    r"\bour\s+lap\s+\d+\b[^.\n]{0,120}?\bis\s+[`*_]*GO[`*_]*\s+unless\b",
+    r"\bour\s+lap\s+\d+\b(?:(?!\blap\b)[^.\n\"“”:;]){0,120}?"
+    r"\bis\s+[`*_]*GO[`*_]*\s+unless\b",
     re.IGNORECASE,
 )
 
@@ -917,9 +927,14 @@ def pre_commit_problems(text: str, where: str) -> list[str]:
 
     Applies from :data:`R6_GATE_FROM_ROUND`, to laps numbered
     :data:`R6_FROM_LAP` and above. **One exemption, our gate's reading and said out
-    loud:** a lap whose own verdict is `GO` needs none, because it has already
-    declared what a pre-commit would promise. Fenced blocks are skipped, so a lap
-    QUOTING a bad pre-commit (this docstring's kind of text) is not refused for it.
+    loud:** a lap whose own verdict is `GO` is exempt from R6, from both of its
+    halves, because it has already declared what a pre-commit would promise. That
+    is what the CHANGELOG told contributors, and until review finding R12
+    (2026-09-28) the code exempted such a lap only from NEEDING a pre-commit and
+    still refused its wording — and a `GO` lap is the one most likely to recall
+    the pre-commit it is honouring (the fork's round 21 lap 5 does). Fenced blocks
+    are skipped, so a lap QUOTING a bad pre-commit (this docstring's kind of text)
+    is not refused for it.
     """
     fields = wire_fields(text)
     try:
@@ -929,6 +944,9 @@ def pre_commit_problems(text: str, where: str) -> list[str]:
         return []  # an unreadable header is check_wire_header's to report
     if round_no < R6_GATE_FROM_ROUND or lap_no < R6_FROM_LAP:
         return []
+    verdict = fields.get("HANDSHAKE-VERDICT", "").split()
+    if verdict[:1] == ["GO"]:
+        return []
     body = _unfenced_body(text)
     problems: list[str] = []
     for match in _PRE_COMMIT_BY_NUMBER.finditer(body):
@@ -937,8 +955,7 @@ def pre_commit_problems(text: str, where: str) -> list[str]:
             f"{match.group(0)!r}. Name what happens, as R6's own example does: "
             '"the first lap we send after receiving your lap 10", not "our lap 15"'
         )
-    verdict = fields.get("HANDSHAKE-VERDICT", "").split()
-    if not problems and not _PRE_COMMIT.search(body) and verdict[:1] != ["GO"]:
+    if not problems and not _PRE_COMMIT.search(body):
         problems.append(
             f"{where}: R6: lap {lap_no} carries no pre-commit — from lap "
             f'{R6_FROM_LAP} every lap states "our next lap is `GO` unless X", '

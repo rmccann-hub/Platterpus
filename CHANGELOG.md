@@ -272,6 +272,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   incomplete" and lists each tool it did not reach as not checked, neither present
   nor missing. Before, a stuck container made it wait for every tool's own timeout
   in turn, with nothing printed.
+- **For contributors: the handshake checker's R6 gate no longer refuses a lap for
+  recalling a correct pre-commit, and exempts a `GO` lap as it said.** The refusal
+  of a pre-commit that names its lap by number fired whenever "our lap N" came
+  anywhere before "is `GO` unless" in a sentence, so *Our lap 3 bound us: "our next
+  lap is `GO` unless …"*, whose subject is "our next lap", was refused. The fork's
+  round 21 lap 5 and our round 23 lap 4 have that shape, and either would have been
+  refused from round 29, a fork lap turning CI red. "Our lap N" now has to be the
+  subject: another lap, a quotation mark, a colon or a semicolon between them ends
+  the match. The whole record was scanned: the pattern still finds the three real
+  numbered pre-commits in it, each in a lap 1, which R6 does not bind. And a lap
+  whose own verdict is `GO` is now exempt from both halves of R6. Before, it was
+  exempt only from needing a pre-commit, though the entry for the gate under
+  *Added* says it is exempt.
 
 ### Added
 
