@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from .model import Leftover
 from .rerun import MARKER_LINES, MARKER_RE, Plan
 
 #: How long one re-run may take, and how long a killed one gets to be reaped.
@@ -74,6 +75,10 @@ class Scratch:
         self.clone: Path = clone
         self.parent: Path | None = None
         self._trees: dict[str, Path | str] = {}
+        #: Every worktree `git worktree add` may have made, whatever `tree`
+        #: then answered, so `close` removes each (review finding R16: one that
+        #: was made and then failed its check was never removed).
+        self._made: list[Path] = []
         self._runs: int = 0
 
     def tree(self, sha: str) -> Path | str:
@@ -83,6 +88,28 @@ class Scratch:
         return self._trees[sha]
 
     def _add(self, sha: str) -> Path | str:
+        # The commit `sha` names, resolved BEFORE anything is checked out. An
+        # annotated tag's sha passes the header's shape check, and `worktree
+        # add` would quietly peel it to the commit it tags, which is not the
+        # commit the lap named (R16's route to a worktree that failed its check).
+        resolved = _git(
+            self.clone, "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}"
+        )
+        if resolved is None:
+            return f"git did not answer when asked which commit {sha} is"
+        commit = resolved.stdout.strip()
+        if resolved.returncode != 0 or not commit:
+            return f"{sha} names no commit of the author's clone"
+        if not commit.startswith(sha):
+            kind = _git(self.clone, "cat-file", "-t", sha)
+            what = (
+                kind.stdout.strip() if kind is not None and kind.returncode == 0 else ""
+            )
+            return (
+                f"{sha} is {f'a {what} object' if what else 'an object'}, not a "
+                f"commit; it leads to commit {commit[:12]}, which is not the commit "
+                "the lap names"
+            )
         if self.parent is None:
             try:
                 self.parent = Path(tempfile.mkdtemp(prefix="lsl-rerun-"))
@@ -97,16 +124,21 @@ class Scratch:
             "add",
             "--detach",
             str(path),
-            sha,
+            commit,
             timeout=WORKTREE_TIMEOUT_S,
         )
+        if (added is not None and added.returncode == 0) or path.exists():
+            # Recorded before anything else can fail: from here on, whatever
+            # this returns, `close` removes it. A `worktree add` that timed out
+            # or failed part way may still have left the directory behind.
+            self._made.append(path)
         if added is None:
             return f"git did not answer when asked to check out {sha}"
         if added.returncode != 0:
             said = added.stderr.strip().splitlines()
             return f"no worktree of {sha} could be checked out ({said[-1] if said else f'exit {added.returncode}'})"
         head = _git(path, "rev-parse", "HEAD")
-        if head is None or not head.stdout.strip().startswith(sha):
+        if head is None or head.stdout.strip() != commit:
             return f"the worktree made for {sha} is not at {sha}"
         return path
 
@@ -166,12 +198,17 @@ class Scratch:
                 pass
         return Ran(plan.words, code, output)
 
-    def close(self) -> list[str]:
-        """Remove every worktree made; return the paths that could not be removed."""
-        left: list[str] = []
-        for tree in self._trees.values():
-            if not isinstance(tree, Path):
-                continue
+    def close(self) -> list[Leftover]:
+        """Remove every worktree made; return what could not be removed.
+
+        Every worktree `_add` made is removed, including one `tree` never
+        handed out because it failed its check. Each that will not go is named
+        as a checkout, and the scratch directory, if it will not go either, is
+        named as a directory: it is not a worktree, and telling a person to
+        `git worktree remove` it would send them the wrong way.
+        """
+        left: list[Leftover] = []
+        for tree in self._made:
             removed = _git(
                 self.clone,
                 "worktree",
@@ -181,13 +218,14 @@ class Scratch:
                 timeout=WORKTREE_TIMEOUT_S,
             )
             if removed is None or removed.returncode != 0:
-                left.append(str(tree))
+                left.append(Leftover(str(tree), checkout=True))
         if self.parent is not None:
             try:
                 self.parent.rmdir()
             except OSError:
-                left.append(str(self.parent))
+                left.append(Leftover(str(self.parent), checkout=False))
         self._trees.clear()
+        self._made.clear()
         self.parent = None
         return left
 
