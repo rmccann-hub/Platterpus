@@ -49,10 +49,9 @@ place (`build`). This file now holds three things:
   four functions shows exactly that box.
 
 **What this sweep does NOT cover, said out loud rather than implied.** It checks
-`QMessageBox`, both routes to one, and nothing else. There are 13
-`QLabel(<non-literal>)` sites in `src/`, and they are *not* swept here: most build
-their text from our own constants, so a blanket rule would need a long allowlist
-and a list of excuses enforces nothing. They are tracked in `TASKS.md` instead.
+`QMessageBox`, both routes to one, and nothing else. Labels built from a value
+are swept by `tests/test_labels_state_their_text_format.py`, which requires each to
+state its format; labels given a value later by `setText` are tracked in `TASKS.md`.
 Nor does it follow a box after it is built: a later `setTextFormat(RichText)` on
 the same object, or a `QMessageBox` class reached through a name this file cannot
 resolve statically (a variable holding the class), is outside what an AST sweep

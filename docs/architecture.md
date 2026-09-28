@@ -914,6 +914,29 @@ took its minimum from **208 px to 575 px** with real post-rip values.
   failing on any un-wrapped label holding a long dynamic string, so a new label
   cannot reintroduce this silently. No window needs to be shown for either.
 
+#### And every label built from a value states its text format
+
+**A `QLabel` built from anything but a string literal calls `setTextFormat` right
+after it is built: `Qt.TextFormat.PlainText` for text, `RichText` only where the
+label renders markup of ours.** Qt's default, `AutoText`, guesses per text: it
+treats the label as HTML when its *first line* happens to hold a known tag, then
+drops what it cannot render. So the value decides, and an external value decides
+badly. Measured on the drive wizard (PySide6 6.11.2, 2026-09-28): a drive named
+`<i>odd</i>` lost its name to italics, and one named `TSST <corp> & Co` flipped
+the whole label to plain text, which showed the literal `<b>` tags around its
+offset. Critical rule #12 is the reason; this is how to follow it in a widget.
+
+- **RichText means every value inside the markup goes through `html.escape`**,
+  and the comment at the site says which parts are ours and which are escaped.
+  Where the markup arrives from a caller (`SetupCopy.intro`), the caller escapes.
+- **Plain text keeps line breaks; markup does not.** In RichText a `\n` is a
+  space, so a multi-line RichText label needs `<br>`.
+- **Enforced by `tests/test_labels_state_their_text_format.py`, with no
+  allowlist**: an exemption list is how a sweep stops enforcing anything.
+  `QMessageBox` has its own sweep (`tests/test_message_boxes_are_plaintext.py`).
+  A label built empty and filled later by `setText` is outside both, so state
+  its format anyway.
+
 ### 3.10 Unattended testing: the script console, and why a subsystem needs a surface
 
 **The rule this section exists to state:** *a subsystem is not shipped until

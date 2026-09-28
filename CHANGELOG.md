@@ -106,6 +106,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   (`ui/message_boxes.py`) that shows the text as plain text, with the same
   buttons, default and answer as before, and a test refuses any new box built
   the old way.
+- **Text from outside the app now shows as written in every label built from it.**
+  A drive's name, a device path, a ripper build or a dependency's name could be
+  read as formatting instead of text. Qt guesses from a label's first line whether
+  it holds formatting, so a drive whose name contained `<i>…</i>` lost those
+  characters and turned italic, and a name containing `<corp>` made the drive
+  wizard show its own `<b>` tags around your offset. Every such label now says
+  whether it holds plain text or formatting, and where it holds formatting, each
+  value inside it is escaped first. Ordinary text looks exactly as before: each
+  changed dialog was compared label by label, before and after. A new test
+  refuses a label built from a value that does not say which it holds.
 - **For contributors: the regex timing checks no longer fail on a busy runner.**
   The sweep that proves no pattern in `src/` stalls on long input confirmed a
   suspect by timing it again at the same sizes, inside the same noisy moment, so

@@ -25,6 +25,7 @@ beside the in-app download branch.
 
 from __future__ import annotations
 
+import html
 import logging
 from pathlib import Path
 
@@ -694,8 +695,10 @@ class UpdateMixin(MainWindowShared):
             host_setup=HostSetup(runner=SubprocessRunner(), fork_target=target),
             copy=SetupCopy(
                 title="Updating cyanrip",
+                # Markup (the dialog shows it as RichText): the words and <b> are
+                # ours; the pin names a build the user picked, so it is escaped.
                 intro=(
-                    f"Installing cyanrip build <b>{target.pin}</b>.\n\n"
+                    f"Installing cyanrip build <b>{html.escape(target.pin)}</b>.\n\n"
                     "Platterpus builds the ripper from source inside its container, "
                     "so this takes a few minutes. Everything already in place is "
                     "skipped — the rows below say which.\n\n"

@@ -4358,7 +4358,7 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
   script and `docs/rig-scripts/README.md`; it travels when the round opens. All eleven
   rounds are CLOSED as of this commit, so the release gate itself is clear.
 
-- [ ] **The 13 `QLabel(<non-literal>)` sites are outside the PlainText sweep.**
+- [x] **The 13 `QLabel(<non-literal>)` sites are outside the PlainText sweep.**
   `tests/test_message_boxes_are_plaintext.py` covers `QMessageBox`: the functions
   that construct one (10 sites, all pinned) and, since 2026-09-28, Qt's static
   helpers too, which it refuses outright (the 38 calls it had never seen now go
@@ -4372,6 +4372,37 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
   `ui/settings_dialog.py:248`. **`release_picker.py:67` first** — a release picker
   renders MusicBrainz artist/title directly, which is the exact case Critical rule
   #12 names.
+  - *Done 2026-09-28, in the commit `fix(ui): make every label built from data state
+    its text format`:* no allowlist. Every `QLabel(<non-literal>)` now STATES its
+    format right after it is built, and `tests/test_labels_state_their_text_format.py`
+    refuses one that does not (floor 15; it found 17, not 13). **PlainText (14):**
+    `ui/dialogs/manual_install.py` Required, Currently, Why manual and the search-field
+    caption; `ui/drive_setup_dialog.py` intro and device path; `ui/help_dialogs.py`
+    logo (a picture, stated anyway); `ui/release_picker.py` intro; and six already
+    pinned (`ui/dialogs/setup_center.py` x3, `ui/disc_info_panel.py::_value_label`,
+    `ui/ripper_picker.py` `choice.why`, `ui/settings_dialog.py` offset status).
+    **RichText with escaping (3), kept rich because each renders a `<b>` of ours:**
+    the manual-install intro (`html.escape` on the dependency's display name), the
+    drive wizard's known-offset line (the drive's vendor/model), and the setup
+    wizard's intro, whose markup `SetupCopy.intro` is written by its callers: the
+    ripper update escapes the build pin, and the test checks every builder. Rendered
+    output was compared before and after on 546 labels across those dialogs: no
+    change on ordinary input. The release picker's MusicBrainz fields were never in
+    a label: they are table cells, which draw text as written (measured: a
+    `<b>WWWW</b>` cell is 113 px wide against 54 px for `WWWW`). **Not covered, and
+    still open:** labels built empty or from a literal and given a value later by
+    `setText` — 13 counted, 8 of them in `ui/rip_progress.py`. Also found: the setup
+    wizard's intro renders as markup, so its bullet list has always shown as one
+    paragraph; kept as it was here, since this change was not to alter output.
+
+- [ ] **Labels given their text by `setText` after they are built are outside both
+  format sweeps.** `tests/test_labels_state_their_text_format.py` holds every
+  `QLabel(<non-literal>)` to stating its format, but a label built empty or from a
+  literal and filled later with `setText(<value>)` is not seen: 13 counted on
+  2026-09-28, 8 of them in `ui/rip_progress.py`, which shows rip status built partly
+  from cyanrip's output. The count is an approximation and may be low. Also found
+  the same day: the setup wizard's intro is markup, so its bullet list has always
+  rendered as one paragraph.
 
 - [x] **DELIVERED in round 12 itself** — `inbound/round-12-lap-01.md` §B2,
   *"`--verify-log` should separate absent from mismatched — [MEASURED], done"*.
