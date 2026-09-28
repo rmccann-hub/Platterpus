@@ -237,6 +237,21 @@ class DiscInfoPanel(QWidget):
         self._mb_id_value.setText(info.musicbrainz_disc_id or _PLACEHOLDER)
         self._cddb_id_value.setText(info.cddb_disc_id or _PLACEHOLDER)
 
+    def set_no_disc(self) -> None:
+        """The drive reported the disc gone: say so, and what happens next.
+
+        Worded as what the DRIVE reports, because that is all the app knows: a
+        drive can say "tray open" with the disc still in (whether the rig's
+        removals of 2026-09-25 were real is unsettled), and then the Rescan
+        hint is the way back. Before this the panel showed only dashes.
+        """
+        text = (
+            "the drive reports no disc — insert one and it is read automatically "
+            "(disc still in? click “Rescan disc”)"
+        )
+        self._mb_match_value.setText(text)
+        announce(self._mb_match_value, text)
+
     def set_disc_info_retrying(self, message: str) -> None:
         """A read failed and an automatic retry is pending: say so, and why.
 
@@ -339,6 +354,10 @@ class DiscInfoPanel(QWidget):
         (ux-design-principles.md #10).
         """
         label = QLabel(text)
+        # PlainText: these labels carry the ripper's own sentences (a failed
+        # read's error, verbatim), and Qt's default AutoText would read a `<` in
+        # them as markup and drop what follows (Critical rule #12, inbound).
+        label.setTextFormat(Qt.TextFormat.PlainText)
         # Word-wrapped, because these labels hold *dynamic* values and an
         # un-wrapped QLabel's minimum width is its whole single line — a minimum
         # that propagates all the way up to the window. With the values a real

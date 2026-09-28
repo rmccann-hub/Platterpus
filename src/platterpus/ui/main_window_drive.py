@@ -404,6 +404,9 @@ class DriveMixin(MainWindowShared):
                 # (The other route, disc → unknown → empty → disc, now fires
                 # REMOVED first: unknown readings are bridged since 2026-09-28.)
                 self._reset_disc_view()
+                # Say the disc is being read: the reset left only dashes, which is
+                # what an app that saw nothing looks like (Rescan does the same).
+                self._disc_info_panel.set_disc_info_loading()
                 self._start_disc_info(device)
             elif event == drive_media.REMOVED:
                 # The disc left the drive (an eject or a physical removal). Clear
@@ -421,6 +424,7 @@ class DriveMixin(MainWindowShared):
                     bridged,
                 )
                 self._reset_disc_view()
+                self._disc_info_panel.set_no_disc()
         except Exception:  # noqa: BLE001 — a background poll must never crash the UI
             log.exception("disc-media poll failed; skipping this tick")
 

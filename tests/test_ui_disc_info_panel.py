@@ -201,6 +201,50 @@ def test_set_disc_info_error_shows_message(qapp: QApplication) -> None:
     assert "disc not present" in panel._mb_match_value.text()
 
 
+def test_a_pending_retry_is_shown_as_work_in_progress_not_an_error(
+    qapp: QApplication,
+) -> None:
+    panel = DiscInfoPanel()
+    panel.set_disc_info_retrying("couldn't read the disc yet — trying again")
+    assert panel._mb_match_value.text() == "couldn't read the disc yet — trying again"
+    assert panel._mb_id_value.text() == "…"
+    assert not panel._mb_match_value.text().startswith("error")
+
+
+def test_a_removed_disc_says_what_the_drive_reported_and_what_to_do(
+    qapp: QApplication,
+) -> None:
+    """Dashes alone look like an app that saw nothing (rig report 2026-09-28)."""
+    panel = DiscInfoPanel()
+    panel.set_no_disc()
+    text = panel._mb_match_value.text()
+    assert text.startswith("the drive reports no disc")
+    assert "read automatically" in text and "Rescan disc" in text
+
+
+def test_every_value_label_renders_plain_text(qapp: QApplication) -> None:
+    """The error line carries the ripper's own words. Under Qt's default AutoText
+    a `<` in them starts markup and the rest of the sentence is not rendered.
+
+    The format is what is asserted: `text()` returns the string as set under
+    either format, so reading it back could not tell the two apart."""
+    from PySide6.QtCore import Qt
+
+    panel = DiscInfoPanel()
+    labels = [
+        panel._drive_value,
+        panel._mb_id_value,
+        panel._cddb_id_value,
+        panel._mb_match_value,
+        panel._accuraterip_value,
+        panel._offset_value,
+        panel._cache_value,
+    ]
+    assert all(label.textFormat() == Qt.TextFormat.PlainText for label in labels), (
+        "a value label was built on AutoText — see _value_label()"
+    )
+
+
 # --- MusicBrainz match ---------------------------------------------------
 
 

@@ -6205,6 +6205,32 @@ def test_a_disc_that_returns_through_an_unreadable_check_is_read_and_shown(
     ], removed
 
 
+def test_the_panel_never_shows_only_dashes_after_a_removal_or_an_insertion(
+    teardown_threads,
+) -> None:
+    """A removal says what the drive reported and what to do; an insertion says
+    the disc is being read. Both used to leave only dashes, which is exactly what
+    an app that noticed nothing looks like — the rig report's "nothing happens"."""
+    window = teardown_threads()
+    window._rip_thread = None
+    window._disc_info_thread = None
+    started: list[str] = []
+    window._start_disc_info = lambda device: started.append(device)  # type: ignore[assignment]
+    window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
+    window._media_watcher.reset()
+    readings = iter(["disc", "open", "disc"])
+    window._disc_status_probe = lambda _dev: next(readings)  # type: ignore[assignment]
+    match = window._disc_info_panel._mb_match_value
+
+    window._poll_disc_media()  # baseline
+    window._poll_disc_media()  # removed
+    assert match.text().startswith("the drive reports no disc"), match.text()
+    assert "Rescan disc" in match.text()
+    window._poll_disc_media()  # inserted
+    assert started == ["/dev/sr0"]
+    assert match.text() == "reading disc…", match.text()
+
+
 # --- A failed disc read is retried on its own (disc_probe_retry) -----------
 #
 # The rig report of 2026-09-28: "sometimes I have to open the drive and close it

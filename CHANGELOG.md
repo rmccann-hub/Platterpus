@@ -216,6 +216,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the tray is empty it tells you to insert a disc, which is then read as soon as it
   goes in. Any read that still fails ends with what to do: Rescan disc, or eject and
   re-insert.
+- **The disc panel says what is happening instead of showing dashes.** After a disc is
+  removed it says the drive reports no disc and what to do (Rescan disc if the disc is
+  actually still in). After a disc is inserted it says it is reading it. The ripper's
+  own error text is always shown in full.
 
 ### Added
 
