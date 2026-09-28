@@ -366,13 +366,29 @@ class DriveMixin(MainWindowShared):
             if not device:
                 return
             status = self._disc_status_probe(device)
+            previous = self._media_watcher.last_status
             event = self._media_watcher.observe_event(status)
+            # The raw stream, on change only: when an insertion went missing on
+            # the rig (2026-09-28) nothing said what the drive had reported. DEBUG
+            # so a flickering drive cannot flood the log; the event lines carry
+            # the part that matters at INFO.
+            if status != previous:
+                log.debug("media status of %s: %s -> %s", device, previous, status)
+            bridged = self._media_watcher.bridge_note()
             if event == drive_media.INSERTED:
-                log.info("disc inserted in %s — auto-rescanning", device)
+                log.info(
+                    "disc inserted in %s (drive reports %s%s) — auto-rescanning",
+                    device,
+                    status,
+                    bridged,
+                )
                 # Whatever the view holds belongs to an earlier disc. A removal
-                # normally cleared it, but not always: disc → unknown (a probe
-                # glitch) → empty → disc never fires REMOVED, and the new scan
-                # then started on top of the old disc's identity.
+                # normally cleared it, but not always: the poll is skipped while
+                # a scan runs, so a disc ejected DURING a scan leaves "open" as
+                # the first reading afterwards — a baseline, not a removal — and
+                # the next disc fires INSERTED with the old one still on screen.
+                # (The other route, disc → unknown → empty → disc, now fires
+                # REMOVED first: unknown readings are bridged since 2026-09-28.)
                 self._reset_disc_view()
                 self._start_disc_info(device)
             elif event == drive_media.REMOVED:
@@ -380,7 +396,16 @@ class DriveMixin(MainWindowShared):
                 # the now-stale disc-identity view so the app doesn't look like it
                 # still has the old disc loaded (the results pane keeps the last
                 # rip's outcome — this only clears "what's in the drive now").
-                log.info("disc removed from %s — clearing the disc view", device)
+                # The drive's own word is logged: whether the rig's removals were
+                # real ejects or a drive saying "tray open" with the disc still in
+                # is not settled, and this line is what would settle it.
+                log.info(
+                    "disc removed from %s (drive reports %s%s) — clearing the "
+                    "disc view",
+                    device,
+                    status,
+                    bridged,
+                )
                 self._reset_disc_view()
         except Exception:  # noqa: BLE001 — a background poll must never crash the UI
             log.exception("disc-media poll failed; skipping this tick")
