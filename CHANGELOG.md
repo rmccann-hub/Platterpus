@@ -34,6 +34,24 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The About box (Help → About Platterpus…) and the ripper update offer now say
+  what the ripper build means.** About listed the ripper as `cyanrip: 0.9.4 ✓`, which does not say whether it is the
+  Platterpus fork or upstream, which build it is, or whether it is approved. The
+  update offer said *"release 28 — you have release 27 (e0471f4)"*, and nothing
+  explained either number. About now shows the ripper's own version
+  (`0.9.4-rc2+platterpus.17`). A new *Ripper* section names the installed build by
+  version, commit and fork release, and says plainly whether it is approved, being
+  tested in a handshake round, or not approved, and what that means for your rips.
+  It also names the build this Platterpus installs and the one a round is testing,
+  and explains each number once. The offer names both builds the same way, and
+  names the round that is testing a build instead of *"a round in this repository"*.
+  The status is the same check every rip records (`handshake_approval.approve_ripper`),
+  so About cannot describe the ripper differently from the rips it makes. The
+  ripper's own version text is escaped, so it cannot render as Markdown. The words
+  live in one new module, `ripper_standing.py`. **Help → Copy diagnostics** gains an
+  `Installed ripper:` line under `Approved pair:`, and each dependency row carries the
+  tool's own build (`build=0.9.4-rc2+platterpus.18`). A diagnostics paste on
+  2026-09-28 could not show whether `.18` was installed.
 - **The published metadata names rmccann-hub as the author and copyright holder.**
   `pyproject.toml`'s `authors` and the AppStream metainfo's `<developer>` said
   "Platterpus contributors", which is not a legal entity and so cannot grant the
@@ -69,6 +87,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Documentation
 
+- **A second Full run on `.17` is filed and graded `partial`.** The operator's
+  14:42 UTC run on 2026-09-28 (0.6.62 with `e0471f4`) passed 320 of 320. Its whole-disc
+  rip matches the EAC baseline on all 14 tracks, and CTDB verifies it. Its records still
+  carry the defects 0.6.63 fixed, so the field-evidence ledger gets an eleventh row,
+  `partial`. The ledger also says why this run is not a second witness for the
+  `0.7.100` bar: same machine, drive, disc and build. The text artifacts are in
+  `docs/handshake/artifactsround28/` (`round28full062*`).
 - **The dependency record names every tool a release depends on, and stops claiming
   a lock that does not exist.** `DEPENDENCIES.md` gains rows for twine, pip-audit,
   cyclonedx-bom and gitleaks, each saying how CI gets it today: twine and pip-audit

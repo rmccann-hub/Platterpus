@@ -39,6 +39,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Final
 
 from platterpus.deps.checks import ProbeResult
 from platterpus.ripper_identity import identify_from_banner
@@ -202,3 +203,44 @@ def _strip_tool_name(banner_head: str, tool: str) -> str:
 #: The type a spec's ``build_note`` field must satisfy. Named so the registry's
 #: annotation reads as intent rather than as a bare ``Callable`` soup.
 BuildNoteProbe = Callable[[ProbeResult], BuildNote]
+
+
+# --- Reading a finished check, for a surface that must not probe ---------------
+#
+# Help → About must never probe (a probe enters the ripper's container), so it
+# reads what the last check captured. These two readers live here, beside the
+# notes they read, so no surface outside the subsystem spells a tool name
+# (Critical rule #6). Both read through ``getattr``, so a test double works, and
+# neither raises.
+
+#: The ripper's dependency id, named inside the subsystem.
+RIPPER_DEP_ID: Final[str] = "cyanrip"
+
+
+def ripper_banner(report: object) -> str | None:
+    """The ripper's own version line as ``report``'s check captured it, or ``None``.
+
+    ``None`` means the check has not run or captured no banner. It never means an
+    upstream build. Only the first line is the banner.
+    """
+    probes = getattr(report, "ok_probes", None) or {}
+    probe = probes.get(RIPPER_DEP_ID) if isinstance(probes, dict) else None
+    text = str(getattr(probe, "raw_output", "") or "").strip()
+    return (text.splitlines()[0].strip() or None) if text else None
+
+
+def own_versions(report: object) -> dict[str, str]:
+    """dep id → the tool's own version text, for each tool whose note captured one.
+
+    The parsed ``0.9.4`` the inventory keeps is what the minimum-version check
+    compares; it cannot tell ``0.9.4-rc2+platterpus.17`` from upstream. This is the
+    text the tool printed about itself.
+    """
+    notes = getattr(report, "build_notes", None) or {}
+    if not isinstance(notes, dict):
+        return {}
+    return {
+        str(dep_id): str(getattr(note, "version_text", "") or "")
+        for dep_id, note in notes.items()
+        if getattr(note, "version_text", "")
+    }
