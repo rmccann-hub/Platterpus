@@ -196,6 +196,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 29 is open, on the fork's `.18` (`51cc789`), and it is the build the next
+  Full acceptance run tests.** `PIN_UNDER_REVIEW` moves from `e0471f4` to `51cc789`, so
+  section A accepts `.18` and the cyanrip offer marks it as the build the run needs.
+  The pin installed by default stays `e0471f4`, round 28's approved build, until round
+  29 closes. The fork's round 29 lap 1 is filed. The rig sheet, the standing status, the
+  handshake index and TASKS name the new pair. The handshake status now prints a line
+  for a side with no lap in a round, instead of leaving it out.
 - **The approved ripper is now the fork's `.17`, `e0471f4`.** Handshake round 28
   closed on our side with `GO` from both projects, on the Full acceptance run on
   0.6.61 with `.17` installed (320 of 320 steps). `FORK_PIN` moves from `221a1df` to

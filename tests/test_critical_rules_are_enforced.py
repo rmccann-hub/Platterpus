@@ -1403,7 +1403,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2441 -> 2452 (2026-09-28, round 28 closed on our gate)**: `FORK_PIN` rolls to
     # `e0471f4` and `FORK_EXPECTED_VERSION` to `.17`, each with the dated record of
     # where it was read and cross-checked, as every roll before it.
-    "deps/fork_source.py": 2452,
+    # **2452 -> 2477 (2026-09-28, round 29 open)**: `PIN_UNDER_REVIEW` moves to
+    # `51cc789` (`+platterpus.18`) with why, its release sequence, its build tag in
+    # the `--consumer` accept-set with the contract that licenses it, the re-derived
+    # same-program flag, and the round-29 pairing line.
+    "deps/fork_source.py": 2477,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the

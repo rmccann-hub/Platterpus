@@ -4760,7 +4760,7 @@ def test_status_prints_what_each_verdict_rests_on_and_never_grades_it(
     assert len(closed) >= 2 and closed[-2] not in shown
     for num in expected:
         assert sum(1 for ln in lines if ln.startswith(f"round {num:2d} ")) == 2, num
-    assert all("rests on:" in ln for ln in lines)
+    assert all("rests on:" in ln or "no lap yet" in ln for ln in lines)
     hs.main(["--status"])
     out = capsys.readouterr().out
     assert all(ln in out for ln in lines)
@@ -4778,7 +4778,30 @@ def test_a_long_verdict_source_is_cut_with_its_count(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     lines = hs.verdict_source_lines(["round-40: sent=yes -> OPEN"], tmp_path)
-    assert len(lines) == 1 and lines[0].endswith("[... 37 more characters]"), lines
+    assert len(lines) == 2 and lines[0].endswith("[... 37 more characters]"), lines
+    assert lines[1] == "round 40 theirs, no lap yet, so nothing rests on it", lines
+
+
+def test_a_round_one_side_has_not_answered_says_so_for_that_side(
+    tmp_path: Path,
+) -> None:
+    """A round the peer opened and we have not answered printed only THEIR line, so
+    "our lap says nothing" and "we have no lap" looked the same. Each side of each
+    shown round now has a line, and the missing side's says it is missing (the
+    state round 29 was in when their lap 1 was filed, 2026-09-28)."""
+    hs = _load()
+    (tmp_path / "outbound").mkdir()
+    (tmp_path / "inbound").mkdir()
+    (tmp_path / "inbound" / "round-41-lap-01.md").write_text(
+        "HANDSHAKE-ROUND: 41\nHANDSHAKE-LAP: 1\nHANDSHAKE-VERDICT: OPEN\n"
+        "HANDSHAKE-VERDICT-SOURCE: lap 1\n\n# lap\n",
+        encoding="utf-8",
+    )
+    lines = hs.verdict_source_lines(["round-41: sent=NO -> OPEN"], tmp_path)
+    assert lines == [
+        "round 41 ours, no lap yet, so nothing rests on it",
+        "round 41 theirs, lap 1 (NOT released), OPEN, rests on: lap 1",
+    ], lines
 
 
 def test_the_skeleton_states_the_maintainers_objective_in_their_words() -> None:

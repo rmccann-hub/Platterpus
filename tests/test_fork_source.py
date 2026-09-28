@@ -1867,7 +1867,7 @@ def test_the_same_program_flag_is_redeclared_whenever_either_pin_moves() -> None
 
     #: The triple this flag was last derived for. Update ALL THREE together, and
     #: only after running the diff named in the failure message.
-    DECLARED_FOR: tuple[str, str, bool] = ("e0471f4", "3952c03", False)
+    DECLARED_FOR: tuple[str, str, bool] = ("51cc789", "3952c03", False)
 
     reviewed, test_pin, flag = DECLARED_FOR
     assert (fork_source.PIN_UNDER_REVIEW, fork_source.FORK_TEST_PIN) == (
