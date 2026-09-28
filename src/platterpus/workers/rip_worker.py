@@ -102,7 +102,7 @@ class RipParameters:
     # otherwise the front cover is embedded after the rip.
     cover_art: str = ""
     max_retries: int = 5
-    # cyanrip's `-Z N` (rip until N reads' checksums match) for marginal
+    # cyanrip's `-Z N` (re-read until N+1 reads are identical) for marginal
     # discs. 0 = off.
     secure_rerip_matches: int = 0
     # cyanrip's `-O`: read into the disc's lead-in/lead-out instead of

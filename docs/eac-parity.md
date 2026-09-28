@@ -195,7 +195,10 @@ count — so "did this rip match EAC?" is one command. (Small; mostly done.)
 - (a) Add cyanrip **`-Z N`** ("re-rip until checksums match N times") as a
   secure-rip option for marginal discs — strengthens reads so a near-miss track
   converges to the consensus. **✅ Code landed 2026-06-28** (as the Settings
-  control now named "Max reads to confirm a shaky track",
+  control now named "Extra matching reads to trust a track" (renamed twice:
+  it was "Max reads to confirm a shaky track", then "Reads that must agree
+  to trust a track", which counted one short — `-Z N` needs N+1 identical
+  reads),
   `config.secure_rerip_matches` → cyanrip `-Z N`; dynamic secure re-rip is
   **on by default since v0.4.9** — no opt-in checkbox; the grey-out clause for
   the previous backend is history, that backend was removed 2026-06-30, KDD-18). **⚠ HARDWARE-GATED:** confirmed
@@ -828,4 +831,4 @@ policy limit, not a technical one.
 
 ---
 
-*Last updated for Platterpus v0.6.61.*
+*Last updated for Platterpus v0.6.62.*

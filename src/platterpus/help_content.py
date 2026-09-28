@@ -220,8 +220,13 @@ and the startup test script in the script console.
   **Set cover art from file…** to point at your own image instead. (This release
   also keeps it in **Tools → Set cover art from file…**; that copy goes in the
   next one.)
-- **Max retries** — how many times the ripper retries a troublesome track
-  before giving up.
+- **Max retries** — the ripper's retry ceiling (cyanrip's `-r`). It limits two
+  things: how often a sector that won't read is retried, and how many times a
+  whole track may be read while the secure re-read (below) looks for identical
+  reads. So it must be **more than** *Extra matching reads to trust a track*: at
+  the default 5, with 2 there, a track may be read up to five times to find three
+  identical reads, so two reads can disagree and it can still be verified. At 3,
+  one bad read leaves it unverified. 0 leaves it to cyanrip's own default of 10.
 - **Read speed** — how fast to read the disc. *Adaptive Ladder* (the default)
   reads at full speed and only slows down for a disc that needs it; you can
   instead set a **Fixed speed** cap. A slower read sometimes helps a scratched
@@ -234,13 +239,14 @@ and the startup test script in the script console.
   EAC parity baseline was ripped, and only some drives can overread; an
   unsupported drive may freeze on it, so turn it on only if you know your
   drive supports overreading.
-- **Reads that must agree to trust a track** — Platterpus rips the disc once at full
-  speed, then re-reads *only* the tracks that didn't match AccurateRip until this
-  many reads agree, so a shaky track converges on a stable, repeatable read
-  (which then has a better chance of matching AccurateRip) while a clean disc
-  stays a single fast pass. It's **on by default** (2) — raise it for a badly
-  scratched disc, or set it to *Off* to accept the first read even when a track
-  can't be verified.
+- **Extra matching reads to trust a track** — Platterpus rips the disc once at
+  full speed, then re-reads *only* the tracks that didn't match AccurateRip until
+  this many further reads match one read — so at 2, **three identical reads** in
+  all. A shaky track converges on a stable, repeatable read (which then has a
+  better chance of matching AccurateRip) while a clean disc stays a single fast
+  pass. It's **on by default** (2) — raise it for a badly scratched disc (and keep
+  *Max retries* above it), or set it to *Off* to accept the first read even when a
+  track can't be verified.
 - **Also re-read tracks where only one frame matched AccurateRip** — **on by
   default.** That match (the `~` in the results, "partially accurate") checks
   only **one frame** of the track, so it does **not** prove the read is right:
@@ -252,13 +258,13 @@ and the startup test script in the script console.
 - **Verify every track with a second read (EAC-style Test & Copy)** — **off by
   default.** Normally Platterpus rips fast and only re-reads tracks that didn't
   match AccurateRip. Turn this on to read *every* track at least twice and keep
-  it only once the two reads agree — the same guarantee Exact Audio Copy's "Test
-  & Copy" gives (two independent reads produce the identical audio), for the
+  it only once its reads agree — the same guarantee Exact Audio Copy's "Test
+  & Copy" gives (independent reads produce the identical audio), for the
   whole disc. When a track is confirmed this way, the EAC-compatible log shows a
-  matching **Test CRC** and **Copy CRC** pair for it. It needs *Reads that must
-  agree* set to
-  2 or more (a second read is what there is to compare), and it's slower because
-  it double-reads clean tracks too — so it's off by default; turn it on for a
+  matching **Test CRC** and **Copy CRC** pair for it. It needs *Extra matching
+  reads to trust a track* at 1 or more (one matching extra read is the second
+  read; at the default 2 each track needs three identical reads), and it's slower
+  because it re-reads clean tracks too — so it's off by default; turn it on for a
   maximum-assurance archival rip.
 - **Verify with CTDB after a rip** — a second, whole-disc verification against
   the CUETools Database, alongside AccurateRip. **On by default**, and it is a

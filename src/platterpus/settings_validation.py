@@ -71,6 +71,15 @@ SECURE_REREP_MIN: int = 0
 SECURE_REREP_MAX: int = 10
 READ_SPEED_MIN: int = 0
 READ_SPEED_MAX: int = 72  # CD ×-speeds; 0 = drive max
+
+# The Settings row labels for the two retry settings, as the validator's
+# messages name them. A message that names a control must name one the user can
+# find: the secure re-read row was renamed on 2026-09-21 and this module kept
+# saying "Max reads to confirm a shaky track" for a week. The dialog spells the
+# label as a literal (its source is swept for row labels), and
+# `tests/test_secure_reread_can_converge.py` holds the two equal.
+MAX_RETRIES_LABEL: str = "Max retries"
+SECURE_REREP_LABEL: str = "Extra matching reads to trust a track"
 MP3_QUALITY_MIN: int = 0
 MP3_QUALITY_MAX: int = 9
 
@@ -202,12 +211,12 @@ def validate_config(config: Config) -> list[ValidationIssue]:
 
     for field_name, low, high, label in (
         ("read_offset", OFFSET_MIN, OFFSET_MAX, "Read offset"),
-        ("max_retries", MAX_RETRIES_MIN, MAX_RETRIES_MAX, "Max retries"),
+        ("max_retries", MAX_RETRIES_MIN, MAX_RETRIES_MAX, MAX_RETRIES_LABEL),
         (
             "secure_rerip_matches",
             SECURE_REREP_MIN,
             SECURE_REREP_MAX,
-            "Max reads to confirm a shaky track",
+            SECURE_REREP_LABEL,
         ),
         ("read_speed", READ_SPEED_MIN, READ_SPEED_MAX, "Fixed read speed"),
         ("mp3_vbr_quality", MP3_QUALITY_MIN, MP3_QUALITY_MAX, "MP3 VBR quality"),

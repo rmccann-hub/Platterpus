@@ -57,7 +57,7 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     "save_additional_art": "back cover and booklet",
     "max_retries": "Max retries",
     "force_overread": "Overread",
-    "secure_rerip_matches": "Reads that must agree to trust a track",
+    "secure_rerip_matches": "Extra matching reads to trust a track",
     "secure_rerip_dynamic": "Verify every track with a second read",
     "rerip_offset_variant": "re-read tracks where only one frame matched",
     "read_speed_mode": "Read speed",

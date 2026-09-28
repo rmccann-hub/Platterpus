@@ -1207,7 +1207,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **847 -> 848** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **848 -> 849** (2026-09-25, D18: `%N`/`%M` work everywhere): the template comment no longer says multi-disc folders are impossible.
     # **849 -> 851** (2026-09-28, the round-28 Full run): a hand-edited value about to be reset is logged WITH the value (`log_issues(issues, cfg)`), since the reset destroys it.
-    "config.py": 851,
+    # **851 -> 853** (2026-09-28, the `-Z` wording): the `max_retries` and `secure_rerip_matches` comments say `-r` is also the whole-track read ceiling and `-Z N` is N+1 identical reads, not "the CEILING of effort" the 2026-09-21 correction missed here.
+    "config.py": 853,
     "cue_validate.py": 1257,
     # **327 -> 426** (2026-09-28, `-Z` that `-r` cannot satisfy): `DEFAULT_MAX_RETRIES`, `retries_flag_value` and `secure_reread_problem`, the convergence rule read from the fork's source. It is a fact about cyanrip's command line that three layers need (the argv chokepoint, the settings validator, the rip worker), which is what this module is for; most of the growth is the mechanism and its citation.
     "cyanrip_cli.py": 426,
@@ -1616,7 +1617,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **630 -> 628** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **628 -> 631** (2026-09-27): the Guide says Set cover art from file… is on the disc panel's right-click menu, and that the Tools copy goes in the next release.
     # **631 -> 633** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Settings bullet says a rip of only some tracks is not checked against CTDB, and why.
-    "help_content.py": 633,
+    # **631 -> 637** (2026-09-28, the `-Z` wording): the User Guide's Max retries, secure re-read and Test & Copy bullets say what `-r` limits and that `-Z N` is N+1 identical reads, under the renamed label.
+    "help_content.py": 639,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1687,7 +1689,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
     # **370 -> 373** (2026-09-28, the Full run's track 3): the retried-track copy carries `replaced_because`.
     # **370 -> 410** (2026-09-28, `-Z` that `-r` cannot satisfy): `recovery_secure_rerip_ceiling`, which caps the ladder's own fallback `-Z` (`MAX_SECURE_REREP`, defined here) at what the user's `-r` lets converge. Beside the bound it caps, and shared by the ladder and the auto-fix so they cannot disagree.
-    "read_speed_ladder.py": 413,
+    # **410 -> 414** (2026-09-28, the `-Z` wording): the ladder's reason strings name N+1 identical passes for `-Z N`, and two comments say so.
+    "read_speed_ladder.py": 417,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
@@ -1785,7 +1788,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **947 -> 1004** (2026-09-25, the property-test batches): three rules no longer crash (and so pass) on an unhashable choice, an unknown `~user`, or an over-long component; and `%%` no longer hides a segment from the reserved-name and trailing-dot checks.
     # **1004 -> 1024** (2026-09-25, D17, KDD-38): a crashing rule becomes a visible warning on its field instead of a silent pass, and the docstring says why it is not an error.
     # **1024 -> 1104** (2026-09-28, the round-28 Full run: five scripted refusals wrote nothing to the log): `log_refusal`, the ONE log line for refused input, and `_loggable_value`, its escaped head-and-tail bound. `field_error` calls it, so every single-setting writer logs without a caller remembering to. The input boundary is this module's job, so its log line lives here.
-    "settings_validation.py": 1104,
+    # **1024 -> 1033** (2026-09-28, the `-Z` wording): `MAX_RETRIES_LABEL` and `SECURE_REREP_LABEL`, the row names the validator's messages use, so a renamed row cannot leave a message naming a control that is gone (it did, for a week).
+    "settings_validation.py": 1113,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -2117,7 +2121,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1335 -> 1336** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **1336 -> 1337** (2026-09-25, D18: `%N`/`%M` work everywhere): the template tooltip lists `%N` and `%M`.
     # **1337 -> 1340** (2026-09-28, the round-28 Full run): a blocked save hands the form's values to `log_issues`, so the log names the refused value.
-    "ui/settings_dialog.py": 1340,
+    # **1337 -> 1362** (2026-09-28, the `-Z` wording): the secure re-read row is "Extra matching reads to trust a track" (N+1 identical reads, not N), Max retries' tooltip says it is also the whole-track read ceiling and what 0 really does, and the comment that claimed the 2026-09-21 rename fixed every place says which one it missed.
+    "ui/settings_dialog.py": 1365,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     "ui/track_table.py": 832,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker

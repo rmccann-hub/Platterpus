@@ -144,6 +144,38 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   track then re-read again the same way. That fallback is now capped at what `-r`
   lets converge (`-Z 2` at `-r 3`; none at all at `-r 1`), and a number you set
   yourself is never lowered.
+- **The automatic recovery re-read no longer asks for a `-Z` that Max retries cannot
+  satisfy.** cyanrip's secure re-read `-Z N` succeeds only when N+1 reads of a track
+  are identical, and it stops after `-r` reads (the fork's `src/cyanrip_main.c`
+  lines 997-1012 at `faec4a8`). With secure re-read Off, the read-speed ladder and
+  the auto-fix fell back to our own `-Z 3` whatever `-r` was, so at Max retries 3
+  they sent `-Z 3 -r 3`: every track read three times, none verified, and every
+  track then re-read again the same way. That fallback is now capped at what `-r`
+  lets converge (`-Z 2` at `-r 3`; none at all at `-r 1`), and a number you set
+  yourself is never lowered.
+- **A rip whose secure re-read could never succeed is now refused before cyanrip
+  starts.** `-Z N` with Max retries (`-r`) at N or less reads every track `-r` times
+  and cannot verify one, on any disc. Each number was in range on its own, so
+  nothing caught the pair. The argv check every route to the ripper passes now
+  refuses it with both numbers and the arithmetic, reading a missing `-r` as
+  cyanrip's own default of 10 and a repeated one as the last, as cyanrip does. Its
+  first catch was our own rig check, whose reference command line was
+  `-r 3 -Z 3`; it now uses the shipped defaults (`-r 5 -Z 2`). The argv probe table
+  in `docs/seam-commands.md` and the `-r`/`-Z` rows of
+  `docs/dependency-contracts.md` say so.
+- **The secure re-read setting now counts what cyanrip counts.** `-Z 2` needs three
+  identical reads (the rig logs say "converged after 3 reads"), so the Settings row
+  that read *Reads that must agree to trust a track: 2* was one short. It is now
+  **Extra matching reads to trust a track**, and its tooltip, the User Guide, the
+  pre-rip plan, the read-speed ladder's status line, the Goal and Test & Copy
+  tooltips, the one-frame-match tooltip and the README all say N+1 identical reads.
+  Test & Copy works from 1, not 2 as its tooltip said. The validator's refusal
+  still named the row's old name, *Max reads to confirm a shaky track*, a week after
+  it was renamed; both now use one label, and every numeric rule's message is held
+  to naming a control the dialog shows. **Max retries** says it also caps how many
+  times a whole track may be read during a secure re-read, so it must be more than
+  that number, and that 0 means cyanrip's own default of 10, not "no retries". The
+  pre-rip plan says how many disagreeing reads the pair leaves room for.
 
 ### Changed
 

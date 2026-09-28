@@ -1288,7 +1288,8 @@ threads through one fixed path: `Config` field → `RipParameters` (frozen) →
 the `RipBackend.rip()` ABC signature → each adapter's argv builder. A
 backend with no equivalent **accepts and ignores** it (`del param`), and its
 Settings widget is greyed out for that backend. `secure_rerip_matches` (cyanrip
-`-Z N` "re-rip until N reads match", for marginal discs) is the worked
+`-Z N` "re-read until one read matches N earlier ones" — N+1 identical
+reads — for marginal discs) is the worked
 example — copy its shape for the next one.
 
 > **Comment hygiene after a backend swap (hard-won, 2026-06-30).** When the

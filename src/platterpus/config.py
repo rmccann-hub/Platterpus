@@ -276,7 +276,8 @@ class Config:
     # front-cover fetching is on (cover_art set) and the disc was identified.
     # These can't be embedded in FLAC, so they're saved as files.
     save_additional_art: bool = True
-    # Rip attempts before giving up on a track (cyanrip's `-r`).
+    # cyanrip's `-r`: per-frame retries AND the most whole-track reads a `-Z`
+    # secure re-read may take, so it must be more than `secure_rerip_matches`.
     max_retries: int = 5
     # Read into the disc's lead-in/lead-out (cyanrip's `-O`). With a read
     # offset applied, a disc's very first/last samples sit in the lead-in/out;
@@ -290,13 +291,14 @@ class Config:
     force_overread: bool = False
 
     # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
-    # cyanrip's `-Z <int>`: "rip a track until N reads' checksums agree" — for a
-    # track whose read doesn't match the AccurateRip consensus. It's the CEILING
-    # of effort spent on such a track (the user's number IS the max; the only hard
-    # cap is the Settings spinner's range). 0 = OFF (accept the fast read even if
-    # it doesn't verify); 2 is the useful floor. The default is **2** — combined
-    # with `secure_rerip_dynamic` (below, default True), a fresh install rips fast
-    # and then secures ONLY the AccurateRip-failing tracks up to 2 agreeing reads,
+    # cyanrip's `-Z <int>`: "rip tracks until checksums match N times" — N reads
+    # matching one more, so N+1 identical reads — for a track whose read doesn't
+    # match the AccurateRip consensus. An AGREEMENT count, not a ceiling: the
+    # ceiling is `max_retries` (`-r`), which must be more than this or the re-read
+    # can never converge. 0 = OFF (accept the fast read even if it doesn't
+    # verify). The default is **2** — combined with `secure_rerip_dynamic`
+    # (below, default True), a fresh install rips fast and then secures ONLY the
+    # AccurateRip-failing tracks until 3 reads are identical,
     # so "verification is paramount" holds out of the box (the dynamic path is
     # inert at 0). An existing config keeps whatever value it saved. **cyanrip
     # ONLY** — the previous backend had no equivalent.
