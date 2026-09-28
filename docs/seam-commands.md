@@ -163,7 +163,7 @@ which is the outcome S-9 most wants written down.
 | `secure_rerip_matches` | `0` | **dropped** | -Z absent from argv |
 | `secure_rerip_matches` | `1` | **emitted** | -Z 1 · chokepoint ok |
 | `secure_rerip_matches` | `2` | **emitted** | -Z 2 · chokepoint ok |
-| `secure_rerip_matches` | `10` | **emitted** | -Z 10 · chokepoint ok |
+| `secure_rerip_matches` | `10` | **raised** | RipError: refusing to run cyanrip: -Z 10 can never converge with -r 5: -Z 10 is satisfied only when 11 reads are identical (the latest read matching 10 earlier ones), and cyanrip stops re-reading a track after 5 whole-track reads (cyanrip_main.c:997-1012 at faec4a8). Every such track would be left unverified after the full 5 reads, whatever the disc is like. Raise Max retries above 10, or lower the secure re-read |
 | `secure_rerip_matches` | `1000` | **raised** | RipError: refusing -Z 1000 (secure re-read matches): outside the accepted range 0..10. This is the same range the Settings dialog enforces; a value arriving from a hand-edited config, a previous disc, or a future caller that skips Settings is checked here too |
 | `read_offset_override` | `-2000` | **emitted** | -s -2000 · chokepoint ok |
 | `read_offset_override` | `-667` | **emitted** | -s -667 · chokepoint ok |
@@ -184,7 +184,7 @@ which is the outcome S-9 most wants written down.
 | `track_title` | `':'` | **emitted** | round-tripped through '1=title=\\:' |
 | `track_isrc` | `'IS:RC'` | **emitted** | round-tripped through '1=title=T:isrc=IS\\:RC' |
 
-**38 probes: 26 emitted, 3 dropped, 9 raised.**
+**38 probes: 25 emitted, 3 dropped, 10 raised.**
 
 **Range axis — 26 probes. Silently-dropped non-zero values (findings): 0** — none. Every value a caller set either reached the argv or was refused.
 
