@@ -95,6 +95,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The "Album already ripped" check now looks in the folder the rip will
+  actually write to.** Two custom naming setups could overwrite a finished rip
+  without asking. If you edited the track template so its folder differed from
+  the disc template's, for example `%A/%d (%Y)/%t - %n`, the check looked in the
+  disc template's folder, which cyanrip never uses. And on disc 2 of a set with
+  `%N` in the folder name, it looked in disc 1's folder. It now uses the same
+  folder, year and disc number the rip itself sends cyanrip, and "Rip to a new
+  folder" checks the new folder the same way. A track template with no folder at
+  all leaves cyanrip to name the folder itself, so there is nothing to check; the
+  log now says the check did not run.
 - **Every message box now shows its text exactly as written.** What a tool told
   us — a version, a build tag, an install error from its own output — could be
   read as formatting instead of shown: Qt's ready-made message boxes guess

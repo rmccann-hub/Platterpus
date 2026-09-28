@@ -9,9 +9,11 @@ from __future__ import annotations
 import logging
 import re
 import sys
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Final
 
 import pytest
 from hypothesis import HealthCheck, example, given, settings
@@ -2376,3 +2378,77 @@ def test_an_UNUSABLE_disc_position_never_names_a_folder_disc() -> None:
 
 def test_an_ESCAPED_disc_code_stays_literal() -> None:
     assert scheme_from_template("%%N", disc="2", discs="3") == "%N"
+
+
+# --- The overwrite guard's folder IS the argv's -D (one computation, two callers) ---
+#
+# The guard predicted the album folder from the DISC template as disc 1 of 1 while
+# the argv built `-D` from the TRACK template with the real disc position, and a
+# re-rip wrote over a finished rip without a prompt (review R4, R5, 2026-09-28).
+# The property below is the relation between the two callers, which no test of
+# either one alone can state.
+
+_ALBUM: Final[RipMetadata] = RipMetadata(album_artist="Art", album_title="Alb")
+
+#: Each drifted once or is a boundary of the split: the disc template's shape, a
+#: year folder, a `%N`/`%M` folder on a later disc, an UNUSABLE position (the code
+#: drops out), an escaped `%%`, a typed brace, and a template with no folder part.
+_FOLDER_CASES: Final[tuple[tuple[str, RipMetadata], ...]] = (
+    ("%A/%d/%t - %n", _ALBUM),
+    ("%A/%d (%Y)/%t - %n", replace(_ALBUM, year="2000-05-01")),
+    ("%A/%Y - %d/%t - %n", _ALBUM),
+    ("%A/%d (Disc %N of %M)/%t - %n", replace(_ALBUM, disc_number=2, total_discs=3)),
+    ("%A/%d (Disc %N)/%t - %n", replace(_ALBUM, disc_number=3, total_discs=2)),
+    ("%A/%%Y {x}/%d/%t - %n", _ALBUM),
+    ("%t - %n", _ALBUM),
+)
+
+
+def test_the_overwrite_guards_folder_scheme_IS_the_argvs_dash_D() -> None:
+    from platterpus.adapters.cyanrip_backend import album_folder_scheme
+
+    compared: list[str | None] = []
+    for template, meta in _FOLDER_CASES:
+        argv = _scheme_argv(meta, template)
+        sent = argv[argv.index("-D") + 1] if "-D" in argv else None
+        assert album_folder_scheme(template, meta) == sent, (template, meta, sent)
+        compared.append(sent)
+    # Non-trivial: the cases include a later disc, a folder-less template, and a
+    # position the chokepoint drops, so agreement is not silence equal to silence.
+    assert len(compared) == len(_FOLDER_CASES) >= 7
+    assert "{album_artist}/{album} (Disc 2 of 3)" in compared, compared
+    assert "{album_artist}/{album} (Disc )" in compared, compared
+    assert None in compared, compared
+
+
+@pytest.mark.parametrize(
+    ("template", "changes", "folder"),
+    [
+        # The track template's folder, not a disc template's.
+        ("%A/%d (%Y)/%t - %n", {"year": "2000-05-01"}, "Art/Alb (2000)"),
+        # The disc of the set, from the position sent as `-c`.
+        (
+            "%A/%d (Disc %N)/%t - %n",
+            {"disc_number": 2, "total_discs": 2},
+            "Art/Alb (Disc 2)",
+        ),
+        # A tag value's `:` is cyanrip's look-alike on disk.
+        ("%A/%d/%t - %n", {"album_title": "Best: Hits"}, "Art/Best∶ Hits"),
+        # The folder is rendered from the ALBUM's tags: cyanrip fills `artist`
+        # from `album_artist` (`cyanrip@f8ebf48:src/cyanrip_main.c:1724`), and a
+        # track's own `title` has no value there, so it renders as its name
+        # (`cyanrip@f8ebf48:src/naming.c:331`, the same fallback
+        # `_path_schemes` cites at the pins).
+        ("%a/%d/%t - %n", {}, "Art/Alb"),
+        ("%A/%d - %n/%t", {}, "Art/Alb - title"),
+        # No folder part: no `-D` is sent, so there is no folder to predict.
+        ("%t - %n", {}, None),
+    ],
+)
+def test_predicted_album_folder_renders_the_dash_D_the_rip_sends(
+    template: str, changes: dict[str, object], folder: str | None
+) -> None:
+    from platterpus.adapters.cyanrip_backend import predicted_album_folder
+
+    meta = replace(_ALBUM, **changes)  # type: ignore[arg-type]  # test table
+    assert predicted_album_folder(template, meta) == folder

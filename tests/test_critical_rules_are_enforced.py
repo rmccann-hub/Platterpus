@@ -1134,7 +1134,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1594 -> 1638** (2026-09-25, TASKS `conv.argv-range`): `_tracks_on_disc` range-checks `-l` against the disc, which cyanrip enforces by refusing the whole rip. It belongs beside `_disc_position` and the `-t` check in `_metadata_args`, which are the same kind of guard.
     # **1638 -> 1640** (2026-09-25, the property-test batches): an unknown `%{…}` token's brace becomes a paren, so it cannot reach cyanrip as an unterminated `{` (TASKS `fuzz:adapters.cyanrip_backend.scheme_from_template`).
     # **1640 -> 1670** (2026-09-25, D18: `%N`/`%M` work everywhere): the disc position is checked once and fills in `%N`/`%M` as well as `-c`, so a folder name cannot disagree with the tags; `_disc_args` folded into `_disc_position`, keeping its reasoning.
-    "adapters/cyanrip_backend.py": 1670,
+    # 1670 -> 1757 on 2026-09-28 (review R4, R5): `_path_schemes` builds `-D`/`-F` for the argv and `album_folder_scheme` hands the overwrite guard the same `-D`, with `predicted_album_folder` rendering it from the album-level tags cyanrip fills in (cited). The guard predicted from the disc template as disc 1 of 1 and missed finished rips; one computation beside the argv is the fix, and cyanrip's rendering rules belong in its adapter.
+    "adapters/cyanrip_backend.py": 1757,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1602,7 +1603,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # naming template; a third module for one pure function would be the new
     # file rule #7 refuses.
     # **359 -> 376** (2026-09-25, D18: `%N`/`%M` work everywhere): the preview fills in `%N`/`%M` and writes a typed brace as the parenthesis the file gets.
-    "naming.py": 376,
+    # 376 -> 408 on 2026-09-28 (review R4, R5): `render_scheme` renders a cyanrip `{key}` scheme with the look-alike table this module owns, for the overwrite guard's folder; beside `render_preview`, its %-template twin.
+    "naming.py": 408,
     # +29 on 2026-09-04: `is_secure_rerip_verdict` and its reasoning. It is
     # DELIBERATELY here rather than at the worker that calls it — the point of
     # the fix is that the module owning read stability owns the classification,
@@ -1899,7 +1901,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
     # **522 -> 568** (2026-09-27, maintainer ruling: two look-alike folders ask, they do not stand down): the resolver returns EVERY folder the rip could land in and follows a tie into each branch, "Rip to a new folder" is free only if free under all of them, and the ambiguous prompt's wording is a pure function here beside the resolver it describes.
     # 568 -> 574 on 2026-09-28: a tie between look-alike folders asks even when neither holds a rip, with a title and text that do not claim one (maintainer: "fix all").
-    "ui/main_window_helpers.py": 574,
+    # 574 -> 578 on 2026-09-28 (review R4, R5): `known_album_folders` and `free_album_folder_templates` take the track template and the rip's metadata and delegate the prediction to the backend; the docstring says why the disc template was the wrong key.
+    "ui/main_window_helpers.py": 578,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -1996,7 +1999,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4760 -> 4795** (2026-09-27, the same ruling): `_confirm_known_overwrite` asks when several look-alike folders could be the target, names them all, logs them, and withholds Replace, with the reason and the `None is None` dismissal trap stated where the branch is.
     # 4795 -> 4802 on 2026-09-28: a tie between look-alike folders asks even when neither holds a rip, with a title and text that do not claim one (maintainer: "fix all").
     # 4802 -> 4803 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
-    "ui/main_window_rip.py": 4803,
+    # 4803 -> 4820 on 2026-09-28 (review R4, R5): `_rip_metadata_for`, the one metadata snapshot the rip and the overwrite guard both read, and the guard saying so when a folder-less template leaves it nothing to check.
+    "ui/main_window_rip.py": 4820,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared

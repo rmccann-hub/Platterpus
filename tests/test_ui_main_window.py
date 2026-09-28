@@ -40,6 +40,7 @@ from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
     RipHandle,
+    RipMetadata,
 )
 from platterpus.config import Config
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
@@ -2526,16 +2527,33 @@ def test_unique_album_title_never_overwrites_a_previous_unknown_rip(
 # --- Known-disc overwrite confirm (2026-07-08 trust audit) ----------------
 
 
+def _album(
+    artist: str, title: str, year: str = "", *, disc: int = 1, discs: int = 1
+) -> RipMetadata:
+    """The album-level metadata the overwrite guard predicts a folder from."""
+    return RipMetadata(
+        album_artist=artist,
+        album_title=title,
+        year=year,
+        disc_number=disc,
+        total_discs=discs,
+    )
+
+
 def test_known_album_folder_matches_cyanrip_folder_derivation(tmp_path) -> None:
-    """The folder a known-disc rip lands in is the disc template rendered from the
-    tags — including cyanrip's ':' → '∶' path sanitisation."""
+    """The folder a known-disc rip lands in is the TRACK template's folder part
+    rendered from the tags — including cyanrip's ':' → '∶' path sanitisation."""
     from platterpus.ui.main_window_helpers import known_album_folders
 
     root = tmp_path
-    folders = known_album_folders(root, "%A/%d/%d", "The Police", "Best: Hits", "1995")
+    folders = known_album_folders(
+        root, "%A/%d/%t - %n", _album("The Police", "Best: Hits", "1995")
+    )
     assert folders == (root / "The Police" / "Best∶ Hits",)
     # The year preset puts the 4-digit year in the folder, not the filename.
-    folders2 = known_album_folders(root, "%A/%d (%Y)/%d", "Air", "Moon Safari", "1998")
+    folders2 = known_album_folders(
+        root, "%A/%d (%Y)/%t - %n", _album("Air", "Moon Safari", "1998")
+    )
     assert folders2 == (root / "Air" / "Moon Safari (1998)",)
 
 
@@ -2576,7 +2594,7 @@ def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
     (real / "01 - Roxanne.flac").write_bytes(b"audio")
 
     found = known_album_folders(
-        root, "%A/%d/%d", "The Police", 'Songs "About" Nothing', ""
+        root, "%A/%d/%t - %n", _album("The Police", 'Songs "About" Nothing')
     )
     assert found == (real,), (
         "the guard did not find the folder cyanrip actually wrote — this is the "
@@ -2592,7 +2610,7 @@ def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
     # this assertion vacuous: the resolver took the literal branch and never
     # compared anything. Caught by `scripts/revert_probe.py`.)
     (root / "The Police" / "Cafè").mkdir()
-    probe = known_album_folders(root, "%A/%d/%d", "The Police", "Café", "")
+    probe = known_album_folders(root, "%A/%d/%t - %n", _album("The Police", "Café"))
     assert probe == (root / "The Police" / "Café",), (
         "matched a near-identical title as a substitution — an accented letter is "
         "not a sanitiser stand-in, and treating it as one would warn about the "
@@ -2609,7 +2627,7 @@ def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
     (root / "Ambiguous").mkdir()
     (root / "Ambiguous" / "a“b").mkdir()
     (root / "Ambiguous" / "a”b").mkdir()
-    tied = known_album_folders(root, "%A/%d/%d", "Ambiguous", 'a"b', "")
+    tied = known_album_folders(root, "%A/%d/%t - %n", _album("Ambiguous", 'a"b'))
     assert tied == (root / "Ambiguous" / "a“b", root / "Ambiguous" / "a”b"), (
         "a tie between two equally-plausible folders must return both, so the "
         f"overwrite prompt can ask about each; got {tied}"
@@ -2632,7 +2650,7 @@ def test_known_album_folders_follows_every_look_alike_branch(tmp_path) -> None:
     # A FILE with a matching name is not a folder the rip can land in.
     (tmp_path / "x‹y").write_bytes(b"not a folder")
 
-    folders = known_album_folders(tmp_path, "%A/%d/%d", 'x"y', "Album", "")
+    folders = known_album_folders(tmp_path, "%A/%d/%t - %n", _album('x"y', "Album"))
     assert folders == (left / "Album", right / "Album"), folders
 
 
@@ -2653,7 +2671,7 @@ def test_free_album_folder_templates_skips_a_suffix_taken_under_any_candidate(
     (artist / "a”b (2)" / "01.flac").write_bytes(b"x")
 
     disc_out, track_out = free_album_folder_templates(
-        tmp_path, "%A/%d/%d", "%A/%d/%t - %n", "Ambiguous", 'a"b', ""
+        tmp_path, "%A/%d/%d", "%A/%d/%t - %n", _album("Ambiguous", 'a"b')
     )
     assert (disc_out, track_out) == ("%A/%d (3)/%d", "%A/%d (3)/%t - %n")
 
@@ -2680,7 +2698,7 @@ def test_free_album_folder_templates_finds_smallest_free_sibling(tmp_path) -> No
         d.mkdir(parents=True)
         (d / "01.flac").write_bytes(b"x")
     disc_out, track_out = free_album_folder_templates(
-        root, "%A/%d/%d", "%A/%d/%t - %n", artist, title, year
+        root, "%A/%d/%d", "%A/%d/%t - %n", _album(artist, title, year)
     )
     assert disc_out == "%A/%d (3)/%d"
     assert track_out == "%A/%d (3)/%t - %n"
@@ -2933,6 +2951,143 @@ def test_known_overwrite_single_empty_folder_still_asks_nothing(
     params = _known_params(tmp_path)
     assert window._confirm_known_overwrite(params) is params
     assert seen == []
+
+
+# --- The folder checked is the folder cyanrip writes (R4, R5, 2026-09-28) ---
+#
+# cyanrip's `-D` is built from the TRACK template's folder part, filled with the
+# disc position the rip sends as `-c`. The guard used to render the DISC template
+# (which the backend deletes unread) as disc 1 of 1, so these two custom setups
+# ripped over a finished rip without asking. The prompts below are the production
+# prompt; only `exec` is replaced.
+
+
+def test_known_overwrite_checks_the_track_templates_folder_not_the_disc_templates(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """A hand-edited track template whose folder differs from the disc template's.
+
+    `%A/%d (%Y)/…` writes into `Art/Alb (2000)`; the disc template left at its
+    default names `Art/Alb`, which is empty. The guard must look where the rip
+    goes, so the prompt fires and names `Alb (2000)`.
+    """
+    window = teardown_threads()
+    _set_album(window, "Art", "Alb")
+    window._track_table._album_year_edit.setText("2000")
+    written = tmp_path / "Art" / "Alb (2000)"
+    written.mkdir(parents=True)
+    (written / "01 - One.flac").write_bytes(b"not really audio")
+    (tmp_path / "Art" / "Alb").mkdir()  # the disc template's folder: empty
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    from dataclasses import replace
+
+    params = replace(_known_params(tmp_path), track_template="%A/%d (%Y)/%t - %n")
+    assert params.disc_template == "%A/%d/%d"  # the drift under test
+    assert window._confirm_known_overwrite(params) is None
+    assert len(seen) == 1, f"no prompt over {written}, which holds a rip: {seen}"
+    assert seen[0]["title"] == "Album already ripped"
+    assert str(written) in str(seen[0]["text"]), seen[0]["text"]
+
+
+def test_rip_to_a_new_folder_tests_the_track_templates_suffixed_folder(
+    tmp_path,
+) -> None:
+    """ "Rip to a new folder" must be free where the rip goes.
+
+    With the track template `%A/%d (%Y)/…`, a (2) lands in `Alb (2000) (2)`. That
+    one is taken here, and `Alb (2)` (what the disc template would name) is free,
+    so testing the disc template's folder picks (2) and rips over `Alb (2000) (2)`.
+    """
+    from platterpus.ui.main_window_helpers import free_album_folder_templates
+
+    taken = tmp_path / "Art" / "Alb (2000) (2)"
+    taken.mkdir(parents=True)
+    (taken / "01.flac").write_bytes(b"x")
+    disc_out, track_out = free_album_folder_templates(
+        tmp_path, "%A/%d/%d", "%A/%d (%Y)/%t - %n", _album("Art", "Alb", "2000")
+    )
+    assert track_out == "%A/%d (%Y) (3)/%t - %n", track_out
+    assert disc_out == "%A/%d (3)/%d", disc_out
+
+
+def _disc_of_a_set(mbid: str, disc: int, discs: int) -> ReleaseDetail:
+    return ReleaseDetail(
+        summary=ReleaseSummary(
+            mbid=mbid,
+            title="Alb",
+            artist_credit="Art",
+            disc_number=disc,
+            total_discs=discs,
+        ),
+        tracks=(TrackSummary(number=1, title="One"),),
+    )
+
+
+def test_known_overwrite_checks_the_disc_of_the_set_being_ripped(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Disc 2 of 2, a `%N` folder, and disc 2 already ripped: the prompt fires.
+
+    The guard used to predict disc 1's folder for every disc, so it found
+    `Alb (Disc 1)` empty and asked nothing while the rip, sent `-c 2/2`, wrote
+    over `Alb (Disc 2)`.
+    """
+    from dataclasses import replace
+
+    window = teardown_threads()
+    _set_album(window, "Art", "Alb")
+    params = replace(_known_params(tmp_path), track_template="%A/%d (Disc %N)/%t - %n")
+    window._current_release_detail = _disc_of_a_set(params.release_id, 2, 2)
+    written = tmp_path / "Art" / "Alb (Disc 2)"
+    written.mkdir(parents=True)
+    (written / "01 - One.flac").write_bytes(b"not really audio")
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    assert window._confirm_known_overwrite(params) is None
+    assert len(seen) == 1, f"no prompt over {written}, which holds a rip: {seen}"
+    assert str(written) in str(seen[0]["text"]), seen[0]["text"]
+
+
+def test_known_overwrite_does_not_name_disc_1_when_ripping_disc_2(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """The mirror case: disc 1 of the set is ripped, disc 2 is not.
+
+    Disc 2's rip writes into `Alb (Disc 2)`, which is empty, so there is nothing
+    to ask. The old guard named `Alb (Disc 1)` here and offered Replace, which
+    would have written disc 2 somewhere the prompt never named.
+    """
+    from dataclasses import replace
+
+    window = teardown_threads()
+    _set_album(window, "Art", "Alb")
+    params = replace(_known_params(tmp_path), track_template="%A/%d (Disc %N)/%t - %n")
+    window._current_release_detail = _disc_of_a_set(params.release_id, 2, 2)
+    other = tmp_path / "Art" / "Alb (Disc 1)"
+    other.mkdir(parents=True)
+    (other / "01 - One.flac").write_bytes(b"not really audio")
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    assert window._confirm_known_overwrite(params) is params
+    assert seen == [], seen
+
+
+def test_known_overwrite_says_so_when_the_template_has_no_folder(
+    teardown_threads, monkeypatch, tmp_path, caplog
+) -> None:
+    """No folder part: no `-D`, so cyanrip picks the folder and there is nothing to
+    check. The guard must say it did not check, not check a guess."""
+    from dataclasses import replace
+
+    window = teardown_threads()
+    _set_album(window, "Art", "Alb")
+    seen = _record_dialog(monkeypatch, "Cancel")
+    params = replace(_known_params(tmp_path), track_template="%t - %n")
+    with caplog.at_level(logging.WARNING):
+        assert window._confirm_known_overwrite(params) is params
+    assert seen == []
+    assert "overwrite check not run" in caplog.text, caplog.text
 
 
 # --- First-run drive-setup offer + manual offset -------------------------
