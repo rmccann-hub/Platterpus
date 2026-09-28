@@ -4372,12 +4372,36 @@ def _r6_lap(round_no: int, lap_no: int, body: str, verdict: str = "OPEN") -> str
             "OPEN",
             None,
         ),
+        # Our round 28 laps 5 and 6, word for word: the subject is an event, and
+        # "our lap" followed by no number is not the numbered form.
+        (
+            "S46 WILL: Our lap after the Full run's bundle is committed to our tree "
+            "is `GO` unless …",
+            "OPEN",
+            None,
+        ),
         # The form R6 forbids by name.
         ("Our lap 15 is `GO` unless the rerun fails.", "OPEN", "names a lap NUMBER"),
+        ("Our lap 15, after the run, is `GO` unless X.", "HOLD", "names a lap NUMBER"),
+        # RECALLING a correct pre-commit is not making a numbered one (R12): the
+        # subject of "is GO unless" is "our next lap", after a colon and a quote.
+        (
+            'Our lap 3 bound us: *"our next lap is `GO` unless the run fails."*',
+            "HOLD",
+            None,
+        ),
+        (
+            'This honours the pre-commit our lap 2 made — *"our next lap is GO '
+            'unless the run fails"*.',
+            "OPEN",
+            None,
+        ),
         # Absent from lap 5 on.
         ("We have nothing to promise.", "OPEN", "carries no pre-commit"),
-        # Our reading: a lap that is itself GO has nothing left to promise.
+        # Our reading: a lap that is itself GO has nothing left to promise, and
+        # is exempt from BOTH halves, as the CHANGELOG says (R12).
         ("We have nothing to promise.", "GO", None),
+        ("Our lap 15 is `GO` unless the rerun fails.", "GO", None),
     ],
 )
 def test_r6_refuses_a_missing_or_numbered_pre_commit(
@@ -4391,6 +4415,65 @@ def test_r6_refuses_a_missing_or_numbered_pre_commit(
         assert problems == [], problems
     else:
         assert len(problems) == 1 and expect in problems[0], problems
+
+
+def _relabelled(relative: str, **fields: str) -> str:
+    """A committed lap with some header fields rewritten, as if sent later."""
+    text = (_REPO_ROOT / "docs" / "handshake" / relative).read_text(encoding="utf-8")
+    for name, value in fields.items():
+        text, n = re.subn(
+            rf"(?m)^HANDSHAKE-{name}: .*$", f"HANDSHAKE-{name}: {value}", text
+        )
+        assert n == 1, (relative, name, n)
+    return text
+
+
+def test_r6_does_not_refuse_the_record_s_recalled_pre_commits() -> None:
+    """Review finding R12, on the record rather than a paraphrase of it. The fork's
+    round 21 lap 5 and our round 23 lap 4 each RECALL a pre-commit made in R6's
+    form; sent in round 29 or later, the numbered-form refusal fired on both. Each
+    is held here as a HOLD lap too, so the GO exemption cannot be what passes it.
+    """
+    hs = _load()
+    for relative, lap in (
+        ("inbound/round-21-lap-05.md", "5"),
+        ("outbound/round-23-lap-04.md", "5"),
+    ):
+        for verdict in ("GO", "HOLD"):
+            text = _relabelled(relative, ROUND="29", LAP=lap, VERDICT=verdict)
+            assert hs.pre_commit_problems(text, relative) == [], (relative, verdict)
+    # NON-TRIVIALITY: the recall is in each file, where the numbered form's old
+    # reading (anything after "our lap N" up to "is GO unless") still finds it.
+    old = re.compile(
+        r"\bour\s+lap\s+\d+\b[^.\n]{0,120}?\bis\s+[`*_]*GO[`*_]*\s+unless\b", re.I
+    )
+    for relative in ("inbound/round-21-lap-05.md", "outbound/round-23-lap-04.md"):
+        body = hs._unfenced_body(
+            (_REPO_ROOT / "docs" / "handshake" / relative).read_text(encoding="utf-8")
+        )
+        assert old.search(body), relative
+
+
+def test_r6_still_finds_every_numbered_pre_commit_in_the_record() -> None:
+    """The other direction: narrowing the numbered form must not lose a real one.
+    Every `our lap N is GO unless` the whole committed record holds, found by the
+    pattern as it now stands. Each is a lap 1, which R6 does not bind, so the gate
+    refuses none of them; the point is that the pattern still sees them. A floor,
+    not an equality, so a later lap 1 that makes one does not fail it."""
+    hs = _load()
+    found: set[str] = set()
+    for direction in ("inbound", "outbound"):
+        for path in sorted(
+            (_REPO_ROOT / "docs" / "handshake" / direction).glob("round-*.md")
+        ):
+            body = hs._unfenced_body(path.read_text(encoding="utf-8", errors="replace"))
+            if hs._PRE_COMMIT_BY_NUMBER.search(body):
+                found.add(f"{direction}/{path.name}")
+    assert {
+        "inbound/round-13-lap-01.md",
+        "inbound/round-18-lap-01.md",
+        "inbound/round-23-lap-01.md",
+    } <= found, found
 
 
 def test_r6_binds_from_lap_5_of_round_29_only() -> None:
