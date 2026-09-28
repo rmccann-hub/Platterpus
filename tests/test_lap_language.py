@@ -25,9 +25,12 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import os
 import re
+import signal
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -1191,6 +1194,94 @@ def test_rerun_that_runs_too_long_is_killed_and_reported(
     assert lap.runs is not None and lap.runs.not_rerun == 1
     assert any("was killed" in p.message for p in lap.problems)
     assert len(_worktrees(repo)) == 1, "the scratch checkout was left behind"
+
+
+def _running(pid: int) -> bool:
+    """Whether `pid` is a live process: present, and neither a zombie nor dead."""
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return stat.rsplit(")", 1)[-1].split()[0] not in ("Z", "X")
+
+
+def test_an_interrupted_rerun_kills_its_group_before_the_checkout_goes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review finding R14. Ctrl-C while a re-run was in `child.wait()` left the
+    child running: it leads its own session, so the terminal's SIGINT never
+    reached it, and only a timeout killed the group. It then ran on, unbounded,
+    while `close` force-removed the checkout it was running in. Now the group is
+    killed and reaped before the interrupt goes on, and before the checkout goes.
+
+    The interrupt is raised from inside the wait, once the child has started a
+    grandchild in its group, so the group kill (not just the child's) is what
+    the grandchild's death proves.
+    """
+    pidfile = tmp_path / "grandchild.pid"
+    repo, sha = _git_repo(
+        tmp_path,
+        {
+            "tools/group.py": "# LSL-RERUN: commit-only\n"
+            "import os, subprocess, sys, time\n"
+            "g = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+            "open(os.environ['LSL_TEST_PIDFILE'], 'w').write(str(g.pid))\n"
+            "time.sleep(60)\nprint('done')\n"
+        },
+    )
+    monkeypatch.setenv("LSL_TEST_PIDFILE", str(pidfile))
+    real_popen = subprocess.Popen
+    reruns: list[subprocess.Popen[bytes]] = []
+
+    class InterruptedWait(subprocess.Popen[bytes]):  # the real one, patched below
+        def wait(self, timeout: float | None = None) -> int:
+            # Only the lap's command, only its first wait: the checker's own git
+            # calls, and the reap `_kill` does, pass straight through.
+            if not reruns and self.args[0] != "git":
+                reruns.append(self)
+                deadline = time.monotonic() + 30
+                while not pidfile.exists() and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                raise KeyboardInterrupt
+            return int(super().wait(timeout))
+
+    at_close: list[int | None] = []
+    real_close = scratch.Scratch.close
+
+    def close_spy(self: scratch.Scratch) -> list[str]:
+        at_close.append(reruns[0].poll() if reruns else -1000)
+        return real_close(self)
+
+    monkeypatch.setattr(scratch.subprocess, "Popen", InterruptedWait)
+    monkeypatch.setattr(scratch.Scratch, "close", close_spy)
+    path = tmp_path / "lap.md"
+    path.write_text(
+        _lsl3(_numbered(_measured(1, 'python3 tools/group.py => "done"', at=sha))),
+        encoding="utf-8",
+    )
+    before = _worktrees(repo)
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            check_path(path, root=repo, rerun=True)
+        assert pidfile.exists(), "the re-run never started its grandchild"
+        grandchild = int(pidfile.read_text(encoding="utf-8"))
+        [child] = reruns
+        # Killed with its group and reaped BEFORE the checkout was removed.
+        assert at_close == [-signal.SIGKILL], at_close
+        assert child.returncode == -signal.SIGKILL
+        deadline = time.monotonic() + 5
+        while _running(grandchild) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert not _running(grandchild), "the group kill missed the grandchild"
+        assert _worktrees(repo) == before, "the scratch checkout was left behind"
+    finally:
+        # With the fix reverted the group is still alive: never leak it.
+        for child in reruns:
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            real_popen.wait(child, timeout=5)
 
 
 def test_a_rerun_reads_no_stdin_and_survives_output_that_is_not_utf8(

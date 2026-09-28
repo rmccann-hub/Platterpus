@@ -13,7 +13,9 @@ This module does the repeating, and only when a person passed `--rerun`:
 * **Running the command there** (`Scratch.run`): no shell, stdin closed, stdout
   and stderr into one file so they interleave as written, bounded by a timeout
   after which the whole process group is killed and the reap is bounded too
-  (`CLAUDE.md` rule #9: never wait on a child without a bound). Output past
+  (`CLAUDE.md` rule #9: never wait on a child without a bound). An interrupt
+  during the wait (Ctrl-C) kills the group the same way before it goes on up,
+  since the child's own session never sees the terminal's SIGINT. Output past
   `MAX_OUTPUT_BYTES` is not compared, and the run is reported rather than
   matched against a part of what it printed.
 * **The marker** (`marker_reason`), read from the object store at the commit, so
@@ -138,6 +140,16 @@ class Scratch:
                     code = child.wait(timeout=RERUN_TIMEOUT_S)
                 except subprocess.TimeoutExpired:
                     return _kill(child)
+                except BaseException:
+                    # Ctrl-C (KeyboardInterrupt) or SystemExit during the wait.
+                    # The child leads its own session, so the terminal's SIGINT
+                    # never reached it, and Popen.wait gives up on it without
+                    # killing it. Left alive it would run on, unbounded, in a
+                    # checkout `close` is about to remove (review finding R14).
+                    # So the group is killed and the reap bounded, as on a
+                    # timeout, before the interrupt goes on up.
+                    _kill(child)
+                    raise
                 # Anything the command left running in its group would go on
                 # writing into a checkout about to be removed.
                 _kill_group(child.pid)
