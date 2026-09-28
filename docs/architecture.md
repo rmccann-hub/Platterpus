@@ -1438,6 +1438,12 @@ release, never the ripper's interactive prompt).
   one thing wherever it appears; do not build a second `QAction` for the same
   slot. `tests/test_help_documents_the_menu.py` requires the Guide to name it.
 - **A tool only a tester needs** goes under **Tools → Advanced ▸** (D4 A).
+- **Either way:** an Alt-letter unique within the menu it opens in (the album
+  menu opens with *&Copy* and *Select &All*), no single-character shortcut, and
+  a mention in `help_content.py`. `tests/test_ui_conformance.py` checks the
+  letters of every menu, submenu and album menu, and
+  `tests/test_accessibility_standards.py` the shortcuts of the same set — one
+  walk, `tests/conftest.py::window_menus`, so the two agree on what exists.
 
 ## 5. Testing contract (the safety net that lets us refactor fearlessly)
 

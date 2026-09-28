@@ -275,6 +275,45 @@ def _mnemonics(text: str) -> list[str]:
     return [m.group(1).casefold() for m in _MNEMONIC.finditer(text.replace("&&", ""))]
 
 
+def _menu_groups(window: object) -> list[tuple[str, list[str]]]:
+    """Each menu a person can open in ``window``, with the labels in it.
+
+    **Submenus and context menus included (2026-09-27).** This used to read the
+    menu bar's menus one level deep, which was every menu there was until Tools
+    gained an *Advanced* submenu and the disc panel an album menu; a clash inside
+    either would have passed. The walk is `conftest.window_menus`, the one the
+    shortcut rule in `tests/test_accessibility_standards.py` also uses, so the
+    two rules cannot disagree about which menus exist.
+    """
+    from conftest import window_menus
+
+    groups: list[tuple[str, list[str]]] = []
+    for where, menu in window_menus(window):
+        labels = [a.text() for a in menu.actions() if a.text()]  # type: ignore[attr-defined]  # a QMenu
+        groups.append((where, labels))
+        if where.startswith("album menu"):
+            menu.deleteLater()  # type: ignore[attr-defined]  # built for us; ours to free
+    return groups
+
+
+def _duplicate_mnemonics(
+    groups: list[tuple[str, list[str]]],
+) -> tuple[list[str], int]:
+    """``(violations, letters examined)``: each Alt-letter claimed twice in a group."""
+    violations: list[str] = []
+    examined = 0
+    for where, texts in groups:
+        claims: dict[str, list[str]] = {}
+        for text in texts:
+            for letter in _mnemonics(text):
+                examined += 1
+                claims.setdefault(letter, []).append(text)
+        for letter, owners in sorted(claims.items()):
+            if len(owners) > 1:
+                violations.append(f"{where}: Alt+{letter.upper()}: {owners}")
+    return violations, examined
+
+
 def _measure_one(window: object) -> dict[str, object]:
     """Show one window and apply every rule to what was rendered."""
     from PySide6.QtGui import QPalette
@@ -412,29 +451,16 @@ def _measure_one(window: object) -> dict[str, object]:
         for lab in w.findChildren(QLabel)
         if shown(lab) and lab.buddy() is not None  # type: ignore[attr-defined]  # a QWidget
     ]
-    groups: list[tuple[str, list[str]]] = [("window", sources)]
     if isinstance(w, QMainWindow):
-        # The menu bar's titles share the window's Alt-keys; each menu's items
-        # are their own group, because a letter only has to be unique among the
-        # items of the menu that is open.
-        bar = w.menuBar().actions()
-        sources += [a.text() for a in bar]
-        groups += [
-            (f"menu {a.text()!r}", [i.text() for i in a.menu().actions() if i.text()])
-            for a in bar
-            if a.menu() is not None
-        ]
-    for where, texts in groups:
-        claims: dict[str, list[str]] = {}
-        for text in texts:
-            for letter in _mnemonics(text):
-                examined["duplicate_shortcuts"] += 1
-                claims.setdefault(letter, []).append(text)
-        for letter, owners in sorted(claims.items()):
-            if len(owners) > 1:
-                violations["duplicate_shortcuts"].append(
-                    f"{where}: Alt+{letter.upper()}: {owners}"
-                )
+        # The menu bar's titles share the window's Alt-keys.
+        sources += [a.text() for a in w.menuBar().actions()]
+    # Each menu is its own group — every submenu at any depth, and the album's
+    # right-click menu — because a letter only has to be unique among the items
+    # of the menu that is open.
+    groups: list[tuple[str, list[str]]] = [("window", sources), *_menu_groups(w)]
+    found, letters = _duplicate_mnemonics(groups)
+    examined["duplicate_shortcuts"] += letters
+    violations["duplicate_shortcuts"] += found
 
     # unnamed_inputs — a field a screen reader would announce as nothing.
     buddies = {
@@ -742,6 +768,48 @@ def test_the_shortcut_rule_reads_ampersands_the_way_qt_does() -> None:
     assert _mnemonics("Setup && &Updates…") == ["u"]
     assert _mnemonics("&Refresh") == ["r"]
     assert _mnemonics("Rock && Roll") == []
+
+
+def test_the_shortcut_rule_descends_into_submenus_and_context_menus(
+    qapp: object,
+) -> None:
+    """Non-triviality for the recursion, in-process and against constructed menus.
+
+    Three clashes the one-level rule could not see — in a submenu, in a
+    submenu's submenu, and in the disc panel's album menu — must each be found;
+    and a letter a submenu shares with its PARENT must not be, because only the
+    open menu's items compete for it.
+    """
+    from PySide6.QtGui import QAction
+    from PySide6.QtWidgets import QMainWindow
+
+    from platterpus.ui.disc_info_panel import DiscInfoPanel
+
+    window = QMainWindow()
+    tools = window.menuBar().addMenu("&Tools")
+    tools.addAction("&Settings…")
+    advanced = tools.addMenu("&Advanced")
+    advanced.addAction("Run &test script…")
+    advanced.addAction("&Tidy up…")  # Alt+T twice, inside the submenu
+    advanced.addAction("&Save a copy…")  # Alt+S, which Tools also has: allowed
+    deeper = advanced.addMenu("&Deeper")
+    deeper.addAction("&One")
+    deeper.addAction("&Other")  # Alt+O twice, two levels down
+    panel = DiscInfoPanel(window)
+    window.setCentralWidget(panel)
+    panel.set_album_actions([QAction("&Cover…", panel)])  # clashes with &Copy
+
+    groups = _menu_groups(window)
+    violations, letters = _duplicate_mnemonics(groups)
+
+    assert any("'&Advanced'" in v and "Alt+T" in v for v in violations), violations
+    assert any("'&Deeper'" in v and "Alt+O" in v for v in violations), violations
+    assert any(v.startswith("album menu") and "Alt+C" in v for v in violations)
+    assert not any("Alt+S" in v for v in violations), violations
+    # Every value label's menu was examined, plus the panel's own.
+    assert sum(1 for where, _ in groups if where.startswith("album menu")) >= 8
+    assert letters >= 10
+    window.deleteLater()
 
 
 def test_every_centered_dialog_in_the_source_is_measured() -> None:

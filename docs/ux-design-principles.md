@@ -90,7 +90,8 @@ and important settings were scattered across many dialogs.
     remaining half — the full keyboard-reachability sweep + focus-safe live
     announcements — shipped 2026-07-21): every status/verdict surface, field,
     and button carries an accessible name; trust is text + symbol, never colour
-    alone; menus **and every prominent button** have (unique) mnemonics; every
+    alone; menus **and every prominent button** have mnemonics, unique within
+    each menu, submenu and right-click menu (`tests/test_ui_conformance.py`); every
     affordance is keyboard-reachable (tab-focusable copyable disc IDs,
     keyboard-followable links, keyboard-selectable fix commands); and the live
     surfaces (rip status by phase, verdict banners, CTDB, re-rip comparison,
@@ -162,7 +163,7 @@ silently and *a comment where a check belongs is not a fix*.
 | Criterion | Level | Result | Held by |
 |---|---|---|---|
 | **1.4.1 Use of Color** | A | **pass** — every verdict level carries `✓` / `⚠` / `ⓘ`; colour is reinforcement | test calls the real `accuraterip_verdict` across five branches and requires distinct markers per level |
-| **2.1.4 Character Key Shortcuts** | A | **pass** — zero single-key shortcuts; all three go through `main_window.standard_shortcut()`, which asks Qt for a `QKeySequence.StandardKey` and falls back to a modifier-bearing literal when Qt supplies none | source sweep, with a floor asserting the sweep reaches the package *and* finds shortcuts at all; plus `test_every_fallback_carries_a_modifier`, so the fallback cannot reintroduce a bare letter |
+| **2.1.4 Character Key Shortcuts** | A | **pass** — zero single-key shortcuts; all three go through `main_window.standard_shortcut()`, which asks Qt for a `QKeySequence.StandardKey` and falls back to a modifier-bearing literal when Qt supplies none | source sweep, with a floor asserting the sweep reaches the package *and* finds shortcuts at all; plus `test_every_fallback_carries_a_modifier`, so the fallback cannot reintroduce a bare letter; plus (2026-09-27) a **rendered** walk of every action in every menu, submenu and the disc panel's right-click menu, which reads the shortcuts Qt actually bound — a bare key set through `QKeySequence(Qt.Key…)` passes the source sweep and fails this one (revert-probed) |
 | **3.2.6 Consistent Help** | A | **pass** — one Help menu, platform Help key | test pins both |
 | **4.1.3 Status Messages** | AA | **pass** — `ui/accessibility.announce()`, used, and it does not `setFocus()` | test pins the no-focus half, which is the part that gets lost |
 | **2.5.8 Target Size** | AA | **pass** for our explicit sizing (24 px floor) | sweep over `setFixed/MinimumHeight/Width` |

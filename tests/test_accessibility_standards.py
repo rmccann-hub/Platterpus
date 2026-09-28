@@ -45,6 +45,31 @@ UI = SRC / "ui"
 #: message would let two levels drift into looking alike.
 STATUS_MARKERS: frozenset[str] = frozenset("✓⚠ⓘ✗")
 
+#: Qt numbers the keys that type a character by their Unicode code point, and
+#: every other key (F1, Esc, Delete, the arrows) from 0x01000000 up.
+_FIRST_NON_CHARACTER_KEY: int = 0x01000000
+
+
+def is_character_key_shortcut(sequence: object) -> bool:
+    """True when ``sequence`` (a ``QKeySequence``) fires on a character key alone.
+
+    WCAG 2.1.4: a shortcut made only of a letter, number, punctuation or symbol
+    key. Only the FIRST key of a chord matters — ``Ctrl+K, R`` needs Ctrl held
+    before anything fires. Shift is not a modifier for this purpose, because
+    Shift+R still types a character.
+    """
+    from PySide6.QtCore import Qt
+
+    if sequence.isEmpty():  # type: ignore[attr-defined]  # a QKeySequence
+        return False
+    first = sequence[0]  # type: ignore[index]  # a QKeySequence
+    held = first.keyboardModifiers() & (
+        Qt.KeyboardModifier.ControlModifier
+        | Qt.KeyboardModifier.AltModifier
+        | Qt.KeyboardModifier.MetaModifier
+    )
+    return not held and first.key().value < _FIRST_NON_CHARACTER_KEY
+
 
 class TestUseOfColour:
     """1.4.1 — colour is reinforcement, never the only channel."""
@@ -162,6 +187,82 @@ class TestCharacterKeyShortcuts:
             "dictating. Use QKeySequence.StandardKey, or add a modifier:\n  "
             + "\n  ".join(offenders)
         )
+
+    def test_no_menu_action_anywhere_carries_a_character_key_shortcut(
+        self, qapp: object
+    ) -> None:
+        """The RENDERED half of the rule: every action in every menu a person can
+        open — the menu bar's, each submenu at any depth, and the disc panel's
+        album menu — read off the built window.
+
+        The source sweep above reads ``setShortcut("…")`` string literals, so it
+        cannot see a shortcut set through a ``QKeySequence`` object, a
+        ``Qt.Key``, a ``StandardKey`` that a platform theme binds to a bare key,
+        or an action a submenu or context menu adds at run time. This reads what
+        Qt ended up with. Walked by ``conftest.window_menus``, the same walk the
+        mnemonic rule in ``tests/test_ui_conformance.py`` uses.
+        """
+        from conftest import stop_window_threads, window_menus
+        from test_ui_main_window import _make_window
+
+        window = _make_window(qapp)  # type: ignore[arg-type]  # the qapp fixture
+        menus = window_menus(window)
+        try:
+            kinds: set[str] = set()
+            actions = shortcuts = 0
+            offenders: list[str] = []
+            for where, menu in menus:
+                if where.startswith("album menu"):
+                    kinds.add("album menu")
+                elif "→" in where:
+                    kinds.add("submenu")
+                else:
+                    kinds.add("menu")
+                for action in menu.actions():  # type: ignore[attr-defined]  # a QMenu
+                    if action.isSeparator():
+                        continue
+                    actions += 1
+                    for sequence in action.shortcuts():
+                        shortcuts += 1
+                        if is_character_key_shortcut(sequence):
+                            offenders.append(
+                                f"{where}: {action.text()!r} -> {sequence.toString()!r}"
+                            )
+        finally:
+            for where, menu in menus:
+                if where.startswith("album menu"):
+                    menu.deleteLater()  # type: ignore[attr-defined]  # built for us
+            stop_window_threads(window)
+            window.deleteLater()
+
+        # FLOORS, each surface asserted on its own: a walk that stopped
+        # descending into submenus, or stopped building the album menu, would
+        # otherwise pass on the menu bar alone.
+        assert kinds == {"menu", "submenu", "album menu"}, kinds
+        assert actions >= 15, f"only {actions} menu action(s) examined"
+        assert shortcuts >= 3, (
+            f"only {shortcuts} shortcut(s) found — Quit, Settings and the User "
+            "Guide carry one each, so the walk is not reading what Qt bound"
+        )
+        assert not offenders, (
+            "single-character keyboard shortcuts on menu actions (WCAG 2.1.4). "
+            "They fire while a speech-input user is dictating:\n  "
+            + "\n  ".join(offenders)
+        )
+
+    def test_the_character_key_classifier_can_fail(self, qapp: object) -> None:
+        """Non-triviality for the classifier the rendered sweep relies on.
+
+        Shift does not count as a modifier here: Shift+R still types a character,
+        and WCAG 2.1.4 is about keys that type one. A chord that STARTS with a
+        modifier is safe, because nothing fires until the modifier is held.
+        """
+        from PySide6.QtGui import QKeySequence
+
+        for bare in ("R", "Shift+R", ",", "5"):
+            assert is_character_key_shortcut(QKeySequence(bare)), bare
+        for safe in ("Ctrl+R", "Alt+Q", "Meta+X", "F1", "Del", "Ctrl+,", "Ctrl+K, R"):
+            assert not is_character_key_shortcut(QKeySequence(safe)), safe
 
     def test_the_sweep_actually_reaches_the_ui_package(self) -> None:
         """Floor: a broken glob would make the check above pass by scanning
