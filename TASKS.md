@@ -673,10 +673,20 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   `FORK_PIN` `221a1df` and `PIN_UNDER_REVIEW` `e0471f4`, under the operator's §6b override
   in our lap 6. The AppImage build on `main` first failed on a GitHub API rate limit
   inside `python_appimage` (HTTP 403), and its rerun passed; no code changed between.
-- [ ] **Their reading of our lap 6 S37 (BLOCKING):** do they read S6 as met by a Full run
+- [x] **Their reading of our lap 6 S37 (BLOCKING):** do they read S6 as met by a Full run
   from 0.6.62 under the R1 override?
-- [ ] **The Full run on 0.6.62 + `.17`** (close condition 1, moved from 0.6.61 by the
-  operator's R1 override, our lap 6 S36), then both readings (S7).
+  - *Withdrawn 2026-09-28 by the operator's decision:* the Full run happened on 0.6.61,
+    as S6 was written, so round 28 closes on it and S36's move is not needed (our lap 8).
+- [x] **The Full run** (close condition 1): on 0.6.61 with `.17`, 2026-09-28 01:48-07:08
+  UTC, 320 of 320, `counts_as_evidence: true`. Its 46 text members are filed in
+  `docs/handshake/artifactsround28/` (bundle sha256 `91822017…`). It started before our
+  lap 6 moved the run to 0.6.62; the operator chose to close the round on it. Ledger
+  row: `partial` (`docs/testing.md` §5B, the 2026-09-28 row).
+- [ ] **Both readings (S7).** Ours is our lap 8: `GO`, with two archival defects of ours
+  fixed (the discarded verified track 3, and the partial-rip CTDB claim), neither
+  touching the pin. Theirs is their first lap after the bundle is committed to their
+  tree, bound to `GO` by their lap 3 S29 unless they find a defect in `.17` that breaks
+  the pin.
 - [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
 - [x] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
   failed once in about six full parallel runs on 2026-09-26**, and passed 8 of 8 alone
