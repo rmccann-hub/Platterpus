@@ -1840,7 +1840,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
     # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
-    "ui/main_window_helpers.py": 522,
+    # **522 -> 568** (2026-09-27, maintainer ruling: two look-alike folders ask, they do not stand down): the resolver returns EVERY folder the rip could land in and follows a tie into each branch, "Rip to a new folder" is free only if free under all of them, and the ambiguous prompt's wording is a pure function here beside the resolver it describes.
+    "ui/main_window_helpers.py": 568,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -1932,7 +1933,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4730 -> 4739** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): the finish record carries the fixes.
     # **4739 -> 4751** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): the finish path records the rewritten lines after writing the log, so recording them can never cost the log.
     # **4751 -> 4760** (2026-09-27, TASKS the `-j` rows): the bundle snapshot names the rip's `-j` records, read from the worker at arming time, and the launcher hands them to the bundle. Where the records are and how they are named is `diagnostics_record.py`.
-    "ui/main_window_rip.py": 4760,
+    # **4760 -> 4795** (2026-09-27, the same ruling): `_confirm_known_overwrite` asks when several look-alike folders could be the target, names them all, logs them, and withholds Replace, with the reason and the `None is None` dismissal trap stated where the branch is.
+    "ui/main_window_rip.py": 4795,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared

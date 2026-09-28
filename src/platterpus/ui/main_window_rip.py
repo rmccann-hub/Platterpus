@@ -46,7 +46,7 @@ from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtWidgets import QDialog, QMessageBox
 
 if TYPE_CHECKING:
-    from PySide6.QtWidgets import QSystemTrayIcon
+    from PySide6.QtWidgets import QPushButton, QSystemTrayIcon
 
     from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
@@ -77,9 +77,10 @@ from platterpus.report_types import ArtifactsBlock, DebugBlock, TimingBlock
 from platterpus.rip_addendum import read_log_with_addendum
 from platterpus.ui.main_window_helpers import (
     _dir_has_audio,
+    ambiguous_overwrite_text,
     fidelity_summary,
     free_album_folder_templates,
-    known_album_folder,
+    known_album_folders,
     safe_path_segment,
     unique_album_title,
 )
@@ -720,39 +721,70 @@ class RipMixin(MainWindowShared):
         """Guard a known-disc rip against silently overwriting an existing rip.
 
         Returns the params to rip with (possibly rewritten to a fresh numbered
-        folder), or ``None`` if the user cancelled. If the target folder holds no
-        audio, returns ``params`` unchanged (no dialog). Computing the folder and
-        probing it are cheap local operations, and the dialog only waits on the
+        folder), or ``None`` if the user cancelled. If no folder the rip could land
+        in holds audio, returns ``params`` unchanged (no dialog). Finding the folders
+        and probing them are cheap local operations, and the dialog only waits on the
         user — nothing here blocks the GUI thread on I/O.
         """
         album = self._track_table.album_metadata()
-        target = known_album_folder(
+        candidates = known_album_folders(
             Path(params.output_dir),
             params.disc_template,
             album.artist,
             album.title,
             album.year,
         )
-        if not _dir_has_audio(target):
+        occupied = frozenset(f for f in candidates if _dir_has_audio(f))
+        if not occupied:
             return params  # nothing there to overwrite → proceed silently
+        # Several look-alike folders (`a“b`, `a”b`) and cyanrip picks one by a
+        # parity we cannot see (P7d). This used to stand down; it asks now, naming
+        # them all (maintainer, 2026-09-27).
+        ambiguous = len(candidates) > 1
+        if ambiguous:
+            log.warning(
+                "%d folders could each be this album's, %d holding a rip: %s",
+                len(candidates),
+                len(occupied),
+                "; ".join(str(f) for f in candidates),
+            )
 
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
-        # PlainText: `target.name` below is built from the album's ARTIST, TITLE and
-        # YEAR — MusicBrainz data, not ours. Critical rule #12 names this exact case:
-        # under Qt's default `AutoText` a title containing `<` is swallowed as an
-        # unknown tag and the user never learns text went missing. Here that would
+        # PlainText: the folder names below are built from the album's ARTIST, TITLE
+        # and YEAR — MusicBrainz data, not ours. Critical rule #12 names this exact
+        # case: under Qt's default `AutoText` a title containing `<` is swallowed as
+        # an unknown tag and the user never learns text went missing. Here that would
         # mean a destructive-overwrite prompt naming the wrong folder, or a truncated
-        # one, while the Replace button still does the full thing.
+        # one, while the Replace button still does the full thing. Every name goes in
+        # `setText`; the informative text below is literal in both branches.
         box.setTextFormat(Qt.TextFormat.PlainText)
         box.setWindowTitle("Album already ripped")
-        box.setText(
-            f"“{target.name}” already contains a rip:\n{target}\n\n"
-            "Ripping here will overwrite the existing files."
-        )
-        box.setInformativeText("Replace them, rip to a new numbered folder, or cancel?")
-        # DestructiveRole flags the overwrite; AcceptRole is the safe keep-both.
-        replace_btn = box.addButton("Replace", QMessageBox.ButtonRole.DestructiveRole)
+        replace_btn: QPushButton | None = None
+        if ambiguous:
+            box.setText(ambiguous_overwrite_text(candidates, occupied))
+            # NO Replace. It means "overwrite THE existing folder", and here there is
+            # no single one: consent to it would be consent to overwriting whichever
+            # rip cyanrip happens to pick. Both remaining choices are safe for every
+            # candidate — a new folder is free only if free under all of them.
+            box.setInformativeText(
+                "Rip to a new numbered folder, or cancel? Replace is not offered, "
+                "because there is no single folder it would replace. To replace one, "
+                "remove or rename the others and start the rip again."
+            )
+        else:
+            target = candidates[0]
+            box.setText(
+                f"“{target.name}” already contains a rip:\n{target}\n\n"
+                "Ripping here will overwrite the existing files."
+            )
+            box.setInformativeText(
+                "Replace them, rip to a new numbered folder, or cancel?"
+            )
+            # DestructiveRole flags the overwrite; AcceptRole is the safe keep-both.
+            replace_btn = box.addButton(
+                "Replace", QMessageBox.ButtonRole.DestructiveRole
+            )
         new_folder_btn = box.addButton(
             "Rip to a new folder", QMessageBox.ButtonRole.AcceptRole
         )
@@ -760,7 +792,10 @@ class RipMixin(MainWindowShared):
         box.setDefaultButton(cancel_btn)  # safest default: do nothing
         box.exec()
         clicked = box.clickedButton()
-        if clicked is replace_btn:
+        # `is not None` FIRST: a dismissed box reports no clicked button (None), and
+        # with Replace withheld `None is replace_btn` would be True — a closed prompt
+        # read as consent to overwrite.
+        if replace_btn is not None and clicked is replace_btn:
             return params
         if clicked is new_folder_btn:
             disc_template, track_template = free_album_folder_templates(

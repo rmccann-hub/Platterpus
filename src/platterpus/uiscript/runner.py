@@ -2159,7 +2159,7 @@ class ScriptRunner(QObject):
         titles for ``"Track 01"`` would be a heuristic standing in for that, and
         would also fail a real album genuinely titled *Unknown Album* — a guess
         where a fact is available, which is the shape
-        ``known_album_folder`` already cost this project a finished rip over.
+        ``known_album_folders`` already cost this project a finished rip over.
 
         The MBID is **validated, not merely non-empty**: a UUID shape, per
         `CLAUDE.md`'s rule that every value entering from outside is checked for

@@ -19,9 +19,11 @@ writes.
 fails if it ever moves to a mode P7b has no column for. P7b's other column,
 `simple`, writes `_` for eight characters (which the rule accepts) and `'` for
 `"` (which it does not, measured 2026-09-27). Accepting `'` is not free: under
-the pinned mode cyanrip never writes it, so it could only add candidates, and
-two candidates make `_sanitised_sibling` stand down. So it stays out, and the
-comment beside `_SUBSTITUTION_TARGETS_ASCII` now says so.
+the pinned mode cyanrip never writes it, so it could only add spurious
+candidates, and since 2026-09-27 a second candidate turns the overwrite prompt
+ambiguous and withdraws its Replace choice (it used to make the guard stand
+down entirely). So it stays out, and the comment beside
+`_SUBSTITUTION_TARGETS_ASCII` says so.
 """
 
 from __future__ import annotations

@@ -3814,6 +3814,13 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
     column of P7b, parsed from the contract: recognised, refused, and every pair (floor 10).
     The rule's comment at `ui/main_window_helpers.py` was corrected (it does not accept
     `-T simple`'s `'`, on purpose). Revert-probed 5/5.
+  - *2026-09-28, the finding this fuzzing surfaced, fixed on the maintainer's ruling:* a tie
+    between look-alike folders used to make the guard stand down with no prompt. It now
+    asks, listing every candidate (`ui/main_window_helpers.py` `resolve_sanitised_paths`,
+    prompt in `ui/main_window_rip.py` `_confirm_known_overwrite`, no Replace on a tie).
+    Tests in `tests/test_ui_main_window.py` through the real prompt path; revert-probed 8/8.
+    Open for the maintainer: two EMPTY look-alike folders still get no prompt, as a single
+    empty folder does not.
 
 ### 8. Event-ordering / stateful testing (12)
 

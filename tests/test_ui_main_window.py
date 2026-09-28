@@ -2529,14 +2529,14 @@ def test_unique_album_title_never_overwrites_a_previous_unknown_rip(
 def test_known_album_folder_matches_cyanrip_folder_derivation(tmp_path) -> None:
     """The folder a known-disc rip lands in is the disc template rendered from the
     tags — including cyanrip's ':' → '∶' path sanitisation."""
-    from platterpus.ui.main_window_helpers import known_album_folder
+    from platterpus.ui.main_window_helpers import known_album_folders
 
     root = tmp_path
-    folder = known_album_folder(root, "%A/%d/%d", "The Police", "Best: Hits", "1995")
-    assert folder == root / "The Police" / "Best∶ Hits"
+    folders = known_album_folders(root, "%A/%d/%d", "The Police", "Best: Hits", "1995")
+    assert folders == (root / "The Police" / "Best∶ Hits",)
     # The year preset puts the 4-digit year in the folder, not the filename.
-    folder2 = known_album_folder(root, "%A/%d (%Y)/%d", "Air", "Moon Safari", "1998")
-    assert folder2 == root / "Air" / "Moon Safari (1998)"
+    folders2 = known_album_folders(root, "%A/%d (%Y)/%d", "Air", "Moon Safari", "1998")
+    assert folders2 == (root / "Air" / "Moon Safari (1998)",)
 
 
 def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
@@ -2560,7 +2560,7 @@ def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
     entry added alongside it. Reverting the resolver makes the first assertion
     return the unsanitised literal, which is the bug.
     """
-    from platterpus.ui.main_window_helpers import _dir_has_audio, known_album_folder
+    from platterpus.ui.main_window_helpers import _dir_has_audio, known_album_folders
 
     root = tmp_path
     # The subject is `"` — and since 2026-08-24 that choice is principled rather
@@ -2575,42 +2575,87 @@ def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
     real.mkdir(parents=True)
     (real / "01 - Roxanne.flac").write_bytes(b"audio")
 
-    found = known_album_folder(
+    found = known_album_folders(
         root, "%A/%d/%d", "The Police", 'Songs "About" Nothing', ""
     )
-    assert found == real, (
+    assert found == (real,), (
         "the guard did not find the folder cyanrip actually wrote — this is the "
         "silent-overwrite defect: it would report an empty target and rip over a "
         f"finished archival master (looked at {found})"
     )
-    assert _dir_has_audio(found), "found the folder but not the audio in it"
+    assert _dir_has_audio(found[0]), "found the folder but not the audio in it"
 
     # A DIFFERENT album must not be captured. The two titles differ only in a
     # non-ASCII character, which is exactly the false match a naive "are both
     # sides odd glyphs?" rule makes — and the ONLY folder on disk is the other
     # one, so the scan genuinely runs. (Creating the probe's own folder here made
-    # this assertion vacuous: `resolve_sanitised_path` took the literal branch and
-    # never compared anything. Caught by `scripts/revert_probe.py`.)
+    # this assertion vacuous: the resolver took the literal branch and never
+    # compared anything. Caught by `scripts/revert_probe.py`.)
     (root / "The Police" / "Cafè").mkdir()
-    probe = known_album_folder(root, "%A/%d/%d", "The Police", "Café", "")
-    assert probe == root / "The Police" / "Café", (
+    probe = known_album_folders(root, "%A/%d/%d", "The Police", "Café", "")
+    assert probe == (root / "The Police" / "Café",), (
         "matched a near-identical title as a substitution — an accented letter is "
         "not a sanitiser stand-in, and treating it as one would warn about the "
         f"wrong album (got {probe})"
     )
 
-    # Two candidates that could each be the rendering → refuse rather than guess,
-    # and fall back to the literal prediction (no dialog, same as before). The
+    # Two candidates that could each be the rendering → BOTH come back, so the
+    # prompt can name them (maintainer ruling, 2026-09-27). This used to fall back
+    # to the literal prediction, a folder that does not exist, and the guard then
+    # stood down: no dialog, over a folder that might hold a finished rip. The
     # quote's two glyphs make this a REAL ambiguity rather than a contrived one:
     # both are legitimate renderings of the same title, and which one cyanrip
     # picks depends on parity we cannot see.
     (root / "Ambiguous").mkdir()
     (root / "Ambiguous" / "a“b").mkdir()
     (root / "Ambiguous" / "a”b").mkdir()
-    tied = known_album_folder(root, "%A/%d/%d", "Ambiguous", 'a"b', "")
-    assert tied == root / "Ambiguous" / 'a"b', (
-        "guessed between two equally-plausible folders instead of standing down"
+    tied = known_album_folders(root, "%A/%d/%d", "Ambiguous", 'a"b', "")
+    assert tied == (root / "Ambiguous" / "a“b", root / "Ambiguous" / "a”b"), (
+        "a tie between two equally-plausible folders must return both, so the "
+        f"overwrite prompt can ask about each; got {tied}"
     )
+
+
+def test_known_album_folders_follows_every_look_alike_branch(tmp_path) -> None:
+    """A tie at the ARTIST folder is followed into each artist, not dropped.
+
+    The walk branches rather than ending at the first tie, so the album folder is
+    looked for under every look-alike artist. Here only one of the two holds the
+    album; the other branch contributes its literal (not-yet-created) path, which
+    is still a place cyanrip could write, so it is still a candidate.
+    """
+    from platterpus.ui.main_window_helpers import known_album_folders
+
+    left, right = tmp_path / "x“y", tmp_path / "x”y"
+    (left / "Album").mkdir(parents=True)
+    right.mkdir()
+    # A FILE with a matching name is not a folder the rip can land in.
+    (tmp_path / "x‹y").write_bytes(b"not a folder")
+
+    folders = known_album_folders(tmp_path, "%A/%d/%d", 'x"y', "Album", "")
+    assert folders == (left / "Album", right / "Album"), folders
+
+
+def test_free_album_folder_templates_skips_a_suffix_taken_under_any_candidate(
+    tmp_path,
+) -> None:
+    """The "Rip to a new folder" choice must not land on a look-alike with a rip.
+
+    `a“b (2)` is empty but `a”b (2)` holds audio, and cyanrip may write either,
+    so (2) is not free. Checking only one candidate would pick (2) and could
+    overwrite the very rip the user chose a new folder to keep.
+    """
+    from platterpus.ui.main_window_helpers import free_album_folder_templates
+
+    artist = tmp_path / "Ambiguous"
+    (artist / "a“b (2)").mkdir(parents=True)
+    (artist / "a”b (2)").mkdir()
+    (artist / "a”b (2)" / "01.flac").write_bytes(b"x")
+
+    disc_out, track_out = free_album_folder_templates(
+        tmp_path, "%A/%d/%d", "%A/%d/%t - %n", "Ambiguous", 'a"b', ""
+    )
+    assert (disc_out, track_out) == ("%A/%d (3)/%d", "%A/%d (3)/%t - %n")
 
 
 def test_suffix_album_folder_template_suffixes_only_the_album_folder() -> None:
@@ -2725,6 +2770,146 @@ def test_known_overwrite_cancel_aborts(teardown_threads, monkeypatch, tmp_path) 
     _occupy_album_folder(tmp_path, "Air", "Moon Safari")
     _pick_dialog_button(monkeypatch, "Cancel")
     assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+
+
+# --- Two look-alike folders: ask, name both, withhold Replace (2026-09-27) ---
+#
+# Maintainer ruling: when two folders on disk could each be this album's, the
+# guard must not stand down. The tests below drive `_confirm_known_overwrite`,
+# the production prompt, with real folders in tmp_path. `exec` is replaced so no
+# event loop runs, but the box it receives is the one production built: its text,
+# its buttons and its label are what a user would see.
+
+
+def _record_dialog(monkeypatch, pick: str | None) -> list[dict[str, object]]:
+    """Capture every QMessageBox that `exec`s, then 'click' ``pick`` on it.
+
+    ``pick`` is a button-text prefix, or ``None`` to dismiss the box without a
+    button (Esc / window close), which is what Qt reports as a None
+    ``clickedButton()``.
+    """
+    from PySide6.QtWidgets import QLabel
+
+    seen: list[dict[str, object]] = []
+
+    def fake_exec(self) -> int:
+        label = self.findChild(QLabel, "qt_msgbox_label")
+        seen.append(
+            {
+                "title": self.windowTitle(),
+                "text": self.text(),
+                "informative": self.informativeText(),
+                "buttons": [b.text().replace("&", "") for b in self.buttons()],
+                "label_text": label.text() if label is not None else None,
+                "label_format": label.textFormat() if label is not None else None,
+            }
+        )
+        self._picked = (
+            None
+            if pick is None
+            else next(
+                b for b in self.buttons() if b.text().replace("&", "").startswith(pick)
+            )
+        )
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", fake_exec)
+    monkeypatch.setattr(QMessageBox, "clickedButton", lambda self: self._picked)
+    return seen
+
+
+def _two_look_alikes(root: Path, *, audio_in: tuple[str, ...]) -> tuple[Path, Path]:
+    """`Ambiguous/a“b` and `Ambiguous/a”b`, with audio in the ones named."""
+    folders = (root / "Ambiguous" / "a“b", root / "Ambiguous" / "a”b")
+    for folder in folders:
+        folder.mkdir(parents=True)
+        if folder.name in audio_in:
+            (folder / "01 - Track.flac").write_bytes(b"not really audio")
+    return folders
+
+
+def test_known_overwrite_asks_when_two_look_alike_folders_could_be_the_target(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """The prompt appears, names BOTH folders, and offers no Replace.
+
+    Only the SECOND folder holds a rip, deliberately: the old code stood down on
+    the tie and checked a folder that did not exist, and a fix that checked only
+    the first candidate would find it empty. Either would rip with no prompt.
+    """
+    from PySide6.QtCore import Qt
+
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    left, right = _two_look_alikes(tmp_path, audio_in=("a”b",))
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+    assert len(seen) == 1, f"expected exactly one overwrite prompt, got {seen}"
+    prompt = seen[0]
+    assert prompt["title"] == "Album already ripped"
+    text = str(prompt["text"])
+    assert str(left) in text and str(right) in text, text
+    assert f"{right} — ⚠ already holds a rip" in text, text
+    assert f"{left} — no rip" in text, text
+    # The label the user reads carries both names and cannot parse them as markup.
+    assert prompt["label_text"] == text
+    assert prompt["label_format"] == Qt.TextFormat.PlainText
+    # Replace would mean "overwrite THE folder", and there is not one.
+    buttons = prompt["buttons"]
+    assert isinstance(buttons, list)
+    assert not any(b.startswith("Replace") for b in buttons), buttons
+    assert "Rip to a new folder" in buttons and "Cancel" in buttons, buttons
+    assert "Replace is not offered" in str(prompt["informative"])
+
+
+def test_known_overwrite_ambiguous_dismissal_is_not_consent_to_replace(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Closing the ambiguous prompt cancels; it must not read as Replace.
+
+    With Replace withheld its button is None, and a dismissed box's clicked
+    button is None too, so a bare `clicked is replace_btn` would be True.
+    """
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    _two_look_alikes(tmp_path, audio_in=("a“b", "a”b"))
+    seen = _record_dialog(monkeypatch, None)
+
+    assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+    assert len(seen) == 1
+
+
+def test_known_overwrite_ambiguous_new_folder_is_suffixed(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    _two_look_alikes(tmp_path, audio_in=("a“b", "a”b"))
+    _record_dialog(monkeypatch, "Rip to a new folder")
+
+    result = window._confirm_known_overwrite(_known_params(tmp_path))
+    assert result is not None
+    assert result.disc_template == "%A/%d (2)/%d"
+    assert result.track_template == "%A/%d (2)/%t - %n"
+
+
+def test_known_overwrite_ambiguous_with_no_audio_anywhere_asks_nothing(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Pinned choice: the ambiguous case keeps the audio gate the single one has.
+
+    Two empty look-alikes hold nothing a rip could destroy, and the prompt's own
+    text ("already holds a rip") would be false, so there is no dialog.
+    """
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    _two_look_alikes(tmp_path, audio_in=())
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    params = _known_params(tmp_path)
+    assert window._confirm_known_overwrite(params) is params
+    assert seen == []
 
 
 # --- First-run drive-setup offer + manual offset -------------------------
