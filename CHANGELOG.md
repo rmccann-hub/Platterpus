@@ -362,6 +362,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   unless …" was also refused as carrying no pre-commit, because the dots in the
   version stopped the match; a dot followed by a letter or digit no longer ends
   the subject. Relabelled as round 29, no committed lap changes outcome for this.
+- **For contributors: the R6 gate counts LSL's structured pre-commit only in LSL 2
+  or 3.** It counted a `WILL` with `verdict: GO` and `unless:` in a lap of any LSL
+  version. LSL 1 does not define either field, so `lap_language.py` refuses that
+  `WILL` as malformed, and the handshake checker passed a pre-commit the lap's own
+  language refuses. Its refusal also told LSL 1 authors to use that form. It now
+  counts the `WILL` only where the lap's `LSL:` line switches amendment A2 on. The
+  refusal says "in LSL 2 or 3", read from LSL's own table of versions, and names
+  any `WILL` it did not count, with the reason. R6 binds from round 29, so no
+  committed lap changes outcome.
 - **For contributors: pressing Ctrl-C during `lap_language.py check --rerun` no
   longer leaves the re-run running.** The command runs in its own session, so the
   terminal's interrupt never reached it, and only a timeout killed it. Interrupted,

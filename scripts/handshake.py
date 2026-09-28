@@ -906,7 +906,7 @@ _SUBJECT_CHAR: Final[str] = r"(?:[^.\n]|\.(?=\w))"
 #: subject may be long — our round 28 lap 4 wrote "Our lap after the Full run's
 #: bundle is committed to our tree is `GO` unless …" — so it is allowed up to one
 #: sentence. The structured form, a `WILL` with `verdict: GO` and `unless:`, is
-#: read by LSL's own parser instead (:func:`_lsl_go_pre_commits`).
+#: read by LSL's own parser instead (:func:`_lsl_structured_wills`).
 _PRE_COMMIT: Final[re.Pattern[str]] = re.compile(
     rf"\blap\b{_SUBJECT_CHAR}{{0,200}}?\bis\s+[`*_]*GO[`*_]*\s+unless\b",
     re.IGNORECASE,
@@ -950,30 +950,91 @@ class LslPreCommit:
     when: tuple[str, ...]
 
 
-def _lsl_go_pre_commits(text: str) -> list[LslPreCommit]:
+@dataclass(frozen=True)
+class LslWills:
+    """What LSL's own parser found in a lap, for R6.
+
+    `found` is every `WILL` written in amendment A2's structured pre-commit form
+    (:func:`_lsl_structured_wills`), whatever the lap's version; `a2_in_force`
+    says whether the lap's `LSL: N` line switches A2 on. Only :attr:`counted`
+    is a pre-commit. `found` is kept apart so R6's refusal can name a `WILL` that
+    did not count, and say why, instead of only saying there is none.
+    """
+
+    version: int
+    a2_in_force: bool
+    found: tuple[LslPreCommit, ...]
+
+    @property
+    def counted(self) -> tuple[LslPreCommit, ...]:
+        """The structured pre-commits R6 counts: those in a lap with A2 in force.
+
+        **Only where A2 is in force** (review finding Q6, 2026-09-28). LSL 1's
+        fields are a closed list without `verdict:` or `unless:`, so
+        `lap_language.py` refuses an LSL 1 `WILL` that carries them as
+        malformed. Counted in any lap, as it was, the gate passed a pre-commit
+        the lap's own language refuses: the disagreement R15 was fixed for, from
+        the other side. `lap_language.py --amend A2` can switch A2 on for an
+        LSL 1 lap, but a lap's `LSL: N` line is all a reader of the sent file
+        has, so this reads that line alone.
+        """
+        return self.found if self.a2_in_force else ()
+
+
+def _laplang_on_path() -> None:
+    """Put `laplang`, LSL's own reader, where an import can find it.
+
+    `laplang` is a package beside this script, which `python3
+    scripts/handshake.py` finds on its own and a test that loads this file by
+    path does not, so the directory is put on the path first. The imports stay
+    inside the functions that use them, not at the top of this file.
+    """
+    if str(_SCRIPTS_DIR) not in sys.path:
+        sys.path.append(str(_SCRIPTS_DIR))
+
+
+def _a2_versions() -> str:
+    """`LSL 2 or 3`: every version whose `LSL: N` line switches amendment A2 on,
+    read from LSL's own table, so R6's refusal cannot name a version at which
+    the structured pre-commit is not one, or leave out one at which it is."""
+    _laplang_on_path()
+    from laplang.tables import LSL_VERSIONS  # noqa: PLC0415
+
+    known = [str(v) for v in sorted(LSL_VERSIONS) if "A2" in LSL_VERSIONS[v]]
+    if not known:
+        return "no LSL version"
+    if len(known) == 1:
+        return f"LSL {known[0]}"
+    return f"LSL {', '.join(known[:-1])} or {known[-1]}"
+
+
+def _lsl_structured_wills(text: str) -> LslWills:
     """Every pre-commit in LSL's structured form (amendment A2): a `WILL` whose
-    `owner:` is `us`, with `verdict: GO` and an `unless:` naming X.
+    `owner:` is `us`, with `verdict: GO` and an `unless:` naming X, and whether
+    the lap's version has A2 in force (:attr:`LslWills.counted`).
 
     That is R6's "our next lap is `GO` unless X", said in fields: A2 binds the
     author's NEXT lap by construction, and `unless:` is the X. Review finding
     R15 (2026-09-28): this gate read only the prose sentence, so a lap that
     `lap_language.py` accepted, and would hold its author to, was refused here as
     carrying no pre-commit — two checkers of one seam disagreeing about one
-    statement. **Read by LSL's own parser, not by a second pattern of ours**, so
-    the two cannot disagree about what a statement and its fields are. A lap
-    that is not LSL, or declares a version the parser does not implement, has no
-    statements, and only the prose form counts for it. Never raises: the parser
-    does not.
+    statement. **Read by LSL's own parser, and against LSL's own table of
+    versions, not by a second pattern of ours**, so the two cannot disagree about
+    what a statement and its fields are, or about which version defines them. A
+    lap that is not LSL, or declares a version the parser does not implement,
+    has no statements, and only the prose form counts for it. Never raises: the
+    parser does not.
     """
-    # Imported here, not at the top: `laplang` is a package beside this script,
-    # which `python3 scripts/handshake.py` finds on its own and a test that loads
-    # this file by path does not, so the directory is put on the path first.
-    if str(_SCRIPTS_DIR) not in sys.path:
-        sys.path.append(str(_SCRIPTS_DIR))
+    _laplang_on_path()
     from laplang.grammar import parse_lap  # noqa: PLC0415
+    from laplang.tables import LSL_VERSIONS  # noqa: PLC0415
 
+    lap = parse_lap(text, Path("lap.md"))
+    # `lsl_version` is 0 for a prose lap, and for one whose `LSL: N` names a
+    # version the parser does not implement; neither has A2 in force.
+    in_force = lap.lsl and "A2" in LSL_VERSIONS.get(lap.lsl_version, frozenset())
     found: list[LslPreCommit] = []
-    for stmt in parse_lap(text, Path("lap.md")).statements:
+    for stmt in lap.statements:
         if stmt.kind != "WILL":
             continue
         if [f.value for f in stmt.values("owner")] != ["us"]:
@@ -985,7 +1046,7 @@ def _lsl_go_pre_commits(text: str) -> list[LslPreCommit]:
         found.append(
             LslPreCommit(stmt.tag, tuple(f.value for f in stmt.values("when")))
         )
-    return found
+    return LslWills(lap.lsl_version, bool(in_force), tuple(found))
 
 
 def pre_commit_problems(text: str, where: str) -> list[str]:
@@ -1016,7 +1077,8 @@ def pre_commit_problems(text: str, where: str) -> list[str]:
     body = _unfenced_body(text)
     problems: list[str] = []
     numbered = [repr(m.group(0)) for m in _PRE_COMMIT_BY_NUMBER.finditer(body)]
-    structured = _lsl_go_pre_commits(body)
+    wills = _lsl_structured_wills(body)
+    structured = wills.counted
     for will in structured:
         numbered.extend(
             f"{will.tag}'s when: {value!r}"
@@ -1030,10 +1092,20 @@ def pre_commit_problems(text: str, where: str) -> list[str]:
             '"the first lap we send after receiving your lap 10", not "our lap 15"'
         )
     if not problems and not _PRE_COMMIT.search(body) and not structured:
+        # A structured `WILL` that did not count is named, with the reason, so
+        # an author who wrote one in LSL 1 is not left wondering why (Q6).
+        uncounted = ""
+        if wills.found:
+            tags = ", ".join(will.tag for will in wills.found)
+            uncounted = (
+                f". {tags} states verdict: GO and unless:, but this lap declares "
+                f"LSL {wills.version}, which does not define those fields"
+            )
         problems.append(
             f"{where}: R6: lap {lap_no} carries no pre-commit — from lap "
             f'{R6_FROM_LAP} every lap states "our next lap is `GO` unless X", '
-            "naming X, in a sentence or as an LSL WILL with verdict: GO and unless:"
+            f"naming X, in a sentence or, in {_a2_versions()}, as a WILL with "
+            f"verdict: GO and unless:{uncounted}"
         )
     return problems
 

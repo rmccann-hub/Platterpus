@@ -853,33 +853,73 @@ def _handshake_module() -> ModuleType:
     return module
 
 
-@pytest.mark.parametrize("owner", ["us", "them"])
+@pytest.mark.parametrize(
+    ("version", "owner", "refused_by"),
+    [
+        # LSL 2: A2 is in force, and refuses only a promise the author cannot
+        # make (`owner: them`). The rules are tuples, not sets, so the
+        # population is literal (tests/test_dynamic_sweeps_declare_a_floor.py).
+        (2, "us", ()),
+        (2, "them", ("A2",)),
+        # LSL 3 is LSL 2 plus B1-B3, so A2 is in force there too.
+        (3, "us", ()),
+        (3, "them", ("A2",)),
+        # LSL 1: A2 is not in force, and `verdict:` and `unless:` are not LSL 1
+        # fields, so the lap's own language refuses the WILL whoever owns it
+        # (review finding Q6).
+        (1, "us", ("LSL.field",)),
+        (1, "them", ("LSL.field",)),
+    ],
+)
 def test_r6_counts_exactly_the_pre_commits_a2_accepts(
-    tmp_path: Path, owner: str
+    tmp_path: Path, version: int, owner: str, refused_by: tuple[str, ...]
 ) -> None:
-    """A lap 5 of round 29, in LSL 2, whose only pre-commit is A2's structured
-    `WILL`. When A2 accepts it, R6 must count it; when A2 refuses it (a promise
-    the author cannot make, `owner: them`), R6 must not. Before R15, R6 refused
-    the lap A2 accepted, as "carries no pre-commit"."""
+    """A lap 5 of round 29 whose only pre-commit is A2's structured `WILL`. When
+    the lap's own LSL accepts it, R6 must count it; when LSL refuses it, R6 must
+    not. Before R15, R6 refused the LSL 2 lap A2 accepted, as "carries no
+    pre-commit". Before Q6, R6 counted the LSL 1 one, which LSL 1 refuses because
+    it defines neither field: the gate passed a statement the lap's own
+    language calls malformed."""
+    # LSL 1 refuses the amendment fields GOOD_FACT carries, so an LSL 1 lap
+    # leans on PLAIN_FACT, and the WILL is the only thing that differs.
+    fact = PLAIN_FACT if version == 1 else GOOD_FACT
+    # LSL 3's B1 wants the commit a `run:` ran at; the lap header names it.
+    commit = _FROM_COMMIT if version == 3 else ""
     text = (
-        _header(round_number=29, lap=5, verdict="HOLD")
-        + "LSL: 2\n\n"
-        + GOOD_FACT
+        _header(round_number=29, lap=5, verdict="HOLD").rstrip("\n")
+        + "\n"
+        + commit
+        + f"\nLSL: {version}\n\n"
+        + fact
         + f"S2 WILL: Declare GO in our next lap.\n  owner: {owner}\n"
         "  when: our next lap\n  verdict: GO\n  unless: the Full run fails\n"
         "S3 VERDICT: HOLD\n  basis: S1\n"
     )
     lap = _check(tmp_path, text)
-    a2_accepts = "A2" not in _rules(lap)
-    # The only difference between the two laps is the one A2 refuses.
-    assert {p.rule for p in lap.problems} == (set() if owner == "us" else {"A2"}), [
+    lsl_accepts = lap.refused() == []
+    # The only thing wrong with each lap is the one the case names.
+    assert {p.rule for p in lap.problems} == set(refused_by), [
         (p.rule, p.message) for p in lap.problems
     ]
+    assert lsl_accepts == (not refused_by)
+    if version == 1:
+        # ... and it is the two fields LSL 1 does not define that it refuses.
+        messages = [p.message for p in lap.refused()]
+        assert len(messages) == 2, messages
+        assert any("verdict: is not a field" in m for m in messages), messages
+        assert any("unless: is not a field" in m for m in messages), messages
     # NON-TRIVIALITY: the sentence does not carry the prose form, so the
     # structured fields are the only thing R6 can count.
     assert "is `GO` unless" not in text and "is GO unless" not in text
     r6 = _handshake_module().pre_commit_problems(text, "round-29-lap-05.md")
-    assert (r6 == []) == a2_accepts, r6
+    assert (r6 == []) == lsl_accepts, r6
+    if not lsl_accepts:
+        assert len(r6) == 1 and "carries no pre-commit" in r6[0], r6
+    if version == 1 and owner == "us":
+        # The refusal says why the WILL did not count, and where it would.
+        assert "S2 WILL states verdict: GO and unless:" in r6[0], r6
+        assert "this lap declares LSL 1" in r6[0], r6
+        assert "in LSL 2 or 3, as a WILL" in r6[0], r6
 
 
 # B1 without --rerun: every run: names the commit it ran at.
