@@ -161,7 +161,11 @@ def test_the_stand_in_reads_only_names_the_real_window_has() -> None:
     declared = {
         name for klass in MainWindow.__mro__ for name in inspect.get_annotations(klass)
     }
-    for name in ("_on_check_dependencies", "_dep_check_worker", "_dep_resolve_deferrals"):
+    for name in (
+        "_on_check_dependencies",
+        "_dep_check_worker",
+        "_dep_resolve_deferrals",
+    ):
         assert hasattr(MainWindow, name) or name in declared, name
 
 
@@ -178,7 +182,9 @@ def _calls_of_the_synchronous_check() -> list[str]:
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute) and node.attr == "run_dependency_check":
                 found.append(f"{relative}:{node.lineno}")
-            elif isinstance(node, ast.Constant) and node.value == "run_dependency_check":
+            elif (
+                isinstance(node, ast.Constant) and node.value == "run_dependency_check"
+            ):
                 found.append(f"{relative}:{node.lineno} (by name)")
     return found
 
@@ -193,9 +199,10 @@ def test_nothing_in_the_product_reaches_the_synchronous_check() -> None:
 
 
 def test_the_sweep_finds_a_call_and_a_name() -> None:
-    tree = ast.parse('w.run_dependency_check()\nOPENABLE = {"d": "run_dependency_check"}')
+    tree = ast.parse(
+        'w.run_dependency_check()\nOPENABLE = {"d": "run_dependency_check"}'
+    )
     attrs = [n for n in ast.walk(tree) if isinstance(n, ast.Attribute)]
     names = [n for n in ast.walk(tree) if isinstance(n, ast.Constant)]
     assert [a.attr for a in attrs] == ["run_dependency_check"]
     assert "run_dependency_check" in [n.value for n in names]
-
