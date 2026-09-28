@@ -103,8 +103,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `%N` in the folder name, it looked in disc 1's folder. It now uses the same
   folder, year and disc number the rip itself sends cyanrip, and "Rip to a new
   folder" checks the new folder the same way. A track template with no folder at
-  all leaves cyanrip to name the folder itself, so there is nothing to check; the
-  log now says the check did not run.
+  all rips into cyanrip's own default folder, `<album> [FLAC]`, and the check now
+  looks there too; "Rip to a new folder" numbers that folder.
 - **An empty folder no longer hides a finished rip from the "Album already
   ripped" check.** For an album whose title has a `"` in it, cyanrip writes the
   folder with a curly quote (`“` or `”`). If a folder with the plain `"` also
@@ -398,6 +398,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   trims spaces and tabs from both ends of every folder name it writes. The check
   that predicts the folder now does the same, so a naming template with a space at
   either end of a folder name still finds the album already ripped there.
+- **"Which album folder?" no longer asks about a folder that does not exist.** An
+  artist can end up with two spellings on disk: a rip of an unknown disc writes
+  `AC/DC` as `AC-DC`, and cyanrip writes it as `AC∕DC`. The overwrite check then
+  treated a folder under the other spelling as a second possible destination,
+  even though it did not exist. So the first rip of a new album asked which folder
+  to use and offered only "Rip to a new folder" or Cancel. A re-rip lost its
+  Replace button. It now counts only folders that exist. When the one folder
+  there is a look-alike of the predicted name, the prompt says the rip *may*
+  overwrite it rather than that it will.
 
 ### Added
 

@@ -734,31 +734,27 @@ class RipMixin(MainWindowShared):
         candidates = known_album_folders(
             Path(params.output_dir), params.track_template, metadata
         )
-        if not candidates:
-            # No folder part in the track template: cyanrip names the folder with
-            # its own default, which we do not model. Say so rather than check a
-            # guess and report the guess as a check.
-            log.warning(
-                "overwrite check not run: the track template %r has no folder "
-                "part, so cyanrip chooses the album folder itself",
-                params.track_template,
-            )
-            return params
-        occupied = frozenset(f for f in candidates if _dir_has_audio(f))
+        # Decided on the folders that EXIST. The resolver also returns a path for
+        # each look-alike branch that holds no such album (an `AC-DC` artist
+        # folder from an unknown-disc rip beside cyanrip's `AC∕DC`), and those
+        # counted as a tie until 2026-09-28: a first rip was asked "which folder?"
+        # with no Replace, over two folders neither of which existed.
+        existing = tuple(f for f in candidates if f.is_dir())
+        occupied = frozenset(f for f in existing if _dir_has_audio(f))
         # Several look-alike folders (`a“b`, `a”b`) and cyanrip picks one by a
         # parity we cannot see (P7d). This used to stand down; it asks now, naming
         # them all (maintainer, 2026-09-27), and it asks even when NONE holds a rip
         # (maintainer, 2026-09-28: "fix all"): the rip would still land in a folder
         # nobody chose, beside a look-alike of it.
-        ambiguous = len(candidates) > 1
+        ambiguous = len(existing) > 1
         if not occupied and not ambiguous:
-            return params  # one folder, nothing in it to overwrite → proceed silently
+            return params  # nothing here to overwrite → proceed silently
         if ambiguous:
             log.warning(
                 "%d folders could each be this album's, %d holding a rip: %s",
-                len(candidates),
+                len(existing),
                 len(occupied),
-                "; ".join(str(f) for f in candidates),
+                "; ".join(str(f) for f in existing),
             )
 
         box = QMessageBox(self)
@@ -779,7 +775,7 @@ class RipMixin(MainWindowShared):
         )
         replace_btn: QPushButton | None = None
         if ambiguous:
-            box.setText(ambiguous_overwrite_text(candidates, occupied))
+            box.setText(ambiguous_overwrite_text(existing, occupied))
             # NO Replace. It means "overwrite THE existing folder", and here there is
             # no single one: consent to it would be consent to overwriting whichever
             # rip cyanrip happens to pick. Both remaining choices are safe for every
@@ -790,10 +786,24 @@ class RipMixin(MainWindowShared):
                 "remove or rename the others and start the rip again."
             )
         else:
-            target = candidates[0]
+            target = existing[0]
+            # Definite only when the one folder there IS the predicted one. A
+            # look-alike of it may or may not be where cyanrip writes (P7d), so the
+            # prompt must not promise an overwrite it cannot predict.
+            from platterpus.adapters.cyanrip_backend import predicted_album_folder
+
+            predicted = Path(params.output_dir) / predicted_album_folder(
+                params.track_template, metadata
+            )
             box.setText(
                 f"“{target.name}” already contains a rip:\n{target}\n\n"
-                "Ripping here will overwrite the existing files."
+                + (
+                    "Ripping here will overwrite the existing files."
+                    if target == predicted
+                    else "This rip may write into it and overwrite the existing "
+                    "files: its name differs from the one Platterpus predicts only "
+                    "where cyanrip swaps a character for a look-alike."
+                )
             )
             box.setInformativeText(
                 "Replace them, rip to a new numbered folder, or cancel?"

@@ -2441,8 +2441,9 @@ def test_the_overwrite_guards_folder_scheme_IS_the_argvs_dash_D() -> None:
         # `_path_schemes` cites at the pins).
         ("%a/%d/%t - %n", {}, "Art/Alb"),
         ("%A/%d - %n/%t", {}, "Art/Alb - title"),
-        # No folder part: no `-D` is sent, so there is no folder to predict.
-        ("%t - %n", {}, None),
+        # No folder part: no `-D` is sent, and cyanrip writes its own default,
+        # which for our rip is `<album> [FLAC]`.
+        ("%t - %n", {}, "Alb [FLAC]"),
         # cyanrip trims spaces and tabs at the edges of every path component
         # (`cyanrip@e0471f4:src/naming.c:416-450`, called at :497), so the folder
         # it writes has none; a prediction that kept them names another folder.
@@ -2450,9 +2451,41 @@ def test_the_overwrite_guards_folder_scheme_IS_the_argvs_dash_D() -> None:
     ],
 )
 def test_predicted_album_folder_renders_the_dash_D_the_rip_sends(
-    template: str, changes: dict[str, object], folder: str | None
+    template: str, changes: dict[str, object], folder: str
 ) -> None:
     from platterpus.adapters.cyanrip_backend import predicted_album_folder
 
     meta = replace(_ALBUM, **changes)  # type: ignore[arg-type]  # test table
     assert predicted_album_folder(template, meta) == folder
+
+
+def test_the_default_folder_we_predict_is_the_one_the_fork_documents() -> None:
+    """A folder-less template leaves cyanrip its default `-D`. We predict it, so it
+    is held to the fork's own words, not to our memory of them: the `-D` row of
+    the newest provider contract filed in our tree. And its reduction for our rip
+    rests on two facts about our argv, each checked here."""
+    import re
+
+    from test_argv_surface_agreement import newest_provider_contract
+
+    from platterpus.adapters import cyanrip_backend
+
+    contract = newest_provider_contract().read_text(encoding="utf-8")
+    row = re.search(
+        r"^\| `-D` \| `--folder-scheme` \| Directory naming scheme "
+        r"\(default: (?P<default>.+)\) \|$",
+        contract,
+        re.MULTILINE,
+    )
+    assert row is not None, "the contract has no `-D` row to read the default from"
+    assert row.group("default") == cyanrip_backend.CYANRIP_DEFAULT_FOLDER_SCHEME
+    # The reduction to `{album} [FLAC]`: the conditional is on a tag we never send,
+    # and the format is FLAC on every rip. Read off a real argv with every album
+    # field filled, not off our source (whose comments name the tag).
+    full = replace(_ALBUM, year="2000-05-01", disc_number=1, total_discs=1)
+    assert not any("releasecomment" in arg for arg in _scheme_argv(full, "%A/%d/%t")), (
+        "a releasecomment tag is sent now, so the default's conditional can be true"
+    )
+    argv = _scheme_argv(_ALBUM, "%t - %n")
+    assert argv[argv.index("-o") + 1] == "flac", argv
+    assert "-D" not in argv, argv

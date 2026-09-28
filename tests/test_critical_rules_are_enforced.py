@@ -1135,7 +1135,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1638 -> 1640** (2026-09-25, the property-test batches): an unknown `%{…}` token's brace becomes a paren, so it cannot reach cyanrip as an unterminated `{` (TASKS `fuzz:adapters.cyanrip_backend.scheme_from_template`).
     # **1640 -> 1670** (2026-09-25, D18: `%N`/`%M` work everywhere): the disc position is checked once and fills in `%N`/`%M` as well as `-c`, so a folder name cannot disagree with the tags; `_disc_args` folded into `_disc_position`, keeping its reasoning.
     # 1670 -> 1757 on 2026-09-28 (review R4, R5): `_path_schemes` builds `-D`/`-F` for the argv and `album_folder_scheme` hands the overwrite guard the same `-D`, with `predicted_album_folder` rendering it from the album-level tags cyanrip fills in (cited). The guard predicted from the disc template as disc 1 of 1 and missed finished rips; one computation beside the argv is the fix, and cyanrip's rendering rules belong in its adapter.
-    "adapters/cyanrip_backend.py": 1757,
+    # 1757 -> 1772 on 2026-09-28: cyanrip's documented `-D` default and its rendering for our rip, which the overwrite guard predicts for a folder-less template (review Q5).
+    "adapters/cyanrip_backend.py": 1772,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1909,7 +1910,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 568 -> 574 on 2026-09-28: a tie between look-alike folders asks even when neither holds a rip, with a title and text that do not claim one (maintainer: "fix all").
     # 574 -> 578 on 2026-09-28 (review R4, R5): `known_album_folders` and `free_album_folder_templates` take the track template and the rip's metadata and delegate the prediction to the backend; the docstring says why the disc template was the wrong key.
     # 578 -> 585 on 2026-09-28 (review R3): an existing literal folder no longer ends the resolver's search, so an empty `a"b` cannot hide a full `a“b`; the docstring records the case, beside the loop it changes.
-    "ui/main_window_helpers.py": 585,
+    # 585 -> 587 on 2026-09-28: a folder-less template's numbered folder is cyanrip's default one, written out (review Q5).
+    "ui/main_window_helpers.py": 587,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -2007,7 +2009,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4795 -> 4802 on 2026-09-28: a tie between look-alike folders asks even when neither holds a rip, with a title and text that do not claim one (maintainer: "fix all").
     # 4802 -> 4803 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
     # 4803 -> 4820 on 2026-09-28 (review R4, R5): `_rip_metadata_for`, the one metadata snapshot the rip and the overwrite guard both read, and the guard saying so when a folder-less template leaves it nothing to check.
-    "ui/main_window_rip.py": 4820,
+    # 4820 -> 4830 on 2026-09-28: the overwrite guard decides on folders that exist, and does not promise an overwrite of a look-alike (review Q4).
+    "ui/main_window_rip.py": 4830,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared

@@ -1734,15 +1734,32 @@ def _album_level_tags(meta: RipMetadata) -> dict[str, str]:
     return {key: value for key, value in tags.items() if value}
 
 
-def predicted_album_folder(
-    track_template: str, metadata: RipMetadata | None
-) -> str | None:
+#: cyanrip's own ``-D`` default, word for word as its provider contract states it
+#: (the ``-D`` row of the newest filed contract;
+#: ``cyanrip@221a1df:src/cyanrip_main.c:1503``, the same at ``e0471f4``).
+#: ``tests/test_cyanrip_backend.py`` holds this to the filed contract, so a fork
+#: build that changes its default turns a test red instead of moving our rips.
+CYANRIP_DEFAULT_FOLDER_SCHEME: Final[str] = (
+    "{album}{if #releasecomment# > #0# (|releasecomment|)} [{format}]"
+)
+
+#: That default as it renders for OUR rip, which is what cyanrip writes when a
+#: track template has no folder part and so no ``-D`` is sent. We never send a
+#: ``releasecomment`` tag, so its conditional is false; and every rip is
+#: ``-o flac``, whose folder suffix is ``FLAC``
+#: (``cyanrip@e0471f4:src/cyanrip_main.c:101``, the struct's second field).
+DEFAULT_FOLDER_FOR_OUR_RIP: Final[str] = "{album} [FLAC]"
+
+
+def predicted_album_folder(track_template: str, metadata: RipMetadata | None) -> str:
     """The album folder, relative to the output directory, this rip would write.
 
     :func:`album_folder_scheme` rendered with the tags cyanrip is handed, cleaned
-    exactly as ``_metadata_args`` cleans them. ``None`` when no ``-D`` is sent:
-    cyanrip then names the folder with its own default scheme, which we do not
-    model, so the caller must say it could not check rather than check a guess.
+    exactly as ``_metadata_args`` cleans them. When no ``-D`` is sent (a track
+    template with no folder part) cyanrip uses its own default, which for our
+    rip renders as :data:`DEFAULT_FOLDER_FOR_OUR_RIP`, so that is predicted. It
+    returned ``None`` there until 2026-09-28, and the overwrite guard skipped the
+    check with only a log line while the rip overwrote ``<album> [FLAC]``.
 
     **A prediction, never the answer.** The look-alike table cannot say which of
     two glyphs a ``"`` becomes (P7d), so the overwrite guard resolves this against
@@ -1750,8 +1767,6 @@ def predicted_album_folder(
     """
     from platterpus import naming, tag_hygiene  # noqa: PLC0415
 
-    scheme = album_folder_scheme(track_template, metadata)
-    if scheme is None:
-        return None
+    scheme = album_folder_scheme(track_template, metadata) or DEFAULT_FOLDER_FOR_OUR_RIP
     meta = tag_hygiene.clean_tag_only_fields(metadata).metadata
     return naming.render_scheme(scheme, _album_level_tags(meta))
