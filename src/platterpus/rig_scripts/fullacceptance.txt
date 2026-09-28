@@ -357,6 +357,18 @@ expect override_read_offset on
 abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
 set max_retries 3
 expect max_retries 3
+# AND PUT IT BACK before anything rips. `max_retries` is cyanrip's `-r`, and
+# `-r` is also the ceiling on a secure re-read's whole-track reads: `-Z 2`
+# needs three identical reads, so at `-r 3` a single read that disagrees
+# leaves the track unverified (the fork's src/cyanrip_main.c:997-1012 at
+# faec4a8). Until 2026-09-28 the 3 above rode into every rip until section Q,
+# so that day's Full run did every secure re-read in F and N, and their
+# automatic re-reads, at `-r 3 -Z 2` with no room for one bad read, instead
+# of the shipped `-r 5`. The accuracy sections test what a user gets, so they
+# run on the user's default. The round trip above is still the test; this is
+# the restore, and `tests/test_rig_scripts.py` checks every rip's ceiling.
+set max_retries 5
+expect max_retries 5
 set output_format flac
 expect output_format flac
 set force_overread off
@@ -385,10 +397,15 @@ expect-refused read_offset -99999
 expect-refused max_retries 101
 expect-refused secure_rerip_matches 11
 expect-refused mp3_vbr_quality 10
+# A PAIR, not a range: 2 is inside Max retries' own range, and beside the
+# default 2 extra matching reads it can never let a secure re-read succeed
+# (three identical reads needed, two allowed). The validator refuses the
+# pair (since 2026-09-28); this proves it does on the rig, not only in tests.
+expect-refused max_retries 2
 # And the floor: the guards must not refuse everything. If these were also
 # refused, every assertion above would pass for the wrong reason.
 expect-drive-offset
-expect max_retries 3
+expect max_retries 5
 snapshot validationdone
 
 # --- D. DIALOGS: everything that can be opened, opened and closed ----------
@@ -506,7 +523,8 @@ abort-if-failed the disc was never identified — the picker did not resolve or 
 # minutes and one real session measured 2h45m". Both figures are real and the
 # conclusion was wrong: they describe a rip WITHOUT the secure re-read, and this
 # rip has one. `secure_rerip_matches` defaults to 2 (config.py), so cyanrip is
-# invoked `-Z 2 -r 3` here exactly as in section N — the same work, budgeted at
+# invoked `-Z 2 -r 5` here (it was `-r 3` until section B stopped leaving 3
+# behind, 2026-09-28) exactly as in section N — the same work, budgeted at
 # a third of the time.
 #
 # Measured 2026-09-03: it timed out at 10800.1s with the status reading
@@ -918,7 +936,8 @@ snapshot templatesdone
 # forced in the only case anyone ever measured.
 #
 # `secure_rerip_dynamic off` is UNIFORM mode — EAC-style Test & Copy, every track
-# read until two reads agree, not only the tracks AccurateRip could not confirm.
+# read until three reads are identical (`-Z 2`), not only the tracks AccurateRip
+# could not confirm.
 # So `total_repeats > 1` on every track regardless of how clean the disc is, and
 # the fork's `Scope:` line is printed.
 #
@@ -1266,7 +1285,9 @@ set output_format flac
 expect output_format flac
 set mp3_vbr_quality 0
 set write_eac_log_after_rip off
-# The two section B changed and this section used to walk past.
+# The two section B changed and this section used to walk past. Section B now
+# puts `max_retries` back itself, so F and N rip on the shipped ceiling; the
+# pair below stays as the guard that the run still ENDS there.
 set max_retries 5
 expect max_retries 5
 set ripper_channel stable

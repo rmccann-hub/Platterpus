@@ -76,6 +76,11 @@ def _run(window: QWidget, text: str) -> list[Any]:
         ("max_retries", "101"),  # MAX_RETRIES_MAX is 100
         ("secure_rerip_matches", "11"),  # SECURE_REREP_MAX is 10
         ("mp3_vbr_quality", "10"),  # MP3_QUALITY_MAX is 9
+        # In range, refused as a PAIR: beside the default 2 extra matching reads
+        # (three identical reads needed) Max retries 2 can never let a secure
+        # re-read succeed. The acceptance script's section C runs exactly this.
+        ("max_retries", "2"),
+        ("secure_rerip_matches", "5"),  # beside the default Max retries 5
     ],
 )
 def test_a_value_outside_the_validated_range_is_refused(

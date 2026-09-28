@@ -185,6 +185,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   notice. A pair that fits but leaves no room for one read that disagrees (the
   acceptance run's Max retries 3 with 2) gets a warning. Off is never refused,
   because the rip's own recovery re-read now stays inside Max retries by itself.
+- **The Full acceptance run's accuracy rips use the shipped Max retries again.**
+  Section B set Max retries to 3 to prove it round-trips and left it there until
+  section Q, so on 2026-09-28 every secure re-read in the two whole-disc sections
+  (F and N) and their automatic re-reads ran at `-r 3 -Z 2`: three reads allowed for
+  three identical reads needed, so one read that disagreed failed the track. Section
+  B now puts 5 back straight after its check. Section C also proves on the rig that
+  the new pair refusal fires (`expect-refused max_retries 2`). A test replays the
+  script to every rip and checks the ceiling it runs on; the end-state check that
+  already existed could not see this, and passed on that run.
 
 ### Changed
 
