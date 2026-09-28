@@ -217,9 +217,7 @@ and the startup test script in the script console.
   the Cover Art Archive holds for the release and save it beside the album.
   When the Archive has nothing for a release, or has the wrong sleeve,
   right-click the disc details above the track list and choose
-  **Set cover art from file…** to point at your own image instead. (This release
-  also keeps it in **Tools → Set cover art from file…**; that copy goes in the
-  next one.)
+  **Set cover art from file…** to point at your own image instead.
 - **Max retries** — the ripper's retry ceiling (cyanrip's `-r`). It limits two
   things: how often a sector that won't read is retried, and how many times a
   whole track may be read while the secure re-read (below) looks for identical

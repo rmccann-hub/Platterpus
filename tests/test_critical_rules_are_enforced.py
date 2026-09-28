@@ -1631,7 +1631,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **628 -> 631** (2026-09-27): the Guide says Set cover art from file… is on the disc panel's right-click menu, and that the Tools copy goes in the next release.
     # **631 -> 633** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Settings bullet says a rip of only some tracks is not checked against CTDB, and why.
     # **631 -> 637** (2026-09-28, the `-Z` wording): the User Guide's Max retries, secure re-read and Test & Copy bullets say what `-r` limits and that `-Z N` is N+1 identical reads, under the renamed label.
-    "help_content.py": 639,
+    # **639 -> 637 (2026-09-28, 0.6.63)**: the transitional Tools entry for Set cover art from file… left, with the Guide sentence that named it.
+    "help_content.py": 637,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1924,7 +1925,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1731 -> 1732** (2026-09-27): that comment names the check that fails the 0.6.63 bump while the Tools entry remains.
     # **1732 -> 1745** (2026-09-28, rig report "restart the app"): the disc-read retry's state and single-shot timer are built with the window's other timers, `closeEvent` stops it, `_start_disc_info` opens a new retry budget for every read that was ASKED for, and `_on_disc_info_failed` hands the failure to the retry instead of ending on an error line.
     # 1745 -> 1749 on 2026-09-28 (code review R0): a successful disc read tells the media watcher a disc is in, so a retry that read the disc is not followed by a phantom insertion and a third read.
-    "ui/main_window.py": 1749,
+    # **1749 -> 1748 (2026-09-28, 0.6.63)**: the transitional Tools entry for Set cover art from file… left, with the Guide sentence that named it.
+    "ui/main_window.py": 1748,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most

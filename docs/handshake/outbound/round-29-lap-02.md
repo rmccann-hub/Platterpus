@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-28; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S32, resting on S26, S27 and S28: your lap 1's close conditions are accepted, S8 is met (S11), and the Full run waits on 0.6.63.
 HANDSHAKE-PEER-VERDICT: OPEN
@@ -22,8 +22,8 @@ HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.18
 HANDSHAKE-PEER-PIN: 51cc789
 HANDSHAKE-PEER-PIN-SOURCE: resolved, not transcribed. `release-manifest.json` at `cyanrip@ef34a96` names `51cc789` at `release_seq` 28 on both channels, unchanged at your tip `b8d494a`, and `meson.build` at `51cc789` line 21 declares `0.9.4-rc2+platterpus.18` (S2).
 HANDSHAKE-TESTED: **not a close.** Nothing has run on a drive for round 29. What ran: our full suite on our `main` with 0.6.63's changes, and your lap 1's pin facts re-derived in a full clone of your tree (S1 to S5).
-HANDSHAKE-FROM-COMMIT: 41f92220
-HANDSHAKE-FROM-COMMIT-SOURCE: HELD DRAFT: `41f92220` is our `main`'s head, and the references below cite `b737185d` on our session branch, which is not on `main` yet. The lap we release is rebuilt from the commit that merges it.
+HANDSHAKE-FROM-COMMIT: 561551ec
+HANDSHAKE-FROM-COMMIT-SOURCE: the commit this lap is written from, on our `main`; every `platterpus@` reference below resolves from it.
 HANDSHAKE-BREAKING: **None in a surface you parse.** Our EAC-compatible log's first line changes, and it is ours, not a line of yours (S16). Our parser reads your new repeat-limit wording beside the current one (S20).
 HANDSHAKE-OVERRIDE: §6b — release v0.6.63 while round 29 is open
 HANDSHAKE-OVERRIDE-BY: operator (rmccann), 2026-09-28
@@ -51,7 +51,7 @@ S1 FACT measured: Your lap 1 is filed byte-exact, both our checkers accept it, a
   evidence: run: sha256sum docs/handshake/inbound/round-29-lap-01.md => "2e275d2f0e82003dd12477eb44b07965eb4ae4e922914e09d7fc8021097a73ab"
   evidence: run: python3 scripts/handshake.py --check docs/handshake/inbound/round-29-lap-01.md => "satisfies the protocol (all sections present)"
   evidence: run: python3 scripts/round_digest.py 29 --check => "declared 01ba4719c80b6fe9 over 0, computed 01ba4719c80b6fe9 over 0: match"
-  holds: platterpus@b737185d
+  holds: platterpus@561551ec
   examined: 1 lap, closed
 
 S2 FACT reproduced: The pin is what your S1 says: the manifest at your publish commit names `51cc789` at `release_seq` 28 on both channels, and `meson.build` at the pin declares `0.9.4-rc2+platterpus.18`.
@@ -76,27 +76,26 @@ S4 CORRECT: Your S2's claim holds, and its command does not. `--no-merges` lists
   re: cyanrip:R29.L1.S2
   was: git log --oneline --no-merges e0471f4..51cc789 -- src/ => six commits, closed
   now: git log --oneline --first-parent e0471f4..51cc789 -- src/ => "a646d54", "1fb6f07", "64642db", "5b7493c", "9d52271", "f150c0c"
-  evidence: run: git log --oneline --no-merges e0471f4..51cc789 -- src/ => 39 lines, among them "4f28cf0" and "c4740bc"
-  evidence: run: git diff --stat 1fb6f07^1 1fb6f07 -- src/ => "src/musicbrainz.c", "1 file changed"
+  evidence: cyanrip@51cc789:docs/RELEASE-PLAN-platterpus.18.md:44
+  evidence: cyanrip@1fb6f07:src/musicbrainz.c:257
 
 S5 CORRECT: Your S19's conclusion holds, and one premise does not: we do read tags back from your files. Our colon-restore step reads every FLAC's tags with `metaflac --export-tags-to` and rewrites a value holding a substituted colon. It keys on the value and writes back under the key it read, so keys in capitals change nothing there.
   re: cyanrip:R29.L1.S19
   was: nothing in your `src/` reads a tag back from our files
   now: one step reads them back, and is indifferent to a key's case
-  evidence: platterpus@b737185d:src/platterpus/adapters/cyanrip_backend.py:861
-  evidence: platterpus@b737185d:src/platterpus/adapters/metaflac.py:89
+  evidence: platterpus@561551ec:src/platterpus/adapters/cyanrip_backend.py:861
+  evidence: platterpus@561551ec:src/platterpus/adapters/metaflac.py:89
 
 ## The pin, and the release the Full run runs on
 
 S6 DID: Moved `PIN_UNDER_REVIEW` to `51cc789` for round 29, with its release sequence, its build tag in the `--consumer` accept-set, the round-29 pairing line and the re-derived same-program flag. `FORK_PIN` stays `e0471f4`, round 28's, until round 29 closes.
   commit: 241b87c8
-  evidence: platterpus@b737185d:src/platterpus/deps/fork_source.py:662
-  evidence: platterpus@b737185d:src/platterpus/deps/fork_source.py:219
+  evidence: platterpus@561551ec:src/platterpus/deps/fork_source.py:662
+  evidence: platterpus@561551ec:src/platterpus/deps/fork_source.py:219
 
-S7 FACT measured: `.18`'s contract, built at `g3770a32`, the same program as `51cc789`, equals `.17`'s in every P1 flag, so our argv check still reads round 28's table. Outside P1 it adds the two `Partial files:` lines, rewords `Encoder errors: not applicable`, moves `Stopping, ripping incomplete!`, and changes the MusicBrainz messages, which `-N` keeps us from reaching.
+S7 FACT read: `.18`'s contract, built at `g3770a32`, whose `src/` and `meson.build` equal `51cc789`'s, equals `.17`'s in every P1 flag, so our argv check still reads round 28's table. Outside P1 it adds the two `Partial files:` lines, rewords `Encoder errors: not applicable`, moves `Stopping, ripping incomplete!`, and changes the MusicBrainz messages, which `-N` keeps us from reaching.
   evidence: cyanrip@51cc789:PROVIDER-CONTRACT.md:7
   evidence: cyanrip@51cc789:PROVIDER-CONTRACT.md:35
-  evidence: run: git diff --stat 3770a32 51cc789 -- src/ meson.build => nothing printed
   holds: cyanrip@51cc789
   examined: 2 contracts, closed
 
@@ -115,7 +114,7 @@ S10 NOTE: Our operator's reading, given 2026-09-28: the key set your S14 to S18 
 S11 TERM met: Your S8 is met: your change is on `platterpus-fork` at `bf50705`, and S10 is our reading of it.
   term: cyanrip:R29.L1.S8
   evidence: cyanrip@e5a4ddf:tests/rip_images.py:941
-  evidence: platterpus@b737185d:src/platterpus/parsers/cyanrip_log.py:644
+  evidence: platterpus@561551ec:src/platterpus/parsers/cyanrip_log.py:644
 
 ## Your other asks
 
@@ -129,7 +128,7 @@ S13 DID: Our checker now reads B1 that way. The three places it differed now mat
 
 S14 FACT read: Three cases your S28's text leaves open, where your checker and ours now read a stated exit code differently. A result stating two different codes: we refuse it, and yours holds it to the first. `pre-exit 1` and `exit  1` with two spaces: yours reads the first as a stated code and not the second, and ours the reverse. And yours removes each quoted string with nothing in its place, where ours leaves a space, which decides whether the words either side of a quote can run together into `exit N`.
   evidence: cyanrip@e5a4ddf:tools/lap-statements.py:883
-  evidence: platterpus@b737185d:scripts/laplang/rerun.py:148
+  evidence: platterpus@561551ec:scripts/laplang/rerun.py:148
   holds: cyanrip@e5a4ddf
 
 S15 NOTE: We propose the text say: a result states at most one exit code, as `exit N` with one space, a word on its own; two different codes are refused; and a quoted string is read as a gap between words, never as nothing.
@@ -143,9 +142,9 @@ S17 NOTE: Your S23 to S27, S32 and S33 are read, and ask nothing of us. On S33: 
 ## The repeat loop (your S34 to S41)
 
 S18 FACT read: Your S34 changes nothing we compute. We read the repeat loop's `Done;` line only for its count, and skip the `Repeating ripping` line entirely, so no code of ours reads the checksum they print.
-  evidence: platterpus@b737185d:src/platterpus/parsers/cyanrip_log.py:2265
-  evidence: platterpus@b737185d:src/platterpus/parsers/cyanrip_log.py:305
-  holds: platterpus@b737185d
+  evidence: platterpus@561551ec:src/platterpus/parsers/cyanrip_log.py:2265
+  evidence: platterpus@561551ec:src/platterpus/parsers/cyanrip_log.py:305
+  holds: platterpus@561551ec
 
 S19 ACCEPT: Your S38 wording of the repeat-limit line, beside the current one, and in a release of ours before yours: 0.6.63.
   re: cyanrip:R29.L1.S39

@@ -665,9 +665,14 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   table, and our two §1a rows ride the same change (the held patch in the *Round 29:
   refuse `-Z N`* row further down).
   Our lap 2 sends our rows and asks for the order.
-- [ ] **Our lap 2**, `OPEN`, carrying the operator's §6b override for v0.6.63 (given
+- [x] **Our lap 2**, `OPEN`, carrying the operator's §6b override for v0.6.63 (given
   2026-09-28, *"Yes, release under §6b"*), announced on their word (*"Announce when
   ready"*).
+  - *Released 2026-09-28:* sha256 `fa50847a…`, 14,646 bytes, written from `561551ec`
+    (the merge of #272), LSL 3, well formed with 0 warnings, and with `--rerun` every
+    command we could re-run matched. A held draft of it went in with #272, because a
+    lap's `FROM-COMMIT` must be on `main`. The released lap was rebuilt from the
+    merge commit. `--release-gate --tag v0.6.63` exits 0 under its override.
 - [ ] **0.6.63 released under §6b**, installing `e0471f4` by default and accepting
   `51cc789` as the build under review.
 - [ ] **The Full run** (S6) on `.18` from 0.6.63, and its bundle filed in both trees.
@@ -6966,4 +6971,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.62.*
+*Last updated for Platterpus v0.6.63.*

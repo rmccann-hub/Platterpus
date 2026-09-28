@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.6.63] — 2026-09-28
+
 ### Fixed
 
 - **A dialog whose body scrolls no longer stops growing one scrollbar short.** When a
@@ -196,6 +198,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Set cover art from file… is no longer in the Tools menu.** It moved to the disc
+  details' right-click menu in 0.6.62 and stayed in Tools for that one release, so
+  nobody who learned it there lost it the day it moved. The User Guide no longer
+  mentions the Tools copy.
 - **Round 29 is open, on the fork's `.18` (`51cc789`), and it is the build the next
   Full acceptance run tests.** `PIN_UNDER_REVIEW` moves from `e0471f4` to `51cc789`, so
   section A accepts `.18` and the cyanrip offer marks it as the build the run needs.
@@ -16752,7 +16758,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.62...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.63...HEAD
+[0.6.63]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.62...v0.6.63
 [0.6.62]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.61...v0.6.62
 [0.6.61]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.60...v0.6.61
 [0.6.60]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.59...v0.6.60
@@ -16817,4 +16824,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.62.*
+*Last updated for Platterpus v0.6.63.*
