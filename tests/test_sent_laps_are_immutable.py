@@ -118,6 +118,13 @@ SENT_LAPS: dict[str, str] = {
     # contract filed, `Partial files:` claimed, LSL 2 read). Released on the
     # maintainer's word 2026-09-27.
     "outbound/round-28-lap-04.md": "9719aabb05767320b75f4dd9c6b83b9a65ee2e672ba1718285910b52f3f9bd47",
+    # Round 28 lap 6: OPEN, checking their lap 5, declaring protocol 6 as C29 then
+    # required, and carrying the operator's §6b override for v0.6.62 and R1 override
+    # moving the Full run to 0.6.62. Released on the maintainer's word 2026-09-28.
+    "outbound/round-28-lap-06.md": "8bb706794f2f0a3bd7136566542494b172d9bddf10fc4ec6d3dfb76f189240b2",
+    # Round 28 lap 7: OPEN, our answers to the operator's seam-automation proposal,
+    # every item for round 29. Released with lap 6 on the maintainer's word 2026-09-28.
+    "outbound/round-28-lap-07.md": "bb35415bb6a035508b7e7fbaf44e416f6dc6d2c3caec68e963c2ddc1f6dd9b31",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at

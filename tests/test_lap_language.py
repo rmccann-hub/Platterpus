@@ -789,11 +789,11 @@ _ROUND_28_REPORTS: dict[str, tuple[str, str, dict[str, int]]] = {
         "1091d1c55df9756e",
         {"A4": 15, "A5": 7},
     ),
-    "outbound/round-28-lap-05.md": (
-        "2165401650fe6fac",
-        "fb67e28adfed5761",
-        {"A4": 27, "A5": 10},
-    ),
+    # Our held lap 5 was measured here too ("2165401650fe6fac", "fb67e28adfed5761",
+    # A4 27, A5 10). It was rewritten and released as lap 7 on 2026-09-28, after the
+    # fork's lap 5 took that number, so the measurement describes a file that no
+    # longer exists, and it is dropped rather than re-measured: a report taken now
+    # would be the LSL 3 checker's, which is what this pin exists to compare against.
 }
 
 
@@ -802,20 +802,22 @@ def _digest(text: str) -> str:
 
 
 def test_the_round_28_pin_covers_every_lap_it_was_measured_on() -> None:
-    """The floor for the pin below: the five round-28 laps held on 2026-09-28.
+    """The floor for the pin below: the round-28 laps measured on 2026-09-28 that
+    are still the files measured, laps 1 to 4.
 
     Every one of them is pinned and still on disk where the pin says, so the pin
     cannot pass by having nothing, or less, left to compare. (That each still
-    declares `LSL: 1` is asserted by the pinned test itself.)
+    declares `LSL: 1` is asserted by the pinned test itself.) Laps from 5 on were
+    written after LSL 3, so there is no pre-LSL-3 report of them to hold.
     """
     held = {
         path.relative_to(REPO_ROOT / "docs" / "handshake").as_posix()
         for side in ("inbound", "outbound")
         for path in (REPO_ROOT / "docs" / "handshake" / side).glob(
-            "round-28-lap-0[1-5].md"
+            "round-28-lap-0[1-4].md"
         )
     }
-    assert len(held) == 5, held
+    assert len(held) == 4, held
     assert set(_ROUND_28_REPORTS) == held
 
 

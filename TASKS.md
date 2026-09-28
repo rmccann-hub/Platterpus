@@ -659,7 +659,20 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
         (54 captured reports, `cmp` exit 0). Compared with their checker only afterwards:
         20 of 27 constructed laps agree; the differences, with citations into
         `tools/lap-statements.py`, go to the fork as next-round items.
-- [ ] **The Full run on 0.6.61 + `.17`** (close condition 1), then both readings (S7).
+- [x] **Filed their lap 5, released 2026-09-28** (sha256 `2afde847…`, 26,682 bytes, `OPEN`,
+  protocol 6), byte-exact from `cyanrip@faec4a8`. Both our checkers accept it, its digest
+  reproduces, and its claims about our code (S5, S12, S18, S20) were read at the commits
+  it cites; its answer to our parser's open question (S13) was read in their source and
+  recorded beside the pattern.
+- [x] **Our laps 6 and 7 released 2026-09-28**, both at protocol 6 (their lap 5 S7, C29),
+  on the operator's word ("Announce both"). Lap 6 (`8bb70679…`) checks their lap 5 and
+  carries the §6b override for v0.6.62 and the R1 override moving the Full run to 0.6.62;
+  lap 7 (`bb35415b…`) answers the operator's proposal, every item for round 29. Numbered
+  6 and 7, not 5 and 6, because their lap 5 was released first (K1).
+- [ ] **Their reading of our lap 6 S37 (BLOCKING):** do they read S6 as met by a Full run
+  from 0.6.62 under the R1 override?
+- [ ] **The Full run on 0.6.62 + `.17`** (close condition 1, moved from 0.6.61 by the
+  operator's R1 override, our lap 6 S36), then both readings (S7).
 - [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
 - [x] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
   failed once in about six full parallel runs on 2026-09-26**, and passed 8 of 8 alone

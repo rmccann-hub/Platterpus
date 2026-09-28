@@ -2172,11 +2172,11 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     # false: cyanrip prints those rows in every state, including `disabled`, which
     # is how a disc nobody looked up came to render as "in DB, no match".
     #
-    # Unverified, and it is the reason to keep this line in mind: whether cyanrip
-    # prints per-track `Accurip:` rows at all for a disc that is NOT in the
-    # database. If it does not, this disc-level row is the only signal and will
-    # need parsing. No committed log covers it — it needs a CD-R or an unlisted
-    # pressing on the rig.
+    # Answered by the fork (round 28 lap 5 S13), and read in their source: a disc
+    # NOT in the database still gets per-track `Accurip:       not found` rows, or
+    # `disabled` under `-A` (cyanrip@e0471f4:src/cyanrip_log.c:566-568), so those
+    # rows stay the signal and this line needs no parsing. No committed log covers
+    # such a disc yet; a CD-R or an unlisted pressing on the rig would.
     (re.compile(r"^AccurateRip:\s"), "the indented per-track Accurip: row is read"),
     # Pure structure: a section marker with no value of its own.
     (re.compile(r"^Tracks:\s*$"), "section marker, no payload"),

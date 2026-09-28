@@ -92,6 +92,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   cover image for the disc on screen. The same menu keeps *Copy* and *Select All*, and
   *Copy* now copies the whole value when nothing is selected. For this release the item
   is also still in Tools; that copy goes in 0.6.63. Its Alt-letter is now F.
+- **For contributors: our handshake laps now declare protocol 6.** The fork's round 28
+  lap 5 declared it, and under the protocol's rule C29 a later lap of the same round
+  that declares less refuses the round. Our round 28 lap 6 says that our gate
+  implements 6 and declares it in the same lap, and `handshake.py --emit` now writes
+  6. The note beside the parser's disc-level `AccurateRip:` pattern records the
+  fork's answer to the question it had left open (a disc not in the database still
+  gets per-track `Accurip: not found` rows).
 
 ### Fixed
 
