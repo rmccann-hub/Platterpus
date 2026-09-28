@@ -16,6 +16,8 @@ unattended run that is the whole session.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -421,6 +423,61 @@ def test_the_serialised_shape_carries_everything_the_text_does() -> None:
     assert data["counts"]["fail"] == 1
     assert len(data["steps"]) == 2
     assert data["steps"][0]["outcome"] == "pass"
+
+
+#: The scripts that ship inside the package, read from the tree rather than from
+#: a remembered size: the defect below was a comment's belief about how large a
+#: script is, and the fix must not be another one.
+_SHIPPED_SCRIPTS: Path = (
+    Path(__file__).resolve().parents[1] / "src" / "platterpus" / "rig_scripts"
+)
+
+#: The cap before 2026-09-27. Only the floor below uses it: a population of
+#: scripts that all fit under the OLD cap could not have caught the defect.
+_OLD_CAP: int = 20_000
+
+
+def test_every_shipped_script_reaches_report_json_whole() -> None:
+    """TASKS: `report.json` kept 29% of the acceptance script it ran.
+
+    `MAX_SOURCE_CHARS` was 20,000 under a comment saying it "only ever fires on
+    an accident", against a 69,020-character `fullacceptance.txt`. The elision
+    was counted, so it was not silent, but a report that cannot show what was
+    asked of steps 300 onwards does not let its reader reproduce them. Every
+    script we ship must now go in verbatim, and this fails when one outgrows the
+    cap, so raising it is a decision.
+    """
+    scripts = sorted(_SHIPPED_SCRIPTS.glob("*.txt"))
+    assert len(scripts) >= 5, f"only {len(scripts)} shipped script(s) found"
+    sizes: dict[str, int] = {}
+    for path in scripts:
+        text = path.read_text(encoding="utf-8")
+        sizes[path.name] = len(text)
+        carried = RunReport("t", "v", script_source=text).as_dict()["script_source"]
+        assert isinstance(carried, str), "the key changed type, a report schema move"
+        assert carried == text, (
+            f"{path.name} ({len(text)} characters) is cut in report.json; "
+            f"MAX_SOURCE_CHARS is {report_mod.MAX_SOURCE_CHARS}"
+        )
+    assert max(sizes.values()) > _OLD_CAP, (
+        f"no shipped script is over the old {_OLD_CAP}-character cap ({sizes}), so "
+        "this test can no longer tell the old cap from the new one"
+    )
+
+
+def test_a_source_over_the_cap_keeps_head_and_tail_and_counts_the_gap() -> None:
+    """Anything bigger than the cap is still bounded, and never silently."""
+    cap = report_mod.MAX_SOURCE_CHARS
+    text = "HEAD-MARKER" + "x" * (2 * cap) + "TAIL-MARKER"
+    carried = RunReport("t", "v", script_source=text).as_dict()["script_source"]
+    assert isinstance(carried, str)
+    kept = cap // 2
+    dropped = len(text) - 2 * kept
+    assert carried.startswith("HEAD-MARKER"), "the head was lost"
+    assert carried.endswith("TAIL-MARKER"), "the tail was lost"
+    assert f"[{dropped} characters omitted]" in carried, "the elision is not counted"
+    # The cap plus the one marker line: the bound is on what reaches the JSON.
+    assert len(carried) <= cap + 64, f"{len(carried)} characters kept"
 
 
 # --- The names the runner will resolve at RUN time ------------------------

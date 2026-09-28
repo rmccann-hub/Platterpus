@@ -346,10 +346,15 @@ class RunReport:
         }
 
 
-#: Cap on the script text carried into the JSON. The report is already the one
-#: per-album debug artifact and must stay under the maintainer's 25 MB ceiling; a
-#: pasted script is a few KB, so this only ever fires on an accident.
-MAX_SOURCE_CHARS: int = 20_000
+#: Cap on the script text carried into `report.json`. Sized so every script we
+#: SHIP fits whole. It was 20,000 under a comment saying it "only ever fires on an
+#: accident", and it fired on every acceptance run: `rig_scripts/fullacceptance.txt`
+#: is 69,020 characters (measured 2026-09-27), so the report kept 29% of the
+#: script it ran. `tests/test_uiscript.py` reads the shipped scripts and fails when
+#: one outgrows this, so the next raise is a decision rather than a surprise. It
+#: stays a bound for an accidental paste: at most ~1.5 MB of JSON against the
+#: maintainer's 25 MB ceiling, even if every character is escaped to six bytes.
+MAX_SOURCE_CHARS: int = 256_000
 
 
 def _bounded(text: str) -> str:

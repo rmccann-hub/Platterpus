@@ -143,6 +143,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   line a worker that ignored a shutdown gets. It is now an INFO line saying the probe
   was superseded by a newer one. Every other case where a worker is abandoned, such as
   on shutdown or after a real timeout, is still a warning.
+- **`report.json` now carries the whole test script it ran.** A test-script run's
+  `report.json` kept only the first and last 10,000 characters of the script, with the
+  gap counted, under a comment saying the limit only applied to accidents. The
+  acceptance script is 69,020 characters, so each acceptance report held 29% of it.
+  The limit is now 256,000 characters, which every script shipped with the app fits
+  inside, and a test fails when one outgrows it. The report's shape is unchanged:
+  `script_source` is still one string.
 
 ### Added
 
