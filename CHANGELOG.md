@@ -157,6 +157,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   did. It now stays until the next dependency line replaces it, and a later check
   replaces it even when it runs in the background, so an old warning is not left
   behind.
+- **For contributors: two comments no longer say `--doctor` checks dependencies
+  with no deadline.** The comment on the per-thread probe deadline in
+  `deps/checks.py` and the `check_all` docstring in `deps/manager.py` still said so
+  after `--doctor` began passing the app's own deadline, which would send someone
+  debugging a "check incomplete" line from `--doctor` looking in the wrong place.
 - **Every message box now shows its text exactly as written.** What a tool told
   us — a version, a build tag, an install error from its own output — could be
   read as formatting instead of shown: Qt's ready-made message boxes guess
