@@ -12,6 +12,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **The `-x` overread check reads the files git tracks, not whatever is on disk.**
+  `tests/test_documented_ripper_flags_are_real.py` found its documents by walking the
+  working tree, so it also swept `.pytest_cache/`, `src/platterpus.egg-info/` and stale
+  `build/lib/` copies of the rig scripts, and the number of tests collected depended on
+  what had run before: 6744 in a fresh clone, 6749 in CI, 6750 on a second local run.
+  It now takes the tracked set from `git ls-files`, and walks the tree only where there
+  is no `.git` (an unpacked sdist). In a checkout whose git fails, it stops with git's
+  message instead of falling back.
+
 ## [0.6.63] — 2026-09-28
 
 ### Fixed
