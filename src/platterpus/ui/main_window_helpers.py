@@ -338,7 +338,13 @@ def ambiguous_overwrite_text(
         f"• {folder} — {'⚠ already holds a rip' if folder in occupied else 'no rip'}"
         for folder in candidates
     ]
-    lines += ["", "Ripping into a folder that holds a rip overwrites its files."]
+    lines += [
+        "",
+        "Ripping into a folder that holds a rip overwrites its files."
+        if occupied
+        else "Neither holds a rip yet, but this rip would land in one of them "
+        "with no way to choose which.",
+    ]
     return "\n".join(lines)
 
 

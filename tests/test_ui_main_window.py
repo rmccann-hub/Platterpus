@@ -2894,17 +2894,40 @@ def test_known_overwrite_ambiguous_new_folder_is_suffixed(
     assert result.track_template == "%A/%d (2)/%t - %n"
 
 
-def test_known_overwrite_ambiguous_with_no_audio_anywhere_asks_nothing(
+def test_known_overwrite_ambiguous_with_no_audio_still_asks_and_claims_no_rip(
     teardown_threads, monkeypatch, tmp_path
 ) -> None:
-    """Pinned choice: the ambiguous case keeps the audio gate the single one has.
-
-    Two empty look-alikes hold nothing a rip could destroy, and the prompt's own
-    text ("already holds a rip") would be false, so there is no dialog.
-    """
+    """The maintainer's ruling (2026-09-28): a tie ALWAYS asks, because the rip
+    would land in whichever look-alike cyanrip picks. With neither holding a rip,
+    the prompt must not say one does: its title and its text say which it is.
+    A single empty folder still asks nothing (the next test's neighbour case)."""
     window = teardown_threads()
     _set_album(window, "Ambiguous", 'a"b')
-    _two_look_alikes(tmp_path, audio_in=())
+    left, right = _two_look_alikes(tmp_path, audio_in=())
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+    assert len(seen) == 1, seen
+    prompt = seen[0]
+    assert prompt["title"] == "Which album folder?"
+    text = str(prompt["text"])
+    assert "already holds a rip" not in text, text
+    assert f"{left} — no rip" in text and f"{right} — no rip" in text, text
+    assert "Neither holds a rip yet" in text, text
+    buttons = prompt["buttons"]
+    assert isinstance(buttons, list)
+    assert not any(b.startswith("Replace") for b in buttons), buttons
+
+
+def test_known_overwrite_single_empty_folder_still_asks_nothing(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """The neighbour the ruling does not change: ONE folder with no rip in it is
+    not a tie and holds nothing to overwrite, so there is no prompt."""
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    folder = _two_look_alikes(tmp_path, audio_in=())[0]
+    folder.parent.joinpath("a”b").rmdir()
     seen = _record_dialog(monkeypatch, "Cancel")
 
     params = _known_params(tmp_path)

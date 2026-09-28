@@ -735,12 +735,14 @@ class RipMixin(MainWindowShared):
             album.year,
         )
         occupied = frozenset(f for f in candidates if _dir_has_audio(f))
-        if not occupied:
-            return params  # nothing there to overwrite → proceed silently
         # Several look-alike folders (`a“b`, `a”b`) and cyanrip picks one by a
         # parity we cannot see (P7d). This used to stand down; it asks now, naming
-        # them all (maintainer, 2026-09-27).
+        # them all (maintainer, 2026-09-27), and it asks even when NONE holds a rip
+        # (maintainer, 2026-09-28: "fix all"): the rip would still land in a folder
+        # nobody chose, beside a look-alike of it.
         ambiguous = len(candidates) > 1
+        if not occupied and not ambiguous:
+            return params  # one folder, nothing in it to overwrite → proceed silently
         if ambiguous:
             log.warning(
                 "%d folders could each be this album's, %d holding a rip: %s",
@@ -759,7 +761,12 @@ class RipMixin(MainWindowShared):
         # one, while the Replace button still does the full thing. Every name goes in
         # `setText`; the informative text below is literal in both branches.
         box.setTextFormat(Qt.TextFormat.PlainText)
-        box.setWindowTitle("Album already ripped")
+        # The title rig scripts answer (`answer-dialog … Album already ripped`) for
+        # every case where it is TRUE. A tie with no rip in either folder gets a
+        # title that does not claim one.
+        box.setWindowTitle(
+            "Album already ripped" if occupied else "Which album folder?"
+        )
         replace_btn: QPushButton | None = None
         if ambiguous:
             box.setText(ambiguous_overwrite_text(candidates, occupied))
