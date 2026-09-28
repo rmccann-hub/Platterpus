@@ -371,6 +371,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   refusal says "in LSL 2 or 3", read from LSL's own table of versions, and names
   any `WILL` it did not count, with the reason. R6 binds from round 29, so no
   committed lap changes outcome.
+- **For contributors: a quoted pre-commit no longer counts as a lap's own under
+  R6.** A lap that said *Our lap 3 bound us: "our next lap is `GO` unless the run
+  fails."* and promised nothing itself passed R6 as a HOLD lap, because the search
+  for a pre-commit found the quoted one. That is the lap R6 most needs a new
+  promise from: its X has happened. The search now sets aside text in double
+  quotation marks, straight or curly. Backticks, apostrophes and `>` blockquotes
+  are not quotation marks for this: `GO` is written in backticks, and the fork
+  sets out its own pre-commit in a blockquote. A quotation ends at a blank line,
+  so a stray `"` cannot hide the rest of a lap. Across the whole record of rounds
+  1-27, five laps lose their pre-commit this way, and each of them is quoting an
+  earlier lap's promise.
 - **For contributors: pressing Ctrl-C during `lap_language.py check --rerun` no
   longer leaves the re-run running.** The command runs in its own session, so the
   terminal's interrupt never reached it, and only a timeout killed it. Interrupted,

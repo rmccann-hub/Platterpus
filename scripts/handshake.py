@@ -938,6 +938,45 @@ _OUR_LAP_NUMBER: Final[re.Pattern[str]] = re.compile(
     r"\bour\s+lap\s+\d+\b", re.IGNORECASE
 )
 
+#: A QUOTATION in a lap's prose, for :func:`_unquoted`: a span between straight
+#: double quotes, or between curly ones. What is NOT a quotation mark, on purpose:
+#: a backtick, which marks code and is how R6's own form writes `GO`; a single
+#: quote, which is also an apostrophe ("the Full run's bundle"); and a `>`
+#: blockquote, which the fork uses to set out its OWN pre-commit (their round 21
+#: lap 3: "> **Our next lap is `GO` unless the hardware session fails …"). A code
+#: span is matched first and kept as it is, so a `"` inside backticks opens no
+#: quotation.
+_QUOTATION_OR_CODE: Final[re.Pattern[str]] = re.compile(
+    r"(?P<code>`[^`\n]*`)|\"[^\"]*\"|“[^”]*”"
+)
+
+#: A blank line: where a paragraph ends. No quotation runs past one, so a stray
+#: `"` (an inch mark, a typo) can hide at most the rest of its own paragraph.
+_PARAGRAPH_BREAK: Final[re.Pattern[str]] = re.compile(r"(\n[ \t]*\n)")
+
+
+def _unquoted(body: str) -> str:
+    """``body`` with every quotation replaced by a space, paragraph by paragraph.
+
+    For the presence half of R6 (review finding Q7, 2026-09-28): a lap that
+    QUOTES an earlier lap's pre-commit, *Our lap 3 bound us: "our next lap is
+    `GO` unless the run fails."*, has made no promise about its own next lap,
+    and it is the lap R6 most needs one from, since it is typically the lap after
+    X happened. Before, the quotation satisfied the search, so a HOLD lap whose
+    only pre-commit text was someone else's passed. A lap that means a quoted
+    pre-commit as its own states it unquoted. Quotations may wrap across lines,
+    as the record's do (our round 25 lap 2), so they are paired within a
+    paragraph rather than within a line.
+    """
+
+    def keep_code(match: re.Match[str]) -> str:
+        return match.group("code") or " "
+
+    return "".join(
+        _QUOTATION_OR_CODE.sub(keep_code, part) for part in _PARAGRAPH_BREAK.split(body)
+    )
+
+
 #: Where `laplang`, LSL's own reader, lives: beside this file.
 _SCRIPTS_DIR: Final[Path] = Path(__file__).resolve().parent
 
@@ -1091,7 +1130,13 @@ def pre_commit_problems(text: str, where: str) -> list[str]:
             f"{shape}. Name what happens, as R6's own example does: "
             '"the first lap we send after receiving your lap 10", not "our lap 15"'
         )
-    if not problems and not _PRE_COMMIT.search(body) and not structured:
+    # The presence half reads the lap's own words, not its quotations of another
+    # lap's (Q7). The numbered half above still reads the whole unfenced body,
+    # unchanged: a recall of a CORRECT pre-commit already escapes it (R12, the
+    # quotation mark ends its subject), while a lap that quotes a NUMBERED one
+    # outside a fence is still refused for it, and fencing the quotation is how
+    # to show it is quoted.
+    if not problems and not _PRE_COMMIT.search(_unquoted(body)) and not structured:
         # A structured `WILL` that did not count is named, with the reason, so
         # an author who wrote one in LSL 1 is not left wondering why (Q6).
         uncounted = ""
