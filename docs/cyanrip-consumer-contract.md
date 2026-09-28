@@ -88,7 +88,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `album_loudness_section` | section header | `^Album Loudness\\b` |
 | `track_block_start` | section header | `^Track (?P<number>\\d+) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|read successfully!\|read with errors\\.\|is data:)` |
 | `secure_rerip_converged` **(fork-only)** | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
-| `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\(no matches found\\b` |
+| `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\((?:no matches found\|repeat limit)\\b` |
 | `gaps_value` | indented | `^\\s+(?P<value>\\S.*?)\\s*$` |
 | `track_paranoia_counts_section` | indented | `^\\s+Paranoia status counts:\\s*$` |
 | `track_paranoia_scope` **(fork-only)** | indented | `^\\s+Scope:\\s+(?P<text>\\S.*?)\\s*$` |

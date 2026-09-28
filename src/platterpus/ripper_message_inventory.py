@@ -930,6 +930,11 @@ RETAINED_BEYOND_P5: Final[tuple[tuple[RipperMessage, str], ...]] = (
         "rip, but it is the difference between an unverified rip and a silently "
         "unverified one, and the user should get the sentence.",
     ),
+    # The fork's proposed rewording of this line (round 29 lap 1 S38, "Done; (repeat
+    # limit of %i reads reached; …)") gets no row until a contract of theirs
+    # publishes it, because this table mirrors what they publish. It needs none to
+    # be graded right: the worker asks `cyanrip_log.secure_rerip_verdict_converged`
+    # first, which reads both wordings, and only then this inventory's matcher.
     (
         RipperMessage(
             site="cyanrip_main.c:1014",

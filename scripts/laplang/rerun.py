@@ -20,7 +20,17 @@ to repeat would be a guess wearing a derivation's clothes":
 4. **Its result quotes what it printed** (`quoted_parts`, `appears`): each
    double-quoted string after `=>` must be in the output, stdout and stderr
    together, and an ellipsis inside one splits it into parts that must appear in
-   that order. A result that quotes nothing is prose, and is not compared.
+   that order. A result that quotes nothing is prose, and is not compared,
+   even when it states an exit code.
+5. **An exit code it states is held** (`stated_exits`): an `exit N` written in
+   a result that quotes something, OUTSIDE its double-quoted strings
+   (`=> "IN SYNC", exit 0`, `=> exit 1, "refused"`), must be the code the
+   re-run exited with. A result that states none is not held to any, and a
+   re-run of it that exits non-zero is reported `UNCHECKED exit:`
+   (`lsl3._rerun_one`). The list in the proposal stops at item 4 and says
+   nothing on exit status; this is the reading the fork proposed for its text
+   in their round 29 lap 1 S28, which we accepted, and which they will write
+   into the shared proposal (their S30).
 
 Anything else is reported, never refused, and never guessed.
 
@@ -122,6 +132,23 @@ _LOCATION_OPTIONS: Final[frozenset[str]] = frozenset(
         "--resolve-git-dir",
     }
 )
+#: One double-quoted string of a result, as `quoted_parts` reads it. Shared with
+#: `stated_exits`, so "outside its quotes" means outside exactly the strings B1
+#: compares, and the two readings of one result cannot disagree on where a
+#: quotation ends. (`[^"]*` cannot backtrack: it stops only at a `"`.)
+QUOTED_RE: Final[re.Pattern[str]] = re.compile(r'"([^"]*)"')
+#: An `exit N` a result states. `exit` is a word of its own (not `exited`, not
+#: `pre-exit`), then one to eight spaces or tabs, then one to nine digits that
+#: are not the start of a longer word. Every quantifier is bounded. An `exit
+#: 1234` is held like any other, and no run can satisfy it, which is right: it
+#: claims an exit no process has. Literal and lower case, as the fork's round 29
+#: lap 1 S28 writes it: `exit code 1` and `Exit 1` are prose, and a checker that
+#: guessed they meant the same would be refusing laps on a reading neither side
+#: agreed to.
+EXIT_RE: Final[re.Pattern[str]] = re.compile(
+    r"(?<![\w-])exit[ \t]{1,8}(?P<code>[0-9]{1,9})(?!\w)"
+)
+
 #: Refs git keeps outside `refs/`, each of which moves.
 PSEUDO_REFS: Final[frozenset[str]] = frozenset(
     {
@@ -179,7 +206,7 @@ def quoted_parts(result: str) -> list[list[str]]:
     result "matched".
     """
     found: list[list[str]] = []
-    for quoted in re.findall(r'"([^"]*)"', result):
+    for quoted in QUOTED_RE.findall(result):
         pieces = quoted.split("…")
         parts: list[str] = []
         for i, piece in enumerate(pieces):
@@ -192,6 +219,29 @@ def quoted_parts(result: str) -> list[list[str]]:
         if parts:
             found.append(parts)
     return found
+
+
+def stated_exits(result: str) -> list[int]:
+    """Every distinct exit code `result` states outside its quoted strings, in order.
+
+    `=> "IN SYNC", exit 0` states 0, `=> exit 1, "refused"` states 1, and
+    `=> "exit 0"` states nothing, because a quoted `exit 0` is a string the
+    command printed, compared by `quoted_parts`, not a claim about how it ended.
+    Each quoted string is replaced by a space rather than removed, so the words
+    on either side of it cannot join into an `exit N` neither side wrote.
+
+    A list, not one code: a result that states two different codes is held to
+    both, which no single run can satisfy, so B1 refuses it rather than choosing
+    one (the reading `lsl3.lap_commit` takes of a header declared twice). Empty
+    when the result states none, which is the case B1 checks as it did before.
+    """
+    outside = QUOTED_RE.sub(" ", result)
+    codes: list[int] = []
+    for match in EXIT_RE.finditer(outside):
+        code = int(match["code"])
+        if code not in codes:
+            codes.append(code)
+    return codes
 
 
 def appears(parts: list[str], output: str) -> bool:
