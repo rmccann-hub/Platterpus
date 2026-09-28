@@ -22,8 +22,17 @@ reader can see the decision:
 * **PlainText** for text that is not markup, which is almost all of them.
 * **RichText** where a label deliberately renders markup (a `<b>…</b>` of ours),
   and then every value put into that markup must go through `html.escape`, so
-  external text can never be read as a tag. The second test below holds each
-  RichText site to that.
+  external text can never be read as a tag. The escaping test below FOLLOWS each
+  value rather than trusting the function: every `{…}` field of the markup, and
+  every name or call joined into it, must be an `html.escape(...)` call, a number
+  printed with a numeric format (`{offset:+d}`), a literal of ours, or a name
+  bound only to those. It traces a name through each of its assignments and a
+  call into the method or function of ours that builds the markup, judging each
+  parameter by what that call passed; anything it cannot trace is a failure,
+  never a pass. (Until 2026-09-28 it asked only whether the building function
+  called `html.escape` at all, so one escaped value vouched for every other value
+  beside it: an unescaped device path added to the drive wizard's escaped drive
+  name passed.)
 
 AutoText is refused even when written out explicitly, because stating the guess
 is not a decision.
@@ -39,7 +48,9 @@ sweeps `QMessageBox`; this file sweeps `QLabel`; neither sweeps the other.
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Final
 
@@ -60,6 +71,12 @@ _MIN_LABEL_SITES: Final[int] = 15
 #: line and the setup wizard's intro.
 _MIN_RICHTEXT_SITES: Final[int] = 2
 
+#: Floor on the values the escaping test ACCEPTS across those sites, so "no
+#: problems" cannot mean "found no values to judge". Four on 2026-09-28: the drive
+#: wizard's escaped drive name and its `:+d` offset, and the manual-install
+#: intro's escaped display name on each of its two branches.
+_MIN_JUDGED_VALUES: Final[int] = 3
+
 #: The formats a site may state. `AutoText` is Qt's guess, so writing it out is
 #: not a decision. A label that genuinely needs `MarkdownText` would need its own
 #: escaping rule first, the way RichText has one below; add both together.
@@ -72,7 +89,8 @@ class MarkupFromCallers:
 
     Such a site has nothing to escape in its own function, so the escaping test
     checks the callers instead: every construction of `carrier` that passes a
-    non-literal `field` must happen in a function that calls `html.escape`.
+    non-literal `field` must pass markup whose every value the same judge
+    accepts, in the function that builds it.
     """
 
     #: The class that carries the markup into the site, e.g. `SetupCopy`.
@@ -114,6 +132,11 @@ class LabelSite:
     stated: str | None
     #: Why this site fails the rule, or None when it passes.
     problem: str | None
+    #: For a RichText site: each value in its markup that could be read as a tag,
+    #: and why (see `_judge`). Empty for every other format.
+    markup_problems: tuple[str, ...] = ()
+    #: For a RichText site: each value in its markup the judge accepted, and why.
+    markup_accepted: tuple[str, ...] = ()
 
 
 def _is_qlabel_call(node: ast.AST) -> bool:
@@ -126,6 +149,16 @@ def _is_qlabel_call(node: ast.AST) -> bool:
     )
 
 
+def _label_text(call: ast.Call) -> ast.expr | None:
+    """The label's first argument (or `text=`): its text, or its parent widget."""
+    first: ast.expr | None = call.args[0] if call.args else None
+    if first is None:
+        for keyword in call.keywords:
+            if keyword.arg == "text":
+                first = keyword.value
+    return first
+
+
 def _text_is_not_literal(call: ast.Call) -> bool:
     """True when the label's first argument (or `text=`) is anything but a string.
 
@@ -133,11 +166,7 @@ def _text_is_not_literal(call: ast.Call) -> bool:
     is, because its first argument is not a literal — a label built that way gets
     its text (or picture) later, from somewhere this line cannot show.
     """
-    first: ast.expr | None = call.args[0] if call.args else None
-    if first is None:
-        for keyword in call.keywords:
-            if keyword.arg == "text":
-                first = keyword.value
+    first = _label_text(call)
     if first is None:
         return False
     return not (isinstance(first, ast.Constant) and isinstance(first.value, str))
@@ -206,6 +235,375 @@ def _end_position(node: ast.AST) -> tuple[int, int]:
     )
 
 
+# --- What a RichText label's markup may contain --------------------------------
+#
+# A RichText label's text is markup, so every value put into it must be one that
+# cannot be read as a tag. The judge below walks the label's text expression and
+# decides that for each value separately, the way a reviewer would: where does
+# this `{…}` come from, and is it escaped? It accepts only shapes it can trace to
+# the end, and reports everything else, because a sweep that passes what it
+# cannot read reports the unread values as escaped.
+
+#: A format spec whose output can only be a number: optional align, sign, `z`,
+#: `#`, `0`, width, grouping and precision, then a numeric presentation type.
+#: Deliberately NO fill character, since a fill is repeated into the output
+#: (`{n:<>5d}` pads with `<`), and NO `c`, which prints the character with that
+#: code point (`{60:c}` is `<`). Formatting a non-number with any of these raises
+#: rather than printing it, so what such a field adds to the markup is digits,
+#: signs, separators, `e`, `%`, `inf` or `nan`: never a tag.
+_NUMERIC_SPEC: Final[re.Pattern[str]] = re.compile(
+    r"[<>=^]?[+\- ]?z?#?0?[0-9]*[_,]?(?:\.[0-9]+)?[bdoxXneEfFgG%]"
+)
+
+#: How many names and calls the judge follows from one label before giving up.
+#: The real sites need three at most. A cycle (`a = b` and `b = a`) or a longer
+#: chain ends here as a problem, never as a pass.
+_MAX_FOLLOW_DEPTH: Final[int] = 8
+
+
+@dataclass(frozen=True)
+class _Source:
+    """One parsed module, and each node's parent, for the lookups the judge makes."""
+
+    tree: ast.Module
+    parents: Mapping[ast.AST, ast.AST]
+
+
+def _parse(source: str) -> _Source:
+    tree = ast.parse(source)
+    parents: dict[ast.AST, ast.AST] = {}
+    for parent in ast.walk(tree):
+        for child in ast.iter_child_nodes(parent):
+            parents[child] = parent
+    return _Source(tree, parents)
+
+
+@dataclass(frozen=True)
+class _Frame:
+    """Where a piece of markup is being read.
+
+    `scope` is the function (or module) whose names the expression can mean. When
+    the judge follows a call into the helper that builds the markup (the
+    manual-install intro is built by a method), `arguments` maps each of the
+    helper's parameters to what THAT call passed for it and the frame it was
+    passed from. So a parameter is judged by the value that actually reaches it,
+    and a parameter that never reaches the markup (a flag read by an `if`) is
+    never judged at all.
+    """
+
+    scope: ast.AST
+    arguments: Mapping[str, tuple[ast.expr, _Frame]]
+    depth: int
+
+
+@dataclass
+class MarkupVerdict:
+    """What the judge found in one label's markup."""
+
+    #: Each value that could put a tag into the markup, and why.
+    problems: list[str] = field(default_factory=list)
+    #: Each value it accepted, and why. The floors read this, so the escaping
+    #: test cannot pass by finding no values to judge.
+    accepted: list[str] = field(default_factory=list)
+
+
+def _is_html_escape(node: ast.AST) -> bool:
+    """`html.escape(...)`, the CALL: a mention in a comment or a string is not one."""
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "escape"
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "html"
+    )
+
+
+def _parameters(scope: ast.AST) -> set[str]:
+    """Every parameter name of a function; empty for a class or a module."""
+    if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        return set()
+    signature = scope.args
+    named = [*signature.posonlyargs, *signature.args, *signature.kwonlyargs]
+    for star in (signature.vararg, signature.kwarg):
+        if star is not None:
+            named.append(star)
+    return {param.arg for param in named}
+
+
+def _stores(target: ast.AST, name: str) -> bool:
+    """True if `target` (an assignment target, loop variable, `as` name) binds `name`."""
+    return any(
+        isinstance(node, ast.Name)
+        and node.id == name
+        and isinstance(node.ctx, ast.Store)
+        for node in ast.walk(target)
+    )
+
+
+def _bindings(name: str, scope: ast.AST) -> tuple[list[ast.expr], list[str]]:
+    """What `scope` itself (not a nested function) assigns to `name`.
+
+    Returns the values it is given, which the judge then judges in turn, and why
+    each OTHER binding cannot be judged: a loop variable, an import, a name
+    unpacked from a tuple. `x += v` counts `v` as a value, since the text `x`
+    ends up holding is what it held before with `v` joined on.
+    """
+    values: list[ast.expr] = []
+    refusals: list[str] = []
+    for node in _own_nodes(scope):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == name:
+                    values.append(node.value)
+                elif _stores(target, name):
+                    refusals.append(f"is unpacked from `{ast.unparse(node.value)}`")
+        elif (
+            isinstance(node, (ast.AnnAssign, ast.NamedExpr))
+            and isinstance(node.target, ast.Name)
+            and node.target.id == name
+        ):
+            if node.value is not None:
+                values.append(node.value)
+        elif (
+            isinstance(node, ast.AugAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == name
+        ):
+            if isinstance(node.op, ast.Add):
+                values.append(node.value)
+            else:
+                refusals.append(f"is changed by `{ast.unparse(node)}`")
+        elif isinstance(node, (ast.For, ast.AsyncFor)) and _stores(node.target, name):
+            refusals.append("is a loop variable")
+        elif isinstance(node, (ast.With, ast.AsyncWith)) and any(
+            item.optional_vars is not None and _stores(item.optional_vars, name)
+            for item in node.items
+        ):
+            refusals.append("is bound by `with … as`")
+        elif isinstance(node, ast.ExceptHandler) and node.name == name:
+            refusals.append("is bound by `except … as`")
+        elif isinstance(node, (ast.Import, ast.ImportFrom)) and any(
+            (alias.asname or alias.name.split(".")[0]) == name for alias in node.names
+        ):
+            refusals.append("is imported, so what it holds is not visible here")
+        elif (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+            and node.name == name
+        ):
+            refusals.append("is a function or class, not a string")
+        elif isinstance(node, (ast.Global, ast.Nonlocal)) and name in node.names:
+            refusals.append("is declared global or nonlocal")
+    return values, refusals
+
+
+def _judge(
+    expr: ast.expr, frame: _Frame, source: _Source, verdict: MarkupVerdict
+) -> None:
+    """Judge one expression whose text becomes part of a RichText label's markup.
+
+    Accepted: a literal of ours; an `html.escape(...)` call; an f-string, a `+`,
+    or an `x if c else y` made only of accepted parts; a `{…}` with a numeric
+    format; a name every binding of which is accepted; and a call into a method
+    of this class or a function of this module whose every `return` is accepted,
+    with its parameters judged by what the call passed. Anything else is a
+    problem, including every shape this judge cannot read.
+    """
+    shown = ast.unparse(expr)
+    if frame.depth > _MAX_FOLLOW_DEPTH:
+        verdict.problems.append(
+            f"`{shown}`: still not traced to a literal or an html.escape call after "
+            f"{_MAX_FOLLOW_DEPTH} steps"
+        )
+        return
+    if isinstance(expr, ast.Constant):
+        # A literal of ours IS the markup, not a value put into it. Bytes are the
+        # exception: they print as `b'…'` with whatever they hold.
+        if isinstance(expr.value, bytes):
+            verdict.problems.append(f"`{shown}`: bytes print with what they hold")
+        return
+    if _is_html_escape(expr):
+        verdict.accepted.append(f"`{shown}`: escaped")
+        return
+    if isinstance(expr, ast.JoinedStr):
+        for part in expr.values:
+            if isinstance(part, ast.FormattedValue):
+                _judge_field(part, frame, source, verdict)
+        return
+    if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
+        _judge(expr.left, frame, source, verdict)
+        _judge(expr.right, frame, source, verdict)
+        return
+    if isinstance(expr, ast.IfExp):
+        _judge(expr.body, frame, source, verdict)
+        _judge(expr.orelse, frame, source, verdict)
+        return
+    if isinstance(expr, ast.Name):
+        _judge_name(expr.id, frame, source, verdict)
+        return
+    if isinstance(expr, ast.Call):
+        _judge_call(expr, frame, source, verdict)
+        return
+    verdict.problems.append(
+        f"`{shown}`: this sweep cannot trace this kind of expression "
+        f"({type(expr).__name__}) to a literal of ours or an html.escape call"
+    )
+
+
+def _judge_field(
+    part: ast.FormattedValue, frame: _Frame, source: _Source, verdict: MarkupVerdict
+) -> None:
+    """One `{…}` of an f-string: a number, or a value judged like any other."""
+    spec = part.format_spec
+    if spec is not None:
+        pieces = spec.values if isinstance(spec, ast.JoinedStr) else [spec]
+        if not all(isinstance(piece, ast.Constant) for piece in pieces):
+            verdict.problems.append(
+                f"`{ast.unparse(part.value)}`: a format spec computed at run time"
+            )
+            return
+        spec_text = "".join(
+            str(piece.value) for piece in pieces if isinstance(piece, ast.Constant)
+        )
+        if _NUMERIC_SPEC.fullmatch(spec_text):
+            verdict.accepted.append(
+                f"`{{{ast.unparse(part.value)}:{spec_text}}}`: a number"
+            )
+            return
+    _judge(part.value, frame, source, verdict)
+
+
+def _judge_name(
+    name: str, frame: _Frame, source: _Source, verdict: MarkupVerdict
+) -> None:
+    """A name: judged by what reaches it, looked up the way Python looks it up."""
+    values, refusals = _bindings(name, frame.scope)
+    deeper = replace(frame, depth=frame.depth + 1)
+    if name in frame.arguments:
+        # A parameter of a helper we followed a call into: judge what that call
+        # passed, in the frame it was passed from.
+        passed, passed_from = frame.arguments[name]
+        _judge(passed, replace(passed_from, depth=frame.depth + 1), source, verdict)
+    elif name in _parameters(frame.scope):
+        verdict.problems.append(
+            f"`{name}` is a parameter, so its value comes from a caller this sweep "
+            "does not follow: escape it where the markup is built"
+        )
+    elif not values and not refusals:
+        if frame.scope is source.tree:
+            verdict.problems.append(
+                f"`{name}` is not assigned in this module (a builtin, or bound where "
+                "this sweep cannot see)"
+            )
+            return
+        # Bound nowhere in this function: Python looks in the module next (a
+        # class body is not on a method's lookup path), and so does this.
+        _judge_name(name, _Frame(source.tree, {}, frame.depth + 1), source, verdict)
+        return
+    verdict.problems.extend(f"`{name}` {why}" for why in refusals)
+    for value in values:
+        _judge(value, deeper, source, verdict)
+
+
+def _callee(
+    call: ast.Call, frame: _Frame, source: _Source
+) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef | None, bool]:
+    """The helper `call` runs, if it is one this sweep can read, and if `self` is bound.
+
+    Two shapes: `self.<method>(…)` for a method defined in the class the current
+    function belongs to, and `<function>(…)` for a function defined at the top of
+    this module. Anything else (an inherited method, another module's function, a
+    method of a string) is not followed, and the caller reports it.
+    """
+    func = call.func
+    if (
+        isinstance(func, ast.Attribute)
+        and isinstance(func.value, ast.Name)
+        and func.value.id == "self"
+    ):
+        owner = source.parents.get(frame.scope)
+        if isinstance(owner, ast.ClassDef):
+            for item in owner.body:
+                if (
+                    isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and item.name == func.attr
+                ):
+                    static = any(
+                        isinstance(decorator, ast.Name)
+                        and decorator.id == "staticmethod"
+                        for decorator in item.decorator_list
+                    )
+                    return item, not static
+        return None, False
+    if isinstance(func, ast.Name):
+        for item in source.tree.body:
+            if (
+                isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and item.name == func.id
+            ):
+                return item, False
+    return None, False
+
+
+def _judge_call(
+    call: ast.Call, frame: _Frame, source: _Source, verdict: MarkupVerdict
+) -> None:
+    """A call (other than html.escape) that builds markup: judge what it returns."""
+    shown = ast.unparse(call)
+    callee, bound = _callee(call, frame, source)
+    if callee is None:
+        verdict.problems.append(
+            f"`{shown}`: a call this sweep cannot follow to its markup. Escape each "
+            "value where the markup is built: here, or in a method of this class or "
+            "a function of this module that this calls"
+        )
+        return
+    if any(isinstance(arg, ast.Starred) for arg in call.args) or any(
+        keyword.arg is None for keyword in call.keywords
+    ):
+        verdict.problems.append(
+            f"`{shown}`: `*`/`**` arguments hide which value reaches which parameter"
+        )
+        return
+    signature = callee.args
+    positional = [*signature.posonlyargs, *signature.args]
+    # Defaults belong to the END of the positional list, and are evaluated where
+    # the function is defined, not where it is called.
+    defined_in = _Frame(source.parents[callee], {}, frame.depth + 1)
+    arguments: dict[str, tuple[ast.expr, _Frame]] = {}
+    for param, default in zip(
+        positional[len(positional) - len(signature.defaults) :],
+        signature.defaults,
+        strict=True,
+    ):
+        arguments[param.arg] = (default, defined_in)
+    for param, kw_default in zip(
+        signature.kwonlyargs, signature.kw_defaults, strict=True
+    ):
+        if kw_default is not None:
+            arguments[param.arg] = (kw_default, defined_in)
+    passable = positional[1:] if bound else positional
+    if len(call.args) > len(passable):
+        verdict.problems.append(
+            f"`{shown}`: more positional arguments than `{callee.name}` names"
+        )
+        return
+    for param, arg in zip(passable, call.args, strict=False):
+        arguments[param.arg] = (arg, frame)
+    for keyword in call.keywords:
+        if keyword.arg is not None:
+            arguments[keyword.arg] = (keyword.value, frame)
+    returns = [node for node in _own_nodes(callee) if isinstance(node, ast.Return)]
+    if not returns:
+        verdict.problems.append(f"`{callee.name}` returns nothing to read")
+        return
+    inside = _Frame(callee, arguments, frame.depth + 1)
+    for node in returns:
+        if node.value is None:
+            verdict.problems.append(f"`{callee.name}` has a bare `return`")
+        else:
+            _judge(node.value, inside, source, verdict)
+
+
 def label_sites(source: str, module: str) -> list[LabelSite]:
     """Every `QLabel(<non-literal>)` in `source`, each judged against the rule.
 
@@ -214,12 +612,13 @@ def label_sites(source: str, module: str) -> list[LabelSite]:
     yields a site — a shape the matcher cannot check is a site WITH a problem,
     never a site skipped, because a sweep that quietly skips what it cannot read
     reports the unreadable ones as clean.
+
+    A site that states RichText also carries the judge's verdict on its markup
+    (`markup_problems`, `markup_accepted`), judged in the function it is built in.
     """
-    tree = ast.parse(source)
-    parents: dict[ast.AST, ast.AST] = {}
-    for parent in ast.walk(tree):
-        for child in ast.iter_child_nodes(parent):
-            parents[child] = parent
+    parsed = _parse(source)
+    tree = parsed.tree
+    parents = parsed.parents
 
     sites: list[LabelSite] = []
     # In source order, so a report (and the snippets below) read top to bottom.
@@ -304,7 +703,20 @@ def label_sites(source: str, module: str) -> list[LabelSite]:
             else f"`{name}` states {stated!r}; write Qt.TextFormat.PlainText or "
             "Qt.TextFormat.RichText at the call, so the decision can be read there"
         )
-        sites.append(LabelSite(where, function, stated, problem))
+        markup = MarkupVerdict()
+        text = _label_text(call)
+        if stated == "RichText" and text is not None:
+            _judge(text, _Frame(scope, {}, 0), parsed, markup)
+        sites.append(
+            LabelSite(
+                where,
+                function,
+                stated,
+                problem,
+                tuple(markup.problems),
+                tuple(markup.accepted),
+            )
+        )
     return sites
 
 
@@ -325,34 +737,13 @@ def _all_sites() -> list[LabelSite]:
     ]
 
 
-def _functions(source: str, module: str) -> dict[str, ast.AST]:
-    """Every function/method/module scope in `source`, by `module::qualname`."""
-    tree = ast.parse(source)
-    parents: dict[ast.AST, ast.AST] = {}
-    for parent in ast.walk(tree):
-        for child in ast.iter_child_nodes(parent):
-            parents[child] = parent
+def _functions(parsed: _Source, module: str) -> dict[str, ast.AST]:
+    """Every function/method/module scope in a parsed module, by `module::qualname`."""
     return {
-        f"{module}::{_qualified_name(node, parents)}": node
-        for node in ast.walk(tree)
+        f"{module}::{_qualified_name(node, parsed.parents)}": node
+        for node in ast.walk(parsed.tree)
         if isinstance(node, _SCOPES)
     }
-
-
-def calls_html_escape(scope: ast.AST) -> bool:
-    """True if `scope`, not counting nested functions, calls `html.escape(...)`.
-
-    Matches the CALL, not a mention: `import html`, or `html.escape` named in a
-    comment or a string, does not escape anything.
-    """
-    return any(
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "escape"
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "html"
-        for node in _own_nodes(scope)
-    )
 
 
 # --- The population -----------------------------------------------------------
@@ -396,29 +787,48 @@ def test_every_label_built_from_a_value_states_its_format() -> None:
 
 
 def test_every_richtext_label_escapes_what_it_puts_in_its_markup() -> None:
-    """A RichText site's function must call `html.escape`, or be listed with why."""
-    sites = _all_sites()
-    rich = [site for site in sites if site.stated == "RichText"]
+    """Every value a RichText site puts into its markup is escaped, a number, or ours.
+
+    Judged value by value (`_judge`), in the function that builds the label: one
+    escaped value no longer vouches for the value beside it. A site whose markup
+    its callers write is listed in `_MARKUP_FROM_CALLERS` and checked at those
+    callers by the next test instead.
+    """
+    rich = [site for site in _all_sites() if site.stated == "RichText"]
     assert len(rich) >= _MIN_RICHTEXT_SITES, (
         f"only {len(rich)} RichText label(s) found (floor {_MIN_RICHTEXT_SITES}), "
         "so the escaping check below has nothing to hold to account"
     )
-    scopes: dict[str, ast.AST] = {}
-    for module, source in _modules().items():
-        scopes.update(_functions(source, module))
-    offenders = [
-        f"{site.where} ({site.function})"
+    # Floor on the VALUES, not only the sites, and of both accepted kinds: a judge
+    # that found nothing to judge would report every site clean.
+    accepted = [
+        f"{site.where}: {why}"
         for site in rich
         if site.function not in _MARKUP_FROM_CALLERS
-        and not calls_html_escape(scopes[site.function])
+        for why in site.markup_accepted
+    ]
+    assert len(accepted) >= _MIN_JUDGED_VALUES, (
+        f"the judge accepted only {len(accepted)} value(s) across the RichText "
+        f"sites (floor {_MIN_JUDGED_VALUES}), so it is not reading their markup: "
+        f"{accepted}"
+    )
+    assert any(why.endswith(": escaped") for why in accepted) and any(
+        why.endswith(": a number") for why in accepted
+    ), f"expected both an escaped value and a number among {accepted}"
+    offenders = [
+        f"{site.where} ({site.function}):\n    " + "\n    ".join(site.markup_problems)
+        for site in rich
+        if site.function not in _MARKUP_FROM_CALLERS and site.markup_problems
     ]
     assert not offenders, (
-        "these labels render RichText, but the function building them never calls "
-        "html.escape. A value from outside the app (a drive's name, a path, a "
+        "these labels render RichText, and put a value into their markup that is "
+        "not escaped. A value from outside the app (a drive's name, a path, a "
         "MusicBrainz field, a tool's output) put into markup unescaped is read as "
-        "markup: a `<` in it becomes a tag and what follows can vanish. Escape "
-        "each such value, or — if the site truly shows only markup its callers "
-        "wrote — list it in _MARKUP_FROM_CALLERS:\n  " + "\n  ".join(offenders)
+        "markup: a `<` in it becomes a tag and what follows can vanish. Pass each "
+        "such value through html.escape where the markup is built (a number may "
+        "use a numeric format such as `:+d` instead), or, if the site truly shows "
+        "only markup its callers wrote, list it in _MARKUP_FROM_CALLERS:\n  "
+        + "\n  ".join(offenders)
     )
 
 
@@ -427,8 +837,11 @@ def test_markup_from_callers_is_escaped_by_every_caller() -> None:
 
     An entry says "this site's markup is written elsewhere". That is a claim about
     other functions, so this test goes and reads them: every construction of the
-    carrier that passes a non-literal markup field must be in a function that
-    calls `html.escape`, and the carrier's own default must be a literal.
+    carrier that passes a non-literal markup field must pass markup whose every
+    value `_judge` accepts, and the carrier's own default must be a literal. And
+    the entry must still be needed: a site whose own markup the judge can trace
+    to the end is not written by its callers, and an entry left on it would excuse
+    whatever replaces it.
     """
     sites = {site.function: site for site in _all_sites()}
     modules = _modules()
@@ -444,12 +857,17 @@ def test_markup_from_callers_is_escaped_by_every_caller() -> None:
         assert len(entry.reason) >= 60, (
             f"{function}: reason too short: {entry.reason!r}"
         )
+        assert sites[function].markup_problems, (
+            f"{function} is listed in _MARKUP_FROM_CALLERS, but the judge traces its "
+            "own markup to the end, so its callers do not write it: remove the entry"
+        )
 
         builders: list[str] = []
         unescaped: list[str] = []
         default_is_literal: bool | None = None
         for module, source in modules.items():
-            for scope_name, scope in _functions(source, module).items():
+            parsed = _parse(source)
+            for scope_name, scope in _functions(parsed, module).items():
                 for node in _own_nodes(scope):
                     if isinstance(node, ast.ClassDef) and node.name == entry.carrier:
                         for item in node.body:
@@ -477,8 +895,13 @@ def test_markup_from_callers_is_escaped_by_every_caller() -> None:
                         if isinstance(keyword.value, ast.Constant):
                             continue
                         builders.append(scope_name)
-                        if not calls_html_escape(scope):
-                            unescaped.append(f"{module}:{node.lineno} ({scope_name})")
+                        verdict = MarkupVerdict()
+                        _judge(keyword.value, _Frame(scope, {}, 0), parsed, verdict)
+                        if verdict.problems:
+                            unescaped.append(
+                                f"{module}:{node.lineno} ({scope_name}): "
+                                + "; ".join(verdict.problems)
+                            )
         assert default_is_literal is True, (
             f"{entry.carrier}.{entry.field}'s default is not a plain string literal "
             "of ours, so the markup it carries by default is no longer known to be "
@@ -492,7 +915,7 @@ def test_markup_from_callers_is_escaped_by_every_caller() -> None:
         )
         assert not unescaped, (
             f"these build {entry.carrier}.{entry.field} — markup shown as RichText by "
-            f"{function} — from a value without calling html.escape:\n  "
+            f"{function} — with a value in it that is not escaped:\n  "
             + "\n  ".join(unescaped)
         )
 
@@ -579,18 +1002,218 @@ def test_the_matcher_finds_a_missing_format_and_accepts_a_stated_one() -> None:
     assert len(_problems("def f(p):\n    logo = QLabel(p)\n")) == 1
 
 
-def test_the_escape_detector_needs_a_call_not_a_mention() -> None:
-    """`import html` or a comment naming html.escape escapes nothing."""
-    called = ast.parse("def f(n):\n    return f'<b>{html.escape(n)}</b>'\n").body[0]
-    mentioned = ast.parse(
-        "def f(n):\n    # html.escape would go here\n    return f'<b>{n}</b>'\n"
-    ).body[0]
-    nested_only = ast.parse(
-        "def f(n):\n    def g():\n        return html.escape(n)\n    return n\n"
-    ).body[0]
-    assert calls_html_escape(called) is True
-    assert calls_html_escape(mentioned) is False
-    assert calls_html_escape(nested_only) is False
+def _rich_label(text: str, *setup: str, params: str = "self") -> str:
+    """Source for a function that builds a RichText label from `text`, after `setup`.
+
+    `setup` lines are indented into the function as they are given, so a line
+    may open a block and the next one indent under it.
+    """
+    lines = [
+        f"def f({params}):",
+        *(f"    {line}" for line in setup),
+        f"    label = QLabel({text}, self)",
+        "    label.setTextFormat(Qt.TextFormat.RichText)",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _judged(snippet: str) -> tuple[list[str], list[str]]:
+    """What the judge makes of every RichText label in `snippet`: problems, accepted."""
+    rich = [s for s in label_sites(snippet, "s.py") if s.stated == "RichText"]
+    assert rich, (
+        f"the snippet builds no RichText label, so it tests nothing:\n{snippet}"
+    )
+    return (
+        [why for site in rich for why in site.markup_problems],
+        [why for site in rich for why in site.markup_accepted],
+    )
+
+
+#: `(name, snippet, what the problem must name)`: each way a value can reach a
+#: RichText label's markup without being escaped. The third field is the SUBJECT:
+#: a refusal that names some other value would pass a check that only counted
+#: problems, for the wrong reason.
+_UNESCAPED: Final[list[tuple[str, str, str]]] = [
+    (
+        "an unescaped value beside an escaped one (the review's drive-wizard case)",
+        _rich_label(
+            'f"Known read offset for {name} on {device}: <b>{offset:+d}</b>"',
+            'name = html.escape(drive_label or "this drive")',
+            params="self, drive_label, device, offset",
+        ),
+        "`device`",
+    ),
+    (
+        "an html.escape call on something else in the same function",
+        _rich_label(
+            'f"<b>{title}</b>"', 'log.info(html.escape("x"))', params="self, title"
+        ),
+        "`title`",
+    ),
+    (
+        "a name escaped by one assignment and raw after another",
+        _rich_label(
+            'f"<b>{name}</b>"',
+            "name = html.escape(raw)",
+            "if short:",
+            "    name = raw",
+            params="self, raw, short",
+        ),
+        "`raw`",
+    ),
+    (
+        "escaped on one branch of a conditional only",
+        _rich_label('f"<b>{html.escape(a) if c else a}</b>"', params="self, a, c"),
+        "`a`",
+    ),
+    (
+        "markup built in a variable first",
+        _rich_label("text", 'text = f"<b>{title}</b>"', params="self, title"),
+        "`title`",
+    ),
+    (
+        "html.escape only inside a nested function",
+        _rich_label(
+            'f"<b>{title}</b>"',
+            "def later():",
+            "    return html.escape(title)",
+            params="self, title",
+        ),
+        "`title`",
+    ),
+    (
+        "html.escape only named, in a comment and in the markup's own words",
+        _rich_label(
+            'f"<b>{title}</b> (html.escape(title))"',
+            "# html.escape(title) would go here",
+            params="self, title",
+        ),
+        "`title`",
+    ),
+    (
+        "%-formatting",
+        _rich_label('"<b>%s</b>" % title', params="self, title"),
+        "% title",
+    ),
+    (
+        "str.format",
+        _rich_label('"<b>{}</b>".format(title)', params="self, title"),
+        ".format(title)",
+    ),
+    ("str.join", _rich_label('"".join(parts)', params="self, parts"), "join(parts)"),
+    ("an attribute", _rich_label('f"<b>{self.title}</b>"'), "self.title"),
+    (
+        "a raw value with a padding format",
+        _rich_label('f"<b>{title:>10}</b>"', params="self, title"),
+        "`title`",
+    ),
+    (
+        "`:c`, which prints the character with that code (`{60:c}` is `<`)",
+        _rich_label('f"<b>{code:c}</b>"', params="self, code"),
+        "`code`",
+    ),
+    (
+        "a fill character, which is repeated into the output",
+        _rich_label('f"<b>{n:<>5d}</b>"', params="self, n"),
+        "`n`",
+    ),
+    (
+        "a format spec computed at run time",
+        _rich_label('f"<b>{n:{spec}}</b>"', params="self, n, spec"),
+        "`n`",
+    ),
+    (
+        "a helper method given a raw value",
+        "class D:\n"
+        "    def __init__(self, spec):\n"
+        "        label = QLabel(self._markup(name=spec.name), self)\n"
+        "        label.setTextFormat(Qt.TextFormat.RichText)\n"
+        "    def _markup(self, *, name):\n"
+        '        return f"<b>{name}</b> is ready"\n',
+        "spec.name",
+    ),
+    (
+        "a call this sweep cannot follow",
+        _rich_label('f"<b>{render(x)}</b>"', params="self, x"),
+        "render(x)",
+    ),
+    (
+        "an imported name",
+        "from elsewhere import TITLE\n" + _rich_label('f"<b>{TITLE}</b>"'),
+        "`TITLE`",
+    ),
+    (
+        "a loop variable",
+        _rich_label(
+            'f"<b>{item}</b>"', "for item in items:", "    pass", params="self, items"
+        ),
+        "`item`",
+    ),
+    ("a cycle", _rich_label('f"<b>{a}</b>"', "a = b", "b = a"), "steps"),
+]
+
+
+def test_the_escape_judge_refuses_every_unescaped_route_into_markup() -> None:
+    """Non-triviality: each shape must fail, and fail naming the value at fault."""
+    passed: list[str] = []
+    for name, snippet, subject in _UNESCAPED:
+        problems, _ = _judged(snippet)
+        if not any(subject in why for why in problems):
+            passed.append(f"{name}: {problems}")
+    assert not passed, (
+        "the escaping judge let these through, or refused them over a different "
+        "value than the one at fault:\n  " + "\n  ".join(passed)
+    )
+    # Floor, so the table cannot be emptied into a pass.
+    assert len(_UNESCAPED) >= 15
+
+
+def test_the_escape_judge_accepts_the_shapes_the_real_sites_use() -> None:
+    """And it must be able to say yes, or the real sites would be exempted instead.
+
+    Each shape is one a real site uses today, or the plainest way to write one.
+    """
+    drive_wizard = _rich_label(
+        'f"Known read offset for {name}: <b>{offset:+d}</b>." + clause',
+        'name = html.escape(drive_label or "this drive")',
+        'clause = " Detect is optional." if can_detect else ""',
+        params="self, drive_label, offset, can_detect",
+    )
+    # The manual-install intro: markup built by a method, from an argument the
+    # call escapes. The raw `ready` flag decides a branch and never reaches the
+    # markup, so it must not be judged at all.
+    helper = (
+        "class D:\n"
+        "    def __init__(self, spec):\n"
+        "        label = QLabel(\n"
+        "            self._markup(name=html.escape(spec.name), ready=spec.ready)\n"
+        "        )\n"
+        "        label.setTextFormat(Qt.TextFormat.RichText)\n"
+        "    def _markup(self, *, name, ready, suffix='.'):\n"
+        "        if ready:\n"
+        '            return f"{name} is <b>ready</b>{suffix}"\n'
+        '        return f"{name} needs <b>setup</b>{suffix}"\n'
+    )
+    joined = _rich_label(
+        "text", 'text = "<b>A</b> "', "text += html.escape(x)", params="self, x"
+    )
+    module_constant = 'TITLE = "<b>Ours</b>"\n' + _rich_label(
+        'f"{TITLE}: {html.escape(x)}"', params="self, x"
+    )
+    for name, snippet, expected in (
+        ("the drive wizard's line", drive_wizard, 2),
+        ("a helper method", helper, 2),
+        ("a name extended with +=", joined, 1),
+        ("a module constant of ours", module_constant, 1),
+    ):
+        problems, accepted = _judged(snippet)
+        assert problems == [], f"{name}: {problems}"
+        # And it READ the values: an empty verdict would also have no problems.
+        assert len(accepted) == expected, f"{name}: {accepted}"
+    assert _judged(drive_wizard)[1] == [
+        "`html.escape(drive_label or 'this drive')`: escaped",
+        "`{offset:+d}`: a number",
+    ]
 
 
 # --- The user-visible effect, measured on the real widgets ---------------------

@@ -183,6 +183,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   value inside it is escaped first. Ordinary text looks exactly as before: each
   changed dialog was compared label by label, before and after. A new test
   refuses a label built from a value that does not say which it holds.
+- **For contributors: the label check now checks every value in a formatted
+  label, not only that one value was escaped.** `tests/test_labels_state_their_text_format.py`
+  passed a label that renders formatting as long as the function building it
+  called `html.escape` once, on anything. So an unescaped device path added beside
+  the drive wizard's escaped drive name would have passed, although the test's own
+  description, `docs/architecture.md` and `docs/cyanrip-handshake.md` §7.7f all
+  said every value was checked. It now follows each value in the formatting to
+  where it was set, including into the helper that builds it. Each value must be
+  escaped with `html.escape(...)`, be a number printed with a number format such
+  as `:+d`, be our own fixed text, or be a name that only ever holds one of
+  those. Twenty made-up cases must each fail and name the value at fault. Nothing
+  in the app changed: the three labels that render formatting already passed.
 - **For contributors: the regex timing checks no longer fail on a busy runner.**
   The sweep that proves no pattern in `src/` stalls on long input confirmed a
   suspect by timing it again at the same sizes, inside the same noisy moment, so

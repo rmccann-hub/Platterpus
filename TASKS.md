@@ -4394,6 +4394,12 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
     `setText` — 13 counted, 8 of them in `ui/rip_progress.py`. Also found: the setup
     wizard's intro renders as markup, so its bullet list has always shown as one
     paragraph; kept as it was here, since this change was not to alter output.
+  - *Tightened 2026-09-28, after a second-round review:* the escaping test used to
+    pass a RichText site whose function called `html.escape` once, on anything. It
+    now judges each value in the markup (an `html.escape(...)` call, a number with
+    a numeric format, a literal of ours, or a name bound only to those, traced
+    through assignments and into the helper that builds the markup), and the
+    `SetupCopy` builders the same way. The three sites already passed.
 
 - [ ] **Labels given their text by `setText` after they are built are outside both
   format sweeps.** `tests/test_labels_state_their_text_format.py` holds every
