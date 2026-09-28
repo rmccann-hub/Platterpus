@@ -1873,8 +1873,12 @@ the sprawl is concentrated in two of them.
     test… (`ui/main_window.py`), pinned by `tests/test_ui_main_window.py`; Uninstall stays in
     Tools; the guide, tooltip, rig-script headers and rig docs follow, and
     `tests/test_help_documents_the_menu.py` now reads submenus to any depth.
-- [ ] **"Set cover art from file…" is a per-album action in a global menu.** It
+- [~] **"Set cover art from file…" is a per-album action in a global menu.** It
       belongs with the album it acts on (File, or the album context menu).
+  - *2026-09-28, the maintainer's ruling (album context menu):* one `QAction`, shown in the
+    disc panel's right-click menu (`ui/album_menu.py`) and, for this release only, in Tools,
+    so both run one slot with one enabled state. Left: remove the Tools entry in 0.6.63; the
+    0.6.63 version bump fails until it is gone.
 - [~] **Check every regrouping against the accessibility rules before landing**:
       submenus must keep their mnemonics unique within their parent, and no
       single-character shortcuts (`CLAUDE.md` code conventions; enforcement is

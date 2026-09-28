@@ -310,6 +310,7 @@ Platterpus/
         │   ├── setting_homes.py         # the one window + control that edits each user setting (pure)
         │   ├── drive_picker.py          # drive dropdown widget
         │   ├── disc_info_panel.py       # TOC / MB match / AccurateRip availability
+        │   ├── album_menu.py            # the disc panel's right-click menu: Copy + the album's actions
         │   ├── release_picker.py        # modal: pick from multiple MB matches
         │   ├── track_table.py           # editable per-track table pre-rip
         │   ├── rip_controls.py          # Start/Cancel buttons + parameter assembly
@@ -520,7 +521,8 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`main_window_deps.py`** — `DependencyMixin`: the GUI side of the dependency subsystem — probes via the injected `DependencyManager`'s `check_all` (off-thread), routes any missing deps through `_resolve_missing_unified` (setup wizard / live-progress `PendingInstallsDialog` / manual dialog), shows the summary, and offers the cyanrip install when the backend is switched. All detection logic stays in `deps/` (Critical Rule #6); resolution routing is UI-coupled and lives here (the manager's unused `resolve_missing` cascade was removed — audit #33).
 - **`accessibility.py`** — the one shared `announce()` helper behind every focus-safe screen-reader announcement (UX gap #4): feature-detects Qt's `QAccessibleAnnouncementEvent` (the desktop `aria-live`), never raises, never moves focus. Callers throttle themselves (announce state *changes*, not repaints) — see `docs/architecture.md` §3.8.
 - **`drive_picker.py`** — `DrivePicker(QWidget)`. Combo box over drives discovered via `RipBackend.list_drives()`. Emits `drive_changed(device_path)`.
-- **`disc_info_panel.py`** — read-only panel. Updates when a drive is selected or a disc is detected. Shows TOC, MB match status, AccurateRip availability.
+- **`disc_info_panel.py`** — read-only panel. Updates when a drive is selected or a disc is detected. Shows TOC, MB match status, AccurateRip availability. A right-click on it (or the Menu key on a value) opens the album's menu, built by `album_menu.py` from the per-album `QAction`s the window hands over with `set_album_actions`.
+- **`album_menu.py`** — builds and shows the disc panel's right-click menu (2026-09-27): *Copy* / *Select All* for the value under the pointer — replacing a selectable `QLabel`'s own menu, which Qt gives no way to extend — then the album's actions, which are the window's own `QAction` objects, so each has one slot and one enabled state wherever it appears. Shown with `popup()`, never `exec()`, so no nested event loop runs inside a slot. First action: *Set cover art from file…*, moved there from Tools.
 - **`release_picker.py`** — `ReleasePickerDialog(QDialog)`. Shown only when `MusicBrainzClient` returns >1 candidate for the inserted disc. List of releases with year, label, country, track count. Returns the chosen MBID. **This is the v1 substitute for the ripper's own TTY prompt** — Critical Rule #5.
 - **`track_table.py`** — `TrackTable(QTableView)` with a custom `QAbstractTableModel`. Editable per-track tags + album-level fields above the table. Validates before allowing the rip to start.
 - **`rip_controls.py`** — Start / Cancel buttons. On Start, assembles rip parameters (drive, MBID, output dir from config, template, edited tags) and emits `rip_requested(params)`.

@@ -1041,8 +1041,21 @@ class MainWindow(
         setup_center_action = tools_menu.addAction("Setup && &Updates…")
         setup_center_action.triggered.connect(self.open_setup_center)
 
-        cover_from_file_action = tools_menu.addAction("Set &cover art from file…")
+        # SET COVER ART FROM FILE… ACTS ON THE ALBUM ON SCREEN, so its home is the
+        # album's right-click menu on the disc panel (maintainer, 2026-09-27;
+        # `ui/album_menu.py`). ONE QAction shown in both places: the same slot and
+        # the same enabled state by construction, never two kept in step by hand.
+        # Alt+F, not the old Alt+C: the album menu opens with Copy, which is Alt+C.
+        #
+        # TRANSITIONAL: THIS TOOLS ENTRY IS FOR 0.6.62 ONLY, AND GOES IN 0.6.63, so
+        # nobody who learned it here loses it the day it moves. To remove it, build
+        # the action as `QAction("Set cover art from &file…", self)` instead of
+        # through `tools_menu.addAction`, delete the Guide's "still in Tools"
+        # sentence (`tests/test_help_documents_the_menu.py` names it a dead path),
+        # and drop the Tools half of `tests/test_ui_main_window.py::_cover_actions`.
+        cover_from_file_action = tools_menu.addAction("Set cover art from &file…")
         cover_from_file_action.triggered.connect(self._on_set_cover_art_from_file)
+        self._disc_info_panel.set_album_actions([cover_from_file_action])
 
         # Diagnose drive access… lives in Setup & Updates → Drive, beside Set up
         # drive… (2026-09-24): one place for the drive, not one item per menu.

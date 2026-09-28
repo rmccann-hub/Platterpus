@@ -1429,6 +1429,16 @@ New adapter behind a small interface (mirror `MusicBrainzClient` /
 `cover_art`). Query it on the host (Critical Rule #5: the GUI resolves the
 release, never the ripper's interactive prompt).
 
+### Add a menu action
+- **An action on the album on screen** goes in the disc panel's right-click
+  menu, not a global one (2026-09-27, when *Set cover art from file…* moved
+  there). Create the `QAction` in `MainWindow._build_menus`, connect it, and add
+  it to the list passed to `DiscInfoPanel.set_album_actions`. The panel shows
+  that **same object** (`ui/album_menu.py`), so its slot and enabled state are
+  one thing wherever it appears; do not build a second `QAction` for the same
+  slot. `tests/test_help_documents_the_menu.py` requires the Guide to name it.
+- **A tool only a tester needs** goes under **Tools → Advanced ▸** (D4 A).
+
 ## 5. Testing contract (the safety net that lets us refactor fearlessly)
 
 > **The full strategy, taxonomy, and Definition of Done live in
