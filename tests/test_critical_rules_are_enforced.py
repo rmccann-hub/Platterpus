@@ -1200,7 +1200,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "config.py": 849,
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
-    "deps/checks.py": 437,
+    # **437 -> 522** (2026-09-28, Check dependencies "seems to freeze, not respond, or give no
+    # error"): `probe_deadline` and `_probe_timeout`, which cap every probe a dependency check
+    # runs at the check's overall deadline and refuse to START one after it. They live here
+    # because the probe is where the waiting happens, and a deadline checked only where the
+    # check was scheduled let cyanrip's second version flag start a fresh 60 s wait after the
+    # first was killed. Most of the growth is the comment saying why this is a capped timeout
+    # and not a timer calling `cancel_version_probes()`: that slot is shared with other callers.
+    "deps/checks.py": 522,
     # 1678 -> 1691 (2026-09-06): the round-15 close. `FORK_PIN` rolled to
     # `978f9b0` and the roll is documented where the constant is, because the
     # post-close step is the one this file has already watched go stale.
@@ -1401,6 +1408,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # part that stops somebody "simplifying" it back to a step or to always-on.
     # **392 -> 393** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "deps/host_teardown.py": 393,
+    # **new at 343** (2026-09-28, the same report): `CHECK_DEADLINE_S`, the report's
+    # `unchecked` / `unchecked_reason` fields, the deadline in `check_all`, and
+    # `describe_unchecked` — the ONE wording of an incomplete check that five surfaces read.
+    # It crossed 300 because a stopped check used to return a partial report with no marker;
+    # marking it belongs with the report it marks (Critical rule #6), not in the UI.
+    # `_record_ok` was split out of `check_all` so the loop stays readable at its new length.
+    "deps/manager.py": 343,
     "deps/ripper_manifest.py": 608,
     # **777 -> 782 (2026-09-24)**: asks `current_test_pin()` / `retired_test_pins()`
     # instead of the raw constant, and says why in four lines (§5.bq).
@@ -1769,7 +1783,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the read offset's status, Set up drive… and Diagnose drive access…, and
     # `set_locked`, the rip lock that reaches a window already open. Every action
     # still delegates to the window; nothing here decides anything.
-    "ui/dialogs/setup_center.py": 448,
+    # **448 -> 427** (2026-09-28): down — `dependency_summary_line` moved to
+    # `ui/dependency_check_status.py`, beside the marker vocabulary it uses.
+    "ui/dialogs/setup_center.py": 427,
     # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
     # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
     # in the home directory. A save dialog only PROPOSES, which is why this was
@@ -1846,7 +1862,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # reconstruct from two other files.
     # **693 -> 722** (2026-09-24, #36): `_recheck_dependencies_for` and telling its listeners when the check lands.
     # **722 -> 723** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "ui/main_window_deps.py": 723,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **723 -> 758** (2026-09-28, Check dependencies "seems to freeze, not respond, or give
+    # no error"): the summary popup of a check that stopped part-way leads with "Check
+    # incomplete", names what it did not check and why, and is titled so; and the
+    # "Everything required is installed" offer is refused to it. Both belong beside the
+    # summary they change. The wording itself is `deps.manager.describe_unchecked`.
+    "ui/main_window_deps.py": 758,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).

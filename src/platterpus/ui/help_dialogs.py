@@ -138,10 +138,22 @@ class AboutDialog(CenteredDialog):
             self._stop_listening = None
 
     @staticmethod
-    def _components_markdown(inventory: ComponentInventory) -> str:
-        """The dependency rows, each with a text marker, never colour alone."""
+    def _components_markdown(
+        inventory: ComponentInventory, unchecked_note: str = ""
+    ) -> str:
+        """The dependency rows, each with a text marker, never colour alone.
+
+        ``unchecked_note`` is `deps.manager.describe_unchecked` of the same report:
+        the tools a check that stopped part-way never reached. They are in neither
+        list the inventory carries, so without the note this view is a silently
+        shorter list that reads as the whole machine. It is passed beside the
+        inventory rather than added to it because the inventory is also the
+        acceptance bundle's ``components`` file, which crosses the handshake seam:
+        a new key there is a shape change that has to be declared in a lap first.
+        """
         deps = inventory["dependencies"]
         age = build_info.describe_measured_at(inventory["dependencies_measured_at"])
+        note = f"- ⚠ {unchecked_note}\n" if unchecked_note else ""
         if deps is None:
             return (
                 f"### Dependencies\n- {age}. The check runs at launch; "
@@ -159,12 +171,18 @@ class AboutDialog(CenteredDialog):
             version = entry["version"] or "version not reported"
             where = f" — `{entry['location']}`" if entry["location"] else ""
             rows.append(f"- {name}: {version} {mark}{where}")
-        return f"### Dependencies ({age})\n" + "\n".join(rows) + "\n\n"
+        listed = "\n".join(rows) + "\n" if rows else ""
+        return f"### Dependencies ({age})\n{listed}{note}\n"
 
     @staticmethod
-    def _build_markdown(inventory: ComponentInventory | None = None) -> str:
+    def _build_markdown(
+        inventory: ComponentInventory | None = None, unchecked_note: str = ""
+    ) -> str:
         if inventory is None:
-            inventory = build_info.component_inventory(dep_manager.latest_report())
+            # One read of the store, so the rows and the note describe one report.
+            report = dep_manager.latest_report()
+            inventory = build_info.component_inventory(report)
+            unchecked_note = dep_manager.describe_unchecked(report)
         py = inventory["python"] or "{}.{}.{}".format(*sys.version_info[:3])
         return (
             f"# Platterpus\n\n"
@@ -176,7 +194,7 @@ class AboutDialog(CenteredDialog):
             f"- Qt: {inventory['qt'] or qVersion()}\n"
             f"- PySide6: {inventory['pyside6'] or PYSIDE_VERSION}\n"
             f"- Platform: {inventory['platform'] or platform.platform()}\n\n"
-            + AboutDialog._components_markdown(inventory)
+            + AboutDialog._components_markdown(inventory, unchecked_note)
             + f"### Paths\n"
             f"- Config: `{CONFIG_PATH}`\n"
             f"- Log: `{LOG_PATH}`\n"
