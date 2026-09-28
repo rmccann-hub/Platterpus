@@ -188,6 +188,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   single folder to replace, so Replace isn't offered until the others are removed or
   renamed. "Rip to a new folder" also skips any numbered folder whose look-alike
   already holds a rip.
+- **A test script run with `--run-script` no longer stalls on a crash dialog.** If an
+  unexpected error happens during an unattended `--run-script` run, the error dialog
+  now says it will close by itself, then closes after 60 seconds. The run carries on as
+  if OK had been clicked. The reason it closed and the full traceback are written to
+  the log first. When you are using the app yourself, the dialog stays open until you
+  click OK, as before.
 
 ### Added
 

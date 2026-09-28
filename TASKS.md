@@ -4254,7 +4254,7 @@ shell wrapper is one step better than prose, not the destination.
   `faulthandler_exit_on_timeout`, bounded against a measured 275 s suite so it
   cannot fire on a slow-but-working test.
 
-- [ ] **An unattended `--run-script` run still blocks on its FIRST fatal dialog.**
+- [x] **An unattended `--run-script` run still blocks on its FIRST fatal dialog.**
   The re-entrancy guard stops the recursion, not the one dialog. On the rig that
   means a single uncaught exception parks the batch waiting for somebody to click
   OK — the same *"an unattended run needs no attendant"* principle as the quit
@@ -4264,6 +4264,14 @@ shell wrapper is one step better than prose, not the destination.
   Shape when it is done: the fatal dialog is non-modal — or auto-dismissed after a
   bounded wait with the reason logged — when the process was started with
   `--run-script`, and never when a person is driving.
+  - *Done 2026-09-28, the maintainer's ruling that day ("auto-dismiss under --run-script"):*
+    `app.py` `_arm_fatal_dialog_auto_dismiss` and `_show_fatal_dialog(..., unattended=)`,
+    constant `UNATTENDED_FATAL_DIALOG_TIMEOUT_S` = 60, wired from `args.run_script`. Two
+    QTimers on the box (no sleep), the reason and traceback logged and flushed before it
+    closes, the re-entrancy guard held through the countdown, timers disconnected so the
+    box is freed. Tests in `tests/test_app.py` through the real nested `exec()`;
+    revert-probed 10 of 10. Open: a launch by the saved config's autorun also runs a script
+    unattended and still waits for a click (the hook is installed before the config is read).
 
 ## Found on the rig, 2026-08-19 — the v0.6.17 pass — **FIXED in 0.6.18**
 

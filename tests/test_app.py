@@ -11,11 +11,17 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from platterpus import __version__
 from platterpus import app as app_module
+
+if TYPE_CHECKING:
+    # Annotation-only; Qt is imported inside each test, as everywhere here.
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QMessageBox
 
 
 def test_prefer_xwayland_sets_platform_on_wayland(
@@ -167,7 +173,9 @@ def test_install_excepthook_sets_and_routes(monkeypatch: pytest.MonkeyPatch) -> 
 
     shown: list[tuple[str, BaseException]] = []
     monkeypatch.setattr(
-        app_module, "_show_fatal_dialog", lambda title, exc: shown.append((title, exc))
+        app_module,
+        "_show_fatal_dialog",
+        lambda title, exc, **_kw: shown.append((title, exc)),
     )
 
     original = sys.excepthook
@@ -1283,6 +1291,355 @@ def test_a_second_fatal_error_does_not_open_a_second_dialog(qapp) -> None:
         "the re-entrancy guard latched ON: a later, unrelated fatal error got no "
         "dialog at all. It must clear when the first dialog closes."
     )
+
+
+# --- An unattended run's fatal dialog closes itself (maintainer, 2026-09-27) --
+#
+# The re-entrancy guard above stops a second dialog; it never did anything about
+# the FIRST, which on the rig parked a `--run-script` batch until somebody clicked
+# OK. These drive the REAL `QMessageBox.exec()` — a genuine nested event loop,
+# which is exactly where the product's timers must fire — with the timeout
+# shortened, and a test-owned watchdog that closes anything still open so a
+# regression fails the test instead of hanging the session.
+
+
+def _raised(message: str) -> ValueError:
+    """A REALLY raised exception, so `__traceback__` has a frame to name.
+
+    A constructed-but-never-raised exception has no traceback, and "the traceback
+    was logged" would then pass on the single `ValueError: …` line that the `%s`
+    in the message already prints — satisfied by the wrong thing.
+    """
+
+    def _crashing_step() -> None:
+        raise ValueError(message)
+
+    try:
+        _crashing_step()
+    except ValueError as exc:
+        return exc
+    raise AssertionError("unreachable: _crashing_step always raises")
+
+
+def _record_real_exec(monkeypatch: pytest.MonkeyPatch) -> list[QMessageBox]:
+    """Wrap the REAL `QMessageBox.exec` so each dialog it opens is recorded.
+
+    Recording and then calling through, not replacing: the thing under test is
+    what happens INSIDE the real nested loop, so a stand-in `exec` that returned
+    at once would pass whether or not any timer existed.
+    """
+    from PySide6.QtWidgets import QMessageBox
+
+    opened: list[QMessageBox] = []
+    real_exec = QMessageBox.exec
+
+    def _recording_exec(self: QMessageBox) -> int:
+        opened.append(self)
+        return int(real_exec(self))
+
+    monkeypatch.setattr(QMessageBox, "exec", _recording_exec)
+    return opened
+
+
+def _watchdog(opened: list[QMessageBox], after_ms: int) -> tuple[QTimer, list[str]]:
+    """A test-owned single-shot timer that closes any recorded dialog still open.
+
+    Returns the timer (the caller MUST stop it, or it outlives the test) and a
+    list of the informative text each dialog it rescued was showing. A non-empty
+    list means the dialog did NOT close by itself.
+    """
+    from PySide6.QtCore import QTimer
+
+    rescued: list[str] = []
+
+    def _close_what_is_still_open() -> None:
+        for box in opened:
+            if box.isVisible():
+                rescued.append(box.informativeText())
+                box.done(0)
+
+    timer = QTimer()
+    timer.setSingleShot(True)
+    timer.setInterval(after_ms)
+    timer.timeout.connect(_close_what_is_still_open)
+    timer.start()
+    return timer, rescued
+
+
+def _messages(caplog: pytest.LogCaptureFixture, needle: str) -> list[logging.LogRecord]:
+    return [r for r in caplog.records if needle in r.getMessage()]
+
+
+def test_the_countdown_notice_says_it_closes_by_itself_and_why() -> None:
+    """The sentence an operator glancing at the rig reads. Three facts, all
+    required: it closes BY ITSELF, WHY, and that the error is not lost."""
+    notice = app_module._unattended_dismiss_notice(42)
+    assert "close by itself in 42 s" in notice
+    assert "--run-script" in notice and "unattended" in notice
+    assert "traceback" in notice and "log" in notice
+
+
+def test_on_a_run_script_launch_the_fatal_dialog_closes_itself(
+    qapp: object, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`unattended=True`: it counts down, logs why and the traceback, flushes,
+    and only THEN closes — by itself, with nothing left ticking or leaked."""
+    import gc
+    import time
+    import weakref
+
+    from PySide6.QtCore import Qt, QTimer
+    from PySide6.QtWidgets import QLabel, QMessageBox
+
+    from platterpus import hard_exit
+
+    monkeypatch.setattr(app_module, "UNATTENDED_FATAL_DIALOG_TIMEOUT_S", 0.4)
+    monkeypatch.setattr(app_module, "_FATAL_DIALOG_COUNTDOWN_TICK_MS", 50)
+    opened = _record_real_exec(monkeypatch)
+
+    # Every informative text the dialog is given — the initial one and each
+    # countdown refresh. Recorded at the class so the product's own calls land here.
+    texts: list[str] = []
+    real_set_informative = QMessageBox.setInformativeText
+
+    def _recording_set_informative(self: QMessageBox, text: str) -> None:
+        texts.append(text)
+        real_set_informative(self, text)
+
+    monkeypatch.setattr(QMessageBox, "setInformativeText", _recording_set_informative)
+
+    # ORDER is the claim: logged, then flushed, then closed. So the flush records
+    # whether the dialog is still up and whether the reason is already logged.
+    flushes: list[tuple[bool, bool]] = []
+
+    def _recording_flush() -> None:
+        box = opened[0]
+        flushes.append((box.isVisible(), bool(_messages(caplog, "closed by itself"))))
+
+    monkeypatch.setattr(hard_exit, "flush_logs", _recording_flush)
+
+    exc = _raised("the crash an unattended batch hit")
+    watchdog, rescued = _watchdog(opened, 10_000)
+    started = time.monotonic()
+    try:
+        with caplog.at_level(logging.WARNING):
+            app_module._show_fatal_dialog("Platterpus — error", exc, unattended=True)
+    finally:
+        watchdog.stop()
+    elapsed = time.monotonic() - started
+
+    assert not rescued, (
+        "the fatal dialog on a --run-script launch did NOT close by itself; the "
+        "test's watchdog had to close it. An unattended batch parks here forever."
+    )
+    assert len(opened) == 1, f"{len(opened)} dialogs opened, not 1"
+    # It WAITED: a dialog that vanished at once would give an operator who is
+    # watching no chance to read it. 0.4 s shortened timeout, PreciseTimer.
+    assert elapsed >= 0.3, f"closed after {elapsed:.3f}s — it did not wait"
+
+    closed = _messages(caplog, "closed by itself")
+    assert len(closed) == 1, [r.getMessage() for r in caplog.records]
+    reason = closed[0].getMessage()
+    assert "--run-script" in reason and "unattended" in reason, reason
+    assert "the crash an unattended batch hit" in reason, reason
+    assert closed[0].levelno == logging.ERROR
+    # The traceback, not merely the exception line: the raising frame is named.
+    assert closed[0].exc_info is not None and closed[0].exc_info[1] is exc
+    formatted = logging.Formatter().formatException(closed[0].exc_info)
+    assert "_crashing_step" in formatted, formatted
+    assert _messages(caplog, "will close by itself"), "the countdown start is logged"
+
+    assert flushes == [(True, True)], (
+        "the log must be flushed exactly once, AFTER the reason was logged and "
+        f"BEFORE the dialog closed; got (visible, reason_logged) = {flushes}"
+    )
+
+    notices = [t for t in texts if "close by itself" in t]
+    # >= 2, not the ~8 an idle machine gives (400 ms / 50 ms): the initial text
+    # plus at least one refresh proves the countdown runs, and a loaded CI leg
+    # may coalesce ticks.
+    assert len(notices) >= 2, (
+        "the dialog must SAY it will close by itself while it counts down — the "
+        f"initial text plus at least one refresh; got {texts}"
+    )
+    assert all("Details were written to" in t for t in notices), texts
+
+    box = opened[0]
+    # Rule #12: the countdown shares a label with the log path, and the box's
+    # message is external text. Both labels must be PlainText (measured on
+    # PySide6 6.11.2: the informative label follows `setTextFormat`).
+    assert box.textFormat() == Qt.TextFormat.PlainText
+    informative_label = box.findChild(QLabel, "qt_msgbox_informativelabel")
+    assert informative_label is not None
+    assert informative_label.textFormat() == Qt.TextFormat.PlainText
+
+    # The fix's own new state: the guard is clear, nothing is left ticking, and
+    # the timers' closures no longer pin the box alive.
+    assert app_module._fatal_dialog_open is False
+    assert [t for t in box.findChildren(QTimer) if t.isActive()] == []
+    # THIS box, by weak reference — not a count of top-level widgets, which an
+    # unrelated earlier test's deferred delete could move in either direction.
+    box_ref = weakref.ref(box)
+    del box, informative_label
+    opened.clear()
+    gc.collect()
+    assert box_ref() is None, (
+        "an auto-closed fatal dialog stayed alive as a hidden top-level widget — "
+        "the timers' slots close over it, and a Qt connection is a reference the "
+        "garbage collector cannot see"
+    )
+
+
+def test_without_run_script_the_fatal_dialog_waits_for_a_click(
+    qapp: object, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A person driving: the dialog stays modal and waits, exactly as before —
+    even with the timeout shortened to 50 ms, it is still up 16x later."""
+    from PySide6.QtCore import QTimer
+
+    monkeypatch.setattr(app_module, "UNATTENDED_FATAL_DIALOG_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(app_module, "_FATAL_DIALOG_COUNTDOWN_TICK_MS", 10)
+    opened = _record_real_exec(monkeypatch)
+    watchdog, rescued = _watchdog(opened, 800)
+    try:
+        with caplog.at_level(logging.WARNING):
+            app_module._show_fatal_dialog("Platterpus — error", _raised("attended"))
+    finally:
+        watchdog.stop()
+
+    assert len(rescued) == 1, (
+        "the fatal dialog closed by itself on a launch WITHOUT --run-script; a "
+        "person driving the app must get a dialog that waits for them"
+    )
+    assert "close by itself" not in rescued[0], rescued[0]
+    assert not _messages(caplog, "closed by itself")
+    assert not _messages(caplog, "will close by itself")
+    box = opened[0]
+    assert box.findChildren(QTimer) == [], "a person's dialog got timers"
+
+
+def test_a_second_fatal_error_during_the_countdown_is_logged_not_stacked(
+    qapp: object, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The re-entrancy guard holds for the WHOLE countdown, and the second error
+    does not disturb the first dialog's deadline."""
+    from PySide6.QtCore import QTimer
+
+    monkeypatch.setattr(app_module, "UNATTENDED_FATAL_DIALOG_TIMEOUT_S", 0.4)
+    monkeypatch.setattr(app_module, "_FATAL_DIALOG_COUNTDOWN_TICK_MS", 50)
+    opened = _record_real_exec(monkeypatch)
+
+    # Fires INSIDE the first dialog's nested loop, which is how the real
+    # re-entry arrived: an exception escaping a callback Qt delivered there.
+    second = QTimer()
+    second.setSingleShot(True)
+    second.setInterval(100)
+    second.timeout.connect(
+        lambda: app_module._show_fatal_dialog(
+            "second", _raised("a second crash"), unattended=True
+        )
+    )
+    watchdog, rescued = _watchdog(opened, 10_000)
+    second.start()
+    try:
+        with caplog.at_level(logging.WARNING):
+            app_module._show_fatal_dialog(
+                "first", _raised("the first crash"), unattended=True
+            )
+    finally:
+        second.stop()
+        watchdog.stop()
+
+    dropped = _messages(caplog, "second fatal error while")
+    assert len(dropped) == 1 and "a second crash" in dropped[0].getMessage(), (
+        "the second error never arrived during the countdown, so this test "
+        f"proved nothing: {[r.getMessage() for r in caplog.records]}"
+    )
+    assert len(opened) == 1, f"{len(opened)} dialogs stacked during the countdown"
+    assert not rescued, "the first dialog stopped closing itself after the second"
+    closed = _messages(caplog, "closed by itself")
+    assert len(closed) == 1 and "'first'" in closed[0].getMessage()
+
+    # Not latched: a later, unrelated crash still gets a dialog (which closes
+    # itself too, so this needs no watchdog of its own beyond the one below).
+    watchdog, rescued = _watchdog(opened, 10_000)
+    try:
+        app_module._show_fatal_dialog("later", _raised("later"), unattended=True)
+    finally:
+        watchdog.stop()
+    assert len(opened) == 2 and not rescued
+
+
+def test_the_excepthook_hands_the_unattended_flag_to_the_dialog(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The hook is how nearly every fatal dialog opens, so the flag must reach it
+    — and the default must be the attended, waiting dialog."""
+    shown: list[bool] = []
+
+    def _recording(title: str, exc: BaseException, *, unattended: bool = False) -> None:
+        shown.append(unattended)
+
+    monkeypatch.setattr(app_module, "_show_fatal_dialog", _recording)
+    app_module._install_excepthook(unattended=True)
+    sys.excepthook(ValueError, ValueError("unattended"), None)
+    app_module._install_excepthook()
+    sys.excepthook(ValueError, ValueError("attended"), None)
+    assert shown == [True, False]
+
+
+@pytest.mark.parametrize(
+    ("launch", "expected"),
+    [
+        ("run-script", True),
+        ("plain", False),
+        # The saved config-autorun pair also runs a script, and is deliberately
+        # NOT unattended for this purpose: the maintainer's decision names the
+        # flag, which is the operator saying so for THIS launch.
+        ("config-autorun", False),
+    ],
+)
+def test_main_tells_both_fatal_dialog_callers_whether_it_runs_a_script(
+    qapp: object,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    launch: str,
+    expected: bool,
+) -> None:
+    """Through the real `main()`: the startup-failure dialog AND the excepthook
+    it installs both get `unattended` from `--run-script`, and from nothing else.
+    Startup is made to fail on purpose, which is also the one path where the
+    dialog is followed by `return 1` — asserted, since that is what a click led to.
+    """
+    from platterpus import config as config_module
+
+    monkeypatch.setattr(config_module, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / "config.toml")
+    monkeypatch.setattr(
+        "platterpus.logging_setup.configure_logging", lambda *a, **k: None
+    )
+    if launch == "config-autorun":
+        cfg = config_module.Config(
+            test_script_path=str(tmp_path / "saved.txt"), test_script_autorun=True
+        )
+        monkeypatch.setattr(config_module, "load", lambda: cfg)
+
+    def _bring_up_fails(cfg: object) -> object:
+        raise RuntimeError("bring-up failed on purpose")
+
+    monkeypatch.setattr("platterpus.composition.build_backend", _bring_up_fails)
+    calls: list[tuple[str, bool]] = []
+
+    def _recording(title: str, exc: BaseException, *, unattended: bool = False) -> None:
+        calls.append((title, unattended))
+
+    monkeypatch.setattr(app_module, "_show_fatal_dialog", _recording)
+    argv = ["--run-script", str(tmp_path / "s.txt")] if launch == "run-script" else []
+
+    assert app_module.main(argv) == 1
+    assert calls == [("Platterpus — startup failed", expected)]
+    sys.excepthook(ValueError, ValueError("a later crash"), None)
+    assert calls[-1] == ("Platterpus — error", expected)
 
 
 def test_the_unattended_quit_never_fires_while_a_rip_is_reading_the_disc(

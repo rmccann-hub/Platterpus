@@ -1173,7 +1173,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `latest-beta`. The resolver is its own module (`deps/ripper_latest.py`); what
     # lands here is the call, the refusal's exit, and three help-text lines naming the
     # keywords, beside the `target` resolution they feed.
-    "app.py": 1391,
+    # **1391 -> 1555 (2026-09-28)** (+164): on a `--run-script` launch the fatal-error
+    # dialog closes itself after `UNATTENDED_FATAL_DIALOG_TIMEOUT_S` (maintainer,
+    # 2026-09-27). It lives beside `_show_fatal_dialog` and its re-entrancy guard
+    # because the two interact: the guard must hold across the countdown, and the
+    # `finally` that clears it is the one that stops the timers and breaks the
+    # closure->box reference (measured: one leaked hidden QMessageBox per
+    # auto-close without it). A separate module would split one `finally` in two.
+    "app.py": 1555,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
