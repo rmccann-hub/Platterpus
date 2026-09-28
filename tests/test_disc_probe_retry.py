@@ -143,6 +143,33 @@ def test_a_due_retry_waits_for_the_drive_to_be_freed_and_the_wait_is_bounded() -
     assert BLOCKED_BY_FREEING in decision.error_text
 
 
+def test_while_the_drive_is_freed_the_panel_promises_no_time_and_says_it_once() -> None:
+    """Code review 2026-09-28 (R1): each 4 s wait for the drive-freeing kill left
+    the panel saying "trying again automatically in 4 s" for up to a minute."""
+    retries = DiscReadRetries()
+    retries.new_request()
+    freeing = replace(_READY, drive_being_freed=True)
+    first = retries.after_failure("/dev/sr0", _COLD, "x", freeing)
+    assert "once the drive has been freed" in first.retrying_text, first
+    assert " in 4 s" not in first.retrying_text
+    assert _COLD in first.retrying_text and "retry 1 of 2" in first.retrying_text
+    texts = [retries.when_due(freeing, _friendly).retrying_text for _ in range(3)]
+    assert texts == ["", "", ""], "the same line was re-announced every wait"
+
+
+def test_a_free_that_starts_after_the_failure_replaces_the_4_s_promise_once() -> None:
+    retries = DiscReadRetries()
+    retries.new_request()
+    first = retries.after_failure("/dev/sr0", _COLD, "x", _READY)
+    assert " in 4 s " in first.retrying_text, "the ordinary promise changed"
+    freeing = replace(_READY, drive_being_freed=True)
+    waits = [retries.when_due(freeing, _friendly) for _ in range(3)]
+    assert [d.action for d in waits] == [RETRY_LATER] * 3
+    assert "once the drive has been freed" in waits[0].retrying_text, waits[0]
+    assert _COLD in waits[0].retrying_text and "retry 1 of 2" in waits[0].retrying_text
+    assert [d.retrying_text for d in waits[1:]] == ["", ""]
+
+
 def test_a_due_retry_reads_once_the_drive_is_free() -> None:
     retries = DiscReadRetries()
     retries.new_request()

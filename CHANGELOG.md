@@ -145,6 +145,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   The disc panel said the drive reports no disc, and a few seconds later that line
   was replaced by an error about the disc you had just taken out. The retry now
   ends when the disc leaves, and the next disc you put in is read as usual.
+- **While Platterpus frees the drive before reading the disc again, the disc panel
+  no longer says it will try again in 4 seconds.** After a read that took too long,
+  the drive is freed first, which can take up to a minute, and the panel kept
+  promising a retry "in 4 s" the whole time. It now says it will try again once the
+  drive has been freed, and says it once rather than every four seconds.
 - **Every message box now shows its text exactly as written.** What a tool told
   us — a version, a build tag, an install error from its own output — could be
   read as formatting instead of shown: Qt's ready-made message boxes guess

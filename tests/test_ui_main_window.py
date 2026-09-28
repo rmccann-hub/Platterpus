@@ -6567,6 +6567,11 @@ def test_a_retry_never_starts_while_the_drive_is_still_being_freed(
         assert window._disc_retries.pending is not None
         assert window._disc_retries.pending.free_waits > 0
         assert len(retrying) == 1
+        # The one line shown makes no promise the wait broke (code review R1: it
+        # said "in 4 s" through up to a minute of waiting for the kill).
+        shown = window._disc_info_panel._mb_match_value.text()
+        assert "once the drive has been freed" in shown, shown
+        assert " in 4 s" not in shown, shown
 
         freed.set()
         assert process_until(lambda: _album_shown(window), timeout=10.0)

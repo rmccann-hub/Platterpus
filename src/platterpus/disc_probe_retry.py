@@ -111,6 +111,8 @@ class PendingRetry:
     failure: str
     #: How many times it has already waited for the drive to be freed.
     free_waits: int = 0
+    #: The panel already says it waits for the drive to be freed (said once).
+    says_freeing: bool = False
 
 
 @dataclass(frozen=True)
@@ -152,12 +154,15 @@ def retry_blocker(conditions: RetryConditions) -> str:
     return ""
 
 
-def retrying_text(message: str, retry_number: int) -> str:
+def retrying_text(message: str, retry_number: int, *, freeing: bool = False) -> str:
     """The panel's line while a retry is pending: what the app is doing, then the
-    failure in the ripper's own words (Critical rule #12)."""
+    failure in the ripper's own words (Critical rule #12). While the drive is
+    being freed the retry waits for that, up to a minute, so it promises no time.
+    """
     seconds = AUTO_RETRY_DELAY_MS // 1000
+    when = "once the drive has been freed" if freeing else f"in {seconds} s"
     return (
-        f"couldn't read the disc yet — trying again automatically in {seconds} s "
+        f"couldn't read the disc yet — trying again automatically {when} "
         f"(retry {retry_number} of {AUTO_RETRY_LIMIT}).\n"
         f"What happened: {message}"
     )
@@ -233,14 +238,15 @@ class DiscReadRetries:
                 error_text=given_up_text(friendly, blocker, self.retries_used + 1),
             )
         self.retries_used += 1
-        self.pending = PendingRetry(device, self.request, message)
+        freeing = conditions.drive_being_freed
+        self.pending = PendingRetry(device, self.request, message, says_freeing=freeing)
         return RetryDecision(
             RETRY_LATER,
             f"disc read of {device} failed; retrying automatically in "
             f"{AUTO_RETRY_DELAY_MS} ms (retry {self.retries_used} of "
             f"{AUTO_RETRY_LIMIT})",
             device=device,
-            retrying_text=retrying_text(message, self.retries_used),
+            retrying_text=retrying_text(message, self.retries_used, freeing=freeing),
         )
 
     def when_due(
@@ -257,11 +263,17 @@ class DiscReadRetries:
             return RetryDecision(STAND_DOWN, "no disc re-read is pending")
         blocker = retry_blocker(conditions)
         if blocker == BLOCKED_BY_FREEING and pending.free_waits < FREE_WAIT_CHECKS:
-            self.pending = replace(pending, free_waits=pending.free_waits + 1)
+            waits = pending.free_waits + 1
+            self.pending = replace(pending, free_waits=waits, says_freeing=True)
+            # The panel's "in 4 s" is false from here on (code review, 2026-09-28),
+            # so it is replaced ONCE; saying it every wait would re-announce it.
             return RetryDecision(
                 RETRY_LATER,
                 f"automatic re-read of {pending.device} waits: {blocker}",
                 device=pending.device,
+                retrying_text=""
+                if pending.says_freeing
+                else retrying_text(pending.failure, self.retries_used, freeing=True),
             )
         if blocker in PANEL_OWNED_ELSEWHERE:
             return RetryDecision(
