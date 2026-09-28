@@ -500,3 +500,236 @@ def test_every_committed_lap_still_counts_as_one() -> None:
         if not rd.counts_as_one_lap(path.read_text(encoding="utf-8"))
     ]
     assert not refused, f"the content test refuses committed laps: {refused}"
+
+
+# ---------------------------------------------------------------------------
+# `--check`: a declared digest, read back and recomputed (TASKS row 2778).
+#
+# Until this existed, every digest agreement this project reported was a person
+# comparing printed output with a value read out of a file by eye, for the one
+# field whose purpose is that a human cannot proofread it. Written from the fork's
+# published rule (their round 22 lap 5 §H2), not from their code, so the two
+# implementations stay independent.
+# ---------------------------------------------------------------------------
+
+#: The first round whose every declaration uses the construction this tool
+#: computes: the fork's method, adopted at round 15 lap 4. Our round 15 lap 2 used
+#: the hand construction it replaced, and is listed below rather than excluded.
+_METHOD_FROM_ROUND: Final[int] = 15
+
+#: Every declaration since then that does NOT reproduce, each with the reason we
+#: verified. **Compared for equality**, so a listed lap that starts matching is as
+#: loud as a new mismatch: a stale entry here would excuse the next failure at that
+#: path.
+_KNOWN_MISMATCHES: Final[dict[str, str]] = {
+    "outbound/round-15-lap-02.md": (
+        "ours, declared by the inbox-only hand construction that the fork's method "
+        "replaced at round 15 lap 4 (this module's docstring)"
+    ),
+    "outbound/round-27-lap-02.md": (
+        "ours, computed over the first copy of the fork's round-27 lap 1 "
+        "(sha256 f44de648..., filed at 183073bf); they re-released lap 1 as "
+        "c3a7a2a4... after it, and 3d3696c4dc884152 reproduces exactly over the "
+        "first copy"
+    ),
+}
+
+
+def _declared(tmp_path: Path, value: str) -> Path:
+    """A minimal one-lap file declaring ``value`` as its round digest."""
+    path = tmp_path / "round-99-lap-02.md"
+    path.write_text(
+        "HANDSHAKE-ROUND: 99\nHANDSHAKE-LAP: 2\nHANDSHAKE-FROM: platterpus\n"
+        f"HANDSHAKE-ROUND-DIGEST: {value}\n\n# lap\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+@pytest.mark.parametrize(
+    ("value", "state", "digest", "count"),
+    [
+        # Both spellings in the record, and the emphasised whole.
+        (
+            "sha256/16 = `7d71c2d922ae79ea` over 4 lap(s) — prose follows",
+            "parsed",
+            "7d71c2d922ae79ea",
+            4,
+        ),
+        (
+            "sha256/16 `8cca64201759ae74` **over 3 lap(s)**, then more prose",
+            "parsed",
+            "8cca64201759ae74",
+            3,
+        ),
+        (
+            "**sha256/16 = `01ba4719c80b6fe9` over 0 lap(s)**",
+            "parsed",
+            "01ba4719c80b6fe9",
+            0,
+        ),
+        # Declares nothing, in words, whatever hex follows in the prose.
+        (
+            "not computable in the file it covers — a digest over `aaaaaaaaaaaaaaaa`",
+            "none",
+            None,
+            None,
+        ),
+        ("sha256/16 recomputed after this file lands", "none", None, None),
+        # Names the construction, shows a digest, and cannot be read: FAILS.
+        ("sha256/16 = `7d71c2d922ae` over 4 lap(s)", "unparsed", None, None),
+        ("sha256/16 = `7d71c2d922ae79ea` across four laps", "unparsed", None, None),
+    ],
+)
+def test_a_declaration_is_read_head_first(
+    tmp_path: Path, value: str, state: str, digest: str | None, count: int | None
+) -> None:
+    rd = _module()
+    declaration = rd.read_declaration(_declared(tmp_path, value))
+    assert (declaration.state, declaration.value, declaration.count) == (
+        state,
+        digest,
+        count,
+    ), declaration
+
+
+def test_a_declaration_in_a_fence_is_quoted_not_stated(tmp_path: Path) -> None:
+    """A lap quoting another lap's header in a fence declares nothing by it."""
+    rd = _module()
+    path = tmp_path / "round-99-lap-02.md"
+    path.write_text(
+        "HANDSHAKE-ROUND: 99\nHANDSHAKE-LAP: 2\nHANDSHAKE-FROM: platterpus\n\n"
+        "```\nHANDSHAKE-ROUND-DIGEST: sha256/16 = 0123456789abcdef over 1 lap(s)\n```\n",
+        encoding="utf-8",
+    )
+    assert rd.read_declaration(path).state == "absent"
+
+
+def test_every_declared_digest_since_the_method_was_adopted_reproduces() -> None:
+    """The whole committed record, read back: every declaration since round 15
+    either reproduces from the laps we hold, or is listed above with its reason.
+    """
+    rd = _module()
+    rounds = sorted(
+        {
+            int(m.group("round"))
+            for d in rd._DIRECTIONS
+            for p in (rd._HANDSHAKE / d).glob("round-*-lap-*.md")
+            if (m := rd._LAP_NAME.match(p.name))
+        }
+    )
+    results = [r for n in rounds if n >= _METHOD_FROM_ROUND for r in rd.check_round(n)]
+    where = {
+        r: f"{r.declaration.path.parent.name}/{r.declaration.path.name}"
+        for r in results
+    }
+    unparsed = [where[r] for r in results if r.verdict == "UNPARSED"]
+    assert not unparsed, (
+        f"declarations that name sha256/16 and cannot be read: {unparsed}"
+    )
+    failed = {where[r]: r.render() for r in results if r.verdict == "MISMATCH"}
+    assert set(failed) == set(_KNOWN_MISMATCHES), (
+        f"unexplained mismatches: {sorted(set(failed) - set(_KNOWN_MISMATCHES))}; "
+        f"listed but now matching: {sorted(set(_KNOWN_MISMATCHES) - set(failed))}; "
+        f"{failed}"
+    )
+    # NON-TRIVIALITY: a reader that parsed nothing would pass everything above.
+    matched = sum(1 for r in results if r.verdict == "match")
+    assert matched >= 60, f"only {matched} declarations matched since round 15"
+
+
+def test_check_exits_by_the_round_it_reads(capsys: pytest.CaptureFixture[str]) -> None:
+    """`--check` is a gate: 0 for a round whose every declaration reproduces, 1 for
+    one that holds a mismatch, and it prints the line that failed."""
+    rd = _module()
+    assert rd.main(["22", "--check"]) == 0
+    assert "5 declared a digest, 0 failed" in capsys.readouterr().out
+    assert rd.main(["27", "--check"]) == 1
+    out = capsys.readouterr().out
+    assert "outbound/round-27-lap-02.md: declared 3d3696c4dc884152" in out
+    assert "MISMATCH" in out
+
+
+def _record(tmp_path: Path, laps: dict[str, str | None]) -> Path:
+    """A `docs/handshake` of `laps` (``direction/name`` -> digest field or None)."""
+    handshake = tmp_path / "handshake"
+    for direction in ("inbound", "outbound"):
+        (handshake / direction).mkdir(parents=True)
+    for relative, digest in laps.items():
+        lap = int(relative.split("-lap-")[1].split(".")[0])
+        sender = "cyanrip-fork" if relative.startswith("inbound/") else "platterpus"
+        field = f"HANDSHAKE-ROUND-DIGEST: {digest}\n" if digest is not None else ""
+        (handshake / relative).write_text(
+            f"HANDSHAKE-ROUND: 99\nHANDSHAKE-LAP: {lap}\nHANDSHAKE-FROM: {sender}\n"
+            f"{field}\n# lap\n",
+            encoding="utf-8",
+        )
+    return handshake
+
+
+@pytest.mark.parametrize(
+    ("laps", "status", "said"),
+    [
+        # A round with no laps at all: a typo'd round number reads like this.
+        ({}, 2, "has no laps in docs/handshake/inbound/ or docs/handshake/outbound/"),
+        # Laps, and not one declaration to compare.
+        (
+            {"inbound/round-99-lap-01.md": None, "outbound/round-99-lap-02.md": None},
+            3,
+            "2 lap(s), 0 declared a digest: NOTHING CHECKED",
+        ),
+        # A declaration that declares nothing is not a comparison either.
+        (
+            {"inbound/round-99-lap-01.md": "not computable in the file it covers"},
+            3,
+            "NOTHING CHECKED",
+        ),
+        # A failure outranks an empty check.
+        (
+            {"inbound/round-99-lap-01.md": "sha256/16 = `01ba4719c80b` over 0 lap(s)"},
+            1,
+            "0 declared a digest, 1 failed",
+        ),
+        # And the pass still passes: their lap 1's value over zero laps.
+        (
+            {
+                "inbound/round-99-lap-01.md": (
+                    "sha256/16 = `01ba4719c80b6fe9` over 0 lap(s)"
+                )
+            },
+            0,
+            "1 declared a digest, 0 failed",
+        ),
+    ],
+)
+def test_check_cannot_pass_by_finding_nothing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    laps: dict[str, str | None],
+    status: int,
+    said: str,
+) -> None:
+    """Review finding R17: `--check` exited 0 for a round with no laps, and for
+    one whose laps declare no digest, so a lap quoting its exit status as a
+    green digest check could rest on nothing having been compared. 0 now means
+    at least one declaration was read and every one reproduced."""
+    rd = _module()
+    monkeypatch.setattr(rd, "_HANDSHAKE", _record(tmp_path, laps))
+    assert rd.main(["99", "--check"]) == status
+    captured = capsys.readouterr()
+    assert said in captured.out + captured.err
+    if status != 0:
+        assert "0 failed" not in captured.out, "an empty check read as a pass"
+
+
+def test_check_of_the_record_s_rounds_without_declarations_is_not_a_pass(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """On the committed record, not a fixture: round 8 has laps and no digest
+    declaration (the field did not exist yet), and exited 0 before R17."""
+    rd = _module()
+    assert rd.main(["8", "--check"]) == rd.CHECK_NOTHING_DECLARED == 3
+    out = capsys.readouterr().out
+    assert "NOTHING CHECKED" in out
+    assert "lap(s), 0 declared a digest" in out

@@ -43,12 +43,12 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import subprocess
 import time
 from collections.abc import Callable
 
 from platterpus import diagnostics
+from platterpus.tool_paths import exported_tools_dir, resolve_tool
 
 log = logging.getLogger(__name__)
 
@@ -81,27 +81,33 @@ Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
 # When the GUI is launched from a desktop icon (not a shell), PATH can be
 # minimal and miss ~/.local/bin or even /usr/bin. Resolve these tools to an
 # absolute path so the force-stop doesn't silently no-op.
-_PKILL_FALLBACKS: tuple[str, ...] = ("/usr/bin/pkill", "/bin/pkill")
-_FUSER_FALLBACKS: tuple[str, ...] = ("/usr/bin/fuser", "/bin/fuser", "/usr/sbin/fuser")
-_EJECT_FALLBACKS: tuple[str, ...] = ("/usr/bin/eject", "/usr/sbin/eject", "/sbin/eject")
-_DISTROBOX_FALLBACKS: tuple[str, ...] = (
-    os.path.expanduser("~/.local/bin/distrobox"),
-    "/usr/bin/distrobox",
-    "/usr/local/bin/distrobox",
+#
+# THE SEARCH IS `tool_paths.find_tool`'s, and the DIRECTORIES are this module's
+# decision. The force-stop tools must be the HOST's: Critical rule #3's one
+# exception kills the reader device-scoped on the host first, and `~/.local/bin`
+# is where distrobox-export puts CONTAINER tools. So the host tools' lists leave it
+# out on purpose, `_host_tool` excludes it from PATH as well (PATH is searched
+# first, and a login session puts it there), and only `distrobox`, which is a host
+# tool that lives there when installed per user, searches it.
+# `tests/test_tool_paths.py` holds that split, by running the lookup.
+_HOST_TOOL_DIRS_PKILL: tuple[str, ...] = ("/usr/bin", "/bin")
+_HOST_TOOL_DIRS_FUSER: tuple[str, ...] = ("/usr/bin", "/bin", "/usr/sbin")
+_HOST_TOOL_DIRS_EJECT: tuple[str, ...] = ("/usr/bin", "/usr/sbin", "/sbin")
+_DISTROBOX_DIRS: tuple[str, ...] = (
+    os.path.expanduser("~/.local/bin"),
+    "/usr/bin",
+    "/usr/local/bin",
 )
 
 
-def _resolve(name: str, *fallbacks: str) -> str:
-    """Find an executable even under a minimal PATH. Falls back to common
-    absolute locations, then to the bare name (which FileNotFoundErrors if the
-    tool is genuinely absent — caught and treated as best-effort)."""
-    found = shutil.which(name)
-    if found:
-        return found
-    for candidate in fallbacks:
-        if os.path.exists(candidate):
-            return candidate
-    return name
+def _host_tool(name: str, dirs: tuple[str, ...]) -> str:
+    """``name`` as the HOST has it: PATH and ``dirs``, never the container exports.
+
+    If the host has none, the answer is its path in ``dirs[0]``, so running it
+    fails as "not found" and the force-stop moves on to the in-container step,
+    which is the order rule #3's exception allows.
+    """
+    return resolve_tool(name, dirs, exclude_dirs=(exported_tools_dir(),))
 
 
 # Per-command ceiling for the ordinary (off-GUI-thread) callers, where blocking
@@ -249,7 +255,7 @@ def eject_drive(device: str = "", runner: Runner | None = None) -> bool:
     claiming the disc was being ejected.
     """
     run = runner or _default_runner
-    argv = [_resolve("eject", *_EJECT_FALLBACKS), *([device] if device else [])]
+    argv = [_host_tool("eject", _HOST_TOOL_DIRS_EJECT), *([device] if device else [])]
     rc, output = _run_capture(argv, run)
     if rc == 0:
         log.info("ejected %s", device or "(default)")
@@ -308,7 +314,7 @@ def free_device_holders(
     if not device:
         return False
     run = runner or _default_runner
-    argv = [_resolve("fuser", *_FUSER_FALLBACKS), "-s", "-k"]
+    argv = [_host_tool("fuser", _HOST_TOOL_DIRS_FUSER), "-s", "-k"]
     if signal:
         argv.append(f"-{signal}")
     argv.append(device)
@@ -323,7 +329,7 @@ def kill_reader_on_host(runner: Runner | None = None) -> bool:
     rootless podman/Distrobox the in-container processes are host-visible, so
     this is the primary lever. Returns True if something was killed."""
     run = runner or _default_runner
-    pkill = _resolve("pkill", *_PKILL_FALLBACKS)
+    pkill = _host_tool("pkill", _HOST_TOOL_DIRS_PKILL)
     return _run_pkills([pkill], run)
 
 
@@ -334,7 +340,7 @@ def force_stop_in_container(
     exception), used only as a fallback when the host pkill matched nothing.
     Returns True if something was killed."""
     run = runner or _default_runner
-    distrobox = _resolve("distrobox", *_DISTROBOX_FALLBACKS)
+    distrobox = resolve_tool("distrobox", _DISTROBOX_DIRS)
     return _run_pkills([distrobox, "enter", container, "--", "pkill"], run)
 
 

@@ -35,9 +35,190 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   CLAUDE.md: `docs/testing.md` §5 (and a new §5.bw), `docs/cyanrip-handshake.md` §7.7,
   `docs/architecture.md` §3.2, §3.10, §3.12a and §6.3, `docs/ux-design-principles.md`
   and `PLANNING.md` KDD-20. Nothing was summarised away.
+- **The acceptance script's header shows what the Full run measured.** Beside its
+  "4 to 6 hours" it now names the two complete Full runs: 4h14m on 2026-09-22 and
+  5h33m on 2026-09-26.
+- **For contributors: 18 more of our sent laps are pinned to the bytes the fork
+  holds.** Nineteen laps from rounds 9 to 15 were known to be held by the fork but
+  never pinned. Their filed copies are in their public tree, so each was compared
+  there instead of asking. Eighteen are byte-identical and are now pinned. The
+  nineteenth, round 14 lap 18, is not: the fork holds the version we sent, and ours
+  was edited in place afterwards, on 2026-08-26, before the pin registry existed.
+  It stays unpinned, with that reason recorded.
+- **For contributors: the filename look-alike table is now checked against the fork's
+  contract.** `naming._VALUE_SANITISE` says it was read from the provider contract's
+  P7b table, and nothing compared the two. A test now reads P7b from the newest filed
+  contract and requires our table to equal its column for the pinned `-T` mode, in
+  both directions, with the quote left out. The parser fails loudly if the section
+  goes missing, the header changes or a row cannot be read.
+- **For contributors: the overwrite guard's match rule is fuzzed over the whole of
+  cyanrip's substitution table.** It was tested on one character and one glyph. Now
+  every rendering the fork's contract allows must be recognised, a difference where
+  nothing is substituted must be refused, and every (character, glyph) pair is also
+  checked one by one. The rule's comment no longer claims it accepts the `'` that
+  `-T simple` writes for `"`. It does not, on purpose: we pin `unicode`.
+- **For contributors: the doc-stamp release check now fails in CI instead of skipping
+  when git cannot answer.** It skipped whenever no release tag or diff was available.
+  CI checks out full history with tags, so there a skip meant the check had stopped
+  running while the run stayed green. It still skips on a local shallow clone. A fake
+  git now exercises both outcomes on every run.
+- **For contributors: every lap we have sent is now pinned to the bytes that were
+  sent.** Our copy of round 14 lap 18 had been edited in place a day after it was
+  sent, before the pin registry existed, and the fork holds the original. The file is
+  restored to the bytes we sent and pinned. Every line the edit added, including a §7
+  that never reached the fork, is kept word for word in the session log.
+- **For contributors: every workflow's default token is read-only.** `appimage.yml`
+  had no `permissions:` block, so it ran with the repository's default token, and
+  `release.yml` granted its four writes to the whole workflow. The AppImage build now
+  reads only, and the release workflow grants its writes to its one job, so a job
+  added later starts read-only. A new test holds every workflow to that shape. A
+  comment in `ci.yml` that said cloud sessions cannot trigger CI is corrected: this
+  project's sessions do.
+- **For contributors: two comments that described the code wrongly are corrected.**
+  The cyanrip adapter's comment beside `-T` still argued for `os_unicode`, although
+  the pinned mode is `unicode`, and the script runner said the test-script language
+  has no quoting, although it groups a double-quoted value into one argument.
+- **Two look-alike album folders now always get a question, even when both are
+  empty.** The rip would otherwise land in whichever one cyanrip picks, beside its
+  twin. With neither holding a rip, the prompt's title is "Which album folder?" and
+  it says neither holds one, rather than claiming the album was already ripped. One
+  empty folder still rips with no question.
+- **The two test tools are under Tools → Advanced.** *Run test script…* and *Run
+  acceptance test…* moved from Tools into an *Advanced* submenu, so the everyday items
+  come first. *Uninstall Platterpus…* stays in Tools. The User Guide, the rig-session
+  sheet and the rig-scripts guide name the new path.
+- **Set cover art from file… is on the album's right-click menu.** Right-click the disc
+  details above the track list, or press the Menu key on one of its values, to set a
+  cover image for the disc on screen. The same menu keeps *Copy* and *Select All*, and
+  *Copy* now copies the whole value when nothing is selected. For this release the item
+  is also still in Tools; that copy goes in 0.6.63. Its Alt-letter is now F.
 
 ### Fixed
 
+- **The "Album already ripped" check now looks in the folder the rip will
+  actually write to.** Two custom naming setups could overwrite a finished rip
+  without asking. If you edited the track template so its folder differed from
+  the disc template's, for example `%A/%d (%Y)/%t - %n`, the check looked in the
+  disc template's folder, which cyanrip never uses. And on disc 2 of a set with
+  `%N` in the folder name, it looked in disc 1's folder. It now uses the same
+  folder, year and disc number the rip itself sends cyanrip, and "Rip to a new
+  folder" checks the new folder the same way. A track template with no folder at
+  all rips into cyanrip's own default folder, `<album> [FLAC]`, and the check now
+  looks there too; "Rip to a new folder" numbers that folder.
+- **An empty folder no longer hides a finished rip from the "Album already
+  ripped" check.** For an album whose title has a `"` in it, cyanrip writes the
+  folder with a curly quote (`“` or `”`). If a folder with the plain `"` also
+  existed, for example left by an earlier unknown-disc rip, the check looked only
+  at that one, found it empty, and started the rip over the curly-quote folder
+  without asking. It now looks at every folder the rip could land in, and asks.
+- **Stopping a runaway drive after a cancel now uses your system's own tools
+  first, as intended.** To stop the drive, Platterpus stops whatever holds it
+  using the system's `fuser` and `pkill`, tries inside the ripping container only
+  if those found nothing, and then ejects with `eject`. If `~/.local/bin` was on your PATH,
+  which most login and desktop sessions arrange, a copy of one of these tools
+  exported from the container there could be used instead, so the first step ran
+  inside the container. Those tools are now always looked up outside
+  `~/.local/bin`, and a missing one fails cleanly instead of falling back to the
+  container's copy.
+- **`--run-script` now says how it matched the name you typed.** Typing
+  `--run-script fullacceptance` finds `fullacceptance.txt` by adding `.txt`, but
+  the explanation said the two names were the same "once separators and case are
+  ignored", which is not what happened. It now says "added .txt", or both when
+  both happened. And the folder you ran it from is listed once among the places
+  searched, not twice.
+- **For contributors: these release notes are checked for menu paths that do not
+  exist.** One note here still gave *Run acceptance test…* its old place directly
+  in the Tools menu, though this release moved it under Advanced, and another
+  named an *About* item the Help menu does not have. Both are corrected, and the test
+  that checks every menu path the app and its guides name now reads the
+  `[Unreleased]` section too. Released sections stay unchecked: they describe the
+  menu as it was.
+- **A disc that was read on the automatic second try is no longer read a third
+  time.** When the first read failed while the drive was still spinning up and the
+  automatic retry then read the disc, the next drive check could still take it for
+  a newly inserted disc: the log recorded an insertion that never happened, the
+  disc panel was cleared, and the disc was read and looked up again. A disc
+  Platterpus has just read now counts as being in the drive. A disc that only
+  becomes ready after every retry failed is still read as soon as the drive
+  reports it.
+- **Ejecting a disc while Platterpus waits to read it again cancels that retry.**
+  The disc panel said the drive reports no disc, and a few seconds later that line
+  was replaced by an error about the disc you had just taken out. The retry now
+  ends when the disc leaves, and the next disc you put in is read as usual.
+- **While Platterpus frees the drive before reading the disc again, the disc panel
+  no longer says it will try again in 4 seconds.** After a read that took too long,
+  the drive is freed first, which can take up to a minute, and the panel kept
+  promising a retry "in 4 s" the whole time. It now says it will try again once the
+  drive has been freed, and says it once rather than every four seconds.
+- **Opening a menu no longer wipes the dependency check's line from the status bar.**
+  The line saying a check is running, how it ended, or that the check at launch did
+  not finish vanished as soon as a menu was opened, although its tooltip kept the old
+  text. So a line telling you to open Tools → Setup & Updates… disappeared when you
+  did. It now stays until the next dependency line replaces it, and a later check
+  replaces it even when it runs in the background, so an old warning is not left
+  behind.
+- **For contributors: two comments no longer say `--doctor` checks dependencies
+  with no deadline.** The comment on the per-thread probe deadline in
+  `deps/checks.py` and the `check_all` docstring in `deps/manager.py` still said so
+  after `--doctor` began passing the app's own deadline, which would send someone
+  debugging a "check incomplete" line from `--doctor` looking in the wrong place.
+- **Every message box now shows its text exactly as written.** What a tool told
+  us — a version, a build tag, an install error from its own output — could be
+  read as formatting instead of shown: Qt's ready-made message boxes guess
+  whether text is HTML, and when the first line looked like a tag the whole
+  message was rendered as markup, silently joining its lines into one, dropping
+  anything in angle brackets it did not recognise, and turning `&amp;` into `&`.
+  The dependency check's summary, the update boxes and the read-offset boxes were
+  among the 38 that could do this. All of them now go through one module
+  (`ui/message_boxes.py`) that shows the text as plain text, with the same
+  buttons, default and answer as before, and a test refuses any new box built
+  the old way.
+- **For contributors: the message-box tests can no longer hang a test worker.**
+  Two tests in `tests/test_ui_message_boxes.py` opened a real message box with
+  nothing to close it, although the file says a watchdog closes anything left
+  open. A change that broke what they test (a box no longer closed along with its
+  window, or one missing its OK button) left the box waiting for a click, and
+  pytest ended the worker after five minutes as a crash instead of reporting a
+  failed test. Every test there now opens its box under a watchdog that closes
+  it after three seconds and fails the test, and a check in the same file refuses
+  a box opened without one.
+- **For contributors: the handshake document now says what the message-box check
+  covers.** `docs/cyanrip-handshake.md` §7.7f, which the cyanrip fork reads for the
+  rule on showing their output, still said the check covered 6 message boxes. It
+  covers the 10 functions that build one and, since 2026-09-28, also refuses Qt's
+  ready-made boxes anywhere but `ui/message_boxes.py`, which the 38 calls that used
+  them now go through. The section now says so, with the date beside each number,
+  and keeps the history of how the check came to exist.
+- **Text from outside the app now shows as written in every label built from it.**
+  A drive's name, a device path, a ripper build or a dependency's name could be
+  read as formatting instead of text. Qt guesses from a label's first line whether
+  it holds formatting, so a drive whose name contained `<i>…</i>` lost those
+  characters and turned italic, and a name containing `<corp>` made the drive
+  wizard show its own `<b>` tags around your offset. Every such label now says
+  whether it holds plain text or formatting, and where it holds formatting, each
+  value inside it is escaped first. Ordinary text looks exactly as before: each
+  changed dialog was compared label by label, before and after. A new test
+  refuses a label built from a value that does not say which it holds.
+- **For contributors: the label check now checks every value in a formatted
+  label, not only that one value was escaped.** `tests/test_labels_state_their_text_format.py`
+  passed a label that renders formatting as long as the function building it
+  called `html.escape` once, on anything. So an unescaped device path added beside
+  the drive wizard's escaped drive name would have passed, although the test's own
+  description, `docs/architecture.md` and `docs/cyanrip-handshake.md` §7.7f all
+  said every value was checked. It now follows each value in the formatting to
+  where it was set, including into the helper that builds it. Each value must be
+  escaped with `html.escape(...)`, be a number printed with a number format such
+  as `:+d`, be our own fixed text, or be a name that only ever holds one of
+  those. Twenty made-up cases must each fail and name the value at fault. Nothing
+  in the app changed: the three labels that render formatting already passed.
+- **The Uninstall window no longer shows `<b>` tags around "Never touched:".**
+  Tools → Uninstall Platterpus… showed its last line as `<b>Never touched:</b>
+  your music…`, tags and all, instead of in bold. Qt decides whether a label
+  holds formatting from its first line only, and this one's first line has none.
+  The label now says it holds formatting, so "Never touched:" is bold again and
+  the list above it keeps its line breaks. The label check now also looks at
+  labels with fixed text: one that holds formatting Qt would show as typed
+  characters must say which it holds.
 - **For contributors: the regex timing checks no longer fail on a busy runner.**
   The sweep that proves no pattern in `src/` stalls on long input confirmed a
   suspect by timing it again at the same sizes, inside the same noisy moment, so
@@ -70,6 +251,313 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **For contributors: a section CLAUDE.md points at must exist.** The trim above
   left 61 pointers such as "`docs/testing.md` §5.t". The existing check proved each
   named file existed. It did not check that the named section did.
+- **For contributors: `handshake.py --status` no longer prints deadlines for
+  finished rounds.** It printed a countdown or a "has PASSED" line for each of the
+  20 closed rounds since round 8, above the one open round's. Those lines are now
+  dropped where they are printed, and one line names the rounds it left out. The
+  close-by report still cannot reach the verdict, and a round whose state it
+  cannot read keeps its lines.
+- **Tagging finds metaflac in `~/.local/bin` when the app is launched from a desktop
+  icon.** A desktop launch does not always put `~/.local/bin` on the search path,
+  and that is where the setup wizard installs the container's tools. Every other
+  tool was also looked for there; metaflac alone was not, so tagging could fail on
+  a machine where it was installed. The three copies of the tool search are now
+  one. The drive force-stop tools still look only in the host's own directories,
+  never in `~/.local/bin`, which holds container tools.
+- **A test script's assertion can no longer pass on the command before a refused
+  one.** When a `cyanrip` step in a test script is refused, nothing runs, so the
+  next `expect-exit` or `expect-cyanrip` has nothing to check and says so. In round 8
+  that was fixed for the refusals that existed then. Two later paths skipped it:
+  an `(offset)` step with no drive offset set, and a `cyanrip` line that fails to
+  parse. On either, the next assertion checked the previous command instead, and
+  could pass for a command that never ran. Every `cyanrip` step now clears the
+  last result before it can be refused, so a refusal added later cannot bring
+  this back.
+- **`--install-ripper` prints one short line per container command.** The build,
+  install and verify scripts no longer fill the terminal: each appears as
+  `<N-line script, M chars: full text in the log file>`, and the log file still
+  records every command in full. A failing command's own output is still shown.
+- **For contributors: three of the ripper's error messages are now matched by their
+  own inventory entries.** Each of these formats contains a line break, which the
+  fork's contract writes as `\n`, the way C source does. The pattern treated it as
+  literal text, so it could never match anything cyanrip prints. Users still saw
+  these lines, through a similar entry or the opening-word fallback. Each pattern now
+  describes the message's first printed line. Found by a new property test: whatever
+  `printf` prints for a generated format must match the pattern built from that
+  format, and the function must never raise.
+- **A second MusicBrainz result can no longer open a second release picker while the
+  first is still waiting.** The picker waits for you inside its own event loop, and a
+  duplicate lookup result for the same disc could land in that loop before you had
+  answered. It opened another picker on top of the first, and whichever you answered
+  last replaced the tags the other had chosen. The open picker is now the only one,
+  and a new lookup after it closes, whether answered or cancelled, still asks again.
+- **A rescan no longer writes a warning into the log for normal operation.** Every
+  rescan stops the disc probe it replaces without waiting for it, by design, and the
+  log recorded that as `WARNING … did not stop within 0ms — abandoning it`, the same
+  line a worker that ignored a shutdown gets. It is now an INFO line saying the probe
+  was superseded by a newer one. Every other case where a worker is abandoned, such as
+  on shutdown or after a real timeout, is still a warning.
+- **`report.json` now carries the whole test script it ran.** A test-script run's
+  `report.json` kept only the first and last 10,000 characters of the script, with the
+  gap counted, under a comment saying the limit only applied to accidents. The
+  acceptance script is 69,020 characters, so each acceptance report held 29% of it.
+  The limit is now 256,000 characters, which every script shipped with the app fits
+  inside, and a test fails when one outgrows it. The report's shape is unchanged:
+  `script_source` is still one string.
+- **cyanrip's diagnostics record now reaches each rip's report bundle.** Every rip
+  asks cyanrip for a machine-readable `-j` record, and for a rip cyanrip refuses
+  before writing any log it is the only evidence there is. It is written at the top
+  of the rips folder, above the album folders, and the report bundle only read the
+  album folder, so the record was never sent. Each rip's bundle now collects it by
+  name from the rips folder, under `ripperdiagnostics/`. If the file is not there when
+  the bundle is built, the bundle's manifest says so. The record stays out of the
+  album folder, which still holds only the rip's `.log`, `.cue` and `.platterpus.json`.
+- **The "Album already ripped" prompt now appears when more than one existing folder
+  could be the album's.** A title with a straight quote can land as `a“b` or `a”b`,
+  and cyanrip's choice between them can't be predicted. When both folders existed,
+  Platterpus used to skip the check and rip without asking, even if one of them held a
+  finished rip. It now asks. The prompt lists every matching folder and marks which
+  ones already hold a rip. It offers only "Rip to a new folder" or Cancel: there is no
+  single folder to replace, so Replace isn't offered until the others are removed or
+  renamed. "Rip to a new folder" also skips any numbered folder whose look-alike
+  already holds a rip.
+- **A test script run with `--run-script` no longer stalls on a crash dialog.** If an
+  unexpected error happens during an unattended `--run-script` run, the error dialog
+  now says it will close by itself, then closes after 60 seconds. The run carries on as
+  if OK had been clicked. The reason it closed and the full traceback are written to
+  the log first. When you are using the app yourself, the dialog stays open until you
+  click OK, as before.
+- **A disc put in the drive is read even when the drive briefly can't report its
+  status.** The drive check treated an unreadable status as "no disc was here before".
+  A disc that came back through one was never read, and cycling the tray or restarting
+  the app was the only way out. The rig's log showed it: two removals, and no insertion
+  between them. The log now records what the drive reported whenever that changes.
+- **A disc that could not be read at first is read again automatically.** A failed
+  read (a slow first start of the ripping container, a disc still spinning up, the
+  container briefly refusing to start) used to leave an error and nothing else.
+  Platterpus now tries twice more, four seconds apart, and says so on screen. It waits
+  for the drive to be freed after a timeout, and never retries a read you stopped. If
+  the tray is empty it tells you to insert a disc, which is then read as soon as it
+  goes in. Any read that still fails ends with what to do: Rescan disc, or eject and
+  re-insert.
+- **The disc panel says what is happening instead of showing dashes.** After a disc is
+  removed it says the drive reports no disc and what to do (Rescan disc if the disc is
+  actually still in). After a disc is inserted it says it is reading it. The ripper's
+  own error text is always shown in full.
+- **Check dependencies gives up after two minutes instead of up to seven, and a check
+  that stops early says so.** Each tool's check waits up to a minute for the ripping
+  container, and seven tools in a row against a stuck container meant up to about
+  seven minutes before any answer. The whole check now stops at 120 seconds. A check
+  that stops early names the tools it did not check and why, and never lists them as
+  installed or missing, or says everything is installed. Help → About Platterpus…
+  and Help → Copy diagnostics… say the same.
+- **Check dependencies no longer looks dead while it works.** Tools → Setup & Updates…
+  → Check dependencies now says on the status bar that a check is running; the first
+  check of a session starts the ripping container and can take up to a minute. Its
+  button greys and reads "Checking dependencies…" until the result replaces both.
+  Clicking while a check is already running says so instead of doing nothing, and
+  shows that check's result when it finishes, even if it was the one started at
+  launch. If the result arrives while another dialog is open, the status bar says it
+  will be shown when that dialog closes, or, if it cannot be, where to find it. The
+  Setup & Updates line now updates when a check finishes, and names a missing tool
+  instead of showing "?".
+- **A test script's `open dependencies` no longer freezes the window.** It ran the
+  dependency check on the window's own thread, so while the ripping container
+  answered (a minute or more on a cold start) the window showed "Not Responding".
+  It now starts the same check as Setup & Updates → Check dependencies, off the
+  window's thread, and the step waits for the result. That wait is bounded by the
+  check's own deadline, so a script's next step still finds the summary on screen.
+  A test run stopped during any waiting step now records that step as stopped.
+  Before, the transcript had no row for it.
+- **`--doctor` no longer waits minutes on a stuck ripping container, and never
+  calls an unfinished check complete.** Its dependency line now stops at the same
+  deadline as the app's own check. If it stops early, the line reads "check
+  incomplete" and lists each tool it did not reach as not checked, neither present
+  nor missing. Before, a stuck container made it wait for every tool's own timeout
+  in turn, with nothing printed.
+- **For contributors: the handshake checker's R6 gate no longer refuses a lap for
+  recalling a correct pre-commit, and exempts a `GO` lap as it said.** The refusal
+  of a pre-commit that names its lap by number fired whenever "our lap N" came
+  anywhere before "is `GO` unless" in a sentence, so *Our lap 3 bound us: "our next
+  lap is `GO` unless …"*, whose subject is "our next lap", was refused. The fork's
+  round 21 lap 5 and our round 23 lap 4 have that shape, and either would have been
+  refused from round 29, a fork lap turning CI red. "Our lap N" now has to be the
+  subject: another lap, a quotation mark, a colon or a semicolon between them ends
+  the match. The whole record was scanned: the pattern still finds the three real
+  numbered pre-commits in it, each in a lap 1, which R6 does not bind. And a lap
+  whose own verdict is `GO` is now exempt from both halves of R6. Before, it was
+  exempt only from needing a pre-commit, though the entry for the gate under
+  *Added* says it is exempt.
+- **For contributors: the R6 gate reads LSL's own pre-commit, and a subject with a
+  version number in it.** A lap in LSL 2 or 3 can pre-commit as a `WILL` with
+  `verdict: GO` and `unless: X`, which `lap_language.py` accepts and holds its
+  author to. The handshake checker read only the prose sentence, so it refused that
+  lap as carrying no pre-commit, and two checkers of one seam disagreed about one
+  statement. It now reads the `WILL` with LSL's own parser, and refuses one whose
+  `when:` names our lap by number. And "Our next lap after v0.6.62 ships is `GO`
+  unless …" was also refused as carrying no pre-commit, because the dots in the
+  version stopped the match; a dot followed by a letter or digit no longer ends
+  the subject. Relabelled as round 29, no committed lap changes outcome for this.
+- **For contributors: the R6 gate counts LSL's structured pre-commit only in LSL 2
+  or 3.** It counted a `WILL` with `verdict: GO` and `unless:` in a lap of any LSL
+  version. LSL 1 does not define either field, so `lap_language.py` refuses that
+  `WILL` as malformed, and the handshake checker passed a pre-commit the lap's own
+  language refuses. Its refusal also told LSL 1 authors to use that form. It now
+  counts the `WILL` only where the lap's `LSL:` line switches amendment A2 on. The
+  refusal says "in LSL 2 or 3", read from LSL's own table of versions, and names
+  any `WILL` it did not count, with the reason. R6 binds from round 29, so no
+  committed lap changes outcome.
+- **For contributors: a quoted pre-commit no longer counts as a lap's own under
+  R6.** A lap that said *Our lap 3 bound us: "our next lap is `GO` unless the run
+  fails."* and promised nothing itself passed R6 as a HOLD lap, because the search
+  for a pre-commit found the quoted one. That is the lap R6 most needs a new
+  promise from: its X has happened. The search now sets aside text in double
+  quotation marks, straight or curly. Backticks, apostrophes and `>` blockquotes
+  are not quotation marks for this: `GO` is written in backticks, and the fork
+  sets out its own pre-commit in a blockquote. A quotation ends at a blank line,
+  so a stray `"` cannot hide the rest of a lap. Across the whole record of rounds
+  1-27, five laps lose their pre-commit this way, and each of them is quoting an
+  earlier lap's promise.
+- **For contributors: pressing Ctrl-C during `lap_language.py check --rerun` no
+  longer leaves the re-run running.** The command runs in its own session, so the
+  terminal's interrupt never reached it, and only a timeout killed it. Interrupted,
+  it ran on with no time limit while the checker removed the scratch checkout it
+  was running in. An interrupt now kills its whole process group, and waits a
+  bounded time for it to exit, before the checkout is removed.
+- **For contributors: `lap_language.py check --rerun` no longer leaves a scratch
+  checkout behind when one fails its check, and names what is left correctly.**
+  When `git worktree add` made the checkout but the check that it sits at the
+  lap's commit then failed, the checker forgot the checkout and never removed it,
+  and its report told a person to `git worktree remove` the scratch directory,
+  which is not a checkout. A lap whose `HANDSHAKE-FROM-COMMIT` named an annotated
+  tag did this every time: git checked out the commit the tag points at. Every
+  checkout made is now removed, a tag is reported as not a commit before anything
+  is checked out, and a leftover is named as a checkout or as a directory.
+- **For contributors: `lap_language.py check --rerun` now removes a scratch
+  checkout left locked by a `git worktree add` that timed out, and gives advice
+  git accepts.** git locks a new worktree until `worktree add` finishes. When the
+  add ran past its time limit, it was killed with the lock still on, and git
+  refuses to remove a locked worktree with a single `--force`. So the checker
+  left the checkout behind, and told the person to run `git worktree remove
+  --force <path>`, which git refused too. It now removes its own scratch checkouts
+  with `--force` twice, which git requires for a locked worktree. The report gives
+  the same command for any checkout that still will not go.
+- **For contributors: `lap_language.py check --rerun` no longer reports a failed
+  command as a plain match.** LSL 3's B1 compares a result's quoted strings with
+  what the command printed, and nothing else; "exit 0" in a result is prose. So a
+  tool that printed "10 failed" and exited 1 matched a lap claiming `"0 failed"`,
+  and `sha256sum` matched a quoted file name because its error message repeats
+  it. Both were counted as "re-run and matched" with no warning. They are still
+  matches, because the shared spec refuses only a quoted string that was not
+  printed. But each now gets an `UNCHECKED exit:` warning with its exit code, and
+  the report line counts them apart. Changing what B1 refuses is for both sides to
+  agree.
+- **For contributors: `round_digest.py --check` no longer passes when it checked
+  nothing.** It exited 0 for a round with no laps, such as a mistyped round number,
+  and for a round whose laps declare no digest, printing "0 failed" either way. It
+  now exits 2 when the round has no laps and 3 when no lap declares a digest, and
+  the summary says NOTHING CHECKED instead of "0 failed". Exit 0 now means at least
+  one declaration was compared and every one reproduced. On the committed record,
+  rounds 1-6 now exit 2 and rounds 7, 8 and 12 exit 3.
+- **The overwrite check no longer misses a folder over a stray space.** cyanrip
+  trims spaces and tabs from both ends of every folder name it writes. The check
+  that predicts the folder now does the same, so a naming template with a space at
+  either end of a folder name still finds the album already ripped there.
+- **"Which album folder?" no longer asks about a folder that does not exist.** An
+  artist can end up with two spellings on disk: a rip of an unknown disc writes
+  `AC/DC` as `AC-DC`, and cyanrip writes it as `AC∕DC`. The overwrite check then
+  treated a folder under the other spelling as a second possible destination,
+  even though it did not exist. So the first rip of a new album asked which folder
+  to use and offered only "Rip to a new folder" or Cancel. A re-rip lost its
+  Replace button. It now counts only folders that exist. When the one folder
+  there is a look-alike of the predicted name, the prompt says the rip *may*
+  overwrite it rather than that it will.
+- **For contributors: a drive test can no longer hang the suite on a real modal.**
+  `test_a_disc_that_returns_through_an_unreadable_check_is_read_and_shown` drives a
+  real disc read, whose MusicBrainz lookup finds no match. When that result landed
+  inside the test's event pump, the unknown-album dialog opened for real and
+  blocked the worker until faulthandler killed it, in one of two full runs on
+  2026-09-28. The dialog is stubbed as in the neighbouring tests, and the test now
+  waits for the read's thread to quit before it ends.
+
+### Added
+
+- **For contributors: `round_digest.py --check` reads a declared round digest back
+  and recomputes it.** Until now nothing did: every digest agreement reported in a
+  lap was a person comparing printed output with a value in a file. `--check`
+  reads each lap's declaration head-first, the fork's published rule, and exits 1
+  on a mismatch or on a declaration it cannot read. Run over the whole record since
+  round 15, two of ours do not reproduce, both explained: round 15 lap 2 used the
+  construction this method replaced, and round 27 lap 2 was computed over the
+  fork's first copy of their lap 1, which they later re-released.
+- **For contributors: the handshake checker enforces R6, from round 29.** R6
+  requires every lap from the fifth to say "our next lap is `GO` unless X", with X
+  an event, never a lap number. Nothing checked it, and most laps from the fifth in
+  the record carry no pre-commit in that form. `handshake.py --check` now refuses,
+  in both directions, a lap from the fifth with no pre-commit, and one whose
+  pre-commit names its lap by number ("our lap 15"). A lap whose own verdict is
+  `GO` is exempt. The rule starts at round 29, so no lap already sent changes
+  meaning, and it changes nothing the checker says about the current record.
+- **For contributors: `handshake.py --status` prints what each verdict rests on.**
+  The gate closes a round on two `GO` verdicts, which is the spec, so in round 24 it
+  read a round as closed while one `GO` rested on a condition not yet met. It now
+  prints each side's newest lap, whether that lap is released, its verdict, and its
+  stated basis. That covers every round not closed, and the newest closed one. The
+  basis is printed and never graded, and the exit status does not read it. A long
+  basis is cut, with the number of characters left out.
+- **For contributors: every `Handshake:` line the fork can print is tested.** The
+  five shapes are read from the fork's generator, not remembered, and each one is run
+  through our log reader and our approval cross-check. The fork's "draft" qualifier
+  is one of them. All five were already read correctly.
+- **For contributors: a new lap started from `handshake.py --emit` states the
+  maintainer's objective.** In round 8 the maintainer asked that every handshake
+  say the goal is to leave beta for a release users can test, but not at the expense
+  of quality. Our laps from rounds 20 to 24 said it once. The skeleton now carries
+  those words, and a test checks them against the lap they are quoted from.
+- **`--run-script fullacceptance` works with nothing downloaded.** If no copy of the
+  named script is in the folder you named, `~/Downloads`, `~/Desktop` or the current
+  folder, `--run-script` uses the copy shipped inside the app. It looks there last,
+  so a script you downloaded still wins. The log says which copy ran and, when yours
+  wins over a shipped one of the same name, whether the two differ. A bare name now
+  finds `name.txt` in each of those folders, not only the current one.
+- **`--install-ripper latest` and `latest-beta`** install the newest build the fork's
+  release manifest lists on its stable or beta channel, for a script that wants the
+  channel's newest build without naming a commit. The commit it resolves to is
+  printed first, and it installs exactly as `--install-ripper <commit>` would. It is
+  never the default, and if the manifest can't be read nothing is installed.
+- **For contributors: every submenu and the album menu are checked for Alt-letter
+  clashes and bare-key shortcuts.** The mnemonic check used to read the menu bar only
+  one level deep. It now covers every submenu and the disc panel's right-click menu. A
+  new test reads the shortcuts Qt actually bound on those actions, which catches a bare
+  key set through `QKeySequence(Qt.Key…)` that the source scan could not see.
+- **For contributors: the 0.6.63 version bump fails while Tools still has "Set cover art
+  from file…".** The Tools entry stays for one release so nobody loses it, and a test
+  now makes its removal part of cutting 0.6.63 rather than a comment to remember.
+- **For contributors: the docs-pointer sweep no longer reads a path cited into the
+  fork's tree as a dead link into ours.** A citation shaped
+  `cyanrip@<sha>:docs/…` names a file in the fork's repository; the sweep in
+  `tests/test_doc_index_completeness.py` now skips a path that directly follows
+  `cyanrip@<hex>:`, and a meta-test holds both halves.
+- **For contributors: `scripts/round_digest.py` is marked safe to re-run under the
+  lap language's B1** (`# LSL-RERUN: commit-only` on line 2). It reads only the
+  handshake folders of the checkout it runs in and runs no git command, so its
+  output can depend on nothing but the commit. It is the only file marked; a test
+  holds the set to it.
+- **For contributors: the lap checker reads `LSL: 3`**, which is LSL 2 plus the
+  fork's B1–B3. A `run:` must name the commit it ran at (an `at:` or the lap's
+  `HANDSHAKE-FROM-COMMIT`). A `GO` over a round that set no close condition is
+  refused. An `answers:` on a statement that carries no weight answers nothing.
+  With `--rerun` the checker repeats each `run:` whose command can depend only on
+  its commit, in a scratch worktree that is removed afterwards, and refuses one whose
+  quoted result it did not print. Without `--rerun` nothing is executed, and the
+  report says so. LSL 1 and LSL 2 laps are checked exactly as before.
+
+### Removed
+
+- **The overnight and morning shell scripts are retired.** Tools → Advanced → Run
+  acceptance test… does their whole job in the app: it holds sleep off, runs the
+  batch and packs every rip into one file. `platterpuscollect.sh` stays. `securereread.txt` now ends
+  by pointing at `--rig-session` instead of the retired morning script.
 
 ## [0.6.61] — 2026-09-27
 

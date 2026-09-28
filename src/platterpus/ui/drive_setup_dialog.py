@@ -29,6 +29,7 @@ exercise the result rendering without a live event loop.
 
 from __future__ import annotations
 
+import html
 import logging
 
 from PySide6.QtCore import Qt, QThread, Signal
@@ -187,13 +188,21 @@ class DriveSetupDialog(CenteredDialog):
                 "enter it by hand. On-disc auto-detection isn't available with "
                 "this backend."
             )
+        # Every label built from a value STATES its text format: Qt's default,
+        # AutoText, treats text as HTML when its first line happens to hold a
+        # known tag, so the choice would depend on the value inside it (CLAUDE.md
+        # Critical rule #12; tests/test_labels_state_their_text_format.py). The
+        # intro is our own prose, and its blank lines survive only as PlainText.
         intro = QLabel(intro_text, self)
+        intro.setTextFormat(Qt.TextFormat.PlainText)
         intro.setWordWrap(True)
         root.addWidget(intro)
 
+        # PlainText: the device path is the system's, not ours.
         self._device_label: QLabel = QLabel(
             f"Drive: {device or '(auto-detected)'}", self
         )
+        self._device_label.setTextFormat(Qt.TextFormat.PlainText)
         root.addWidget(self._device_label)
 
         # Primary path: if we already know this drive's offset from the
@@ -201,7 +210,9 @@ class DriveSetupDialog(CenteredDialog):
         # the user can save it in one click below without inserting a disc.
         # This sidesteps cyanrip's disc-based offset detection entirely.
         if known_offset is not None:
-            name = drive_label or "this drive"
+            # Escaped: the name is the drive's own vendor/model string, which the
+            # drive reports and we only pass on. It goes into markup below.
+            name = html.escape(drive_label or "this drive")
             verify_clause = (
                 " Auto-detect (Detect) is optional verification."
                 if self._can_detect
@@ -213,6 +224,11 @@ class DriveSetupDialog(CenteredDialog):
                 'click "Save offset" to use it. No disc needed.' + verify_clause,
                 self,
             )
+            # RichText on purpose: the sentence, the <b>…</b> around the offset
+            # (an int) and `verify_clause` are ours; the drive name is escaped
+            # above. Left to AutoText, a drive named "TSST <corp>" made Qt read
+            # the whole label as plain text and show the <b> tags literally.
+            suggestion.setTextFormat(Qt.TextFormat.RichText)
             suggestion.setWordWrap(True)
             root.addWidget(suggestion)
 

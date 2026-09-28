@@ -92,7 +92,8 @@ a container that is already running.
 2. **Update Platterpus to 0.6.61 first.** Then check **Tools → Setup & Updates…**: the
    cyanrip line should read `platterpus-fork-ge0471f4` (`0.9.4-rc2+platterpus.17`). If it
    reads anything else, **Check for cyanrip updates** offers `.17` as *"the build the
-   acceptance test needs"*; choose **Install it anyway**. Then **Tools → Run acceptance test…**, choose **Full**, and
+   acceptance test needs"*; choose **Install it anyway**. Then **Tools → Advanced → Run acceptance test…** (on 0.6.61 it is directly in
+   **Tools**), choose **Full**, and
    leave it. It holds sleep off, runs every section (4–6 hours), stops in its first
    seconds if the ripper is not the build under review, and puts your own settings back
    when it ends. **During the run, don't close any other Platterpus window or any

@@ -3870,6 +3870,66 @@ def test_the_close_by_report_refuses_a_bare_date_rather_than_assuming_midnight()
     assert "has PASSED" in passed, f"a past instant must say so; got {passed!r}"
 
 
+def test_status_prints_close_by_only_for_rounds_that_are_not_closed() -> None:
+    """TASKS row 1723: a countdown on a finished round is noise above the one that
+    matters, so `--status` drops it at the PRINT SITE, and counts what it dropped.
+
+    Three states are pinned: a CLOSED round's lines go; an OPEN round's stay; and a
+    round with no status line at all stays, so a round the filter cannot read is
+    never hidden. The dropped rounds are named on a line of their own, because a
+    list that shrank without saying so reads as "no other round declared one".
+    """
+    hs = _load()
+    status = [
+        "round-19: sent=yes returned=yes we-verified=yes they-verified=yes -> CLOSED",
+        "round-28: sent=yes returned=yes we-verified=NO they-verified=yes -> OPEN",
+    ]
+    close_by = [
+        "round 19 close-by: 2026-09-28T23:59:59Z, 1 day(s) remaining",
+        "round 19 close-by: set in lap 3, not lap 1 -- R2 says lap 1",
+        "round 28 close-by: 2026-10-24T23:59:59Z, 27 day(s) remaining",
+        "round 29 close-by: none declared -- R2 requires one in lap 1",
+    ]
+    printed = hs.close_by_lines_to_print(close_by, status)
+    assert not any(line.startswith("round 19 ") for line in printed), printed
+    assert "round 28 close-by: 2026-10-24T23:59:59Z, 27 day(s) remaining" in printed
+    assert "round 29 close-by: none declared -- R2 requires one in lap 1" in printed
+    assert printed[-1].startswith("close-by: not shown for 1 CLOSED round(s) (19)")
+    # Nothing to drop, nothing added: the count line appears only for a real drop.
+    assert hs.close_by_lines_to_print(close_by[2:], status) == close_by[2:]
+
+
+def test_status_on_the_real_record_counts_the_closed_rounds_it_leaves_out(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The same, through `main`, on the committed record, where rounds 8 to 27 are
+    CLOSED and each declared (or failed to declare) a close-by. The exit status is
+    still read from the verdict lines alone.
+    """
+    hs = _load()
+    status_exit = hs.main(["--status"])
+    out = capsys.readouterr().out
+    verdict_lines = hs.round_status()
+    assert status_exit == (
+        1
+        if any(ln.endswith("OPEN") for ln in verdict_lines)
+        or hs.illegal_transition_blockers(verdict_lines)
+        else 0
+    )
+    closed = [
+        int(m.group(1))
+        for ln in verdict_lines
+        if (m := re.match(r"^round-(\d+): .* -> CLOSED", ln))
+        and int(m.group(1)) >= hs.CLOSE_BY_FROM_ROUND
+    ]
+    # NON-TRIVIALITY: the record has closed rounds that declare a close-by, so the
+    # filter has something to drop.
+    assert len(closed) >= 10, closed
+    for num in closed:
+        assert f"round {num:2d} close-by:" not in out, num
+    assert f"not shown for {len(closed)} CLOSED round(s)" in out, out
+
+
 def test_close_by_is_attributed_to_the_earliest_lap_across_every_directory() -> None:
     """Round 20 §1, found by the fork in our code within hours of it shipping.
 
@@ -4275,3 +4335,466 @@ def test_wire_fields_is_cached_but_never_shares_its_result() -> None:
     # And the cache is real: the parse ran once for the three calls above.
     info = hs._parse_wire_fields.cache_info()
     assert info.hits >= 2, info
+
+
+# ---------------------------------------------------------------------------
+# R6: a pre-commit is mandatory from lap 5, and names an event, never a lap number
+# (TASKS row C5, "No R6 gate"). From round 29, so no sent lap changes meaning.
+# ---------------------------------------------------------------------------
+
+
+def _r6_lap(round_no: int, lap_no: int, body: str, verdict: str = "OPEN") -> str:
+    return (
+        f"HANDSHAKE-ROUND: {round_no}\nHANDSHAKE-LAP: {lap_no}\n"
+        f"HANDSHAKE-VERDICT: {verdict}\n\n# lap\n\n{body}\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("body", "verdict", "expect"),
+    [
+        # R6's own right form, and ours from round 28 lap 4.
+        (
+            "Our next lap is `GO` unless your run finds a defect in the pin.",
+            "OPEN",
+            None,
+        ),
+        (
+            "S33 WILL: Our lap after the Full run's bundle is committed to our tree "
+            "is `GO` unless our reading of it finds a defect.",
+            "OPEN",
+            None,
+        ),
+        # A peer's lap number INSIDE the event is R6's own example, and is fine.
+        (
+            "The first lap we send after receiving your lap 10 is **GO** unless it "
+            "shows a regression.",
+            "OPEN",
+            None,
+        ),
+        # Our round 28 laps 5 and 6, word for word: the subject is an event, and
+        # "our lap" followed by no number is not the numbered form.
+        (
+            "S46 WILL: Our lap after the Full run's bundle is committed to our tree "
+            "is `GO` unless …",
+            "OPEN",
+            None,
+        ),
+        # The form R6 forbids by name.
+        ("Our lap 15 is `GO` unless the rerun fails.", "OPEN", "names a lap NUMBER"),
+        ("Our lap 15, after the run, is `GO` unless X.", "HOLD", "names a lap NUMBER"),
+        # RECALLING a correct pre-commit is not making a numbered one (R12): the
+        # subject of "is GO unless" is "our next lap", after a colon and a quote.
+        # Nor is it making one at all (Q7): the quoted promise is an earlier
+        # lap's, so a lap whose only pre-commit text is the quotation carries
+        # none of its own. One problem, and it is not the numbered one.
+        (
+            'Our lap 3 bound us: *"our next lap is `GO` unless the run fails."*',
+            "HOLD",
+            "carries no pre-commit",
+        ),
+        (
+            'This honours the pre-commit our lap 2 made — *"our next lap is GO '
+            'unless the run fails"*.',
+            "OPEN",
+            "carries no pre-commit",
+        ),
+        # The same with curly quotes, and with a quotation that wraps a line, as
+        # the record's do.
+        (
+            "Our lap 3 bound us: “our next lap is `GO` unless the run fails.”",
+            "HOLD",
+            "carries no pre-commit",
+        ),
+        (
+            'Our lap 3 bound us: *"our next lap is `GO` unless\nthe run fails."*',
+            "HOLD",
+            "carries no pre-commit",
+        ),
+        # A recall beside the lap's OWN pre-commit, stated unquoted, passes.
+        (
+            'Our lap 3 bound us: *"our next lap is `GO` unless the run fails."* '
+            "It failed. Our next lap is `GO` unless the re-run fails too.",
+            "HOLD",
+            None,
+        ),
+        # A quotation INSIDE the lap's own pre-commit is not the pre-commit.
+        (
+            'Our next lap is `GO` unless the "Full" run fails.',
+            "HOLD",
+            None,
+        ),
+        # Backticks are code, not quotation marks, and a `"` in a code span
+        # opens no quotation that could swallow the pre-commit after it.
+        (
+            'The marker is `"`. Our next lap is `GO` unless the run fails, "as" '
+            "agreed.",
+            "HOLD",
+            None,
+        ),
+        # A stray `"` (an inch mark) can hide at most the rest of its own
+        # paragraph, never the pre-commit in the next one, even with another
+        # stray one after it for it to pair with.
+        (
+            'A 5" disc was used.\n\nOur next lap is `GO` unless the run fails.'
+            '\n\nThe next was a 12" one.',
+            "HOLD",
+            None,
+        ),
+        # And a `>` blockquote is how the fork sets out its OWN pre-commit
+        # (their round 21 lap 3), so it is not read as a quotation.
+        (
+            "> **Our next lap is `GO` unless the hardware session fails.**",
+            "HOLD",
+            None,
+        ),
+        # Absent from lap 5 on.
+        ("We have nothing to promise.", "OPEN", "carries no pre-commit"),
+        # Our reading: a lap that is itself GO has nothing left to promise, and
+        # is exempt from BOTH halves, as the CHANGELOG says (R12).
+        ("We have nothing to promise.", "GO", None),
+        ("Our lap 15 is `GO` unless the rerun fails.", "GO", None),
+    ],
+)
+def test_r6_refuses_a_missing_or_numbered_pre_commit(
+    body: str, verdict: str, expect: str | None
+) -> None:
+    hs = _load()
+    problems = hs.pre_commit_problems(
+        _r6_lap(29, 5, body, verdict), "round-29-lap-05.md"
+    )
+    if expect is None:
+        assert problems == [], problems
+    else:
+        assert len(problems) == 1 and expect in problems[0], problems
+
+
+def _relabelled(relative: str, **fields: str) -> str:
+    """A committed lap with some header fields rewritten, as if sent later."""
+    text = (_REPO_ROOT / "docs" / "handshake" / relative).read_text(encoding="utf-8")
+    for name, value in fields.items():
+        text, n = re.subn(
+            rf"(?m)^HANDSHAKE-{name}: .*$", f"HANDSHAKE-{name}: {value}", text
+        )
+        assert n == 1, (relative, name, n)
+    return text
+
+
+def test_r6_reads_the_record_s_recalled_pre_commits_as_recalls() -> None:
+    """Review findings R12 and Q7, on the record rather than a paraphrase of it.
+    The fork's round 21 lap 5 and our round 23 lap 4 each RECALL, in quotation
+    marks, a pre-commit an earlier lap made in R6's form, and make none of their
+    own. Sent in round 29 or later:
+
+    * as `GO` laps, as they were sent, neither is refused: a `GO` lap has
+      nothing left to promise;
+    * as HOLD laps, each gets exactly one problem, "carries no pre-commit". Not
+      the numbered-form refusal, which fired on both before R12 though the
+      subject of "is GO unless" is "our next lap"; and not a pass, which is what
+      R12's fix gave them, because the quotation stood in for a pre-commit of
+      their own (Q7). A HOLD lap that recalls a promise is the lap after its X
+      happened, and the one R6 most needs a fresh promise from.
+    """
+    hs = _load()
+    for relative, lap in (
+        ("inbound/round-21-lap-05.md", "5"),
+        ("outbound/round-23-lap-04.md", "5"),
+    ):
+        go = _relabelled(relative, ROUND="29", LAP=lap, VERDICT="GO")
+        assert hs.pre_commit_problems(go, relative) == [], relative
+        hold = _relabelled(relative, ROUND="29", LAP=lap, VERDICT="HOLD")
+        problems = hs.pre_commit_problems(hold, relative)
+        assert len(problems) == 1, (relative, problems)
+        assert "carries no pre-commit" in problems[0], (relative, problems)
+        assert "names a lap NUMBER" not in problems[0], (relative, problems)
+    # NON-TRIVIALITY, both halves: the recall is in each file, where the numbered
+    # form's old reading (anything after "our lap N" up to "is GO unless") still
+    # finds it, and where the pre-commit form finds it too until the quotations
+    # are set aside. So each file is a real recall, and it is the quotation that
+    # the presence half no longer counts.
+    old = re.compile(
+        r"\bour\s+lap\s+\d+\b[^.\n]{0,120}?\bis\s+[`*_]*GO[`*_]*\s+unless\b", re.I
+    )
+    for relative in ("inbound/round-21-lap-05.md", "outbound/round-23-lap-04.md"):
+        body = hs._unfenced_body(
+            (_REPO_ROOT / "docs" / "handshake" / relative).read_text(encoding="utf-8")
+        )
+        assert old.search(body), relative
+        assert hs._PRE_COMMIT.search(body), relative
+        assert not hs._PRE_COMMIT.search(hs._unquoted(body)), relative
+
+
+#: Every lap of rounds 1-27 whose only prose pre-commit text is inside quotation
+#: marks, so that setting quotations aside (Q7) takes away its pre-commit. Each
+#: was read, and each is a RECALL of an earlier lap's promise, or of R6's own
+#: form, not a promise of its own: round 8 lap 11 quotes its lap 9 (and restates
+#: its own across a line break, which the pattern does not read either way);
+#: round 21 lap 5 its lap 3; round 22 lap 5 R6's form; round 15 lap 7 its lap 6;
+#: round 23 lap 4 its lap 2.
+_QUOTED_ONLY_RECALLS: Final[frozenset[str]] = frozenset(
+    {
+        "inbound/round-08-lap-11.md",
+        "inbound/round-21-lap-05.md",
+        "inbound/round-22-lap-05.md",
+        "outbound/round-15-lap-07.md",
+        "outbound/round-23-lap-04.md",
+    }
+)
+
+#: The newest round whose laps are all sent, so the population below is closed.
+_Q7_CLOSED_TO_ROUND: Final[int] = 27
+
+
+def test_setting_quotations_aside_changes_presence_only_for_the_known_recalls() -> None:
+    """Q7's effect on the whole closed record, not a sample of it: across every
+    lap of rounds 1-27, the laps whose pre-commit disappears once quotations are
+    set aside are exactly the five recalls named above. So the change takes no
+    lap's OWN pre-commit away, which a quotation rule that also took backticks,
+    apostrophes or blockquotes would have done."""
+    hs = _load()
+    examined = 0
+    lost: set[str] = set()
+    for direction in ("inbound", "outbound"):
+        for path in sorted(
+            (_REPO_ROOT / "docs" / "handshake" / direction).glob("round-*.md")
+        ):
+            match = re.match(r"round-(\d+)", path.name)
+            if match is None or int(match.group(1)) > _Q7_CLOSED_TO_ROUND:
+                continue
+            examined += 1
+            body = hs._unfenced_body(path.read_text(encoding="utf-8", errors="replace"))
+            if hs._PRE_COMMIT.search(body) and not hs._PRE_COMMIT.search(
+                hs._unquoted(body)
+            ):
+                lost.add(f"{direction}/{path.name}")
+    # A floor, so an emptied or moved record cannot pass by finding nothing.
+    assert examined >= 150, examined
+    assert lost == _QUOTED_ONLY_RECALLS, sorted(lost ^ _QUOTED_ONLY_RECALLS)
+
+
+def test_r6_still_finds_every_numbered_pre_commit_in_the_record() -> None:
+    """The other direction: narrowing the numbered form must not lose a real one.
+    Every `our lap N is GO unless` the whole committed record holds, found by the
+    pattern as it now stands. Each is a lap 1, which R6 does not bind, so the gate
+    refuses none of them; the point is that the pattern still sees them. A floor,
+    not an equality, so a later lap 1 that makes one does not fail it."""
+    hs = _load()
+    found: set[str] = set()
+    for direction in ("inbound", "outbound"):
+        for path in sorted(
+            (_REPO_ROOT / "docs" / "handshake" / direction).glob("round-*.md")
+        ):
+            body = hs._unfenced_body(path.read_text(encoding="utf-8", errors="replace"))
+            if hs._PRE_COMMIT_BY_NUMBER.search(body):
+                found.add(f"{direction}/{path.name}")
+    assert {
+        "inbound/round-13-lap-01.md",
+        "inbound/round-18-lap-01.md",
+        "inbound/round-23-lap-01.md",
+    } <= found, found
+
+
+#: LSL's structured pre-commit (amendment A2), in the form `tests/
+#: test_lap_language.py` uses for it. The cases below add to it by concatenation,
+#: never by a call, so the population stays written out
+#: (`tests/test_dynamic_sweeps_declare_a_floor.py`).
+_A2_HEAD: Final[str] = "LSL: 3\n\nS2 WILL: Declare GO in our next lap.\n"
+_A2_GO_UNLESS: Final[str] = "  verdict: GO\n  unless: the Full run fails\n"
+#: The same WILL in LSL 1, which defines neither `verdict:` nor `unless:`, and
+#: in LSL 2, which switches A2 on (review finding Q6).
+_A2_HEAD_LSL1: Final[str] = "LSL: 1\n\nS2 WILL: Declare GO in our next lap.\n"
+_A2_HEAD_LSL2: Final[str] = "LSL: 2\n\nS2 WILL: Declare GO in our next lap.\n"
+
+
+@pytest.mark.parametrize(
+    ("body", "expect"),
+    [
+        # R15 (a): the structured form, which lap_language.py accepts and holds
+        # its author to, is a pre-commit here too.
+        (_A2_HEAD + "  owner: us\n  when: our next lap\n" + _A2_GO_UNLESS, None),
+        (_A2_HEAD_LSL2 + "  owner: us\n  when: our next lap\n" + _A2_GO_UNLESS, None),
+        # Q6: ... but only where A2 is in force. LSL 1 refuses both fields, so
+        # the same WILL in an LSL 1 lap is not a pre-commit, and the refusal
+        # says why.
+        (
+            _A2_HEAD_LSL1 + "  owner: us\n  when: our next lap\n" + _A2_GO_UNLESS,
+            "but this lap declares LSL 1, which does not define those fields",
+        ),
+        # ... and it names no lap NUMBER in its when:, or it is refused as one.
+        (
+            _A2_HEAD + "  owner: us\n  when: our lap 15\n" + _A2_GO_UNLESS,
+            "S2 WILL's when: 'our lap 15'",
+        ),
+        # Not R6's form: a HOLD, no X named, or a promise the author cannot make.
+        (
+            _A2_HEAD + "  owner: us\n  when: our next lap\n  verdict: HOLD\n"
+            "  unless: the Full run passes\n",
+            "carries no pre-commit",
+        ),
+        (
+            _A2_HEAD + "  owner: us\n  when: our next lap\n  verdict: GO\n",
+            "carries no pre-commit",
+        ),
+        (
+            _A2_HEAD + "  owner: them\n  when: our next lap\n" + _A2_GO_UNLESS,
+            "carries no pre-commit",
+        ),
+        # Quoted in a fence, it is quoted, not stated.
+        (
+            "```\n"
+            + _A2_HEAD
+            + "  owner: us\n  when: our next lap\n"
+            + _A2_GO_UNLESS
+            + "```\n",
+            "carries no pre-commit",
+        ),
+        # R15 (b): a dot that ends no sentence may stand in the subject...
+        ("Our next lap after v0.6.62 ships is `GO` unless the run fails.", None),
+        (
+            "Our lap 15, after v0.6.62 ships, is `GO` unless the run fails.",
+            "names a lap NUMBER",
+        ),
+        # ... and one that ends a sentence still stops it.
+        ("That lap is late. It is `GO` unless the run fails.", "carries no pre-commit"),
+    ],
+)
+def test_r6_reads_lsl_s_structured_pre_commit_and_a_dotted_subject(
+    body: str, expect: str | None
+) -> None:
+    """Review finding R15: R6 read only a one-line prose sentence with no dot in
+    its subject, so LSL's own pre-commit and "our next lap after v0.6.62 ships"
+    were both refused as carrying none."""
+    hs = _load()
+    problems = hs.pre_commit_problems(
+        _r6_lap(29, 5, body, "HOLD"), "round-29-lap-05.md"
+    )
+    if expect is None:
+        assert problems == [], problems
+    else:
+        assert len(problems) == 1 and expect in problems[0], problems
+
+
+#: Our round 28 laps 5 and 6's pre-commit, word for word, in the LSL 1 form they
+#: are written in: an unquoted sentence, with LSL 1's own WILL fields and no
+#: `verdict:` or `unless:`. Neither Q6 (the structured form counts only where A2
+#: is in force) nor Q7 (a quotation does not count) may refuse it.
+_OUR_ROUND_28_PRE_COMMIT: Final[str] = (
+    "LSL: 1\n\n"
+    "S46 WILL: Our lap after the Full run's bundle is committed to our tree is "
+    "`GO` unless our reading of it finds a defect in 0.6.62 or `.17` that breaks "
+    "the pin, or the run does not complete.\n"
+    "  owner: us\n"
+    "  when: once the Full run's bundle is committed to our tree\n"
+)
+
+
+@pytest.mark.parametrize("verdict", ["OPEN", "HOLD"])
+def test_r6_passes_our_round_28_lsl_1_pre_commit_word_for_word(verdict: str) -> None:
+    hs = _load()
+    lap = _r6_lap(29, 5, _OUR_ROUND_28_PRE_COMMIT, verdict)
+    assert hs.pre_commit_problems(lap, "round-29-lap-05.md") == []
+    # NON-TRIVIALITY: it is the sentence that passes it, not a WILL counted in
+    # fields (it has none of A2's, and LSL 1 is not A2's), and without the
+    # sentence the same lap is refused.
+    wills = hs._lsl_structured_wills(lap)
+    assert wills.version == 1 and wills.counted == () and wills.found == ()
+    bare = lap.replace("is `GO` unless", "is due, unless")
+    assert bare != lap
+    [problem] = hs.pre_commit_problems(bare, "round-29-lap-05.md")
+    assert "carries no pre-commit" in problem
+
+
+def test_r6_binds_from_lap_5_of_round_29_only() -> None:
+    """The floor, pinned on both axes, so a later edit cannot quietly widen it
+    over sent laps (a gate that refuses what was legal when sent rewrites the
+    record) or narrow it to nothing."""
+    hs = _load()
+    bare = "Nothing to promise."
+    assert hs.R6_GATE_FROM_ROUND == 29 and hs.R6_FROM_LAP == 5
+    assert hs.pre_commit_problems(_r6_lap(28, 9, bare), "x") == []
+    assert hs.pre_commit_problems(_r6_lap(29, 4, bare), "x") == []
+    assert hs.pre_commit_problems(_r6_lap(29, 5, bare), "x") != []
+    # A bad pre-commit QUOTED in a fence is quoted, not stated.
+    fenced = "```\nOur lap 15 is `GO` unless X.\n```\nOur next lap is `GO` unless X."
+    assert hs.pre_commit_problems(_r6_lap(29, 6, fenced), "x") == []
+
+
+def test_r6_runs_on_both_directions_of_check(tmp_path: Path) -> None:
+    """Wired into both checkers: a gate function with no caller is the failure
+    `check_outbound_paths`'s own docstring records."""
+    hs = _load()
+    for directory in ("outbound", "inbound"):
+        folder = tmp_path / directory
+        folder.mkdir()
+        path = folder / "round-29-lap-05.md"
+        path.write_text(
+            _r6_lap(29, 5, "Our lap 15 is `GO` unless X."), encoding="utf-8"
+        )
+        checker = (
+            hs.check_outbound_paths if directory == "outbound" else hs.check_inbound
+        )
+        assert any("R6" in p for p in checker(path)), directory
+
+
+def test_status_prints_what_each_verdict_rests_on_and_never_grades_it(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """ROUND-24 row: our gate read CLOSED on two GO verdicts while one of them
+    rested on an unmet condition. `--status` now prints each side's stated basis
+    beside the verdict, for every round not CLOSED and the newest CLOSED one, and
+    the exit status is still decided from the verdict lines alone."""
+    hs = _load()
+    status = hs.round_status()
+    lines = hs.verdict_source_lines(status)
+    states = {
+        int(m.group(1)): m.group(2)
+        for ln in status
+        if (m := re.match(r"^round-(\d+): .* -> ([A-Z-]+)", ln))
+    }
+    closed = sorted(n for n, s in states.items() if s == "CLOSED")
+    shown = {int(ln.split()[1]) for ln in lines}
+    expected = {n for n, s in states.items() if s != "CLOSED"} | set(closed[-1:])
+    assert shown == expected, (shown, expected)
+    # NON-TRIVIALITY: the record has a closed round older than the newest, which
+    # must NOT be shown, and each shown round prints a line per side.
+    assert len(closed) >= 2 and closed[-2] not in shown
+    for num in expected:
+        assert sum(1 for ln in lines if ln.startswith(f"round {num:2d} ")) == 2, num
+    assert all("rests on:" in ln for ln in lines)
+    hs.main(["--status"])
+    out = capsys.readouterr().out
+    assert all(ln in out for ln in lines)
+
+
+def test_a_long_verdict_source_is_cut_with_its_count(tmp_path: Path) -> None:
+    """Bounded, and the elision says how much it dropped."""
+    hs = _load()
+    (tmp_path / "outbound").mkdir()
+    (tmp_path / "inbound").mkdir()
+    source = "x" * (hs.VERDICT_SOURCE_PRINT_CHARS + 37)
+    (tmp_path / "outbound" / "round-40-lap-02.md").write_text(
+        "HANDSHAKE-ROUND: 40\nHANDSHAKE-LAP: 2\nHANDSHAKE-VERDICT: OPEN\n"
+        f"HANDSHAKE-VERDICT-SOURCE: {source}\n\n# lap\n",
+        encoding="utf-8",
+    )
+    lines = hs.verdict_source_lines(["round-40: sent=yes -> OPEN"], tmp_path)
+    assert len(lines) == 1 and lines[0].endswith("[... 37 more characters]"), lines
+
+
+def test_the_skeleton_states_the_maintainers_objective_in_their_words() -> None:
+    """TASKS row G12: round 8 lap 10 §A says the objective is carried into every
+    round after it, and rounds 20-24 carried it once. `--emit` states it, and each
+    quoted sentence is checked against the file it quotes, not against a copy."""
+    hs = _load()
+    assert hs.LEAVING_BETA_OBJECTIVE in hs.emit_outbound(29)
+    source = " ".join(
+        (_REPO_ROOT / "docs/handshake/verified/round-08-lap-10.md")
+        .read_text(encoding="utf-8")
+        .replace(">", " ")
+        .replace("*", " ")
+        .split()
+    )
+    assert len(hs.LEAVING_BETA_WORDS) == 2
+    for words in hs.LEAVING_BETA_WORDS:
+        assert words in hs.LEAVING_BETA_OBJECTIVE
+        assert " ".join(words.split()) in source, words

@@ -33,10 +33,55 @@ from typing import Final
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 MAIN_WINDOW: Final[Path] = REPO_ROOT / "src" / "platterpus" / "ui" / "main_window.py"
 
-#: `tools_menu.addAction("Run &acceptance test…")` — the label, as written.
-_TOOLS_ACTION: Final[re.Pattern[str]] = re.compile(
-    r'tools_menu\.addAction\(\s*"([^"]+)"', re.MULTILINE
+#: `advanced_menu.addAction("Run &acceptance test…")` — the menu it is added to
+#: (the variable's stem) and the label, as written.
+_MENU_ACTION: Final[re.Pattern[str]] = re.compile(
+    r'(\w+)_menu\.addAction\(\s*"([^"]+)"', re.MULTILINE
 )
+
+#: `advanced_menu = tools_menu.addMenu("&Advanced")` — a SUBMENU: its own stem,
+#: the menu it hangs from, and its title. A menu-bar menu (`menubar.addMenu`) does
+#: not match, because `menubar` is not a `*_menu` variable.
+#:
+#: **Why submenus are read at all (2026-09-27).** *Run test script…* and *Run
+#: acceptance test…* moved into Tools → Advanced ▸ (maintainer decision D4 A).
+#: This sweep used to read `tools_menu.addAction` only, so the move took both
+#: items out of what it read. The floor below noticed — four Tools items, and no
+#: acceptance action — which is what the floor is for; the fix is to read the
+#: submenu, not to lower the floor until the smaller count passes.
+_SUBMENU: Final[re.Pattern[str]] = re.compile(
+    r'(\w+)_menu\s*=\s*(\w+)_menu\.addMenu\(\s*"([^"]+)"', re.MULTILINE
+)
+
+
+def _menu_children() -> dict[str, list[tuple[str, str | None]]]:
+    """``{menu stem: [(label, submenu stem or None), …]}``, read from the source.
+
+    An ordinary action has ``None`` in the second slot; a submenu's title carries
+    the stem its own children are filed under, so the tree can be walked to any
+    depth.
+    """
+    text = MAIN_WINDOW.read_text(encoding="utf-8")
+    children: dict[str, list[tuple[str, str | None]]] = {}
+    for menu, label in _MENU_ACTION.findall(text):
+        children.setdefault(menu, []).append((label, None))
+    for child, parent, title in _SUBMENU.findall(text):
+        children.setdefault(parent, []).append((title, child))
+    return children
+
+
+def _labels_under(
+    menu: str, children: dict[str, list[tuple[str, str | None]]]
+) -> list[str]:
+    """Every label a person can click under ``menu``: its items, each submenu's
+    title, and everything inside each submenu, at any depth."""
+    found: list[str] = []
+    for label, submenu in children.get(menu, []):
+        found.append(label)
+        if submenu is not None:
+            found += _labels_under(submenu, children)
+    return found
+
 
 #: Actions whose absence from the Guide is deliberate, each with its reason.
 #: Deliberately short: an allowlist is how a check like this rots into decoration,
@@ -49,9 +94,9 @@ _NOT_IN_THE_GUIDE: Final[dict[str, str]] = {
 
 
 def _menu_labels() -> list[str]:
-    """Every Tools-menu label, read from the source that builds the menu."""
-    text = MAIN_WINDOW.read_text(encoding="utf-8")
-    return [m.group(1) for m in _TOOLS_ACTION.finditer(text)]
+    """Every Tools-menu label, submenus included, read from the source that
+    builds the menu."""
+    return _labels_under("tools", _menu_children())
 
 
 def _searchable(label: str) -> str:
@@ -85,12 +130,24 @@ def test_the_menu_sweep_actually_finds_the_menu() -> None:
     # sections of Setup & Updates.) The floor exists to catch the regex silently
     # ceasing to match, so it has to track the real count; a floor nothing could
     # satisfy stops meaning anything.
-    assert len(labels) >= 6, (
+    # **7 from 2026-09-27**: the six items plus the *Advanced* submenu's title,
+    # which is a thing a person clicks too.
+    assert len(labels) >= 7, (
         f"only {len(labels)} Tools action(s) found in {MAIN_WINDOW.name}; the "
         "pattern has stopped matching and this file is measuring nothing"
     )
     assert any("acceptance" in label.lower() for label in labels), (
         f"the acceptance action is not in the swept menu: {labels}"
+    )
+    # The submenu half has its own floor, asserted here rather than inherited from
+    # the count above: that count could be met by Tools' direct items alone while
+    # the submenu pattern matched nothing.
+    children = _menu_children()
+    direct = [label for label, _sub in children.get("tools", [])]
+    nested = [label for label in labels if label not in direct]
+    assert len(nested) >= 2, (
+        f"no submenu items found under Tools ({labels}); the submenu pattern has "
+        "stopped matching, so the Advanced items are not being checked"
     )
 
 
@@ -118,6 +175,43 @@ def test_every_tools_action_appears_in_the_user_guide() -> None:
         + "\n(If an omission is deliberate, add it to _NOT_IN_THE_GUIDE with a "
         "reason — but read that dict's comment first.)"
     )
+
+
+def test_every_album_menu_action_appears_in_the_user_guide(qapp: object) -> None:
+    """The disc panel's right-click menu is a menu a person clicks, too.
+
+    **Why this is not left to the Tools sweep above.** *Set cover art from
+    file…* is in both places for 0.6.62 only; in 0.6.63 its Tools entry goes, and
+    from then on the album menu is its only home. The sweep above reads Tools, so
+    it would stop covering the item the day the transitional entry is removed —
+    the exact moment the Guide's description of the album menu matters most.
+
+    Read off the BUILT menu rather than the source, because the actions arrive
+    at run time (`DiscInfoPanel.set_album_actions`). The background menu is the
+    one read: it holds only the album's actions, not the value labels' own
+    Copy / Select All.
+    """
+    from conftest import stop_window_threads
+    from test_ui_main_window import _make_window
+
+    from platterpus.help_content import user_guide
+
+    window = _make_window(qapp)
+    try:
+        menu = window._disc_info_panel.album_menu()
+        labels = [action.text() for action in menu.actions() if action.text()]
+        menu.deleteLater()
+    finally:
+        stop_window_threads(window)
+        window.deleteLater()
+    assert labels, "the album menu offers nothing: the window handed it no actions"
+    guide = user_guide()
+    missing = [label for label in labels if _searchable(label) not in guide]
+    assert not missing, (
+        f"these album-menu actions are not in the in-app User Guide: {missing}"
+    )
+    # …and the Guide says where the menu IS, or naming the item finds nothing.
+    assert "right-click the disc details" in guide
 
 
 def test_the_guide_check_can_actually_fail() -> None:
@@ -185,19 +279,26 @@ SCRIPT_SETTINGS_BOX: Final[Path] = (
 )
 
 #: User-facing documents scanned in full. The chronological records (the session
-#: log, the CHANGELOG, `docs/archive/`, the handshake laps) are deliberately NOT
-#: here: they describe the menu as it was on their date, and rewriting history to
-#: match today's menu would be a falsified record.
+#: log, the CHANGELOG's released sections, `docs/archive/`, the handshake laps) are
+#: deliberately NOT here: they describe the menu as it was on their date, and
+#: rewriting history to match today's menu would be a falsified record. The
+#: CHANGELOG's `[Unreleased]` section is scanned (`_unreleased_notes`): it is not
+#: history yet.
 _USER_FACING_DOCS: Final[tuple[str, ...]] = (
     "README.md",
     "docs/hardware-test-checklist.md",
     "docs/test-plan.md",
     "docs/rig-session.md",
+    # The rig-scripts guide tells an operator which menu item to press, so it is
+    # an operator sheet like the rig session's, and it named the old path of
+    # both test tools four times when they moved under Advanced (2026-09-27).
+    "docs/rig-scripts/README.md",
 )
 
-_MENU_ACTION: Final[re.Pattern[str]] = re.compile(
-    r'(file|tools|help)_menu\.addAction\(\s*"([^"]+)"', re.MULTILINE
-)
+#: ``{item: its children}`` at any depth. An empty dict is a leaf: either a
+#: plain menu item, or an item whose further "→" is steps inside a dialog (see
+#: :func:`_menu_model`'s narrowing).
+MenuTree = dict[str, "MenuTree"]
 _SECTION_BUTTON: Final[re.Pattern[str]] = re.compile(r'\("([^"]+)",\s*"\w+"\)')
 _CONSOLE_BUTTON: Final[re.Pattern[str]] = re.compile(r'QPushButton\("([^"]+)"')
 _SETTINGS_ROW: Final[re.Pattern[str]] = re.compile(r'form\.addRow\(\s*"([^"]+?):?"')
@@ -216,13 +317,40 @@ def _norm(text: str) -> str:
     return _plain(text).casefold()
 
 
-def _menu_model() -> dict[str, dict[str, list[str]]]:
-    """``{menu: {item: [sub-item, …]}}``, read from the source that builds it.
+def _tree(menu: str, children: dict[str, list[tuple[str, str | None]]]) -> MenuTree:
+    """One menu's items as a :data:`MenuTree`, each submenu expanded in place."""
+    return {
+        _norm(_searchable(label)): ({} if sub is None else _tree(sub, children))
+        for label, sub in children.get(menu, [])
+    }
 
-    Sub-items are resolved for the three windows a path is written *into*:
-    Setup & Updates (its section buttons), the test-script console (its
-    buttons) and Settings (its row labels) — the last is what refuses
-    "Tools → Settings → Check dependencies".
+
+def _attach(tree: MenuTree, item: str, subs: MenuTree) -> int:
+    """Hang ``subs`` under ``item`` wherever it sits in ``tree``, at any depth.
+
+    Returns how many places it was hung, so the caller can insist on exactly one:
+    the console moved from Tools into Tools → Advanced on 2026-09-27, and a model
+    that pinned it to Tools by name would have stopped checking its buttons the
+    day it moved, without a word.
+    """
+    placed = 0
+    for key, child in tree.items():
+        if key == item:
+            tree[key] = subs
+            placed += 1
+        elif child:
+            placed += _attach(child, item, subs)
+    return placed
+
+
+def _menu_model() -> dict[str, MenuTree]:
+    """``{menu: MenuTree}``, read from the source that builds it.
+
+    Submenus are expanded to any depth (Tools → Advanced → Run test script…).
+    Below the menus, children are resolved for the three windows a path is
+    written *into*: Setup & Updates (its section buttons), the test-script
+    console (its buttons) and Settings (its row labels) — the last is what
+    refuses "Tools → Settings → Check dependencies".
 
     **The narrowing, written down rather than quietly scoped.** Under any OTHER
     item a further "→" is not checked, because what follows it there is a
@@ -231,27 +359,35 @@ def _menu_model() -> dict[str, dict[str, list[str]]]:
     menu path, and there is no source list of step names to resolve it against.
     The item itself is still checked.
     """
-    model: dict[str, dict[str, list[str]]] = {"file": {}, "tools": {}, "help": {}}
-    for menu, label in _MENU_ACTION.findall(MAIN_WINDOW.read_text(encoding="utf-8")):
-        model[menu][_norm(_searchable(label))] = []
-    center = [
-        _norm(_searchable(b))
+    children = _menu_children()
+    model: dict[str, MenuTree] = {
+        m: _tree(m, children) for m in ("file", "tools", "help")
+    }
+    center: MenuTree = {
+        _norm(_searchable(b)): {}
         for b in _SECTION_BUTTON.findall(SETUP_CENTER.read_text(encoding="utf-8"))
-    ]
+    }
     # The console's buttons, and those of its script-settings box (the startup
     # script's Choose / Use built-in / Clear), which is part of the same window.
-    console = [
-        _norm(_searchable(b))
+    console: MenuTree = {
+        _norm(_searchable(b)): {}
         for source in (SCRIPT_CONSOLE, SCRIPT_SETTINGS_BOX)
         for b in _CONSOLE_BUTTON.findall(source.read_text(encoding="utf-8"))
-    ]
-    settings = [
-        _norm(_searchable(row))
+    }
+    settings: MenuTree = {
+        _norm(_searchable(row)): {}
         for row in _SETTINGS_ROW.findall(SETTINGS.read_text(encoding="utf-8"))
-    ]
-    model["tools"][_norm("Setup & Updates")] = center
-    model["tools"][_norm("Run test script")] = console
-    model["tools"][_norm("Settings")] = settings
+    }
+    for item, subs in (
+        ("Setup & Updates", center),
+        ("Run test script", console),
+        ("Settings", settings),
+    ):
+        placed = _attach(model["tools"], _norm(item), subs)
+        assert placed == 1, (
+            f"{item!r} was found {placed} times under Tools, so its buttons are "
+            "not being checked; the menu moved and this model did not follow it"
+        )
     return model
 
 
@@ -288,7 +424,22 @@ def _user_facing_texts() -> dict[str, str]:
         texts[str(path.relative_to(REPO_ROOT))] = path.read_text(encoding="utf-8")
     for doc in _USER_FACING_DOCS:
         texts[doc] = (REPO_ROOT / doc).read_text(encoding="utf-8")
+    texts["CHANGELOG.md [Unreleased]"] = _unreleased_notes()
     return texts
+
+
+def _unreleased_notes() -> str:
+    """The CHANGELOG's ``[Unreleased]`` section, and nothing older.
+
+    The released sections are history and stay out (see `_USER_FACING_DOCS`).
+    This one is not yet: it becomes the next release's notes, which describe the
+    menu that release ships. It named `Tools → Run acceptance test…` after the
+    item had moved under Advanced in the same release (review R10, 2026-09-28).
+    """
+    text = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    start = text.index("## [Unreleased]")
+    end = text.index("\n## [", start + 1)
+    return text[start:end]
 
 
 def _longest_label_at(remainder: str, labels: list[str]) -> str | None:
@@ -304,27 +455,33 @@ def _longest_label_at(remainder: str, labels: list[str]) -> str | None:
     return best
 
 
-def _dead_paths(text: str, model: dict[str, dict[str, list[str]]]) -> list[str]:
-    """Each named menu path in ``text`` that does not lead anywhere, and why."""
+def _dead_paths(text: str, model: dict[str, MenuTree]) -> list[str]:
+    """Each named menu path in ``text`` that does not lead anywhere, and why.
+
+    Walks the path one "→" at a time, to any depth: a menu, a submenu, an item,
+    a button inside the window it opens. It stops, satisfied, at the first leaf
+    (see :func:`_menu_model`'s narrowing) or where the path stops naming things.
+    """
     dead: list[str] = []
     plain = _plain(text)
     for match in _PATH_START.finditer(plain):
-        menu = match.group(1).casefold()
         rest = plain[match.end() :].casefold()
         shown = f"{match.group(1)} → {rest[:50]}"
-        item = _longest_label_at(rest, list(model[menu]))
-        if item is None:
-            dead.append(f"{shown!r}: no such item in the {match.group(1)} menu")
-            continue
-        rest = rest[len(item) :].lstrip("…").lstrip()
-        if not rest.startswith("→"):
-            continue
-        rest = rest[1:].lstrip()
-        subs = model[menu][item]
-        if not subs:
-            continue  # steps inside a dialog — see _menu_model's narrowing
-        if _longest_label_at(rest, subs) is None:
-            dead.append(f"{shown!r}: no such button in {item!r}")
+        node = model[match.group(1).casefold()]
+        where = f"the {match.group(1)} menu"
+        while True:
+            item = _longest_label_at(rest, list(node))
+            if item is None:
+                dead.append(f"{shown!r}: no such item or button in {where}")
+                break
+            rest = rest[len(item) :].lstrip("…").lstrip()
+            if not rest.startswith("→"):
+                break
+            rest = rest[1:].lstrip()
+            node = node[item]
+            if not node:
+                break  # steps inside a dialog — see _menu_model's narrowing
+            where = repr(item)
     return dead
 
 
@@ -350,17 +507,24 @@ def test_the_menu_path_sweep_resolves_real_paths_and_rejects_dead_ones() -> None
     refuse each of the five shapes that shipped.
     """
     model = _menu_model()
-    # 6 Tools items since Diagnose drive access… moved into Setup & Updates, which
-    # took its section-button count from 7 to 8 (2026-09-24).
-    assert len(model["tools"]) >= 6 and len(model["tools"]["setup & updates"]) >= 8
+    # 5 direct Tools items since the two test tools moved into the Advanced
+    # submenu (2026-09-27; 6 before, when they were direct items and Advanced did
+    # not exist). Setup & Updates' section-button count went from 7 to 8 when
+    # Diagnose drive access… moved into it (2026-09-24).
+    assert len(model["tools"]) >= 5 and len(model["tools"]["setup & updates"]) >= 8
     assert len(model["tools"]["settings"]) >= 20, "the Settings rows were not read"
+    # The submenu is expanded, and the console's buttons hang under it.
+    advanced = model["tools"]["advanced"]
+    assert len(advanced) >= 2, f"the Advanced submenu was not read: {advanced}"
+    assert len(advanced["run test script"]) >= 6, "the console's buttons were not read"
     named = sum(
         len(_PATH_START.findall(_plain(text))) for text in _user_facing_texts().values()
     )
     assert named >= 30, f"only {named} menu paths found — the scan broke"
     for good in (
         "Tools → Setup & Updates… → Check dependencies.",
-        "**Tools → Run acceptance test…**",
+        "**Tools → Advanced → Run acceptance test…**",
+        "Tools -> Advanced -> Run test script... -> Load",
         "Tools -> Setup & Updates... -> Check for cyanrip updates",
         "Help → About Platterpus…",
     ):
@@ -371,8 +535,21 @@ def test_the_menu_path_sweep_resolves_real_paths_and_rejects_dead_ones() -> None
         "Tools → Diagnose entry",
         "Help → About",
         "Tools → Setup & Updates… → Re-detect…",
+        # The two paths the Advanced move retired, and a wrong submenu: the walk
+        # has to reach the second and third levels to refuse the last two.
+        "Tools → Run acceptance test…",
+        "Tools → Advanced → Uninstall Platterpus…",
+        "Tools → Advanced → Run test script… → Reload",
     ):
         assert _dead_paths(bad, model), f"accepted a dead path: {bad}"
+
+
+def test_the_sweep_reads_the_next_releases_notes_and_no_older_ones() -> None:
+    """The `[Unreleased]` section is scanned, and a released one is not."""
+    notes = _unreleased_notes()
+    assert notes.startswith("## [Unreleased]"), notes[:80]
+    assert "\n## [" not in notes, "a released section leaked into the scan"
+    assert _user_facing_texts()["CHANGELOG.md [Unreleased]"] == notes
 
 
 def test_no_user_facing_text_shows_a_qt_ampersand_escape() -> None:

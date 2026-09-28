@@ -21,6 +21,7 @@ from platterpus.deps.step_engine import (
     StepResult,
     StepStatus,
     SubprocessRunner,
+    console_argv,
     one_line_argv,
 )
 
@@ -258,3 +259,56 @@ class TestArgvIsLoggedOnOneLine:
         src = inspect.getsource(SubprocessRunner.run)
         assert "one_line_argv" in src, "the runner still joins argv raw"
         assert '" ".join(argv)' not in src
+
+
+class TestTheTerminalGetsASummaryOfTheArgv:
+    """`console_argv`: one SHORT line for the terminal, every elision counted.
+
+    The file keeps :func:`one_line_argv`'s exact record; this is what a person
+    reads between `--install-ripper`'s progress rows. The end-to-end half — that
+    the console handler actually prints this and the file does not — is in
+    `tests/test_logging_setup.py`.
+    """
+
+    SCRIPT = "set -eu\necho one\necho two\n"
+
+    def test_a_script_becomes_a_counted_marker(self) -> None:
+        shown = console_argv(["sh", "-c", self.SCRIPT, "build-cyanrip-fork"])
+        assert "\n" not in shown and "\\n" not in shown
+        assert "echo one" not in shown, f"the script body is on screen: {shown!r}"
+        assert "3-line script" in shown and f"{len(self.SCRIPT)} chars" in shown
+        assert "log file" in shown, "the elision does not say where the text is"
+        assert shown.startswith("sh -c <") and shown.endswith(" build-cyanrip-fork")
+
+    def test_a_long_single_line_argument_keeps_its_head_and_counts_the_rest(
+        self,
+    ) -> None:
+        long_arg = "x" * 1000
+        shown = console_argv(["echo", long_arg])
+        assert shown.startswith("echo " + "x" * 80)
+        assert "+920 chars" in shown, shown
+        assert len(shown) < 200
+
+    def test_an_ordinary_command_is_unchanged(self) -> None:
+        """The non-triviality floor in the other direction: a summariser that
+        replaced EVERY argument would pass the two tests above."""
+        argv = [
+            "distrobox",
+            "enter",
+            "ripping",
+            "--",
+            "distrobox-export",
+            "--bin",
+            "/x",
+        ]
+        assert console_argv(argv) == " ".join(argv)
+
+    def test_the_runner_gives_the_terminal_the_summary(self) -> None:
+        """A helper nothing calls is the shape this project has shipped before."""
+        import inspect
+
+        src = inspect.getsource(SubprocessRunner.run)
+        assert src.count("console_summary(") >= 3, (
+            "every argv-carrying record (start, timeout, failure) must carry a "
+            "terminal summary"
+        )

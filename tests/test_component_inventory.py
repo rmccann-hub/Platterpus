@@ -121,3 +121,28 @@ def test_check_again_waits_for_the_check_and_refreshes(qapp: QApplication) -> No
 
 def test_about_without_a_window_has_no_check_again(qapp: QApplication) -> None:
     assert AboutDialog()._recheck_button is None
+
+
+def test_about_names_the_tools_an_incomplete_check_did_not_reach() -> None:
+    """The rows are what was measured; the note is what was not.
+
+    Passed beside the inventory rather than inside it: the inventory is also the
+    acceptance bundle's components file, which crosses the handshake seam.
+    """
+    from platterpus.deps.manager import describe_unchecked
+
+    report = _report()
+    report.unchecked = [_NS(dep_id="metaflac", display_name="metaflac")]  # type: ignore[list-item]  # a stand-in spec
+    report.unchecked_reason = "the check stopped after 120 s"
+    dep_manager.remember_report(report)
+    try:
+        markdown = AboutDialog._build_markdown()  # production path: reads the store
+        assert "- cyanrip: 0.9.4 ✓" in markdown
+        assert "⚠ Check incomplete — 1 not checked: metaflac" in markdown
+        assert "stopped after 120 s" in markdown
+        # The note travels with the report, never with the inventory.
+        inventory = build_info.component_inventory(report)
+        assert "unchecked" not in str(sorted(inventory))
+        assert describe_unchecked(report) in markdown
+    finally:
+        dep_manager.remember_report(None)

@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# LSL-RERUN: commit-only
+# That line is LSL 3's B1 marker: our word that this tool's output depends only
+# on the commit it runs in, so a lap checker given `--rerun` may repeat a `run:`
+# of it at the commit the lap names. It holds because the tool reads nothing but
+# the lap files under `docs/handshake/` of the checkout it runs from (`_REPO_ROOT`
+# is this file's own grandparent) and hashes their bytes: it asks git nothing,
+# and reads no network, drive, clock or ref. Remove the marker if that changes.
 """Compute `HANDSHAKE-ROUND-DIGEST` — the cyanrip fork's method, adopted whole.
 
 **Why theirs and not ours.** Our round-15 lap 2 declared a digest computed by
@@ -295,6 +302,195 @@ def round_digest(
     return digest_of(rows), len(rows)
 
 
+#: `HANDSHAKE-ROUND-DIGEST: <value>` at column 0, in the unfenced text.
+_DIGEST_FIELD: Final[re.Pattern[str]] = re.compile(
+    r"^HANDSHAKE-ROUND-DIGEST:[ \t]*(?P<value>.*)$", re.MULTILINE
+)
+
+#: The declaration's HEAD, after inline markup is stripped from it: the value is
+#: the leading token sequence, and prose after it is ignored. Both spellings in the
+#: record read here: ``sha256/16 = `<hex>` over N lap(s)`` and the emphasised
+#: ``sha256/16 `<hex>` **over N lap(s)**`` that both sides used from round 21.
+_DECLARED_HEAD: Final[re.Pattern[str]] = re.compile(
+    r"^sha256/16\s+(?:=\s+)?(?P<value>[0-9a-f]{16})\s+over\s+(?P<count>\d+)\s+"
+    r"laps?(?:\(s\))?(?![\w(])"
+)
+
+#: How many leading whitespace tokens make the head. Six is the longest spelling
+#: (``sha256/16``, ``=``, the hex, ``over``, the count, ``lap(s)``); a shorter
+#: spelling's sixth token is prose, which the anchored pattern above ignores.
+_HEAD_TOKENS: Final[int] = 6
+
+#: Something shaped like a digest: eight or more hex characters in a row.
+_HEX_RUN: Final[re.Pattern[str]] = re.compile(r"\b[0-9a-fA-F]{8,}\b")
+
+#: The inline markup stripped from the head, and only from the head.
+_INLINE_MARKUP: Final[re.Pattern[str]] = re.compile(r"[*`_]")
+
+
+@dataclass(frozen=True)
+class Declaration:
+    """What one lap's `HANDSHAKE-ROUND-DIGEST` says, read head-first.
+
+    ``state`` is one of four, and the THIRD is the reason this exists. The fork's
+    own `--check` once printed the same sentence for "declares no digest" and
+    "declares one I could not read", and so skipped every declaration in round 22
+    and exited 0 (their round 22 lap 5 §H2):
+
+    * ``absent``: no such field;
+    * ``none``: the field is there and declares no machine-readable value, as
+      ``not computable in the file it covers`` does, and means;
+    * ``unparsed``: its head names ``sha256/16`` and no digest can be read from
+      it. **This fails**, so any future drift in the spelling is loud;
+    * ``parsed``: ``value`` and ``count`` are set.
+    """
+
+    path: Path
+    state: str
+    value: str | None
+    count: int | None
+    raw: str
+
+
+def read_declaration(path: Path) -> Declaration:
+    """Read ``path``'s declared digest. Never raises on the file's content."""
+    text = _unfenced(path.read_text(encoding="utf-8", errors="replace"))
+    match = _DIGEST_FIELD.search(text)
+    if match is None:
+        return Declaration(path, "absent", None, None, "")
+    raw = match.group("value").strip()
+    head = " ".join(
+        _INLINE_MARKUP.sub("", token) for token in raw.split()[:_HEAD_TOKENS]
+    )
+    parsed = _DECLARED_HEAD.match(head)
+    if parsed is not None:
+        return Declaration(
+            path, "parsed", parsed.group("value"), int(parsed.group("count")), raw
+        )
+    # UNPARSED needs a head that names the construction AND shows something shaped
+    # like a digest. A head of prose alone, such as round 13 lap 8's "sha256/16
+    # recomputed after this file lands", declares nothing and says so in words,
+    # which is `none`, the way "not computable in the file it covers" is.
+    if head.startswith("sha256/16") and _HEX_RUN.search(head):
+        return Declaration(path, "unparsed", None, None, raw)
+    return Declaration(path, "none", None, None, raw)
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    """One declaration compared against the digest recomputed from the record."""
+
+    declaration: Declaration
+    #: ``match``, ``MISMATCH``, ``UNPARSED``, ``none`` or ``absent``.
+    verdict: str
+    computed: str | None
+    computed_count: int | None
+
+    @property
+    def failed(self) -> bool:
+        return self.verdict in ("MISMATCH", "UNPARSED")
+
+    def render(self) -> str:
+        where = f"{self.declaration.path.parent.name}/{self.declaration.path.name}"
+        d = self.declaration
+        if d.state == "parsed":
+            return (
+                f"{where}: declared {d.value} over {d.count}, computed "
+                f"{self.computed} over {self.computed_count}: {self.verdict}"
+            )
+        if d.state == "unparsed":
+            return f"{where}: UNPARSED, a sha256/16 head with no readable digest: {d.raw!r}"
+        if d.state == "none":
+            return f"{where}: declares no digest value ({d.raw[:60]!r})"
+        return f"{where}: no HANDSHAKE-ROUND-DIGEST field"
+
+
+def check_round(round_number: int) -> list[CheckResult]:
+    """Compare every declared digest in ``round_number`` with the record's.
+
+    **Whose population.** A declaration covers every lap its writer held except
+    itself, so reproducing it drops the lap that made it and every lap filed after
+    it, which is every lap whose number is not lower (the fork's rule, their round
+    22 lap 5 line 28). Where two laps crossed at one number, the writer may or may
+    not have held the other one, so that population is tried as a second reading,
+    and the result says which one matched.
+    """
+    laps = _laps_for_round(round_number)
+    rows = [_row_for(p) for p in laps]
+    results: list[CheckResult] = []
+    for row in rows:
+        declaration = read_declaration(row.path)
+        if declaration.state == "unparsed":
+            results.append(CheckResult(declaration, "UNPARSED", None, None))
+            continue
+        if declaration.state != "parsed":
+            results.append(CheckResult(declaration, declaration.state, None, None))
+            continue
+        earlier = [r for r in rows if r.lap < row.lap]
+        crossed = [r for r in rows if r.lap == row.lap and r.path != row.path]
+        readings = [earlier] + ([earlier + crossed] if crossed else [])
+        best: tuple[str, int] | None = None
+        verdict = "MISMATCH"
+        for population in readings:
+            value, count = digest_of(population), len(population)
+            if best is None:
+                best = (value, count)
+            if value == declaration.value and count == declaration.count:
+                best, verdict = (value, count), "match"
+                break
+        assert best is not None  # readings always holds at least `earlier`
+        results.append(CheckResult(declaration, verdict, best[0], best[1]))
+    return results
+
+
+#: `--check`'s exit statuses. 0 is only ever "at least one declaration was read
+#: and every one reproduced": a gate that found nothing to compare must not read
+#: as one that passed (review finding R17, 2026-09-28: a round with no laps, a
+#: typo'd round number, or a record whose declarations no longer parse all
+#: exited 0). 2 is the tool's refusal status, as for a `DigestError`.
+CHECK_PASSED: Final[int] = 0
+CHECK_FAILED: Final[int] = 1
+CHECK_NO_LAPS: Final[int] = 2
+CHECK_NOTHING_DECLARED: Final[int] = 3
+
+
+def _report_check(round_number: int, results: list[CheckResult]) -> int:
+    """Print `--check`'s lines and summary, and return its exit status.
+
+    A failure outranks an empty check: a declaration that names sha256/16 and
+    cannot be read is a failure even when nothing else was declared. The summary
+    names the population whatever happens, and says NOTHING CHECKED rather than
+    "0 failed" when no declaration was compared, so neither a script reading the
+    status nor a person quoting the line can take an empty check for a pass.
+    """
+    if not results:
+        # Named relative to the checkout, never by absolute path: B1's marker
+        # at the top of this file promises output that depends on the commit
+        # alone, and an absolute path depends on where the checkout sits.
+        where = " or ".join(f"docs/handshake/{d}/" for d in _DIRECTIONS)
+        print(
+            f"round-digest: round {round_number} has no laps in {where}, so "
+            "--check compared nothing",
+            file=sys.stderr,
+        )
+        return CHECK_NO_LAPS
+    for result in results:
+        print(result.render())
+    parsed = sum(1 for r in results if r.declaration.state == "parsed")
+    failed = [r for r in results if r.failed]
+    population = (
+        f"round {round_number}: {len(results)} lap(s), {parsed} declared a digest"
+    )
+    if failed:
+        print(f"{population}, {len(failed)} failed")
+        return CHECK_FAILED
+    if parsed == 0:
+        print(f"{population}: NOTHING CHECKED, so this is not a pass")
+        return CHECK_NOTHING_DECLARED
+    print(f"{population}, 0 failed")
+    return CHECK_PASSED
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("round", type=int, help="round number")
@@ -312,7 +508,25 @@ def main(argv: list[str] | None = None) -> int:
         help="print the rows the digest is computed over, so a disagreement is "
         "diagnosable rather than just visible",
     )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="read every lap's declared HANDSHAKE-ROUND-DIGEST in the round and "
+        "compare it with the value recomputed from the record; exit 0 only when "
+        "at least one was compared and every one reproduced, 1 on a mismatch or "
+        "on a declaration that names sha256/16 and cannot be read, 2 when the "
+        "round has no laps, and 3 when no lap of it declares a digest",
+    )
     args = parser.parse_args(argv)
+    if args.check:
+        if args.exclude or args.show_rows:
+            parser.error("--check takes no --exclude or --show-rows")
+        try:
+            results = check_round(args.round)
+        except DigestError as exc:
+            print(f"round-digest: {exc}", file=sys.stderr)
+            return 2
+        return _report_check(args.round, results)
     try:
         if args.show_rows:
             laps = laps_after_exclusions(args.round, args.exclude)

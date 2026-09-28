@@ -431,9 +431,9 @@ class Config:
     # a person decides. See `deps/ripper_offer.py`.
     ripper_channel: str = "stable"
 
-    # --- Unattended testing (Tools → Run test script…) ---
+    # --- Unattended testing (Tools → Advanced → Run test script…) ---
     # Path to a Platterpus UI script (`docs/architecture.md` §3.9) that Tools →
-    # Run test script… loads by default, and that `--run-script` runs headlessly.
+    # Advanced → Run test script… loads by default, and that `--run-script` runs headlessly.
     # Empty means "no saved script" — the console then starts blank.
     #
     # WHY A PATH AND NOT THE SCRIPT TEXT. The maintainer's ask was for a batch he

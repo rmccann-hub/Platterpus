@@ -1,8 +1,9 @@
-"""The statement kinds, their grades and their fields: LSL 1, and our amendments.
+"""The statement kinds, their grades and their fields: LSL 1, and what LSL 2 and 3 add.
 
 LSL 1 is the fork's spec, §"Kinds", transcribed. Each amendment adds to it, and
-is switched on by its id (`A1`–`A8`), so the same checker answers both *"is this
-a well-formed LSL 1 lap?"* and *"would it be under these amendments?"*.
+is switched on by its id (`A1`–`A8` for LSL 2, `B1`–`B3` for LSL 3), so the same
+checker answers both *"is this a well-formed LSL 1 lap?"* and *"would it be under
+these amendments?"*.
 
 Every field name is lowercase letters only, because that is LSL 1's field
 grammar (see `grammar.FIELD_RE`). A name like `holds-for` cannot be an LSL field.
@@ -76,13 +77,25 @@ LSL1_FIELDS: Final[frozenset[str]] = frozenset(
 #: `docs/handshake/outbound/artifacts/lsl-amendments-1.md`.
 AMENDMENTS: Final[tuple[str, ...]] = ("A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8")
 
+#: The rules LSL 3 adds to LSL 2, from the shared proposal's §"LSL 3"
+#: (`cyanrip@889a375:docs/handshake/PROPOSAL-lap-statement-language.md:204-252`):
+#: B1 a `run:` names the commit it ran at, and `--rerun` checks what it printed;
+#: B2 a `GO` needs a close condition to have been checked against; B3 an
+#: `answers:` counts only on a statement that can carry weight. They are kept
+#: apart from `AMENDMENTS` on purpose: `--amend all` means A1-A8, as it always
+#: has, so no LSL 1 or LSL 2 check changes. Only `LSL: 3` switches these on.
+LSL3_RULES: Final[tuple[str, ...]] = ("B1", "B2", "B3")
+
 #: What each `LSL: N` line switches on. LSL 2 is LSL 1 with A1-A8 and nothing else:
 #: the fork defined it so and implemented it behind `LSL: 2` (their round 28 lap 3
-#: S14), and asked whether ours would read it the same way (S18). A lap that
-#: declares a version missing here is "cannot check", never "refused".
+#: S14), and asked whether ours would read it the same way (S18). LSL 3 is LSL 2
+#: plus B1-B3 and nothing else (round 28: their lap 3 S22-S25, our lap 4
+#: S22-S24), "so that LSL 2 stays exactly A1-A8". A lap that declares a version
+#: missing here is "cannot check", never "refused".
 LSL_VERSIONS: Final[dict[int, frozenset[str]]] = {
     1: frozenset(),
     2: frozenset(AMENDMENTS),
+    3: frozenset(AMENDMENTS) | frozenset(LSL3_RULES),
 }
 
 
@@ -148,7 +161,26 @@ AMENDMENT_TABLES: Final[dict[str, Amendment]] = {
     "A6": Amendment(),
     "A7": Amendment(fields=frozenset({"answers"})),
     "A8": Amendment(extra_required={("CORRECT", None): ("evidence",)}),
+    # LSL 3. B1 adds one field, `at:`, on any statement; B2 and B3 add nothing
+    # to the tables and are checks only (`lsl3.py`, `round_rules.py`).
+    "B1": Amendment(fields=frozenset({"at"})),
+    "B2": Amendment(),
+    "B3": Amendment(),
 }
+
+#: The kinds that cannot carry weight: they make no claim, or none either side
+#: can check. A6 refuses them in `basis:` and `because:`, B3 refuses an
+#: `answers:` on them, and both ask `carries_no_weight`, so the two rules cannot
+#: drift into two lists (the proposal's B3 row: "the statements A6 lets carry no
+#: weight"). A `FACT relayed` is the one graded case.
+NO_WEIGHT_KINDS: Final[frozenset[str]] = frozenset(
+    {"NOTE", "ASK", "VERDICT", "WILL", "UNKNOWN"}
+)
+
+
+def carries_no_weight(kind: str, grade: str | None) -> bool:
+    """True for a statement A6 and B3 give no weight: see `NO_WEIGHT_KINDS`."""
+    return kind in NO_WEIGHT_KINDS or (kind == "FACT" and grade == "relayed")
 
 
 @dataclass(frozen=True)
@@ -172,12 +204,12 @@ class Tables:
 
 
 def tables_for(amendments: frozenset[str]) -> Tables:
-    """LSL 1 with `amendments` applied, in their declared order."""
+    """LSL 1 with `amendments` applied, in their declared order: A1-A8, then B1-B3."""
     grades = dict(LSL1_GRADES)
     required = dict(LSL1_REQUIRED)
     fields = set(LSL1_FIELDS)
     sources: dict[tuple[str, str | None, str], str] = {}
-    for amendment_id in AMENDMENTS:
+    for amendment_id in AMENDMENTS + LSL3_RULES:
         if amendment_id not in amendments:
             continue
         table = AMENDMENT_TABLES[amendment_id]

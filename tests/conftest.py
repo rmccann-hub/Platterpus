@@ -43,6 +43,7 @@ from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus import hard_exit
+from platterpus.ui import message_boxes
 
 #: The per-process folder standing in for the user's config and data homes.
 TEST_HOME: Path = Path(os.environ["PLATTERPUS_TEST_HOME"])
@@ -607,6 +608,53 @@ def stop_window_threads(window: object) -> None:
         report_writer._WRITER.stop()
 
 
+def window_menus(window: object) -> list[tuple[str, object]]:
+    """Every menu a person can open in ``window``, as ``(where, QMenu)`` pairs.
+
+    Each menu-bar menu, every submenu beneath it at any depth, and — for a
+    window holding a disc panel — the album's right-click menu, once for each
+    value label and once for the panel around them. Each pair is the group its
+    Alt-letters must be unique in: a letter only has to be unique among the
+    items of the menu that is open, so a submenu is its own group and so is a
+    context menu.
+
+    **ONE walker, shared by both rules that need it** — the mnemonic rule
+    (`tests/test_ui_conformance.py`) and the character-key shortcut rule
+    (`tests/test_accessibility_standards.py`) — so the two cannot disagree about
+    which menus exist. Before 2026-09-27 the mnemonic rule read one level of the
+    menu bar only, which was complete until Tools gained an Advanced submenu.
+
+    The album menus are BUILT here, because they are made on right-click and
+    there is nothing to find before then. The caller must ``deleteLater()`` the
+    menus whose ``where`` starts with ``"album menu"``; the others belong to the
+    window.
+    """
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QLabel, QMainWindow
+
+    from platterpus.ui.disc_info_panel import DiscInfoPanel
+
+    found: list[tuple[str, object]] = []
+
+    def walk(where: str, menu: object) -> None:
+        found.append((where, menu))
+        for action in menu.actions():  # type: ignore[attr-defined]  # a QMenu
+            if action.menu() is not None:
+                walk(f"{where} → {action.text()!r}", action.menu())
+
+    if isinstance(window, QMainWindow):
+        for action in window.menuBar().actions():
+            if action.menu() is not None:
+                walk(f"menu {action.text()!r}", action.menu())
+    for panel in window.findChildren(DiscInfoPanel):  # type: ignore[attr-defined]  # a QWidget
+        found.append(("album menu (panel)", panel.album_menu()))
+        for label in panel.findChildren(QLabel):
+            if label.contextMenuPolicy() == Qt.ContextMenuPolicy.CustomContextMenu:
+                where = f"album menu ({label.accessibleName() or label.text()!r})"
+                found.append((where, panel.album_menu(label)))
+    return found
+
+
 # Hold the QApplication in a module global so it is NEVER garbage-collected —
 # if Python GCs it at session end, its Qt teardown can SIGABRT (see the
 # session-finish hard-exit above). Pinned here, it survives until os._exit.
@@ -965,11 +1013,27 @@ def _non_blocking_message_boxes(monkeypatch: pytest.MonkeyPatch) -> None:
     `No` (decline), the notice boxes → `Ok`. Tests that assert specific
     dialog behaviour monkeypatch the relevant method themselves; that
     per-test patch is applied after this autouse one and wins.
+
+    **The product no longer calls the static helpers.** Every stock box goes
+    through `platterpus.ui.message_boxes` (so its text can be pinned to
+    PlainText, which a static helper cannot do), and that module builds a real
+    `QMessageBox` and `exec()`s it — the same forever-block. Its four functions
+    get the same answers here, patched on the module because call sites look
+    them up there at call time (`message_boxes.warning(...)`). A test that
+    asserts on a box patches `platterpus.ui.message_boxes.<fn>`; patching the
+    static would now capture nothing and let the default below answer instead.
+    The static patches stay as a backstop for anything that still reaches them.
     """
     monkeypatch.setattr(
         QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
     )
+    monkeypatch.setattr(
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.No
+    )
     for method in ("information", "warning", "critical"):
         monkeypatch.setattr(
             QMessageBox, method, lambda *a, **k: QMessageBox.StandardButton.Ok
+        )
+        monkeypatch.setattr(
+            message_boxes, method, lambda *a, **k: QMessageBox.StandardButton.Ok
         )

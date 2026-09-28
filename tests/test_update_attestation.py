@@ -322,9 +322,12 @@ def test_both_publish_branches_upload_the_attestation() -> None:
 
 
 def test_the_release_job_may_mint_an_identity_and_write_attestations() -> None:
-    block = _workflow().split("\npermissions:\n", 1)[1].split("\n\n", 1)[0]
-    assert re.search(r"^  id-token: write\b", block, re.MULTILINE)
-    assert re.search(r"^  attestations: write\b", block, re.MULTILINE)
+    """The grants live on the `build-and-release` JOB since 2026-09-28; the
+    workflow-level token only reads (`tests/test_workflow_permissions.py`)."""
+    job = _workflow().split("\n  build-and-release:\n", 1)[1]
+    block = job.split("\n    permissions:\n", 1)[1].split("\n    runs-on:", 1)[0]
+    assert re.search(r"^      id-token: write\b", block, re.MULTILINE)
+    assert re.search(r"^      attestations: write\b", block, re.MULTILINE)
 
 
 def _load_release_script() -> Any:

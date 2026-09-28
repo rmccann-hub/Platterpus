@@ -35,6 +35,7 @@ def test_app_main_starts_up_clean_on_the_gui_thread(
 ) -> None:
     from platterpus import app as app_module
     from platterpus import config as config_module
+    from platterpus.ui import message_boxes
     from platterpus.ui.main_window import MainWindow
     from platterpus.ui.main_window_deps import DependencyMixin
 
@@ -64,24 +65,24 @@ def test_app_main_starts_up_clean_on_the_gui_thread(
 
     # Neuter every modal so first-run offers / resolver dialogs never block.
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "warning",
-        staticmethod(lambda *a, **k: QMessageBox.StandardButton.No),
+        lambda *a, **k: QMessageBox.StandardButton.No,
     )
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "information",
-        staticmethod(lambda *a, **k: QMessageBox.StandardButton.Ok),
+        lambda *a, **k: QMessageBox.StandardButton.Ok,
     )
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "question",
-        staticmethod(lambda *a, **k: QMessageBox.StandardButton.No),
+        lambda *a, **k: QMessageBox.StandardButton.No,
     )
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "critical",
-        staticmethod(lambda *a, **k: QMessageBox.StandardButton.Ok),
+        lambda *a, **k: QMessageBox.StandardButton.Ok,
     )
     monkeypatch.setattr(QDialog, "exec", lambda self: 0)
 

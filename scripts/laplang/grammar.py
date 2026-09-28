@@ -6,8 +6,8 @@ are evidence and one checker copied into two trees is not (`CLAUDE.md` rule #12)
 
 The file, as the spec lays it out:
 
-* Everything before a line reading exactly `LSL: 1` is the wire headers and a
-  title. `PROTOCOL.md` governs those, and this language does not touch them. The
+* Everything before a line reading exactly `LSL: N` (N is 1, 2 or 3: see
+  `tables.LSL_VERSIONS`) is the wire headers and a title. `PROTOCOL.md` governs those, and this language does not touch them. The
   `HANDSHAKE-*` lines are collected here only so the checks can read who wrote
   the lap, its round and lap, and its declared verdict.
 * After that line come statements. A statement is a head,
@@ -93,17 +93,29 @@ def _read_headers(lap: Lap, lines: list[str]) -> int | None:
         if stripped.startswith("LSL:"):
             version = LSL_RE.match(stripped)
             if version is None or int(version["version"]) not in LSL_VERSIONS:
-                known = " and ".join(str(v) for v in sorted(LSL_VERSIONS))
                 lap.add(
                     i + 1,
                     "CANNOT",
                     "LSL.version",
-                    f"declares {stripped!r}; this checker implements LSL {known}",
+                    f"declares {stripped!r}; this checker implements "
+                    f"{implemented_versions()}",
                 )
                 return None
             lap.lsl_version = int(version["version"])
             return i + 1
     return None
+
+
+def implemented_versions() -> str:
+    """`LSL 1, 2 and 3`: the versions `LSL_VERSIONS` holds, as a person reads them.
+
+    Derived from the table, so the message cannot name a version the checker does
+    not implement, or leave out one it does.
+    """
+    known = [str(v) for v in sorted(LSL_VERSIONS)]
+    if len(known) == 1:
+        return f"LSL {known[0]}"
+    return f"LSL {', '.join(known[:-1])} and {known[-1]}"
 
 
 def _read_statements(lap: Lap, lines: list[str], start: int) -> None:

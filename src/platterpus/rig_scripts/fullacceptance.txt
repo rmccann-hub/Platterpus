@@ -2,14 +2,17 @@
 # FULL ACCEPTANCE RUN — end to end, every path the program has, one pass
 # =============================================================================
 #
-#   How to run it:  Tools -> Run acceptance test...  (the app does the rest:
-#                   session folder, sleep lock, the run, and one file to send)
+#   How to run it:  Tools -> Advanced -> Run acceptance test...  (the app does
+#                   the rest: session folder, sleep lock, the run, one file)
 #   Where it lives: INSIDE the app, since v0.6.32 — there is nothing to download.
 #                   Source: src/platterpus/rig_scripts/fullacceptance.txt
 #   What it costs:  it depends on the RUN SIZE you pick when it starts:
 #                     Quick     about 15 minutes  (does it still work?)
 #                     Standard  about an hour     (is a normal rip right?)
 #                     Full      4 to 6 hours      (LEAVE IT RUNNING OVERNIGHT)
+#                               measured: 4h14m (2026-09-22, 247 steps) and
+#                               5h33m (2026-09-26, 320 steps, the sum of its
+#                               report's step times), both on the Pioneer rig
 #                   Full rips the whole disc TWICE (once fast, once with every
 #                   track read at least twice) plus six short partial rips.
 #                   ONLY FULL counts toward a version or a handshake close.

@@ -16,6 +16,8 @@ unattended run that is the whole session.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -421,6 +423,61 @@ def test_the_serialised_shape_carries_everything_the_text_does() -> None:
     assert data["counts"]["fail"] == 1
     assert len(data["steps"]) == 2
     assert data["steps"][0]["outcome"] == "pass"
+
+
+#: The scripts that ship inside the package, read from the tree rather than from
+#: a remembered size: the defect below was a comment's belief about how large a
+#: script is, and the fix must not be another one.
+_SHIPPED_SCRIPTS: Path = (
+    Path(__file__).resolve().parents[1] / "src" / "platterpus" / "rig_scripts"
+)
+
+#: The cap before 2026-09-27. Only the floor below uses it: a population of
+#: scripts that all fit under the OLD cap could not have caught the defect.
+_OLD_CAP: int = 20_000
+
+
+def test_every_shipped_script_reaches_report_json_whole() -> None:
+    """TASKS: `report.json` kept 29% of the acceptance script it ran.
+
+    `MAX_SOURCE_CHARS` was 20,000 under a comment saying it "only ever fires on
+    an accident", against a 69,020-character `fullacceptance.txt`. The elision
+    was counted, so it was not silent, but a report that cannot show what was
+    asked of steps 300 onwards does not let its reader reproduce them. Every
+    script we ship must now go in verbatim, and this fails when one outgrows the
+    cap, so raising it is a decision.
+    """
+    scripts = sorted(_SHIPPED_SCRIPTS.glob("*.txt"))
+    assert len(scripts) >= 5, f"only {len(scripts)} shipped script(s) found"
+    sizes: dict[str, int] = {}
+    for path in scripts:
+        text = path.read_text(encoding="utf-8")
+        sizes[path.name] = len(text)
+        carried = RunReport("t", "v", script_source=text).as_dict()["script_source"]
+        assert isinstance(carried, str), "the key changed type, a report schema move"
+        assert carried == text, (
+            f"{path.name} ({len(text)} characters) is cut in report.json; "
+            f"MAX_SOURCE_CHARS is {report_mod.MAX_SOURCE_CHARS}"
+        )
+    assert max(sizes.values()) > _OLD_CAP, (
+        f"no shipped script is over the old {_OLD_CAP}-character cap ({sizes}), so "
+        "this test can no longer tell the old cap from the new one"
+    )
+
+
+def test_a_source_over_the_cap_keeps_head_and_tail_and_counts_the_gap() -> None:
+    """Anything bigger than the cap is still bounded, and never silently."""
+    cap = report_mod.MAX_SOURCE_CHARS
+    text = "HEAD-MARKER" + "x" * (2 * cap) + "TAIL-MARKER"
+    carried = RunReport("t", "v", script_source=text).as_dict()["script_source"]
+    assert isinstance(carried, str)
+    kept = cap // 2
+    dropped = len(text) - 2 * kept
+    assert carried.startswith("HEAD-MARKER"), "the head was lost"
+    assert carried.endswith("TAIL-MARKER"), "the tail was lost"
+    assert f"[{dropped} characters omitted]" in carried, "the elision is not counted"
+    # The cap plus the one marker line: the bound is on what reaches the JSON.
+    assert len(carried) <= cap + 64, f"{len(carried)} characters kept"
 
 
 # --- The names the runner will resolve at RUN time ------------------------
@@ -953,16 +1010,32 @@ def test_a_refused_cyanrip_step_invalidates_the_last_result() -> None:
     C6 line it followed. **Had `-f` exited 1, that assertion would have passed
     for a command that never ran.**
     """
+    import ast
     import inspect
+    import textwrap
 
     from platterpus.uiscript.runner import ScriptRunner
 
-    src = inspect.getsource(ScriptRunner._do_cyanrip)
-    refusal_branch = src.split("if refusal is not None:", 1)[1].split("return", 1)[0]
-    for field in ("_last_cyanrip_argv", "_last_cyanrip_output", "_last_cyanrip_exit"):
-        assert field in refusal_branch, (
-            f"a refused step leaves {field} pointing at an unrelated command"
-        )
+    # THE BACKSTOP, structural: the clear is the first thing the handler DOES
+    # (imports aside), so an early return added later cannot skip it. The first
+    # version of this test read one refusal branch's source, and a refusal added
+    # on 2026-09-24 returned without clearing while it stayed green (TASKS D7).
+    # The behaviour, every refusal path through the real `_execute`, is
+    # `test_no_refused_cyanrip_step_leaves_the_previous_result_to_be_graded`.
+    tree = ast.parse(textwrap.dedent(inspect.getsource(ScriptRunner._do_cyanrip)))
+    body = [
+        node
+        for node in tree.body[0].body  # type: ignore[attr-defined]
+        if not isinstance(node, ast.Import | ast.ImportFrom)
+        and not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant))
+    ]
+    first = body[0]
+    assert (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Call)
+        and isinstance(first.value.func, ast.Attribute)
+        and first.value.func.attr == "_forget_last_cyanrip_result"
+    ), ast.dump(first)
 
 
 def test_expect_exit_reports_no_subject_rather_than_a_stale_one() -> None:
@@ -1140,3 +1213,46 @@ class TestNothingToSend:
         assert "snapshot" not in RunReport.ARTIFACT_VERBS
         report = self._report(("snapshot atstart", Outcome.PASS))
         assert report.produced_no_artifacts()
+
+
+@pytest.mark.parametrize(
+    "refused",
+    [
+        "cyanrip -N -d /dev/sr0 -t 1",  # the sanitiser's refusal (round 8's case)
+        "cyanrip -N -s (offset) -l 1",  # (offset) with no set-drive-offset (2026-09-24)
+        'cyanrip -N -d "/dev/sr0',  # a line that does not parse
+        "cyanrip",  # arity: nothing to run
+    ],
+    ids=["sanitiser", "offset-unexpandable", "parse-error", "arity"],
+)
+def test_no_refused_cyanrip_step_leaves_the_previous_result_to_be_graded(
+    refused: str,
+) -> None:
+    """TASKS row D7: the fork's round-8 list still names "a refused command leaves
+    the previous result live". Re-checked this session, it had come back: the
+    `(offset)` refusal and a malformed line returned without clearing, so the next
+    `expect-exit` graded the command before them. Driven through the real
+    `_execute`, with a real previous invocation that the assertions would PASS
+    against if it were still live."""
+    from test_uiscript_drive_offset import _Window
+
+    from platterpus.uiscript.report import Outcome, RunReport
+    from platterpus.uiscript.runner import ScriptRunner
+
+    runner = ScriptRunner(_Window())  # type: ignore[arg-type]
+    runner._report = RunReport(started_at="t", app_version="test")
+    runner._last_cyanrip_argv = ["cyanrip", "-N", "-f", "-d", "/dev/sr0"]
+    runner._last_cyanrip_exit = 1
+    runner._last_cyanrip_output = 'Missing "=" in track metadata "1"'
+    for step in script_mod.parse(
+        f'{refused}\nexpect-exit 1\nexpect-cyanrip Missing "=" in track metadata'
+    ):
+        runner._execute(step)
+    first, *graded = runner._report.steps
+    assert first.outcome in (Outcome.FAIL, Outcome.ERROR), first
+    # NON-TRIVIALITY: two assertions ran, and each would have PASSED against the
+    # stale invocation seeded above.
+    assert len(graded) == 2
+    for record in graded:
+        assert record.outcome is Outcome.ERROR, record
+        assert "no cyanrip command has run" in record.detail, record.detail

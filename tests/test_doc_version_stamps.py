@@ -24,15 +24,22 @@ These tests make that impossible to repeat:
    go green. A stamp-only bump (footer-stripped content unchanged) doesn't
    count, so the requirement never cascades across untouched docs.
 
-Test 3 needs git history and tags; on a checkout without them (e.g. a shallow
-clone) it skips rather than guessing.
+Test 3 needs git history and tags. On a local checkout without them (e.g. a
+shallow clone) it skips rather than guessing. **Under CI it fails instead**:
+the `test` job checks out full history with tags (`ci.yml`, `fetch-depth: 0`),
+so there a git that cannot answer means the gate has stopped running, and a
+skip is the one outcome nobody reads (TASKS
+`vacuity:tests/test_doc_version_stamps.py::test_docs_changed_since_last_release_are_stamped_current`).
 """
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
+from typing import Final, NoReturn
 
 import pytest
 from conftest import repo_markdown_files
@@ -206,11 +213,42 @@ def _git(*args: str) -> str | None:
     return result.stdout.strip()
 
 
+#: A git runner: arguments in, stdout out, ``None`` when git could not answer.
+GitRunner = Callable[..., str | None]
+
+#: `CI` values that mean "not CI". GitHub Actions sets ``CI=true``; any OTHER
+#: non-empty value counts as CI too, because the safe direction for a gate is
+#: failing: a CI that spells it ``1`` or ``yes`` must not quietly skip.
+_NOT_CI: Final[frozenset[str]] = frozenset({"", "0", "false", "no", "off"})
+
+
+def _running_under_ci() -> bool:
+    """True when the `CI` environment variable says this is a CI run."""
+    return os.environ.get("CI", "").strip().lower() not in _NOT_CI
+
+
+def _cannot_answer(reason: str) -> NoReturn:
+    """Skip when git cannot answer locally; FAIL when it cannot answer in CI.
+
+    Locally, a shallow clone or a tarball is an ordinary way to hold this repo,
+    and a skip there is honest. In CI the checkout is full-depth with tags, so
+    the same absence means the release-stamp gate stopped running, and a skip
+    would report that as green.
+    """
+    if _running_under_ci():
+        pytest.fail(
+            f"{reason}. This is CI, whose checkout is full-depth with tags "
+            "(ci.yml `test` job, `fetch-depth: 0`), so git not answering means "
+            "the doc-stamp gate is not running, not that there is nothing to check"
+        )
+    pytest.skip(reason)
+
+
 def _tracked_markdown() -> list[str]:
-    """Every git-tracked .md path (repo-relative); skips if git is unusable."""
+    """Every git-tracked .md path (repo-relative); needs git (see `_cannot_answer`)."""
     out = _git("ls-files", "*.md")
     if out is None:
-        pytest.skip("git not available — cannot enumerate tracked docs")
+        _cannot_answer("git not available — cannot enumerate tracked docs")
     return [line for line in out.splitlines() if line]
 
 
@@ -278,6 +316,39 @@ def _strip_footer(text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not _FOOTER_RE.match(line))
 
 
+def _stale_stamps(git: GitRunner, root: Path) -> tuple[str, list[str]]:
+    """``(tag, offenders)``: docs whose content changed since ``tag`` but whose
+    footer is not the current ``__version__``.
+
+    Takes its git runner and root as arguments so the can-git-answer handling
+    is testable with a fake git; the real test passes `_git` and the repo root.
+    """
+    tag = git("describe", "--tags", "--abbrev=0", "--match", "v*")
+    if not tag:
+        _cannot_answer("no release tag reachable (shallow clone?) — cannot diff")
+    # Worktree vs. tag: catches committed *and* not-yet-committed doc edits.
+    diff = git("diff", "--name-only", tag, "--", "*.md")
+    if diff is None:
+        _cannot_answer(f"git diff against {tag} failed — cannot check stamps")
+    offenders: list[str] = []
+    for rel_path in diff.splitlines():
+        path = root / rel_path
+        if _is_exempt(rel_path) or not path.exists():
+            continue  # exempt paste body, or the doc was deleted
+        current = path.read_text()
+        # A stamp-only change (the footer-stripped content matches the tag) is
+        # not a content revision, so it doesn't require a fresh stamp. A file
+        # absent at the tag (git show fails → None) is genuinely new content.
+        at_tag = git("show", f"{tag}:{rel_path}")
+        if at_tag is not None and _strip_footer(at_tag) == _strip_footer(current):
+            continue
+        stamps = _FOOTER_RE.findall(current)
+        # A missing/duplicated footer is test 1's finding; only judge staleness.
+        if len(stamps) == 1 and stamps[0] != __version__:
+            offenders.append(f"{rel_path} (stamped v{stamps[0]})")
+    return tag, offenders
+
+
 def test_docs_changed_since_last_release_are_stamped_current() -> None:
     """Any doc whose *content* changed since the newest release tag must stamp
     __version__.
@@ -289,36 +360,135 @@ def test_docs_changed_since_last_release_are_stamped_current() -> None:
     content ships in. A doc whose only difference from the tag is the stamp line
     itself is ignored (a stamp-only bump isn't a content change), which keeps
     the bump from cascading across untouched docs every release.
+
+    Skips locally when git cannot answer, and fails under CI (`_cannot_answer`).
     """
-    tag = _git("describe", "--tags", "--abbrev=0", "--match", "v*")
-    if not tag:
-        pytest.skip("no release tag reachable (shallow clone?) — cannot diff")
-    # Worktree vs. tag: catches committed *and* not-yet-committed doc edits.
-    diff = _git("diff", "--name-only", tag, "--", "*.md")
-    if diff is None:
-        pytest.skip(f"git diff against {tag} failed — cannot check stamps")
-    offenders: list[str] = []
-    for rel_path in diff.splitlines():
-        path = _REPO_ROOT / rel_path
-        if _is_exempt(rel_path) or not path.exists():
-            continue  # exempt paste body, or the doc was deleted
-        current = path.read_text()
-        # A stamp-only change (the footer-stripped content matches the tag) is
-        # not a content revision, so it doesn't require a fresh stamp. A file
-        # absent at the tag (git show fails → None) is genuinely new content.
-        at_tag = _git("show", f"{tag}:{rel_path}")
-        if at_tag is not None and _strip_footer(at_tag) == _strip_footer(current):
-            continue
-        stamps = _FOOTER_RE.findall(current)
-        # A missing/duplicated footer is test 1's finding; only judge staleness.
-        if len(stamps) == 1 and stamps[0] != __version__:
-            offenders.append(f"{rel_path} (stamped v{stamps[0]})")
+    tag, offenders = _stale_stamps(_git, _REPO_ROOT)
     assert not offenders, (
         f"These docs' content changed since {tag} but aren't stamped with the "
         f"current __version__ (v{__version__}) — bump each footer in the same "
         "commit as the change (docs/README.md → 'Doc version stamps'): "
         + ", ".join(offenders)
     )
+
+
+# --- The stamp gate must not go quiet in CI -----------------------------------
+#
+# The gate above used to `pytest.skip` whenever git could not answer, anywhere.
+# A skip reports green, so in CI (where git always should answer) a broken
+# checkout or a lost tag would have switched the release-prep restamp check off
+# with nothing turning red. These drive the helper with a fake git, so both
+# halves are exercised on every run, not only on the day git breaks.
+
+
+def _git_that_cannot_answer(*_args: str) -> str | None:
+    """No tags and no history: every question comes back ``None``."""
+    return None
+
+
+def _git_with_a_tag_but_no_diff(*args: str) -> str | None:
+    """A tag is reachable, but the diff against it fails (a truncated history)."""
+    return "v0.0.1" if args[0] == "describe" else None
+
+
+def _outcome(call: Callable[[], object]) -> str:
+    """``"failed"``, ``"skipped"`` or ``"returned"``, with the message.
+
+    Both pytest outcomes are CAUGHT here rather than left to `pytest.raises`,
+    and that is the point. The first version asserted the CI failure with
+    `pytest.raises(pytest.fail.Exception)`, so when the CI branch was reverted
+    the helper skipped, the skip escaped the `raises` block, and this meta-test
+    was itself reported as skipped: green. A test about skips was satisfiable
+    by skipping (caught by `scripts/revert_probe.py`).
+    """
+    try:
+        call()
+    except pytest.fail.Exception as failed:
+        return f"failed: {failed}"
+    except pytest.skip.Exception as skipped:
+        return f"skipped: {skipped}"
+    return "returned"
+
+
+def test_a_git_that_cannot_answer_FAILS_the_stamp_gate_under_ci(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CI", "true")  # what GitHub Actions sets
+    calls: list[Callable[[], object]] = [
+        lambda: _stale_stamps(_git_that_cannot_answer, _REPO_ROOT),
+        lambda: _stale_stamps(_git_with_a_tag_but_no_diff, _REPO_ROOT),
+        lambda: _cannot_answer("git not available — cannot enumerate tracked docs"),
+    ]
+    for call in calls:
+        outcome = _outcome(call)
+        assert outcome.startswith("failed:") and "This is CI" in outcome, outcome
+
+
+def test_a_git_that_cannot_answer_still_SKIPS_the_stamp_gate_locally(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A local shallow clone is an ordinary checkout; there the skip is honest."""
+    monkeypatch.delenv("CI", raising=False)
+    for git in (_git_that_cannot_answer, _git_with_a_tag_but_no_diff):
+        outcome = _outcome(lambda git=git: _stale_stamps(git, _REPO_ROOT))
+        assert outcome.startswith("skipped:"), outcome
+    monkeypatch.setenv("CI", "false")
+    outcome = _outcome(lambda: _stale_stamps(_git_that_cannot_answer, _REPO_ROOT))
+    assert outcome.startswith("skipped:"), outcome
+
+
+def test_only_a_CI_value_that_says_no_counts_as_local(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unfamiliar spellings count as CI: the safe direction for a gate is failing."""
+    for value in ("true", "1", "yes", "True", "on", "github"):
+        monkeypatch.setenv("CI", value)
+        assert _running_under_ci(), value
+    for value in ("", "0", "false", "FALSE", "no", "off", " "):
+        monkeypatch.setenv("CI", value)
+        assert not _running_under_ci(), repr(value)
+    monkeypatch.delenv("CI", raising=False)
+    assert not _running_under_ci()
+
+
+def test_the_stamp_gate_still_finds_a_stale_doc_through_the_helper(
+    tmp_path: Path,
+) -> None:
+    """Non-triviality: the refactor must not have turned the gate into decoration.
+
+    With a git that DOES answer, the helper must name a doc whose content changed
+    under a stale stamp, and must pass over a fresh stamp and a stamp-only edit.
+    """
+    stale = "v0.0.1"
+    assert __version__ != stale.removeprefix("v"), "pick a stamp that is stale"
+    # A folder NOT called `docs`: `test_doc_index_completeness` reads every
+    # `docs/...` path written in a test file as a link that must resolve.
+    guide = tmp_path / "guide"
+    guide.mkdir()
+    footer = f"*Last updated for Platterpus {stale}.*\n"
+    (guide / "edited.md").write_text("New words.\n\n" + footer)
+    (guide / "fresh.md").write_text(
+        f"New words.\n\n*Last updated for Platterpus v{__version__}.*\n"
+    )
+    (guide / "stamp-only.md").write_text("Same words.\n\n" + footer)
+    at_tag = {
+        f"{stale}:guide/edited.md": "Old words.\n\n" + footer,
+        f"{stale}:guide/stamp-only.md": "Same words.\n\n"
+        "*Last updated for Platterpus v0.0.0.*\n",
+    }
+
+    def answering_git(*args: str) -> str | None:
+        if args[0] == "describe":
+            return stale
+        if args[0] == "diff":
+            return "guide/edited.md\nguide/fresh.md\nguide/stamp-only.md"
+        if args[0] == "show":
+            return at_tag.get(args[1])
+        return None
+
+    tag, offenders = _stale_stamps(answering_git, tmp_path)
+    assert tag == stale
+    assert offenders == [f"guide/edited.md (stamped {stale})"], offenders
 
 
 # --- The KDD range, mechanically ---------------------------------------------

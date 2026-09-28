@@ -1,7 +1,7 @@
 """Hold idle/sleep/lid suspend off for the lifetime of a long unattended run.
 
 **Why this is Python and not shell any more.** The overnight acceptance run used
-to be `docs/rig-scripts/platterpusovernight.sh`, which took this lock itself. The
+to be the former `platterpusovernight.sh` (retired), which took this lock. The
 maintainer's ruling was that the harness belongs *in* the program — *"this was
 supposed to be a no cli program, not give me commands to use"*, *"make it all
 verify and do it itself"* — so the lock moves here with it. The reasoning below is

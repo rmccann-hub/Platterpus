@@ -184,5 +184,7 @@ log =============================================================
 log DONE. Send the ONE .tar.gz named on the "SEND THIS ONE FILE"
 log line in the app log - it is under
 log ~/.local/share/platterpus/bundles/
-log Then, for everything else:  bash platterpusmorning.sh
+log Then, for the rip's own logs and cue sheet, leave the disc in and run:
+log   ./platterpus-x86_64.AppImage --rig-session
+log (it finds the rip this script just made - there is only one - and packs it)
 log =============================================================

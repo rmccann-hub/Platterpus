@@ -15,11 +15,17 @@ hand-entered value as the GUI's `--offset` override (`_set_read_offset_override`
 one home: the GUI's own config), and diagnoses the no-drive case (permission
 vs. no device).
 
+It also gets the disc in the drive READ without the user: the media poll
+(`_poll_disc_media`, an insertion or removal) and the bounded automatic retry
+of a failed disc read (`_handle_disc_probe_failure`, policy in
+`disc_probe_retry`).
+
 Contract this mixin expects from the host window (set in
 ``MainWindow.__init__``): ``self._config``, ``self._save_config``,
 ``self._backend``, ``self._offset_db``, ``self._drive_profiles`` (a
 ``DriveProfileStore``), ``self._drive_picker``, ``self._disc_info_panel``,
-``self._rip_controls``, ``self._drive_access_nudged``; ``self`` is a
+``self._rip_controls``, ``self._drive_access_nudged``, and the disc-read retry
+state (``self._disc_retries``, ``self._disc_retry_timer``); ``self`` is a
 ``QWidget`` (dialog parent).
 """
 
@@ -33,6 +39,13 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QMessageBox
 
 from platterpus import drive_media
+from platterpus.disc_probe_retry import (
+    AUTO_RETRY_DELAY_MS,
+    READ_NOW,
+    RETRY_LATER,
+    RetryConditions,
+    RetryDecision,
+)
 from platterpus.drive_access import (
     SEVERITY_NO_DEVICE,
     SEVERITY_OK,
@@ -54,7 +67,9 @@ from platterpus.drive_profiles import (
 )
 from platterpus.offset_config import is_offset_configured
 from platterpus.settings_validation import OFFSET_MAX, OFFSET_MIN
+from platterpus.ui import message_boxes
 from platterpus.ui.drive_setup_dialog import DriveSetupDialog
+from platterpus.ui.main_window_helpers import friendly_disc_scan_error
 from platterpus.ui.main_window_shared import MainWindowShared
 
 log = logging.getLogger(__name__)
@@ -71,7 +86,7 @@ class DriveMixin(MainWindowShared):
         """
         device = self._drive_picker.current_device()
         if not device:
-            QMessageBox.warning(self, "Set up drive", "Select a drive first.")
+            message_boxes.warning(self, "Set up drive", "Select a drive first.")
             return
         # Primary path: resolve the offset by drive model from the AccurateRip
         # list, so the wizard can pre-fill the right value with no disc and no
@@ -126,7 +141,7 @@ class DriveMixin(MainWindowShared):
         # afterwards calibration lives on Tools → Setup & Updates… → Set up drive….
         self._config.drive_setup_prompted = True
         self._save_config(self._config)
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Set up your drive",
             "Your drive's read offset isn't configured yet — it's needed for "
@@ -219,7 +234,7 @@ class DriveMixin(MainWindowShared):
 
     def _show_offset_rejected(self, value: int) -> None:
         """Tell the user why an offset was refused — never fail silently."""
-        QMessageBox.warning(
+        message_boxes.warning(
             self,
             "Read offset out of range",
             f"A read offset of {value:+d} samples is outside the allowed range "
@@ -249,7 +264,7 @@ class DriveMixin(MainWindowShared):
         )
         log.info("auto-applied known read offset %+d for %s", known, label)
         # Tell the user once where the value came from (and that it's editable).
-        QMessageBox.information(
+        message_boxes.information(
             self,
             "Read offset set automatically",
             f"Using read offset {known:+d} for {label}, from the AccurateRip "
@@ -366,22 +381,63 @@ class DriveMixin(MainWindowShared):
             if not device:
                 return
             status = self._disc_status_probe(device)
+            previous = self._media_watcher.last_status
             event = self._media_watcher.observe_event(status)
+            # The raw stream, on change only: when an insertion went missing on
+            # the rig (2026-09-28) nothing said what the drive had reported. DEBUG
+            # so a flickering drive cannot flood the log; the event lines carry
+            # the part that matters at INFO.
+            if status != previous:
+                log.debug("media status of %s: %s -> %s", device, previous, status)
+            bridged = self._media_watcher.bridge_note()
             if event == drive_media.INSERTED:
-                log.info("disc inserted in %s — auto-rescanning", device)
+                log.info(
+                    "disc inserted in %s (drive reports %s%s) — auto-rescanning",
+                    device,
+                    status,
+                    bridged,
+                )
                 # Whatever the view holds belongs to an earlier disc. A removal
-                # normally cleared it, but not always: disc → unknown (a probe
-                # glitch) → empty → disc never fires REMOVED, and the new scan
-                # then started on top of the old disc's identity.
+                # normally cleared it, but not always: the poll is skipped while
+                # a scan runs, so a disc ejected DURING a scan that then fails
+                # leaves "open" as the first reading afterwards — a baseline, not
+                # a removal — and the next disc fires INSERTED with the old one
+                # still on screen. (A scan that READ the disc tells the watcher,
+                # so an eject after it is a removal: `note_disc_present`.)
+                # (The other route, disc → unknown → empty → disc, now fires
+                # REMOVED first: unknown readings are bridged since 2026-09-28.)
                 self._reset_disc_view()
+                # Say the disc is being read: the reset left only dashes, which is
+                # what an app that saw nothing looks like (Rescan does the same).
+                self._disc_info_panel.set_disc_info_loading()
                 self._start_disc_info(device)
             elif event == drive_media.REMOVED:
                 # The disc left the drive (an eject or a physical removal). Clear
                 # the now-stale disc-identity view so the app doesn't look like it
                 # still has the old disc loaded (the results pane keeps the last
                 # rip's outcome — this only clears "what's in the drive now").
-                log.info("disc removed from %s — clearing the disc view", device)
+                # The drive's own word is logged: whether the rig's removals were
+                # real ejects or a drive saying "tray open" with the disc still in
+                # is not settled, and this line is what would settle it.
+                log.info(
+                    "disc removed from %s (drive reports %s%s) — clearing the "
+                    "disc view",
+                    device,
+                    status,
+                    bridged,
+                )
+                # The removal ends the read a pending retry was for. Left armed,
+                # its timer replaced the no-disc line with an error about the
+                # disc that had left (code review, 2026-09-28). The next disc is
+                # read by the insertion, with a fresh budget.
+                if self._disc_retries.pending is not None:
+                    log.info(
+                        "pending automatic re-read of %s dropped: the disc left",
+                        device,
+                    )
+                self._begin_disc_request()
                 self._reset_disc_view()
+                self._disc_info_panel.set_no_disc()
         except Exception:  # noqa: BLE001 — a background poll must never crash the UI
             log.exception("disc-media poll failed; skipping this tick")
 
@@ -409,6 +465,69 @@ class DriveMixin(MainWindowShared):
         self._manual_cover_path = None
         self._rip_controls.set_release_id("")
         self._rip_controls.set_unknown_mode(False)
+
+    # --- A failed disc read is retried on its own (disc_probe_retry) --------
+    #
+    # The state and every branch are in `DiscReadRetries`; these methods only
+    # read the facts it asks for and do what it decides.
+
+    def _begin_disc_request(self) -> None:
+        """A NEW read was asked for (drive change, Rescan, an insertion): a fresh
+        retry budget, and any retry pending for an older one is dropped."""
+        self._disc_retries.new_request()
+        self._disc_retry_timer.stop()
+
+    def _disc_retry_conditions(self, device: str, request: int) -> RetryConditions:
+        """Read, now, every fact an automatic retry depends on."""
+        scan = self._disc_info_thread
+        freeing = self._force_stop_thread
+        return RetryConditions(
+            rip_running=self._rip_thread is not None,
+            scan_running=scan is not None and scan.isRunning(),
+            newest_request=request == self._disc_retries.request,
+            same_drive=self._drive_picker.current_device() == device,
+            drive_being_freed=freeing is not None and freeing.is_alive(),
+            media_status=self._disc_status_probe(device),
+        )
+
+    def _handle_disc_probe_failure(self, device: str, message: str) -> None:
+        """Show a failed read, and retry it automatically when that can help.
+
+        Called by `_on_disc_info_failed` for every failure the user did not cause
+        by force-stopping: the panel either says a retry is coming or says what
+        to do — never an error on its own.
+        """
+        conditions = self._disc_retry_conditions(device, self._disc_retries.request)
+        self._apply_disc_retry(
+            self._disc_retries.after_failure(
+                device, message, friendly_disc_scan_error(message), conditions
+            )
+        )
+
+    def _on_disc_retry_due(self) -> None:
+        """The retry timer fired. Everything is checked again HERE: four seconds
+        is long enough for a Rescan, a drive change, a rip, an eject or the
+        drive-freeing kill."""
+        pending = self._disc_retries.pending
+        if pending is None:
+            return
+        conditions = self._disc_retry_conditions(pending.device, pending.request)
+        self._apply_disc_retry(
+            self._disc_retries.when_due(conditions, friendly_disc_scan_error)
+        )
+
+    def _apply_disc_retry(self, decision: RetryDecision) -> None:
+        """Do what `DiscReadRetries` decided, and log it."""
+        log.info("%s", decision.log_line)
+        if decision.retrying_text:
+            self._disc_info_panel.set_disc_info_retrying(decision.retrying_text)
+        if decision.error_text:
+            self._disc_info_panel.set_disc_info_error(decision.error_text)
+        if decision.action == RETRY_LATER:
+            self._disc_retry_timer.start(AUTO_RETRY_DELAY_MS)
+        elif decision.action == READ_NOW:
+            self._disc_info_panel.set_disc_info_loading()
+            self._start_disc_info(decision.device, automatic_retry=True)
 
     def _refresh_drive_profile_display(self) -> None:
         """Recompute and push the read-offset trust line for the selected drive.

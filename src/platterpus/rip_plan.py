@@ -212,14 +212,18 @@ def describe_rip_plan(
     #
     # `-x` is still never sent — that half was and is correct — so the two are
     # split rather than lumped, which is what let one of them go stale unnoticed.
+    # "Beside the rip's output" was the wish, not the fact: cyanrip writes it in
+    # the rips folder, and it stays there (`diagnostics_record`). The sentence
+    # now says where it is and how it reaches a report bundle.
     lines.append(
         f"{PLAN_PREFIX}   Diagnostics (-j): ALWAYS sent — every rip asks for a "
-        f"machine-readable record, written beside the rip's output "
-        f"({DIAGNOSTICS_RECORD_PREFIX}-<stamp>.json)."
+        f"machine-readable record ({DIAGNOSTICS_RECORD_PREFIX}-<stamp>.json). "
+        "cyanrip writes it in the rips folder, not the album folder, and this "
+        "rip's report bundle collects it from there."
     )
     lines.append(
         f"{PLAN_PREFIX}   Cache probe (-x): NEVER sent by a rip. Not part of our "
-        "argv surface; run it directly against the ripper (Tools → Run test "
-        "script, or the rig-session harness) if you need that measurement."
+        "argv surface; run it directly against the ripper (Tools → Advanced → Run "
+        "test script, or the rig-session harness) if you need that measurement."
     )
     return lines

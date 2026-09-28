@@ -72,15 +72,62 @@ class Problem:
     """One thing a check found.
 
     `rule` names what was broken: `LSL.1`–`LSL.6` for the six refusals the spec
-    numbers, `LSL.<word>` for rules the spec states elsewhere, and `A1`–`A8` for
-    our proposed amendments. A disagreement between two checkers can then name
-    the rule it is about.
+    numbers, `LSL.<word>` for rules the spec states elsewhere, `A1`–`A8` for the
+    amendments LSL 2 adopted, and `B1`–`B3` for what LSL 3 adds. A disagreement
+    between two checkers can then name the rule it is about.
     """
 
     line: int
     severity: Severity
     rule: str
     message: str
+
+
+@dataclass(frozen=True)
+class Leftover:
+    """Something B1's scratch checkout left behind, for a person to remove.
+
+    `checkout` says which kind, because the two are removed differently: a
+    worktree the author's clone still lists goes with `git worktree remove`, and
+    the scratch directory that held the worktrees is not one (review finding
+    R16: the report told a person to `git worktree remove` the directory).
+    """
+
+    path: str
+    checkout: bool
+
+
+@dataclass
+class RunCoverage:
+    """What B1 covered in one lap: its `run:` results, and what became of each.
+
+    Printed, because a B1 that re-ran nothing passes by finding nothing, and a
+    reader can see that only if the counts are on the page (the proposal: "The
+    checker prints what B1 covered"). `matched + mismatched + not_rerun == total`
+    whenever `rerun` is True; without `--rerun` nothing is executed and all
+    three stay 0.
+    """
+
+    #: Every `run:` in an `evidence:` field of the lap.
+    total: int = 0
+    #: True when `--rerun` was given, so the counts below mean something.
+    rerun: bool = False
+    matched: int = 0
+    #: Of `matched`, the re-runs that exited non-zero. Still matched, because
+    #: B1 compares a result's quoted strings and nothing else, "exit 0" being
+    #: prose; but a command that failed and printed the quoted words anyway (an
+    #: error message echoing its own argument, "0 failed" inside "10 failed") is
+    #: not the run the lap describes, so each is warned about and counted here,
+    #: never folded silently into `matched` (review finding R13).
+    matched_nonzero: int = 0
+    mismatched: int = 0
+    #: Reported `UNCHECKED run:` with a reason: not a command B1 re-runs, a
+    #: result that quotes nothing, or a re-run that could not be done.
+    not_rerun: int = 0
+    #: What the scratch checkout left: each worktree that `git worktree remove`
+    #: would not remove, and the scratch directory if it could not go, by path,
+    #: so a person can remove them; never removed by force of `rm`.
+    leftovers: list[Leftover] = field(default_factory=list)
 
 
 @dataclass
@@ -101,6 +148,8 @@ class Lap:
     #: reader can see that only if the count is on the page (the fork's round 28
     #: lap 3 S19-S21, which holds for this checker too).
     go_checked_against: dict[str, int] = field(default_factory=dict)
+    #: What B1 covered; None unless B1 is on (an `LSL: 3` lap).
+    runs: RunCoverage | None = None
 
     def add(self, line: int, severity: Severity, rule: str, message: str) -> None:
         self.problems.append(Problem(line, severity, rule, message))

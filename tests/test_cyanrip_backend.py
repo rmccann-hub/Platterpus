@@ -9,9 +9,11 @@ from __future__ import annotations
 import logging
 import re
 import sys
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Final
 
 import pytest
 from hypothesis import HealthCheck, example, given, settings
@@ -1574,11 +1576,18 @@ def test_a_dangling_backslash_is_refused_it_eats_the_separator() -> None:
 
 
 def test_a_track_arg_without_the_leading_number_equals_is_refused() -> None:
-    """cyanrip steps over the '=' of `-t N=` without checking one is there.
+    """A cyanrip WITHOUT the fork's round-7 fix steps over the '=' of `-t N=`
+    without checking one is there.
 
     `strtol()` then `end += 1` — so `-t 12` moves its pointer one past the NUL
     and parses whatever follows in memory. We can never emit that, and that is
     exactly why it is worth a guard: the cost of being wrong is not a bad tag.
+
+    **The range, stated (TASKS row D7, 2026-09-27):** the fork fixed it, and our
+    pin carries the fix (`cyanrip@221a1df:src/cyanrip_main.c:2353-2358` logs
+    `Missing "=" in track metadata`). The guard stays, because refusing a
+    malformed argument before spawning is the argv-chokepoint rule whatever the
+    build does with it, and its message now says which builds overread.
     """
     from platterpus.adapters.cyanrip_backend import assert_meta_args_are_parseable
 
@@ -1716,8 +1725,10 @@ def test_the_diagnostics_path_is_relative_and_UNIQUE_per_rip() -> None:
     eight rips overwrote in turn, and a race the same run made real when an
     abandoned reader kept writing for 15 minutes alongside later rips.
 
-    So: relative, and unique. Putting it *with* the artifacts needs a post-rip
-    move, which is tracked in `TASKS.md` rather than smuggled in here.
+    So: relative, and unique. It is NOT put with the album's artifacts: a rip
+    leaves only its .log, .cue and .platterpus.json there (the maintainer,
+    2026-09-27). Each rip's report bundle collects it from the rips root by
+    name (`diagnostics_record`, tested in `tests/test_diagnostics_record.py`).
     """
     argv = _rip_argv()
     path = argv[argv.index("-j") + 1]
@@ -2367,3 +2378,114 @@ def test_an_UNUSABLE_disc_position_never_names_a_folder_disc() -> None:
 
 def test_an_ESCAPED_disc_code_stays_literal() -> None:
     assert scheme_from_template("%%N", disc="2", discs="3") == "%N"
+
+
+# --- The overwrite guard's folder IS the argv's -D (one computation, two callers) ---
+#
+# The guard predicted the album folder from the DISC template as disc 1 of 1 while
+# the argv built `-D` from the TRACK template with the real disc position, and a
+# re-rip wrote over a finished rip without a prompt (review R4, R5, 2026-09-28).
+# The property below is the relation between the two callers, which no test of
+# either one alone can state.
+
+_ALBUM: Final[RipMetadata] = RipMetadata(album_artist="Art", album_title="Alb")
+
+#: Each drifted once or is a boundary of the split: the disc template's shape, a
+#: year folder, a `%N`/`%M` folder on a later disc, an UNUSABLE position (the code
+#: drops out), an escaped `%%`, a typed brace, and a template with no folder part.
+_FOLDER_CASES: Final[tuple[tuple[str, RipMetadata], ...]] = (
+    ("%A/%d/%t - %n", _ALBUM),
+    ("%A/%d (%Y)/%t - %n", replace(_ALBUM, year="2000-05-01")),
+    ("%A/%Y - %d/%t - %n", _ALBUM),
+    ("%A/%d (Disc %N of %M)/%t - %n", replace(_ALBUM, disc_number=2, total_discs=3)),
+    ("%A/%d (Disc %N)/%t - %n", replace(_ALBUM, disc_number=3, total_discs=2)),
+    ("%A/%%Y {x}/%d/%t - %n", _ALBUM),
+    ("%t - %n", _ALBUM),
+)
+
+
+def test_the_overwrite_guards_folder_scheme_IS_the_argvs_dash_D() -> None:
+    from platterpus.adapters.cyanrip_backend import album_folder_scheme
+
+    compared: list[str | None] = []
+    for template, meta in _FOLDER_CASES:
+        argv = _scheme_argv(meta, template)
+        sent = argv[argv.index("-D") + 1] if "-D" in argv else None
+        assert album_folder_scheme(template, meta) == sent, (template, meta, sent)
+        compared.append(sent)
+    # Non-trivial: the cases include a later disc, a folder-less template, and a
+    # position the chokepoint drops, so agreement is not silence equal to silence.
+    assert len(compared) == len(_FOLDER_CASES) >= 7
+    assert "{album_artist}/{album} (Disc 2 of 3)" in compared, compared
+    assert "{album_artist}/{album} (Disc )" in compared, compared
+    assert None in compared, compared
+
+
+@pytest.mark.parametrize(
+    ("template", "changes", "folder"),
+    [
+        # The track template's folder, not a disc template's.
+        ("%A/%d (%Y)/%t - %n", {"year": "2000-05-01"}, "Art/Alb (2000)"),
+        # The disc of the set, from the position sent as `-c`.
+        (
+            "%A/%d (Disc %N)/%t - %n",
+            {"disc_number": 2, "total_discs": 2},
+            "Art/Alb (Disc 2)",
+        ),
+        # A tag value's `:` is cyanrip's look-alike on disk.
+        ("%A/%d/%t - %n", {"album_title": "Best: Hits"}, "Art/Best∶ Hits"),
+        # The folder is rendered from the ALBUM's tags: cyanrip fills `artist`
+        # from `album_artist` (`cyanrip@f8ebf48:src/cyanrip_main.c:1724`), and a
+        # track's own `title` has no value there, so it renders as its name
+        # (`cyanrip@f8ebf48:src/naming.c:331`, the same fallback
+        # `_path_schemes` cites at the pins).
+        ("%a/%d/%t - %n", {}, "Art/Alb"),
+        ("%A/%d - %n/%t", {}, "Art/Alb - title"),
+        # No folder part: no `-D` is sent, and cyanrip writes its own default,
+        # which for our rip is `<album> [FLAC]`.
+        ("%t - %n", {}, "Alb [FLAC]"),
+        # cyanrip trims spaces and tabs at the edges of every path component
+        # (`cyanrip@e0471f4:src/naming.c:416-450`, called at :497), so the folder
+        # it writes has none; a prediction that kept them names another folder.
+        ("%A / %d \t/%t - %n", {}, "Art/Alb"),
+    ],
+)
+def test_predicted_album_folder_renders_the_dash_D_the_rip_sends(
+    template: str, changes: dict[str, object], folder: str
+) -> None:
+    from platterpus.adapters.cyanrip_backend import predicted_album_folder
+
+    meta = replace(_ALBUM, **changes)  # type: ignore[arg-type]  # test table
+    assert predicted_album_folder(template, meta) == folder
+
+
+def test_the_default_folder_we_predict_is_the_one_the_fork_documents() -> None:
+    """A folder-less template leaves cyanrip its default `-D`. We predict it, so it
+    is held to the fork's own words, not to our memory of them: the `-D` row of
+    the newest provider contract filed in our tree. And its reduction for our rip
+    rests on two facts about our argv, each checked here."""
+    import re
+
+    from test_argv_surface_agreement import newest_provider_contract
+
+    from platterpus.adapters import cyanrip_backend
+
+    contract = newest_provider_contract().read_text(encoding="utf-8")
+    row = re.search(
+        r"^\| `-D` \| `--folder-scheme` \| Directory naming scheme "
+        r"\(default: (?P<default>.+)\) \|$",
+        contract,
+        re.MULTILINE,
+    )
+    assert row is not None, "the contract has no `-D` row to read the default from"
+    assert row.group("default") == cyanrip_backend.CYANRIP_DEFAULT_FOLDER_SCHEME
+    # The reduction to `{album} [FLAC]`: the conditional is on a tag we never send,
+    # and the format is FLAC on every rip. Read off a real argv with every album
+    # field filled, not off our source (whose comments name the tag).
+    full = replace(_ALBUM, year="2000-05-01", disc_number=1, total_discs=1)
+    assert not any("releasecomment" in arg for arg in _scheme_argv(full, "%A/%d/%t")), (
+        "a releasecomment tag is sent now, so the default's conditional can be true"
+    )
+    argv = _scheme_argv(_ALBUM, "%t - %n")
+    assert argv[argv.index("-o") + 1] == "flac", argv
+    assert "-D" not in argv, argv

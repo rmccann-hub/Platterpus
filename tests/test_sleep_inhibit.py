@@ -1,7 +1,7 @@
 """The sleep inhibitor: tri-state honesty, a probe that cannot drift, a bounded release.
 
 **The test this file exists for is the first one.** The shell version of this lock
-(`docs/rig-scripts/platterpusovernight.sh`) shipped a probe that asked for
+(the former `platterpusovernight.sh`, since retired) shipped a probe that asked for
 `--what=idle` while the real lock asked for `--what=idle:sleep:handle-lid-switch`,
 so it tested a *weaker* capability than the one that mattered: on a machine whose
 session could inhibit `idle` and not `sleep`, the probe passed, the lock failed,

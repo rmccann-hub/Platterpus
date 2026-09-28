@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from PySide6.QtCore import QThread, QTimer, Signal
+from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import (
     QDialogButtonBox,
     QLabel,
@@ -68,6 +68,12 @@ class SetupCopy:
     """
 
     title: str = "Set up Platterpus"
+    #: MARKUP: the dialog shows it as RichText. Whoever builds a `SetupCopy`
+    #: must `html.escape` every value it puts in here, and
+    #: tests/test_labels_state_their_text_format.py checks each builder does.
+    #: As markup, its `\n` breaks render as spaces, so the list below shows as
+    #: one paragraph. Left so when the format was made explicit, a change meant
+    #: to alter no output; its TASKS note (2026-09-28) records it for a fix.
     intro: str = (
         "Platterpus rips through the <b>cyanrip</b> tool, which runs in a "
         "small Linux container so it never touches your system. This sets "
@@ -137,7 +143,12 @@ class HostSetupDialog(CenteredDialog):
 
         root = QVBoxLayout(self)
 
+        # RichText, stated: `SetupCopy.intro` is markup by contract (the <b>…</b>
+        # around the ripper's name is ours), and its builders escape any value
+        # they interpolate — the ripper update's build pin. Qt's default AutoText
+        # would decide per text, from whatever its first line happened to hold.
         self._intro: QLabel = QLabel(self._copy.intro, self)
+        self._intro.setTextFormat(Qt.TextFormat.RichText)
         self._intro.setWordWrap(True)
         root.addWidget(self._intro)
 

@@ -19,8 +19,9 @@ in ways nothing else would notice:
 
 **Why the message boxes are patched at `exec`.** This feature builds its own
 `QMessageBox` (it needs an "Open the folder" button and `PlainText`), so
-conftest's `_non_blocking_message_boxes` — which only covers the *static*
-helpers — does not reach it. Under the headless `offscreen` platform a real
+conftest's `_non_blocking_message_boxes` — which covers only the stock boxes
+(`ui/message_boxes`' four functions, and Qt's static helpers) — does not
+reach it. Under the headless `offscreen` platform a real
 `exec()` blocks forever, so the autouse fixture below records the box and
 returns.
 """

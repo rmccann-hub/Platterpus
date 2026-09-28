@@ -3,11 +3,15 @@
 
     python3 scripts/lap_language.py check docs/handshake/inbound/round-27-lap-06.md
     python3 scripts/lap_language.py check LAP --peer ../cyanrip --amend all
+    python3 scripts/lap_language.py check LAP --peer ../cyanrip --rerun
 
-This is a second, independent implementation of LSL 1, written from the fork's
-spec rather than their checker, with our proposed amendments behind `--amend`.
-Why, and what each amendment is for, are in `scripts/laplang/__init__.py` and
-`docs/handshake/outbound/artifacts/lsl-amendments-1.md`. This file only puts
+This is a second, independent implementation of LSL 1, 2 and 3, written from the
+fork's spec rather than their checker. A lap's `LSL: N` line decides what it is
+held to: LSL 2 adds our amendments A1-A8 (which `--amend` can also switch on for
+an LSL 1 lap), and LSL 3 adds B1-B3. `--rerun` lets LSL 3's B1 re-run a lap's
+`run:` commands, which executes the author's committed code; without it nothing
+is executed. Why, and what each rule is for, are in `scripts/laplang/__init__.py`
+and `docs/handshake/outbound/artifacts/lsl-amendments-1.md`. This file only puts
 `scripts/` on the import path and hands over, so the tests can import the
 package the same way.
 """
