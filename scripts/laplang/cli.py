@@ -162,10 +162,17 @@ def render_runs(runs: RunCoverage) -> list[str]:
             "be re-run (each an UNCHECKED run: above, with its reason)"
         )
     for left in runs.leftovers:
-        lines.append(
-            f"B1: could not remove the scratch checkout {left}; remove it with "
-            "`git worktree remove --force` in the author's clone"
-        )
+        if left.checkout:
+            lines.append(
+                f"B1: could not remove the scratch checkout {left.path}; remove it "
+                f"with `git worktree remove --force {left.path}` in the author's clone"
+            )
+        else:
+            lines.append(
+                f"B1: could not remove the scratch directory {left.path}, which is "
+                "not a checkout; once any checkout named above is removed, remove "
+                "what is left in it by hand"
+            )
     return lines
 
 

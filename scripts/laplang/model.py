@@ -83,6 +83,20 @@ class Problem:
     message: str
 
 
+@dataclass(frozen=True)
+class Leftover:
+    """Something B1's scratch checkout left behind, for a person to remove.
+
+    `checkout` says which kind, because the two are removed differently: a
+    worktree the author's clone still lists goes with `git worktree remove`, and
+    the scratch directory that held the worktrees is not one (review finding
+    R16: the report told a person to `git worktree remove` the directory).
+    """
+
+    path: str
+    checkout: bool
+
+
 @dataclass
 class RunCoverage:
     """What B1 covered in one lap: its `run:` results, and what became of each.
@@ -103,9 +117,10 @@ class RunCoverage:
     #: Reported `UNCHECKED run:` with a reason: not a command B1 re-runs, a
     #: result that quotes nothing, or a re-run that could not be done.
     not_rerun: int = 0
-    #: Scratch worktrees that `git worktree remove` would not remove, by path,
+    #: What the scratch checkout left: each worktree that `git worktree remove`
+    #: would not remove, and the scratch directory if it could not go, by path,
     #: so a person can remove them; never removed by force of `rm`.
-    leftovers: list[str] = field(default_factory=list)
+    leftovers: list[Leftover] = field(default_factory=list)
 
 
 @dataclass

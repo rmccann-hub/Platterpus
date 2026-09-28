@@ -301,6 +301,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   it ran on with no time limit while the checker removed the scratch checkout it
   was running in. An interrupt now kills its whole process group, and waits a
   bounded time for it to exit, before the checkout is removed.
+- **For contributors: `lap_language.py check --rerun` no longer leaves a scratch
+  checkout behind when one fails its check, and names what is left correctly.**
+  When `git worktree add` made the checkout but the check that it sits at the
+  lap's commit then failed, the checker forgot the checkout and never removed it,
+  and its report told a person to `git worktree remove` the scratch directory,
+  which is not a checkout. A lap whose `HANDSHAKE-FROM-COMMIT` named an annotated
+  tag did this every time: git checked out the commit the tag points at. Every
+  checkout made is now removed, a tag is reported as not a commit before anything
+  is checked out, and a leftover is named as a checkout or as a directory.
 
 ### Added
 

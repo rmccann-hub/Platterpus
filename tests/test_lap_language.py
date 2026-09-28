@@ -1196,6 +1196,126 @@ def test_rerun_that_runs_too_long_is_killed_and_reported(
     assert len(_worktrees(repo)) == 1, "the scratch checkout was left behind"
 
 
+def test_a_header_naming_a_tag_is_unchecked_and_checks_nothing_out(
+    tmp_path: Path,
+) -> None:
+    """Review finding R16's route in: an annotated tag's sha has the shape of a
+    commit, and `git worktree add` peeled it to the commit it tags, whose HEAD
+    then failed the check, and that worktree was never removed. The tag is now
+    refused as a commit before anything is checked out."""
+    repo, _ = _git_repo(tmp_path, {"data.txt": "alpha\n"})
+    _in(
+        repo,
+        "-c",
+        "user.name=lap test",
+        "-c",
+        "user.email=lap-test@example.invalid",
+        "tag",
+        "-a",
+        "-m",
+        "a tag",
+        "v1",
+    )
+    tag = _in(repo, "rev-parse", "v1").strip()[:12]
+    assert _in(repo, "cat-file", "-t", tag).strip() == "tag"
+    path = tmp_path / "lap.md"
+    path.write_text(
+        _lsl3(
+            _numbered(_measured(1, 'git show HEAD:data.txt => "alpha"')),
+            extra_header=f"HANDSHAKE-FROM-COMMIT: {tag}\n",
+        ),
+        encoding="utf-8",
+    )
+    before = _worktrees(repo)
+    lap = check_path(path, root=repo, rerun=True)
+    assert lap.refused() == []
+    assert lap.runs is not None and lap.runs.not_rerun == 1
+    [warning] = [p for p in lap.problems if p.rule == "LSL.unchecked"]
+    assert f"{tag} is a tag object, not a commit" in warning.message
+    assert _worktrees(repo) == before
+    assert lap.runs.leftovers == []
+
+
+def test_a_checkout_that_fails_its_check_is_still_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review finding R16: `worktree add` succeeded, the follow-up check that
+    HEAD is the commit failed (here, git does not answer it, as on a timeout),
+    and `_add` returned only the reason, so `close` never removed the worktree
+    the clone still listed."""
+    repo, sha = _git_repo(tmp_path, {"data.txt": "alpha\n"})
+    real_git = scratch._git
+
+    def head_unanswered(
+        root: Path, *args: str, timeout: float = scratch.GIT_TIMEOUT_S
+    ) -> subprocess.CompletedProcess[str] | None:
+        if args == ("rev-parse", "HEAD") and root != repo:
+            return None
+        return real_git(root, *args, timeout=timeout)
+
+    monkeypatch.setattr(scratch, "_git", head_unanswered)
+    path = tmp_path / "lap.md"
+    path.write_text(
+        _lsl3(_numbered(_measured(1, 'git show HEAD:data.txt => "alpha"', at=sha))),
+        encoding="utf-8",
+    )
+    before = _worktrees(repo)
+    lap = check_path(path, root=repo, rerun=True)
+    assert any("is not at" in p.message for p in lap.problems), lap.problems
+    assert lap.runs is not None and lap.runs.not_rerun == 1
+    assert _worktrees(repo) == before, "the checkout that failed its check was left"
+    assert lap.runs.leftovers == []
+
+
+def test_a_leftover_is_named_as_what_it_is(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review finding R16's message: when a checkout would not go, the report
+    told a person to `git worktree remove` the scratch DIRECTORY, which is not
+    one. It now names the checkout, and names the directory as a directory."""
+    repo, sha = _git_repo(tmp_path, {"data.txt": "alpha\n"})
+    real_git = scratch._git
+
+    def remove_refused(
+        root: Path, *args: str, timeout: float = scratch.GIT_TIMEOUT_S
+    ) -> subprocess.CompletedProcess[str] | None:
+        if args[:2] == ("worktree", "remove"):
+            return subprocess.CompletedProcess(list(args), 1, "", "refused")
+        return real_git(root, *args, timeout=timeout)
+
+    monkeypatch.setattr(scratch, "_git", remove_refused)
+    path = tmp_path / "lap.md"
+    path.write_text(
+        _lsl3(_numbered(_measured(1, 'git show HEAD:data.txt => "alpha"', at=sha))),
+        encoding="utf-8",
+    )
+    before = _worktrees(repo)
+    lap = check_path(path, root=repo, rerun=True)
+    assert lap.runs is not None
+    left = lap.runs.leftovers
+    try:
+        assert lap.runs.matched == 1, lap.problems
+        [checkout] = [x for x in left if x.checkout]
+        [directory] = [x for x in left if not x.checkout]
+        assert Path(checkout.path).parent == Path(directory.path)
+        assert f"worktree {checkout.path}" in _worktrees(repo)
+        report = render(lap)[0]
+        assert f"`git worktree remove --force {checkout.path}`" in report
+        [directory_line] = [ln for ln in report.splitlines() if "directory" in ln]
+        assert f"scratch directory {directory.path}, which is not a checkout" in (
+            directory_line
+        )
+        assert "git worktree remove" not in directory_line
+    finally:
+        for item in left:
+            if item.checkout:
+                _in(repo, "worktree", "remove", "--force", item.path)
+        for item in left:
+            if not item.checkout:
+                Path(item.path).rmdir()
+    assert _worktrees(repo) == before
+
+
 def _running(pid: int) -> bool:
     """Whether `pid` is a live process: present, and neither a zombie nor dead."""
     try:
