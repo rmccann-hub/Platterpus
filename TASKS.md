@@ -633,14 +633,33 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   (2026-09-28). Every key cyanrip writes is in capitals, and `DISCTOTAL` and `TOTALDISCS`
   are written as a pair. The two lower-case keys, `encoder` and `creation_time`, are
   written by libavformat and fall outside the ruling. Our lap 2 says so.
-- [~] **S39: accept their proposed repeat-limit wording beside the current one**, in
+- [x] **S39: accept their proposed repeat-limit wording beside the current one**, in
   0.6.63, so their `.19` can ship it after us (round 20's order). Our parser comment
   claimed the old line means no two reads agreed; the corrected comment ships with it.
-- [~] **S31: the EAC-compatible log's first line no longer begins with "Exact Audio
+  - *Done in e64260d6:* both wordings mean "not converged" in the parser, the worker's
+    diagnostics and the EAC-style log, and the new line is never read as convergence.
+    The same false gloss is corrected in five other modules. Revert-probed four ways.
+- [x] **S31: the EAC-compatible log's first line no longer begins with "Exact Audio
   Copy"**, in 0.6.63, with our parser still reading old exports.
-- [~] **S28/S29: our lap checker reads B1 as they propose.** An `at:` is a commit and
+  - *Done in da100ab5:* it reads `Platterpus rip log in EAC's layout, not produced by
+    Exact Audio Copy`. `parsers/eac_log.eac_log_producer` tells our export (either
+    wording) from a real EAC log. Revert-probed 22 ways.
+- [x] **S28/S29: our lap checker reads B1 as they propose.** An `at:` is a commit and
   nothing else; a `run:` needs a `HANDSHAKE-FROM-COMMIT` that names one commit; and a
   stated `exit N` is checked. The other six of their S29 readings already match ours.
+  - *Done in df6d4dd5:* no committed lap's report changed (205 laps, old checker against
+    new), and it agrees with theirs on seven constructed laps. Three edge cases where
+    the two checkers still read a stated exit code differently go to them in our lap 2.
+- [ ] **Found while integrating, for later.** None of these blocks round 29.
+  - (1) The EAC-compatible log still says "re-reads did NOT agree" for a track whose
+    re-reads hit the limit (`eac_log_export.py`). That overstates it for a track like
+    round 28's track 5, where two reads agreed. Changing rendered EAC text has parity
+    consequences, so this needs its own change.
+  - (2) The size ratchet, the regex-time sweep and the mypy gate cover `src/platterpus`
+    only, not `scripts/`. `scripts/laplang/lsl3.py` is 428 lines, and
+    `mypy --strict scripts/laplang` reports 3 errors in `scratch.py`.
+  - (3) Nothing yet acts on `eac_log_producer`. The parity tool does not warn when its
+    "baseline" is one of our own exports.
 - [ ] **S40/S41: refuse `-Z N` with `-r` ≤ N, with one move of the shared
   `docs/seam-commands.md`.** They refuse it at argument parsing and regenerate their argv
   table, and our two §1a rows ride the same change (the held patch in the *Round 29:
