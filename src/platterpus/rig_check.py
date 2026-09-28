@@ -220,9 +220,20 @@ def _compose_reference_argv(binary: str, device: str, build_tag: str) -> list[st
     """
     from platterpus.adapters.rip_backend import RipMetadata, TrackTag
     from platterpus.composition import build_cyanrip_backend
+    from platterpus.config import Config
 
     # Through the composition root, like every other construction of the adapter.
     backend = build_cyanrip_backend(binary)
+    # `-r` and `-Z` are the SHIPPED DEFAULTS, read from the dataclass rather than
+    # typed here. They were `max_retries=3, secure_rerip_matches=3` — `-r 3 -Z 3`,
+    # a pair no rip should ever send: `-Z 3` needs four identical reads and `-r 3`
+    # stops at three, so it can never converge
+    # (`cyanrip@faec4a8:src/cyanrip_main.c:997-1012`). The 2026-09-28 Full run's
+    # `argv-probe.json` carries exactly that. The argv chokepoint now refuses the
+    # pair, so the old values would fail this check at composition; the defaults
+    # are what an untouched install sends, which is what "the argv a real rip
+    # would send" should mean.
+    shipped = Config()
     metadata = RipMetadata(
         album_artist="Platterpus",
         album_title="Rig Check",
@@ -233,7 +244,7 @@ def _compose_reference_argv(binary: str, device: str, build_tag: str) -> list[st
         device,
         unknown=False,
         cover_art="",
-        max_retries=3,
+        max_retries=shipped.max_retries,
         read_offset_override=667,
         # A PLATTERPUS template, not a cyanrip one. `_build_rip_argv` runs this
         # through `scheme_from_template`, which translates our `%`-tokens into
@@ -246,7 +257,7 @@ def _compose_reference_argv(binary: str, device: str, build_tag: str) -> list[st
         # what the GUI actually holds.
         track_template="%t - %n",
         metadata=metadata,
-        secure_rerip_matches=3,
+        secure_rerip_matches=shipped.secure_rerip_matches,
         only_tracks=(1, 2),
         disc_track_total=2,
         ripper_build_tag=build_tag,

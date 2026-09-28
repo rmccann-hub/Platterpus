@@ -245,3 +245,98 @@ def test_retries_flag_value_is_what_the_builder_actually_sends() -> None:
         assert sent == retries_flag_value(max_retries), max_retries
     # Non-triviality: both shapes occurred.
     assert retries_flag_value(0) is None and retries_flag_value(5) == 5
+
+
+# --- the argv chokepoint (adapters/cyanrip_backend.py) -----------------------
+
+
+@pytest.mark.parametrize(
+    ("argv_tail", "names"),
+    [
+        # The rig check's own reference argv until 2026-09-28.
+        (["-r", "3", "-Z", "3"], ("-Z 3", "-r 3")),
+        (["-r", "2", "-Z", "2"], ("-Z 2", "-r 2")),
+        (["-r", "1", "-Z", "1"], ("-Z 1", "-r 1")),
+        (["-r", "0", "-Z", "1"], ("-Z 1", "-r 0")),
+        # No -r: cyanrip's own 10, and -Z 10 needs 11 reads.
+        (["-Z", "10"], ("-Z 10", "default of 10")),
+        # A repeated -r: cyanrip applies the LAST (genopt.h:582), so a harmless
+        # first one must not hide an impossible second one.
+        (["-r", "5", "-Z", "2", "-r", "2"], ("-Z 2", "-r 2")),
+    ],
+)
+def test_the_chokepoint_refuses_a_z_that_r_can_never_satisfy(
+    argv_tail: list[str], names: tuple[str, ...]
+) -> None:
+    """Through the one function every route to the ripper passes, not the helper.
+
+    Each value here is inside its own range, which is exactly why the range check
+    let the pair through: the defect is the combination.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
+    from platterpus.adapters.rip_backend import RipError
+
+    with pytest.raises(RipError) as excinfo:
+        assert_metadata_lookup_disabled(["cyanrip", "-N", *argv_tail])
+    message = str(excinfo.value)
+    for name in names:
+        assert name in message, f"the refusal does not name {name!r}: {message}"
+
+
+def test_the_chokepoint_accepts_every_pair_that_can_converge() -> None:
+    """The floor: a guard that refused every -Z would pass the test above."""
+    from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
+
+    accepted = 0
+    for argv_tail in (
+        ["-r", "3", "-Z", "2"],  # the Full run's pair: zero tolerance, but possible
+        ["-r", "5", "-Z", "2"],  # the shipped defaults
+        ["-r", "2", "-Z", "1"],
+        ["-Z", "9"],  # no -r: cyanrip's 10 allows ten reads
+        ["-r", "1"],  # no -Z at all: nothing to converge
+        ["-r", "2", "-Z", "5", "-Z", "1"],  # the LAST -Z is the one applied
+    ):
+        assert_metadata_lookup_disabled(["cyanrip", "-N", *argv_tail])
+        accepted += 1
+    assert accepted == 6
+
+
+def test_the_builder_refuses_exactly_the_settings_pairs_the_predicate_does() -> None:
+    """The relation, over the whole Settings range: settings -> argv -> verdict.
+
+    `_build_rip_argv` ends at the chokepoint, so a pair the predicate calls
+    impossible must raise there, and every other pair must build. Checked for
+    every (Max retries, secure re-read) the validator's ranges allow, so no pair
+    can reach cyanrip that the predicate would have refused.
+    """
+    from platterpus import settings_validation as sv
+    from platterpus.adapters.rip_backend import RipError
+    from platterpus.composition import build_cyanrip_backend
+
+    backend = build_cyanrip_backend("cyanrip")
+    refused = built = 0
+    for max_retries in range(sv.MAX_RETRIES_MIN, sv.MAX_RETRIES_MAX + 1):
+        for matches in range(sv.SECURE_REREP_MIN, sv.SECURE_REREP_MAX + 1):
+            impossible = bool(
+                secure_reread_problem(
+                    repeat_rips=matches, retries=retries_flag_value(max_retries)
+                )
+            )
+            try:
+                backend._build_rip_argv(  # noqa: SLF001 — the real builder, on purpose
+                    "/dev/sr0",
+                    unknown=True,
+                    cover_art="",
+                    max_retries=max_retries,
+                    read_offset_override=None,
+                    secure_rerip_matches=matches,
+                )
+            except RipError:
+                assert impossible, (max_retries, matches)
+                refused += 1
+            else:
+                assert not impossible, (max_retries, matches)
+                built += 1
+    # Non-triviality: both outcomes occurred, and the refusals are the small
+    # corner (-r 0..10 against -Z up to 10), not the whole table.
+    assert refused > 0 and built > refused
