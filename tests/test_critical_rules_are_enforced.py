@@ -1438,7 +1438,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **777 -> 782 (2026-09-24)**: asks `current_test_pin()` / `retired_test_pins()`
     # instead of the raw constant, and says why in four lines (§5.bq).
     # **782 -> 800 (2026-09-25)**: the up-to-date offer keeps the build under review instead of offering the approved pin over it.
-    "deps/ripper_offer.py": 800,
+    # **800 -> 810 (2026-09-28)**: the offer names each build by version, commit and
+    # fork release through `ripper_standing`, and names the round testing it.
+    "deps/ripper_offer.py": 810,
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.

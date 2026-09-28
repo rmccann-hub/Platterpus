@@ -23,8 +23,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from platterpus import __version__, build_info, help_content
+from platterpus import __version__, build_info, help_content, ripper_standing
 from platterpus.build_info import build_fingerprint
+from platterpus.deps import build_notes
 from platterpus.deps import manager as dep_manager
 from platterpus.paths import (
     CONFIG_PATH,
@@ -50,6 +51,18 @@ def _markdown_viewer(
     view.setAccessibleName(accessible_name)
     view.setMarkdown(markdown)
     return view
+
+
+def _markdown_literal(text: str) -> str:
+    """``text`` escaped so Markdown shows every character as written.
+
+    CommonMark reads a backslash before any ASCII punctuation as that character, so
+    escaping all of it is exact. For sentences quoting a dependency's own output.
+    """
+    return "".join(
+        f"\\{ch}" if ch.isascii() and not ch.isalnum() and not ch.isspace() else ch
+        for ch in text
+    )
 
 
 class AboutDialog(CenteredDialog):
@@ -143,8 +156,27 @@ class AboutDialog(CenteredDialog):
             self._stop_listening = None
 
     @staticmethod
+    def _ripper_markdown(banner: str | None) -> str:
+        """What the installed ripper build is, and what that means for the rips.
+
+        Words from :mod:`platterpus.ripper_standing`, whose verdict is the check each
+        rip records (the maintainer's ask, 2026-09-28). Escaped, because the installed
+        line quotes the ripper's own text, which must not be read as Markdown.
+        """
+        rows = "".join(
+            f"- **{label}:** {_markdown_literal(text)}\n"
+            for label, text in ripper_standing.about_lines(banner)
+        )
+        return (
+            f"### Ripper\n{rows}\n"
+            f"*{_markdown_literal(ripper_standing.HOW_TO_READ)}*\n\n"
+        )
+
+    @staticmethod
     def _components_markdown(
-        inventory: ComponentInventory, unchecked_note: str = ""
+        inventory: ComponentInventory,
+        unchecked_note: str = "",
+        full_versions: dict[str, str] | None = None,
     ) -> str:
         """The dependency rows, each with a text marker, never colour alone.
 
@@ -155,8 +187,13 @@ class AboutDialog(CenteredDialog):
         inventory rather than added to it because the inventory is also the
         acceptance bundle's ``components`` file, which crosses the handshake seam:
         a new key there is a shape change that has to be declared in a lap first.
+
+        ``full_versions`` sits beside the inventory for the same reason: each tool's
+        own version text (`deps.build_notes.own_versions`), where the inventory keeps
+        the parsed ``0.9.4``.
         """
         deps = inventory["dependencies"]
+        full = full_versions or {}
         age = build_info.describe_measured_at(inventory["dependencies_measured_at"])
         note = f"- ⚠ {unchecked_note}\n" if unchecked_note else ""
         if deps is None:
@@ -173,7 +210,12 @@ class AboutDialog(CenteredDialog):
                 mark = "⚠ below the minimum version"
             else:
                 mark = "⚠ missing"
-            version = entry["version"] or "version not reported"
+            own = full.get(name, "")
+            version = (
+                f"`{own.replace('`', '')}`"
+                if own
+                else (entry["version"] or "version not reported")
+            )
             where = f" — `{entry['location']}`" if entry["location"] else ""
             rows.append(f"- {name}: {version} {mark}{where}")
         listed = "\n".join(rows) + "\n" if rows else ""
@@ -181,13 +223,19 @@ class AboutDialog(CenteredDialog):
 
     @staticmethod
     def _build_markdown(
-        inventory: ComponentInventory | None = None, unchecked_note: str = ""
+        inventory: ComponentInventory | None = None,
+        unchecked_note: str = "",
+        full_versions: dict[str, str] | None = None,
+        ripper_banner: str | None = None,
     ) -> str:
         if inventory is None:
-            # One read of the store, so the rows and the note describe one report.
+            # One read of the store, so the rows, the note and the ripper section
+            # all describe one report.
             report = dep_manager.latest_report()
             inventory = build_info.component_inventory(report)
             unchecked_note = dep_manager.describe_unchecked(report)
+            full_versions = build_notes.own_versions(report)
+            ripper_banner = build_notes.ripper_banner(report)
         py = inventory["python"] or "{}.{}.{}".format(*sys.version_info[:3])
         return (
             f"# Platterpus\n\n"
@@ -199,7 +247,8 @@ class AboutDialog(CenteredDialog):
             f"- Qt: {inventory['qt'] or qVersion()}\n"
             f"- PySide6: {inventory['pyside6'] or PYSIDE_VERSION}\n"
             f"- Platform: {inventory['platform'] or platform.platform()}\n\n"
-            + AboutDialog._components_markdown(inventory, unchecked_note)
+            + AboutDialog._components_markdown(inventory, unchecked_note, full_versions)
+            + AboutDialog._ripper_markdown(ripper_banner)
             + f"### Paths\n"
             f"- Config: `{CONFIG_PATH}`\n"
             f"- Log: `{LOG_PATH}`\n"
