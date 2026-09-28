@@ -1375,9 +1375,9 @@ class ScriptRunner(QObject):
         # while writing a script that relied on it — before it shipped, and only
         # because the fall-through was read rather than assumed.
         #
-        # A substring rather than a full label because the script language splits
-        # args on whitespace with no quoting (`script.parse`: `args = tokens[1:]`),
-        # so "Rip to a new folder" cannot be one argument. `click=new` can.
+        # A substring rather than a full label, so a script names the action by a
+        # short stable word (`click=new`) rather than by a label's exact wording. (The
+        # language does group a double-quoted value into one argument: `_tokenise`.)
         refusal = answer_dialog_action_error(step.args[0])
         if refusal is not None:
             self._record(step, Outcome.ERROR, refusal)
