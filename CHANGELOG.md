@@ -39,6 +39,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   recipe said the bundled `cryptography` version was fixed by `requirements.lock`.
   That lock is not committed, so every AppImage build installs online within the `~=`
   ranges, and `build/python-appimage/requirements.txt` now says so.
+- **`docs/testing.md` no longer calls `tests-touched` advisory.** Its tier table still
+  described the job as a "nudge" five weeks after it became a gating job (2026-08-20).
+  It now says what the job refuses and how a change states a reason instead.
 
 ## [0.6.63] — 2026-09-28
 
