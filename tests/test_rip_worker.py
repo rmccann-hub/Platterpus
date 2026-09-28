@@ -454,6 +454,116 @@ def test_auto_ladder_speed_locked_drive_escalates_z_never_sends_S(
     assert zs == [0, 2, 3]
 
 
+# --- The recovery re-read's own -Z stays inside the user's -r ---------------
+#
+# cyanrip's secure re-read converges only when N+1 whole-track reads are
+# identical, and stops after -r of them (`cyanrip@faec4a8:src/cyanrip_main.c:
+# 997-1012`). So a -Z N with -r <= N can never converge. The user's own -Z is
+# refused at the settings boundary when that happens; the ladder's FALLBACK -Z
+# (used when they left secure re-read Off) is ours, and was not capped: at
+# Max retries 3 it sent `-Z 3 -r 3`, reading every track three times and
+# verifying none. Found 2026-09-28 from the Full run's `-r 3` (section B).
+
+_SPEED_LOCKED_READ_ERRORS = (
+    "cyanrip 0.9.3 (release)\n"
+    "Speed:          default (unchangeable)\n"
+    "Disc tracks:    1\n"
+    "Track 1 ripped and encoded successfully!\n"
+    "  EAC CRC32:     329DC760\n"
+    "Ripping errors: 3\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("max_retries", "expected_z"),
+    [
+        # The shipped default: -r 5 lets -Z 2 and -Z 3 both converge.
+        (5, [0, 2, 3]),
+        # -r 3 allows three reads: -Z 2 (three identical) can converge, -Z 3
+        # cannot, so the ladder stops at 2 instead of sending a doomed pass.
+        (3, [0, 2]),
+        # -r 2 allows two reads, so no -Z the ladder uses (its floor is 2) can
+        # converge. It stops after the first pass rather than re-reading for
+        # nothing.
+        (2, [0]),
+        # 0 sends no -r at all, so cyanrip's own default of 10 applies — the cap
+        # is the ladder's own bound, not a limit the user never set.
+        (0, [0, 2, 3]),
+    ],
+)
+def test_the_ladders_fallback_z_never_outruns_the_retry_ceiling(
+    qapp: QApplication, tmp_path: Path, max_retries: int, expected_z: list[int]
+) -> None:
+    from platterpus.cyanrip_cli import retries_flag_value, secure_reread_problem
+
+    rip_log = tmp_path / "Album" / "rip.log"
+    rip_log.parent.mkdir(parents=True)
+    rip_log.write_text(_SPEED_LOCKED_READ_ERRORS, encoding="utf-8")
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", max_retries=max_retries),
+    )
+
+    worker.start_rip()
+
+    zs = [call["secure_rerip_matches"] for call in backend.rip_calls]
+    assert zs == expected_z
+    # The property, not just the numbers: every pass sent could converge under
+    # the -r it was sent with, judged by the same predicate the argv chokepoint
+    # uses. Floor: at least one pass was checked.
+    assert backend.rip_calls
+    for call in backend.rip_calls:
+        sent_z, sent_r = call["secure_rerip_matches"], call["max_retries"]
+        assert isinstance(sent_z, int) and isinstance(sent_r, int)
+        assert sent_r == max_retries
+        problem = secure_reread_problem(
+            repeat_rips=sent_z, retries=retries_flag_value(sent_r)
+        )
+        assert problem == "", problem
+
+
+@pytest.mark.parametrize(
+    ("max_retries", "expected_rerip_z"),
+    [(5, [3]), (3, [2]), (1, [])],
+)
+def test_the_instability_auto_fix_z_stays_inside_the_retry_ceiling(
+    qapp: QApplication,
+    tmp_path: Path,
+    max_retries: int,
+    expected_rerip_z: list[int],
+) -> None:
+    """The auto-fix of a track that never converged uses the same capped -Z.
+
+    `-r 1` allows one read, so no secure re-read can converge and no auto-fix
+    pass is spawned at all — nothing attempted rather than something doomed.
+    """
+    rip_log = tmp_path / "Album" / "rip.log"
+    rip_log.parent.mkdir(parents=True)
+    rip_log.write_text(
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    1\n"
+        "Done; (no matches found, but hit repeat limit of 5)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     329DC760 (after 5 rips)\n"
+        "Ripping errors: 0\n",
+        encoding="utf-8",
+    )
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", max_retries=max_retries),
+    )
+
+    worker.start_rip()
+
+    # Pass 1 is the album pass with no -Z; everything after it is the auto-fix.
+    assert backend.rip_calls, "floor: the album pass itself never ran"
+    assert backend.rip_calls[0]["secure_rerip_matches"] == 0
+    rerip_z = [call["secure_rerip_matches"] for call in backend.rip_calls[1:]]
+    assert rerip_z == expected_rerip_z
+
+
 # --- Per-track auto-fix (re-rip the unstable track alone, keep it if it converges)
 
 _PASS1_UNSTABLE = (

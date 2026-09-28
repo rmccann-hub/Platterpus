@@ -1136,7 +1136,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1640 -> 1670** (2026-09-25, D18: `%N`/`%M` work everywhere): the disc position is checked once and fills in `%N`/`%M` as well as `-c`, so a folder name cannot disagree with the tags; `_disc_args` folded into `_disc_position`, keeping its reasoning.
     # 1670 -> 1757 on 2026-09-28 (review R4, R5): `_path_schemes` builds `-D`/`-F` for the argv and `album_folder_scheme` hands the overwrite guard the same `-D`, with `predicted_album_folder` rendering it from the album-level tags cyanrip fills in (cited). The guard predicted from the disc template as disc 1 of 1 and missed finished rips; one computation beside the argv is the fix, and cyanrip's rendering rules belong in its adapter.
     # 1757 -> 1772 on 2026-09-28: cyanrip's documented `-D` default and its rendering for our rip, which the overwrite guard predicts for a folder-less template (review Q5).
-    "adapters/cyanrip_backend.py": 1772,
+    # **1772 -> 1782** (2026-09-28, `-Z` that `-r` cannot satisfy): the `-r` the argv carries goes through `cyanrip_cli.retries_flag_value`, the one mapping the validator and the rip worker also use to predict it; the comment says why it is not an inline `if`.
+    "adapters/cyanrip_backend.py": 1782,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1201,7 +1202,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **848 -> 849** (2026-09-25, D18: `%N`/`%M` work everywhere): the template comment no longer says multi-disc folders are impossible.
     "config.py": 849,
     "cue_validate.py": 1257,
-    "cyanrip_cli.py": 327,
+    # **327 -> 426** (2026-09-28, `-Z` that `-r` cannot satisfy): `DEFAULT_MAX_RETRIES`, `retries_flag_value` and `secure_reread_problem`, the convergence rule read from the fork's source. It is a fact about cyanrip's command line that three layers need (the argv chokepoint, the settings validator, the rip worker), which is what this module is for; most of the growth is the mechanism and its citation.
+    "cyanrip_cli.py": 426,
     # **437 -> 522** (2026-09-28, Check dependencies "seems to freeze, not respond, or give no
     # error"): `probe_deadline` and `_probe_timeout`, which cap every probe a dependency check
     # runs at the check's overall deadline and refuse to START one after it. They live here
@@ -1664,7 +1666,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **928 -> 957 (2026-09-28)**: `check_dependencies` passes the GUI's own deadline and names the tools a stopped check did not reach; it is the CheckResult mapping, which lives with the other checks.
     "preflight.py": 957,
     # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
-    "read_speed_ladder.py": 370,
+    # **370 -> 410** (2026-09-28, `-Z` that `-r` cannot satisfy): `recovery_secure_rerip_ceiling`, which caps the ladder's own fallback `-Z` (`MAX_SECURE_REREP`, defined here) at what the user's `-r` lets converge. Beside the bound it caps, and shared by the ladder and the auto-fix so they cannot disagree.
+    "read_speed_ladder.py": 410,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
@@ -2254,7 +2257,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the log pane and the record, and the capture ends with what screening changed.
     # The screen itself lives in inbound_text; this is the wiring and its reasons.
     # **3490 -> 3523** (2026-09-27, TASKS the `-j` rows): each album pass's `-j` record path is read off the argv as spawned and the directory it ran in, and exposed for the report bundle. The worker is the only place that holds both; the argv reader is `diagnostics_record.py`. Nothing is moved.
-    "workers/rip_worker.py": 3523,
+    # **3523 -> 3531** (2026-09-28, `-Z` that `-r` cannot satisfy): the ladder and the instability auto-fix ask `recovery_secure_rerip_ceiling` instead of `secure_rerip_matches or MAX_SECURE_REREP`; the decision lives in `read_speed_ladder.py`, only the calls and their comments are here.
+    "workers/rip_worker.py": 3531,
 }
 
 

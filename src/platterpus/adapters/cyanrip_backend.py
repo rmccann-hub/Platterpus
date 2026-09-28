@@ -46,7 +46,11 @@ from platterpus.adapters.rip_backend import (
     run_capture,
 )
 from platterpus.adapters.ripper_log_verify import LogVerification, verify_rip_log
-from platterpus.cyanrip_cli import VERSION_FLAGS, split_on_unescaped
+from platterpus.cyanrip_cli import (
+    VERSION_FLAGS,
+    retries_flag_value,
+    split_on_unescaped,
+)
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -233,8 +237,14 @@ class CyanripImpl(RipBackend):
         # `docs/dependency-contracts.md` has carried since the 2026-07-08 naming audit
         # still stands. (Stale-comment finding, 2026-09-27, while fuzzing P7b.)
         argv += ["-T", SANITISE_MODE]
-        if max_retries:
-            argv += ["-r", str(max_retries)]
+        # `-r`: omitted for a setting of 0, so cyanrip applies its own default.
+        # The mapping is `retries_flag_value`, not an inline `if`, because two
+        # other places must predict exactly this -r: the settings validator and
+        # the rip worker's recovery re-read, which both need to know how many
+        # whole-track reads a `-Z` pass will be allowed (see `cyanrip_cli`).
+        retries = retries_flag_value(max_retries)
+        if retries is not None:
+            argv += ["-r", str(retries)]
         # `-Z N`: re-rip each track until N reads' checksums agree, for
         # marginal/damaged discs (EAC-parity item 1; see config.py). Only
         # passed when the user enabled it (> 0) — on a clean disc it just
