@@ -201,11 +201,77 @@ def test_check_dependencies_optional_missing_warns():
 
 def test_check_dependencies_probe_crash_is_caught():
     class _Boom:
-        def check_all(self):
+        # Takes what the real one takes, so the crash under test is the probe's
+        # and not a TypeError from the call.
+        def check_all(self, **_kwargs):
             raise RuntimeError("kaboom")
 
     res = preflight.check_dependencies(_Boom())
     assert res.status is Status.FAIL
+    assert "kaboom" in res.detail
+
+
+def test_check_dependencies_is_bounded_by_the_apps_own_deadline(monkeypatch):
+    """`--doctor` ran the check with no deadline, so a wedged container held it
+    for every probe's timeout in turn. It now passes the GUI's deadline, read at
+    call time."""
+    from platterpus.deps import manager as dep_manager
+
+    seen: list[object] = []
+
+    class _Recording:
+        def check_all(self, **kwargs):
+            seen.append(kwargs.get("deadline_s"))
+            return dep_manager.DependencyReport(ok=[], missing=[], install_results=[])
+
+    monkeypatch.setattr(dep_manager, "CHECK_DEADLINE_S", 7.5)
+    preflight.check_dependencies(_Recording())
+    assert seen == [7.5]
+
+
+def test_an_incomplete_check_names_what_it_did_not_reach_and_never_says_all_present(
+    monkeypatch,
+):
+    """Through the REAL deadline: the first probe outlasts it, so the second spec
+    is never reached. That tool is neither present nor missing."""
+    import time
+
+    from platterpus.deps import manager as dep_manager
+
+    def slow_present() -> ProbeResult:
+        time.sleep(0.3)
+        return ProbeResult(present=True, version=(0, 9), location="/x")
+
+    specs = [
+        DependencySpec(
+            dep_id="cyanrip",
+            display_name="cyanrip",
+            probe=slow_present,
+            min_version=(),
+            tier=_spec("cyanrip").tier,
+            install_command=None,
+            search_string="cyanrip",
+        ),
+        DependencySpec(
+            dep_id="flac",
+            display_name="flac",
+            probe=lambda: ProbeResult(present=False, version=None, location=None),
+            min_version=(),
+            tier=_spec("flac").tier,
+            install_command=None,
+            search_string="flac",
+            optional=True,
+        ),
+    ]
+    monkeypatch.setattr(dep_manager, "CHECK_DEADLINE_S", 0.1)
+    res = preflight.check_dependencies(DependencyManager(specs=specs))
+    assert res.status is Status.WARN, res
+    assert "check incomplete: 1 tool(s) not checked: flac" in res.summary, res.summary
+    assert "all required tools present" not in res.summary
+    assert "✓ cyanrip" in res.detail, res.detail
+    assert "? flac: NOT CHECKED" in res.detail, res.detail
+    assert "MISSING" not in res.detail, "an unreached tool was counted as missing"
+    assert "stopped after 0.1 s" in res.detail, res.detail
 
 
 # --- version_banner (the pure validator behind the routing check) ----------

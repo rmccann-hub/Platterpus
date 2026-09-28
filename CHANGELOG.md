@@ -245,6 +245,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   check's own deadline, so a script's next step still finds the summary on screen.
   A test run stopped during any waiting step now records that step as stopped.
   Before, the transcript had no row for it.
+- **`--doctor` no longer waits minutes on a stuck ripping container, and never
+  calls an unfinished check complete.** Its dependency line now stops at the same
+  deadline as the app's own check. If it stops early, the line reads "check
+  incomplete" and lists each tool it did not reach as not checked, neither present
+  nor missing. Before, a stuck container made it wait for every tool's own timeout
+  in turn, with nothing printed.
 
 ### Added
 

@@ -1656,7 +1656,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `container_scope.py`; only the CheckResult mapping lives here, beside the
     # other checks, because a check that lived elsewhere would need to import
     # this module back.
-    "preflight.py": 928,
+    # **928 -> 957 (2026-09-28)**: `check_dependencies` passes the GUI's own deadline and names the tools a stopped check did not reach; it is the CheckResult mapping, which lives with the other checks.
+    "preflight.py": 957,
     # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
     "read_speed_ladder.py": 370,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
