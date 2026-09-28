@@ -1507,3 +1507,94 @@ one's options are kept). The maintainer took the recommendation on all four.
 | D19 | The session branch | **Merge once CI is green; release when round 27 closes.** The held round-27 EAC wording is reverted on the branch so the merge cannot carry it. |
 
 **Consequence.** D16, D17 and D18 were built the same day; D19 is PR #253.
+
+### KDD-39 — Configuration audit: tier T3, and what was applied, held and left (decided 2026-09-28)
+
+**Context.** One run of the PROJECT-BOOTSTRAP-AND-AUDIT standard, **v0.38.0** (the run file's
+SHA-256 is `fc2a96f68a32963785435274adf5058ff5e2054b18f53e6a03e334a112f05aa4`, 242,239
+bytes), job *audit*, against `main` at `a930411b`. It is recorded here because that file is
+uploaded per session, so this entry is the only trace in the repository of which rules
+produced the audit. The run report stays outside the repository, with the maintainer. The
+result over ten dimensions was 1 BLOCKER, 6 DRIFT and 3 GAP: CI's secret scan reads nothing
+on a push to `main` that arrives as a merge commit.
+
+**Tier: T3**, confirmed by the maintainer on 2026-09-28. Blast radius B3: a public release
+channel (PyPI since 0.4.0 on 2026-06-29, GitHub Releases, and the one-line installer that
+runs `install.sh` from `main`). Audience A3: public. Basis: current. A later run starts in
+re-check mode from this tier instead of asking again.
+
+| # | Question | Ruling |
+|---|---|---|
+| H1 | Should the installer check what it downloads? | **(a)** Against the release's `.sha256`, and against the build attestation when `gh` is present. **Not (b)** (fetch `install.sh` from the newest release instead of `main`): every v0.x release is a pre-release, so GitHub's "latest" link reaches none of them. |
+| H2 | "Out of beta" in the README, "4 - Beta" on PyPI | **(b)** Keep the classifier, and qualify the README. |
+| H3 | Open a pull request after applying? | **Yes**, and do not merge it. |
+
+**Outcome, by amendment.**
+
+- **Applied**, on the session branch `claude/serene-bell-gzywdr`, one commit each. They reach
+  `main` when the maintainer merges its pull request.
+  - A3: `DEPENDENCIES.md` rows for twine, pip-audit, cyclonedx-bom and gitleaks. The
+    recipe's comment no longer says a lock exists.
+  - A8: the dead `[tool.mutmut]` block is deleted.
+  - A9: the `-x` doc check sweeps the tracked files, with the disk walk kept as the
+    fallback for a tree with no `.git`, as the maintainer asked.
+  - A11: `docs/testing.md` describes `tests-touched` as gating.
+  - A13: `SECURITY.md` and §6.3 of `docs/architecture.md` say what the secret scan covers.
+  - A15: rmccann-hub is named as the copyright holder.
+  - A16, as H1 (a): `install.sh` checks the download before installing it.
+  - A17: `docs/architecture.md` §6.4, *When a release is bad*.
+  - A18, as H2 (b): the README qualifies "out of beta", and its figures carry a date.
+  - A19: an `.editorconfig`.
+  - A1: this entry.
+- **Approved and held** under C3 of the seam-automation proposal, because each touches a
+  workflow, `CLAUDE.md`, `.claude/settings.json`, or something the open round 29 depends on.
+  *Apply when:* both sides have answered the proposal and the maintainer approves, which lifts
+  C3.
+  - A2: pin `build` and `twine` in `publish-pypi.yml`.
+  - A4: commit `build/python-appimage/requirements.lock`.
+  - A5: make Critical rule #11 and CI agree on pip-audit and cyclonedx-bom. The maintainer
+    chooses which way when the hold lifts.
+  - A6: make the Claude-side audio guard fail closed.
+  - A7: split `CLAUDE.md`.
+  - A10: allow the changelog opt-out only when every commit in the range is marked.
+  - A12: scan the full history on every CI run.
+  - A14: build the SBOM from only what ships.
+- **Declined:** none.
+- **The maintainer's actions, in the browser.** X1 (private vulnerability reporting) and X2
+  (push protection, Dependabot alerts and Dependabot security updates) were reported done on
+  2026-09-28. At 22:30 UTC the API still answered `{"enabled": false}` for private
+  vulnerability reporting, and X2's settings cannot be read from a session. X3 (release
+  immutability) was skipped for now. *Reopen when:* `release.yml` no longer re-uploads assets
+  to a published release, the one path immutability would break, or a published asset is
+  found changed.
+
+**Do not re-propose**, carried forward with their sources:
+
+- Branch protection or rulesets on `main`: the maintainer's ruling of 2026-09-11 (`CLAUDE.md`,
+  *Deliberate divergences* (5)).
+- Arming update signing: KDD-37 D9.
+- Squash merges for session branches: `CLAUDE.md`, *Deliberate divergences* (6).
+- Tags for 0.4.0 to 0.6.3: KDD-37 D7.
+
+**Observed while applying, not acted on.** None of these was approved, so a later run
+raises each as an amendment:
+
+- N1: `README.md`'s install section links `/releases/latest`, which reaches no v0.x release
+  (the maintainer's words, 2026-09-28). Releases do carry `install.sh`.
+- N2: `SECURITY.md`'s `gh attestation verify … --repo …` needs `gh auth login`. Measured with
+  gh 2.101.0: exit 4 without a login. With `--bundle` and the release's `.sigstore.json` it
+  needs none (exit 0), which is what `install.sh` now uses.
+- N3: `build/build_appimage.sh` embeds `gh-releases-zsync|…|latest|…`, and on GitHub
+  "latest" excludes pre-releases. Whether AppImageUpdate-compatible tools therefore find no
+  v0.x update at all was not verified here.
+
+**Re-checked against the applied tree before this was written**, not the tree the audit
+read:
+
+- No `requirements.lock` exists yet (A4 is held).
+- `CLAUDE.md` is still 359 lines and 77,104 bytes (A7 is held).
+- `ci.yml` still has no `--log-opts` for gitleaks (A12 is held), still lets one marked commit
+  opt a whole range out of the changelog gate (A10), and still builds the SBOM with
+  `cyclonedx-py environment` (A14).
+- `git diff origin/main` is empty for `CLAUDE.md`, `.github/`, `.claude/`, `docs/handshake/`
+  and the four shared seam files.

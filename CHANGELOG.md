@@ -76,6 +76,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   recipe said the bundled `cryptography` version was fixed by `requirements.lock`.
   That lock is not committed, so every AppImage build installs online within the `~=`
   ranges, and `build/python-appimage/requirements.txt` now says so.
+- **The 2026-09-28 configuration audit is on the record.** `PLANNING.md` KDD-39 records
+  the standard and version that ran, the tier the maintainer confirmed (T3), the three
+  rulings, what was applied, the eight amendments approved and held until the
+  seam-automation proposal is answered, and what must not be proposed again, so the next
+  audit starts from these answers instead of asking for them.
 - **A written way to withdraw a bad release.** `docs/architecture.md` gains §6.4,
   *When a release is bad*: take the GitHub release down, yank the version on PyPI,
   revert `install.sh` on `main` if it is the bad part, withdraw a bad ripper pin
