@@ -1474,9 +1474,15 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # one option still `declare_released`, `value: false`. Their release manifest at
     # `eb9bc06` builds `221a1df` with `-Ddeclare_released=true` — the release path.
     #
+    # **EIGHTH TIME, ON THE ROLL TO `e0471f4` (round 28 close, 2026-09-28), AND THE
+    # ANSWER AGAIN DID NOT CHANGE.** Re-derived: `meson_options.txt` at `e0471f4`
+    # and at `221a1df` hash identically (sha256 `0a32b1f7ac8efbde…`), 973 bytes, the
+    # one option still `declare_released`, `value: false`. Their release manifest at
+    # `8ea8bee` builds `e0471f4` with `-Ddeclare_released=true` — the release path.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "221a1df", (
+    assert fork_source.PRODUCTION_TARGET.pin == "e0471f4", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "

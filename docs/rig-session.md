@@ -1,21 +1,24 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.62        the release for round 28's run. It installs 221a1df by
-                           default, and accepts e0471f4 as the build under review.
-            v0.6.61        the release before it: accepts e0471f4 too, but round 28's
-                           close condition now names 0.6.62 (our lap 5, R1 override).
-cyanrip     221a1df        0.9.4-rc2+platterpus.16  (platterpus-fork-g221a1df)  <- PRODUCTION PIN
-                           approved by round 27, for Platterpus 0.6.60, on a quick run
-            e0471f4        0.9.4-rc2+platterpus.17  (platterpus-fork-ge0471f4)  <- UNDER REVIEW
-                           released, release_seq 27, both channels; round 28's subject
+Platterpus  v0.6.62        the current release. It installs 221a1df by default, and
+                           accepts e0471f4 as the build under review.
+            v0.6.63        not yet released: our round 28 closing release, the first
+                           to install e0471f4 by default.
+cyanrip     e0471f4        0.9.4-rc2+platterpus.17  (platterpus-fork-ge0471f4)  <- PRODUCTION PIN
+                           approved by round 28, for Platterpus 0.6.61, on the Full run
+            221a1df        0.9.4-rc2+platterpus.16  (platterpus-fork-g221a1df)
+                           the pin 0.6.61 and 0.6.62 install; approved by round 27
 drive       Pioneer BDR-209D 1.51, read offset +667
-rounds 1-27 ALL CLOSED on our gate, bilateral GO.
-round 28    OPEN on e0471f4. Close condition 1 is this sheet's run.
+rounds 1-28 ALL CLOSED on our gate, bilateral GO.
+round 29    not opened yet; its lap 1 is the fork's.
 ```
 
-> **Header last moved 2026-09-28**, to 0.6.62: the operator moved round 28's Full run
-> from 0.6.61 to it, an override of R1 our lap 5 records (S36). Before that,
+> **Header last moved 2026-09-28**, when round 28 closed on our gate and `FORK_PIN`
+> rolled to `e0471f4`, on the Full run of 0.6.61 (320 of 320 steps), which the operator
+> chose to close the round on. Before that, the same day, to 0.6.62: the operator had
+> moved round 28's Full run from 0.6.61 to it, an override of R1 our lap 6 records
+> (S36), which fell away when the operator chose the 0.6.61 run. Before that,
 > 2026-09-26, when round 28 opened on `.17` (the fork's lap 1, sha256 `060fd251…`),
 > and on 2026-09-27 when 0.6.61 was released to carry it. Before that, 2026-09-26,
 > when round 27 closed on our gate and `FORK_PIN` rolled to
@@ -50,24 +53,21 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 
 ## What the next run is for
 
-**Round 28's close condition 1** (their lap 1 S6): our **Full** acceptance run on the rig,
-with `.17` installed through the app, from **0.6.62**, whose `PIN_UNDER_REVIEW` is
-`e0471f4` (the fork's S6 named 0.6.61; the operator moved it, our lap 5 S36), and the bundle committed to both repositories. Then each side reads it (S7):
-they read every cyanrip log in the bundle and we read our reports. Round 28 closes when
-both closing laps name their releases (S8): ours rolls `FORK_PIN` to `e0471f4`, and
-theirs is `+platterpus.18`.
+**Round 28's run has happened.** The Full run on 0.6.61 with `.17` installed ran on
+2026-09-28, passed 320 of 320 steps, and closed round 28 on our gate (our lap 9, their
+lap 8). Its bundle is in both trees: ours is `docs/handshake/artifactsround28/`.
 
-**That run will also be a candidate full-green pass, which the project has never had.**
-The field-evidence ledger (`docs/testing.md` §5B) has no `full-green` row. `0.7.100` is
-gated on a run with **zero failures in the ARCHIVAL sections**; `0.9.1` needs two such
-runs on at least two machines and two distros. Its ripper will be stamped `unapproved`
-in every report, correctly, while round 28 is open. That stamp is not an archival
-failure: it is the record saying truthfully that the approval is still pending. **Only a
-Full run counts as evidence**; Quick and Standard are for checking the setup.
+**No round is open, so the next run has no round's close condition to meet yet.**
+Round 29's subject is named in the fork's round 29 lap 1. Until then, a run is a setup
+check or a candidate for the evidence ledger, not a round's evidence.
 
-**A run on 0.6.61 or earlier is a setup check, not this round's evidence**: the close
-condition names 0.6.62. 0.6.60 does not even accept `.17` as the build under review,
-so section A stops it in its first seconds.
+**The next run is still a candidate full-green pass, which the project has never had.**
+The field-evidence ledger (`docs/testing.md` §5B) has no `full-green` row; the
+2026-09-28 run is graded `partial`, because our own records carried two archival
+defects, both fixed for 0.6.63. `0.7.100` is gated on a run with **zero failures in the
+ARCHIVAL sections**; `0.9.1` needs two such runs on at least two machines and two
+distros. **Only a Full run counts as evidence**; Quick and Standard are for checking
+the setup.
 
 **What 0.6.62 changes for the person at the rig.** A disc that the drive briefly
 reports as unavailable is read again when it comes back, and a first read that fails

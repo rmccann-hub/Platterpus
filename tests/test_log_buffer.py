@@ -196,8 +196,19 @@ def test_a_snapshot_taken_while_another_thread_logs_is_consistent() -> None:
     thread.start()
     try:
         before = written[0]
-        for _ in range(10):
+        # At least ten snapshots, and then more until the writer has been seen to
+        # advance, bounded. **The bound replaced a fixed ten on 2026-09-28**, when
+        # the floor below failed once under the full parallel suite (`387 > 387`)
+        # and passed six of six alone: each snapshot holds the lock for its pause,
+        # the main thread re-took the GIL straight after releasing it, and ten
+        # snapshots went by with the writer never scheduled. That is a starved
+        # writer, not an inconsistent snapshot, so the fix gives it a turn between
+        # snapshots rather than weakening either assertion.
+        taken = 0
+        deadline = time.monotonic() + 10.0
+        while taken < 10 or (written[0] == before and time.monotonic() < deadline):
             snap = b.snapshot_excluding([])
+            taken += 1
             marker = _MARKER.match(snap.lines[10])
             assert marker is not None and int(marker.group("n")) == snap.dropped
             assert 10 + 200 + snap.dropped == snap.received
@@ -207,9 +218,10 @@ def test_a_snapshot_taken_while_another_thread_logs_is_consistent() -> None:
                 snap.lines[11],
                 snap.dropped,
             )
+            time.sleep(0.001)  # a turn for the writer, outside the lock
         # Floor: the writer really ran alongside the snapshots, so the pauses
         # were raced rather than merely slept through.
-        assert written[0] > before
+        assert written[0] > before, f"the writer never ran across {taken} snapshots"
     finally:
         stop.set()
         thread.join(timeout=5)

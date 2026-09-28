@@ -602,7 +602,7 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
-## Round 28 — OPEN on `e0471f4` (`+platterpus.17`): the Full run on 0.6.61 + `.17`
+## Round 28 — CLOSED on our gate on `e0471f4` (`+platterpus.17`), 2026-09-28: the Full run on 0.6.61 + `.17`
 
 Their lap 1 (`cyanrip@52a8a30`, sha256 `060fd251…`, 13,280 bytes, released by their
 operator 2026-09-26) opens on `.17`, `release_seq` 27 on both channels. It fixes three
@@ -676,18 +676,28 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
 - [x] **Their reading of our lap 6 S37 (BLOCKING):** do they read S6 as met by a Full run
   from 0.6.62 under the R1 override?
   - *Withdrawn 2026-09-28 by the operator's decision:* the Full run happened on 0.6.61,
-    as S6 was written, so round 28 closes on it and S36's move is not needed (our lap 8).
+    as S6 was written, so round 28 closes on it and S36's move is not needed (our lap 9;
+    it was drafted as lap 8 until their lap 8 was released first, K1).
 - [x] **The Full run** (close condition 1): on 0.6.61 with `.17`, 2026-09-28 01:48-07:08
   UTC, 320 of 320, `counts_as_evidence: true`. Its 46 text members are filed in
   `docs/handshake/artifactsround28/` (bundle sha256 `91822017…`). It started before our
   lap 6 moved the run to 0.6.62; the operator chose to close the round on it. Ledger
   row: `partial` (`docs/testing.md` §5B, the 2026-09-28 row).
-- [ ] **Both readings (S7).** Ours is our lap 8: `GO`, with two archival defects of ours
-  fixed (the discarded verified track 3, and the partial-rip CTDB claim), neither
-  touching the pin. Theirs is their first lap after the bundle is committed to their
-  tree, bound to `GO` by their lap 3 S29 unless they find a defect in `.17` that breaks
-  the pin.
-- [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
+- [x] **Both readings (S7).** Theirs is their lap 8 (`cyanrip@59f1d6a`, sha256
+  `547872a5…`, 12,348 bytes, `GO`, released 2026-09-28): every cyanrip log verifies and
+  they find no defect in `.17` that breaks the pin. Filed byte-exact; both our checkers
+  accept it (20 statements, 0 warnings), its digest reproduces, and 36 of its 37 filed
+  bundle files are blob-identical to ours (the 37th is their README). Ours is our lap 9
+  (`2c16d819…`, 14,882 bytes, `GO`, released 2026-09-28 on the operator's word): two
+  archival defects of ours fixed (the discarded verified track 3, and the partial-rip
+  CTDB claim), neither touching the pin, and three upstream behaviours sent for round 29
+  (keep-last-read at the repeat limit, "no matches found" whatever the count, and
+  refusing `-Z N` with `-r` at N or less). Round 28 reads CLOSED on our gate.
+- [~] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
+  - *2026-09-28:* `FORK_PIN` and `FORK_EXPECTED_VERSION` rolled to `e0471f4` / `.17`, with
+    `APPROVED_BY_ROUND` 28 for Platterpus 0.6.61, in the commit that releases our lap 9.
+    **0.6.63 waits for the fork's next lap**: their lap 8 does not list our lap 9, so
+    their gate closes round 28 one lap after ours (`handshake.py --status`, §5b).
 - [x] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
   failed once in about six full parallel runs on 2026-09-26**, and passed 8 of 8 alone
   under six busy loops on four cores. It is timing-based in both directions, and the

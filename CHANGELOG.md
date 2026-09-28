@@ -14,6 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A dialog whose body scrolls no longer stops growing one scrollbar short.** When a
+  dialog opened with a body taller than its first measurement, it grew by the
+  shortfall once. But the scrollbar that had appeared in the meantime narrowed the
+  text, so it wrapped onto another line and the body still scrolled. At 150% text on
+  a 1024×768 screen the cyanrip build picker, once it listed a single build, scrolled
+  21 px in a window with room to grow. The fit now re-measures, up to three times,
+  until the body fits or the window reaches the screen.
 - **A re-read that matches AccurateRip is kept, even when it did not converge.** The
   automatic re-read of a track that missed AccurateRip kept its result only if enough
   reads agreed. On the 2026-09-28 Full run it re-read track 3 of the first whole-disc
@@ -189,6 +196,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The approved ripper is now the fork's `.17`, `e0471f4`.** Handshake round 28
+  closed on our side with `GO` from both projects, on the Full acceptance run on
+  0.6.61 with `.17` installed (320 of 320 steps). `FORK_PIN` moves from `221a1df` to
+  `e0471f4` and the expected version to `0.9.4-rc2+platterpus.17`, and the approval
+  record now names round 28 and Platterpus 0.6.61. Over `.16`, `.17` compares only
+  frame-450 checksums on a frame-450 AccurateRip lookup, says such a match covers one
+  frame only, and writes its version line as soon as the log opens. Our round 28 lap 9
+  is released, and their lap 8 is filed in `docs/handshake/inbound/`. The standing
+  status, rig sheet, README, dependency table and hardware checklist name the new pin,
+  and the generated consumer contract is regenerated for it.
 - **The testing guide says when a lap's round digest has to be computed.** Announcing a
   lap rewrites its `READY-TO-READ` line, so a later lap whose digest covers it must be
   computed after that announce. Round 28 lap 7's first digest was computed over lap 6
