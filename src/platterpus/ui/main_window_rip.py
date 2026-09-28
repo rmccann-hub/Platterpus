@@ -727,14 +727,23 @@ class RipMixin(MainWindowShared):
         and probing them are cheap local operations, and the dialog only waits on the
         user — nothing here blocks the GUI thread on I/O.
         """
-        album = self._track_table.album_metadata()
+        # The metadata the rip itself will be handed (`_start_rip_worker` builds it
+        # with this same method), so the folder checked is the folder written:
+        # the same track template, the same year, the same disc position.
+        metadata = self._rip_metadata_for(params)
         candidates = known_album_folders(
-            Path(params.output_dir),
-            params.disc_template,
-            album.artist,
-            album.title,
-            album.year,
+            Path(params.output_dir), params.track_template, metadata
         )
+        if not candidates:
+            # No folder part in the track template: cyanrip names the folder with
+            # its own default, which we do not model. Say so rather than check a
+            # guess and report the guess as a check.
+            log.warning(
+                "overwrite check not run: the track template %r has no folder "
+                "part, so cyanrip chooses the album folder itself",
+                params.track_template,
+            )
+            return params
         occupied = frozenset(f for f in candidates if _dir_has_audio(f))
         # Several look-alike folders (`a“b`, `a”b`) and cyanrip picks one by a
         # parity we cannot see (P7d). This used to stand down; it asks now, naming
@@ -810,9 +819,7 @@ class RipMixin(MainWindowShared):
                 Path(params.output_dir),
                 params.disc_template,
                 params.track_template,
-                album.artist,
-                album.title,
-                album.year,
+                metadata,
             )
             return replace(
                 params,
@@ -840,12 +847,19 @@ class RipMixin(MainWindowShared):
             disc_template=f"{artist}/{title}/{title}",
         )
 
-    def _start_rip_worker(self, params: RipParameters) -> None:
-        """Spin up the rip worker thread for `params`. Shared by the initial
-        Start and the auto-heal retry, so both wire signals identically."""
-        # Snapshot the track table (MB lookup result + user edits) into the
-        # params. cyanrip is fed these tags directly so it never needs its own
-        # MusicBrainz lookup (Critical Rule #5, KDD-18 metadata model).
+    def _rip_metadata_for(self, params: RipParameters) -> RipMetadata:
+        """The tags a rip of ``params`` is handed: the track table plus the release.
+
+        Snapshots the track table (MB lookup result + user edits). cyanrip is fed
+        these tags directly so it never needs its own MusicBrainz lookup (Critical
+        Rule #5, KDD-18 metadata model).
+
+        **One snapshot, two readers**: `_start_rip_worker` hands it to the rip and
+        `_confirm_known_overwrite` predicts the album folder from it, so the folder
+        the guard checks is built from the tags, year and disc position the rip is
+        built from. The guard used to rebuild a subset itself, without the disc
+        position, and checked disc 1's folder for every disc of a set.
+        """
         album = self._track_table.album_metadata()
         # Genre / disc number / per-track ISRC are MusicBrainz-only silent
         # passthroughs (not editable in the table), so they come from the stored
@@ -869,6 +883,31 @@ class RipMixin(MainWindowShared):
             genre, disc_number, total_discs, isrc_by_number = "", 1, 1, {}
             catalog_number, barcode, label = "", "", ""
             length_ms_by_number = {}
+        return RipMetadata(
+            album_artist=album.artist,
+            album_title=album.title,
+            year=album.year,
+            genre=genre,
+            disc_number=disc_number,
+            total_discs=total_discs,
+            catalog_number=catalog_number,
+            barcode=barcode,
+            label=label,
+            tracks=tuple(
+                TrackTag(
+                    number=t.number,
+                    title=t.title,
+                    artist=t.artist_credit,
+                    isrc=isrc_by_number.get(t.number, ""),
+                    length_ms=length_ms_by_number.get(t.number),
+                )
+                for t in self._track_table.tracks()
+            ),
+        )
+
+    def _start_rip_worker(self, params: RipParameters) -> None:
+        """Spin up the rip worker thread for `params`. Shared by the initial
+        Start and the auto-heal retry, so both wire signals identically."""
         # Which tracks to rip, from the "Rip?" checkboxes. All ticked → rip the
         # whole disc (empty tuple, no `-l`); a subset → just those track numbers
         # (cyanrip `-l`). The table's validate() already blocked a zero-selection
@@ -879,29 +918,7 @@ class RipMixin(MainWindowShared):
             else tuple(self._track_table.selected_track_numbers())
         )
         params = replace(
-            params,
-            only_tracks=only_tracks,
-            metadata=RipMetadata(
-                album_artist=album.artist,
-                album_title=album.title,
-                year=album.year,
-                genre=genre,
-                disc_number=disc_number,
-                total_discs=total_discs,
-                catalog_number=catalog_number,
-                barcode=barcode,
-                label=label,
-                tracks=tuple(
-                    TrackTag(
-                        number=t.number,
-                        title=t.title,
-                        artist=t.artist_credit,
-                        isrc=isrc_by_number.get(t.number, ""),
-                        length_ms=length_ms_by_number.get(t.number),
-                    )
-                    for t in self._track_table.tracks()
-                ),
-            ),
+            params, only_tracks=only_tracks, metadata=self._rip_metadata_for(params)
         )
         self._rip_controls.set_rip_active(True)
         self._set_rip_lock(True)  # grey out everything that would conflict mid-rip

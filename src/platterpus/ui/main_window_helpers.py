@@ -20,6 +20,8 @@ import logging
 from pathlib import Path
 
 from platterpus import diagnostics, naming
+from platterpus.adapters import cyanrip_backend
+from platterpus.adapters.rip_backend import RipMetadata
 from platterpus.parsers.rip_log import track_accuraterip_verified
 
 log = logging.getLogger(__name__)
@@ -203,16 +205,24 @@ def resolve_sanitised_paths(output_root: Path, relative: Path) -> tuple[Path, ..
 
 
 def known_album_folders(
-    output_root: Path, disc_template: str, artist: str, title: str, year: str
+    output_root: Path, track_template: str, metadata: RipMetadata
 ) -> tuple[Path, ...]:
     """Every folder a KNOWN (identified) disc's rip could write into.
 
     Unlike an unknown disc — whose folder we build literally — a known disc's
-    folder is produced by cyanrip rendering the *disc template* from the fetched
-    tags. We reproduce that here (via :func:`naming.render_preview`, which mirrors
-    cyanrip's token substitution + path sanitisation) and take the rendered
-    file's parent directory, so the caller can check whether that folder already
-    holds a rip *before* starting.
+    folder is produced by cyanrip rendering the ``-D`` scheme from the tags we
+    hand it. That ``-D`` comes from the function the argv builder uses
+    (:func:`cyanrip_backend.album_folder_scheme`, rendered by
+    :func:`cyanrip_backend.predicted_album_folder`), fed the SAME metadata the rip
+    is fed, disc position included, so the caller can check whether that folder
+    already holds a rip *before* starting.
+
+    **One computation, two callers, since 2026-09-28.** This rendered the DISC
+    template with a sample track that was always disc 1 of 1. cyanrip never sees
+    the disc template (the backend builds ``-D`` from the TRACK template), so a
+    custom track template whose folder differed was never checked; and a ``%N``
+    folder on disc 2 of a set was predicted as disc 1's. Either way a finished
+    rip could be overwritten without a prompt.
 
     The rendered prediction is then resolved against what is actually on disk
     (:func:`resolve_sanitised_paths`), so a character cyanrip maps differently
@@ -227,21 +237,15 @@ def known_album_folders(
     then, and on such a tie it returned the literal prediction, a folder that did
     not exist, so the prompt stood down. A caller must look at every path here.
 
-    Never empty. When nothing on disk matches, the literal prediction comes back
-    alone, which is the right answer for an album that has not been ripped yet.
+    When nothing on disk matches, the literal prediction comes back alone, which
+    is the right answer for an album that has not been ripped yet. EMPTY only when
+    the track template has no folder part: no ``-D`` is sent, cyanrip picks the
+    folder itself, and there is nothing here to check, which the caller must say.
     """
-    sample = naming.SampleTrack(
-        album_artist=artist,
-        track_artist=artist,
-        album=title,
-        title="",  # the track title never affects the album folder
-        track=1,
-        track_total=1,
-        date=year or "",
-    )
-    # render_preview appends ".flac"; the album folder is that file's parent.
-    rendered = naming.render_preview(disc_template, sample)
-    return resolve_sanitised_paths(output_root, Path(rendered).parent)
+    folder = cyanrip_backend.predicted_album_folder(track_template, metadata)
+    if folder is None:
+        return ()
+    return resolve_sanitised_paths(output_root, Path(folder))
 
 
 def suffix_album_folder_template(template: str, n: int) -> str:
@@ -267,9 +271,7 @@ def free_album_folder_templates(
     output_root: Path,
     disc_template: str,
     track_template: str,
-    artist: str,
-    title: str,
-    year: str,
+    metadata: RipMetadata,
     *,
     max_tries: int = 999,
 ) -> tuple[str, str]:
@@ -281,19 +283,21 @@ def free_album_folder_templates(
     same way (so the track files and the disc log/cue land together). Falls back
     to the originals if none is free within ``max_tries`` (never raises).
 
+    The folder tested is the suffixed TRACK template's, because that is the one
+    cyanrip writes (see :func:`known_album_folders`); the disc template is
+    suffixed alongside so the pair stays a pair.
+
     A suffix is free only when EVERY folder it could resolve to is free: with
     `a“b (2)` empty and `a”b (2)` full, cyanrip may pick either, so (2) is taken.
     """
     try:
         for n in range(2, max_tries + 1):
-            candidate_disc = suffix_album_folder_template(disc_template, n)
-            folders = known_album_folders(
-                output_root, candidate_disc, artist, title, year
-            )
+            candidate_track = suffix_album_folder_template(track_template, n)
+            folders = known_album_folders(output_root, candidate_track, metadata)
             if not any(_dir_has_audio(folder) for folder in folders):
                 return (
-                    candidate_disc,
-                    suffix_album_folder_template(track_template, n),
+                    suffix_album_folder_template(disc_template, n),
+                    candidate_track,
                 )
     except OSError as exc:
         # NEVER SILENT. This was a bare `pass`, and the consequence is not cosmetic:

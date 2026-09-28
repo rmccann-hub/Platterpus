@@ -42,7 +42,10 @@ understand %Y. The year presets use %Y so a folder reads "Album (1995)", not
 
 from __future__ import annotations
 
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Final
 
 from platterpus import option_labels
 
@@ -330,6 +333,35 @@ def render_preview(template: str, sample: SampleTrack) -> str:
             out.append(value if value else "%" + _LITERAL_BRACES.get(token, token))
         i += 2
     return "".join(out) + ".flac"
+
+
+#: A ``{key}`` in a cyanrip naming scheme. The schemes we build hold no other
+#: brace: `adapters.cyanrip_backend.scheme_from_template` writes a typed brace as a
+#: parenthesis, so every ``{`` it leaves opens a key it put there.
+_SCHEME_KEY_RE: Final[re.Pattern[str]] = re.compile(r"\{([^{}]*)\}")
+
+
+def render_scheme(scheme: str, tags: Mapping[str, str]) -> str:
+    """Render a cyanrip ``{key}`` scheme the way cyanrip does, as a prediction.
+
+    Each ``{key}`` becomes its tag's value with path-illegal characters swapped
+    for cyanrip's look-alikes (the table above). A key with no value becomes the
+    key's own NAME, which is what cyanrip writes for one (the note on
+    `adapters.cyanrip_backend._path_schemes` cites where). Text outside the braces
+    is kept as typed.
+
+    Used for the overwrite guard's folder, on the ``-D`` the rip really sends
+    (`adapters.cyanrip_backend.predicted_album_folder`). The Settings preview
+    keeps :func:`render_preview`, which renders the template a person typed.
+    Pure; never raises.
+    """
+
+    def value(match: re.Match[str]) -> str:
+        key = match.group(1)
+        raw = tags.get(key, "")
+        return _sanitise_value(raw) if raw else key
+
+    return _SCHEME_KEY_RE.sub(value, scheme)
 
 
 #: Why a naming template or a rendered cyanrip scheme would write outside the
