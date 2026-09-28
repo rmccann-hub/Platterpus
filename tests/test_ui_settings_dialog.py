@@ -1083,3 +1083,39 @@ def test_a_problem_with_a_setting_homed_elsewhere_does_not_block_ok(
     assert dialog._validation_label.isHidden() is True
     dialog.accept()
     assert dialog.result() == QDialog.DialogCode.Accepted
+
+
+def test_an_impossible_retry_pair_is_shown_while_it_is_set_and_blocks_ok(
+    qapp: QApplication, caplog
+) -> None:
+    """Two spin boxes can make a pair no rip can satisfy; the dialog must say so.
+
+    Max retries at 2 with the default 2 extra matching reads: the re-read needs
+    three identical reads and cyanrip may read a track only twice.
+    """
+    import logging
+
+    from PySide6.QtWidgets import QDialog
+
+    dialog = SettingsDialog(Config())
+    assert dialog._validation_label.isHidden() is True
+    dialog._max_retries_spin.setValue(2)
+    # Visible during the change, not only on OK.
+    assert dialog._validation_label.isHidden() is False
+    banner = dialog._validation_label.text()
+    assert "must be more than" in banner
+    # Reported on both fields, listed once.
+    assert banner.count("must be more than") == 1, banner
+    assert dialog._max_retries_spin.styleSheet() != ""
+    assert dialog._secure_rerip_spin.styleSheet() != ""
+    with caplog.at_level(logging.WARNING):
+        dialog.accept()
+    assert dialog.result() != QDialog.DialogCode.Accepted
+    assert "max_retries" in caplog.text
+    # Fixing EITHER half clears it: here, the re-read side.
+    dialog._secure_rerip_spin.setValue(1)
+    assert "must be more than" not in dialog._validation_label.text()
+    dialog._secure_rerip_spin.setValue(2)
+    dialog._max_retries_spin.setValue(5)
+    assert dialog._validation_label.isHidden() is True
+    assert dialog._max_retries_spin.styleSheet() == ""

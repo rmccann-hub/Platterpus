@@ -768,9 +768,14 @@ class SettingsDialog(CenteredDialog):
         self._validation_label.setVisible(False)
         root.addWidget(self._validation_label)
 
-        # Map each validated free-text field to its widget, so an issue can mark
-        # the exact row the user needs to fix. (Spinboxes/combos can't produce an
-        # invalid value through the UI, so only the free-text edits are marked.)
+        # Map each validated field to its widget, so an issue can mark the exact
+        # row the user needs to fix. A spin box cannot hold a value outside its own
+        # range, so single spin boxes need no mark — but two of them can make a
+        # PAIR that is invalid: Max retries at or below the secure re-read's count
+        # can never let it succeed (`settings_validation`
+        # `_validate_secure_reread_ceiling`). Both are marked, since either one can
+        # be the one to change. Until 2026-09-28 this said spin boxes could never
+        # produce an invalid value, which stopped being true when that rule arrived.
         self._validated_widgets: dict[str, QWidget] = {
             "output_dir": self._output_dir_edit,
             "library_dir": self._library_dir_edit,
@@ -779,6 +784,8 @@ class SettingsDialog(CenteredDialog):
             "track_template_unknown": self._track_template_unknown_edit,
             "disc_template_unknown": self._disc_template_unknown_edit,
             "metaflac_path": self._metaflac_path_edit,
+            "max_retries": self._max_retries_spin,
+            "secure_rerip_matches": self._secure_rerip_spin,
         }
         # Re-validate as the user edits any free-text field, so the error shows
         # up *during* the change (the two known-disc templates already have a
@@ -791,6 +798,11 @@ class SettingsDialog(CenteredDialog):
             self._metaflac_path_edit,
         ):
             edit.textChanged.connect(self._revalidate)
+        # And as either half of the retry pair moves, so a Max retries that can
+        # no longer satisfy the secure re-read is shown while it is being set,
+        # not only when OK refuses it.
+        for spin in (self._max_retries_spin, self._secure_rerip_spin):
+            spin.valueChanged.connect(self._revalidate)
 
         # --- Goal preset wiring (after all dependent widgets exist) ---
         self._wire_goal_presets()
@@ -1167,6 +1179,10 @@ class SettingsDialog(CenteredDialog):
         lines = [f"✖ {i.message}" for i in errors] + [
             f"⚠ {i.message}" for i in warnings
         ]
+        # Once each: a rule about a PAIR of settings reports on both fields (so
+        # either one is marked and a single-field check sees it), and its message
+        # would otherwise be listed twice. Order kept, errors still first.
+        lines = list(dict.fromkeys(lines))
         banner_text = "\n".join(lines)
         self._validation_label.setText(banner_text)
         self._validation_label.setStyleSheet(

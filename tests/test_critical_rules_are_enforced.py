@@ -1789,7 +1789,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1004 -> 1024** (2026-09-25, D17, KDD-38): a crashing rule becomes a visible warning on its field instead of a silent pass, and the docstring says why it is not an error.
     # **1024 -> 1104** (2026-09-28, the round-28 Full run: five scripted refusals wrote nothing to the log): `log_refusal`, the ONE log line for refused input, and `_loggable_value`, its escaped head-and-tail bound. `field_error` calls it, so every single-setting writer logs without a caller remembering to. The input boundary is this module's job, so its log line lives here.
     # **1024 -> 1033** (2026-09-28, the `-Z` wording): `MAX_RETRIES_LABEL` and `SECURE_REREP_LABEL`, the row names the validator's messages use, so a renamed row cannot leave a message naming a control that is gone (it did, for a week).
-    "settings_validation.py": 1113,
+    # **1033 -> 1129** (2026-09-28, Max retries vs the secure re-read): `_validate_secure_reread_ceiling`, the input-boundary half of the `-Z`/`-r` rule (the argv chokepoint is the other). It reports on both fields, says which settings actually send `-Z` and why Off is never judged, and warns on a pair with no room for one bad read. The rule itself is `cyanrip_cli.secure_reread_problem`; this is the Settings wording and the reasons.
+    "settings_validation.py": 1209,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -2122,7 +2123,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1336 -> 1337** (2026-09-25, D18: `%N`/`%M` work everywhere): the template tooltip lists `%N` and `%M`.
     # **1337 -> 1340** (2026-09-28, the round-28 Full run): a blocked save hands the form's values to `log_issues`, so the log names the refused value.
     # **1337 -> 1362** (2026-09-28, the `-Z` wording): the secure re-read row is "Extra matching reads to trust a track" (N+1 identical reads, not N), Max retries' tooltip says it is also the whole-track read ceiling and what 0 really does, and the comment that claimed the 2026-09-21 rename fixed every place says which one it missed.
-    "ui/settings_dialog.py": 1365,
+    # **1362 -> 1378** (2026-09-28, Max retries vs the secure re-read): both spin boxes join the validated widgets and revalidate as they move, because two in-range spin boxes can now make an invalid pair; the banner lists a pair rule's message once.
+    "ui/settings_dialog.py": 1381,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     "ui/track_table.py": 832,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker

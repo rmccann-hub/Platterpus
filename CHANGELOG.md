@@ -176,6 +176,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   times a whole track may be read during a secure re-read, so it must be more than
   that number, and that 0 means cyanrip's own default of 10, not "no retries". The
   pre-rip plan says how many disagreeing reads the pair leaves room for.
+- **Settings refuses a Max retries the secure re-read cannot fit in.** With
+  *Extra matching reads to trust a track* at N, a track needs N+1 identical reads,
+  so Max retries at N or less could never verify one. The Settings dialog now marks
+  both boxes and says so while you change either (OK and Apply are refused, and the
+  refusal is logged); a script's `set` is refused on either half; and a hand-edited
+  config holding such a pair is put back to the defaults for both, with the usual
+  notice. A pair that fits but leaves no room for one read that disagrees (the
+  acceptance run's Max retries 3 with 2) gets a warning. Off is never refused,
+  because the rip's own recovery re-read now stays inside Max retries by itself.
 
 ### Changed
 
