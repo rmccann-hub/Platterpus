@@ -16,6 +16,7 @@ The two assertions that matter most here are both about **not lying**:
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -130,8 +131,16 @@ def _healthy(**over: object) -> dict:
         # states a denominator, so a fixture without them would leave that check
         # WARNING on a rip this file calls healthy — and a grade that can never be
         # clean tells the user nothing.
+        # `filename` and `log_parse` are here because every real report carries
+        # them (27 committed reports, all of them, on 2026-09-28) and the audio-file
+        # check reads them to tell a track's file from one no track record names.
+        # Without them this fixture would take the "not determined" path, and the
+        # clean-rip test below would pass without the accounting ever running.
+        # The names match what `_write` puts on disk.
+        "log_parse": {"ok": True, "note": None},
         "tracks": [
             {
+                "filename": "Artist/Healthy/01.flac",
                 "pregap_source": "TOC",
                 "number": 1,
                 "pregap_state": "known",
@@ -144,6 +153,7 @@ def _healthy(**over: object) -> dict:
                 },
             },
             {
+                "filename": "Artist/Healthy/02.flac",
                 "pregap_source": "TOC",
                 "number": 2,
                 "pregap_state": "known",
@@ -1300,3 +1310,238 @@ def test_the_inventory_on_real_reports_is_unchanged_by_the_rule(
     texts = [f.text for f in album.findings if "AccurateRip inventory" in f.text]
     assert texts, [f.text for f in album.findings]
     assert f"AccurateRip inventory complete: {expected}" in texts[0], texts
+
+
+# --- A file the ripper's log does not account for (the 2026-09-28 Full run, F6) --
+#
+# The cancelled rip of that run was stopped 39.63% into track 1. Its log lists no
+# track, its report's track list is empty, and the folder held one file, the partial
+# read of track 1. The self-check said "1 audio files, all with content" at OK.
+
+_ROUND28 = (
+    Path(__file__).resolve().parents[1] / "docs" / "handshake" / "artifactsround28"
+)
+
+
+def _round28_albums() -> dict[str, tuple[dict, list[str]]]:
+    """Each Full-run album's committed report and the FLAC names its folder held.
+
+    Both halves come from the committed artifacts, not from this test: which report
+    belongs to which folder is the README's own table (member path -> our file), and
+    which FLACs a folder held is the bundle MANIFEST, which names every audio file it
+    refused to carry (rule #8 keeps the audio itself out of the repository).
+    """
+    readme = (_ROUND28 / "README.md").read_text(encoding="utf-8")
+    reports: dict[str, str] = {}
+    for match in re.finditer(
+        r"^\| `(?P<ours>round28full\w+report\.json)` \| "
+        r"`album/(?P<folder>[^/`]+)/[^`]+\.platterpus\.json` \|",
+        readme,
+        re.MULTILINE,
+    ):
+        reports[match["folder"]] = match["ours"]
+    manifest = (_ROUND28 / "round28fullmanifest.txt").read_text(encoding="utf-8")
+    flacs: dict[str, list[str]] = {}
+    for match in re.finditer(
+        r"^  album/(?P<folder>[^/\n]+)/(?P<name>[^/\n]+\.flac) excluded",
+        manifest,
+        re.MULTILINE,
+    ):
+        flacs.setdefault(match["folder"], []).append(match["name"])
+    assert set(flacs) <= set(reports), sorted(set(flacs) - set(reports))
+    return {
+        folder: (
+            json.loads((_ROUND28 / reports[folder]).read_text(encoding="utf-8")),
+            names,
+        )
+        for folder, names in flacs.items()
+    }
+
+
+def _audio_findings(findings: list[dict]) -> list[tuple[str, str]]:
+    """The audio-file check's findings: every one of its sentences says "audio file"."""
+    return [(f["level"], f["text"]) for f in findings if "audio file" in f["text"]]
+
+
+def _stand_in_folder(folder: Path, names: list[str]) -> Path:
+    """A folder holding a plausible-sized stand-in for each named FLAC.
+
+    What the stand-in does that the real file does not: it holds no audio. The
+    check reads only a file's name and size, and each stand-in is ten times the
+    size below which a file is judged empty, as a real track or a 40% partial read
+    is. Nothing here is audio, so rule #8 is not in play.
+    """
+    folder.mkdir(parents=True)
+    for name in names:
+        (folder / name).write_bytes(b"x" * _BIG)
+    return folder
+
+
+def test_the_full_runs_cancelled_rip_names_its_partial_file(tmp_path: Path) -> None:
+    albums = _round28_albums()
+    cancelled = [
+        (report, names)
+        for report, names in albums.values()
+        if (report.get("outcome") or {}).get("status") == "cancelled"
+    ]
+    assert len(cancelled) == 1, "the Full run had exactly one cancelled rip"
+    report, names = cancelled[0]
+    assert names == ["01 - Roxanne.flac"]
+    # The symptom as the run recorded it, so this test is about something.
+    assert _audio_findings(report["self_check"]["findings"]) == [
+        (LEVEL_OK, "1 audio files, all with content")
+    ]
+
+    block = rip_audit.self_check_block(report, _stand_in_folder(tmp_path / "a", names))
+    found = _audio_findings(block["findings"])
+    assert len(found) == 1, found
+    level, text = found[0]
+    assert level == LEVEL_NOTE, found
+    assert "01 - Roxanne.flac" in text
+    assert "does not account for" in text
+    assert "while reading track 1" in text
+    assert '"Interrupted at: track 1, mid-read"' in text
+    assert "treat it as incomplete" in text
+    assert "all with content" not in text
+
+
+def test_every_complete_rip_of_the_full_run_keeps_its_audio_file_finding(
+    tmp_path: Path,
+) -> None:
+    """The fix must not touch a normal rip: on every other album of the run, the
+    audio-file finding is exactly the one its committed report carries.
+
+    Floored, because a sweep over no albums would pass. The run had seven finished
+    rips holding 38 FLACs between them: two whole discs, and five rips of two tracks.
+    """
+    albums = _round28_albums()
+    compared = 0
+    files = 0
+    for index, (report, names) in enumerate(albums.values()):
+        if (report.get("outcome") or {}).get("status") != "success":
+            continue
+        committed = _audio_findings(report["self_check"]["findings"])
+        # Non-triviality: each committed finding is the clean one, with a count.
+        assert committed == [(LEVEL_OK, f"{len(names)} audio files, all with content")]
+        folder = _stand_in_folder(tmp_path / f"album{index:02d}", names)
+        block = rip_audit.self_check_block(report, folder)
+        assert _audio_findings(block["findings"]) == committed, names
+        compared += 1
+        files += len(names)
+    assert compared >= 7, compared
+    assert files >= 38, files
+
+
+def _cancelled_mid_read(where: str | None) -> dict:
+    """A report of a rip cancelled after track 1 finished: one track record."""
+    report = _healthy()
+    report["tracks"] = report["tracks"][:1]
+    report["rip"]["rip_completed"] = False
+    report["rip"]["interrupted_at"] = where
+    report["outcome"] = {"status": "cancelled"}
+    return report
+
+
+def test_a_partial_read_after_a_finished_track_is_named_and_not_ok(
+    tmp_path: Path,
+) -> None:
+    """The log names 01.flac; 02.flac is the read that was in progress."""
+    album = audit_album(
+        _write(
+            tmp_path / "a",
+            _cancelled_mid_read("track 2, mid-read"),
+            flac_sizes=[_BIG, _BIG],
+        )
+    )
+    audio = [(f.level, f.text) for f in album.findings if "audio file" in f.text]
+    assert (
+        LEVEL_OK,
+        "1 audio file(s) the ripper's log accounts for, all with content",
+    ) in audio
+    notes = [t for level, t in audio if level == LEVEL_NOTE]
+    assert len(notes) == 1, audio
+    assert "02.flac" in notes[0] and "01.flac" not in notes[0]
+    assert "while reading track 2" in notes[0]
+    assert not [t for _, t in audio if "2 audio files, all with content" in t]
+
+
+def test_an_unnamed_file_after_a_stop_between_tracks_is_not_called_partial(
+    tmp_path: Path,
+) -> None:
+    """No read was in progress, so the finding must not say one was."""
+    album = audit_album(
+        _write(
+            tmp_path / "a",
+            _cancelled_mid_read("between tracks, no read in progress"),
+            flac_sizes=[_BIG, _BIG],
+        )
+    )
+    notes = [
+        f.text for f in album.findings if f.level == LEVEL_NOTE and "02.flac" in f.text
+    ]
+    assert len(notes) == 1, [f.text for f in album.findings]
+    assert "partial file" not in notes[0]
+    assert "did not finish" in notes[0]
+
+
+def test_an_unnamed_file_in_a_SUCCESSFUL_rip_is_a_warning(tmp_path: Path) -> None:
+    """A rip that reports success should hold only the files its log names."""
+    path = _write(tmp_path / "a", _healthy(), flac_sizes=[_BIG, _BIG])
+    (path.parent / "03 - Stray.flac").write_bytes(b"x" * _BIG)
+    album = audit_album(path)
+    warns = [
+        f.text for f in album.findings if f.level == LEVEL_WARN and "Stray" in f.text
+    ]
+    assert len(warns) == 1, [f.text for f in album.findings]
+    assert "reports SUCCESS" in warns[0]
+    assert not [
+        f for f in album.findings if "3 audio files, all with content" in f.text
+    ]
+
+
+def test_a_truncated_log_makes_the_accounting_a_floor(tmp_path: Path) -> None:
+    """A cut-off log may have finished a track it never recorded, so an unnamed
+    file is not called incomplete, and not a warning either: not determined."""
+    report = _cancelled_mid_read("track 2, mid-read")
+    report["log_parse"] = {"ok": True, "note": "the ripper's log was cut off"}
+    album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG, _BIG]))
+    named = [f for f in album.findings if "02.flac" in f.text]
+    assert len(named) == 1, [f.text for f in album.findings]
+    assert named[0].level == LEVEL_NOTE
+    assert "not determined" in named[0].text
+    assert "treat" not in named[0].text
+
+
+def test_a_track_record_with_no_file_name_makes_the_accounting_a_floor(
+    tmp_path: Path,
+) -> None:
+    """A track the log recorded without its `File(s):` line (a block cut short)
+    may own the file nothing names, so that file is not accused of anything."""
+    report = _healthy()
+    del report["tracks"][1]["filename"]
+    album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG, _BIG]))
+    named = [f for f in album.findings if "02.flac" in f.text]
+    assert len(named) == 1, [f.text for f in album.findings]
+    assert named[0].level == LEVEL_NOTE
+    assert "1 of its track record(s) name no file" in named[0].text
+    assert "not determined" in named[0].text
+
+
+@pytest.mark.parametrize("missing", ["log_parse", "tracks"])
+def test_a_report_that_cannot_say_which_files_its_log_names_is_unchanged(
+    tmp_path: Path, missing: str
+) -> None:
+    """No parsed log, or no track list: no accounting, so the old finding, and no
+    file is accused."""
+    report = _healthy()
+    del report[missing]
+    album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG, _BIG, _BIG]))
+    audio = [(f.level, f.text) for f in album.findings if "audio file" in f.text]
+    assert audio == [(LEVEL_OK, "3 audio files, all with content")], audio
+
+
+def test_a_complete_rip_keeps_its_exact_audio_file_finding(tmp_path: Path) -> None:
+    """The accounting runs on the healthy fixture, and changes nothing there."""
+    album = audit_album(_write(tmp_path / "a", _healthy(), flac_sizes=[_BIG, _BIG]))
+    audio = [(f.level, f.text) for f in album.findings if "audio file" in f.text]
+    assert audio == [(LEVEL_OK, "2 audio files, all with content")], audio

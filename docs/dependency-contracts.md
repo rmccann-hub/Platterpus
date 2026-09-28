@@ -347,7 +347,7 @@ value never read as an empty selection). `parsers/cyanrip_log.interruption_point
 classifies the verbatim `Interrupted at:` value against the fork's two published P2
 shapes, `track %i, mid-read` and `between tracks, no read in progress`; a third
 shape reads as *not determined*. The EAC-compatible log's incomplete-rip banner
-reads that one classifier.
+and the rip audit's audio-file check both read that one classifier.
 
 **Cache handling — attempted by cyanrip, measured by `cd-paranoia -A` (KDD-29).**
 cyanrip has no cache-defeat flag and emits no cache-defeat verdict in its log.
