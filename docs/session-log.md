@@ -11,6 +11,41 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-28 — About and Diagnostics say what the ripper build means; the second `.17` Full run filed
+
+**Asked:** the maintainer uploaded a second Full bundle (14:42 UTC, 0.6.62 with `.17`)
+and asked for the About wording to be fixed *"so that the cyanrip fork version,
+release, pin, etc. actually means something"*. They quoted the beta offer (*"release 28
+— you have release 27 (e0471f4)"*) and asked whether to install `.18`: yes, since it is
+the build round 29 reviews. A quick run then stopped at section A, as designed, because
+`.17` was still installed. A diagnostics paste could not show which build was
+installed.
+
+**Built:**
+- *`ripper_standing.py`* (`4c3e36c1`): names a build by version, commit and fork
+  release, and says whether it is approved, being tested, not approved or not
+  determined, and what that means for the rips. It decides nothing: the status is
+  `approve_ripper`'s verdict, and a test pins the two equal. About gets a *Ripper*
+  section and the tool's own version in its row. The update offer names both builds
+  and the round testing one.
+- *Diagnostics* (`8cbd1c30`): an `Installed ripper:` line under `Approved pair:`, and
+  `build=` on each dependency row. That closes the `observed_version_pair_line` row's
+  goal by another renderer.
+- *The second Full run filed* (`e80d6528`): 48 members byte for byte, `round28full062*`.
+  320 of 320. The whole-disc rip matches EAC on all 14 tracks, including track 5,
+  which CTDB verifies. The run carries the record defects 0.6.63 fixed, so it is
+  graded `partial`: the ledger's eleventh row.
+
+**Learned:**
+- *A dependency's own text reaching a Markdown view is dependency output reaching a
+  rich-text widget.* The seam rule says such widgets are `PlainText`. About is
+  Markdown by design, so every sentence quoting the ripper is backslash-escaped, and a
+  test renders a banner carrying HTML, a link and emphasis and asserts none renders.
+- *Two readings of track 5 are each stable within a pass.* `E0036697` (EAC's, in CTDB)
+  four times in one rip, `6902BCF0` three times in the next. A converged secure re-read
+  proves repeatability, not correctness. That was already the project's position, and
+  this run is the cleanest demonstration of it on file.
+
 ## 2026-09-28 — Round 29 opens on `.18`: the pin under review moves, our lap 2 is released, and 0.6.63 ships under §6b
 
 **Asked:** the fork released round 29 lap 1 (`566d3fa`, sha256 `2e275d2f…`). The operator
