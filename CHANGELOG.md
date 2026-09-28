@@ -30,6 +30,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   since. It went on describing a three-path scope and a pinned tool that no longer
   exist. The weekly sweep's scope is the matrix in `.github/workflows/mutation.yml`.
 
+### Security
+
+- **`SECURITY.md` says what the secret scan covers.** It said the `gitleaks` job scans
+  the full history. The job scans a pull request's own non-merge commits, and a push
+  to `main` that arrives as a merge commit scans nothing: the push run for `a930411b`
+  logged *"0 commits scanned"*. The entry now says so, and records a scan by hand of
+  every commit on `main`, merge commits included, on 2026-09-28: 1,454 commits, no
+  findings. `docs/architecture.md` §6.3 carries the same correction beside its
+  verbatim quote of `CLAUDE.md`. Making CI scan the full history is approved and not
+  yet applied.
+
 ### Documentation
 
 - **The dependency record names every tool a release depends on, and stops claiming
