@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.6.62] — 2026-09-28
+
 ### Changed
 
 - **The log reader knows the fork's next build's new line before that build ships.**
@@ -16505,7 +16507,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.61...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.62...HEAD
+[0.6.62]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.61...v0.6.62
 [0.6.61]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.60...v0.6.61
 [0.6.60]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.59...v0.6.60
 [0.6.59]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.58...v0.6.59
@@ -16569,4 +16572,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.61.*
+*Last updated for Platterpus v0.6.62.*
