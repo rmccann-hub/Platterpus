@@ -1807,7 +1807,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **548 -> 565** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the intro and script settings scroll in a `FitScrollArea` so Run and the transcript keep their room on a Steam Deck at 150% text, where the new settings group squeezed three buttons to 12 px.
     # **565 -> 570 (2026-09-24)**: `refresh_settings`, the pass-through the window
     # calls so the console's own script options follow a script's `set`.
-    "ui/dialogs/script_console.py": 570,
+    # 570 -> 571 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
+    "ui/dialogs/script_console.py": 571,
     # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **320 -> 366** (2026-09-27, cover art moves to the album): the panel owns its right-click menu's wiring — the album actions it is handed, the background and per-value connections, and why. Building the menu (Copy, Select All, the popup) is its own module, `ui/album_menu.py`, so what grew here is only what the panel must hold.
     # 366 -> 377 on 2026-09-28: `set_disc_info_retrying`, the panel's "trying again automatically" state beside the error state it precedes (a failed disc read is now retried; disc_probe_retry).
@@ -1879,14 +1880,17 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # own deadline. Every SENTENCE is in `ui/dependency_check_status.py` (pure, tested
     # without a window); what stays is wiring that must be on the window, beside the check
     # lifecycle it reports on.
-    "ui/main_window_deps.py": 935,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # 935 -> 934 on 2026-09-28 (down: the import in, and the function-local
+    # `QMessageBox` import it no longer needs out): every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup.
+    "ui/main_window_deps.py": 934,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
     # 549 -> 574 on 2026-09-28: the media poll logs the drive's raw status on change and names it (and any unreadable checks bridged) in the insert/remove lines; the rig lost an insertion and the log could not say what the drive had reported. The poll is the only reader of the watcher, so the lines live beside it.
     # 574 -> 651 on 2026-09-28: the window side of the bounded automatic retry of a failed disc read. The policy, its state and every branch are in the new pure `disc_probe_retry.py`; what stays here is reading the facts it asks for (`_disc_retry_conditions`) and applying its decision, beside the media poll that is the other half of "the disc gets read without the user".
     # 651 -> 655 on 2026-09-28: the poll puts "reading disc…" up on an insertion and the no-disc line on a removal, where both left only dashes.
-    "ui/main_window_drive.py": 655,
+    # 655 -> 656 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
+    "ui/main_window_drive.py": 656,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -1928,7 +1932,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1602 -> 1607** (2026-09-24, #37 one home per setting): Setup & Updates and the console are handed the window's single-setting writer and Diagnose drive access….
     # **1607 -> 1624** (2026-09-26, the maintainer's quick run): the end-of-run headline asks `RunReport.ok`, so a quick run's size-declined sections do not read as a stopped run.
     # **1624 -> 1626** (2026-09-28): opening Setup & Updates during a dependency check shows it running, not the last result.
-    "ui/main_window_provision.py": 1626,
+    # 1626 -> 1627 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
+    "ui/main_window_provision.py": 1627,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1988,7 +1993,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4751 -> 4760** (2026-09-27, TASKS the `-j` rows): the bundle snapshot names the rip's `-j` records, read from the worker at arming time, and the launcher hands them to the bundle. Where the records are and how they are named is `diagnostics_record.py`.
     # **4760 -> 4795** (2026-09-27, the same ruling): `_confirm_known_overwrite` asks when several look-alike folders could be the target, names them all, logs them, and withholds Replace, with the reason and the `None is None` dismissal trap stated where the branch is.
     # 4795 -> 4802 on 2026-09-28: a tie between look-alike folders asks even when neither holds a rip, with a title and text that do not claim one (maintainer: "fix all").
-    "ui/main_window_rip.py": 4802,
+    # 4802 -> 4803 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
+    "ui/main_window_rip.py": 4803,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2020,7 +2026,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # what is already on screen?"* — and the wide one would have dropped the
     # resolution of a missing required dependency because the window was not yet
     # visible.
-    "ui/main_window_update.py": 1019,
+    # 1019 -> 1020 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
+    "ui/main_window_update.py": 1020,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "ui/rip_progress.py": 1659,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.

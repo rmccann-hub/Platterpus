@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 
 from platterpus.deps.host_teardown import HostTeardown
 from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.ui import message_boxes
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.failure_text import LOG_POINTER
@@ -142,7 +143,7 @@ class UninstallDialog(CenteredDialog):
         if self._thread is not None:  # already running
             return
         # The one confirmation gate before anything destructive happens.
-        choice = QMessageBox.warning(
+        choice = message_boxes.warning(
             self,
             "Uninstall Platterpus?",
             "Remove Platterpus and the ticked items from this computer?\n\n"

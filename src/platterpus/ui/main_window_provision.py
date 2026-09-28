@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
+from platterpus.ui import message_boxes
 from platterpus.ui.main_window_shared import MainWindowShared
 
 if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy
@@ -228,7 +229,7 @@ class ProvisioningMixin(MainWindowShared):
         resets = config_module.take_load_resets()
         if not resets:
             return
-        QMessageBox.warning(
+        message_boxes.warning(
             self,
             "Some settings were reset",
             settings_validation.describe_resets(resets),
@@ -245,7 +246,7 @@ class ProvisioningMixin(MainWindowShared):
 
         appimage = ai.appimage_path()
         if appimage is None:
-            QMessageBox.information(
+            message_boxes.information(
                 self,
                 "Add app shortcut",
                 "This adds a menu/desktop shortcut for the AppImage. You're not "
@@ -266,7 +267,7 @@ class ProvisioningMixin(MainWindowShared):
                 if new_path != appimage
                 else ""
             )
-            QMessageBox.information(
+            message_boxes.information(
                 self,
                 "Shortcut added",
                 f"Added Platterpus to your applications menu and your Desktop. "
@@ -276,7 +277,7 @@ class ProvisioningMixin(MainWindowShared):
             )
         except Exception:  # noqa: BLE001 — convenience action
             log.exception("manual AppImage integration failed")
-            QMessageBox.warning(
+            message_boxes.warning(
                 self,
                 "Couldn't add shortcut",
                 "Adding the shortcut didn't work, but the app still runs from "
@@ -317,7 +318,7 @@ class ProvisioningMixin(MainWindowShared):
             and self._config.integration_declined_version == __version__
         ):
             return  # said No to this file at this version — don't nag until the next
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Add to your applications menu?",
             "Add Platterpus to your applications menu, and move this file "
@@ -350,10 +351,10 @@ class ProvisioningMixin(MainWindowShared):
                 )
             else:
                 detail = "Platterpus is now in your applications menu."
-            QMessageBox.information(self, "Added to menu", detail)
+            message_boxes.information(self, "Added to menu", detail)
         except Exception:  # noqa: BLE001 — integration is a convenience
             log.exception("AppImage integration failed")
-            QMessageBox.warning(
+            message_boxes.warning(
                 self,
                 "Couldn't add to menu",
                 "Adding the menu entry didn't work, but the app still runs "
@@ -379,7 +380,7 @@ class ProvisioningMixin(MainWindowShared):
             return
         self._config.host_setup_prompted = True
         self._save_config(self._config)
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Set up Platterpus",
             "Platterpus needs a one-time setup to install its ripping tool "
@@ -1591,7 +1592,7 @@ class ProvisioningMixin(MainWindowShared):
         """
         if not complete:
             return
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Uninstall complete",
             "Platterpus has been removed from this computer.\n\n"

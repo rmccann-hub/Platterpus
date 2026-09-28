@@ -95,6 +95,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Every message box now shows its text exactly as written.** What a tool told
+  us — a version, a build tag, an install error from its own output — could be
+  read as formatting instead of shown: Qt's ready-made message boxes guess
+  whether text is HTML, and when the first line looked like a tag the whole
+  message was rendered as markup, silently joining its lines into one, dropping
+  anything in angle brackets it did not recognise, and turning `&amp;` into `&`.
+  The dependency check's summary, the update boxes and the read-offset boxes were
+  among the 38 that could do this. All of them now go through one module
+  (`ui/message_boxes.py`) that shows the text as plain text, with the same
+  buttons, default and answer as before, and a test refuses any new box built
+  the old way.
 - **For contributors: the regex timing checks no longer fail on a busy runner.**
   The sweep that proves no pattern in `src/` stalls on long input confirmed a
   suspect by timing it again at the same sizes, inside the same noisy moment, so

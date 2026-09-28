@@ -43,6 +43,7 @@ from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus import hard_exit
+from platterpus.ui import message_boxes
 
 #: The per-process folder standing in for the user's config and data homes.
 TEST_HOME: Path = Path(os.environ["PLATTERPUS_TEST_HOME"])
@@ -1012,11 +1013,27 @@ def _non_blocking_message_boxes(monkeypatch: pytest.MonkeyPatch) -> None:
     `No` (decline), the notice boxes → `Ok`. Tests that assert specific
     dialog behaviour monkeypatch the relevant method themselves; that
     per-test patch is applied after this autouse one and wins.
+
+    **The product no longer calls the static helpers.** Every stock box goes
+    through `platterpus.ui.message_boxes` (so its text can be pinned to
+    PlainText, which a static helper cannot do), and that module builds a real
+    `QMessageBox` and `exec()`s it — the same forever-block. Its four functions
+    get the same answers here, patched on the module because call sites look
+    them up there at call time (`message_boxes.warning(...)`). A test that
+    asserts on a box patches `platterpus.ui.message_boxes.<fn>`; patching the
+    static would now capture nothing and let the default below answer instead.
+    The static patches stay as a backstop for anything that still reaches them.
     """
     monkeypatch.setattr(
         QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
     )
+    monkeypatch.setattr(
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.No
+    )
     for method in ("information", "warning", "critical"):
         monkeypatch.setattr(
             QMessageBox, method, lambda *a, **k: QMessageBox.StandardButton.Ok
+        )
+        monkeypatch.setattr(
+            message_boxes, method, lambda *a, **k: QMessageBox.StandardButton.Ok
         )

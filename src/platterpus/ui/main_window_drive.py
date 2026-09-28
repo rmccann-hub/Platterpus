@@ -67,6 +67,7 @@ from platterpus.drive_profiles import (
 )
 from platterpus.offset_config import is_offset_configured
 from platterpus.settings_validation import OFFSET_MAX, OFFSET_MIN
+from platterpus.ui import message_boxes
 from platterpus.ui.drive_setup_dialog import DriveSetupDialog
 from platterpus.ui.main_window_helpers import friendly_disc_scan_error
 from platterpus.ui.main_window_shared import MainWindowShared
@@ -85,7 +86,7 @@ class DriveMixin(MainWindowShared):
         """
         device = self._drive_picker.current_device()
         if not device:
-            QMessageBox.warning(self, "Set up drive", "Select a drive first.")
+            message_boxes.warning(self, "Set up drive", "Select a drive first.")
             return
         # Primary path: resolve the offset by drive model from the AccurateRip
         # list, so the wizard can pre-fill the right value with no disc and no
@@ -140,7 +141,7 @@ class DriveMixin(MainWindowShared):
         # afterwards calibration lives on Tools → Setup & Updates… → Set up drive….
         self._config.drive_setup_prompted = True
         self._save_config(self._config)
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Set up your drive",
             "Your drive's read offset isn't configured yet — it's needed for "
@@ -233,7 +234,7 @@ class DriveMixin(MainWindowShared):
 
     def _show_offset_rejected(self, value: int) -> None:
         """Tell the user why an offset was refused — never fail silently."""
-        QMessageBox.warning(
+        message_boxes.warning(
             self,
             "Read offset out of range",
             f"A read offset of {value:+d} samples is outside the allowed range "
@@ -263,7 +264,7 @@ class DriveMixin(MainWindowShared):
         )
         log.info("auto-applied known read offset %+d for %s", known, label)
         # Tell the user once where the value came from (and that it's editable).
-        QMessageBox.information(
+        message_boxes.information(
             self,
             "Read offset set automatically",
             f"Using read offset {known:+d} for {label}, from the AccurateRip "

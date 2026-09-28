@@ -39,7 +39,7 @@ It changes **no runtime behaviour**:
   it exists so mypy knows ``self`` inside a mixin really is a Qt widget (the
   concrete window is one), which lets it both resolve the Qt methods a mixin
   calls on ``self`` (``self.close()``, ``self.update()`` …) *and* accept ``self``
-  where a ``QWidget`` parent is expected (``QMessageBox.information(self, …)``).
+  where a ``QWidget`` parent is expected (``message_boxes.information(self, …)``).
 
   Why ``QWidget`` and not ``QMainWindow``: ``MainWindow`` lists ``QMainWindow``
   first in its own bases, so if the seam also derived ``QMainWindow`` the C3

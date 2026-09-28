@@ -50,6 +50,7 @@ from platterpus.log_buffer import SessionLogBuffer, set_session_buffer
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
 from platterpus.paths import LOG_PATH
+from platterpus.ui import message_boxes
 from platterpus.ui.main_window import MainWindow, _fidelity_summary
 from platterpus.ui.main_window_rip import TaggingResult
 from platterpus.ui.release_picker import ReleasePickerDialog
@@ -814,7 +815,7 @@ def test_rip_requested_blocked_when_track_table_invalid(
         warnings.append((title, text))
         return QMessageBox.StandardButton.Ok
 
-    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.warning", fake_warning)
+    monkeypatch.setattr("platterpus.ui.message_boxes.warning", fake_warning)
 
     from platterpus.workers.rip_worker import RipParameters
 
@@ -898,7 +899,7 @@ def test_rip_requested_blocked_when_no_read_offset(
         warnings.append((title, text))
         return QMessageBox.StandardButton.Yes  # "open the wizard"
 
-    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.warning", fake_warning)
+    monkeypatch.setattr("platterpus.ui.message_boxes.warning", fake_warning)
     opened: list[bool] = []
     monkeypatch.setattr(window, "_on_drive_setup", lambda: opened.append(True))
 
@@ -934,7 +935,7 @@ def test_auto_apply_known_offset_for_known_drive(
             device="/dev/sr0", vendor="PIONEER", model="BD-RW  BDR-209D", release="1.0"
         ),
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
 
     assert window._auto_apply_known_offset() is True
     assert window._config.override_read_offset is True
@@ -994,7 +995,7 @@ def test_auto_apply_records_accuraterip_provenance(
 ) -> None:
     window = teardown_threads()
     _pin_pioneer(window, monkeypatch)
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
 
     window._auto_apply_known_offset()
 
@@ -1152,10 +1153,10 @@ def test_rip_not_blocked_when_drive_offset_is_known(
             device="/dev/sr0", vendor="PIONEER", model="BD-RW  BDR-209D", release="1.0"
         ),
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     warned: list[bool] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda *a, **k: warned.append(True),
     )
 
@@ -1256,9 +1257,9 @@ def test_rip_self_heals_untrusted_wrong_offset(
     window._config.override_read_offset = True
     window._config.read_offset = 0  # the bogus value the old detection saved
     window._record_drive_fact(_PIONEER, offset_value=0, source=OffsetSource.OFFSET_FIND)
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda *a, **k: QMessageBox.StandardButton.Yes,
     )
 
@@ -1289,10 +1290,10 @@ def test_rip_does_not_heal_a_deliberate_manual_offset(
     window._config.override_read_offset = True
     window._config.read_offset = 691  # deliberately measured for THIS unit
     window._record_drive_fact(_PIONEER, offset_value=691, source=OffsetSource.MANUAL)
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     warned: list[tuple] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda *a, **k: warned.append(a) or QMessageBox.StandardButton.Yes,
     )
 
@@ -1425,7 +1426,7 @@ def test_dep_summary_with_no_failures_omits_failure_block(
         captured.append((title, text))
         return None
 
-    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.information", fake_info)
+    monkeypatch.setattr("platterpus.ui.message_boxes.information", fake_info)
 
     report = DependencyReport(ok=[], missing=[], install_results=[])
     window._show_dep_summary(report)
@@ -1469,7 +1470,7 @@ def test_dep_summary_includes_failure_details(
         captured.append((title, text))
         return None
 
-    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.information", fake_info)
+    monkeypatch.setattr("platterpus.ui.message_boxes.information", fake_info)
 
     report = DependencyReport(ok=[], missing=[], install_results=[failure])
     window._show_dep_summary(report)
@@ -1507,7 +1508,7 @@ def test_dep_summary_stamps_installed_versions(
     window = teardown_threads()
     captured: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.information",
+        "platterpus.ui.message_boxes.information",
         lambda parent, title, text: captured.append((title, text)),
     )
 
@@ -1553,7 +1554,7 @@ def test_dep_summary_does_not_show_user_declines_as_failures(
     captured: list[tuple[str, str]] = []
 
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.information",
+        "platterpus.ui.message_boxes.information",
         lambda parent, title, text: captured.append((title, text)) or None,
     )
 
@@ -1596,12 +1597,10 @@ def test_offer_optional_install_resolves_when_accepted(
     resolved: list[Any] = []
 
     monkeypatch.setattr(
-        "platterpus.ui.main_window_deps.QMessageBox.question",
+        "platterpus.ui.message_boxes.question",
         lambda *a, **k: QMessageBox.StandardButton.Yes,
     )
-    monkeypatch.setattr(
-        "platterpus.ui.main_window_deps.QMessageBox.information", lambda *a, **k: None
-    )
+    monkeypatch.setattr("platterpus.ui.message_boxes.information", lambda *a, **k: None)
     window = teardown_threads()
     # The optional deps resolve through the one unified dialog, not a second path.
     monkeypatch.setattr(
@@ -1621,7 +1620,7 @@ def test_offer_optional_install_skips_when_declined(
     item = _optional_missing_item("flac")
     resolved: list[Any] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window_deps.QMessageBox.question",
+        "platterpus.ui.message_boxes.question",
         lambda *a, **k: QMessageBox.StandardButton.No,
     )
     window = teardown_threads()
@@ -2980,7 +2979,7 @@ def test_maybe_offer_records_prompt_and_launches_on_yes(
         config=Config(drive_setup_prompted=False), save_cfg=saved.append
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     launched: list[bool] = []
     monkeypatch.setattr(window, "_on_drive_setup", lambda: launched.append(True))
@@ -3000,7 +2999,7 @@ def test_maybe_offer_no_launch_on_no(teardown_threads, monkeypatch) -> None:
     )
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.No
     )
     launched: list[bool] = []
     monkeypatch.setattr(window, "_on_drive_setup", lambda: launched.append(True))
@@ -3079,7 +3078,7 @@ def test_maybe_offer_host_setup_records_and_opens_on_yes(
         config=Config(host_setup_prompted=False), save_cfg=saved.append
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     opened: list[bool] = []
     monkeypatch.setattr(window, "open_host_setup_dialog", lambda: opened.append(True))
@@ -3221,7 +3220,7 @@ def test_update_result_none_reports_check_failure(
     window = teardown_threads()
     seen: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "information",
         lambda parent, title, text, *a, **k: seen.append(text),
     )
@@ -3236,7 +3235,7 @@ def test_update_result_up_to_date(teardown_threads, monkeypatch) -> None:
     window = teardown_threads()
     seen: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "information",
         lambda parent, title, text, *a, **k: seen.append(text),
     )
@@ -3256,7 +3255,7 @@ def test_update_result_newer_without_appimage_opens_release_page(
     window = teardown_threads()
     monkeypatch.setattr(ai, "appimage_path", lambda: None)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     opened: list[str] = []
     monkeypatch.setattr(
@@ -3283,7 +3282,7 @@ def test_update_result_newer_as_appimage_starts_builtin_install(
         ai, "appimage_path", lambda: tmp_path / "platterpus-x86_64.AppImage"
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     started: list[str] = []
     monkeypatch.setattr(window, "_begin_update_install", started.append)
@@ -3316,7 +3315,7 @@ def test_prerelease_offer_warns_and_does_not_default_to_yes(
         asked.append((text, default))
         return QMessageBox.StandardButton.No
 
-    monkeypatch.setattr(QMessageBox, "question", fake_question)
+    monkeypatch.setattr(message_boxes, "question", fake_question)
 
     window._on_update_result(
         ReleaseInfo(version="99.0.0b1", url="https://x", is_prerelease=True)
@@ -3347,7 +3346,7 @@ def test_stable_offer_carries_no_beta_warning(
         asked.append((text, default))
         return QMessageBox.StandardButton.No
 
-    monkeypatch.setattr(QMessageBox, "question", fake_question)
+    monkeypatch.setattr(message_boxes, "question", fake_question)
     window._on_update_result(ReleaseInfo(version="99.0.0", url="https://x"))
 
     assert asked
@@ -3365,7 +3364,7 @@ def test_up_to_date_message_names_the_channel(teardown_threads, monkeypatch) -> 
     window = teardown_threads()
     seen: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "information",
         lambda parent, title, text, *a, **k: seen.append(text),
     )
@@ -3402,7 +3401,7 @@ def test_update_install_success_offers_restart(
     integrated: list[Path] = []
     monkeypatch.setattr(ai, "integrate", lambda p, **k: integrated.append(p))
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     launched: list[list[str]] = []
     monkeypatch.setattr(
@@ -3440,7 +3439,7 @@ def test_update_install_failure_changes_nothing(teardown_threads, monkeypatch) -
     window = teardown_threads()
     warnings: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "warning",
         lambda parent, title, text, *a, **k: warnings.append(text),
     )
@@ -3471,7 +3470,7 @@ def test_update_relaunch_failure_keeps_the_window_open(
     new_path = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
     monkeypatch.setattr(ai, "integrate", lambda p, **k: None)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
 
     def boom(*a, **k):
@@ -3480,7 +3479,7 @@ def test_update_relaunch_failure_keeps_the_window_open(
     monkeypatch.setattr(subprocess_mod, "Popen", boom)
     infos: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "information",
         lambda parent, title, text, *a, **k: infos.append(text),
     )
@@ -3514,7 +3513,7 @@ def test_update_decline_restart_neither_relaunches_nor_closes(
     new_path = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
     monkeypatch.setattr(ai, "integrate", lambda p, **k: None)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.No
     )
     launched: list[object] = []
     monkeypatch.setattr(subprocess_mod, "Popen", lambda *a, **k: launched.append(a))
@@ -3552,7 +3551,7 @@ def test_update_relaunch_passes_scrubbed_env_and_new_session(
     new_path = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
     monkeypatch.setattr(ai, "integrate", lambda p, **k: None)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     monkeypatch.setattr(window, "close", lambda: None)
     calls: list[dict] = []
@@ -3606,7 +3605,7 @@ def test_update_restart_prompt_warns_about_cold_extract_delay(
         prompts.append(text)
         return QMessageBox.StandardButton.No  # decline → no spawn/close needed
 
-    monkeypatch.setattr(QMessageBox, "question", capture_question)
+    monkeypatch.setattr(message_boxes, "question", capture_question)
     monkeypatch.setattr(subprocess_mod, "Popen", lambda *a, **k: None)
     monkeypatch.setattr(window, "close", lambda: None)
 
@@ -3744,7 +3743,7 @@ def test_uninstall_finished_offers_quit_on_success(
 ) -> None:
     window = teardown_threads()
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     closed: list[bool] = []
     monkeypatch.setattr(window, "close", lambda: closed.append(True))
@@ -3754,7 +3753,7 @@ def test_uninstall_finished_offers_quit_on_success(
 
     # An incomplete uninstall must NOT prompt or close.
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "question",
         lambda *a, **k: (_ for _ in ()).throw(AssertionError("prompted")),
     )
@@ -3798,9 +3797,9 @@ def test_integration_offer_runs_on_yes(teardown_threads, monkeypatch, tmp_path) 
         config=Config(appimage_integration_prompted=False), save_cfg=saved.append
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     integrated: list[Path] = []
     # Stub the relocation (identity) — its real behaviour is covered by
     # test_integration_offer_relocates_then_integrates and the
@@ -3850,7 +3849,7 @@ def test_integration_offer_skips_only_the_declined_file(
     )
     asked: list[bool] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "question",
         lambda *a, **k: (asked.append(True), QMessageBox.StandardButton.No)[1],
     )
@@ -3893,7 +3892,7 @@ def test_integration_reoffers_after_an_IN_PLACE_update_at_the_same_path(
     )
     asked: list[bool] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "question",
         lambda *a, **k: (asked.append(True), QMessageBox.StandardButton.No)[1],
     )
@@ -3931,7 +3930,7 @@ def test_a_config_declined_before_the_version_key_existed_is_released(
     )
     asked: list[bool] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "question",
         lambda *a, **k: (asked.append(True), QMessageBox.StandardButton.No)[1],
     )
@@ -3962,9 +3961,9 @@ def test_integration_reoffers_for_a_new_file_despite_legacy_flag(
         save_cfg=lambda c: None,
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
 
     window._maybe_offer_appimage_integration()
 
@@ -3983,7 +3982,7 @@ def test_integration_decline_is_remembered_per_file(
     saved: list[Config] = []
     window = teardown_threads(config=Config(), save_cfg=saved.append)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.No
     )
 
     window._maybe_offer_appimage_integration()
@@ -4002,7 +4001,7 @@ def test_add_app_shortcut_integrates_when_appimage(
     integrated: list[Path] = []
     monkeypatch.setattr(ai, "relocate_to_applications", lambda p: p)
     monkeypatch.setattr(ai, "integrate", lambda p: integrated.append(p))
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     window = teardown_threads()
 
     window._on_add_app_shortcut()
@@ -4016,7 +4015,7 @@ def test_add_app_shortcut_noop_when_not_appimage(teardown_threads, monkeypatch) 
     monkeypatch.setattr(ai, "appimage_path", lambda: None)
     integrated: list[bool] = []
     monkeypatch.setattr(ai, "integrate", lambda *a, **k: integrated.append(True))
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     window = teardown_threads()
 
     window._on_add_app_shortcut()  # explains, doesn't integrate
@@ -4790,9 +4789,9 @@ def test_integration_offer_relocates_then_integrates(
         ai, "integrate", lambda p, **k: (calls.append(("integrate", p)), None)[1]
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
 
     window._maybe_offer_appimage_integration()
 
@@ -4821,9 +4820,9 @@ def test_integration_offer_fires_when_integrated_but_unsettled(
     monkeypatch.setattr(ai, "integrate", lambda p, **k: integrated.append(p))
     window = teardown_threads(config=Config(), save_cfg=lambda c: None)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
 
     window._maybe_offer_appimage_integration()
 
@@ -7376,7 +7375,7 @@ def test_first_run_shows_the_config_reset_notice_first(
     shown: list[str] = []
     order: list[str] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window_provision.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda parent, title, text: (order.append("notice"), shown.append(text))[0],
     )
     monkeypatch.setattr(
@@ -7424,7 +7423,7 @@ def test_an_unattended_launch_makes_no_first_run_offers(
         window, "_maybe_offer_drive_setup", lambda: fired.append("drive")
     )
     monkeypatch.setattr(
-        "platterpus.ui.main_window_provision.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda parent, title, text: fired.append("notice"),
     )
 
@@ -7449,7 +7448,7 @@ def test_no_notice_when_nothing_was_reset(teardown_threads, monkeypatch) -> None
     monkeypatch.setattr(config_module, "take_load_resets", lambda: [])
     shown: list[str] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window_provision.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda parent, title, text: shown.append(text),
     )
     monkeypatch.setattr(window, "_maybe_offer_appimage_integration", lambda: None)
@@ -8708,7 +8707,7 @@ def test_rip_as_unknown_requires_a_drive_first(teardown_threads, monkeypatch) ->
 
     warned: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "warning",
         lambda *a, **k: warned.append(a[2]) or QMessageBox.StandardButton.Ok,
     )
@@ -9681,7 +9680,7 @@ def test_choosing_a_cover_image_validates_it_immediately(
 ) -> None:
     """The file is sniffed when it is PICKED, so a wrong file is caught while the
     user is still looking at the dialog — not silently at the end of a rip."""
-    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    from PySide6.QtWidgets import QFileDialog
 
     good = tmp_path / "art.png"
     good.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 32)
@@ -9689,7 +9688,7 @@ def test_choosing_a_cover_image_validates_it_immediately(
         QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(good), ""))
     )
     warned: list[str] = []
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    monkeypatch.setattr(message_boxes, "warning", lambda *a, **k: warned.append(a[2]))
     window = teardown_threads()
 
     window._on_set_cover_art_from_file()
@@ -9703,7 +9702,7 @@ def test_choosing_a_non_image_is_refused_at_pick_time(
     teardown_threads, tmp_path: Path, monkeypatch
 ) -> None:
     """...and a file that isn't a JPEG/PNG/GIF is refused, with nothing stored."""
-    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    from PySide6.QtWidgets import QFileDialog
 
     bad = tmp_path / "notes.txt"
     bad.write_bytes(b"this is not an image")
@@ -9711,7 +9710,7 @@ def test_choosing_a_non_image_is_refused_at_pick_time(
         QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(bad), ""))
     )
     warned: list[str] = []
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    monkeypatch.setattr(message_boxes, "warning", lambda *a, **k: warned.append(a[2]))
     window = teardown_threads()
 
     window._on_set_cover_art_from_file()
@@ -9725,7 +9724,7 @@ def test_an_unreadable_cover_choice_is_refused_at_pick_time(
 ) -> None:
     """A path that cannot be read at all (deleted between the dialog and the read,
     or a directory) is reported with the OS's own reason."""
-    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    from PySide6.QtWidgets import QFileDialog
 
     monkeypatch.setattr(
         QFileDialog,
@@ -9733,7 +9732,7 @@ def test_an_unreadable_cover_choice_is_refused_at_pick_time(
         staticmethod(lambda *a, **k: (str(tmp_path / "gone.png"), "")),
     )
     warned: list[str] = []
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    monkeypatch.setattr(message_boxes, "warning", lambda *a, **k: warned.append(a[2]))
     window = teardown_threads()
 
     window._on_set_cover_art_from_file()
@@ -10232,11 +10231,11 @@ def _capture_boxes(monkeypatch: pytest.MonkeyPatch) -> tuple[list[str], list[str
     info: list[str] = []
     warn: list[str] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.information",
+        "platterpus.ui.message_boxes.information",
         lambda parent, title, text: info.append(text),
     )
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda parent, title, text: warn.append(text),
     )
     return info, warn
@@ -11799,7 +11798,7 @@ def _capture_message_boxes(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, s
     shown: list[tuple[str, str]] = []
     for kind in ("information", "warning"):
         monkeypatch.setattr(
-            QMessageBox,
+            message_boxes,
             kind,
             lambda _parent, title, text, *_a, **_k: shown.append((title, text)),
         )
