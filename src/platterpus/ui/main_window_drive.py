@@ -399,9 +399,11 @@ class DriveMixin(MainWindowShared):
                 )
                 # Whatever the view holds belongs to an earlier disc. A removal
                 # normally cleared it, but not always: the poll is skipped while
-                # a scan runs, so a disc ejected DURING a scan leaves "open" as
-                # the first reading afterwards — a baseline, not a removal — and
-                # the next disc fires INSERTED with the old one still on screen.
+                # a scan runs, so a disc ejected DURING a scan that then fails
+                # leaves "open" as the first reading afterwards — a baseline, not
+                # a removal — and the next disc fires INSERTED with the old one
+                # still on screen. (A scan that READ the disc tells the watcher,
+                # so an eject after it is a removal: `note_disc_present`.)
                 # (The other route, disc → unknown → empty → disc, now fires
                 # REMOVED first: unknown readings are bridged since 2026-09-28.)
                 self._reset_disc_view()

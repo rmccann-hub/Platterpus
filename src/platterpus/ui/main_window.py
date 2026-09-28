@@ -1324,6 +1324,10 @@ class MainWindow(
         self._disc_info_worker = None
         self._disc_info_thread = None
         self._rip_controls.set_scan_active(False)
+        # The read proves a disc is in. Without this, a retry that succeeded
+        # after the poll read "not ready" made the next poll report a phantom
+        # insertion and read the disc again (drive_media.note_disc_present).
+        self._media_watcher.note_disc_present()
         self._disc_info_panel.set_disc_info(info)
         # Remember the disc's track count so we can show numbered blank
         # rows if MusicBrainz turns up nothing.

@@ -6738,6 +6738,97 @@ def test_a_rip_started_during_the_wait_stops_the_retry_and_the_panel_says_so(
         window._rip_thread = None
 
 
+def _inserted_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [r.getMessage() for r in caplog.records if "disc inserted" in r.getMessage()]
+
+
+def test_a_retry_that_reads_the_disc_is_not_followed_by_a_phantom_insertion(
+    teardown_threads,
+    process_until,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The retry reads the disc; the next media poll must not read it again.
+
+    Code review 2026-09-28 (R0). The launch read fails while the drive is still
+    spinning up, and the media poll during the retry's wait reads `not_ready`,
+    which the watcher stores as an empty tray. The retry then reads the disc, but
+    nothing told the watcher, so the first poll after the album was shown saw
+    `not_ready -> disc`, logged a disc insertion that never happened, cleared the
+    view and read the disc a third time. Both timers are driven by hand so the
+    order is the one the review measured: poll during the wait, then the retry.
+    """
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip failed (exit 1). It said: Unable to open device!"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    tray = ["not_ready"]
+    window, _retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, tray
+    )
+    assert process_until(lambda: window._disc_retries.pending is not None)
+    window._disc_retry_timer.stop()
+    window._media_poll_timer.stop()
+    with caplog.at_level(logging.INFO, logger="platterpus.ui.main_window_drive"):
+        window._poll_disc_media()  # during the wait: the drive is still spinning up
+        window._on_disc_retry_due()  # the retry fires and reads the disc
+        assert process_until(lambda: _album_shown(window), timeout=10.0)
+        assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"]
+
+        tray[0] = "disc"
+        window._poll_disc_media()  # the drive now says what the read already proved
+        process_until(lambda: False, timeout=0.3)  # room for a third read to start
+
+    assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"], "read a third time"
+    assert _inserted_lines(caplog) == [], "logged an insertion that did not happen"
+    assert _album_shown(window), window._disc_info_panel._mb_match_value.text()
+
+
+def test_a_disc_that_becomes_ready_after_every_retry_failed_is_still_read(
+    teardown_threads,
+    process_until,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The other half of the fix above: only a read that SUCCEEDED tells the
+    watcher a disc is in. When every retry fails with the drive still saying
+    `not_ready`, the drive's later `disc` is an insertion and is read: the rig's
+    lost insertion of 2026-09-28 must stay fixed. (Resetting the watcher when a retry
+    starts would also silence the phantom above, and would lose this one.)"""
+    from platterpus.disc_probe_retry import AUTO_RETRY_LIMIT
+
+    failure = RipError("cyanrip failed (exit 1). It said: Unable to open device!")
+    backend = _ScriptedDiscBackend(
+        *([failure] * (AUTO_RETRY_LIMIT + 1)),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    tray = ["not_ready"]
+    window, _retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, tray
+    )
+    assert process_until(lambda: window._disc_retries.pending is not None)
+    window._disc_retry_timer.stop()
+    window._media_poll_timer.stop()
+    with caplog.at_level(logging.INFO, logger="platterpus.ui.main_window_drive"):
+        window._poll_disc_media()  # during the first wait: still spinning up
+        window._on_disc_retry_due()  # the rest of the retries run on their timer
+        assert process_until(
+            lambda: (
+                "Rescan disc" in window._disc_info_panel._mb_match_value.text()
+                and window._disc_info_thread is None
+            ),
+            timeout=10.0,
+        )
+        assert backend.disc_info_calls == ["/dev/sr0"] * (AUTO_RETRY_LIMIT + 1)
+
+        tray[0] = "disc"
+        window._poll_disc_media()  # the disc is finally ready
+        assert process_until(lambda: _album_shown(window), timeout=10.0)
+
+    assert backend.disc_info_calls == ["/dev/sr0"] * (AUTO_RETRY_LIMIT + 2)
+    assert len(_inserted_lines(caplog)) == 1, _inserted_lines(caplog)
+
+
 def test_reset_disc_view_forgets_the_release_detail_too(teardown_threads) -> None:
     """The detail is cleared wherever the release id is, never only one of them."""
     window = teardown_threads()
