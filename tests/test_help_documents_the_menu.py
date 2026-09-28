@@ -177,6 +177,43 @@ def test_every_tools_action_appears_in_the_user_guide() -> None:
     )
 
 
+def test_every_album_menu_action_appears_in_the_user_guide(qapp: object) -> None:
+    """The disc panel's right-click menu is a menu a person clicks, too.
+
+    **Why this is not left to the Tools sweep above.** *Set cover art from
+    file…* is in both places for 0.6.62 only; in 0.6.63 its Tools entry goes, and
+    from then on the album menu is its only home. The sweep above reads Tools, so
+    it would stop covering the item the day the transitional entry is removed —
+    the exact moment the Guide's description of the album menu matters most.
+
+    Read off the BUILT menu rather than the source, because the actions arrive
+    at run time (`DiscInfoPanel.set_album_actions`). The background menu is the
+    one read: it holds only the album's actions, not the value labels' own
+    Copy / Select All.
+    """
+    from conftest import stop_window_threads
+    from test_ui_main_window import _make_window
+
+    from platterpus.help_content import user_guide
+
+    window = _make_window(qapp)
+    try:
+        menu = window._disc_info_panel.album_menu()
+        labels = [action.text() for action in menu.actions() if action.text()]
+        menu.deleteLater()
+    finally:
+        stop_window_threads(window)
+        window.deleteLater()
+    assert labels, "the album menu offers nothing: the window handed it no actions"
+    guide = user_guide()
+    missing = [label for label in labels if _searchable(label) not in guide]
+    assert not missing, (
+        f"these album-menu actions are not in the in-app User Guide: {missing}"
+    )
+    # …and the Guide says where the menu IS, or naming the item finds nothing.
+    assert "right-click the disc details" in guide
+
+
 def test_the_guide_check_can_actually_fail() -> None:
     """Non-triviality, against constructed text, in both directions.
 

@@ -87,6 +87,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   acceptance test…* moved from Tools into an *Advanced* submenu, so the everyday items
   come first. *Uninstall Platterpus…* stays in Tools. The User Guide, the rig-session
   sheet and the rig-scripts guide name the new path.
+- **Set cover art from file… is on the album's right-click menu.** Right-click the disc
+  details above the track list, or press the Menu key on one of its values, to set a
+  cover image for the disc on screen. The same menu keeps *Copy* and *Select All*, and
+  *Copy* now copies the whole value when nothing is selected. For this release the item
+  is also still in Tools; that copy goes in 0.6.63. Its Alt-letter is now F.
 
 ### Fixed
 

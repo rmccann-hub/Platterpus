@@ -9359,6 +9359,89 @@ def test_cancelling_the_cover_art_dialog_changes_nothing(
     assert getattr(window, "_manual_cover_path", None) is None
 
 
+# --- Cover art from a file lives with the album (2026-09-27) ------------------
+
+
+def _cover_actions(window: MainWindow) -> tuple[Any, Any]:
+    """``(the Tools entry, the album menu's entry)`` for Set cover art from file…"""
+    from PySide6.QtWidgets import QMenu
+
+    tools = next(
+        m for m in window.menuBar().findChildren(QMenu) if m.title() == "&Tools"
+    )
+    in_tools = next(a for a in tools.actions() if "cover art" in a.text())
+    menu = window._disc_info_panel.album_menu(window._disc_info_panel._mb_match_value)
+    in_album = next(a for a in menu.actions() if "cover art" in a.text())
+    menu.deleteLater()
+    return in_tools, in_album
+
+
+def test_cover_art_from_file_is_one_action_in_the_album_menu_and_tools(
+    teardown_threads,
+) -> None:
+    """The maintainer's 2026-09-27 decision: the item moves to the album's
+    right-click menu, and for ONE release stays in Tools too.
+
+    **The same QAction, not two.** Identity is what makes "both entries call the
+    same slot and are refused in the same states" true by construction; two
+    actions wired to one slot would agree today and drift the first time one of
+    them was disabled. The background menu (a right-click beside the values)
+    offers it as well.
+    """
+    window = teardown_threads()
+    in_tools, in_album = _cover_actions(window)
+    assert in_album is in_tools
+    background = window._disc_info_panel.album_menu()
+    try:
+        assert in_tools in background.actions()
+    finally:
+        background.deleteLater()
+
+
+def test_the_album_menu_cover_entry_runs_the_one_cover_slot(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """Triggered from the album menu, it reaches `_on_set_cover_art_from_file` —
+    the validated pick the Tools entry has always run, not a second copy."""
+    from PySide6.QtWidgets import QFileDialog
+
+    good = tmp_path / "sleeve.png"
+    good.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 32)
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(good), ""))
+    )
+    window = teardown_threads()
+    _in_tools, in_album = _cover_actions(window)
+
+    in_album.trigger()
+
+    assert window._manual_cover_path == str(good)
+    assert "sleeve.png" in window._rip_progress.current_status()
+
+
+def test_the_album_menu_cover_entry_is_enabled_exactly_when_the_tools_entry_is(
+    teardown_threads,
+) -> None:
+    """Refused in exactly the states the Tools entry is — asserted across the
+    states the window actually moves through, not only the one it opens in.
+
+    Today that is none (the item was never rip-locked, and the slot refuses only
+    a file that is not an image); the assertion is the relation, so a future
+    lock applied to one entry is a failure here rather than a drift.
+    """
+    window = teardown_threads()
+    in_tools, in_album = _cover_actions(window)
+    states: list[tuple[str, bool, bool]] = []
+    states.append(("idle", in_tools.isEnabled(), in_album.isEnabled()))
+    window._set_rip_lock(True)
+    try:
+        states.append(("ripping", in_tools.isEnabled(), in_album.isEnabled()))
+    finally:
+        window._set_rip_lock(False)
+    states.append(("after the rip", in_tools.isEnabled(), in_album.isEnabled()))
+    assert all(tools == album for _state, tools, album in states), states
+
+
 # --- The finish handler's outermost guards ------------------------------------
 
 

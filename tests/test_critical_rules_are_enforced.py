@@ -1580,7 +1580,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **591 -> 605** (2026-09-24): the User Guide's acceptance section describes the three run sizes and the baseline, and corrects its old ripper advice.
     # **605 -> 630** (2026-09-24, #37 one home per setting): the User Guide says where each moved setting now lives (Set up drive…, Setup & Updates, the console) and what OK/Apply/Cancel/Restore Defaults do.
     # **630 -> 628** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "help_content.py": 628,
+    # **628 -> 631** (2026-09-27): the Guide says Set cover art from file… is on the disc panel's right-click menu, and that the Tools copy goes in the next release.
+    "help_content.py": 631,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1787,7 +1788,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # calls so the console's own script options follow a script's `set`.
     "ui/dialogs/script_console.py": 570,
     # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "ui/disc_info_panel.py": 320,
+    # **320 -> 366** (2026-09-27, cover art moves to the album): the panel owns its right-click menu's wiring — the album actions it is handed, the background and per-value connections, and why. Building the menu (Copy, Select All, the popup) is its own module, `ui/album_menu.py`, so what grew here is only what the panel must hold.
+    "ui/disc_info_panel.py": 366,
     # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy ripper-config offset line, both moved from Settings, with the tooltip the offset's control had there.
     # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
     # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
@@ -1830,7 +1832,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1675 -> 1700** (2026-09-27, TASKS `stateful:one-picker-per-scan`): `_on_mb_releases` declines a second lookup's candidates for a disc whose release picker is still open (they land inside its nested event loop), and `_mb_picker_open_for` lives exactly as long as the picker's `exec()`. The guard belongs beside the one it completes, in the same slot.
     # **1700 -> 1708** (2026-09-27, TASKS rig run 2026-08-20): the rescan's superseded disc probe is stopped with `superseded_by=`, so its planned abandonment logs at INFO rather than as a WARNING; the call wraps to four arguments and gains a two-line reason.
     # **1708 -> 1718** (2026-09-27, D4 A): the Tools → Advanced ▸ submenu the two test tools moved into, and the eight-line comment saying why and why its Alt-letter is free. Menu construction lives in `_build_menus`, so it grows where the menu is built.
-    "ui/main_window.py": 1718,
+    # **1718 -> 1731** (2026-09-27, cover art moves to the album): the one cover-art QAction is handed to the disc panel as well as Tools, with the comment saying the Tools entry is transitional and exactly how to remove it in 0.6.63.
+    "ui/main_window.py": 1731,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most

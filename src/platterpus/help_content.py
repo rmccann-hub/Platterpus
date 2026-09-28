@@ -215,8 +215,11 @@ and the startup test script in the script console.
   cover from the Cover Art Archive after the rip and embeds/saves it. Tick
   **Also save back cover and booklet images** to pull down the extra artwork
   the Cover Art Archive holds for the release and save it beside the album.
-  When the Archive has nothing for a release, or has the wrong sleeve, **Tools →
-  Set cover art from file…** lets you point at your own image instead.
+  When the Archive has nothing for a release, or has the wrong sleeve,
+  right-click the disc details above the track list and choose
+  **Set cover art from file…** to point at your own image instead. (This release
+  also keeps it in **Tools → Set cover art from file…**; that copy goes in the
+  next one.)
 - **Max retries** — how many times the ripper retries a troublesome track
   before giving up.
 - **Read speed** — how fast to read the disc. *Adaptive Ladder* (the default)

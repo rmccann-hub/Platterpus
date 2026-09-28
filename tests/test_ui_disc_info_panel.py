@@ -557,3 +557,197 @@ def test_the_applied_state_survives_empty_fields(qapp: QApplication) -> None:
     panel.set_mb_applied("", "")
     text = panel._mb_match_value.text()
     assert "Unknown Artist" in text and "Unknown Title" in text, text
+
+
+# --- The album's right-click menu (2026-09-27) --------------------------------
+#
+# "Set cover art from file…" moved to the album it acts on (maintainer decision,
+# 2026-09-27). The panel's values are copy-selectable, and their own right-click
+# menu (Copy / Select All) is replaced by the album's, which keeps both — so these
+# pin the two halves: the album's actions are reachable from a value, from the
+# panel around the values, and from the keyboard; and nothing Copy did is lost.
+
+
+def _album_action(panel: DiscInfoPanel) -> object:
+    """A stand-in for a window-owned per-album action, handed to the panel."""
+    from PySide6.QtGui import QAction
+
+    action = QAction("Set cover art from &file…", panel)
+    panel.set_album_actions([action])
+    return action
+
+
+def _open_popup(qapp: QApplication) -> object:
+    """The popup menu Qt has open now, or None. Closed by the caller."""
+    for _ in range(3):
+        qapp.processEvents()
+    return QApplication.activePopupWidget()
+
+
+def test_right_clicking_a_value_opens_the_album_menu_with_copy(
+    qapp: QApplication,
+) -> None:
+    """The route most right-clicks take: the values cover most of the panel."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QMenu
+
+    panel = DiscInfoPanel()
+    action = _album_action(panel)
+    panel.show()
+    try:
+        panel._mb_id_value.customContextMenuRequested.emit(QPoint(2, 2))
+        popup = _open_popup(qapp)
+        assert isinstance(popup, QMenu), "right-clicking a value opened no menu"
+        try:
+            items = [a.text() for a in popup.actions() if not a.isSeparator()]
+            assert items == ["&Copy", "Select &All", "Set cover art from &file…"]
+            # The window's own action, not a copy of it.
+            assert popup.actions()[-1] is action
+        finally:
+            popup.close()
+    finally:
+        panel.close()
+
+
+def test_right_clicking_around_the_values_opens_the_album_menu(
+    qapp: QApplication,
+) -> None:
+    """A row caption is not selectable, so its right-click reaches the panel;
+    there is no value to copy there, so the menu holds only the album's actions."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QMenu
+
+    panel = DiscInfoPanel()
+    action = _album_action(panel)
+    panel.show()
+    try:
+        panel.customContextMenuRequested.emit(QPoint(1, 1))
+        popup = _open_popup(qapp)
+        assert isinstance(popup, QMenu), "right-clicking the panel opened no menu"
+        try:
+            assert popup.actions() == [action]
+        finally:
+            popup.close()
+    finally:
+        panel.close()
+
+
+def test_the_album_menu_is_reachable_from_the_keyboard(qapp: QApplication) -> None:
+    """The Menu key (or Shift+F10) on a focused value is the keyboard's only way
+    into the album's actions: the values are the panel's only tab stops."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QContextMenuEvent
+    from PySide6.QtWidgets import QMenu
+
+    panel = DiscInfoPanel()
+    action = _album_action(panel)
+    panel.show()
+    try:
+        label = panel._mb_match_value
+        event = QContextMenuEvent(
+            QContextMenuEvent.Reason.Keyboard,
+            QPoint(3, 3),
+            label.mapToGlobal(QPoint(3, 3)),
+        )
+        QApplication.sendEvent(label, event)
+        popup = _open_popup(qapp)
+        assert isinstance(popup, QMenu), "the Menu key on a value opened no menu"
+        try:
+            assert action in popup.actions()
+        finally:
+            popup.close()
+    finally:
+        panel.close()
+
+
+def test_every_value_label_offers_the_album_menu(qapp: QApplication) -> None:
+    """Swept, not listed: every selectable label on the panel wires the menu,
+    so a value row added later cannot keep Qt's menu and lose the album's."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QLabel
+
+    panel = DiscInfoPanel()
+    selectable = [
+        label
+        for label in panel.findChildren(QLabel)
+        if label.textInteractionFlags() & Qt.TextInteractionFlag.TextSelectableByMouse
+    ]
+    assert len(selectable) >= 7, f"only {len(selectable)} value labels found"
+    custom = Qt.ContextMenuPolicy.CustomContextMenu
+    assert all(label.contextMenuPolicy() == custom for label in selectable)
+    assert panel.contextMenuPolicy() == custom
+
+
+def test_copy_takes_the_whole_value_when_nothing_is_selected(
+    qapp: QApplication,
+) -> None:
+    """The label's own Copy was greyed until you had dragged across the text;
+    this one copies the whole disc ID in one click, and a selection when there
+    is one."""
+    panel = DiscInfoPanel()
+    panel.set_disc_info(DiscInfo(musicbrainz_disc_id="abc-DEF_123.", cddb_disc_id=""))
+    menu = panel.album_menu(panel._mb_id_value)
+    try:
+        copy = next(a for a in menu.actions() if a.text() == "&Copy")
+        assert copy.isEnabled()
+        copy.trigger()
+        assert QApplication.clipboard().text() == "abc-DEF_123."
+
+        panel._mb_id_value.setSelection(0, 3)
+        copy.trigger()
+        assert QApplication.clipboard().text() == "abc"
+    finally:
+        menu.deleteLater()
+
+
+def test_copy_and_select_all_are_greyed_on_the_placeholder(
+    qapp: QApplication,
+) -> None:
+    """A field with no data yet shows a dash; copying that is never the intent."""
+    panel = DiscInfoPanel()
+    menu = panel.album_menu(panel._cddb_id_value)
+    try:
+        by_text = {a.text(): a for a in menu.actions()}
+        assert not by_text["&Copy"].isEnabled()
+        assert not by_text["Select &All"].isEnabled()
+    finally:
+        menu.deleteLater()
+
+
+def test_select_all_selects_every_character_including_an_emoji(
+    qapp: QApplication,
+) -> None:
+    """Qt counts UTF-16 units and Python counts code points; an album title with
+    an emoji would otherwise lose its last character from the selection."""
+    panel = DiscInfoPanel()
+    panel.set_mb_applied("Artist", "Title 🎵 End")
+    label = panel._mb_match_value
+    menu = panel.album_menu(label)
+    try:
+        next(a for a in menu.actions() if a.text() == "Select &All").trigger()
+        assert label.selectedText() == label.text(), label.selectedText()
+    finally:
+        menu.deleteLater()
+
+
+def test_an_empty_album_menu_is_not_shown_and_not_left_behind(
+    qapp: QApplication,
+) -> None:
+    """Before the window hands over its actions, a background right-click has
+    nothing to offer. Qt does not show an empty popup — so the menu never
+    closes, and ``WA_DeleteOnClose`` would never free it: one leaked QMenu per
+    right-click. Both halves are asserted, because the first holds without the
+    guard (measured: the revert probe called the first-only version VACUOUS)."""
+    from PySide6.QtCore import QEvent, QPoint
+    from PySide6.QtWidgets import QMenu
+
+    panel = DiscInfoPanel()
+    panel.show()
+    try:
+        before = len(panel.findChildren(QMenu))
+        panel.customContextMenuRequested.emit(QPoint(1, 1))
+        assert _open_popup(qapp) is None
+        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        assert len(panel.findChildren(QMenu)) == before, "the empty menu leaked"
+    finally:
+        panel.close()
