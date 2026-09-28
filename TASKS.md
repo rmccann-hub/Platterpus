@@ -679,6 +679,19 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   was green before the dispatch. The release carries the AppImage, `.sha256`, `.zsync`
   and `.sigstore.json`.
 - [ ] **The Full run** (S6) on `.18` from 0.6.63, and its bundle filed in both trees.
+- [ ] **A run stopped by one step prints that step's whole text twice.** The 22:13Z
+  quick run on 0.6.63 stopped at section A (`.17` installed, as expected). The stop
+  summary's *"Why it stopped"* sentence quotes the failed step's entire detail, fix
+  and banner included, directly under the same detail. The fix: the summary names
+  the step and its first line, and points up to the detail. UX, not archival.
+- [ ] **`COMPONENTS.json` names the ripper as `0.9.4`.** The acceptance bundle's
+  component inventory carries each tool's parsed version, so the 14:42Z Full run's
+  bundle says `"cyanrip": {"version": "0.9.4"}` and cannot tell the fork from upstream,
+  or `.17` from `.18`. The rip logs and reports in the same bundle do name the build,
+  so no record is wrong, but this file is incomplete. The fix is a new key beside
+  `version`, the tool's own version text (the `BuildNote.version_text` Help → About
+  now shows). The inventory is the bundle's `components` file, which crosses the
+  seam, so the key is declared in a lap before it ships (NEXT-ROUND).
 - [ ] **Both readings (S7).** Their pre-commit (S43): their first lap after the bundle is
   in their tree is `GO` unless the run shows a defect in `.18` that breaks the pin, or
   does not complete.
@@ -3664,7 +3677,7 @@ approved build). These are what the same reading left open.
   *Tools → Run acceptance test…*: if the update check already knows a newer
   release exists, say so **before** six hours of drive time, not after. Same
   reasoning as section A, one axis over.
-- [ ] **`observed_version_pair_line` still has no caller.** 0.6.36 fixed the
+- [x] **`observed_version_pair_line` still has no caller.** 0.6.36 fixed the
   *label* on the diagnostics header — it now says it names the approved pair
   rather than the installed one — which removes the misreading but does not add
   the fact a reader wants beside it. Rendering the observed pair there needs the
@@ -3674,6 +3687,14 @@ approved build). These are what the same reading left open.
   in one slot is the `_last_cyanrip_output` defect (`docs/testing.md` §5.aq), so
   the observed banner needs its own field and its own lifetime, not a second
   meaning on an existing one.
+  - *2026-09-28, the fact is shown, by another renderer:* the diagnostics header now
+    has an `Installed ripper:` line under `Approved pair:`, from
+    `ripper_standing.describe_installed_ripper`. It reads the launch check's banner
+    through `deps.build_notes.ripper_banner`, which is the report's own field
+    (`ok_probes[…].raw_output`) with the report's own lifetime, as this row asks. The
+    maintainer's diagnostics paste that day could not show whether `.18` was
+    installed. `observed_version_pair_line` itself still has no caller. It is now
+    redundant, and deleting it is a separate small change.
 - [x] **Ask the fork for a severity column on the published message inventory**
   (round 15 lap 6 §F1, `NEXT-ROUND`, optional). Our matcher is built from that
   inventory, and "a string cyanrip can print" is not "a string that means cyanrip

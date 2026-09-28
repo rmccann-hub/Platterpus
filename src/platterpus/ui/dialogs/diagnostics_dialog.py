@@ -49,6 +49,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus import __version__, build_info, diagnostics, handshake_approval
+from platterpus.deps import build_notes
 from platterpus.deps import manager as dep_manager
 from platterpus.paths import LOG_PATH
 from platterpus.ui.dialogs.centering import CenteredDialog
@@ -75,6 +76,13 @@ def build_diagnostics_text() -> str:
     #    almost always about the pair rather than either half (CLAUDE.md rule 12).
     try:
         lines += ["", handshake_approval.version_pair_line()]
+        # The installed half, beside the approved one (the maintainer, 2026-09-28).
+        from platterpus import ripper_standing  # noqa: PLC0415 — only this block
+
+        standing = ripper_standing.describe_installed_ripper(
+            build_notes.ripper_banner(dep_manager.latest_report())
+        )
+        lines.append(f"Installed ripper: {standing.installed} {standing.status}")
     except Exception:  # noqa: BLE001 — a diagnostics view must never fail to open
         log.exception("diagnostics view: could not render the version pair")
         lines += ["", f"Platterpus {__version__} (version pair unavailable)"]
@@ -120,12 +128,14 @@ def build_diagnostics_text() -> str:
                     getattr(dep_report, "measured_at", "") or None
                 ),
             ]
+            own = build_notes.own_versions(dep_report)
             for tool in sorted(deps):
                 info = deps[tool]
                 if isinstance(info, dict):
+                    build = f" build={own[tool]}" if tool in own else ""
                     lines.append(
                         f"{tool}: present={info.get('present')} "
-                        f"version={info.get('version') or '(unknown)'} "
+                        f"version={info.get('version') or '(unknown)'}{build} "
                         f"min_version_met={info.get('min_version_met')}"
                     )
             if unchecked:
