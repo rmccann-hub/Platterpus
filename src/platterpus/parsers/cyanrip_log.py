@@ -248,10 +248,45 @@ _TRACK_START = re.compile(
 # cyanrip's secure re-read (-Z N) verdict for a track, printed on the line JUST
 # BEFORE that track's "Track N ripped…" line. Either the reads converged —
 #   "Done; (2 out of 2 matches for current checksum ABCD1234)"
-# — or it gave up without any two reads agreeing —
+# — or the repeat limit was reached BEFORE they converged —
 #   "Done; (no matches found, but hit repeat limit of 5)".
 # The latter is the reliable per-track read-instability signal (see
 # TrackResult.secure_rerip_converged). Absent entirely when -Z is off.
+#
+# **CORRECTED 2026-09-28: "no matches found" does NOT mean no two reads agreed.**
+# This comment used to say the fail line meant cyanrip "gave up without any two
+# reads agreeing". The line's words do not depend on the count at all: cyanrip
+# prints "no matches found" whenever the limit is hit (cyanrip@e0471f4:
+# src/cyanrip_main.c:1012). The round-28 Full run shows it: track 5 printed
+# "Repeating ripping (1 out of 2 matches …)" — two reads DID agree — and then
+# "Done; (no matches found, but hit repeat limit of 3)"
+# (docs/handshake/artifactsround28/round28fullsecurereread.log lines 381-385).
+# So the line means "not enough reads agreed before the limit", never "none
+# did". The fork found our comment wrong (round 29 lap 1, S37).
+#
+# **TWO WORDINGS for the limit-hit line, and both mean NOT converged.** The fork
+# proposes (round 29 lap 1, S38) to replace the misleading sentence with
+#   "Done; (repeat limit of 3 reads reached; at most 2 reads agreed)".
+# We read it BESIDE the old one, in a release of ours that ships FIRST, so no
+# build of theirs can emit a line this parser cannot read — round 20's order,
+# the same as `_TRACK_START`'s two wordings above. The old wording stays for
+# good: every log already filed carries it.
+#
+# **Why the new arm matches only the PREFIX "repeat limit".** Fail-safe here is
+# defined against the claim we protect — "this track's reads were verified".
+# If this line fell through as unrecognised, the track would have NO verdict,
+# and the EAC-style log infers convergence for an unmeasured track read 2+
+# times, so it would print "Test and Copy CRC identical" for reads that never
+# converged. A pattern that is too strict fails in exactly that direction. A
+# pattern that is too loose could only misread a line beginning "Done; (repeat
+# limit", and no such line can mean convergence. So we match the prefix, as the
+# old arm matches only "no matches found" and not the rest of its sentence.
+#
+# **We do not store the "at most M reads agreed" count on the track.** No build
+# prints it yet, the old wording has no count to put beside it, and nothing
+# (the report, the EAC log, the UI) would read the field. It is not lost: the
+# rip worker writes this line WORD FOR WORD into the diagnostics record, and the
+# rip log itself is kept.
 #
 # **`\s*`, not `^`, and that leading whitespace is the whole point.** These lines
 # are emitted from inside `cyanrip_rip_track()`'s repeat loop, which runs BEFORE
@@ -270,7 +305,11 @@ _TRACK_START = re.compile(
 _SECURE_DONE_MATCH = re.compile(
     r"^\s*Done;\s+\((?P<agreed>\d{1,6})\s+out of\s+(?P<total>\d{1,6})\s+matches\b"
 )
-_SECURE_DONE_FAIL = re.compile(r"^\s*Done;\s+\(no matches found\b")
+_SECURE_DONE_FAIL = re.compile(
+    r"^\s*Done;\s+\("
+    r"(?:no matches found"  # every build so far: said whatever the count was
+    r"|repeat limit)\b"  # proposed by the fork, round 29 lap 1 S38
+)
 
 
 def is_secure_rerip_verdict(line: str) -> bool:
@@ -307,8 +346,10 @@ def secure_rerip_verdict_converged(line: str) -> bool | None:
 
     * ``True``  — the reads converged: ``Done; (2 out of 2 matches …)``.
     * ``False`` — they did not: ``Done; (no matches found, but hit repeat limit
-      of 3)``, or a ``0 out of N matches`` form (a zero numerator is a total
-      failure to reproduce, never a clean verdict — see ``_SECURE_DONE_MATCH``).
+      of 3)``, or the fork's proposed ``Done; (repeat limit of 3 reads reached;
+      at most 2 reads agreed)`` (both wordings — see ``_SECURE_DONE_FAIL``), or a
+      ``0 out of N matches`` form (a zero numerator is a total failure to
+      reproduce, never a clean verdict — see ``_SECURE_DONE_MATCH``).
     * ``None``  — the line is not a verdict at all.
 
     **Why this exists as a public function (2026-09-28, the round-28 Full run).**
@@ -1127,7 +1168,8 @@ def _sample_peak_fraction(value: str, unit: str) -> float | None:
 
 # Phrases that decide a secure-re-read verdict, in the order they MUST be tested.
 # Order is load-bearing: every negative phrasing contains a positive substring
-# ("did NOT converge" contains "converge"; "no matches found" contains "matches"),
+# ("did NOT converge" contains "converge"; "no matches found" contains "matches";
+# the fork's proposed "repeat limit … at most 2 reads agreed" contains "agreed"),
 # so a positive-first check would read every failure as a success — the one
 # direction this project must never get wrong (it would render an EAC-style
 # Test/Copy CRC pair for a track whose reads disagreed).
@@ -2084,6 +2126,8 @@ _SECTION_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("album_loudness_section", _ALBUM_LOUDNESS_HEADER),
     ("track_block_start", _TRACK_START),
     ("secure_rerip_converged", _SECURE_DONE_MATCH),
+    # The key is named after the OLD wording and is kept anyway: it is a row key in
+    # the published consumer contract, and the row now covers both wordings.
     ("secure_rerip_no_match", _SECURE_DONE_FAIL),
 )
 

@@ -209,6 +209,15 @@ def test_finished_track_never_raises(text: str) -> None:
             st.text(max_size=200),
         ),
         st.builds("Done; (no matches found{}".format, st.text(max_size=200)),
+        # The fork's proposed limit-hit wording (round 29 lap 1 S38), with absurd
+        # counts and any tail.
+        st.builds(
+            "{}Done; (repeat limit of {} reads reached; at most {} reads agreed{}".format,
+            st.sampled_from(["", "  ", "\t"]),
+            st.text(alphabet="0123456789", max_size=12),
+            st.text(alphabet="0123456789", max_size=12),
+            st.text(max_size=200),
+        ),
     )
 )
 def test_secure_rerip_verdict_converged_never_raises(text: str) -> None:
@@ -216,6 +225,11 @@ def test_secure_rerip_verdict_converged_never_raises(text: str) -> None:
     must answer tri-state for ANY line, including an absurd numerator."""
     result = secure_rerip_verdict_converged(text)
     assert result is None or isinstance(result, bool)
+    # Stronger than "never raises" for the limit-hit shapes: whatever follows the
+    # prefix, either wording is NEVER read as convergence. `True` here would be a
+    # track that hit the repeat limit reported as verified.
+    if re.match(r"\s*Done; \((?:no matches found|repeat limit)\b", text):
+        assert result is False, text
 
 
 @_SETTINGS

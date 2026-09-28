@@ -1614,9 +1614,9 @@ def _crc_lines(track: TrackResult) -> list[str]:
     crc = track.copy_crc.upper()
     reads = track.rip_count if track.rip_count and track.rip_count >= 1 else 1
     # `reads` is cyanrip's "(after N rips)" — how many passes it TOOK, not how
-    # many AGREED. When `-Z` exhausts its repeat limit without two reads ever
-    # matching, cyanrip prints both "no matches found, but hit repeat limit"
-    # (→ converged False) and "(after 5 rips)" (→ reads 5). A bare `or reads >= 2`
+    # many AGREED. When `-Z` exhausts its repeat limit before the reads converge,
+    # cyanrip prints both a limit-hit verdict (→ converged False; either wording,
+    # the parser reads both) and "(after 5 rips)" (→ reads 5). A bare `or reads >= 2`
     # therefore short-circuited the measured negative and rendered a Test/Copy
     # pair for precisely the tracks that failed to reproduce — the same
     # SHA-256-attested document then asserted both that the reads were identical

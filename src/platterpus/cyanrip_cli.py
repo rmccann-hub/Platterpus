@@ -338,7 +338,7 @@ def split_meta_blob(blob: str) -> dict[str, str]:
 # THE MECHANISM, read from the fork's source (`cyanrip@faec4a8:src/cyanrip_main.c:997-1012`):
 # every whole-track read of a secure re-read increments `total_repeats`; a read
 # CONVERGES when its checksum equals at least `-Z N` of the EARLIER reads; and the
-# loop stops with "hit repeat limit" once `total_repeats` reaches `-r`. The
+# loop stops with its "repeat limit" verdict once `total_repeats` reaches `-r`. The
 # convergence test runs before the limit test on each read, so the read that
 # reaches the limit may still converge. Consequences:
 #

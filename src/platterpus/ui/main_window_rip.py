@@ -1674,7 +1674,8 @@ class RipMixin(MainWindowShared):
             # ripper's output, and on a *successful* rip that output can legitimately
             # contain a diagnostic about one track — a dynamic secure-rerip that did
             # not converge prints `Done; (no matches found, but hit repeat limit of
-            # N)`. Storing that under `failure_hint` on a rip whose status is
+            # N)` (or the fork's proposed `Done; (repeat limit of N reads reached;
+            # …)`). Storing that under `failure_hint` on a rip whose status is
             # "success" and whose exit code is 0 tells every consumer, and
             # `--audit-rips`, that this is why the rip failed. It did not fail. The
             # fact still reaches the user, through the read-stability line in the

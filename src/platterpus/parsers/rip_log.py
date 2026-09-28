@@ -187,11 +187,12 @@ class TrackResult:
     # suffix). 1 = clean single pass; higher means secure re-reads (-Z N) were
     # needed — the clearest per-track signal of a marginal read region.
     rip_count: int | None = None
-    # cyanrip's secure re-read (-Z N) verdict for this track: True when N reads'
-    # checksums agreed ("Done; (N out of N matches)"); False when it hit the
-    # repeat limit WITHOUT any two reads agreeing ("no matches found, but hit
-    # repeat limit of N"). This is the RELIABLE per-track read-instability signal
-    # — cyanrip's whole-disc "Ripping errors" count stays 0 even when a track
+    # cyanrip's secure re-read (-Z N) verdict for this track: True when N+1 reads'
+    # checksums agreed ("Done; (N out of N matches)"); False when it hit the repeat
+    # limit first, which can follow two reads that DID agree ("no matches found, but
+    # hit repeat limit of N", or the fork's proposed "repeat limit of N reads
+    # reached; at most M reads agreed"). The RELIABLE per-track read-instability
+    # signal — cyanrip's whole-disc "Ripping errors" count stays 0 even when a track
     # never converges (real-hardware finding, 2026-07-01). None when -Z was off
     # or the log predates this field. NOTE it is orthogonal to
     # `accuraterip_offset`: a fully-converged (stable) read can still match only
@@ -506,10 +507,10 @@ def track_accuraterip_verified(track: object) -> bool:
 #
 #   * ``rip_count`` — how many passes the drive took ("(after N rips)"). 1 is a
 #     clean single pass; a higher number means the paranoia layer had to re-read.
-#   * ``secure_rerip_converged`` — for a ``-Z N`` secure re-read, whether N
-#     reads' checksums ever agreed. False = it hit the repeat limit WITHOUT any
-#     two reads matching — the reliable "this region isn't reading stably" flag
-#     (cyanrip's whole-disc "Ripping errors" stays 0 even then).
+#   * ``secure_rerip_converged`` — for a ``-Z N`` secure re-read, whether N+1
+#     reads' checksums ever agreed. False = it hit the repeat limit before they
+#     did (two reads MAY have matched) — the reliable "this region isn't reading
+#     stably" flag (cyanrip's whole-disc "Ripping errors" stays 0 even then).
 #
 # NOTE this is a *complement* to, not a replacement for, the cross-rip
 # comparison (rip_compare): a disc whose paranoia settles on ONE (wrong) answer
