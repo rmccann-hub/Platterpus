@@ -245,3 +245,179 @@ def test_retries_flag_value_is_what_the_builder_actually_sends() -> None:
         assert sent == retries_flag_value(max_retries), max_retries
     # Non-triviality: both shapes occurred.
     assert retries_flag_value(0) is None and retries_flag_value(5) == 5
+
+
+# --- what the surfaces SAY the numbers mean ----------------------------------
+
+
+def _settings_source_calls(method: str) -> list[str]:
+    """String-literal first arguments of ``<obj>.<method>(...)`` in settings_dialog."""
+    import ast
+
+    source = (REPO / "src" / "platterpus" / "ui" / "settings_dialog.py").read_text(
+        encoding="utf-8"
+    )
+    found: list[str] = []
+    for node in ast.walk(ast.parse(source)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == method
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            found.append(node.args[0].value)
+    return found
+
+
+def _retry_tooltips() -> dict[str, str]:
+    """The Max retries and secure re-read tooltips, read from the source."""
+    import ast
+
+    source = (REPO / "src" / "platterpus" / "ui" / "settings_dialog.py").read_text(
+        encoding="utf-8"
+    )
+    wanted = {"_max_retries_spin": "", "_secure_rerip_spin": ""}
+    for node in ast.walk(ast.parse(source)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "setToolTip"
+            and isinstance(node.func.value, ast.Attribute)
+            and node.func.value.attr in wanted
+            and node.args
+        ):
+            wanted[node.func.value.attr] = ast.literal_eval(node.args[0])
+    assert all(wanted.values()), f"a retry tooltip was not found: {wanted}"
+    return wanted
+
+
+def test_the_validators_retry_labels_are_the_rows_the_dialog_renders() -> None:
+    """One label, spelled in two places, held to one string.
+
+    The secure re-read row was renamed on 2026-09-21 and the validator went on
+    naming "Max reads to confirm a shaky track" — a control that no longer
+    existed — for a week, under a comment claiming every place had been fixed.
+    """
+    import dataclasses
+
+    from platterpus import settings_validation as sv
+    from platterpus.config import Config
+
+    rows = _settings_source_calls("addRow")
+    assert len(rows) >= 20, "floor: the row-label extractor found almost nothing"
+    assert f"{sv.MAX_RETRIES_LABEL}:" in rows
+    assert f"{sv.SECURE_REREP_LABEL}:" in rows
+    # And the message the validator actually shows uses it, which is the point.
+    issues = sv.validate_config(dataclasses.replace(Config(), secure_rerip_matches=11))
+    messages = [i.message for i in issues if i.field == "secure_rerip_matches"]
+    assert messages and messages[0].startswith(sv.SECURE_REREP_LABEL), messages
+
+
+def test_the_label_counts_extra_reads_and_the_tooltips_state_the_arithmetic() -> None:
+    """The number on the spin box is N, and cyanrip needs N+1 identical reads.
+
+    "Reads that must agree to trust a track: 2" was one short — the rig logs say
+    "converged after 3 reads" at `-Z 2`. Asserted from the shipped defaults and
+    cyanrip's own `-r` default, so a changed default makes the prose fail rather
+    than quietly go stale.
+    """
+    from platterpus import settings_validation as sv
+    from platterpus.config import Config
+
+    shipped = Config()
+    assert sv.SECURE_REREP_LABEL.lower().startswith("extra")
+    tooltips = _retry_tooltips()
+    secure = tooltips["_secure_rerip_spin"]
+    assert "plus one" in secure
+    assert (
+        f"at {shipped.secure_rerip_matches} (default), "
+        f"{shipped.secure_rerip_matches + 1} identical reads"
+    ) in secure
+    retries = tooltips["_max_retries_spin"]
+    # `-r` is ALSO the whole-track ceiling, and 0 is cyanrip's 10, not "none".
+    assert "whole track" in retries
+    assert f"{shipped.max_retries} (default)" in retries
+    assert f"find {shipped.secure_rerip_matches + 1} identical reads" in retries
+    assert f"default of {DEFAULT_MAX_RETRIES}" in retries
+    assert "no retries" not in retries
+
+
+def test_the_rip_plan_names_the_read_count_the_ripper_prints() -> None:
+    """Against the artifact: the plan's "N identical reads" is the log's count.
+
+    Each committed secure re-read log names its `-Z` and says how many reads a
+    converged track took; the fewest is Z+1, whatever `-r` was. The plan for the
+    same `-Z` must name that number.
+    """
+    from platterpus.rip_plan import describe_rip_plan
+
+    logs = sorted(REPO.glob("docs/handshake/artifactsround*/*securereread.log"))
+    assert logs, "floor: no committed secure re-read log to compare against"
+    for log in logs:
+        text = log.read_text(encoding="utf-8")
+        z_match = re.search(r"^Invoked as:.*?\s-Z\s+(?P<z>\d+)\b", text, re.MULTILINE)
+        assert z_match is not None, log.name
+        z = int(z_match.group("z"))
+        printed = min(
+            int(n) for n in re.findall(r"Secure re-read:\s+converged after (\d+)", text)
+        )
+        for dynamic in (True, False):
+            # THE -Z LINE, not the whole plan: the -r line below it also says
+            # "N identical reads", and a first version of this test was
+            # satisfied by that line with the -Z line's count reverted
+            # (revert_probe: VACUOUS). Only the pair of line and number checks.
+            lines = describe_rip_plan(
+                secure_rerip_matches=z, secure_rerip_dynamic=dynamic
+            )
+            z_lines = [line for line in lines if "Secure re-read (-Z):" in line]
+            assert len(z_lines) == 1, lines
+            assert f"{printed} identical reads" in z_lines[0], (log.name, z_lines)
+
+
+@pytest.mark.parametrize(
+    ("max_retries", "matches", "expected"),
+    [
+        (5, 2, "room for 2 read(s) that disagree."),
+        (3, 2, "room for 0 read(s) that disagree."),  # the Full run's old pair
+        (0, 2, "up to 10 times"),  # no -r sent: cyanrip's own default
+        (2, 2, "NEVER succeed"),
+    ],
+)
+def test_the_rip_plan_says_how_much_room_the_retry_ceiling_leaves(
+    max_retries: int, matches: int, expected: str
+) -> None:
+    from platterpus.rip_plan import describe_rip_plan
+
+    plan = "\n".join(
+        describe_rip_plan(
+            secure_rerip_matches=matches,
+            secure_rerip_dynamic=True,
+            max_retries=max_retries,
+        )
+    )
+    assert expected in plan, plan
+    assert "whole-track reads a secure re-read may take" in plan
+
+
+def test_the_rip_plan_says_nothing_about_room_when_the_re_read_is_off() -> None:
+    from platterpus.rip_plan import describe_rip_plan
+
+    plan = "\n".join(
+        describe_rip_plan(secure_rerip_matches=0, secure_rerip_dynamic=True)
+    )
+    assert "room for" not in plan
+    assert "Retry ceiling (-r): 5" in plan
+
+
+def test_the_ladders_reason_names_the_identical_passes_z_needs() -> None:
+    """The status line said "re-reading until 2 passes agree (-Z 2)"."""
+    from platterpus.read_speed_ladder import FLOOR_SPEED, next_step
+
+    step = next_step(current_speed=FLOOR_SPEED, current_secure_rerip=0)
+    assert step is not None and step.secure_rerip_matches == 2
+    assert "until 3 passes are identical (-Z 2)" in step.reason
+    locked = next_step(current_speed=0, current_secure_rerip=2, speed_locked=True)
+    assert locked is not None and locked.secure_rerip_matches == 3
+    assert "until 4 passes are identical (-Z 3)" in locked.reason

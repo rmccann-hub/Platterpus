@@ -131,7 +131,7 @@ class SettingsDialog(CenteredDialog):
             "(recommended): FLAC, AccurateRip + CTDB, and a track is re-read only "
             "when it fails to verify (one frame matching is not verifying) — one "
             "fast pass on a clean disc. 'Archival': the same, plus EAC-style Test "
-            "and Copy (EVERY track read until two reads agree) — slower, and the "
+            "and Copy (EVERY track read until three reads are identical) — slower, and the "
             "most reproducible result. 'Portable': MP3 derived from a "
             "fully verified FLAC master, which is still kept. Changing any option "
             "below switches this to Custom; nothing is lost when it does."
@@ -457,13 +457,25 @@ class SettingsDialog(CenteredDialog):
             settings_validation.MAX_RETRIES_MIN, settings_validation.MAX_RETRIES_MAX
         )
         self._max_retries_spin.setValue(config.max_retries)
+        # `-r` is TWO limits in one flag (the fork's own log line says so): how often
+        # paranoia retries a sector that will not read, AND how many whole-track
+        # reads a secure re-read (`-Z`) may take. The second is the one that decides
+        # whether a secure re-read can succeed at all — `-Z N` needs N+1 identical
+        # reads, so it can only converge when this is more than N
+        # (`cyanrip@faec4a8:src/cyanrip_main.c:997-1012`). The tooltip said only the
+        # first half until 2026-09-28, and claimed 0 meant "no retries": 0 sends NO
+        # `-r`, so cyanrip applies its own default of 10 (`cyanrip_cli`).
         self._max_retries_spin.setToolTip(
-            "How many times the ripper re-attempts a track it cannot read cleanly "
-            "before giving up on it (cyanrip's -r). This is the CEILING on "
-            "attempts — not the same as 'Reads that must agree' below, which is "
-            "how many must match. 0: no retries, a bad sector fails the track at "
-            "once. 5 (default): a good balance. Higher can recover a scratched "
-            "disc, but a badly damaged track then takes much longer to give up."
+            "The ripper's retry ceiling (cyanrip's -r), and it limits two things: "
+            "how many times a sector that will not read is retried, and how many "
+            "times a whole track may be read while “Extra matching reads to trust "
+            "a track” below looks for identical reads. So it must be MORE than "
+            "that number. 5 (default): with 2 below, a track may be read up to 5 "
+            "times to find 3 identical reads, so up to two reads may disagree and "
+            "the track can still be verified. 3: only 3 reads, so a single bad "
+            "read leaves the track unverified. 0: not sent at all, so cyanrip "
+            "uses its own default of 10. Higher can rescue a scratched disc, but "
+            "a badly damaged track then takes much longer to give up."
         )
         form.addRow("Max retries:", self._max_retries_spin)
 
@@ -486,40 +498,52 @@ class SettingsDialog(CenteredDialog):
         form.addRow("Overread:", self._force_overread_check)
 
         # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
-        # Secure re-rip effort: **how many reads must AGREE** before a track that
+        # Secure re-rip effort: how many EXTRA reads must match before a track that
         # did not match AccurateRip is trusted. Ripping is always "dynamic" — a
         # track that matches the database on its first read is kept as-is; only an
-        # unproven track is re-read, until this many reads match.
+        # unproven track is re-read.
         #
-        # **This comment said "the MAX number of reads" and "a ceiling", and both
-        # were wrong** (corrected 2026-09-21). The fork's provider contract defines
-        # the flag as `--repeat-rips`, *"rip tracks until checksums match N
-        # times"*; the ceiling is `-r`. Four places, one fact, corrected together.
+        # **The number N is not "reads that must agree", it is one fewer.** cyanrip
+        # converges when the latest read's checksum equals N EARLIER reads
+        # (`cyanrip@faec4a8:src/cyanrip_main.c:997-1012`), so `-Z 2` needs THREE
+        # identical reads; the rig logs say "converged after 3 reads" at `-Z 2`.
+        # The label read "Reads that must agree to trust a track: 2" from 2026-09-21
+        # to 2026-09-28, one short.
+        #
+        # Before that it read "Max reads to confirm a shaky track", and a comment
+        # here claimed that when it was renamed "four places, one fact, corrected
+        # together". Three were: the label, this tooltip, this comment and
+        # `docs/dependency-contracts.md` moved, and the validator's refusal message
+        # kept the old name for a week. The label is now spelled in two places —
+        # the row below and `settings_validation.SECURE_REREP_LABEL`, which the
+        # validator's messages use — and `tests/test_secure_reread_can_converge.py`
+        # holds them to one string, so a rename that forgets one fails.
+        #
+        # It is an AGREEMENT count, not a ceiling. The ceiling is `-r` (Max
+        # retries), which is why cyanrip prints "no matches found, but hit repeat
+        # limit of 5" when it gives up, and it has to be MORE than this number or
+        # the re-read can never succeed (the validator refuses that pair).
         self._secure_rerip_spin: QSpinBox = QSpinBox(self)
         self._secure_rerip_spin.setRange(
             settings_validation.SECURE_REREP_MIN, settings_validation.SECURE_REREP_MAX
         )
         self._secure_rerip_spin.setValue(config.secure_rerip_matches)
         self._secure_rerip_spin.setSpecialValueText("Off")  # shown when value is 0
-        # **This is an AGREEMENT COUNT, not a ceiling, and the label said ceiling.**
-        # The fork's own provider contract defines the flag as `-Z` /
-        # `--repeat-rips`: *"Rip tracks until checksums match N times."* The ceiling
-        # is `-r` (Max retries) — which is why cyanrip prints "no matches found, but
-        # hit repeat limit of 5" when it gives up. Saying "Max reads" here put two
-        # rows on one screen that read as contradicting each other ("Max retries: 5"
-        # directly above "Max reads…: 2"), and the tooltip made it worse by asserting
-        # "the number you pick is the ceiling". Our own `docs/dependency-contracts.md`
-        # was the origin of the wrong gloss and is corrected in the same change.
         self._secure_rerip_spin.setToolTip(
-            "How many reads of a track must AGREE before Platterpus trusts it "
-            "(cyanrip's -Z). It rips the disc once at full speed and re-reads only "
-            "a track that didn't verify against AccurateRip, until this many reads "
-            "match. This is NOT a limit on how many reads it may take — that is "
-            "'Max retries' above. 2 is a good value; 0 (Off) accepts the fast read "
-            "even when it can't be verified. Clean, in-database discs finish in one "
-            "fast pass either way."
+            "How many EXTRA reads of a track must match before Platterpus trusts "
+            "it (cyanrip's -Z). A track is trusted once this many reads plus one "
+            "are identical: at 2 (default), 3 identical reads. It rips the disc "
+            "once at full speed and re-reads only a track that didn't verify "
+            "against AccurateRip. How many reads it may take to get there is "
+            "'Max retries' above, which must be more than this number. 0 (Off) "
+            "accepts the fast read even when it can't be verified. Clean, "
+            "in-database discs finish in one fast pass either way."
         )
-        form.addRow("Reads that must agree to trust a track:", self._secure_rerip_spin)
+        # A LITERAL, not built from the constant: the tooltip and User Guide sweeps
+        # read row labels out of this file's source, and would not see an f-string.
+        # `tests/test_secure_reread_can_converge.py` holds it equal to
+        # `settings_validation.SECURE_REREP_LABEL` instead.
+        form.addRow("Extra matching reads to trust a track:", self._secure_rerip_spin)
 
         # Re-read "partially accurate" tracks too (on by default since the release
         # after 0.6.56): only one frame of them matched, so the match is not
@@ -554,9 +578,10 @@ class SettingsDialog(CenteredDialog):
             "track that didn't match AccurateRip. When on, EVERY track is read at "
             "least twice and kept only once the reads agree — EAC's Test & Copy "
             "guarantee for the whole disc, shown as a matching Test/Copy CRC pair "
-            "in the EAC-compatible log. Needs “Reads that must agree” at 2 or more (a second "
-            "read is what there is to compare). Slower — it double-reads clean "
-            "tracks too; leave off for the fast path."
+            "in the EAC-compatible log. Needs “Extra matching reads to trust a "
+            "track” at 1 or more (Off reads each track once, and one matching extra "
+            "read is the second read). Slower — it re-reads clean tracks too; "
+            "leave off for the fast path."
         )
         form.addRow("", self._verify_every_track_check)
 

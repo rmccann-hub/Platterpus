@@ -30,6 +30,77 @@ def _errors(issues) -> list:
     return sv.errors_only(issues)
 
 
+# --- Messages name controls the user can find -------------------------------
+
+
+def _names_the_settings_dialog_shows() -> set[str]:
+    """Every row label and accessible name in the Settings dialog, normalised.
+
+    Accessible names count too: a screen-reader user finds a control by its
+    accessible name, and `read_speed`'s rule names "Fixed read speed", which is
+    that spin box's accessible name, beside a visible row reading "Fixed speed (×)".
+    """
+    import ast
+    import re
+
+    source = (
+        Path(__file__).resolve().parent.parent
+        / "src"
+        / "platterpus"
+        / "ui"
+        / "settings_dialog.py"
+    ).read_text(encoding="utf-8")
+    names: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in ("addRow", "setAccessibleName")
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            names.add(re.sub(r"[^a-z0-9]+", " ", node.args[0].value.lower()).strip())
+    return names
+
+
+@pytest.mark.parametrize(
+    ("field", "bad"),
+    [
+        ("read_offset", 99999),
+        ("max_retries", 101),
+        ("secure_rerip_matches", 11),
+        ("read_speed", 999),
+        ("mp3_vbr_quality", 10),
+    ],
+)
+def test_every_numeric_rule_names_a_control_the_user_can_find(
+    field: str, bad: int
+) -> None:
+    """A refusal that names a control nobody can find is half a message.
+
+    The secure re-read rule said "Max reads to confirm a shaky track" for a week
+    after that row was renamed (found 2026-09-28). Swept over every range rule
+    rather than fixed at the one where it was found.
+    """
+    import re
+
+    issues = [
+        i
+        for i in sv.validate_config(dataclasses.replace(Config(), **{field: bad}))
+        if i.field == field and i.is_error()
+    ]
+    assert issues, f"{field}={bad} was not refused, so there is no message to check"
+    label = issues[0].message.split(" must be ", 1)[0]
+    wanted = re.sub(r"[^a-z0-9]+", " ", label.lower()).strip()
+    shown = _names_the_settings_dialog_shows()
+    assert len(shown) >= 20, "floor: the extractor found almost nothing"
+    assert any(wanted == name or name.startswith(wanted) for name in shown), (
+        f"{field}'s refusal names {label!r}, which is not a row label or accessible "
+        "name in the Settings dialog"
+    )
+
+
 # --- Happy path -------------------------------------------------------------
 
 

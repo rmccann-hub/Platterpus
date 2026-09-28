@@ -74,8 +74,9 @@ DEFAULT_LADDER: tuple[int, ...] = (0, 8, 4, 2)
 FLOOR_SPEED: int = DEFAULT_LADDER[-1]
 
 # At the floor speed, if a disc STILL won't read clean, escalate cyanrip's `-Z N`
-# (re-rip a track until N reads' checksums agree) instead of going slower. Start
-# at 2 (two agreeing reads) and climb to this ceiling, then give up (and FLAG).
+# (re-read a track until one read matches N earlier ones: N+1 identical reads)
+# instead of going slower. Start at 2 (three identical reads) and climb to this
+# ceiling, then give up (and FLAG).
 _Z_FLOOR: int = 2
 MAX_SECURE_REREP: int = 3
 
@@ -159,9 +160,10 @@ def next_step(
 
     Escalation order: step DOWN the speed ladder first (slower reads are often
     more accurate), and only once at the floor speed, escalate ``-Z`` (re-read
-    until N passes agree). Returns None when both are exhausted — the caller then
-    stops and FLAGS the disc as still-failing. Never raises: an unknown current
-    speed is treated as the top rung so escalation still makes progress.
+    until N+1 passes are identical). Returns None when both are exhausted — the
+    caller then stops and FLAGS the disc as still-failing. Never raises: an
+    unknown current speed is treated as the top rung so escalation still makes
+    progress.
 
     ``speed_locked`` (real-hardware finding, 2026-07-01): when the drive can't
     change read speed, cyanrip **aborts** the rip if handed ``-S`` — so the speed
@@ -198,12 +200,14 @@ def next_step(
         step_speed = current_speed if speed_locked else floor
         next_z = max(current_secure_rerip + 1, _Z_FLOOR)
         if next_z <= max_secure_rerip:
+            # `-Z N` is satisfied by N+1 identical passes, so that is the number
+            # the reason names; it said "{N} passes agree" until 2026-09-28.
             reason = (
                 "drive can't change speed — re-reading until "
-                f"{next_z} passes agree (-Z {next_z})"
+                f"{next_z + 1} passes are identical (-Z {next_z})"
                 if speed_locked
                 else f"still failing at {_speed_label(floor)} — re-reading until "
-                f"{next_z} passes agree (-Z {next_z})"
+                f"{next_z + 1} passes are identical (-Z {next_z})"
             )
             return LadderStep(
                 speed=step_speed,

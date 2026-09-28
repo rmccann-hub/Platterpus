@@ -38,6 +38,11 @@ from __future__ import annotations
 
 from platterpus.adapters.cyanrip_backend import DIAGNOSTICS_RECORD_PREFIX
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
+from platterpus.cyanrip_cli import (
+    DEFAULT_MAX_RETRIES,
+    retries_flag_value,
+    whole_track_reads_allowed,
+)
 
 # The prefix every plan line carries. Grep-able in the app log and visually
 # distinct in the on-screen live log, where these sit above the ripper's own
@@ -109,9 +114,14 @@ def describe_rip_plan(
             "with itself."
         )
     elif mode == MODE_DYNAMIC:
+        # "-Z N" is N reads matching one more, so N+1 identical in all
+        # (`cyanrip@faec4a8:src/cyanrip_main.c:997-1012`). This said "ON at 2
+        # matching reads" until 2026-09-28, the same one-short count the Settings
+        # label had.
         lines.append(
-            f"{PLAN_PREFIX}   Secure re-read (-Z): ON at {secure_rerip_matches} "
-            "matching reads, in DYNAMIC mode — so the FIRST pass carries NO -Z "
+            f"{PLAN_PREFIX}   Secure re-read (-Z): ON at -Z {secure_rerip_matches} "
+            f"({secure_rerip_matches + 1} identical reads to trust a track), in "
+            "DYNAMIC mode — so the FIRST pass carries NO -Z "
             "and reads the whole disc once at speed. Only tracks that then miss "
             f"AccurateRip are re-read with -Z {secure_rerip_matches}."
         )
@@ -124,9 +134,9 @@ def describe_rip_plan(
         )
     else:
         lines.append(
-            f"{PLAN_PREFIX}   Secure re-read (-Z): ON at {secure_rerip_matches} "
-            "matching reads, in UNIFORM mode — every track on every pass is read "
-            "until that many reads agree (EAC-style Test & Copy)."
+            f"{PLAN_PREFIX}   Secure re-read (-Z): ON at -Z {secure_rerip_matches}, "
+            "in UNIFORM mode — every track on every pass is read until it has "
+            f"{secure_rerip_matches + 1} identical reads (EAC-style Test & Copy)."
         )
     if mode == MODE_DYNAMIC:
         lines.append(
@@ -172,7 +182,33 @@ def describe_rip_plan(
         f"{PLAN_PREFIX}   Overread into lead-in/lead-out (-O): "
         + ("ON" if force_overread else "off")
     )
-    lines.append(f"{PLAN_PREFIX}   Retries per read error (-r): {max_retries}")
+    # `-r` is two limits, and the second is the one that decides whether the
+    # secure re-read above can succeed: it caps the whole-track reads a `-Z`
+    # track may take. Said here with the arithmetic, because "-r: 3" beside
+    # "-Z 2" reads as generous and leaves no room for one read that disagrees.
+    retries = retries_flag_value(max_retries)
+    ceiling = (
+        f"{retries}"
+        if retries is not None
+        else f"not sent (setting 0), so cyanrip's own default of {DEFAULT_MAX_RETRIES}"
+    )
+    lines.append(
+        f"{PLAN_PREFIX}   Retry ceiling (-r): {ceiling} — per unreadable frame, "
+        "and the most whole-track reads a secure re-read may take."
+    )
+    if mode != MODE_OFF:
+        reads = whole_track_reads_allowed(retries)
+        spare = reads - (secure_rerip_matches + 1)
+        lines.append(
+            f"{PLAN_PREFIX}   → A re-read track may be read up to {reads} times to "
+            f"find {secure_rerip_matches + 1} identical reads: room for "
+            f"{max(spare, 0)} read(s) that disagree"
+            + (
+                "."
+                if spare >= 0
+                else " — it can NEVER succeed, so the argv check refuses it."
+            )
+        )
     lines.append(
         f"{PLAN_PREFIX}   Cover art (-G suppresses it): "
         + (f"{cover_art}" if cover_art else "not fetched (-G sent)")

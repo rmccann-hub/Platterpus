@@ -454,8 +454,8 @@ class RipBackend(ABC):
         read offset for this rip (cyanrip's `-s`). `cover_art` (one of the
         backend's accepted values, or "" to skip) and `max_retries` map to the
         matching rip flags — the EAC bit-perfect parity gaps (KDD-13).
-        `secure_rerip_matches`, when > 0, is cyanrip's `-Z N` (re-rip a track
-        until N reads' checksums agree) for marginal discs. `force_overread`,
+        `secure_rerip_matches`, when > 0, is cyanrip's `-Z N` (re-read a track
+        until N+1 reads are identical) for marginal discs. `force_overread`,
         when True, asks the drive to read into the lead-in/lead-out (cyanrip's
         `-O`) instead of zero-padding the offset-shifted edge samples — opt-in,
         drive-dependent. `read_speed`, when

@@ -617,8 +617,8 @@ Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checka
 - **Goal** preset — *Fast Verified* / *Archival Exact* / *Portable* snaps the format/verification/quality controls to your intent; editing any of them switches the goal to *Custom*
 - **Output format** — FLAC (the lossless master, always produced), WavPack, MP3, or WAV
 - Cover art — fetch + embed in FLAC, save next to it, or both (defaults to *embed*)
-- Max retries per track (default 5)
-- **Max reads to confirm a shaky track** — rip once at full speed, then re-read *only* the tracks that didn't match AccurateRip until N reads agree on the checksum (cyanrip's `-Z`; **on by default**, 2). See "How ripping works" below.
+- **Max retries** (default 5) — cyanrip's `-r`: how often a sector that won't read is retried, **and** the most times a whole track may be read while the next setting looks for identical reads, so keep it above that number
+- **Extra matching reads to trust a track** — rip once at full speed, then re-read *only* the tracks that didn't match AccurateRip until this many further reads match one, i.e. N+1 identical reads (cyanrip's `-Z`; **on by default**, 2, so three identical reads). See "How ripping works" below.
 - Verify with CTDB after a rip (a second, whole-disc verification path alongside AccurateRip; the CRC is hardware-validated — a match means verified)
 - Verify FLACs after a rip (decode-test each output against its stored MD5)
 - **Overread the lead-in/lead-out** (off by default) — ask the drive to read the disc's real outermost samples instead of writing them as silence (cyanrip `-O`). Leave it off unless your drive is known to support overreading — some firmware can freeze on it.
