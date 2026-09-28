@@ -129,6 +129,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   complete rip's finding is unchanged, checked against all seven finished rips of
   that run. `--audit-rips` reports the same thing.
 
+- **A ripper message with a carriage return in it is recognised by its first line.** The
+  rip worker reads the ripper with every `\r` turned into a line break, but the pattern
+  built from a published message format broke lines only at `\n`, so a format with an
+  interior `\r` would have built a pattern no line could match. No published format has
+  one yet; the pattern builder now breaks lines where the reader does. Found by the
+  round-trip property test, which drew `"000000\r"`.
+
 ### Changed
 
 - **The testing guide says when a lap's round digest has to be computed.** Announcing a
