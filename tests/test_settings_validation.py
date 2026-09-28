@@ -1140,3 +1140,133 @@ def test_a_CRASHING_check_neither_resets_the_value_nor_blocks_saving(
     assert config_module._sanitized(mine).output_dir == "/srv/music/rips"
     assert config_module.take_load_resets() == []
     assert sv.field_error(mine, "output_dir") == ""
+
+
+# --- Max retries vs the secure re-read: the PAIR ------------------------------
+#
+# `-Z N` needs N+1 identical reads and cyanrip stops after `-r` whole-track reads
+# (cyanrip@faec4a8:src/cyanrip_main.c:997-1012), so Max retries <= N can never
+# converge. Each value is in range alone; the pair is the defect.
+
+
+def _pair_issues(max_retries: int, matches: int) -> list[sv.ValidationIssue]:
+    config = dataclasses.replace(
+        Config(), max_retries=max_retries, secure_rerip_matches=matches
+    )
+    return [
+        i
+        for i in sv.validate_config(config)
+        if i.field in ("max_retries", "secure_rerip_matches")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("max_retries", "matches", "reads"),
+    [(2, 2, 2), (1, 1, 1), (3, 3, 3), (4, 10, 4), (0, 10, 10)],
+)
+def test_a_max_retries_the_secure_re_read_cannot_fit_is_refused_on_both_fields(
+    max_retries: int, matches: int, reads: int
+) -> None:
+    issues = _pair_issues(max_retries, matches)
+    errors = [i for i in issues if i.is_error()]
+    assert {i.field for i in errors} == {"max_retries", "secure_rerip_matches"}
+    message = errors[0].message
+    # Specific: both labels, the number of identical reads needed, and how many
+    # reads -r allows — including cyanrip's own 10 when the setting is 0.
+    assert sv.MAX_RETRIES_LABEL in message and sv.SECURE_REREP_LABEL in message
+    assert f"{matches + 1} of its reads are identical" in message
+    assert f"only {reads} time" in message
+    if max_retries == 0:
+        assert "default of 10" in message
+
+
+@pytest.mark.parametrize(("max_retries", "matches"), [(3, 2), (2, 1), (0, 9)])
+def test_a_pair_with_no_room_for_one_bad_read_is_a_warning_not_an_error(
+    max_retries: int, matches: int
+) -> None:
+    """The Full run's `-r 3 -Z 2`: possible, but one bad read fails the track."""
+    issues = _pair_issues(max_retries, matches)
+    assert issues, "the zero-tolerance pair went unmentioned"
+    assert not [i for i in issues if i.is_error()], issues
+    assert {i.field for i in issues} == {"max_retries", "secure_rerip_matches"}
+    assert "no room for a read that disagrees" in issues[0].message
+
+
+@pytest.mark.parametrize(
+    ("max_retries", "matches"),
+    [
+        (5, 2),
+        (4, 2),
+        (3, 1),
+        (100, 10),
+        (0, 8),
+        # Off is never judged: with no -Z of the user's own, the only -Z a rip
+        # sends is the worker's recovery bound, which caps itself below -r.
+        (0, 0),
+        (1, 0),
+        (2, 0),
+        (3, 0),
+    ],
+)
+def test_pairs_that_leave_room_and_off_are_not_mentioned(
+    max_retries: int, matches: int
+) -> None:
+    assert _pair_issues(max_retries, matches) == []
+
+
+@pytest.mark.parametrize(("max_retries", "matches"), [(101, 2), (2, 11), (-1, 3)])
+def test_an_out_of_range_half_is_the_range_rules_finding_alone(
+    max_retries: int, matches: int
+) -> None:
+    """One cause per message (S-12): no pair verdict about a value already refused."""
+    messages = [i.message for i in _pair_issues(max_retries, matches)]
+    assert messages, "floor: the range rule itself must still refuse"
+    assert all(" must be between " in m for m in messages), messages
+
+
+def test_either_half_of_the_pair_is_refused_to_a_single_setting_writer() -> None:
+    """`set max_retries 2` and `set secure_rerip_matches 5` must both be refused.
+
+    `field_error` is what the script verb and every save-as-you-change control
+    ask, about the ONE field they are writing. A pair rule reported on one field
+    would let the other half be written.
+    """
+    too_low = dataclasses.replace(Config(), max_retries=2)  # with the default -Z 2
+    assert "must be more than" in sv.field_error(too_low, "max_retries")
+    too_many = dataclasses.replace(Config(), secure_rerip_matches=5)  # with -r 5
+    assert "must be more than" in sv.field_error(too_many, "secure_rerip_matches")
+    # The floor: the shipped defaults are writable, or both refusals above could
+    # be a validator that refuses everything.
+    assert sv.field_error(Config(), "max_retries") == ""
+    assert sv.field_error(Config(), "secure_rerip_matches") == ""
+
+
+def test_a_hand_edited_impossible_pair_is_reset_whole_and_said_so(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """At startup both halves go back to their defaults, which converge.
+
+    Resetting only one would not do: `-r 5` with a saved `-Z 7` is still
+    impossible. And the reset is logged at WARNING and recorded for display.
+    """
+    from platterpus import config as config_module
+    from platterpus.cyanrip_cli import retries_flag_value, secure_reread_problem
+
+    config_module.take_load_resets()
+    hand_edited = dataclasses.replace(Config(), max_retries=5, secure_rerip_matches=7)
+    with caplog.at_level(logging.WARNING, logger="platterpus.settings_validation"):
+        sanitized = config_module._sanitized(hand_edited)
+    assert (sanitized.max_retries, sanitized.secure_rerip_matches) == (
+        Config().max_retries,
+        Config().secure_rerip_matches,
+    )
+    assert (
+        secure_reread_problem(
+            repeat_rips=sanitized.secure_rerip_matches,
+            retries=retries_flag_value(sanitized.max_retries),
+        )
+        == ""
+    )
+    resets = {r.field for r in config_module.take_load_resets()}
+    assert {"max_retries", "secure_rerip_matches"} <= resets
+    assert "max_retries" in caplog.text and "must be more than" in caplog.text

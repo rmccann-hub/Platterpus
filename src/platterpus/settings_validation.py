@@ -44,6 +44,12 @@ from pathlib import Path
 
 from platterpus import goal_presets
 from platterpus.config import Config
+from platterpus.cyanrip_cli import (
+    DEFAULT_MAX_RETRIES,
+    retries_flag_value,
+    secure_reread_problem,
+    whole_track_reads_allowed,
+)
 from platterpus.deps.ripper_manifest import CHANNELS as RIPPER_CHANNELS
 from platterpus.update_check import CHANNELS
 
@@ -230,6 +236,16 @@ def validate_config(config: Config) -> list[ValidationIssue]:
             high,
             label,
         )
+
+    # The PAIR, after each half's own range rule. Max retries is also the ceiling
+    # on a secure re-read's whole-track reads, and `-Z N` needs N+1 of them, so a
+    # pair of in-range values can still describe a re-read that never succeeds.
+    run(
+        "max_retries",
+        _validate_secure_reread_ceiling,
+        config.max_retries,
+        config.secure_rerip_matches,
+    )
 
     for field_name, allowed, label in (
         ("output_format", _ALLOWED_OUTPUT_FORMATS, "Output format"),
@@ -988,6 +1004,86 @@ def _validate_int(
         return [ValidationIssue(field, f"{label} must be a whole number.")]
     if value < lo or value > hi:
         return [ValidationIssue(field, f"{label} must be between {lo} and {hi}.")]
+    return []
+
+
+def _validate_secure_reread_ceiling(
+    max_retries: object, matches: object
+) -> list[ValidationIssue]:
+    """Max retries must let the configured secure re-read succeed.
+
+    cyanrip's ``-Z N`` converges when the latest read matches N EARLIER reads, so
+    it needs N+1 identical reads, and it stops re-reading a track after ``-r``
+    whole-track reads (``cyanrip@faec4a8:src/cyanrip_main.c:997-1012``). The rule
+    is :func:`platterpus.cyanrip_cli.secure_reread_problem`, the same one the argv
+    chokepoint refuses at; this is where a person editing Settings, a script's
+    ``set``, or a hand-edited ``config.toml`` meets it first.
+
+    **Which settings actually send ``-Z``.** ``secure_rerip_matches`` > 0 sends
+    ``-Z <that>`` in both modes: on every pass in uniform mode (Test & Copy), and
+    on the targeted re-read of the tracks AccurateRip did not confirm in dynamic
+    mode. The ladder never escalates past it. With it Off (0) the only ``-Z`` a
+    rip sends is the worker's own recovery bound, which
+    ``read_speed_ladder.recovery_secure_rerip_ceiling`` caps below ``-r`` itself,
+    so Off never makes an impossible pair and is not refused here. ``-r`` is the
+    argv's: ``cyanrip_cli.retries_flag_value`` sends none for 0, and cyanrip then
+    uses its own default of 10.
+
+    **Reported on BOTH fields**, because either one can be the one to fix, and
+    because each consumer asks about one field: the ``set`` verb and every
+    save-as-you-change control ask ``field_error`` about the field they are
+    writing, and the startup reset puts each errored field back to its default.
+    Reported on one field only, a script could write the other half of an
+    impossible pair, and a reset could leave one half still impossible.
+
+    **A zero-tolerance pair is a WARNING, not an error.** ``-r`` == N+1 can
+    converge, but only if every read agrees: one bad read and the track is left
+    unverified. Legal, and probably not intended — the 2026-09-28 Full run spent
+    every secure re-read at ``-r 3 -Z 2`` that way without anyone choosing it.
+
+    Values out of their own range, or of the wrong type, are the range rules'
+    finding and are skipped here, so each message names one cause.
+    """
+    if isinstance(max_retries, bool) or not isinstance(max_retries, int):
+        return []
+    if isinstance(matches, bool) or not isinstance(matches, int):
+        return []
+    if not MAX_RETRIES_MIN <= max_retries <= MAX_RETRIES_MAX:
+        return []
+    if not SECURE_REREP_MIN < matches <= SECURE_REREP_MAX:
+        return []  # Off, or out of range: nothing for this rule to judge
+    retries = retries_flag_value(max_retries)
+    reads = whole_track_reads_allowed(retries)
+    shown = (
+        f"{max_retries}"
+        if retries is not None
+        else f"0, which leaves cyanrip's own default of {DEFAULT_MAX_RETRIES}"
+    )
+    needed = matches + 1
+    if secure_reread_problem(repeat_rips=matches, retries=retries):
+        message = (
+            f"{MAX_RETRIES_LABEL} ({shown}) must be more than {SECURE_REREP_LABEL} "
+            f"({matches}). A track is trusted once {needed} of its reads are "
+            f"identical, and {MAX_RETRIES_LABEL} lets cyanrip read it only {reads} "
+            f"time{'s' if reads != 1 else ''}, so no track could ever be verified. "
+            f"Raise {MAX_RETRIES_LABEL} to at least {needed}, or lower "
+            f"{SECURE_REREP_LABEL}."
+        )
+        return [
+            ValidationIssue("max_retries", message),
+            ValidationIssue("secure_rerip_matches", message),
+        ]
+    if reads == needed:
+        message = (
+            f"{MAX_RETRIES_LABEL} ({shown}) leaves no room for a read that "
+            f"disagrees: a track needs {needed} identical reads and cyanrip may read "
+            f"it only {reads} times, so a single bad read leaves it unverified. "
+            f"{MAX_RETRIES_LABEL} at {needed + 2} would allow two."
+        )
+        return [
+            ValidationIssue("max_retries", message, SEVERITY_WARNING),
+            ValidationIssue("secure_rerip_matches", message, SEVERITY_WARNING),
+        ]
     return []
 
 

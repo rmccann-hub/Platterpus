@@ -421,3 +421,69 @@ def test_the_ladders_reason_names_the_identical_passes_z_needs() -> None:
     locked = next_step(current_speed=0, current_secure_rerip=2, speed_locked=True)
     assert locked is not None and locked.secure_rerip_matches == 3
     assert "until 4 passes are identical (-Z 3)" in locked.reason
+
+
+# --- the input boundary (settings_validation) and what reaches the argv ------
+
+
+def test_the_validator_refuses_exactly_the_pairs_the_argv_chokepoint_would() -> None:
+    """Over the whole Settings range, the two boundaries give one verdict.
+
+    A pair the validator lets through must build; a pair it refuses must be one
+    the chokepoint would refuse too. Otherwise Settings would either save a rip
+    that fails at the drive, or refuse one that would have worked.
+    """
+    import dataclasses
+
+    from platterpus import settings_validation as sv
+    from platterpus.config import Config
+
+    refused = 0
+    for max_retries in range(sv.MAX_RETRIES_MIN, sv.MAX_RETRIES_MAX + 1):
+        for matches in range(sv.SECURE_REREP_MIN, sv.SECURE_REREP_MAX + 1):
+            config = dataclasses.replace(
+                Config(), max_retries=max_retries, secure_rerip_matches=matches
+            )
+            validator_refuses = any(
+                i.is_error() and i.field == "secure_rerip_matches"
+                for i in sv.validate_config(config)
+            )
+            argv_refuses = bool(
+                secure_reread_problem(
+                    repeat_rips=matches, retries=retries_flag_value(max_retries)
+                )
+            )
+            assert validator_refuses == argv_refuses, (max_retries, matches)
+            refused += validator_refuses
+    assert refused > 0, "non-triviality: the sweep never met a refused pair"
+
+
+def test_no_setting_the_validator_accepts_can_send_a_z_that_cannot_converge() -> None:
+    """The population, closed: every -Z a rip can send, for every saved pair.
+
+    A rip sends the user's own -Z when they set one, and otherwise only the
+    worker's recovery bound (the ladder's escalations and the instability
+    auto-fix both ask `recovery_secure_rerip_ceiling`; the ladder never climbs
+    past it). So for each pair Settings would save, the highest -Z of either
+    kind must converge under the -r that pair sends.
+    """
+    import dataclasses
+
+    from platterpus import settings_validation as sv
+    from platterpus.config import Config
+
+    checked = 0
+    for max_retries in range(sv.MAX_RETRIES_MIN, sv.MAX_RETRIES_MAX + 1):
+        for matches in range(sv.SECURE_REREP_MIN, sv.SECURE_REREP_MAX + 1):
+            config = dataclasses.replace(
+                Config(), max_retries=max_retries, secure_rerip_matches=matches
+            )
+            if sv.errors_only(sv.validate_config(config)):
+                continue
+            highest = recovery_secure_rerip_ceiling(
+                secure_rerip_matches=matches, max_retries=max_retries
+            )
+            retries = retries_flag_value(max_retries)
+            assert secure_reread_problem(repeat_rips=highest, retries=retries) == ""
+            checked += 1
+    assert checked > 900, f"only {checked} accepted pairs checked"

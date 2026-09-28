@@ -406,15 +406,23 @@ def test_v6_zero_bumps_to_two_but_nonzero_is_preserved(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The v6→v7 bump only rescues an inherited 0. A user who deliberately set a
-    non-zero ceiling keeps exactly that — the migration never lowers or clobbers a
-    real choice."""
+    non-zero value keeps exactly that — the migration never lowers or clobbers a
+    real choice.
+
+    The saved value was 5 until 2026-09-28. Beside the default Max retries of 5
+    that pair can never converge (`-Z 5` needs six identical reads and `-r 5`
+    stops at five), so the startup check now resets it — correctly, and not the
+    migration's doing; that reset is tested in `test_settings_validation.py`.
+    3 is a deliberate non-default choice the default `-r` can satisfy, which is
+    what this test is about.
+    """
     config_file = _redirect_config(tmp_path, monkeypatch)
-    config_file.write_text("schema_version = 6\nsecure_rerip_matches = 5\n")
+    config_file.write_text("schema_version = 6\nsecure_rerip_matches = 3\n")
 
     cfg = config_module.load()
 
     assert cfg.schema_version == SCHEMA_VERSION
-    assert cfg.secure_rerip_matches == 5  # deliberate value untouched
+    assert cfg.secure_rerip_matches == 3  # deliberate value untouched
 
 
 def test_v7_zero_is_left_alone_the_bump_is_one_time(
