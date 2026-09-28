@@ -365,6 +365,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the summary says NOTHING CHECKED instead of "0 failed". Exit 0 now means at least
   one declaration was compared and every one reproduced. On the committed record,
   rounds 1-6 now exit 2 and rounds 7, 8 and 12 exit 3.
+- **The overwrite check no longer misses a folder over a stray space.** cyanrip
+  trims spaces and tabs from both ends of every folder name it writes. The check
+  that predicts the folder now does the same, so a naming template with a space at
+  either end of a folder name still finds the album already ripped there.
 
 ### Added
 
