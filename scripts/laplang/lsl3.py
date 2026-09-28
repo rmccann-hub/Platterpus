@@ -11,8 +11,11 @@ and every refusal here names its id, the id both checkers report:
   whose command can depend on nothing but that commit is re-run
   (`rerun.plan_command`, `scratch.Scratch`), and refused when a string its result
   quotes is not in what it printed. Anything else is `UNCHECKED run:`, a warning
-  with its reason, never a refusal and never a guess. What B1 covered is counted
-  on `Lap.runs` and printed.
+  with its reason, never a refusal and never a guess. A re-run whose quoted
+  strings are all printed but which exited non-zero is matched, since B1
+  compares nothing else, and is warned about as `UNCHECKED exit:` and counted
+  apart, so a failed command never reads as a plain match. What B1 covered is
+  counted on `Lap.runs` and printed.
 * **B3** — an `answers:` on a statement A6 lets carry no weight (`NOTE`, `ASK`,
   `VERDICT`, `WILL`, `UNKNOWN`, `FACT relayed`) is refused here, and answers
   nothing for A7 in `round_rules`, which asks the same predicate.
@@ -31,6 +34,7 @@ commit to re-run it at.
 from __future__ import annotations
 
 import re
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -221,8 +225,10 @@ def _rerun(ctx: Context, jobs: list[Job], coverage: RunCoverage) -> None:
     try:
         for job in jobs:
             outcome = _rerun_one(ctx, job, clone, refs, scratch)
-            if outcome == "matched":
+            if outcome in ("matched", "matched-nonzero"):
                 coverage.matched += 1
+                if outcome == "matched-nonzero":
+                    coverage.matched_nonzero += 1
             elif outcome == "mismatched":
                 coverage.mismatched += 1
             else:
@@ -239,7 +245,8 @@ def _rerun_one(
     refs: frozenset[str],
     scratch: Scratch | None,
 ) -> str:
-    """`matched`, `mismatched` or `unchecked`, with the refusal or warning made."""
+    """`matched`, `matched-nonzero`, `mismatched` or `unchecked`, with the
+    refusal or warning made."""
     claim = split_run(job.field.value)
 
     def unchecked(reason: str) -> str:
@@ -280,6 +287,27 @@ def _rerun_one(
         if not appears(parts, ran.output):
             ctx.refuse(job.field.line, "B1", _mismatch(job, plan, ran, parts))
             return "mismatched"
+    if ran.exit_code != 0:
+        # Matched, by B1's own text: its refusal is a quoted string missing from
+        # the output, and "exit 0" in a result is prose, which B1 does not
+        # compare (the proposal, "What B1 re-runs", item 4). So this is not
+        # refused. But a command that FAILED and still printed the quoted words
+        # is not the run the lap describes, and must not read as a plain match
+        # (review finding R13): said here, and counted on its own in the report.
+        how = (
+            f"exited {ran.exit_code}"
+            if ran.exit_code > 0
+            else f"was ended by signal {-ran.exit_code}"
+        )
+        ctx.warn(
+            job.field.line,
+            "LSL.unchecked",
+            f"UNCHECKED exit: {job.statement.tag}: re-ran "
+            f"{shlex.join(plan.words)} at {job.commit}; its result's quoted "
+            f"strings are in the output, but it {how}, and B1 compares quoted "
+            "strings only, so whether the run succeeded is for a reader to check",
+        )
+        return "matched-nonzero"
     return "matched"
 
 
