@@ -210,7 +210,13 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: it. The RELEASE that ships this constant (0.6.61) waits for their lap 6, their
 #: `.17`, and their round 28 lap 1, so it carries `.17` as the next subject too
 #: (the maintainer's choice, 2026-09-26: ship both together).
-FORK_PIN: Final[str] = "221a1df"
+#: **Rolled to `e0471f4` (`+platterpus.17`) on round 28's close on OUR gate
+#: (2026-09-28)** — our lap 9 `GO`, released on the maintainer's word ("announce
+#: when ready"), against their lap 8 `GO`. Round 28's evidence is the FULL run on
+#: 0.6.61 with `e0471f4` installed, 320 of 320 steps with none failed, errored or
+#: skipped (`docs/handshake/artifactsround28/`). Our lap 9 said this commit would
+#: roll it. The RELEASE that ships this constant is 0.6.63, our closing release.
+FORK_PIN: Final[str] = "e0471f4"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -460,7 +466,11 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: round 27 lap 4's `HANDSHAKE-RIPPER-VERSION` — `cyanrip 0.9.4-rc2+platterpus.16
 #: (platterpus-fork-g221a1df)` — and cross-checked against `meson.build` at
 #: `221a1df` in their tree (line 21), which declares the same string.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.16"
+#: **Rolled to `0.9.4-rc2+platterpus.17` on 2026-09-28, with `FORK_PIN`**, read off
+#: round 28 lap 8's `HANDSHAKE-RIPPER-VERSION` — `cyanrip 0.9.4-rc2+platterpus.17
+#: (platterpus-fork-ge0471f4)` — and cross-checked against `meson.build` at
+#: `e0471f4` in their tree (line 21), which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.17"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -631,7 +641,9 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: from our 0.6.61 (their lap 1 S6), so moving this constant is what lets section A
 #: accept it. `git log 221a1df..e0471f4 -- src/` is three commits (`10f36fe`,
 #: `ec0fe47`, `ee0221c`) and none touches option parsing. **`FORK_PIN` stays
-#: `221a1df` until round 28 closes.**
+#: `221a1df` until round 28 closes.** **It closed on our gate on 2026-09-28 and
+#: `FORK_PIN` rolled with it**, so this is now also the release pin until round 29
+#: opens on a new subject.
 PIN_UNDER_REVIEW: Final[str] = "e0471f4"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
@@ -1592,18 +1604,17 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 27 approved, GO on both sides, and published by the fork "
-        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 26 — read "
+        "the build round 28 approved, GO on both sides, and published by the fork "
+        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 27 — read "
         "from their live release-manifest.json, and the version cross-checked "
         "against meson.build at the pin itself rather than taken from the lap). "
-        "Over +platterpus.15 its media tag no longer says HDCD just because -H "
-        "was set, and an interrupted track is left out of the AccurateRip tally. "
-        "Round 27's "
-        "evidence is a quick run on a drive, installed through Platterpus 0.6.60: "
-        "206 steps passed, none failed, and the one rip's two tracks matched "
-        "AccurateRip exactly. That run declined the sections that reach both "
-        "changes, so they are not yet tested on hardware; the Full run is round "
-        "28's. See docs/handshake/inbound/round-27-lap-04.md"
+        "Over +platterpus.16 it compares only frame-450 checksums on a frame-450 "
+        "AccurateRip lookup, says a frame-450 match covers one frame only, and "
+        "writes its banner as soon as the log opens. Round 28's evidence is the "
+        "Full run on a drive, installed through Platterpus 0.6.61: 320 of 320 "
+        "steps passed and all eight rips' logs verify. The early-failure banner "
+        "was not reached on that run. See "
+        "docs/handshake/inbound/round-28-lap-08.md"
     ),
 )
 

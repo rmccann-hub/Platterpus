@@ -1400,7 +1400,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `e0471f4` (`+platterpus.17`) with why, its release sequence, its build tag in
     # the `--consumer` accept-set with the contract that licenses it, the re-derived
     # same-program flag, and the round-28 pairing line.
-    "deps/fork_source.py": 2441,
+    # **2441 -> 2452 (2026-09-28, round 28 closed on our gate)**: `FORK_PIN` rolls to
+    # `e0471f4` and `FORK_EXPECTED_VERSION` to `.17`, each with the dated record of
+    # where it was read and cross-checked, as every roll before it.
+    "deps/fork_source.py": 2452,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1595,7 +1598,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 683 -> 693 on 2026-09-26: round 27's approval (0.6.60, round 27) and why a quick
     # run approves the build without having exercised `.16`'s two changes.
     # **693 -> 735** (2026-09-28, the round-28 Full run): the approved pair names the app version the record approved, not the running one, and `_running_app_clause` states the running version apart, tri-state; the pair line is this module's own renderer.
-    "handshake_approval.py": 735,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **735 -> 744 (2026-09-28, round 28 closed on our gate)**: the approval record moves to round 28 for 0.6.61, read off their closing lap as the rule requires.
+    "handshake_approval.py": 744,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect

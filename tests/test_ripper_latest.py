@@ -34,7 +34,15 @@ from platterpus.deps.ripper_offer import OFFER_AVAILABLE, evaluate_offer
 
 #: A beta head distinct from the stable one, and ahead of every release our own
 #: record lists, so the offer below sees it as a genuine forward step.
-_BETA_COMMIT = "e0471f4"
+#:
+#: **It must never be a pin a closed round approved.** It was `e0471f4` while round
+#: 28 reviewed that build, and when round 28 closed and `FORK_PIN` rolled to it
+#: (2026-09-28) the fixture's "unapproved beta head" became the approved build, and
+#: `--install-ripper latest-beta` correctly stopped printing its "not the
+#: handshake-approved build" note. So the head is now the fork's branch tip after
+#: `.17`, `a71176d`, a commit no round has reviewed, and the assertion in
+#: `_document` fails first, with this reason, if a later roll catches up with it.
+_BETA_COMMIT = "a71176d"
 
 #: The build a closed round approved — what a bare `--install-ripper` builds.
 PRODUCTION_TARGET_PIN: str = fork_source.PRODUCTION_TARGET.pin
@@ -44,13 +52,17 @@ def _document(**beta: Any) -> dict[str, Any]:
     document: dict[str, Any] = json.loads(json.dumps(PUBLISHED_V2))
     ours = fork_source.release_seq_for_commit(fork_source.PRODUCTION_TARGET.pin)
     assert ours is not None, "the premise: our approved pin has a release number"
+    assert _BETA_COMMIT != fork_source.FORK_PIN, (
+        "the premise: the fixture's beta head is a build no closed round approved. "
+        "FORK_PIN has caught up with it; move _BETA_COMMIT past the new pin."
+    )
     document["channels"]["beta"].update(
         {
             "commit": _BETA_COMMIT,
             "release_seq": ours + 5,
-            "handshake_round": 28,
+            "handshake_round": 29,
             "round_closed": False,
-            "version": "0.9.4-rc2+platterpus.17",
+            "version": "0.9.4-rc2+platterpus.18",
             "install": f"https://github.com/rmccann-hub/cyanrip/archive/{_BETA_COMMIT}.tar.gz",
             **beta,
         }
