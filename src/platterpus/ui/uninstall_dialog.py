@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialogButtonBox,
@@ -80,16 +80,22 @@ class UninstallDialog(CenteredDialog):
 
         root = QVBoxLayout(self)
 
+        # RichText, stated: the bold "Never touched:" is markup of ours, and every
+        # word here is a literal. Line breaks are <br>, since markup reads a
+        # newline as a space. Left to Qt's default AutoText, which decides from
+        # the FIRST line (and this one holds no tag), the label showed the <b>
+        # tags as typed characters (tests/test_labels_state_their_text_format.py).
         intro = QLabel(
-            "This removes what Platterpus installed on this computer:\n\n"
-            "• menu and desktop shortcuts\n"
-            "• cyanrip / metaflac / flac from ~/.local/bin\n"
-            "• the app's own settings and logs\n"
-            "• the items ticked below\n\n"
+            "This removes what Platterpus installed on this computer:<br><br>"
+            "• menu and desktop shortcuts<br>"
+            "• cyanrip / metaflac / flac from ~/.local/bin<br>"
+            "• the app's own settings and logs<br>"
+            "• the items ticked below<br><br>"
             "<b>Never touched:</b> your music, and Distrobox/podman "
             "themselves (other containers keep working).",
             self,
         )
+        intro.setTextFormat(Qt.TextFormat.RichText)
         intro.setWordWrap(True)
         root.addWidget(intro)
 

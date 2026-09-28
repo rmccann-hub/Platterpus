@@ -943,6 +943,12 @@ offset. Critical rule #12 is the reason; this is how to follow it in a widget.
   anything, so one escaped value vouched for every value beside it.)
 - **Plain text keeps line breaks; markup does not.** In RichText a `\n` is a
   space, so a multi-line RichText label needs `<br>`.
+- **A literal label holding markup states its format too, when Qt would not see
+  the markup.** Qt decides AutoText from the *first line*, so a literal whose
+  `<b>` sits below a first line with no tag is shown with its tags as typed
+  characters. The uninstall dialog's intro did that until 2026-09-28. For a
+  literal the guess is fixed, so the sweep asks Qt itself (`Qt.mightBeRichText`)
+  and needs no allowlist.
 - **Enforced by `tests/test_labels_state_their_text_format.py`, with no
   allowlist**: an exemption list is how a sweep stops enforcing anything.
   `QMessageBox` has its own sweep (`tests/test_message_boxes_are_plaintext.py`).

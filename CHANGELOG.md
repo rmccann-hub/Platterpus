@@ -195,6 +195,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   as `:+d`, be our own fixed text, or be a name that only ever holds one of
   those. Twenty made-up cases must each fail and name the value at fault. Nothing
   in the app changed: the three labels that render formatting already passed.
+- **The Uninstall window no longer shows `<b>` tags around "Never touched:".**
+  Tools → Uninstall Platterpus… showed its last line as `<b>Never touched:</b>
+  your music…`, tags and all, instead of in bold. Qt decides whether a label
+  holds formatting from its first line only, and this one's first line has none.
+  The label now says it holds formatting, so "Never touched:" is bold again and
+  the list above it keeps its line breaks. The label check now also looks at
+  labels with fixed text: one that holds formatting Qt would show as typed
+  characters must say which it holds.
 - **For contributors: the regex timing checks no longer fail on a busy runner.**
   The sweep that proves no pattern in `src/` stalls on long input confirmed a
   suspect by timing it again at the same sizes, inside the same noisy moment, so
