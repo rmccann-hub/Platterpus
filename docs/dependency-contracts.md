@@ -316,7 +316,8 @@ artifacts under `docs/handshake/inbound/artifacts/` are now swept too.
 become `RippingInfo` / `TrackResult` fields** (each needs a new field, so it is a
 deliberate change, not a silent one): `HDCD decoding:` — an enabled HDCD decode
 *alters samples*, so it bears directly on "is this a bit-perfect copy";
-`Tracks to rip:` — anything but `all` means the album on disk is incomplete;
+`Tracks to rip:` — anything but `all` means the album on disk is incomplete
+(graduated 2026-09-28, below);
 `Frame retries:` — the rip-effort setting EAC reports as part of its read mode;
 `Album Art:`; and `Disc tracks:` (the disc's track total, so "did we get them
 all?" is answerable from the log alone).
@@ -335,6 +336,18 @@ this one is indented; graduating an indented row means adding it to
 `_INDENTED_LINE_PATTERNS` and to the `must_read` set in
 `tests/test_parsers_cyanrip_log.py`. Two enumerations, one habit: write the
 decision down.
+
+**GRADUATED 2026-09-28 — `Tracks to rip:`, and the two `Interrupted at:` shapes.**
+The cancelled rip of the round 28 Full run asked for tracks 1-3 of 14 and was
+stopped mid-read in track 1; its EAC-compatible log said *"The remaining 14 track(s)
+were never extracted"*. `Tracks to rip:` is now parsed into
+`RipLog.tracks_to_rip` (verbatim) and `RipLog.tracks_to_rip_numbers` (a plain list
+of track numbers 1..99, else `None`, so `all`, an absent line and an unrecognised
+value never read as an empty selection). `parsers/cyanrip_log.interruption_point`
+classifies the verbatim `Interrupted at:` value against the fork's two published P2
+shapes, `track %i, mid-read` and `between tracks, no read in progress`; a third
+shape reads as *not determined*. The EAC-compatible log's incomplete-rip banner
+reads that one classifier.
 
 **Cache handling — attempted by cyanrip, measured by `cd-paranoia -A` (KDD-29).**
 cyanrip has no cache-defeat flag and emits no cache-defeat verdict in its log.

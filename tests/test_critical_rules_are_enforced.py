@@ -1473,7 +1473,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1640 -> 1635 on 2026-09-26**: the fork released round 27 lap 4 with these words
     # (the summary accepted, the per-track line in the amended form `46a522e`
     # already carried), so the revert is reverted and the wording code leaves again.
-    "eac_log_export.py": 1635,
+    # **1635 -> 1764 on 2026-09-28** (the Full run's F5): the incomplete-rip banner
+    # names the track a cancelled rip was reading as partly read, and counts against
+    # the tracks the rip was asked for (`_requested_subset`, `_absent_tracks_sentence`,
+    # and the "RIP STOPPED" branch for a complete selection). It is this document's
+    # own banner, so it stays beside the renderer; most of the growth is the comments
+    # saying which record each number comes from.
+    "eac_log_export.py": 1764,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1654,7 +1660,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2976 -> 3023** (2026-09-26): the one-frame note now says whose number differs — the log keeps its own count, and the note tells a re-read of ours apart from the ripper disagreeing with its own log (the Full run).
     # **3023 -> 3032** (2026-09-27, round 28 lap 3 S12): `Partial files:`, announced for `.18`, joins `_IGNORED_DISC_LINES` with its reason. The table is what the completeness sweep and the generated consumer contract read, so the entry cannot live elsewhere.
     # **3032 -> 3064** (2026-09-28, the round-28 Full run): `secure_rerip_verdict_converged`, the one home of which way a `-Z` verdict went, so the rip worker can grade its diagnostic by it; the parser's own loop now calls it instead of restating the `agreed >= 1` rule.
-    "parsers/cyanrip_log.py": 3064,
+    # **3032 -> 3157** (2026-09-28, the Full run's F5/F6): `Tracks to rip:` graduates from the ignore list to a line rule, and `interruption_point` classifies the two published `Interrupted at:` shapes. The patterns must live here: the completeness sweep walks this module's own regex constants, and the rule table is what the generated consumer contract publishes.
+    "parsers/cyanrip_log.py": 3189,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1664,7 +1671,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **884 -> 889** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
     # **890 -> 896** (2026-09-26): `partially_accurate_logged`, the log's own one-frame count beside the ripper's tally (the Full run).
-    "parsers/rip_log.py": 896,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **896 -> 904** (2026-09-28, the Full run's F5): `tracks_to_rip` and `tracks_to_rip_numbers`, the ripper's own statement of which tracks it was told to extract.
+    "parsers/rip_log.py": 904,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
