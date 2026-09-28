@@ -341,7 +341,10 @@ def test_the_sweep_reads_the_tracked_set_not_the_disk(tmp_path: Path) -> None:
         "gone.md",
         ".pytest_cache/README.md",
         "src/platterpus.egg-info/SOURCES.txt",
-        "build/lib/platterpus/rig_scripts/rigcancelandoverread.txt",
+        # A stale build copy, spelled without `rig_scripts/`: tests/test_rig_scripts.py
+        # resolves every rig-script path a live file names against the disk, and this
+        # one exists only where a wheel was built.
+        "build/lib/platterpus/stale-copy.txt",
         "scratch-note.md",
     ):
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
