@@ -459,16 +459,31 @@ def build_timing(
     return timing
 
 
-def build_debug_log(lines: list[str], *, truncated: bool = False) -> DebugBlock:
+def build_debug_log(
+    lines: list[str],
+    *,
+    truncated: bool = False,
+    buffer_dropped: int = 0,
+    buffer_dropped_between: str = "",
+) -> DebugBlock:
     """Wrap captured session log lines for the report's ``debug`` section.
 
     ``lines`` is this session's log (everything since launch) with other albums'
     rips already filtered out by the caller; ``truncated`` is True if the
-    in-memory buffer already dropped its oldest lines. Embeds at most
-    ``_MAX_EMBEDDED_LOG_LINES`` (keeping the most recent — closest to this rip),
-    so the report stays small and fast to (re)serialize on the GUI thread no
-    matter how long the session ran; the full history is always in log.txt.
-    Pure; never raises.
+    in-memory buffer already dropped lines. ``buffer_dropped`` /
+    ``buffer_dropped_between`` say how many and when, as the buffer counted them
+    (:class:`~platterpus.log_buffer.BufferedLines`) — the buffer keeps its head
+    and tail and marks the gap in ``lines`` itself. Embeds at most
+    ``_MAX_EMBEDDED_LOG_LINES`` (head and tail, the gap counted), so the report
+    stays bounded no matter how long the session ran; the full history is always
+    in log.txt. Pure; never raises.
+
+    **The scope says what the lines ARE, not what they were meant to be
+    (2026-09-28, the round-28 Full run).** It said "this session since launch"
+    unconditionally, on a report whose lines began at 01:17:49 for a rip that
+    started at 23:52:41 — a completeness claim describing the request, read as a
+    description of the result. It now names the buffer's drop, with its count
+    and span, and any elision this report made to fit its own budget.
     """
     embedded = list(lines)
     capped = len(embedded) > _MAX_EMBEDDED_LOG_LINES
@@ -484,12 +499,55 @@ def build_debug_log(lines: list[str], *, truncated: bool = False) -> DebugBlock:
         capped = True
         embedded = _head_and_tail_by_bytes(embedded, budget)
     return {
-        "scope": "this session since launch, excluding other albums' rips",
+        "scope": _debug_scope(
+            buffer_dropped=buffer_dropped,
+            buffer_dropped_between=buffer_dropped_between,
+            buffer_truncated=bool(truncated),
+            capped_here=capped,
+        ),
         # True if EITHER the in-memory buffer dropped lines OR we capped here;
         # in both cases log.txt has the complete record.
         "truncated": bool(truncated) or capped,
         "lines": embedded,
     }
+
+
+def _debug_scope(
+    *,
+    buffer_dropped: int,
+    buffer_dropped_between: str,
+    buffer_truncated: bool,
+    capped_here: bool,
+) -> str:
+    """The ``debug.scope`` sentence, true of the lines it heads. Pure.
+
+    Three facts, each stated only when it holds: what the lines are drawn from,
+    what the in-memory buffer dropped (counted, with when), and whether this
+    report elided more to fit its own size budget. A truncation the caller
+    reports without a count is still said, as not counted, rather than dropped.
+    """
+    scope = "this session since launch, excluding other albums' rips"
+    gaps: list[str] = []
+    if buffer_dropped > 0:
+        when = (
+            f", logged between {buffer_dropped_between}"
+            if buffer_dropped_between
+            else ""
+        )
+        gaps.append(
+            f"{buffer_dropped} line(s) of the session{when}, which the in-memory log "
+            "dropped to bound its size"
+        )
+    elif buffer_truncated:
+        gaps.append("lines the in-memory log dropped to bound its size (not counted)")
+    if capped_here:
+        gaps.append("lines elided to fit this report's size budget")
+    if not gaps:
+        return scope
+    return (
+        f"{scope} — INCOMPLETE: missing {'; and '.join(gaps)}. Each gap is marked "
+        "in place in `lines` with its count; log.txt has every line"
+    )
 
 
 def _final_partial_summary(rip_log: object) -> str | None:
