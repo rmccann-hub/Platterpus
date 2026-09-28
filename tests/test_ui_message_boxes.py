@@ -14,7 +14,13 @@ description of what Qt does:
 
 A timer inspects the box once its modal loop is running and then acts, so no
 person is needed; a test-owned watchdog closes anything left open, so a
-regression fails a test instead of hanging the session.
+regression fails a test instead of hanging the session. That holds for EVERY
+test here that opens a real box, not only the comparison: each opens it inside
+`_watchdog` and asserts the watchdog did not have to step in, and a sweep of this
+file refuses a box opened outside one. Without it, `exec()` waits for a click
+that never comes, and pytest's 300 s faulthandler ends the worker as a crash
+rather than a failed test (review finding Q2, 2026-09-28: two tests had no
+watchdog, and a regression in the code they test hung them).
 
 **One difference is Qt's, not ours, and it is recorded here so nobody "fixes" it.**
 PySide6 resolves a five-argument `QMessageBox.warning/critical/question(...)` to
@@ -31,8 +37,11 @@ of the window for the rest of the session.
 
 from __future__ import annotations
 
+import ast
+import contextlib
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from pathlib import Path
 from typing import Final
 
 import pytest
@@ -106,6 +115,39 @@ def _cases() -> list[tuple[str, str, tuple[SB, ...], tuple[str, ...], str]]:
     return cases
 
 
+@contextlib.contextmanager
+def _watchdog(seen: dict[str, object]) -> Iterator[None]:
+    """Close any box still open after `_WATCHDOG_MS`, and record that it had to.
+
+    Every test here that opens a real box does so inside this, so a regression that
+    leaves a box open (a timer that never found it, a box no longer parented to
+    what deletes it, a button that is not there) fails that test within seconds.
+    `seen["rescued"]` is the watchdog's own report, and each caller asserts it
+    stayed False: a box the watchdog had to close was not closed by what the test
+    is about.
+
+    It closes EVERY visible box, parented or not, because a box a regression left
+    unparented is a top-level window of its own and still has to go.
+    """
+    seen["rescued"] = False
+
+    def _rescue() -> None:
+        for widget in QApplication.topLevelWidgets():
+            if isinstance(widget, QMessageBox) and widget.isVisible():
+                seen["rescued"] = True
+                widget.done(0)
+
+    timer = QTimer()
+    timer.setSingleShot(True)
+    timer.setInterval(_WATCHDOG_MS)
+    timer.timeout.connect(_rescue)
+    timer.start()
+    try:
+        yield
+    finally:
+        timer.stop()
+
+
 def _button_name(box: QMessageBox, button: QAbstractButton | None) -> str:
     if button is None:
         return "None"
@@ -124,7 +166,7 @@ def _open_and_act(
     integer value, so Qt's bare-int overload and our enum compare by what they
     mean). ``rescued`` is set if the watchdog had to close it.
     """
-    seen: dict[str, object] = {"rescued": False}
+    seen: dict[str, object] = {}
 
     def _act() -> None:
         box = QApplication.activeModalWidget()
@@ -149,22 +191,9 @@ def _open_and_act(
                 return
             target.click()
 
-    def _rescue() -> None:
-        for widget in QApplication.topLevelWidgets():
-            if isinstance(widget, QMessageBox) and widget.isVisible():
-                seen["rescued"] = True
-                widget.done(0)
-
-    watchdog = QTimer()
-    watchdog.setSingleShot(True)
-    watchdog.setInterval(_WATCHDOG_MS)
-    watchdog.timeout.connect(_rescue)
     QTimer.singleShot(0, _act)
-    watchdog.start()
-    try:
+    with _watchdog(seen):
         answer = show(parent, _TITLE, _TEXT, *args)
-    finally:
-        watchdog.stop()
     seen["answer"] = int(answer)  # Qt's bare int and our IntFlag, by value
     return seen
 
@@ -231,9 +260,18 @@ def test_a_box_destroyed_while_open_answers_nobutton_and_says_so(
     C++ side is gone by the time `exec()` returns).
     """
     parent = QWidget()
+    seen: dict[str, object] = {}
     QTimer.singleShot(0, parent.deleteLater)
-    with caplog.at_level(logging.WARNING, logger="platterpus.ui.message_boxes"):
+    with (
+        caplog.at_level(logging.WARNING, logger="platterpus.ui.message_boxes"),
+        _watchdog(seen),
+    ):
         answer = _OURS["question"](parent, "t", "x", SB.Yes | SB.No, SB.Yes)
+    # First: the box went away WITH its parent. Had the watchdog closed it, the
+    # parent's deletion did not take it, which is the behaviour under test.
+    assert seen["rescued"] is False, (
+        "the box outlived its destroyed parent and the watchdog had to close it"
+    )
     assert answer == SB.NoButton
     assert any(
         "destroyed while it was open" in record.getMessage()
@@ -252,17 +290,30 @@ def test_a_box_is_handed_back_to_qt_once_its_answer_is_read(
     gone after.
     """
     parent = QWidget()
+    seen: dict[str, object] = {}
     try:
 
         def _press_ok() -> None:
+            # No `assert` in here: an exception raised in a timer slot is printed
+            # and swallowed, and a box it failed to close stays open. Record what
+            # went wrong, close the box, and assert once `exec()` has returned.
             box = QApplication.activeModalWidget()
-            assert isinstance(box, QMessageBox)
+            if not isinstance(box, QMessageBox):
+                seen["error"] = f"no open message box to act on: {box!r}"
+                return  # the watchdog closes whatever is open
             ok = box.button(SB.Ok)
-            assert ok is not None
+            if ok is None:
+                seen["error"] = "the box has no Ok button"
+                box.done(0)
+                return
             ok.click()
 
         QTimer.singleShot(0, _press_ok)
-        assert _OURS["information"](parent, "t", "x") == SB.Ok
+        with _watchdog(seen):
+            answer = _OURS["information"](parent, "t", "x")
+        assert "error" not in seen, seen.get("error")
+        assert seen["rescued"] is False, "the box was still open"
+        assert answer == SB.Ok
         assert len(parent.findChildren(QMessageBox)) == 1, "the box was never shown"
         QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         assert parent.findChildren(QMessageBox) == [], (
@@ -270,3 +321,97 @@ def test_a_box_is_handed_back_to_qt_once_its_answer_is_read(
         )
     finally:
         parent.deleteLater()
+
+
+# --- Every box this file opens is watched ------------------------------------
+
+#: The tables whose functions open a real, modal box when called. `show` is
+#: `_open_and_act`'s parameter, always one of them; `exec` is the box's own loop.
+_OPENERS: Final[frozenset[str]] = frozenset({"_OURS", "_QT_STATIC"})
+
+#: Nodes a `with` does not reach into: a function defined inside the block runs
+#: whenever it is called, which may be after the watchdog has stopped.
+_BOUNDARIES: Final[tuple[type[ast.AST], ...]] = (
+    ast.FunctionDef,
+    ast.AsyncFunctionDef,
+    ast.Lambda,
+)
+
+
+def _unwatched_openers(source: str) -> tuple[int, list[int]]:
+    """How many calls in `source` open a real box, and the lines of those unwatched.
+
+    A call is watched when a `with _watchdog(...)` encloses it in the same
+    function.
+    """
+    tree = ast.parse(source)
+    parents = {
+        child: parent
+        for parent in ast.walk(tree)
+        for child in ast.iter_child_nodes(parent)
+    }
+    found = 0
+    unwatched: list[int] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        opens = (
+            (
+                isinstance(func, ast.Subscript)
+                and isinstance(func.value, ast.Name)
+                and func.value.id in _OPENERS
+            )
+            or (isinstance(func, ast.Name) and func.id == "show")
+            or (isinstance(func, ast.Attribute) and func.attr == "exec")
+        )
+        if not opens:
+            continue
+        found += 1
+        ancestor = parents.get(node)
+        watched = False
+        while ancestor is not None and not isinstance(ancestor, _BOUNDARIES):
+            if isinstance(ancestor, ast.With) and any(
+                isinstance(item.context_expr, ast.Call)
+                and isinstance(item.context_expr.func, ast.Name)
+                and item.context_expr.func.id == "_watchdog"
+                for item in ancestor.items
+            ):
+                watched = True
+                break
+            ancestor = parents.get(ancestor)
+        if not watched:
+            unwatched.append(node.lineno)
+    return found, sorted(unwatched)
+
+
+def test_every_box_this_file_opens_is_watched() -> None:
+    """The module docstring's promise, held by a sweep of this file, not a comment."""
+    found, unwatched = _unwatched_openers(Path(__file__).read_text(encoding="utf-8"))
+    # Floor: three today (the comparison's `show`, the destroyed-parent question
+    # and the hand-back information box). None found would mean the sweep is not
+    # reading the calls, not that every call is watched.
+    assert found >= 3, f"only {found} box-opening call(s) found in this file"
+    assert not unwatched, (
+        f"these lines of {Path(__file__).name} open a real message box outside "
+        "`with _watchdog(seen):`, so a regression that leaves the box open hangs "
+        f"the worker for 300 s instead of failing the test: {unwatched}"
+    )
+    # Non-triviality: it can say no, it can say yes, and a `with` does not
+    # vouch for a function merely defined inside it.
+    bare = "def t():\n    answer = _OURS['question'](None, 't', 'x')\n"
+    watched = (
+        "def t(seen):\n"
+        "    with _watchdog(seen):\n"
+        "        answer = _OURS['question'](None, 't', 'x')\n"
+    )
+    deferred = (
+        "def t(seen):\n"
+        "    with _watchdog(seen):\n"
+        "        def later():\n"
+        "            return _OURS['question'](None, 't', 'x')\n"
+        "    later()\n"
+    )
+    assert _unwatched_openers(bare) == (1, [2])
+    assert _unwatched_openers(watched) == (1, [])
+    assert _unwatched_openers(deferred) == (1, [4])

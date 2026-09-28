@@ -173,6 +173,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   (`ui/message_boxes.py`) that shows the text as plain text, with the same
   buttons, default and answer as before, and a test refuses any new box built
   the old way.
+- **For contributors: the message-box tests can no longer hang a test worker.**
+  Two tests in `tests/test_ui_message_boxes.py` opened a real message box with
+  nothing to close it, although the file says a watchdog closes anything left
+  open. A change that broke what they test (a box no longer closed along with its
+  window, or one missing its OK button) left the box waiting for a click, and
+  pytest ended the worker after five minutes as a crash instead of reporting a
+  failed test. Every test there now opens its box under a watchdog that closes
+  it after three seconds and fails the test, and a check in the same file refuses
+  a box opened without one.
 - **Text from outside the app now shows as written in every label built from it.**
   A drive's name, a device path, a ripper build or a dependency's name could be
   read as formatting instead of text. Qt guesses from a label's first line whether
