@@ -1089,7 +1089,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "adapters/cache_probe.py": 372,
     # **566 -> 567** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "adapters/cover_art.py": 567,
-    "adapters/ctdb_client.py": 332,
+    # **332 -> 339** (2026-09-28, the Full run's five 2-of-14 rips that said "not in CTDB"): comment only. The 404 note said partial-track rips reach this lookup; they no longer do, and it now says where they stop and why.
+    "adapters/ctdb_client.py": 339,
     # --- The 2026-09-09 log-verification race: eight files, one defect ------
     #
     # A cancelled rip's log was read 6.1 s before the ripper finished writing
@@ -1136,13 +1137,19 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1640 -> 1670** (2026-09-25, D18: `%N`/`%M` work everywhere): the disc position is checked once and fills in `%N`/`%M` as well as `-c`, so a folder name cannot disagree with the tags; `_disc_args` folded into `_disc_position`, keeping its reasoning.
     # 1670 -> 1757 on 2026-09-28 (review R4, R5): `_path_schemes` builds `-D`/`-F` for the argv and `album_folder_scheme` hands the overwrite guard the same `-D`, with `predicted_album_folder` rendering it from the album-level tags cyanrip fills in (cited). The guard predicted from the disc template as disc 1 of 1 and missed finished rips; one computation beside the argv is the fix, and cyanrip's rendering rules belong in its adapter.
     # 1757 -> 1772 on 2026-09-28: cyanrip's documented `-D` default and its rendering for our rip, which the overwrite guard predicts for a folder-less template (review Q5).
-    "adapters/cyanrip_backend.py": 1772,
+    # **1772 -> 1782** (2026-09-28, `-Z` that `-r` cannot satisfy): the `-r` the argv carries goes through `cyanrip_cli.retries_flag_value`, the one mapping the validator and the rip worker also use to predict it; the comment says why it is not an inline `if`.
+    "adapters/cyanrip_backend.py": 1782,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
     # signature last has the window, so this is a property of the SEAM and
     # not of cyanrip.
-    "adapters/rip_backend.py": 594,
+    # **594 -> 641 on 2026-09-28** (the script `cyanrip` verb's `-D` landed outside
+    # the session): `run_capture` takes the `cwd` a WRITING child needs, and
+    # `_raise_if_cwd_failed` reports a folder it could not enter as the folder —
+    # `Popen` raises the same type for it as for a missing binary. It is the shared
+    # spawn seam every probe uses, so the parameter belongs here, not in a caller.
+    "adapters/rip_backend.py": 641,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -1199,9 +1206,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # v8->v9 step that flips a saved False once. Migrations live here by design.
     # **847 -> 848** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **848 -> 849** (2026-09-25, D18: `%N`/`%M` work everywhere): the template comment no longer says multi-disc folders are impossible.
-    "config.py": 849,
+    # **849 -> 851** (2026-09-28, the round-28 Full run): a hand-edited value about to be reset is logged WITH the value (`log_issues(issues, cfg)`), since the reset destroys it.
+    # **851 -> 853** (2026-09-28, the `-Z` wording): the `max_retries` and `secure_rerip_matches` comments say `-r` is also the whole-track read ceiling and `-Z N` is N+1 identical reads, not "the CEILING of effort" the 2026-09-21 correction missed here.
+    "config.py": 853,
     "cue_validate.py": 1257,
-    "cyanrip_cli.py": 327,
+    # **327 -> 426** (2026-09-28, `-Z` that `-r` cannot satisfy): `DEFAULT_MAX_RETRIES`, `retries_flag_value` and `secure_reread_problem`, the convergence rule read from the fork's source. It is a fact about cyanrip's command line that three layers need (the argv chokepoint, the settings validator, the rip worker), which is what this module is for; most of the growth is the mechanism and its citation.
+    "cyanrip_cli.py": 426,
     # **437 -> 522** (2026-09-28, Check dependencies "seems to freeze, not respond, or give no
     # error"): `probe_deadline` and `_probe_timeout`, which cap every probe a dependency check
     # runs at the check's overall deadline and refuse to START one after it. They live here
@@ -1426,7 +1436,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
     # **685 -> 691** (2026-09-25, the property-test batches): `bounded_output` clamps its bounds and always keeps the tail.
-    "diagnostics.py": 691,
+    # **691 -> 693** (2026-09-28, the round-28 Full run): the `ripper.secure_rerip_verdict` entry says it is graded by direction and names its track.
+    "diagnostics.py": 693,
     # **411 -> 423 on 2026-09-10** (log-verification race, above):
     # `FORCE_STOP_COUNTDOWN_S` moved here from the UI module that arms the
     # timer, because the rip worker's log wait must outlast it. Two
@@ -1465,7 +1476,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1640 -> 1635 on 2026-09-26**: the fork released round 27 lap 4 with these words
     # (the summary accepted, the per-track line in the amended form `46a522e`
     # already carried), so the revert is reverted and the wording code leaves again.
-    "eac_log_export.py": 1635,
+    # **1635 -> 1764 on 2026-09-28** (the Full run's F5): the incomplete-rip banner
+    # names the track a cancelled rip was reading as partly read, and counts against
+    # the tracks the rip was asked for (`_requested_subset`, `_absent_tracks_sentence`,
+    # and the "RIP STOPPED" branch for a complete selection). It is this document's
+    # own banner, so it stays beside the renderer; most of the growth is the comments
+    # saying which record each number comes from.
+    "eac_log_export.py": 1764,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1577,7 +1594,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 26 for 0.6.55, with the provenance the record's own rule requires beside it.
     # 683 -> 693 on 2026-09-26: round 27's approval (0.6.60, round 27) and why a quick
     # run approves the build without having exercised `.16`'s two changes.
-    "handshake_approval.py": 693,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **693 -> 735** (2026-09-28, the round-28 Full run): the approved pair names the app version the record approved, not the running one, and `_running_app_clause` states the running version apart, tri-state; the pair line is this module's own renderer.
+    "handshake_approval.py": 735,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
@@ -1598,7 +1616,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **605 -> 630** (2026-09-24, #37 one home per setting): the User Guide says where each moved setting now lives (Set up drive…, Setup & Updates, the console) and what OK/Apply/Cancel/Restore Defaults do.
     # **630 -> 628** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **628 -> 631** (2026-09-27): the Guide says Set cover art from file… is on the disc panel's right-click menu, and that the Tools copy goes in the next release.
-    "help_content.py": 631,
+    # **631 -> 633** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Settings bullet says a rip of only some tracks is not checked against CTDB, and why.
+    # **631 -> 637** (2026-09-28, the `-Z` wording): the User Guide's Max retries, secure re-read and Test & Copy bullets say what `-r` limits and that `-Z N` is N+1 identical reads, under the renamed label.
+    "help_content.py": 639,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1643,7 +1663,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
     # **2976 -> 3023** (2026-09-26): the one-frame note now says whose number differs — the log keeps its own count, and the note tells a re-read of ours apart from the ripper disagreeing with its own log (the Full run).
     # **3023 -> 3032** (2026-09-27, round 28 lap 3 S12): `Partial files:`, announced for `.18`, joins `_IGNORED_DISC_LINES` with its reason. The table is what the completeness sweep and the generated consumer contract read, so the entry cannot live elsewhere.
-    "parsers/cyanrip_log.py": 3032,
+    # **3032 -> 3064** (2026-09-28, the round-28 Full run): `secure_rerip_verdict_converged`, the one home of which way a `-Z` verdict went, so the rip worker can grade its diagnostic by it; the parser's own loop now calls it instead of restating the `agreed >= 1` rule.
+    # **3064 -> 3189** (2026-09-28, the Full run's F5/F6): `Tracks to rip:` graduates from the ignore list to a line rule, and `interruption_point` classifies the two published `Interrupted at:` shapes. The patterns must live here: the completeness sweep walks this module's own regex constants, and the rule table is what the generated consumer contract publishes.
+    "parsers/cyanrip_log.py": 3189,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1653,7 +1675,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **884 -> 889** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
     # **890 -> 896** (2026-09-26): `partially_accurate_logged`, the log's own one-frame count beside the ripper's tally (the Full run).
-    "parsers/rip_log.py": 896,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **896 -> 904** (2026-09-28, the Full run's F5): `tracks_to_rip` and `tracks_to_rip_numbers`, the ripper's own statement of which tracks it was told to extract.
+    "parsers/rip_log.py": 904,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -1664,14 +1687,19 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **928 -> 957 (2026-09-28)**: `check_dependencies` passes the GUI's own deadline and names the tools a stopped check did not reach; it is the CheckResult mapping, which lives with the other checks.
     "preflight.py": 957,
     # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
-    "read_speed_ladder.py": 370,
+    # **370 -> 373** (2026-09-28, the Full run's track 3): the retried-track copy carries `replaced_because`.
+    # **370 -> 410** (2026-09-28, `-Z` that `-r` cannot satisfy): `recovery_secure_rerip_ceiling`, which caps the ladder's own fallback `-Z` (`MAX_SECURE_REREP`, defined here) at what the user's `-r` lets converge. Beside the bound it caps, and shared by the ladder and the auto-fix so they cannot disagree.
+    # **410 -> 414** (2026-09-28, the `-Z` wording): the ladder's reason strings name N+1 identical passes for `-Z N`, and two comments say so.
+    # **414 -> 415** (2026-09-28, same): `unstable_tracks`' docstring stops saying a track that hit the limit had no two reads agree.
+    "read_speed_ladder.py": 418,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
     # **690 -> 712** (2026-09-24, #36): `ComponentInventory`, the one inventory type, and v27's `dependencies_measured_at`.
     # **712 -> 723** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): `TagFixEntry` and `DiscBlock.tag_control_characters_replaced`.
     # **723 -> 727** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): `DiscBlock.eac_log_signature_lines_defused`.
-    "report_types.py": 727,
+    # **727 -> 730** (2026-09-28, the Full run's track 3): `RetriedTrackBlock.replaced_because`, schema v30.
+    "report_types.py": 730,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1696,10 +1724,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1287 -> 1301** (2026-09-26, the maintainer's quick run): the completion check compares the ripper's count with the tracks ASKED for (`completeness.tracks_expected`), not the disc total, so a deliberate partial rip is not graded as contradicting itself.
     # 1301 -> 1322 on 2026-09-26: `_ar_matched` reads the confidence through
     # `accuraterip_is_match` instead of the result's words, with the docstring saying why.
-    "rip_audit.py": 1322,
+    # **1322 -> 1464 on 2026-09-28** (the Full run's F6): the audio-file check names every file the ripper's log does not account for (`_audio_accounting`, `_report_unaccounted`) instead of counting a cancelled rip's partial read into "all with content" at OK, and `_rip_did_not_finish` is the one "finished?" predicate both of its findings use. They sit beside the check they serve, in the registry module every check lives in; most of the growth is the docstrings saying what each grade means.
+    "rip_audit.py": 1464,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
-    "rip_files.py": 422,
+    # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.
+    "rip_files.py": 437,
     # **2302 -> 2402 on 2026-09-15**: `SUPERSEDED_GATE`, `OPTIONAL_ARTIFACTS`, and
     # the gate-vs-result check in `_issues`. It is the block that decides whether
     # this report tells the truth about what was verified, and the 2026-09-15 run
@@ -1726,7 +1756,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2528 -> 2546** (2026-09-26, the maintainer's quick run): a missing EAC-layout log is healthy when the rip's own settings turned it off (`_setting_was_on`).
     # **2546 -> 2554** (2026-09-26): the report passes the log's own count to the one-frame note, so our re-read is not described as the ripper disagreeing (the Full run).
     # **2554 -> 2581** (2026-09-26, the fork's S16): a rip whose log records no track is no longer blamed on the pressing, the database or the offset, and only a log that parsed whole can say so.
-    "rip_report.py": 2581,
+    # **2581 -> 2587** (2026-09-28, the Full run's track 3): the schema v30 note, beside the version it describes.
+    # **2587 -> 2609** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `NOT_WHOLE_DISC_GATE` beside its sibling gate states, and the one place `_build` corrects `gates.ctdb` from the verdict, where the settings-derived gate and the result meet. The verdict's value is imported from `ctdb/coverage.py`, so the builder stays adapter-free.
+    # **2609 -> 2667** (2026-09-28, the round-28 Full run: a debug block marked truncated, tail-only, uncounted, under a scope saying "since launch"): `_debug_scope`, the scope sentence built from what the lines ARE — the buffer's counted drop with its span, and this report's own elision — and `build_debug_log` taking the count. The sentence describes the report's block, so it lives with the block.
+    # **2581 -> 2582** (2026-09-28, the `-Z` wording): the `secure_rerip_converged` comment says a hit repeat limit can follow two reads that agreed, which "without any two agreeing" denied.
+    "rip_report.py": 2668,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1755,7 +1789,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **933 -> 947** (2026-09-25): `is_control_char` widened to C1 and U+2028/2029, with the reason; the one definition belongs beside the validators that use it.
     # **947 -> 1004** (2026-09-25, the property-test batches): three rules no longer crash (and so pass) on an unhashable choice, an unknown `~user`, or an over-long component; and `%%` no longer hides a segment from the reserved-name and trailing-dot checks.
     # **1004 -> 1024** (2026-09-25, D17, KDD-38): a crashing rule becomes a visible warning on its field instead of a silent pass, and the docstring says why it is not an error.
-    "settings_validation.py": 1024,
+    # **1024 -> 1104** (2026-09-28, the round-28 Full run: five scripted refusals wrote nothing to the log): `log_refusal`, the ONE log line for refused input, and `_loggable_value`, its escaped head-and-tail bound. `field_error` calls it, so every single-setting writer logs without a caller remembering to. The input boundary is this module's job, so its log line lives here.
+    # **1024 -> 1033** (2026-09-28, the `-Z` wording): `MAX_RETRIES_LABEL` and `SECURE_REREP_LABEL`, the row names the validator's messages use, so a renamed row cannot leave a message naming a control that is gone (it did, for a week).
+    # **1033 -> 1129** (2026-09-28, Max retries vs the secure re-read): `_validate_secure_reread_ceiling`, the input-boundary half of the `-Z`/`-r` rule (the argv chokepoint is the other). It reports on both fields, says which settings actually send `-Z` and why Off is never judged, and warns on a pair with no room for one bad read. The rule itself is `cyanrip_cli.secure_reread_problem`; this is the Settings wording and the reasons.
+    "settings_validation.py": 1209,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -1782,7 +1819,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # shipped-scripts directory name now comes from `uiscript.find_script`, whose
     # resolver falls back to it — one import and one comment line saying so, so the
     # menu and the command line cannot name two directories.
-    "test_session.py": 863,
+    # **863 -> 932 (2026-09-28, the Full run's P3 folders)**: the album scan's second
+    # marker, a log cyanrip itself wrote (`RIPPER_LOG_GLOB`, `_is_ripper_log`), so a
+    # script `cyanrip` verb's folder — no app rip, so no `*.platterpus.json` — reaches
+    # the bundle's strict album channel. It is the same scan's other half, not a job.
+    "test_session.py": 932,
     "ui/dialogs/pending_installs.py": 419,
     # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
     # channels (they live above the checks they steer), a Drive section holding
@@ -2010,7 +2051,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4802 -> 4803 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
     # 4803 -> 4820 on 2026-09-28 (review R4, R5): `_rip_metadata_for`, the one metadata snapshot the rip and the overwrite guard both read, and the guard saying so when a folder-less template leaves it nothing to check.
     # 4820 -> 4830 on 2026-09-28: the overwrite guard decides on folders that exist, and does not promise an overwrite of a look-alike (review Q4).
-    "ui/main_window_rip.py": 4830,
+    # **4830 -> 4852** (2026-09-28, the Full run's track 3): two auto-fix sentences, one per reason a re-read is kept, since a read kept on AccurateRip's word may not have read consistently; and the unstable-track warning names the read the album keeps.
+    # **4852 -> 4861** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `_start_ctdb_verify` hands the worker the rip's parsed log and the probe's track count, read at launch on the GUI thread, because the daemon runs later.
+    # 4861 -> 4867 on 2026-09-28 (the round-28 Full run): the debug block is built from ONE buffer snapshot, so the count in its scope is the count in its marker.
+    "ui/main_window_rip.py": 4867,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2048,7 +2092,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # saying so (tests/test_labels_state_their_text_format.py checks this builder).
     "ui/main_window_update.py": 1023,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "ui/rip_progress.py": 1659,
+    # **1659 -> 1667** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Details-tab line for a partial rip shows the verdict's own "not run" sentence and can never fall through to "this disc isn't in the database".
+    "ui/rip_progress.py": 1667,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
@@ -2078,7 +2123,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1381 -> 1335** (2026-09-24, #37 one home per setting): down: seven controls moved to their homes, net of OK/Apply/Cancel/Restore Defaults.
     # **1335 -> 1336** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **1336 -> 1337** (2026-09-25, D18: `%N`/`%M` work everywhere): the template tooltip lists `%N` and `%M`.
-    "ui/settings_dialog.py": 1337,
+    # **1337 -> 1340** (2026-09-28, the round-28 Full run): a blocked save hands the form's values to `log_issues`, so the log names the refused value.
+    # **1337 -> 1362** (2026-09-28, the `-Z` wording): the secure re-read row is "Extra matching reads to trust a track" (N+1 identical reads, not N), Max retries' tooltip says it is also the whole-track read ceiling and what 0 really does, and the comment that claimed the 2026-09-21 rename fixed every place says which one it missed.
+    # **1362 -> 1378** (2026-09-28, Max retries vs the secure re-read): both spin boxes join the validated widgets and revalidate as they move, because two in-range spin boxes can now make an invalid pair; the banner lists a pair rule's message once.
+    "ui/settings_dialog.py": 1381,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     "ui/track_table.py": 832,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
@@ -2200,7 +2248,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4398 -> 4407 on 2026-09-26: _active_dialog counts only a VISIBLE dialog; a hidden one Qt still called active blocked `rip`.
     # 4407 -> 4420 on 2026-09-27: _forget_last_cyanrip_result, called first by every cyanrip step (TASKS D7).
     # 4420 -> 4512 on 2026-09-28: `open dependencies` probed on the GUI thread; it now starts the check on a worker and waits on this file's deadline machinery (_open_dependency_check), and `stop` records a step that was mid-wait.
-    "uiscript/runner.py": 4512,  # +116: _do_expect_verification, the assertion section F never had,
+    # 4512 -> 4598 on 2026-09-28: the `cyanrip` verb runs the ripper in the rips folder (`_ripper_workdir`, beside `_drive_in_offset_list`) and records it (`_job_invocation`); the 2026-09-28 Full run's relative `-D r16deemphon` wrote a commercial track outside the session folder and its logs never reached the bundle.
+    # 4512 -> 4536 on 2026-09-28 (the round-28 Full run): `_coerce_script_input`, the coercer as `set` and `expect-refused` use it, logging the value it refuses through `settings_validation.log_refusal`; `expect` keeps the bare coercer, because its value is an assertion, not an input.
+    "uiscript/runner.py": 4622,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2218,7 +2268,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `expect-rip-complete` could not state this claim (cyanrip is always invoked
     # `-o flac`, so its log is identical whether our transcode ran or not).
     # **759 -> 801** (2026-09-24): four verbs, `run-size`, `keep`, `set-drive-offset` and `expect-drive-offset`. The table is the vocabulary's security boundary, so a verb is an entry here by design.
-    "uiscript/verbs.py": 801,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
+    # 801 -> 803 on 2026-09-28: the `cyanrip` verb's help names the folder it runs in.
+    "uiscript/verbs.py": 803,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical
@@ -2234,7 +2285,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "update_install.py": 358,
     # **521 -> 530** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The banner and the CTDB reconciliation say what matched.
     # **530 -> 531** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "verdict.py": 531,
+    # **531 -> 593** (2026-09-28, the Full run's track 3): `reread_supersedes`, which read of a track to keep, beside the AccurateRip predicate it is built on; most of it is the docstring giving the order and the run that set it.
+    "verdict.py": 593,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.
@@ -2254,7 +2306,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the log pane and the record, and the capture ends with what screening changed.
     # The screen itself lives in inbound_text; this is the wiring and its reasons.
     # **3490 -> 3523** (2026-09-27, TASKS the `-j` rows): each album pass's `-j` record path is read off the argv as spawned and the directory it ran in, and exposed for the report bundle. The worker is the only place that holds both; the argv reader is `diagnostics_record.py`. Nothing is moved.
-    "workers/rip_worker.py": 3523,
+    # **3523 -> 3586** (2026-09-28, the Full run's track 3): the auto-fix asks `verdict.reread_supersedes` instead of convergence alone, so it is handed the first pass's parsed tracks, records why a re-read was kept, says so in its log line and addendum row, and its docstrings describe the new rule.
+    # **3586 -> 3611** (2026-09-28, the round-28 Full run): the secure re-read verdict diagnostic is graded by its direction (warning when the reads never agreed) and names its track, with why the progress lines' track is the verdict's. The worker is the only place that sees both lines in stream order.
+    # **3523 -> 3531** (2026-09-28, `-Z` that `-r` cannot satisfy): the ladder and the instability auto-fix ask `recovery_secure_rerip_ceiling` instead of `secure_rerip_matches or MAX_SECURE_REREP`; the decision lives in `read_speed_ladder.py`, only the calls and their comments are here.
+    "workers/rip_worker.py": 3619,
 }
 
 

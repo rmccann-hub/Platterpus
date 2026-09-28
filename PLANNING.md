@@ -266,6 +266,7 @@ Platterpus/
         │   ├── crc.py                   # the audio CRC (hardware-validated; CRC_VALIDATED=True, KDD-16)
         │   ├── calibrate.py             # CRC offset-sweep calibration against a real in-CTDB disc (KDD-16)
         │   ├── diagnose.py              # shared engine behind scripts/ctdb_verify.py + --ctdb-calibrate
+        │   ├── coverage.py              # how many tracks the DISC has, so a partial rip is never looked up
         │   └── verify.py                # verify_rip() orchestration + Verdict enum
         │
         ├── deps/                        # dependency self-management subsystem (brief P0 #11)
@@ -479,7 +480,8 @@ Clean-room CTDB verify support (KDD-16), kept as a standalone library so the det
 - **`toc.py`** — `DiscToc` value object, the `toc=` query string, and the disc-TOC math (MSF/sector helpers, build-from-files via `metaflac` sample counts).
 - **`decode.py`** — host `flac`→raw-PCM decode + `metaflac` sample-count probe (best-effort, optional `flac` dependency; degrades to `DecoderUnavailable`). Injectable runners.
 - **`crc.py`** — the CTDB audio CRC: bit-exact `zlib.crc32` over the whole-disc PCM with a fixed 5880-frame front / length-dependent back trim, ±5879 offset sweep. ✅ Hardware-validated (`CRC_VALIDATED=True`, KDD-16, 2026-07-07; see `CONFIRMED_VECTOR`). Fails safe (a wrong CRC yields `NO_MATCH`, never a false "verified").
-- **`verify.py`** — `verify_rip()` orchestration tying lookup + decode + CRC into a single `CtdbVerifyResult`/`Verdict`; every expected failure is a verdict, not a raise.
+- **`verify.py`** — `verify_rip()` orchestration tying lookup + decode + CRC into a single `CtdbVerifyResult`/`Verdict`; every expected failure is a verdict, not a raise. A rip whose files cover fewer tracks than the disc has is answered `not_whole_disc` before any TOC is built (2026-09-28): the TOC comes from the files, so a partial rip's TOC is a disc that does not exist, and its 404 used to be filed as "not in CTDB".
+- **`coverage.py`** — `disc_track_count()`: how many tracks the disc has, from the ripper's own `Rip completed: … N of M tracks` footer first and the disc probe's `Disc tracks:` second, range-checked, `None` when neither says. Also holds the `not_whole_disc` verdict's wire value, spelled once, so the adapter-free `rip_report` can compare against it.
 - **`calibrate.py`** — the CRC offset-sweep calibration that pinned the algorithm against a real in-CTDB disc (KDD-16); kept so the vector can be re-derived on new hardware.
 - **`diagnose.py`** — the shared engine behind `scripts/ctdb_verify.py` and `platterpus --ctdb-calibrate`: run a CTDB verify (+ optional calibration) over an existing rip folder, no re-rip needed.
 
@@ -1171,6 +1173,10 @@ Root cause of the non-reproducibility (not a bug — a deliberate design premise
 
 **Amended 2026-09-24 (maintainer decision): the default is now ON, and the "keep the fast default" decision above is superseded.** It was reasoned from one premise: an offset-variant match is *usually a genuine pressing difference*, so re-reading it costs time and buys nothing. Two things measured since then undo it. **(1) What the match checks.** cyanrip's `Accurip 450` is a checksum over **one frame** of the track (`cyanrip@df91ae7:src/checksums.h:74-78`), so "matches Accurip DB … partially accurately ripped" says nothing about the rest of the track. **(2) It passed wrong audio twice.** On the 2026-09-24 acceptance run, section J's track 1 read `0E91CD1A`, while the five other reads of that track in the same bundle gave `B0D122E7`, an exact AccurateRip match (`docs/handshake/artifactsround26/round26aftercancel.log`); the fork found the same wrong read on 2026-09-11 on another build (their round 26 lap 6 §B). Both were kept as "partially accurate" because this setting was off, and our report called the cause "an offset-variant pressing", which nothing measured. So the old default traded the archive for speed, and *fail-safe is defined against the thing being protected*. What changed: `config.DEFAULT_RERIP_OFFSET_VARIANT = True` is the one default that `Config`, `RipParameters` and `describe_rip_plan` all read; Fast Verified and Portable carry it, so `secure_rerip_dynamic` is now the only field that makes Archival Exact a different rip; and config schema v8→v9 turns a saved `false` on **once**, like v6→v7, because every v8 file carries the field explicitly and a saved `false` cannot say whether it was chosen or inherited. Without that step, an untouched Fast Verified config would also stop matching its own preset and show as "Custom". The cost is the one this KDD named: re-read time on offset-variant tracks (in dynamic mode only, bounded by `secure_rerip_matches`), and none on a disc that has none. **Amended again, same day: the premise was wrong on the mechanism too, not only on the numbers.** "Usually a genuine pressing difference" cannot be true of this check: a pressing shifted by an offset moves frame 450 as well, and a pressing someone submitted matches its own whole-track entry exactly (`cyanrip@df91ae7:src/accurip.c:304-317`). So our screens, report sentence, help and the Settings option (now *"Also re-read tracks where only one frame matched AccurateRip"*) say what matched and name no cause (`one_frame_match.py`). The config key keeps its historical name. The EAC-compatible log keeps its wording until round 27, under round 7 lap 11's H4 agreement. Regression tests: `tests/test_rip_worker.py::test_a_one_frame_offset_variant_match_is_re_read_by_default` (fed the real section J log) and the v8→v9 tests in `tests/test_config.py`.
 
+**Amended 2026-09-28 (the Full run on 0.6.61 with `.17`): which read the auto-fix keeps is decided by AccurateRip first, then by convergence.** The re-read this KDD turned on had a rule of its own for what to do with the result: keep it only if it converged. On the Full run that rule deleted the better read. The first whole-disc rip read track 3 as `15D16895`, with no whole-track AccurateRip match. The auto-fix re-read it at `-Z 2`, and the reads were `59D352DD`, `E5BEB068`, `59D352DD`. Two agreed, one short of what `-Z 2` asks, so it "did not converge", and the kept read, which AccurateRip v1 (confidence 128) and v2 (200) both matched, was deleted with its temp folder. The album shipped `15D16895`, and the status line said we had *"kept the best read"*. The secure re-read rip of the same disc converged on `59D352DD` three times (`docs/handshake/artifactsround28/README.md`).
+
+**Decision:** `verdict.reread_supersedes` keeps the re-read when it matches AccurateRip and the first read does not, keeps the first read when the reverse holds (even over a converged re-read), and leaves the old rule to decide the rest. The two are different evidence: convergence is our drive agreeing with itself, and an AccurateRip match is other people's rips of the same pressing agreeing with ours, so where they disagree the independent witness wins. The report records why a re-read was kept (`read_speed.retried_tracks[].replaced_because`, schema v30), because `converged: false, replaced: true` is now a real record. **Lesson:** a keep-or-discard rule written on one kind of evidence discards the other kind without saying so; ask of any such rule what it does with a result that is better by a measure it does not read.
+
 ### KDD-28 — Log integrity checksum: equal-or-stronger than EAC's, honestly labelled ours (decided 2026-07-24)
 
 Maintainer directive: *"I am not asking you to forge anything to look like EAC, we want to be up front we are NOT EAC. What I want is a checksum that is at least as strong as EAC's."* This refines KDD-11's "weaker integrity" note, which conflated two different guarantees a log checksum provides:
@@ -1316,11 +1322,13 @@ is the decision log failing at the one thing it is for. All three were live in
   should not allow a 0.9.1."* Two passes on one rig answer *was it luck* and say
   nothing about *is it green only because of this machine*.
 
-**Status, 2026-09-26:** the ledger carries nine rows, every one `partial`, and
-no `full-green` row. The newest, 2026-09-26 on app 0.6.60 against `221a1df`
-(`.16`), is the first Full run whose every archival check could fail: 320 of 320,
-graded `partial` by the maintainer because the records carried errors no step
-could fail over (`docs/testing.md` §5B, the 2026-09-26 row). The one before, 2026-09-24 on app 0.6.55 against the round-26
+**Status, 2026-09-28:** the ledger carries ten rows, every one `partial`, and
+no `full-green` row. The newest, 2026-09-28 on app 0.6.61 against `e0471f4`
+(`.17`), is round 28's Full run: 320 of 320, `partial` because its records carried
+two errors of ours no step could fail over (`docs/testing.md` §5B, the 2026-09-28
+row). The 2026-09-26 run on app 0.6.60 against `221a1df` (`.16`) was the first Full
+run whose every archival check could fail: 320 of 320, graded `partial` by the
+maintainer for the same reason (the 2026-09-26 row). The one before, 2026-09-24 on app 0.6.55 against the round-26
 test pin `df91ae7` (258/261), lost section F's whole-disc rip when the ripper's
 container was stopped from outside the app. F is graded `ARCHIVAL` in advance,
 so the row is `partial` (`docs/testing.md` §5.br). The 2026-09-12 run (238/238, app 0.6.47 against ripper

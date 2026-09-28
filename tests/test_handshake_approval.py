@@ -29,6 +29,7 @@ The properties under test, in the order they matter:
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -676,6 +677,78 @@ def test_the_pair_line_says_which_question_it_answers() -> None:
     assert __version__ in line, line
     assert ha.APPROVED_BY_ROUND is not None
     assert str(ha.APPROVED_BY_ROUND) in line, line
+
+
+#: The app half of the pair, as the line spells it: `Approved pair: Platterpus X + …`.
+_PAIR_APP_HALF = r"^Approved pair: Platterpus (?P<app>\S+) \+ "
+
+
+def test_the_approved_pair_names_the_app_the_record_approved_not_the_running_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """**The round-28 Full run's diagnostics header contradicted itself.**
+
+    Line 3 of `round28fulldiagnostics.txt` (2026-09-28, on the session branch):
+
+        Approved pair: Platterpus 0.6.61 + cyanrip 0.9.4-rc2+platterpus.16
+        (platterpus-fork-g221a1df) — verified by handshake round 27 (approved for
+        Platterpus 0.6.60)
+
+    It named the RUNNING app as half of the approved pair and then said the pair was
+    approved for another. That run's own values are set here, so the test reproduces
+    the sentence rather than today's constants happening to agree or differ.
+    """
+    monkeypatch.setattr(ha, "APPROVED_FOR_PLATTERPUS_VERSION", "0.6.60")
+    line = ha.version_pair_line(app_version="0.6.61")
+    half = re.match(_PAIR_APP_HALF, line)
+    assert half is not None, f"the line no longer opens with the pair:\n{line}"
+    assert half.group("app") == "0.6.60", (
+        f"the pair's app half is {half.group('app')}, but the record approved "
+        f"0.6.60 — the pair is the record's, not this installation's:\n{line}"
+    )
+    # The running version is still named, separately, and plainly as NOT approved.
+    assert "This app is Platterpus 0.6.61, which that round did NOT approve" in line
+    # The exact contradiction, by its shape: the running version never appears as a
+    # half of the pair. A containment check on "0.6.61" alone would pass either way.
+    assert "Platterpus 0.6.61 +" not in line, line
+
+
+def test_the_running_app_clause_is_tri_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Approved, not approved, and not determined — each reads differently.
+
+    The pair and the running app agree → it says so, with no negative in it. The
+    record names no app version → *not determined*, never "did NOT approve", because
+    a record that names nothing makes no claim to contradict.
+    """
+    monkeypatch.setattr(ha, "APPROVED_FOR_PLATTERPUS_VERSION", "0.6.60")
+    same = ha.version_pair_line(app_version="0.6.60")
+    assert "This app is Platterpus 0.6.60, the version that round approved." in same
+    assert "NOT approve" not in same and "not determined" not in same, same
+
+    other = ha.version_pair_line(app_version="0.6.61")
+    assert "did NOT approve" in other and "not determined" not in other, other
+
+    monkeypatch.setattr(ha, "APPROVED_FOR_PLATTERPUS_VERSION", "")
+    unnamed = ha.version_pair_line(app_version="0.6.61")
+    assert "not determined" in unnamed, unnamed
+    assert "NOT approve" not in unnamed, (
+        f"a record naming no app version was read as a refusal:\n{unnamed}"
+    )
+    assert "This app is Platterpus 0.6.61" in unnamed
+    # Floor: the three states produced three different sentences.
+    assert len({same, other, unnamed}) == 3
+
+
+def test_the_default_pair_line_describes_this_build() -> None:
+    """With no argument the line speaks for THIS app — the production call shape —
+    and its pair half is the record's constant, whatever the running version is."""
+    line = ha.version_pair_line()
+    half = re.match(_PAIR_APP_HALF, line)
+    assert half is not None and half.group("app") == ha.APPROVED_FOR_PLATTERPUS_VERSION
+    assert f"This app is Platterpus {__version__}" in line, line
+    agrees = __version__ == ha.APPROVED_FOR_PLATTERPUS_VERSION
+    assert ("the version that round approved" in line) is agrees, line
+    assert ("did NOT approve" in line) is (not agrees), line
 
 
 #: EVERY `Handshake:` shape the fork's build can emit, DERIVED from their source

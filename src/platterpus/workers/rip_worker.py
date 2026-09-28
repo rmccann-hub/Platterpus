@@ -51,11 +51,11 @@ from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 from platterpus.parsers import cyanrip_log
 from platterpus.read_speed_ladder import (
     MAX_ATTEMPTS,
-    MAX_SECURE_REREP,
     SpeedAttempt,
     disc_in_accuraterip,
     next_step,
     read_errors_present,
+    recovery_secure_rerip_ceiling,
     tracks_failing_accuraterip,
     unstable_tracks,
 )
@@ -74,6 +74,11 @@ from platterpus.ripper_log_settle import (
 from platterpus.ripper_message_inventory import ALL_FORMATS
 from platterpus.ripper_messages import build_matcher
 from platterpus.safe_int import int_or_none
+from platterpus.verdict import (
+    REREAD_KEPT_FOR_ACCURATERIP,
+    REREAD_KEPT_FOR_CONVERGENCE,
+    reread_supersedes,
+)
 
 log = logging.getLogger(__name__)
 
@@ -97,7 +102,7 @@ class RipParameters:
     # otherwise the front cover is embedded after the rip.
     cover_art: str = ""
     max_retries: int = 5
-    # cyanrip's `-Z N` (rip until N reads' checksums match) for marginal
+    # cyanrip's `-Z N` (re-read until N+1 reads are identical) for marginal
     # discs. 0 = off.
     secure_rerip_matches: int = 0
     # cyanrip's `-O`: read into the disc's lead-in/lead-out instead of
@@ -573,7 +578,7 @@ _POST_RIP_BAND_START: float = 95.0
 #
 # WHAT CAN HONESTLY BE ESTIMATED HERE, and what deliberately is not.
 #
-# A `-Z N` re-rip reads one track over and over until N reads agree. **How many
+# A `-Z N` re-rip reads one track over and over until N+1 reads are identical. **How many
 # more reads that will take is unknowable** — that is the whole point of the
 # b8 lesson (`_album_eta_text`): "the extra time the re-read costs is unknowable
 # until it converges". So we do NOT invent a total for the securing pass.
@@ -1322,7 +1327,7 @@ class RipWorker(QObject):
         **What this estimates, and what it refuses to.** It estimates the time left
         in the read that is running right now, measured from that read's own
         percentage over a short trailing window. It does NOT estimate the securing
-        pass as a whole, because a ``-Z N`` re-rip runs until N reads agree and the
+        pass as a whole, because a ``-Z N`` re-rip runs until N+1 reads are identical and the
         number of reads that will take is genuinely unknowable — inventing a total
         for it is the same class of mistake as the album estimate this replaces,
         just with a smaller denominator. So the wording is scoped too: "about 20s
@@ -1772,12 +1777,16 @@ class RipWorker(QObject):
                 current_secure_rerip=secure_rerip,
                 speed_locked=self._speed_locked,
                 # The user's -Z is the ceiling when they set one — the ladder never
-                # escalates beyond the number they picked. When they left it at the
-                # default 0 (no secure re-rip requested), the read-error recovery
-                # still needs SOME -Z to try, so fall back to the small internal
-                # recovery bound (MAX_SECURE_REREP — the "like 10" cap the user
-                # explicitly allowed). `0 or MAX_SECURE_REREP` == MAX_SECURE_REREP.
-                max_secure_rerip=self._params.secure_rerip_matches or MAX_SECURE_REREP,
+                # escalates beyond the number they picked. When they left it at 0
+                # (no secure re-rip requested), the read-error recovery still needs
+                # SOME -Z to try, so it falls back to the small internal bound
+                # (MAX_SECURE_REREP), CAPPED at what their -r lets converge: a -Z
+                # the -r ceiling cannot satisfy reads every track -r times and
+                # verifies none of them. One function for this and the auto-fix.
+                max_secure_rerip=recovery_secure_rerip_ceiling(
+                    secure_rerip_matches=self._params.secure_rerip_matches,
+                    max_retries=self._params.max_retries,
+                ),
             )
             if step is None:
                 # Floor + -Z exhausted — stop and leave the disc FLAGGED
@@ -1844,10 +1853,14 @@ class RipWorker(QObject):
                 # re-read alone HARDER. It NEEDS a -Z to converge, so use the user's
                 # configured ceiling when they set one, else the internal recovery
                 # bound (they may have left -Z at 0 while still wanting a shaky
-                # track rescued — that's what auto_ladder mode is for).
+                # track rescued — that's what auto_ladder mode is for), capped at
+                # what their -r lets converge — the same answer the ladder gets.
                 to_fix = list(self._last_unstable_tracks)
                 trigger = "instability"
-                rerip_z = self._params.secure_rerip_matches or MAX_SECURE_REREP
+                rerip_z = recovery_secure_rerip_ceiling(
+                    secure_rerip_matches=self._params.secure_rerip_matches,
+                    max_retries=self._params.max_retries,
+                )
             else:
                 to_fix = []
                 trigger = ""
@@ -1870,12 +1883,22 @@ class RipWorker(QObject):
                         )
                     )
                 }
+                # And the first pass's whole parsed record per track: which read
+                # to keep is decided on AccurateRip first, so the auto-fix needs
+                # to know whether the read it might replace was already verified
+                # (verdict.reread_supersedes).
+                first_pass_tracks = {
+                    number: track
+                    for track in getattr(parsed_log, "tracks", ()) or ()
+                    if (number := getattr(track, "number", None)) is not None
+                }
                 self._auto_fix_tracks(
                     to_fix,
                     rerip_z,
                     trigger,
                     album_log_path=log_path_str,
                     first_pass_crcs=first_pass_crcs,
+                    first_pass_tracks=first_pass_tracks,
                 )
 
         # Ask the RIPPER whether the log it wrote still matches its own checksum.
@@ -2266,17 +2289,42 @@ class RipWorker(QObject):
                 # 2026-09-03 bundle report `errors: 13 / worst: error` for a rip
                 # that finished `Ripping errors: 0` with all 14 tracks written.
                 #
-                # Recorded as INFO rather than dropped: a deliberate reclassify is
-                # not a licence to lose the line, and a silent drop reads as
+                # Recorded rather than dropped: a deliberate reclassify is not a
+                # licence to lose the line, and a silent drop reads as
                 # completeness. The predicate lives in the parser that owns the
-                # fact (`cyanrip_log.is_secure_rerip_verdict`) so this cannot
-                # become a second, drifting opinion about the same sentence.
-                if cyanrip_log.is_secure_rerip_verdict(line):
-                    diagnostics.info(
+                # fact (`cyanrip_log.secure_rerip_verdict_converged`) so this
+                # cannot become a second, drifting opinion about the same sentence.
+                #
+                # **Graded by which way it went (2026-09-28, the round-28 Full
+                # run).** Every verdict used to be filed at `info`, converged or
+                # not, and none named its track — so that run's diagnostics file
+                # read `warnings: 1 … worst: warning` with its one warning a
+                # deliberate negative test, while four verdicts whose reads never
+                # agreed sat at `info` among thirteen that converged. A track
+                # whose reads never agreed is a real degradation of the rip's
+                # evidence (the module's own definition of WARNING: "something
+                # degraded … the rip may be fine"); a converged one is not. Not
+                # ERROR, for the reason above: it is a fact about the disc, and
+                # the rip finished.
+                converged = cyanrip_log.secure_rerip_verdict_converged(line)
+                if converged is not None:
+                    grade = diagnostics.info if converged else diagnostics.warning
+                    grade(
                         "ripper.secure_rerip_verdict",
                         line.strip(),
                         tool="cyanrip",
                         where="workers.rip_worker.RipWorker._run_rip",
+                        # WHICH track. cyanrip prints the verdict at the end of
+                        # the track's repeat loop, after that track's own
+                        # "Ripping (and encoding) track N, progress" lines and
+                        # before its block opens — so the track the progress
+                        # lines last named IS the track the verdict is about.
+                        # That is the parser's buffering rule seen from the
+                        # stream: it holds the verdict for the block that opens
+                        # next, which is the same track. `0` means no progress
+                        # line has named a track in this pass, and then we say
+                        # nothing (disc-level) rather than guess one.
+                        track=self._current_track or None,
                     )
                 elif _RIPPER_ERROR_RE.match(line):
                     if not self._failure_hint:
@@ -2698,9 +2746,18 @@ class RipWorker(QObject):
         trigger: str,
         album_log_path: str = "",
         first_pass_crcs: dict[int, str] | None = None,
+        first_pass_tracks: dict[int, object] | None = None,
     ) -> None:
         """Re-rip the given track(s) ALONE with ``-Z rerip_z``, keeping a re-read
-        only if it now reads consistently (converges).
+        when AccurateRip or convergence says it is the better read.
+
+        Which read is kept is `verdict.reread_supersedes`: AccurateRip first, in
+        both directions, then convergence. Until 2026-09-28 only convergence was
+        asked, and a re-read that matched AccurateRip but was one agreeing read
+        short of converging was deleted while an unverified first pass was kept
+        (the Full run's track 3). ``first_pass_tracks`` is the first pass's parsed
+        record per track, which that decision needs; None counts every first pass
+        as unverified.
 
         ``trigger`` records WHY each track was re-ripped, for the report:
         ``"instability"`` (a -Z pass never converged) or ``"accuraterip"`` (dynamic
@@ -2715,16 +2772,18 @@ class RipWorker(QObject):
 
         Cheap (cyanrip's ``-l`` rips just the listed tracks), needs no speed change
         (so it works on a speed-locked drive), and **can never make a track worse**
-        — a track is only ever replaced by a *converged* re-read; on any failure or
-        uncertainty the original is left untouched. The re-rip runs in a throwaway
+        — a verified first pass is never replaced by an unverified re-read, an
+        unverified one is replaced only by a verified or a converged re-read, and
+        on any failure or uncertainty the original is left untouched. The re-rip runs in a throwaway
         temp dir so the album's whole-disc ``.log`` / ``.cue`` stay intact; only an
         improved FLAC is copied into the album. Whatever couldn't be made to
         converge is left as ``unstable_tracks`` (flagged, never papered over).
 
         **HARDWARE-GATED:** the re-rip-and-swap path has not been exercised on a
-        real drive yet. It's safe by construction (no swap unless the re-read
-        converges and the file copies cleanly), but flag it for validation on the
-        Bazzite + BDR-209D rig. Best-effort: never raises (would abort the rip).
+        real drive yet. It's safe by construction (no swap unless the re-read is
+        the better read by the rule above and the file copies cleanly), but flag
+        it for validation on the Bazzite + BDR-209D rig. Best-effort: never raises
+        (would abort the rip).
         """
         import shutil
         import tempfile
@@ -2768,6 +2827,8 @@ class RipWorker(QObject):
                 return
             rerip_log = self._parse_log(rerip_log_path)
             fixed: list[int] = []
+            # Why each fixed track's re-read was kept (verdict.REREAD_KEPT_FOR_*).
+            kept_for: dict[int, str] = {}
             # One record per track actually swapped — used to write the addendum
             # sidecar, so the folder's text still describes the audio on disk.
             swapped: list[SupersededTrack] = []
@@ -2803,18 +2864,20 @@ class RipWorker(QObject):
                 if number not in tracks:
                     continue
                 converged = getattr(track, "secure_rerip_converged", None) is True
+                reason = reread_supersedes((first_pass_tracks or {}).get(number), track)
                 replaced = False
-                if converged:
+                if reason is not None:
                     replaced = self._swap_in_reripped_track(track, tmp_root)
                     if replaced:
                         fixed.append(number)
+                        kept_for[number] = reason
                         # The WHOLE per-track record, not just the CRC. Round 7
                         # lap 10 H5: the CRC-only addendum left the archived
                         # AccurateRip v1/v2 and the "not attempted" re-read verdict
                         # describing bytes we had deleted.
                         swapped.append(
                             self._superseded_record(
-                                track, (first_pass_crcs or {}).get(number, "")
+                                track, (first_pass_crcs or {}).get(number, ""), reason
                             )
                         )
                         # Keep the re-rip's parsed record: it is the SHIPPED file's
@@ -2828,23 +2891,43 @@ class RipWorker(QObject):
                         "reripped_z": rerip_z,
                         "converged": converged,
                         "replaced": replaced,
+                        # Why the re-read was kept, when it was: a re-read kept on
+                        # AccurateRip's word may not have converged, and without
+                        # this the report reads as a non-reproducible read swapped
+                        # in blindly.
+                        "replaced_because": reason if replaced else None,
                     }
                 )
-            # Whatever we couldn't get to converge stays flagged as unstable
-            # (a genuinely unreadable-consistently track — dynamic mode adds these,
+            # Whatever we kept no better read for stays flagged as unstable (a
+            # genuinely unreadable-consistently track — dynamic mode adds these,
             # the -Z path narrows its set). A converged read — even one that still
             # doesn't match the DB (a rare pressing) — is the best possible and is
-            # NOT called unstable.
+            # NOT called unstable; nor is a read AccurateRip verified, because the
+            # file on disk is then bit-perfect however unevenly the drive read it.
             # Every requested track now has a recorded outcome, so the pass ran
             # to completion — whatever its verdicts were.
             self._secure_rerip_interrupted = False
             self._last_unstable_tracks = [t for t in tracks if t not in fixed]
             if fixed:
                 names = ", ".join(str(n) for n in fixed)
-                self.log_line.emit(
-                    f"[auto-fix] track(s) {names} now read consistently — kept the "
-                    "re-rip."
+                # Two sentences, because the two reasons claim different things: a
+                # read kept on AccurateRip's word may not have read consistently.
+                converged_names = ", ".join(
+                    str(n) for n in fixed if kept_for[n] == REREAD_KEPT_FOR_CONVERGENCE
                 )
+                verified_names = ", ".join(
+                    str(n) for n in fixed if kept_for[n] == REREAD_KEPT_FOR_ACCURATERIP
+                )
+                if converged_names:
+                    self.log_line.emit(
+                        f"[auto-fix] track(s) {converged_names} now read consistently "
+                        "— kept the re-rip."
+                    )
+                if verified_names:
+                    self.log_line.emit(
+                        f"[auto-fix] track(s) {verified_names}: the re-rip matches "
+                        "AccurateRip and the first read did not — kept the re-rip."
+                    )
                 self.status.emit(f"Auto-fixed track(s) {names}.")
                 # Keep the durable-proof log honest: the swapped-in files no longer
                 # match the CRCs the first-pass log recorded for them.
@@ -2909,7 +2992,9 @@ class RipWorker(QObject):
             )
 
     @staticmethod
-    def _superseded_record(track: object, previous_crc: str = "") -> SupersededTrack:
+    def _superseded_record(
+        track: object, previous_crc: str = "", reason: str | None = None
+    ) -> SupersededTrack:
         """Build the sidecar's row for one swapped track, from the re-rip's log.
 
         Every value comes from the **re-rip's** parsed record, which is the read
@@ -2922,6 +3007,12 @@ class RipWorker(QObject):
         addendum can state whether the re-read **confirmed** that read or
         **replaced** it. Empty means not determined, which is a real answer and is
         rendered as one.
+
+        ``reason`` is why the re-read was kept (``verdict.REREAD_KEPT_FOR_*``). It
+        matters for a re-read that did not converge: until 2026-09-28 this row said
+        such a read was *"kept anyway only if it read cleanly"*, a rule no code
+        applied, and after that date a re-read is kept without converging only
+        because AccurateRip matched it, which the row now says.
         """
 
         def _ar(name: str) -> str:
@@ -2945,7 +3036,12 @@ class RipWorker(QObject):
                 else "converged"
             )
         elif converged is False:
-            reread = "did not converge (kept anyway only if it read cleanly)"
+            reread = (
+                "did not converge; kept because it matches AccurateRip and the "
+                "first read did not"
+                if reason == REREAD_KEPT_FOR_ACCURATERIP
+                else "did not converge"
+            )
         else:
             reread = ""
         return SupersededTrack(

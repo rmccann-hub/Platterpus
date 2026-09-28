@@ -1306,6 +1306,13 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
             "hardware validation, KDD-16); a non-match here doesn’t mean your "
             "rip is wrong — AccurateRip is the authority"
         )
+    if verdict is Verdict.NOT_WHOLE_DISC:
+        # The verdict's own sentence ("not run — CTDB verifies whole discs, and
+        # this rip has 2 of the disc's 14 tracks"), not a paraphrase: one wording,
+        # so this line and the report cannot describe the same skip two ways. It
+        # must never fall through to the NOT_IN_DATABASE line below, which is a
+        # claim about the disc that a check that never ran cannot make.
+        return f"CTDB: {result.message}"
     if verdict is Verdict.NOT_IN_DATABASE:
         return "CTDB: this disc isn’t in the database"
     if verdict is Verdict.DECODER_UNAVAILABLE:
@@ -1320,7 +1327,8 @@ def ctdb_verdict_level(result: CtdbVerifyResult) -> str:
     match is green; an experimental (not-yet-hardware-validated) match is amber
     — never green, mirroring the wording's refusal to over-claim. Everything
     else (no match, not in DB, decoder missing, error) is neutral grey: those
-    are "couldn't confirm", not "failed".
+    are "couldn't confirm", not "failed". A partial rip's ``NOT_WHOLE_DISC``
+    is grey too: the check did not run, which is neither a pass nor a failure.
     """
     verdict = result.verdict
     if verdict is Verdict.MATCH:

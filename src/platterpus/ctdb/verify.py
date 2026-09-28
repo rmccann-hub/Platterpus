@@ -5,6 +5,10 @@ Ties together the lookup adapter, the FLAC decode, and the (offset-0, best-
 effort) CTDB CRC into a single verdict. Clean-room per KDD-16.
 
 The flow:
+  0. Refuse to look up a rip that does not cover the whole disc (a partial
+     ``-l`` rip): its files make a TOC of a disc that does not exist, so any
+     answer CTDB gives is about something else (``Verdict.NOT_WHOLE_DISC``;
+     the disc's track count comes from :mod:`platterpus.ctdb.coverage`).
   1. Build the disc TOC from the ripped FLACs (track lengths via metaflac).
   2. Look the TOC up in CTDB.
   3. If found, decode the tracks to PCM and compute our CRC, then compare to
@@ -38,6 +42,7 @@ from platterpus.adapters.ctdb_client import (
 from platterpus.build_info import self_invocation
 from platterpus.ctdb import crc as crc_mod
 from platterpus.ctdb import decode
+from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
 from platterpus.ctdb.toc import (
     LEAD_IN_SECTORS,
     SAMPLES_PER_SECTOR,
@@ -56,6 +61,15 @@ class Verdict(enum.Enum):
     NOT_IN_DATABASE = "not_in_db"  # TOC not found in CTDB
     DECODER_UNAVAILABLE = "no_decoder"  # can't compute local CRC (no flac)
     LOOKUP_ERROR = "lookup_error"  # network/parse failure
+    # NOT LOOKED UP, on purpose: the files cover fewer tracks than the disc has.
+    # CTDB keys a whole disc by its whole TOC, and the only TOC we can build is
+    # from the files we ripped — so a 2-of-14 rip would send CTDB a two-track
+    # disc that does not exist, get a 404, and report "this disc is not in
+    # CTDB" about a disc CTDB holds 102 entries for (the 2026-09-28 Full run:
+    # five partial-rip reports said exactly that). Neither a pass nor a failure:
+    # the check did not run, and says why. Its value is spelled once, in
+    # `coverage`, because the adapter-free report builder compares against it.
+    NOT_WHOLE_DISC = NOT_WHOLE_DISC_VERDICT
 
 
 @dataclass(frozen=True)
@@ -75,8 +89,16 @@ class CtdbVerifyResult:
     db_crcs: tuple[int, ...] = ()
 
     @property
-    def trustworthy(self) -> bool:
-        """A MATCH is only trustworthy once the CRC algorithm is confirmed."""
+    def trustworthy(self) -> bool | None:
+        """Can this verdict's claim about the disc be believed? Tri-state.
+
+        A MATCH is only trustworthy once the CRC algorithm is confirmed. ``None``
+        is for a check that made NO claim — :attr:`Verdict.NOT_WHOLE_DISC` never
+        asked CTDB anything, so there is nothing to trust or distrust, and a
+        ``true`` beside it would read as "a CTDB check ran and can be relied on".
+        """
+        if self.verdict is Verdict.NOT_WHOLE_DISC:
+            return None
         return self.verdict is not Verdict.MATCH or self.crc_validated
 
 
@@ -84,21 +106,59 @@ class CtdbVerifyResult:
 PcmDecoder = Callable[[Path], bytes]
 
 
+def not_whole_disc_result(covered: int, disc_tracks: int) -> CtdbVerifyResult:
+    """The verdict for a file list that does not cover the disc. No lookup made.
+
+    The message is the one sentence every surface shows (the Details tab reads
+    it rather than composing its own, so the two cannot drift), in the report's
+    ``not run — <why>`` shape. It names both numbers, because "not run" alone
+    would leave a reader guessing whether the check was skipped, dropped, or
+    broken.
+    """
+    return CtdbVerifyResult(
+        Verdict.NOT_WHOLE_DISC,
+        message=(
+            f"not run — CTDB verifies whole discs, and this rip has {covered} of "
+            f"the disc's {disc_tracks} tracks"
+        ),
+    )
+
+
 def verify_rip(
     flac_paths: Sequence[Path],
     client: CTDBClient,
     *,
+    disc_tracks: int | None = None,
     decoder: PcmDecoder | None = None,
     samples_probe: SamplesProbe | None = None,
 ) -> CtdbVerifyResult:
     """Verify the rip in `flac_paths` against CTDB. Never raises for expected
     failure modes — returns a verdict instead.
 
+    ``disc_tracks`` is the disc's own track count (see
+    :func:`platterpus.ctdb.coverage.disc_track_count`), or ``None`` when no
+    witness said. When it is known and the files cover fewer
+    tracks, nothing is probed, decoded or looked up: the result is
+    :attr:`Verdict.NOT_WHOLE_DISC`. ``None`` keeps the old behaviour, because a
+    count we do not have is not evidence that the rip is partial.
+
     `decoder`/`samples_probe` are injected in tests; production defaults use
     the host `flac`/`metaflac`.
     """
     decoder = decoder or decode.decode_flac_to_pcm
     samples_probe = samples_probe or decode.total_samples
+
+    # 0) Is the TOC we are about to build the DISC's TOC? It is built from the
+    #    files (toc.disc_toc_from_files), so it is only when the files are every
+    #    track. Checked BEFORE the TOC is built, not after the lookup comes back:
+    #    a 404 on a synthetic TOC looks exactly like a 404 on a real one, and
+    #    "not in CTDB" is the claim this guard exists to stop us making. More
+    #    files than tracks is left to the old path: when the files and the count
+    #    both come from the rip's own log they cannot outnumber its tracks, and
+    #    the folder-scan fallback that can is already logged at WARNING by
+    #    `rip_files` as the reduced-confidence case it is.
+    if disc_tracks is not None and len(flac_paths) < disc_tracks:
+        return not_whole_disc_result(len(flac_paths), disc_tracks)
 
     # 1) TOC → 2) lookup.
     try:

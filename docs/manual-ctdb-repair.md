@@ -21,8 +21,8 @@ Repair is the *last* resort, after the in-app remedies:
    regressed on another (read instability, now auto-detected by the re-rip
    comparison banner).
 2. **Let `-Z` secure re-reads work.** Dynamic secure re-rip is on by default
-   (Settings → "Max reads to confirm a shaky track"); it re-reads
-   AccurateRip-failing tracks until N reads agree.
+   (Settings → "Extra matching reads to trust a track"); it re-reads
+   AccurateRip-failing tracks until N+1 reads are identical.
 3. **Check the verdict.** If a track *still* ends "partially accurate (450)"
    or AccurateRip-inaccurate across rips — and CTDB reports the disc with
    parity available — CTDB repair is the one mechanism that can *reconstruct*
@@ -100,4 +100,4 @@ mathematically, without re-reading the disc. It operates on the **whole disc**
 
 ---
 
-*Last updated for Platterpus v0.6.33.*
+*Last updated for Platterpus v0.6.62.*

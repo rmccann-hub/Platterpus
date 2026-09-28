@@ -12,6 +12,181 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **A re-read that matches AccurateRip is kept, even when it did not converge.** The
+  automatic re-read of a track that missed AccurateRip kept its result only if enough
+  reads agreed. On the 2026-09-28 Full run it re-read track 3 of the first whole-disc
+  rip to a copy AccurateRip verified on both versions, one agreeing read short of
+  converging, and deleted it; the album kept its unverified first read and the status
+  line said we had *"kept the best read"*. Which read to keep is now decided by
+  AccurateRip first, in both directions (a verified first read is never replaced by an
+  unverified re-read, even a converged one), and by convergence otherwise. The report
+  records why each re-read was kept (`read_speed.retried_tracks[].replaced_because`,
+  schema v30), and the messages say which reason applied instead of claiming the track
+  now reads consistently.
+- **A rip of only some tracks no longer says the disc is not in CTDB.** CTDB looks a
+  disc up by its whole table of contents, and we build that from the files ripped, so
+  a rip of tracks 1 and 2 asked CTDB about a two-track disc that does not exist. It
+  answered "not found", and the report said *"this disc is not in CTDB"*, marked
+  trustworthy, with the CTDB check recorded as run. The 2026-09-28 Full run filed five
+  such reports for a disc its whole-disc rips found with 102 entries, and every
+  finished partial rip filed in rounds 26 and 27 says the same. Now a partial rip is not looked
+  up at all. Its result reads *"not run — CTDB verifies whole discs, and this rip has
+  2 of the disc's 14 tracks"*, on the Details tab and in the report, and the report
+  records the check as not run. How many tracks the disc has comes from the ripper's
+  own `Rip completed: … 2 of 14 tracks` line, or from the disc probe for a build that
+  does not print it. A whole-disc rip is looked up exactly as before. The same applies
+  to `--ctdb-calibrate`, which also skips its calibration sweep on a partial folder.
+- **A test script's `cyanrip` command now runs in the rips folder, and what it writes
+  reaches the bundle.** The ripper names its output folders relative to the folder it
+  runs in, and the script verb gave it none. On the 2026-09-28 Full run, section P3's
+  two `-D` rips, each a commercial track with its log and cue, were written wherever
+  the app had been started from: outside the session folder, and missing from the
+  bundle. The verb now runs the ripper in the output directory, where the app's own
+  rips run. During an acceptance session that is the session's rips folder; from the
+  script console it is the output directory in Settings. It refuses to run when there
+  are no settings or the directory is not an absolute path. The transcript records
+  the folder beside the command. The session's album scan also finds a folder by a
+  log cyanrip wrote there, not only by our rip report, so these folders' logs and cue
+  sheets go in the bundle. Their audio is refused and listed in the manifest. A
+  folder the ripper cannot be started in is reported as that folder, where it used to
+  read "binary not found".
+- **A track whose secure re-reads never agreed is now a warning, and names its
+  track.** Every `-Z` verdict was filed in the diagnostics at `info`, whichever way it
+  went, and none said which track it was about. So the round-28 Full run's
+  diagnostics read `warnings: 1 … worst: warning`, and that one warning was a
+  deliberate negative test, while four `Done; (no matches found, but hit repeat
+  limit of 3)` verdicts sat at `info` among thirteen that converged. A verdict whose
+  reads never agreed is now `warning`, a converged one stays `info`, and each carries
+  the track the ripper was reading when it printed it. One function in the log
+  parser now decides which way a verdict went, for the parser and the rip worker
+  both.
+- **A track whose secure re-reads never agreed is now a warning, and names its
+  track.** Every `-Z` verdict was filed in the diagnostics at `info`, whichever way it
+  went, and none said which track it was about. So the round-28 Full run's
+  diagnostics read `warnings: 1 … worst: warning`, and that one warning was a
+  deliberate negative test, while four `Done; (no matches found, but hit repeat
+  limit of 3)` verdicts sat at `info` among thirteen that converged. A verdict whose
+  reads never agreed is now `warning`, a converged one stays `info`, and each carries
+  the track the ripper was reading when it printed it. One function in the log
+  parser now decides which way a verdict went, for the parser and the rip worker
+  both.
+- **The diagnostics header no longer contradicts itself about the approved pair.**
+  It named the running app as half of the pair and then said the pair was approved
+  for another version: *"Approved pair: Platterpus 0.6.61 + cyanrip … — verified by
+  handshake round 27 (approved for Platterpus 0.6.60)"* (the round-28 Full run). The
+  pair now names the app version the approval record names, and a separate sentence
+  says which app is running and whether that round approved it: yes, no, or not
+  determined when the record names no app version. The Copy diagnostics dialog and
+  every evidence bundle render this one line.
+- **A refused setting is now written to the log, with the value that was refused.**
+  In the round-28 Full run, the acceptance script's five deliberate refusals (a read
+  offset of 99999 and -99999, 101 retries, 11 re-reads, MP3 quality 10) were each
+  refused on screen and wrote nothing to the log. Every refusal now writes one
+  warning, `settings input refused: <setting> = <value> — <reason>`, from every
+  place a value can be refused: the script's `set` and `expect-refused`, the controls
+  that save as you change them, the Settings dialog, and a hand-edited config file
+  (whose value the log now keeps before the reset replaces it). One function writes
+  the line, and it is called where the refusal is decided, so no caller has to
+  remember to log.
+- **A long session's rip report keeps the start of the session and counts what it
+  left out.** The in-memory copy of the log that each report embeds dropped its
+  oldest lines once it was full, and said only `truncated: true`. The round-28 secure
+  re-read report's log began at 01:17:49 for a rip that started at 23:52:41, gave no
+  count of the missing lines, and still described itself as "this session since
+  launch". The buffer now keeps the first 5,000 lines of the session and the most
+  recent 45,000, and counts every line between. The report's lines carry one marker
+  at the gap with the count and the times it covers. The report's `scope` says
+  `INCOMPLETE` with the same count, and also names any lines the report itself
+  elided to fit its size limit. `log.txt` still has every line.
+- **A cancelled rip's EAC-compatible log no longer calls the track it was reading
+  "never extracted".** The Full run of 2026-09-28 asked for tracks 1-3 of 14 and was
+  cancelled partway through track 1. Its log said *"The remaining 14 track(s) were
+  never extracted"*, while quoting `Interrupted at : track 1, mid-read` further down,
+  and a partial file of track 1 was in the folder. The banner now reads the ripper's
+  own record of where it stopped: *"Track 1 was being read when the rip stopped …, so
+  it was only partly read: its file is incomplete"*. It counts the remaining tracks
+  against the tracks the rip was asked for, which the ripper's log states
+  (`Tracks to rip:  1, 2, 3`), so that rip now says 2 were never extracted, not 14. A
+  rip of some tracks whose every requested track is present now gets the same *"RIP
+  STOPPED"* banner a whole-disc rip does, instead of calling the tracks nobody asked
+  for missing. If the ripper records the stopping point in a wording Platterpus does
+  not recognise, the log says a partial file may exist rather than claiming none
+  does. The log reader now parses `Tracks to rip:`, and the consumer contract is
+  regenerated to say so.
+- **The rip self-check no longer calls a cancelled rip's partial file a track.**
+  The same cancelled rip left one file in its folder, the partial read of track 1.
+  Its log names no finished track, but the report's self-check said *"1 audio
+  files, all with content"* and graded it OK. The check now compares the folder
+  with the file each track record in the ripper's log names, and lists any audio
+  file the log does not account for. After a cancelled rip that is a note: the
+  file is expected, and when the ripper recorded which track it was reading, the
+  note says so and says to treat the file as incomplete. The same finding in a rip
+  that reports success is a warning, because nothing in that rip vouches for the
+  file. When the log is known to be cut short, or a track record names no file,
+  the finding says whether the file is a finished track is not determined. A
+  complete rip's finding is unchanged, checked against all seven finished rips of
+  that run. `--audit-rips` reports the same thing.
+
+- **A ripper message with a carriage return in it is recognised by its first line.** The
+  rip worker reads the ripper with every `\r` turned into a line break, but the pattern
+  built from a published message format broke lines only at `\n`, so a format with an
+  interior `\r` would have built a pattern no line could match. No published format has
+  one yet; the pattern builder now breaks lines where the reader does. Found by the
+  round-trip property test, which drew `"000000\r"`.
+- **The automatic recovery re-read no longer asks for a `-Z` that Max retries cannot
+  satisfy.** cyanrip's secure re-read `-Z N` succeeds only when N+1 reads of a track
+  are identical, and it stops after `-r` reads (the fork's `src/cyanrip_main.c`
+  lines 997-1012 at `faec4a8`). With secure re-read Off, the read-speed ladder and
+  the auto-fix fell back to our own `-Z 3` whatever `-r` was, so at Max retries 3
+  they sent `-Z 3 -r 3`: every track read three times, none verified, and every
+  track then re-read again the same way. That fallback is now capped at what `-r`
+  lets converge (`-Z 2` at `-r 3`; none at all at `-r 1`), and a number you set
+  yourself is never lowered.
+- **The automatic recovery re-read no longer asks for a `-Z` that Max retries cannot
+  satisfy.** cyanrip's secure re-read `-Z N` succeeds only when N+1 reads of a track
+  are identical, and it stops after `-r` reads (the fork's `src/cyanrip_main.c`
+  lines 997-1012 at `faec4a8`). With secure re-read Off, the read-speed ladder and
+  the auto-fix fell back to our own `-Z 3` whatever `-r` was, so at Max retries 3
+  they sent `-Z 3 -r 3`: every track read three times, none verified, and every
+  track then re-read again the same way. That fallback is now capped at what `-r`
+  lets converge (`-Z 2` at `-r 3`; none at all at `-r 1`), and a number you set
+  yourself is never lowered.
+- **The secure re-read setting now counts what cyanrip counts.** `-Z 2` needs three
+  identical reads (the rig logs say "converged after 3 reads"), so the Settings row
+  that read *Reads that must agree to trust a track: 2* was one short. It is now
+  **Extra matching reads to trust a track**, and its tooltip, the User Guide, the
+  pre-rip plan, the read-speed ladder's status line, the Goal and Test & Copy
+  tooltips, the one-frame-match tooltip, the README, the manual-test plan and the
+  CTDB repair runbook all say N+1 identical reads, and the last three name the
+  row by its new name (they still named the one retired on 2026-09-21).
+  Test & Copy works from 1, not 2 as its tooltip said. The validator's refusal
+  still named the row's old name, *Max reads to confirm a shaky track*, a week after
+  it was renamed; both now use one label, and every numeric rule's message is held
+  to naming a control the dialog shows. **Max retries** says it also caps how many
+  times a whole track may be read during a secure re-read, so it must be more than
+  that number, and that 0 means cyanrip's own default of 10, not "no retries". The
+  pre-rip plan says how many disagreeing reads the pair leaves room for.
+- **Settings refuses a Max retries the secure re-read cannot fit in.** With
+  *Extra matching reads to trust a track* at N, a track needs N+1 identical reads,
+  so Max retries at N or less could never verify one. The Settings dialog now marks
+  both boxes and says so while you change either (OK and Apply are refused, and the
+  refusal is logged); a script's `set` is refused on either half; and a hand-edited
+  config holding such a pair is put back to the defaults for both, with the usual
+  notice. A pair that fits but leaves no room for one read that disagrees (the
+  acceptance run's Max retries 3 with 2) gets a warning. Off is never refused,
+  because the rip's own recovery re-read now stays inside Max retries by itself.
+- **The Full acceptance run's accuracy rips use the shipped Max retries again.**
+  Section B set Max retries to 3 to prove it round-trips and left it there until
+  section Q, so on 2026-09-28 every secure re-read in the two whole-disc sections
+  (F and N) and their automatic re-reads ran at `-r 3 -Z 2`: three reads allowed for
+  three identical reads needed, so one read that disagreed failed the track. Section
+  B now puts 5 back straight after its check. Section C also proves on the rig that
+  the new pair refusal fires (`expect-refused max_retries 2`). A test replays the
+  script to every rip and checks the ceiling it runs on; the end-state check that
+  already existed could not see this, and passed on that run.
+
 ### Changed
 
 - **The testing guide says when a lap's round digest has to be computed.** Announcing a

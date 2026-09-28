@@ -24,6 +24,7 @@ from typing import Final
 
 from platterpus import __version__, album_loudness, build_info, diagnostics
 from platterpus.atomic_write import atomic_write_text
+from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
 from platterpus.handshake_approval import (
     RipperApproval,
     approve_rip_log,
@@ -249,7 +250,13 @@ def _atomic_write_text(target: Path, text: str) -> None:
 # v29: `disc.eac_log_signature_lines_defused` — lines of the EAC-layout log a
 #      metadata value had shaped like a log signature, as rewritten so the log
 #      cannot read as EAC-signed (D16, KDD-38), with an `info` issue beside it.
-REPORT_SCHEMA_VERSION: int = 29
+# v30: `read_speed.retried_tracks[].replaced_because` — why the auto-fix kept a
+#      re-read (`accuraterip` or `converged`), or null. A re-read is now kept when
+#      it matches AccurateRip and the first read did not, even if it did not
+#      converge (verdict.reread_supersedes), so `converged: false, replaced: true`
+#      is a real record and needs its reason beside it (2026-09-28 Full run,
+#      track 3).
+REPORT_SCHEMA_VERSION: int = 30
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -452,16 +459,31 @@ def build_timing(
     return timing
 
 
-def build_debug_log(lines: list[str], *, truncated: bool = False) -> DebugBlock:
+def build_debug_log(
+    lines: list[str],
+    *,
+    truncated: bool = False,
+    buffer_dropped: int = 0,
+    buffer_dropped_between: str = "",
+) -> DebugBlock:
     """Wrap captured session log lines for the report's ``debug`` section.
 
     ``lines`` is this session's log (everything since launch) with other albums'
     rips already filtered out by the caller; ``truncated`` is True if the
-    in-memory buffer already dropped its oldest lines. Embeds at most
-    ``_MAX_EMBEDDED_LOG_LINES`` (keeping the most recent — closest to this rip),
-    so the report stays small and fast to (re)serialize on the GUI thread no
-    matter how long the session ran; the full history is always in log.txt.
-    Pure; never raises.
+    in-memory buffer already dropped lines. ``buffer_dropped`` /
+    ``buffer_dropped_between`` say how many and when, as the buffer counted them
+    (:class:`~platterpus.log_buffer.BufferedLines`) — the buffer keeps its head
+    and tail and marks the gap in ``lines`` itself. Embeds at most
+    ``_MAX_EMBEDDED_LOG_LINES`` (head and tail, the gap counted), so the report
+    stays bounded no matter how long the session ran; the full history is always
+    in log.txt. Pure; never raises.
+
+    **The scope says what the lines ARE, not what they were meant to be
+    (2026-09-28, the round-28 Full run).** It said "this session since launch"
+    unconditionally, on a report whose lines began at 01:17:49 for a rip that
+    started at 23:52:41 — a completeness claim describing the request, read as a
+    description of the result. It now names the buffer's drop, with its count
+    and span, and any elision this report made to fit its own budget.
     """
     embedded = list(lines)
     capped = len(embedded) > _MAX_EMBEDDED_LOG_LINES
@@ -477,12 +499,55 @@ def build_debug_log(lines: list[str], *, truncated: bool = False) -> DebugBlock:
         capped = True
         embedded = _head_and_tail_by_bytes(embedded, budget)
     return {
-        "scope": "this session since launch, excluding other albums' rips",
+        "scope": _debug_scope(
+            buffer_dropped=buffer_dropped,
+            buffer_dropped_between=buffer_dropped_between,
+            buffer_truncated=bool(truncated),
+            capped_here=capped,
+        ),
         # True if EITHER the in-memory buffer dropped lines OR we capped here;
         # in both cases log.txt has the complete record.
         "truncated": bool(truncated) or capped,
         "lines": embedded,
     }
+
+
+def _debug_scope(
+    *,
+    buffer_dropped: int,
+    buffer_dropped_between: str,
+    buffer_truncated: bool,
+    capped_here: bool,
+) -> str:
+    """The ``debug.scope`` sentence, true of the lines it heads. Pure.
+
+    Three facts, each stated only when it holds: what the lines are drawn from,
+    what the in-memory buffer dropped (counted, with when), and whether this
+    report elided more to fit its own size budget. A truncation the caller
+    reports without a count is still said, as not counted, rather than dropped.
+    """
+    scope = "this session since launch, excluding other albums' rips"
+    gaps: list[str] = []
+    if buffer_dropped > 0:
+        when = (
+            f", logged between {buffer_dropped_between}"
+            if buffer_dropped_between
+            else ""
+        )
+        gaps.append(
+            f"{buffer_dropped} line(s) of the session{when}, which the in-memory log "
+            "dropped to bound its size"
+        )
+    elif buffer_truncated:
+        gaps.append("lines the in-memory log dropped to bound its size (not counted)")
+    if capped_here:
+        gaps.append("lines elided to fit this report's size budget")
+    if not gaps:
+        return scope
+    return (
+        f"{scope} — INCOMPLETE: missing {'; and '.join(gaps)}. Each gap is marked "
+        "in place in `lines` with its count; log.txt has every line"
+    )
 
 
 def _final_partial_summary(rip_log: object) -> str | None:
@@ -820,6 +885,16 @@ RIP_DID_NOT_FINISH_GATE: Final[str] = (
     "not run — the rip did not finish, and post-rip checks only run on a finished rip"
 )
 
+#: The CTDB gate when the verify declined to look the rip up because its files
+#: are not the whole disc (`ctdb.verify.Verdict.NOT_WHOLE_DISC`). Derived from the
+#: RESULT in `_build`, like `SUPERSEDED_GATE` wins over config: the 2026-09-28 Full
+#: run's five 2-of-14 rips each said `gates.ctdb: "ran"` beside a "this disc is
+#: not in CTDB" that the whole-disc rips of the same disc contradicted with 102
+#: entries. A skipped check must not read as one that ran and cleared.
+NOT_WHOLE_DISC_GATE: Final[str] = (
+    "not run — CTDB verifies whole discs, and this rip is not the whole disc"
+)
+
 #: The `outcome.status` values that mean the post-rip chain was never started.
 #: One set, shared with the acceptance runner's `expect-verification`, so the two
 #: cannot disagree about which rips owe a result.
@@ -1082,6 +1157,17 @@ def _build(
     derived = _derived_verify(derived_verify_result)
     recompress = _recompress(recompress_result)
     ctdb = _ctdb(ctdb_result)
+    # The gate is built from the SETTINGS ("ran" because CTDB was switched on);
+    # the verdict says whether the check actually ran. Corrected here, where both
+    # meet, so no caller has to remember to — and before `issues` and the
+    # `verification` block read it, so neither sees the settings' version.
+    if (
+        ctdb is not None
+        and ctdb.get("verdict") == NOT_WHOLE_DISC_VERDICT
+        and gates is not None
+        and gates.get("ctdb") == "ran"
+    ):
+        gates = {**gates, "ctdb": NOT_WHOLE_DISC_GATE}
     cover_art = _cover_art(cover_art_result)
     # Tagging feeds `issues` ONLY — it deliberately gets no block of its own. The
     # severity-tagged `issues` list is already the report's declared home for
@@ -1488,8 +1574,9 @@ def _track(track: object) -> dict:
         # How many read passes cyanrip needed (its "(after N rips)"); None for
         # legacy-format logs / a clean single-pass cyanrip track.
         "rip_count": getattr(track, "rip_count", None),
-        # cyanrip's -Z secure re-read verdict: True = N reads' checksums agreed;
-        # False = it hit the repeat limit without any two agreeing (the reliable
+        # cyanrip's -Z secure re-read verdict: True = N+1 reads were identical;
+        # False = it hit the repeat limit first, which at -Z 2 and up can follow
+        # two reads that did agree (the reliable
         # per-track read-instability flag); None = -Z off / older log. Was parsed
         # but not serialized before v9 — the read-effort signal in machine form.
         "secure_rerip_converged": getattr(track, "secure_rerip_converged", None),

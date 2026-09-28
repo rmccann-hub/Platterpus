@@ -147,6 +147,11 @@ documents depend on.
   fork's copy. **The same directory holds the 2026-09-26 04:13 UTC Full run on the same
   pair**, as `round27full*`: 48 text members of bundle `7b6b45d3…`, 320 of 320 steps,
   and the run §0.1 asked for before the override.
+- **`artifactsround28/`** — the 2026-09-28 **Full** run on **`e0471f4`**, round 28's
+  reviewed pin, through our 0.6.61: every text member of the operator's bundle (sha256
+  `91822017…`), 46 files, as `round28full*`. 320 of 320 steps; the run the fork's round
+  28 lap 1 S6 names. The directory's `README.md` maps each file to its tarball member and
+  says what the run found, ours and the ripper's.
 
 - **`outbound/artifacts/lsl-amendments-1.md`** — **a proposal, not a lap**: our answer to
   the fork's round 27 lap 6 S23 (sha256 `72a4c65afde184f2…`, 17,666 bytes; revised the same day with F4,

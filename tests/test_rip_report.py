@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import logging
 from dataclasses import replace
 from pathlib import Path
 
@@ -168,6 +169,56 @@ def test_debug_section_embeds_session_log() -> None:
     assert "excluding other albums" in report["debug"]["scope"]
 
 
+def test_debug_scope_says_what_the_lines_are_missing_with_the_count() -> None:
+    """The round-28 Full run: `debug.scope` said "this session since launch" over
+    lines that began two and a half hours into the rip they described. The scope
+    now carries the buffer's own count and span — the same number as the marker in
+    the lines — and says the record is incomplete."""
+    from platterpus.log_buffer import SessionLogBuffer
+
+    buffer = SessionLogBuffer(head=2, tail=3)
+    buffer.setFormatter(logging.Formatter("%(message)s"))
+    for i in range(12):
+        record = logging.LogRecord("t", logging.INFO, __file__, 0, f"l{i}", None, None)
+        record.created = float(1_000 + i)
+        buffer.emit(record)
+    snap = buffer.snapshot_excluding([])
+    debug = build_debug_log(
+        snap.lines,
+        truncated=snap.dropped > 0,
+        buffer_dropped=snap.dropped,
+        buffer_dropped_between=snap.dropped_between,
+    )
+    scope = debug["scope"]
+    assert debug["truncated"] is True
+    assert "INCOMPLETE" in scope and "since launch" in scope, scope
+    assert f"{snap.dropped} line(s) of the session" in scope, scope
+    assert snap.dropped_between in scope, scope
+    # The scope's number is the marker's number, and the counts add up.
+    markers = [line for line in debug["lines"] if "were dropped from" in line]
+    assert len(markers) == 1 and markers[0].startswith(f"… [{snap.dropped} line(s)")
+    kept = len(debug["lines"]) - len(markers)
+    assert kept + snap.dropped == snap.received == 12
+
+
+def test_debug_scope_is_the_plain_sentence_when_nothing_is_missing() -> None:
+    """The control: a complete record must not be labelled INCOMPLETE, or the word
+    stops meaning anything."""
+    debug = build_debug_log(["a", "b"])
+    assert debug["scope"] == "this session since launch, excluding other albums' rips"
+    assert debug["truncated"] is False
+
+
+def test_debug_scope_names_this_reports_own_elision() -> None:
+    """The report's own backstop cap is a second, separate gap, and says so."""
+    from platterpus.rip_report import _MAX_EMBEDDED_LOG_LINES
+
+    debug = build_debug_log([f"line {i}" for i in range(_MAX_EMBEDDED_LOG_LINES + 5)])
+    assert "INCOMPLETE" in debug["scope"]
+    assert "size budget" in debug["scope"]
+    assert "in-memory log" not in debug["scope"], debug["scope"]
+
+
 def test_debug_section_notes_truncation() -> None:
     debug = build_debug_log(["kept"], truncated=True)
     assert build_report(_sample_log(), debug_log=debug)["debug"]["truncated"] is True
@@ -303,8 +354,16 @@ def test_read_speed_block_records_auto_fix_retries() -> None:
     )
     rs = report["read_speed"]
     assert rs["unstable_tracks"] == []  # rescued
+    # The input record predates schema v30 and carries no reason, so the report
+    # says "not recorded" rather than inventing one.
     assert rs["retried_tracks"] == [
-        {"track": 3, "reripped_z": 3, "converged": True, "replaced": True}
+        {
+            "track": 3,
+            "reripped_z": 3,
+            "converged": True,
+            "replaced": True,
+            "replaced_because": None,
+        }
     ]
     # An auto-fixed-and-clean rip is not "unresolved".
     assert rs["unresolved"] is False
@@ -1135,7 +1194,10 @@ def test_schema_version_is_27() -> None:
     #
     # v29 added `disc.eac_log_signature_lines_defused` (D16): lines of the
     # EAC-layout log a metadata value had shaped like a log signature.
-    assert REPORT_SCHEMA_VERSION == 29
+    #
+    # v30 added `read_speed.retried_tracks[].replaced_because`: a re-read kept on
+    # AccurateRip's word may not have converged, so the record says why.
+    assert REPORT_SCHEMA_VERSION == 30
 
 
 def _issue_codes(report: dict) -> set[str]:

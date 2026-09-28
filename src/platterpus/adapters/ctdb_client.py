@@ -175,6 +175,13 @@ class CtdbHttpImpl(CTDBClient):
                 # `"message": "CTDB rejected the request (HTTP 404)"` into the
                 # archival JSON. Both false, in a file kept beside the album.
                 #
+                # (The partial-track case is no longer routed here at all, since
+                # 2026-09-28: for it "not in the database" was just as false as
+                # "rejected", because the TOC it sent is not the disc's. The
+                # 2026-09-28 Full run filed five of them for a disc CTDB holds 102
+                # entries for. `ctdb/verify.py` now answers a partial rip
+                # `not_whole_disc` before any request is made.)
+                #
                 # The correct pattern was already one screen away in this repo:
                 # the MusicBrainz adapter translates its own 404 into "no releases"
                 # rather than an error (`preflight.py`'s note, and
