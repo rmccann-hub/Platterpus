@@ -23,6 +23,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   is no `.git` (an unpacked sdist). In a checkout whose git fails, it stops with git's
   message instead of falling back.
 
+### Added
+
+- **An `.editorconfig`.** Editors, GitHub's web editor included, now apply the
+  repository's conventions to the files ruff never formats: UTF-8, LF, a final newline,
+  4-space Python, 2-space YAML, and trailing spaces kept in Markdown, where they are a
+  line break. The handshake record, the reference rips' logs and the test fixtures are
+  left exactly as written, because 62 files there carry trailing whitespace, no final
+  newline, or UTF-16 on purpose.
+
 ### Changed
 
 - **The published metadata names rmccann-hub as the author and copyright holder.**
