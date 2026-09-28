@@ -52,6 +52,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   sheets go in the bundle. Their audio is refused and listed in the manifest. A
   folder the ripper cannot be started in is reported as that folder, where it used to
   read "binary not found".
+- **A track whose secure re-reads never agreed is now a warning, and names its
+  track.** Every `-Z` verdict was filed in the diagnostics at `info`, whichever way it
+  went, and none said which track it was about. So the round-28 Full run's
+  diagnostics read `warnings: 1 … worst: warning`, and that one warning was a
+  deliberate negative test, while four `Done; (no matches found, but hit repeat
+  limit of 3)` verdicts sat at `info` among thirteen that converged. A verdict whose
+  reads never agreed is now `warning`, a converged one stays `info`, and each carries
+  the track the ripper was reading when it printed it. One function in the log
+  parser now decides which way a verdict went, for the parser and the rip worker
+  both.
 
 ### Changed
 

@@ -299,7 +299,44 @@ def is_secure_rerip_verdict(line: str) -> bool:
     Both shapes are covered: convergence and non-convergence are the *same* event
     reported two ways, and neither is a failure of the ripper.
     """
-    return bool(_SECURE_DONE_MATCH.match(line) or _SECURE_DONE_FAIL.match(line))
+    return secure_rerip_verdict_converged(line) is not None
+
+
+def secure_rerip_verdict_converged(line: str) -> bool | None:
+    """Which way a secure re-read verdict line went. **Tri-state.**
+
+    * ``True``  — the reads converged: ``Done; (2 out of 2 matches …)``.
+    * ``False`` — they did not: ``Done; (no matches found, but hit repeat limit
+      of 3)``, or a ``0 out of N matches`` form (a zero numerator is a total
+      failure to reproduce, never a clean verdict — see ``_SECURE_DONE_MATCH``).
+    * ``None``  — the line is not a verdict at all.
+
+    **Why this exists as a public function (2026-09-28, the round-28 Full run).**
+    Two readers need the *direction* of the verdict, not just whether a line is
+    one: the log parser below, which files it on the track, and ``rip_worker``,
+    which records it as a diagnostic. The worker used to know only
+    :func:`is_secure_rerip_verdict`, so every verdict was filed at ``info`` —
+    and the run's diagnostics file read ``warnings: 1 … worst: warning`` with
+    that one warning a deliberate negative test, while four tracks that never
+    read the same way twice sat at ``info``. A severity that cannot tell a track
+    that converged from one that did not is not grading anything.
+
+    The ``agreed >= 1`` rule lives HERE and the parser's own loop calls this
+    rather than restating it, so the two readers cannot come to disagree about
+    which way one sentence went (two surfaces, one question, one key).
+
+    Pure; never raises (the numerator is bounded to six digits by the pattern).
+    """
+    match = _SECURE_DONE_MATCH.match(line)
+    if match:
+        # "N out of M matches" is convergence only when N >= 1. A zero numerator
+        # is a total failure to reproduce, and reading it as "verified" is the
+        # worst direction for this answer to be wrong in.
+        agreed = int_or_none(match.group("agreed"), field="cyanrip -Z agreements")
+        return agreed is not None and agreed >= 1
+    if _SECURE_DONE_FAIL.match(line):
+        return False
+    return None
 
 
 # "Total time:     00:59:42.354" — the disc's AUDIO duration (start report).
@@ -2624,17 +2661,12 @@ def parse_cyanrip_log(text: str) -> RipLog:
         # Checked at ANY indentation, because cyanrip emits these from the repeat
         # loop that runs before the track opener regardless of how the string is
         # formatted. The fork indents them; stock does not; both mean the same
-        # thing about the same track.
-        match = _SECURE_DONE_MATCH.match(line)
-        if match:
-            # "N out of M matches" is convergence only when N >= 1. A zero
-            # numerator is a total failure to reproduce, and reading it as
-            # "verified" is the worst direction for this field to be wrong in.
-            agreed = int_or_none(match.group("agreed"), field="cyanrip -Z agreements")
-            pending_converged = agreed is not None and agreed >= 1
-            continue
-        if _SECURE_DONE_FAIL.match(line):
-            pending_converged = False
+        # thing about the same track. Which WAY it went is decided by
+        # `secure_rerip_verdict_converged` — the one home of the "a zero
+        # numerator is not convergence" rule, which `rip_worker` asks too.
+        verdict = secure_rerip_verdict_converged(line)
+        if verdict is not None:
+            pending_converged = verdict
             continue
 
         match = _TRACK_START.match(line)

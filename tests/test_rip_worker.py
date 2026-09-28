@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtWidgets import QApplication
 
+from platterpus import diagnostics
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -3934,3 +3935,131 @@ def test_clean_ripper_output_carries_no_screening_note(
     worker.start_rip()
     assert "Track 1 title: Café" in worker.captured_stdout
     assert "were screened" not in worker.captured_stdout
+
+
+# --- The secure re-read verdict is graded by its direction, and names its track --
+#
+# The round-28 Full run (2026-09-28, `docs/handshake/artifactsround28/`, filed on the
+# session branch): its diagnostics file read `errors: 0  warnings: 1  info: 17 /
+# worst: warning`, and the one warning was a deliberate negative test. Four of the
+# seventeen `info` items were `Done; (no matches found, but hit repeat limit of 3)` —
+# tracks whose reads never agreed — filed beside thirteen that converged, and not
+# one of them named its track. The streams below are the ripper's lines exactly as
+# that run's app log recorded them (the `cyanrip │ ` prefix is the log's, not the
+# ripper's), cited by line so the fixture can be re-derived from the artifact.
+
+#: `round28fullplatterpusapplog1.txt` L33111-33113 and L38357-38359: the whole-disc
+#: rip's automatic re-read of tracks 3 and 5 (`-Z 2 -l 3,5`), whose reads never
+#: agreed for either track. The lines between the two verdicts (track 3's block and
+#: track 5's first ~5,000 progress redraws) are elided; nothing in them names a
+#: track other than 3's block and 5's progress, which the two lines kept stand for.
+_R28_NOT_CONVERGED_STREAM: tuple[str, ...] = (
+    "Ripping and encoding track 3, progress - 99.92%",
+    "Ripping and encoding track 3, progress - 99.96%",
+    "Done; (no matches found, but hit repeat limit of 3)",
+    "Ripping and encoding track 5, progress - 99.91%",
+    "Ripping and encoding track 5, progress - 99.97%",
+    "Done; (no matches found, but hit repeat limit of 3)",
+)
+#: `round28fullplatterpusapplog1.txt` L58074-58076: the uniform secure re-read rip
+#: (`-Z 2` over the disc), track 1, whose reads converged.
+_R28_CONVERGED_STREAM: tuple[str, ...] = (
+    "Ripping and encoding track 1, progress - 99.86%",
+    "Ripping and encoding track 1, progress - 99.93%",
+    "Done; (2 out of 2 matches for current checksum 4F2EDD18)",
+)
+
+
+def _verdict_diagnostics(
+    lines: tuple[str, ...], tmp_path: Path
+) -> list[diagnostics.Diagnostic]:
+    """Run one ripper pass over ``lines`` and return the verdicts it recorded."""
+    diagnostics.clear()
+    worker = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=list(lines), exit_code=0)),
+        _params(tmp_path),
+    )
+    worker.start_rip()
+    items = [
+        item
+        for item in diagnostics.default_log().items()
+        if item.code == "ripper.secure_rerip_verdict"
+    ]
+    diagnostics.clear()
+    return list(items)
+
+
+def test_a_verdict_whose_reads_never_agreed_is_a_warning_on_its_track(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The round-28 finding: a non-converged re-read is filed at WARNING, with the
+    track it concerns, instead of at INFO with no track."""
+    items = _verdict_diagnostics(_R28_NOT_CONVERGED_STREAM, tmp_path)
+    # Floor first: both verdicts were recorded. A test that found none would pass
+    # every assertion below vacuously.
+    assert len(items) == 2, items
+    assert [i.severity for i in items] == ["warning", "warning"], (
+        "a track whose reads never agreed was not graded a warning: "
+        + repr([(i.severity, i.message) for i in items])
+    )
+    # WHICH track, per verdict — the pair is the check. A constant track number
+    # (the last one seen, say) would fail on the first item.
+    assert [i.track for i in items] == [3, 5]
+    # The ripper's own sentence is kept verbatim; the grade is ours, the words theirs.
+    assert all(
+        i.message == "Done; (no matches found, but hit repeat limit of 3)"
+        for i in items
+    )
+
+
+def test_a_verdict_whose_reads_converged_stays_info_on_its_track(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The control. Without it the warning above could be satisfied by grading
+    EVERY verdict a warning, which would bury the four real ones among thirteen
+    converged verdicts — the same defect from the other side."""
+    items = _verdict_diagnostics(_R28_CONVERGED_STREAM, tmp_path)
+    assert len(items) == 1, items
+    assert items[0].severity == "info"
+    assert items[0].track == 1
+
+
+def test_a_verdict_before_any_progress_line_names_no_track(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Tri-state: with no progress line to say which track is being read, the
+    verdict is filed disc-level (`track: None`), never against a guessed track 0."""
+    items = _verdict_diagnostics(
+        ("Done; (no matches found, but hit repeat limit of 3)",), tmp_path
+    )
+    assert len(items) == 1, items
+    assert items[0].track is None
+    assert items[0].severity == "warning"
+
+
+def test_the_round28_fixture_is_the_artifacts_own_text() -> None:
+    """The streams above are copied from the committed app log; hold them to it.
+
+    Skips where the artifact is not in the tree (it was filed on the session branch
+    this fix lands on), and says so — but where it is present, every line of both
+    streams must appear in it, as the rip worker's own `cyanrip │` record, in order.
+    """
+    source = (
+        Path(__file__).resolve().parent.parent
+        / "docs/handshake/artifactsround28/round28fullplatterpusapplog1.txt"
+    )
+    if not source.is_file():
+        pytest.skip(
+            f"{source.name} is not in this tree; the fixture is uncheckable here"
+        )
+    recorded = [
+        line.split(" cyanrip │ ", 1)[1]
+        for line in source.read_text(encoding="utf-8").splitlines()
+        if " platterpus.workers.rip_worker: cyanrip │ " in line
+    ]
+    for stream in (_R28_NOT_CONVERGED_STREAM, _R28_CONVERGED_STREAM):
+        position = 0
+        for wanted in stream:
+            position = recorded.index(wanted, position) + 1
+        # Non-triviality: the search really walked the artifact, not an empty list.
+        assert position > len(stream)

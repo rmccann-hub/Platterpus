@@ -99,6 +99,8 @@ KNOWN_CODES: Final[frozenset[str]] = frozenset(
         # NOT a fatal. cyanrip publishes the secure re-read verdict in the same
         # message inventory our fatal matcher is built from, so it used to be
         # graded `error`; a track that did not converge is a fact about the disc.
+        # Graded by its direction since 2026-09-28: `warning` when the reads
+        # never agreed, `info` when they converged, and it names its track.
         "ripper.secure_rerip_verdict",
         "ripper.stall_detected",
         "ripper.no_banner",

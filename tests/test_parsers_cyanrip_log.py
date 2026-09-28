@@ -404,6 +404,42 @@ def test_secure_rerip_convergence_recorded_per_track() -> None:
     assert by_number[4].secure_rerip_converged is None
 
 
+def test_the_verdict_direction_is_one_rule_for_every_reader() -> None:
+    """`secure_rerip_verdict_converged` is the one home of "which way did it go".
+
+    The rip worker grades its diagnostic by it (a warning when the reads never
+    agreed, 2026-09-28) and the parser files it on the track by it, so the two
+    cannot disagree about one sentence. Each shape the ripper prints, and a zero
+    numerator, which is a failure to reproduce and never convergence.
+    """
+    from platterpus.parsers.cyanrip_log import (
+        is_secure_rerip_verdict,
+        secure_rerip_verdict_converged,
+    )
+
+    cases: dict[str, bool | None] = {
+        "Done; (2 out of 2 matches for current checksum 4F2EDD18)": True,
+        "  Done; (2 out of 2 matches for current checksum ABCD1234)": True,
+        "Done; (no matches found, but hit repeat limit of 3)": False,
+        "Done; (0 out of 5 matches for current checksum AAAA1111)": False,
+        "Repeating ripping (0 out of 1 matches for current checksum AAAA1111)": None,
+        "Track 3 read successfully!": None,
+        "": None,
+    }
+    for line, expected in cases.items():
+        assert secure_rerip_verdict_converged(line) is expected, line
+        # The older predicate is DERIVED from this one, so it cannot drift from it.
+        assert is_secure_rerip_verdict(line) is (expected is not None), line
+    # And the parser's per-track field agrees with the function, shape by shape.
+    for line, expected in cases.items():
+        if expected is None:
+            continue
+        log = parse_cyanrip_log(
+            f"cyanrip 0.9.3 (release)\n{line}\nTrack 1 read successfully!\n"
+        )
+        assert log.tracks[0].secure_rerip_converged is expected, line
+
+
 def test_secure_rerip_verdict_never_raises_when_dangling() -> None:
     # A "Done; …" line with no following track (a crash right after) must not
     # raise and must simply be dropped (parser discipline).
