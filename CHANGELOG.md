@@ -472,6 +472,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   Replace button. It now counts only folders that exist. When the one folder
   there is a look-alike of the predicted name, the prompt says the rip *may*
   overwrite it rather than that it will.
+- **For contributors: a drive test can no longer hang the suite on a real modal.**
+  `test_a_disc_that_returns_through_an_unreadable_check_is_read_and_shown` drives a
+  real disc read, whose MusicBrainz lookup finds no match. When that result landed
+  inside the test's event pump, the unknown-album dialog opened for real and
+  blocked the worker until faulthandler killed it, in one of two full runs on
+  2026-09-28. The dialog is stubbed as in the neighbouring tests, and the test now
+  waits for the read's thread to quit before it ends.
 
 ### Added
 

@@ -6425,7 +6425,10 @@ def test_a_disc_inserted_clears_the_previous_discs_identity_before_scanning(
 
 
 def test_a_disc_that_returns_through_an_unreadable_check_is_read_and_shown(
-    teardown_threads, process_until, caplog: pytest.LogCaptureFixture
+    teardown_threads,
+    process_until,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """The rig bug, end to end: the drive's own readings in, the disc on screen out.
 
@@ -6441,6 +6444,11 @@ def test_a_disc_that_returns_through_an_unreadable_check_is_read_and_shown(
         musicbrainz_disc_id="returned-disc", cddb_disc_id="c0ffee01", num_tracks=3
     )
     window = teardown_threads(backend=backend)
+    # The read is real, so its MusicBrainz lookup is too, and the fake finds no
+    # match: the unknown-album dialog is a real modal. Opened inside the pump
+    # below it blocked the worker until faulthandler killed it (2026-09-28, one
+    # full run in two).
+    monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
     window._rip_thread = None
     window._disc_info_thread = None
     window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
@@ -6458,6 +6466,9 @@ def test_a_disc_that_returns_through_an_unreadable_check_is_read_and_shown(
     )
     assert backend.disc_info_calls == ["/dev/sr0"], "the returned disc was never read"
     assert shown, window._disc_info_panel._mb_id_value.text()
+    # The panel is filled before the read's thread has quit; wait for it, so the
+    # harness does not find it still running at teardown.
+    assert process_until(lambda: window._disc_info_thread is None, timeout=8.0)
     inserted = [
         r.getMessage() for r in caplog.records if "disc inserted" in r.getMessage()
     ]
