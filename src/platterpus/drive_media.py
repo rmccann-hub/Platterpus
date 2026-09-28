@@ -13,8 +13,10 @@ Two pieces, kept apart so the decision logic is testable without a drive:
   * :class:`MediaWatcher` — a pure state machine that turns a stream of statuses
     into "should I rescan now?" decisions: fire only on a genuine *transition*
     into "a disc is present" from a known empty/open/not-ready tray, so a disc
-    that was already in at startup (the initial scan covers it) or a drive that
-    briefly reads "unavailable" never triggers a spurious re-scan.
+    that was already in at startup (the initial scan covers it) never triggers a
+    spurious re-scan. An "unavailable" reading is neither a trigger nor a state:
+    the watcher compares each known reading with the last KNOWN one, so a drive
+    that reads "unavailable" while it loads a disc still has the insertion seen.
 
 ⚠️ HARDWARE-GATED: the ioctl path can't be exercised in the cloud (no drive).
 It's isolated here, best-effort, and degrades to a no-op; validate the live
@@ -58,11 +60,16 @@ def status_from_code(code: int) -> str:
     return _CODE_TO_STATUS.get(code, UNAVAILABLE)
 
 
-# A disc "appeared" only when the tray was in one of these KNOWN empty states
-# just before — so we never re-scan off an "unavailable"/unknown blip (a busy
-# drive mid-teardown), only off a real empty→loaded transition. The same set is
-# the "disc left" target for removal (disc→known-empty).
+# A disc "appeared" only when the LAST KNOWN state was one of these empty states
+# — so we never re-scan off an "unavailable"/unknown blip (a busy drive
+# mid-teardown), only off a real empty→loaded transition. The same set is the
+# "disc left" target for removal (disc→known-empty).
 _EMPTY_STATES: frozenset[str] = frozenset({EMPTY, OPEN, NOT_READY})
+
+# Every reading that says something about the tray. Anything else (UNAVAILABLE,
+# or a value this module does not know) is "no information" and is bridged over
+# rather than remembered — see MediaWatcher.observe_event.
+_KNOWN_STATES: frozenset[str] = _EMPTY_STATES | {DISC}
 
 # The three outcomes of one observation, returned by MediaWatcher.observe_event.
 INSERTED: str = "inserted"  # known-empty → disc: a new disc to scan
@@ -116,18 +123,65 @@ class MediaWatcher:
       * fire :data:`REMOVED` exactly once on the reverse transition, :data:`DISC`
         → a known-empty tray — the "disc left the drive" event, so the GUI can
         clear the now-stale disc view (an eject or a physical removal);
-      * an ``UNAVAILABLE`` blip (drive busy mid-teardown) is remembered but never
-        itself a trigger in either direction, so it can't manufacture a spurious
-        rescan or a spurious clear.
+      * an ``UNAVAILABLE`` reading (or any value this module does not know) is
+        never a trigger AND never overwrites the last known state. It is
+        "no information", so the next known reading is compared with the last
+        known one, straight across the gap.
+
+    **Why the last rule changed (2026-09-28).** An unknown reading used to be
+    remembered as the previous state, so ``empty → unavailable → disc`` compared
+    ``disc`` with ``unavailable`` and fired nothing: the disc was inserted and
+    never read, and closing the tray again or restarting the app were the only
+    ways out — which is what the maintainer reported from the rig. The committed
+    rig log shows it happening: ``round27fullplatterpusapplog1.txt`` lines 34–35
+    record *disc removed* at 20:30:07 and again at 23:25:32 with no *disc
+    inserted* and no drive change between them. A second removal needs a disc
+    reading in between, and a disc reading straight after an empty one fires
+    INSERTED, so the disc's return came through an unknown reading and was
+    swallowed. The original intent — never manufacture an event out of a blip —
+    is kept: ``disc → unavailable → disc`` is still nothing, and a first reading
+    after :meth:`reset` is still only a baseline.
     """
 
     def __init__(self) -> None:
-        self._prev: str | None = None
+        # The last reading that said something about the tray (never UNAVAILABLE).
+        self._last_known: str | None = None
+        # The last reading of any kind, for the caller's "status changed" log line.
+        self._last_status: str | None = None
+        # Unknown readings since the last known one, and how many the most recent
+        # known reading came through (the evidence a log line should carry).
+        self._unknown_streak: int = 0
+        self._bridged: int = 0
+
+    @property
+    def last_status(self) -> str | None:
+        """The previous reading as it was taken, UNAVAILABLE included (None at
+        start or after :meth:`reset`). For logging a status change; the decision
+        logic reads the last KNOWN state instead."""
+        return self._last_status
+
+    @property
+    def bridged_unknown_readings(self) -> int:
+        """How many unknown readings the latest known reading came across. A
+        non-zero value beside an INSERTED is the case the 2026-09-28 fix exists
+        for, and is worth putting in the log line."""
+        return self._bridged
+
+    def bridge_note(self) -> str:
+        """A log-line suffix naming the unknown readings the latest known reading
+        came across: ``", after 3 unreadable status checks"``, or ``""``."""
+        count = self._bridged
+        if count <= 0:
+            return ""
+        return f", after {count} unreadable status check{'' if count == 1 else 's'}"
 
     def reset(self) -> None:
         """Forget the baseline (e.g. after switching drives) so the next
         observation re-establishes it without firing."""
-        self._prev = None
+        self._last_known = None
+        self._last_status = None
+        self._unknown_streak = 0
+        self._bridged = 0
 
     def observe_event(self, status: str) -> str:
         """Record `status`; return :data:`INSERTED`, :data:`REMOVED`, or
@@ -137,8 +191,17 @@ class MediaWatcher:
         kept for existing callers. Exactly one event can fire per observation
         (insert and removal are opposite transitions).
         """
-        prev = self._prev
-        self._prev = status
+        self._last_status = status
+        if status not in _KNOWN_STATES:
+            # No information about the tray: not a trigger, and NOT a state. The
+            # last known state stands, so the next known reading is compared with
+            # it — see the class docstring for the insertion this used to lose.
+            self._unknown_streak += 1
+            return NO_CHANGE
+        prev = self._last_known
+        self._last_known = status
+        self._bridged = self._unknown_streak
+        self._unknown_streak = 0
         if prev in _EMPTY_STATES and status == DISC:
             return INSERTED
         if prev == DISC and status in _EMPTY_STATES:

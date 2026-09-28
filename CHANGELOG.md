@@ -203,6 +203,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   if OK had been clicked. The reason it closed and the full traceback are written to
   the log first. When you are using the app yourself, the dialog stays open until you
   click OK, as before.
+- **A disc put in the drive is read even when the drive briefly can't report its
+  status.** The drive check treated an unreadable status as "no disc was here before".
+  A disc that came back through one was never read, and cycling the tray or restarting
+  the app was the only way out. The rig's log showed it: two removals, and no insertion
+  between them. The log now records what the drive reported whenever that changes.
 
 ### Added
 

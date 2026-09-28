@@ -6105,15 +6105,27 @@ def test_reset_disc_view_clears_disc_state(teardown_threads) -> None:
     assert window._current_disc_id == ""
 
 
+@pytest.mark.parametrize(
+    "statuses",
+    [
+        # The route that still reaches INSERTED with no REMOVED: the poll is
+        # skipped during a scan, so a tray opened DURING one is first read as a
+        # baseline, and the next disc fires INSERTED with the old one on screen.
+        ["open", "disc"],
+        # The route this test was written for. Since 2026-09-28 the unknown
+        # reading is bridged, so it now fires REMOVED first; kept so both orders
+        # are held to the same clean scan.
+        ["disc", "unknown", "empty", "disc"],
+    ],
+)
 def test_a_disc_inserted_clears_the_previous_discs_identity_before_scanning(
-    teardown_threads,
+    teardown_threads, statuses: list[str]
 ) -> None:
     """The removal reset does not always run before an insert.
 
-    The watcher fires REMOVED only on disc → empty and INSERTED on empty → disc,
-    so disc → unknown (a probe glitch) → empty → disc fires INSERTED with no
-    REMOVED. The new disc's scan then started on top of the old disc's release
-    and disc id. The insert now resets first. Found 2026-09-25 by the TASKS triage.
+    An INSERTED can arrive with no REMOVED before it (first parameter), and the
+    new disc's scan then started on top of the old disc's release and disc id.
+    The insert now resets first. Found 2026-09-25 by the TASKS triage.
     """
     window = teardown_threads()
     window._rip_thread = None
@@ -6131,13 +6143,62 @@ def test_a_disc_inserted_clears_the_previous_discs_identity_before_scanning(
     )
     window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
     window._media_watcher.reset()
-    statuses = iter(["disc", "unknown", "empty", "disc"])
-    window._disc_status_probe = lambda _dev: next(statuses)  # type: ignore[assignment]
+    readings = iter(statuses)
+    window._disc_status_probe = lambda _dev: next(readings)  # type: ignore[assignment]
 
-    for _ in range(4):
+    for _ in statuses:
         window._poll_disc_media()
 
     assert seen_at_scan == [("", None, "")], seen_at_scan
+
+
+def test_a_disc_that_returns_through_an_unreadable_check_is_read_and_shown(
+    teardown_threads, process_until, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The rig bug, end to end: the drive's own readings in, the disc on screen out.
+
+    `round27fullplatterpusapplog1.txt` lines 34-35 record two removals and no
+    insertion between. The return of the disc came through an unreadable status
+    check, and the watcher swallowed it, so nothing read the disc until the app
+    was restarted. Driven through the real poll, the real `_start_disc_info`, the
+    real DiscInfoWorker on its thread and the real panel; only the drive's
+    status and the ripper are faked.
+    """
+    backend = _FakeBackend()
+    backend.disc_info_return = DiscInfo(
+        musicbrainz_disc_id="returned-disc", cddb_disc_id="c0ffee01", num_tracks=3
+    )
+    window = teardown_threads(backend=backend)
+    window._rip_thread = None
+    window._disc_info_thread = None
+    window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
+    window._media_watcher.reset()
+    readings = iter(["disc", "open", "unavailable", "disc"])
+    window._disc_status_probe = lambda _dev: next(readings)  # type: ignore[assignment]
+
+    with caplog.at_level(logging.INFO, logger="platterpus.ui.main_window_drive"):
+        for _ in range(4):
+            window._poll_disc_media()
+
+    shown = process_until(
+        lambda: window._disc_info_panel._mb_id_value.text() == "returned-disc",
+        timeout=8.0,
+    )
+    assert backend.disc_info_calls == ["/dev/sr0"], "the returned disc was never read"
+    assert shown, window._disc_info_panel._mb_id_value.text()
+    inserted = [
+        r.getMessage() for r in caplog.records if "disc inserted" in r.getMessage()
+    ]
+    assert inserted == [
+        "disc inserted in /dev/sr0 (drive reports disc, after 1 unreadable status "
+        "check) — auto-rescanning"
+    ], inserted
+    removed = [
+        r.getMessage() for r in caplog.records if "disc removed" in r.getMessage()
+    ]
+    assert removed == [
+        "disc removed from /dev/sr0 (drive reports open) — clearing the disc view"
+    ], removed
 
 
 def test_reset_disc_view_forgets_the_release_detail_too(teardown_threads) -> None:
