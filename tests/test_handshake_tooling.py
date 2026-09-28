@@ -4482,6 +4482,10 @@ def test_r6_still_finds_every_numbered_pre_commit_in_the_record() -> None:
 #: (`tests/test_dynamic_sweeps_declare_a_floor.py`).
 _A2_HEAD: Final[str] = "LSL: 3\n\nS2 WILL: Declare GO in our next lap.\n"
 _A2_GO_UNLESS: Final[str] = "  verdict: GO\n  unless: the Full run fails\n"
+#: The same WILL in LSL 1, which defines neither `verdict:` nor `unless:`, and
+#: in LSL 2, which switches A2 on (review finding Q6).
+_A2_HEAD_LSL1: Final[str] = "LSL: 1\n\nS2 WILL: Declare GO in our next lap.\n"
+_A2_HEAD_LSL2: Final[str] = "LSL: 2\n\nS2 WILL: Declare GO in our next lap.\n"
 
 
 @pytest.mark.parametrize(
@@ -4490,6 +4494,14 @@ _A2_GO_UNLESS: Final[str] = "  verdict: GO\n  unless: the Full run fails\n"
         # R15 (a): the structured form, which lap_language.py accepts and holds
         # its author to, is a pre-commit here too.
         (_A2_HEAD + "  owner: us\n  when: our next lap\n" + _A2_GO_UNLESS, None),
+        (_A2_HEAD_LSL2 + "  owner: us\n  when: our next lap\n" + _A2_GO_UNLESS, None),
+        # Q6: ... but only where A2 is in force. LSL 1 refuses both fields, so
+        # the same WILL in an LSL 1 lap is not a pre-commit, and the refusal
+        # says why.
+        (
+            _A2_HEAD_LSL1 + "  owner: us\n  when: our next lap\n" + _A2_GO_UNLESS,
+            "but this lap declares LSL 1, which does not define those fields",
+        ),
         # ... and it names no lap NUMBER in its when:, or it is refused as one.
         (
             _A2_HEAD + "  owner: us\n  when: our lap 15\n" + _A2_GO_UNLESS,
@@ -4542,6 +4554,36 @@ def test_r6_reads_lsl_s_structured_pre_commit_and_a_dotted_subject(
         assert problems == [], problems
     else:
         assert len(problems) == 1 and expect in problems[0], problems
+
+
+#: Our round 28 laps 5 and 6's pre-commit, word for word, in the LSL 1 form they
+#: are written in: an unquoted sentence, with LSL 1's own WILL fields and no
+#: `verdict:` or `unless:`. Neither Q6 (the structured form counts only where A2
+#: is in force) nor Q7 (a quotation does not count) may refuse it.
+_OUR_ROUND_28_PRE_COMMIT: Final[str] = (
+    "LSL: 1\n\n"
+    "S46 WILL: Our lap after the Full run's bundle is committed to our tree is "
+    "`GO` unless our reading of it finds a defect in 0.6.62 or `.17` that breaks "
+    "the pin, or the run does not complete.\n"
+    "  owner: us\n"
+    "  when: once the Full run's bundle is committed to our tree\n"
+)
+
+
+@pytest.mark.parametrize("verdict", ["OPEN", "HOLD"])
+def test_r6_passes_our_round_28_lsl_1_pre_commit_word_for_word(verdict: str) -> None:
+    hs = _load()
+    lap = _r6_lap(29, 5, _OUR_ROUND_28_PRE_COMMIT, verdict)
+    assert hs.pre_commit_problems(lap, "round-29-lap-05.md") == []
+    # NON-TRIVIALITY: it is the sentence that passes it, not a WILL counted in
+    # fields (it has none of A2's, and LSL 1 is not A2's), and without the
+    # sentence the same lap is refused.
+    wills = hs._lsl_structured_wills(lap)
+    assert wills.version == 1 and wills.counted == () and wills.found == ()
+    bare = lap.replace("is `GO` unless", "is due, unless")
+    assert bare != lap
+    [problem] = hs.pre_commit_problems(bare, "round-29-lap-05.md")
+    assert "carries no pre-commit" in problem
 
 
 def test_r6_binds_from_lap_5_of_round_29_only() -> None:
