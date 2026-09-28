@@ -26,6 +26,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   judge the confirmation's verdict, not just its ratio, so a wrong answer on every
   attempt still fails. The threshold is unchanged.
 
+### Fixed
+
+- **The automatic recovery re-read no longer asks for a `-Z` that Max retries cannot
+  satisfy.** cyanrip's secure re-read `-Z N` succeeds only when N+1 reads of a track
+  are identical, and it stops after `-r` reads (the fork's `src/cyanrip_main.c`
+  lines 997-1012 at `faec4a8`). With secure re-read Off, the read-speed ladder and
+  the auto-fix fell back to our own `-Z 3` whatever `-r` was, so at Max retries 3
+  they sent `-Z 3 -r 3`: every track read three times, none verified, and every
+  track then re-read again the same way. That fallback is now capped at what `-r`
+  lets converge (`-Z 2` at `-r 3`; none at all at `-r 1`), and a number you set
+  yourself is never lowered.
+
 ## [0.6.62] — 2026-09-28
 
 ### Changed
