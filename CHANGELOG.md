@@ -296,6 +296,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `cyanrip@<sha>:docs/…` names a file in the fork's repository; the sweep in
   `tests/test_doc_index_completeness.py` now skips a path that directly follows
   `cyanrip@<hex>:`, and a meta-test holds both halves.
+- **For contributors: `scripts/round_digest.py` is marked safe to re-run under the
+  lap language's B1** (`# LSL-RERUN: commit-only` on line 2). It reads only the
+  handshake folders of the checkout it runs in and runs no git command, so its
+  output can depend on nothing but the commit. It is the only file marked; a test
+  holds the set to it.
 
 ### Removed
 

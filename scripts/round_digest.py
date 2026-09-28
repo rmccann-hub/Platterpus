@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# LSL-RERUN: commit-only
+# That line is LSL 3's B1 marker: our word that this tool's output depends only
+# on the commit it runs in, so a lap checker given `--rerun` may repeat a `run:`
+# of it at the commit the lap names. It holds because the tool reads nothing but
+# the lap files under `docs/handshake/` of the checkout it runs from (`_REPO_ROOT`
+# is this file's own grandparent) and hashes their bytes: it asks git nothing,
+# and reads no network, drive, clock or ref. Remove the marker if that changes.
 """Compute `HANDSHAKE-ROUND-DIGEST` — the cyanrip fork's method, adopted whole.
 
 **Why theirs and not ours.** Our round-15 lap 2 declared a digest computed by
