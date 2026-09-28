@@ -12,6 +12,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **A re-read that matches AccurateRip is kept, even when it did not converge.** The
+  automatic re-read of a track that missed AccurateRip kept its result only if enough
+  reads agreed. On the 2026-09-28 Full run it re-read track 3 of the first whole-disc
+  rip to a copy AccurateRip verified on both versions, one agreeing read short of
+  converging, and deleted it; the album kept its unverified first read and the status
+  line said we had *"kept the best read"*. Which read to keep is now decided by
+  AccurateRip first, in both directions (a verified first read is never replaced by an
+  unverified re-read, even a converged one), and by convergence otherwise. The report
+  records why each re-read was kept (`read_speed.retried_tracks[].replaced_because`,
+  schema v30), and the messages say which reason applied instead of claiming the track
+  now reads consistently.
+
 ### Changed
 
 - **The testing guide says when a lap's round digest has to be computed.** Announcing a

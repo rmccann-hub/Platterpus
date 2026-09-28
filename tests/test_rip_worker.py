@@ -531,6 +531,7 @@ def test_auto_fix_swaps_in_reripped_track_when_it_converges(
             "reripped_z": 2,
             "converged": True,
             "replaced": True,
+            "replaced_because": "converged",
         }
     ]
     # The improved FLAC was copied into the album folder.
@@ -756,10 +757,70 @@ def test_auto_fix_keeps_original_when_rerip_still_unstable(
             "reripped_z": 2,
             "converged": False,
             "replaced": False,
+            "replaced_because": None,
         }
     ]
     # The original was NOT overwritten by the (non-converged) re-rip.
     assert not (tmp_path / "Artist" / "Album" / "03 - C.flac").exists()
+
+
+def test_auto_fix_keeps_a_re_read_that_matches_accuraterip_without_converging(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The 2026-09-28 Full run's track 3, in the worker: the re-read did not
+    converge, but it matches AccurateRip and the first read did not, so it is the
+    read the album keeps (`verdict.reread_supersedes`). Until that date it was
+    deleted with its temp folder while the unverified first read was shipped.
+
+    The twin of the test above, whose re-read matches nothing and is still
+    refused; the only difference between the two fixtures is the AccurateRip line.
+    """
+    rerip_verified_not_converged = (
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    3\n"
+        "Done; (no matches found, but hit repeat limit of 5)\n"  # did not converge
+        "Track 3 ripped and encoded successfully!\n"
+        "  EAC CRC32:     44444444 (after 5 rips)\n"
+        "    Accurip v1:  3C8BDDD2 (accurately ripped, confidence 128)\n"
+        "  File(s):\n"
+        "    Artist/Album/03 - C.flac\n"
+        "Ripping errors: 0\n"
+    )
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend.rip_side_effect = _fake_rip_writer(
+        _PASS1_UNSTABLE, rerip_verified_not_converged, True
+    )
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 2
+    # Kept, and the record says why: without the reason, `converged: False,
+    # replaced: True` would read as a non-reproducible read swapped in blindly.
+    assert worker.retried_tracks == [
+        {
+            "track": 3,
+            "trigger": "instability",
+            "reripped_z": 2,
+            "converged": False,
+            "replaced": True,
+            "replaced_because": "accuraterip",
+        }
+    ]
+    # The file on disk is now AccurateRip-verified, so it is not called unstable.
+    assert worker.unstable_tracks == []
+    swapped = tmp_path / "Artist" / "Album" / "03 - C.flac"
+    assert swapped.read_bytes() == b"FIXED-FLAC-BYTES"
+    # The supersede record says the read did not converge and why it was kept,
+    # rather than the old "kept anyway only if it read cleanly".
+    addenda = list((tmp_path / "Artist" / "Album").glob("*addendum*"))
+    assert len(addenda) == 1, addenda
+    text = addenda[0].read_text(encoding="utf-8")
+    assert "did not converge; kept because it matches AccurateRip" in text
+    assert "kept anyway only if it read cleanly" not in text
 
 
 def test_dynamic_mode_ripps_fast_then_secures_only_unverified_track(
@@ -831,6 +892,7 @@ def test_dynamic_mode_ripps_fast_then_secures_only_unverified_track(
             "reripped_z": 2,
             "converged": True,
             "replaced": True,
+            "replaced_because": "converged",
         }
     ]
     assert worker.unstable_tracks == []
@@ -994,6 +1056,7 @@ def test_a_one_frame_offset_variant_match_is_re_read_by_default(
             "reripped_z": 2,
             "converged": True,
             "replaced": True,
+            "replaced_because": "converged",
         }
     ]
 

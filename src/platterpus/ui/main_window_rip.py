@@ -4415,6 +4415,13 @@ class RipMixin(MainWindowShared):
             for r in (summary.get("retried_tracks") or [])
             if r.get("replaced")
         ]
+        # The subset kept because the re-read matched AccurateRip: those may not
+        # have read consistently, so they must not be told they now do.
+        verified = [
+            r.get("track")
+            for r in (summary.get("retried_tracks") or [])
+            if r.get("replaced") and r.get("replaced_because") == "accuraterip"
+        ]
         if not escalated and not unstable and not fixed:
             return  # clean single-pass rip — no clutter
         if escalated:
@@ -4434,15 +4441,30 @@ class RipMixin(MainWindowShared):
                 )
                 log.info("%s", message)
             self._rip_progress.append_log_line(message)
-        if fixed:
-            # An unstable track was re-ripped ALONE with a harder -Z and now reads
-            # consistently — the audio was auto-improved. Say so plainly (a win).
-            plural = "s" if len(fixed) > 1 else ""
-            listed = ", ".join(str(n) for n in fixed)
+        consistent = [n for n in fixed if n not in verified]
+        if consistent:
+            # A track re-ripped ALONE with a harder -Z that now reads consistently
+            # — the audio was auto-improved. Say so plainly (a win). The sentence
+            # names no trigger: a re-read also runs when the first read missed
+            # AccurateRip, and "read inconsistently" was false of those.
+            plural = "s" if len(consistent) > 1 else ""
+            listed = ", ".join(str(n) for n in consistent)
             message = (
-                f"✓ Auto-fix: track{plural} {listed} read inconsistently, so it was "
-                "re-ripped on its own — it now reads consistently and the better "
-                "copy was kept."
+                f"✓ Auto-fix: track{plural} {listed} re-ripped on its own and now "
+                "read consistently — the re-read was kept."
+            )
+            log.info("%s", message)
+            self._rip_progress.append_log_line(message)
+        if verified:
+            # Kept because the re-read matches AccurateRip and the first read did
+            # not (verdict.reread_supersedes). It may NOT have read consistently,
+            # so this sentence claims the database match and nothing else.
+            plural = "s" if len(verified) > 1 else ""
+            listed = ", ".join(str(n) for n in verified)
+            message = (
+                f"✓ Auto-fix: track{plural} {listed} re-ripped on its own; the "
+                "re-read matches AccurateRip and the first read did not, so the "
+                "re-read was kept."
             )
             log.info("%s", message)
             self._rip_progress.append_log_line(message)
@@ -4453,9 +4475,9 @@ class RipMixin(MainWindowShared):
             listed = ", ".join(str(n) for n in unstable)
             message = (
                 f"⚠ Read stability: track{plural} {listed} still didn't read "
-                "identically even after an automatic re-rip — kept the best read, "
-                "which may not be bit-perfect. Clean the disc and try again for a "
-                "verified copy. See the report."
+                "identically even after an automatic re-rip — the album keeps the "
+                "whole-disc pass's read, which may not be bit-perfect. Clean the "
+                "disc and try again for a verified copy. See the report."
             )
             log.warning("%s", message)
             self._rip_progress.set_status(message)

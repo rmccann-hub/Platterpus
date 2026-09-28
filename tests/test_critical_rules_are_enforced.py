@@ -1664,14 +1664,16 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **928 -> 957 (2026-09-28)**: `check_dependencies` passes the GUI's own deadline and names the tools a stopped check did not reach; it is the CheckResult mapping, which lives with the other checks.
     "preflight.py": 957,
     # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
-    "read_speed_ladder.py": 370,
+    # **370 -> 373** (2026-09-28, the Full run's track 3): the retried-track copy carries `replaced_because`.
+    "read_speed_ladder.py": 373,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
     # **690 -> 712** (2026-09-24, #36): `ComponentInventory`, the one inventory type, and v27's `dependencies_measured_at`.
     # **712 -> 723** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): `TagFixEntry` and `DiscBlock.tag_control_characters_replaced`.
     # **723 -> 727** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): `DiscBlock.eac_log_signature_lines_defused`.
-    "report_types.py": 727,
+    # **727 -> 730** (2026-09-28, the Full run's track 3): `RetriedTrackBlock.replaced_because`, schema v30.
+    "report_types.py": 730,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1726,7 +1728,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2528 -> 2546** (2026-09-26, the maintainer's quick run): a missing EAC-layout log is healthy when the rip's own settings turned it off (`_setting_was_on`).
     # **2546 -> 2554** (2026-09-26): the report passes the log's own count to the one-frame note, so our re-read is not described as the ripper disagreeing (the Full run).
     # **2554 -> 2581** (2026-09-26, the fork's S16): a rip whose log records no track is no longer blamed on the pressing, the database or the offset, and only a log that parsed whole can say so.
-    "rip_report.py": 2581,
+    # **2581 -> 2587** (2026-09-28, the Full run's track 3): the schema v30 note, beside the version it describes.
+    "rip_report.py": 2587,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -2010,7 +2013,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4802 -> 4803 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
     # 4803 -> 4820 on 2026-09-28 (review R4, R5): `_rip_metadata_for`, the one metadata snapshot the rip and the overwrite guard both read, and the guard saying so when a folder-less template leaves it nothing to check.
     # 4820 -> 4830 on 2026-09-28: the overwrite guard decides on folders that exist, and does not promise an overwrite of a look-alike (review Q4).
-    "ui/main_window_rip.py": 4830,
+    # **4830 -> 4852** (2026-09-28, the Full run's track 3): two auto-fix sentences, one per reason a re-read is kept, since a read kept on AccurateRip's word may not have read consistently; and the unstable-track warning names the read the album keeps.
+    "ui/main_window_rip.py": 4852,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2234,7 +2238,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "update_install.py": 358,
     # **521 -> 530** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The banner and the CTDB reconciliation say what matched.
     # **530 -> 531** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "verdict.py": 531,
+    # **531 -> 593** (2026-09-28, the Full run's track 3): `reread_supersedes`, which read of a track to keep, beside the AccurateRip predicate it is built on; most of it is the docstring giving the order and the run that set it.
+    "verdict.py": 593,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.
@@ -2254,7 +2259,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the log pane and the record, and the capture ends with what screening changed.
     # The screen itself lives in inbound_text; this is the wiring and its reasons.
     # **3490 -> 3523** (2026-09-27, TASKS the `-j` rows): each album pass's `-j` record path is read off the argv as spawned and the directory it ran in, and exposed for the report bundle. The worker is the only place that holds both; the argv reader is `diagnostics_record.py`. Nothing is moved.
-    "workers/rip_worker.py": 3523,
+    # **3523 -> 3586** (2026-09-28, the Full run's track 3): the auto-fix asks `verdict.reread_supersedes` instead of convergence alone, so it is handed the first pass's parsed tracks, records why a re-read was kept, says so in its log line and addendum row, and its docstrings describe the new rule.
+    "workers/rip_worker.py": 3586,
 }
 
 
