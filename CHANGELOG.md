@@ -141,6 +141,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   Platterpus has just read now counts as being in the drive. A disc that only
   becomes ready after every retry failed is still read as soon as the drive
   reports it.
+- **Ejecting a disc while Platterpus waits to read it again cancels that retry.**
+  The disc panel said the drive reports no disc, and a few seconds later that line
+  was replaced by an error about the disc you had just taken out. The retry now
+  ends when the disc leaves, and the next disc you put in is read as usual.
 - **Every message box now shows its text exactly as written.** What a tool told
   us — a version, a build tag, an install error from its own output — could be
   read as formatting instead of shown: Qt's ready-made message boxes guess
