@@ -198,6 +198,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Set cover art from file… is no longer in the Tools menu.** It moved to the disc
+  details' right-click menu in 0.6.62 and stayed in Tools for that one release, so
+  nobody who learned it there lost it the day it moved. The User Guide no longer
+  mentions the Tools copy.
 - **Round 29 is open, on the fork's `.18` (`51cc789`), and it is the build the next
   Full acceptance run tests.** `PIN_UNDER_REVIEW` moves from `e0471f4` to `51cc789`, so
   section A accepts `.18` and the cyanrip offer marks it as the build the run needs.

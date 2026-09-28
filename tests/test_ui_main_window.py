@@ -10298,46 +10298,47 @@ def test_cancelling_the_cover_art_dialog_changes_nothing(
 
 
 def _cover_actions(window: MainWindow) -> tuple[Any, Any]:
-    """``(the Tools entry, the album menu's entry)`` for Set cover art from file…"""
-    from PySide6.QtWidgets import QMenu
-
-    tools = next(
-        m for m in window.menuBar().findChildren(QMenu) if m.title() == "&Tools"
-    )
-    in_tools = next(a for a in tools.actions() if "cover art" in a.text())
-    menu = window._disc_info_panel.album_menu(window._disc_info_panel._mb_match_value)
+    """``(the background menu's entry, the album menu's entry)`` for Set cover art
+    from file…. It had a third home, in Tools, for 0.6.62 only; it went in 0.6.63."""
+    panel = window._disc_info_panel
+    background = panel.album_menu()
+    in_background = next(a for a in background.actions() if "cover art" in a.text())
+    background.deleteLater()
+    menu = panel.album_menu(panel._mb_match_value)
     in_album = next(a for a in menu.actions() if "cover art" in a.text())
     menu.deleteLater()
-    return in_tools, in_album
+    return in_background, in_album
 
 
-def test_cover_art_from_file_is_one_action_in_the_album_menu_and_tools(
+def test_cover_art_from_file_is_one_action_in_both_album_menus_and_not_in_tools(
     teardown_threads,
 ) -> None:
     """The maintainer's 2026-09-27 decision: the item moves to the album's
-    right-click menu, and for ONE release stays in Tools too.
+    right-click menu. It stayed in Tools for ONE release, 0.6.62, and left it in
+    0.6.63.
 
     **The same QAction, not two.** Identity is what makes "both entries call the
     same slot and are refused in the same states" true by construction; two
     actions wired to one slot would agree today and drift the first time one of
-    them was disabled. The background menu (a right-click beside the values)
-    offers it as well.
+    them was disabled. The album menu (a right-click on the album's values) and
+    the background menu (a right-click beside them) both offer it.
     """
+    from PySide6.QtWidgets import QMenu
+
     window = teardown_threads()
-    in_tools, in_album = _cover_actions(window)
-    assert in_album is in_tools
-    background = window._disc_info_panel.album_menu()
-    try:
-        assert in_tools in background.actions()
-    finally:
-        background.deleteLater()
+    in_background, in_album = _cover_actions(window)
+    assert in_album is in_background
+    tools = next(
+        m for m in window.menuBar().findChildren(QMenu) if m.title() == "&Tools"
+    )
+    assert not [a.text() for a in tools.actions() if "cover art" in a.text()]
 
 
 def test_the_album_menu_cover_entry_runs_the_one_cover_slot(
     teardown_threads, tmp_path: Path, monkeypatch
 ) -> None:
     """Triggered from the album menu, it reaches `_on_set_cover_art_from_file` —
-    the validated pick the Tools entry has always run, not a second copy."""
+    the validated pick the Tools entry always ran, not a second copy."""
     from PySide6.QtWidgets import QFileDialog
 
     good = tmp_path / "sleeve.png"
@@ -10346,7 +10347,7 @@ def test_the_album_menu_cover_entry_runs_the_one_cover_slot(
         QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(good), ""))
     )
     window = teardown_threads()
-    _in_tools, in_album = _cover_actions(window)
+    _in_background, in_album = _cover_actions(window)
 
     in_album.trigger()
 
@@ -10354,27 +10355,28 @@ def test_the_album_menu_cover_entry_runs_the_one_cover_slot(
     assert "sleeve.png" in window._rip_progress.current_status()
 
 
-def test_the_album_menu_cover_entry_is_enabled_exactly_when_the_tools_entry_is(
+def test_the_album_menu_cover_entry_is_enabled_exactly_when_the_background_one_is(
     teardown_threads,
 ) -> None:
-    """Refused in exactly the states the Tools entry is — asserted across the
-    states the window actually moves through, not only the one it opens in.
+    """Refused in exactly the states the background menu's entry is — asserted
+    across the states the window actually moves through, not only the one it
+    opens in. (It was compared with the Tools entry until that left in 0.6.63.)
 
     Today that is none (the item was never rip-locked, and the slot refuses only
     a file that is not an image); the assertion is the relation, so a future
     lock applied to one entry is a failure here rather than a drift.
     """
     window = teardown_threads()
-    in_tools, in_album = _cover_actions(window)
+    in_background, in_album = _cover_actions(window)
     states: list[tuple[str, bool, bool]] = []
-    states.append(("idle", in_tools.isEnabled(), in_album.isEnabled()))
+    states.append(("idle", in_background.isEnabled(), in_album.isEnabled()))
     window._set_rip_lock(True)
     try:
-        states.append(("ripping", in_tools.isEnabled(), in_album.isEnabled()))
+        states.append(("ripping", in_background.isEnabled(), in_album.isEnabled()))
     finally:
         window._set_rip_lock(False)
-    states.append(("after the rip", in_tools.isEnabled(), in_album.isEnabled()))
-    assert all(tools == album for _state, tools, album in states), states
+    states.append(("after the rip", in_background.isEnabled(), in_album.isEnabled()))
+    assert all(back == album for _state, back, album in states), states
 
 
 #: The release the transitional Tools entry for Set cover art from file… goes in.
