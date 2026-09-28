@@ -79,6 +79,12 @@ from platterpus.deps.ripper_manifest import (
     RipperManifest,
     RipperRelease,
 )
+from platterpus.ripper_standing import (
+    SHORT_HOW_TO_READ,
+    name_build,
+    name_installed_build,
+    name_known_build,
+)
 
 log = logging.getLogger(__name__)
 
@@ -653,8 +659,8 @@ def evaluate_offer(
     )
     headline = (
         f"A newer cyanrip build is published on the {channel} channel: "
-        f"{newer.version} ({newer.commit}), release {newer.release_seq} — you have "
-        f"release {installed_seq} ({installed})."
+        f"{name_build(newer.version, newer.commit, newer.release_seq)}. You have "
+        f"{name_installed_build(installed, installed_seq, manifest)}. {SHORT_HOW_TO_READ}"
     )
     if approved_here:
         # IT COSTS NOTHING — because this build IS the one our record approved, so
@@ -671,12 +677,14 @@ def evaluate_offer(
     else:
         consequence = (
             "\n\n⚠ Taking this build changes what your rips can claim. Platterpus "
-            f"checks every rip against the ripper that handshake round {our_round} "
-            f"approved, so until a round in *this* repository verifies {newer.commit}"
-            ", every rip you make will report its ripper as 'unapproved' in the "
-            "report, the log and the EAC-compatible export. The audio is unaffected "
-            "and still bit-perfect if its own checks pass — what changes is whether "
-            "the record can say the ripper was jointly verified."
+            "checks every rip against the build it approves, "
+            f"{name_known_build(_fs.FORK_PIN)}, which handshake round {our_round} "
+            f"approved. {newer.commit} is not approved yet, so until a handshake "
+            "round approves it, every rip you make with it will record its ripper as "
+            "'unapproved' in the report, the log and the EAC-compatible export. The "
+            "audio is unaffected and still bit-perfect if its own checks pass. What "
+            "changes is whether the record can say both projects verified the "
+            "ripper together."
         )
         if wanted_by_the_acceptance_run:
             # THE APP ASKED FOR THIS BUILD. Refusing to install it here — and
@@ -684,7 +692,8 @@ def evaluate_offer(
             # 2026-09-03: the acceptance run aborts without this exact commit
             # while this dialog declines to fetch it.
             consequence += (
-                "\n\nThis is the build the acceptance test needs, so Platterpus "
+                f"\n\nThis is the build handshake round {_fs.PIN_UNDER_REVIEW_ROUND} "
+                "is testing, and the acceptance test needs it, so Platterpus "
                 "can install it for you — the run will not start without it. "
                 "Choose 'Install it anyway' below; nothing is typed and nothing "
                 "is installed unless you do."
@@ -739,8 +748,8 @@ def _up_to_date_offer(
     )
     if fork_source.same_commit(installed, row.commit):
         current = (
-            f"Your cyanrip build is the newest published: {row.version} ({installed}), "
-            f"release {installed_seq} on the {channel} channel.{channel_note}"
+            f"Your cyanrip build is the newest published on the {channel} channel: "
+            f"{name_build(row.version, installed, installed_seq)}.{channel_note}"
         )
     else:
         # AHEAD OF THIS CHANNEL, which is not the same statement and must not borrow
@@ -754,8 +763,9 @@ def _up_to_date_offer(
         # rather than only ones our own map lists.
         current = (
             f"Nothing newer than your cyanrip build is published on the {channel} "
-            f"channel — you have release {installed_seq} ({installed}), and {channel} "
-            f"is at release {row.release_seq} ({row.commit}).{channel_note}"
+            f"channel. You have {name_installed_build(installed, installed_seq, None)}"
+            f", and {channel} is at "
+            f"{name_build(row.version, row.commit, row.release_seq)}.{channel_note}"
         )
     if fork_source.same_commit(installed, fork_source.FORK_PIN):
         return RipperOffer(

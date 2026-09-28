@@ -12,6 +12,24 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The About box (Help → About Platterpus…) and the ripper update offer now say
+  what the ripper build means.** About listed the ripper as `cyanrip: 0.9.4 ✓`, which does not say whether it is the
+  Platterpus fork or upstream, which build it is, or whether it is approved. The
+  update offer said *"release 28 — you have release 27 (e0471f4)"*, and nothing
+  explained either number. About now shows the ripper's own version
+  (`0.9.4-rc2+platterpus.17`). A new *Ripper* section names the installed build by
+  version, commit and fork release, and says plainly whether it is approved, being
+  tested in a handshake round, or not approved, and what that means for your rips.
+  It also names the build this Platterpus installs and the one a round is testing,
+  and explains each number once. The offer names both builds the same way, and
+  names the round that is testing a build instead of *"a round in this repository"*.
+  The status is the same check every rip records (`handshake_approval.approve_ripper`),
+  so About cannot describe the ripper differently from the rips it makes. The
+  ripper's own version text is escaped, so it cannot render as Markdown. The words
+  live in one new module, `ripper_standing.py`.
+
 ## [0.6.63] — 2026-09-28
 
 ### Fixed
