@@ -51,11 +51,11 @@ from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 from platterpus.parsers import cyanrip_log
 from platterpus.read_speed_ladder import (
     MAX_ATTEMPTS,
-    MAX_SECURE_REREP,
     SpeedAttempt,
     disc_in_accuraterip,
     next_step,
     read_errors_present,
+    recovery_secure_rerip_ceiling,
     tracks_failing_accuraterip,
     unstable_tracks,
 )
@@ -1777,12 +1777,16 @@ class RipWorker(QObject):
                 current_secure_rerip=secure_rerip,
                 speed_locked=self._speed_locked,
                 # The user's -Z is the ceiling when they set one — the ladder never
-                # escalates beyond the number they picked. When they left it at the
-                # default 0 (no secure re-rip requested), the read-error recovery
-                # still needs SOME -Z to try, so fall back to the small internal
-                # recovery bound (MAX_SECURE_REREP — the "like 10" cap the user
-                # explicitly allowed). `0 or MAX_SECURE_REREP` == MAX_SECURE_REREP.
-                max_secure_rerip=self._params.secure_rerip_matches or MAX_SECURE_REREP,
+                # escalates beyond the number they picked. When they left it at 0
+                # (no secure re-rip requested), the read-error recovery still needs
+                # SOME -Z to try, so it falls back to the small internal bound
+                # (MAX_SECURE_REREP), CAPPED at what their -r lets converge: a -Z
+                # the -r ceiling cannot satisfy reads every track -r times and
+                # verifies none of them. One function for this and the auto-fix.
+                max_secure_rerip=recovery_secure_rerip_ceiling(
+                    secure_rerip_matches=self._params.secure_rerip_matches,
+                    max_retries=self._params.max_retries,
+                ),
             )
             if step is None:
                 # Floor + -Z exhausted — stop and leave the disc FLAGGED
@@ -1849,10 +1853,14 @@ class RipWorker(QObject):
                 # re-read alone HARDER. It NEEDS a -Z to converge, so use the user's
                 # configured ceiling when they set one, else the internal recovery
                 # bound (they may have left -Z at 0 while still wanting a shaky
-                # track rescued — that's what auto_ladder mode is for).
+                # track rescued — that's what auto_ladder mode is for), capped at
+                # what their -r lets converge — the same answer the ladder gets.
                 to_fix = list(self._last_unstable_tracks)
                 trigger = "instability"
-                rerip_z = self._params.secure_rerip_matches or MAX_SECURE_REREP
+                rerip_z = recovery_secure_rerip_ceiling(
+                    secure_rerip_matches=self._params.secure_rerip_matches,
+                    max_retries=self._params.max_retries,
+                )
             else:
                 to_fix = []
                 trigger = ""
