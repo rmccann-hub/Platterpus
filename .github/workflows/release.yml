@@ -22,17 +22,24 @@ on:
         description: "Release tag to create (e.g. v0.2.4)"
         required: true
 
-# Needed for the `gh release` calls to create/update the release, for
-# `gh workflow run` to dispatch the PyPI publish workflow, and for the
-# build-provenance attestation (OIDC identity + writing the attestation).
+# LEAST PRIVILEGE AT THE TOP, WRITES ON THE ONE JOB THAT NEEDS THEM (2026-09-28,
+# the maintainer's call). The workflow-level token only reads; `build-and-release`
+# grants itself the four writes below, so a job added later starts read-only
+# instead of inheriting them. `tests/test_workflow_permissions.py` holds the shape
+# for every workflow.
 permissions:
-  contents: write # create the GitHub Release + upload assets
-  actions: write # dispatch publish-pypi.yml (gh workflow run)
-  id-token: write # OIDC identity for build-provenance attestation (Sigstore)
-  attestations: write # write the provenance attestation to the repo's store
+  contents: read
 
 jobs:
   build-and-release:
+    # Needed for the `gh release` calls to create/update the release, for
+    # `gh workflow run` to dispatch the PyPI publish workflow, and for the
+    # build-provenance attestation (OIDC identity + writing the attestation).
+    permissions:
+      contents: write # create the GitHub Release + upload assets
+      actions: write # dispatch publish-pypi.yml (gh workflow run)
+      id-token: write # OIDC identity for build-provenance attestation (Sigstore)
+      attestations: write # write the provenance attestation to the repo's store
     # Pin to 22.04 for a stable, older glibc — the AppImage bundles a
     # manylinux2014 CPython, so building on an older host keeps it broadly
     # compatible across the target distros (Bazzite, Fedora, Arch, Ubuntu).
