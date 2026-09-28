@@ -421,21 +421,63 @@ def test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one() -> Non
     )
 
 
+def _confirmation(
+    pattern: str, first_large_s: float, verdicts: list[bool]
+) -> Callable[[], Growth]:
+    """One `_confirm_at_scale` on a run of spaces, in the shape `_settled` takes.
+
+    Each attempt's verdict is appended to ``verdicts``, and the tests below settle
+    on and assert the VERDICT, not only the ratio beside it: the verdict is what
+    the sweep acts on, and a confirmation that answered ``True`` with an honest
+    ratio would pass a test that read the ratio alone.
+
+    The two tests were single measurements until 2026-09-28, when the first of
+    them read 8.9x on CI's Python 3.12 leg for a pattern that measures 3.9x here
+    (median of 300, max 4.8x with the whole suite on every core beside it; the
+    runner's noise was not reproduced). The sweep calls a pattern super-linear only
+    when two measurements agree, so a test of its confirmation that fails on one
+    was holding it to a stricter standard than the sweep keeps, and failing at the
+    rate of a single noisy sample. Both now settle as the detector proof does: one
+    wrong answer is forgiven, and a wrong answer on every attempt still fails.
+    """
+
+    def measure() -> Growth:
+        is_real, ratio, seconds = _confirm_at_scale(
+            pattern, " ", "search", first_large_s
+        )
+        verdicts.append(is_real)
+        return ratio, " ", seconds
+
+    return measure
+
+
 def test_the_confirmation_clears_the_pattern_ci_flagged_on_noise() -> None:
     """The pattern flagged on 2026-09-27 at 8.4x then 8.5x is linear at scale."""
     flagged = (
         r"^\s+(?:Elapsed(?: time)?|Rip time|Extraction time|Time taken):\s+"
         r"(?P<s>\d{1,7}(?:\.\d{1,6})?)\s*(?:s|sec|secs|seconds)\b"
     )
-    is_real, ratio, _ = _confirm_at_scale(flagged, " ", "search", 0.00005)
-    assert not is_real, f"a linear pattern confirmed at {ratio:.1f}x"
+    verdicts: list[bool] = []
+    attempts = _settled(
+        _confirmation(flagged, 0.00005, verdicts), lambda _ratio: not verdicts[-1]
+    )
+    assert not verdicts[-1], (
+        f"a linear pattern confirmed at {_series(attempts)} over {len(attempts)} "
+        "attempts, so the sweep would report it as a finding"
+    )
 
 
 def test_the_confirmation_still_catches_a_real_offender() -> None:
     """The drive-name normaliser before its 2026-09-26 fix, which is quadratic on a
     run of spaces with no hyphen, is confirmed at the larger pair too."""
-    is_real, ratio, _ = _confirm_at_scale(r"\s+-\s+", " ", "search", 0.005)
-    assert is_real, f"a quadratic pattern measured only {ratio:.1f}x at scale"
+    verdicts: list[bool] = []
+    attempts = _settled(
+        _confirmation(r"\s+-\s+", 0.005, verdicts), lambda _ratio: verdicts[-1]
+    )
+    assert verdicts[-1], (
+        f"a quadratic pattern measured only {_series(attempts)} at scale over "
+        f"{len(attempts)} attempts"
+    )
 
 
 def test_a_stall_is_confirmed_without_timing_a_longer_line() -> None:

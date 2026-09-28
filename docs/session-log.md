@@ -11,6 +11,79 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-28 — 0.6.62: nothing looks frozen, the drive is read again, the overwrite guard checks the real folder; round 28 laps 6 and 7 at protocol 6
+
+**Asked:** "fix all. merge all to main, when done tell me when i can delete all
+branches", then "prepare for a new lap". The questions answered that day set the
+shape: the Full run moves to 0.6.62 under an R1 override, round 14 lap 18 restored,
+a look-alike folder tie always asks, the CI-only fixes in 0.6.62, both held laps
+announced, cover art on the album's context menu, the crash dialog closes itself
+under `--run-script`, and the `-j` record bundled now and embedded later.
+
+**Built (two PRs, #267 with 79 commits and #268 the release; 0.6.62 released from
+`9e96fa09`, run `36398712567`):**
+- *Check dependencies* was investigated on the maintainer's report that it seemed
+  to freeze. It never ran on the GUI thread, but it looked dead: no feedback, a
+  second click ignored, up to about seven minutes on a wedged container, and a
+  partial result that claimed everything was present. It now says it is running,
+  answers a second click, stops at 120 s, and names what it did not check; the
+  same deadline bounds `--doctor`. The one real GUI-thread freeze was a test
+  script's `open dependencies`, which named the synchronous check; it now runs the
+  worker-thread check and waits on the runner's own deadline machinery. A run
+  stopped mid-wait now records the waiting step.
+- *The drive* ("sometimes I have to open and close the drive and restart"): the
+  rig log showed two removals and no insertion. An "unavailable" reading was
+  treated as a state, so a disc that returned through one was never read. Fixed,
+  with a retry of a first read that fails on a cold container, and the review's
+  follow-ups (a phantom insertion after a successful retry, a removal that left a
+  retry pending, a panel promising "in 4 s" while the drive was freed).
+- *The overwrite guard* now predicts the folder from the same `-D` the argv sends,
+  with the real disc number, decides a tie on folders that exist, guards
+  folder-less templates by predicting cyanrip's documented default
+  (`<album> [FLAC]`, held to the fork's provider contract by a test), and trims
+  path components as cyanrip does.
+- *Text as written:* 38 static `QMessageBox` calls routed through
+  `ui/message_boxes.py` (PlainText), and every data-built `QLabel` states its
+  format, RichText values escaped and followed value by value by the sweep.
+- *Tooling:* LSL 3 in our checker; the R6 gate reads recalled, quoted and
+  structured pre-commits correctly; `round_digest.py --check` refuses to pass on
+  nothing; read-only workflow tokens.
+- *Round 28:* the fork's lap 5 arrived while #267 merged, declaring protocol 6.
+  Our held laps became 6 and 7 (K1), both declaring 6 (their S7, C29), and
+  `DECLARED_PROTOCOL` moved to 6. Lap 6 checks their lap 5 (every claim about our
+  code read at the commit it cites; their answer to our parser's open question
+  read in their source), carries the §6b and R1 overrides, and reports four
+  defects, three laxer checks and eight differences of reading in their LSL 3
+  checker, each cited.
+
+**Reviewed:** two review rounds, each finding checked by a second agent that tried
+to disprove it: 18 findings in the first, 9 in the second, none refuted, all 27
+fixed with a revert-probed regression test.
+
+**Learned (graduated where noted):**
+- A modal inside a test's event pump hangs an xdist worker for 300 s: the
+  disc-return test drove a real read whose no-match result opened the unknown-album
+  dialog. Every disc-flow test stubs it now; the message-box watchdog pattern in
+  `tests/test_ui_message_boxes.py` is the model.
+- Announcing a lap changes its bytes, so a later lap's digest over it must be
+  computed after the announce, not before. Lap 7's was recomputed by hand, and
+  `round_digest.py 28 --check` caught the stale one first. Graduated to
+  `docs/testing.md` §7, beside `--check`.
+- A pipe after a gate hides its exit code again (`ruff format --check | tail`
+  committed a formatting slip). CLAUDE.md already says so; `set -o pipefail` in
+  every command that pipes a gate.
+- A red AppImage job on `main` is not always ours: `python_appimage` fetches its base
+  through the GitHub API, and a rate limit (HTTP 403) failed the build on a merge
+  whose tree had built green one commit earlier. Rerun the failed job and read it
+  again before dispatching; the release's CI gate reads that run.
+- A second copy of a prediction drifts: the guard's folder had drifted from the
+  argv twice. One function, two callers, and a relation test between them.
+
+**Open:** the Full run on 0.6.62 with `.17`; the fork's reading of lap 6 S37
+(BLOCKING); labels given text by `setText` later (TASKS); CLAUDE.md rule 12's
+parenthetical still says the `QLabel` sites are tracked in TASKS, and the rules
+section needs the maintainer's word to change.
+
 ## 2026-09-28 — Round 14 lap 18 restored to the bytes we sent, and what it lost
 
 *(Part of the session that built 0.6.62; its full entry sits above this one.)* Our
