@@ -100,6 +100,21 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   at the gap with the count and the times it covers. The report's `scope` says
   `INCOMPLETE` with the same count, and also names any lines the report itself
   elided to fit its size limit. `log.txt` still has every line.
+- **A cancelled rip's EAC-compatible log no longer calls the track it was reading
+  "never extracted".** The Full run of 2026-09-28 asked for tracks 1-3 of 14 and was
+  cancelled partway through track 1. Its log said *"The remaining 14 track(s) were
+  never extracted"*, while quoting `Interrupted at : track 1, mid-read` further down,
+  and a partial file of track 1 was in the folder. The banner now reads the ripper's
+  own record of where it stopped: *"Track 1 was being read when the rip stopped …, so
+  it was only partly read: its file is incomplete"*. It counts the remaining tracks
+  against the tracks the rip was asked for, which the ripper's log states
+  (`Tracks to rip:  1, 2, 3`), so that rip now says 2 were never extracted, not 14. A
+  rip of some tracks whose every requested track is present now gets the same *"RIP
+  STOPPED"* banner a whole-disc rip does, instead of calling the tracks nobody asked
+  for missing. If the ripper records the stopping point in a wording Platterpus does
+  not recognise, the log says a partial file may exist rather than claiming none
+  does. The log reader now parses `Tracks to rip:`, and the consumer contract is
+  regenerated to say so.
 
 ### Changed
 

@@ -45,7 +45,12 @@ from platterpus.deps.ripper_manifest import parse_manifest
 from platterpus.parsers.cd_info import DiscInfo, parse_cd_info
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 from platterpus.parsers.cyanrip_log import (
+    INTERRUPTED_BETWEEN_TRACKS,
+    INTERRUPTED_MID_READ,
+    INTERRUPTED_NOT_DETERMINED,
+    InterruptionPoint,
     finished_track,
+    interruption_point,
     looks_like_cyanrip_log,
     parse_cyanrip_log,
     secure_rerip_verdict_converged,
@@ -211,6 +216,54 @@ def test_secure_rerip_verdict_converged_never_raises(text: str) -> None:
     must answer tri-state for ANY line, including an absurd numerator."""
     result = secure_rerip_verdict_converged(text)
     assert result is None or isinstance(result, bool)
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.none(),
+        st.integers(),
+        st.builds("track {}, mid-read".format, st.text(max_size=60)),
+        st.just("between tracks, no read in progress"),
+    )
+)
+def test_interruption_point_never_raises(where: object) -> None:
+    """The ``Interrupted at:`` classifier over anything, including a JSON value.
+
+    Added 2026-09-28 with the classifier itself (the Full run's F5/F6). The audit
+    hands it whatever a report's JSON holds, so a non-string is a real input, not a
+    contrived one. The shape of the answer is asserted, not just its absence of an
+    exception: a track number exists exactly when a read was in progress.
+    """
+    point = interruption_point(where)
+    if point is None:
+        return
+    assert isinstance(point, InterruptionPoint)
+    assert point.kind in {
+        INTERRUPTED_MID_READ,
+        INTERRUPTED_BETWEEN_TRACKS,
+        INTERRUPTED_NOT_DETERMINED,
+    }
+    assert (point.track is not None) == (point.kind == INTERRUPTED_MID_READ)
+    if point.track is not None:
+        assert 1 <= point.track <= 99
+
+
+@_SETTINGS
+@given(st.text(max_size=400))
+def test_a_tracks_to_rip_line_never_raises(value: str) -> None:
+    """``Tracks to rip:`` with any value parses, and yields a real selection or none.
+
+    The numbers are a CLAIM about which tracks the ripper was told to extract, and
+    the EAC-compatible log counts against them, so the property asserted is the
+    strong one: whatever the text, the answer is ``None`` or track numbers 1..99.
+    """
+    parsed = parse_cyanrip_log(f"cyanrip 0.9.3\nTracks to rip:  {value}\n")
+    numbers = parsed.tracks_to_rip_numbers
+    assert numbers is None or (
+        numbers and all(isinstance(n, int) and 1 <= n <= 99 for n in numbers)
+    )
 
 
 @_SETTINGS
@@ -394,6 +447,8 @@ _OVER_THE_DIGIT_LIMIT = "9" * 4301
         f"  EAC CRC32:     A1B2C3D4 (after {_OVER_THE_DIGIT_LIMIT} rips)",
         f"  Accurip v1:  1234 (accurately ripped, confidence {_OVER_THE_DIGIT_LIMIT})",
         f"  Accurip 450: BF62 (matches Accurip DB, confidence {_OVER_THE_DIGIT_LIMIT})",
+        # Parsed since 2026-09-28. The two-digit cap refuses it before any int().
+        f"Tracks to rip:  1, {_OVER_THE_DIGIT_LIMIT}",
     ],
 )
 def test_an_absurdly_long_number_never_raises(line: str) -> None:

@@ -535,6 +535,34 @@ _ENCODER_FAILED_COUNT = re.compile(r"(?P<failed>\d{1,4})\s{1,4}tracks?\s{1,4}fai
 # two published forms are prose, a third is cheap for them to add, and a consumer
 # that re-derives structure from prose breaks on the third one.
 _INTERRUPTED_AT = re.compile(r"^Interrupted at:\s+(?P<where>\S.*?)\s*$")
+# The two shapes the verbatim value above can take, applied to the captured VALUE,
+# never to a line. The fork publishes exactly these two in its stable P2 section:
+# `cyanrip_log.c:1037` `Interrupted at: track %i, mid-read` and `:1040`
+# `Interrupted at: between tracks, no read in progress` (round 28 lap 3 provider
+# contract, `docs/handshake/inbound/artifacts/round-28-lap-03-provider-contract-
+# g74872db.md`, source anchor `7e274be9994d1010`).
+#
+# Why read structure out of a value this module keeps verbatim on purpose: the
+# EAC-compatible log said a track that was interrupted mid-read was "never
+# extracted" (the 2026-09-28 Full run, F5), and the audit graded that track's
+# partial file as a clean track (F6). Both need ONE fact — was a read in progress,
+# and of which track — so it is read here, once, by `interruption_point`. The
+# verbatim text stays the record. A third shape matches neither pattern and reads
+# as not determined, so the fork adding one costs us a hedged sentence, never a
+# wrong one.
+#
+# `\d{1,2}`: a CD holds at most 99 tracks, and a bounded quantifier keeps
+# `tests/test_regex_bounded_time.py` honest.
+_INTERRUPTED_MID_READ = re.compile(r"^track (?P<track>\d{1,2}), mid-read$")
+_INTERRUPTED_BETWEEN_TRACKS = re.compile(r"^between tracks, no read in progress$")
+# `Tracks to rip:  1, 2, 3` or `Tracks to rip:  all` — which tracks the ripper was
+# told to extract, in its own words (`cyanrip_log.c:887` `Tracks to rip:  %s`, each
+# element `%i%s` at `:890`, P2 stable, same contract as above). Listed as a
+# "candidate: partial-rip marker" in `_IGNORED_DISC_LINES` from 2026-07-31 until
+# 2026-09-28, when the cancelled rip of the Full run showed what dropping it cost:
+# a rip asked for 3 of 14 tracks had an EAC-compatible log that counted all 14 as
+# "never extracted", because nothing in the parsed log said only 3 were requested.
+_TRACKS_TO_RIP = re.compile(r"^Tracks to rip:\s+(?P<value>\S.*?)\s*$")
 _FINISHED_AT = re.compile(r"^Ripping finished at\s+(?P<when>.+?)\s*$")
 # The "Paranoia status counts:" block header, then indented "KEY:  N" lines.
 _PARANOIA_HEADER = re.compile(r"^Paranoia status counts:\s*$")
@@ -1240,6 +1268,10 @@ class _Disc:
     #: Verbatim text of cyanrip's `Interrupted at:` line, or None. Present only
     #: on a rip that did not complete.
     interrupted_at: str | None = None
+    #: Verbatim value of `Tracks to rip:` ("" = the line was absent), and the
+    #: track numbers in it when it is a plain list. See `_take_tracks_to_rip`.
+    tracks_to_rip: str = ""
+    tracks_to_rip_numbers: tuple[int, ...] | None = None
     rip_completed_tracks: int | None = None
     rip_completed_total: int | None = None
     rip_completed_reason: str = ""
@@ -1793,6 +1825,90 @@ def _take_interrupted_at(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def _take_tracks_to_rip(disc: _Disc, match: re.Match[str]) -> bool:
+    """Record which tracks the ripper was told to extract, verbatim and as numbers.
+
+    The numbers are filled only for a plain comma-separated list of track numbers,
+    each 1..99: the one shape the fork prints for a `-l` selection. `all` leaves
+    them None, and so does anything we do not recognise, so no caller can mistake
+    an unparsed value for an empty selection. The verbatim text is kept either way.
+    """
+    value = match.group("value")
+    disc.tracks_to_rip = value
+    numbers: list[int] = []
+    for piece in value.split(","):
+        text = piece.strip()
+        # `isascii` before `isdigit`: `"²".isdigit()` is True, and a superscript
+        # is not a track number. Two digits at most, for the same 99-track reason
+        # as `_INTERRUPTED_MID_READ`.
+        number = (
+            int_or_none(text, field="cyanrip tracks-to-rip entry")
+            if text.isascii() and text.isdigit() and len(text) <= 2
+            else None
+        )
+        if number is None or not 1 <= number <= 99:
+            disc.tracks_to_rip_numbers = None
+            # `all` is the whole-disc shape and needs no comment. Anything else is
+            # dependency output we could not read, which is logged, never dropped
+            # silently; the verbatim value is still kept on the record.
+            if value.strip() != "all":
+                log.warning(
+                    "cyanrip 'Tracks to rip:' value %r is not a list of track "
+                    "numbers; kept verbatim, selection not determined",
+                    value[:200],
+                )
+            return True
+        numbers.append(number)
+    disc.tracks_to_rip_numbers = tuple(numbers)
+    return True
+
+
+#: `InterruptionPoint.kind` values. Three, because "a read was in progress",
+#: "no read was in progress" and "the ripper said something we do not recognise"
+#: are three different claims about whether a partial file can exist.
+INTERRUPTED_MID_READ: Final[str] = "mid_read"
+INTERRUPTED_BETWEEN_TRACKS: Final[str] = "between_tracks"
+INTERRUPTED_NOT_DETERMINED: Final[str] = "not_determined"
+
+
+@dataclass(frozen=True)
+class InterruptionPoint:
+    """What cyanrip's ``Interrupted at:`` value says about a read in progress.
+
+    ``kind`` is one of the ``INTERRUPTED_*`` constants. ``track`` is the track
+    that was being read, and is set only for ``INTERRUPTED_MID_READ``. ``where``
+    is the ripper's own text, verbatim, so a caller can quote it.
+    """
+
+    kind: str
+    where: str
+    track: int | None = None
+
+
+def interruption_point(where: object) -> InterruptionPoint | None:
+    """Classify an ``Interrupted at:`` value. ``None`` when there is no value at all.
+
+    The ONE place that reads structure out of that line (see the comment on
+    `_INTERRUPTED_MID_READ` for why it is read at all). Every surface that needs to
+    know whether a rip stopped mid-read calls this instead of matching the text
+    itself, so no two of them can disagree about it.
+
+    Takes ``object`` because the audit hands it a value read out of JSON. Pure;
+    never raises.
+    """
+    if not isinstance(where, str) or not where.strip():
+        return None
+    text = where.strip()
+    mid_read = _INTERRUPTED_MID_READ.match(text)
+    if mid_read:
+        track = int_or_none(mid_read.group("track"), field="interrupted track")
+        if track is not None and track >= 1:
+            return InterruptionPoint(INTERRUPTED_MID_READ, text, track)
+    if _INTERRUPTED_BETWEEN_TRACKS.match(text):
+        return InterruptionPoint(INTERRUPTED_BETWEEN_TRACKS, text)
+    return InterruptionPoint(INTERRUPTED_NOT_DETERMINED, text)
+
+
 def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
     count = int_or_none(match.group("count"), field="cyanrip ripping-error count") or 0
     # Same phrasing as the legacy format's healthy verdict so downstream string
@@ -1899,6 +2015,7 @@ _RULES_BEFORE_GAPS: tuple[_LineRule, ...] = (
 _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
     _LineRule("swap_addendum_crc", _ADDENDUM_CRC, _take_addendum_crc),
     _LineRule("outputs", _OUTPUTS, _take_outputs, disc_level_only=True),
+    _LineRule("tracks_to_rip", _TRACKS_TO_RIP, _take_tracks_to_rip),
     _LineRule("disc_id", _DISC_ID, _take_disc_id),
     _LineRule("cddb_id", _CDDB_ID, _take_cddb_id),
     _LineRule("release_id", _RELEASE_ID, _take_release_id),
@@ -2000,6 +2117,10 @@ _FRAGMENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # that decides whether the disc is clean, out of an arm whose track list is
     # bounded and may end `, list truncated`.
     ("encoder_failed_count", _ENCODER_FAILED_COUNT),
+    # The two published shapes of an `Interrupted at:` value, applied by
+    # `interruption_point` to the text `_INTERRUPTED_AT` already captured.
+    ("interrupted_mid_read", _INTERRUPTED_MID_READ),
+    ("interrupted_between_tracks", _INTERRUPTED_BETWEEN_TRACKS),
     # The alphabet a FUN512 signature must be drawn from, applied to the `sig`
     # group captured by `_LOG_CHECKSUM` — a fragment, not a line. Declared here
     # because this module's enumeration is what the generated consumer contract
@@ -2058,7 +2179,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 # SHOULD record (they would need new `RippingInfo` fields, so they are a separate
 # change, not a silent one): `HDCD decoding:` (an enabled HDCD decode alters
 # samples, so it bears directly on "is this a bit-perfect copy"), `Tracks to rip:`
-# (anything but "all" means the album on disk is incomplete), `Frame retries:`
+# (anything but "all" means the album on disk is incomplete; GRADUATED 2026-09-28,
+# see `_TRACKS_TO_RIP`), `Frame retries:`
 # (a rip-effort setting EAC reports as part of its read mode) and `Album Art:`
 # (the north star includes cover art).
 #
@@ -2200,7 +2322,8 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^HDCD decoding:\s"), "candidate: alters samples when enabled"),
     (re.compile(r"^Album Art:\s"), "candidate: cover-art presence"),
     (re.compile(r"^Disc tracks:\s"), "candidate: total tracks on the disc"),
-    (re.compile(r"^Tracks to rip:\s"), "candidate: partial-rip marker"),
+    # `Tracks to rip:` left this list on 2026-09-28 and is parsed now
+    # (`_TRACKS_TO_RIP`): the cancelled rip of the Full run needed it.
     # Whether the DISC was found in AccurateRip at all ("AccurateRip:    found").
     # Skipped because the INDENTED per-track `Accurip:` row carries the same fact
     # at finer granularity and is what the classifier reads (see
@@ -3048,6 +3171,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
         consumer=disc.consumer,
         rip_completed=disc.rip_completed,
         interrupted_at=disc.interrupted_at,
+        tracks_to_rip=disc.tracks_to_rip,
+        tracks_to_rip_numbers=disc.tracks_to_rip_numbers,
         rip_completed_tracks=disc.rip_completed_tracks,
         rip_completed_total=disc.rip_completed_total,
         rip_completed_reason=disc.rip_completed_reason,

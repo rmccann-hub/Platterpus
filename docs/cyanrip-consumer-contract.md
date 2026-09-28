@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (61)
+## 1. Log lines we parse (62)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -62,6 +62,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `c2_errors` | disc | `^C2 errors:\\s+(?P<text>.+?)\\s*$` |
 | `paranoia_level` | disc | `^Paranoia level:\\s+(?P<text>.+?)\\s*$` |
 | `outputs` | disc | `^Outputs:\\s+(?P<value>.+?)\\s*$` |
+| `tracks_to_rip` | disc | `^Tracks to rip:\\s+(?P<value>\\S.*?)\\s*$` |
 | `disc_id` | disc | `^DiscID:\\s+(?P<value>\\S+)` |
 | `cddb_id` | disc | `^CDDB ID:\\s+(?P<value>\\S+)` |
 | `release_id` | disc | `^Release ID:\\s+(?P<value>\\S+)` |
@@ -158,7 +159,7 @@ the log **and** its addendum (`rip_addendum.with_addendum`), because the
 addendum is the only statement in the folder about which bytes actually
 shipped after an auto-fix re-rip.
 
-## 2. Log lines we knowingly ignore (24)
+## 2. Log lines we knowingly ignore (23)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -182,7 +183,6 @@ dropped.
 | `^HDCD decoding:\\s` | candidate: alters samples when enabled |
 | `^Album Art:\\s` | candidate: cover-art presence |
 | `^Disc tracks:\\s` | candidate: total tracks on the disc |
-| `^Tracks to rip:\\s` | candidate: partial-rip marker |
 | `^AccurateRip:\\s` | the indented per-track Accurip: row is read |
 | `^Tracks:\\s*$` | section marker, no payload |
 | `^Summary:\\s*$` | section marker, no payload |
