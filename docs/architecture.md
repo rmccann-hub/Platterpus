@@ -1863,6 +1863,56 @@ above); no rebuild needed, since you sign the exact published bytes.
 
 **Signing the release (maintainer-only, and read it *before* you arm it):** the offline-key `minisign` ritual is **`docs/architecture.md` §6.2 *Release signing*** (absorbed the former `release-signing.md` 2026-08-06). Pointed at from here because it is executed under release-time pressure and this section is the front door a maintainer actually opens — and because **its arming transition is dangerous to half-read**: the moment `update_signing.PUBLIC_KEY_B64` is non-empty the updater is fail-closed, so the *first* release after arming and every one after it **must** carry a `.minisig` or users cannot auto-update to it. Today the gate ships dormant (empty key, SHA-256 only), so nothing about releases changes until someone deliberately arms it. **The maintainer decided on 2026-09-25 that it is never armed** (KDD-37, D9), so do not propose arming it. What protects an update instead is the **build attestation, checked fail-closed in the app** (`update_attestation.py`, added 2026-09-25 on the maintainer's yes): `release.yml` must attest and stage `platterpus-x86_64.AppImage.sigstore.json` **before** the release is published, or no installed app can update to it (§6.2).
 
+### 6.4 When a release is bad (added 2026-09-28)
+
+A version number is a claim about the field (KDD-35), and this is how that claim is
+withdrawn. Every step below works from a browser. Two facts decide the order:
+
+- **Withdrawing a release stops new offers; it does not undo installs.** The in-app
+  updater reads the five newest *published* releases, unauthenticated
+  (`update_check.RELEASES_API_URL`), offers the newest by version, and never offers
+  anything older than the version running (`update_check.is_newer`). It cannot see
+  drafts. So a user still on an older version stops being offered the bad one as soon
+  as it is withdrawn, and a user who already installed it is rescued **only by a
+  higher version** (step 5).
+- **PyPI and GitHub are separate channels.** pipx users get the wheel from PyPI, and
+  AppImage users get the release asset. Withdraw from both.
+
+1. **Take the GitHub release down.** Delete it from its release page (the trash-can
+   button beside Edit). The git tag stays, so `release.yml` can rebuild that release
+   later if it turns out to be fine. Deleting also removes its assets: the AppImage,
+   `.sha256`, `.sigstore.json`, `.zsync` and the release's copy of `install.sh`. To
+   keep the assets instead, turn it back into a draft with `gh release edit vX.Y.Z
+   --draft=true`, which needs the API (a session with API access can run it). Either
+   way, the updater and `install.sh` stop seeing it.
+2. **Yank it on PyPI.** On pypi.org: *Your projects* → `platterpus` → *Manage* →
+   *Releases* → the version's *Options* → *Yank*, with a reason. pip and pipx then
+   skip it unless someone pins that exact version (`==X.Y.Z`), PEP 592's rule. A yank
+   can be undone from the same menu. Deleting a PyPI release cannot, and its version
+   number can never be uploaded again, so yank rather than delete.
+3. **If `install.sh` itself is what is bad, revert it on `main`.** The one-line
+   installer runs `install.sh` from `main` (`README.md` → *Quickstart*), not from a
+   release, so a bad commit there reaches every new install with no release involved.
+   Open the merged pull request that changed it and press **Revert**. GitHub opens a
+   revert pull request, and merging it (CI green, as always) fixes the one-liner at
+   once.
+4. **If the ripper pin is what is bad, withdraw it through the fork.** Switching the
+   pin is a handshake round (`docs/cyanrip-handshake.md` §6), and before planning a
+   rollback, check whose failure it is (§7.7e). That file is the home for how; this
+   section does not restate it.
+5. **Publish a higher version.** Only a higher version reaches users who already have
+   the bad one: the updater offers nothing older than what is running, and `pipx
+   upgrade` does not downgrade. A higher version that carries the last good code is a
+   fix too. Cut it the usual way (`CLAUDE.md` → *CI / release*, with the reasons in
+   §6.3); if a handshake round is open, the release waits, or goes out under a
+   recorded `HANDSHAKE-OVERRIDE` (gate (a) there).
+6. **Confirm the offer is gone.** Open
+   <https://api.github.com/repos/rmccann-hub/Platterpus/releases?per_page=5> in a
+   private browser window. That is the exact list the updater reads, and the bad tag
+   must not be in it. On <https://pypi.org/project/platterpus/#history> the version
+   carries a *yanked* label. Then, on a machine running an older version, **Tools →
+   Setup & Updates… → Check for updates** must not offer the bad one.
+
 ## 7. Security & licensing hygiene
 
 - **No `shell=True`; argument lists only** (§3.3) — the GUI passes
