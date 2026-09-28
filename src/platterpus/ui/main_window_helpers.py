@@ -174,9 +174,16 @@ def resolve_sanitised_paths(output_root: Path, relative: Path) -> tuple[Path, ..
     before the user's music is destroyed.
 
     So we stop needing the table to be right. Walk the predicted path segment by
-    segment; take the literal child when it exists, otherwise EVERY on-disk
-    sibling that could be a sanitised rendering of it, otherwise the literal
-    name (nothing is there — which is the correct answer for a first rip).
+    segment; take EVERY on-disk child that could be a sanitised rendering of it,
+    the literal name included when that exists, otherwise the literal name
+    (nothing is there — which is the correct answer for a first rip).
+
+    **An existing literal does not end the search** (review R3, 2026-09-28). It
+    used to: the literal child was taken whenever it existed and its look-alikes
+    were never read. For a title with a `"` the literal is a name cyanrip never
+    writes (it writes `“` or `”`, P7d), yet a folder can still carry it — an
+    unknown-disc rip keeps the `"` as typed. So an empty `a"b` hid a full `a“b`,
+    the guard asked nothing, and the rip wrote into `a“b`.
 
     **Several siblings branch the walk; they do not end it.** Each is followed on
     to the next segment, so a tie at the artist folder still finds the album
@@ -193,11 +200,11 @@ def resolve_sanitised_paths(output_root: Path, relative: Path) -> tuple[Path, ..
     for segment in relative.parts:
         extended: list[Path] = []
         for current in branches:
-            literal = current / segment
-            if literal.exists():
-                extended.append(literal)
-                continue
-            extended.extend(_sanitised_siblings(current, segment) or (literal,))
+            # `_is_sanitised_rendering_of` accepts equal names, so an existing
+            # literal folder is one of the matches rather than a reason to stop.
+            extended.extend(
+                _sanitised_siblings(current, segment) or (current / segment,)
+            )
         branches = extended
     # Each branch has its own parent, so no path repeats; dict.fromkeys keeps the
     # walk's order while making that a guarantee rather than an argument.

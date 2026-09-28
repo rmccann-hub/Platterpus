@@ -2654,6 +2654,28 @@ def test_known_album_folders_follows_every_look_alike_branch(tmp_path) -> None:
     assert folders == (left / "Album", right / "Album"), folders
 
 
+def test_an_existing_literal_folder_does_not_hide_its_look_alikes(tmp_path) -> None:
+    """Review R3: `a"b` exists (empty) beside `a“b` (a finished rip).
+
+    cyanrip never writes a `"` into a folder name (it writes `“` or `”`, P7d), but
+    a folder can still carry one: an unknown-disc rip keeps the title as typed.
+    The resolver took an existing literal and stopped, so `a“b` was never looked
+    at and the guard saw one empty folder.
+    """
+    from platterpus.ui.main_window_helpers import _dir_has_audio, known_album_folders
+
+    literal = tmp_path / "Art" / 'a"b'
+    written = tmp_path / "Art" / "a“b"
+    literal.mkdir(parents=True)
+    written.mkdir()
+    (written / "01 - One.flac").write_bytes(b"not really audio")
+
+    folders = known_album_folders(tmp_path, "%A/%d/%t - %n", _album("Art", 'a"b'))
+    assert written in folders, f"the full look-alike was hidden: {folders}"
+    assert literal in folders, f"the existing literal was dropped: {folders}"
+    assert [f for f in folders if _dir_has_audio(f)] == [written], folders
+
+
 def test_free_album_folder_templates_skips_a_suffix_taken_under_any_candidate(
     tmp_path,
 ) -> None:
@@ -2879,6 +2901,29 @@ def test_known_overwrite_asks_when_two_look_alike_folders_could_be_the_target(
     assert not any(b.startswith("Replace") for b in buttons), buttons
     assert "Rip to a new folder" in buttons and "Cancel" in buttons, buttons
     assert "Replace is not offered" in str(prompt["informative"])
+
+
+def test_known_overwrite_asks_when_an_empty_literal_sits_beside_a_full_look_alike(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Review R3, through the production prompt: the rip must not start silently.
+
+    Before the fix the empty `a"b` was the only candidate, so the guard returned
+    params with no dialog and cyanrip wrote into `a“b` over a finished rip.
+    """
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    literal = tmp_path / "Ambiguous" / 'a"b'
+    literal.mkdir(parents=True)
+    written = _two_look_alikes(tmp_path, audio_in=("a“b",))[0]
+    written.parent.joinpath("a”b").rmdir()
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+    assert len(seen) == 1, f"no prompt over {written}, which holds a rip: {seen}"
+    text = str(seen[0]["text"])
+    assert f"{written} — ⚠ already holds a rip" in text, text
+    assert seen[0]["title"] == "Album already ripped"
 
 
 def test_known_overwrite_ambiguous_dismissal_is_not_consent_to_replace(

@@ -105,6 +105,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   folder" checks the new folder the same way. A track template with no folder at
   all leaves cyanrip to name the folder itself, so there is nothing to check; the
   log now says the check did not run.
+- **An empty folder no longer hides a finished rip from the "Album already
+  ripped" check.** For an album whose title has a `"` in it, cyanrip writes the
+  folder with a curly quote (`“` or `”`). If a folder with the plain `"` also
+  existed, for example left by an earlier unknown-disc rip, the check looked only
+  at that one, found it empty, and started the rip over the curly-quote folder
+  without asking. It now looks at every folder the rip could land in, and asks.
 - **Every message box now shows its text exactly as written.** What a tool told
   us — a version, a build tag, an install error from its own output — could be
   read as formatting instead of shown: Qt's ready-made message boxes guess
