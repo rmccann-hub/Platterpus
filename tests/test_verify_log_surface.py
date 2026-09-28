@@ -262,6 +262,24 @@ def test_a_ripper_log_that_merely_QUOTES_our_banner_is_still_theirs(
     assert report.logs_examined == [str(quoting)]
 
 
+def test_our_REWORDED_first_line_is_recognised_as_ours_too(tmp_path: Path, vls) -> None:
+    """The export's first line no longer begins "Exact Audio Copy" (handshake round
+    29 lap 1 S31). The tests above use the old wording, which the committed corpus
+    still carries; this is the one a current render writes. Missing it would make
+    the sweep grade our own export as cyanrip's format moving."""
+    ours = tmp_path / "renamed-again.log"
+    ours.write_text(
+        "Platterpus rip log in EAC's layout, not produced by Exact Audio Copy\n"
+        + "Nonsense that would otherwise be reported as a cyanrip format change\n" * 80,
+        encoding="utf-8",
+    )
+    assert not vls._is_ours(ours), "the NAME check should not catch this one"
+    assert vls._is_ours_by_text(ours.read_text()), "the TEXT check must"
+    report = vls.sweep([ours])
+    assert report.skipped_as_ours == [str(ours)]
+    assert not report.unrecognised
+
+
 def test_skipped_files_are_listed_rather_than_vanishing(tmp_path: Path, vls) -> None:
     """A file in neither list is a file nobody can audit.
 

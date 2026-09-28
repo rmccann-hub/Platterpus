@@ -7197,9 +7197,10 @@ def test_write_eac_log_respects_toggle(teardown_threads, tmp_path) -> None:
     window._config.write_eac_log_after_rip = True
     window._write_eac_log(rip_log, log_file)
     assert companion.exists()
-    # Honest banner (clearly attributed, never a real signed EAC log).
+    # Honest banner (clearly attributed, never a real signed EAC log), and not
+    # opening with EAC's own first words (handshake round 29 lap 1 S31).
     assert companion.read_text(encoding="utf-8").startswith(
-        "Exact Audio Copy-compatible"
+        "Platterpus rip log in EAC's layout, not produced by Exact Audio Copy"
     )
 
 
@@ -10676,7 +10677,9 @@ def test_the_json_report_embeds_the_three_files_written_beside_it(
     # half, without which this would be false on a real rip — is pinned
     # separately by the next test.
     assert artifacts["eac_log"]["exists"] is True
-    assert "Exact Audio Copy-compatible" in artifacts["eac_log"]["text"]
+    assert artifacts["eac_log"]["text"].startswith(
+        "Platterpus rip log in EAC's layout, not produced by Exact Audio Copy"
+    )
 
 
 def test_writing_the_eac_log_rearms_the_report_so_it_can_be_embedded(
