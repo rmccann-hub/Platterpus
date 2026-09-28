@@ -1589,8 +1589,13 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     report's `artifacts.ripper_stdout`.
 - [ ] **Round 29: refuse `-Z N` with `-r` ≤ N at the argv chokepoint, and ship the
   regenerated `docs/seam-commands.md` §1a both ways.** Written and revert-probed on
-  2026-09-28 by a helper (`assert_secure_reread_can_converge`; the commit was not
-  integrated, so it has no id on our `main`),
+  2026-09-28 by a helper (`assert_secure_reread_can_converge`, commit `167e0d4c`). The
+  commit is not applied. It is kept on `main` by a `-s ours` merge that leaves the tree
+  unchanged (`d7cea503`), because until then it lived only in one container.
+  **To land it:** `git cherry-pick 167e0d4c`, not `git merge`, which would do nothing.
+  On the 0.6.63 tree it conflicts in `CHANGELOG.md`, `docs/dependency-contracts.md` (the
+  stamp) and `tests/test_secure_reread_can_converge.py`, which has grown since.
+  Then regenerate §1a with `scripts/probe_argv_surface.py`. It was
   held back from round 28's close because it changes a jointly held file whose hash
   both gates check (the `-Z 10` probe row becomes `raised`), and S-14 puts a finding in
   the next round. What landed without it: the settings validator refuses the pair
