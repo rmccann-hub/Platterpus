@@ -1789,7 +1789,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/dialogs/script_console.py": 570,
     # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **320 -> 366** (2026-09-27, cover art moves to the album): the panel owns its right-click menu's wiring — the album actions it is handed, the background and per-value connections, and why. Building the menu (Copy, Select All, the popup) is its own module, `ui/album_menu.py`, so what grew here is only what the panel must hold.
-    "ui/disc_info_panel.py": 366,
+    # 366 -> 377 on 2026-09-28: `set_disc_info_retrying`, the panel's "trying again automatically" state beside the error state it precedes (a failed disc read is now retried; disc_probe_retry).
+    "ui/disc_info_panel.py": 377,
     # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy ripper-config offset line, both moved from Settings, with the tooltip the offset's control had there.
     # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
     # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
@@ -1834,7 +1835,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1708 -> 1718** (2026-09-27, D4 A): the Tools → Advanced ▸ submenu the two test tools moved into, and the eight-line comment saying why and why its Alt-letter is free. Menu construction lives in `_build_menus`, so it grows where the menu is built.
     # **1718 -> 1731** (2026-09-27, cover art moves to the album): the one cover-art QAction is handed to the disc panel as well as Tools, with the comment saying the Tools entry is transitional and exactly how to remove it in 0.6.63.
     # **1731 -> 1732** (2026-09-27): that comment names the check that fails the 0.6.63 bump while the Tools entry remains.
-    "ui/main_window.py": 1732,
+    # **1732 -> 1745** (2026-09-28, rig report "restart the app"): the disc-read retry's state and single-shot timer are built with the window's other timers, `closeEvent` stops it, `_start_disc_info` opens a new retry budget for every read that was ASKED for, and `_on_disc_info_failed` hands the failure to the retry instead of ending on an error line.
+    "ui/main_window.py": 1745,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -1848,7 +1850,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
     # 549 -> 574 on 2026-09-28: the media poll logs the drive's raw status on change and names it (and any unreadable checks bridged) in the insert/remove lines; the rig lost an insertion and the log could not say what the drive had reported. The poll is the only reader of the watcher, so the lines live beside it.
-    "ui/main_window_drive.py": 574,
+    # 574 -> 651 on 2026-09-28: the window side of the bounded automatic retry of a failed disc read. The policy, its state and every branch are in the new pure `disc_probe_retry.py`; what stays here is reading the facts it asks for (`_disc_retry_conditions`) and applying its decision, beside the media poll that is the other half of "the disc gets read without the user".
+    "ui/main_window_drive.py": 651,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -1966,7 +1969,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **428 -> 441** (2026-09-24, #37 one home per setting): the seam declares SettingsMixin's methods and the open Setup & Updates window it refreshes.
     # **441 -> 446 (2026-09-24)**: `_script_console` declared beside
     # `_setup_center`, because SettingsMixin now re-renders the console too.
-    "ui/main_window_shared.py": 446,
+    # 446 -> 452 on 2026-09-28: the disc-read retry state (`_disc_retries`, `_disc_retry_timer`) DriveMixin reads, and `_start_disc_info`'s `automatic_retry` keyword.
+    "ui/main_window_shared.py": 452,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
