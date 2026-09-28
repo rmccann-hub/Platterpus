@@ -397,6 +397,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   tag did this every time: git checked out the commit the tag points at. Every
   checkout made is now removed, a tag is reported as not a commit before anything
   is checked out, and a leftover is named as a checkout or as a directory.
+- **For contributors: `lap_language.py check --rerun` now removes a scratch
+  checkout left locked by a `git worktree add` that timed out, and gives advice
+  git accepts.** git locks a new worktree until `worktree add` finishes. When the
+  add ran past its time limit, it was killed with the lock still on, and git
+  refuses to remove a locked worktree with a single `--force`. So the checker
+  left the checkout behind, and told the person to run `git worktree remove
+  --force <path>`, which git refused too. It now removes its own scratch checkouts
+  with `--force` twice, which git requires for a locked worktree. The report gives
+  the same command for any checkout that still will not go.
 - **For contributors: `lap_language.py check --rerun` no longer reports a failed
   command as a plain match.** LSL 3's B1 compares a result's quoted strings with
   what the command printed, and nothing else; "exit 0" in a result is prose. So a

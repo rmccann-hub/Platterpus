@@ -27,6 +27,7 @@ import hashlib
 import importlib.util
 import os
 import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -43,9 +44,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from laplang import refs, scratch  # noqa: E402 - needs the path line above
-from laplang.cli import check_path, main, parse_amendments, render  # noqa: E402
+from laplang.cli import (  # noqa: E402
+    check_path,
+    main,
+    parse_amendments,
+    render,
+    render_runs,
+)
 from laplang.grammar import parse_lap  # noqa: E402
-from laplang.model import Lap  # noqa: E402
+from laplang.model import Lap, RunCoverage  # noqa: E402
 from laplang.record import LAP_DIRS  # noqa: E402
 from laplang.rerun import (  # noqa: E402
     MARKER_RE,
@@ -1390,7 +1397,9 @@ def test_a_leftover_is_named_as_what_it_is(
         assert Path(checkout.path).parent == Path(directory.path)
         assert f"worktree {checkout.path}" in _worktrees(repo)
         report = render(lap)[0]
-        assert f"`git worktree remove --force {checkout.path}`" in report
+        # `--force` twice, the command `close` tries (Q8): git refuses one
+        # `--force` for a worktree still locked by a `worktree add`.
+        assert f"`git worktree remove --force --force {checkout.path}`" in report
         [directory_line] = [ln for ln in report.splitlines() if "directory" in ln]
         assert f"scratch directory {directory.path}, which is not a checkout" in (
             directory_line
@@ -1403,6 +1412,128 @@ def test_a_leftover_is_named_as_what_it_is(
         for item in left:
             if not item.checkout:
                 Path(item.path).rmdir()
+    assert _worktrees(repo) == before
+
+
+def _lock_as_initializing(tree: Path) -> Path:
+    """Lock `tree` as an interrupted `git worktree add` leaves it; its admin dir.
+
+    git writes `locked`, reading "initializing", into the new worktree's admin
+    directory before it checks anything out, and deletes it last. `_git`'s
+    timeout SIGKILLs git, which cannot catch that, so a timed-out add leaves the
+    lock on (review finding Q8, reproduced with a real kill by the reviewer).
+    """
+    admin = Path(_in(tree, "rev-parse", "--absolute-git-dir").strip())
+    (admin / "locked").write_text("initializing\n", encoding="utf-8")
+    return admin
+
+
+def _remove_locked(repo: Path, trees: list[Path]) -> None:
+    """Clean-up for the two tests below, whatever they got to: never `rm`."""
+    listed = _worktrees(repo)
+    for tree in trees:
+        if f"worktree {tree}" in listed:
+            _in(repo, "worktree", "remove", "--force", "--force", str(tree))
+        if tree.parent.is_dir() and not any(tree.parent.iterdir()):
+            tree.parent.rmdir()
+
+
+def test_close_removes_a_checkout_left_locked_by_a_timed_out_add(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review finding Q8: `worktree add` timed out, so git was killed before it
+    unlocked the new worktree, and `_add` recorded the checkout for `close`
+    (R16). git refuses a single-`--force` remove of a locked worktree, so `close`
+    reported it as left behind. Here the add is done as git leaves it: made,
+    still locked "initializing", and no answer, as `_git` gives on a timeout."""
+    repo, sha = _git_repo(tmp_path, {"data.txt": "alpha\n"})
+    real_git = scratch._git
+    admins: list[Path] = []
+
+    def add_times_out(
+        root: Path, *args: str, timeout: float = scratch.GIT_TIMEOUT_S
+    ) -> subprocess.CompletedProcess[str] | None:
+        answer = real_git(root, *args, timeout=timeout)
+        if args[2:4] == ("worktree", "add"):
+            assert answer is not None and answer.returncode == 0, answer
+            admins.append(_lock_as_initializing(Path(args[-2])))
+            return None
+        return answer
+
+    monkeypatch.setattr(scratch, "_git", add_times_out)
+    before = _worktrees(repo)
+    made = scratch.Scratch(repo)
+    assert made.tree(sha) == f"git did not answer when asked to check out {sha}"
+    [admin] = admins
+    trees = list(made._made)
+    try:
+        [tree] = trees
+        # NON-TRIVIALITY: the checkout is there, git lists it as locked
+        # "initializing", and git refuses the single `--force` close used to try.
+        listed = _in(repo, "worktree", "list", "--porcelain")
+        assert f"worktree {tree}" in listed and "locked initializing" in listed
+        single = subprocess.run(
+            ["git", "-C", str(repo), "worktree", "remove", "--force", str(tree)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        assert single.returncode != 0 and "locked" in single.stderr, single
+        monkeypatch.setattr(scratch, "_git", real_git)
+        assert made.close() == []
+        assert not tree.exists() and not admin.exists()
+    finally:
+        monkeypatch.setattr(scratch, "_git", real_git)
+        _remove_locked(repo, trees)
+    assert _worktrees(repo) == before
+
+
+def test_the_advice_for_a_leftover_checkout_is_a_command_git_takes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Q8's other half: the report told a person to run `git worktree remove
+    --force <path>`, which git refuses for a locked worktree, the likeliest
+    leftover. Here `close`'s own remove gets no answer (a remove that timed
+    out), and the command the report prints is run as a person would run it,
+    in the author's clone, against a checkout still locked "initializing"."""
+    repo, sha = _git_repo(tmp_path, {"data.txt": "alpha\n"})
+    before = _worktrees(repo)
+    made = scratch.Scratch(repo)
+    tree = made.tree(sha)
+    assert isinstance(tree, Path), tree
+    trees = [tree]
+    real_git = scratch._git
+
+    def remove_unanswered(
+        root: Path, *args: str, timeout: float = scratch.GIT_TIMEOUT_S
+    ) -> subprocess.CompletedProcess[str] | None:
+        if args[:2] == ("worktree", "remove"):
+            return None
+        return real_git(root, *args, timeout=timeout)
+
+    try:
+        _lock_as_initializing(tree)
+        monkeypatch.setattr(scratch, "_git", remove_unanswered)
+        left = made.close()
+        monkeypatch.setattr(scratch, "_git", real_git)
+        assert [x.path for x in left if x.checkout] == [str(tree)], left
+        runs = RunCoverage(leftovers=left)
+        [line] = [ln for ln in render_runs(runs) if "scratch checkout" in ln]
+        [command] = re.findall(r"`([^`]+)`", line)
+        ran = subprocess.run(
+            shlex.split(command),
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        assert ran.returncode == 0, (command, ran.stderr)
+        assert f"worktree {tree}" not in _worktrees(repo)
+    finally:
+        monkeypatch.setattr(scratch, "_git", real_git)
+        _remove_locked(repo, trees)
     assert _worktrees(repo) == before
 
 

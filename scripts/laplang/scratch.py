@@ -5,7 +5,8 @@ This module does the repeating, and only when a person passed `--rerun`:
 
 * **A detached scratch worktree of the author's clone at the commit**
   (`Scratch.tree`), made with `git worktree add --detach` and removed with
-  `git worktree remove --force` (`Scratch.close`), never by deleting a directory
+  `git worktree remove --force --force` (`Scratch.close`; twice, so one left
+  locked by an interrupted `add` goes too), never by deleting a directory
   tree. The clone's own record of its worktrees is what has to be put back, and
   `remove` does both. One that will not go is reported for a person to remove.
   The clone's hooks are switched off for the checkout, since a hook is code the
@@ -47,6 +48,13 @@ WORKTREE_TIMEOUT_S: Final[float] = 300.0
 GIT_TIMEOUT_S: Final[float] = 30.0
 #: Output past this many bytes is not compared.
 MAX_OUTPUT_BYTES: Final[int] = 32 * 1024 * 1024
+
+#: How a scratch worktree is removed, after `git -C <clone>`, with its path last:
+#: `--force` twice, so a worktree still locked "initializing" by a `worktree add`
+#: that timed out goes too (review finding Q8; `Scratch.close`). The report's
+#: advice for a checkout that would not go is built from this same tuple
+#: (`cli.render_runs`), so the command it gives a person is the one tried here.
+REMOVE_WORKTREE: Final[tuple[str, ...]] = ("worktree", "remove", "--force", "--force")
 
 #: The environment a re-run gets on top of ours: no pager, no prompt, no lock a
 #: read-only query would take, and no `__pycache__` written into the checkout.
@@ -206,14 +214,22 @@ class Scratch:
         as a checkout, and the scratch directory, if it will not go either, is
         named as a directory: it is not a worktree, and telling a person to
         `git worktree remove` it would send them the wrong way.
+
+        **`--force` twice** (review finding Q8, 2026-09-28). `git worktree add`
+        locks a new worktree with the reason "initializing" and unlocks it only
+        when it finishes. One that timed out was SIGKILLed by `_git`'s timeout
+        before it could, and git refuses a single `--force` remove of a locked
+        worktree ("use 'remove -f -f' to override or unlock first"). Every
+        worktree here was made by us, in our own `mkdtemp` directory, so the only
+        lock one can carry is that one, and overriding it removes nothing that is
+        anyone else's. `REMOVE_WORKTREE` is also the command the report gives a
+        person for a checkout that would not go, so the advice is one git takes.
         """
         left: list[Leftover] = []
         for tree in self._made:
             removed = _git(
                 self.clone,
-                "worktree",
-                "remove",
-                "--force",
+                *REMOVE_WORKTREE,
                 str(tree),
                 timeout=WORKTREE_TIMEOUT_S,
             )

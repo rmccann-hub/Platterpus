@@ -16,6 +16,7 @@ results there were and what became of each (`render_runs`).
 from __future__ import annotations
 
 import argparse
+import shlex
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
@@ -27,6 +28,7 @@ from .grammar import read_lap
 from .model import Lap, RunCoverage, Side
 from .record import Record
 from .refs import Trees, default_at
+from .scratch import REMOVE_WORKTREE
 from .tables import AMENDMENTS, LSL_VERSIONS, tables_for
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
@@ -171,9 +173,15 @@ def render_runs(runs: RunCoverage) -> list[str]:
         )
     for left in runs.leftovers:
         if left.checkout:
+            # The command `Scratch.close` itself tried, so the advice is one git
+            # takes: a single --force is refused for a worktree still locked
+            # "initializing" by a `worktree add` that timed out (review finding
+            # Q8), which is how a checkout is most likely to be left.
+            # Quoted as a shell would need it, should TMPDIR hold a space.
+            remove = shlex.join(("git", *REMOVE_WORKTREE, left.path))
             lines.append(
                 f"B1: could not remove the scratch checkout {left.path}; remove it "
-                f"with `git worktree remove --force {left.path}` in the author's clone"
+                f"with `{remove}` in the author's clone"
             )
         else:
             lines.append(
