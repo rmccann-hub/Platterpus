@@ -295,6 +295,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   unless …" was also refused as carrying no pre-commit, because the dots in the
   version stopped the match; a dot followed by a letter or digit no longer ends
   the subject. Relabelled as round 29, no committed lap changes outcome for this.
+- **For contributors: pressing Ctrl-C during `lap_language.py check --rerun` no
+  longer leaves the re-run running.** The command runs in its own session, so the
+  terminal's interrupt never reached it, and only a timeout killed it. Interrupted,
+  it ran on with no time limit while the checker removed the scratch checkout it
+  was running in. An interrupt now kills its whole process group, and waits a
+  bounded time for it to exit, before the checkout is removed.
 
 ### Added
 
