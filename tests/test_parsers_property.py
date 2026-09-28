@@ -48,6 +48,7 @@ from platterpus.parsers.cyanrip_log import (
     finished_track,
     looks_like_cyanrip_log,
     parse_cyanrip_log,
+    secure_rerip_verdict_converged,
 )
 from platterpus.parsers.drive_list import DriveDescriptor, parse_drive_list
 from platterpus.parsers.eac_log import looks_like_eac_log, parse_eac_copy_crcs
@@ -189,6 +190,27 @@ def test_finished_track_never_raises(text: str) -> None:
     assert result is None or (
         isinstance(result[0], int) and isinstance(result[1], bool)
     )
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.builds(
+            "{}Done; ({} out of {} matches{}".format,
+            st.sampled_from(["", "  ", "\t"]),
+            st.text(alphabet="0123456789", max_size=12),
+            st.text(alphabet="0123456789", max_size=12),
+            st.text(max_size=200),
+        ),
+        st.builds("Done; (no matches found{}".format, st.text(max_size=200)),
+    )
+)
+def test_secure_rerip_verdict_converged_never_raises(text: str) -> None:
+    """The worker grades a diagnostic by this answer, live, per ripper line — so it
+    must answer tri-state for ANY line, including an absurd numerator."""
+    result = secure_rerip_verdict_converged(text)
+    assert result is None or isinstance(result, bool)
 
 
 @_SETTINGS

@@ -1432,7 +1432,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
     # **685 -> 691** (2026-09-25, the property-test batches): `bounded_output` clamps its bounds and always keeps the tail.
-    "diagnostics.py": 691,
+    # **691 -> 693** (2026-09-28, the round-28 Full run): the `ripper.secure_rerip_verdict` entry says it is graded by direction and names its track.
+    "diagnostics.py": 693,
     # **411 -> 423 on 2026-09-10** (log-verification race, above):
     # `FORCE_STOP_COUNTDOWN_S` moved here from the UI module that arms the
     # timer, because the rip worker's log wait must outlast it. Two
@@ -1650,7 +1651,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
     # **2976 -> 3023** (2026-09-26): the one-frame note now says whose number differs — the log keeps its own count, and the note tells a re-read of ours apart from the ripper disagreeing with its own log (the Full run).
     # **3023 -> 3032** (2026-09-27, round 28 lap 3 S12): `Partial files:`, announced for `.18`, joins `_IGNORED_DISC_LINES` with its reason. The table is what the completeness sweep and the generated consumer contract read, so the entry cannot live elsewhere.
-    "parsers/cyanrip_log.py": 3032,
+    # **3032 -> 3064** (2026-09-28, the round-28 Full run): `secure_rerip_verdict_converged`, the one home of which way a `-Z` verdict went, so the rip worker can grade its diagnostic by it; the parser's own loop now calls it instead of restating the `agreed >= 1` rule.
+    "parsers/cyanrip_log.py": 3064,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -2277,7 +2279,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # The screen itself lives in inbound_text; this is the wiring and its reasons.
     # **3490 -> 3523** (2026-09-27, TASKS the `-j` rows): each album pass's `-j` record path is read off the argv as spawned and the directory it ran in, and exposed for the report bundle. The worker is the only place that holds both; the argv reader is `diagnostics_record.py`. Nothing is moved.
     # **3523 -> 3586** (2026-09-28, the Full run's track 3): the auto-fix asks `verdict.reread_supersedes` instead of convergence alone, so it is handed the first pass's parsed tracks, records why a re-read was kept, says so in its log line and addendum row, and its docstrings describe the new rule.
-    "workers/rip_worker.py": 3586,
+    # **3523 -> 3548** (2026-09-28, the round-28 Full run): the secure re-read verdict diagnostic is graded by its direction (warning when the reads never agreed) and names its track, with why the progress lines' track is the verdict's. The worker is the only place that sees both lines in stream order.
+    "workers/rip_worker.py": 3611,
 }
 
 

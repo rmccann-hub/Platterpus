@@ -2281,17 +2281,42 @@ class RipWorker(QObject):
                 # 2026-09-03 bundle report `errors: 13 / worst: error` for a rip
                 # that finished `Ripping errors: 0` with all 14 tracks written.
                 #
-                # Recorded as INFO rather than dropped: a deliberate reclassify is
-                # not a licence to lose the line, and a silent drop reads as
+                # Recorded rather than dropped: a deliberate reclassify is not a
+                # licence to lose the line, and a silent drop reads as
                 # completeness. The predicate lives in the parser that owns the
-                # fact (`cyanrip_log.is_secure_rerip_verdict`) so this cannot
-                # become a second, drifting opinion about the same sentence.
-                if cyanrip_log.is_secure_rerip_verdict(line):
-                    diagnostics.info(
+                # fact (`cyanrip_log.secure_rerip_verdict_converged`) so this
+                # cannot become a second, drifting opinion about the same sentence.
+                #
+                # **Graded by which way it went (2026-09-28, the round-28 Full
+                # run).** Every verdict used to be filed at `info`, converged or
+                # not, and none named its track — so that run's diagnostics file
+                # read `warnings: 1 … worst: warning` with its one warning a
+                # deliberate negative test, while four verdicts whose reads never
+                # agreed sat at `info` among thirteen that converged. A track
+                # whose reads never agreed is a real degradation of the rip's
+                # evidence (the module's own definition of WARNING: "something
+                # degraded … the rip may be fine"); a converged one is not. Not
+                # ERROR, for the reason above: it is a fact about the disc, and
+                # the rip finished.
+                converged = cyanrip_log.secure_rerip_verdict_converged(line)
+                if converged is not None:
+                    grade = diagnostics.info if converged else diagnostics.warning
+                    grade(
                         "ripper.secure_rerip_verdict",
                         line.strip(),
                         tool="cyanrip",
                         where="workers.rip_worker.RipWorker._run_rip",
+                        # WHICH track. cyanrip prints the verdict at the end of
+                        # the track's repeat loop, after that track's own
+                        # "Ripping (and encoding) track N, progress" lines and
+                        # before its block opens — so the track the progress
+                        # lines last named IS the track the verdict is about.
+                        # That is the parser's buffering rule seen from the
+                        # stream: it holds the verdict for the block that opens
+                        # next, which is the same track. `0` means no progress
+                        # line has named a track in this pass, and then we say
+                        # nothing (disc-level) rather than guess one.
+                        track=self._current_track or None,
                     )
                 elif _RIPPER_ERROR_RE.match(line):
                     if not self._failure_hint:
