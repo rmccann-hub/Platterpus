@@ -1433,7 +1433,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # could stop agreeing; this file is the one whose docstring already
     # explains why the countdown exists at all.
     # **423 -> 411** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "drive_control.py": 405,
+    # 405 -> 417 on 2026-09-28 (review R6): `_host_tool`, so pkill/fuser/eject skip the container exports on PATH as well as in their own lists; rule #3's exception says the host goes first, and this module is where that exception lives.
+    "drive_control.py": 417,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     "drive_profiles.py": 447,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
