@@ -19,6 +19,10 @@ need nothing here beyond A4's and A5's value shapes.
 
 "us" and "them" in `owner:` and `on:` are relative to the lap's author, the same
 as LSL 1's `owner:`. Checks that span laps turn them into the absolute side.
+
+`check_amendments` is the one entry point for everything beyond LSL 1, so it
+also hands over to LSL 3's checks (`lsl3.check_lsl3`), which do nothing unless
+B1-B3 are switched on by an `LSL: 3` line.
 """
 
 from __future__ import annotations
@@ -27,9 +31,11 @@ import re
 from typing import Final
 
 from .context import Context, Found
+from .lsl3 import check_lsl3
 from .model import Statement
 from .refs import first_token, parse_artifact, parse_statement, tokens
 from .round_rules import check_round_rules
+from .tables import NO_WEIGHT_KINDS, carries_no_weight
 
 EXAMINED_RE: Final[re.Pattern[str]] = re.compile(
     r"^(?P<count>\d+) (?P<unit>\S.*?), (?P<state>closed|open)$"
@@ -37,10 +43,10 @@ EXAMINED_RE: Final[re.Pattern[str]] = re.compile(
 #: A build or a commit: a hex SHA, or a dotted version number.
 HOLDS_RE: Final[re.Pattern[str]] = re.compile(r"\b[0-9a-f]{7,40}\b|\b\d+\.\d+")
 FINDING_TARGETS: Final[frozenset[str]] = frozenset({"NEXT-ROUND", "BLOCKING", "FIXED"})
-#: What cannot carry weight (A6): it makes no claim, or no claim either side can check.
-NO_WEIGHT_KINDS: Final[frozenset[str]] = frozenset(
-    {"NOTE", "ASK", "VERDICT", "WILL", "UNKNOWN"}
-)
+#: What cannot carry weight (A6, and B3 in LSL 3) is `tables.NO_WEIGHT_KINDS`,
+#: asked through `tables.carries_no_weight`; it is named here for the readers
+#: who look for it beside A6.
+__all__ = ["NO_WEIGHT_KINDS", "check_amendments"]
 
 
 def check_amendments(ctx: Context) -> None:
@@ -66,6 +72,7 @@ def check_amendments(ctx: Context) -> None:
         if "A7" in on:
             _check_answers(ctx, stmt)
     check_round_rules(ctx)
+    check_lsl3(ctx)
 
 
 def _resolve(ctx: Context, stmt: Statement, name: str, rule: str) -> Found | None:
@@ -215,9 +222,7 @@ def _check_weight(ctx: Context, stmt: Statement) -> None:
                 target = found.statement
                 if name == "basis" and target.kind in ("NOTE", "ASK", "VERDICT"):
                     continue  # LSL.5 already refuses these in basis:
-                if target.kind in NO_WEIGHT_KINDS or (
-                    target.kind == "FACT" and target.grade == "relayed"
-                ):
+                if carries_no_weight(target.kind, target.grade):
                     ctx.refuse(
                         fld.line,
                         "A6",
