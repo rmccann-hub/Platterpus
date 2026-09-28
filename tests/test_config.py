@@ -667,6 +667,30 @@ def test_an_out_of_range_read_offset_is_recorded_for_display(
     assert "-5000" in resets[0].message  # specific, not "invalid value"
 
 
+def test_a_hand_edited_value_about_to_be_reset_is_logged_with_its_value(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The reset destroys the value, so the log line is where it survives: the same
+    `settings input refused` line every other input surface writes, with 99999."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text(
+        "schema_version = 8\nread_offset = 99999\noverride_read_offset = true\n",
+        encoding="utf-8",
+    )
+    with caplog.at_level("WARNING"):
+        config_module.load()
+    config_module.take_load_resets()
+    lines = [
+        r.getMessage()
+        for r in caplog.records
+        if r.getMessage().startswith("settings input refused: read_offset = ")
+    ]
+    assert len(lines) == 1, [r.getMessage() for r in caplog.records]
+    assert lines[0].startswith("settings input refused: read_offset = 99999 — ")
+
+
 def test_take_load_resets_is_empty_for_a_clean_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
