@@ -1166,6 +1166,12 @@ test-script run.
    to directories a caller names explicitly, and the album folder is never one — an
    album folder's `cover.jpg` is record-label artwork, so widening globally would sweep
    it in as an invisible side effect of a screenshot feature.
+   A single file that sits in no folder the bundle walks goes through `files`, one
+   archive name per path, under the same strict set. Today that is cyanrip's `-j`
+   record, which cyanrip writes in the rips root (`diagnostics_record.py`) and which
+   is the only evidence for a rip refused before it opened a logfile. Do not move
+   such a file into the album folder to make it collectable: a rip leaves only its
+   `.log`, `.cue` and `.platterpus.json` there (the maintainer, 2026-09-27).
 
 3. **Name every omission.** A file that was missing, unreadable, over the cap or the
    wrong type gets a `MANIFEST.txt` row with its reason. A bundle quietly holding eight

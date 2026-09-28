@@ -1301,3 +1301,75 @@ def test_a_short_album_folder_is_left_exactly_as_it_was() -> None:
     """
     short = "derived wav 20260912t204421 platterpus-fork-gfe4d2c4"
     assert evidence_bundle._member_component(short) == short
+
+
+# --- files named one by one (cyanrip's `-j` records, in the rips root) ----------
+#
+# cyanrip writes its `-j` record in the rips root, which no album-folder walk
+# reaches, and for a rip refused before it opened a logfile it is the only
+# evidence. `files` is the channel for exactly that, and it is the STRICT set,
+# like an album folder: a name on it is not a licence to carry artwork or audio.
+
+
+def _one_file_bundle(
+    tmp_path: Path, files: dict[str, Path]
+) -> evidence_bundle.BundleResult:
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir(exist_ok=True)
+    return build_bundle(
+        dest_dir=tmp_path / "out",
+        stamp="20260927T000000Z",
+        app_version="0.0.0",
+        outcome="failed",
+        log_dir=log_dir,
+        files=files,
+    )
+
+
+def test_a_named_file_is_archived_under_the_name_it_was_given(tmp_path: Path) -> None:
+    record = tmp_path / "rips" / "cyanrip-diagnostics-20260927T000000Z.json"
+    record.parent.mkdir()
+    record.write_text('{"exit_code": 1}\n', encoding="utf-8")
+    name = f"ripperdiagnostics/{record.name}"
+
+    result = _one_file_bundle(tmp_path, {name: record})
+
+    assert result.path is not None, result.error
+    assert _read_from(result.path, name) == '{"exit_code": 1}\n'
+
+
+def test_a_named_file_that_is_not_there_is_a_manifest_row(tmp_path: Path) -> None:
+    """A cancelled rip's reader can outlive the rip, so the record may never come."""
+    gone = tmp_path / "rips" / "cyanrip-diagnostics-20260927T000000Z.json"
+    name = f"ripperdiagnostics/{gone.name}"
+
+    result = _one_file_bundle(tmp_path, {name: gone})
+
+    assert result.path is not None, result.error
+    rows = [e for e in result.skipped if e.name == name]
+    assert rows and str(gone) in rows[0].reason, result.skipped
+    manifest = _read_from(result.path, "MANIFEST.txt")
+    assert gone.name in manifest, "the absence left no trace in the manifest"
+
+
+def test_a_named_file_is_held_to_the_STRICT_allowlist(tmp_path: Path) -> None:
+    """Critical rule #8 at the new channel: by name, and by content."""
+    art = tmp_path / "cover.png"
+    art.write_bytes(b"\x89PNG\r\n")
+    disguised = tmp_path / "notes.json"
+    disguised.write_bytes(b"fLaC\x00\x00\x00\x22")
+
+    result = _one_file_bundle(
+        tmp_path,
+        {
+            "ripperdiagnostics/cover.png": art,
+            "ripperdiagnostics/notes.json": disguised,
+        },
+    )
+
+    assert result.path is not None, result.error
+    names = _names_in(result.path)
+    assert "ripperdiagnostics/cover.png" not in names, names
+    assert "ripperdiagnostics/notes.json" not in names, names
+    skipped = {e.name for e in result.skipped}
+    assert {"ripperdiagnostics/cover.png", "ripperdiagnostics/notes.json"} <= skipped

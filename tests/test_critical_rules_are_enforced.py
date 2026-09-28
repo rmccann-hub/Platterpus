@@ -1475,7 +1475,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # it out would put the sentence and the reason for the sentence in two files.
     # **1023 -> 1020 (2026-09-24): it SHRANK.** The expected-build line asks
     # `accepted_rig_builds` instead of re-deriving it.
-    "evidence_bundle.py": 1020,
+    # **1020 -> 1051** (2026-09-27, TASKS the `-j` rows): `files`, a single-file channel under the STRICT set, for cyanrip's `-j` record, which stays in the rips root where no album-folder walk can reach it; a named file that is not there is a manifest row. It belongs beside the other channels because `_collect`'s order is the byte budget.
+    "evidence_bundle.py": 1051,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
@@ -1930,7 +1931,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4715 -> 4730 on 2026-09-25: _release_detail_for, the one check both the rip start and the report use.
     # **4730 -> 4739** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): the finish record carries the fixes.
     # **4739 -> 4751** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): the finish path records the rewritten lines after writing the log, so recording them can never cost the log.
-    "ui/main_window_rip.py": 4751,
+    # **4751 -> 4760** (2026-09-27, TASKS the `-j` rows): the bundle snapshot names the rip's `-j` records, read from the worker at arming time, and the launcher hands them to the bundle. Where the records are and how they are named is `diagnostics_record.py`.
+    "ui/main_window_rip.py": 4760,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2166,7 +2168,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 3464 -> 3490 on 2026-09-25: every pipe line is screened once (`_screen`), for
     # the log pane and the record, and the capture ends with what screening changed.
     # The screen itself lives in inbound_text; this is the wiring and its reasons.
-    "workers/rip_worker.py": 3490,
+    # **3490 -> 3523** (2026-09-27, TASKS the `-j` rows): each album pass's `-j` record path is read off the argv as spawned and the directory it ran in, and exposed for the report bundle. The worker is the only place that holds both; the argv reader is `diagnostics_record.py`. Nothing is moved.
+    "workers/rip_worker.py": 3523,
 }
 
 

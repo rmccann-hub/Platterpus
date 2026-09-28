@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic as _monotonic
@@ -408,6 +408,8 @@ class _PendingBundle:
     generation: int
     deadline: float
     facts: dict[str, str]
+    #: The rip's `-j` records, in the rips root, by archive name.
+    diagnostics_files: dict[str, Path] = field(default_factory=dict)
 
 
 #: How many finished albums' records to keep addressable at once.
@@ -2725,7 +2727,7 @@ class RipMixin(MainWindowShared):
         means (`CLAUDE.md`: two surfaces answering one question by different keys
         will disagree).
         """
-        from platterpus import __version__
+        from platterpus import __version__, diagnostics_record
 
         # Everything Qt-touching is read HERE, on the GUI thread. The daemon
         # below closes over plain values only — a worker that reaches back into a
@@ -2793,6 +2795,11 @@ class RipMixin(MainWindowShared):
             diagnostics=diagnostics,
             generation=generation,
             deadline=_monotonic() + self._BUNDLE_POST_RIP_WAIT_S,
+            # Read from the worker here, before `finally` drops it. The records are
+            # in the rips root, which the bundle does not walk, so they go by name.
+            diagnostics_files=diagnostics_record.bundle_members(
+                getattr(self._rip_worker, "diagnostics_records", ())
+            ),
             facts={
                 "ripper exit ok": str(success),
                 "cancel requested": str(cancelled),
@@ -2984,6 +2991,7 @@ class RipMixin(MainWindowShared):
         app_version = pending.app_version
         outcome = pending.outcome
         diagnostics = pending.diagnostics
+        diagnostics_files = dict(pending.diagnostics_files)
         # Inside the acceptance session's folder while one runs — everything a
         # session makes lives there (`test_session.SessionLayout`). Read on the GUI
         # thread, before the daemon starts, because the session can end meanwhile.
@@ -3000,6 +3008,7 @@ class RipMixin(MainWindowShared):
                 album_dir=album_dir,
                 log_dir=LOG_DIR,
                 extra_text={"diagnostics.txt": diagnostics},
+                files=diagnostics_files,
             )
             try:
                 self.evidence_bundle_done.emit(result)

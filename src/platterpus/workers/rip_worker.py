@@ -32,7 +32,13 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus import diagnostics, drive_control, inbound_text, ripper_exit
+from platterpus import (
+    diagnostics,
+    diagnostics_record,
+    drive_control,
+    inbound_text,
+    ripper_exit,
+)
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -891,6 +897,10 @@ class RipWorker(QObject):
         # writes the whole-disc log whose `Invoked as:` line we cross-check
         # against (see the assignment site for the false alarm this fixes).
         self._ripper_argv_first_pass: tuple[str, ...] = ()
+        # Where each album pass told cyanrip to write its `-j` record. The record
+        # stays there, in the rips root; the report bundle collects it by name
+        # (`diagnostics_record` says why it is not moved).
+        self._diagnostics_records: list[Path] = []
         # Set true if the ripper aborts for lack of online metadata, so the GUI
         # can heal by retrying as an unknown-album rip. An inert pre-cyanrip seam:
         # cyanrip runs with -N and is fed the GUI's tags, so it never hits this.
@@ -2101,6 +2111,19 @@ class RipWorker(QObject):
             # had injected in transit (real-hardware false alarm, 2026-08-03).
             if not self._ripper_argv_first_pass:
                 self._ripper_argv_first_pass = self._ripper_argv
+            # Where this pass's `-j` record goes, read off the argv as spawned and
+            # the directory it ran in. Album passes only: an auto-fix pass runs in
+            # a temp folder that is deleted afterwards, so its record is not
+            # named for a bundle that would find it gone.
+            record = diagnostics_record.record_path_from_argv(
+                self._ripper_argv, out_dir
+            )
+            if (
+                incremental
+                and record is not None
+                and record not in self._diagnostics_records
+            ):
+                self._diagnostics_records.append(record)
         except RipError as exc:
             log.exception("rip failed to start")
             # RECORD IT with the argv. A rip that never started produces no ripper
@@ -3060,6 +3083,16 @@ class RipWorker(QObject):
         arguments injected in transit.
         """
         return self._ripper_argv_first_pass
+
+    @property
+    def diagnostics_records(self) -> tuple[Path, ...]:
+        """Where each album pass's `-j` record is, for the report bundle.
+
+        Where cyanrip was TOLD to write it, not proof that it did: a refused or
+        cancelled run may leave nothing there, and the bundle names that absence
+        in its manifest rather than this list guessing at it.
+        """
+        return tuple(self._diagnostics_records)
 
     @Slot()
     def cancel(self) -> None:
