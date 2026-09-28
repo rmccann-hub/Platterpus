@@ -12,6 +12,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Documentation
+
+- **A second Full run on `.17` is filed and graded `partial`.** The operator's
+  14:42 UTC run on 2026-09-28 (0.6.62 with `e0471f4`) passed 320 of 320. Its whole-disc
+  rip matches the EAC baseline on all 14 tracks, and CTDB verifies it. Its records still
+  carry the defects 0.6.63 fixed, so the field-evidence ledger gets an eleventh row,
+  `partial`. The ledger also says why this run is not a second witness for the
+  `0.7.100` bar: same machine, drive, disc and build. The text artifacts are in
+  `docs/handshake/artifactsround28/` (`round28full062*`).
+
 ### Changed
 
 - **The About box (Help → About Platterpus…) and the ripper update offer now say
