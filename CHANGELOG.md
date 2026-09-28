@@ -62,6 +62,24 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the track the ripper was reading when it printed it. One function in the log
   parser now decides which way a verdict went, for the parser and the rip worker
   both.
+- **A track whose secure re-reads never agreed is now a warning, and names its
+  track.** Every `-Z` verdict was filed in the diagnostics at `info`, whichever way it
+  went, and none said which track it was about. So the round-28 Full run's
+  diagnostics read `warnings: 1 … worst: warning`, and that one warning was a
+  deliberate negative test, while four `Done; (no matches found, but hit repeat
+  limit of 3)` verdicts sat at `info` among thirteen that converged. A verdict whose
+  reads never agreed is now `warning`, a converged one stays `info`, and each carries
+  the track the ripper was reading when it printed it. One function in the log
+  parser now decides which way a verdict went, for the parser and the rip worker
+  both.
+- **The diagnostics header no longer contradicts itself about the approved pair.**
+  It named the running app as half of the pair and then said the pair was approved
+  for another version: *"Approved pair: Platterpus 0.6.61 + cyanrip … — verified by
+  handshake round 27 (approved for Platterpus 0.6.60)"* (the round-28 Full run). The
+  pair now names the app version the approval record names, and a separate sentence
+  says which app is running and whether that round approved it: yes, no, or not
+  determined when the record names no app version. The Copy diagnostics dialog and
+  every evidence bundle render this one line.
 
 ### Changed
 

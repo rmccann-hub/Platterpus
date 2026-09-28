@@ -1584,7 +1584,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 26 for 0.6.55, with the provenance the record's own rule requires beside it.
     # 683 -> 693 on 2026-09-26: round 27's approval (0.6.60, round 27) and why a quick
     # run approves the build without having exercised `.16`'s two changes.
-    "handshake_approval.py": 693,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **693 -> 735** (2026-09-28, the round-28 Full run): the approved pair names the app version the record approved, not the running one, and `_running_app_clause` states the running version apart, tri-state; the pair line is this module's own renderer.
+    "handshake_approval.py": 735,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect

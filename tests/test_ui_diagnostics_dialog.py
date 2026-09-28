@@ -72,6 +72,26 @@ def test_the_report_names_both_versions_and_the_log_path() -> None:
     assert "python" in text
 
 
+def test_the_header_pair_is_the_records_and_the_running_app_is_named_apart() -> None:
+    """The round-28 Full run's header named the running 0.6.61 as half of a pair
+    "approved for Platterpus 0.6.60". This is the surface that shipped it, and the
+    evidence bundle carries this same text, so the relation is pinned HERE rather
+    than only on the helper: the header line IS `version_pair_line()`, its pair half
+    is the record's app version, and the running version is stated separately."""
+    from platterpus import handshake_approval as ha
+
+    text = build_diagnostics_text()
+    header = text.splitlines()[2]
+    assert header == ha.version_pair_line(), (
+        "the diagnostics header no longer renders the one pair line — a second "
+        f"rendering is a second opinion:\n{header}"
+    )
+    assert header.startswith(
+        f"Approved pair: Platterpus {ha.APPROVED_FOR_PLATTERPUS_VERSION} + "
+    ), header
+    assert f"This app is Platterpus {__version__}" in header, header
+
+
 def test_recorded_diagnostics_appear_with_argv_exit_code_and_detail() -> None:
     """The four facts CLAUDE.md's completeness rule names must all be renderable."""
     diagnostics.record_command_failure(

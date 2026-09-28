@@ -619,7 +619,7 @@ def _named_banner(banner: str) -> str:
     return f"{_RIPPER_NAME} {text}" if text else f"{_RIPPER_NAME} (no banner)"
 
 
-def version_pair_line() -> str:
+def version_pair_line(*, app_version: str | None = None) -> str:
     """One line naming **both** versions and what they were approved as.
 
     The maintainer's ask, rendered once so the log, the report and `--doctor`
@@ -644,14 +644,56 @@ def version_pair_line() -> str:
     `ripper_handshake_approval`); wiring that renderer into this dialog needs the
     launch-time probe's banner plumbed to it, which is tracked in `TASKS.md` and
     is not something to invent during a release.
+
+    **Both halves of the pair come from the record (2026-09-28, the round-28 Full
+    run).** The app half used to be ``__version__`` — the RUNNING app — so the
+    line read *"Approved pair: Platterpus 0.6.61 + cyanrip … — verified by
+    handshake round 27 (approved for Platterpus 0.6.60)"*: it named 0.6.61 as half
+    of a pair and, in the same sentence, said the pair was approved for 0.6.60.
+    Self-contradictory, in the header of the file a bug report quotes. The pair is
+    now :data:`APPROVED_FOR_PLATTERPUS_VERSION` + the approved banner, and the
+    running version is stated separately by :func:`_running_app_clause`, which
+    says plainly whether the round approved this app — tri-state, like every
+    other approval answer here.
+
+    ``app_version`` exists so a test can pin each state; every production caller
+    passes nothing and gets the running version.
     """
+    running = __version__ if app_version is None else app_version
+    approved = APPROVED_FOR_PLATTERPUS_VERSION.strip() or "(none named)"
     return (
-        f"Approved pair: Platterpus {__version__} + "
+        f"Approved pair: Platterpus {approved} + "
         f"{_named_banner(fork_source.FORK_EXPECTED_BANNER)} "
-        f"— verified by handshake round {APPROVED_BY_ROUND} "
-        f"(approved for Platterpus {APPROVED_FOR_PLATTERPUS_VERSION}). "
-        "This names what the record APPROVES, not what is installed — the build "
-        "that produced a given rip is named in that rip's own log and report."
+        f"— verified by handshake round {APPROVED_BY_ROUND}. "
+        f"{_running_app_clause(running)} "
+        "The pair is what the record APPROVES, not what is installed — the ripper "
+        "build that produced a given rip is named in that rip's own log and report."
+    )
+
+
+def _running_app_clause(running: str) -> str:
+    """Whether the round behind the pair approved THIS app. **Tri-state.**
+
+    * the record names the running version → it approved this app;
+    * the record names another version → it did not, said as a plain negative,
+      because comparing two version strings we both hold IS evidence, not a guess;
+    * the record names no app version → not determined. The pair still stands, but
+      nothing says which app it was verified with, and "not approved" would be a
+      claim the record does not make.
+
+    Pure; never raises.
+    """
+    approved = APPROVED_FOR_PLATTERPUS_VERSION.strip()
+    if not approved:
+        return (
+            f"This app is Platterpus {running}; the record names no app version for "
+            "this pair, so whether that round approved this app is not determined."
+        )
+    if running.strip() == approved:
+        return f"This app is Platterpus {running}, the version that round approved."
+    return (
+        f"This app is Platterpus {running}, which that round did NOT approve — it "
+        f"verified this ripper build with Platterpus {approved} and never saw this app."
     )
 
 
