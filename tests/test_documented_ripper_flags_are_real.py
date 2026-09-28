@@ -45,6 +45,8 @@ what remains is the assertion that encodes the actual hazard and can be made exa
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Final
 
@@ -66,8 +68,35 @@ DATED_RECORD: Final[tuple[str, ...]] = (
 )
 
 
-def _live_docs() -> list[str]:
-    """Every live prose surface in the repo, **derived from disk**.
+def _tracked_files(root: Path) -> list[str] | None:
+    """Every path git tracks in the checkout at `root`, or None when there is none.
+
+    None is the fallback the maintainer asked for on 2026-09-28 (*"keep a fallback
+    for a tree with no .git"*): an unpacked sdist, a copied tree. It is keyed on the
+    `.git` entry itself (a directory in a clone, a file in a worktree), not on git
+    succeeding, and that is deliberate. In a checkout, a git that fails is a fault
+    to see, not a reason to go back quietly to sweeping whatever is lying on disk,
+    so a failure there raises. It surfaces as a collection error carrying git's own
+    message.
+    """
+    if not (root / ".git").exists():
+        return None
+    listing = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z"],
+        capture_output=True,
+        timeout=60,
+        check=False,
+    )
+    if listing.returncode != 0:
+        raise RuntimeError(
+            f"`git ls-files` failed in {root} (exit {listing.returncode}): "
+            + listing.stderr.decode("utf-8", "replace").strip()
+        )
+    return [p for p in listing.stdout.decode("utf-8", "replace").split("\0") if p]
+
+
+def _live_docs(root: Path = REPO_ROOT) -> list[str]:
+    """Every live prose surface in the repo: **the tracked files, derived, not listed**.
 
     **Why derived and not listed.** The first version of this gate hardcoded four
     paths — the three surfaces the 2026-08-18 correction had touched, plus the rig
@@ -79,14 +108,35 @@ def _live_docs() -> list[str]:
     `CLAUDE.md` records for three completeness-promising maps in one sweep
     (`docs/testing.md` §5.af).
 
-    So: sweep the tree, subtract the dated record, and let a new document be covered
-    the day it is written rather than the day somebody remembers to add it here.
+    So: take every tracked document, subtract the dated record, and let a new
+    document be covered the day it is committed rather than the day somebody
+    remembers to add it here.
+
+    **Why the tracked set and not the disk** (configuration audit, 2026-09-28). The
+    sweep used to walk the working tree, so its population was whatever happened to
+    be lying there: `.pytest_cache/README.md` after one pytest run, five
+    `src/platterpus.egg-info/*.txt` files after `pip install -e`, and five stale
+    copies of the rig scripts under `build/lib/` after a wheel build, one of them
+    `rigcancelandoverread.txt`. The collected count was 6744 in a fresh clone, 6749
+    in CI and 6750 on a second local run, and an untracked scratch note would have
+    been judged as if it shipped. **Where there is no `.git`**, the disk walk is
+    the fallback, exactly as before.
     """
+    tracked = _tracked_files(root)
+    if tracked is None:
+        candidates = [
+            path.relative_to(root).as_posix()
+            for path in root.rglob("*")
+            if path.is_file()
+        ]
+    else:
+        # A tracked file deleted from the working tree has nothing to read, and
+        # the checks below open every path they are given.
+        candidates = [rel for rel in tracked if (root / rel).is_file()]
     found: list[str] = []
-    for path in sorted(REPO_ROOT.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in {".md", ".txt"}:
+    for rel in sorted(candidates):
+        if Path(rel).suffix.lower() not in {".md", ".txt"}:
             continue
-        rel = path.relative_to(REPO_ROOT).as_posix()
         if rel.startswith(
             (".git/", ".venv/", "node_modules/", ".claude/worktrees/")
         ):  # a worktree-isolated agent's full copy of the repo (gitignored)
@@ -258,16 +308,83 @@ def test_the_sweep_actually_finds_the_documents() -> None:
         "docs/dependency-contracts.md",
         "docs/rig-scripts/README.md",
         # The rig scripts moved INTO the package on 2026-08-28 so the running
-        # program can open them. The sweep above is a whole-tree rglob, so it
-        # followed them without being told; this named assertion is the half
-        # that had to be moved by hand, and it is named precisely because it is
-        # one of the surfaces that was actually wrong.
+        # program can open them. The sweep above derives its population rather
+        # than listing it, so it followed them without being told; this named
+        # assertion is the half that had to be moved by hand, and it is named
+        # precisely because it is one of the surfaces that was actually wrong.
         "src/platterpus/rig_scripts/rigcancelandoverread.txt",
     ):
         assert required in docs, f"{required} fell out of the live-doc sweep"
     # ...and the dated record really is excluded, or the exclusion is decoration.
     assert "CHANGELOG.md" not in docs
     assert not [d for d in docs if d.startswith("docs/handshake/")]
+
+
+def _git(root: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="needs git on PATH")
+def test_the_sweep_reads_the_tracked_set_not_the_disk(tmp_path: Path) -> None:
+    """The regression test for the population drift (configuration audit, 2026-09-28).
+
+    Each untracked file here is one the old disk walk really did collect in a
+    working checkout. The tracked-then-deleted file is the state the new source
+    creates: git still lists it, and the checks below would open it.
+    """
+    _git(tmp_path, "init", "-q")
+    for rel in (
+        "tracked.md",
+        "docs/tracked.txt",
+        "CHANGELOG.md",
+        "code.py",
+        "gone.md",
+        ".pytest_cache/README.md",
+        "src/platterpus.egg-info/SOURCES.txt",
+        "build/lib/platterpus/rig_scripts/rigcancelandoverread.txt",
+        "scratch-note.md",
+    ):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text("x\n", encoding="utf-8")
+    _git(tmp_path, "add", "tracked.md", "docs/tracked.txt", "CHANGELOG.md", "code.py")
+    _git(tmp_path, "add", "gone.md")
+    (tmp_path / "gone.md").unlink()
+
+    assert _live_docs(tmp_path) == ["docs/tracked.txt", "tracked.md"]
+
+
+def test_the_sweep_falls_back_to_the_disk_without_a_git_checkout(
+    tmp_path: Path,
+) -> None:
+    """The fallback the maintainer asked for: no `.git`, so walk the tree."""
+    for rel in (
+        "a.md",
+        "sub/b.txt",
+        "c.py",
+        # A .txt, not a .md: a `docs/…md` string in a test reads as a link to
+        # tests/test_doc_index_completeness.py's pointer sweep.
+        "docs/archive/old.txt",
+        ".venv/lib/x.md",
+    ):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text("x\n", encoding="utf-8")
+
+    assert _live_docs(tmp_path) == ["a.md", "sub/b.txt"]
+
+
+def test_this_checkout_is_swept_from_git() -> None:
+    """In a checkout, every swept path is a tracked one.
+
+    This is the half the two constructed trees above cannot show: that the real
+    run took the git branch. A tree that has been through `pip install -e .`, as
+    CI's has, carries untracked `src/platterpus.egg-info/*.txt`, and the old disk
+    walk collected them.
+    """
+    tracked = _tracked_files(REPO_ROOT)
+    if tracked is None:
+        pytest.skip("not a git checkout, so the disk walk is the intended source")
+    untracked = sorted(set(LIVE_DOCS) - set(tracked))
+    assert not untracked, f"the sweep collected untracked files: {untracked}"
 
 
 def test_the_check_can_actually_fail() -> None:
