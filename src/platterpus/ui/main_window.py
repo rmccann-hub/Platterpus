@@ -18,7 +18,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QKeySequence
+from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
@@ -1055,14 +1055,13 @@ class MainWindow(
         # the same enabled state by construction, never two kept in step by hand.
         # Alt+F, not the old Alt+C: the album menu opens with Copy, which is Alt+C.
         #
-        # TRANSITIONAL: THIS TOOLS ENTRY IS FOR 0.6.62 ONLY, AND GOES IN 0.6.63, so
-        # nobody who learned it here loses it the day it moves. To remove it, build
-        # the action as `QAction("Set cover art from &file…", self)` instead of
-        # through `tools_menu.addAction`, delete the Guide's "still in Tools"
-        # sentence (`tests/test_help_documents_the_menu.py` names it a dead path),
-        # and drop the Tools half of `tests/test_ui_main_window.py::_cover_actions`.
-        # The 0.6.63 bump FAILS until it is gone (`tests/test_ui_main_window.py`).
-        cover_from_file_action = tools_menu.addAction("Set cover art from &file…")
+        # **Tools no longer lists it, from 0.6.63.** It stayed in Tools for 0.6.62
+        # only, so nobody who learned it there lost it the day it moved, and the
+        # 0.6.63 version bump failed until it was gone
+        # (`tests/test_ui_main_window.py::test_the_transitional_tools_cover_entry_is_gone_by_its_release`).
+        # The action is built here, owned by the window, and shown only by the
+        # disc panel's two album menus.
+        cover_from_file_action = QAction("Set cover art from &file…", self)
         cover_from_file_action.triggered.connect(self._on_set_cover_art_from_file)
         self._disc_info_panel.set_album_actions([cover_from_file_action])
 

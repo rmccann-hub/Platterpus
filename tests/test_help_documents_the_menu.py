@@ -132,7 +132,10 @@ def test_the_menu_sweep_actually_finds_the_menu() -> None:
     # satisfy stops meaning anything.
     # **7 from 2026-09-27**: the six items plus the *Advanced* submenu's title,
     # which is a thing a person clicks too.
-    assert len(labels) >= 7, (
+    # **6 from 2026-09-28 (0.6.63)**: *Set cover art from file…* left Tools, as
+    # planned, a release after it moved to the album's right-click menu. Lowered
+    # for the same reason as before: the floor tracks the real count.
+    assert len(labels) >= 6, (
         f"only {len(labels)} Tools action(s) found in {MAIN_WINDOW.name}; the "
         "pattern has stopped matching and this file is measuring nothing"
     )
@@ -510,8 +513,10 @@ def test_the_menu_path_sweep_resolves_real_paths_and_rejects_dead_ones() -> None
     # 5 direct Tools items since the two test tools moved into the Advanced
     # submenu (2026-09-27; 6 before, when they were direct items and Advanced did
     # not exist). Setup & Updates' section-button count went from 7 to 8 when
-    # Diagnose drive access… moved into it (2026-09-24).
-    assert len(model["tools"]) >= 5 and len(model["tools"]["setup & updates"]) >= 8
+    # Diagnose drive access… moved into it (2026-09-24). **4 direct Tools items
+    # from 0.6.63 (2026-09-28)**, when *Set cover art from file…* left Tools for
+    # the album's right-click menu, as planned a release earlier.
+    assert len(model["tools"]) >= 4 and len(model["tools"]["setup & updates"]) >= 8
     assert len(model["tools"]["settings"]) >= 20, "the Settings rows were not read"
     # The submenu is expanded, and the console's buttons hang under it.
     advanced = model["tools"]["advanced"]
