@@ -43,12 +43,21 @@ it is ready.
 - *0.6.63 released* from `d226c03b` (the merge of #273), release run `36475984863`, once
   main's own CI on that commit (`36475375918`) was green. It installs `e0471f4` by default
   and accepts `51cc789` as the build under review.
+- *The held `-Z`/`-r` chokepoint patch is kept on `main` without being applied*
+  (`d7cea503`, a `-s ours` merge of `167e0d4c`). The branch check before telling the
+  maintainer which branches can go found that it lived only in one container's helper
+  worktree. Every other helper commit was already on `main` as a cherry-pick. The TASKS
+  row says how to land it.
 
 **Learned:**
 - *A `--no-merges` log across an upstream merge counts upstream's history, not the
   change.* The fork's "6 commits, closed" was true of the content and false of the
   command. `--first-parent` plus the merge's own diff is the measurement that matches
   the claim. Graduated to the TASKS row, and sent to them as a correction.
+- *Of any unintegrated commit, ask where it would still exist if this container were
+  reclaimed now.* A helper's worktree is not a home. The held patch had a TASKS row that
+  said it had "no id on our main" and did not say it had no copy anywhere else. A
+  `-s ours` merge gives such a commit a home without applying it.
 - *A premise can be false while the conclusion holds, and both get said.* S19's "nothing
   reads a tag back" was wrong, and harmless only because the reader is case-blind.
   Reporting it names the reader, so a later change to it knows it is on the seam.
