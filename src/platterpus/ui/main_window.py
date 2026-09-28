@@ -1249,6 +1249,9 @@ class MainWindow(
         # deregistered the other and left it unkillable (audit, 2026-07-29).
         # `killable` also guards that race directly, but not overlapping in the first
         # place is the real fix; the guard is the belt.
+        #
+        # `superseded_by` makes the log say this abandonment is planned, at INFO.
+        # Without it every rescan wrote a WARNING into the rig transcript.
         if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
             if self._disc_info_worker is not None:
                 try:
@@ -1256,7 +1259,12 @@ class MainWindow(
                     self._disc_info_worker.failed.disconnect(self._on_disc_info_failed)
                 except (RuntimeError, TypeError):
                     pass  # already disconnected / never connected
-            stop_thread(self._disc_info_thread, self._disc_info_worker, wait_ms=0)
+            stop_thread(
+                self._disc_info_thread,
+                self._disc_info_worker,
+                wait_ms=0,
+                superseded_by="a newer disc probe",
+            )
 
         # A scan can wedge the drive (a stuck in-container TOC reader), so make
         # Force-stop available for the duration and clear any prior stop flag.
