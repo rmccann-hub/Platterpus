@@ -511,6 +511,8 @@ class ProvisioningMixin(MainWindowShared):
             save_setting=self._save_user_setting,
         )
         self._setup_center = dialog
+        # A check already in flight is shown as running, not as the last result.
+        self._show_dependency_check_in_setup_center()
         dialog.show()
         return dialog
 

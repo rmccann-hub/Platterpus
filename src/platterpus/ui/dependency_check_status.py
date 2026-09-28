@@ -1,15 +1,19 @@
-"""The dependency verdict a person reads, in one line.
+"""What the dependency check says to a person: while it runs, and when it lands.
 
 **Why this exists.** The maintainer, 2026-09-28: Setup & Updates → *Check
-dependencies* "seems to freeze, not respond, or give no error". One of the four
-ways it looked dead was a result that could not be trusted: a check that stopped
-early returned a partial report with no marker, and the Setup & Updates line then
-called it complete — "✓ All required tools present" after probing two tools of
-seven. The line lives here, beside the marker vocabulary, so every surface that
-shows it (Setup & Updates today) reads one function.
+dependencies* "seems to freeze, not respond, or give no error". The check runs
+off the GUI thread, so the window never froze — but it LOOKED dead four ways:
+nothing on screen said a check was running; a second click was silently ignored;
+a wedged container meant minutes with no result; and a result that arrived
+while another dialog was open could be dropped with only a log line. Every one
+of those is a sentence that was never shown, so the sentences live here.
 
-**Pure text, no widgets**, so every verdict is testable without a display.
-`deps.manager.describe_unchecked` is the one wording of an incomplete check.
+**Pure text, no widgets.** Each function returns a string, so every message is
+testable without a display, and the status bar and the Setup & Updates window
+read the SAME words: `dependency_summary_line` is the one verdict both show, and
+`deps.manager.describe_unchecked` is the one wording of an incomplete check that
+every surface uses. Two surfaces answering one question with two functions is the
+shape this project keeps paying for.
 
 **Tri-state, and never "all present" about a check that did not finish.** A check
 that stopped early is marked ⚠ and names what it did not reach; it is not
@@ -21,6 +25,7 @@ from __future__ import annotations
 from typing import Final
 
 from platterpus.deps.manager import describe_unchecked
+from platterpus.paths import LOG_PATH
 
 #: The status marker vocabulary. **Never colour alone** — around 8% of men have
 #: red/green colour-vision deficiency, and a greyscale screenshot or a
@@ -84,3 +89,78 @@ def dependency_summary_line(report: object | None) -> str:
         names = ", ".join(_item_name(m) for m in optional)
         parts.append(f"Optional not installed: {names}.")
     return " ".join(parts)
+
+
+def running_message(deadline_s: float) -> str:
+    """Shown the moment a check the user asked for starts."""
+    return (
+        "Checking dependencies… The first check of a session starts the ripping "
+        "container and can take up to a minute; the check gives up after "
+        f"{deadline_s:g} s at most."
+    )
+
+
+def already_running_message() -> str:
+    """Shown when the user asks for a check while one is already running."""
+    return (
+        f"{INFO_MARK} A dependency check is already running, so a second one was "
+        "not started. Its result will be shown when it finishes."
+    )
+
+
+def outcome_message(report: object | None) -> str:
+    """Replaces the running message when the check lands.
+
+    ``report`` is None only when the check itself crashed — never "no tools".
+    The caller stamps the time, so the sentence carries no clock of its own.
+    """
+    if report is None:
+        return (
+            f"{WARN_MARK} The dependency check stopped with an unexpected error, so "
+            f"nothing is known about the tools. The error is in {LOG_PATH}."
+        )
+    return f"Dependency check finished: {dependency_summary_line(report)}"
+
+
+def incomplete_background_message(report: object) -> str:
+    """For a check nobody clicked (the launch check) that did not finish.
+
+    Such a check stays silent when it completes — optional tools must not nag —
+    but one that stopped part-way leaves the ripper's state unknown, and a
+    one-line status message is the least that can say so without a dialog.
+    """
+    return (
+        f"{WARN_MARK} The background dependency check did not finish. "
+        f"{describe_unchecked(report)} Run it again from {RERUN_PATH}."
+    )
+
+
+def waiting_for_dialog_message() -> str:
+    """The check has landed, but another dialog must be answered first."""
+    return (
+        f"{INFO_MARK} The dependency check has finished. Its result will be shown "
+        "when the dialog that is open now is closed."
+    )
+
+
+def gave_up_message() -> str:
+    """The result waited for another dialog and was not shown; say where it is."""
+    return (
+        f"{WARN_MARK} The dependency check finished while another dialog stayed "
+        "open, so its result was not shown. Tools → Setup & Updates… shows the "
+        f"result; {RERUN_PATH} runs it again."
+    )
+
+
+def overdue_message(waited_s: float) -> str:
+    """The backstop: the check is still running well past its own deadline.
+
+    Only reachable if a probe ignores the deadline — every probe the registry
+    has today is capped by it — so this sentence exists for the day one does
+    not, and says plainly that the window is still working.
+    """
+    return (
+        f"{WARN_MARK} The dependency check has been running for {waited_s:g} s and "
+        "did not stop when it should have. The window still works; the check will "
+        f"report if it ever finishes. Details are in {LOG_PATH}."
+    )

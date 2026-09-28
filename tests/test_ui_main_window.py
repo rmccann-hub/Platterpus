@@ -11743,10 +11743,12 @@ def test_the_dependency_line_separates_required_from_optional() -> None:
 # "CHECK DEPENDENCIES SEEMS TO FREEZE, NOT RESPOND, OR GIVE NO ERROR."
 #
 # The maintainer's report, 2026-09-28. The probe runs off the GUI thread, so the
-# window never froze — it LOOKED dead four ways. The tests here drive the real path
-# for the third: a wedged container meant minutes with no result, and a check that
-# stopped early returned a partial report with no marker, which the summary then
-# called complete.
+# window never froze — it LOOKED dead four ways, and each test below drives the
+# real path for one of them with probes that block: (1) nothing said a check was
+# running; (2) a second click was silently ignored; (3) a wedged container meant
+# minutes with no result, and a check that stopped early returned a partial report
+# with no marker, which the summary then called complete; (4) a result held back
+# for another dialog could be given up on with only a log line.
 # ---------------------------------------------------------------------------
 
 
@@ -11765,6 +11767,23 @@ def _dep_spec(
         search_string=f"install {dep_id}",
         optional=optional,
     )
+
+
+def _blocking_probe(release: threading.Event, calls: list[str], dep_id: str) -> Any:
+    """A probe that waits for the test, standing in for a cold container.
+
+    It does NOT go through `VERSION_PROBE`, so the deadline cannot kill it: the
+    tests that need a kill use a real sleeping child instead (see
+    `test_the_deadline_stops_a_wedged_check_and_the_summary_says_what_it_skipped`).
+    """
+    from platterpus.deps.checks import ProbeResult
+
+    def probe() -> ProbeResult:
+        calls.append(dep_id)
+        release.wait(10.0)
+        return ProbeResult(present=True, version=(1, 0, 0), location=f"/x/{dep_id}")
+
+    return probe
 
 
 def _quiet_config() -> Config:
@@ -11793,6 +11812,103 @@ def _pump_until(qapp: QApplication, done: Any, timeout: float = 15.0) -> None:
         qapp.processEvents()
         time.sleep(0.01)
     assert done(), "timed out waiting for the dependency check"
+
+
+def test_a_user_check_says_it_is_running_and_the_outcome_replaces_it(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """(1) The click is visibly answered at once, and the answer is replaced.
+
+    Driven through the real Setup & Updates button, because the button is what
+    the maintainer pressed and what looked dead.
+    """
+    window = teardown_threads(config=_quiet_config())
+    release = threading.Event()
+    calls: list[str] = []
+    window._dependency_manager = DependencyManager(
+        specs=[_dep_spec("slow", _blocking_probe(release, calls, "slow"))]
+    )
+    shown = _capture_message_boxes(monkeypatch)
+    center = window.open_setup_center()
+    try:
+        button = center._buttons["dep_check"]
+        button.click()
+
+        status = window.statusBar().currentMessage()
+        assert "Checking dependencies" in status, status
+        assert "can take up to a minute" in status, status
+        assert not button.isEnabled(), "the button stayed live while its check ran"
+        assert button.text() == "Checking dependencies…"
+        assert center._dependency_label is not None
+        assert "Checking dependencies" in center._dependency_label.text()
+
+        release.set()
+        _pump_until(qapp, lambda: window._dep_check_thread is None and shown)
+
+        status = window.statusBar().currentMessage()
+        assert "Checking" not in status, (
+            f"the running message outlived its check: {status}"
+        )
+        assert "Dependency check finished" in status, status
+        assert "All required tools present" in status, status
+        assert button.isEnabled() and button.text() == "Check &dependencies"
+        assert "All required tools present" in center._dependency_label.text()
+        assert shown[0][0] == "Dependency check complete"
+    finally:
+        release.set()
+        center.close()
+
+
+def test_a_second_click_says_so_starts_no_second_probe_and_shows_the_result(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """(2) The launch check is running silently; the user clicks anyway.
+
+    Three claims: the click is answered on screen, no second probe starts, and
+    the silent check is UPGRADED so its summary is shown — the user has now asked
+    for exactly that result.
+    """
+    window = teardown_threads(config=_quiet_config())
+    release = threading.Event()
+    calls: list[str] = []
+    window._dependency_manager = DependencyManager(
+        specs=[_dep_spec("slow", _blocking_probe(release, calls, "slow"))]
+    )
+    shown = _capture_message_boxes(monkeypatch)
+    window.run_dependency_check_async(show_summary=False)  # the launch check
+    running = window._dep_check_thread
+    assert running is not None
+    # Opened DURING the check, the way a user reaches it: it must say a check is
+    # running, not show whatever the last finished one said.
+    center = window.open_setup_center()
+    try:
+        _pump_until(qapp, lambda: calls == ["slow"])
+        assert center._dependency_label is not None
+        assert "Checking dependencies" in center._dependency_label.text()
+        button = center._buttons["dep_check"]
+        # A silent check leaves the button usable: clicking is how the user asks
+        # for its result. And it puts nothing on the status bar.
+        assert button.isEnabled()
+        assert window.statusBar().currentMessage() == ""
+
+        button.click()
+
+        assert window._dep_check_thread is running, "a second check was started"
+        assert "already running" in window.statusBar().currentMessage()
+        assert window._dep_check_show_summary is True, (
+            "the silent check was not upgraded"
+        )
+        assert not button.isEnabled()
+
+        release.set()
+        _pump_until(qapp, lambda: window._dep_check_thread is None and shown)
+        assert calls == ["slow"], f"the probe ran {len(calls)} times, not once"
+        assert shown[0][0] == "Dependency check complete", (
+            "the upgraded check landed without showing the summary the click asked for"
+        )
+    finally:
+        release.set()
+        center.close()
 
 
 def test_the_deadline_stops_a_wedged_check_and_the_summary_says_what_it_skipped(
@@ -11838,20 +11954,215 @@ def test_the_deadline_stops_a_wedged_check_and_the_summary_says_what_it_skipped(
         "_offer_optional_install",
         lambda _m, _items, required_all_ok=False: offers.append(required_all_ok),
     )
-    started = time.monotonic()
-    window._on_check_dependencies()
-    _pump_until(qapp, lambda: window._dep_check_thread is None and shown)
-    assert time.monotonic() - started < 10.0, "the deadline did not stop the check"
+    center = window.open_setup_center()
+    try:
+        started = time.monotonic()
+        window._on_check_dependencies()
+        _pump_until(qapp, lambda: window._dep_check_thread is None and shown)
+        assert time.monotonic() - started < 10.0, "the deadline did not stop the check"
 
-    title, text = shown[0]
-    assert title == "Dependency check incomplete", title
-    assert "Not checked: cyanrip, metaflac (FLAC tag editor)." in text, text
-    assert "stopped after 0.5 s" in text, text
-    assert "Optional (not installed): extra." in text, text
-    for claim in ("All required tools present", "Everything required is installed"):
-        assert claim not in text, f"an incomplete check said {claim!r}"
-    assert offers == [], "an incomplete check offered optional installs"
-    assert reached_after == [], "a spec after the deadline was still probed"
+        title, text = shown[0]
+        assert title == "Dependency check incomplete", title
+        assert "Not checked: cyanrip, metaflac (FLAC tag editor)." in text, text
+        assert "stopped after 0.5 s" in text, text
+        assert "Optional (not installed): extra." in text, text
+        for claim in ("All required tools present", "Everything required is installed"):
+            assert claim not in text, f"an incomplete check said {claim!r}"
+        assert offers == [], "an incomplete check offered optional installs"
+        assert reached_after == [], "a spec after the deadline was still probed"
+
+        status = window.statusBar().currentMessage()
+        assert "Check incomplete" in status and "cyanrip" in status, status
+        assert center._dependency_label is not None
+        line = center._dependency_label.text()
+        assert line.startswith("⚠") and "cyanrip" in line, line
+        assert "All required tools present" not in line, line
+    finally:
+        center.close()
+
+
+def test_a_silent_check_that_did_not_finish_says_so_on_the_status_bar(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The launch check stays silent when it completes — but not when it stopped.
+
+    A stopped launch check leaves the ripper's state unknown; one status line is
+    the least that says so without a dialog nobody asked for.
+    """
+    from platterpus.deps.manager import DependencyReport
+
+    window = teardown_threads()
+    shown = _capture_message_boxes(monkeypatch)
+    report = DependencyReport(
+        unchecked=[_dep_spec("cyanrip", lambda: None)],
+        unchecked_reason="the check stopped after 120 s because it was taking too long",
+    )
+    window._dep_check_manager = window._dependency_manager
+    window._dep_check_show_summary = False
+    window._on_dependency_check_done(report)
+    status = window.statusBar().currentMessage()
+    assert "did not finish" in status and "cyanrip" in status, status
+    assert shown == [], "a silent check opened a dialog"
+
+    complete = DependencyReport()
+    window.statusBar().clearMessage()
+    window._on_dependency_check_done(complete)
+    assert window.statusBar().currentMessage() == "", "a complete silent check nagged"
+
+
+def test_giving_up_on_a_user_check_says_so_on_screen(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """(4) The bounded wait for another dialog ends VISIBLY for a check the user asked for.
+
+    And the launch check keeps its log-only behaviour: the same give-up there
+    must put nothing on the status bar.
+    """
+    from PySide6.QtCore import QTimer
+
+    from platterpus.ui import main_window_deps
+
+    window = teardown_threads()
+    monkeypatch.setattr(window, "_resolve_missing_unified", lambda _r: None)
+    monkeypatch.setattr(
+        window, "_modal_floor_blocker", lambda: "a dialog has the floor"
+    )
+    monkeypatch.setattr(QTimer, "singleShot", staticmethod(lambda _ms, _cb: None))
+
+    report = SimpleNamespace(missing=[], install_results=[])
+    window._apply_dependency_report(object(), report, show_summary=True)
+    assert "will be shown when the dialog" in window.statusBar().currentMessage()
+    for _ in range(main_window_deps._DEP_RESOLVE_MAX_DEFERRALS):
+        window._apply_dependency_report(object(), report, show_summary=True)
+    status = window.statusBar().currentMessage()
+    assert "was not shown" in status and "Setup & Updates" in status, status
+
+    silent = teardown_threads()
+    monkeypatch.setattr(silent, "_resolve_missing_unified", lambda _r: None)
+    monkeypatch.setattr(
+        silent, "_modal_floor_blocker", lambda: "a dialog has the floor"
+    )
+    required = SimpleNamespace(spec=SimpleNamespace(optional=False))
+    silent_report = SimpleNamespace(missing=[required], install_results=[])
+    for _ in range(main_window_deps._DEP_RESOLVE_MAX_DEFERRALS + 1):
+        silent._apply_dependency_report(object(), silent_report, show_summary=False)
+    assert silent.statusBar().currentMessage() == "", "the launch check nagged"
+
+
+def test_a_report_held_for_another_dialog_keeps_its_optional_tools(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The deferral must not drop part of the result it is holding.
+
+    `report.missing` used to be narrowed to the required tools BEFORE the floor
+    check, so a report that had to wait came back with its optional tools gone:
+    the offer and the "Optional (not installed)" line vanished after the wait.
+    """
+    from PySide6.QtCore import QTimer
+
+    window = teardown_threads()
+    held: list[Any] = []
+    monkeypatch.setattr(
+        QTimer, "singleShot", staticmethod(lambda _ms, cb: held.append(cb))
+    )
+    busy = ["a dialog has the floor"]
+    monkeypatch.setattr(window, "_modal_floor_blocker", lambda: busy[0])
+    offered: list[list[str]] = []
+    monkeypatch.setattr(
+        window,
+        "_offer_optional_install",
+        lambda _m, items, required_all_ok=False: offered.append(
+            [i.spec.dep_id for i in items]
+        ),
+    )
+    optional = SimpleNamespace(spec=SimpleNamespace(optional=True, dep_id="picard"))
+    report = SimpleNamespace(missing=[optional], install_results=[])
+
+    window._apply_dependency_report(object(), report, show_summary=True)
+    assert held and offered == []
+    busy[0] = ""
+    held[0]()  # the re-delivery, once the dialog has closed
+    assert offered == [["picard"]], "the optional tool was lost while the report waited"
+
+
+def test_an_overrunning_check_is_reported_even_if_a_probe_ignores_the_deadline(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The backstop: it needs no cooperation from the check it is watching.
+
+    Every real probe honours the deadline. This one does not (it never enters
+    `VERSION_PROBE`), which is the day the backstop exists for: the user is told
+    the check is overdue instead of watching "Checking…" forever.
+
+    Driven with a SILENT check on purpose, because that is the harder half: a
+    silent check does not normally write its outcome to the status bar, so an
+    overdue warning it caused would otherwise outlive it.
+    """
+    from platterpus.deps import manager as dep_manager
+    from platterpus.ui import main_window_deps
+
+    monkeypatch.setattr(dep_manager, "CHECK_DEADLINE_S", 0.2)
+    monkeypatch.setattr(main_window_deps, "_OVERDUE_GRACE_S", 0.2)
+    window = teardown_threads(config=_quiet_config())
+    release = threading.Event()
+    calls: list[str] = []
+    window._dependency_manager = DependencyManager(
+        specs=[_dep_spec("deaf", _blocking_probe(release, calls, "deaf"))]
+    )
+    shown = _capture_message_boxes(monkeypatch)
+    try:
+        window.run_dependency_check_async(show_summary=False)
+        _pump_until(
+            qapp, lambda: "did not stop" in window.statusBar().currentMessage(), 5.0
+        )
+        assert window._dep_check_thread is not None, "the backstop fired too late"
+        release.set()
+        _pump_until(qapp, lambda: window._dep_check_thread is None)
+        status = window.statusBar().currentMessage()
+        assert "did not stop" not in status, (
+            "the overdue warning outlived the check it described"
+        )
+        assert "Dependency check finished" in status, status
+        assert shown == [], "a silent check opened a dialog"
+    finally:
+        release.set()
+
+
+def test_the_setup_center_button_needs_both_the_rip_and_the_check_to_end(
+    qapp: QApplication,
+) -> None:
+    """Two reasons to grey one button; ending either must not re-arm it early."""
+    from platterpus.ui.dialogs.setup_center import SetupCenterDialog
+    from platterpus.user_settings import SettingWrite
+
+    center = SetupCenterDialog(
+        None,
+        app_version="0",
+        ripper_pin="abc",
+        ripper_version="0.9",
+        approved_by_round=1,
+        dependency_report=None,
+        actions={},
+        config=Config(),
+        save_setting=lambda _f, _v: SettingWrite(applied=True, message=""),
+    )
+    try:
+        button = center._buttons["dep_check"]
+        center.show_dependency_check_running("Checking…", busy=True)
+        center.set_locked(True)
+        center.set_locked(False)
+        assert not button.isEnabled(), "a rip ending re-armed a button mid-check"
+        center.set_locked(True)
+        center.show_dependency_check_finished(None, failure="⚠ it failed")
+        assert not button.isEnabled(), "a check ending re-armed a button mid-rip"
+        assert center._dependency_label is not None
+        assert center._dependency_label.text() == "⚠ it failed", (
+            "a crashed check rendered as 'Not checked yet'"
+        )
+        center.set_locked(False)
+        assert button.isEnabled() and button.text() == "Check &dependencies"
+    finally:
+        center.close()
 
 
 def test_the_dependency_line_never_says_all_present_for_an_incomplete_check() -> None:

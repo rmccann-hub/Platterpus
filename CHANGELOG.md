@@ -227,6 +227,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   that stops early names the tools it did not check and why, and never lists them as
   installed or missing, or says everything is installed. Help → About and Diagnostics
   say the same.
+- **Check dependencies no longer looks dead while it works.** Tools → Setup & Updates…
+  → Check dependencies now says on the status bar that a check is running; the first
+  check of a session starts the ripping container and can take up to a minute. Its
+  button greys and reads "Checking dependencies…" until the result replaces both.
+  Clicking while a check is already running says so instead of doing nothing, and
+  shows that check's result when it finishes, even if it was the one started at
+  launch. If the result arrives while another dialog is open, the status bar says it
+  will be shown when that dialog closes, or, if it cannot be, where to find it. The
+  Setup & Updates line now updates when a check finishes, and names a missing tool
+  instead of showing "?".
 
 ### Added
 

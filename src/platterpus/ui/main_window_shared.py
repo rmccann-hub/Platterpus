@@ -427,6 +427,7 @@ class MainWindowShared(_SeamBase):
 
         # Defined in DependencyMixin (main_window_deps.py):
         def _on_check_dependencies(self) -> None: ...
+        def _show_dependency_check_in_setup_center(self) -> None: ...
 
         # Defined in SettingsMixin (main_window_settings.py) — each setting
         # saved from its one home (`ui/setting_homes.py`):

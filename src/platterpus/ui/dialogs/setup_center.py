@@ -70,10 +70,10 @@ from PySide6.QtWidgets import (
 from platterpus import offset_config
 from platterpus.ui.accessibility import announce
 
-# The dependency line lives in `dependency_check_status`, beside the marker
-# vocabulary, so every surface that shows the verdict reads one function.
-# Re-exported under this module's name because tests and callers already import
-# it from here.
+# The dependency line is the same verdict the status bar shows when a check lands,
+# so it lives with the other dependency-check sentences and is imported here — one
+# function, two surfaces, so they cannot describe one report two ways. Re-exported
+# under this module's name because tests and callers already import it from here.
 from platterpus.ui.dependency_check_status import (
     INFO_MARK,
     OK_MARK,
@@ -103,6 +103,13 @@ _COMMIT_HEIGHT: int = 44
 _OK: str = OK_MARK
 _WARN: str = WARN_MARK
 _INFO: str = INFO_MARK
+
+#: The dependency button's label while a check the user asked for runs. No
+#: mnemonic: a disabled button cannot be activated. Its label at rest stays the
+#: literal in the section list below, because `tests/test_help_documents_the_menu`
+#: reads the section buttons out of this source to resolve every menu path the
+#: product names — a label held in a constant would vanish from that model.
+_DEP_CHECK_BUSY_LABEL: str = "Checking dependencies…"
 
 
 class SetupCenterDialog(CenteredDialog):
@@ -139,6 +146,14 @@ class SetupCenterDialog(CenteredDialog):
         self._dependency_label: QLabel | None = None
         #: Every action button, so a rip can lock them all (`set_locked`).
         self._buttons: dict[str, QPushButton] = {}
+        #: Each button's label as built, so one relabelled while busy can be put
+        #: back exactly — mnemonic included — rather than from a second copy.
+        self._button_labels: dict[str, str] = {}
+        #: Two independent reasons the dependency button can be greyed, kept apart
+        #: so ending one cannot re-enable a button the other still needs off: a
+        #: rip ending must not re-arm "Check dependencies" mid-check.
+        self._locked: bool = False
+        self._dep_check_busy: bool = False
 
         root = QVBoxLayout(self)
 
@@ -340,6 +355,7 @@ class SetupCenterDialog(CenteredDialog):
             button.setMinimumHeight(_COMMIT_HEIGHT)
             button.clicked.connect(lambda _checked=False, k=key: self._run(k))
             self._buttons[key] = button
+            self._button_labels[key] = label
             grid.addWidget(button, row, 0, 1, 2)
             row += 1
         return row
@@ -367,8 +383,11 @@ class SetupCenterDialog(CenteredDialog):
         something, or replaces the app. The channel tick-boxes stay usable: they
         only decide what a later check offers.
         """
-        for button in self._buttons.values():
-            button.setEnabled(not locked)
+        self._locked = locked
+        for key, button in self._buttons.items():
+            button.setEnabled(
+                not locked and not (key == "dep_check" and self._dep_check_busy)
+            )
         if locked:
             self._settings_status.setText(
                 f"{_INFO} Locked while a rip runs. The actions come back when it ends."
@@ -421,7 +440,53 @@ class SetupCenterDialog(CenteredDialog):
 
         Called by the window when a probe lands, so the window this user opened
         to answer a question actually shows the answer rather than making them
-        close and reopen it.
+        close and reopen it. (It was defined and never called until 2026-09-28:
+        the line kept its opening text for as long as the window stayed open.)
         """
         if self._dependency_label is not None:
-            self._dependency_label.setText(dependency_summary_line(report))
+            text = dependency_summary_line(report)
+            self._dependency_label.setText(text)
+            announce(self._dependency_label, text)
+
+    def show_dependency_check_running(self, message: str, *, busy: bool) -> None:
+        """A check is in flight: say so, and grey the button if the user asked.
+
+        ``busy`` is True for a check the user started (or upgraded by a second
+        click). A check nobody asked for — the launch check — leaves the button
+        usable, because clicking it is how the user asks to see that check's
+        result (`run_dependency_check_async` upgrades it rather than starting a
+        second probe).
+        """
+        self._dep_check_busy = busy
+        if self._dependency_label is not None:
+            self._dependency_label.setText(f"{_INFO} {message}")
+        self._apply_dep_check_button()
+
+    def show_dependency_check_finished(
+        self, report: object | None, *, failure: str = ""
+    ) -> None:
+        """The check landed: show its result and give the button back.
+
+        ``failure`` is the sentence to show instead when the check itself crashed
+        (``report`` is None then). Rendering None as the usual line would say
+        "Not checked yet", which is untrue of a check that ran and failed.
+        """
+        self._dep_check_busy = False
+        self._apply_dep_check_button()
+        if failure and self._dependency_label is not None:
+            self._dependency_label.setText(failure)
+            announce(self._dependency_label, failure)
+            return
+        self.refresh_dependencies(report)
+
+    def _apply_dep_check_button(self) -> None:
+        """Label and enable the dependency button from BOTH of its conditions."""
+        button = self._buttons.get("dep_check")
+        if button is None:
+            return
+        button.setText(
+            _DEP_CHECK_BUSY_LABEL
+            if self._dep_check_busy
+            else self._button_labels["dep_check"]
+        )
+        button.setEnabled(not self._locked and not self._dep_check_busy)
