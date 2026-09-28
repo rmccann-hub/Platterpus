@@ -291,6 +291,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **For contributors: the 0.6.63 version bump fails while Tools still has "Set cover art
   from file…".** The Tools entry stays for one release so nobody loses it, and a test
   now makes its removal part of cutting 0.6.63 rather than a comment to remember.
+- **For contributors: the docs-pointer sweep no longer reads a path cited into the
+  fork's tree as a dead link into ours.** A citation shaped
+  `cyanrip@<sha>:docs/…` names a file in the fork's repository; the sweep in
+  `tests/test_doc_index_completeness.py` now skips a path that directly follows
+  `cyanrip@<hex>:`, and a meta-test holds both halves.
 
 ### Removed
 

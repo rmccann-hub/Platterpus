@@ -190,15 +190,29 @@ _DOCS_PATH_ANYWHERE = re.compile(
 )
 
 
+#: The tail of a citation INTO THE FORK'S TREE, `cyanrip@<sha>:` written right
+#: before `docs/…`. Such a path names their file at their commit (the LSL
+#: reference form, and the house form for any claim about their code), so it is
+#: resolved against their tree, by the lap checker, and never against ours: the
+#: fork keeps its lap-language proposal at a `docs/handshake/` path we do not
+#: hold, and citing it by line is what CLAUDE.md asks of a claim about a peer.
+_FORK_CITATION_TAIL = re.compile(r"cyanrip@[0-9a-f]{7,40}:$")
+
+
 def _docs_paths_named_in(text: str) -> list[str]:
-    """Every ``docs/…`` path the text names, in order, duplicates kept.
+    """Every ``docs/…`` path the text names in OUR tree, in order, duplicates kept.
 
     Kept as a list rather than a set so the floor below counts *references*
     examined, not distinct filenames — the question this gate asks is "does
     every pointer land", and ten pointers at one file is ten chances to be
-    wrong about that file.
+    wrong about that file. A path cited into the fork's tree is not one of ours
+    (`_FORK_CITATION_TAIL`).
     """
-    return [m.group("rel") for m in _DOCS_PATH_ANYWHERE.finditer(text)]
+    return [
+        m.group("rel")
+        for m in _DOCS_PATH_ANYWHERE.finditer(text)
+        if not _FORK_CITATION_TAIL.search(text[max(0, m.start() - 60) : m.start()])
+    ]
 
 
 def test_every_docs_path_named_in_claude_md_resolves() -> None:
@@ -343,6 +357,10 @@ def test_the_docs_path_sweep_catches_a_vanished_file() -> None:
     )
     found = _docs_paths_named_in(sample)
     assert found == ["testing.md", "gone.md", "archive/README.md"], found
+    # A citation into the fork's tree is theirs, not a pointer into ours; the
+    # same path without the `cyanrip@<sha>:` in front of it still counts.
+    cited = "their `cyanrip@889a375:docs/gone.md:3`, and ours, `docs/gone.md`"
+    assert _docs_paths_named_in(cited) == ["gone.md"]
 
     # And the real predicate separates present from absent, on real files.
     assert (_DOCS / "testing.md").is_file()
