@@ -23,6 +23,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   is no `.git` (an unpacked sdist). In a checkout whose git fails, it stops with git's
   message instead of falling back.
 
+### Changed
+
+- **The published metadata names rmccann-hub as the author and copyright holder.**
+  `pyproject.toml`'s `authors` and the AppStream metainfo's `<developer>` said
+  "Platterpus contributors", which is not a legal entity and so cannot grant the
+  GPL. Both now say rmccann-hub, and the README's licence section carries the
+  copyright line and the GPL-3.0-only notice. PyPI shows the new author from the next
+  release.
+
 ### Removed
 
 - **The dead `[tool.mutmut]` block in `pyproject.toml`.** mutmut was retired on
