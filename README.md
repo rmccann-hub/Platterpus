@@ -123,6 +123,11 @@ curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/install
 
 Prefer to download and run it yourself? Grab `install.sh` from the [Releases page](https://github.com/rmccann-hub/Platterpus/releases/latest), then `bash install.sh`. Useful flags: `--dry-run` (preview), `--no-host` (GUI only, host stack already set up), `--appimage PATH` (use a local AppImage). First run takes ~20–40 min because it builds the container.
 
+Before it installs the AppImage it downloads, the script checks it the way the app
+checks an update: against the release's `.sha256`, and against its build attestation
+as well when the GitHub CLI (`gh`) is installed. A file that fails either check is
+refused, and an AppImage you already have is left as it was.
+
 Then, inside the GUI: **Tools → Setup & Updates… → Set up drive…** to calibrate your drive's read offset (one time), insert a CD, and rip. To remove everything later, use the **Uninstall Platterpus** shortcut (or see [Uninstalling](#uninstalling)).
 
 > **Already have cyanrip + Distrobox set up** (e.g. re-installing on the same machine, or installing the GUI on a second box that shares the stack)? Skip the host build and just add the GUI: `curl -fsSL …/install.sh | bash -s -- --no-host` (or `bash install.sh --no-host`).
