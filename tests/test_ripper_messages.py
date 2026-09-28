@@ -38,10 +38,12 @@ which `format_to_pattern` would still match as literal text.
 
 from __future__ import annotations
 
+import io
 import re
 from dataclasses import dataclass
 from typing import Final
 
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -84,7 +86,9 @@ class Piece:
 
 
 def _no_line_break(text: str) -> bool:
-    return "\n" not in text
+    # A carriage return is a line break to the reader (universal newlines), so it
+    # is one here too; the line breaks this test means are inserted between lines.
+    return "\n" not in text and "\r" not in text
 
 
 #: Any character except a lone surrogate, which no decoded line can hold.
@@ -141,10 +145,13 @@ def _conversion(draw: st.DrawFn) -> Piece:
     return Piece(spec=spec, printed=printed, kind="conversion")
 
 
-#: Literal text: no ``%`` (that would start a conversion) and no backslash or
-#: newline (the line break is inserted deliberately, between lines).
+#: Literal text: no ``%`` (that would start a conversion) and no backslash,
+#: newline or carriage return (the line break is inserted deliberately, between
+#: lines; the reader breaks a line at a ``\r`` too, which
+#: `test_a_carriage_return_ends_a_line_where_the_reader_ends_it` covers). The
+#: ``\r`` was allowed here until 2026-09-28, when Hypothesis drew ``"000000\r"``.
 _TEXT = st.text(
-    st.characters(exclude_categories=("Cs",), exclude_characters="%\\\n"),
+    st.characters(exclude_categories=("Cs",), exclude_characters="%\\\n\r"),
     min_size=1,
     max_size=20,
 ).map(lambda text: Piece(spec=text, printed=text, kind="text"))
@@ -334,3 +341,34 @@ def test_no_published_format_is_outside_the_round_trips_scope() -> None:
         f"published formats use C escapes format_to_pattern does not interpret: "
         f"{other_escapes}"
     )
+
+
+@pytest.mark.parametrize(
+    ("fmt", "printed"),
+    [
+        # Escaped, as the provider contract prints a format: the C source's `\r`.
+        ("Error reading disc\\rtrack %d", b"Error reading disc\rtrack 5\n"),
+        # A real carriage return, and one at the end of the line.
+        ("Error reading disc\rtrack %d", b"Error reading disc\rtrack 5\n"),
+        ("Error reading disc\r", b"Error reading disc\r"),
+        ("Error reading disc\\r\\ntrack %d", b"Error reading disc\r\ntrack 5\n"),
+    ],
+)
+def test_a_carriage_return_ends_a_line_where_the_reader_ends_it(
+    fmt: str, printed: bytes
+) -> None:
+    """A format's pattern matches the first line the RIP WORKER is given.
+
+    The worker reads the ripper in universal-newlines mode, so a ``\\r`` ends a
+    line before the matcher sees it. The first line is therefore computed here by
+    that same reading (`io.TextIOWrapper` with ``newline=None``), not by the
+    product's own splitting rule, so the two are compared rather than restated.
+    Until 2026-09-28 an interior ``\\r`` was escaped into the pattern, which no
+    delivered line can hold.
+    """
+    delivered = io.TextIOWrapper(io.BytesIO(printed), newline=None).read()
+    first_line = next(line for line in delivered.split("\n") if line.strip())
+    pattern = format_to_pattern(fmt)
+    assert pattern is not None, fmt
+    assert re.fullmatch(pattern, first_line.strip()), (fmt, pattern, first_line)
+    assert "\r" not in pattern and "\\r" not in pattern, pattern

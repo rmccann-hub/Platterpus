@@ -70,7 +70,16 @@ _MIN_LITERAL_CHARS: Final[int] = 6
 #: format the way the C source spells it, so an interior newline arrives as the
 #: two characters backslash and ``n`` (three published formats carry one,
 #: measured at round 28 lap 3). A real newline is treated the same way.
-_LINE_BREAK: Final[re.Pattern[str]] = re.compile(r"\\n|\n")
+#:
+#: **A carriage return breaks a line too, because that is how the reader sees
+#: it.** The rip worker reads the ripper in universal-newlines mode, which turns
+#: every ``\r`` and ``\r\n`` into ``\n`` before a line reaches the matcher
+#: (`workers/rip_worker.py`, the comment above `_CYANRIP_TRACK_PROGRESS`). Until
+#: 2026-09-28 this split on ``\n`` alone, so a format with an interior ``\r``
+#: built a pattern containing one, which no line the matcher is given can hold.
+#: No published format carries one today (0 of 128); the round-trip property
+#: found the gap, as ``"000000\r"``.
+_LINE_BREAK: Final[re.Pattern[str]] = re.compile(r"\\r\\n|\\n|\\r|\r\n|\n|\r")
 
 
 def _first_printed_line(fmt: str) -> str:
