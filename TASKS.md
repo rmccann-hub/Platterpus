@@ -3435,10 +3435,14 @@ SKIP-passes-as-zero, and `abort-if-failed`'s scope.
   docstring asserting it does not.** `[CLAIMED]` Squarely against the
   never-block-the-GUI-thread rule if true; needs its own measurement.
   - *2026-09-25:* **Done.** Confirmed by reading: the runner's `QTimer` runs the tick on the GUI thread. The probe now runs on a helper thread (`_WrapperProbeJob`, 180 s outer bound), and the docstring is corrected. Tests in `tests/test_uiscript_cyanrip_verb.py::TestTheWrapperProbeDoesNotBlockTheGuiThread`.
-- [ ] **`report.json` drops 53% of the acceptance script's own source** under a
+- [x] **`report.json` drops 53% of the acceptance script's own source** under a
   comment saying the cap "only ever fires on…". `[CLAIMED]` A silent truncation
   reads as completeness.
   - *Audit 2026-09-25: confirmed open.* Measured again: MAX_SOURCE_CHARS 20000 against a 69,275-character script, about 71% dropped (the elision is marked).
+  - *Done 2026-09-27:* `MAX_SOURCE_CHARS` 20,000 -> 256,000 (`uiscript/report.py`), sized
+    against the largest shipped script (`fullacceptance.txt`, 69,020 characters), with head
+    and tail plus a counted elision beyond it. No schema change. The test reads the shipped
+    scripts (`tests/test_uiscript.py`; floors: 5 scripts, one over the old cap).
 - [ ] **Nothing in the run's artifacts groups steps by section or carries the
   severity classification the release bar is defined in terms of** — so grading
   a run against `docs/testing.md`'s table is a manual join. `[CLAIMED]`
