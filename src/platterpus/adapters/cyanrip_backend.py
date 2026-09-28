@@ -742,10 +742,10 @@ _COLON_SUBSTITUTE: str = "∶"  # ∶
 #: below left an abandoned reader running for 15 minutes alongside later rips, so
 #: two live cyanrips shared one output root and would have shared one record.
 #:
-#: It does NOT put the record with the artifacts — that needs a post-rip move
-#: into the album folder, which is tracked in ``TASKS.md`` rather than done here,
-#: because the album folder is only knowable AFTER the rip and predicting it is
-#: what `CLAUDE.md` names as the mistake that cost a 14-track rip.
+#: It does NOT put the record with the artifacts, and nothing moves it there: a
+#: rip leaves only its .log, .cue and .platterpus.json in the album folder (the
+#: maintainer, 2026-09-27). Each rip's report bundle collects it from the rips
+#: root by name (`diagnostics_record`); embedding it in the report is next.
 DIAGNOSTICS_RECORD_PREFIX: Final[str] = "cyanrip-diagnostics"
 
 

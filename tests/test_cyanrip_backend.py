@@ -1723,8 +1723,10 @@ def test_the_diagnostics_path_is_relative_and_UNIQUE_per_rip() -> None:
     eight rips overwrote in turn, and a race the same run made real when an
     abandoned reader kept writing for 15 minutes alongside later rips.
 
-    So: relative, and unique. Putting it *with* the artifacts needs a post-rip
-    move, which is tracked in `TASKS.md` rather than smuggled in here.
+    So: relative, and unique. It is NOT put with the album's artifacts: a rip
+    leaves only its .log, .cue and .platterpus.json there (the maintainer,
+    2026-09-27). Each rip's report bundle collects it from the rips root by
+    name (`diagnostics_record`, tested in `tests/test_diagnostics_record.py`).
     """
     argv = _rip_argv()
     path = argv[argv.index("-j") + 1]

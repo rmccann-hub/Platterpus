@@ -150,6 +150,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   The limit is now 256,000 characters, which every script shipped with the app fits
   inside, and a test fails when one outgrows it. The report's shape is unchanged:
   `script_source` is still one string.
+- **cyanrip's diagnostics record now reaches each rip's report bundle.** Every rip
+  asks cyanrip for a machine-readable `-j` record, and for a rip cyanrip refuses
+  before writing any log it is the only evidence there is. It is written at the top
+  of the rips folder, above the album folders, and the report bundle only read the
+  album folder, so the record was never sent. Each rip's bundle now collects it by
+  name from the rips folder, under `ripperdiagnostics/`. If the file is not there when
+  the bundle is built, the bundle's manifest says so. The record stays out of the
+  album folder, which still holds only the rip's `.log`, `.cue` and `.platterpus.json`.
 
 ### Added
 

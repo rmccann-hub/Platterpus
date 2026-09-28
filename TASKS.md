@@ -2375,10 +2375,18 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       de-emphasis produces correct de-emphasised audio"*, which is what clause 2
       actually says.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"We cannot settle clause 2 ourselves, and the missing piece is a digest"*, which stays open.
-- [ ] **The `-j` diagnostics records still do not travel** (their lap 9 §3,
+- [x] **The `-j` diagnostics records still do not travel** (their lap 9 §3,
       confirmed here: 0 in the bundle, all 8 paths relative). The fix is to
       collect from the cwd we already know — the rips root — never to predict the
       album folder, which our own rules forbid. `NEXT-ROUND` on both sides.
+  - *Done 2026-09-27, by collection:* the worker reads each album pass's record path off the
+    spawned argv and its cwd (`workers/rip_worker.py`, via `diagnostics_record.py`), the GUI
+    hands the paths to the bundle (`ui/main_window_rip.py`), and the bundle collects them
+    under the strict allowlist, with a manifest row when one is missing
+    (`evidence_bundle.py`). Tests: `tests/test_diagnostics_record.py`,
+    `tests/test_ui_main_window.py`, `tests/test_rip_worker.py`; revert-probed 9 of 9. Not
+    covered: the acceptance-session bundle does not collect records left in the session's
+    rips root (`test_session._stage` refuses anything inside the session's rips).
 - [x] **Accept their additive disk-full line** (their lap 9 §5). Their log says
       `Ripping errors: 0` / `Rip completed: yes` on a run their own `-j` record
       calls `ripping_errors: 3`, `exit_code: 1`, because the footer is written
@@ -2653,6 +2661,12 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       character, so the fix is a post-rip move from the known log path's parent, not a
       cleverer argv. Small, and deliberately not done in the same change as the cancel
       fix: that one touches a destructive path and wanted its own commit.
+  - *2026-09-27: not done, deferred, the maintainer's choice that day:* a move into the album
+    folder was built and withdrawn, because a rip leaves only its `.log`, `.cue` and
+    `.platterpus.json` there (the one-debug-file rule). The record is to be EMBEDDED in
+    `.platterpus.json` instead, which moves the report schema, so it waits for the next
+    round and is announced to the fork in a lap first. Until then the record stays in the
+    rips root, one file per rip, and the row above sends it in each rip's bundle.
 
 - [x] **KDD-17 GAP: `ripper_choices()` has no GUI caller.**
       **CLOSED 2026-09-08 (0.6.45).** `Help → Install a cyanrip build…` opens

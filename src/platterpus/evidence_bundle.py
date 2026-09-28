@@ -447,6 +447,7 @@ def _collect(
     album_dirs: Sequence[Path],
     log_dir: Path,
     extra_dirs: Mapping[str, Path] | None = None,
+    files: Mapping[str, Path] | None = None,
 ) -> _Plan:
     """Decide what to look for. Returns candidates plus the refusals it found.
 
@@ -456,7 +457,8 @@ def _collect(
     survives*, not a detail.
 
     The order is: the **current** app log, then the album folders, then the
-    caller's extra directories, then the app log's **rotations**.
+    files the caller named one by one, then the caller's extra directories, then
+    the app log's **rotations**.
 
     The current log stays first for the reason it always did — it is the one
     artifact that exists for *every* outcome, including the runs that produced no
@@ -529,6 +531,20 @@ def _collect(
             if entry.is_file():
                 relative = entry.relative_to(album_dir)
                 found.append((f"{head}/{relative.as_posix()}", entry, ALLOWED_SUFFIXES))
+    # Single files, under the STRICT set: today the rip's `-j` records, which
+    # cyanrip writes in the rips root (`diagnostics_record`). One that is not
+    # there is named, like a missing folder, never skipped.
+    for name, path in sorted((files or {}).items()):
+        try:
+            present = path.is_file()
+        except OSError:
+            present = False
+        if present:
+            found.append((name, path, ALLOWED_SUFFIXES))
+        else:
+            refusals.append(
+                BundleEntry(name, str(path), False, _missing_file_reason(path))
+            )
     for prefix, directory in sorted((extra_dirs or {}).items()):
         if not directory.is_dir():
             # Same reasoning as the album folder above: the caller named this
@@ -553,6 +569,15 @@ def _collect(
     # Last, deliberately — see the ordering note above.
     found.extend(rotations)
     return _Plan(found, refusals, missing_album_dirs)
+
+
+def _missing_file_reason(path: Path) -> str:
+    """Why a file the caller named one by one is not in the archive."""
+    return (
+        f"excluded: this file was named for the bundle and was not there when the "
+        f"bundle was written ({path}). Named rather than skipped, because a bundle "
+        "quietly missing a file reads exactly like a complete one."
+    )
 
 
 #: Appended to any album-folder line whose folder contributed nothing. Plain
@@ -769,6 +794,7 @@ def build_bundle(
     log_dir: Path,
     extra_dirs: Mapping[str, Path] | None = None,
     extra_text: Mapping[str, str] | None = None,
+    files: Mapping[str, Path] | None = None,
 ) -> BundleResult:
     """Write one `.tar.gz` of every text artifact worth sending. Never raises.
 
@@ -790,6 +816,11 @@ def build_bundle(
     to admit `.png` — i.e. cover art, which Critical rule #8 forbids leaving the
     machine. Two parameters rather than one so the safe route is the *only* route
     for an album folder, whatever the count.
+
+    `files` maps an archive name to ONE file, judged by the strict set like an
+    album folder. It is for evidence that is not in any folder the bundle walks:
+    cyanrip's `-j` record, which stays in the rips root. A named file that is
+    not there is a manifest row, never a silent gap.
     """
     result = BundleResult()
     facts = dict(facts or {})
@@ -820,7 +851,7 @@ def build_bundle(
         # inserted as the first, because a description composed halfway through the
         # gather would be the thing that could be wrong. Member order does not
         # affect extraction.
-        plan = _collect(albums, log_dir, extra_dirs)
+        plan = _collect(albums, log_dir, extra_dirs, files)
         # The refusals `_collect` already made lead, because a whole directory
         # that contributed nothing is the biggest omission there is and it must
         # not sit below fifty file-level rows.

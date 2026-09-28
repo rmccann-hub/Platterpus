@@ -538,6 +538,52 @@ def test_auto_fix_swaps_in_reripped_track_when_it_converges(
     assert swapped.read_bytes() == b"FIXED-FLAC-BYTES"
 
 
+class _ArgvHandle(_FakeHandle):
+    """`_FakeHandle` plus the argv a real `RipHandle` reads off `Popen.args`."""
+
+    argv: tuple[str, ...] = ()
+
+
+def test_only_the_album_passs_record_is_named_and_nothing_is_moved(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """TASKS, the `-j` rows: records are collected where cyanrip writes them.
+
+    The album pass writes its record in the rips root, and the worker names it
+    for the report bundle. It is not moved: a rip leaves only its .log, .cue and
+    .platterpus.json in the album folder (the maintainer, 2026-09-27). The
+    auto-fix re-rip runs in a temp folder that is deleted when it finishes, as it
+    always was, so its record is not named for a bundle that would find it gone.
+    """
+    handle = _ArgvHandle(lines=["ripping"], exit_code=0)
+    backend = _FakeBackend(handle=handle)
+    write_logs = _fake_rip_writer(_PASS1_UNSTABLE, _rerip_ok_log(), True)
+    names: list[str] = []
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        # Like cyanrip: a relative name, written in the directory the pass ran in.
+        name = f"cyanrip-diagnostics-2026092700000{len(names)}Z.json"
+        names.append(name)
+        handle.argv = ("cyanrip", "-N", "-j", name)
+        (call["output_dir"] / name).write_text(f'{{"pass": {len(names)}}}\n')
+
+    backend.rip_side_effect = rip_side_effect
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 2 and backend.rip_calls[1]["only_tracks"]
+    assert worker.diagnostics_records == (tmp_path / names[0],)
+    assert (tmp_path / names[0]).read_text() == '{"pass": 1}\n', "it was moved"
+    album = tmp_path / "Artist" / "Album"
+    assert not list(album.glob("cyanrip-diagnostics-*.json")), (
+        "a diagnostics record is in the album folder"
+    )
+
+
 def _rerip_ok_log(*, ar_v1: str = "AAAA0001", ar_v2: str = "BBBB0002") -> str:
     """A re-rip log for track 3 that CONVERGED, with its own AccurateRip results.
 

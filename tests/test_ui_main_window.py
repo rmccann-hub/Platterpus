@@ -9924,6 +9924,43 @@ def _armed_bundle(window: MainWindow, tmp_path: Path, **kwargs: Any):
     return window._pending_evidence_bundle
 
 
+def test_the_rips_diagnostics_records_reach_its_report_bundle(
+    qapp: QApplication,
+    teardown_threads: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    process_until: Any,
+) -> None:
+    """TASKS, the `-j` rows: the records must TRAVEL, not just exist.
+
+    cyanrip writes the record in the rips root, which is in no folder the bundle
+    walks, so the snapshot must name it and the launcher must hand it to the
+    bundle. The worker is read at arming time because `_on_rip_finished` drops it
+    straight afterwards.
+    """
+    from platterpus import evidence_bundle
+
+    record = tmp_path / "rips" / "cyanrip-diagnostics-20260927T000000Z.json"
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(diagnostics_records=(record,))
+    pending = _armed_bundle(window, tmp_path)
+    window._rip_worker = None  # as `_on_rip_finished`'s `finally` leaves it
+
+    left = record
+    assert pending.diagnostics_files == {f"ripperdiagnostics/{left.name}": left}
+
+    captured: list[dict[str, object]] = []
+
+    def record(**kwargs: object) -> object:
+        captured.append(kwargs)
+        return type("R", (), {"path": None, "error": "stub"})()
+
+    monkeypatch.setattr(evidence_bundle, "build_bundle", record)
+    window._launch_evidence_bundle(pending, {})
+    assert process_until(lambda: len(captured) == 1)
+    assert captured[0]["files"] == {f"ripperdiagnostics/{left.name}": left}
+
+
 def test_a_deliberate_single_track_rip_is_not_labelled_partial(
     qapp: QApplication, teardown_threads: Any, tmp_path: Path
 ) -> None:
