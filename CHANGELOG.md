@@ -182,6 +182,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   failed test. Every test there now opens its box under a watchdog that closes
   it after three seconds and fails the test, and a check in the same file refuses
   a box opened without one.
+- **For contributors: the handshake document now says what the message-box check
+  covers.** `docs/cyanrip-handshake.md` §7.7f, which the cyanrip fork reads for the
+  rule on showing their output, still said the check covered 6 message boxes. It
+  covers the 10 functions that build one and, since 2026-09-28, also refuses Qt's
+  ready-made boxes anywhere but `ui/message_boxes.py`, which the 38 calls that used
+  them now go through. The section now says so, with the date beside each number,
+  and keeps the history of how the check came to exist.
 - **Text from outside the app now shows as written in every label built from it.**
   A drive's name, a device path, a ripper build or a dependency's name could be
   read as formatting instead of text. Qt guesses from a label's first line whether
