@@ -701,9 +701,10 @@ forwards every argument straight to the app):
 # Audit every already-ripped album under a folder and exit. Read-only: no CD,
 # no re-rip, nothing modified. Reports, per album, which cyanrip built it,
 # whether the ripper said it finished, which disc of a multi-disc set the tags
-# came from, what pre-gap provenance was seen, and whether the audio files the
-# log claims actually have bytes in them. Exits non-zero if anything needs
-# attention, so it is usable from a script.
+# came from, what pre-gap provenance was seen, whether the audio files the
+# log claims actually have bytes in them, and any audio file the log does not
+# account for, such as the partial file a cancelled rip leaves behind. Exits
+# non-zero if anything needs attention, so it is usable from a script.
 ./platterpus-x86_64.AppImage --audit-rips ~/Music/rips/
 
 # Run a batch of UI tests without a person in front of the machine. FILE holds

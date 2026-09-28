@@ -1717,7 +1717,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1287 -> 1301** (2026-09-26, the maintainer's quick run): the completion check compares the ripper's count with the tracks ASKED for (`completeness.tracks_expected`), not the disc total, so a deliberate partial rip is not graded as contradicting itself.
     # 1301 -> 1322 on 2026-09-26: `_ar_matched` reads the confidence through
     # `accuraterip_is_match` instead of the result's words, with the docstring saying why.
-    "rip_audit.py": 1322,
+    # **1322 -> 1464 on 2026-09-28** (the Full run's F6): the audio-file check names every file the ripper's log does not account for (`_audio_accounting`, `_report_unaccounted`) instead of counting a cancelled rip's partial read into "all with content" at OK, and `_rip_did_not_finish` is the one "finished?" predicate both of its findings use. They sit beside the check they serve, in the registry module every check lives in; most of the growth is the docstrings saying what each grade means.
+    "rip_audit.py": 1464,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.

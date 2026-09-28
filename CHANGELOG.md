@@ -115,6 +115,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   not recognise, the log says a partial file may exist rather than claiming none
   does. The log reader now parses `Tracks to rip:`, and the consumer contract is
   regenerated to say so.
+- **The rip self-check no longer calls a cancelled rip's partial file a track.**
+  The same cancelled rip left one file in its folder, the partial read of track 1.
+  Its log names no finished track, but the report's self-check said *"1 audio
+  files, all with content"* and graded it OK. The check now compares the folder
+  with the file each track record in the ripper's log names, and lists any audio
+  file the log does not account for. After a cancelled rip that is a note: the
+  file is expected, and when the ripper recorded which track it was reading, the
+  note says so and says to treat the file as incomplete. The same finding in a rip
+  that reports success is a warning, because nothing in that rip vouches for the
+  file. When the log is known to be cut short, or a track record names no file,
+  the finding says whether the file is a finished track is not determined. A
+  complete rip's finding is unchanged, checked against all seven finished rips of
+  that run. `--audit-rips` reports the same thing.
 
 ### Changed
 
