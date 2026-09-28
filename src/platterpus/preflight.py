@@ -228,9 +228,20 @@ def _fmt_version(version: tuple[int, ...] | None) -> str:
 
 
 def check_dependencies(manager: DependencyManager) -> CheckResult:
-    """Run the ONE dependency subsystem and summarise presence + versions."""
+    """Run the ONE dependency subsystem and summarise presence + versions.
+
+    **Bounded by the app's own deadline** (2026-09-28). This ran ``check_all()``
+    with no deadline, so a wedged ripping container held ``--doctor`` for every
+    probe's own timeout in turn — minutes, with nothing printed — while the GUI's
+    check stopped at `CHECK_DEADLINE_S`. It now passes the same deadline, read at
+    call time, and a check that stopped early says which tools it did not reach:
+    those are neither present nor missing, so they are never counted as either
+    and the line is never "all present".
+    """
+    from platterpus.deps import manager as dep_manager
+
     try:
-        report = manager.check_all()
+        report = manager.check_all(deadline_s=dep_manager.CHECK_DEADLINE_S)
     except Exception as exc:  # noqa: BLE001 — diagnostic must not crash
         return CheckResult(
             "Dependencies", Status.FAIL, "dependency probe failed", detail=str(exc)
@@ -247,7 +258,11 @@ def check_dependencies(manager: DependencyManager) -> CheckResult:
         + ("" if not m.spec.optional else " (optional)")
         for m in report.missing
     ]
-    detail = "\n".join([*ok_lines, *miss_lines])
+    not_checked = dep_manager.unchecked_names(report)
+    unchecked_lines = [f"  ? {name}: NOT CHECKED" for name in not_checked]
+    detail = "\n".join([*ok_lines, *miss_lines, *unchecked_lines])
+    if not_checked:
+        detail += f"\n{dep_manager.describe_unchecked(report)}"
 
     if missing_required:
         names = ", ".join(m.spec.display_name for m in missing_required)
@@ -258,6 +273,20 @@ def check_dependencies(manager: DependencyManager) -> CheckResult:
             detail=detail,
             hint="Run the host-setup wizard (Tools → Setup & Updates… → Run setup…) "
             "or install the missing tools, then re-run preflight.",
+        )
+    if not_checked:
+        # Before the optional-missing verdict, whose summary begins "all required
+        # tools present" — the one thing a check that stopped early cannot say.
+        return CheckResult(
+            "Dependencies",
+            Status.WARN,
+            f"check incomplete: {len(not_checked)} tool(s) not checked: "
+            f"{', '.join(not_checked)}",
+            detail=detail,
+            hint="Re-run --doctor in a minute: the first check after a restart "
+            "starts the ripping container, which can be slow. If it stops again, "
+            "the container is not answering; the ripper and container lines "
+            "below say more.",
         )
     if missing_optional:
         names = ", ".join(m.spec.display_name for m in missing_optional)
