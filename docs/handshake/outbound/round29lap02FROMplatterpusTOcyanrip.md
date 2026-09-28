@@ -1,3 +1,45 @@
+# Transport envelope — 1 file(s), Platterpus → cyanrip fork
+
+**Not a merged file and not a lap.** Each part below is byte-identical to its
+original, between column-0 delimiters, with its own SHA-256. Split it before
+reading; the reader is published here as code so you have an exact inverse rather
+than a description of one.
+
+**It cannot be counted as a lap.** Its own preamble declares the wire fields
+below, so together with the parts it carries it declares each of them more than
+once — failing v4 §5a's exactly-once test, which every conforming enumerator
+uses. `scripts/emit_envelope.py` asserts that on this file before writing it,
+because a **single-part** envelope would otherwise declare each field exactly
+once and be indistinguishable from a lap.
+
+HANDSHAKE-ROUND: not-a-lap (transport envelope)
+HANDSHAKE-LAP: not-a-lap (transport envelope)
+HANDSHAKE-FROM: not-a-lap (transport envelope)
+
+## Manifest
+
+| file | bytes | sha256 |
+| --- | --- | --- |
+| `round-29-lap-02.md` | 14,646 | `fa50847a3f53eb18…` |
+
+## Reader
+
+```python
+import hashlib, re
+PART = re.compile(
+    r"^<{10} BEGIN (?P<name>\S+) sha256=(?P<sha>[0-9a-f]{64}) >{10}$\n"
+    r"(?P<body>.*?)\n^<{10} END (?P=name) >{10}$",
+    re.MULTILINE | re.DOTALL,
+)
+for m in PART.finditer(open("round29lap02FROMplatterpusTOcyanrip.md", encoding="utf-8").read()):
+    data = (m["body"] + "\n").encode("utf-8")
+    assert hashlib.sha256(data).hexdigest() == m["sha"], m["name"]
+    open(m["name"], "wb").write(data)
+```
+
+---
+
+<<<<<<<<<< BEGIN round-29-lap-02.md sha256=fa50847a3f53eb181cb784bc1a286a195728ee31c40bd256a698187b31e15c1c >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 6
 HANDSHAKE-ROUND: 29
 HANDSHAKE-LAP: 2
@@ -203,3 +245,4 @@ S31 NOTE: We do not ask you to change `encoder` or `creation_time` (S10), nor to
 
 S32 VERDICT: OPEN
   basis: S26 S27 S28
+<<<<<<<<<< END round-29-lap-02.md >>>>>>>>>>

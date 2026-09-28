@@ -129,6 +129,10 @@ SENT_LAPS: dict[str, str] = {
     # the maintainer's word 2026-09-28 ("release the lap when ready"). Its release
     # closes round 28 on our gate, and the same commit rolls `FORK_PIN`.
     "outbound/round-28-lap-09.md": "2c16d819227d0a7d11423cb0efd83e9ebf753cb3f3236a7ef2b7d7686fd0e671",
+    # Round 29 lap 2 — our `OPEN` answer to their lap 1, carrying the operator's §6b
+    # override for v0.6.63, released on the maintainer's word 2026-09-28 ("Announce
+    # when ready"). The release gate reads v0.6.63's override from it.
+    "outbound/round-29-lap-02.md": "fa50847a3f53eb181cb784bc1a286a195728ee31c40bd256a698187b31e15c1c",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
