@@ -38,6 +38,7 @@ from platterpus.adapters.musicbrainz_client import (
 from platterpus.adapters.rip_backend import (
     DiscInfo,
     RipBackend,
+    RipError,
     RipHandle,
 )
 from platterpus.config import Config
@@ -4179,6 +4180,9 @@ def test_scan_force_stopped_shows_clean_message(teardown_threads, monkeypatch) -
     assert window._scan_force_stopped is False
     assert free_calls == []  # the flag short-circuits before the auto-free
     assert "freed" in window._disc_info_panel._mb_match_value.text().lower()
+    # The user stopped this read on purpose: it is never retried behind them.
+    assert window._disc_retries.pending is None
+    assert not window._disc_retry_timer.isActive()
 
 
 def test_relaunch_env_strips_appimage_runtime_vars(monkeypatch) -> None:
@@ -6199,6 +6203,314 @@ def test_a_disc_that_returns_through_an_unreadable_check_is_read_and_shown(
     assert removed == [
         "disc removed from /dev/sr0 (drive reports open) — clearing the disc view"
     ], removed
+
+
+# --- A failed disc read is retried on its own (disc_probe_retry) -----------
+#
+# The rig report of 2026-09-28: "sometimes I have to open the drive and close it
+# again and restart the app". Every failed read ended on an error line and
+# nothing else, ever. These drive the real window from the launch slot
+# (`_on_drive_list_ready`, what `refresh_drives` delivers), the real worker
+# thread and the real panel; only the ripper, the drive's status and the retry
+# delay are stand-ins. The delay is shortened, which is the one thing the
+# stand-in does that the product does not: it waits 20 ms instead of 4 s.
+
+
+class _ScriptedDiscBackend(_FakeBackend):
+    """`disc_info` answers from a script, one entry per call; the last repeats.
+
+    An entry is a DiscInfo, an exception to raise, or a callable producing
+    either (run on the worker thread, so it may block)."""
+
+    def __init__(self, *outcomes: object) -> None:
+        super().__init__()
+        self._outcomes: list[object] = list(outcomes)
+        self._lock = threading.Lock()
+
+    def disc_info(self, drive: str) -> DiscInfo:
+        with self._lock:
+            self.disc_info_calls.append(drive)
+            outcome = (
+                self._outcomes.pop(0) if len(self._outcomes) > 1 else self._outcomes[0]
+            )
+        if callable(outcome):
+            outcome = outcome()
+        if isinstance(outcome, Exception):
+            raise outcome
+        assert isinstance(outcome, DiscInfo)
+        return outcome
+
+
+def _identified_album_mb() -> _FakeMb:
+    """MusicBrainz knows the disc: one release, so no picker has to be answered."""
+    mb = _FakeMb()
+    mb.disc_id_result = [_detail().summary]
+    mb.mbid_result = _detail()
+    return mb
+
+
+def _album_shown(window: MainWindow) -> bool:
+    return "Artist — Album" in window._disc_info_panel._mb_match_value.text()
+
+
+def _launch_with_the_pioneer(
+    teardown_threads: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    backend: _FakeBackend,
+    tray: list[str],
+) -> tuple[MainWindow, list[str]]:
+    """Build a window whose drive reports ``tray[0]``, and deliver the drive list
+    the way launch does. Returns the window and every "retrying" line it showed."""
+    from platterpus.ui import main_window_drive
+
+    monkeypatch.setattr(main_window_drive, "AUTO_RETRY_DELAY_MS", 20)
+    window = teardown_threads(backend=backend, mb_client=_identified_album_mb())
+    monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
+    window._disc_status_probe = lambda _device: tray[0]  # type: ignore[assignment]
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_drive.read_drive_identity", lambda device: ("", "")
+    )
+    retrying: list[str] = []
+    real = window._disc_info_panel.set_disc_info_retrying
+
+    def _record(text: str) -> None:
+        retrying.append(text)
+        real(text)
+
+    monkeypatch.setattr(window._disc_info_panel, "set_disc_info_retrying", _record)
+    window._on_drive_list_ready([_PIONEER])
+    return window, retrying
+
+
+def test_a_launch_read_that_times_out_once_is_retried_and_the_album_shown(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """A cold container: the first read of the session times out, the second
+    works. The user used to be left on "Reading the disc took too long … click
+    Rescan"; now the app reads it again itself, once the drive has been freed."""
+    free_calls = _patch_free_drive(monkeypatch)
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip timed out after 120s"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    window, retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, ["disc"]
+    )
+
+    assert process_until(lambda: _album_shown(window), timeout=10.0), (
+        window._disc_info_panel._mb_match_value.text()
+    )
+    assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"]
+    assert len(retrying) == 1 and "trying again automatically" in retrying[0]
+    assert "timed out" in retrying[0], "the failure's own words were dropped"
+    assert len(free_calls) == 1, "a timed-out read must still free the drive"
+
+
+def test_a_retry_never_starts_while_the_drive_is_still_being_freed(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """After a timeout the drive is freed on a daemon thread (the in-container
+    reader can outlive the host-side kill). A read started under that kill would
+    be killed by it, so the retry waits — bounded — and reads once it is done."""
+    from platterpus import drive_control
+
+    freed = threading.Event()
+    free_started = threading.Event()
+
+    def _slow_free(**_kwargs: object) -> str:
+        free_started.set()
+        freed.wait(10.0)
+        return "freed"
+
+    monkeypatch.setattr(drive_control, "free_drive", _slow_free)
+    # The wait is bounded in CHECKS (15 x 4 s in the product); at this test's 20 ms
+    # delay that bound is 0.3 s, so it is widened here. The bound itself is held
+    # by test_disc_probe_retry.py::test_a_due_retry_waits_for_the_drive_to_be_freed…
+    monkeypatch.setattr("platterpus.disc_probe_retry.FREE_WAIT_CHECKS", 10_000)
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip timed out after 120s"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    try:
+        window, retrying = _launch_with_the_pioneer(
+            teardown_threads, monkeypatch, backend, ["disc"]
+        )
+        assert process_until(free_started.is_set)
+        # Many retry delays pass while the kill runs: no read may start.
+        process_until(lambda: False, timeout=0.4)
+        assert backend.disc_info_calls == ["/dev/sr0"], "read under the kill"
+        assert window._disc_retries.pending is not None
+        assert window._disc_retries.pending.free_waits > 0
+        assert len(retrying) == 1
+
+        freed.set()
+        assert process_until(lambda: _album_shown(window), timeout=10.0)
+        assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"]
+    finally:
+        freed.set()
+        _join_force_stop(window)
+
+
+def test_a_read_refused_while_an_abandoned_read_holds_the_drive_is_retried(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """Rescan during the launch read: the old read is abandoned (by design,
+    `wait_ms=0`) and its reader can still hold the drive, so the new read is
+    refused as busy. The busy refusal is retried once the old read has let go,
+    and the abandoned read's late answer is never applied."""
+    from platterpus import workers
+
+    old_read_done = threading.Event()
+    busy = RipError(
+        "cyanrip failed (exit 1). It said: Unable to open device: "
+        "Device or resource busy"
+    )
+
+    def _old_read() -> DiscInfo:
+        old_read_done.wait(10.0)
+        return DiscInfo(musicbrainz_disc_id="stale-read", num_tracks=9)
+
+    def _refused_while_held() -> Exception:
+        # The old reader finishes just after the new read is refused.
+        old_read_done.set()
+        return busy
+
+    def _after() -> DiscInfo | Exception:
+        if not old_read_done.is_set():
+            return busy
+        return DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2)
+
+    backend = _ScriptedDiscBackend(_old_read, _refused_while_held, _after)
+    try:
+        window, retrying = _launch_with_the_pioneer(
+            teardown_threads, monkeypatch, backend, ["disc"]
+        )
+        assert process_until(lambda: len(backend.disc_info_calls) == 1)
+        window._drive_picker._on_rescan_clicked()  # the user's Rescan
+
+        assert process_until(lambda: _album_shown(window), timeout=10.0), (
+            window._disc_info_panel._mb_match_value.text()
+        )
+        assert backend.disc_info_calls == ["/dev/sr0"] * 3
+        assert len(retrying) == 1 and "Device or resource busy" in retrying[0]
+        assert window._current_disc_id == "mb-id", "the abandoned read was applied"
+        assert window._current_num_tracks == 2
+    finally:
+        old_read_done.set()
+        process_until(lambda: workers.abandoned_thread_count() == 0, timeout=5.0)
+
+
+def test_a_rescan_while_a_retry_waits_replaces_it_and_reads_once(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """A newer request owns the drive: the pending retry is dropped, not run on
+    top of it, and the panel is left to the newer read."""
+    from platterpus.ui import main_window_drive
+
+    backend = _ScriptedDiscBackend(
+        RipError(
+            "cyanrip failed (exit 125). It said: Error: unable to start container"
+        ),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    window, _retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, ["disc"]
+    )
+    # Long enough that the Rescan below lands inside the wait.
+    monkeypatch.setattr(main_window_drive, "AUTO_RETRY_DELAY_MS", 500)
+    window._disc_retry_timer.stop()
+    assert process_until(lambda: window._disc_retries.pending is not None)
+    window._disc_retry_timer.start(500)  # re-armed at the longer delay
+
+    window._drive_picker._on_rescan_clicked()
+
+    assert window._disc_retries.pending is None
+    assert not window._disc_retry_timer.isActive()
+    assert process_until(lambda: _album_shown(window), timeout=10.0)
+    # Past the old retry's due time: it must not read a third time.
+    process_until(lambda: False, timeout=0.8)
+    assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"]
+
+
+def test_with_no_disc_in_the_tray_the_user_is_told_to_insert_one_and_it_is_read(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """An empty tray is not retried (the read would fail for certain) and the
+    panel says what to do; inserting a disc then reads it with no click."""
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip failed (exit 1). It said: Unable to init cddap context!"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    tray = ["empty"]
+    window, retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, tray
+    )
+
+    assert process_until(
+        lambda: "Insert one" in window._disc_info_panel._mb_match_value.text()
+    )
+    text = window._disc_info_panel._mb_match_value.text()
+    assert "Unable to init cddap context!" in text, "the ripper's words were dropped"
+    assert retrying == [] and window._disc_retries.pending is None
+
+    window._poll_disc_media()  # the tray is empty: a baseline
+    tray[0] = "disc"
+    window._poll_disc_media()  # a disc arrives
+
+    assert process_until(lambda: _album_shown(window), timeout=10.0)
+    assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"]
+
+
+def test_the_retries_stop_at_the_limit_and_the_last_message_says_what_to_do(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    from platterpus.disc_probe_retry import AUTO_RETRY_LIMIT
+
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip failed (exit 1). It said: Frame read failed!")
+    )
+    window, retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, ["disc"]
+    )
+
+    assert process_until(
+        lambda: "Rescan disc" in window._disc_info_panel._mb_match_value.text(),
+        timeout=10.0,
+    )
+    process_until(lambda: False, timeout=0.3)  # nothing more may be scheduled
+    reads = AUTO_RETRY_LIMIT + 1
+    assert backend.disc_info_calls == ["/dev/sr0"] * reads
+    assert len(retrying) == AUTO_RETRY_LIMIT
+    text = window._disc_info_panel._mb_match_value.text()
+    assert text.startswith("error: cyanrip failed (exit 1). It said: Frame read"), text
+    assert f"Read {reads} times" in text
+    assert not window._disc_retry_timer.isActive()
+
+
+def test_a_rip_started_during_the_wait_stops_the_retry_and_the_panel_says_so(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """The fire-time check, not only the scheduling one: a rip holds the drive."""
+    from platterpus.ui import main_window_drive
+
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip failed (exit 1). It said: Unable to open device!"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    window, _retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, ["disc"]
+    )
+    monkeypatch.setattr(main_window_drive, "AUTO_RETRY_DELAY_MS", 500)
+    assert process_until(lambda: window._disc_retries.pending is not None)
+    window._rip_thread = object()  # type: ignore[assignment]  # a rip started
+    try:
+        window._on_disc_retry_due()  # the timer fires
+        text = window._disc_info_panel._mb_match_value.text()
+        assert "a rip is running" in text, text
+        assert "trying again" not in text
+        assert backend.disc_info_calls == ["/dev/sr0"]
+    finally:
+        window._rip_thread = None
 
 
 def test_reset_disc_view_forgets_the_release_detail_too(teardown_threads) -> None:

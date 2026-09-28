@@ -236,6 +236,7 @@ Platterpus/
         ├── cli_compare.py               # terminal glue for --compare / --assemble-best-of (logic in rip_compare)
         ├── rip_compare.py               # compare two rips of the same disc (re-rip regression detection)
         ├── drive_media.py               # disc-inserted/removed detection (auto-refresh after eject)
+        ├── disc_probe_retry.py          # a failed disc read: bounded automatic retry + what the panel says (pure)
         ├── notify.py                    # rip-completion desktop-notification text (pure)
         ├── resources/                   # packaged SVG logo (package-data)
         │
@@ -443,7 +444,8 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`adapters/cache_probe.py`** — the `cd-paranoia -A` cache-defeat probe (KDD-29): builds the argv, runs it off the GUI thread with a generous timeout (the analysis takes minutes, not seconds), and parses the verdict into a measured `Yes`/`No` — or leaves it honestly `(unknown)` when inconclusive.
 - **`library_move.py`** — moves a finished rip's album folder into the user's library folder (Settings "Move finished rips to"; the caller gates it on post-rip settlement). Pure, never raises, returns a `MoveResult`; never overwrites (collisions get a "(N)" sibling) and refuses self-nesting/workspace-root moves.
 - **`cli_compare.py`** — terminal glue for `--compare` / `--assemble-best-of`; printing + exit codes only, all logic (and tests) in `rip_compare`.
-- **`drive_media.py`** — optical-media presence polling (disc inserted/removed) so a freshly-inserted disc is picked up automatically after an eject/cancel; decision logic split from the probe so it's testable without a drive.
+- **`drive_media.py`** — optical-media presence polling (disc inserted/removed) so a freshly-inserted disc is picked up automatically after an eject/cancel; decision logic split from the probe so it's testable without a drive. An "unavailable" reading is bridged, never remembered as a state (2026-09-28: it had swallowed an insertion on the rig).
+- **`disc_probe_retry.py`** — when a disc read (`cyanrip -I`) fails: the bounded automatic retry (`DiscReadRetries`, two retries per request, four seconds apart, waiting for a drive-freeing kill to finish), the named precondition check asked both when a retry is scheduled and when it fires (`retry_blocker` says *which* condition refused), and the panel's texts, so a failure always ends with a retry under way or an action to take. Pure and Qt-free; the window side is `DriveMixin`.
 - **`notify.py`** — builds the (title, body) text for the rip-completion desktop notification as a pure function; the sending is one `QSystemTrayIcon.showMessage` call on the GUI side.
 
 ### Adapters (`adapters/`)

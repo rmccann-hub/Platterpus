@@ -104,6 +104,7 @@ if TYPE_CHECKING:
     from platterpus.adapters.rip_backend import RipBackend
     from platterpus.config import Config
     from platterpus.deps.manager import DependencyManager, DependencyReport
+    from platterpus.disc_probe_retry import DiscReadRetries
     from platterpus.drive_media import MediaWatcher
     from platterpus.drive_profile_store import DriveProfileStore
     from platterpus.drive_profiles import OffsetSource
@@ -230,6 +231,9 @@ class MainWindowShared(_SeamBase):
     _disc_info_worker: DiscInfoWorker | None
     _disc_info_thread: QThread | None
     _scan_force_stopped: bool
+    # A failed disc read's bounded automatic retry (DriveMixin, disc_probe_retry).
+    _disc_retries: DiscReadRetries
+    _disc_retry_timer: QTimer
     # Launch-time drive listing.
     _drive_list_worker: DriveListWorker | None
     _drive_list_thread: QThread | None
@@ -395,7 +399,9 @@ class MainWindowShared(_SeamBase):
         # Defined on the concrete MainWindow (main_window.py):
         def refresh_drives(self) -> None: ...
         def _set_rip_lock(self, active: bool) -> None: ...
-        def _start_disc_info(self, device: str) -> None: ...
+        def _start_disc_info(
+            self, device: str, *, automatic_retry: bool = ...
+        ) -> None: ...
 
         # Defined in ProvisioningMixin (main_window_provision.py):
         def open_host_setup_dialog(self) -> None: ...

@@ -237,6 +237,17 @@ class DiscInfoPanel(QWidget):
         self._mb_id_value.setText(info.musicbrainz_disc_id or _PLACEHOLDER)
         self._cddb_id_value.setText(info.cddb_disc_id or _PLACEHOLDER)
 
+    def set_disc_info_retrying(self, message: str) -> None:
+        """A read failed and an automatic retry is pending: say so, and why.
+
+        Not prefixed "error:" — the app is still working on it — but announced
+        like an error, because it is news a screen-reader user is waiting on.
+        """
+        self._mb_id_value.setText("…")
+        self._cddb_id_value.setText("…")
+        self._mb_match_value.setText(message)
+        announce(self._mb_match_value, message)
+
     def set_disc_info_error(self, message: str) -> None:
         """Mark the disc fields as failed and show a short error."""
         self._mb_id_value.setText(_PLACEHOLDER)

@@ -49,6 +49,7 @@ from platterpus.adapters.rip_backend import (
 )
 from platterpus.config import Config
 from platterpus.deps.manager import DependencyManager
+from platterpus.disc_probe_retry import DiscReadRetries
 from platterpus.drive_profile_store import DriveProfileStore
 from platterpus.report_types import TimingBlock
 from platterpus.ui.disc_info_panel import DiscInfoPanel
@@ -56,13 +57,13 @@ from platterpus.ui.drive_picker import DrivePicker
 from platterpus.ui.main_window_deps import DependencyMixin
 from platterpus.ui.main_window_drive import DriveMixin
 
-# fidelity_summary / safe_path_segment are re-exported for the test-facing
-# API (`from ...main_window import _fidelity_summary`); their internal callers
-# now live in RipMixin, so they're intentionally unused *in this module*.
+# fidelity_summary / friendly_disc_scan_error / safe_path_segment are re-exported
+# for the test-facing API (`from ...main_window import _fidelity_summary`); their
+# callers now live in the mixins, so they're intentionally unused *in this module*.
 from platterpus.ui.main_window_helpers import (  # noqa: F401
     fidelity_summary as _fidelity_summary,
 )
-from platterpus.ui.main_window_helpers import (
+from platterpus.ui.main_window_helpers import (  # noqa: F401
     friendly_disc_scan_error as _friendly_disc_scan_error,
 )
 from platterpus.ui.main_window_helpers import (  # noqa: F401
@@ -435,6 +436,12 @@ class MainWindow(
         # reads this to show a clean "drive freed" message instead of the raw
         # error, and to avoid auto-freeing again.
         self._scan_force_stopped: bool = False
+        # A failed disc read is retried on its own, bounded (disc_probe_retry;
+        # the window side is in DriveMixin). Stopped in closeEvent.
+        self._disc_retries: DiscReadRetries = DiscReadRetries()
+        self._disc_retry_timer: QTimer = QTimer(self)
+        self._disc_retry_timer.setSingleShot(True)
+        self._disc_retry_timer.timeout.connect(self._on_disc_retry_due)
         # Launch-time drive listing (the scan enters the container);
         # run off-thread so it can't freeze the just-shown window. Joined in
         # closeEvent. (The Refresh button stays synchronous — user-initiated.)
@@ -921,6 +928,7 @@ class MainWindow(
         # five seconds of Cancel left the drive reading with nothing left to stop
         # it. See `_stop_rip_on_shutdown`.
         self._rip_liveness_timer.stop()  # disarm the stall watchdog
+        self._disc_retry_timer.stop()  # no disc re-read may start during teardown
         # Disarm a pending library move — the folder simply stays in the output
         # directory (safe default); moving during teardown would race close.
         self._library_move_timer.stop()
@@ -1231,11 +1239,15 @@ class MainWindow(
         self._disc_info_panel.set_disc_info_loading()
         self._start_disc_info(device)
 
-    def _start_disc_info(self, device: str) -> None:
+    def _start_disc_info(self, device: str, *, automatic_retry: bool = False) -> None:
         """Probe the disc on a worker thread. Replaces any in-flight probe
-        (a previous probe's result would be stale)."""
+        (a previous probe's result would be stale). Every call but the automatic
+        retry's is a new request, with a fresh retry budget (DriveMixin)."""
         from platterpus.workers import start_worker_thread, stop_thread
         from platterpus.workers.disc_info_worker import DiscInfoWorker
+
+        if not automatic_retry:
+            self._begin_disc_request()
 
         # A new disc scan resets unknown-album mode: it latches True when a disc
         # can't be identified (the auto-offer / File → Rip as Unknown), and if it
@@ -1358,7 +1370,8 @@ class MainWindow(
         if "timed out" in message:
             # The reader may still be wedged inside the container — free it.
             self._free_drive_for_scan("auto")
-        self._disc_info_panel.set_disc_info_error(_friendly_disc_scan_error(message))
+        # Shown, and retried automatically when that can help (bounded).
+        self._handle_disc_probe_failure(device, message)
 
     def _is_stale_disc_result(self, device: str) -> bool:
         """True if a disc-probe result is for a drive the user already left.

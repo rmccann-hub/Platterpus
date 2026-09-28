@@ -208,6 +208,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   A disc that came back through one was never read, and cycling the tray or restarting
   the app was the only way out. The rig's log showed it: two removals, and no insertion
   between them. The log now records what the drive reported whenever that changes.
+- **A disc that could not be read at first is read again automatically.** A failed
+  read (a slow first start of the ripping container, a disc still spinning up, the
+  container briefly refusing to start) used to leave an error and nothing else.
+  Platterpus now tries twice more, four seconds apart, and says so on screen. It waits
+  for the drive to be freed after a timeout, and never retries a read you stopped. If
+  the tray is empty it tells you to insert a disc, which is then read as soon as it
+  goes in. Any read that still fails ends with what to do: Rescan disc, or eject and
+  re-insert.
 
 ### Added
 

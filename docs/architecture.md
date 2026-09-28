@@ -401,7 +401,7 @@ canonical ownership map** — KDD-19 records the *decision* and links here.
 | Self-update (check / download / install / restart) | `main_window_update.py` (`UpdateMixin`) |
 | Rip lifecycle, force-stop, eject, cover art | `main_window_rip.py` (`RipMixin`) |
 | Host setup / AppImage integration / uninstall | `main_window_provision.py` (`ProvisioningMixin`) |
-| Drive setup / offset / access diagnosis | `main_window_drive.py` (`DriveMixin`) |
+| Drive setup / offset / access diagnosis; reading the disc without a click (media poll, bounded retry of a failed read — policy in `disc_probe_retry.py`) | `main_window_drive.py` (`DriveMixin`) |
 | Dependency check / resolve routing / summary | `main_window_deps.py` (`DependencyMixin`) |
 | Settings' OK/Apply, and saving one setting from its home control | `main_window_settings.py` (`SettingsMixin`) |
 | Construction, menus, signal wiring, MusicBrainz slots | `main_window.py` (the assembler) |
