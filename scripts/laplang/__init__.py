@@ -30,10 +30,12 @@ sent as amendments to it. So this package does two jobs:
 **The versions.** Both sides adopted A1–A8 as **LSL 2** in round 28, and a lap
 that declares `LSL: 2` is held to them without `--amend`. **LSL 3** is LSL 2 plus
 `B1`–`B3` (the fork's proposal, §"LSL 3", `cyanrip@889a375`): B1 a `run:` names
-the commit it ran at, and with `--rerun` a command that can depend on nothing
-but that commit is re-run and its quoted result compared; B2 a `GO` needs a
-close condition to have waited on; B3 an `answers:` counts only on a statement
-that can carry weight. An LSL 1 or LSL 2 lap is checked exactly as before.
+the one commit it ran at, and with `--rerun` a command that can depend on nothing
+but that commit is re-run and its quoted result, and any exit code it states,
+compared; B2 a `GO` needs a close condition to have waited on; B3 an `answers:`
+counts only on a statement that can carry weight. B1 is read as both projects
+agreed in round 29 (the fork's lap 1 S28 and S29; `lsl3`'s docstring). An LSL 1
+or LSL 2 lap is checked exactly as before.
 
 The spec for the amendments, and the findings, is
 `docs/handshake/outbound/artifacts/lsl-amendments-1.md`; the spec for LSL 3 is the

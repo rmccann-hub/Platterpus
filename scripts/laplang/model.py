@@ -113,12 +113,15 @@ class RunCoverage:
     #: True when `--rerun` was given, so the counts below mean something.
     rerun: bool = False
     matched: int = 0
-    #: Of `matched`, the re-runs that exited non-zero. Still matched, because
-    #: B1 compares a result's quoted strings and nothing else, "exit 0" being
-    #: prose; but a command that failed and printed the quoted words anyway (an
-    #: error message echoing its own argument, "0 failed" inside "10 failed") is
-    #: not the run the lap describes, so each is warned about and counted here,
-    #: never folded silently into `matched` (review finding R13).
+    #: Of `matched`, the re-runs that exited non-zero although their result
+    #: stated no exit code. Still matched, because such a result's quoted
+    #: strings are all B1 can compare; but a command that failed and printed the
+    #: quoted words anyway (an error message echoing its own argument, "0 failed"
+    #: inside "10 failed") is not the run the lap describes, so each is warned
+    #: about and counted here, never folded silently into `matched` (review
+    #: finding R13). A result that states `exit N` outside its quotes is held to
+    #: it instead (the fork's round 29 lap 1 S28, accepted): another code is
+    #: `mismatched`, and N itself a plain match, never counted here.
     matched_nonzero: int = 0
     mismatched: int = 0
     #: Reported `UNCHECKED run:` with a reason: not a command B1 re-runs, a
