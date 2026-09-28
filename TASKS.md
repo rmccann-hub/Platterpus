@@ -669,6 +669,10 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   carries the §6b override for v0.6.62 and the R1 override moving the Full run to 0.6.62;
   lap 7 (`bb35415b…`) answers the operator's proposal, every item for round 29. Numbered
   6 and 7, not 5 and 6, because their lap 5 was released first (K1).
+- [x] **0.6.62 released 2026-09-28** (release run `36398712567`, from `9e96fa09`), carrying
+  `FORK_PIN` `221a1df` and `PIN_UNDER_REVIEW` `e0471f4`, under the operator's §6b override
+  in our lap 6. The AppImage build on `main` first failed on a GitHub API rate limit
+  inside `python_appimage` (HTTP 403), and its rerun passed; no code changed between.
 - [ ] **Their reading of our lap 6 S37 (BLOCKING):** do they read S6 as met by a Full run
   from 0.6.62 under the R1 override?
 - [ ] **The Full run on 0.6.62 + `.17`** (close condition 1, moved from 0.6.61 by the
