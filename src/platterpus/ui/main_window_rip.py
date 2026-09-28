@@ -3127,10 +3127,19 @@ class RipMixin(MainWindowShared):
         """
         log.info("starting CTDB verify for %s", rip_dir)
         self._rip_progress.set_ctdb_status("Verifying against CTDB…")
+        # What the worker needs to tell a whole disc from a partial rip, read NOW
+        # on the GUI thread: the lambda runs later on a daemon thread, and by then
+        # `_last_rip_log` / `_current_num_tracks` can belong to the next rip. The
+        # log's own `Rip completed: … N of M` footer is the primary witness; the
+        # probe's `Disc tracks:` count only covers a build that prints no footer.
+        rip_log = self._last_rip_log
+        disc_tracks_hint = int(getattr(self, "_current_num_tracks", 0) or 0) or None
         self._launch_post_rip_daemon(
             compute=lambda still_current: verify_rip_dir(
                 self._ctdb_client,
                 rip_dir,
+                rip_log=rip_log,
+                disc_tracks_hint=disc_tracks_hint,
                 wait_for=wait_for,
                 still_current=still_current,
             ),

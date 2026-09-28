@@ -4,6 +4,8 @@
 Public surface:
   * `verify.verify_rip` — verify a finished rip against CTDB.
   * `verify.Verdict` / `verify.CtdbVerifyResult` — the outcome types.
+  * `coverage.disc_track_count` — how many tracks the DISC has, so a partial
+    rip is never looked up with a TOC built from only the tracks it ripped.
   * `toc.DiscToc` / `toc.disc_toc_from_files` — disc-TOC modelling.
 
 The lookup transport lives in `platterpus.adapters.ctdb_client` (Critical

@@ -24,6 +24,7 @@ from typing import Final
 
 from platterpus import __version__, album_loudness, build_info, diagnostics
 from platterpus.atomic_write import atomic_write_text
+from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
 from platterpus.handshake_approval import (
     RipperApproval,
     approve_rip_log,
@@ -826,6 +827,16 @@ RIP_DID_NOT_FINISH_GATE: Final[str] = (
     "not run — the rip did not finish, and post-rip checks only run on a finished rip"
 )
 
+#: The CTDB gate when the verify declined to look the rip up because its files
+#: are not the whole disc (`ctdb.verify.Verdict.NOT_WHOLE_DISC`). Derived from the
+#: RESULT in `_build`, like `SUPERSEDED_GATE` wins over config: the 2026-09-28 Full
+#: run's five 2-of-14 rips each said `gates.ctdb: "ran"` beside a "this disc is
+#: not in CTDB" that the whole-disc rips of the same disc contradicted with 102
+#: entries. A skipped check must not read as one that ran and cleared.
+NOT_WHOLE_DISC_GATE: Final[str] = (
+    "not run — CTDB verifies whole discs, and this rip is not the whole disc"
+)
+
 #: The `outcome.status` values that mean the post-rip chain was never started.
 #: One set, shared with the acceptance runner's `expect-verification`, so the two
 #: cannot disagree about which rips owe a result.
@@ -1088,6 +1099,17 @@ def _build(
     derived = _derived_verify(derived_verify_result)
     recompress = _recompress(recompress_result)
     ctdb = _ctdb(ctdb_result)
+    # The gate is built from the SETTINGS ("ran" because CTDB was switched on);
+    # the verdict says whether the check actually ran. Corrected here, where both
+    # meet, so no caller has to remember to — and before `issues` and the
+    # `verification` block read it, so neither sees the settings' version.
+    if (
+        ctdb is not None
+        and ctdb.get("verdict") == NOT_WHOLE_DISC_VERDICT
+        and gates is not None
+        and gates.get("ctdb") == "ran"
+    ):
+        gates = {**gates, "ctdb": NOT_WHOLE_DISC_GATE}
     cover_art = _cover_art(cover_art_result)
     # Tagging feeds `issues` ONLY — it deliberately gets no block of its own. The
     # severity-tagged `issues` list is already the report's declared home for

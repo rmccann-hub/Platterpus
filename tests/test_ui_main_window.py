@@ -5343,6 +5343,127 @@ def test_ctdb_verify_runs_off_the_gui_thread(
     assert client.calls == 1
 
 
+# --- A partial rip is not looked up in CTDB (the 2026-09-28 Full run) ---------
+#
+# Five 2-of-14 rips filed "this disc is not in CTDB" with `gates.ctdb: "ran"`.
+# The worker decides "partial" from the rip's parsed log and, for a build with no
+# footer, the probe's track count. These pin that the GUI HANDS it both — read at
+# launch, not when the daemon runs, by which time they can belong to the next rip.
+
+_ROUND27_PARTIAL_LOG: Path = (
+    Path(__file__).resolve().parents[1]
+    / "docs/handshake/artifactsround27/round27fullderivedmp3.log"
+)
+
+
+def _partial_album(tmp_path: Path, *, with_log: bool) -> tuple[Path, RipLog]:
+    """The filed 2-of-14 rip's album: its real log, parsed, and zero-byte stand-ins
+    for the two files it names (never audio — Critical rule #8)."""
+    from platterpus import rip_files
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    text = _ROUND27_PARTIAL_LOG.read_text(encoding="utf-8")
+    parsed = parse_cyanrip_log(text)
+    album = tmp_path / "album"
+    album.mkdir()
+    names = rip_files.declared_names(parsed)
+    assert len(names) == 2  # floor: the real log names the two tracks it ripped
+    for name in names:
+        (album / name).write_bytes(b"")
+    if with_log:
+        (album / "Album.log").write_text(text, encoding="utf-8")
+    return album, parsed
+
+
+def _captured_ctdb_compute(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch, album: Path
+) -> Any:
+    """Launch the CTDB verify, but keep its `compute` instead of running it."""
+    captured: list[Any] = []
+    monkeypatch.setattr(
+        window,
+        "_launch_post_rip_daemon",
+        lambda **kwargs: captured.append(kwargs["compute"]),
+    )
+    window._start_ctdb_verify(album, wait_for=None)
+    assert len(captured) == 1
+    return captured[0]
+
+
+def test_the_ctdb_verify_is_handed_the_rips_log_as_it_was_at_launch(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """No log on disk here, so the parsed log the finish handler holds is the only
+    witness that the rip is 2 of 14 — and it is cleared before the work runs."""
+    window = teardown_threads(config=Config(ctdb_verify_after_rip=True))
+    client = _FakeCtdbClient(CtdbLookupResult())
+    window._ctdb_client = client
+    album, parsed = _partial_album(tmp_path, with_log=False)
+    window._last_rip_log = parsed
+    window._current_num_tracks = 0
+
+    compute = _captured_ctdb_compute(window, monkeypatch, album)
+    window._last_rip_log = None  # the window has moved on by the time it runs
+    result = compute(lambda: True)
+
+    assert client.calls == 0
+    assert result.verdict is Verdict.NOT_WHOLE_DISC
+
+
+def test_the_ctdb_verify_is_handed_the_probes_track_count_as_it_was_at_launch(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """No log anywhere: the probe's `Disc tracks:` count is the only witness."""
+    window = teardown_threads(config=Config(ctdb_verify_after_rip=True))
+    client = _FakeCtdbClient(CtdbLookupResult())
+    window._ctdb_client = client
+    album, _parsed = _partial_album(tmp_path, with_log=False)
+    window._last_rip_log = None
+    window._current_num_tracks = 14
+
+    compute = _captured_ctdb_compute(window, monkeypatch, album)
+    window._current_num_tracks = 0  # a disc change before the daemon runs
+    result = compute(lambda: True)
+
+    assert client.calls == 0
+    assert result.verdict is Verdict.NOT_WHOLE_DISC
+
+
+def test_a_partial_rips_report_and_details_line_say_ctdb_did_not_run(
+    teardown_threads,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """End to end on the real daemon, signal, record and report writer: what the
+    five filed reports got wrong, now read back from a report the window wrote."""
+    window = teardown_threads(config=Config(ctdb_verify_after_rip=True))
+    client = _FakeCtdbClient(CtdbLookupResult())  # would say "not in CTDB"
+    window._ctdb_client = client
+    album, parsed = _partial_album(tmp_path, with_log=True)
+    log_file = album / "Album.log"
+    window._last_rip_log = parsed
+    window._last_rip_log_file = log_file
+    window._capture_post_rip_record(parsed, log_file)
+    window._last_rip_timing = None
+    monkeypatch.setattr(window, "_build_rip_debug_log", lambda rip_window=None: None)
+
+    window._start_ctdb_verify(album, wait_for=None)
+    assert window._ctdb_thread is not None
+    window._ctdb_thread.join(timeout=10)
+    qapp.processEvents()  # deliver the queued ctdb_verify_done
+    window._flush_rip_report(wait=True)
+
+    report = json.loads((album / "Album.platterpus.json").read_text(encoding="utf-8"))
+    assert client.calls == 0
+    assert report["ctdb"]["verdict"] == Verdict.NOT_WHOLE_DISC.value
+    assert report["ctdb"]["trustworthy"] is None
+    assert "2 of the disc's 14 tracks" in report["ctdb"]["message"]
+    assert report["verification"]["gates"]["ctdb"] == rip_report.NOT_WHOLE_DISC_GATE
+    shown = window._rip_progress._ctdb_label.text()
+    assert "not run" in shown and "database" not in shown
+
+
 # --- Post-rip FLAC encode-verify (opt-in, default on) ----------------------
 
 

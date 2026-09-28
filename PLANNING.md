@@ -266,6 +266,7 @@ Platterpus/
         │   ├── crc.py                   # the audio CRC (hardware-validated; CRC_VALIDATED=True, KDD-16)
         │   ├── calibrate.py             # CRC offset-sweep calibration against a real in-CTDB disc (KDD-16)
         │   ├── diagnose.py              # shared engine behind scripts/ctdb_verify.py + --ctdb-calibrate
+        │   ├── coverage.py              # how many tracks the DISC has, so a partial rip is never looked up
         │   └── verify.py                # verify_rip() orchestration + Verdict enum
         │
         ├── deps/                        # dependency self-management subsystem (brief P0 #11)
@@ -479,7 +480,8 @@ Clean-room CTDB verify support (KDD-16), kept as a standalone library so the det
 - **`toc.py`** — `DiscToc` value object, the `toc=` query string, and the disc-TOC math (MSF/sector helpers, build-from-files via `metaflac` sample counts).
 - **`decode.py`** — host `flac`→raw-PCM decode + `metaflac` sample-count probe (best-effort, optional `flac` dependency; degrades to `DecoderUnavailable`). Injectable runners.
 - **`crc.py`** — the CTDB audio CRC: bit-exact `zlib.crc32` over the whole-disc PCM with a fixed 5880-frame front / length-dependent back trim, ±5879 offset sweep. ✅ Hardware-validated (`CRC_VALIDATED=True`, KDD-16, 2026-07-07; see `CONFIRMED_VECTOR`). Fails safe (a wrong CRC yields `NO_MATCH`, never a false "verified").
-- **`verify.py`** — `verify_rip()` orchestration tying lookup + decode + CRC into a single `CtdbVerifyResult`/`Verdict`; every expected failure is a verdict, not a raise.
+- **`verify.py`** — `verify_rip()` orchestration tying lookup + decode + CRC into a single `CtdbVerifyResult`/`Verdict`; every expected failure is a verdict, not a raise. A rip whose files cover fewer tracks than the disc has is answered `not_whole_disc` before any TOC is built (2026-09-28): the TOC comes from the files, so a partial rip's TOC is a disc that does not exist, and its 404 used to be filed as "not in CTDB".
+- **`coverage.py`** — `disc_track_count()`: how many tracks the disc has, from the ripper's own `Rip completed: … N of M tracks` footer first and the disc probe's `Disc tracks:` second, range-checked, `None` when neither says. Also holds the `not_whole_disc` verdict's wire value, spelled once, so the adapter-free `rip_report` can compare against it.
 - **`calibrate.py`** — the CRC offset-sweep calibration that pinned the algorithm against a real in-CTDB disc (KDD-16); kept so the vector can be re-derived on new hardware.
 - **`diagnose.py`** — the shared engine behind `scripts/ctdb_verify.py` and `platterpus --ctdb-calibrate`: run a CTDB verify (+ optional calibration) over an existing rip folder, no re-rip needed.
 

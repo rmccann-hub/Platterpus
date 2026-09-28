@@ -25,6 +25,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   records why each re-read was kept (`read_speed.retried_tracks[].replaced_because`,
   schema v30), and the messages say which reason applied instead of claiming the track
   now reads consistently.
+- **A rip of only some tracks no longer says the disc is not in CTDB.** CTDB looks a
+  disc up by its whole table of contents, and we build that from the files ripped, so
+  a rip of tracks 1 and 2 asked CTDB about a two-track disc that does not exist. It
+  answered "not found", and the report said *"this disc is not in CTDB"*, marked
+  trustworthy, with the CTDB check recorded as run. The 2026-09-28 Full run filed five
+  such reports for a disc its whole-disc rips found with 102 entries, and every
+  finished partial rip filed in rounds 26 and 27 says the same. Now a partial rip is not looked
+  up at all. Its result reads *"not run — CTDB verifies whole discs, and this rip has
+  2 of the disc's 14 tracks"*, on the Details tab and in the report, and the report
+  records the check as not run. How many tracks the disc has comes from the ripper's
+  own `Rip completed: … 2 of 14 tracks` line, or from the disc probe for a build that
+  does not print it. A whole-disc rip is looked up exactly as before. The same applies
+  to `--ctdb-calibrate`, which also skips its calibration sweep on a partial folder.
 
 ### Changed
 
