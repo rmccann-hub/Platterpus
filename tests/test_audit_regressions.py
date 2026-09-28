@@ -1283,12 +1283,13 @@ def test_open_logs_folder_still_reports_a_refusal_through_the_shared_helper(
     `tests/test_ui_external_open.py`.
     """
     from PySide6.QtGui import QDesktopServices
-    from PySide6.QtWidgets import QMessageBox
+
+    from platterpus.ui import message_boxes
 
     bodies: list[str] = []
     monkeypatch.setattr(QDesktopServices, "openUrl", staticmethod(lambda _url: False))
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "information",
         lambda _parent, _title, text, *a: bodies.append(text),
     )

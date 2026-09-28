@@ -39,7 +39,7 @@ It changes **no runtime behaviour**:
   it exists so mypy knows ``self`` inside a mixin really is a Qt widget (the
   concrete window is one), which lets it both resolve the Qt methods a mixin
   calls on ``self`` (``self.close()``, ``self.update()`` …) *and* accept ``self``
-  where a ``QWidget`` parent is expected (``QMessageBox.information(self, …)``).
+  where a ``QWidget`` parent is expected (``message_boxes.information(self, …)``).
 
   Why ``QWidget`` and not ``QMainWindow``: ``MainWindow`` lists ``QMainWindow``
   first in its own bases, so if the seam also derived ``QMainWindow`` the C3
@@ -104,6 +104,7 @@ if TYPE_CHECKING:
     from platterpus.adapters.rip_backend import RipBackend
     from platterpus.config import Config
     from platterpus.deps.manager import DependencyManager, DependencyReport
+    from platterpus.disc_probe_retry import DiscReadRetries
     from platterpus.drive_media import MediaWatcher
     from platterpus.drive_profile_store import DriveProfileStore
     from platterpus.drive_profiles import OffsetSource
@@ -230,6 +231,9 @@ class MainWindowShared(_SeamBase):
     _disc_info_worker: DiscInfoWorker | None
     _disc_info_thread: QThread | None
     _scan_force_stopped: bool
+    # A failed disc read's bounded automatic retry (DriveMixin, disc_probe_retry).
+    _disc_retries: DiscReadRetries
+    _disc_retry_timer: QTimer
     # Launch-time drive listing.
     _drive_list_worker: DriveListWorker | None
     _drive_list_thread: QThread | None
@@ -395,7 +399,9 @@ class MainWindowShared(_SeamBase):
         # Defined on the concrete MainWindow (main_window.py):
         def refresh_drives(self) -> None: ...
         def _set_rip_lock(self, active: bool) -> None: ...
-        def _start_disc_info(self, device: str) -> None: ...
+        def _start_disc_info(
+            self, device: str, *, automatic_retry: bool = ...
+        ) -> None: ...
 
         # Defined in ProvisioningMixin (main_window_provision.py):
         def open_host_setup_dialog(self) -> None: ...
@@ -421,6 +427,7 @@ class MainWindowShared(_SeamBase):
 
         # Defined in DependencyMixin (main_window_deps.py):
         def _on_check_dependencies(self) -> None: ...
+        def _show_dependency_check_in_setup_center(self) -> None: ...
 
         # Defined in SettingsMixin (main_window_settings.py) — each setting
         # saved from its one home (`ui/setting_homes.py`):

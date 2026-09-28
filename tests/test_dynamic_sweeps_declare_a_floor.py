@@ -54,11 +54,37 @@ _NO_FLOOR: Final[str] = "NO FLOOR NEEDED:"
 #: genuinely cannot be floored, say why here in place of a test name — but a
 #: population that cannot state a minimum is usually one nobody has counted.
 _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
+    # Added 2026-09-28 with `ui/message_boxes.py`. The first two parametrize over
+    # the four kinds of stock box; their floor derives the kinds from the module's
+    # own public functions, so a new kind without a case, or an emptied table,
+    # fails by name. The third parametrizes over every (kind, buttons, action)
+    # compared against Qt's real static helpers; its floor requires every kind,
+    # every way of closing a box and at least 60 cases.
+    "test_message_boxes_are_plaintext.py::test_the_builder_pins_plaintext_for_every_kind": (
+        "test_every_kind_the_module_offers_is_in_the_population"
+    ),
+    "test_message_boxes_are_plaintext.py::test_each_function_shows_the_built_box": (
+        "test_every_kind_the_module_offers_is_in_the_population"
+    ),
+    "test_ui_message_boxes.py::test_each_function_answers_as_qts_static_helper_does": (
+        "test_the_comparison_covers_every_kind_and_every_way_to_close"
+    ),
     # Added 2026-09-26 with the lap language. Parametrizes over `_BROKEN`, one
     # broken lap per rule; the floor requires every lap rule the checker can
     # emit to have its case, so an emptied or shortened table fails by name.
     "test_lap_language.py::test_each_lap_rule_fires_on_the_lap_that_breaks_it": (
         "test_every_lap_rule_the_checker_emits_has_a_broken_lap"
+    ),
+    # Added 2026-09-28 with LSL 3. The first parametrizes over the pinned reports
+    # of the committed round-28 laps; its floor requires all five, each still on
+    # disk and still declaring `LSL: 1`, so an emptied table cannot pass LSL 2's
+    # "unchanged" by pinning nothing. The second parametrizes over one statement
+    # per kind; its floor requires both sides of the A6/B3 relation to be there.
+    "test_lap_language.py::test_lsl_1_and_2_reports_on_round_28_are_unchanged": (
+        "test_the_round_28_pin_covers_every_lap_it_was_measured_on"
+    ),
+    "test_lap_language.py::test_b3_refuses_an_answers_exactly_where_a6_refuses_weight": (
+        "test_the_weight_relation_is_not_trivial"
     ),
     # Added 2026-09-24 with the one-home-per-setting gate. Both parametrize over
     # `sorted(WINDOW_PATHS)`, the windows that edit settings, so an emptied table

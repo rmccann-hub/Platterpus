@@ -42,7 +42,10 @@ understand %Y. The year presets use %Y so a folder reads "Album (1995)", not
 
 from __future__ import annotations
 
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Final
 
 from platterpus import option_labels
 
@@ -58,7 +61,7 @@ from platterpus import option_labels
 # entries under a comment saying "we reproduce the two the user will actually
 # hit". On 2026-08-23 an album titled `full acceptance: angle<bracket …` landed as
 # `full acceptance∶ angle‹bracket …` — the `<` mapped too, to U+2039, which was in
-# no table of ours. `main_window_helpers.known_album_folder` renders this table to
+# no table of ours. `main_window_helpers.known_album_folders` renders this table to
 # predict where a rip will land; the prediction missed by one character, the
 # "Album already ripped" prompt never fired, and a completed 14-track archival rip
 # was overwritten by a 2-track one in silence.
@@ -71,7 +74,7 @@ from platterpus import option_labels
 #     what produced the two-entry version.
 #  2. **Nothing safety-bearing may depend on this table at all.** The overwrite
 #     guard resolves its prediction against what is actually on disk
-#     (`main_window_helpers.resolve_sanitised_path`), matching a name that differs
+#     (`main_window_helpers.resolve_sanitised_paths`), matching a name that differs
 #     only where a substitution could have happened — so it works whatever glyph
 #     cyanrip chose, including ones no table of ours holds. Same shape as
 #     `uiscript/find_script.py`: legislate the name AND stop depending on it.
@@ -98,7 +101,7 @@ from platterpus import option_labels
 #: and that the flag resets at every `{tag}` boundary in the naming scheme. A
 #: lookup table cannot express that, so a table-driven prediction of a filename
 #: containing a quote is *provably* incapable of being right in general. Which is
-#: the case for `main_window_helpers.resolve_sanitised_path`, not against it: the
+#: the case for `main_window_helpers.resolve_sanitised_paths`, not against it: the
 #: guard reads what is on disk precisely because no table can be complete here.
 _VALUE_SANITISE: dict[str, str] = {
     "<": "‹",  # U+2039 SINGLE LEFT-POINTING ANGLE QUOTATION MARK
@@ -330,6 +333,41 @@ def render_preview(template: str, sample: SampleTrack) -> str:
             out.append(value if value else "%" + _LITERAL_BRACES.get(token, token))
         i += 2
     return "".join(out) + ".flac"
+
+
+#: A ``{key}`` in a cyanrip naming scheme. The schemes we build hold no other
+#: brace: `adapters.cyanrip_backend.scheme_from_template` writes a typed brace as a
+#: parenthesis, so every ``{`` it leaves opens a key it put there.
+_SCHEME_KEY_RE: Final[re.Pattern[str]] = re.compile(r"\{([^{}]*)\}")
+
+
+def render_scheme(scheme: str, tags: Mapping[str, str]) -> str:
+    """Render a cyanrip ``{key}`` scheme the way cyanrip does, as a prediction.
+
+    Each ``{key}`` becomes its tag's value with path-illegal characters swapped
+    for cyanrip's look-alikes (the table above). A key with no value becomes the
+    key's own NAME, which is what cyanrip writes for one (the note on
+    `adapters.cyanrip_backend._path_schemes` cites where). Text outside the braces
+    is kept as typed.
+
+    Used for the overwrite guard's folder, on the ``-D`` the rip really sends
+    (`adapters.cyanrip_backend.predicted_album_folder`). The Settings preview
+    keeps :func:`render_preview`, which renders the template a person typed.
+    Pure; never raises.
+    """
+
+    def value(match: re.Match[str]) -> str:
+        key = match.group(1)
+        raw = tags.get(key, "")
+        return _sanitise_value(raw) if raw else key
+
+    # cyanrip then trims spaces and tabs from both edges of every path component
+    # (`crip_trim_path_components`, cyanrip@e0471f4:src/naming.c:416-450, called
+    # at :497, and the same at 221a1df). Without this, `%Y - %d` on a disc with no
+    # year would be predicted as " - Alb" while cyanrip writes "- Alb", and the
+    # overwrite guard would look in a folder the rip never writes.
+    rendered = _SCHEME_KEY_RE.sub(value, scheme)
+    return "/".join(part.strip(" \t") for part in rendered.split("/"))
 
 
 #: Why a naming template or a rendered cyanrip scheme would write outside the

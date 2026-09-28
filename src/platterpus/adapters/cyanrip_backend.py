@@ -222,16 +222,16 @@ class CyanripImpl(RipBackend):
         # prompt. A default is not a contract, and this one had been selectable
         # since the fork's round-4 flag table said so.
         #
-        # `os_unicode` is the observed behaviour of the approved build, derived
-        # rather than assumed: the two mappings we have measured are look-alike
-        # glyphs (so `unicode`, not `simple`) and one of them is `<`, which is
-        # reserved on Windows but perfectly legal on ext4 (so `os_`, not plain).
-        # Pinning it is therefore a no-op on the build we ship against today and
-        # a fence against the default moving underneath us tomorrow — and it is
-        # the mode we WANT regardless: it is the one that keeps a library
-        # copyable to an NTFS/exFAT volume, the residual limitation
-        # `docs/dependency-contracts.md` has carried since the 2026-07-08 naming
-        # audit.
+        # The mode is `unicode` (`SANITISE_MODE`, whose comment has the measurement).
+        # This comment once argued for `os_unicode`, on reasoning the fork's round-13
+        # lap 1 §B1 corrected: an `os_` mode substitutes only what the OS FORBIDS, so
+        # on ext4 it would have written a literal `:` and `<`, where the rig wrote the
+        # look-alike glyphs. Pinning `unicode` is a no-op against the build we ship on
+        # and a fence against the default moving underneath us. What it does not buy
+        # is a library that copies cleanly to NTFS/exFAT: `unicode` substitutes the
+        # look-alikes it knows, and the residual limitation
+        # `docs/dependency-contracts.md` has carried since the 2026-07-08 naming audit
+        # still stands. (Stale-comment finding, 2026-09-27, while fuzzing P7b.)
         argv += ["-T", SANITISE_MODE]
         if max_retries:
             argv += ["-r", str(max_retries)]
@@ -321,29 +321,16 @@ class CyanripImpl(RipBackend):
         # part -F — cyanrip renders {tokens} from the -a/-t tags above and
         # sanitizes tag values, so a "/" typed IN a template still nests
         # while a "/" inside an album title doesn't.
-        # Platterpus-only %Y (year-only) has no cyanrip equivalent, so we
-        # pre-expand it to the literal 4-char year here (from the release date
-        # the GUI fetched) BEFORE the template reaches cyanrip — otherwise the
-        # folder would literally contain "%Y". Empty when there's no year (the
-        # token then vanishes, same as cyanrip's own {date} on a dateless disc).
-        year = _year_token(metadata.year if metadata else "")
-        # %N / %M (disc number / total discs) are filled in HERE too, from the
-        # same checked position `-c` sends, not left to cyanrip's `{disc}`. At the
-        # pins we ship, a key with no value falls back to its own NAME
-        # (`cyanrip@221a1df:src/naming.c:253` and `:398`, same at `df91ae7`), so
-        # a disc whose `-c` was dropped would get a folder called "disc".
-        disc, discs = (str(position[0]), str(position[1])) if position else ("", "")
-        dir_part, _, file_part = track_template.rpartition("/")
-        if dir_part:
-            argv += [
-                "-D",
-                scheme_from_template(dir_part, year=year, disc=disc, discs=discs),
-            ]
-        if file_part:
-            argv += [
-                "-F",
-                scheme_from_template(file_part, year=year, disc=disc, discs=discs),
-            ]
+        # The split and the pre-expansion live in `_path_schemes`, which the
+        # overwrite guard reaches through `album_folder_scheme`: the folder it
+        # checks before a rip is the `-D` computed here, by the same code, rather
+        # than a second prediction that could drift from it (it did, twice: it
+        # read the disc template, and it assumed disc 1 of 1).
+        folder_scheme, file_scheme = _path_schemes(track_template, metadata, position)
+        if folder_scheme is not None:
+            argv += ["-D", folder_scheme]
+        if file_scheme is not None:
+            argv += ["-F", file_scheme]
         # `-G` UNCONDITIONALLY. It used to be `if not cover_art`, which read as
         # "let the ripper embed art when the user wants art" — but nothing else in
         # the program agrees with that reading. `main_window_rip` calls
@@ -742,10 +729,10 @@ _COLON_SUBSTITUTE: str = "∶"  # ∶
 #: below left an abandoned reader running for 15 minutes alongside later rips, so
 #: two live cyanrips shared one output root and would have shared one record.
 #:
-#: It does NOT put the record with the artifacts — that needs a post-rip move
-#: into the album folder, which is tracked in ``TASKS.md`` rather than done here,
-#: because the album folder is only knowable AFTER the rip and predicting it is
-#: what `CLAUDE.md` names as the mistake that cost a 14-track rip.
+#: It does NOT put the record with the artifacts, and nothing moves it there: a
+#: rip leaves only its .log, .cue and .platterpus.json in the album folder (the
+#: maintainer, 2026-09-27). Each rip's report bundle collects it from the rips
+#: root by name (`diagnostics_record`); embedding it in the report is next.
 DIAGNOSTICS_RECORD_PREFIX: Final[str] = "cyanrip-diagnostics"
 
 
@@ -1471,8 +1458,8 @@ def assert_meta_args_are_parseable(argv: list[str]) -> None:
             if not number.isdigit() or not _:
                 raise RipError(
                     f"refusing to run cyanrip: the {flag} argument {blob!r} is not "
-                    "'<track number>=<tags>'. cyanrip steps over the '=' without "
-                    "checking it is there, so this reads past the end of the string"
+                    "'<track number>=<tags>'. The approved build rejects it; a cyanrip "
+                    "without the fork's round-7 fix reads past the end of the string"
                 )
             blob = rest
         for field in split_on_unescaped(blob, ":"):
@@ -1668,3 +1655,118 @@ def scheme_from_template(
             out.append(ch)
         i += 1
     return "".join(out)
+
+
+# --- Where a rip lands: one computation, for the argv and the overwrite guard ---
+
+
+def _path_schemes(
+    track_template: str,
+    metadata: RipMetadata | None,
+    position: tuple[int, int] | None,
+) -> tuple[str | None, str | None]:
+    """``(-D, -F)``: the cyanrip schemes a rip of ``track_template`` sends.
+
+    The directory part (before the last ``/``) becomes ``-D``, the filename part
+    ``-F``; ``None`` for a part the template does not have, and that flag is then
+    not sent. ``position`` is :func:`_disc_position`'s answer for ``metadata``,
+    passed in so the argv builder checks it once for ``-c`` and for this.
+
+    Platterpus-only ``%Y`` (year-only) has no cyanrip equivalent, so it is
+    pre-expanded to the literal year here (from the release date the GUI
+    fetched) before the template reaches cyanrip; empty when there is no year.
+    ``%N`` / ``%M`` are filled in here too, from the same checked position ``-c``
+    sends, not left to cyanrip's ``{disc}``: at the pins we ship, a key with no
+    value falls back to its own NAME (``cyanrip@221a1df:src/naming.c:253`` and
+    ``:398``, same at ``df91ae7``), so a disc whose ``-c`` was dropped would get
+    a folder called "disc".
+    """
+    year = _year_token(metadata.year if metadata else "")
+    disc, discs = (str(position[0]), str(position[1])) if position else ("", "")
+    dir_part, _, file_part = track_template.rpartition("/")
+    folder = (
+        scheme_from_template(dir_part, year=year, disc=disc, discs=discs)
+        if dir_part
+        else None
+    )
+    file = (
+        scheme_from_template(file_part, year=year, disc=disc, discs=discs)
+        if file_part
+        else None
+    )
+    return folder, file
+
+
+def album_folder_scheme(
+    track_template: str, metadata: RipMetadata | None
+) -> str | None:
+    """The ``-D`` a rip of ``track_template`` with ``metadata`` sends, or ``None``.
+
+    **One computation, two callers.** The argv builder sends this; the overwrite
+    guard (``ui.main_window_helpers.known_album_folders``) checks the folder it
+    names before the rip starts. The guard used to make its own prediction, and it
+    drifted twice: it rendered the DISC template, which cyanrip never sees (``rip``
+    deletes it), and it assumed disc 1 of 1, so a ``%N`` folder on disc 2 was never
+    checked. Both let a re-rip overwrite a finished rip without asking.
+    """
+    return _path_schemes(track_template, metadata, _disc_position(metadata))[0]
+
+
+def _album_level_tags(meta: RipMetadata) -> dict[str, str]:
+    """The value cyanrip has for each key a ``-D`` we build can hold.
+
+    cyanrip renders the FOLDER from the album's metadata, not a track's
+    (``process_cond(ctx, &buf, ctx->meta, …, folder_name_scheme)``,
+    ``cyanrip@f8ebf48:src/naming.c:392``, read in the fork repository's
+    ``master``). So ``{title}`` and ``{track}`` have no value there and render as
+    their names. ``{artist}`` has one: we never send an album-level ``artist``,
+    and cyanrip fills an absent one from ``album_artist``
+    (``cyanrip@f8ebf48:src/cyanrip_main.c:1724``). A value we would not send
+    (``_metadata_args`` skips an empty field) is left out, so it renders as its
+    name too.
+    """
+    tags = {
+        "album_artist": meta.album_artist,
+        "artist": meta.album_artist,
+        "album": meta.album_title,
+        "date": meta.year,
+    }
+    return {key: value for key, value in tags.items() if value}
+
+
+#: cyanrip's own ``-D`` default, word for word as its provider contract states it
+#: (the ``-D`` row of the newest filed contract;
+#: ``cyanrip@221a1df:src/cyanrip_main.c:1503``, the same at ``e0471f4``).
+#: ``tests/test_cyanrip_backend.py`` holds this to the filed contract, so a fork
+#: build that changes its default turns a test red instead of moving our rips.
+CYANRIP_DEFAULT_FOLDER_SCHEME: Final[str] = (
+    "{album}{if #releasecomment# > #0# (|releasecomment|)} [{format}]"
+)
+
+#: That default as it renders for OUR rip, which is what cyanrip writes when a
+#: track template has no folder part and so no ``-D`` is sent. We never send a
+#: ``releasecomment`` tag, so its conditional is false; and every rip is
+#: ``-o flac``, whose folder suffix is ``FLAC``
+#: (``cyanrip@e0471f4:src/cyanrip_main.c:101``, the struct's second field).
+DEFAULT_FOLDER_FOR_OUR_RIP: Final[str] = "{album} [FLAC]"
+
+
+def predicted_album_folder(track_template: str, metadata: RipMetadata | None) -> str:
+    """The album folder, relative to the output directory, this rip would write.
+
+    :func:`album_folder_scheme` rendered with the tags cyanrip is handed, cleaned
+    exactly as ``_metadata_args`` cleans them. When no ``-D`` is sent (a track
+    template with no folder part) cyanrip uses its own default, which for our
+    rip renders as :data:`DEFAULT_FOLDER_FOR_OUR_RIP`, so that is predicted. It
+    returned ``None`` there until 2026-09-28, and the overwrite guard skipped the
+    check with only a log line while the rip overwrote ``<album> [FLAC]``.
+
+    **A prediction, never the answer.** The look-alike table cannot say which of
+    two glyphs a ``"`` becomes (P7d), so the overwrite guard resolves this against
+    what is on disk (``ui.main_window_helpers.resolve_sanitised_paths``).
+    """
+    from platterpus import naming, tag_hygiene  # noqa: PLC0415
+
+    scheme = album_folder_scheme(track_template, metadata) or DEFAULT_FOLDER_FOR_OUR_RIP
+    meta = tag_hygiene.clean_tag_only_fields(metadata).metadata
+    return naming.render_scheme(scheme, _album_level_tags(meta))

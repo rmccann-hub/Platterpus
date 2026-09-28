@@ -49,6 +49,7 @@ from platterpus.adapters.rip_backend import (
 )
 from platterpus.config import Config
 from platterpus.deps.manager import DependencyManager
+from platterpus.disc_probe_retry import DiscReadRetries
 from platterpus.drive_profile_store import DriveProfileStore
 from platterpus.report_types import TimingBlock
 from platterpus.ui.disc_info_panel import DiscInfoPanel
@@ -56,13 +57,13 @@ from platterpus.ui.drive_picker import DrivePicker
 from platterpus.ui.main_window_deps import DependencyMixin
 from platterpus.ui.main_window_drive import DriveMixin
 
-# fidelity_summary / safe_path_segment are re-exported for the test-facing
-# API (`from ...main_window import _fidelity_summary`); their internal callers
-# now live in RipMixin, so they're intentionally unused *in this module*.
+# fidelity_summary / friendly_disc_scan_error / safe_path_segment are re-exported
+# for the test-facing API (`from ...main_window import _fidelity_summary`); their
+# callers now live in the mixins, so they're intentionally unused *in this module*.
 from platterpus.ui.main_window_helpers import (  # noqa: F401
     fidelity_summary as _fidelity_summary,
 )
-from platterpus.ui.main_window_helpers import (
+from platterpus.ui.main_window_helpers import (  # noqa: F401
     friendly_disc_scan_error as _friendly_disc_scan_error,
 )
 from platterpus.ui.main_window_helpers import (  # noqa: F401
@@ -370,6 +371,9 @@ class MainWindow(
         # at the start of every new scan.
         self._current_disc_id: str = ""
         self._mb_release_chosen_for: str = ""
+        # The disc whose release picker is on screen right now, "" when none is.
+        # Lives exactly as long as the picker's `exec()`; see `_on_mb_releases`.
+        self._mb_picker_open_for: str = ""
         # Track count for the current disc (from cyanrip cd info). Used to
         # render numbered blank rows when MusicBrainz has no match.
         self._current_num_tracks: int = 0
@@ -432,6 +436,12 @@ class MainWindow(
         # reads this to show a clean "drive freed" message instead of the raw
         # error, and to avoid auto-freeing again.
         self._scan_force_stopped: bool = False
+        # A failed disc read is retried on its own, bounded (disc_probe_retry;
+        # the window side is in DriveMixin). Stopped in closeEvent.
+        self._disc_retries: DiscReadRetries = DiscReadRetries()
+        self._disc_retry_timer: QTimer = QTimer(self)
+        self._disc_retry_timer.setSingleShot(True)
+        self._disc_retry_timer.timeout.connect(self._on_disc_retry_due)
         # Launch-time drive listing (the scan enters the container);
         # run off-thread so it can't freeze the just-shown window. Joined in
         # closeEvent. (The Refresh button stays synchronous — user-initiated.)
@@ -918,6 +928,7 @@ class MainWindow(
         # five seconds of Cancel left the drive reading with nothing left to stop
         # it. See `_stop_rip_on_shutdown`.
         self._rip_liveness_timer.stop()  # disarm the stall watchdog
+        self._disc_retry_timer.stop()  # no disc re-read may start during teardown
         # Disarm a pending library move — the folder simply stays in the output
         # directory (safe default); moving during teardown would race close.
         self._library_move_timer.stop()
@@ -1038,17 +1049,41 @@ class MainWindow(
         setup_center_action = tools_menu.addAction("Setup && &Updates…")
         setup_center_action.triggered.connect(self.open_setup_center)
 
-        cover_from_file_action = tools_menu.addAction("Set &cover art from file…")
+        # SET COVER ART FROM FILE… ACTS ON THE ALBUM ON SCREEN, so its home is the
+        # album's right-click menu on the disc panel (maintainer, 2026-09-27;
+        # `ui/album_menu.py`). ONE QAction shown in both places: the same slot and
+        # the same enabled state by construction, never two kept in step by hand.
+        # Alt+F, not the old Alt+C: the album menu opens with Copy, which is Alt+C.
+        #
+        # TRANSITIONAL: THIS TOOLS ENTRY IS FOR 0.6.62 ONLY, AND GOES IN 0.6.63, so
+        # nobody who learned it here loses it the day it moves. To remove it, build
+        # the action as `QAction("Set cover art from &file…", self)` instead of
+        # through `tools_menu.addAction`, delete the Guide's "still in Tools"
+        # sentence (`tests/test_help_documents_the_menu.py` names it a dead path),
+        # and drop the Tools half of `tests/test_ui_main_window.py::_cover_actions`.
+        # The 0.6.63 bump FAILS until it is gone (`tests/test_ui_main_window.py`).
+        cover_from_file_action = tools_menu.addAction("Set cover art from &file…")
         cover_from_file_action.triggered.connect(self._on_set_cover_art_from_file)
+        self._disc_info_panel.set_album_actions([cover_from_file_action])
 
         # Diagnose drive access… lives in Setup & Updates → Drive, beside Set up
         # drive… (2026-09-24): one place for the drive, not one item per menu.
+
+        # THE TWO TEST TOOLS LIVE UNDER Tools → Advanced ▸ (maintainer decision
+        # D4 A, 2026-09-25). Tools mixed everyday items with two only a person
+        # running a hardware session needs, and somebody who has never written a
+        # rig script should not have to read past two entries for running them.
+        # Uninstall stays in Tools itself, where people can see it. Alt+A is free
+        # for the submenu because "Run acceptance test…" moved inside it; an
+        # Alt-letter only has to be unique within the menu that is open, and
+        # `tests/test_ui_conformance.py` checks every submenu as its own group.
+        advanced_menu = tools_menu.addMenu("&Advanced")
 
         # The unattended-test console. The scripting subsystem it opens has
         # existed, fully tested, since v0.6.4b12 — with nothing in the
         # application able to reach it. This one line is what makes it a feature
         # rather than a package (docs/testing.md §5.p).
-        script_action = tools_menu.addAction("Run &test script…")
+        script_action = advanced_menu.addAction("Run &test script…")
         script_action.triggered.connect(self.open_script_console)
 
         # The whole overnight acceptance session, as one menu item. It used to be
@@ -1057,7 +1092,7 @@ class MainWindow(
         # ("this was supposed to be a no cli program"). See the block comment above
         # `ProvisioningMixin.run_acceptance_session`.
         #
-        acceptance_action = tools_menu.addAction("Run &acceptance test…")
+        acceptance_action = advanced_menu.addAction("Run &acceptance test…")
         # A no-argument slot, not `run_acceptance_session` itself: `triggered`
         # hands its slot a `checked` bool, which would land in `size`.
         acceptance_action.triggered.connect(self._on_run_acceptance_action)
@@ -1204,11 +1239,15 @@ class MainWindow(
         self._disc_info_panel.set_disc_info_loading()
         self._start_disc_info(device)
 
-    def _start_disc_info(self, device: str) -> None:
+    def _start_disc_info(self, device: str, *, automatic_retry: bool = False) -> None:
         """Probe the disc on a worker thread. Replaces any in-flight probe
-        (a previous probe's result would be stale)."""
+        (a previous probe's result would be stale). Every call but the automatic
+        retry's is a new request, with a fresh retry budget (DriveMixin)."""
         from platterpus.workers import start_worker_thread, stop_thread
         from platterpus.workers.disc_info_worker import DiscInfoWorker
+
+        if not automatic_retry:
+            self._begin_disc_request()
 
         # A new disc scan resets unknown-album mode: it latches True when a disc
         # can't be identified (the auto-offer / File → Rip as Unknown), and if it
@@ -1246,6 +1285,9 @@ class MainWindow(
         # deregistered the other and left it unkillable (audit, 2026-07-29).
         # `killable` also guards that race directly, but not overlapping in the first
         # place is the real fix; the guard is the belt.
+        #
+        # `superseded_by` makes the log say this abandonment is planned, at INFO.
+        # Without it every rescan wrote a WARNING into the rig transcript.
         if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
             if self._disc_info_worker is not None:
                 try:
@@ -1253,7 +1295,12 @@ class MainWindow(
                     self._disc_info_worker.failed.disconnect(self._on_disc_info_failed)
                 except (RuntimeError, TypeError):
                     pass  # already disconnected / never connected
-            stop_thread(self._disc_info_thread, self._disc_info_worker, wait_ms=0)
+            stop_thread(
+                self._disc_info_thread,
+                self._disc_info_worker,
+                wait_ms=0,
+                superseded_by="a newer disc probe",
+            )
 
         # A scan can wedge the drive (a stuck in-container TOC reader), so make
         # Force-stop available for the duration and clear any prior stop flag.
@@ -1277,6 +1324,10 @@ class MainWindow(
         self._disc_info_worker = None
         self._disc_info_thread = None
         self._rip_controls.set_scan_active(False)
+        # The read proves a disc is in. Without this, a retry that succeeded
+        # after the poll read "not ready" made the next poll report a phantom
+        # insertion and read the disc again (drive_media.note_disc_present).
+        self._media_watcher.note_disc_present()
         self._disc_info_panel.set_disc_info(info)
         # Remember the disc's track count so we can show numbered blank
         # rows if MusicBrainz turns up nothing.
@@ -1323,7 +1374,8 @@ class MainWindow(
         if "timed out" in message:
             # The reader may still be wedged inside the container — free it.
             self._free_drive_for_scan("auto")
-        self._disc_info_panel.set_disc_info_error(_friendly_disc_scan_error(message))
+        # Shown, and retried automatically when that can help (bounded).
+        self._handle_disc_probe_failure(device, message)
 
     def _is_stale_disc_result(self, device: str) -> bool:
         """True if a disc-probe result is for a drive the user already left.
@@ -1440,6 +1492,21 @@ class MainWindow(
                 context,
             )
             return
+        # AND NOT WHILE ITS PICKER IS STILL OPEN. The marker above is written only
+        # once the user answers, and `exec()` below runs a nested event loop, so
+        # a second lookup's result queued behind the first lands inside it with
+        # the marker still empty. It opened a second picker over the first, and
+        # the later answer replaced the earlier one's tags (TASKS
+        # `stateful:one-picker-per-scan`). The open picker is already asking.
+        if self._mb_picker_open_for == context:
+            log.info(
+                "MusicBrainz returned %d candidates for disc %r while its release "
+                "picker is still open — not opening a second one; the open "
+                "picker's answer is the one used.",
+                len(releases),
+                context,
+            )
+            return
         self._last_mb_releases = list(releases)
         self._disc_info_panel.set_mb_matches(releases)
 
@@ -1471,7 +1538,14 @@ class MainWindow(
             )
             dialog = ReleasePickerDialog(releases, self)
             waited_from = time.monotonic()
-            accepted = dialog.exec() == QDialog.DialogCode.Accepted
+            # Restored, not cleared, when the picker closes: pickers for two
+            # discs can nest, and the outer one is still open.
+            outer_picker = self._mb_picker_open_for
+            self._mb_picker_open_for = context
+            try:
+                accepted = dialog.exec() == QDialog.DialogCode.Accepted
+            finally:
+                self._mb_picker_open_for = outer_picker
             waited = time.monotonic() - waited_from
             if accepted:
                 mbid = dialog.selected_mbid()

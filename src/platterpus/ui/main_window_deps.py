@@ -25,11 +25,13 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable, Mapping
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QThread
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtCore import Qt, QThread
+from PySide6.QtWidgets import QLabel, QMainWindow, QMessageBox, QStatusBar
 
+from platterpus.deps import manager as dep_manager
 from platterpus.deps.resolvers import (
     AutoInstaller,
     InstallResult,
@@ -37,6 +39,9 @@ from platterpus.deps.resolvers import (
 )
 from platterpus.deps.version import format_version
 from platterpus.paths import LOG_PATH
+from platterpus.ui import dependency_check_status as dep_status
+from platterpus.ui import message_boxes
+from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.manual_install import ManualInstallDialog
 from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
 from platterpus.ui.main_window_shared import MainWindowShared
@@ -59,6 +64,33 @@ _DEP_RESOLVE_RETRY_MS: int = 750
 #: a timer firing for the life of the process, and a dependency dialog that
 #: surfaces minutes later is attached to nothing the user is still doing.
 _DEP_RESOLVE_MAX_DEFERRALS: int = 40
+
+#: How long past the check's own deadline (`deps.manager.CHECK_DEADLINE_S`) the
+#: window waits before saying the check is overdue. The BACKSTOP, and it needs no
+#: cooperation from the check: every probe the registry has today is capped by the
+#: deadline, so this only speaks if a probe ignores it — but when one does, the
+#: user is told on screen rather than left looking at "Checking…" forever. The
+#: grace covers the kill itself: a SIGKILLed child can take up to
+#: `killable.REAP_TIMEOUT_S` (5 s) to be reaped.
+_OVERDUE_GRACE_S: float = 15.0
+
+
+def _new_dependency_status_label(bar: QStatusBar) -> QLabel:
+    """Build the label the dependency sentence is shown in, on ``bar``.
+
+    A widget, not ``showMessage``: a status bar's temporary message is replaced
+    by each menu item's status tip, and every item's tip is empty, so opening a
+    menu wiped the sentence (code review, 2026-09-28). A normal widget is covered
+    only while a tip is actually showing, and comes back when it clears.
+    PlainText, because the sentence names tools. A long sentence is clipped at
+    the window's edge, as the message was (measured, PySide6 6.11.2 offscreen:
+    about 1,800 characters left the window's width and minimum unchanged), and
+    the tooltip keeps the whole of it reachable.
+    """
+    label = QLabel(bar)
+    label.setTextFormat(Qt.TextFormat.PlainText)
+    bar.addWidget(label, 1)
+    return label
 
 
 def _optional_purpose(item: MissingItem) -> str:
@@ -118,6 +150,12 @@ class DependencyMixin(MainWindowShared):
     #: the floor. Reset the moment it is delivered, so the budget is per-report
     #: rather than per-session — a second check hours later starts fresh.
     _dep_resolve_deferrals: int = 0
+    #: The status-bar sentence the last check landed with, so a result that had to
+    #: wait for another dialog can put it back when it is finally shown.
+    _dep_check_outcome: str = ""
+    #: The status-bar label showing the dependency sentence; built on first use
+    #: by `_show_dependency_status` (see `_new_dependency_status_label`).
+    _dep_status_label: QLabel | None = None
 
     def _on_check_dependencies(self) -> None:
         """Run the dependency subsystem with GUI-backed resolvers.
@@ -152,9 +190,12 @@ class DependencyMixin(MainWindowShared):
         *result* is applied on the GUI thread (where the resolver dialogs must
         live). `show_summary` controls the end-of-check popup (True for the
         user-clicked Tools/Settings paths; False for the silent launch check).
-        One check at a time.
+        One check at a time — and a request while one runs is ANSWERED, not
+        dropped: see `_on_check_requested_while_running`.
         """
         if self._dep_check_thread is not None:  # a check is already running
+            if show_summary:
+                self._on_check_requested_while_running()
             return
         from platterpus.workers import start_worker_thread
         from platterpus.workers.dependency_worker import DependencyCheckWorker
@@ -175,6 +216,121 @@ class DependencyMixin(MainWindowShared):
         start_worker_thread(
             self._dep_check_worker, self._dep_check_thread, self._dep_check_worker.run
         )
+        self._on_dependency_check_started(user_requested=show_summary)
+
+    def _on_dependency_check_started(self, *, user_requested: bool) -> None:
+        """Say a check is running, and arm the backstop that says if it overruns.
+
+        A check the user asked for is announced on the status bar and greys the
+        Setup & Updates button; before 2026-09-28 nothing on screen changed until
+        the result arrived, which on a cold container is a minute of a button
+        that appears to do nothing. A check nobody asked for (the launch check)
+        only updates an open Setup & Updates window's line, so it never nags.
+        """
+        deadline_s = dep_manager.CHECK_DEADLINE_S
+        message = dep_status.running_message(deadline_s)
+        if user_requested:
+            self._show_dependency_status(message)
+        self._show_dependency_check_in_setup_center()
+        # The backstop. `self` as the timer's context object means Qt drops the
+        # call if the window is destroyed first, so it never reaches a dead
+        # widget; the worker identity check means a check that landed (or was
+        # replaced) in the meantime is never reported as overdue.
+        from PySide6.QtCore import QTimer
+
+        worker = self._dep_check_worker
+        waited = deadline_s + _OVERDUE_GRACE_S
+        QTimer.singleShot(
+            int(waited * 1000),
+            self,
+            lambda: self._warn_if_check_overdue(worker, waited),
+        )
+
+    def _warn_if_check_overdue(self, worker: object, waited: float) -> None:
+        """Tell the user a check is still running long past its deadline."""
+        if worker is None or self._dep_check_worker is not worker:
+            return  # that check landed, or another replaced it: nothing overdue
+        thread = self._dep_check_thread
+        if thread is None or not thread.isRunning():
+            return  # stopped without reporting (closing the window cancels it)
+        log.error(
+            "dependency check still running %.0f s after it started, past its own "
+            "deadline — a probe is not honouring it",
+            waited,
+        )
+        self._show_dependency_status(dep_status.overdue_message(waited))
+
+    def _on_check_requested_while_running(self) -> None:
+        """The user asked for a check while one runs: say so, and show its result.
+
+        **Never a second probe.** Two checks would race for one container and
+        for the one shared `VERSION_PROBE` slot, whose kill can only name one
+        child. So the running check is reused — and if it was started silently
+        (the launch check, About's Check again), it is UPGRADED so its summary
+        is shown when it lands, because the user has now asked for exactly that.
+        Before 2026-09-28 this returned without a word, so a second click on a
+        button that already looked dead confirmed that it was.
+        """
+        upgraded = not self._dep_check_show_summary
+        self._dep_check_show_summary = True
+        log.info(
+            "dependency check requested while one is running — not starting a "
+            "second; %s",
+            "the running check will now show its summary"
+            if upgraded
+            else "its summary was already due",
+        )
+        self._show_dependency_status(dep_status.already_running_message())
+        self._show_dependency_check_in_setup_center()
+
+    def _show_dependency_check_in_setup_center(self) -> None:
+        """Show the check in flight, if any, on an open Setup & Updates window.
+
+        Called when a check starts, when a click upgrades one, and when the
+        window is OPENED — so a window opened during the launch check says
+        "Checking…" rather than whatever the last finished check said. The
+        button is greyed only for a check whose summary is due, since clicking it
+        during a silent check is how the user asks to see that check's result.
+        """
+        center = self._setup_center
+        if center is None or self._dep_check_thread is None:
+            return
+        center.show_dependency_check_running(
+            dep_status.running_message(dep_manager.CHECK_DEADLINE_S),
+            busy=self._dep_check_show_summary,
+        )
+
+    def _show_dependency_status(self, text: str) -> None:
+        """Put a dependency-check sentence on the status bar, and say it.
+
+        Timestamped like the rip status line (``HH:MM:SS · …``), so a message
+        that stops changing shows a time that stops changing. It stays until the
+        next dependency sentence replaces it, because a message that vanished
+        before the user looked would be the silence it replaces — which is why
+        it is a label and not a temporary message (`_new_dependency_status_label`).
+        The label is PlainText, so a tool name cannot be read as markup. Logged
+        too, so a bug report carries what the user was shown.
+        """
+        log.info("dependency status: %s", text)
+        if not isinstance(self, QMainWindow):
+            return  # a test double; the log line above is the whole record
+        label = self._dep_status_label
+        if label is None:
+            label = _new_dependency_status_label(self.statusBar())
+            self._dep_status_label = label
+        stamped = f"{datetime.now():%H:%M:%S} · {text}"
+        label.setText(stamped)
+        # The label clips a long line at the window's edge. The sentence that
+        # names what was not checked is the long one, so the whole of it is kept
+        # reachable on hover rather than cut off where the window happens to end.
+        # On the label, not the bar, so it is hidden with the text it copies.
+        label.setToolTip(stamped)
+        announce(label, text)
+
+    def _dependency_sentence_on_screen(self) -> bool:
+        """True when the status bar holds a dependency sentence."""
+        label = self._dep_status_label
+        return label is not None and bool(label.text())
 
     def _recheck_dependencies_for(
         self, on_done: Callable[[], None]
@@ -237,10 +393,40 @@ class DependencyMixin(MainWindowShared):
                 listener()
             except Exception:  # noqa: BLE001 — one listener must not stop the rest
                 log.exception("a dependency-check listener raised")
+        self._on_dependency_check_landed(report, show_summary=show_summary)
         # `show_summary` is True for the user-clicked Tools/Settings check and
         # False for the silent launch check; resolver dialogs surface for
         # genuinely-missing deps regardless.
         self._apply_dependency_report(gui_manager, report, show_summary=show_summary)
+
+    def _on_dependency_check_landed(
+        self, report: DependencyReport | None, *, show_summary: bool
+    ) -> None:
+        """Replace "Checking…" with the outcome, BEFORE any dialog can open.
+
+        Before the report is applied, because applying it can hold it back for
+        another dialog (`_defer_if_floor_is_busy`) or open resolver dialogs —
+        and the running message must not outlive the check it describes. The
+        Setup & Updates line always shows the result; the status bar shows it
+        for a check the user asked for, and for a silent check only when that
+        check did not finish, since then the ripper's state is unknown — or when
+        a dependency sentence is already there. That sentence describes an
+        earlier moment (an overdue warning, a launch check that did not finish),
+        and it stays until replaced, so it must not outlive this check.
+        """
+        outcome = dep_status.outcome_message(report)
+        center = self._setup_center
+        if center is not None:
+            center.show_dependency_check_finished(
+                report, failure=outcome if report is None else ""
+            )
+        if show_summary or self._dependency_sentence_on_screen():
+            self._dep_check_outcome = outcome
+            self._show_dependency_status(outcome)
+        elif report is not None and dep_manager.unchecked_names(report):
+            self._show_dependency_status(
+                dep_status.incomplete_background_message(report)
+            )
 
     def _build_gui_dependency_manager(self) -> DependencyManager:
         """A DependencyManager over the injected manager's registry.
@@ -270,9 +456,7 @@ class DependencyMixin(MainWindowShared):
         """
         if report is None:
             if show_summary:
-                from PySide6.QtWidgets import QMessageBox
-
-                QMessageBox.warning(
+                message_boxes.warning(
                     self,
                     "Couldn't check dependencies",
                     "The dependency check stopped with an unexpected error, so "
@@ -287,13 +471,18 @@ class DependencyMixin(MainWindowShared):
         optional_missing = [
             item for item in report.missing if getattr(item.spec, "optional", False)
         ]
-        report.missing = [
+        required_missing = [
             item for item in report.missing if not getattr(item.spec, "optional", False)
         ]
-        # Snapshot *before* resolving: _resolve_missing_unified leaves
-        # report.missing in place and only appends results, so we'd lose the
-        # "was anything required actually wrong?" signal otherwise.
-        had_required_missing = bool(report.missing)
+        # Decided BEFORE `report.missing` is narrowed below, and the narrowing
+        # happens only once the report is actually being delivered. It used to be
+        # narrowed first, so a report held back for another dialog came back with
+        # its optional tools already gone — and the summary shown after the wait
+        # silently dropped its "Optional (not installed)" line.
+        had_required_missing = bool(required_missing)
+        # A check that stopped part-way (`report.unchecked`) must not be summarised
+        # as "everything required is installed": it did not look at everything.
+        complete = not dep_manager.unchecked_names(report)
         # **NOTHING BELOW MAY OPEN A DIALOG WHILE SOMETHING ELSE HAS THE FLOOR.**
         #
         # This method runs from `_on_dependency_check_done`, a QUEUED SLOT off the
@@ -327,6 +516,10 @@ class DependencyMixin(MainWindowShared):
             gui_manager, report, show_summary
         ):
             return
+        # Narrowed only now, once the report is really being delivered (see the
+        # note where `had_required_missing` is set): resolution and the summary
+        # work from the required tools, and the optional ones travel separately.
+        report.missing = required_missing
         if had_required_missing:
             self._resolve_missing_unified(report)
 
@@ -337,7 +530,11 @@ class DependencyMixin(MainWindowShared):
         # as a contradiction to a real user on 0.4.2 ("it told me 0 dependencies
         # then gave me this option"). Launch-time checks (show_summary=False)
         # stay silent so optional deps never nag.
-        if show_summary and optional_missing and not had_required_missing:
+        #
+        # NOT for an incomplete check: "Everything required is installed" is the
+        # one sentence a check that stopped part-way cannot say, so it gets the
+        # full summary, which names what was not checked.
+        if show_summary and optional_missing and not had_required_missing and complete:
             self._offer_optional_install(
                 gui_manager, optional_missing, required_all_ok=True
             )
@@ -347,8 +544,9 @@ class DependencyMixin(MainWindowShared):
             self._show_dep_summary(report, optional_missing=optional_missing)
         # When required deps also needed attention we still show the full summary
         # first (above), then offer the optional extras so the user has an in-app
-        # way to add Picard/flac.
-        if optional_missing and show_summary:
+        # way to add Picard/flac. Not after an incomplete check: the right next
+        # step there is to check again, and a second dialog would bury that.
+        if optional_missing and show_summary and complete:
             self._offer_optional_install(gui_manager, optional_missing)
 
     def _defer_if_floor_is_busy(
@@ -365,11 +563,23 @@ class DependencyMixin(MainWindowShared):
         is doing. When the budget runs out we give up **loudly**, in the log, with
         the reason: the check can be re-run from Settings, and a user whose
         required tools are missing will be told so by the thing that needs them.
+
+        **And on screen, for a check the user asked for.** Giving up used to be
+        log-only, so a click on Check dependencies could end with nothing shown
+        at all — the report the maintainer filed on 2026-09-28. Now the status
+        bar says the result is waiting (first hold), says where to find it when
+        the wait is abandoned (the report stays stored, and Setup & Updates shows
+        it), and puts the outcome back when it is finally delivered. A launch
+        check nobody asked for keeps the log-only behaviour: it must not nag.
         """
         from PySide6.QtCore import QTimer
 
         blocker = self._modal_floor_blocker()
         if not blocker:
+            if self._dep_resolve_deferrals and show_summary and self._dep_check_outcome:
+                # The wait is over and the result is about to be shown: the
+                # "will be shown when the dialog closes" line is no longer true.
+                self._show_dependency_status(self._dep_check_outcome)
             self._dep_resolve_deferrals = 0
             return False
         self._dep_resolve_deferrals += 1
@@ -381,12 +591,16 @@ class DependencyMixin(MainWindowShared):
                 blocker,
             )
             self._dep_resolve_deferrals = 0
+            if show_summary:
+                self._show_dependency_status(dep_status.gave_up_message())
             return True
         log.info(
             "holding the dependency report (attempt %d) — %s",
             self._dep_resolve_deferrals,
             blocker,
         )
+        if self._dep_resolve_deferrals == 1 and show_summary:
+            self._show_dependency_status(dep_status.waiting_for_dialog_message())
         QTimer.singleShot(
             _DEP_RESOLVE_RETRY_MS,
             lambda: self._apply_dependency_report(
@@ -440,7 +654,7 @@ class DependencyMixin(MainWindowShared):
                 f"For reference, {plural} installed — none of it is required to "
                 f"rip:\n\n{bullets}\n\nInstall it now?"
             )
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Optional components",
             lead,
@@ -451,7 +665,7 @@ class DependencyMixin(MainWindowShared):
             return
         opt_report = DependencyReport(missing=list(optional_missing))
         self._resolve_missing_unified(opt_report)
-        QMessageBox.information(
+        message_boxes.information(
             self,
             "Optional components",
             "Done. Re-run Tools → Setup & Updates… → Check dependencies to "
@@ -649,6 +863,12 @@ class DependencyMixin(MainWindowShared):
             "Install failures:"           ← only when failures exist
             "  - <dep>: <error message>"  ← one per failure
 
+        **An incomplete check leads with that fact** — "Check incomplete: N tools
+        were not checked" — and ends with which ones, why, and how to check again,
+        under a warning icon and its own title. The counts below the headline are
+        still true of what WAS checked; what they may not do is read as the whole
+        picture, which is what a stopped check's partial report used to do.
+
         **Why the build notes are here at all.** This dialog is the surface a
         user actually reads at launch, and it used to print a bare version —
         which for cyanrip is the one fact that cannot distinguish the
@@ -678,9 +898,15 @@ class DependencyMixin(MainWindowShared):
             if not r.success and not getattr(r, "user_declined", False)
         ]
 
+        not_checked = dep_manager.unchecked_names(report)
         message = (
             f"{ok_count} ok, {missing_count + len(attention)} missing/needs-attention."
         )
+        if not_checked:
+            message = (
+                f"Check incomplete: {len(not_checked)} tool(s) were not checked, so "
+                f"this is not the full picture.\n{message}"
+            )
         # Stamp the detected version next to each OK dep so the user knows
         # exactly what's installed (reproducibility), not just that it's there —
         # plus the build, where the version alone doesn't identify the binary.
@@ -712,12 +938,25 @@ class DependencyMixin(MainWindowShared):
                 # they conclude no log exists.
                 f"Full output is in {LOG_PATH}."
             )
+        if not_checked:
+            reason = str(getattr(report, "unchecked_reason", "") or "") or (
+                "the check stopped before it reached them"
+            )
+            message += (
+                f"\n\nNot checked: {', '.join(not_checked)}.\n"
+                f"Why: {reason}.\n"
+                "These are neither confirmed present nor confirmed missing. Check "
+                f"again in a minute: {dep_status.RERUN_PATH}."
+            )
 
         # The icon is part of the message. A wrong-build cyanrip reported with
         # an "information" ⓘ reads as "all fine, here are the details" — which
         # is how a stock install went unnoticed. Warn when something needs
-        # attention; inform when nothing does.
-        if attention:
-            QMessageBox.warning(self, "Dependency check complete", message)
+        # attention; inform when nothing does. An incomplete check is not
+        # "complete", so it does not say so in its title either.
+        if not_checked:
+            message_boxes.warning(self, "Dependency check incomplete", message)
+        elif attention:
+            message_boxes.warning(self, "Dependency check complete", message)
         else:
-            QMessageBox.information(self, "Dependency check complete", message)
+            message_boxes.information(self, "Dependency check complete", message)

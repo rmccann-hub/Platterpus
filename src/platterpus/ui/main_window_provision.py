@@ -16,7 +16,7 @@ Contract this mixin expects from the host window (set in
 ``MainWindow.__init__``): ``self._config``, ``self._save_config``,
 ``self._backend``; ``self`` is a ``QWidget`` (dialog parent); and the
 cross-mixin methods ``self._maybe_offer_drive_setup`` (DriveMixin),
-``self.refresh_drives`` / ``self.run_dependency_check`` (assembler /
+``self.refresh_drives`` / ``self.run_dependency_check_async`` (assembler /
 DependencyMixin) — all resolved via inheritance at call time.
 
 Future contributors: a new install channel (e.g. a different packaging
@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
+from platterpus.ui import message_boxes
 from platterpus.ui.main_window_shared import MainWindowShared
 
 if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy
@@ -228,7 +229,7 @@ class ProvisioningMixin(MainWindowShared):
         resets = config_module.take_load_resets()
         if not resets:
             return
-        QMessageBox.warning(
+        message_boxes.warning(
             self,
             "Some settings were reset",
             settings_validation.describe_resets(resets),
@@ -245,7 +246,7 @@ class ProvisioningMixin(MainWindowShared):
 
         appimage = ai.appimage_path()
         if appimage is None:
-            QMessageBox.information(
+            message_boxes.information(
                 self,
                 "Add app shortcut",
                 "This adds a menu/desktop shortcut for the AppImage. You're not "
@@ -266,7 +267,7 @@ class ProvisioningMixin(MainWindowShared):
                 if new_path != appimage
                 else ""
             )
-            QMessageBox.information(
+            message_boxes.information(
                 self,
                 "Shortcut added",
                 f"Added Platterpus to your applications menu and your Desktop. "
@@ -276,7 +277,7 @@ class ProvisioningMixin(MainWindowShared):
             )
         except Exception:  # noqa: BLE001 — convenience action
             log.exception("manual AppImage integration failed")
-            QMessageBox.warning(
+            message_boxes.warning(
                 self,
                 "Couldn't add shortcut",
                 "Adding the shortcut didn't work, but the app still runs from "
@@ -317,7 +318,7 @@ class ProvisioningMixin(MainWindowShared):
             and self._config.integration_declined_version == __version__
         ):
             return  # said No to this file at this version — don't nag until the next
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Add to your applications menu?",
             "Add Platterpus to your applications menu, and move this file "
@@ -350,10 +351,10 @@ class ProvisioningMixin(MainWindowShared):
                 )
             else:
                 detail = "Platterpus is now in your applications menu."
-            QMessageBox.information(self, "Added to menu", detail)
+            message_boxes.information(self, "Added to menu", detail)
         except Exception:  # noqa: BLE001 — integration is a convenience
             log.exception("AppImage integration failed")
-            QMessageBox.warning(
+            message_boxes.warning(
                 self,
                 "Couldn't add to menu",
                 "Adding the menu entry didn't work, but the app still runs "
@@ -379,7 +380,7 @@ class ProvisioningMixin(MainWindowShared):
             return
         self._config.host_setup_prompted = True
         self._save_config(self._config)
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Set up Platterpus",
             "Platterpus needs a one-time setup to install its ripping tool "
@@ -511,11 +512,13 @@ class ProvisioningMixin(MainWindowShared):
             save_setting=self._save_user_setting,
         )
         self._setup_center = dialog
+        # A check already in flight is shown as running, not as the last result.
+        self._show_dependency_check_in_setup_center()
         dialog.show()
         return dialog
 
     def open_script_console(self, *, autorun: bool = False) -> ScriptConsoleDialog:
-        """Open Tools → Run test script…, the unattended-batch console.
+        """Open Tools → Advanced → Run test script…, the unattended-batch console.
 
         **Modeless and kept alive by a reference on the window.** A script drives
         *this* window and opens other dialogs, so an ``exec()`` here would sit in
@@ -568,13 +571,13 @@ class ProvisioningMixin(MainWindowShared):
         return console
 
     # ----------------------------------------------------------------------
-    # The overnight acceptance session — Tools → Run acceptance test…
+    # The overnight acceptance session — Tools → Advanced → Run acceptance test…
     # ----------------------------------------------------------------------
     #
     # **What this replaces, and why it is in the app.** Running an acceptance
-    # session used to mean downloading `docs/rig-scripts/platterpusovernight.sh`,
-    # typing a command, and then remembering to run `platterpusmorning.sh` in the
-    # morning to collect and tar the result. The maintainer's ruling was that this
+    # session used to mean downloading the former `platterpusovernight.sh`, typing
+    # a command, and remembering to run the former `platterpusmorning.sh` in the
+    # morning to collect the result (both retired). The maintainer's ruling: this
     # is work handed back: *"make the app make the rig folder and anything else,
     # this was supposed to be a no cli program, not give me commands to use"* and
     # *"i should just be able to run this with an specific script file i can use
@@ -876,8 +879,8 @@ class ProvisioningMixin(MainWindowShared):
         console.contain_next_run_in(layout.run_dir)
         console.size_next_run(self._acceptance_run_size)
         # **The start is CHECKED, not assumed.** `run_now()` declines when a run
-        # is already in flight — the operator triggered Tools → Run acceptance
-        # test twice, or left a console running from earlier — and until it
+        # is already in flight — the operator started the acceptance test from
+        # the menu twice, or left a console running from earlier — and until it
         # returned a value this method logged *"starting the batch"* and then
         # armed a session around a batch that never began: the sleep lock held,
         # the layout armed, and the window waiting on a `run_finished` that
@@ -923,8 +926,8 @@ class ProvisioningMixin(MainWindowShared):
             # cannot place. Say so rather than inventing one.
             reason = "the test-script console declined to start it, for a reason this window could not read."
             what_to_do = (
-                "Open Tools → Run test script… to see what the console says, then "
-                "start the acceptance test again."
+                "Open Tools → Advanced → Run test script… to see what the console "
+                "says, then start the acceptance test again."
             )
         log.error("acceptance session: the batch did not start — %s", reason)
         self._show_acceptance_notice(f"⚠ The acceptance test did not start — {reason}")
@@ -1498,7 +1501,7 @@ class ProvisioningMixin(MainWindowShared):
         return changed
 
     def _on_run_acceptance_action(self) -> None:
-        """Tools → Run acceptance test…: ask the size, then run the session."""
+        """Tools → Advanced → Run acceptance test…: ask the size, then run it."""
         self.run_acceptance_session()
 
     def _ask_acceptance_run_size(self) -> str | None:
@@ -1589,7 +1592,7 @@ class ProvisioningMixin(MainWindowShared):
         """
         if not complete:
             return
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Uninstall complete",
             "Platterpus has been removed from this computer.\n\n"

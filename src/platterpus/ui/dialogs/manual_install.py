@@ -21,8 +21,10 @@ to resolve manually and re-runs the dependency check.
 
 from __future__ import annotations
 
+import html
 from collections.abc import Callable
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialogButtonBox,
@@ -67,14 +69,33 @@ class ManualInstallDialog(CenteredDialog):
         # copyable search-string row, then the button box.
         root = QVBoxLayout(self)
 
-        intro = QLabel(self._intro_text())
+        # Every label built from a value STATES its text format. Qt's default,
+        # AutoText, guesses: it treats the text as HTML when its first line
+        # happens to contain a known tag, and then drops what it cannot render —
+        # so the same label renders two ways depending on the value inside it
+        # (CLAUDE.md Critical rule #12; tests/test_labels_state_their_text_format.py).
+        #
+        # RichText here, on purpose: the sentence and the <b>…</b> around the
+        # button's name are ours. The dependency's display name is escaped. It is
+        # ours today (deps/registry.py), but a DependencySpec is data, and this
+        # label's markup must not depend on what a spec happens to contain.
+        intro = QLabel(self._intro_markup(escaped_name=html.escape(spec.display_name)))
+        intro.setTextFormat(Qt.TextFormat.RichText)
         intro.setWordWrap(True)
         root.addWidget(intro)
 
+        # PlainText: versions and a description, none of it markup — and the
+        # "Currently" version is read off the installed tool.
+        required = QLabel(self._required_text())
+        required.setTextFormat(Qt.TextFormat.PlainText)
+        current = QLabel(self._current_text())
+        current.setTextFormat(Qt.TextFormat.PlainText)
+        why = QLabel(self._why_text())
+        why.setTextFormat(Qt.TextFormat.PlainText)
         form = QFormLayout()
-        form.addRow("Required:", QLabel(self._required_text()))
-        form.addRow("Currently:", QLabel(self._current_text()))
-        form.addRow("Why manual:", QLabel(self._why_text()))
+        form.addRow("Required:", required)
+        form.addRow("Currently:", current)
+        form.addRow("Why manual:", why)
         root.addLayout(form)
 
         # The copyable field. ReadOnly so the user can select but not
@@ -92,6 +113,7 @@ class ManualInstallDialog(CenteredDialog):
         # The label is the field's BUDDY so a screen reader announces the field
         # by it; without that the field was a nameless text box.
         field_caption = QLabel(field_label)
+        field_caption.setTextFormat(Qt.TextFormat.PlainText)
         field_caption.setBuddy(self._search_field)
         root.addWidget(field_caption)
         root.addWidget(self._search_field)
@@ -154,16 +176,21 @@ class ManualInstallDialog(CenteredDialog):
 
     # --- Display string builders -------------------------------------------
 
-    def _intro_text(self) -> str:
+    def _intro_markup(self, *, escaped_name: str) -> str:
+        """The intro sentence, as MARKUP — the label shows it as RichText.
+
+        `escaped_name` must already be HTML-escaped (the caller does it with
+        `html.escape`), because it is interpolated into markup as it stands.
+        """
         if self._on_setup_wizard is not None:
             return (
-                f"{self._spec.display_name} isn't set up yet. You don't need a "
+                f"{escaped_name} isn't set up yet. You don't need a "
                 "terminal — click <b>Set it up automatically…</b> to run the "
                 "one-time setup, which installs it for you. (If it's already "
                 "running, it may just need a minute to finish.)"
             )
         return (
-            f"{self._spec.display_name} needs to be installed manually. "
+            f"{escaped_name} needs to be installed manually. "
             "Copy the search string below and use your distro's package "
             "tooling to resolve it, then re-run the dependency check "
             "from Settings."

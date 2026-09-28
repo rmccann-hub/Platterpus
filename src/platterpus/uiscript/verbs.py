@@ -709,7 +709,7 @@ VERBS: dict[str, Verb] = {v.name: v for v in _VERB_LIST}
 #: which is the worst possible moment to discover a typo.
 OPENABLE: dict[str, str] = {
     "settings": "_on_open_settings",
-    "dependencies": "run_dependency_check",
+    "dependencies": "_on_check_dependencies",
     "about": "_on_show_about",
     "diagnostics": "_on_show_diagnostics",
     "guide": "_on_show_help",

@@ -23,6 +23,10 @@ import importlib.metadata
 import logging
 import shutil
 import subprocess
+import threading
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -63,6 +67,73 @@ def cancel_version_probes() -> None:
 # fast. Native-binary probes (metaflac, flac on the host) return in ms regardless,
 # so the larger ceiling only ever bites a container cold-start or a wedged binary.
 _PROBE_TIMEOUT_S: float = 60.0
+
+
+# --- A probe may not outlive the check it belongs to ------------------------
+#
+# `_PROBE_TIMEOUT_S` bounds ONE probe. The dependency check runs seven specs in a
+# row, and cyanrip's probe tries two version flags, so a wedged container used to
+# mean ~7 minutes before any answer — the "Check dependencies does nothing" report
+# (2026-09-28). `DependencyManager.check_all` therefore sets an overall deadline
+# for the pass, and every probe it runs reads it here, because the probe is where
+# the waiting actually happens:
+#
+# * a probe's timeout is capped to what the check has left, so the in-flight child
+#   is SIGKILLed (group-wide, by `KillableCommand`'s own timeout path) at the
+#   deadline rather than up to 60 s after it;
+# * once the deadline has passed, no further probe is started — which is what
+#   stops cyanrip's second version flag spawning a fresh 60 s wait after the first
+#   one was killed.
+#
+# **Why a capped timeout and not a timer calling `cancel_version_probes()`.**
+# `VERSION_PROBE` is ONE slot shared by every caller in the process. A timer that
+# cancelled it at the deadline would kill whichever child held the slot at that
+# moment — which can be the cyanrip-update check's probe on another thread, not
+# ours. The capped timeout can only ever end the child this thread started.
+#
+# **Thread-local on purpose.** The probes are zero-argument callables (see
+# `registry.DependencySpec.probe`), so the deadline cannot be passed to them. The
+# check runs every probe on the thread that called `check_all` (the GUI's worker,
+# or the main thread under `--doctor`, which passes `CHECK_DEADLINE_S` too), so a
+# per-thread value reaches exactly that check's probes. A probe run outside it on
+# another thread (the ripper-update check) keeps the plain `_PROBE_TIMEOUT_S`.
+
+
+class _ProbeBudget(threading.local):
+    """The current thread's check deadline, as a ``time.monotonic()`` instant."""
+
+    deadline_at: float | None = None
+
+
+_BUDGET: _ProbeBudget = _ProbeBudget()
+
+
+@contextmanager
+def probe_deadline(deadline_at: float | None) -> Iterator[None]:
+    """Cap every probe this thread runs, until the block exits, at ``deadline_at``.
+
+    ``None`` means "no overall deadline" (the plain per-probe timeout applies).
+    The previous value is restored on exit, so a nested use cannot leak a
+    deadline into code that runs after it.
+    """
+    previous = _BUDGET.deadline_at
+    _BUDGET.deadline_at = deadline_at
+    try:
+        yield
+    finally:
+        _BUDGET.deadline_at = previous
+
+
+def _probe_timeout() -> float | None:
+    """How long the next probe may run, or None when the check's time is up."""
+    deadline_at = _BUDGET.deadline_at
+    if deadline_at is None:
+        return _PROBE_TIMEOUT_S
+    remaining = deadline_at - time.monotonic()
+    if remaining <= 0:
+        return None
+    return min(_PROBE_TIMEOUT_S, remaining)
+
 
 # Which exit codes mean "the tool answered us".
 #
@@ -157,13 +228,27 @@ def _run_version_command(
     still logged — just at the point where it is actually known.
     """
     resolved = shutil.which(argv[0]) or argv[0]
+    # The overall check's deadline, if one is running on this thread (see
+    # `probe_deadline`). Past it, nothing is spawned: "not asked" is reported as
+    # a non-answer, and the check that owns the deadline records the tool as NOT
+    # CHECKED rather than missing, because an absence we caused is not a fact.
+    timeout = _probe_timeout()
+    if timeout is None:
+        log.warning(
+            "probe: %s not started — the dependency check's overall deadline has "
+            "passed",
+            " ".join(argv),
+        )
+        return False, "", resolved
     try:
-        proc = VERSION_PROBE.run(argv, timeout=_PROBE_TIMEOUT_S, stdin_devnull=True)
+        proc = VERSION_PROBE.run(argv, timeout=timeout, stdin_devnull=True)
     except FileNotFoundError:
         log.debug("probe: %s not found on PATH", argv[0])
         return False, "", None
     except subprocess.TimeoutExpired:
-        log.warning("probe: %s timed out after %.1fs", argv[0], _PROBE_TIMEOUT_S)
+        # The number logged is the timeout this probe actually had, which is the
+        # check's remaining budget when that was shorter than `_PROBE_TIMEOUT_S`.
+        log.warning("probe: %s timed out after %.1fs", argv[0], timeout)
         return False, "", resolved
 
     combined = (proc.stdout or "") + (proc.stderr or "")

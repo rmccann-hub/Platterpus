@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Final
+
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from platterpus import naming
+from platterpus.adapters.cyanrip_backend import SANITISE_MODE
 
 
 def test_default_preset_is_clean_artist_album_track_title() -> None:
@@ -269,3 +275,218 @@ def test_the_preview_and_the_rip_AGREE_on_disc_codes_and_braces(
         return  # a trailing bare % is kept by both, handled elsewhere
     scheme = scheme_from_template(template, disc=str(disc), discs=str(total))
     assert preview == scheme + ".flac"
+
+
+# --- The value table against the contract it says it was read from -----------
+#
+# `naming._VALUE_SANITISE` documents itself as READ OUT OF the fork's generated
+# provider contract, section P7b — "derived, not observed". Nothing compared the
+# two (TASKS `fuzz:naming._VALUE_SANITISE`), so that sentence described how the
+# table was once written rather than checking that it still agrees. These tests
+# parse P7b out of the newest filed contract and hold ours to it.
+#
+# Parsed, never hand-copied: P7 itself says "a hand-copied second copy of the
+# table inside a generated document is the failure this generator exists to
+# prevent", and a hand-copied copy inside a TEST would be the same failure one
+# level down — a list checked against itself is consistent, not verified.
+
+
+@dataclass(frozen=True)
+class P7bRow:
+    """One row of P7b, as the contract states it (markdown escapes removed)."""
+
+    index: int
+    #: The character cyanrip replaces, e.g. ``"<"``.
+    character: str
+    #: What the ``simple`` mode writes for it (an ASCII stand-in).
+    simple: str
+    #: What the ``unicode`` mode writes for it (a look-alike glyph).
+    unicode: str
+
+
+_P7B_HEADING: Final[str] = "### P7b - The substitution table"
+
+#: The column header the row regex below is written against. Checked verbatim
+#: first, so a contract that adds, drops or reorders a column fails LOUDLY
+#: instead of having its cells silently read under the wrong names.
+_P7B_HEADER: Final[str] = (
+    "| # | character | codepoint | `simple` writes | `unicode` writes "
+    "| codepoint | availability macro |"
+)
+
+#: One fenced single-character cell. A markdown table spells a literal ``|``
+#: inside a cell as ``\|``, so that is the one two-character form allowed.
+_P7B_GLYPH: Final[str] = r"`(?:\\\||[^`|])`"
+
+_P7B_ROW: Final[re.Pattern[str]] = re.compile(
+    r"^\|\s*(?P<index>\d{1,3})\s*"
+    rf"\|\s*(?P<char>{_P7B_GLYPH})\s*"
+    r"\|\s*`U\+(?P<cp>[0-9A-F]{4,6})`\s*"
+    rf"\|\s*(?P<simple>{_P7B_GLYPH})\s*"
+    rf"\|\s*(?P<unicode>{_P7B_GLYPH})\s*"
+    r"\|\s*`U\+(?P<ucp>[0-9A-F]{4,6})`\s*"
+    r"\|\s*`HAS_[A-Z_]{1,40}`\s*\|\s*$"
+)
+
+#: Floor on the parse. Every contract since P7 first shipped (round 13 lap 1)
+#: has published ten rows — nine characters, `"` twice — measured across all
+#: fifteen filed contracts that carry a P7b, up to round 28 lap 3. Fewer means
+#: the parser stopped matching, not that cyanrip substitutes less.
+_MIN_P7B_ROWS: Final[int] = 10
+
+#: Floor on the COMPARISON: how many characters must actually be checked
+#: against our table. Measured 8 (every P7b character but `"`). Without it an
+#: empty parse and an empty table would agree with each other perfectly.
+_MIN_COMPARED: Final[int] = 8
+
+
+def _unfence(cell: str) -> str:
+    """``"`\\|`"`` -> ``"|"``, ``"`<`"`` -> ``"<"``."""
+    return cell[1:-1].replace("\\|", "|")
+
+
+def _newest_provider_contract() -> Path:
+    """The newest filed inbound provider contract, by (round, lap).
+
+    Read through the ONE ordering the suite already has (and tests) rather than
+    a new copy of it: a second round parser here would be the fifth, and the
+    earlier four broke on the 2026-08-04 file renaming.
+    """
+    import test_ripper_error_surfacing as surfacing  # noqa: PLC0415
+
+    contracts = surfacing._newest_provider_contracts()
+    assert contracts, (
+        "no inbound provider-contract artifact is committed, so there is nothing "
+        "to derive the substitution table from — this check would otherwise pass "
+        "by finding nothing"
+    )
+    return contracts[0][1]
+
+
+def p7b_rows(text: str) -> list[P7bRow]:
+    """Every row of P7b in one contract's text, in source order.
+
+    Refuses rather than guesses: a missing section, a changed header, or a table
+    line the row pattern cannot read all FAIL, because each would otherwise shrink
+    the population silently and read as agreement. Public (no underscore) because
+    `test_main_window_helpers_match_rule.py` fuzzes the overwrite guard over the
+    same table, and one parser is the point.
+    """
+    assert _P7B_HEADING in text, (
+        "the contract has no P7b section — our value table has nothing to be "
+        "derived from any more, and that is a seam change to read, not skip"
+    )
+    section = text[text.index(_P7B_HEADING) + len(_P7B_HEADING) :]
+    # P7b ends where the next heading of any level begins (P7c follows it).
+    end = re.search(r"^#{2,3} ", section, re.MULTILINE)
+    if end is not None:
+        section = section[: end.start()]
+    lines = section.splitlines()
+    assert _P7B_HEADER in lines, (
+        "P7b's column header changed; re-read which column is which before "
+        f"trusting this parse. Expected:\n  {_P7B_HEADER}"
+    )
+    rows: list[P7bRow] = []
+    for line in lines[lines.index(_P7B_HEADER) + 1 :]:
+        if not line.startswith("|"):
+            break  # the table ended; the prose after it is not ours to read
+        if re.fullmatch(r"\|(?:\s*-{3,}\s*\|)+", line):
+            continue  # the |---|---| separator
+        match = _P7B_ROW.match(line)
+        assert match is not None, f"a P7b row this parser cannot read: {line!r}"
+        row = P7bRow(
+            index=int(match.group("index")),
+            character=_unfence(match.group("char")),
+            simple=_unfence(match.group("simple")),
+            unicode=_unfence(match.group("unicode")),
+        )
+        # TWO READINGS OF ONE ROW, which is what makes the unescaping above
+        # checkable: the codepoint columns state the same characters in a form
+        # markdown cannot mangle. A `\|` mis-read fails here, not later.
+        assert ord(row.character) == int(match.group("cp"), 16), line
+        assert ord(row.unicode) == int(match.group("ucp"), 16), line
+        rows.append(row)
+    return rows
+
+
+def newest_p7b() -> tuple[Path, list[P7bRow]]:
+    """``(contract, rows)`` for the newest filed contract, floored."""
+    path = _newest_provider_contract()
+    rows = p7b_rows(path.read_text(encoding="utf-8"))
+    assert len(rows) >= _MIN_P7B_ROWS, (
+        f"{path.name} yielded only {len(rows)} P7b rows (floor {_MIN_P7B_ROWS}); "
+        "a table that small means the parser missed it, not that cyanrip changed"
+    )
+    return path, rows
+
+
+def test_the_value_table_IS_the_contracts_P7b_for_the_pinned_mode() -> None:
+    """`naming._VALUE_SANITISE` must equal P7b's column for `SANITISE_MODE`.
+
+    Derived from the artifact: every character P7b maps to exactly ONE glyph
+    under our pinned mode must be in our table with that glyph, and nothing else
+    may be. A character P7b maps to MORE than one glyph must be absent — that is
+    `"`, whose two rows alternate on a parity flag (P7d) no lookup table can
+    express, and `naming.py` documents its absence as deliberate. Equality in
+    both directions, so a table that silently grew an entry fails as surely as
+    one that lost one.
+
+    P7b has columns for the two modes that are not OS-limited, `simple` and
+    `unicode`. An `os_` mode writes whatever the build's OS dictates (P7c), so a
+    pin on one fails here with that sentence rather than being compared against
+    the wrong column.
+    """
+    path, rows = newest_p7b()
+    assert SANITISE_MODE in {"simple", "unicode"}, (
+        f"cyanrip_backend.SANITISE_MODE is {SANITISE_MODE!r}, which P7b has no "
+        "column for: an os_ mode's output depends on the build's OS (P7c), so "
+        "`naming._VALUE_SANITISE` cannot be checked against P7b alone any more"
+    )
+    glyphs: dict[str, set[str]] = {}
+    for row in rows:
+        glyphs.setdefault(row.character, set()).add(getattr(row, SANITISE_MODE))
+    expected = {char: next(iter(g)) for char, g in glyphs.items() if len(g) == 1}
+    alternating = sorted(char for char, g in glyphs.items() if len(g) > 1)
+
+    assert len(expected) >= _MIN_COMPARED, (
+        f"only {len(expected)} single-glyph characters to compare (floor "
+        f"{_MIN_COMPARED}) — a comparison that small proves little"
+    )
+    missing = {c: g for c, g in expected.items() if c not in naming._VALUE_SANITISE}
+    wrong = {
+        c: (naming._VALUE_SANITISE[c], g)
+        for c, g in expected.items()
+        if c in naming._VALUE_SANITISE and naming._VALUE_SANITISE[c] != g
+    }
+    extra = sorted(set(naming._VALUE_SANITISE) - set(expected))
+    assert not (missing or wrong or extra), (
+        f"`naming._VALUE_SANITISE` disagrees with P7b's `{SANITISE_MODE}` column "
+        f"in {path.name}.\n  missing (P7b maps, we do not): {missing}\n"
+        f"  wrong glyph (ours, P7b's): {wrong}\n"
+        f"  not in P7b as a single-glyph character: {extra}\n"
+        f"  (characters P7b maps to more than one glyph: {alternating})\n"
+        "The preview and the overwrite guard's first probe both render this "
+        "table; a stale entry is how a completed rip was overwritten in 2026-08."
+    )
+
+
+def test_the_overwrite_guard_tolerates_every_character_P7b_substitutes() -> None:
+    """`naming.SUBSTITUTION_SOURCES` must cover every character in P7b.
+
+    The guard's match rule allows a predicted name and an on-disk one to differ
+    only where OUR character is in this set. So a character cyanrip substitutes
+    but the set omits is a position where the guard refuses a real match — the
+    too-narrow direction, which is the one that destroyed a rip. Our own glyphs
+    must be in it too, because our prediction writes them and cyanrip may not.
+    """
+    path, rows = newest_p7b()
+    characters = {row.character for row in rows}
+    assert len(characters) >= _MIN_COMPARED, characters
+    uncovered = sorted(characters - naming.SUBSTITUTION_SOURCES)
+    assert not uncovered, (
+        f"P7b ({path.name}) substitutes {uncovered}, which "
+        "`naming.SUBSTITUTION_SOURCES` does not list, so the overwrite guard would "
+        "refuse to recognise cyanrip's rendering of a title containing them"
+    )
+    ours = sorted(set(naming._VALUE_SANITISE.values()) - naming.SUBSTITUTION_SOURCES)
+    assert not ours, f"our own look-alike glyphs are not tolerated: {ours}"

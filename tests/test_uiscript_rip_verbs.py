@@ -40,6 +40,16 @@ from platterpus.uiscript.script import parse
 pytest.importorskip("PySide6.QtWidgets")
 
 
+@pytest.fixture(autouse=True)
+def _an_application_exists(qapp: Any) -> None:
+    """Every test here builds `_window()`, a `QWidget`, which Qt refuses to create
+    without an application — it aborts the process. 69 of the 122 tests did not
+    ask for one and passed only because an earlier test in the same worker had
+    made it; under `pytest -n` a worker that drew one of them first died with
+    "Fatal Python error: Aborted" (measured 2026-09-28, two runs in three).
+    """
+
+
 class _Track:
     """A track row, as much of one as `tracks()` consumers need."""
 

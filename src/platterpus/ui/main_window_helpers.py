@@ -20,6 +20,8 @@ import logging
 from pathlib import Path
 
 from platterpus import diagnostics, naming
+from platterpus.adapters import cyanrip_backend
+from platterpus.adapters.rip_backend import RipMetadata
 from platterpus.parsers.rip_log import track_accuraterip_verified
 
 log = logging.getLogger(__name__)
@@ -88,10 +90,11 @@ def unique_album_title(
 
 
 # A substituted character is replaced one-for-one, so a real rendering and our
-# prediction have the same length and differ only at substitution points. These
-# are the shapes a REPLACEMENT may take: cyanrip's `unicode` modes use look-alike
-# glyphs (all non-ASCII), its `simple` modes use plain ASCII stand-ins. Kept
-# narrow on the ASCII side so a merely-similar album title cannot match.
+# prediction differ only at substitution points. `unicode` modes write look-alike
+# glyphs (all non-ASCII); `simple` modes write `_` (P7b), and `'` for `"`, which is
+# left out: we pin `unicode`, which never writes it, so it could only add a spurious
+# second candidate, and two withdraw Replace from the prompt. Narrow, so a near-title
+# never matches.
 _SUBSTITUTION_TARGETS_ASCII: frozenset[str] = frozenset({"_", "-", " "})
 
 
@@ -123,36 +126,37 @@ def _is_sanitised_rendering_of(predicted: str, actual: str) -> bool:
     return True
 
 
-def _sanitised_sibling(parent: Path, name: str) -> Path | None:
-    """The single entry in ``parent`` that is a sanitised rendering of ``name``.
+def _sanitised_siblings(parent: Path, name: str) -> tuple[Path, ...]:
+    """Every folder in ``parent`` that could be a sanitised rendering of ``name``.
 
-    ``None`` when there is no match, when there is more than one (refuse rather
-    than guess — the same call `uiscript.find_script` makes), or on any OS error.
+    Sorted by name, so the order is the same on every run. Empty when nothing
+    matches or on any OS error. Folders only: the caller names these in a prompt
+    as places the rip could land, and a file cannot be one.
+
+    **Two matches are an answer, not a refusal** (maintainer ruling, 2026-09-27).
+    This used to return nothing on a tie ("refuse rather than guess"), so the guard
+    probed a folder that did not exist, found no audio and asked nothing: the
+    2026-08-23 silent overwrite by a second route. For a `"` the tie is real, not
+    contrived: cyanrip writes `“` or `”` by a parity flag no table can predict
+    (P7d), so `a“b` and `a”b` are both this album's and either may be overwritten.
     """
     try:
-        matches = [
-            child
-            for child in parent.iterdir()
-            if _is_sanitised_rendering_of(name, child.name)
-        ]
-    except OSError:
-        return None
-    if len(matches) != 1:
-        if len(matches) > 1:
-            log.warning(
-                "%d folders under %s could each be this album's ('%s'): %s — not "
-                "guessing which, so the overwrite check will not fire",
-                len(matches),
-                parent,
-                name,
-                ", ".join(sorted(m.name for m in matches)),
+        return tuple(
+            sorted(
+                (
+                    child
+                    for child in parent.iterdir()
+                    if _is_sanitised_rendering_of(name, child.name) and child.is_dir()
+                ),
+                key=lambda child: child.name,
             )
-        return None
-    return matches[0]
+        )
+    except OSError:
+        return ()
 
 
-def resolve_sanitised_path(output_root: Path, relative: Path) -> Path:
-    """Map a *predicted* rip path onto the one that actually exists on disk.
+def resolve_sanitised_paths(output_root: Path, relative: Path) -> tuple[Path, ...]:
+    """Map a *predicted* rip path onto every folder on disk it could be.
 
     **Why this exists.** cyanrip renders the naming template itself and swaps
     path-problematic characters in tag values for stand-ins. We predict that
@@ -170,59 +174,84 @@ def resolve_sanitised_path(output_root: Path, relative: Path) -> Path:
     before the user's music is destroyed.
 
     So we stop needing the table to be right. Walk the predicted path segment by
-    segment; take the literal child when it exists, otherwise the one on-disk
-    sibling that could be a sanitised rendering of it, otherwise the literal
-    name (nothing is there — which is the correct answer for a first rip).
+    segment; take EVERY on-disk child that could be a sanitised rendering of it,
+    the literal name included when that exists, otherwise the literal name
+    (nothing is there — which is the correct answer for a first rip).
 
-    Pure filesystem reads, no Qt, never raises: any error degrades to the
-    literal prediction, i.e. exactly the old behaviour.
+    **An existing literal does not end the search** (review R3, 2026-09-28). It
+    used to: the literal child was taken whenever it existed and its look-alikes
+    were never read. For a title with a `"` the literal is a name cyanrip never
+    writes (it writes `“` or `”`, P7d), yet a folder can still carry it — an
+    unknown-disc rip keeps the `"` as typed. So an empty `a"b` hid a full `a“b`,
+    the guard asked nothing, and the rip wrote into `a“b`.
+
+    **Several siblings branch the walk; they do not end it.** Each is followed on
+    to the next segment, so a tie at the artist folder still finds the album
+    folder under each artist. The result is therefore never empty: one path in
+    the ordinary case, and more than one exactly when the disk holds several
+    folders the rip could land in — which the overwrite prompt must name, since
+    none of them can be told apart from here. It is bounded by what is on disk:
+    every extra path is an existing folder, or the literal under one.
+
+    Pure filesystem reads, no Qt: an unreadable folder degrades to the literal
+    prediction, i.e. exactly the old behaviour.
     """
-    current = output_root
+    branches: list[Path] = [output_root]
     for segment in relative.parts:
-        literal = current / segment
-        if literal.exists():
-            current = literal
-            continue
-        sibling = _sanitised_sibling(current, segment)
-        current = sibling if sibling is not None else literal
-    return current
+        extended: list[Path] = []
+        for current in branches:
+            # `_is_sanitised_rendering_of` accepts equal names, so an existing
+            # literal folder is one of the matches rather than a reason to stop.
+            extended.extend(
+                _sanitised_siblings(current, segment) or (current / segment,)
+            )
+        branches = extended
+    # Each branch has its own parent, so no path repeats; dict.fromkeys keeps the
+    # walk's order while making that a guarantee rather than an argument.
+    return tuple(dict.fromkeys(branches))
 
 
-def known_album_folder(
-    output_root: Path, disc_template: str, artist: str, title: str, year: str
-) -> Path:
-    """The folder a KNOWN (identified) disc's rip will write into.
+def known_album_folders(
+    output_root: Path, track_template: str, metadata: RipMetadata
+) -> tuple[Path, ...]:
+    """Every folder a KNOWN (identified) disc's rip could write into.
 
     Unlike an unknown disc — whose folder we build literally — a known disc's
-    folder is produced by cyanrip rendering the *disc template* from the fetched
-    tags. We reproduce that here (via :func:`naming.render_preview`, which mirrors
-    cyanrip's token substitution + path sanitisation) and take the rendered
-    file's parent directory, so the caller can check whether that folder already
-    holds a rip *before* starting.
+    folder is produced by cyanrip rendering the ``-D`` scheme from the tags we
+    hand it. That ``-D`` comes from the function the argv builder uses
+    (:func:`cyanrip_backend.album_folder_scheme`, rendered by
+    :func:`cyanrip_backend.predicted_album_folder`), fed the SAME metadata the rip
+    is fed, disc position included, so the caller can check whether that folder
+    already holds a rip *before* starting.
+
+    **One computation, two callers, since 2026-09-28.** This rendered the DISC
+    template with a sample track that was always disc 1 of 1. cyanrip never sees
+    the disc template (the backend builds ``-D`` from the TRACK template), so a
+    custom track template whose folder differed was never checked; and a ``%N``
+    folder on disc 2 of a set was predicted as disc 1's. Either way a finished
+    rip could be overwritten without a prompt.
 
     The rendered prediction is then resolved against what is actually on disk
-    (:func:`resolve_sanitised_path`), so a character cyanrip maps differently
+    (:func:`resolve_sanitised_paths`), so a character cyanrip maps differently
     from our table still finds the real folder. Before that it did not: the
     prediction missed by one glyph, the overwrite prompt never fired, and a
     14-track archival rip was overwritten without a word (2026-08-23). The
     docstring here used to argue that a miss was the safe direction; it is the
     destructive one.
 
-    Never raises. When nothing on disk matches, the literal prediction comes
-    back — which is the right answer for an album that has not been ripped yet.
+    **Plural since 2026-09-27**, because the disk can hold more than one folder
+    this album could be (`a“b` and `a”b` for a title `a"b`). It returned one path
+    then, and on such a tie it returned the literal prediction, a folder that did
+    not exist, so the prompt stood down. A caller must look at every path here.
+
+    When nothing on disk matches, the literal prediction comes back alone, which
+    is the right answer for an album that has not been ripped yet. Never empty: a
+    track template with no folder part rips into cyanrip's default folder, which is
+    predicted too (``cyanrip_backend.DEFAULT_FOLDER_FOR_OUR_RIP``). Some paths here
+    may not exist; the caller decides on the ones that do.
     """
-    sample = naming.SampleTrack(
-        album_artist=artist,
-        track_artist=artist,
-        album=title,
-        title="",  # the track title never affects the album folder
-        track=1,
-        track_total=1,
-        date=year or "",
-    )
-    # render_preview appends ".flac"; the album folder is that file's parent.
-    rendered = naming.render_preview(disc_template, sample)
-    return resolve_sanitised_path(output_root, Path(rendered).parent)
+    folder = cyanrip_backend.predicted_album_folder(track_template, metadata)
+    return resolve_sanitised_paths(output_root, Path(folder))
 
 
 def suffix_album_folder_template(template: str, n: int) -> str:
@@ -234,11 +263,14 @@ def suffix_album_folder_template(template: str, n: int) -> str:
     stay intact and the FLAC's album tag is unchanged — only the on-disk folder
     gets a ``(2)``. E.g. ``"%A/%d/%t - %n"`` → ``"%A/%d (2)/%t - %n"``.
 
-    A single-segment template (no folder to suffix) is returned unchanged.
+    A single-segment template has no folder of its own: its rip lands in
+    cyanrip's default ``<album> [FLAC]``, so the numbered folder is that one,
+    written out (``%d [FLAC] (2)/%t - %n``). It was returned unchanged, so "Rip to
+    a new folder" found no free folder and fell back to the occupied one.
     """
     parts = template.split("/")
     if len(parts) < 2:
-        return template
+        return f"%d [FLAC] ({n})/{template}"
     folder_idx = len(parts) - 2
     parts[folder_idx] = f"{parts[folder_idx]} ({n})"
     return "/".join(parts)
@@ -248,9 +280,7 @@ def free_album_folder_templates(
     output_root: Path,
     disc_template: str,
     track_template: str,
-    artist: str,
-    title: str,
-    year: str,
+    metadata: RipMetadata,
     *,
     max_tries: int = 999,
 ) -> tuple[str, str]:
@@ -261,17 +291,22 @@ def free_album_folder_templates(
     whose rendered folder has no audio and returns both templates suffixed the
     same way (so the track files and the disc log/cue land together). Falls back
     to the originals if none is free within ``max_tries`` (never raises).
+
+    The folder tested is the suffixed TRACK template's, because that is the one
+    cyanrip writes (see :func:`known_album_folders`); the disc template is
+    suffixed alongside so the pair stays a pair.
+
+    A suffix is free only when EVERY folder it could resolve to is free: with
+    `a“b (2)` empty and `a”b (2)` full, cyanrip may pick either, so (2) is taken.
     """
     try:
         for n in range(2, max_tries + 1):
-            candidate_disc = suffix_album_folder_template(disc_template, n)
-            folder = known_album_folder(
-                output_root, candidate_disc, artist, title, year
-            )
-            if not _dir_has_audio(folder):
+            candidate_track = suffix_album_folder_template(track_template, n)
+            folders = known_album_folders(output_root, candidate_track, metadata)
+            if not any(_dir_has_audio(folder) for folder in folders):
                 return (
-                    candidate_disc,
-                    suffix_album_folder_template(track_template, n),
+                    suffix_album_folder_template(disc_template, n),
+                    candidate_track,
                 )
     except OSError as exc:
         # NEVER SILENT. This was a bare `pass`, and the consequence is not cosmetic:
@@ -294,6 +329,36 @@ def free_album_folder_templates(
             where="ui.main_window_helpers.free_album_folder_templates",
         )
     return (disc_template, track_template)
+
+
+def ambiguous_overwrite_text(
+    candidates: tuple[Path, ...], occupied: frozenset[Path]
+) -> str:
+    """The overwrite prompt's wording when more than one folder could be the target.
+
+    Names EVERY candidate, each marked with whether it already holds a rip, so the
+    user sees there is more than one and which of them this rip could overwrite.
+    The names come from MusicBrainz tags, so the box showing this must be
+    PlainText (Critical rule #12); nothing here is markup.
+    """
+    lines = [
+        f"This album could be ripped into any of these {len(candidates)} folders. "
+        "Their names differ only where cyanrip swaps a character for a look-alike, "
+        "so Platterpus cannot tell which one it will write into:",
+        "",
+    ]
+    lines += [
+        f"• {folder} — {'⚠ already holds a rip' if folder in occupied else 'no rip'}"
+        for folder in candidates
+    ]
+    lines += [
+        "",
+        "Ripping into a folder that holds a rip overwrites its files."
+        if occupied
+        else "Neither holds a rip yet, but this rip would land in one of them "
+        "with no way to choose which.",
+    ]
+    return "\n".join(lines)
 
 
 def safe_path_segment(value: str) -> str:

@@ -11,7 +11,7 @@ Order:
   4. construct adapters  — CyanripImpl, MusicBrainzNgsImpl,
                            MetaflacAdapter, DependencyManager
   5. construct MainWindow
-  6. run_dependency_check(show_summary=False) — silent unless missing
+  6. run_dependency_check_async() — off the GUI thread, silent unless missing
   7. window.show() and refresh_drives()
   8. app.exec()
 """
@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import logging
+import math
 import os
 import signal
 import sys
@@ -39,7 +40,7 @@ if TYPE_CHECKING:
     # (and `from __future__ import annotations` means these names are never
     # evaluated at runtime).
     from PySide6.QtCore import QCoreApplication, QTimer
-    from PySide6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QMessageBox, QWidget
 
     from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
     from platterpus.ui.main_window import MainWindow
@@ -86,8 +87,113 @@ def _prefer_xwayland_on_wayland() -> None:
 #: off-thread path returns before reaching it), so there is nothing to lock.
 _fatal_dialog_open: bool = False
 
+#: How long the fatal-error dialog waits for a click before closing ITSELF — on a
+#: `--run-script` launch only (maintainer, 2026-09-27). Without it, ONE uncaught
+#: exception parks an unattended batch on this dialog until somebody walks past
+#: the rig: the *"an unattended run needs no attendant"* defect the quit timer
+#: closed (`_arm_unattended_quit`). 60 s lets an operator who IS watching read it
+#: and click, and is short against a batch that runs for hours. Without
+#: `--run-script` the dialog stays modal and waits: a crash report the person
+#: never got to read is the failure this dialog exists to prevent.
+UNATTENDED_FATAL_DIALOG_TIMEOUT_S: float = 60.0
 
-def _show_fatal_dialog(title: str, exc: BaseException) -> None:
+#: How often the dialog's countdown line is refreshed. Display only: the close is
+#: a separate single-shot timer, so this cannot make it close early or late.
+_FATAL_DIALOG_COUNTDOWN_TICK_MS: int = 1000
+
+
+def _unattended_dismiss_notice(seconds_left: int) -> str:
+    """The sentence the fatal dialog carries while it counts down: that it will
+    close BY ITSELF, WHY (the launch is unattended), and that nothing is lost
+    when it does (the error and its traceback are in the log)."""
+    return (
+        "This launch is running a test script unattended (--run-script), so "
+        "nobody may be at the screen to click OK. This dialog will close by "
+        f"itself in {seconds_left} s so the run is not left waiting for a click. "
+        "The error and its full traceback are in the log."
+    )
+
+
+def _arm_fatal_dialog_auto_dismiss(
+    box: QMessageBox,
+    title: str,
+    exc: BaseException,
+    informative: str,
+    timeout_s: float,
+) -> tuple[QTimer, QTimer]:
+    """Give the fatal dialog a deadline and a countdown; return both, unstarted.
+
+    **Timers, never a sleep.** They fire inside `box.exec()`'s nested event loop,
+    so the GUI thread keeps delivering events throughout — the script runner's
+    ticks included. A `time.sleep` would freeze the window.
+
+    * The **deadline** is single-shot and `PreciseTimer` (Qt's default coarse
+      timer may fire 5% early — three seconds at 60 s). It logs why the dialog is
+      closing plus the traceback, flushes the log, then closes the dialog.
+    * The **countdown** only refreshes the "close by itself in N s" line, reading
+      the time left off the deadline itself: one clock for the number shown and
+      the moment of closing.
+
+    Children of `box`; the caller starts them just before `exec()` and stops them
+    in its `finally`, so a dialog a person dismissed early leaves nothing ticking.
+    """
+    from PySide6.QtCore import Qt, QTimer
+    from PySide6.QtWidgets import QMessageBox as _QMessageBox
+
+    deadline = QTimer(box)
+    deadline.setSingleShot(True)
+    deadline.setTimerType(Qt.TimerType.PreciseTimer)
+    deadline.setInterval(max(1, int(timeout_s * 1000)))
+    countdown = QTimer(box)
+    countdown.setInterval(_FATAL_DIALOG_COUNTDOWN_TICK_MS)
+
+    def _show_seconds_left() -> None:
+        # A dialog whose C++ side is gone raises `RuntimeError`; stop ticking
+        # rather than raise into the excepthook once a second.
+        try:
+            left_ms = deadline.remainingTime()
+            if left_ms < 0:  # -1: the deadline is no longer running
+                return
+            box.setInformativeText(
+                f"{informative}\n\n"
+                f"{_unattended_dismiss_notice(math.ceil(left_ms / 1000))}"
+            )
+        except RuntimeError:
+            countdown.stop()
+
+    def _dismiss() -> None:
+        countdown.stop()
+        # `finally`: a dismiss that logging could talk out of dismissing is the
+        # hang again. Anything escaping this slot meets the excepthook while the
+        # guard is still set, so it is logged and dropped, never stacked.
+        try:
+            # ERROR, with the traceback: on an unattended run this line is the
+            # only record anyone will read of what the dialog said.
+            log.error(
+                "fatal-error dialog %r closed by itself after %gs without a "
+                "click: this launch runs --run-script (unattended), so nobody is "
+                "expected to be at the screen. Carrying on exactly as if OK had "
+                "been clicked. The error it was showing: %s: %s",
+                title,
+                timeout_s,
+                type(exc).__name__,
+                exc,
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
+            # BEFORE the close, so whatever follows — the batch ending, the quit
+            # timer, a kill — finds the reason already on disk.
+            hard_exit.flush_logs()
+        finally:
+            box.done(_QMessageBox.StandardButton.Ok.value)
+
+    deadline.timeout.connect(_dismiss)
+    countdown.timeout.connect(_show_seconds_left)
+    return deadline, countdown
+
+
+def _show_fatal_dialog(
+    title: str, exc: BaseException, *, unattended: bool = False
+) -> None:
     """Show a last-resort error dialog so a crash is never silent.
 
     The window otherwise just disappears, leaving the user with nothing
@@ -114,6 +220,14 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
     So a fatal error arriving while a fatal dialog is open is LOGGED and dropped.
     The first dialog is the one the user needs; the second is noise raised by the
     first one's own event loop.
+
+    **`unattended=True` is a `--run-script` launch, and nothing else.** The guard
+    stops the recursion but never did anything about the FIRST dialog, which on
+    the rig parked the batch until somebody clicked OK. On that launch the dialog
+    says it will close by itself and does, after
+    `UNATTENDED_FATAL_DIALOG_TIMEOUT_S`, logging the reason and traceback and
+    flushing first; control then goes wherever a click would have sent it. The
+    guard holds for the whole countdown: the flag spans `exec()` either way.
     """
     global _fatal_dialog_open
     try:
@@ -178,16 +292,50 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
         box.setDetailedText(
             "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
         )
-        box.setInformativeText(f"Details were written to:\n{LOG_PATH}")
+        informative = f"Details were written to:\n{LOG_PATH}"
+        # Empty unless unattended: a person driving gets no timers at all, so
+        # nothing exists that could close the dialog on them.
+        timers: tuple[QTimer, ...] = ()
+        if unattended:
+            # Read at call time, so a test can shorten it with no second path.
+            timeout_s = UNATTENDED_FATAL_DIALOG_TIMEOUT_S
+            box.setInformativeText(
+                f"{informative}\n\n{_unattended_dismiss_notice(math.ceil(timeout_s))}"
+            )
+            timers = _arm_fatal_dialog_auto_dismiss(
+                box, title, exc, informative, timeout_s
+            )
+            log.warning(
+                "fatal-error dialog %r is up on a --run-script launch — it will "
+                "close by itself in %gs if nobody clicks OK",
+                title,
+                timeout_s,
+            )
+        else:
+            box.setInformativeText(informative)
         _fatal_dialog_open = True
         try:
+            # Inside the `try`, so the `finally` stops them however `exec()`
+            # ends. A QTimer fires only from an event loop, i.e. `exec()`'s.
+            for timer in timers:
+                timer.start()
             box.exec()
         finally:
             # `finally`, so a dialog torn down by anything at all — an exception,
             # the app quitting under it, the window being destroyed — still clears
             # the flag. A guard that can latch ON permanently would silence every
             # later crash report, which is a worse failure than the one it fixes.
+            # Cleared BEFORE the timers stop, so a `stop()` that raised could not
+            # latch it; no event loop turns between the two statements.
             _fatal_dialog_open = False
+            # A click before the deadline must not leave it live behind the box.
+            # And disconnect: the slots close over `box`, and a Qt connection is
+            # a reference Python's GC cannot see, so without this every dialog
+            # that closed itself stayed alive, hidden, as a top-level widget
+            # (measured: one leaked QMessageBox per auto-close).
+            for timer in timers:
+                timer.stop()
+                timer.timeout.disconnect()
     except Exception:  # noqa: BLE001 — the crash handler must never crash
         log.exception("failed to show the fatal-error dialog")
 
@@ -296,17 +444,22 @@ def _install_termination_handlers(
     return timer
 
 
-def _install_excepthook() -> None:
+def _install_excepthook(*, unattended: bool = False) -> None:
     """Route otherwise-uncaught exceptions (e.g. raised inside a Qt slot
     during the event loop) to the log file and an on-screen dialog,
-    instead of letting them print to a stderr the user never sees."""
+    instead of letting them print to a stderr the user never sees.
+
+    ``unattended`` (a ``--run-script`` launch only) is handed to every dialog
+    this hook opens, so it closes itself rather than parking the batch. Captured
+    by the hook, not kept as a module flag, so restoring ``sys.excepthook``
+    restores it too: no second piece of global state to outlive its hook."""
 
     def hook(exc_type, exc_value, exc_tb):  # type: ignore[no-untyped-def]
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc_value, exc_tb)
             return
         log.error("uncaught exception", exc_info=(exc_type, exc_value, exc_tb))
-        _show_fatal_dialog("Platterpus — error", exc_value)
+        _show_fatal_dialog("Platterpus — error", exc_value, unattended=unattended)
 
     sys.excepthook = hook
 
@@ -688,7 +841,9 @@ def main(argv: list[str] | None = None) -> int:
         "satisfied report 'already present'. Same steps the GUI's setup wizard "
         "runs; this is the no-GUI front end for them. Optionally takes a fork "
         "COMMIT to build instead of the pinned one, so a pin that moves mid-round "
-        "is reachable without waiting for a Platterpus release",
+        "is reachable without waiting for a Platterpus release. COMMIT may also be "
+        "'list' (show the builds), or 'latest' / 'latest-beta' (the newest build "
+        "the fork's release manifest publishes on that channel — never the default)",
     )
     parser.add_argument(
         "--run-script",
@@ -909,11 +1064,21 @@ def main(argv: list[str] | None = None) -> int:
         # every line below — the banner we print, the build, and the verify — reads the
         # same target; the whole reason `ForkTarget` bundles the pin with the tag it must
         # print is that "build X, verify Y" was once two independent edits.
-        target = (
-            target_for_commit(args.install_ripper)
-            if args.install_ripper
-            else WIZARD_TARGET
-        )
+        # `latest` / `latest-beta` resolve to a commit from the fork's manifest and are
+        # then exactly `--install-ripper <commit>`. Opt-in only: an unreadable manifest
+        # is a refusal, never the approved build instead (`deps/ripper_latest.py`).
+        from platterpus.deps.ripper_latest import resolve_keyword
+
+        latest = resolve_keyword(args.install_ripper)
+        if latest is not None:
+            print(f"{latest.detail}\n")
+            if latest.target is None:
+                return 1
+            target = latest.target
+        elif args.install_ripper:
+            target = target_for_commit(args.install_ripper)
+        else:
+            target = WIZARD_TARGET
         # Name the build being installed AND, when it is not the approved one, say so
         # here — before minutes of dnf and meson, not in the rip report afterwards.
         # A test pin is installed on purpose during a session and reports
@@ -1183,7 +1348,14 @@ def main(argv: list[str] | None = None) -> int:
     # From here on, any uncaught exception (including ones raised inside a
     # Qt slot during the event loop) goes to the log + an on-screen dialog
     # rather than silently aborting the process.
-    _install_excepthook()
+    #
+    # `--run-script` and NOTHING ELSE lets that dialog close itself (maintainer,
+    # 2026-09-27): the flag is the operator saying, for this launch, that nobody
+    # will be at the screen. The saved config-autorun pair is not included; it
+    # says nothing about who is in front of THIS launch. Read once, for both
+    # fatal-dialog callers below.
+    _launched_with_run_script = args.run_script is not None
+    _install_excepthook(unattended=_launched_with_run_script)
 
     # Uninstaller-only mode: the "Uninstall Platterpus" menu entry launches
     # `<app> --uninstall`, so removal works without opening (or needing) the
@@ -1215,13 +1387,12 @@ def main(argv: list[str] | None = None) -> int:
         # GUI and `--doctor` can never wire the adapters differently.
         from platterpus import composition
         from platterpus.adapters.ctdb_client import CtdbHttpImpl
-        from platterpus.adapters.metaflac import MetaflacAdapter
         from platterpus.deps.manager import DependencyManager
         from platterpus.ui.main_window import MainWindow
 
         backend, _backend_name = composition.build_backend(cfg)
         mb_client = composition.build_musicbrainz_client()
-        metaflac = MetaflacAdapter(binary_name=cfg.metaflac_path)
+        metaflac = composition.build_metaflac(cfg)
 
         # CTDB lookup transport (KDD-14 Phase 1) — only used when the user
         # enables "Verify with CTDB after a rip".
@@ -1353,7 +1524,11 @@ def main(argv: list[str] | None = None) -> int:
                 log.exception("the unattended test script could not be started")
     except Exception as exc:  # noqa: BLE001 — fatal-startup guard
         log.exception("fatal error during startup")
-        _show_fatal_dialog("Platterpus — startup failed", exc)
+        # Closes itself on a `--run-script` launch too, then returns 1 exactly as
+        # after a click: the terminal gets its exit code, not a waiting window.
+        _show_fatal_dialog(
+            "Platterpus — startup failed", exc, unattended=_launched_with_run_script
+        )
         return 1
 
     # A logout, a `kill <pid>` or a Ctrl-C during a rip must stop the

@@ -444,6 +444,7 @@ def check_inbound(*paths: Path) -> list[str]:
         num = round_number(path)
         if num is not None and num not in THEIR_PRE_HEADER_ROUNDS:
             problems.extend(check_wire_header(path, expect_from="cyanrip-fork"))
+        problems.extend(pre_commit_problems(_safe_read(path), path.name))
     # A MID-ROUND LAP IS NOT A FULL ROUND FILE, and demanding all ten sections of
     # one is the over-strictness this checker's own notes warn about — the failure
     # whose fix people reach for is switching the checker off. A round opens with a
@@ -653,6 +654,7 @@ def check_outbound_paths(*paths: Path) -> list[str]:
         problems.extend(check_outbound(text))
         if num is not None and num >= PIN_ROLL_TRIGGER_FROM_ROUND:
             problems.extend(pin_policy_problems(text, path.name))
+        problems.extend(pre_commit_problems(text, path.name))
     return problems
 
 
@@ -881,6 +883,306 @@ def pin_policy_problems(text: str, where: str) -> list[str]:
     return []
 
 
+#: The first round whose laps our gate holds to R6 (`handshake-protocol.md`, R6: a
+#: pre-commit is mandatory from lap 5, and it names an EVENT, never a lap number).
+#: TASKS row C5: nothing refused either half before, and the record shows why it
+#: mattered — most laps from the fifth carry no pre-commit in R6's form at all.
+#: From the NEXT round rather than retroactively: a gate that starts refusing sent
+#: laps changes what they meant when they were sent.
+R6_GATE_FROM_ROUND: Final[int] = 29
+
+#: The lap from which R6 requires a pre-commit.
+R6_FROM_LAP: Final[int] = 5
+
+#: One character of a pre-commit's subject: anything but a line end or a
+#: sentence end. A dot followed directly by a letter or digit ends no sentence —
+#: "v0.6.62", "e.g", "round-28-lap-05.md" — so it may stand in the subject (review
+#: finding R15, 2026-09-28: "Our next lap after v0.6.62 ships is `GO` unless the
+#: run fails" was read as carrying no pre-commit, because the dots stopped it).
+_SUBJECT_CHAR: Final[str] = r"(?:[^.\n]|\.(?=\w))"
+
+#: A pre-commit in R6's form, in prose, anywhere in a lap (an LSL `WILL`'s
+#: sentence included): some lap of the writer's "is `GO` unless" something. The
+#: subject may be long — our round 28 lap 4 wrote "Our lap after the Full run's
+#: bundle is committed to our tree is `GO` unless …" — so it is allowed up to one
+#: sentence. The structured form, a `WILL` with `verdict: GO` and `unless:`, is
+#: read by LSL's own parser instead (:func:`_lsl_structured_wills`).
+_PRE_COMMIT: Final[re.Pattern[str]] = re.compile(
+    rf"\blap\b{_SUBJECT_CHAR}{{0,200}}?\bis\s+[`*_]*GO[`*_]*\s+unless\b",
+    re.IGNORECASE,
+)
+
+#: The shape R6 forbids by name: the bound lap given as a NUMBER ("our lap 15 is
+#: `GO` unless"), which the writer's own later choices can overtake. A peer's lap
+#: number inside the event ("the first lap we send after receiving your lap 10")
+#: is R6's own example of the right form, and does not match.
+#:
+#: **"Our lap N" must be the SUBJECT of "is GO unless", not merely come before it.**
+#: So nothing between them may be another lap, a quotation mark, a colon or a
+#: semicolon, each of which starts a new clause with its own subject. Without that,
+#: a lap RECALLING a correct pre-commit was refused for it: the fork's round 21 lap
+#: 5 reads *Our lap 3 bound us: "our next lap is `GO` unless …"*, whose subject is
+#: "our next lap", R6's own form (review finding R12, 2026-09-28). The price, said
+#: out loud: "our lap 15, after your lap 10, is `GO` unless" is not refused, because
+#: a regular expression cannot tell that clause from the recall.
+_PRE_COMMIT_BY_NUMBER: Final[re.Pattern[str]] = re.compile(
+    r"\bour\s+lap\s+\d+\b(?:(?!\blap\b)(?![\"“”:;])"
+    rf"{_SUBJECT_CHAR}){{0,120}}?"
+    r"\bis\s+[`*_]*GO[`*_]*\s+unless\b",
+    re.IGNORECASE,
+)
+
+#: "Our lap 15" in a structured pre-commit's `when:` — the numbered form, said in
+#: a field instead of a sentence.
+_OUR_LAP_NUMBER: Final[re.Pattern[str]] = re.compile(
+    r"\bour\s+lap\s+\d+\b", re.IGNORECASE
+)
+
+#: A QUOTATION in a lap's prose, for :func:`_unquoted`: a span between straight
+#: double quotes, or between curly ones. What is NOT a quotation mark, on purpose:
+#: a backtick, which marks code and is how R6's own form writes `GO`; a single
+#: quote, which is also an apostrophe ("the Full run's bundle"); and a `>`
+#: blockquote, which the fork uses to set out its OWN pre-commit (their round 21
+#: lap 3: "> **Our next lap is `GO` unless the hardware session fails …"). A code
+#: span is matched first and kept as it is, so a `"` inside backticks opens no
+#: quotation.
+_QUOTATION_OR_CODE: Final[re.Pattern[str]] = re.compile(
+    r"(?P<code>`[^`\n]*`)|\"[^\"]*\"|“[^”]*”"
+)
+
+#: A blank line: where a paragraph ends. No quotation runs past one, so a stray
+#: `"` (an inch mark, a typo) can hide at most the rest of its own paragraph.
+_PARAGRAPH_BREAK: Final[re.Pattern[str]] = re.compile(r"(\n[ \t]*\n)")
+
+
+def _unquoted(body: str) -> str:
+    """``body`` with every quotation replaced by a space, paragraph by paragraph.
+
+    For the presence half of R6 (review finding Q7, 2026-09-28): a lap that
+    QUOTES an earlier lap's pre-commit, *Our lap 3 bound us: "our next lap is
+    `GO` unless the run fails."*, has made no promise about its own next lap,
+    and it is the lap R6 most needs one from, since it is typically the lap after
+    X happened. Before, the quotation satisfied the search, so a HOLD lap whose
+    only pre-commit text was someone else's passed. A lap that means a quoted
+    pre-commit as its own states it unquoted. Quotations may wrap across lines,
+    as the record's do (our round 25 lap 2), so they are paired within a
+    paragraph rather than within a line.
+    """
+
+    def keep_code(match: re.Match[str]) -> str:
+        return match.group("code") or " "
+
+    return "".join(
+        _QUOTATION_OR_CODE.sub(keep_code, part) for part in _PARAGRAPH_BREAK.split(body)
+    )
+
+
+#: Where `laplang`, LSL's own reader, lives: beside this file.
+_SCRIPTS_DIR: Final[Path] = Path(__file__).resolve().parent
+
+
+@dataclass(frozen=True)
+class LslPreCommit:
+    """One LSL `WILL` that pre-commits `GO`: its tag, and what its `when:` says."""
+
+    tag: str
+    when: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class LslWills:
+    """What LSL's own parser found in a lap, for R6.
+
+    `found` is every `WILL` written in amendment A2's structured pre-commit form
+    (:func:`_lsl_structured_wills`), whatever the lap's version; `a2_in_force`
+    says whether the lap's `LSL: N` line switches A2 on. Only :attr:`counted`
+    is a pre-commit. `found` is kept apart so R6's refusal can name a `WILL` that
+    did not count, and say why, instead of only saying there is none.
+    """
+
+    version: int
+    a2_in_force: bool
+    found: tuple[LslPreCommit, ...]
+
+    @property
+    def counted(self) -> tuple[LslPreCommit, ...]:
+        """The structured pre-commits R6 counts: those in a lap with A2 in force.
+
+        **Only where A2 is in force** (review finding Q6, 2026-09-28). LSL 1's
+        fields are a closed list without `verdict:` or `unless:`, so
+        `lap_language.py` refuses an LSL 1 `WILL` that carries them as
+        malformed. Counted in any lap, as it was, the gate passed a pre-commit
+        the lap's own language refuses: the disagreement R15 was fixed for, from
+        the other side. `lap_language.py --amend A2` can switch A2 on for an
+        LSL 1 lap, but a lap's `LSL: N` line is all a reader of the sent file
+        has, so this reads that line alone.
+        """
+        return self.found if self.a2_in_force else ()
+
+
+def _laplang_on_path() -> None:
+    """Put `laplang`, LSL's own reader, where an import can find it.
+
+    `laplang` is a package beside this script, which `python3
+    scripts/handshake.py` finds on its own and a test that loads this file by
+    path does not, so the directory is put on the path first. The imports stay
+    inside the functions that use them, not at the top of this file.
+    """
+    if str(_SCRIPTS_DIR) not in sys.path:
+        sys.path.append(str(_SCRIPTS_DIR))
+
+
+def _a2_versions() -> str:
+    """`LSL 2 or 3`: every version whose `LSL: N` line switches amendment A2 on,
+    read from LSL's own table, so R6's refusal cannot name a version at which
+    the structured pre-commit is not one, or leave out one at which it is."""
+    _laplang_on_path()
+    from laplang.tables import LSL_VERSIONS  # noqa: PLC0415
+
+    known = [str(v) for v in sorted(LSL_VERSIONS) if "A2" in LSL_VERSIONS[v]]
+    if not known:
+        return "no LSL version"
+    if len(known) == 1:
+        return f"LSL {known[0]}"
+    return f"LSL {', '.join(known[:-1])} or {known[-1]}"
+
+
+def _lsl_structured_wills(text: str) -> LslWills:
+    """Every pre-commit in LSL's structured form (amendment A2): a `WILL` whose
+    `owner:` is `us`, with `verdict: GO` and an `unless:` naming X, and whether
+    the lap's version has A2 in force (:attr:`LslWills.counted`).
+
+    That is R6's "our next lap is `GO` unless X", said in fields: A2 binds the
+    author's NEXT lap by construction, and `unless:` is the X. Review finding
+    R15 (2026-09-28): this gate read only the prose sentence, so a lap that
+    `lap_language.py` accepted, and would hold its author to, was refused here as
+    carrying no pre-commit — two checkers of one seam disagreeing about one
+    statement. **Read by LSL's own parser, and against LSL's own table of
+    versions, not by a second pattern of ours**, so the two cannot disagree about
+    what a statement and its fields are, or about which version defines them. A
+    lap that is not LSL, or declares a version the parser does not implement,
+    has no statements, and only the prose form counts for it. Never raises: the
+    parser does not.
+    """
+    _laplang_on_path()
+    from laplang.grammar import parse_lap  # noqa: PLC0415
+    from laplang.tables import LSL_VERSIONS  # noqa: PLC0415
+
+    lap = parse_lap(text, Path("lap.md"))
+    # `lsl_version` is 0 for a prose lap, and for one whose `LSL: N` names a
+    # version the parser does not implement; neither has A2 in force.
+    in_force = lap.lsl and "A2" in LSL_VERSIONS.get(lap.lsl_version, frozenset())
+    found: list[LslPreCommit] = []
+    for stmt in lap.statements:
+        if stmt.kind != "WILL":
+            continue
+        if [f.value for f in stmt.values("owner")] != ["us"]:
+            continue  # only the author can pre-commit its own verdict (A2)
+        if [f.value for f in stmt.values("verdict")] != ["GO"]:
+            continue
+        if not any(f.value.strip() for f in stmt.values("unless")):
+            continue  # R6 names X
+        found.append(
+            LslPreCommit(stmt.tag, tuple(f.value for f in stmt.values("when")))
+        )
+    return LslWills(lap.lsl_version, bool(in_force), tuple(found))
+
+
+def pre_commit_problems(text: str, where: str) -> list[str]:
+    """Why a lap does not meet R6. Empty when it does, or when R6 does not apply.
+
+    Applies from :data:`R6_GATE_FROM_ROUND`, to laps numbered
+    :data:`R6_FROM_LAP` and above. **One exemption, our gate's reading and said out
+    loud:** a lap whose own verdict is `GO` is exempt from R6, from both of its
+    halves, because it has already declared what a pre-commit would promise. That
+    is what the CHANGELOG told contributors, and until review finding R12
+    (2026-09-28) the code exempted such a lap only from NEEDING a pre-commit and
+    still refused its wording — and a `GO` lap is the one most likely to recall
+    the pre-commit it is honouring (the fork's round 21 lap 5 does). Fenced blocks
+    are skipped, so a lap QUOTING a bad pre-commit (this docstring's kind of text)
+    is not refused for it.
+    """
+    fields = wire_fields(text)
+    try:
+        round_no = int(fields.get("HANDSHAKE-ROUND", "").split()[0])
+        lap_no = int(fields.get("HANDSHAKE-LAP", "").split()[0])
+    except (IndexError, ValueError):
+        return []  # an unreadable header is check_wire_header's to report
+    if round_no < R6_GATE_FROM_ROUND or lap_no < R6_FROM_LAP:
+        return []
+    verdict = fields.get("HANDSHAKE-VERDICT", "").split()
+    if verdict[:1] == ["GO"]:
+        return []
+    body = _unfenced_body(text)
+    problems: list[str] = []
+    numbered = [repr(m.group(0)) for m in _PRE_COMMIT_BY_NUMBER.finditer(body)]
+    wills = _lsl_structured_wills(body)
+    structured = wills.counted
+    for will in structured:
+        numbered.extend(
+            f"{will.tag}'s when: {value!r}"
+            for value in will.when
+            if _OUR_LAP_NUMBER.search(value)
+        )
+    for shape in numbered:
+        problems.append(
+            f"{where}: R6: a pre-commit names a lap NUMBER, not an event: "
+            f"{shape}. Name what happens, as R6's own example does: "
+            '"the first lap we send after receiving your lap 10", not "our lap 15"'
+        )
+    # The presence half reads the lap's own words, not its quotations of another
+    # lap's (Q7). The numbered half above still reads the whole unfenced body,
+    # unchanged: a recall of a CORRECT pre-commit already escapes it (R12, the
+    # quotation mark ends its subject), while a lap that quotes a NUMBERED one
+    # outside a fence is still refused for it, and fencing the quotation is how
+    # to show it is quoted.
+    if not problems and not _PRE_COMMIT.search(_unquoted(body)) and not structured:
+        # A structured `WILL` that did not count is named, with the reason, so
+        # an author who wrote one in LSL 1 is not left wondering why (Q6).
+        uncounted = ""
+        if wills.found:
+            tags = ", ".join(will.tag for will in wills.found)
+            uncounted = (
+                f". {tags} states verdict: GO and unless:, but this lap declares "
+                f"LSL {wills.version}, which does not define those fields"
+            )
+        problems.append(
+            f"{where}: R6: lap {lap_no} carries no pre-commit — from lap "
+            f'{R6_FROM_LAP} every lap states "our next lap is `GO` unless X", '
+            f"naming X, in a sentence or, in {_a2_versions()}, as a WILL with "
+            f"verdict: GO and unless:{uncounted}"
+        )
+    return problems
+
+
+def _unfenced_body(text: str) -> str:
+    """``text`` without the contents of fenced code blocks."""
+    out: list[str] = []
+    inside = False
+    for line in text.splitlines():
+        if re.match(r"^[ \t]{0,3}(?:```|~~~)", line):
+            inside = not inside
+            continue
+        if not inside:
+            out.append(line)
+    return "\n".join(out)
+
+
+#: The maintainer's standing objective, which round 8 lap 10 §A says to carry into
+#: every round after it, in their words (TASKS row G12: rounds 20-24 carried it
+#: once). The skeleton states it so a lap started from `--emit` cannot drop it.
+LEAVING_BETA_WORDS: Final[tuple[str, str]] = (
+    "our goal is to get us out of beta and into a user release testable release, "
+    "if possible, as soon as we can, make sure that is clear in all handshakes and "
+    "objectives.",
+    "but not at the expense of quality, functionality, or reducing bugs.",
+)
+LEAVING_BETA_OBJECTIVE: Final[str] = (
+    f'The maintainer\'s objective, in their words: *"{LEAVING_BETA_WORDS[0]}"* '
+    f'and *"{LEAVING_BETA_WORDS[1]}"* (round 8 lap 10 §A)'
+)
+
+
 def emit_outbound(round_number: int) -> str:
     """Build a skeleton outbound handshake file for ``round_number``."""
     sections = "\n\n".join(
@@ -992,6 +1294,13 @@ def emit_outbound(round_number: int) -> str:
 <!-- Skeleton from scripts/handshake.py. Every section below is required by
      docs/cyanrip-handshake.md §3; the checker will not let a round go out with
      one missing. Replace each TODO. -->
+
+## The objective
+
+<!-- TASKS row G12: stated in EVERY lap we write, by the maintainer's instruction
+     in round 8 (docs/handshake/verified/round-08-lap-10.md, §A). -->
+
+{LEAVING_BETA_OBJECTIVE}
 
 **What I need back:** one markdown file matching *The return-file spec* below.
 I will verify every claim in it against the real parser and the committed
@@ -3510,6 +3819,118 @@ def close_by_lines(root: Path | None = None) -> list[str]:
     return out
 
 
+#: A round's own line in `round_status`'s output, `round-28: … -> OPEN`, read back
+#: at the PRINT SITE only. `close_by_lines` never sees it (see below).
+_STATUS_ROUND_RE: Final[re.Pattern[str]] = re.compile(
+    r"^round-(?P<num>\d+): .* -> (?P<state>[A-Z][A-Z-]*)"
+)
+
+#: A line of `close_by_lines`'s output, `round 19 close-by: …`.
+_CLOSE_BY_ROUND_RE: Final[re.Pattern[str]] = re.compile(
+    r"^round\s+(?P<num>\d+) close-by:"
+)
+
+
+def close_by_lines_to_print(close_by: list[str], status_lines: list[str]) -> list[str]:
+    """The close-by lines worth printing: those of rounds that are not CLOSED.
+
+    TASKS row 1723. `--status` printed a countdown or a "has PASSED" line for every
+    round since 8, and all but one of those rounds were finished: ten lines of
+    deadline on rounds nobody can act on, above the one that mattered. The fix is
+    HERE, where the two outputs are printed side by side, and not inside
+    `close_by_lines`: that function is kept unable to reach a verdict, and teaching
+    it the round state would be the first step towards letting it form one.
+
+    A round is dropped only when its own status line says `CLOSED`. A round with
+    no status line, or any other state, keeps its lines, so a round this cannot
+    read stays visible. And **the drop is counted and named** on a line of its own:
+    a list that silently shrank would read as "no other round declared a close-by".
+    """
+    closed: set[int] = set()
+    for line in status_lines:
+        match = _STATUS_ROUND_RE.match(line)
+        if match is not None and match.group("state") == "CLOSED":
+            closed.add(int(match.group("num")))
+    kept: list[str] = []
+    omitted: list[int] = []
+    for line in close_by:
+        match = _CLOSE_BY_ROUND_RE.match(line)
+        if match is not None and int(match.group("num")) in closed:
+            num = int(match.group("num"))
+            if num not in omitted:
+                omitted.append(num)
+            continue
+        kept.append(line)
+    if omitted:
+        kept.append(
+            f"close-by: not shown for {len(omitted)} CLOSED round(s) "
+            f"({', '.join(str(n) for n in omitted)}): a deadline on a finished "
+            "round has nothing left to bound"
+        )
+    return kept
+
+
+#: How much of one `HANDSHAKE-VERDICT-SOURCE` `--status` prints. Longer values are
+#: cut with the count of characters left out, never silently.
+VERDICT_SOURCE_PRINT_CHARS: Final[int] = 400
+
+
+def verdict_source_lines(
+    status_lines: list[str], root: Path | None = None
+) -> list[str]:
+    """What each side's newest lap says its verdict RESTS ON, for the rounds worth
+    reading: every round not CLOSED, and the newest CLOSED one. **Printed, never
+    graded.**
+
+    TASKS row ROUND-24 (`--status` cannot see a premature GO): the gate closes a
+    round on two GO verdicts, which is the spec, so when one GO rested on an unmet
+    condition our gate read CLOSED while the fork's correctly held OPEN. Teaching
+    the gate to grade a stated condition would couple it to the verdict's prose.
+    Printing the stated basis beside the verdict makes the gap readable instead,
+    and, like the close-by report, this is called only at the print site, after the
+    exit status is already decided from ``status_lines``.
+    """
+    base = root if root is not None else HANDSHAKE_DIR
+    states: dict[int, str] = {}
+    for line in status_lines:
+        match = _STATUS_ROUND_RE.match(line)
+        if match is not None:
+            states[int(match.group("num"))] = match.group("state")
+    closed = [n for n, s in states.items() if s == "CLOSED"]
+    newest_closed = {max(closed)} if closed else set()
+    wanted = sorted({n for n, s in states.items() if s != "CLOSED"} | newest_closed)
+    out: list[str] = []
+    for num in wanted:
+        for directory, side in (("outbound", "ours"), ("inbound", "theirs")):
+            folder = base / directory
+            if not folder.is_dir():
+                continue
+            laps = [
+                (path, fields, _declared_lap(path, fields, num))
+                for path in folder.glob("round-*.md")
+                if round_number(path) == num
+                for fields in (wire_fields(_safe_read(path)),)
+            ]
+            if not laps:
+                continue
+            path, fields, lap = max(laps, key=lambda row: row[2])
+            source = " ".join(fields.get("HANDSHAKE-VERDICT-SOURCE", "").split())
+            verdict = fields.get("HANDSHAKE-VERDICT", "none declared").split()[:1]
+            released = is_released_for_reading(_safe_read(path), round_hint=num)
+            if len(source) > VERDICT_SOURCE_PRINT_CHARS:
+                cut = len(source) - VERDICT_SOURCE_PRINT_CHARS
+                source = (
+                    f"{source[:VERDICT_SOURCE_PRINT_CHARS]} [... {cut} more characters]"
+                )
+            out.append(
+                f"round {num:2d} {side}, lap {lap} "
+                f"({'released' if released else 'NOT released'}), "
+                f"{' '.join(verdict) or 'none declared'}, rests on: "
+                f"{source or '(no HANDSHAKE-VERDICT-SOURCE)'}"
+            )
+    return out
+
+
 def _declared_lap(path: Path, fields: dict[str, str], num: int) -> int:
     """A lap's number, from its OWN declaration — the filename is the fallback.
 
@@ -3723,10 +4144,17 @@ def main(argv: list[str] | None = None) -> int:
         # from a separate function that `round_status` never calls. Round 20 §0.1:
         # advisory, print-never-block. The exit status below is computed from
         # `status_lines` alone, so no arrangement of close-by output can change it.
-        close_by = close_by_lines(record_root)
+        close_by = close_by_lines_to_print(close_by_lines(record_root), status_lines)
         if close_by:
             sys.stdout.write("\n")
             for line in close_by:
+                sys.stdout.write(line + "\n")
+        # WHAT EACH VERDICT RESTS ON, printed beside it and never graded (the
+        # ROUND-24 row): the same print-site placement as the close-by report.
+        rests_on = verdict_source_lines(status_lines, record_root)
+        if rests_on:
+            sys.stdout.write("\n")
+            for line in rests_on:
                 sys.stdout.write(line + "\n")
         held = any(ln.endswith("OPEN") for ln in status_lines)
         return 1 if held or illegal_transition_blockers(status_lines) else 0

@@ -323,9 +323,13 @@ The GUI shells out constantly (cyanrip, flatpak, eject, pkill):
   this is the single most important subprocess-security practice.
 - **Resolve executables to absolute paths when the environment is hostile.** A
   GUI launched from a desktop icon (not a shell) inherits a *minimal* `PATH`
-  that can miss `~/.local/bin` and even `/usr/bin`. `drive_control._resolve()`
-  falls back through common absolute locations; do the same for any tool a
-  desktop-launched process must reach.
+  that can miss `~/.local/bin` and even `/usr/bin`. `tool_paths.find_tool` is
+  the one search (PATH, then common absolute locations); use it for any tool a
+  desktop-launched process must reach. A tool that must be the HOST's, as the
+  force-stop's `pkill`/`fuser`/`eject` must (Critical rule #3's exception), passes
+  `exclude_dirs=(tool_paths.exported_tools_dir(),)`: leaving `~/.local/bin` out of
+  the fallback list is not enough, because PATH is searched first and a login
+  session puts it there (`drive_control._host_tool`, review R6, 2026-09-28).
 - **Always set a `timeout`** (install commands cap at 300 s; force-stop probes
   at 20 s) — a wedged child must not hang forever. **But budget container-
   entering commands for the cold-start.** The *first* `cyanrip` call of
@@ -401,7 +405,7 @@ canonical ownership map** — KDD-19 records the *decision* and links here.
 | Self-update (check / download / install / restart) | `main_window_update.py` (`UpdateMixin`) |
 | Rip lifecycle, force-stop, eject, cover art | `main_window_rip.py` (`RipMixin`) |
 | Host setup / AppImage integration / uninstall | `main_window_provision.py` (`ProvisioningMixin`) |
-| Drive setup / offset / access diagnosis | `main_window_drive.py` (`DriveMixin`) |
+| Drive setup / offset / access diagnosis; reading the disc without a click (media poll, bounded retry of a failed read — policy in `disc_probe_retry.py`) | `main_window_drive.py` (`DriveMixin`) |
 | Dependency check / resolve routing / summary | `main_window_deps.py` (`DependencyMixin`) |
 | Settings' OK/Apply, and saving one setting from its home control | `main_window_settings.py` (`SettingsMixin`) |
 | Construction, menus, signal wiring, MusicBrainz slots | `main_window.py` (the assembler) |
@@ -914,6 +918,43 @@ took its minimum from **208 px to 575 px** with real post-rip values.
   failing on any un-wrapped label holding a long dynamic string, so a new label
   cannot reintroduce this silently. No window needs to be shown for either.
 
+#### And every label built from a value states its text format
+
+**A `QLabel` built from anything but a string literal calls `setTextFormat` right
+after it is built: `Qt.TextFormat.PlainText` for text, `RichText` only where the
+label renders markup of ours.** Qt's default, `AutoText`, guesses per text: it
+treats the label as HTML when its *first line* happens to hold a known tag, then
+drops what it cannot render. So the value decides, and an external value decides
+badly. Measured on the drive wizard (PySide6 6.11.2, 2026-09-28): a drive named
+`<i>odd</i>` lost its name to italics, and one named `TSST <corp> & Co` flipped
+the whole label to plain text, which showed the literal `<b>` tags around its
+offset. Critical rule #12 is the reason; this is how to follow it in a widget.
+
+- **RichText means every value inside the markup goes through `html.escape`**,
+  and the comment at the site says which parts are ours and which are escaped.
+  Where the markup arrives from a caller (`SetupCopy.intro`), the caller escapes.
+  The check follows each value, not the function: every `{…}` in the markup, and
+  every name or call joined into it, must be an `html.escape(...)` call, a number
+  with a numeric format (`{offset:+d}`), a literal of ours, or a name bound only
+  to those. It traces a name through each assignment and a call into the method
+  or function of ours that builds the markup, and reads each caller of a carrier
+  such as `SetupCopy` the same way. What it cannot trace fails. (Until 2026-09-28
+  it asked only whether the building function called `html.escape` once, on
+  anything, so one escaped value vouched for every value beside it.)
+- **Plain text keeps line breaks; markup does not.** In RichText a `\n` is a
+  space, so a multi-line RichText label needs `<br>`.
+- **A literal label holding markup states its format too, when Qt would not see
+  the markup.** Qt decides AutoText from the *first line*, so a literal whose
+  `<b>` sits below a first line with no tag is shown with its tags as typed
+  characters. The uninstall dialog's intro did that until 2026-09-28. For a
+  literal the guess is fixed, so the sweep asks Qt itself (`Qt.mightBeRichText`)
+  and needs no allowlist.
+- **Enforced by `tests/test_labels_state_their_text_format.py`, with no
+  allowlist**: an exemption list is how a sweep stops enforcing anything.
+  `QMessageBox` has its own sweep (`tests/test_message_boxes_are_plaintext.py`).
+  A label built empty and filled later by `setText` is outside both, so state
+  its format anyway.
+
 ### 3.10 Unattended testing: the script console, and why a subsystem needs a surface
 
 **The rule this section exists to state:** *a subsystem is not shipped until
@@ -939,7 +980,7 @@ uiscript/report.py    RunReport -> text / dict      the transcript
 ui/dialogs/script_console.py                        the SURFACE (menu, buttons)
 ```
 
-Three entry points, **one method**: the Tools menu item, `--run-script FILE`, and
+Three entry points, **one method**: the Tools → Advanced menu item, `--run-script FILE`, and
 the config's `test_script_autorun` all call
 `MainWindow.open_script_console(autorun=...)`. Adding a fourth (a D-Bus hook, a
 hotkey) means calling that method, never re-describing how a batch starts.
@@ -1166,6 +1207,12 @@ test-script run.
    to directories a caller names explicitly, and the album folder is never one — an
    album folder's `cover.jpg` is record-label artwork, so widening globally would sweep
    it in as an invisible side effect of a screenshot feature.
+   A single file that sits in no folder the bundle walks goes through `files`, one
+   archive name per path, under the same strict set. Today that is cyanrip's `-j`
+   record, which cyanrip writes in the rips root (`diagnostics_record.py`) and which
+   is the only evidence for a rip refused before it opened a logfile. Do not move
+   such a file into the album folder to make it collectable: a rip leaves only its
+   `.log`, `.cue` and `.platterpus.json` there (the maintainer, 2026-09-27).
 
 3. **Name every omission.** A file that was missing, unreadable, over the cap or the
    wrong type gets a `MANIFEST.txt` row with its reason. A bundle quietly holding eight
@@ -1422,6 +1469,22 @@ never-raising.
 New adapter behind a small interface (mirror `MusicBrainzClient` /
 `cover_art`). Query it on the host (Critical Rule #5: the GUI resolves the
 release, never the ripper's interactive prompt).
+
+### Add a menu action
+- **An action on the album on screen** goes in the disc panel's right-click
+  menu, not a global one (2026-09-27, when *Set cover art from file…* moved
+  there). Create the `QAction` in `MainWindow._build_menus`, connect it, and add
+  it to the list passed to `DiscInfoPanel.set_album_actions`. The panel shows
+  that **same object** (`ui/album_menu.py`), so its slot and enabled state are
+  one thing wherever it appears; do not build a second `QAction` for the same
+  slot. `tests/test_help_documents_the_menu.py` requires the Guide to name it.
+- **A tool only a tester needs** goes under **Tools → Advanced ▸** (D4 A).
+- **Either way:** an Alt-letter unique within the menu it opens in (the album
+  menu opens with *&Copy* and *Select &All*), no single-character shortcut, and
+  a mention in `help_content.py`. `tests/test_ui_conformance.py` checks the
+  letters of every menu, submenu and album menu, and
+  `tests/test_accessibility_standards.py` the shortcuts of the same set — one
+  walk, `tests/conftest.py::window_menus`, so the two agree on what exists.
 
 ## 5. Testing contract (the safety net that lets us refactor fearlessly)
 

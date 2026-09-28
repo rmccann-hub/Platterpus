@@ -805,6 +805,13 @@ not predictable. Every rip with a non-pinned build reports
 `ripper handshake approval: unapproved`, and the install says so up front rather
 than letting the rip report be the first place you see it.
 
+**For a script that wants the channel's newest build rather than a named one**,
+pass `latest` (the fork's stable channel) or `latest-beta` (its beta channel) in
+place of a commit. Platterpus reads the fork's release manifest, prints which
+commit that is, and installs it exactly as `--install-ripper <that commit>` would —
+including the note when no closed round has approved it. It is never the default,
+and if the manifest cannot be read it installs nothing rather than something else.
+
 If you installed with **`pipx`** (Method B), the same flags work on the
 `platterpus` command instead — e.g. `platterpus --doctor`.
 

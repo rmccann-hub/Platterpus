@@ -18,18 +18,27 @@ Fields displayed:
   AccurateRip         — blank until a rip finishes, then the real outcome
                         (how many tracks the AccurateRip database confirmed).
                         Per-track detail is in `RipProgress`.
+
+Right-click anywhere on the panel opens the album's menu — Copy / Select All for
+the value under the pointer, then the per-album actions the window hands over
+with `set_album_actions` (`ui/album_menu.py` says why it replaces the labels' own
+menu).
 """
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFormLayout, QLabel, QWidget
+from collections.abc import Sequence
+
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QFormLayout, QLabel, QMenu, QWidget
 
 from platterpus.adapters.musicbrainz_client import ReleaseSummary
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import track_accuraterip_verified
 from platterpus.ui.accessibility import announce
+from platterpus.ui.album_menu import build_album_menu, popup_album_menu
 
 # Placeholder shown in fields we don't have data for yet.
 _PLACEHOLDER: str = "—"
@@ -71,6 +80,8 @@ class DiscInfoPanel(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        # The per-album actions a right-click offers; the window supplies them.
+        self._album_actions: list[QAction] = []
 
         # Use TextSelectableByMouse on the value labels so the user
         # can copy a disc ID into Picard or a browser.
@@ -118,6 +129,16 @@ class DiscInfoPanel(QWidget):
         form.addRow("AccurateRip:", self._accuraterip_value)
         form.addRow("Read offset:", self._offset_value)
         form.addRow("Cache defeat:", self._cache_value)
+
+        # A right-click on the panel AROUND the values — a row caption, which is
+        # not selectable so its click falls through to here, or a gap — opens the
+        # album's menu too. Each value label wires its own in `_value_label`.
+        # A GUI-thread signal, so the lambda is safe (architecture.md §3.2's
+        # no-lambda rule is about cross-thread signals).
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(
+            lambda pos: self._show_album_menu(None, pos)
+        )
 
     # --- Drive selection -----------------------------------------------------
 
@@ -216,6 +237,32 @@ class DiscInfoPanel(QWidget):
         self._mb_id_value.setText(info.musicbrainz_disc_id or _PLACEHOLDER)
         self._cddb_id_value.setText(info.cddb_disc_id or _PLACEHOLDER)
 
+    def set_no_disc(self) -> None:
+        """The drive reported the disc gone: say so, and what happens next.
+
+        Worded as what the DRIVE reports, because that is all the app knows: a
+        drive can say "tray open" with the disc still in (whether the rig's
+        removals of 2026-09-25 were real is unsettled), and then the Rescan
+        hint is the way back. Before this the panel showed only dashes.
+        """
+        text = (
+            "the drive reports no disc — insert one and it is read automatically "
+            "(disc still in? click “Rescan disc”)"
+        )
+        self._mb_match_value.setText(text)
+        announce(self._mb_match_value, text)
+
+    def set_disc_info_retrying(self, message: str) -> None:
+        """A read failed and an automatic retry is pending: say so, and why.
+
+        Not prefixed "error:" — the app is still working on it — but announced
+        like an error, because it is news a screen-reader user is waiting on.
+        """
+        self._mb_id_value.setText("…")
+        self._cddb_id_value.setText("…")
+        self._mb_match_value.setText(message)
+        announce(self._mb_match_value, message)
+
     def set_disc_info_error(self, message: str) -> None:
         """Mark the disc fields as failed and show a short error."""
         self._mb_id_value.setText(_PLACEHOLDER)
@@ -277,10 +324,28 @@ class DiscInfoPanel(QWidget):
         self._mb_match_value.setText(error_text)
         announce(self._mb_match_value, error_text)
 
+    # --- The album's right-click menu ---------------------------------------
+
+    def set_album_actions(self, actions: Sequence[QAction]) -> None:
+        """The per-album actions the window owns, shown on right-click.
+
+        The same ``QAction`` objects, not copies, so an action's slot, label and
+        enabled state are the window's wherever it appears.
+        """
+        self._album_actions = list(actions)
+
+    def album_menu(self, source: QLabel | None = None) -> QMenu:
+        """The menu a right-click on ``source`` (or the background) opens."""
+        return build_album_menu(
+            self, source, self._album_actions, empty_value=_PLACEHOLDER
+        )
+
+    def _show_album_menu(self, source: QLabel | None, pos: QPoint) -> None:
+        popup_album_menu(self.album_menu(source), source or self, pos)
+
     # --- Internals ---------------------------------------------------------
 
-    @staticmethod
-    def _value_label(text: str, accessible_name: str = "") -> QLabel:
+    def _value_label(self, text: str, accessible_name: str = "") -> QLabel:
         """A monospaced-by-context value label that supports copy-on-select.
 
         `accessible_name` names the value for a screen reader; the visible
@@ -289,6 +354,10 @@ class DiscInfoPanel(QWidget):
         (ux-design-principles.md #10).
         """
         label = QLabel(text)
+        # PlainText: these labels carry the ripper's own sentences (a failed
+        # read's error, verbatim), and Qt's default AutoText would read a `<` in
+        # them as markup and drop what follows (Critical rule #12, inbound).
+        label.setTextFormat(Qt.TextFormat.PlainText)
         # Word-wrapped, because these labels hold *dynamic* values and an
         # un-wrapped QLabel's minimum width is its whole single line — a minimum
         # that propagates all the way up to the window. With the values a real
@@ -315,6 +384,13 @@ class DiscInfoPanel(QWidget):
         # not copy a disc ID at all (gap #4 sweep finding). StrongFocus adds
         # TabFocus while keeping click-to-focus.
         label.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        # Right-click (or the Menu key once Tab has landed here) opens the
+        # album's menu, which keeps this label's own Copy and Select All. Wired
+        # here so a value row added later gets it by construction.
+        label.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        label.customContextMenuRequested.connect(
+            lambda pos: self._show_album_menu(label, pos)
+        )
         if accessible_name:
             label.setAccessibleName(accessible_name)
         return label

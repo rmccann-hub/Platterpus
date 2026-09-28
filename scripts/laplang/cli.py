@@ -5,11 +5,18 @@ another program reads: **0** the lap is well formed (warnings may be printed),
 **1** at least one refusal, **2** the file could not be checked (unreadable, not
 an LSL lap, or an LSL version this checker does not implement). *Refused* and
 *could not check* are different claims, so they are different codes.
+
+`--rerun` is LSL 3's B1: a `run:` whose command can depend on nothing but the
+commit it names is re-run in a scratch worktree of the author's clone, and a
+quoted result it did not print is a refusal. It executes the author's committed
+code, so it is off unless asked for, and the report always says how many `run:`
+results there were and what became of each (`render_runs`).
 """
 
 from __future__ import annotations
 
 import argparse
+import shlex
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
@@ -18,9 +25,10 @@ from .amend import check_amendments
 from .check import check_lap
 from .context import Context
 from .grammar import read_lap
-from .model import Lap, Side
+from .model import Lap, RunCoverage, Side
 from .record import Record
 from .refs import Trees, default_at
+from .scratch import REMOVE_WORKTREE
 from .tables import AMENDMENTS, LSL_VERSIONS, tables_for
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
@@ -63,15 +71,21 @@ def check_path(
     peer: Path | None = None,
     amendments: frozenset[str] = frozenset(),
     at: str | None = None,
+    rerun: bool = False,
 ) -> Lap:
-    """Parse and check one lap file. The problems come back on the lap."""
+    """Parse and check one lap file. The problems come back on the lap.
+
+    `rerun` is `--rerun`: in an `LSL: 3` lap, B1 re-runs the `run:` commands it
+    may, which EXECUTES the author's committed code. Off unless asked for.
+    """
     lap = read_lap(path)
     if not lap.lsl:
         if not lap.problems:
             lap.add(0, "CANNOT", "LSL.version", "not an LSL lap: no 'LSL: N' line")
         return lap
-    # `LSL: 2` means LSL 1 with A1-A8 on, whatever `--amend` asked for; `--amend`
-    # can add amendments to a lap, never take away what its version declares.
+    # `LSL: 2` means LSL 1 with A1-A8 on, and `LSL: 3` A1-A8 and B1-B3, whatever
+    # `--amend` asked for; `--amend` can add amendments to a lap, never take away
+    # what its version declares.
     amendments = amendments | LSL_VERSIONS[lap.lsl_version]
     checking = None
     if lap.author is not None and lap.round is not None and lap.lap is not None:
@@ -84,7 +98,11 @@ def check_path(
     if at is not None and lap.author is not None:
         refs[lap.author] = at
     ctx = Context(
-        lap, Record(root, checking), Trees(roots, refs), tables_for(amendments)
+        lap,
+        Record(root, checking),
+        Trees(roots, refs),
+        tables_for(amendments),
+        rerun=rerun,
     )
     check_lap(ctx)
     if amendments:
@@ -115,6 +133,8 @@ def render(lap: Lap) -> tuple[str, int]:
             f"{amendment}: this GO was checked against {count} {waited}"
             + ("; none is, so it had nothing to wait for" if count == 0 else "")
         )
+    if lap.runs is not None:
+        lines.extend(render_runs(lap.runs))
     refused = lap.refused()
     warnings = [p for p in lap.problems if p.severity == "WARN"]
     if refused:
@@ -124,9 +144,57 @@ def render(lap: Lap) -> tuple[str, int]:
     return "\n".join(lines), 0
 
 
+def render_runs(runs: RunCoverage) -> list[str]:
+    """What B1 covered, in the proposal's four numbers: the `run:` results, how
+    many were re-run and matched, how many were not matched, and how many could
+    not be re-run. Without `--rerun` it says that nothing was executed, so a B1
+    that looked at nothing cannot read as one that passed."""
+    lines: list[str] = []
+    if runs.total == 0:
+        lines.append("B1: 0 run: result(s) in this lap, so there was nothing to re-run")
+    elif not runs.rerun:
+        lines.append(
+            f"B1: {runs.total} run: result(s); none re-run, because --rerun was not "
+            "given, so nothing was executed"
+        )
+    else:
+        # A match whose command failed is still a match by B1's text, and is
+        # never folded silently into one: the count says so on this line.
+        failed = (
+            f" ({runs.matched_nonzero} of them exited non-zero, which B1 does not "
+            "compare: each an UNCHECKED exit: above)"
+            if runs.matched_nonzero
+            else ""
+        )
+        lines.append(
+            f"B1: {runs.total} run: result(s): {runs.matched} re-run and matched"
+            f"{failed}, {runs.mismatched} re-run and not matched, {runs.not_rerun} "
+            "could not be re-run (each an UNCHECKED run: above, with its reason)"
+        )
+    for left in runs.leftovers:
+        if left.checkout:
+            # The command `Scratch.close` itself tried, so the advice is one git
+            # takes: a single --force is refused for a worktree still locked
+            # "initializing" by a `worktree add` that timed out (review finding
+            # Q8), which is how a checkout is most likely to be left.
+            # Quoted as a shell would need it, should TMPDIR hold a space.
+            remove = shlex.join(("git", *REMOVE_WORKTREE, left.path))
+            lines.append(
+                f"B1: could not remove the scratch checkout {left.path}; remove it "
+                f"with `{remove}` in the author's clone"
+            )
+        else:
+            lines.append(
+                f"B1: could not remove the scratch directory {left.path}, which is "
+                "not a checkout; once any checkout named above is removed, remove "
+                "what is left in it by hand"
+            )
+    return lines
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Check a lap written in LSL 1 or LSL 2."
+        description="Check a lap written in LSL 1, LSL 2 or LSL 3."
     )
     sub = parser.add_subparsers(dest="command", required=True)
     check = sub.add_parser("check", help="check one lap")
@@ -145,11 +213,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     check.add_argument(
         "--at", help="the author's commits must be reachable from this ref"
     )
+    check.add_argument(
+        "--rerun",
+        action="store_true",
+        help="LSL 3's B1: re-run each run: whose command can depend on nothing but "
+        "its commit, in a scratch worktree of the author's clone, and refuse one "
+        "whose quoted result is not in the output. This EXECUTES the author's "
+        "committed code, the fork's when checking their lap",
+    )
     check.add_argument("--root", type=Path, default=REPO_ROOT, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     lap = check_path(
-        args.lap, root=args.root, peer=args.peer, amendments=args.amend, at=args.at
+        args.lap,
+        root=args.root,
+        peer=args.peer,
+        amendments=args.amend,
+        at=args.at,
+        rerun=args.rerun,
     )
     text, code = render(lap)
     print(text)
+    if args.rerun and lap.lsl and lap.runs is None:
+        # Said, not silent: a --rerun that re-ran nothing must not read as a pass.
+        print(
+            f"--rerun: this lap declares LSL {lap.lsl_version}, and B1 is LSL 3's, "
+            "so nothing was re-run"
+        )
     return code

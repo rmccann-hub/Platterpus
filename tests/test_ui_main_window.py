@@ -38,7 +38,9 @@ from platterpus.adapters.musicbrainz_client import (
 from platterpus.adapters.rip_backend import (
     DiscInfo,
     RipBackend,
+    RipError,
     RipHandle,
+    RipMetadata,
 )
 from platterpus.config import Config
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
@@ -49,6 +51,7 @@ from platterpus.log_buffer import SessionLogBuffer, set_session_buffer
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
 from platterpus.paths import LOG_PATH
+from platterpus.ui import message_boxes
 from platterpus.ui.main_window import MainWindow, _fidelity_summary
 from platterpus.ui.main_window_rip import TaggingResult
 from platterpus.ui.release_picker import ReleasePickerDialog
@@ -343,6 +346,44 @@ def test_new_disc_scan_resets_unknown_mode(teardown_threads) -> None:
     window._start_disc_info("/dev/sr0")  # a fresh scan begins
 
     assert window._rip_controls.is_unknown_mode() is False
+
+
+def test_a_rescan_stops_the_old_probe_as_superseded_not_as_a_fault(
+    teardown_threads: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The call site half of TASKS (rig run 2026-08-20).
+
+    `stop_thread` logs a declared supersession at INFO, and that only helps if
+    the one caller that abandons by design declares it. The recorder stands in
+    for `stop_thread` so the fake "still running" probe is never put in the
+    module's abandoned list, where it would outlive this test.
+    """
+    from platterpus import workers
+
+    calls: list[dict[str, object]] = []
+    real_stop_thread = workers.stop_thread
+
+    def recorder(thread: object, worker: object = None, **kwargs: object) -> None:
+        calls.append({"thread": thread, **kwargs})
+
+    window = teardown_threads(backend=_FakeBackend(), mb_client=_FakeMb())
+    old_probe = type("RunningProbe", (), {"isRunning": lambda self: True})()
+    window._disc_info_thread = old_probe
+    window._disc_info_worker = None
+    monkeypatch.setattr(workers, "stop_thread", recorder)
+    try:
+        window._start_disc_info("/dev/sr0")
+    finally:
+        # Restored before teardown, which stops the NEW probe for real.
+        monkeypatch.setattr(workers, "stop_thread", real_stop_thread)
+
+    superseding = [c for c in calls if c["thread"] is old_probe]
+    assert len(superseding) == 1, calls
+    assert superseding[0]["wait_ms"] == 0, "the no-wait supersession changed"
+    assert "newer" in str(superseding[0].get("superseded_by", "")), (
+        "the rescan no longer declares the old probe superseded, so its planned "
+        "abandonment is logged as a WARNING again"
+    )
 
 
 def test_disc_info_ready_no_mb_id_shows_blank_track_rows(
@@ -775,7 +816,7 @@ def test_rip_requested_blocked_when_track_table_invalid(
         warnings.append((title, text))
         return QMessageBox.StandardButton.Ok
 
-    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.warning", fake_warning)
+    monkeypatch.setattr("platterpus.ui.message_boxes.warning", fake_warning)
 
     from platterpus.workers.rip_worker import RipParameters
 
@@ -859,7 +900,7 @@ def test_rip_requested_blocked_when_no_read_offset(
         warnings.append((title, text))
         return QMessageBox.StandardButton.Yes  # "open the wizard"
 
-    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.warning", fake_warning)
+    monkeypatch.setattr("platterpus.ui.message_boxes.warning", fake_warning)
     opened: list[bool] = []
     monkeypatch.setattr(window, "_on_drive_setup", lambda: opened.append(True))
 
@@ -895,7 +936,7 @@ def test_auto_apply_known_offset_for_known_drive(
             device="/dev/sr0", vendor="PIONEER", model="BD-RW  BDR-209D", release="1.0"
         ),
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
 
     assert window._auto_apply_known_offset() is True
     assert window._config.override_read_offset is True
@@ -955,7 +996,7 @@ def test_auto_apply_records_accuraterip_provenance(
 ) -> None:
     window = teardown_threads()
     _pin_pioneer(window, monkeypatch)
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
 
     window._auto_apply_known_offset()
 
@@ -1113,10 +1154,10 @@ def test_rip_not_blocked_when_drive_offset_is_known(
             device="/dev/sr0", vendor="PIONEER", model="BD-RW  BDR-209D", release="1.0"
         ),
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     warned: list[bool] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda *a, **k: warned.append(True),
     )
 
@@ -1217,9 +1258,9 @@ def test_rip_self_heals_untrusted_wrong_offset(
     window._config.override_read_offset = True
     window._config.read_offset = 0  # the bogus value the old detection saved
     window._record_drive_fact(_PIONEER, offset_value=0, source=OffsetSource.OFFSET_FIND)
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda *a, **k: QMessageBox.StandardButton.Yes,
     )
 
@@ -1250,10 +1291,10 @@ def test_rip_does_not_heal_a_deliberate_manual_offset(
     window._config.override_read_offset = True
     window._config.read_offset = 691  # deliberately measured for THIS unit
     window._record_drive_fact(_PIONEER, offset_value=691, source=OffsetSource.MANUAL)
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     warned: list[tuple] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda *a, **k: warned.append(a) or QMessageBox.StandardButton.Yes,
     )
 
@@ -1386,7 +1427,7 @@ def test_dep_summary_with_no_failures_omits_failure_block(
         captured.append((title, text))
         return None
 
-    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.information", fake_info)
+    monkeypatch.setattr("platterpus.ui.message_boxes.information", fake_info)
 
     report = DependencyReport(ok=[], missing=[], install_results=[])
     window._show_dep_summary(report)
@@ -1430,7 +1471,7 @@ def test_dep_summary_includes_failure_details(
         captured.append((title, text))
         return None
 
-    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.information", fake_info)
+    monkeypatch.setattr("platterpus.ui.message_boxes.information", fake_info)
 
     report = DependencyReport(ok=[], missing=[], install_results=[failure])
     window._show_dep_summary(report)
@@ -1468,7 +1509,7 @@ def test_dep_summary_stamps_installed_versions(
     window = teardown_threads()
     captured: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.information",
+        "platterpus.ui.message_boxes.information",
         lambda parent, title, text: captured.append((title, text)),
     )
 
@@ -1514,7 +1555,7 @@ def test_dep_summary_does_not_show_user_declines_as_failures(
     captured: list[tuple[str, str]] = []
 
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.information",
+        "platterpus.ui.message_boxes.information",
         lambda parent, title, text: captured.append((title, text)) or None,
     )
 
@@ -1557,12 +1598,10 @@ def test_offer_optional_install_resolves_when_accepted(
     resolved: list[Any] = []
 
     monkeypatch.setattr(
-        "platterpus.ui.main_window_deps.QMessageBox.question",
+        "platterpus.ui.message_boxes.question",
         lambda *a, **k: QMessageBox.StandardButton.Yes,
     )
-    monkeypatch.setattr(
-        "platterpus.ui.main_window_deps.QMessageBox.information", lambda *a, **k: None
-    )
+    monkeypatch.setattr("platterpus.ui.message_boxes.information", lambda *a, **k: None)
     window = teardown_threads()
     # The optional deps resolve through the one unified dialog, not a second path.
     monkeypatch.setattr(
@@ -1582,7 +1621,7 @@ def test_offer_optional_install_skips_when_declined(
     item = _optional_missing_item("flac")
     resolved: list[Any] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window_deps.QMessageBox.question",
+        "platterpus.ui.message_boxes.question",
         lambda *a, **k: QMessageBox.StandardButton.No,
     )
     window = teardown_threads()
@@ -2488,17 +2527,34 @@ def test_unique_album_title_never_overwrites_a_previous_unknown_rip(
 # --- Known-disc overwrite confirm (2026-07-08 trust audit) ----------------
 
 
+def _album(
+    artist: str, title: str, year: str = "", *, disc: int = 1, discs: int = 1
+) -> RipMetadata:
+    """The album-level metadata the overwrite guard predicts a folder from."""
+    return RipMetadata(
+        album_artist=artist,
+        album_title=title,
+        year=year,
+        disc_number=disc,
+        total_discs=discs,
+    )
+
+
 def test_known_album_folder_matches_cyanrip_folder_derivation(tmp_path) -> None:
-    """The folder a known-disc rip lands in is the disc template rendered from the
-    tags — including cyanrip's ':' → '∶' path sanitisation."""
-    from platterpus.ui.main_window_helpers import known_album_folder
+    """The folder a known-disc rip lands in is the TRACK template's folder part
+    rendered from the tags — including cyanrip's ':' → '∶' path sanitisation."""
+    from platterpus.ui.main_window_helpers import known_album_folders
 
     root = tmp_path
-    folder = known_album_folder(root, "%A/%d/%d", "The Police", "Best: Hits", "1995")
-    assert folder == root / "The Police" / "Best∶ Hits"
+    folders = known_album_folders(
+        root, "%A/%d/%t - %n", _album("The Police", "Best: Hits", "1995")
+    )
+    assert folders == (root / "The Police" / "Best∶ Hits",)
     # The year preset puts the 4-digit year in the folder, not the filename.
-    folder2 = known_album_folder(root, "%A/%d (%Y)/%d", "Air", "Moon Safari", "1998")
-    assert folder2 == root / "Air" / "Moon Safari (1998)"
+    folders2 = known_album_folders(
+        root, "%A/%d (%Y)/%t - %n", _album("Air", "Moon Safari", "1998")
+    )
+    assert folders2 == (root / "Air" / "Moon Safari (1998)",)
 
 
 def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
@@ -2522,7 +2578,7 @@ def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
     entry added alongside it. Reverting the resolver makes the first assertion
     return the unsanitised literal, which is the bug.
     """
-    from platterpus.ui.main_window_helpers import _dir_has_audio, known_album_folder
+    from platterpus.ui.main_window_helpers import _dir_has_audio, known_album_folders
 
     root = tmp_path
     # The subject is `"` — and since 2026-08-24 that choice is principled rather
@@ -2537,42 +2593,109 @@ def test_the_overwrite_guard_finds_a_folder_our_glyph_table_cannot_predict(
     real.mkdir(parents=True)
     (real / "01 - Roxanne.flac").write_bytes(b"audio")
 
-    found = known_album_folder(
-        root, "%A/%d/%d", "The Police", 'Songs "About" Nothing', ""
+    found = known_album_folders(
+        root, "%A/%d/%t - %n", _album("The Police", 'Songs "About" Nothing')
     )
-    assert found == real, (
+    assert found == (real,), (
         "the guard did not find the folder cyanrip actually wrote — this is the "
         "silent-overwrite defect: it would report an empty target and rip over a "
         f"finished archival master (looked at {found})"
     )
-    assert _dir_has_audio(found), "found the folder but not the audio in it"
+    assert _dir_has_audio(found[0]), "found the folder but not the audio in it"
 
     # A DIFFERENT album must not be captured. The two titles differ only in a
     # non-ASCII character, which is exactly the false match a naive "are both
     # sides odd glyphs?" rule makes — and the ONLY folder on disk is the other
     # one, so the scan genuinely runs. (Creating the probe's own folder here made
-    # this assertion vacuous: `resolve_sanitised_path` took the literal branch and
-    # never compared anything. Caught by `scripts/revert_probe.py`.)
+    # this assertion vacuous: the resolver took the literal branch and never
+    # compared anything. Caught by `scripts/revert_probe.py`.)
     (root / "The Police" / "Cafè").mkdir()
-    probe = known_album_folder(root, "%A/%d/%d", "The Police", "Café", "")
-    assert probe == root / "The Police" / "Café", (
+    probe = known_album_folders(root, "%A/%d/%t - %n", _album("The Police", "Café"))
+    assert probe == (root / "The Police" / "Café",), (
         "matched a near-identical title as a substitution — an accented letter is "
         "not a sanitiser stand-in, and treating it as one would warn about the "
         f"wrong album (got {probe})"
     )
 
-    # Two candidates that could each be the rendering → refuse rather than guess,
-    # and fall back to the literal prediction (no dialog, same as before). The
+    # Two candidates that could each be the rendering → BOTH come back, so the
+    # prompt can name them (maintainer ruling, 2026-09-27). This used to fall back
+    # to the literal prediction, a folder that does not exist, and the guard then
+    # stood down: no dialog, over a folder that might hold a finished rip. The
     # quote's two glyphs make this a REAL ambiguity rather than a contrived one:
     # both are legitimate renderings of the same title, and which one cyanrip
     # picks depends on parity we cannot see.
     (root / "Ambiguous").mkdir()
     (root / "Ambiguous" / "a“b").mkdir()
     (root / "Ambiguous" / "a”b").mkdir()
-    tied = known_album_folder(root, "%A/%d/%d", "Ambiguous", 'a"b', "")
-    assert tied == root / "Ambiguous" / 'a"b', (
-        "guessed between two equally-plausible folders instead of standing down"
+    tied = known_album_folders(root, "%A/%d/%t - %n", _album("Ambiguous", 'a"b'))
+    assert tied == (root / "Ambiguous" / "a“b", root / "Ambiguous" / "a”b"), (
+        "a tie between two equally-plausible folders must return both, so the "
+        f"overwrite prompt can ask about each; got {tied}"
     )
+
+
+def test_known_album_folders_follows_every_look_alike_branch(tmp_path) -> None:
+    """A tie at the ARTIST folder is followed into each artist, not dropped.
+
+    The walk branches rather than ending at the first tie, so the album folder is
+    looked for under every look-alike artist. Here only one of the two holds the
+    album; the other branch contributes its literal (not-yet-created) path, which
+    is still a place cyanrip could write, so it is still a candidate.
+    """
+    from platterpus.ui.main_window_helpers import known_album_folders
+
+    left, right = tmp_path / "x“y", tmp_path / "x”y"
+    (left / "Album").mkdir(parents=True)
+    right.mkdir()
+    # A FILE with a matching name is not a folder the rip can land in.
+    (tmp_path / "x‹y").write_bytes(b"not a folder")
+
+    folders = known_album_folders(tmp_path, "%A/%d/%t - %n", _album('x"y', "Album"))
+    assert folders == (left / "Album", right / "Album"), folders
+
+
+def test_an_existing_literal_folder_does_not_hide_its_look_alikes(tmp_path) -> None:
+    """Review R3: `a"b` exists (empty) beside `a“b` (a finished rip).
+
+    cyanrip never writes a `"` into a folder name (it writes `“` or `”`, P7d), but
+    a folder can still carry one: an unknown-disc rip keeps the title as typed.
+    The resolver took an existing literal and stopped, so `a“b` was never looked
+    at and the guard saw one empty folder.
+    """
+    from platterpus.ui.main_window_helpers import _dir_has_audio, known_album_folders
+
+    literal = tmp_path / "Art" / 'a"b'
+    written = tmp_path / "Art" / "a“b"
+    literal.mkdir(parents=True)
+    written.mkdir()
+    (written / "01 - One.flac").write_bytes(b"not really audio")
+
+    folders = known_album_folders(tmp_path, "%A/%d/%t - %n", _album("Art", 'a"b'))
+    assert written in folders, f"the full look-alike was hidden: {folders}"
+    assert literal in folders, f"the existing literal was dropped: {folders}"
+    assert [f for f in folders if _dir_has_audio(f)] == [written], folders
+
+
+def test_free_album_folder_templates_skips_a_suffix_taken_under_any_candidate(
+    tmp_path,
+) -> None:
+    """The "Rip to a new folder" choice must not land on a look-alike with a rip.
+
+    `a“b (2)` is empty but `a”b (2)` holds audio, and cyanrip may write either,
+    so (2) is not free. Checking only one candidate would pick (2) and could
+    overwrite the very rip the user chose a new folder to keep.
+    """
+    from platterpus.ui.main_window_helpers import free_album_folder_templates
+
+    artist = tmp_path / "Ambiguous"
+    (artist / "a“b (2)").mkdir(parents=True)
+    (artist / "a”b (2)").mkdir()
+    (artist / "a”b (2)" / "01.flac").write_bytes(b"x")
+
+    disc_out, track_out = free_album_folder_templates(
+        tmp_path, "%A/%d/%d", "%A/%d/%t - %n", _album("Ambiguous", 'a"b')
+    )
+    assert (disc_out, track_out) == ("%A/%d (3)/%d", "%A/%d (3)/%t - %n")
 
 
 def test_suffix_album_folder_template_suffixes_only_the_album_folder() -> None:
@@ -2583,8 +2706,11 @@ def test_suffix_album_folder_template_suffixes_only_the_album_folder() -> None:
     # a "(2)".
     assert suffix_album_folder_template("%A/%d/%t - %n", 2) == "%A/%d (2)/%t - %n"
     assert suffix_album_folder_template("%A/%d (%Y)/%d", 3) == "%A/%d (%Y) (3)/%d"
-    # A single-segment template has no folder to suffix → returned unchanged.
-    assert suffix_album_folder_template("%d", 2) == "%d"
+    # A single-segment template has no folder of its own: its rip lands in
+    # cyanrip's default `<album> [FLAC]`, so the numbered folder is that one,
+    # written out. Returned unchanged, "Rip to a new folder" found nothing free.
+    assert suffix_album_folder_template("%d", 2) == "%d [FLAC] (2)/%d"
+    assert suffix_album_folder_template("%t - %n", 3) == "%d [FLAC] (3)/%t - %n"
 
 
 def test_free_album_folder_templates_finds_smallest_free_sibling(tmp_path) -> None:
@@ -2597,7 +2723,7 @@ def test_free_album_folder_templates_finds_smallest_free_sibling(tmp_path) -> No
         d.mkdir(parents=True)
         (d / "01.flac").write_bytes(b"x")
     disc_out, track_out = free_album_folder_templates(
-        root, "%A/%d/%d", "%A/%d/%t - %n", artist, title, year
+        root, "%A/%d/%d", "%A/%d/%t - %n", _album(artist, title, year)
     )
     assert disc_out == "%A/%d (3)/%d"
     assert track_out == "%A/%d (3)/%t - %n"
@@ -2689,6 +2815,395 @@ def test_known_overwrite_cancel_aborts(teardown_threads, monkeypatch, tmp_path) 
     assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
 
 
+# --- Two look-alike folders: ask, name both, withhold Replace (2026-09-27) ---
+#
+# Maintainer ruling: when two folders on disk could each be this album's, the
+# guard must not stand down. The tests below drive `_confirm_known_overwrite`,
+# the production prompt, with real folders in tmp_path. `exec` is replaced so no
+# event loop runs, but the box it receives is the one production built: its text,
+# its buttons and its label are what a user would see.
+
+
+def _record_dialog(monkeypatch, pick: str | None) -> list[dict[str, object]]:
+    """Capture every QMessageBox that `exec`s, then 'click' ``pick`` on it.
+
+    ``pick`` is a button-text prefix, or ``None`` to dismiss the box without a
+    button (Esc / window close), which is what Qt reports as a None
+    ``clickedButton()``.
+    """
+    from PySide6.QtWidgets import QLabel
+
+    seen: list[dict[str, object]] = []
+
+    def fake_exec(self) -> int:
+        label = self.findChild(QLabel, "qt_msgbox_label")
+        seen.append(
+            {
+                "title": self.windowTitle(),
+                "text": self.text(),
+                "informative": self.informativeText(),
+                "buttons": [b.text().replace("&", "") for b in self.buttons()],
+                "label_text": label.text() if label is not None else None,
+                "label_format": label.textFormat() if label is not None else None,
+            }
+        )
+        self._picked = (
+            None
+            if pick is None
+            else next(
+                b for b in self.buttons() if b.text().replace("&", "").startswith(pick)
+            )
+        )
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", fake_exec)
+    monkeypatch.setattr(QMessageBox, "clickedButton", lambda self: self._picked)
+    return seen
+
+
+def _two_look_alikes(root: Path, *, audio_in: tuple[str, ...]) -> tuple[Path, Path]:
+    """`Ambiguous/a“b` and `Ambiguous/a”b`, with audio in the ones named."""
+    folders = (root / "Ambiguous" / "a“b", root / "Ambiguous" / "a”b")
+    for folder in folders:
+        folder.mkdir(parents=True)
+        if folder.name in audio_in:
+            (folder / "01 - Track.flac").write_bytes(b"not really audio")
+    return folders
+
+
+def test_known_overwrite_asks_when_two_look_alike_folders_could_be_the_target(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """The prompt appears, names BOTH folders, and offers no Replace.
+
+    Only the SECOND folder holds a rip, deliberately: the old code stood down on
+    the tie and checked a folder that did not exist, and a fix that checked only
+    the first candidate would find it empty. Either would rip with no prompt.
+    """
+    from PySide6.QtCore import Qt
+
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    left, right = _two_look_alikes(tmp_path, audio_in=("a”b",))
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+    assert len(seen) == 1, f"expected exactly one overwrite prompt, got {seen}"
+    prompt = seen[0]
+    assert prompt["title"] == "Album already ripped"
+    text = str(prompt["text"])
+    assert str(left) in text and str(right) in text, text
+    assert f"{right} — ⚠ already holds a rip" in text, text
+    assert f"{left} — no rip" in text, text
+    # The label the user reads carries both names and cannot parse them as markup.
+    assert prompt["label_text"] == text
+    assert prompt["label_format"] == Qt.TextFormat.PlainText
+    # Replace would mean "overwrite THE folder", and there is not one.
+    buttons = prompt["buttons"]
+    assert isinstance(buttons, list)
+    assert not any(b.startswith("Replace") for b in buttons), buttons
+    assert "Rip to a new folder" in buttons and "Cancel" in buttons, buttons
+    assert "Replace is not offered" in str(prompt["informative"])
+
+
+def test_known_overwrite_asks_when_an_empty_literal_sits_beside_a_full_look_alike(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Review R3, through the production prompt: the rip must not start silently.
+
+    Before the fix the empty `a"b` was the only candidate, so the guard returned
+    params with no dialog and cyanrip wrote into `a“b` over a finished rip.
+    """
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    literal = tmp_path / "Ambiguous" / 'a"b'
+    literal.mkdir(parents=True)
+    written = _two_look_alikes(tmp_path, audio_in=("a“b",))[0]
+    written.parent.joinpath("a”b").rmdir()
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+    assert len(seen) == 1, f"no prompt over {written}, which holds a rip: {seen}"
+    text = str(seen[0]["text"])
+    assert f"{written} — ⚠ already holds a rip" in text, text
+    assert seen[0]["title"] == "Album already ripped"
+
+
+def test_known_overwrite_ambiguous_dismissal_is_not_consent_to_replace(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Closing the ambiguous prompt cancels; it must not read as Replace.
+
+    With Replace withheld its button is None, and a dismissed box's clicked
+    button is None too, so a bare `clicked is replace_btn` would be True.
+    """
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    _two_look_alikes(tmp_path, audio_in=("a“b", "a”b"))
+    seen = _record_dialog(monkeypatch, None)
+
+    assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+    assert len(seen) == 1
+
+
+def test_known_overwrite_ambiguous_new_folder_is_suffixed(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    _two_look_alikes(tmp_path, audio_in=("a“b", "a”b"))
+    _record_dialog(monkeypatch, "Rip to a new folder")
+
+    result = window._confirm_known_overwrite(_known_params(tmp_path))
+    assert result is not None
+    assert result.disc_template == "%A/%d (2)/%d"
+    assert result.track_template == "%A/%d (2)/%t - %n"
+
+
+def test_known_overwrite_ambiguous_with_no_audio_still_asks_and_claims_no_rip(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """The maintainer's ruling (2026-09-28): a tie ALWAYS asks, because the rip
+    would land in whichever look-alike cyanrip picks. With neither holding a rip,
+    the prompt must not say one does: its title and its text say which it is.
+    A single empty folder still asks nothing (the next test's neighbour case)."""
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    left, right = _two_look_alikes(tmp_path, audio_in=())
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+    assert len(seen) == 1, seen
+    prompt = seen[0]
+    assert prompt["title"] == "Which album folder?"
+    text = str(prompt["text"])
+    assert "already holds a rip" not in text, text
+    assert f"{left} — no rip" in text and f"{right} — no rip" in text, text
+    assert "Neither holds a rip yet" in text, text
+    buttons = prompt["buttons"]
+    assert isinstance(buttons, list)
+    assert not any(b.startswith("Replace") for b in buttons), buttons
+
+
+def test_known_overwrite_single_empty_folder_still_asks_nothing(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """The neighbour the ruling does not change: ONE folder with no rip in it is
+    not a tie and holds nothing to overwrite, so there is no prompt."""
+    window = teardown_threads()
+    _set_album(window, "Ambiguous", 'a"b')
+    folder = _two_look_alikes(tmp_path, audio_in=())[0]
+    folder.parent.joinpath("a”b").rmdir()
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    params = _known_params(tmp_path)
+    assert window._confirm_known_overwrite(params) is params
+    assert seen == []
+
+
+# --- The folder checked is the folder cyanrip writes (R4, R5, 2026-09-28) ---
+#
+# cyanrip's `-D` is built from the TRACK template's folder part, filled with the
+# disc position the rip sends as `-c`. The guard used to render the DISC template
+# (which the backend deletes unread) as disc 1 of 1, so these two custom setups
+# ripped over a finished rip without asking. The prompts below are the production
+# prompt; only `exec` is replaced.
+
+
+def test_known_overwrite_checks_the_track_templates_folder_not_the_disc_templates(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """A hand-edited track template whose folder differs from the disc template's.
+
+    `%A/%d (%Y)/…` writes into `Art/Alb (2000)`; the disc template left at its
+    default names `Art/Alb`, which is empty. The guard must look where the rip
+    goes, so the prompt fires and names `Alb (2000)`.
+    """
+    window = teardown_threads()
+    _set_album(window, "Art", "Alb")
+    window._track_table._album_year_edit.setText("2000")
+    written = tmp_path / "Art" / "Alb (2000)"
+    written.mkdir(parents=True)
+    (written / "01 - One.flac").write_bytes(b"not really audio")
+    (tmp_path / "Art" / "Alb").mkdir()  # the disc template's folder: empty
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    from dataclasses import replace
+
+    params = replace(_known_params(tmp_path), track_template="%A/%d (%Y)/%t - %n")
+    assert params.disc_template == "%A/%d/%d"  # the drift under test
+    assert window._confirm_known_overwrite(params) is None
+    assert len(seen) == 1, f"no prompt over {written}, which holds a rip: {seen}"
+    assert seen[0]["title"] == "Album already ripped"
+    assert str(written) in str(seen[0]["text"]), seen[0]["text"]
+
+
+def test_rip_to_a_new_folder_tests_the_track_templates_suffixed_folder(
+    tmp_path,
+) -> None:
+    """ "Rip to a new folder" must be free where the rip goes.
+
+    With the track template `%A/%d (%Y)/…`, a (2) lands in `Alb (2000) (2)`. That
+    one is taken here, and `Alb (2)` (what the disc template would name) is free,
+    so testing the disc template's folder picks (2) and rips over `Alb (2000) (2)`.
+    """
+    from platterpus.ui.main_window_helpers import free_album_folder_templates
+
+    taken = tmp_path / "Art" / "Alb (2000) (2)"
+    taken.mkdir(parents=True)
+    (taken / "01.flac").write_bytes(b"x")
+    disc_out, track_out = free_album_folder_templates(
+        tmp_path, "%A/%d/%d", "%A/%d (%Y)/%t - %n", _album("Art", "Alb", "2000")
+    )
+    assert track_out == "%A/%d (%Y) (3)/%t - %n", track_out
+    assert disc_out == "%A/%d (3)/%d", disc_out
+
+
+def _disc_of_a_set(mbid: str, disc: int, discs: int) -> ReleaseDetail:
+    return ReleaseDetail(
+        summary=ReleaseSummary(
+            mbid=mbid,
+            title="Alb",
+            artist_credit="Art",
+            disc_number=disc,
+            total_discs=discs,
+        ),
+        tracks=(TrackSummary(number=1, title="One"),),
+    )
+
+
+def test_known_overwrite_checks_the_disc_of_the_set_being_ripped(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Disc 2 of 2, a `%N` folder, and disc 2 already ripped: the prompt fires.
+
+    The guard used to predict disc 1's folder for every disc, so it found
+    `Alb (Disc 1)` empty and asked nothing while the rip, sent `-c 2/2`, wrote
+    over `Alb (Disc 2)`.
+    """
+    from dataclasses import replace
+
+    window = teardown_threads()
+    _set_album(window, "Art", "Alb")
+    params = replace(_known_params(tmp_path), track_template="%A/%d (Disc %N)/%t - %n")
+    window._current_release_detail = _disc_of_a_set(params.release_id, 2, 2)
+    written = tmp_path / "Art" / "Alb (Disc 2)"
+    written.mkdir(parents=True)
+    (written / "01 - One.flac").write_bytes(b"not really audio")
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    assert window._confirm_known_overwrite(params) is None
+    assert len(seen) == 1, f"no prompt over {written}, which holds a rip: {seen}"
+    assert str(written) in str(seen[0]["text"]), seen[0]["text"]
+
+
+def test_known_overwrite_does_not_name_disc_1_when_ripping_disc_2(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """The mirror case: disc 1 of the set is ripped, disc 2 is not.
+
+    Disc 2's rip writes into `Alb (Disc 2)`, which is empty, so there is nothing
+    to ask. The old guard named `Alb (Disc 1)` here and offered Replace, which
+    would have written disc 2 somewhere the prompt never named.
+    """
+    from dataclasses import replace
+
+    window = teardown_threads()
+    _set_album(window, "Art", "Alb")
+    params = replace(_known_params(tmp_path), track_template="%A/%d (Disc %N)/%t - %n")
+    window._current_release_detail = _disc_of_a_set(params.release_id, 2, 2)
+    other = tmp_path / "Art" / "Alb (Disc 1)"
+    other.mkdir(parents=True)
+    (other / "01 - One.flac").write_bytes(b"not really audio")
+    seen = _record_dialog(monkeypatch, "Cancel")
+
+    assert window._confirm_known_overwrite(params) is params
+    assert seen == [], seen
+
+
+def test_known_overwrite_checks_cyanrips_own_folder_when_the_template_has_none(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """No folder part: no `-D` is sent and cyanrip writes `<album> [FLAC]`.
+
+    Until 2026-09-28 the guard logged "overwrite check not run" and let the rip
+    overwrite that folder without a word. It now checks the folder cyanrip
+    really writes, and "Rip to a new folder" numbers that folder."""
+    from dataclasses import replace
+
+    window = teardown_threads()
+    _set_album(window, "Art", "Alb")
+    written = tmp_path / "Alb [FLAC]"
+    written.mkdir()
+    (written / "01 - One.flac").write_bytes(b"not really audio")
+    seen = _record_dialog(monkeypatch, "Rip to a new folder")
+    params = replace(_known_params(tmp_path), track_template="%t - %n")
+    result = window._confirm_known_overwrite(params)
+    assert len(seen) == 1, "no prompt over the folder cyanrip writes"
+    assert seen[0]["title"] == "Album already ripped", seen[0]
+    assert "Replace" in seen[0]["buttons"], seen[0]["buttons"]
+    assert str(written) in str(seen[0]["text"]), seen[0]["text"]
+    assert result is not None
+    assert result.track_template == "%d [FLAC] (2)/%t - %n", result
+
+
+def test_known_overwrite_ignores_a_look_alike_branch_that_holds_no_album(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Two artist spellings the app itself makes: an unknown-disc rip turns `/`
+    into `-` (`AC-DC`), cyanrip into `∕` (`AC∕DC`). The resolver returns a path
+    under each, and one does not exist. That phantom was counted as a tie: a first
+    rip was asked "which folder?" with no Replace, and a re-rip lost Replace."""
+    window = teardown_threads()
+    _set_album(window, "AC/DC", "Highway to Hell")
+    (tmp_path / "AC-DC" / "Live Bootleg").mkdir(parents=True)
+    (tmp_path / "AC-DC" / "Live Bootleg" / "01.flac").write_bytes(b"x")
+    ripped = tmp_path / "AC\u2215DC" / "Back in Black"
+    ripped.mkdir(parents=True)
+    (ripped / "01.flac").write_bytes(b"x")
+
+    # A first rip of an album with no folder anywhere: nothing to ask.
+    seen = _record_dialog(monkeypatch, "Cancel")
+    params = _known_params(tmp_path)
+    assert window._confirm_known_overwrite(params) is params
+    assert seen == [], seen
+
+    # A re-rip: the one real folder, with Replace, and a definite overwrite.
+    _set_album(window, "AC/DC", "Back in Black")
+    seen = _record_dialog(monkeypatch, "Replace")
+    assert window._confirm_known_overwrite(params) is params
+    assert len(seen) == 1, seen
+    assert seen[0]["title"] == "Album already ripped", seen[0]
+    assert "Replace" in seen[0]["buttons"], seen[0]["buttons"]
+    assert str(ripped) in str(seen[0]["text"]), seen[0]["text"]
+    assert "will overwrite" in str(seen[0]["text"]), seen[0]["text"]
+    assert "AC-DC" not in str(seen[0]["text"]), "the prompt names a phantom"
+
+
+def test_known_overwrite_does_not_promise_an_overwrite_of_a_look_alike(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """The one existing folder is a look-alike of the predicted one (cyanrip may
+    pick either glyph for a `"`): the prompt says it MAY write there."""
+    window = teardown_threads()
+    _set_album(window, "Art", 'a"b')
+    from platterpus.adapters.cyanrip_backend import predicted_album_folder
+
+    predicted = predicted_album_folder(
+        "%A/%d/%t - %n", window._rip_metadata_for(_known_params(tmp_path))
+    )
+    literal = predicted.split("/")[-1]
+    other = "a\u201db" if literal != "a\u201db" else "a\u201cb"
+    ripped = tmp_path / "Art" / other
+    ripped.mkdir(parents=True)
+    (ripped / "01.flac").write_bytes(b"x")
+    seen = _record_dialog(monkeypatch, "Cancel")
+    assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+    assert len(seen) == 1, seen
+    assert "may write into it" in str(seen[0]["text"]), seen[0]["text"]
+    assert "will overwrite" not in str(seen[0]["text"]), seen[0]["text"]
+
+
 # --- First-run drive-setup offer + manual offset -------------------------
 
 
@@ -2733,7 +3248,7 @@ def test_maybe_offer_records_prompt_and_launches_on_yes(
         config=Config(drive_setup_prompted=False), save_cfg=saved.append
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     launched: list[bool] = []
     monkeypatch.setattr(window, "_on_drive_setup", lambda: launched.append(True))
@@ -2753,7 +3268,7 @@ def test_maybe_offer_no_launch_on_no(teardown_threads, monkeypatch) -> None:
     )
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.No
     )
     launched: list[bool] = []
     monkeypatch.setattr(window, "_on_drive_setup", lambda: launched.append(True))
@@ -2832,7 +3347,7 @@ def test_maybe_offer_host_setup_records_and_opens_on_yes(
         config=Config(host_setup_prompted=False), save_cfg=saved.append
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     opened: list[bool] = []
     monkeypatch.setattr(window, "open_host_setup_dialog", lambda: opened.append(True))
@@ -2974,7 +3489,7 @@ def test_update_result_none_reports_check_failure(
     window = teardown_threads()
     seen: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "information",
         lambda parent, title, text, *a, **k: seen.append(text),
     )
@@ -2989,7 +3504,7 @@ def test_update_result_up_to_date(teardown_threads, monkeypatch) -> None:
     window = teardown_threads()
     seen: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "information",
         lambda parent, title, text, *a, **k: seen.append(text),
     )
@@ -3009,7 +3524,7 @@ def test_update_result_newer_without_appimage_opens_release_page(
     window = teardown_threads()
     monkeypatch.setattr(ai, "appimage_path", lambda: None)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     opened: list[str] = []
     monkeypatch.setattr(
@@ -3036,7 +3551,7 @@ def test_update_result_newer_as_appimage_starts_builtin_install(
         ai, "appimage_path", lambda: tmp_path / "platterpus-x86_64.AppImage"
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     started: list[str] = []
     monkeypatch.setattr(window, "_begin_update_install", started.append)
@@ -3069,7 +3584,7 @@ def test_prerelease_offer_warns_and_does_not_default_to_yes(
         asked.append((text, default))
         return QMessageBox.StandardButton.No
 
-    monkeypatch.setattr(QMessageBox, "question", fake_question)
+    monkeypatch.setattr(message_boxes, "question", fake_question)
 
     window._on_update_result(
         ReleaseInfo(version="99.0.0b1", url="https://x", is_prerelease=True)
@@ -3100,7 +3615,7 @@ def test_stable_offer_carries_no_beta_warning(
         asked.append((text, default))
         return QMessageBox.StandardButton.No
 
-    monkeypatch.setattr(QMessageBox, "question", fake_question)
+    monkeypatch.setattr(message_boxes, "question", fake_question)
     window._on_update_result(ReleaseInfo(version="99.0.0", url="https://x"))
 
     assert asked
@@ -3118,7 +3633,7 @@ def test_up_to_date_message_names_the_channel(teardown_threads, monkeypatch) -> 
     window = teardown_threads()
     seen: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "information",
         lambda parent, title, text, *a, **k: seen.append(text),
     )
@@ -3155,7 +3670,7 @@ def test_update_install_success_offers_restart(
     integrated: list[Path] = []
     monkeypatch.setattr(ai, "integrate", lambda p, **k: integrated.append(p))
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     launched: list[list[str]] = []
     monkeypatch.setattr(
@@ -3193,7 +3708,7 @@ def test_update_install_failure_changes_nothing(teardown_threads, monkeypatch) -
     window = teardown_threads()
     warnings: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "warning",
         lambda parent, title, text, *a, **k: warnings.append(text),
     )
@@ -3224,7 +3739,7 @@ def test_update_relaunch_failure_keeps_the_window_open(
     new_path = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
     monkeypatch.setattr(ai, "integrate", lambda p, **k: None)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
 
     def boom(*a, **k):
@@ -3233,7 +3748,7 @@ def test_update_relaunch_failure_keeps_the_window_open(
     monkeypatch.setattr(subprocess_mod, "Popen", boom)
     infos: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "information",
         lambda parent, title, text, *a, **k: infos.append(text),
     )
@@ -3267,7 +3782,7 @@ def test_update_decline_restart_neither_relaunches_nor_closes(
     new_path = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
     monkeypatch.setattr(ai, "integrate", lambda p, **k: None)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.No
     )
     launched: list[object] = []
     monkeypatch.setattr(subprocess_mod, "Popen", lambda *a, **k: launched.append(a))
@@ -3305,7 +3820,7 @@ def test_update_relaunch_passes_scrubbed_env_and_new_session(
     new_path = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
     monkeypatch.setattr(ai, "integrate", lambda p, **k: None)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     monkeypatch.setattr(window, "close", lambda: None)
     calls: list[dict] = []
@@ -3359,7 +3874,7 @@ def test_update_restart_prompt_warns_about_cold_extract_delay(
         prompts.append(text)
         return QMessageBox.StandardButton.No  # decline → no spawn/close needed
 
-    monkeypatch.setattr(QMessageBox, "question", capture_question)
+    monkeypatch.setattr(message_boxes, "question", capture_question)
     monkeypatch.setattr(subprocess_mod, "Popen", lambda *a, **k: None)
     monkeypatch.setattr(window, "close", lambda: None)
 
@@ -3456,12 +3971,48 @@ def test_tools_menu_has_uninstall_action(teardown_threads) -> None:
     assert any("Uninstall Platterpus" in t.replace("&", "") for t in actions)
 
 
+def test_the_test_tools_menu_items_live_under_tools_advanced(teardown_threads) -> None:
+    """D4 A (maintainer, 2026-09-25): *Run test script…* and *Run acceptance
+    test…* sit in a Tools → Advanced ▸ submenu, and Uninstall stays in Tools.
+
+    Read off the BUILT menu, not the source: `menuBar().findChildren(QMenu)`
+    recurses, so the other menu tests would go on finding both items whether they
+    were in Tools or under Advanced. This one says which, in both directions.
+    """
+    from PySide6.QtWidgets import QMenu
+
+    window = teardown_threads()
+    tools = next(
+        m for m in window.menuBar().findChildren(QMenu) if m.title() == "&Tools"
+    )
+    direct = [a.text().replace("&", "") for a in tools.actions()]
+    submenus = [a.menu() for a in tools.actions() if a.menu() is not None]
+    assert [m.title() for m in submenus] == ["&Advanced"], direct
+    inside = [a.text().replace("&", "") for a in submenus[0].actions()]
+    assert inside == ["Run test script…", "Run acceptance test…"], inside
+    assert not {"Run test script…", "Run acceptance test…"} & set(direct), direct
+    # Uninstall stays where a user can see it — the half of D4 A that is easy to
+    # lose by sweeping "the rarely used items" into the submenu together.
+    assert "Uninstall Platterpus…" in direct
+
+    # Moving the acceptance item did not unhook it from the rip lock: it rips
+    # discs itself, so starting one on top of a live rip is still refused.
+    acceptance = submenus[0].actions()[1]
+    assert acceptance.isEnabled()
+    window._set_rip_lock(True)
+    try:
+        assert not acceptance.isEnabled()
+    finally:
+        window._set_rip_lock(False)
+    assert acceptance.isEnabled()
+
+
 def test_uninstall_finished_offers_quit_on_success(
     teardown_threads, monkeypatch
 ) -> None:
     window = teardown_threads()
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     closed: list[bool] = []
     monkeypatch.setattr(window, "close", lambda: closed.append(True))
@@ -3471,7 +4022,7 @@ def test_uninstall_finished_offers_quit_on_success(
 
     # An incomplete uninstall must NOT prompt or close.
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "question",
         lambda *a, **k: (_ for _ in ()).throw(AssertionError("prompted")),
     )
@@ -3515,9 +4066,9 @@ def test_integration_offer_runs_on_yes(teardown_threads, monkeypatch, tmp_path) 
         config=Config(appimage_integration_prompted=False), save_cfg=saved.append
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     integrated: list[Path] = []
     # Stub the relocation (identity) — its real behaviour is covered by
     # test_integration_offer_relocates_then_integrates and the
@@ -3567,7 +4118,7 @@ def test_integration_offer_skips_only_the_declined_file(
     )
     asked: list[bool] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "question",
         lambda *a, **k: (asked.append(True), QMessageBox.StandardButton.No)[1],
     )
@@ -3610,7 +4161,7 @@ def test_integration_reoffers_after_an_IN_PLACE_update_at_the_same_path(
     )
     asked: list[bool] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "question",
         lambda *a, **k: (asked.append(True), QMessageBox.StandardButton.No)[1],
     )
@@ -3648,7 +4199,7 @@ def test_a_config_declined_before_the_version_key_existed_is_released(
     )
     asked: list[bool] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "question",
         lambda *a, **k: (asked.append(True), QMessageBox.StandardButton.No)[1],
     )
@@ -3679,9 +4230,9 @@ def test_integration_reoffers_for_a_new_file_despite_legacy_flag(
         save_cfg=lambda c: None,
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
 
     window._maybe_offer_appimage_integration()
 
@@ -3700,7 +4251,7 @@ def test_integration_decline_is_remembered_per_file(
     saved: list[Config] = []
     window = teardown_threads(config=Config(), save_cfg=saved.append)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.No
     )
 
     window._maybe_offer_appimage_integration()
@@ -3719,7 +4270,7 @@ def test_add_app_shortcut_integrates_when_appimage(
     integrated: list[Path] = []
     monkeypatch.setattr(ai, "relocate_to_applications", lambda p: p)
     monkeypatch.setattr(ai, "integrate", lambda p: integrated.append(p))
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     window = teardown_threads()
 
     window._on_add_app_shortcut()
@@ -3733,7 +4284,7 @@ def test_add_app_shortcut_noop_when_not_appimage(teardown_threads, monkeypatch) 
     monkeypatch.setattr(ai, "appimage_path", lambda: None)
     integrated: list[bool] = []
     monkeypatch.setattr(ai, "integrate", lambda *a, **k: integrated.append(True))
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
     window = teardown_threads()
 
     window._on_add_app_shortcut()  # explains, doesn't integrate
@@ -3897,6 +4448,9 @@ def test_scan_force_stopped_shows_clean_message(teardown_threads, monkeypatch) -
     assert window._scan_force_stopped is False
     assert free_calls == []  # the flag short-circuits before the auto-free
     assert "freed" in window._disc_info_panel._mb_match_value.text().lower()
+    # The user stopped this read on purpose: it is never retried behind them.
+    assert window._disc_retries.pending is None
+    assert not window._disc_retry_timer.isActive()
 
 
 def test_relaunch_env_strips_appimage_runtime_vars(monkeypatch) -> None:
@@ -4504,9 +5058,9 @@ def test_integration_offer_relocates_then_integrates(
         ai, "integrate", lambda p, **k: (calls.append(("integrate", p)), None)[1]
     )
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
 
     window._maybe_offer_appimage_integration()
 
@@ -4535,9 +5089,9 @@ def test_integration_offer_fires_when_integrated_but_unsettled(
     monkeypatch.setattr(ai, "integrate", lambda p, **k: integrated.append(p))
     window = teardown_threads(config=Config(), save_cfg=lambda c: None)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
 
     window._maybe_offer_appimage_integration()
 
@@ -5823,15 +6377,27 @@ def test_reset_disc_view_clears_disc_state(teardown_threads) -> None:
     assert window._current_disc_id == ""
 
 
+@pytest.mark.parametrize(
+    "statuses",
+    [
+        # The route that still reaches INSERTED with no REMOVED: the poll is
+        # skipped during a scan, so a tray opened DURING one is first read as a
+        # baseline, and the next disc fires INSERTED with the old one on screen.
+        ["open", "disc"],
+        # The route this test was written for. Since 2026-09-28 the unknown
+        # reading is bridged, so it now fires REMOVED first; kept so both orders
+        # are held to the same clean scan.
+        ["disc", "unknown", "empty", "disc"],
+    ],
+)
 def test_a_disc_inserted_clears_the_previous_discs_identity_before_scanning(
-    teardown_threads,
+    teardown_threads, statuses: list[str]
 ) -> None:
     """The removal reset does not always run before an insert.
 
-    The watcher fires REMOVED only on disc → empty and INSERTED on empty → disc,
-    so disc → unknown (a probe glitch) → empty → disc fires INSERTED with no
-    REMOVED. The new disc's scan then started on top of the old disc's release
-    and disc id. The insert now resets first. Found 2026-09-25 by the TASKS triage.
+    An INSERTED can arrive with no REMOVED before it (first parameter), and the
+    new disc's scan then started on top of the old disc's release and disc id.
+    The insert now resets first. Found 2026-09-25 by the TASKS triage.
     """
     window = teardown_threads()
     window._rip_thread = None
@@ -5849,13 +6415,542 @@ def test_a_disc_inserted_clears_the_previous_discs_identity_before_scanning(
     )
     window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
     window._media_watcher.reset()
-    statuses = iter(["disc", "unknown", "empty", "disc"])
-    window._disc_status_probe = lambda _dev: next(statuses)  # type: ignore[assignment]
+    readings = iter(statuses)
+    window._disc_status_probe = lambda _dev: next(readings)  # type: ignore[assignment]
 
-    for _ in range(4):
+    for _ in statuses:
         window._poll_disc_media()
 
     assert seen_at_scan == [("", None, "")], seen_at_scan
+
+
+def test_a_disc_that_returns_through_an_unreadable_check_is_read_and_shown(
+    teardown_threads,
+    process_until,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The rig bug, end to end: the drive's own readings in, the disc on screen out.
+
+    `round27fullplatterpusapplog1.txt` lines 34-35 record two removals and no
+    insertion between. The return of the disc came through an unreadable status
+    check, and the watcher swallowed it, so nothing read the disc until the app
+    was restarted. Driven through the real poll, the real `_start_disc_info`, the
+    real DiscInfoWorker on its thread and the real panel; only the drive's
+    status and the ripper are faked.
+    """
+    backend = _FakeBackend()
+    backend.disc_info_return = DiscInfo(
+        musicbrainz_disc_id="returned-disc", cddb_disc_id="c0ffee01", num_tracks=3
+    )
+    window = teardown_threads(backend=backend)
+    # The read is real, so its MusicBrainz lookup is too, and the fake finds no
+    # match: the unknown-album dialog is a real modal. Opened inside the pump
+    # below it blocked the worker until faulthandler killed it (2026-09-28, one
+    # full run in two).
+    monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
+    window._rip_thread = None
+    window._disc_info_thread = None
+    window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
+    window._media_watcher.reset()
+    readings = iter(["disc", "open", "unavailable", "disc"])
+    window._disc_status_probe = lambda _dev: next(readings)  # type: ignore[assignment]
+
+    with caplog.at_level(logging.INFO, logger="platterpus.ui.main_window_drive"):
+        for _ in range(4):
+            window._poll_disc_media()
+
+    shown = process_until(
+        lambda: window._disc_info_panel._mb_id_value.text() == "returned-disc",
+        timeout=8.0,
+    )
+    assert backend.disc_info_calls == ["/dev/sr0"], "the returned disc was never read"
+    assert shown, window._disc_info_panel._mb_id_value.text()
+    # The panel is filled before the read's thread has quit; wait for it, so the
+    # harness does not find it still running at teardown.
+    assert process_until(lambda: window._disc_info_thread is None, timeout=8.0)
+    inserted = [
+        r.getMessage() for r in caplog.records if "disc inserted" in r.getMessage()
+    ]
+    assert inserted == [
+        "disc inserted in /dev/sr0 (drive reports disc, after 1 unreadable status "
+        "check) — auto-rescanning"
+    ], inserted
+    removed = [
+        r.getMessage() for r in caplog.records if "disc removed" in r.getMessage()
+    ]
+    assert removed == [
+        "disc removed from /dev/sr0 (drive reports open) — clearing the disc view"
+    ], removed
+
+
+def test_the_panel_never_shows_only_dashes_after_a_removal_or_an_insertion(
+    teardown_threads,
+) -> None:
+    """A removal says what the drive reported and what to do; an insertion says
+    the disc is being read. Both used to leave only dashes, which is exactly what
+    an app that noticed nothing looks like — the rig report's "nothing happens"."""
+    window = teardown_threads()
+    window._rip_thread = None
+    window._disc_info_thread = None
+    started: list[str] = []
+    window._start_disc_info = lambda device: started.append(device)  # type: ignore[assignment]
+    window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
+    window._media_watcher.reset()
+    readings = iter(["disc", "open", "disc"])
+    window._disc_status_probe = lambda _dev: next(readings)  # type: ignore[assignment]
+    match = window._disc_info_panel._mb_match_value
+
+    window._poll_disc_media()  # baseline
+    window._poll_disc_media()  # removed
+    assert match.text().startswith("the drive reports no disc"), match.text()
+    assert "Rescan disc" in match.text()
+    window._poll_disc_media()  # inserted
+    assert started == ["/dev/sr0"]
+    assert match.text() == "reading disc…", match.text()
+
+
+# --- A failed disc read is retried on its own (disc_probe_retry) -----------
+#
+# The rig report of 2026-09-28: "sometimes I have to open the drive and close it
+# again and restart the app". Every failed read ended on an error line and
+# nothing else, ever. These drive the real window from the launch slot
+# (`_on_drive_list_ready`, what `refresh_drives` delivers), the real worker
+# thread and the real panel; only the ripper, the drive's status and the retry
+# delay are stand-ins. The delay is shortened, which is the one thing the
+# stand-in does that the product does not: it waits 20 ms instead of 4 s.
+
+
+class _ScriptedDiscBackend(_FakeBackend):
+    """`disc_info` answers from a script, one entry per call; the last repeats.
+
+    An entry is a DiscInfo, an exception to raise, or a callable producing
+    either (run on the worker thread, so it may block)."""
+
+    def __init__(self, *outcomes: object) -> None:
+        super().__init__()
+        self._outcomes: list[object] = list(outcomes)
+        self._lock = threading.Lock()
+
+    def disc_info(self, drive: str) -> DiscInfo:
+        with self._lock:
+            self.disc_info_calls.append(drive)
+            outcome = (
+                self._outcomes.pop(0) if len(self._outcomes) > 1 else self._outcomes[0]
+            )
+        if callable(outcome):
+            outcome = outcome()
+        if isinstance(outcome, Exception):
+            raise outcome
+        assert isinstance(outcome, DiscInfo)
+        return outcome
+
+
+def _identified_album_mb() -> _FakeMb:
+    """MusicBrainz knows the disc: one release, so no picker has to be answered."""
+    mb = _FakeMb()
+    mb.disc_id_result = [_detail().summary]
+    mb.mbid_result = _detail()
+    return mb
+
+
+def _album_shown(window: MainWindow) -> bool:
+    return "Artist — Album" in window._disc_info_panel._mb_match_value.text()
+
+
+def _launch_with_the_pioneer(
+    teardown_threads: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    backend: _FakeBackend,
+    tray: list[str],
+) -> tuple[MainWindow, list[str]]:
+    """Build a window whose drive reports ``tray[0]``, and deliver the drive list
+    the way launch does. Returns the window and every "retrying" line it showed."""
+    from platterpus.ui import main_window_drive
+
+    monkeypatch.setattr(main_window_drive, "AUTO_RETRY_DELAY_MS", 20)
+    window = teardown_threads(backend=backend, mb_client=_identified_album_mb())
+    monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
+    window._disc_status_probe = lambda _device: tray[0]  # type: ignore[assignment]
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_drive.read_drive_identity", lambda device: ("", "")
+    )
+    retrying: list[str] = []
+    real = window._disc_info_panel.set_disc_info_retrying
+
+    def _record(text: str) -> None:
+        retrying.append(text)
+        real(text)
+
+    monkeypatch.setattr(window._disc_info_panel, "set_disc_info_retrying", _record)
+    window._on_drive_list_ready([_PIONEER])
+    return window, retrying
+
+
+def test_a_launch_read_that_times_out_once_is_retried_and_the_album_shown(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """A cold container: the first read of the session times out, the second
+    works. The user used to be left on "Reading the disc took too long … click
+    Rescan"; now the app reads it again itself, once the drive has been freed."""
+    free_calls = _patch_free_drive(monkeypatch)
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip timed out after 120s"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    window, retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, ["disc"]
+    )
+
+    assert process_until(lambda: _album_shown(window), timeout=10.0), (
+        window._disc_info_panel._mb_match_value.text()
+    )
+    assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"]
+    assert len(retrying) == 1 and "trying again automatically" in retrying[0]
+    assert "timed out" in retrying[0], "the failure's own words were dropped"
+    assert len(free_calls) == 1, "a timed-out read must still free the drive"
+
+
+def test_a_retry_never_starts_while_the_drive_is_still_being_freed(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """After a timeout the drive is freed on a daemon thread (the in-container
+    reader can outlive the host-side kill). A read started under that kill would
+    be killed by it, so the retry waits — bounded — and reads once it is done."""
+    from platterpus import drive_control
+
+    freed = threading.Event()
+    free_started = threading.Event()
+
+    def _slow_free(**_kwargs: object) -> str:
+        free_started.set()
+        freed.wait(10.0)
+        return "freed"
+
+    monkeypatch.setattr(drive_control, "free_drive", _slow_free)
+    # The wait is bounded in CHECKS (15 x 4 s in the product); at this test's 20 ms
+    # delay that bound is 0.3 s, so it is widened here. The bound itself is held
+    # by test_disc_probe_retry.py::test_a_due_retry_waits_for_the_drive_to_be_freed…
+    monkeypatch.setattr("platterpus.disc_probe_retry.FREE_WAIT_CHECKS", 10_000)
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip timed out after 120s"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    try:
+        window, retrying = _launch_with_the_pioneer(
+            teardown_threads, monkeypatch, backend, ["disc"]
+        )
+        assert process_until(free_started.is_set)
+        # Many retry delays pass while the kill runs: no read may start.
+        process_until(lambda: False, timeout=0.4)
+        assert backend.disc_info_calls == ["/dev/sr0"], "read under the kill"
+        assert window._disc_retries.pending is not None
+        assert window._disc_retries.pending.free_waits > 0
+        assert len(retrying) == 1
+        # The one line shown makes no promise the wait broke (code review R1: it
+        # said "in 4 s" through up to a minute of waiting for the kill).
+        shown = window._disc_info_panel._mb_match_value.text()
+        assert "once the drive has been freed" in shown, shown
+        assert " in 4 s" not in shown, shown
+
+        freed.set()
+        assert process_until(lambda: _album_shown(window), timeout=10.0)
+        assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"]
+    finally:
+        freed.set()
+        _join_force_stop(window)
+
+
+def test_a_read_refused_while_an_abandoned_read_holds_the_drive_is_retried(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """Rescan during the launch read: the old read is abandoned (by design,
+    `wait_ms=0`) and its reader can still hold the drive, so the new read is
+    refused as busy. The busy refusal is retried once the old read has let go,
+    and the abandoned read's late answer is never applied."""
+    from platterpus import workers
+
+    old_read_done = threading.Event()
+    busy = RipError(
+        "cyanrip failed (exit 1). It said: Unable to open device: "
+        "Device or resource busy"
+    )
+
+    def _old_read() -> DiscInfo:
+        old_read_done.wait(10.0)
+        return DiscInfo(musicbrainz_disc_id="stale-read", num_tracks=9)
+
+    def _refused_while_held() -> Exception:
+        # The old reader finishes just after the new read is refused.
+        old_read_done.set()
+        return busy
+
+    def _after() -> DiscInfo | Exception:
+        if not old_read_done.is_set():
+            return busy
+        return DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2)
+
+    backend = _ScriptedDiscBackend(_old_read, _refused_while_held, _after)
+    try:
+        window, retrying = _launch_with_the_pioneer(
+            teardown_threads, monkeypatch, backend, ["disc"]
+        )
+        assert process_until(lambda: len(backend.disc_info_calls) == 1)
+        window._drive_picker._on_rescan_clicked()  # the user's Rescan
+
+        assert process_until(lambda: _album_shown(window), timeout=10.0), (
+            window._disc_info_panel._mb_match_value.text()
+        )
+        assert backend.disc_info_calls == ["/dev/sr0"] * 3
+        assert len(retrying) == 1 and "Device or resource busy" in retrying[0]
+        assert window._current_disc_id == "mb-id", "the abandoned read was applied"
+        assert window._current_num_tracks == 2
+    finally:
+        old_read_done.set()
+        process_until(lambda: workers.abandoned_thread_count() == 0, timeout=5.0)
+
+
+def test_a_rescan_while_a_retry_waits_replaces_it_and_reads_once(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """A newer request owns the drive: the pending retry is dropped, not run on
+    top of it, and the panel is left to the newer read."""
+    from platterpus.ui import main_window_drive
+
+    backend = _ScriptedDiscBackend(
+        RipError(
+            "cyanrip failed (exit 125). It said: Error: unable to start container"
+        ),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    window, _retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, ["disc"]
+    )
+    # Long enough that the Rescan below lands inside the wait.
+    monkeypatch.setattr(main_window_drive, "AUTO_RETRY_DELAY_MS", 500)
+    window._disc_retry_timer.stop()
+    assert process_until(lambda: window._disc_retries.pending is not None)
+    window._disc_retry_timer.start(500)  # re-armed at the longer delay
+
+    window._drive_picker._on_rescan_clicked()
+
+    assert window._disc_retries.pending is None
+    assert not window._disc_retry_timer.isActive()
+    assert process_until(lambda: _album_shown(window), timeout=10.0)
+    # Past the old retry's due time: it must not read a third time.
+    process_until(lambda: False, timeout=0.8)
+    assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"]
+
+
+def test_with_no_disc_in_the_tray_the_user_is_told_to_insert_one_and_it_is_read(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """An empty tray is not retried (the read would fail for certain) and the
+    panel says what to do; inserting a disc then reads it with no click."""
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip failed (exit 1). It said: Unable to init cddap context!"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    tray = ["empty"]
+    window, retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, tray
+    )
+
+    assert process_until(
+        lambda: "Insert one" in window._disc_info_panel._mb_match_value.text()
+    )
+    text = window._disc_info_panel._mb_match_value.text()
+    assert "Unable to init cddap context!" in text, "the ripper's words were dropped"
+    assert retrying == [] and window._disc_retries.pending is None
+
+    window._poll_disc_media()  # the tray is empty: a baseline
+    tray[0] = "disc"
+    window._poll_disc_media()  # a disc arrives
+
+    assert process_until(lambda: _album_shown(window), timeout=10.0)
+    assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"]
+
+
+def test_the_retries_stop_at_the_limit_and_the_last_message_says_what_to_do(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    from platterpus.disc_probe_retry import AUTO_RETRY_LIMIT
+
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip failed (exit 1). It said: Frame read failed!")
+    )
+    window, retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, ["disc"]
+    )
+
+    assert process_until(
+        lambda: "Rescan disc" in window._disc_info_panel._mb_match_value.text(),
+        timeout=10.0,
+    )
+    process_until(lambda: False, timeout=0.3)  # nothing more may be scheduled
+    reads = AUTO_RETRY_LIMIT + 1
+    assert backend.disc_info_calls == ["/dev/sr0"] * reads
+    assert len(retrying) == AUTO_RETRY_LIMIT
+    text = window._disc_info_panel._mb_match_value.text()
+    assert text.startswith("error: cyanrip failed (exit 1). It said: Frame read"), text
+    assert f"Read {reads} times" in text
+    assert not window._disc_retry_timer.isActive()
+
+
+def test_a_rip_started_during_the_wait_stops_the_retry_and_the_panel_says_so(
+    teardown_threads, process_until, monkeypatch
+) -> None:
+    """The fire-time check, not only the scheduling one: a rip holds the drive."""
+    from platterpus.ui import main_window_drive
+
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip failed (exit 1). It said: Unable to open device!"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    window, _retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, ["disc"]
+    )
+    monkeypatch.setattr(main_window_drive, "AUTO_RETRY_DELAY_MS", 500)
+    assert process_until(lambda: window._disc_retries.pending is not None)
+    window._rip_thread = object()  # type: ignore[assignment]  # a rip started
+    try:
+        window._on_disc_retry_due()  # the timer fires
+        text = window._disc_info_panel._mb_match_value.text()
+        assert "a rip is running" in text, text
+        assert "trying again" not in text
+        assert backend.disc_info_calls == ["/dev/sr0"]
+    finally:
+        window._rip_thread = None
+
+
+def _inserted_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [r.getMessage() for r in caplog.records if "disc inserted" in r.getMessage()]
+
+
+def test_a_retry_that_reads_the_disc_is_not_followed_by_a_phantom_insertion(
+    teardown_threads,
+    process_until,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The retry reads the disc; the next media poll must not read it again.
+
+    Code review 2026-09-28 (R0). The launch read fails while the drive is still
+    spinning up, and the media poll during the retry's wait reads `not_ready`,
+    which the watcher stores as an empty tray. The retry then reads the disc, but
+    nothing told the watcher, so the first poll after the album was shown saw
+    `not_ready -> disc`, logged a disc insertion that never happened, cleared the
+    view and read the disc a third time. Both timers are driven by hand so the
+    order is the one the review measured: poll during the wait, then the retry.
+    """
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip failed (exit 1). It said: Unable to open device!"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    tray = ["not_ready"]
+    window, _retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, tray
+    )
+    assert process_until(lambda: window._disc_retries.pending is not None)
+    window._disc_retry_timer.stop()
+    window._media_poll_timer.stop()
+    with caplog.at_level(logging.INFO, logger="platterpus.ui.main_window_drive"):
+        window._poll_disc_media()  # during the wait: the drive is still spinning up
+        window._on_disc_retry_due()  # the retry fires and reads the disc
+        assert process_until(lambda: _album_shown(window), timeout=10.0)
+        assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"]
+
+        tray[0] = "disc"
+        window._poll_disc_media()  # the drive now says what the read already proved
+        process_until(lambda: False, timeout=0.3)  # room for a third read to start
+
+    assert backend.disc_info_calls == ["/dev/sr0", "/dev/sr0"], "read a third time"
+    assert _inserted_lines(caplog) == [], "logged an insertion that did not happen"
+    assert _album_shown(window), window._disc_info_panel._mb_match_value.text()
+
+
+def test_a_disc_that_becomes_ready_after_every_retry_failed_is_still_read(
+    teardown_threads,
+    process_until,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The other half of the fix above: only a read that SUCCEEDED tells the
+    watcher a disc is in. When every retry fails with the drive still saying
+    `not_ready`, the drive's later `disc` is an insertion and is read: the rig's
+    lost insertion of 2026-09-28 must stay fixed. (Resetting the watcher when a retry
+    starts would also silence the phantom above, and would lose this one.)"""
+    from platterpus.disc_probe_retry import AUTO_RETRY_LIMIT
+
+    failure = RipError("cyanrip failed (exit 1). It said: Unable to open device!")
+    backend = _ScriptedDiscBackend(
+        *([failure] * (AUTO_RETRY_LIMIT + 1)),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    tray = ["not_ready"]
+    window, _retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, tray
+    )
+    assert process_until(lambda: window._disc_retries.pending is not None)
+    window._disc_retry_timer.stop()
+    window._media_poll_timer.stop()
+    with caplog.at_level(logging.INFO, logger="platterpus.ui.main_window_drive"):
+        window._poll_disc_media()  # during the first wait: still spinning up
+        window._on_disc_retry_due()  # the rest of the retries run on their timer
+        assert process_until(
+            lambda: (
+                "Rescan disc" in window._disc_info_panel._mb_match_value.text()
+                and window._disc_info_thread is None
+            ),
+            timeout=10.0,
+        )
+        assert backend.disc_info_calls == ["/dev/sr0"] * (AUTO_RETRY_LIMIT + 1)
+
+        tray[0] = "disc"
+        window._poll_disc_media()  # the disc is finally ready
+        assert process_until(lambda: _album_shown(window), timeout=10.0)
+
+    assert backend.disc_info_calls == ["/dev/sr0"] * (AUTO_RETRY_LIMIT + 2)
+    assert len(_inserted_lines(caplog)) == 1, _inserted_lines(caplog)
+
+
+def test_a_disc_removed_while_a_retry_waits_ends_the_retry_and_the_no_disc_line_stays(
+    teardown_threads, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Code review 2026-09-28 (R9): the removal ends the read the retry was for.
+
+    The read failed and a retry was pending when the disc was ejected. The panel
+    said "the drive reports no disc", and when the retry's timer fired it was
+    replaced by an error about the read of the disc that had since left. The
+    real timer is left to fire, so the check is the one the product makes.
+    """
+    backend = _ScriptedDiscBackend(
+        RipError("cyanrip failed (exit 1). It said: Unable to open device!"),
+        DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=2),
+    )
+    tray = ["disc"]
+    window, _retrying = _launch_with_the_pioneer(
+        teardown_threads, monkeypatch, backend, tray
+    )
+    assert process_until(lambda: window._disc_retries.pending is not None)
+    window._media_poll_timer.stop()
+    window._disc_retry_timer.start(200)  # long enough for the eject to land first
+    match = window._disc_info_panel._mb_match_value
+
+    window._poll_disc_media()  # baseline: the disc is in
+    tray[0] = "open"
+    window._poll_disc_media()  # ejected
+    no_disc = match.text()
+    assert no_disc.startswith("the drive reports no disc"), no_disc
+    pending_after_removal = window._disc_retries.pending
+    timer_after_removal = window._disc_retry_timer.isActive()
+
+    process_until(lambda: False, timeout=0.5)  # past the retry's old due time
+    # The symptom first, then the mechanism, so a failure shows what the user saw.
+    assert match.text() == no_disc, "an error about the removed disc replaced it"
+    assert pending_after_removal is None, "the retry outlived the removal"
+    assert not timer_after_removal, "the retry's timer outlived the removal"
+    assert backend.disc_info_calls == ["/dev/sr0"]
 
 
 def test_reset_disc_view_forgets_the_release_detail_too(teardown_threads) -> None:
@@ -6695,7 +7790,7 @@ def test_first_run_shows_the_config_reset_notice_first(
     shown: list[str] = []
     order: list[str] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window_provision.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda parent, title, text: (order.append("notice"), shown.append(text))[0],
     )
     monkeypatch.setattr(
@@ -6743,7 +7838,7 @@ def test_an_unattended_launch_makes_no_first_run_offers(
         window, "_maybe_offer_drive_setup", lambda: fired.append("drive")
     )
     monkeypatch.setattr(
-        "platterpus.ui.main_window_provision.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda parent, title, text: fired.append("notice"),
     )
 
@@ -6768,7 +7863,7 @@ def test_no_notice_when_nothing_was_reset(teardown_threads, monkeypatch) -> None
     monkeypatch.setattr(config_module, "take_load_resets", lambda: [])
     shown: list[str] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window_provision.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda parent, title, text: shown.append(text),
     )
     monkeypatch.setattr(window, "_maybe_offer_appimage_integration", lambda: None)
@@ -8027,7 +9122,7 @@ def test_rip_as_unknown_requires_a_drive_first(teardown_threads, monkeypatch) ->
 
     warned: list[str] = []
     monkeypatch.setattr(
-        QMessageBox,
+        message_boxes,
         "warning",
         lambda *a, **k: warned.append(a[2]) or QMessageBox.StandardButton.Ok,
     )
@@ -9000,7 +10095,7 @@ def test_choosing_a_cover_image_validates_it_immediately(
 ) -> None:
     """The file is sniffed when it is PICKED, so a wrong file is caught while the
     user is still looking at the dialog — not silently at the end of a rip."""
-    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    from PySide6.QtWidgets import QFileDialog
 
     good = tmp_path / "art.png"
     good.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 32)
@@ -9008,7 +10103,7 @@ def test_choosing_a_cover_image_validates_it_immediately(
         QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(good), ""))
     )
     warned: list[str] = []
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    monkeypatch.setattr(message_boxes, "warning", lambda *a, **k: warned.append(a[2]))
     window = teardown_threads()
 
     window._on_set_cover_art_from_file()
@@ -9022,7 +10117,7 @@ def test_choosing_a_non_image_is_refused_at_pick_time(
     teardown_threads, tmp_path: Path, monkeypatch
 ) -> None:
     """...and a file that isn't a JPEG/PNG/GIF is refused, with nothing stored."""
-    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    from PySide6.QtWidgets import QFileDialog
 
     bad = tmp_path / "notes.txt"
     bad.write_bytes(b"this is not an image")
@@ -9030,7 +10125,7 @@ def test_choosing_a_non_image_is_refused_at_pick_time(
         QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(bad), ""))
     )
     warned: list[str] = []
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    monkeypatch.setattr(message_boxes, "warning", lambda *a, **k: warned.append(a[2]))
     window = teardown_threads()
 
     window._on_set_cover_art_from_file()
@@ -9044,7 +10139,7 @@ def test_an_unreadable_cover_choice_is_refused_at_pick_time(
 ) -> None:
     """A path that cannot be read at all (deleted between the dialog and the read,
     or a directory) is reported with the OS's own reason."""
-    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    from PySide6.QtWidgets import QFileDialog
 
     monkeypatch.setattr(
         QFileDialog,
@@ -9052,7 +10147,7 @@ def test_an_unreadable_cover_choice_is_refused_at_pick_time(
         staticmethod(lambda *a, **k: (str(tmp_path / "gone.png"), "")),
     )
     warned: list[str] = []
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    monkeypatch.setattr(message_boxes, "warning", lambda *a, **k: warned.append(a[2]))
     window = teardown_threads()
 
     window._on_set_cover_art_from_file()
@@ -9075,6 +10170,148 @@ def test_cancelling_the_cover_art_dialog_changes_nothing(
     window._on_set_cover_art_from_file()
 
     assert getattr(window, "_manual_cover_path", None) is None
+
+
+# --- Cover art from a file lives with the album (2026-09-27) ------------------
+
+
+def _cover_actions(window: MainWindow) -> tuple[Any, Any]:
+    """``(the Tools entry, the album menu's entry)`` for Set cover art from file…"""
+    from PySide6.QtWidgets import QMenu
+
+    tools = next(
+        m for m in window.menuBar().findChildren(QMenu) if m.title() == "&Tools"
+    )
+    in_tools = next(a for a in tools.actions() if "cover art" in a.text())
+    menu = window._disc_info_panel.album_menu(window._disc_info_panel._mb_match_value)
+    in_album = next(a for a in menu.actions() if "cover art" in a.text())
+    menu.deleteLater()
+    return in_tools, in_album
+
+
+def test_cover_art_from_file_is_one_action_in_the_album_menu_and_tools(
+    teardown_threads,
+) -> None:
+    """The maintainer's 2026-09-27 decision: the item moves to the album's
+    right-click menu, and for ONE release stays in Tools too.
+
+    **The same QAction, not two.** Identity is what makes "both entries call the
+    same slot and are refused in the same states" true by construction; two
+    actions wired to one slot would agree today and drift the first time one of
+    them was disabled. The background menu (a right-click beside the values)
+    offers it as well.
+    """
+    window = teardown_threads()
+    in_tools, in_album = _cover_actions(window)
+    assert in_album is in_tools
+    background = window._disc_info_panel.album_menu()
+    try:
+        assert in_tools in background.actions()
+    finally:
+        background.deleteLater()
+
+
+def test_the_album_menu_cover_entry_runs_the_one_cover_slot(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """Triggered from the album menu, it reaches `_on_set_cover_art_from_file` —
+    the validated pick the Tools entry has always run, not a second copy."""
+    from PySide6.QtWidgets import QFileDialog
+
+    good = tmp_path / "sleeve.png"
+    good.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 32)
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(good), ""))
+    )
+    window = teardown_threads()
+    _in_tools, in_album = _cover_actions(window)
+
+    in_album.trigger()
+
+    assert window._manual_cover_path == str(good)
+    assert "sleeve.png" in window._rip_progress.current_status()
+
+
+def test_the_album_menu_cover_entry_is_enabled_exactly_when_the_tools_entry_is(
+    teardown_threads,
+) -> None:
+    """Refused in exactly the states the Tools entry is — asserted across the
+    states the window actually moves through, not only the one it opens in.
+
+    Today that is none (the item was never rip-locked, and the slot refuses only
+    a file that is not an image); the assertion is the relation, so a future
+    lock applied to one entry is a failure here rather than a drift.
+    """
+    window = teardown_threads()
+    in_tools, in_album = _cover_actions(window)
+    states: list[tuple[str, bool, bool]] = []
+    states.append(("idle", in_tools.isEnabled(), in_album.isEnabled()))
+    window._set_rip_lock(True)
+    try:
+        states.append(("ripping", in_tools.isEnabled(), in_album.isEnabled()))
+    finally:
+        window._set_rip_lock(False)
+    states.append(("after the rip", in_tools.isEnabled(), in_album.isEnabled()))
+    assert all(tools == album for _state, tools, album in states), states
+
+
+#: The release the transitional Tools entry for Set cover art from file… goes in.
+#: It stays in Tools for 0.6.62 only (maintainer, 2026-09-27), so nobody who
+#: learned it there loses it the day it moves to the album's menu.
+_COVER_TOOLS_ENTRY_GOES_IN: tuple[int, int, int] = (0, 6, 63)
+
+
+def _release_of(version: str) -> tuple[int, int, int]:
+    """``"0.6.63"`` (or ``"0.6.63b1"``) as ``(0, 6, 63)``: leading digits only."""
+    from itertools import takewhile
+
+    digits = ["".join(takewhile(str.isdigit, part)) for part in version.split(".")]
+    numbers = [int(d) if d else 0 for d in digits[:3]] + [0, 0, 0]
+    return numbers[0], numbers[1], numbers[2]
+
+
+def _transitional_cover_entry_overdue(version: str, tools_labels: list[str]) -> bool:
+    """True once ``version`` is the removal release and Tools still offers it."""
+    still_there = any("cover art from" in label for label in tools_labels)
+    return still_there and _release_of(version) >= _COVER_TOOLS_ENTRY_GOES_IN
+
+
+def test_the_transitional_tools_cover_entry_is_gone_by_its_release(
+    teardown_threads,
+) -> None:
+    """The removal is a CHECK, not only a comment beside the entry.
+
+    A comment saying "goes in 0.6.63" is read by whoever happens to open that
+    method; this fails the 0.6.63 version bump until the Tools entry is gone, and
+    its message says how (the comment in `_build_menus` lists the three edits).
+    """
+    from PySide6.QtWidgets import QMenu
+
+    from platterpus import __version__
+
+    window = teardown_threads()
+    tools = next(
+        m for m in window.menuBar().findChildren(QMenu) if m.title() == "&Tools"
+    )
+    labels = [a.text() for a in tools.actions()]
+    assert not _transitional_cover_entry_overdue(__version__, labels), (
+        f"Platterpus {__version__} still has Set cover art from file… in Tools. "
+        "It was kept there for 0.6.62 only; it lives on the disc panel's "
+        "right-click menu. Remove it as the comment beside it in "
+        "MainWindow._build_menus says."
+    )
+
+
+def test_the_transitional_cover_entry_check_can_fail() -> None:
+    """Non-triviality: the check above passes today by the calendar, so its
+    predicate is pinned against the cases it has to tell apart."""
+    tools = ["&Settings…", "Set cover art from &file…", "U&ninstall Platterpus…"]
+    assert _transitional_cover_entry_overdue("0.6.63", tools)
+    assert _transitional_cover_entry_overdue("0.6.63b1", tools)
+    assert _transitional_cover_entry_overdue("0.7.100", tools)
+    assert not _transitional_cover_entry_overdue("0.6.62", tools)
+    assert not _transitional_cover_entry_overdue("0.6.63", tools[:1] + tools[2:])
+    assert _release_of("0.6.61") < _COVER_TOOLS_ENTRY_GOES_IN
 
 
 # --- The finish handler's outermost guards ------------------------------------
@@ -9409,11 +10646,11 @@ def _capture_boxes(monkeypatch: pytest.MonkeyPatch) -> tuple[list[str], list[str
     info: list[str] = []
     warn: list[str] = []
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.information",
+        "platterpus.ui.message_boxes.information",
         lambda parent, title, text: info.append(text),
     )
     monkeypatch.setattr(
-        "platterpus.ui.main_window.QMessageBox.warning",
+        "platterpus.ui.message_boxes.warning",
         lambda parent, title, text: warn.append(text),
     )
     return info, warn
@@ -9886,6 +11123,43 @@ def _armed_bundle(window: MainWindow, tmp_path: Path, **kwargs: Any):
     return window._pending_evidence_bundle
 
 
+def test_the_rips_diagnostics_records_reach_its_report_bundle(
+    qapp: QApplication,
+    teardown_threads: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    process_until: Any,
+) -> None:
+    """TASKS, the `-j` rows: the records must TRAVEL, not just exist.
+
+    cyanrip writes the record in the rips root, which is in no folder the bundle
+    walks, so the snapshot must name it and the launcher must hand it to the
+    bundle. The worker is read at arming time because `_on_rip_finished` drops it
+    straight afterwards.
+    """
+    from platterpus import evidence_bundle
+
+    record = tmp_path / "rips" / "cyanrip-diagnostics-20260927T000000Z.json"
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(diagnostics_records=(record,))
+    pending = _armed_bundle(window, tmp_path)
+    window._rip_worker = None  # as `_on_rip_finished`'s `finally` leaves it
+
+    left = record
+    assert pending.diagnostics_files == {f"ripperdiagnostics/{left.name}": left}
+
+    captured: list[dict[str, object]] = []
+
+    def record(**kwargs: object) -> object:
+        captured.append(kwargs)
+        return type("R", (), {"path": None, "error": "stub"})()
+
+    monkeypatch.setattr(evidence_bundle, "build_bundle", record)
+    window._launch_evidence_bundle(pending, {})
+    assert process_until(lambda: len(captured) == 1)
+    assert captured[0]["files"] == {f"ripperdiagnostics/{left.name}": left}
+
+
 def test_a_deliberate_single_track_rip_is_not_labelled_partial(
     qapp: QApplication, teardown_threads: Any, tmp_path: Path
 ) -> None:
@@ -10309,6 +11583,113 @@ def test_a_second_lookup_for_the_same_disc_does_not_open_a_second_picker(
     finally:
         ReleasePickerDialog.exec = original_exec  # type: ignore[method-assign]
         ReleasePickerDialog.selected_mbid = original_selected  # type: ignore[method-assign]
+
+
+def test_a_lookup_that_lands_WHILE_the_picker_is_open_does_not_open_a_second(
+    teardown_threads: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """At most one release picker per disc per scan, including DURING the first.
+
+    TASKS `stateful:one-picker-per-scan`. The test above covers a duplicate that
+    lands after the first picker was ANSWERED, when `_mb_release_chosen_for` is
+    already set. That marker is written only once the user answers, and
+    `exec()` runs a nested event loop, so a second lookup's result queued behind
+    the first is delivered INSIDE it, with the marker still empty. Before the fix
+    that delivery opened a second picker over the first, and whichever the user
+    answered last replaced the tags the other had chosen.
+
+    Delivered the way production delivers it: a queued signal (the MB worker's
+    `releases_returned` shape) flushed by the nested loop the stand-in `exec`
+    runs, not a direct re-entrant call. And the delivery is asserted to have
+    HAPPENED while the picker was open, because a stand-in loop that never
+    delivered it would pass this test with the bug in place.
+    """
+    from PySide6.QtCore import QCoreApplication, QObject, Qt, Signal  # noqa: PLC0415
+
+    window = teardown_threads()
+    disc = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
+    window._current_disc_id = disc
+    window._mb_release_chosen_for = ""
+    chosen = "aaaaaaaa-0000-0000-0000-000000000001"
+    # Two candidates, so the picker branch is the one taken.
+    releases = [
+        ReleaseSummary(
+            mbid=f"aaaaaaaa-0000-0000-0000-00000000000{n}",
+            title=f"Candidate {n}",
+            artist_credit="The Police",
+            date="2003",
+            country="GB",
+            track_count=14,
+        )
+        for n in (1, 2)
+    ]
+
+    class _SecondLookup(QObject):
+        releases_returned = Signal(str, list)  # (context, list[ReleaseSummary])
+
+    second_lookup = _SecondLookup()
+    open_pickers: list[int] = [0]
+    #: How many pickers were open at each moment the second result was delivered.
+    delivered_while_open: list[int] = []
+
+    def _deliver(context: str, found: list[ReleaseSummary]) -> None:
+        delivered_while_open.append(open_pickers[0])
+        window._on_mb_releases(context, found)
+
+    second_lookup.releases_returned.connect(
+        _deliver, Qt.ConnectionType.QueuedConnection
+    )
+
+    presented: list[int] = []
+    outcomes: list[QDialog.DialogCode] = []
+
+    def _fake_exec(self: ReleasePickerDialog) -> int:
+        presented.append(len(presented) + 1)
+        open_pickers[0] += 1
+        try:
+            if len(presented) == 1:
+                # The second lookup lands while this picker is on screen; the
+                # nested loop exec() runs is what delivers it.
+                second_lookup.releases_returned.emit(disc, releases)
+                QCoreApplication.processEvents()
+            return int(outcomes.pop(0) if outcomes else QDialog.DialogCode.Accepted)
+        finally:
+            open_pickers[0] -= 1
+
+    fetched: list[tuple[str, str]] = []
+    monkeypatch.setattr(ReleasePickerDialog, "exec", _fake_exec)
+    monkeypatch.setattr(ReleasePickerDialog, "selected_mbid", lambda self: chosen)
+    monkeypatch.setattr(
+        window,
+        "_fetch_release_detail",
+        lambda mbid, context: fetched.append((mbid, context)),
+    )
+
+    window._on_mb_releases(disc, releases)
+
+    assert delivered_while_open == [1], (
+        "the second lookup's result was not delivered inside the open picker's "
+        f"event loop ({delivered_while_open}), so this test proved nothing"
+    )
+    assert presented == [1], (
+        f"{len(presented)} release pickers were presented for one disc in one "
+        "scan: the second opened over the first while it was still waiting"
+    )
+    assert fetched == [(chosen, disc)], (
+        f"expected one release fetch, for the one answer; got {fetched}"
+    )
+    assert window._mb_release_chosen_for == disc
+
+    # THE NEW STATE IS RELEASED. Whatever says "a picker is open" must end with
+    # the picker, on every exit: a deliberate new question for this disc (a
+    # rescan clears the marker) must open a picker again after an answer, and
+    # after a cancel too.
+    window._mb_release_chosen_for = ""
+    outcomes.append(QDialog.DialogCode.Rejected)
+    window._on_mb_releases(disc, releases)
+    assert presented == [1, 2], "no picker after the first one closed: it stuck open"
+    window._on_mb_releases(disc, releases)
+    assert presented == [1, 2, 3], "a cancelled picker left the disc unable to ask"
 
 
 def test_every_place_that_clears_the_disc_id_also_clears_the_chosen_marker() -> None:
@@ -10773,6 +12154,525 @@ def test_the_dependency_line_separates_required_from_optional() -> None:
 
 
 # ---------------------------------------------------------------------------
+# "CHECK DEPENDENCIES SEEMS TO FREEZE, NOT RESPOND, OR GIVE NO ERROR."
+#
+# The maintainer's report, 2026-09-28. The probe runs off the GUI thread, so the
+# window never froze — it LOOKED dead four ways, and each test below drives the
+# real path for one of them with probes that block: (1) nothing said a check was
+# running; (2) a second click was silently ignored; (3) a wedged container meant
+# minutes with no result, and a check that stopped early returned a partial report
+# with no marker, which the summary then called complete; (4) a result held back
+# for another dialog could be given up on with only a log line.
+# ---------------------------------------------------------------------------
+
+
+def _dep_spec(
+    dep_id: str, probe: Any, *, optional: bool = False, display: str = ""
+) -> Any:
+    from platterpus.deps.registry import DependencySpec, Tier
+
+    return DependencySpec(
+        dep_id=dep_id,
+        display_name=display or dep_id,
+        probe=probe,
+        min_version=(0, 0, 0),
+        tier=Tier.MANUAL,
+        install_command=None,
+        search_string=f"install {dep_id}",
+        optional=optional,
+    )
+
+
+def _blocking_probe(release: threading.Event, calls: list[str], dep_id: str) -> Any:
+    """A probe that waits for the test, standing in for a cold container.
+
+    It does NOT go through `VERSION_PROBE`, so the deadline cannot kill it: the
+    tests that need a kill use a real sleeping child instead (see
+    `test_the_deadline_stops_a_wedged_check_and_the_summary_says_what_it_skipped`).
+    """
+    from platterpus.deps.checks import ProbeResult
+
+    def probe() -> ProbeResult:
+        calls.append(dep_id)
+        release.wait(10.0)
+        return ProbeResult(present=True, version=(1, 0, 0), location=f"/x/{dep_id}")
+
+    return probe
+
+
+def _quiet_config() -> Config:
+    """First-run offers answered, so no deferred offer opens a modal mid-poll."""
+    return Config(
+        host_setup_prompted=True,
+        drive_setup_prompted=True,
+        appimage_integration_prompted=True,
+    )
+
+
+def _capture_message_boxes(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
+    shown: list[tuple[str, str]] = []
+    for kind in ("information", "warning"):
+        monkeypatch.setattr(
+            message_boxes,
+            kind,
+            lambda _parent, title, text, *_a, **_k: shown.append((title, text)),
+        )
+    return shown
+
+
+def _pump_until(qapp: QApplication, done: Any, timeout: float = 15.0) -> None:
+    deadline = time.monotonic() + timeout
+    while not done() and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+    assert done(), "timed out waiting for the dependency check"
+
+
+def _status_bar_text(window: MainWindow) -> str:
+    """What the status bar paints. A temporary message (a menu item's status tip)
+    covers the bar's normal widgets, which Qt hides while one shows; otherwise it
+    is the dependency sentence's label, if one was built and is not hidden."""
+    bar = window.statusBar()
+    if bar.currentMessage():
+        return bar.currentMessage()
+    label = window._dep_status_label
+    if label is None or not label.isVisibleTo(window):
+        return ""
+    return str(label.text())
+
+
+@pytest.mark.parametrize("tip", ["", "an item's own status tip"])
+def test_opening_a_menu_does_not_wipe_the_dependency_sentence(
+    teardown_threads, qapp: QApplication, tip: str
+) -> None:
+    """Code review 2026-09-28 (R8): the sentence went on the bar as a TEMPORARY
+    message, and Qt replaces that with each menu item's status tip — empty for
+    every Tools item — so opening Tools blanked it, while its tooltip kept the
+    old text. `incomplete_background_message` tells the user to open Tools →
+    Setup & Updates, and doing so wiped the only notice that the ripper's state
+    was unknown. Driven through a real menu on a shown window, since the wipe is
+    Qt's own status-tip handling. The second case is the state the fix creates:
+    an item that HAS a tip covers the sentence while it is hovered, and the
+    sentence must come back when the menu closes."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    window = teardown_threads()
+    window.show()
+    try:
+        qapp.processEvents()
+        window._show_dependency_status("ⓘ probe sentence")
+        qapp.processEvents()  # a bar built on a shown window is shown by a queued call
+        before = _status_bar_text(window)
+        assert before.endswith("ⓘ probe sentence"), before
+
+        bar = window.menuBar()
+        tools = next(a for a in bar.actions() if "Tools" in a.text())
+        menu = tools.menu()
+        assert menu is not None and menu.actions(), "no Tools menu to open"
+        for action in menu.actions():
+            action.setStatusTip(tip)
+        bar.setActiveAction(tools)
+        qapp.processEvents()
+        QTest.keyClick(menu, Qt.Key.Key_Down)  # moves through an item's status tip
+        qapp.processEvents()
+        assert _status_bar_text(window) == (tip or before), "the tip was not shown"
+        QTest.keyClick(menu, Qt.Key.Key_Escape)
+        qapp.processEvents()
+
+        assert _status_bar_text(window) == before, "the menu wiped the sentence"
+        label = window._dep_status_label
+        assert label is not None and label.toolTip() == before
+        assert label.textFormat() == Qt.TextFormat.PlainText
+        assert not window.statusBar().toolTip(), "a second copy that can go stale"
+    finally:
+        window.hide()
+
+
+def test_a_user_check_says_it_is_running_and_the_outcome_replaces_it(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """(1) The click is visibly answered at once, and the answer is replaced.
+
+    Driven through the real Setup & Updates button, because the button is what
+    the maintainer pressed and what looked dead.
+    """
+    window = teardown_threads(config=_quiet_config())
+    release = threading.Event()
+    calls: list[str] = []
+    window._dependency_manager = DependencyManager(
+        specs=[_dep_spec("slow", _blocking_probe(release, calls, "slow"))]
+    )
+    shown = _capture_message_boxes(monkeypatch)
+    center = window.open_setup_center()
+    try:
+        button = center._buttons["dep_check"]
+        button.click()
+
+        status = _status_bar_text(window)
+        assert "Checking dependencies" in status, status
+        assert "can take up to a minute" in status, status
+        assert not button.isEnabled(), "the button stayed live while its check ran"
+        assert button.text() == "Checking dependencies…"
+        assert center._dependency_label is not None
+        assert "Checking dependencies" in center._dependency_label.text()
+
+        release.set()
+        _pump_until(qapp, lambda: window._dep_check_thread is None and shown)
+
+        status = _status_bar_text(window)
+        assert "Checking" not in status, (
+            f"the running message outlived its check: {status}"
+        )
+        assert "Dependency check finished" in status, status
+        assert "All required tools present" in status, status
+        assert button.isEnabled() and button.text() == "Check &dependencies"
+        assert "All required tools present" in center._dependency_label.text()
+        assert shown[0][0] == "Dependency check complete"
+    finally:
+        release.set()
+        center.close()
+
+
+def test_a_second_click_says_so_starts_no_second_probe_and_shows_the_result(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """(2) The launch check is running silently; the user clicks anyway.
+
+    Three claims: the click is answered on screen, no second probe starts, and
+    the silent check is UPGRADED so its summary is shown — the user has now asked
+    for exactly that result.
+    """
+    window = teardown_threads(config=_quiet_config())
+    release = threading.Event()
+    calls: list[str] = []
+    window._dependency_manager = DependencyManager(
+        specs=[_dep_spec("slow", _blocking_probe(release, calls, "slow"))]
+    )
+    shown = _capture_message_boxes(monkeypatch)
+    window.run_dependency_check_async(show_summary=False)  # the launch check
+    running = window._dep_check_thread
+    assert running is not None
+    # Opened DURING the check, the way a user reaches it: it must say a check is
+    # running, not show whatever the last finished one said.
+    center = window.open_setup_center()
+    try:
+        _pump_until(qapp, lambda: calls == ["slow"])
+        assert center._dependency_label is not None
+        assert "Checking dependencies" in center._dependency_label.text()
+        button = center._buttons["dep_check"]
+        # A silent check leaves the button usable: clicking is how the user asks
+        # for its result. And it puts nothing on the status bar.
+        assert button.isEnabled()
+        assert _status_bar_text(window) == ""
+
+        button.click()
+
+        assert window._dep_check_thread is running, "a second check was started"
+        assert "already running" in _status_bar_text(window)
+        assert window._dep_check_show_summary is True, (
+            "the silent check was not upgraded"
+        )
+        assert not button.isEnabled()
+
+        release.set()
+        _pump_until(qapp, lambda: window._dep_check_thread is None and shown)
+        assert calls == ["slow"], f"the probe ran {len(calls)} times, not once"
+        assert shown[0][0] == "Dependency check complete", (
+            "the upgraded check landed without showing the summary the click asked for"
+        )
+    finally:
+        release.set()
+        center.close()
+
+
+def test_the_deadline_stops_a_wedged_check_and_the_summary_says_what_it_skipped(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """(3) A wedged ripper is killed at the deadline, and nothing claims "all present".
+
+    A real child that never answers, so the kill is real. The spec list is built
+    so the pre-fix code would have said the ONE sentence an incomplete check must
+    not: the only thing missing is optional, which used to lead to "✓ Everything
+    required is installed — you're ready to rip", while cyanrip had not been
+    checked at all.
+    """
+    from platterpus.deps import manager as dep_manager
+    from platterpus.deps.checks import ProbeResult, check_cyanrip
+
+    tool = tmp_path / "cyanrip"
+    tool.write_text("#!/bin/sh\nexec sleep 20\n", encoding="utf-8")
+    tool.chmod(0o755)
+    reached_after: list[str] = []
+
+    def after() -> ProbeResult:
+        reached_after.append("after")
+        return ProbeResult(present=True, version=(1, 0, 0), location="/x")
+
+    monkeypatch.setattr(dep_manager, "CHECK_DEADLINE_S", 0.5)
+    window = teardown_threads(config=_quiet_config())
+    window._dependency_manager = DependencyManager(
+        specs=[
+            _dep_spec(
+                "extra",
+                lambda: ProbeResult(present=False, version=None, location=None),
+                optional=True,
+            ),
+            _dep_spec("cyanrip", lambda: check_cyanrip(tool)),
+            _dep_spec("after", after, display="metaflac (FLAC tag editor)"),
+        ]
+    )
+    shown = _capture_message_boxes(monkeypatch)
+    offers: list[bool] = []
+    monkeypatch.setattr(
+        window,
+        "_offer_optional_install",
+        lambda _m, _items, required_all_ok=False: offers.append(required_all_ok),
+    )
+    center = window.open_setup_center()
+    try:
+        started = time.monotonic()
+        window._on_check_dependencies()
+        _pump_until(qapp, lambda: window._dep_check_thread is None and shown)
+        assert time.monotonic() - started < 10.0, "the deadline did not stop the check"
+
+        title, text = shown[0]
+        assert title == "Dependency check incomplete", title
+        assert "Not checked: cyanrip, metaflac (FLAC tag editor)." in text, text
+        assert "stopped after 0.5 s" in text, text
+        assert "Optional (not installed): extra." in text, text
+        for claim in ("All required tools present", "Everything required is installed"):
+            assert claim not in text, f"an incomplete check said {claim!r}"
+        assert offers == [], "an incomplete check offered optional installs"
+        assert reached_after == [], "a spec after the deadline was still probed"
+
+        status = _status_bar_text(window)
+        assert "Check incomplete" in status and "cyanrip" in status, status
+        assert center._dependency_label is not None
+        line = center._dependency_label.text()
+        assert line.startswith("⚠") and "cyanrip" in line, line
+        assert "All required tools present" not in line, line
+    finally:
+        center.close()
+
+
+def test_a_silent_check_that_did_not_finish_says_so_on_the_status_bar(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The launch check stays silent when it completes — but not when it stopped.
+
+    A stopped launch check leaves the ripper's state unknown; one status line is
+    the least that says so without a dialog nobody asked for.
+    """
+    from platterpus.deps.manager import DependencyReport
+
+    window = teardown_threads()
+    shown = _capture_message_boxes(monkeypatch)
+    report = DependencyReport(
+        unchecked=[_dep_spec("cyanrip", lambda: None)],
+        unchecked_reason="the check stopped after 120 s because it was taking too long",
+    )
+    window._dep_check_manager = window._dependency_manager
+    window._dep_check_show_summary = False
+    window._on_dependency_check_done(report)
+    status = _status_bar_text(window)
+    assert "did not finish" in status and "cyanrip" in status, status
+    assert shown == [], "a silent check opened a dialog"
+
+    # The sentence now stays until it is replaced (code review R8), so a later
+    # silent check that completes must replace it, or "did not finish" would
+    # outlive the check that did finish.
+    window._dep_check_manager = window._dependency_manager
+    window._on_dependency_check_done(DependencyReport())
+    status = _status_bar_text(window)
+    assert "did not finish" not in status, status
+    assert "All required tools present" in status, status
+    assert shown == [], "a silent check opened a dialog"
+
+    quiet = teardown_threads()
+    quiet._dep_check_manager = quiet._dependency_manager
+    quiet._dep_check_show_summary = False
+    quiet._on_dependency_check_done(DependencyReport())
+    assert _status_bar_text(quiet) == "", "a complete silent check nagged"
+
+
+def test_giving_up_on_a_user_check_says_so_on_screen(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """(4) The bounded wait for another dialog ends VISIBLY for a check the user asked for.
+
+    And the launch check keeps its log-only behaviour: the same give-up there
+    must put nothing on the status bar.
+    """
+    from PySide6.QtCore import QTimer
+
+    from platterpus.ui import main_window_deps
+
+    window = teardown_threads()
+    monkeypatch.setattr(window, "_resolve_missing_unified", lambda _r: None)
+    monkeypatch.setattr(
+        window, "_modal_floor_blocker", lambda: "a dialog has the floor"
+    )
+    monkeypatch.setattr(QTimer, "singleShot", staticmethod(lambda _ms, _cb: None))
+
+    report = SimpleNamespace(missing=[], install_results=[])
+    window._apply_dependency_report(object(), report, show_summary=True)
+    assert "will be shown when the dialog" in _status_bar_text(window)
+    for _ in range(main_window_deps._DEP_RESOLVE_MAX_DEFERRALS):
+        window._apply_dependency_report(object(), report, show_summary=True)
+    status = _status_bar_text(window)
+    assert "was not shown" in status and "Setup & Updates" in status, status
+
+    silent = teardown_threads()
+    monkeypatch.setattr(silent, "_resolve_missing_unified", lambda _r: None)
+    monkeypatch.setattr(
+        silent, "_modal_floor_blocker", lambda: "a dialog has the floor"
+    )
+    required = SimpleNamespace(spec=SimpleNamespace(optional=False))
+    silent_report = SimpleNamespace(missing=[required], install_results=[])
+    for _ in range(main_window_deps._DEP_RESOLVE_MAX_DEFERRALS + 1):
+        silent._apply_dependency_report(object(), silent_report, show_summary=False)
+    assert _status_bar_text(silent) == "", "the launch check nagged"
+
+
+def test_a_report_held_for_another_dialog_keeps_its_optional_tools(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The deferral must not drop part of the result it is holding.
+
+    `report.missing` used to be narrowed to the required tools BEFORE the floor
+    check, so a report that had to wait came back with its optional tools gone:
+    the offer and the "Optional (not installed)" line vanished after the wait.
+    """
+    from PySide6.QtCore import QTimer
+
+    window = teardown_threads()
+    held: list[Any] = []
+    monkeypatch.setattr(
+        QTimer, "singleShot", staticmethod(lambda _ms, cb: held.append(cb))
+    )
+    busy = ["a dialog has the floor"]
+    monkeypatch.setattr(window, "_modal_floor_blocker", lambda: busy[0])
+    offered: list[list[str]] = []
+    monkeypatch.setattr(
+        window,
+        "_offer_optional_install",
+        lambda _m, items, required_all_ok=False: offered.append(
+            [i.spec.dep_id for i in items]
+        ),
+    )
+    optional = SimpleNamespace(spec=SimpleNamespace(optional=True, dep_id="picard"))
+    report = SimpleNamespace(missing=[optional], install_results=[])
+
+    window._apply_dependency_report(object(), report, show_summary=True)
+    assert held and offered == []
+    busy[0] = ""
+    held[0]()  # the re-delivery, once the dialog has closed
+    assert offered == [["picard"]], "the optional tool was lost while the report waited"
+
+
+def test_an_overrunning_check_is_reported_even_if_a_probe_ignores_the_deadline(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The backstop: it needs no cooperation from the check it is watching.
+
+    Every real probe honours the deadline. This one does not (it never enters
+    `VERSION_PROBE`), which is the day the backstop exists for: the user is told
+    the check is overdue instead of watching "Checking…" forever.
+
+    Driven with a SILENT check on purpose, because that is the harder half: a
+    silent check does not normally write its outcome to the status bar, so an
+    overdue warning it caused would otherwise outlive it.
+    """
+    from platterpus.deps import manager as dep_manager
+    from platterpus.ui import main_window_deps
+
+    monkeypatch.setattr(dep_manager, "CHECK_DEADLINE_S", 0.2)
+    monkeypatch.setattr(main_window_deps, "_OVERDUE_GRACE_S", 0.2)
+    window = teardown_threads(config=_quiet_config())
+    release = threading.Event()
+    calls: list[str] = []
+    window._dependency_manager = DependencyManager(
+        specs=[_dep_spec("deaf", _blocking_probe(release, calls, "deaf"))]
+    )
+    shown = _capture_message_boxes(monkeypatch)
+    try:
+        window.run_dependency_check_async(show_summary=False)
+        _pump_until(qapp, lambda: "did not stop" in _status_bar_text(window), 5.0)
+        assert window._dep_check_thread is not None, "the backstop fired too late"
+        release.set()
+        _pump_until(qapp, lambda: window._dep_check_thread is None)
+        status = _status_bar_text(window)
+        assert "did not stop" not in status, (
+            "the overdue warning outlived the check it described"
+        )
+        assert "Dependency check finished" in status, status
+        assert shown == [], "a silent check opened a dialog"
+    finally:
+        release.set()
+
+
+def test_the_setup_center_button_needs_both_the_rip_and_the_check_to_end(
+    qapp: QApplication,
+) -> None:
+    """Two reasons to grey one button; ending either must not re-arm it early."""
+    from platterpus.ui.dialogs.setup_center import SetupCenterDialog
+    from platterpus.user_settings import SettingWrite
+
+    center = SetupCenterDialog(
+        None,
+        app_version="0",
+        ripper_pin="abc",
+        ripper_version="0.9",
+        approved_by_round=1,
+        dependency_report=None,
+        actions={},
+        config=Config(),
+        save_setting=lambda _f, _v: SettingWrite(applied=True, message=""),
+    )
+    try:
+        button = center._buttons["dep_check"]
+        center.show_dependency_check_running("Checking…", busy=True)
+        center.set_locked(True)
+        center.set_locked(False)
+        assert not button.isEnabled(), "a rip ending re-armed a button mid-check"
+        center.set_locked(True)
+        center.show_dependency_check_finished(None, failure="⚠ it failed")
+        assert not button.isEnabled(), "a check ending re-armed a button mid-rip"
+        assert center._dependency_label is not None
+        assert center._dependency_label.text() == "⚠ it failed", (
+            "a crashed check rendered as 'Not checked yet'"
+        )
+        center.set_locked(False)
+        assert button.isEnabled() and button.text() == "Check &dependencies"
+    finally:
+        center.close()
+
+
+def test_the_dependency_line_never_says_all_present_for_an_incomplete_check() -> None:
+    """Whatever the checked tools said, a stopped check is ⚠ and names the rest."""
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.resolvers import MissingItem
+    from platterpus.ui.dialogs.setup_center import dependency_summary_line
+
+    cyanrip = _dep_spec("cyanrip", lambda: None)
+    line = dependency_summary_line(
+        DependencyReport(unchecked=[cyanrip], unchecked_reason="it stopped")
+    )
+    assert line.startswith("⚠"), line
+    assert "cyanrip" in line and "it stopped" in line, line
+    assert "All required tools present" not in line, line
+    # And a REAL MissingItem is named by its spec, not rendered as "?".
+    missing = MissingItem(
+        spec=_dep_spec("metaflac", lambda: None, display="metaflac (FLAC tag editor)"),
+        probe=ProbeResult(present=False, version=None, location=None),
+    )
+    named = dependency_summary_line(DependencyReport(missing=[missing]))
+    assert "metaflac (FLAC tag editor)" in named and "?" not in named, named
+
+
+# ---------------------------------------------------------------------------
 # THE BUNDLE STAMP MAY NOT ASSERT THE FLUSH BEFORE THE FLUSH HAPPENS.
 #
 # Found by the cyanrip fork in our own 2026-09-19 evidence bundle (round 23 lap 1
@@ -11098,3 +12998,66 @@ def test_check_again_is_told_once_when_the_dependency_check_lands(
         window._dep_check_thread = None
         window.close()
         dep_manager.remember_report(None)
+
+
+def test_open_dependencies_in_a_script_probes_off_the_gui_thread(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A script's `open dependencies` froze the window until 2026-09-28.
+
+    It named `run_dependency_check`, the synchronous form kept for tests, so every
+    probe (a cold container's start included) ran on the GUI thread. Driven here
+    through the real runner and a real window with the probe HELD: the step must
+    return at once, the event loop must keep turning while the probe waits, the
+    step must not record before its check lands, and the status bar must say a
+    check is running. Released, the step passes and the summary is shown once.
+    """
+    from platterpus.uiscript.report import Outcome
+    from platterpus.uiscript.runner import ScriptRunner
+    from platterpus.uiscript.script import parse
+
+    window = teardown_threads(config=_quiet_config())
+    release = threading.Event()
+    calls: list[str] = []
+    window._dependency_manager = DependencyManager(
+        specs=[_dep_spec("slow", _blocking_probe(release, calls, "slow"))]
+    )
+    summaries: list[object] = []
+    monkeypatch.setattr(
+        window,
+        "_show_dep_summary",
+        lambda report, optional_missing=None: summaries.append(report),
+    )
+    runner = ScriptRunner(window)
+    try:
+        started = time.monotonic()
+        runner._execute(parse("open dependencies")[0])
+        assert time.monotonic() - started < 2.0, "the step held the GUI thread"
+        _pump_until(qapp, lambda: bool(calls))
+        # The probe is running and held. The GUI thread is free: events are
+        # processed and the wait is serviced without anything landing.
+        turned = 0
+        for _ in range(20):
+            qapp.processEvents()
+            runner._service_deadline()
+            turned += 1
+        assert turned == 20
+        assert runner._deadline is not None, "the step ended before its check landed"
+        assert not runner._report.steps, runner._report.steps
+        assert "Checking dependencies" in _status_bar_text(window)
+        assert not summaries
+
+        release.set()
+        until = time.monotonic() + 15.0
+        while runner._deadline is not None and time.monotonic() < until:
+            qapp.processEvents()
+            runner._service_deadline()
+            time.sleep(0.01)
+        assert runner._deadline is None, "the step never saw its check land"
+        record = runner._report.steps[-1]
+        assert record.outcome is Outcome.PASS, record
+        assert "the dependency check finished" in record.detail, record.detail
+        assert len(summaries) == 1, summaries
+    finally:
+        release.set()
+        _pump_until(qapp, lambda: window._dep_check_thread is None)

@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic as _monotonic
@@ -46,7 +46,7 @@ from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtWidgets import QDialog, QMessageBox
 
 if TYPE_CHECKING:
-    from PySide6.QtWidgets import QSystemTrayIcon
+    from PySide6.QtWidgets import QPushButton, QSystemTrayIcon
 
     from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
@@ -75,11 +75,13 @@ from platterpus.parsers.rip_log import RipLog, TrackResult, parse_rip_log
 from platterpus.paths import LOG_PATH
 from platterpus.report_types import ArtifactsBlock, DebugBlock, TimingBlock
 from platterpus.rip_addendum import read_log_with_addendum
+from platterpus.ui import message_boxes
 from platterpus.ui.main_window_helpers import (
     _dir_has_audio,
+    ambiguous_overwrite_text,
     fidelity_summary,
     free_album_folder_templates,
-    known_album_folder,
+    known_album_folders,
     safe_path_segment,
     unique_album_title,
 )
@@ -408,6 +410,8 @@ class _PendingBundle:
     generation: int
     deadline: float
     facts: dict[str, str]
+    #: The rip's `-j` records, in the rips root, by archive name.
+    diagnostics_files: dict[str, Path] = field(default_factory=dict)
 
 
 #: How many finished albums' records to keep addressable at once.
@@ -462,7 +466,7 @@ class RipMixin(MainWindowShared):
             # No offset configured AND we don't know this drive's offset →
             # the only case that still needs the wizard. (A known drive is
             # auto-applied above, so the user is never blocked for it.)
-            answer = QMessageBox.warning(
+            answer = message_boxes.warning(
                 self,
                 "Set up your drive first",
                 "No read offset is configured for your drive, so ripping can't "
@@ -511,7 +515,7 @@ class RipMixin(MainWindowShared):
                 )
                 if not deliberate:
                     label = f"{drive.vendor.strip()} {drive.model.strip()}".strip()
-                    answer = QMessageBox.warning(
+                    answer = message_boxes.warning(
                         self,
                         "Read offset disagreement",
                         f"The saved read offset is {self._config.read_offset:+d}, "
@@ -569,7 +573,7 @@ class RipMixin(MainWindowShared):
         if not params.unknown:
             ok, message = self._track_table.validate()
             if not ok:
-                QMessageBox.warning(self, "Cannot start rip", message)
+                message_boxes.warning(self, "Cannot start rip", message)
                 return
             # Known-disc overwrite guard (2026-07-08 trust audit): a re-rip of an
             # ALREADY-identified album to the same folder used to overwrite the
@@ -718,39 +722,96 @@ class RipMixin(MainWindowShared):
         """Guard a known-disc rip against silently overwriting an existing rip.
 
         Returns the params to rip with (possibly rewritten to a fresh numbered
-        folder), or ``None`` if the user cancelled. If the target folder holds no
-        audio, returns ``params`` unchanged (no dialog). Computing the folder and
-        probing it are cheap local operations, and the dialog only waits on the
+        folder), or ``None`` if the user cancelled. If no folder the rip could land
+        in holds audio, returns ``params`` unchanged (no dialog). Finding the folders
+        and probing them are cheap local operations, and the dialog only waits on the
         user — nothing here blocks the GUI thread on I/O.
         """
-        album = self._track_table.album_metadata()
-        target = known_album_folder(
-            Path(params.output_dir),
-            params.disc_template,
-            album.artist,
-            album.title,
-            album.year,
+        # The metadata the rip itself will be handed (`_start_rip_worker` builds it
+        # with this same method), so the folder checked is the folder written:
+        # the same track template, the same year, the same disc position.
+        metadata = self._rip_metadata_for(params)
+        candidates = known_album_folders(
+            Path(params.output_dir), params.track_template, metadata
         )
-        if not _dir_has_audio(target):
-            return params  # nothing there to overwrite → proceed silently
+        # Decided on the folders that EXIST. The resolver also returns a path for
+        # each look-alike branch that holds no such album (an `AC-DC` artist
+        # folder from an unknown-disc rip beside cyanrip's `AC∕DC`), and those
+        # counted as a tie until 2026-09-28: a first rip was asked "which folder?"
+        # with no Replace, over two folders neither of which existed.
+        existing = tuple(f for f in candidates if f.is_dir())
+        occupied = frozenset(f for f in existing if _dir_has_audio(f))
+        # Several look-alike folders (`a“b`, `a”b`) and cyanrip picks one by a
+        # parity we cannot see (P7d). This used to stand down; it asks now, naming
+        # them all (maintainer, 2026-09-27), and it asks even when NONE holds a rip
+        # (maintainer, 2026-09-28: "fix all"): the rip would still land in a folder
+        # nobody chose, beside a look-alike of it.
+        ambiguous = len(existing) > 1
+        if not occupied and not ambiguous:
+            return params  # nothing here to overwrite → proceed silently
+        if ambiguous:
+            log.warning(
+                "%d folders could each be this album's, %d holding a rip: %s",
+                len(existing),
+                len(occupied),
+                "; ".join(str(f) for f in existing),
+            )
 
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
-        # PlainText: `target.name` below is built from the album's ARTIST, TITLE and
-        # YEAR — MusicBrainz data, not ours. Critical rule #12 names this exact case:
-        # under Qt's default `AutoText` a title containing `<` is swallowed as an
-        # unknown tag and the user never learns text went missing. Here that would
+        # PlainText: the folder names below are built from the album's ARTIST, TITLE
+        # and YEAR — MusicBrainz data, not ours. Critical rule #12 names this exact
+        # case: under Qt's default `AutoText` a title containing `<` is swallowed as
+        # an unknown tag and the user never learns text went missing. Here that would
         # mean a destructive-overwrite prompt naming the wrong folder, or a truncated
-        # one, while the Replace button still does the full thing.
+        # one, while the Replace button still does the full thing. Every name goes in
+        # `setText`; the informative text below is literal in both branches.
         box.setTextFormat(Qt.TextFormat.PlainText)
-        box.setWindowTitle("Album already ripped")
-        box.setText(
-            f"“{target.name}” already contains a rip:\n{target}\n\n"
-            "Ripping here will overwrite the existing files."
+        # The title rig scripts answer (`answer-dialog … Album already ripped`) for
+        # every case where it is TRUE. A tie with no rip in either folder gets a
+        # title that does not claim one.
+        box.setWindowTitle(
+            "Album already ripped" if occupied else "Which album folder?"
         )
-        box.setInformativeText("Replace them, rip to a new numbered folder, or cancel?")
-        # DestructiveRole flags the overwrite; AcceptRole is the safe keep-both.
-        replace_btn = box.addButton("Replace", QMessageBox.ButtonRole.DestructiveRole)
+        replace_btn: QPushButton | None = None
+        if ambiguous:
+            box.setText(ambiguous_overwrite_text(existing, occupied))
+            # NO Replace. It means "overwrite THE existing folder", and here there is
+            # no single one: consent to it would be consent to overwriting whichever
+            # rip cyanrip happens to pick. Both remaining choices are safe for every
+            # candidate — a new folder is free only if free under all of them.
+            box.setInformativeText(
+                "Rip to a new numbered folder, or cancel? Replace is not offered, "
+                "because there is no single folder it would replace. To replace one, "
+                "remove or rename the others and start the rip again."
+            )
+        else:
+            target = existing[0]
+            # Definite only when the one folder there IS the predicted one. A
+            # look-alike of it may or may not be where cyanrip writes (P7d), so the
+            # prompt must not promise an overwrite it cannot predict.
+            from platterpus.adapters.cyanrip_backend import predicted_album_folder
+
+            predicted = Path(params.output_dir) / predicted_album_folder(
+                params.track_template, metadata
+            )
+            box.setText(
+                f"“{target.name}” already contains a rip:\n{target}\n\n"
+                + (
+                    "Ripping here will overwrite the existing files."
+                    if target == predicted
+                    else "This rip may write into it and overwrite the existing "
+                    "files: its name differs from the one Platterpus predicts only "
+                    "where cyanrip swaps a character for a look-alike."
+                )
+            )
+            box.setInformativeText(
+                "Replace them, rip to a new numbered folder, or cancel?"
+            )
+            # DestructiveRole flags the overwrite; AcceptRole is the safe keep-both.
+            replace_btn = box.addButton(
+                "Replace", QMessageBox.ButtonRole.DestructiveRole
+            )
         new_folder_btn = box.addButton(
             "Rip to a new folder", QMessageBox.ButtonRole.AcceptRole
         )
@@ -758,16 +819,17 @@ class RipMixin(MainWindowShared):
         box.setDefaultButton(cancel_btn)  # safest default: do nothing
         box.exec()
         clicked = box.clickedButton()
-        if clicked is replace_btn:
+        # `is not None` FIRST: a dismissed box reports no clicked button (None), and
+        # with Replace withheld `None is replace_btn` would be True — a closed prompt
+        # read as consent to overwrite.
+        if replace_btn is not None and clicked is replace_btn:
             return params
         if clicked is new_folder_btn:
             disc_template, track_template = free_album_folder_templates(
                 Path(params.output_dir),
                 params.disc_template,
                 params.track_template,
-                album.artist,
-                album.title,
-                album.year,
+                metadata,
             )
             return replace(
                 params,
@@ -795,12 +857,19 @@ class RipMixin(MainWindowShared):
             disc_template=f"{artist}/{title}/{title}",
         )
 
-    def _start_rip_worker(self, params: RipParameters) -> None:
-        """Spin up the rip worker thread for `params`. Shared by the initial
-        Start and the auto-heal retry, so both wire signals identically."""
-        # Snapshot the track table (MB lookup result + user edits) into the
-        # params. cyanrip is fed these tags directly so it never needs its own
-        # MusicBrainz lookup (Critical Rule #5, KDD-18 metadata model).
+    def _rip_metadata_for(self, params: RipParameters) -> RipMetadata:
+        """The tags a rip of ``params`` is handed: the track table plus the release.
+
+        Snapshots the track table (MB lookup result + user edits). cyanrip is fed
+        these tags directly so it never needs its own MusicBrainz lookup (Critical
+        Rule #5, KDD-18 metadata model).
+
+        **One snapshot, two readers**: `_start_rip_worker` hands it to the rip and
+        `_confirm_known_overwrite` predicts the album folder from it, so the folder
+        the guard checks is built from the tags, year and disc position the rip is
+        built from. The guard used to rebuild a subset itself, without the disc
+        position, and checked disc 1's folder for every disc of a set.
+        """
         album = self._track_table.album_metadata()
         # Genre / disc number / per-track ISRC are MusicBrainz-only silent
         # passthroughs (not editable in the table), so they come from the stored
@@ -824,6 +893,31 @@ class RipMixin(MainWindowShared):
             genre, disc_number, total_discs, isrc_by_number = "", 1, 1, {}
             catalog_number, barcode, label = "", "", ""
             length_ms_by_number = {}
+        return RipMetadata(
+            album_artist=album.artist,
+            album_title=album.title,
+            year=album.year,
+            genre=genre,
+            disc_number=disc_number,
+            total_discs=total_discs,
+            catalog_number=catalog_number,
+            barcode=barcode,
+            label=label,
+            tracks=tuple(
+                TrackTag(
+                    number=t.number,
+                    title=t.title,
+                    artist=t.artist_credit,
+                    isrc=isrc_by_number.get(t.number, ""),
+                    length_ms=length_ms_by_number.get(t.number),
+                )
+                for t in self._track_table.tracks()
+            ),
+        )
+
+    def _start_rip_worker(self, params: RipParameters) -> None:
+        """Spin up the rip worker thread for `params`. Shared by the initial
+        Start and the auto-heal retry, so both wire signals identically."""
         # Which tracks to rip, from the "Rip?" checkboxes. All ticked → rip the
         # whole disc (empty tuple, no `-l`); a subset → just those track numbers
         # (cyanrip `-l`). The table's validate() already blocked a zero-selection
@@ -834,29 +928,7 @@ class RipMixin(MainWindowShared):
             else tuple(self._track_table.selected_track_numbers())
         )
         params = replace(
-            params,
-            only_tracks=only_tracks,
-            metadata=RipMetadata(
-                album_artist=album.artist,
-                album_title=album.title,
-                year=album.year,
-                genre=genre,
-                disc_number=disc_number,
-                total_discs=total_discs,
-                catalog_number=catalog_number,
-                barcode=barcode,
-                label=label,
-                tracks=tuple(
-                    TrackTag(
-                        number=t.number,
-                        title=t.title,
-                        artist=t.artist_credit,
-                        isrc=isrc_by_number.get(t.number, ""),
-                        length_ms=length_ms_by_number.get(t.number),
-                    )
-                    for t in self._track_table.tracks()
-                ),
-            ),
+            params, only_tracks=only_tracks, metadata=self._rip_metadata_for(params)
         )
         self._rip_controls.set_rip_active(True)
         self._set_rip_lock(True)  # grey out everything that would conflict mid-rip
@@ -1356,7 +1428,7 @@ class RipMixin(MainWindowShared):
         file is validated to be a real JPEG/PNG/GIF at pick time so a wrong file
         is caught here, not silently at rip end.
         """
-        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        from PySide6.QtWidgets import QFileDialog
 
         from platterpus.adapters.cover_art import image_extension
 
@@ -1371,10 +1443,10 @@ class RipMixin(MainWindowShared):
         try:
             head = Path(path_str).read_bytes()[:16]
         except OSError as exc:
-            QMessageBox.warning(self, "Cover art", f"Couldn't read that file:\n{exc}")
+            message_boxes.warning(self, "Cover art", f"Couldn't read that file:\n{exc}")
             return
         if not image_extension(head):
-            QMessageBox.warning(
+            message_boxes.warning(
                 self, "Cover art", "That file isn't a JPEG, PNG, or GIF image."
             )
             return
@@ -2074,7 +2146,7 @@ class RipMixin(MainWindowShared):
         click Start without needing a MusicBrainz release ID.
         """
         if not self._drive_picker.current_device():
-            QMessageBox.warning(
+            message_boxes.warning(
                 self,
                 "Cannot rip",
                 "Select a drive first.",
@@ -2725,7 +2797,7 @@ class RipMixin(MainWindowShared):
         means (`CLAUDE.md`: two surfaces answering one question by different keys
         will disagree).
         """
-        from platterpus import __version__
+        from platterpus import __version__, diagnostics_record
 
         # Everything Qt-touching is read HERE, on the GUI thread. The daemon
         # below closes over plain values only — a worker that reaches back into a
@@ -2793,6 +2865,11 @@ class RipMixin(MainWindowShared):
             diagnostics=diagnostics,
             generation=generation,
             deadline=_monotonic() + self._BUNDLE_POST_RIP_WAIT_S,
+            # Read from the worker here, before `finally` drops it. The records are
+            # in the rips root, which the bundle does not walk, so they go by name.
+            diagnostics_files=diagnostics_record.bundle_members(
+                getattr(self._rip_worker, "diagnostics_records", ())
+            ),
             facts={
                 "ripper exit ok": str(success),
                 "cancel requested": str(cancelled),
@@ -2984,6 +3061,7 @@ class RipMixin(MainWindowShared):
         app_version = pending.app_version
         outcome = pending.outcome
         diagnostics = pending.diagnostics
+        diagnostics_files = dict(pending.diagnostics_files)
         # Inside the acceptance session's folder while one runs — everything a
         # session makes lives there (`test_session.SessionLayout`). Read on the GUI
         # thread, before the daemon starts, because the session can end meanwhile.
@@ -3000,6 +3078,7 @@ class RipMixin(MainWindowShared):
                 album_dir=album_dir,
                 log_dir=LOG_DIR,
                 extra_text={"diagnostics.txt": diagnostics},
+                files=diagnostics_files,
             )
             try:
                 self.evidence_bundle_done.emit(result)

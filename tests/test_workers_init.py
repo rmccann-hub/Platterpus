@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 import time
 
+import pytest
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import QApplication
 
@@ -73,6 +75,55 @@ def test_stop_thread_abandons_a_stuck_thread_instead_of_blocking() -> None:
     assert thread.parent_cleared  # reparented to None
     assert thread in workers._abandoned_threads  # held so the GC can't kill it
     assert len(workers._abandoned_threads) == before + 1
+
+
+def _abandon_and_capture(
+    caplog: pytest.LogCaptureFixture, **kwargs: object
+) -> tuple[_FakeThread, list[logging.LogRecord]]:
+    """Abandon a stuck fake thread and return it with the records it logged.
+
+    The fake is un-stuck afterwards so the prune in `abandoned_thread_count()`
+    drops it. Left "running", it would sit in the module list for the rest of
+    the session and tell every later test that process exit is unsafe.
+    """
+    thread = _FakeThread(running=True, stops=False)
+    with caplog.at_level(logging.DEBUG, logger="platterpus.workers"):
+        stop_thread(thread, wait_ms=0, **kwargs)
+    records = [r for r in caplog.records if r.name == "platterpus.workers"]
+    assert thread.parent_cleared, "the fake was not abandoned, so nothing was logged"
+    assert thread in workers._abandoned_threads, "abandoned without the reference"
+    thread._running = False
+    workers.abandoned_thread_count()  # prunes the now-finished fake
+    return thread, records
+
+
+def test_a_superseded_worker_is_abandoned_at_info_and_says_it_was_superseded(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """TASKS (rig run 2026-08-20): a rescan's superseded probe is not a fault.
+
+    `main_window` stops the old disc probe with `wait_ms=0` on every rescan, so it
+    is abandoned every time, by design. It logged the same WARNING as a worker
+    that ignored a shutdown, and each rig transcript carried one for normal
+    operation. The abandonment itself must not change: the reference is still
+    retained (asserted in the helper), because dropping it is the SIGABRT.
+    """
+    _thread, records = _abandon_and_capture(caplog, superseded_by="a newer probe")
+    assert [r.levelno for r in records] == [logging.INFO], [
+        (r.levelname, r.getMessage()) for r in records
+    ]
+    message = records[0].getMessage()
+    assert "superseded by a newer probe" in message, message
+    assert "did not stop" not in message, "the fault wording survived"
+
+
+def test_an_abandonment_nobody_planned_is_still_a_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The other half: shutdown and real timeouts must keep their WARNING."""
+    _thread, records = _abandon_and_capture(caplog)
+    assert [r.levelno for r in records] == [logging.WARNING]
+    assert "did not stop within 0ms" in records[0].getMessage()
 
 
 def test_stop_thread_skips_wait_for_an_already_stopped_thread() -> None:

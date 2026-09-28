@@ -193,3 +193,32 @@ def test_a_missing_clipboard_says_so_rather_than_appearing_to_work(
         assert "No clipboard" in dialog._copied_label.text()
     finally:
         dialog.deleteLater()
+
+
+def test_an_incomplete_check_names_what_it_did_not_reach() -> None:
+    """A check that stopped part-way is not a shorter complete list.
+
+    The unchecked tools are in neither `ok` nor `missing`, so the rows simply
+    omit them; the NOTE is what stops the pasted report reading as the whole
+    machine. And a check that reached NOTHING is not "not probed yet": it ran.
+    """
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.registry import SPECS
+
+    partial = _one_tool_probed()
+    assert isinstance(partial, DependencyReport)
+    partial.unchecked = [SPECS[1]]
+    partial.unchecked_reason = "the check stopped after 120 s"
+    dep_manager.remember_report(partial)
+    text = build_diagnostics_text()
+    assert "present=True" in text
+    assert f"NOTE: Check incomplete — 1 not checked: {SPECS[1].display_name}" in text
+    assert "stopped after 120 s" in text
+
+    nothing = DependencyReport(unchecked=list(SPECS[:2]), unchecked_reason="stopped")
+    dep_manager.remember_report(nothing)
+    text = build_diagnostics_text()
+    assert "not probed yet this session" not in text, (
+        "a check that ran and reached nothing was described as never having run"
+    )
+    assert "2 not checked" in text

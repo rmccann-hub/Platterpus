@@ -118,6 +118,38 @@ SENT_LAPS: dict[str, str] = {
     # contract filed, `Partial files:` claimed, LSL 2 read). Released on the
     # maintainer's word 2026-09-27.
     "outbound/round-28-lap-04.md": "9719aabb05767320b75f4dd9c6b83b9a65ee2e672ba1718285910b52f3f9bd47",
+    # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
+    # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
+    # equal to the fork's own filed copy in their committed tree, at
+    # `cyanrip@fd05b12:docs/handshake/inbound/<same name>`. A byte-identical copy
+    # in the peer's tree is a measurement of what they received, the same standing
+    # as a digest their lap declares, and it needed no request: their tree is
+    # public, and where their source is reachable we derive rather than ask.
+    # The nineteenth, round 14 lap 18, did NOT match, and stays in the ratchet with
+    # the reason beside it.
+    "verified/round-09-lap-08.md": "7a3b86d7316ea0f6d4126620173b5d00a7b1ba9e52ab0914e2e67ec769131ab3",
+    "verified/round-09-lap-10.md": "763005ad675dc09c9f8f100058da1108ee62b10789ff6d9584a3737f0a8309ad",
+    "verified/round-10-lap-02.md": "582787cb9c7883a2881b6e8933a4a6f63f9a1e2fb6e47599ab32296a61be7a8e",
+    "verified/round-10-lap-04.md": "dea443d1e871506d55bc8a152641a1ca0cf194cce2842f3bb2338f180708deb5",
+    "verified/round-11-lap-02.md": "6ea4fb1015196bc0a0cf11c26a486576181adfbd6610398538c800649d7873f0",
+    "verified/round-12-lap-02.md": "5d00aa0a9648f4a5c5411d830458ee745e477e515708fa861f1b27a96e270b16",
+    "verified/round-12-lap-04.md": "cfdea32539205b18aa5a0ebe4fe94e842adc4d4bad086423755937f405f0b9e6",
+    "outbound/round-13-lap-02.md": "75bae407cb28dfeb6997f2c66bdfe1699553d87b7524e8cf9c24b5abf8d01f20",
+    "outbound/round-13-lap-05.md": "aaa764a5dc77c1498af85ae74141b59a220efb5b3105ca58b1c3bc858c3e79c9",
+    "verified/round-13-lap-07.md": "2eaa9b83c6f1c04ab7f82a4af6f819e89ef9ed39c8fec529fe765ed837d59276",
+    "outbound/round-14-lap-02.md": "25b187c969f449c143c2f867f8f95da82da60d1bf82391d6649eace0786b288b",
+    "outbound/round-14-lap-06.md": "5f9bda218273fdda4cb9d6cd4d28ae1f04f5cd86301500ed3738dcffc5ded01e",
+    "outbound/round-14-lap-08.md": "8bfef77d61c956dfa30b07f5279082e0d95353cd563609ce93144a662f8eb98b",
+    "outbound/round-14-lap-10.md": "96c5546864c6e749d9eafe006405dffece2441be940a6cd7bc8d4a24da063525",
+    "outbound/round-14-lap-12.md": "e7343272f72caf81f2a0fc3183eb8f75bd0c58403e9c62ffff609c2d5de393cd",
+    "outbound/round-14-lap-13.md": "eecafaf7057e5c5594994207eab95a3e93e947d05767dbfe3905c24549e5e1d7",
+    "outbound/round-14-lap-16.md": "de58b0dce37bdd35e8eb254a6300d9ce37fa2e438f9e0915f26b1fb74b345319",
+    "outbound/round-15-lap-02.md": "80c86fd4608f19afa9414860c6281b48898e336904988729be6176f5de5393fb",
+    # The nineteenth, round 14 lap 18, RESTORED 2026-09-28 to the bytes we sent (the
+    # maintainer's choice): ours had been revised in place at `43a33b47`, and the
+    # fork's filed copy is our `2cba3912`. Every removed line is kept verbatim in
+    # `docs/session-log.md` (its 2026-09-28 entry), as round 8 lap 10 was restored.
+    "outbound/round-14-lap-18.md": "74635eff8f350bb1d43218d6372ea6d513aeaccce6382a6a7b11d842fe67bfe6",
     # Round 23 lap 2. **Peer-confirmed in their lap 3's `HANDSHAKE-INBOUND-HELD`**,
     # which names it at sha256 `4d1fd006...f38b8`, 18,686 bytes, read at
     # `platterpus@b5af9bec` — and their §D2 says they fetched the branch and
@@ -750,29 +782,9 @@ def test_a_repeated_mention_of_one_lap_is_one_subject() -> None:
 #: set may SHRINK and must never grow: a new send is pinned in `SENT_LAPS` when the
 #: operator confirms it, and if it reaches this set instead, the window it names has
 #: claimed another lap.
-PEER_CONFIRMED_UNPINNED: Final[frozenset[str]] = frozenset(
-    {
-        "verified/round-09-lap-08.md",
-        "verified/round-09-lap-10.md",
-        "verified/round-10-lap-02.md",
-        "verified/round-10-lap-04.md",
-        "verified/round-11-lap-02.md",
-        "verified/round-12-lap-02.md",
-        "verified/round-12-lap-04.md",
-        "outbound/round-13-lap-02.md",
-        "outbound/round-13-lap-05.md",
-        "verified/round-13-lap-07.md",
-        "outbound/round-14-lap-02.md",
-        "outbound/round-14-lap-06.md",
-        "outbound/round-14-lap-08.md",
-        "outbound/round-14-lap-10.md",
-        "outbound/round-14-lap-12.md",
-        "outbound/round-14-lap-13.md",
-        "outbound/round-14-lap-16.md",
-        "outbound/round-14-lap-18.md",
-        "outbound/round-15-lap-02.md",
-    }
-)
+#: EMPTY since 2026-09-28: all nineteen graduated, eighteen by measurement against
+#: the fork's filed copies and round 14 lap 18 by restoring the bytes we sent.
+PEER_CONFIRMED_UNPINNED: Final[frozenset[str]] = frozenset()
 
 
 def test_a_hash_the_peer_DECLARES_for_our_lap_matches_our_copy() -> None:

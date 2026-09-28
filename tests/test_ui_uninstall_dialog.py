@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus.deps.step_engine import StepResult, StepStatus
 from platterpus.paths import LOG_PATH
+from platterpus.ui import message_boxes
 from platterpus.ui.uninstall_dialog import UninstallDialog
 
 
@@ -32,7 +33,7 @@ def test_confirm_cancel_runs_nothing(qapp: QApplication, monkeypatch) -> None:
     built: list = []
     dialog = _dialog(qapp, build=lambda *a: built.append(a))
     monkeypatch.setattr(
-        QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Cancel
+        message_boxes, "warning", lambda *a, **k: QMessageBox.StandardButton.Cancel
     )
     dialog._on_uninstall_clicked()
     assert built == []  # declined → no teardown was even constructed
@@ -60,7 +61,7 @@ def test_confirm_yes_builds_teardown_from_checkboxes(
     dialog = _dialog(qapp, build=build)
     dialog._legacy_config_check.setChecked(False)
     monkeypatch.setattr(
-        QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "warning", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
 
     dialog._on_uninstall_clicked()
@@ -142,7 +143,7 @@ def test_uninstall_click_ignored_while_already_running(
     # Pretend a run is already in flight.
     dialog._thread = QThread(dialog)
     monkeypatch.setattr(
-        QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Yes
+        message_boxes, "warning", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
 
     dialog._on_uninstall_clicked()  # must early-return, not start a second run

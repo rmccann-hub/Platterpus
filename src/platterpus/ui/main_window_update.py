@@ -25,6 +25,7 @@ beside the in-app download branch.
 
 from __future__ import annotations
 
+import html
 import logging
 from pathlib import Path
 
@@ -32,6 +33,7 @@ from PySide6.QtCore import Qt, QThread
 from PySide6.QtWidgets import QAbstractButton, QMessageBox
 
 from platterpus import hard_exit
+from platterpus.ui import message_boxes
 from platterpus.ui.main_window_shared import MainWindowShared
 
 log = logging.getLogger(__name__)
@@ -693,8 +695,10 @@ class UpdateMixin(MainWindowShared):
             host_setup=HostSetup(runner=SubprocessRunner(), fork_target=target),
             copy=SetupCopy(
                 title="Updating cyanrip",
+                # Markup (the dialog shows it as RichText): the words and <b> are
+                # ours; the pin names a build the user picked, so it is escaped.
                 intro=(
-                    f"Installing cyanrip build <b>{target.pin}</b>.\n\n"
+                    f"Installing cyanrip build <b>{html.escape(target.pin)}</b>.\n\n"
                     "Platterpus builds the ripper from source inside its container, "
                     "so this takes a few minutes. Everything already in place is "
                     "skipped — the rows below say which.\n\n"
@@ -747,7 +751,7 @@ class UpdateMixin(MainWindowShared):
         self._update_thread = None
 
         if info is None:
-            QMessageBox.information(
+            message_boxes.information(
                 self,
                 "Check for updates",
                 "Couldn't check for updates (no connection, or GitHub is "
@@ -776,7 +780,7 @@ class UpdateMixin(MainWindowShared):
                 if is_prerelease_version(__version__) and not on_beta
                 else ""
             )
-            QMessageBox.information(
+            message_boxes.information(
                 self,
                 "Check for updates",
                 f"You're up to date — v{__version__} is the newest release "
@@ -805,7 +809,7 @@ class UpdateMixin(MainWindowShared):
         # installs can't be file-swapped, so they get the release page.
         appimage = appimage_integration.appimage_path()
         if appimage is not None:
-            choice = QMessageBox.question(
+            choice = message_boxes.question(
                 self,
                 "Update available",
                 f"Version {version} is available (you have {__version__}).\n\n"
@@ -822,7 +826,7 @@ class UpdateMixin(MainWindowShared):
             if choice == QMessageBox.StandardButton.Yes:
                 self._begin_update_install(version)
             return
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Update available",
             f"Version {version} is available (you have {__version__}).\n\n"
@@ -955,7 +959,7 @@ class UpdateMixin(MainWindowShared):
         self._install_worker = None
         self._install_thread = None
         if not ok:
-            QMessageBox.warning(
+            message_boxes.warning(
                 self,
                 "Update failed",
                 f"The update wasn't installed: {payload}\n\n"
@@ -970,7 +974,7 @@ class UpdateMixin(MainWindowShared):
             ai.integrate(new_path)
         except Exception:  # noqa: BLE001 — the update itself succeeded
             log.exception("post-update re-integration failed")
-        choice = QMessageBox.question(
+        choice = message_boxes.question(
             self,
             "Update installed",
             "The new version is installed. Restart Platterpus now?\n\n"
@@ -996,7 +1000,7 @@ class UpdateMixin(MainWindowShared):
                 )
             except OSError as exc:
                 log.exception("relaunch failed")
-                QMessageBox.information(
+                message_boxes.information(
                     self,
                     "Update installed",
                     "The update is installed, but I couldn't relaunch the app "

@@ -5,6 +5,10 @@ is met in lap 4; a pre-commit in lap 3 falls due in lap 5; a blocking question
 from one side is answered by the other. So these read every held LSL lap of the
 round up to the one under check, in order, and decide from the whole sequence.
 
+LSL 3 adds two rules here because they refine A1 and A7 over the same
+population: B2 refuses a `GO` when A1 found no close condition at all, and B3
+stops an `answers:` on a weightless statement from answering an A7 question.
+
 A held lap that is not in LSL contributes nothing here: it has no statements to
 read, and a check that guessed from its prose would be a second parser of prose.
 """
@@ -16,6 +20,7 @@ from dataclasses import dataclass
 from .context import Context
 from .model import Lap, Side, Statement, other
 from .refs import first_token, parse_statement
+from .tables import carries_no_weight
 
 
 @dataclass(frozen=True)
@@ -35,7 +40,7 @@ class Placed:
 
 
 def check_round_rules(ctx: Context) -> None:
-    """A1, A2 and A7, whichever are switched on."""
+    """A1, A2 and A7, and LSL 3's B2 and B3, whichever are switched on."""
     on = ctx.tables.amendments
     if "A2" in on:
         _check_promise_kept(ctx)
@@ -43,8 +48,43 @@ def check_round_rules(ctx: Context) -> None:
         return
     if "A1" in on:
         _check_go_over_terms(ctx)
+    if "B2" in on:
+        _check_go_over_something(ctx)
     if "A7" in on:
         _check_go_over_questions(ctx)
+
+
+def close_conditions(ctx: Context) -> list[Placed]:
+    """Every `TERM set` in the round's held LSL laps up to this one, in order.
+
+    One function for A1 and B2, so the count A1 prints and the count B2 refuses
+    on are the same count: two rules that each found the round's close
+    conditions their own way could disagree about one GO.
+    """
+    return [
+        item
+        for item in _round_statements(ctx)
+        if item.statement.kind == "TERM" and item.statement.grade == "set"
+    ]
+
+
+def _check_go_over_something(ctx: Context) -> None:
+    """B2: a `GO` over a round with no close condition passes A1 by finding nothing.
+
+    The proposal's B2 row: "a `VERDICT GO` stands and no lap of the round this
+    tree holds writes a `TERM set`". The population is A1's, the round's held
+    laps up to and including this one, so a condition set in a later lap cannot
+    be what an earlier GO waited on.
+    """
+    if close_conditions(ctx):
+        return
+    ctx.refuse(
+        verdict_line(ctx.lap),
+        "B2",
+        f"GO while no lap of round {ctx.lap.round} this tree holds writes a TERM "
+        "set; A1 over no close condition passes by finding nothing, which a GO "
+        "must not be able to do",
+    )
 
 
 def _round_statements(ctx: Context) -> list[Placed]:
@@ -67,13 +107,10 @@ def _absolute(relative: str, author: Side | None) -> Side | None:
 def _check_go_over_terms(ctx: Context) -> None:
     placed = _round_statements(ctx)
     status: dict[tuple[Side | None, int | None, int], Placed] = {}
-    conditions: list[Placed] = []
+    conditions = close_conditions(ctx)
     for item in placed:
         s = item.statement
-        if s.kind != "TERM":
-            continue
-        if s.grade == "set":
-            conditions.append(item)
+        if s.kind != "TERM" or s.grade == "set":
             continue
         target = _term_target(ctx, item)
         if target is not None:
@@ -153,9 +190,16 @@ def _check_go_over_questions(ctx: Context) -> None:
     if author is None:
         return
     placed = _round_statements(ctx)
+    # B3 (LSL 3): an `answers:` on a statement that carries no weight answers
+    # nothing, in ANY lap of the round, including an LSL 1 or 2 lap that could
+    # not have been refused for it when it was written. The same predicate as
+    # A6's, so "carries weight" means one thing in both rules.
+    b3_on = "B3" in ctx.tables.amendments
     answered: set[tuple[Side | None, int | None, int]] = set()
     for item in placed:
         if item.lap.author != author:
+            continue
+        if b3_on and carries_no_weight(item.statement.kind, item.statement.grade):
             continue
         for fld in item.statement.values("answers"):
             ref = parse_statement(first_token(fld.value))

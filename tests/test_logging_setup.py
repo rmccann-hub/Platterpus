@@ -228,3 +228,116 @@ def test_rotated_backup_also_gets_the_version_banner(
     assert backup.exists()
     assert __version__ in backup.read_text(encoding="utf-8")  # the old file
     assert __version__ in logging_setup.LOG_PATH.read_text(encoding="utf-8")  # the new
+
+
+# ---------------------------------------------------------------------------
+# One record, two renderings: the terminal gets a summary, the file the whole
+# ---------------------------------------------------------------------------
+#
+# TASKS (2026-08-15, audited partly done 2026-09-25): `--install-ripper` printed
+# its own multi-line `sh -c` build scripts to the terminal, because the step engine
+# logs each container command at INFO and the console handler prints INFO. The
+# 2180e85 fix put each script on one escaped line, which fixed the FILE and left
+# the terminal a line several thousand characters wide.
+
+
+def test_a_step_engine_script_is_one_short_line_on_the_terminal_and_whole_in_the_file(
+    clean_root: logging.Logger, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Through the real handlers and the real `SubprocessRunner`, not a stand-in.
+
+    Both halves asserted, because either alone is satisfied by the wrong fix: a
+    terminal-only assertion passes against code that dropped the script from the
+    log too, which is the diagnostic loss `CLAUDE.md` forbids; a file-only one
+    passes against the code this replaced.
+    """
+    from platterpus.deps.step_engine import SubprocessRunner, one_line_argv
+    from platterpus.log_buffer import get_session_buffer
+
+    logging_setup.configure_logging()  # console at INFO, bound to captured stderr
+    script = "set -eu\n" + "".join(f"echo step{i}\n" for i in range(40))
+    argv = ["sh", "-c", script, "build-cyanrip-fork", "pin-label"]
+
+    rc, out = SubprocessRunner().run(argv)
+    assert rc == 0, out
+    for handler in clean_root.handlers:
+        handler.flush()
+
+    terminal = [
+        line for line in capsys.readouterr().err.splitlines() if "host-setup:" in line
+    ]
+    assert len(terminal) == 1, f"expected one terminal line, got:\n{terminal}"
+    line = terminal[0]
+    assert "echo step" not in line, f"the script body reached the terminal:\n{line}"
+    assert "41-line script" in line, f"the elision is not counted:\n{line}"
+    assert "log file" in line, "the terminal is not told where the full text is"
+    # The label and the other arguments stay verbatim: they say WHICH script ran.
+    assert "build-cyanrip-fork pin-label" in line
+    assert len(line) < 300, f"not a summary ({len(line)} chars):\n{line}"
+
+    # The file and the session buffer (the rip report's embedded log) keep the
+    # exact argv — every line of the script, escaped onto one log line.
+    recorded = one_line_argv(argv)
+    assert recorded in logging_setup.LOG_PATH.read_text(encoding="utf-8")
+    buffer = get_session_buffer()
+    assert buffer is not None
+    assert any(recorded in entry for entry in buffer.lines_excluding([]))
+
+
+def test_the_console_summary_never_leaks_into_the_file(
+    clean_root: logging.Logger, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The formatter works on a copy. Handlers share one record object, so a
+    formatter that edited `record.msg` would hand the summary to every handler
+    after it. Today that is the session buffer (the rip report's embedded log),
+    because the file handler happens to be added first — so both are checked,
+    and the check does not depend on which order the handlers were added in."""
+    from platterpus.log_buffer import get_session_buffer
+
+    logging_setup.configure_logging()
+    logging.getLogger("platterpus.test").info(
+        "FULL-%s", "TEXT", extra=logging_setup.console_summary("SHORT")
+    )
+    logging.getLogger("platterpus.test").info("plain line with no summary")
+    for handler in clean_root.handlers:
+        handler.flush()
+
+    err = capsys.readouterr().err
+    text = logging_setup.LOG_PATH.read_text(encoding="utf-8")
+    assert "SHORT" in err and "FULL-TEXT" not in err
+    assert "FULL-TEXT" in text and "SHORT" not in text
+    buffer = get_session_buffer()
+    assert buffer is not None
+    kept = "\n".join(buffer.lines_excluding([]))
+    assert "FULL-TEXT" in kept and "SHORT" not in kept, kept[-500:]
+    # A record with no summary is printed as it always was.
+    assert "plain line with no summary" in err
+
+
+def test_a_failing_step_shows_its_output_on_the_terminal_but_not_its_script(
+    clean_root: logging.Logger, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The failure path is when the terminal is actually read.
+
+    What the dependency SAID is the one thing a person watching needs on screen
+    (`CLAUDE.md`: show the user the dependency's own sentence), so the bounded
+    output stays; only the argv is summarised. The file keeps both whole.
+    """
+    from platterpus.deps.step_engine import SubprocessRunner, one_line_argv
+
+    logging_setup.configure_logging()
+    script = "set -eu\necho the-dependency-says-why >&2\nexit 3\n"
+    argv = ["sh", "-c", script, "verify-cyanrip-fork"]
+
+    rc, _ = SubprocessRunner().run(argv)
+    assert rc == 3
+    for handler in clean_root.handlers:
+        handler.flush()
+
+    err = capsys.readouterr().err
+    assert "exit 3 from sh -c <3-line script" in err, err
+    assert "the-dependency-says-why" in err, "the failure's own sentence is missing"
+    assert "set -eu" not in err, f"the script body reached the terminal:\n{err}"
+    text = logging_setup.LOG_PATH.read_text(encoding="utf-8")
+    assert f"exit 3 from {one_line_argv(argv)}" in text
+    assert "the-dependency-says-why" in text

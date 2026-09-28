@@ -1,4 +1,4 @@
-"""Tools → Run test script… — the console that makes the batch runner reachable.
+"""Tools → Advanced → Run test script… — the console that reaches the batch runner.
 
 **The gap this closes.** :mod:`platterpus.uiscript` was built to the maintainer's
 own specification — *"give me a debug testing option where i can copy and paste
@@ -60,6 +60,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from platterpus.ui import message_boxes
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
 from platterpus.ui.dialogs.script_settings_box import ScriptSettingsBox
@@ -379,7 +380,7 @@ class ScriptConsoleDialog(CenteredDialog):
             + "  Nothing was run. The editor still holds the previous script, and\n"
             "  running it would have produced a transcript of the wrong thing."
         )
-        QMessageBox.warning(
+        message_boxes.warning(
             self,
             "Platterpus — no script was run",
             f"--run-script could not open:\n\n{path}\n\n"
@@ -529,7 +530,7 @@ class ScriptConsoleDialog(CenteredDialog):
             Path(chosen).write_text(text, encoding="utf-8")
         except OSError as exc:
             log.warning("script console could not write %s: %s", chosen, exc)
-            QMessageBox.warning(self, "Could not save", f"{chosen}\n\n{exc}")
+            message_boxes.warning(self, "Could not save", f"{chosen}\n\n{exc}")
             return
         self._append(f"transcript saved to {chosen}")
 

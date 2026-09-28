@@ -40,7 +40,7 @@ SETTINGS: Final[str] = "settings"
 DRIVE_SETUP: Final[str] = "drive_setup"
 #: Tools → Setup & Updates…
 SETUP_CENTER: Final[str] = "setup_center"
-#: Tools → Run test script…
+#: Tools → Advanced → Run test script…
 SCRIPT_CONSOLE: Final[str] = "script_console"
 
 #: The menu path a person follows to reach each window. Every one is held to a
@@ -50,7 +50,7 @@ WINDOW_PATHS: Final[dict[str, str]] = {
     SETTINGS: "Tools → Settings…",
     DRIVE_SETUP: "Tools → Setup & Updates… → Set up drive…",
     SETUP_CENTER: "Tools → Setup & Updates…",
-    SCRIPT_CONSOLE: "Tools → Run test script…",
+    SCRIPT_CONSOLE: "Tools → Advanced → Run test script…",
 }
 
 

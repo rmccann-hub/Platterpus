@@ -89,6 +89,23 @@ def test_builtin_script_path_is_absolute_and_inside_the_package() -> None:
     assert Path(platterpus.__file__).resolve().parent in path.parents
 
 
+def test_the_menu_and_run_script_name_one_directory_of_shipped_scripts() -> None:
+    """Two routes to the shipped scripts, one directory — asserted as a relation.
+
+    Tools → Run acceptance test… opens this module's path; `--run-script` falls
+    back to `uiscript.find_script.packaged_scripts_dir()`. If the two ever named
+    different directories, the menu and the command line would run different
+    copies of "the acceptance test" and both would report success.
+    """
+    from platterpus.uiscript.find_script import (
+        PACKAGED_SCRIPT_DIR_NAME,
+        packaged_scripts_dir,
+    )
+
+    assert test_session.BUILTIN_SCRIPT_DIR_NAME == PACKAGED_SCRIPT_DIR_NAME
+    assert builtin_acceptance_script_path().parent == packaged_scripts_dir()
+
+
 def test_builtin_script_reports_presence_rather_than_raising() -> None:
     """Present or absent, it answers with a sentence — it never raises.
 

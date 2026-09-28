@@ -101,7 +101,7 @@ needed we need to plan."* Every number below was measured, not estimated.
   on 3.11–3.13. This changes the rule in `CLAUDE.md` → *Test commands* that the
   gate runs on the matrix, so it needs your yes. Not recommended: dropping legs from
   PRs, because it saves runner minutes but not the wall-clock you wait for.
-- [~] **Phase 4 — the rest of the loop.** The `CLAUDE.md` trim was approved as a
+- [x] **Phase 4 — the rest of the loop.** The `CLAUDE.md` trim was approved as a
   draft for review (2026-09-26); it goes in its own PR and is not merged without
   the maintainer's review.
   - Releases wait for `main`'s CI, so they speed up with Phases 2–3 automatically.
@@ -115,6 +115,7 @@ needed we need to plan."* Every number below was measured, not estimated.
     (`tests/test_harness_fidelity.py`).
   - **Done 2026-09-26:** a SessionStart hook switches the audio guard on in cloud
     sessions (`.claude/hooks/session-start.sh`, `tests/test_session_start_hook.py`).
+  - *Closed 2026-09-27:* the trim merged after the maintainer's review, #260 (`2ef25de1`), and `tests/test_doc_index_completeness.py::test_every_section_claude_md_points_at_exists` holds its section pointers.
 
 ## 2026-09-25 — every open row in this file, checked
 
@@ -505,13 +506,14 @@ options and a recommendation; **the maintainer took the recommendation on all fo
     their source says a key with no value renders as its own name
     (`cyanrip@221a1df:src/naming.c:253`, `:398`; same at `df91ae7`), so we fill `%N`/`%M` in
     ourselves from the position we send as `-c`.
-- [~] **D19. What happens to the session branch?** 147 commits since 0.6.60, nothing
+- [x] **D19. What happens to the session branch?** 147 commits since 0.6.60, nothing
   merged, round 27 open.
   - **A. PR, merge once CI is green, release when round 27 closes.** B. Merge and release
     now under §6b. C. Hold.
   - **Recommended: A.** **Answer: A** — the maintainer, 2026-09-25. PR #253 opened. The held
     round-27 EAC wording (`46a522e`) is reverted on the branch first (`55d51c9`), because
     the fork's lap 4 existed on neither of their branches that day.
+  - *Closed 2026-09-27:* done as answered. #253 merged, round 27 closed GO/GO, and 0.6.60 and 0.6.61 released from `main`.
 
 ## Round 24 — CLOSED on both gates 2026-09-23 on `3e01bb3` (`+platterpus.14`): ours at our lap 2, theirs at their lap 3
 
@@ -646,8 +648,17 @@ option parsing), and `PROVIDER-CONTRACT.md` at `e0471f4`.
   `9719aabb…`, 13,449 bytes, `OPEN`). It acts on their lap 3 before the run and
   pre-commits our next lap to `GO` unless our reading of the Full run's bundle finds a
   defect in 0.6.61 or `.17` that breaks the pin, or the run does not complete (S33).
-- [ ] **NEXT-ROUND: B2 and B3 in our checker, behind `LSL: 3`** (their S22, S23, S25), once
+- [x] **NEXT-ROUND: B2 and B3 in our checker, behind `LSL: 3`** (their S22, S23, S25), once
   the text of B1 as amended, B2 and B3 is in the shared proposal.
+  -   - *Closed 2026-09-28 in 72c8f053, with d8a49329 and 9b2a9e46*, from the proposal's
+        text at `cyanrip@889a375` (sha256 `3ce01f58…`), not from their checker. The
+        version is `scripts/laplang/tables.py` (`LSL3_RULES`, `LSL_VERSIONS[3]`); B1 is
+        `scripts/laplang/lsl3.py` with `--rerun` in `rerun.py` and `scratch.py`; B2 is in
+        `round_rules.py`, counting with the function A1 uses; B3 shares A6's
+        `carries_no_weight`. LSL 1 and LSL 2 reports are byte-identical before and after
+        (54 captured reports, `cmp` exit 0). Compared with their checker only afterwards:
+        20 of 27 constructed laps agree; the differences, with citations into
+        `tools/lap-statements.py`, go to the fork as next-round items.
 - [ ] **The Full run on 0.6.61 + `.17`** (close condition 1), then both readings (S7).
 - [ ] **Closing releases** (S8): ours rolls `FORK_PIN` to `e0471f4`; theirs is `.18`.
 - [x] **Unreproduced: `test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one`
@@ -794,7 +805,7 @@ stopped at section A the same day, as their lap 1 predicted.
   2026-09-26: *"use LSL as the base and send ours as amendments"*). Released in the
   standing status as `[ASK D]`: `docs/handshake/outbound/artifacts/lsl-amendments-1.md`.
   Our round 28 lap 2 says it formally, in LSL 1.
-- [ ] **0.6.61, in the order our lap 5 §D names** (the maintainer's choice 2026-09-26: ship
+- [x] **0.6.61, in the order our lap 5 §D names** (the maintainer's choice 2026-09-26: ship
   both together). (1) Their lap 6 closes round 27 on their gate, and they release `.17`.
   (2) Their round 28 lap 1 names `.17` and is released. (3) We move `PIN_UNDER_REVIEW` to
   `.17` (round 28) and cut 0.6.61, which carries the round-27 pin and the round-28 subject.
@@ -802,17 +813,19 @@ stopped at section A the same day, as their lap 1 predicted.
   the Full acceptance on 0.6.61 + `.17`.
   - *2026-09-26, corrected:* it does need one. The amendment lands with protocol v7, as
     our round 27 lap 2 §D said; see round 28 above. Steps (1) and (2) are done.
+  - *Closed 2026-09-27:* steps (1)–(3) are done and 0.6.61 is released (`59f4c00c`, #262). Step (4), the Full run, is round 28's close condition 1 and is tracked in the round 28 section, not here.
 - [x] **The 2026-09-26 04:13 UTC Full run is graded `partial`** (maintainer, 2026-09-26:
   *"There were errors so this is not full green."*). Added to the `docs/testing.md` §5B
   ledger with the errors it carried: our report's false note, fixed; two wrong reads
   logged `Ripping errors: 0`; the interrupted rip's `Encoder errors: none; 1 track
   encoded`. It is the first run in which every archival witness could fail, and the
   ledger still has no `full-green` row. README and PLANNING count nine rows.
-- [~] **The Full run and the fork.** They filed it themselves at `cyanrip@2e9884d` and read
+- [x] **The Full run and the fork.** They filed it themselves at `cyanrip@2e9884d` and read
   every cyanrip log in it. All eight verify with `-Y`, both `.16` fixes ran on the drive,
   and they found a new one of theirs: *"Encoder errors: none; 1 track encoded"* over a rip
   of 0 of 14 tracks. Our round 28 lap 2 compares our reading with theirs, and says we
   grade the run `partial`.
+  - *Closed 2026-09-27:* our round 28 lap 2 (released) sets our reading beside theirs and grades the run `partial` in the evidence ledger (`docs/testing.md` §5B).
 - [x] **The addendum's one-frame row now reads `AccurateRip frame 450:`** (2026-09-26),
   in the words round 27 agreed for the EAC-compatible log, not `+450`, which reads as a
   read offset. Nothing parses that row, so sidecars already on disk keep the old label
@@ -845,7 +858,7 @@ stopped at section A the same day, as their lap 1 predicted.
     with `git merge -s ours` (tree unchanged, gitleaks-clean over the 425 commits it
     brought in). `tests/test_cited_commits_are_reachable.py` now fails on `main` if a
     squash strands one again.
-- [ ] **Our round 28 lap 2, in LSL 1, after their lap 1 names `.17`.** Everything
+- [x] **Our round 28 lap 2, in LSL 1, after their lap 1 names `.17`.** Everything
   NEXT-ROUND (S-14):
   - S16's answer and the fix above;
   - S23's answer;
@@ -861,6 +874,7 @@ stopped at section A the same day, as their lap 1 predicted.
     `offrecord` warning still matters to the spec for a lap read before its merge.
 
   Run both checkers, and cite F1 beside each statement theirs refuses.
+  - *Closed 2026-09-27:* released with 0.6.61 (#262), carrying every item listed.
 
 ## Round 26 — CLOSED `GO`/`GO` 2026-09-24 at six laps on `df91ae7` (`+platterpus.15`): the real test, installed through our app
 
@@ -1328,16 +1342,31 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [x] **C4. `--status` prints close-by countdowns for CLOSED rounds** (rounds 9–14,
   19–23 today). Fix at the print site.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"handshake.py --status prints close-by countdowns for CLOSED rounds —"*, which stays open.
-- [ ] **C5. No R6 gate** — nothing refuses a pre-commit that names a lap number instead
+- [x] **C5. No R6 gate** — nothing refuses a pre-commit that names a lap number instead
   of an event.
+  - *Done 2026-09-27:* `scripts/handshake.py` `pre_commit_problems`, wired into both
+    `check_outbound_paths` and `check_inbound`, from `R6_GATE_FROM_ROUND` 29 and lap 5:
+    refuses a pre-commit whose subject is "our lap N", and a lap with none (a lap whose
+    own verdict is `GO` is exempt, our reading, to be put to the fork). The record's
+    `--check` output is byte-identical before and after. Tests:
+    `tests/test_handshake_tooling.py::test_r6_*`, revert-probed 4 of 4.
 - [ ] **C6. `_strip_fences` misses unterminated and indented fences**
   (`handshake.py`, the fence regex needs a closing column-0 fence), so a field inside
   one counts as a declaration. Portable shape — tell the fork. TASKS@b8f89a2:2014.
 - [~] **C7. The receiving half of the omission gate** — nothing checks that every
   artifact a lap names was filed; answering 5b.3 honestly needs it.
   - *Audit 2026-09-25: partly done.* tests/test_named_artifacts_are_filed.py (7fc3946) checks inbound|outbound/artifacts/ only. It is not in the gate, and misses docs/handshake/artifactsround26/, which laps cite.
-- [ ] **C8. `PEER_CONFIRMED_UNPINNED` holds 19 laps** — ask the fork for sha256 values of
+- [x] **C8. `PEER_CONFIRMED_UNPINNED` holds 19 laps** — ask the fork for sha256 values of
   their filed copies so the rows graduate. `tests/test_sent_laps_are_immutable.py`.
+  - *Done 2026-09-27, by derivation rather than asking:* the fork's filed copies are in
+    their public tree. At `cyanrip@fd05b12:docs/handshake/inbound/`, 18 of the 19 are
+    byte-identical to ours and are pinned in `SENT_LAPS`; the ratchet holds 1. The 19th,
+    `round-14-lap-18.md`, is a finding: their copy (`74635eff…`, 19,056 bytes) is our
+    revision at `2cba3912`, the bytes we sent, and ours was revised in place at
+    `43a33b47` (2026-08-26, adding §7 and a new digest line) before the guard existed.
+    *2026-09-28, the maintainer's choice:* restored to the sent bytes and pinned, as round
+    8 lap 10 was; every removed line, §7 included, is kept verbatim in
+    `docs/session-log.md`'s 2026-09-28 entry. `PEER_CONFIRMED_UNPINNED` is now empty.
 - [ ] **C10. The challenge ledger stops at round 21 lap 4** — unrecorded: r22 C1 (our
   circular `GO`, they were right), r22 lap 5 (our withdrawn `handshake_round` claim),
   r22 lap 3 §H1, r23 §A (tracks 3 and 5, we were right), r23 lap 1 §H6, r24 §B3 (the
@@ -1376,9 +1405,22 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   2026-09-23); :82 names our `FORK_PIN = "2cce60d"`, stale once 0.6.54 ships. *Derived.*
   - *Audit 2026-09-25: not ours to verify.* The fork's; landed (the three stale STATUS.md lines are gone).
   - *2026-09-25:* **Withdrawn.** Done by the fork: the three stale STATUS.md lines are gone.
-- [ ] **D7. Their "Open, theirs" table lists our round-8 defects as blocking** — at least
+- [x] **D7. Their "Open, theirs" table lists our round-8 defects as blocking** — at least
   one is fixed (a literal `"` is expressible in the script language). Ours to confirm
   each, theirs to retire. KI:1400.
+  - *Checked 2026-09-27, against our HEAD:* their five rows (their KNOWN-ISSUES file at `cyanrip@fd05b12`, lines 1755-1760).
+    (1) duplicate `drive changed`: **fixed**, `ui/drive_picker.py:216`, `effe24d3` (2026-08-12).
+    (2) a refused command leaves the last result live: **it had come back**, through the
+    `(offset)` refusal (2026-09-24) and a malformed line, and is now fixed at the root:
+    `uiscript/runner.py` `_forget_last_cyanrip_result`, called first by every `cyanrip`
+    step, with `tests/test_uiscript.py::test_no_refused_cyanrip_step_leaves_the_previous_result_to_be_graded`
+    over all four refusal paths (revert-probed 2 of 2).
+    (3) `wait-for-rip` ok after a failed rip: **fixed**, `effe24d3`.
+    (4) a literal `"`: **fixed** for `expect-cyanrip` (`Step.raw_tail`, `70716251`), and
+    still stripped by `expect-status` and `expect-contains`.
+    (5) the `-t` guard: **kept on purpose**, and its message now says which builds
+    overread (our pin has their fix, `cyanrip@221a1df:src/cyanrip_main.c:2353`).
+    Reported in our round 28 lap 5, NEXT-ROUND, so they can retire the rows.
 - [x] **D8. A record correction we never sent** — their r16 lap 8 §3 credits `bc2ef8e`
   for work in `a0830e0`. Low. TASKS@b8f89a2:985.
   - *2026-09-25:* **Withdrawn.** Sent, and the fork corrected it (inbound/round-25-lap-02.md, "Your D8 … corrected").
@@ -1389,10 +1431,17 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 
 ### E — Contract, argv and log surface
 
-- [~] **E1. Round 23's `Handshake:` qualifier** — `(draft — lap not released for
+- [x] **E1. Round 23's `Handshake:` qualifier** — `(draft — lap not released for
   reading)`, agreed, due in `+platterpus.15`, not built. Theirs; ours to re-run our four
   banner shapes when it ships. KI:1127.
   - *Audit 2026-09-25: partly done.* Theirs landed at cyanrip@20a5aca (in .15). Ours has a parser test (test_golden_reference_parse.py, 40c05a7), but no classifier/approval re-run of the four banner shapes.
+  - *Done 2026-09-27:* all five `Handshake:` shapes the fork can emit, derived from
+    `cyanrip@fd05b12:tools/gen-handshake-state.py:112-156` and `src/cyanrip_log.c:813-815`
+    (unknown; closed and released, with its disclaimer; closed and not released; open; open
+    with the draft qualifier), run through our real parser on the round 25 reference log and
+    then `cross_check_note`:
+    `tests/test_handshake_approval.py::test_every_handshake_shape_the_fork_can_emit_reads_and_cross_checks`.
+    All five read and cross-check correctly; no code change was needed. Revert-probed.
 - [ ] **E2. `File(s):` lists what was requested, not what was written.** Theirs. KI:1213.
   - *Audit 2026-09-25: not ours to verify.* The fork's; their KNOWN-ISSUES says STILL OPEN.
 - [ ] **E3. The loudness block is measured before the filter graph** — wrong under `-H`
@@ -1439,8 +1488,9 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   - *2026-09-25:* **Decided:** D13 A (a cancelled rip's kept tracks and their checksums go in the JSON report only; cyanrip's log is untouched and no sidecar is written; ready to build) and D2 B (the fork writes every tag key in capitals, plus both `DISCTOTAL` and `TOTALDISCS`; asked in our next lap).
 - [ ] **E16. AccurateRip skip discrimination** (round 8 J13) — ours to answer; the
   track-3 CRC puzzle is related. KI:1388.
-- [ ] **E17. Does cyanrip emit `Accurip` lines under `-l`?** — gates the AR-carryover
+- [x] **E17. Does cyanrip emit `Accurip` lines under `-l`?** — gates the AR-carryover
   finding; derive from their source. TASKS@b8f89a2:4523.
+  - *Closed 2026-09-27, answered from hardware:* yes. The maintainer's subset rip under `-l` (`Tracks to rip: 3, 4, …, 16`) carried `Accurip:` and all three local CRCs per track (`docs/cyanrip-upstream.md:716`). A drive log is stronger evidence than a reading of their source, so no source derivation is owed.
 - [ ] **E18. Long-standing optional asks** — a severity column on the message inventory
   (:1842); the C2-pointers row (:4674); their H3 sanitiser question (:2966); `-f` in the
   wizard (:3545); upstream PR asks (:3918–3921); their eight unfiled upstream defect
@@ -1507,9 +1557,14 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [ ] **G11. Version-gate evidence** — zero full-green rows; a second drive, machine and
   distro missing. `docs/testing.md` §5B.
   - *Audit 2026-09-25: not ours to verify.* Needs hardware runs and the maintainer: every ledger row so far is partial, none full-green.
-- [ ] **G12. The leaving-beta objective has dropped out of our laps** — the rule says it
+- [~] **G12. The leaving-beta objective has dropped out of our laps** — the rule says it
   *"must appear in every lap we write"*; round 20–24 outbound laps mention it once
   (round 23 lap 4). *Derived; rule text re-read 2026-09-23.* Carry it in our round-25 lap.
+  - *2026-09-27:* `scripts/handshake.py` `LEAVING_BETA_WORDS` / `LEAVING_BETA_OBJECTIVE`,
+    stated in `--emit`'s skeleton under *The objective*, and checked word for word against
+    `docs/handshake/verified/round-08-lap-10.md` §A by
+    `tests/test_handshake_tooling.py::test_the_skeleton_states_the_maintainers_objective_in_their_words`
+    (revert-probed 2 of 2). Our round 28 lap 5 carries it. Closes when that lap is released.
 - [ ] **G13. The audit we owe ourselves** — *"a file you declined to file is a file you
   will reason about without opening"*; we said we had not audited our side. r23 lap 4 §A.
 
@@ -1660,13 +1715,20 @@ most important thing on this page before round 24's lap 1 arrives.
   sent.
   - *Audit 2026-09-25: done.* round-24-lap-02.md corrects lap 4 §C ("false at the ref you read"); also in platterpusstatus.md.
 
-- [ ] **ROUND-24: our `--status` cannot see a premature GO.** It closes a round
+- [x] **ROUND-24: our `--status` cannot see a premature GO.** It closes a round
   on two `GO` verdicts, which is the spec (*the verdict closes a round, not the
   file's existence*) — so when our own GO rested on an unmet condition, our gate
   read CLOSED while theirs correctly held OPEN. Ours trusts the thing it exists
   to check. Candidate: have `--status` print the closing lap's stated conditions
   rather than grade them, so the gap is visible without coupling the gate to a
   verdict.
+  - *Done 2026-09-27:* the candidate as written: `scripts/handshake.py`
+    `verdict_source_lines`, called only at the `--status` print site after the exit status
+    is decided, prints each side's newest lap, its release state, verdict and
+    `HANDSHAKE-VERDICT-SOURCE` (cut at 400 characters with the count left out), for every
+    round not CLOSED plus the newest CLOSED one. Tests:
+    `tests/test_handshake_tooling.py::test_status_prints_what_each_verdict_rests_on_and_never_grades_it`,
+    `::test_a_long_verdict_source_is_cut_with_its_count`; revert-probed 2 of 2.
 
 
 - [x] **DO NOT DELETE the branch `claude/session-omka9f`.** The cyanrip fork's
@@ -1714,17 +1776,29 @@ What it left:
   then P3's grade is a claim about a check that cannot fail.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"We cannot settle clause 2 ourselves, and the missing piece is a digest"*, which stays open.
 
-- [ ] **Three copies of one tool-search order**, in `tool_paths.resolve_tool`,
+- [x] **Three copies of one tool-search order**, in `tool_paths.resolve_tool`,
   `ctdb/decode._which` and `drive_control` — in a module whose docstring says it
   exists so there would be one — and `MetaflacAdapter` has no `~/.local/bin`
   fallback at all. Not breaking today because the dependency probe uses bare
   PATH too, so a failure shows as "missing" rather than degrading silently.
+  - *Done 2026-09-27:* one search, `tool_paths.find_tool(name, search_dirs=None)`, with
+    `resolve_tool` on top; `ctdb/decode._which` and `drive_control` delegate to it (the
+    latter names its directories, and its host force-stop tools leave `~/.local/bin`
+    out on purpose: that is where CONTAINER tools are exported). `MetaflacAdapter` is
+    built by `composition.build_metaflac`, which resolves the binary, so the adapter's
+    argv stays what it is given. Tests: `tests/test_tool_paths.py`; revert-probed 3 of 3.
 
-- [ ] **`handshake.py --status` prints close-by countdowns for CLOSED rounds** —
+- [x] **`handshake.py --status` prints close-by countdowns for CLOSED rounds** —
   six "N days remaining" and four "has PASSED" lines, every one on a finished
   round. Fix at the PRINT SITE: `close_by_lines()` is deliberately decoupled from
   `round_status` so a CLOSE-BY can never reach a verdict, and wiring them
   together to silence the noise would undo the thing the decoupling protects.
+  - *Done 2026-09-27:* filtered at the print site, `scripts/handshake.py`
+    `close_by_lines_to_print`; `close_by_lines` is unchanged and still never called by
+    `round_status`. Dropped rounds are counted on a line of their own.
+    Tests: `tests/test_handshake_tooling.py::test_status_prints_close_by_only_for_rounds_that_are_not_closed`
+    and `::test_status_on_the_real_record_counts_the_closed_rounds_it_leaves_out`, both
+    shown to fail with the filter reverted (`scripts/revert_probe.py`).
 
 - [ ] **The rig is left on `max_retries = 3` and `ripper_channel = "beta"`** after
   a run (defaults 5 and `stable`). Fixed in the script for the NEXT run; the
@@ -1795,7 +1869,7 @@ the sprawl is concentrated in two of them.
       *Updates ▸* submenu (or a single *Check for updates…* that covers both the
       app and the ripper) replaces three top-level items with one.
   - *Audit 2026-09-25: done.* One "Setup & Updates…" window (ui/dialogs/setup_center.py, 3fbf568).
-- [~] **Tools mixes three unrelated jobs**: everyday (*Settings*, *Set cover art
+- [x] **Tools mixes three unrelated jobs**: everyday (*Settings*, *Set cover art
       from file*), one-time setup (*Set up Platterpus*, *Add app shortcut*, *Set
       up drive*, *Uninstall*), and developer/test (*Run test script*, *Run
       acceptance test*). Proposal: *Setup ▸* submenu for the second group;
@@ -1804,13 +1878,25 @@ the sprawl is concentrated in two of them.
       for running them.
   - *Audit 2026-09-25: partly done.* The setup items are folded into Setup & Updates (3fbf568). Uninstall, Run test script and Run acceptance test are still top-level in Tools.
   - *2026-09-25:* **Decided (D4 A):** Run test script and Run acceptance test move into a Tools → Advanced ▸ submenu; Uninstall stays where users can see it. Ready to build: mnemonics unique within the submenu, no single-character shortcuts, and the in-app guide (`help_content.py`), `docs/rig-session.md` and `docs/rig-scripts/README.md` follow the menu (`tests/test_help_documents_the_menu.py` checks the guide).
-- [ ] **"Set cover art from file…" is a per-album action in a global menu.** It
+  - *Done 2026-09-28 (D4 A):* Tools → Advanced ▸ holds Run test script… and Run acceptance
+    test… (`ui/main_window.py`), pinned by `tests/test_ui_main_window.py`; Uninstall stays in
+    Tools; the guide, tooltip, rig-script headers and rig docs follow, and
+    `tests/test_help_documents_the_menu.py` now reads submenus to any depth.
+- [~] **"Set cover art from file…" is a per-album action in a global menu.** It
       belongs with the album it acts on (File, or the album context menu).
-- [~] **Check every regrouping against the accessibility rules before landing**:
+  - *2026-09-28, the maintainer's ruling (album context menu):* one `QAction`, shown in the
+    disc panel's right-click menu (`ui/album_menu.py`) and, for this release only, in Tools,
+    so both run one slot with one enabled state. Left: remove the Tools entry in 0.6.63; the
+    0.6.63 version bump fails until it is gone.
+- [x] **Check every regrouping against the accessibility rules before landing**:
       submenus must keep their mnemonics unique within their parent, and no
       single-character shortcuts (`CLAUDE.md` code conventions; enforcement is
       `tests/test_accessibility_standards.py`).
   - *Audit 2026-09-25: partly done.* A per-menu duplicate-mnemonic sweep exists (tests/test_ui_conformance.py) but does not recurse into submenus; most regroupings have not landed.
+  - *Done 2026-09-28:* one walker, `tests/conftest.py::window_menus`, covers the menu bar,
+    every submenu and the album menus; the mnemonic rule in `tests/test_ui_conformance.py`
+    uses it, and `tests/test_accessibility_standards.py` reads the shortcuts Qt actually
+    bound. Revert-probed, including a bare `Qt.Key_T` the old source scan missed.
 
 **Not started — this is the audit, not the change.** The regrouping touches the
 menu tests and the UX principles doc, and "which items does an end user actually
@@ -2311,10 +2397,18 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       de-emphasis produces correct de-emphasised audio"*, which is what clause 2
       actually says.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"We cannot settle clause 2 ourselves, and the missing piece is a digest"*, which stays open.
-- [ ] **The `-j` diagnostics records still do not travel** (their lap 9 §3,
+- [x] **The `-j` diagnostics records still do not travel** (their lap 9 §3,
       confirmed here: 0 in the bundle, all 8 paths relative). The fix is to
       collect from the cwd we already know — the rips root — never to predict the
       album folder, which our own rules forbid. `NEXT-ROUND` on both sides.
+  - *Done 2026-09-27, by collection:* the worker reads each album pass's record path off the
+    spawned argv and its cwd (`workers/rip_worker.py`, via `diagnostics_record.py`), the GUI
+    hands the paths to the bundle (`ui/main_window_rip.py`), and the bundle collects them
+    under the strict allowlist, with a manifest row when one is missing
+    (`evidence_bundle.py`). Tests: `tests/test_diagnostics_record.py`,
+    `tests/test_ui_main_window.py`, `tests/test_rip_worker.py`; revert-probed 9 of 9. Not
+    covered: the acceptance-session bundle does not collect records left in the session's
+    rips root (`test_session._stage` refuses anything inside the session's rips).
 - [x] **Accept their additive disk-full line** (their lap 9 §5). Their log says
       `Ripping errors: 0` / `Rip completed: yes` on a run their own `-j` record
       calls `ripping_errors: 3`, `exit_code: 1`, because the footer is written
@@ -2589,6 +2683,12 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       character, so the fix is a post-rip move from the known log path's parent, not a
       cleverer argv. Small, and deliberately not done in the same change as the cancel
       fix: that one touches a destructive path and wanted its own commit.
+  - *2026-09-27: not done, deferred, the maintainer's choice that day:* a move into the album
+    folder was built and withdrawn, because a rip leaves only its `.log`, `.cue` and
+    `.platterpus.json` there (the one-debug-file rule). The record is to be EMBEDDED in
+    `.platterpus.json` instead, which moves the report schema, so it waits for the next
+    round and is announced to the fork in a lap first. Until then the record stays in the
+    rips root, one file per rip, and the row above sends it in each rip's bundle.
 
 - [x] **KDD-17 GAP: `ripper_choices()` has no GUI caller.**
       **CLOSED 2026-09-08 (0.6.45).** `Help → Install a cyanrip build…` opens
@@ -2775,7 +2875,7 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       and its tests are what keep it honest, since their lap 5 means the live
       record no longer exercises it.
 
-- [ ] **OURS, found by their §H2: we have NEVER mechanically verified a declared
+- [x] **OURS, found by their §H2: we have NEVER mechanically verified a declared
       round digest, in either direction.** Their digest checker had a real defect
       — `tools/round-digest.py --check` matched a literal `sha256/16 = <hex>` with
       the hex bare, so it skipped **every** declaration in round 22 and exited 0,
@@ -2798,6 +2898,17 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       **fail** rather than count as absent. Their fix is the reference; write ours
       from their published rule rather than their code, as round 15 did, so the
       two implementations stay independent.
+  - *Done 2026-09-27:* `scripts/round_digest.py` `read_declaration`, `check_round` and
+    `--check`, written from the fork's round 22 lap 5 §H2 rule, not their code: the head
+    is read first, markup stripped from it alone, and a `sha256/16` head showing an
+    unreadable digest is `unparsed` and fails. `tests/test_round_digest.py` pins the
+    whole record since round 15 (≥ 60 matches) with two explained mismatches: our round
+    15 lap 2 (pre-adoption construction), and our round 27 lap 2, whose
+    `3d3696c4dc884152` reproduces exactly over the fork's first copy of round 27 lap 1
+    (sha256 `f44de648…`, at `183073bf`), which they re-released as `c3a7a2a4…`.
+    Rounds 9–14 are out of scope: our laps from them are filed under the hand-carried
+    names the committed-lap glob does not read, so the population is short by our own
+    laps. Revert-probed: 3 of 3 detected.
 
 - [x] **Answer their J1 (`NEXT-ROUND`) — committed-is-sent.** They propose making
       *committed* stand in for *sent*: once a lap is committed to the branch the
@@ -3350,19 +3461,24 @@ SKIP-passes-as-zero, and `abort-if-failed`'s scope.
 - [x] **FIXED in 0.6.38 — it FAILS when `_panel_fields` returns empty.** `snapshot` was the one evidence verb with no floor — 22 unfailable
   PASSes; a snapshot that captured nothing reads like one that captured
   everything. `[CLAIMED]`
-- [ ] **The acceptance header still advertises "4 to 6 hours"**, contradicted by
+- [x] **The acceptance header still advertises "4 to 6 hours"**, contradicted by
   a measurement 370 lines below it in the same file. The T1 README claim was
   corrected this session; this one was not.
+  - *Closed 2026-09-27:* the row is from 2026-08-28, when the only measurement was shorter. Since then two complete Full runs took 4h14m (2026-09-22, 247 steps) and 5h33m (2026-09-26, 320 steps, the sum of `round27fullscriptreport.json`'s step times), both inside the range. The header now cites both (`src/platterpus/rig_scripts/fullacceptance.txt`).
 - [ ] **§B's archival claim is that settings reach cyanrip's argv, and every
   assertion reads the in-memory `Config`** rather than the argv. `[CLAIMED]`
 - [x] **`probe-ripper-wrapper` blocks the GUI thread for up to ~68s under a
   docstring asserting it does not.** `[CLAIMED]` Squarely against the
   never-block-the-GUI-thread rule if true; needs its own measurement.
   - *2026-09-25:* **Done.** Confirmed by reading: the runner's `QTimer` runs the tick on the GUI thread. The probe now runs on a helper thread (`_WrapperProbeJob`, 180 s outer bound), and the docstring is corrected. Tests in `tests/test_uiscript_cyanrip_verb.py::TestTheWrapperProbeDoesNotBlockTheGuiThread`.
-- [ ] **`report.json` drops 53% of the acceptance script's own source** under a
+- [x] **`report.json` drops 53% of the acceptance script's own source** under a
   comment saying the cap "only ever fires on…". `[CLAIMED]` A silent truncation
   reads as completeness.
   - *Audit 2026-09-25: confirmed open.* Measured again: MAX_SOURCE_CHARS 20000 against a 69,275-character script, about 71% dropped (the elision is marked).
+  - *Done 2026-09-27:* `MAX_SOURCE_CHARS` 20,000 -> 256,000 (`uiscript/report.py`), sized
+    against the largest shipped script (`fullacceptance.txt`, 69,020 characters), with head
+    and tail plus a counted elision beyond it. No schema change. The test reads the shipped
+    scripts (`tests/test_uiscript.py`; floors: 5 scripts, one over the old cap).
 - [ ] **Nothing in the run's artifacts groups steps by section or carries the
   severity classification the release bar is defined in terms of** — so grading
   a run against `docs/testing.md`'s table is a manual join. `[CLAIMED]`
@@ -3464,7 +3580,12 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *2026-09-25:* **Done.** Now runs `verify_rip_log` with a recording runner and checks the exact argv. Old version passed with `-N` added beside a comment. Revert-probed: the old test passed the vacuous condition; the new one fails it.
 - [x] **`vacuity:tests/test_uiscript_settings.py::test_a_warning_does_not_block_a_set`** (partial, small) — Picks its subject from a live computation and skips when the list comes back empty
   - *2026-09-25:* **Done.** Now an empty warning population fails instead of skipping, and a stubbed validator feeds one warning, then one error, for the same field. Revert-probed: the old test passed the vacuous condition; the new one fails it.
-- [ ] **`vacuity:tests/test_doc_version_stamps.py::test_docs_changed_since_last_release_are_stamped_current`** (partial, medium) — A release-checklist gate that skips itself whenever git cannot answer
+- [x] **`vacuity:tests/test_doc_version_stamps.py::test_docs_changed_since_last_release_are_stamped_current`** (partial, medium) — A release-checklist gate that skips itself whenever git cannot answer
+  - *Done 2026-09-27:* `tests/test_doc_version_stamps.py` `_cannot_answer` skips locally and
+    fails when `CI` is set (anything but an explicit no), also used by `_tracked_markdown`;
+    a fake git drives both outcomes. No workflow change: ci.yml's `test` job already fetches
+    full history. Revert-probed 6/6 (the first version's meta-test passed vacuously and was
+    fixed).
 - [ ] **`vacuity:tests/test_handshake_protocol.py::test_the_cyanrip_return_spec_enumerates_every_section`** (partial, medium) — Nine markers checked anywhere in a 29 KB doc, none tied to the return spec
 - [ ] **`vacuity:tests/test_report_writer.py::test_close_waits_for_the_pending_write`** (partial, medium) — The final-report-survives-close guard is a substring match on closeEvent's text
 - [ ] **`vacuity:tests/test_scroll_guards.py::test_every_module_with_a_value_widget_installs_the_guard`** (partial, medium) — The wheel-guard sweep tests for a name in the file, not a call in the constructor
@@ -3523,6 +3644,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Sixteen binding conformance rows have never had a named test: C21–C36."*, which stays open.
 - [~] **`§5.x`** (partial, small) — Test the wiring, at the call site
   - *Audit 2026-09-25: partly done.* test_dead_attribute_reads (b96922d) plus per-site wiring tests. No sweep for getattr-with-default, or for wiring tests going through the entry point.
+  - *2026-09-27:* the getattr-with-default half is covered: `tests/test_dead_attribute_reads.py` reads string attribute names, which is how the `getattr` defect was spelled. Still open: no sweep that wiring tests go through the entry point.
 - [x] **`§5.al`** (partial, medium) — Two surfaces answering one question by different keys will disagree
   - *Audit 2026-09-25: partly done.* Instance: test_handshake_approval::test_the_offer_and_the_rip_never_disagree_about_approval. No general gate.
   - *2026-09-25:* **Closed: this cannot be a test.** "The same question" cannot be detected mechanically. The known pair has its relation test (the offer and the rip's approval never disagree). The lesson stays in `CLAUDE.md` as a question to ask.
@@ -3694,11 +3816,32 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *2026-09-25:* **Done** (delegated, verified on integration). **Found a defect.** `raw_tail` was cut at the verb's length after its quotes were removed, so a quoted verb corrupted the tail an `expect-cyanrip` compares. Every line gets exactly its own step; the documented grammar round-trips. Added to the never-raises list.
 - [x] **`fuzz:uiscript.script.sanitise_cyanrip_args`** (partial, small) — Scripted argv log-forgery check covers \n, \r, \x00 — and misses every other line terminator our own parser splits on
   - *2026-09-25:* **Done.** The check now refuses any character `settings_validation.is_control_char` names — C0, DEL, C1 (NEL) and U+2028/2029 — so every line boundary `str.splitlines` knows is refused; the test derives that set from Python. Its first version was satisfied by the wrong check (a `:` in the input tripped the tag-syntax refusal), which the revert probe caught; fixed to pin the message.
-- [ ] **`fuzz:naming._VALUE_SANITISE`** (ungated, medium) — The substitution table is documented as "derived, not observed" from the fork's contract P7b — and nothing compares it to P7b
+- [x] **`fuzz:naming._VALUE_SANITISE`** (ungated, medium) — The substitution table is documented as "derived, not observed" from the fork's contract P7b — and nothing compares it to P7b
+  - *Done 2026-09-27:* no product bug. `tests/test_naming.py` parses P7b from the newest
+    filed contract (all 15 filed contracts with a P7b parse to the same 10 rows) and
+    requires `_VALUE_SANITISE` to equal the pinned mode's column (floors: 10 rows, 8
+    compared), plus that the overwrite guard covers every P7b character. Revert-probed 5/5.
 - [ ] **`fuzz:rip_report.build_report`** (ungated, medium) — The JSON rip report has no never-raises property test over parser output
-- [ ] **`fuzz:ripper_messages.format_to_pattern`** (ungated, medium) — The fatal-message matcher builds regexes from external format strings with no property test
+- [x] **`fuzz:ripper_messages.format_to_pattern`** (ungated, medium) — The fatal-message matcher builds regexes from external format strings with no property test
+  - *Done 2026-09-27, and it found a bug:* three published formats carry an interior `\n`
+    written C-style, which `format_to_pattern` matched as a literal backslash-n, so none
+    matched its own first printed line (reproduced). Fixed in `ripper_messages.py`: the
+    pattern is built from the format's first non-blank printed line. Tests in
+    `tests/test_ripper_messages.py`: never raises, round trip against Python's own printf,
+    the three real formats, and a scope guard. Revert-probed 8/8.
 - [ ] **`fuzz:scripts.handshake._strip_fences`** (ungated, medium) — An illustrated close inside an UNTERMINATED or INDENTED fence is adopted as a real declaration — a round closes on a fabricated…
-- [ ] **`fuzz:ui.main_window_helpers._is_sanitised_rendering_of`** (partial, medium) — The overwrite guard's match rule is exercised on exactly one character and one glyph pair
+- [x] **`fuzz:ui.main_window_helpers._is_sanitised_rendering_of`** (partial, medium) — The overwrite guard's match rule is exercised on exactly one character and one glyph pair
+  - *Done 2026-09-27:* `tests/test_overwrite_guard_match_rule.py` over the pinned `unicode`
+    column of P7b, parsed from the contract: recognised, refused, and every pair (floor 10).
+    The rule's comment at `ui/main_window_helpers.py` was corrected (it does not accept
+    `-T simple`'s `'`, on purpose). Revert-probed 5/5.
+  - *2026-09-28, the finding this fuzzing surfaced, fixed on the maintainer's ruling:* a tie
+    between look-alike folders used to make the guard stand down with no prompt. It now
+    asks, listing every candidate (`ui/main_window_helpers.py` `resolve_sanitised_paths`,
+    prompt in `ui/main_window_rip.py` `_confirm_known_overwrite`, no Replace on a tie).
+    Tests in `tests/test_ui_main_window.py` through the real prompt path; revert-probed 8/8.
+    Open for the maintainer: two EMPTY look-alike folders still get no prompt, as a single
+    empty folder does not.
 
 ### 8. Event-ordering / stateful testing (12)
 
@@ -3720,8 +3863,15 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *Audit 2026-09-25: partly done.* test_a_rescan_between_opening_the_picker_and_answering_it_keeps_the_answer covers one ordering; no exploration.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"stateful:harness (ungated, large) — No test anywhere explores event ORDERING; every …"*, which stays open.
 - [ ] **`stateful:missed-swap`** (partial, medium) — A disc swap the poller does not observe leaves the whole app describing the wrong disc
-- [~] **`stateful:one-picker-per-scan`** (partial, medium) — At most one release picker per disc per scan
+- [x] **`stateful:one-picker-per-scan`** (partial, medium) — At most one release picker per disc per scan
   - *Audit 2026-09-25: partly done.* test_a_second_lookup_for_the_same_disc_does_not_open_a_second_picker covers the duplicate after an answer. A result arriving during the first picker's exec() is untested.
+  - *Done 2026-09-27, and it found a bug:* a second result delivered inside the open
+    picker's `exec()` opened a second picker and ran the fetch twice (reproduced). Fixed:
+    `_mb_picker_open_for` is set around `exec()` and restored in a `finally`, and
+    `_on_mb_releases` declines that disc's candidates while it is open, at INFO
+    (`ui/main_window.py`). Test: `tests/test_ui_main_window.py`, the second result arrives
+    by a queued signal inside the stand-in `exec()`, asserted delivered while open, and the
+    state cleared after accept and cancel. Revert-probed 3/3.
 - [ ] **`stateful:rip-identity`** (ungated, medium) — The argv the ripper receives must describe the disc in the drive
 - [ ] **`stateful:staleness-key-is-a-value`** (ungated, medium) — The disc/MB pipeline keys staleness on a mutable value; the rip pipeline uses a monotonic generation, and only one of them has …
 - [ ] **`stateful:harness`** (ungated, large) — No test anywhere explores event ORDERING; every fixture starts in an end state
@@ -3883,7 +4033,7 @@ shell wrapper is one step better than prose, not the destination.
       Fall back rather than `mkdir`: inventing the directory puts the file
       somewhere the operator has no habit of looking.
   - *Audit 2026-09-25: superseded.* The maintainer's 2026-09-24 ruling put everything in one session folder (test_session.plan_session); downloads_dir now only suggests where to save a transcript.
-- [~] **Ship `docs/rig-scripts/*` INSIDE the AppImage, so an acceptance run needs
+- [x] **Ship `docs/rig-scripts/*` INSIDE the AppImage, so an acceptance run needs
       zero downloads.** Measured cost of not doing it, 2026-08-27: handing over
       tonight's run took **three** raw-file fetches (`platterpusovernight.sh`,
       `platterpusmorning.sh`, `fullacceptance.txt`) plus one command — and the
@@ -3898,11 +4048,22 @@ shell wrapper is one step better than prose, not the destination.
       without saying so" defect that module exists to end. Print which copy was
       resolved, always.
   - *Audit 2026-09-25: partly done.* The scripts ship in src/platterpus/rig_scripts/ and the menu uses builtin_acceptance_script, but find_script.FALLBACK_DIRS has no packaged fallback, so `--run-script fullacceptance` does not resolve to it.
-- [ ] **Retire `platterpusovernight.sh` and `platterpusmorning.sh` in the same
+  - *Done 2026-09-27:* `uiscript/find_script.py` appends `packaged_scripts_dir()` LAST, and
+    `_which_copy` labels every answer (packaged, or yours, and whether yours differs from a
+    shipped copy of the same name). A bare name widens to `.txt`/`.pscript` in every folder,
+    so a download still beats the packaged copy. Tests: `tests/test_script_console.py`
+    (including a `main()`-driven one) and `tests/test_test_session.py` (menu and CLI name one
+    folder).
+- [x] **Retire `platterpusovernight.sh` and `platterpusmorning.sh` in the same
       commit that lands the above** — including their rows in
       `docs/rig-scripts/README.md`. Two routes to one bundle is two answers to
       *"which file do I upload"*, which is the question this work exists to make
       unambiguous.
+  - *Done 2026-09-27, in the same commit as the row above:* both scripts deleted, their
+    README section replaced by "Which collector gathers what", `securereread.txt` points at
+    `--rig-session`, and live comments name them as labels. `platterpuscollect.sh` stays.
+    Guarded by `tests/test_rig_scripts.py` (no live instruction to run a retired wrapper,
+    and the files cannot come back).
 
 ## Round 14 lap 12, 2026-08-25 — a header that promised a stop it could not perform
 
@@ -4055,7 +4216,7 @@ shell wrapper is one step better than prose, not the destination.
   set, which is exactly what `docs/test-plan.md` Part E predicts.
 - [x] The cancelled rip's FUN512 "rejection" and `rig-check`'s zero-track FAIL
   were both reports that were accurate word-by-word and wrong in kind. Fixed.
-- [ ] **NOT a defect, recorded so it is not re-investigated:** `worker thread
+- [x] **NOT a defect, recorded so it is not re-investigated:** `worker thread
   DiscInfoWorker did not stop within 0ms — abandoning it` on every rescan is
   deliberate and heavily commented (`main_window.py`, the `wait_ms=0` call) — the
   old 2 s wait was a dead stutter on the GUI thread and `quit()` cannot interrupt
@@ -4063,6 +4224,10 @@ shell wrapper is one step better than prose, not the destination.
   the log line reads like a fault. Consider phrasing it as an INFO that says
   "superseded by a newer probe" so a rig transcript does not carry a WARNING for
   normal operation.
+  - *Done 2026-09-27:* `stop_thread(…, superseded_by=…)` logs a planned supersession at
+    INFO (`workers/__init__.py`), and the rescan passes it (`ui/main_window.py`). All other
+    abandonments stay WARNING. Tests: `tests/test_workers_init.py`,
+    `tests/test_ui_main_window.py`. Revert-probed.
 - [x] **Still unproven, and it needs the next run:** a *completed* second rip
   after a cancel, which is what exercises `rig-check`'s parser path against a real
   subject and what closes Task #53 outright.
@@ -4110,7 +4275,7 @@ shell wrapper is one step better than prose, not the destination.
   `faulthandler_exit_on_timeout`, bounded against a measured 275 s suite so it
   cannot fire on a slow-but-working test.
 
-- [ ] **An unattended `--run-script` run still blocks on its FIRST fatal dialog.**
+- [x] **An unattended `--run-script` run still blocks on its FIRST fatal dialog.**
   The re-entrancy guard stops the recursion, not the one dialog. On the rig that
   means a single uncaught exception parks the batch waiting for somebody to click
   OK — the same *"an unattended run needs no attendant"* principle as the quit
@@ -4120,6 +4285,14 @@ shell wrapper is one step better than prose, not the destination.
   Shape when it is done: the fatal dialog is non-modal — or auto-dismissed after a
   bounded wait with the reason logged — when the process was started with
   `--run-script`, and never when a person is driving.
+  - *Done 2026-09-28, the maintainer's ruling that day ("auto-dismiss under --run-script"):*
+    `app.py` `_arm_fatal_dialog_auto_dismiss` and `_show_fatal_dialog(..., unattended=)`,
+    constant `UNATTENDED_FATAL_DIALOG_TIMEOUT_S` = 60, wired from `args.run_script`. Two
+    QTimers on the box (no sleep), the reason and traceback logged and flushed before it
+    closes, the re-entrancy guard held through the countdown, timers disconnected so the
+    box is freed. Tests in `tests/test_app.py` through the real nested `exec()`;
+    revert-probed 10 of 10. Open: a launch by the saved config's autorun also runs a script
+    unattended and still waits for a click (the hook is installed before the config is read).
 
 ## Found on the rig, 2026-08-19 — the v0.6.17 pass — **FIXED in 0.6.18**
 
@@ -4185,9 +4358,11 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
   script and `docs/rig-scripts/README.md`; it travels when the round opens. All eleven
   rounds are CLOSED as of this commit, so the release gate itself is clear.
 
-- [ ] **The 13 `QLabel(<non-literal>)` sites are outside the PlainText sweep.**
-  `tests/test_message_boxes_are_plaintext.py` covers `QMessageBox` (6 sites, all
-  pinned). These are not covered, and the reason is honest rather than principled:
+- [x] **The 13 `QLabel(<non-literal>)` sites are outside the PlainText sweep.**
+  `tests/test_message_boxes_are_plaintext.py` covers `QMessageBox`: the functions
+  that construct one (10 sites, all pinned) and, since 2026-09-28, Qt's static
+  helpers too, which it refuses outright (the 38 calls it had never seen now go
+  through `ui/message_boxes.py`, which pins PlainText). These are not covered, and the reason is honest rather than principled:
   most build their text from our own constants, so a blanket rule would need a long
   allowlist, and an allowlist that fills up enforces nothing. Assess them
   individually and pin the ones that carry external text:
@@ -4197,6 +4372,47 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
   `ui/settings_dialog.py:248`. **`release_picker.py:67` first** — a release picker
   renders MusicBrainz artist/title directly, which is the exact case Critical rule
   #12 names.
+  - *Done 2026-09-28, in the commit `fix(ui): make every label built from data state
+    its text format`:* no allowlist. Every `QLabel(<non-literal>)` now STATES its
+    format right after it is built, and `tests/test_labels_state_their_text_format.py`
+    refuses one that does not (floor 15; it found 17, not 13). **PlainText (14):**
+    `ui/dialogs/manual_install.py` Required, Currently, Why manual and the search-field
+    caption; `ui/drive_setup_dialog.py` intro and device path; `ui/help_dialogs.py`
+    logo (a picture, stated anyway); `ui/release_picker.py` intro; and six already
+    pinned (`ui/dialogs/setup_center.py` x3, `ui/disc_info_panel.py::_value_label`,
+    `ui/ripper_picker.py` `choice.why`, `ui/settings_dialog.py` offset status).
+    **RichText with escaping (3), kept rich because each renders a `<b>` of ours:**
+    the manual-install intro (`html.escape` on the dependency's display name), the
+    drive wizard's known-offset line (the drive's vendor/model), and the setup
+    wizard's intro, whose markup `SetupCopy.intro` is written by its callers: the
+    ripper update escapes the build pin, and the test checks every builder. Rendered
+    output was compared before and after on 546 labels across those dialogs: no
+    change on ordinary input. The release picker's MusicBrainz fields were never in
+    a label: they are table cells, which draw text as written (measured: a
+    `<b>WWWW</b>` cell is 113 px wide against 54 px for `WWWW`). **Not covered, and
+    still open:** labels built empty or from a literal and given a value later by
+    `setText` — 13 counted, 8 of them in `ui/rip_progress.py`. Also found: the setup
+    wizard's intro renders as markup, so its bullet list has always shown as one
+    paragraph; kept as it was here, since this change was not to alter output.
+  - *Tightened 2026-09-28, after a second-round review:* the escaping test used to
+    pass a RichText site whose function called `html.escape` once, on anything. It
+    now judges each value in the markup (an `html.escape(...)` call, a number with
+    a numeric format, a literal of ours, or a name bound only to those, traced
+    through assignments and into the helper that builds the markup), and the
+    `SetupCopy` builders the same way. The three sites already passed. The same
+    review found a LITERAL label showing its own tags: the uninstall dialog's intro
+    held `<b>Never touched:</b>` below a first line with no tag, so AutoText showed
+    it as plain text. Fixed (RichText, `<br>` for its line breaks), and the sweep now
+    also holds a literal label whose markup Qt would not see to stating its format.
+
+- [ ] **Labels given their text by `setText` after they are built are outside both
+  format sweeps.** `tests/test_labels_state_their_text_format.py` holds every
+  `QLabel(<non-literal>)` to stating its format, but a label built empty or from a
+  literal and filled later with `setText(<value>)` is not seen: 13 counted on
+  2026-09-28, 8 of them in `ui/rip_progress.py`, which shows rip status built partly
+  from cyanrip's output. The count is an approximation and may be low. Also found
+  the same day: the setup wizard's intro is markup, so its bullet list has always
+  rendered as one paragraph.
 
 - [x] **DELIVERED in round 12 itself** — `inbound/round-12-lap-01.md` §B2,
   *"`--verify-log` should separate absent from mismatched — [MEASURED], done"*.
@@ -4530,7 +4746,7 @@ Neither made a build unsafe, so both are **NEXT-ROUND under S-14**.
   what landed is what was checked.
   - *Audit 2026-09-25: done.* 2180e85: the build script refuses a wrong banner before installing (deps/fork_source.py).
 
-- [~] **`--install-ripper` prints its own shell scripts to the terminal.** The
+- [x] **`--install-ripper` prints its own shell scripts to the terminal.** The
   step engine logs each container command at INFO, and the fork build/install/
   verify steps *are* multi-line `sh -c` scripts, so a routine install dumps
   roughly a hundred lines of shell source between the progress rows. It is
@@ -4539,6 +4755,10 @@ Neither made a build unsafe, so both are **NEXT-ROUND under S-14**.
   The maintainer's standing bar — *"at the end of the day people need to use
   it"* — applies to a command an end user is told to run during setup.
   - *Audit 2026-09-25: partly done.* 2180e85: one_line_argv collapses the script to one escaped line for the step view, but the console log still gets the whole script.
+  - *Done 2026-09-27:* `deps/step_engine.py` `console_argv` for the start, timeout and
+    failure lines, and `logging_setup.console_summary` + `_ConsoleFormatter`, which formats
+    a COPY so the file and the session buffer keep the full command. Tests: end to end
+    through the real handlers in `tests/test_logging_setup.py`.
 
 ## Ripper install: find the newest build automatically, and let the user pick its channel (2026-08-07)
 
@@ -4578,11 +4798,17 @@ up to date"; it has to be "notice, and offer."
   which is exactly what *"do not make any of this the default"* was protecting. A
   build no round here has verified keeps the old treatment: consequence stated,
   never the default action, `--install-ripper <commit>` handed over.
-- [ ] **`--install-ripper latest` / `latest-beta`**, resolving the newest commit
+- [x] **`--install-ripper latest` / `latest-beta`**, resolving the newest commit
   from the manifest instead of requiring a sha. **Still open, and now lower
   priority**: the GUI covers the case a person hits, so this is for a *script* that
   wants "whatever the channel says" without pinning. A resolver in front of
   `target_for_commit`, not a new install path.
+  - *Done 2026-09-27:* `deps/ripper_latest.py` `resolve_latest` / `resolve_keyword`, a
+    resolver in front of `target_for_commit`, called from `app.py`. The default is
+    unchanged (a bare `--install-ripper` builds the approved target and touches no
+    network), and an unreadable manifest refuses with exit 1 rather than falling back.
+    Tests: `tests/test_ripper_latest.py` (including agreement with the GUI's offer) and
+    `tests/test_app.py`.
 
 **Do not** make any of this the default. The default stays: install what a closed
 round approved. The automation's job is to stop the *maintainer* hand-editing a

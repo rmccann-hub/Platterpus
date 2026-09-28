@@ -23,9 +23,10 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtWidgets import QDialog, QMessageBox
+from PySide6.QtWidgets import QDialog
 
 from platterpus import settings_validation
+from platterpus.ui import message_boxes
 from platterpus.ui.main_window_shared import MainWindowShared
 from platterpus.ui.settings_dialog import SettingsDialog
 from platterpus.user_settings import SettingWrite, user_setting_names, with_values
@@ -68,7 +69,7 @@ class SettingsMixin(MainWindowShared):
         try:
             self._save_config(self._config)
         except OSError as exc:
-            QMessageBox.warning(self, "Couldn't save settings", f"{exc}")
+            message_boxes.warning(self, "Couldn't save settings", f"{exc}")
         dialog.mark_applied()
         self._refresh_setting_views()
 

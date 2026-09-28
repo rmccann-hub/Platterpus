@@ -1080,7 +1080,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # every one of these encodes a decision the fork and we made jointly and a
     # reader needs the reason, not the mechanics.
     # **428 -> 464** (2026-09-24): `run_size` and `counts_as_evidence` in the report, the not-evidence banner, and `ok` forgiving ONLY size-declined steps.
-    "uiscript/report.py": 464,
+    # **464 -> 469** (2026-09-27, TASKS `report.json` drops the acceptance script's source): the source cap's comment now says what it was sized against and which test holds it to the shipped scripts, replacing the claim that it "only ever fires on an accident".
+    "uiscript/report.py": 469,
     # **308 -> 314** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **314 -> 322** (2026-09-26): the drive-name normaliser's separator pattern became linear, and its comment says why the lookbehind is load-bearing (docs/testing.md §5.bu).
     "adapters/accuraterip_offsets.py": 322,
@@ -1133,7 +1134,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1594 -> 1638** (2026-09-25, TASKS `conv.argv-range`): `_tracks_on_disc` range-checks `-l` against the disc, which cyanrip enforces by refusing the whole rip. It belongs beside `_disc_position` and the `-t` check in `_metadata_args`, which are the same kind of guard.
     # **1638 -> 1640** (2026-09-25, the property-test batches): an unknown `%{…}` token's brace becomes a paren, so it cannot reach cyanrip as an unterminated `{` (TASKS `fuzz:adapters.cyanrip_backend.scheme_from_template`).
     # **1640 -> 1670** (2026-09-25, D18: `%N`/`%M` work everywhere): the disc position is checked once and fills in `%N`/`%M` as well as `-c`, so a folder name cannot disagree with the tags; `_disc_args` folded into `_disc_position`, keeping its reasoning.
-    "adapters/cyanrip_backend.py": 1670,
+    # 1670 -> 1757 on 2026-09-28 (review R4, R5): `_path_schemes` builds `-D`/`-F` for the argv and `album_folder_scheme` hands the overwrite guard the same `-D`, with `predicted_album_folder` rendering it from the album-level tags cyanrip fills in (cited). The guard predicted from the disc template as disc 1 of 1 and missed finished rips; one computation beside the argv is the fix, and cyanrip's rendering rules belong in its adapter.
+    # 1757 -> 1772 on 2026-09-28: cyanrip's documented `-D` default and its rendering for our rip, which the overwrite guard predicts for a folder-less template (review Q5).
+    "adapters/cyanrip_backend.py": 1772,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1167,7 +1170,19 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1374 -> 1380 (2026-09-24)**: the startup call that removes INVOCATION_ID
     # before anything spawns, so a container we start is not owned by this
     # window's unit (`container_scope.py`). It has to be here: it must run first.
-    "app.py": 1380,
+    # **1380 -> 1379 -> 1391 (2026-09-27)**: -1 when metaflac moved to the composition
+    # root (`composition.build_metaflac`), then +12 for `--install-ripper latest` /
+    # `latest-beta`. The resolver is its own module (`deps/ripper_latest.py`); what
+    # lands here is the call, the refusal's exit, and three help-text lines naming the
+    # keywords, beside the `target` resolution they feed.
+    # **1391 -> 1555 (2026-09-28)** (+164): on a `--run-script` launch the fatal-error
+    # dialog closes itself after `UNATTENDED_FATAL_DIALOG_TIMEOUT_S` (maintainer,
+    # 2026-09-27). It lives beside `_show_fatal_dialog` and its re-entrancy guard
+    # because the two interact: the guard must hold across the countdown, and the
+    # `finally` that clears it is the one that stops the timers and breaks the
+    # closure->box reference (measured: one leaked hidden QMessageBox per
+    # auto-close without it). A separate module would split one `finally` in two.
+    "app.py": 1555,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
@@ -1187,7 +1202,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "config.py": 849,
     "cue_validate.py": 1257,
     "cyanrip_cli.py": 327,
-    "deps/checks.py": 437,
+    # **437 -> 522** (2026-09-28, Check dependencies "seems to freeze, not respond, or give no
+    # error"): `probe_deadline` and `_probe_timeout`, which cap every probe a dependency check
+    # runs at the check's overall deadline and refuse to START one after it. They live here
+    # because the probe is where the waiting happens, and a deadline checked only where the
+    # check was scheduled let cyanrip's second version flag start a fresh 60 s wait after the
+    # first was killed. Most of the growth is the comment saying why this is a capped timeout
+    # and not a timer calling `cancel_version_probes()`: that slot is shared with other callers.
+    "deps/checks.py": 522,
     # 1678 -> 1691 (2026-09-06): the round-15 close. `FORK_PIN` rolled to
     # `978f9b0` and the roll is documented where the constant is, because the
     # post-close step is the one this file has already watched go stale.
@@ -1388,6 +1410,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # part that stops somebody "simplifying" it back to a step or to always-on.
     # **392 -> 393** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "deps/host_teardown.py": 393,
+    # **new at 343** (2026-09-28, the same report): `CHECK_DEADLINE_S`, the report's
+    # `unchecked` / `unchecked_reason` fields, the deadline in `check_all`, and
+    # `describe_unchecked` — the ONE wording of an incomplete check that five surfaces read.
+    # It crossed 300 because a stopped check used to return a partial report with no marker;
+    # marking it belongs with the report it marks (Critical rule #6), not in the UI.
+    # `_record_ok` was split out of `check_all` so the loop stays readable at its new length.
+    "deps/manager.py": 343,
     "deps/ripper_manifest.py": 608,
     # **777 -> 782 (2026-09-24)**: asks `current_test_pin()` / `retired_test_pins()`
     # instead of the raw constant, and says why in four lines (§5.bq).
@@ -1405,7 +1434,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # could stop agreeing; this file is the one whose docstring already
     # explains why the countdown exists at all.
     # **423 -> 411** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "drive_control.py": 411,
+    # 405 -> 417 on 2026-09-28 (review R6): `_host_tool`, so pkill/fuser/eject skip the container exports on PATH as well as in their own lists; rule #3's exception says the host goes first, and this module is where that exception lives.
+    "drive_control.py": 417,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     "drive_profiles.py": 447,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
@@ -1469,7 +1499,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # it out would put the sentence and the reason for the sentence in two files.
     # **1023 -> 1020 (2026-09-24): it SHRANK.** The expected-build line asks
     # `accepted_rig_builds` instead of re-deriving it.
-    "evidence_bundle.py": 1020,
+    # **1020 -> 1051** (2026-09-27, TASKS the `-j` rows): `files`, a single-file channel under the STRICT set, for cyanrip's `-j` record, which stays in the rips root where no album-folder walk can reach it; a named file that is not there is a manifest row. It belongs beside the other channels because `_collect`'s order is the byte budget.
+    "evidence_bundle.py": 1051,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
@@ -1566,14 +1597,17 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **591 -> 605** (2026-09-24): the User Guide's acceptance section describes the three run sizes and the baseline, and corrects its old ripper advice.
     # **605 -> 630** (2026-09-24, #37 one home per setting): the User Guide says where each moved setting now lives (Set up drive…, Setup & Updates, the console) and what OK/Apply/Cancel/Restore Defaults do.
     # **630 -> 628** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "help_content.py": 628,
+    # **628 -> 631** (2026-09-27): the Guide says Set cover art from file… is on the disc panel's right-click menu, and that the Tools copy goes in the next release.
+    "help_content.py": 631,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
     # naming template; a third module for one pure function would be the new
     # file rule #7 refuses.
     # **359 -> 376** (2026-09-25, D18: `%N`/`%M` work everywhere): the preview fills in `%N`/`%M` and writes a typed brace as the parenthesis the file gets.
-    "naming.py": 376,
+    # 376 -> 408 on 2026-09-28 (review R4, R5): `render_scheme` renders a cyanrip `{key}` scheme with the look-alike table this module owns, for the overwrite guard's folder; beside `render_preview`, its %-template twin.
+    # 408 -> 414 on 2026-09-28: `render_scheme` trims each path component's edges, as cyanrip's `crip_trim_path_components` does.
+    "naming.py": 414,
     # +29 on 2026-09-04: `is_secure_rerip_verdict` and its reasoning. It is
     # DELIBERATELY here rather than at the worker that calls it — the point of
     # the fix is that the module owning read stability owns the classification,
@@ -1627,7 +1661,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `container_scope.py`; only the CheckResult mapping lives here, beside the
     # other checks, because a check that lived elsewhere would need to import
     # this module back.
-    "preflight.py": 928,
+    # **928 -> 957 (2026-09-28)**: `check_dependencies` passes the GUI's own deadline and names the tools a stopped check did not reach; it is the CheckResult mapping, which lives with the other checks.
+    "preflight.py": 957,
     # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
     "read_speed_ladder.py": 370,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
@@ -1743,14 +1778,24 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the stager refuses a rip folder by name — the rule that keeps album artwork out.
     # **851 -> 861 (2026-09-24, the 0.6.55 acceptance bundle)**: `SessionLayout.rip_bundles`,
     # so each rip's own bundle lands in the one session folder too.
-    "test_session.py": 861,
+    # **861 -> 863 (2026-09-27, `--run-script` reaches the packaged scripts)**: the
+    # shipped-scripts directory name now comes from `uiscript.find_script`, whose
+    # resolver falls back to it — one import and one comment line saying so, so the
+    # menu and the command line cannot name two directories.
+    "test_session.py": 863,
     "ui/dialogs/pending_installs.py": 419,
     # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
     # channels (they live above the checks they steer), a Drive section holding
     # the read offset's status, Set up drive… and Diagnose drive access…, and
     # `set_locked`, the rip lock that reaches a window already open. Every action
     # still delegates to the window; nothing here decides anything.
-    "ui/dialogs/setup_center.py": 448,
+    # **448 -> 427** (2026-09-28): down — `dependency_summary_line` moved to
+    # `ui/dependency_check_status.py`, beside the marker vocabulary it uses.
+    # **427 -> 492** (2026-09-28, the same report): the dependency button greys and reads
+    # "Checking dependencies…" while a check the user asked for runs, from BOTH of its
+    # conditions (a rip ending must not re-arm it mid-check), and `refresh_dependencies` is
+    # finally called, through `show_dependency_check_finished`.
+    "ui/dialogs/setup_center.py": 492,
     # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
     # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
     # in the home directory. A save dialog only PROPOSES, which is why this was
@@ -1767,15 +1812,21 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **548 -> 565** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the intro and script settings scroll in a `FitScrollArea` so Run and the transcript keep their room on a Steam Deck at 150% text, where the new settings group squeezed three buttons to 12 px.
     # **565 -> 570 (2026-09-24)**: `refresh_settings`, the pass-through the window
     # calls so the console's own script options follow a script's `set`.
-    "ui/dialogs/script_console.py": 570,
+    # 570 -> 571 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
+    "ui/dialogs/script_console.py": 571,
     # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "ui/disc_info_panel.py": 320,
+    # **320 -> 366** (2026-09-27, cover art moves to the album): the panel owns its right-click menu's wiring — the album actions it is handed, the background and per-value connections, and why. Building the menu (Copy, Select All, the popup) is its own module, `ui/album_menu.py`, so what grew here is only what the panel must hold.
+    # 366 -> 377 on 2026-09-28: `set_disc_info_retrying`, the panel's "trying again automatically" state beside the error state it precedes (a failed disc read is now retried; disc_probe_retry).
+    # 377 -> 396 on 2026-09-28: `set_no_disc` (a removal said nothing but dashes) and every value label pinned to PlainText, since the error line carries the ripper's own words (TASKS' unswept QLabel row names `ui/disc_info_panel.py`).
+    "ui/disc_info_panel.py": 396,
     # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy ripper-config offset line, both moved from Settings, with the tooltip the offset's control had there.
     # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
     # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "ui/drive_setup_dialog.py": 561,
+    # **561 -> 577** (2026-09-28, every label built from a value states its format): its three labels state PlainText or RichText, the drive's vendor/model is html-escaped into the RichText one, and each site says which parts are ours (tests/test_labels_state_their_text_format.py).
+    "ui/drive_setup_dialog.py": 577,
     # **341 -> 342** (2026-09-25, Critical rule #9: Qt has no "detach"): the teardown comment now says the dialog ABANDONS a running thread and keeps its reference, which reflowed one line.
-    "ui/host_setup_dialog.py": 342,
+    # **342 -> 353** (2026-09-28, every label built from a value states its format): the intro states RichText, and `SetupCopy.intro` documents that it is markup whose builders must escape what they interpolate.
+    "ui/host_setup_dialog.py": 353,
     # **1558 -> 1572 on 2026-09-08**: the `Help → Install a cyanrip build…`
     # action, plus the paragraph saying why a SECOND ripper entry exists — the
     # update check reads the fork's release manifest and cannot offer a build the
@@ -1809,7 +1860,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1616 -> 1599** (2026-09-24, #37 one home per setting): down: Settings' opener moved to `main_window_settings.py`, and Diagnose drive access… left the Tools menu.
     # 1599 -> 1600 on 2026-09-25: a drive change forgets the release detail with the release id.
     # **1600 -> 1675** (2026-09-25, TASKS `stateful:answered-implies-answerable`, `stateful:table-immutable-during-rip`, `stateful:no-modal-during-rip`): a failed release FETCH now un-answers the disc in its own handler, a redundant lookup failing no longer overwrites the chosen release, and `_rip_holds_the_track_table` keeps every MusicBrainz answer off the table and out of a modal while a rip runs. These are the MusicBrainz slots, which live here.
-    "ui/main_window.py": 1675,
+    # **1675 -> 1700** (2026-09-27, TASKS `stateful:one-picker-per-scan`): `_on_mb_releases` declines a second lookup's candidates for a disc whose release picker is still open (they land inside its nested event loop), and `_mb_picker_open_for` lives exactly as long as the picker's `exec()`. The guard belongs beside the one it completes, in the same slot.
+    # **1700 -> 1708** (2026-09-27, TASKS rig run 2026-08-20): the rescan's superseded disc probe is stopped with `superseded_by=`, so its planned abandonment logs at INFO rather than as a WARNING; the call wraps to four arguments and gains a two-line reason.
+    # **1708 -> 1718** (2026-09-27, D4 A): the Tools → Advanced ▸ submenu the two test tools moved into, and the eight-line comment saying why and why its Alt-letter is free. Menu construction lives in `_build_menus`, so it grows where the menu is built.
+    # **1718 -> 1731** (2026-09-27, cover art moves to the album): the one cover-art QAction is handed to the disc panel as well as Tools, with the comment saying the Tools entry is transitional and exactly how to remove it in 0.6.63.
+    # **1731 -> 1732** (2026-09-27): that comment names the check that fails the 0.6.63 bump while the Tools entry remains.
+    # **1732 -> 1745** (2026-09-28, rig report "restart the app"): the disc-read retry's state and single-shot timer are built with the window's other timers, `closeEvent` stops it, `_start_disc_info` opens a new retry budget for every read that was ASKED for, and `_on_disc_info_failed` hands the failure to the retry instead of ending on an error line.
+    # 1745 -> 1749 on 2026-09-28 (code review R0): a successful disc read tells the media watcher a disc is in, so a retry that read the disc is not followed by a phantom insertion and a third read.
+    "ui/main_window.py": 1749,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -1818,16 +1876,42 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # reconstruct from two other files.
     # **693 -> 722** (2026-09-24, #36): `_recheck_dependencies_for` and telling its listeners when the check lands.
     # **722 -> 723** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "ui/main_window_deps.py": 723,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **723 -> 758** (2026-09-28, Check dependencies "seems to freeze, not respond, or give
+    # no error"): the summary popup of a check that stopped part-way leads with "Check
+    # incomplete", names what it did not check and why, and is titled so; and the
+    # "Everything required is installed" offer is refused to it. Both belong beside the
+    # summary they change. The wording itself is `deps.manager.describe_unchecked`.
+    # **758 -> 935** (2026-09-28, the same report): the window half of the other three
+    # fixes — say a check is running, answer a second click (and upgrade a silent check to
+    # show its summary) instead of dropping it, tell the user when a result waited for
+    # another dialog or was given up on, and a backstop that speaks if a check overruns its
+    # own deadline. Every SENTENCE is in `ui/dependency_check_status.py` (pure, tested
+    # without a window); what stays is wiring that must be on the window, beside the check
+    # lifecycle it reports on.
+    # 935 -> 934 on 2026-09-28 (down: the import in, and the function-local
+    # `QMessageBox` import it no longer needs out): every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup.
+    # 934 -> 962 on 2026-09-28 (code review R8): the dependency sentence moves from a temporary status-bar message, which opening any menu wiped, to a status-bar label built here beside the one method that writes it; a silent check now replaces a sentence already on screen (it no longer vanishes on its own), which retires the overdue-only flag.
+    "ui/main_window_deps.py": 962,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
-    "ui/main_window_drive.py": 549,
+    # 549 -> 574 on 2026-09-28: the media poll logs the drive's raw status on change and names it (and any unreadable checks bridged) in the insert/remove lines; the rig lost an insertion and the log could not say what the drive had reported. The poll is the only reader of the watcher, so the lines live beside it.
+    # 574 -> 651 on 2026-09-28: the window side of the bounded automatic retry of a failed disc read. The policy, its state and every branch are in the new pure `disc_probe_retry.py`; what stays here is reading the facts it asks for (`_disc_retry_conditions`) and applying its decision, beside the media poll that is the other half of "the disc gets read without the user".
+    # 651 -> 655 on 2026-09-28: the poll puts "reading disc…" up on an insertion and the no-disc line on a removal, where both left only dashes.
+    # 655 -> 656 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
+    # 656 -> 658 on 2026-09-28 (code review R0): the insertion comment says a scan that read the disc tells the watcher, so an eject after it is a removal.
+    # 658 -> 668 on 2026-09-28 (code review R9): a disc removal ends the read a pending automatic retry was for, so its timer cannot replace the no-disc line with an error about the disc that left.
+    "ui/main_window_drive.py": 668,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
     # +1 on 2026-09-26: the `Accurip 450` comment names both cyanrip wordings, `.16`'s and `.17`'s (round 27 lap 4), so it stays true of both.
-    "ui/main_window_helpers.py": 522,
+    # **522 -> 568** (2026-09-27, maintainer ruling: two look-alike folders ask, they do not stand down): the resolver returns EVERY folder the rip could land in and follows a tie into each branch, "Rip to a new folder" is free only if free under all of them, and the ambiguous prompt's wording is a pure function here beside the resolver it describes.
+    # 568 -> 574 on 2026-09-28: a tie between look-alike folders asks even when neither holds a rip, with a title and text that do not claim one (maintainer: "fix all").
+    # 574 -> 578 on 2026-09-28 (review R4, R5): `known_album_folders` and `free_album_folder_templates` take the track template and the rip's metadata and delegate the prediction to the backend; the docstring says why the disc template was the wrong key.
+    # 578 -> 585 on 2026-09-28 (review R3): an existing literal folder no longer ends the resolver's search, so an empty `a"b` cannot hide a full `a“b`; the docstring records the case, beside the loop it changes.
+    # 585 -> 587 on 2026-09-28: a folder-less template's numbered folder is cyanrip's default one, written out (review Q5).
+    "ui/main_window_helpers.py": 587,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -1861,7 +1945,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1589 -> 1602** (2026-09-24, #36): the bundle's `COMPONENTS.json` and the run size in its facts.
     # **1602 -> 1607** (2026-09-24, #37 one home per setting): Setup & Updates and the console are handed the window's single-setting writer and Diagnose drive access….
     # **1607 -> 1624** (2026-09-26, the maintainer's quick run): the end-of-run headline asks `RunReport.ok`, so a quick run's size-declined sections do not read as a stopped run.
-    "ui/main_window_provision.py": 1624,
+    # **1624 -> 1626** (2026-09-28): opening Setup & Updates during a dependency check shows it running, not the last result.
+    # 1626 -> 1627 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
+    "ui/main_window_provision.py": 1627,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1918,7 +2004,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4715 -> 4730 on 2026-09-25: _release_detail_for, the one check both the rip start and the report use.
     # **4730 -> 4739** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): the finish record carries the fixes.
     # **4739 -> 4751** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): the finish path records the rewritten lines after writing the log, so recording them can never cost the log.
-    "ui/main_window_rip.py": 4751,
+    # **4751 -> 4760** (2026-09-27, TASKS the `-j` rows): the bundle snapshot names the rip's `-j` records, read from the worker at arming time, and the launcher hands them to the bundle. Where the records are and how they are named is `diagnostics_record.py`.
+    # **4760 -> 4795** (2026-09-27, the same ruling): `_confirm_known_overwrite` asks when several look-alike folders could be the target, names them all, logs them, and withholds Replace, with the reason and the `None is None` dismissal trap stated where the branch is.
+    # 4795 -> 4802 on 2026-09-28: a tie between look-alike folders asks even when neither holds a rip, with a title and text that do not claim one (maintainer: "fix all").
+    # 4802 -> 4803 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
+    # 4803 -> 4820 on 2026-09-28 (review R4, R5): `_rip_metadata_for`, the one metadata snapshot the rip and the overwrite guard both read, and the guard saying so when a folder-less template leaves it nothing to check.
+    # 4820 -> 4830 on 2026-09-28: the overwrite guard decides on folders that exist, and does not promise an overwrite of a look-alike (review Q4).
+    "ui/main_window_rip.py": 4830,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -1935,7 +2027,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **428 -> 441** (2026-09-24, #37 one home per setting): the seam declares SettingsMixin's methods and the open Setup & Updates window it refreshes.
     # **441 -> 446 (2026-09-24)**: `_script_console` declared beside
     # `_setup_center`, because SettingsMixin now re-renders the console too.
-    "ui/main_window_shared.py": 446,
+    # 446 -> 452 on 2026-09-28: the disc-read retry state (`_disc_retries`, `_disc_retry_timer`) DriveMixin reads, and `_start_disc_info`'s `automatic_retry` keyword.
+    # 452 -> 453 on 2026-09-28: `_show_dependency_check_in_setup_center`, which ProvisioningMixin calls when the window opens.
+    "ui/main_window_shared.py": 453,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -1948,7 +2042,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # what is already on screen?"* — and the wide one would have dropped the
     # resolution of a missing required dependency because the window was not yet
     # visible.
-    "ui/main_window_update.py": 1019,
+    # 1019 -> 1020 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
+    # **1020 -> 1023 (2026-09-28)**: `import html`, and the ripper update's build
+    # pin is html-escaped into the setup dialog's RichText intro, with the comment
+    # saying so (tests/test_labels_state_their_text_format.py checks this builder).
+    "ui/main_window_update.py": 1023,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "ui/rip_progress.py": 1659,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
@@ -2100,7 +2198,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # (inbound_text, Critical rule #12), and why the expect-verbs copy stays raw.
     # 4309 -> 4398 on 2026-09-25: probe-ripper-wrapper moved onto a helper thread (_WrapperProbeJob); it ran on the GUI thread.
     # 4398 -> 4407 on 2026-09-26: _active_dialog counts only a VISIBLE dialog; a hidden one Qt still called active blocked `rip`.
-    "uiscript/runner.py": 4407,  # +116: _do_expect_verification, the assertion section F never had,
+    # 4407 -> 4420 on 2026-09-27: _forget_last_cyanrip_result, called first by every cyanrip step (TASKS D7).
+    # 4420 -> 4512 on 2026-09-28: `open dependencies` probed on the GUI thread; it now starts the check on a worker and waits on this file's deadline machinery (_open_dependency_check), and `stop` records a step that was mid-wait.
+    "uiscript/runner.py": 4512,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2153,7 +2253,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 3464 -> 3490 on 2026-09-25: every pipe line is screened once (`_screen`), for
     # the log pane and the record, and the capture ends with what screening changed.
     # The screen itself lives in inbound_text; this is the wiring and its reasons.
-    "workers/rip_worker.py": 3490,
+    # **3490 -> 3523** (2026-09-27, TASKS the `-j` rows): each album pass's `-j` record path is read off the argv as spawned and the directory it ran in, and exposed for the report bundle. The worker is the only place that holds both; the argv reader is `diagnostics_record.py`. Nothing is moved.
+    "workers/rip_worker.py": 3523,
 }
 
 
