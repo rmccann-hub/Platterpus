@@ -1879,11 +1879,15 @@ the sprawl is concentrated in two of them.
     disc panel's right-click menu (`ui/album_menu.py`) and, for this release only, in Tools,
     so both run one slot with one enabled state. Left: remove the Tools entry in 0.6.63; the
     0.6.63 version bump fails until it is gone.
-- [~] **Check every regrouping against the accessibility rules before landing**:
+- [x] **Check every regrouping against the accessibility rules before landing**:
       submenus must keep their mnemonics unique within their parent, and no
       single-character shortcuts (`CLAUDE.md` code conventions; enforcement is
       `tests/test_accessibility_standards.py`).
   - *Audit 2026-09-25: partly done.* A per-menu duplicate-mnemonic sweep exists (tests/test_ui_conformance.py) but does not recurse into submenus; most regroupings have not landed.
+  - *Done 2026-09-28:* one walker, `tests/conftest.py::window_menus`, covers the menu bar,
+    every submenu and the album menus; the mnemonic rule in `tests/test_ui_conformance.py`
+    uses it, and `tests/test_accessibility_standards.py` reads the shortcuts Qt actually
+    bound. Revert-probed, including a bare `Qt.Key_T` the old source scan missed.
 
 **Not started — this is the audit, not the change.** The regrouping touches the
 menu tests and the UX principles doc, and "which items does an end user actually

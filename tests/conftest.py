@@ -607,6 +607,53 @@ def stop_window_threads(window: object) -> None:
         report_writer._WRITER.stop()
 
 
+def window_menus(window: object) -> list[tuple[str, object]]:
+    """Every menu a person can open in ``window``, as ``(where, QMenu)`` pairs.
+
+    Each menu-bar menu, every submenu beneath it at any depth, and — for a
+    window holding a disc panel — the album's right-click menu, once for each
+    value label and once for the panel around them. Each pair is the group its
+    Alt-letters must be unique in: a letter only has to be unique among the
+    items of the menu that is open, so a submenu is its own group and so is a
+    context menu.
+
+    **ONE walker, shared by both rules that need it** — the mnemonic rule
+    (`tests/test_ui_conformance.py`) and the character-key shortcut rule
+    (`tests/test_accessibility_standards.py`) — so the two cannot disagree about
+    which menus exist. Before 2026-09-27 the mnemonic rule read one level of the
+    menu bar only, which was complete until Tools gained an Advanced submenu.
+
+    The album menus are BUILT here, because they are made on right-click and
+    there is nothing to find before then. The caller must ``deleteLater()`` the
+    menus whose ``where`` starts with ``"album menu"``; the others belong to the
+    window.
+    """
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QLabel, QMainWindow
+
+    from platterpus.ui.disc_info_panel import DiscInfoPanel
+
+    found: list[tuple[str, object]] = []
+
+    def walk(where: str, menu: object) -> None:
+        found.append((where, menu))
+        for action in menu.actions():  # type: ignore[attr-defined]  # a QMenu
+            if action.menu() is not None:
+                walk(f"{where} → {action.text()!r}", action.menu())
+
+    if isinstance(window, QMainWindow):
+        for action in window.menuBar().actions():
+            if action.menu() is not None:
+                walk(f"menu {action.text()!r}", action.menu())
+    for panel in window.findChildren(DiscInfoPanel):  # type: ignore[attr-defined]  # a QWidget
+        found.append(("album menu (panel)", panel.album_menu()))
+        for label in panel.findChildren(QLabel):
+            if label.contextMenuPolicy() == Qt.ContextMenuPolicy.CustomContextMenu:
+                where = f"album menu ({label.accessibleName() or label.text()!r})"
+                found.append((where, panel.album_menu(label)))
+    return found
+
+
 # Hold the QApplication in a module global so it is NEVER garbage-collected —
 # if Python GCs it at session end, its Qt teardown can SIGABRT (see the
 # session-finish hard-exit above). Pinned here, it survives until os._exit.

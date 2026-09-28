@@ -249,6 +249,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   channel's newest build without naming a commit. The commit it resolves to is
   printed first, and it installs exactly as `--install-ripper <commit>` would. It is
   never the default, and if the manifest can't be read nothing is installed.
+- **For contributors: every submenu and the album menu are checked for Alt-letter
+  clashes and bare-key shortcuts.** The mnemonic check used to read the menu bar only
+  one level deep. It now covers every submenu and the disc panel's right-click menu. A
+  new test reads the shortcuts Qt actually bound on those actions, which catches a bare
+  key set through `QKeySequence(Qt.Key…)` that the source scan could not see.
 
 ### Removed
 
