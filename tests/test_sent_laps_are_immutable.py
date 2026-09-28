@@ -125,6 +125,10 @@ SENT_LAPS: dict[str, str] = {
     # Round 28 lap 7: OPEN, our answers to the operator's seam-automation proposal,
     # every item for round 29. Released with lap 6 on the maintainer's word 2026-09-28.
     "outbound/round-28-lap-07.md": "bb35415bb6a035508b7e7fbaf44e416f6dc6d2c3caec68e963c2ddc1f6dd9b31",
+    # Round 28 lap 9 — our `GO` on `e0471f4` from the Full run on 0.6.61, released on
+    # the maintainer's word 2026-09-28 ("release the lap when ready"). Its release
+    # closes round 28 on our gate, and the same commit rolls `FORK_PIN`.
+    "outbound/round-28-lap-09.md": "2c16d819227d0a7d11423cb0efd83e9ebf753cb3f3236a7ef2b7d7686fd0e671",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
