@@ -40,7 +40,10 @@ reproduce on the newest release before reporting.
   installs only if Sigstore confirms it was built by `.github/workflows/release.yml`
   in this repository, from `main` or from the release's own tag, and the signed
   statement names the exact file downloaded. A missing or failing attestation
-  blocks the install and leaves the current version untouched. **What that does
+  blocks the install and leaves the current version untouched. The one-line
+  installer (`install.sh`, since 2026-09-28) makes the same two checks on the
+  AppImage it downloads, the attestation only when the GitHub CLI (`gh`) is
+  installed, and refuses a file that fails either. **What that does
   not cover:** anyone who can push to `main` can run the release workflow, and
   `main` is not branch-protected, so the attestation proves a build is traceable to
   a public commit here, not that the commit was reviewed. **Offline-key signing**

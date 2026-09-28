@@ -41,6 +41,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Security
 
+- **The one-line installer checks the AppImage before it installs it.** `install.sh`
+  downloaded the newest release's AppImage into `~/Applications` and marked it
+  executable without checking anything, although the app checks every update it
+  installs. It now checks the download against the release's `.sha256` and, when the
+  GitHub CLI is installed, verifies its build attestation with `gh attestation
+  verify --bundle`, which needs no login. A file that fails either check is refused,
+  and an AppImage already in `~/Applications` is left as it was. Without `gh`, the
+  script says the attestation was not checked.
 - **`SECURITY.md` says what the secret scan covers.** It said the `gitleaks` job scans
   the full history. The job scans a pull request's own non-merge commits, and a push
   to `main` that arrives as a merge commit scans nothing: the push run for `a930411b`
