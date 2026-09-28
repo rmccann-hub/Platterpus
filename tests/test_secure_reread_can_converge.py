@@ -487,3 +487,48 @@ def test_no_setting_the_validator_accepts_can_send_a_z_that_cannot_converge() ->
             assert secure_reread_problem(repeat_rips=highest, retries=retries) == ""
             checked += 1
     assert checked > 900, f"only {checked} accepted pairs checked"
+
+
+#: Names the secure re-read row has had, newest last. A surface that tells a
+#: person to change a setting must name the row they will find.
+_RETIRED_SECURE_REREAD_LABELS: tuple[str, ...] = (
+    "Max reads to confirm a shaky track",  # until 2026-09-21
+    "Reads that must agree to trust a track",  # 2026-09-21 to 2026-09-28, one short
+)
+
+
+def test_no_instruction_a_user_follows_names_a_retired_row_label() -> None:
+    """The instruction surfaces, not the history.
+
+    Found 2026-09-28 by grep, after the label and tooltip were fixed: the README
+    still said *re-read until "Max reads to confirm a shaky track" reads agree*,
+    the test plan told the rig to set **Max reads to confirm a shaky track → 2**,
+    and the CTDB repair runbook pointed at the same missing row. Deliberately
+    scoped to what a person follows — the README, the two runbooks, the User
+    Guide and the dialog's own on-screen strings — because comments and the
+    parity doc NAME the old labels on purpose, as the record of the rename.
+    """
+    from platterpus import settings_validation as sv
+    from platterpus.help_content import USER_GUIDE
+
+    surfaces: dict[str, str] = {
+        "README.md": (REPO / "README.md").read_text(encoding="utf-8"),
+        "docs/test-plan.md": (REPO / "docs/test-plan.md").read_text(encoding="utf-8"),
+        "docs/manual-ctdb-repair.md": (REPO / "docs/manual-ctdb-repair.md").read_text(
+            encoding="utf-8"
+        ),
+        "help_content.USER_GUIDE": USER_GUIDE,
+        "settings_dialog labels": "\n".join(_settings_source_calls("addRow")),
+        "settings_dialog tooltips": "\n".join(_settings_source_calls("setToolTip")),
+    }
+    stale = [
+        f"{where}: {label!r}"
+        for where, text in surfaces.items()
+        for label in _RETIRED_SECURE_REREAD_LABELS
+        if label.lower() in text.lower()
+    ]
+    assert not stale, "these surfaces still name a retired row: " + "; ".join(stale)
+    # Non-triviality: the sweep read real text, and the CURRENT label is where a
+    # reader would look for it. An emptied surface would pass the check above.
+    for where in ("README.md", "help_content.USER_GUIDE", "settings_dialog labels"):
+        assert sv.SECURE_REREP_LABEL.lower() in surfaces[where].lower(), where

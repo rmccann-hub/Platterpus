@@ -245,7 +245,7 @@ class CyanripImpl(RipBackend):
         retries = retries_flag_value(max_retries)
         if retries is not None:
             argv += ["-r", str(retries)]
-        # `-Z N`: re-rip each track until N reads' checksums agree, for
+        # `-Z N`: re-read each track until N+1 reads are identical, for
         # marginal/damaged discs (EAC-parity item 1; see config.py). Only
         # passed when the user enabled it (> 0) — on a clean disc it just
         # burns time, so the default rip omits it entirely.

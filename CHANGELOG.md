@@ -168,7 +168,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   that read *Reads that must agree to trust a track: 2* was one short. It is now
   **Extra matching reads to trust a track**, and its tooltip, the User Guide, the
   pre-rip plan, the read-speed ladder's status line, the Goal and Test & Copy
-  tooltips, the one-frame-match tooltip and the README all say N+1 identical reads.
+  tooltips, the one-frame-match tooltip, the README, the manual-test plan and the
+  CTDB repair runbook all say N+1 identical reads, and the last three name the
+  row by its new name (they still named the one retired on 2026-09-21).
   Test & Copy works from 1, not 2 as its tooltip said. The validator's refusal
   still named the row's old name, *Max reads to confirm a shaky track*, a week after
   it was renamed; both now use one label, and every numeric rule's message is held

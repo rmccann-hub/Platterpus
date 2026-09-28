@@ -728,7 +728,7 @@ check (§5), not an upstream ask.
 
 #### 3.4 A literal two-pass Test & Copy — no ask
 
-`-Z N` (re-rip until N reads' checksums agree) is a stronger real-world guarantee
+`-Z N` (re-read until N+1 reads are identical) is a stronger real-world guarantee
 than EAC's two fixed passes, it already exists, and KDD-30 already renders its
 convergence as an EAC-style Test/Copy pair. A whole-second-pass mode would double
 rip time for less assurance. The live question the maintainer raised on 2026-07-30
@@ -1337,4 +1337,4 @@ never fake provenance — the signed EAC checksum stays permanently out of scope
 
 ---
 
-*Last updated for Platterpus v0.6.60.*
+*Last updated for Platterpus v0.6.62.*

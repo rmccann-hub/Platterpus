@@ -252,8 +252,9 @@ def read_errors_present(rip_log: object) -> bool:
 def unstable_tracks(rip_log: object) -> list[int]:
     """Track numbers whose cyanrip secure re-read (``-Z``) never converged.
 
-    cyanrip re-reads a track until N reads' checksums agree; when it instead hits
-    the repeat limit with no two reads agreeing, that track's data is UNSTABLE (a
+    cyanrip re-reads a track until N+1 reads are identical; when it instead hits
+    the repeat limit first (two reads MAY have agreed: at `-Z 2` it takes three),
+    that track's data is UNSTABLE (a
     scratch/dirt region) and may not be bit-perfect. This is the reliable
     per-track read-quality signal — distinct from cyanrip's whole-disc
     ripping-error count (which stays 0 even then; see :func:`read_errors_present`)

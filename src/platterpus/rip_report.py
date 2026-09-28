@@ -1574,8 +1574,9 @@ def _track(track: object) -> dict:
         # How many read passes cyanrip needed (its "(after N rips)"); None for
         # legacy-format logs / a clean single-pass cyanrip track.
         "rip_count": getattr(track, "rip_count", None),
-        # cyanrip's -Z secure re-read verdict: True = N reads' checksums agreed;
-        # False = it hit the repeat limit without any two agreeing (the reliable
+        # cyanrip's -Z secure re-read verdict: True = N+1 reads were identical;
+        # False = it hit the repeat limit first, which at -Z 2 and up can follow
+        # two reads that did agree (the reliable
         # per-track read-instability flag); None = -Z off / older log. Was parsed
         # but not serialized before v9 — the read-effort signal in machine form.
         "secure_rerip_converged": getattr(track, "secure_rerip_converged", None),

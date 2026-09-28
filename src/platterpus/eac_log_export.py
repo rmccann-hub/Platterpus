@@ -1590,7 +1590,7 @@ def _crc_lines(track: TrackResult) -> list[str]:
 
     EAC's secure mode prints a **Test CRC** and a **Copy CRC** — two full read
     passes whose match is the proof the extraction is reproducible. cyanrip's
-    equivalent is ``-Z N`` (re-rip a track until N reads' checksums agree): a
+    equivalent is ``-Z N`` (re-read a track until N+1 reads are identical): a
     track that *converged* was read at least twice and produced the identical
     CRC each time — the same two-reads-agree guarantee, by a cheaper mechanism.
 
