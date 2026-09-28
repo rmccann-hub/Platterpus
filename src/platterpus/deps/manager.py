@@ -164,10 +164,10 @@ class DependencyManager:
         (see `deps.checks.cancel_version_probes`), and either alone is the false
         promise CLAUDE.md rule 9 forbids.
 
-        ``deadline_s`` bounds the WHOLE pass (the GUI passes `CHECK_DEADLINE_S`;
-        ``None``, the default, keeps the old unbounded behaviour for `--doctor` and
-        the tests). It is enforced where the waiting happens, not where the check
-        was scheduled: every probe's own timeout is capped to the time left, so the
+        ``deadline_s`` bounds the WHOLE pass (the GUI's worker and `--doctor` both
+        pass `CHECK_DEADLINE_S`; ``None``, the default, is unbounded, for tests).
+        It is enforced where the waiting happens, not where the check was
+        scheduled: every probe's own timeout is capped to the time left, so the
         in-flight child is killed at the deadline, and no probe starts after it
         (`deps.checks.probe_deadline`); and it is re-checked before each spec.
 

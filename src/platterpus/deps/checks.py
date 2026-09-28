@@ -93,10 +93,10 @@ _PROBE_TIMEOUT_S: float = 60.0
 #
 # **Thread-local on purpose.** The probes are zero-argument callables (see
 # `registry.DependencySpec.probe`), so the deadline cannot be passed to them. The
-# check runs every probe synchronously on its own worker thread, so a per-thread
-# value reaches exactly the probes of that check and no one else's: a probe run
-# from another thread (the ripper-update check, `--doctor`) sees no deadline and
-# keeps the plain `_PROBE_TIMEOUT_S`.
+# check runs every probe on the thread that called `check_all` (the GUI's worker,
+# or the main thread under `--doctor`, which passes `CHECK_DEADLINE_S` too), so a
+# per-thread value reaches exactly that check's probes. A probe run outside it on
+# another thread (the ripper-update check) keeps the plain `_PROBE_TIMEOUT_S`.
 
 
 class _ProbeBudget(threading.local):
