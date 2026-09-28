@@ -4399,7 +4399,11 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
     now judges each value in the markup (an `html.escape(...)` call, a number with
     a numeric format, a literal of ours, or a name bound only to those, traced
     through assignments and into the helper that builds the markup), and the
-    `SetupCopy` builders the same way. The three sites already passed.
+    `SetupCopy` builders the same way. The three sites already passed. The same
+    review found a LITERAL label showing its own tags: the uninstall dialog's intro
+    held `<b>Never touched:</b>` below a first line with no tag, so AutoText showed
+    it as plain text. Fixed (RichText, `<br>` for its line breaks), and the sweep now
+    also holds a literal label whose markup Qt would not see to stating its format.
 
 - [ ] **Labels given their text by `setText` after they are built are outside both
   format sweeps.** `tests/test_labels_state_their_text_format.py` holds every

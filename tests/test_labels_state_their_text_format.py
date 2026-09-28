@@ -37,9 +37,18 @@ reader can see the decision:
 AutoText is refused even when written out explicitly, because stating the guess
 is not a decision.
 
+**Literal labels, since 2026-09-28.** A label built from a string literal cannot
+change under it, so it is outside the value rule. But Qt's guess can still be
+wrong about a literal, and for a literal it is FIXED, so it is decided here: a
+literal holding markup Qt knows below a first line that holds none is shown as
+typed characters, and such a label must state its format too. The uninstall
+dialog showed `<b>Never touched:</b>` that way. No allowlist: the answer is Qt's
+own (`Qt.mightBeRichText`), asked of each literal.
+
 **What this does NOT cover, said out loud.** The population is a `QLabel(...)`
-call whose text argument is not a string literal. A label built EMPTY or from a
-literal and given a value later through `setText(...)` is outside it; the
+call whose text argument is not a string literal, plus the literals above. A
+label built EMPTY or from a literal and given a value later through `setText(...)`
+is outside it; the
 2026-09-28 closing note on the TASKS row counts those (13 at the time, most of
 them in the rip progress pane). `tests/test_message_boxes_are_plaintext.py`
 sweeps `QMessageBox`; this file sweeps `QLabel`; neither sweeps the other.
@@ -76,6 +85,12 @@ _MIN_RICHTEXT_SITES: Final[int] = 2
 #: wizard's escaped drive name and its `:+d` offset, and the manual-install
 #: intro's escaped display name on each of its two branches.
 _MIN_JUDGED_VALUES: Final[int] = 3
+
+#: Floor on the LITERAL labels the literal clause reads. 33 on 2026-09-28. The
+#: clause's population on correct code is empty by design (it holds only labels
+#: Qt would misread), so it is this floor, not a site count, that shows the
+#: clause read the labels it judged.
+_MIN_LITERAL_LABELS: Final[int] = 25
 
 #: The formats a site may state. `AutoText` is Qt's guess, so writing it out is
 #: not a decision. A label that genuinely needs `MarkdownText` would need its own
@@ -120,7 +135,11 @@ _MARKUP_FROM_CALLERS: Final[dict[str, MarkupFromCallers]] = {
 
 @dataclass(frozen=True)
 class LabelSite:
-    """One `QLabel(<non-literal>)` construction and what the sweep found there."""
+    """One `QLabel(...)` in the population, and what the sweep found there.
+
+    The population is every label built from a value, and every label built from
+    a literal whose markup Qt would show as typed characters (`hidden_markup`).
+    """
 
     #: `module:line`, for the failure message.
     where: str
@@ -137,6 +156,10 @@ class LabelSite:
     markup_problems: tuple[str, ...] = ()
     #: For a RichText site: each value in its markup the judge accepted, and why.
     markup_accepted: tuple[str, ...] = ()
+    #: For a label built from a LITERAL: the markup in it that Qt's AutoText would
+    #: show as typed characters (see `hidden_markup`). None for a label built from
+    #: a value, which is in the population whatever its text holds.
+    hidden_markup: str | None = None
 
 
 def _is_qlabel_call(node: ast.AST) -> bool:
@@ -170,6 +193,48 @@ def _text_is_not_literal(call: ast.Call) -> bool:
     if first is None:
         return False
     return not (isinstance(first, ast.Constant) and isinstance(first.value, str))
+
+
+#: An HTML entity (`&amp;`, `&#60;`, `&#x3c;`): markup that rich text decodes and
+#: plain text shows as typed.
+_ENTITY: Final[re.Pattern[str]] = re.compile(
+    r"&(?:#[0-9]+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);"
+)
+
+
+def hidden_markup(text: str) -> str | None:
+    """Markup in a literal that Qt's AutoText would show as typed characters.
+
+    Qt decides AutoText once, from the text's FIRST line (`Qt::mightBeRichText`),
+    so for a literal the answer is fixed and can be read here, with no allowlist
+    and no judgement. When the first line holds a tag Qt knows, the whole text is
+    rendered as markup: None. Otherwise it is shown as written, and any tag Qt
+    knows further down (asked of Qt itself, one `<` at a time) or any entity is
+    returned, because that markup was written to render and the user sees its
+    characters instead: the uninstall dialog showed `<b>Never touched:</b>`
+    this way until 2026-09-28. A tag Qt does not know (`<stdin>`) is text either
+    way, and is not markup.
+    """
+    if GuiQt.mightBeRichText(text):
+        return None
+    for index, char in enumerate(text):
+        if char == "<" and GuiQt.mightBeRichText(text[index:]):
+            return text[index : text.find(">", index) + 1]
+    entity = _ENTITY.search(text)
+    return entity.group(0) if entity else None
+
+
+def _literal_label_texts(source: str) -> list[str]:
+    """The text of every `QLabel("<literal>")` in `source`, for the literal floor."""
+    texts: list[str] = []
+    for node in ast.walk(ast.parse(source)):
+        if not _is_qlabel_call(node):
+            continue
+        assert isinstance(node, ast.Call)
+        text = _label_text(node)
+        if isinstance(text, ast.Constant) and isinstance(text.value, str):
+            texts.append(text.value)
+    return texts
 
 
 #: Nodes that open a new scope. A `setTextFormat` inside a nested function runs
@@ -605,7 +670,10 @@ def _judge_call(
 
 
 def label_sites(source: str, module: str) -> list[LabelSite]:
-    """Every `QLabel(<non-literal>)` in `source`, each judged against the rule.
+    """Every `QLabel` in the population in `source`, each judged against the rule.
+
+    The population: every `QLabel(<non-literal>)`, and every `QLabel("<literal>")`
+    whose literal holds markup Qt would show as typed characters (`hidden_markup`).
 
     Pure, and working on source text rather than on the tree under `src/`, so the
     test at the bottom can feed it snippets built to fail. Every matching call
@@ -627,8 +695,28 @@ def label_sites(source: str, module: str) -> list[LabelSite]:
         key=_position,
     )
     for call in calls:
-        if not _is_qlabel_call(call) or not _text_is_not_literal(call):
+        if not _is_qlabel_call(call):
             continue
+        hidden: str | None = None
+        if not _text_is_not_literal(call):
+            # `QLabel()`, or a label whose text is a literal of ours. A literal is
+            # in the population only when Qt's guess about it goes wrong, which
+            # for a literal is decided here, once (see `hidden_markup`).
+            literal = _label_text(call)
+            if not (
+                isinstance(literal, ast.Constant) and isinstance(literal.value, str)
+            ):
+                continue
+            hidden = hidden_markup(literal.value)
+            if hidden is None:
+                continue
+        # Why a literal site is here, in front of whatever it gets wrong.
+        lead = (
+            f"its literal text holds `{hidden}` below a first line with no tag, so "
+            "Qt's default AutoText shows that markup as typed characters; "
+            if hidden
+            else ""
+        )
         scope: ast.AST = parents[call]
         while not isinstance(scope, _SCOPES):
             scope = parents[scope]
@@ -654,8 +742,9 @@ def label_sites(source: str, module: str) -> list[LabelSite]:
                     where,
                     function,
                     None,
-                    "built inline, so nothing can be called on it: assign it to a "
-                    "name first, then call setTextFormat on that name",
+                    lead + "built inline, so nothing can be called on it: assign it "
+                    "to a name first, then call setTextFormat on that name",
+                    hidden_markup=hidden,
                 )
             )
             continue
@@ -691,8 +780,15 @@ def label_sites(source: str, module: str) -> list[LabelSite]:
                     where,
                     function,
                     None,
-                    f"`{name}` is never given setTextFormat(...) after it is built, "
-                    "in the same function",
+                    lead + f"`{name}` is never given setTextFormat(...) after it is "
+                    "built, in the same function"
+                    + (
+                        ". State PlainText and drop the markup, or RichText with "
+                        "<br> for each line break (markup reads `\\n` as a space)"
+                        if hidden
+                        else ""
+                    ),
+                    hidden_markup=hidden,
                 )
             )
             continue
@@ -715,6 +811,7 @@ def label_sites(source: str, module: str) -> list[LabelSite]:
                 problem,
                 tuple(markup.problems),
                 tuple(markup.accepted),
+                hidden_markup=hidden,
             )
         )
     return sites
@@ -737,6 +834,11 @@ def _all_sites() -> list[LabelSite]:
     ]
 
 
+def _value_sites() -> list[LabelSite]:
+    """The labels built from a value: the population the first rule is about."""
+    return [site for site in _all_sites() if site.hidden_markup is None]
+
+
 def _functions(parsed: _Source, module: str) -> dict[str, ast.AST]:
     """Every function/method/module scope in a parsed module, by `module::qualname`."""
     return {
@@ -751,7 +853,7 @@ def _functions(parsed: _Source, module: str) -> dict[str, ast.AST]:
 
 def test_the_sweep_finds_the_labels() -> None:
     """Floor first: a sweep over nothing reports no offenders for ever."""
-    sites = _all_sites()
+    sites = _value_sites()
     assert len(sites) >= _MIN_LABEL_SITES, (
         f"only {len(sites)} QLabel(<non-literal>) site(s) found under {SRC} "
         f"(floor {_MIN_LABEL_SITES}) — the scan is broken, so the verdict below "
@@ -769,7 +871,7 @@ def test_the_sweep_finds_the_labels() -> None:
 def test_every_label_built_from_a_value_states_its_format() -> None:
     """The rule itself."""
     offenders = [
-        f"{site.where}: {site.problem}" for site in _all_sites() if site.problem
+        f"{site.where}: {site.problem}" for site in _value_sites() if site.problem
     ]
     assert not offenders, (
         "these QLabels are built from a value without stating their text format. "
@@ -794,7 +896,7 @@ def test_every_richtext_label_escapes_what_it_puts_in_its_markup() -> None:
     its callers write is listed in `_MARKUP_FROM_CALLERS` and checked at those
     callers by the next test instead.
     """
-    rich = [site for site in _all_sites() if site.stated == "RichText"]
+    rich = [site for site in _value_sites() if site.stated == "RichText"]
     assert len(rich) >= _MIN_RICHTEXT_SITES, (
         f"only {len(rich)} RichText label(s) found (floor {_MIN_RICHTEXT_SITES}), "
         "so the escaping check below has nothing to hold to account"
@@ -843,7 +945,7 @@ def test_markup_from_callers_is_escaped_by_every_caller() -> None:
     to the end is not written by its callers, and an entry left on it would excuse
     whatever replaces it.
     """
-    sites = {site.function: site for site in _all_sites()}
+    sites = {site.function: site for site in _value_sites()}
     modules = _modules()
     for function, entry in _MARKUP_FROM_CALLERS.items():
         assert function in sites, (
@@ -918,6 +1020,47 @@ def test_markup_from_callers_is_escaped_by_every_caller() -> None:
             f"{function} — with a value in it that is not escaped:\n  "
             + "\n  ".join(unescaped)
         )
+
+
+# --- Literal labels whose markup Qt would show as typed characters -----------
+
+
+def test_a_literal_label_qt_would_misread_states_its_format() -> None:
+    """The literal half of the rule, and it needs no allowlist.
+
+    A literal label is outside the value rule, because its text cannot change
+    under it. But Qt's guess about a literal can still be wrong, and for a literal
+    it is FIXED, so it is decided here: markup of ours below a first line that
+    holds none is shown as typed characters. Such a label must state its format,
+    the same as a label built from a value. Found 2026-09-28 in the uninstall
+    dialog, whose intro showed `<b>Never touched:</b>`, tags and all.
+    """
+    texts = [
+        text for source in _modules().values() for text in _literal_label_texts(source)
+    ]
+    assert len(texts) >= _MIN_LITERAL_LABELS, (
+        f"only {len(texts)} literal QLabel text(s) read under {SRC} (floor "
+        f"{_MIN_LITERAL_LABELS}), so the verdict below is about labels never read"
+    )
+    # The subject: the detector must see real markup in real code. The drive
+    # wizard's accuraterip.com link is a literal whose first line Qt DOES read as
+    # markup, so it is read, and correctly left alone.
+    marked_up = [text for text in texts if "<a href=" in text]
+    assert marked_up and all(hidden_markup(text) is None for text in marked_up), (
+        f"the literal label holding a link was not found or was misjudged: {marked_up}"
+    )
+    offenders = [
+        f"{site.where}: {site.problem}"
+        for site in _all_sites()
+        if site.hidden_markup is not None and site.problem
+    ]
+    assert not offenders, (
+        "these QLabels are built from a literal whose markup Qt shows as typed "
+        "characters: Qt's default AutoText decides from the FIRST line, and theirs "
+        "holds no tag, so the user sees the tags. State the format right after "
+        "building it: PlainText without the tags, or RichText with <br> for each "
+        "line break:\n  " + "\n  ".join(offenders)
+    )
 
 
 # --- The matcher can say no -----------------------------------------------------
@@ -1000,6 +1143,47 @@ def test_the_matcher_finds_a_missing_format_and_accepts_a_stated_one() -> None:
     )
     # `QLabel(parent)` is in it: the text arrives later from who knows where.
     assert len(_problems("def f(p):\n    logo = QLabel(p)\n")) == 1
+
+
+def test_the_literal_clause_finds_hidden_markup_and_nothing_else() -> None:
+    """Non-triviality for the literal clause, and its converse.
+
+    `hidden_markup` asks Qt itself, so each answer below is Qt's; the snippets
+    then check that the sweep acts on that answer at the label.
+    """
+    # Qt's own answers, including the ones the clause must NOT act on.
+    assert hidden_markup("This removes:\n\n<b>Never touched:</b> x") == "<b>"
+    assert hidden_markup("First line\nTom &amp; Jerry") == "&amp;"
+    assert hidden_markup("<b>Bold first line</b>\nmore") is None  # rendered
+    assert hidden_markup("Plain <a href='x'>link</a> on line one") is None
+    assert hidden_markup("Output:\n<stdin>: no such tag") is None  # not markup
+    assert hidden_markup("Fixed words") is None
+
+    uninstall_shape = (
+        "def f(self):\n"
+        "    intro = QLabel('Removes:\\n\\n<b>Never touched:</b> music', self)\n"
+    )
+    stated_plain = uninstall_shape + (
+        "    intro.setTextFormat(Qt.TextFormat.PlainText)\n"
+    )
+    stated_rich = uninstall_shape + "    intro.setTextFormat(Qt.TextFormat.RichText)\n"
+    inline = (
+        "def f(form):\n    form.addRow(QLabel('Removes:\\n<b>Never touched:</b>'))\n"
+    )
+    first_line_markup = "def f():\n    label = QLabel('<b>Bold</b>\\nnext')\n"
+    unknown_tag = "def f():\n    label = QLabel('Output:\\n<stdin>')\n"
+
+    sites = label_sites(uninstall_shape, "s.py")
+    assert [(s.hidden_markup, s.stated) for s in sites] == [("<b>", None)]
+    assert sites[0].problem and "`<b>`" in sites[0].problem, sites[0].problem
+    for name, snippet in (
+        ("stated PlainText", stated_plain),
+        ("stated RichText", stated_rich),
+    ):
+        assert _problems(snippet) == [None], f"{name}: {_problems(snippet)}"
+    assert len(_problems(inline)) == 1 and _problems(inline)[0], "inline accepted"
+    assert _problems(first_line_markup) == [], "Qt renders it; not in population"
+    assert _problems(unknown_tag) == [], "no markup Qt knows; not in population"
 
 
 def _rich_label(text: str, *setup: str, params: str = "self") -> str:
@@ -1318,6 +1502,35 @@ def test_a_dependency_name_that_looks_like_markup_is_shown_as_written(
     assert "click Set it up automatically…" in _shown(intro[0])
     assert _labels_showing(dialog, "<i>a</i> description"), (
         "the description was altered"
+    )
+
+
+def test_the_uninstall_intro_shows_its_bold_words_not_their_tags(
+    qapp: QApplication,
+) -> None:
+    """Tools → Uninstall showed `<b>Never touched:</b>`, tags and all.
+
+    The intro is a literal of ours, but its first line held no tag, so Qt's
+    AutoText showed the whole label as plain text. Measured before the fix
+    (PySide6 6.11.2, offscreen): AutoText drew it pixel for pixel as PlainText.
+    The list must still read as a list after the fix, because markup reads a
+    line break as a space.
+    """
+    from platterpus.ui.uninstall_dialog import UninstallDialog
+
+    dialog = UninstallDialog(build_teardown=lambda *a: None)
+    intro = _labels_showing(dialog, "Never touched:")
+    assert len(intro) == 1
+    # The user's symptom first, then the cause.
+    shown = _shown(intro[0])
+    assert "<b>" not in shown and "</b>" not in shown, shown
+    assert shown.startswith(
+        "This removes what Platterpus installed on this computer:\n\n"
+        "• menu and desktop shortcuts\n"
+    ), shown
+    assert "\n• the items ticked below\n\nNever touched: your music" in shown, shown
+    assert intro[0].textFormat() != Qt.TextFormat.AutoText, (
+        "the intro still leaves its format to Qt's guess"
     )
 
 
