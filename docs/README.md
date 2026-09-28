@@ -24,6 +24,7 @@ To keep the docs efficient and stop the same rule from sprawling across files (a
 | What ships in the next release, and what is gated on hardware | `TASKS.md` → its **newest dated section** (sections are newest-first; *Next release — gated on the rig package* further down is the round-8 plan, kept as history) |
 | How a failure becomes something a person can act on (error reporting) | `docs/architecture.md` §3.7 + §3.7a; the recipe is §4 *Add a failure path* |
 | AppImage build/test procedure, and the release-signing ritual | `docs/architecture.md` §6.1 / §6.2 |
+| Withdrawing a bad release: GitHub, PyPI, `install.sh`, the ripper pin | `docs/architecture.md` §6.4 |
 | The rules governing the cyanrip seam, shared byte-identical with the fork | `docs/seam-rules.md` |
 | Who owns which shared file, and what to do when the two records disagree | `docs/OWNERSHIP.md` |
 | Every flag, type, argument and meaning crossing the seam — the one table | `docs/seam-commands.md` |
@@ -118,4 +119,4 @@ If you needed to start over with a fresh git repository:
 
 ---
 
-*Last updated for Platterpus v0.6.61.*
+*Last updated for Platterpus v0.6.63.*

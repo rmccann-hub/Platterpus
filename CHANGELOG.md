@@ -67,6 +67,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   recipe said the bundled `cryptography` version was fixed by `requirements.lock`.
   That lock is not committed, so every AppImage build installs online within the `~=`
   ranges, and `build/python-appimage/requirements.txt` now says so.
+- **A written way to withdraw a bad release.** `docs/architecture.md` gains §6.4,
+  *When a release is bad*: take the GitHub release down, yank the version on PyPI,
+  revert `install.sh` on `main` if it is the bad part, withdraw a bad ripper pin
+  through the fork, publish a higher version, and confirm the offer is gone. Every
+  step works from a browser, and the section says why the order matters: withdrawing
+  stops new offers, but only a higher version reaches someone who already updated.
 - **`docs/testing.md` no longer calls `tests-touched` advisory.** Its tier table still
   described the job as a "nudge" five weeks after it became a gating job (2026-08-20).
   It now says what the job refuses and how a change states a reason instead.
