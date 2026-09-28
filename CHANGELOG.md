@@ -12,6 +12,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The testing guide says when a lap's round digest has to be computed.** Announcing a
+  lap rewrites its `READY-TO-READ` line, so a later lap whose digest covers it must be
+  computed after that announce. Round 28 lap 7's first digest was computed over lap 6
+  while it was still held; `round_digest.py --check` caught it before either lap was
+  committed. (`docs/testing.md` §7.)
+- **The regex-timing self-tests no longer fail on a single noisy sample.** The two
+  tests of the sweep's confirmation step each took one measurement, while the sweep
+  itself needs two slow readings to call a pattern super-linear; one of them read
+  8.9x on CI for a pattern that measures 3.9x. Both now retry up to three times and
+  judge the confirmation's verdict, not just its ratio, so a wrong answer on every
+  attempt still fails. The threshold is unchanged.
+
 ## [0.6.62] — 2026-09-28
 
 ### Changed
