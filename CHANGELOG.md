@@ -38,6 +38,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   own `Rip completed: … 2 of 14 tracks` line, or from the disc probe for a build that
   does not print it. A whole-disc rip is looked up exactly as before. The same applies
   to `--ctdb-calibrate`, which also skips its calibration sweep on a partial folder.
+- **A test script's `cyanrip` command now runs in the rips folder, and what it writes
+  reaches the bundle.** The ripper names its output folders relative to the folder it
+  runs in, and the script verb gave it none. On the 2026-09-28 Full run, section P3's
+  two `-D` rips, each a commercial track with its log and cue, were written wherever
+  the app had been started from: outside the session folder, and missing from the
+  bundle. The verb now runs the ripper in the output directory, where the app's own
+  rips run. During an acceptance session that is the session's rips folder; from the
+  script console it is the output directory in Settings. It refuses to run when there
+  are no settings or the directory is not an absolute path. The transcript records
+  the folder beside the command. The session's album scan also finds a folder by a
+  log cyanrip wrote there, not only by our rip report, so these folders' logs and cue
+  sheets go in the bundle. Their audio is refused and listed in the manifest. A
+  folder the ripper cannot be started in is reported as that folder, where it used to
+  read "binary not found".
 
 ### Changed
 

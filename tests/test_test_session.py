@@ -662,6 +662,79 @@ def test_a_folder_with_no_rip_report_is_not_an_album_folder(tmp_path: Path) -> N
     assert session_album_dirs([tmp_path / "out"], since=0.0) == []
 
 
+# --- The second marker: a log CYANRIP wrote (a script's `cyanrip` verb folder) --
+#
+# The 2026-09-28 Full run's P3 folders (`cyanrip ... -D r16deemphon`) hold
+# cyanrip's own log and cue and no `*.platterpus.json`, because no app rip ran.
+
+#: cyanrip's banner as its logfile's first line reads, from the 2026-09-28 run
+#: (`docs/handshake/artifactsround28/round28fullwholedisc.log`, line 1).
+_CYANRIP_BANNER = "cyanrip 0.9.4-rc2+platterpus.17 (platterpus-fork-ge0471f4)"
+
+
+def _verb_folder(root: Path, name: str, *, mtime: float, text: str) -> Path:
+    folder = root / name
+    folder.mkdir(parents=True, exist_ok=True)
+    ripper_log = folder / "Unknown disc.log"
+    ripper_log.write_text(text, encoding="utf-8")
+    os.utime(ripper_log, (mtime, mtime))
+    return folder
+
+
+def test_a_folder_cyanrip_wrote_with_no_app_rip_is_an_album_folder(
+    tmp_path: Path,
+) -> None:
+    folder = _verb_folder(
+        tmp_path / "rips",
+        "r16deemphon",
+        mtime=3_000.0,
+        text=f"{_CYANRIP_BANNER}\nInvoked as:     cyanrip -N -D r16deemphon\n",
+    )
+    assert session_album_dirs([tmp_path / "rips"], since=2_000.0) == [folder]
+
+
+def test_a_log_cyanrip_did_not_write_does_not_make_an_album_folder(
+    tmp_path: Path,
+) -> None:
+    """The suffix alone is not evidence: a `.log` is judged by what is in it."""
+    _verb_folder(tmp_path / "rips", "notes", mtime=3_000.0, text="RIPPER LOG\n")
+    assert session_album_dirs([tmp_path / "rips"], since=2_000.0) == []
+
+
+def test_a_cyanrip_log_from_before_the_session_is_not_this_sessions(
+    tmp_path: Path,
+) -> None:
+    _verb_folder(tmp_path / "rips", "old", mtime=1_000.0, text=_CYANRIP_BANNER)
+    assert session_album_dirs([tmp_path / "rips"], since=2_000.0) == []
+
+
+def test_a_cyanrip_log_in_the_rips_folder_itself_is_named_not_collected(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`-D .` would make the ROOT an album folder and archive every album twice."""
+    root = tmp_path / "rips"
+    root.mkdir()
+    stray = root / "Unknown disc.log"
+    stray.write_text(_CYANRIP_BANNER, encoding="utf-8")
+    os.utime(stray, (3_000.0, 3_000.0))
+    album = _rip(root, "An Album", mtime=3_000.0)
+    with caplog.at_level("WARNING", logger="platterpus.test_session"):
+        found = session_album_dirs([root], since=2_000.0)
+    assert found == [album], found
+    assert "NOT collected" in caplog.text and "Unknown disc.log" in caplog.text
+
+
+def test_an_app_rip_folder_is_counted_once_under_both_markers(tmp_path: Path) -> None:
+    """An app rip holds a report AND cyanrip's log: one folder, one entry."""
+    album = _rip(tmp_path / "rips", "Album", mtime=3_000.0)
+    ripper_log = album / "Album.log"
+    ripper_log.write_text(_CYANRIP_BANNER, encoding="utf-8")
+    os.utime(ripper_log, (3_000.0, 3_000.0))
+    scan = session_album_dirs([tmp_path / "rips"], since=2_000.0)
+    assert scan == [album]
+    assert scan.examined == 1 and scan.dropped == 0
+
+
 def test_album_dirs_reach_the_bundle_under_the_strict_allowlist(
     tmp_path: Path,
 ) -> None:

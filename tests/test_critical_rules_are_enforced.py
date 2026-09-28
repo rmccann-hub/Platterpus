@@ -1143,7 +1143,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # keyword on the ABC, where it belongs: any ripper that writes its
     # signature last has the window, so this is a property of the SEAM and
     # not of cyanrip.
-    "adapters/rip_backend.py": 594,
+    # **594 -> 641 on 2026-09-28** (the script `cyanrip` verb's `-D` landed outside
+    # the session): `run_capture` takes the `cwd` a WRITING child needs, and
+    # `_raise_if_cwd_failed` reports a folder it could not enter as the folder —
+    # `Popen` raises the same type for it as for a missing binary. It is the shared
+    # spawn seam every probe uses, so the parameter belongs here, not in a caller.
+    "adapters/rip_backend.py": 641,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -1789,7 +1794,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # shipped-scripts directory name now comes from `uiscript.find_script`, whose
     # resolver falls back to it — one import and one comment line saying so, so the
     # menu and the command line cannot name two directories.
-    "test_session.py": 863,
+    # **863 -> 932 (2026-09-28, the Full run's P3 folders)**: the album scan's second
+    # marker, a log cyanrip itself wrote (`RIPPER_LOG_GLOB`, `_is_ripper_log`), so a
+    # script `cyanrip` verb's folder — no app rip, so no `*.platterpus.json` — reaches
+    # the bundle's strict album channel. It is the same scan's other half, not a job.
+    "test_session.py": 932,
     "ui/dialogs/pending_installs.py": 419,
     # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
     # channels (they live above the checks they steer), a Drive section holding
@@ -2210,7 +2219,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4398 -> 4407 on 2026-09-26: _active_dialog counts only a VISIBLE dialog; a hidden one Qt still called active blocked `rip`.
     # 4407 -> 4420 on 2026-09-27: _forget_last_cyanrip_result, called first by every cyanrip step (TASKS D7).
     # 4420 -> 4512 on 2026-09-28: `open dependencies` probed on the GUI thread; it now starts the check on a worker and waits on this file's deadline machinery (_open_dependency_check), and `stop` records a step that was mid-wait.
-    "uiscript/runner.py": 4512,  # +116: _do_expect_verification, the assertion section F never had,
+    # 4512 -> 4598 on 2026-09-28: the `cyanrip` verb runs the ripper in the rips folder (`_ripper_workdir`, beside `_drive_in_offset_list`) and records it (`_job_invocation`); the 2026-09-28 Full run's relative `-D r16deemphon` wrote a commercial track outside the session folder and its logs never reached the bundle.
+    "uiscript/runner.py": 4598,  # +116: _do_expect_verification, the assertion section F never had,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2228,7 +2238,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `expect-rip-complete` could not state this claim (cyanrip is always invoked
     # `-o flac`, so its log is identical whether our transcode ran or not).
     # **759 -> 801** (2026-09-24): four verbs, `run-size`, `keep`, `set-drive-offset` and `expect-drive-offset`. The table is the vocabulary's security boundary, so a verb is an entry here by design.
-    "uiscript/verbs.py": 801,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
+    # 801 -> 803 on 2026-09-28: the `cyanrip` verb's help names the folder it runs in.
+    "uiscript/verbs.py": 803,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical

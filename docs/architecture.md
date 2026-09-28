@@ -993,7 +993,7 @@ a handler must not exist for a verb flagged otherwise. That sweep exists because
 at **run** time, which for an unattended batch means dying mid-run against a
 reference that promised the command would work.
 
-**Two hard constraints on any new verb:**
+**Three hard constraints on any new verb:**
 
 1. **Nothing blocks the tick.** The runner lives on the GUI thread and its whole
    design (§3.2) is that a modal dialog's nested event loop still delivers timer
@@ -1005,6 +1005,13 @@ reference that promised the command would work.
    `assert_metadata_lookup_disabled` raises, byte-for-byte, and a test asserts the
    text is identical. A second copy of a safety check is a second thing to drift
    (Critical rule #12, the outbound half).
+3. **A route to the ripper that can write gives it a working folder: the rips
+   folder.** cyanrip resolves `-D`, `-F` and `-j` against the folder it runs in.
+   The `cyanrip` verb ran with none until 2026-09-28, and that night's Full run
+   wrote section P3's `-D r16deemphon` (a commercial track, its log and its cue)
+   into whichever folder the app had been launched from. The verb now reads
+   `output_dir` when the step runs (`runner._ripper_workdir`), the same field the
+   app's own rip passes as `cwd`, and refuses when it has none.
 
 **Everything a run makes lives in ONE folder, and nothing is written outside it.**
 Maintainer, 2026-09-11: *"stop polluting my home directory"*. That gave the rig
@@ -1020,7 +1027,10 @@ library. Two of those files were each logged as "SEND THIS ONE FILE".
 - `evidence/` — the transcript, the runner's `run/` folder (report and
   screenshots) and the staged logs;
 - `rips/` — the run's `output_dir`, with `library_dir` emptied for the run and
-  both restored afterwards;
+  both restored afterwards. It is also the `cyanrip` verb's working folder, so a
+  script's relative `-D` lands here, and the album scan finds such a folder by
+  the log cyanrip wrote in it (`test_session.RIPPER_LOG_GLOB`), since no app rip
+  wrote a report there;
 - the one bundle, built from there.
 
 The runner is contained with `ScriptRunner.contain_in`, which makes it write
