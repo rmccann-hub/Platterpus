@@ -23,6 +23,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   is no `.git` (an unpacked sdist). In a checkout whose git fails, it stops with git's
   message instead of falling back.
 
+### Removed
+
+- **The dead `[tool.mutmut]` block in `pyproject.toml`.** mutmut was retired on
+  2026-09-05 in favour of `scripts/mutation_sweep.py`, and nothing has read the block
+  since. It went on describing a three-path scope and a pinned tool that no longer
+  exist. The weekly sweep's scope is the matrix in `.github/workflows/mutation.yml`.
+
 ## [0.6.63] — 2026-09-28
 
 ### Fixed
