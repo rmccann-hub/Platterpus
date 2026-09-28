@@ -9442,6 +9442,65 @@ def test_the_album_menu_cover_entry_is_enabled_exactly_when_the_tools_entry_is(
     assert all(tools == album for _state, tools, album in states), states
 
 
+#: The release the transitional Tools entry for Set cover art from file… goes in.
+#: It stays in Tools for 0.6.62 only (maintainer, 2026-09-27), so nobody who
+#: learned it there loses it the day it moves to the album's menu.
+_COVER_TOOLS_ENTRY_GOES_IN: tuple[int, int, int] = (0, 6, 63)
+
+
+def _release_of(version: str) -> tuple[int, int, int]:
+    """``"0.6.63"`` (or ``"0.6.63b1"``) as ``(0, 6, 63)``: leading digits only."""
+    from itertools import takewhile
+
+    digits = ["".join(takewhile(str.isdigit, part)) for part in version.split(".")]
+    numbers = [int(d) if d else 0 for d in digits[:3]] + [0, 0, 0]
+    return numbers[0], numbers[1], numbers[2]
+
+
+def _transitional_cover_entry_overdue(version: str, tools_labels: list[str]) -> bool:
+    """True once ``version`` is the removal release and Tools still offers it."""
+    still_there = any("cover art from" in label for label in tools_labels)
+    return still_there and _release_of(version) >= _COVER_TOOLS_ENTRY_GOES_IN
+
+
+def test_the_transitional_tools_cover_entry_is_gone_by_its_release(
+    teardown_threads,
+) -> None:
+    """The removal is a CHECK, not only a comment beside the entry.
+
+    A comment saying "goes in 0.6.63" is read by whoever happens to open that
+    method; this fails the 0.6.63 version bump until the Tools entry is gone, and
+    its message says how (the comment in `_build_menus` lists the three edits).
+    """
+    from PySide6.QtWidgets import QMenu
+
+    from platterpus import __version__
+
+    window = teardown_threads()
+    tools = next(
+        m for m in window.menuBar().findChildren(QMenu) if m.title() == "&Tools"
+    )
+    labels = [a.text() for a in tools.actions()]
+    assert not _transitional_cover_entry_overdue(__version__, labels), (
+        f"Platterpus {__version__} still has Set cover art from file… in Tools. "
+        "It was kept there for 0.6.62 only; it lives on the disc panel's "
+        "right-click menu. Remove it as the comment beside it in "
+        "MainWindow._build_menus says."
+    )
+
+
+def test_the_transitional_cover_entry_check_can_fail() -> None:
+    """Non-triviality: the check above passes today by the calendar, so its
+    predicate is pinned against the cases it has to tell apart."""
+    tools = ["&Settings…", "Set cover art from &file…", "U&ninstall Platterpus…"]
+    assert _transitional_cover_entry_overdue("0.6.63", tools)
+    assert _transitional_cover_entry_overdue("0.6.63b1", tools)
+    assert _transitional_cover_entry_overdue("0.7.100", tools)
+    assert not _transitional_cover_entry_overdue("0.6.62", tools)
+    assert not _transitional_cover_entry_overdue("0.6.63", tools[:1] + tools[2:])
+    assert _release_of("0.6.61") < _COVER_TOOLS_ENTRY_GOES_IN
+
+
 # --- The finish handler's outermost guards ------------------------------------
 
 

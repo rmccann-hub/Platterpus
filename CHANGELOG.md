@@ -254,6 +254,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   one level deep. It now covers every submenu and the disc panel's right-click menu. A
   new test reads the shortcuts Qt actually bound on those actions, which catches a bare
   key set through `QKeySequence(Qt.Key…)` that the source scan could not see.
+- **For contributors: the 0.6.63 version bump fails while Tools still has "Set cover art
+  from file…".** The Tools entry stays for one release so nobody loses it, and a test
+  now makes its removal part of cutting 0.6.63 rather than a comment to remember.
 
 ### Removed
 

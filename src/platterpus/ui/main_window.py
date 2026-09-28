@@ -1053,6 +1053,7 @@ class MainWindow(
         # through `tools_menu.addAction`, delete the Guide's "still in Tools"
         # sentence (`tests/test_help_documents_the_menu.py` names it a dead path),
         # and drop the Tools half of `tests/test_ui_main_window.py::_cover_actions`.
+        # The 0.6.63 bump FAILS until it is gone (`tests/test_ui_main_window.py`).
         cover_from_file_action = tools_menu.addAction("Set cover art from &file…")
         cover_from_file_action.triggered.connect(self._on_set_cover_art_from_file)
         self._disc_info_panel.set_album_actions([cover_from_file_action])
