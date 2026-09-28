@@ -58,7 +58,7 @@ from platterpus import option_labels
 # entries under a comment saying "we reproduce the two the user will actually
 # hit". On 2026-08-23 an album titled `full acceptance: angle<bracket …` landed as
 # `full acceptance∶ angle‹bracket …` — the `<` mapped too, to U+2039, which was in
-# no table of ours. `main_window_helpers.known_album_folder` renders this table to
+# no table of ours. `main_window_helpers.known_album_folders` renders this table to
 # predict where a rip will land; the prediction missed by one character, the
 # "Album already ripped" prompt never fired, and a completed 14-track archival rip
 # was overwritten by a 2-track one in silence.
@@ -71,7 +71,7 @@ from platterpus import option_labels
 #     what produced the two-entry version.
 #  2. **Nothing safety-bearing may depend on this table at all.** The overwrite
 #     guard resolves its prediction against what is actually on disk
-#     (`main_window_helpers.resolve_sanitised_path`), matching a name that differs
+#     (`main_window_helpers.resolve_sanitised_paths`), matching a name that differs
 #     only where a substitution could have happened — so it works whatever glyph
 #     cyanrip chose, including ones no table of ours holds. Same shape as
 #     `uiscript/find_script.py`: legislate the name AND stop depending on it.
@@ -98,7 +98,7 @@ from platterpus import option_labels
 #: and that the flag resets at every `{tag}` boundary in the naming scheme. A
 #: lookup table cannot express that, so a table-driven prediction of a filename
 #: containing a quote is *provably* incapable of being right in general. Which is
-#: the case for `main_window_helpers.resolve_sanitised_path`, not against it: the
+#: the case for `main_window_helpers.resolve_sanitised_paths`, not against it: the
 #: guard reads what is on disk precisely because no table can be complete here.
 _VALUE_SANITISE: dict[str, str] = {
     "<": "‹",  # U+2039 SINGLE LEFT-POINTING ANGLE QUOTATION MARK

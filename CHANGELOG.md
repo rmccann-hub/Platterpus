@@ -174,6 +174,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   name from the rips folder, under `ripperdiagnostics/`. If the file is not there when
   the bundle is built, the bundle's manifest says so. The record stays out of the
   album folder, which still holds only the rip's `.log`, `.cue` and `.platterpus.json`.
+- **The "Album already ripped" prompt now appears when more than one existing folder
+  could be the album's.** A title with a straight quote can land as `a“b` or `a”b`,
+  and cyanrip's choice between them can't be predicted. When both folders existed,
+  Platterpus used to skip the check and rip without asking, even if one of them held a
+  finished rip. It now asks. The prompt lists every matching folder and marks which
+  ones already hold a rip. It offers only "Rip to a new folder" or Cancel: there is no
+  single folder to replace, so Replace isn't offered until the others are removed or
+  renamed. "Rip to a new folder" also skips any numbered folder whose look-alike
+  already holds a rip.
 
 ### Added
 
