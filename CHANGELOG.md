@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.6.62] — 2026-09-28
+
 ### Changed
 
 - **The log reader knows the fork's next build's new line before that build ships.**
@@ -92,6 +94,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   cover image for the disc on screen. The same menu keeps *Copy* and *Select All*, and
   *Copy* now copies the whole value when nothing is selected. For this release the item
   is also still in Tools; that copy goes in 0.6.63. Its Alt-letter is now F.
+- **For contributors: our handshake laps now declare protocol 6.** The fork's round 28
+  lap 5 declared it, and under the protocol's rule C29 a later lap of the same round
+  that declares less refuses the round. Our round 28 lap 6 says that our gate
+  implements 6 and declares it in the same lap, and `handshake.py --emit` now writes
+  6. The note beside the parser's disc-level `AccurateRip:` pattern records the
+  fork's answer to the question it had left open (a disc not in the database still
+  gets per-track `Accurip: not found` rows).
 
 ### Fixed
 
@@ -16498,7 +16507,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.61...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.62...HEAD
+[0.6.62]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.61...v0.6.62
 [0.6.61]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.60...v0.6.61
 [0.6.60]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.59...v0.6.60
 [0.6.59]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.58...v0.6.59
@@ -16562,4 +16572,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.61.*
+*Last updated for Platterpus v0.6.62.*
