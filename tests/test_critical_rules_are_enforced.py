@@ -1785,7 +1785,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # still delegates to the window; nothing here decides anything.
     # **448 -> 427** (2026-09-28): down — `dependency_summary_line` moved to
     # `ui/dependency_check_status.py`, beside the marker vocabulary it uses.
-    "ui/dialogs/setup_center.py": 427,
+    # **427 -> 492** (2026-09-28, the same report): the dependency button greys and reads
+    # "Checking dependencies…" while a check the user asked for runs, from BOTH of its
+    # conditions (a rip ending must not re-arm it mid-check), and `refresh_dependencies` is
+    # finally called, through `show_dependency_check_finished`.
+    "ui/dialogs/setup_center.py": 492,
     # **454 -> 479 on 2026-09-12** (+25): `_transcript_save_default()`. The "Save
     # the transcript" dialog proposed `~/platterpus-transcript.txt`, i.e. a file
     # in the home directory. A save dialog only PROPOSES, which is why this was
@@ -1867,7 +1871,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # incomplete", names what it did not check and why, and is titled so; and the
     # "Everything required is installed" offer is refused to it. Both belong beside the
     # summary they change. The wording itself is `deps.manager.describe_unchecked`.
-    "ui/main_window_deps.py": 758,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
+    # **758 -> 935** (2026-09-28, the same report): the window half of the other three
+    # fixes — say a check is running, answer a second click (and upgrade a silent check to
+    # show its summary) instead of dropping it, tell the user when a result waited for
+    # another dialog or was given up on, and a backstop that speaks if a check overruns its
+    # own deadline. Every SENTENCE is in `ui/dependency_check_status.py` (pure, tested
+    # without a window); what stays is wiring that must be on the window, beside the check
+    # lifecycle it reports on.
+    "ui/main_window_deps.py": 935,  # 692 -> 693 (2026-09-23): two dead menu paths corrected;  # +6: the write-through that puts a finished dependency probe where the Diagnostics dialog can read it,
     # **555 -> 561** (2026-09-24, #37 one home per setting): the wizard's Apply tick-box is wired, and a saved offset refreshes an open Setup & Updates.
     # **561 -> 543** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 543 -> 549 on 2026-09-25: an insert resets the old disc's identity before scanning (a probe glitch skipped the removal).
@@ -1915,7 +1926,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1589 -> 1602** (2026-09-24, #36): the bundle's `COMPONENTS.json` and the run size in its facts.
     # **1602 -> 1607** (2026-09-24, #37 one home per setting): Setup & Updates and the console are handed the window's single-setting writer and Diagnose drive access….
     # **1607 -> 1624** (2026-09-26, the maintainer's quick run): the end-of-run headline asks `RunReport.ok`, so a quick run's size-declined sections do not read as a stopped run.
-    "ui/main_window_provision.py": 1624,
+    # **1624 -> 1626** (2026-09-28): opening Setup & Updates during a dependency check shows it running, not the last result.
+    "ui/main_window_provision.py": 1626,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -1993,7 +2005,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **441 -> 446 (2026-09-24)**: `_script_console` declared beside
     # `_setup_center`, because SettingsMixin now re-renders the console too.
     # 446 -> 452 on 2026-09-28: the disc-read retry state (`_disc_retries`, `_disc_retry_timer`) DriveMixin reads, and `_start_disc_info`'s `automatic_retry` keyword.
-    "ui/main_window_shared.py": 452,
+    # 452 -> 453 on 2026-09-28: `_show_dependency_check_in_setup_center`, which ProvisioningMixin calls when the window opens.
+    "ui/main_window_shared.py": 453,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
