@@ -30,6 +30,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   since. It went on describing a three-path scope and a pinned tool that no longer
   exist. The weekly sweep's scope is the matrix in `.github/workflows/mutation.yml`.
 
+### Documentation
+
+- **The dependency record names every tool a release depends on, and stops claiming
+  a lock that does not exist.** `DEPENDENCIES.md` gains rows for twine, pip-audit,
+  cyclonedx-bom and gitleaks, each saying how CI gets it today: twine and pip-audit
+  unpinned, cyclonedx-bom `>=7,<8`, gitleaks 8.24.3 through its action. The AppImage
+  recipe said the bundled `cryptography` version was fixed by `requirements.lock`.
+  That lock is not committed, so every AppImage build installs online within the `~=`
+  ranges, and `build/python-appimage/requirements.txt` now says so.
+
 ## [0.6.63] — 2026-09-28
 
 ### Fixed

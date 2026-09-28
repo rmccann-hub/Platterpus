@@ -25,7 +25,9 @@
 # separate step pre-downloads the full closure into a hash-verified wheelhouse
 # and the per-line installs then resolve OFFLINE from it (build_appimage.sh's
 # PIP_FIND_LINKS block, activated when requirements.lock exists — regenerate it
-# with build/lock-requirements.sh). The `platterpus` line stays a locally-built,
+# with build/lock-requirements.sh). The lock is NOT committed yet (checked
+# 2026-09-28), so that path is dormant and every build installs each line below
+# online, within its `~=` range. The `platterpus` line stays a locally-built,
 # unhashed wheel (its bytes are pinned by SOURCE_DATE_EPOCH instead). Timestamps
 # are also pinned (SOURCE_DATE_EPOCH). Remaining: validate full-AppImage byte
 # reproducibility on a real release build (only the wheel half is sandbox-checkable).
@@ -40,9 +42,11 @@ musicbrainzngs==0.7.1
 tomli-w~=1.0
 # Ed25519 release-signature verification (update_signing.py). Floor is the
 # CVE-2026-69247 fix (50.0.0); `~=50.0` (>=50.0,<51.0) resolves to the newest
-# patched 50.x. pyproject matches with >=50.0.0,<51 for dev/pipx; the exact
-# bundled version is fixed by requirements.lock (see the reproducibility note
-# above). Bump both together, and keep the floor patched.
+# patched 50.x. pyproject matches with >=50.0.0,<51 for dev/pipx. The exact
+# bundled version would be fixed by requirements.lock, but that lock is not
+# committed yet, so today the build bundles whichever 50.x is newest when it runs
+# (see the reproducibility note above). Bump both together, and keep the floor
+# patched.
 #
 # WHY THE FLOOR IS A FLOOR, not a range down to the last known-good release: the
 # CI `pip-audit` gate resolves the HIGHEST version the range allows and fails on a
