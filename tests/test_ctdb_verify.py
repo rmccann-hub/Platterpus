@@ -6,6 +6,7 @@ from __future__ import annotations
 import random
 import zlib
 from pathlib import Path
+from typing import NoReturn
 
 from hypothesis import given
 from hypothesis import strategies as st
@@ -259,6 +260,71 @@ def test_decoder_unavailable_after_db_hit() -> None:
 def test_trustworthy_true_for_non_match_verdicts() -> None:
     res = CtdbVerifyResult(Verdict.NOT_IN_DATABASE)
     assert res.trustworthy is True
+
+
+# --- a partial rip is not the disc (the 2026-09-28 Full run) ----------------
+#
+# Five 2-of-14 rips reported "this disc is not in CTDB", trustworthy, gate "ran",
+# for a disc the whole-disc rips of the same run found with 102 entries. The TOC
+# is built from the files, so two files made a two-track disc that does not exist
+# and CTDB answered 404 for it. These pin the guard at the function that builds
+# the TOC; tests/test_ctdb_partial_rip.py drives the same guard from the filed logs.
+
+
+class _RecordingClient(CTDBClient):
+    """Records every TOC it is asked about; answers "not in the database"."""
+
+    def __init__(self) -> None:
+        self.tocs: list[DiscToc] = []
+
+    def lookup(self, toc: DiscToc) -> CtdbLookupResult:
+        self.tocs.append(toc)
+        return CtdbLookupResult(entries=())
+
+
+def _refuse(path: Path) -> NoReturn:
+    """A probe/decoder that must never run: the guard stops before the TOC."""
+    raise AssertionError(f"{path} was probed or decoded for a partial rip")
+
+
+def test_a_partial_rip_never_reaches_the_ctdb_client() -> None:
+    client = _RecordingClient()
+    res = verify_rip(
+        _FLACS,
+        client,
+        disc_tracks=14,
+        decoder=_refuse,
+        samples_probe=_refuse,
+    )
+    assert client.tocs == []  # no lookup, so no 404 to misread
+    assert res.verdict is Verdict.NOT_WHOLE_DISC
+    assert res.message == (
+        "not run — CTDB verifies whole discs, and this rip has 2 of the disc's "
+        "14 tracks"
+    )
+    # No claim was made, so there is nothing to trust: `True` here is what the
+    # five reports said beside their false "not in CTDB".
+    assert res.trustworthy is None
+    assert res.verdict is not Verdict.NOT_IN_DATABASE
+
+
+def test_a_whole_disc_rip_is_still_looked_up_with_every_track() -> None:
+    """The guard's other side: a rip that IS the disc keeps its full-TOC lookup."""
+    client = _RecordingClient()
+    res = verify_rip(
+        _FLACS, client, disc_tracks=2, decoder=_decoder, samples_probe=_probe
+    )
+    assert len(client.tocs) == 1
+    assert client.tocs[0].num_tracks == 2
+    assert res.verdict is Verdict.NOT_IN_DATABASE
+
+
+def test_an_unknown_disc_track_count_keeps_the_old_lookup() -> None:
+    """``None`` is not evidence of a partial rip, so it must not suppress one."""
+    client = _RecordingClient()
+    res = verify_rip(_FLACS, client, decoder=_decoder, samples_probe=_probe)
+    assert len(client.tocs) == 1
+    assert res.verdict is Verdict.NOT_IN_DATABASE
 
 
 def test_toc_build_timeout_is_lookup_error_not_a_raise() -> None:

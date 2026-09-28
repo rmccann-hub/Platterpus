@@ -152,3 +152,114 @@ def test_waits_for_post_rip_thread_before_decoding(tmp_path: Path) -> None:
     run_thread.join(5)
 
     assert order == ["post_rip_done", "decode"]  # never decode mid-rewrite
+
+
+# --- a partial rip is not looked up (the 2026-09-28 Full run) ---------------
+#
+# The worker is where the disc's track count is decided, so the three witnesses
+# are pinned here: the log's own footer, the caller's probe count for a log with
+# none, and the footer winning when they disagree.
+
+
+def _cyanrip_log(names: list[str], footer: str | None) -> str:
+    """A minimal real-shaped cyanrip log naming ``names``, optionally with the
+    fork's ``Rip completed:`` footer (``None`` = a build that prints none)."""
+    lines = ["cyanrip 0.9.4-rc2+platterpus.17 (platterpus-fork-ge0471f4)", ""]
+    for number, name in enumerate(names, start=1):
+        lines += [
+            f"Track {number} read successfully!",
+            "  EAC CRC32:     A1B2C3D4",
+            "  File(s):",
+            f"    The Police/Album/{name}",
+            "",
+        ]
+    if footer is not None:
+        lines.append(footer)
+    return "\n".join(lines) + "\n"
+
+
+def _album(tmp_path: Path, count: int, footer: str | None) -> Path:
+    names = [f"{i:02d} - Track.flac" for i in range(1, count + 1)]
+    for name in names:
+        (tmp_path / name).write_bytes(b"")  # decoder/probe are injected
+    (tmp_path / "Album.log").write_text(_cyanrip_log(names, footer), encoding="utf-8")
+    return tmp_path
+
+
+def test_a_partial_rip_folder_is_not_looked_up(tmp_path: Path) -> None:
+    """Two files whose log says `2 of 14`: no TOC, no lookup, a not-run verdict."""
+    album = _album(tmp_path, 2, "Rip completed:  yes (2 of 14 tracks)")
+    client = _FakeClient(CtdbLookupResult())  # would answer "not in CTDB"
+    result = verify_rip_dir(
+        client, album, samples_probe=lambda _p: 1000, decoder=lambda _p: b"x"
+    )
+    assert client.queried_toc is None
+    assert result is not None
+    assert result.verdict is Verdict.NOT_WHOLE_DISC
+    assert "2 of the disc's 14 tracks" in result.message
+
+
+def test_a_whole_disc_log_still_looks_up_every_track(tmp_path: Path) -> None:
+    album = _album(tmp_path, 3, "Rip completed:  yes (3 of 3 tracks)")
+    client = _FakeClient(CtdbLookupResult())
+    result = verify_rip_dir(
+        client, album, samples_probe=lambda _p: 1000, decoder=lambda _p: b"x"
+    )
+    assert client.queried_toc is not None
+    assert client.queried_toc.num_tracks == 3
+    assert result is not None and result.verdict is Verdict.NOT_IN_DATABASE
+
+
+def test_the_probe_count_covers_a_log_without_a_footer(tmp_path: Path) -> None:
+    """An upstream build prints no `Rip completed:`; the GUI's probe count
+    (cyanrip's own `Disc tracks:`) is then the witness."""
+    album = _album(tmp_path, 2, footer=None)
+    client = _FakeClient(CtdbLookupResult())
+    result = verify_rip_dir(
+        client,
+        album,
+        disc_tracks_hint=14,
+        samples_probe=lambda _p: 1000,
+        decoder=lambda _p: b"x",
+    )
+    assert client.queried_toc is None
+    assert result is not None and result.verdict is Verdict.NOT_WHOLE_DISC
+
+
+def test_the_logs_footer_wins_over_the_probe_count(tmp_path: Path) -> None:
+    """The footer was written by the rip being verified; a stale probe count from
+    an earlier disc must not suppress a whole-disc lookup."""
+    album = _album(tmp_path, 2, "Rip completed:  yes (2 of 2 tracks)")
+    client = _FakeClient(CtdbLookupResult())
+    result = verify_rip_dir(
+        client,
+        album,
+        disc_tracks_hint=14,
+        samples_probe=lambda _p: 1000,
+        decoder=lambda _p: b"x",
+    )
+    assert client.queried_toc is not None
+    assert client.queried_toc.num_tracks == 2
+    assert result is not None and result.verdict is Verdict.NOT_IN_DATABASE
+
+
+def test_a_passed_rip_log_is_the_witness_not_a_second_parse(tmp_path: Path) -> None:
+    """The finish handler hands over its parsed log. The folder here holds a log
+    with no footer, so only the passed one can say the rip is partial."""
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    album = _album(tmp_path, 2, footer=None)
+    names = [f"{i:02d} - Track.flac" for i in (1, 2)]
+    passed = parse_cyanrip_log(
+        _cyanrip_log(names, "Rip completed:  yes (2 of 14 tracks)")
+    )
+    client = _FakeClient(CtdbLookupResult())
+    result = verify_rip_dir(
+        client,
+        album,
+        rip_log=passed,
+        samples_probe=lambda _p: 1000,
+        decoder=lambda _p: b"x",
+    )
+    assert client.queried_toc is None
+    assert result is not None and result.verdict is Verdict.NOT_WHOLE_DISC

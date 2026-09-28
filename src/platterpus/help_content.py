@@ -265,7 +265,9 @@ and the startup test script in the script console.
   network lookup: every rip sends the disc's table of contents to CTDB. Turn it
   off if you would rather not. Its checksum is confirmed on real hardware, so a
   match reads as *verified*; a non-match can only ever under-claim, never falsely
-  say "verified".
+  say "verified". A rip of only some tracks is not checked at all: CTDB checks
+  whole discs, so the result says *not run* and how many tracks were ripped,
+  rather than anything about the disc.
 - **Verify FLAC files after a rip** — decode each FLAC back and check it against its
   stored checksum (on by default). (**Re-compress FLACs** is shown but disabled:
   cyanrip already encodes FLAC at maximum compression, so there's nothing to

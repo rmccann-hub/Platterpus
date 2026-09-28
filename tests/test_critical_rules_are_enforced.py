@@ -1089,7 +1089,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "adapters/cache_probe.py": 372,
     # **566 -> 567** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "adapters/cover_art.py": 567,
-    "adapters/ctdb_client.py": 332,
+    # **332 -> 339** (2026-09-28, the Full run's five 2-of-14 rips that said "not in CTDB"): comment only. The 404 note said partial-track rips reach this lookup; they no longer do, and it now says where they stop and why.
+    "adapters/ctdb_client.py": 339,
     # --- The 2026-09-09 log-verification race: eight files, one defect ------
     #
     # A cancelled rip's log was read 6.1 s before the ripper finished writing
@@ -1598,7 +1599,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **605 -> 630** (2026-09-24, #37 one home per setting): the User Guide says where each moved setting now lives (Set up drive…, Setup & Updates, the console) and what OK/Apply/Cancel/Restore Defaults do.
     # **630 -> 628** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **628 -> 631** (2026-09-27): the Guide says Set cover art from file… is on the disc panel's right-click menu, and that the Tools copy goes in the next release.
-    "help_content.py": 631,
+    # **631 -> 633** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Settings bullet says a rip of only some tracks is not checked against CTDB, and why.
+    "help_content.py": 633,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1701,7 +1703,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "rip_audit.py": 1322,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
-    "rip_files.py": 422,
+    # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.
+    "rip_files.py": 437,
     # **2302 -> 2402 on 2026-09-15**: `SUPERSEDED_GATE`, `OPTIONAL_ARTIFACTS`, and
     # the gate-vs-result check in `_issues`. It is the block that decides whether
     # this report tells the truth about what was verified, and the 2026-09-15 run
@@ -1729,7 +1732,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2546 -> 2554** (2026-09-26): the report passes the log's own count to the one-frame note, so our re-read is not described as the ripper disagreeing (the Full run).
     # **2554 -> 2581** (2026-09-26, the fork's S16): a rip whose log records no track is no longer blamed on the pressing, the database or the offset, and only a log that parsed whole can say so.
     # **2581 -> 2587** (2026-09-28, the Full run's track 3): the schema v30 note, beside the version it describes.
-    "rip_report.py": 2587,
+    # **2587 -> 2609** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `NOT_WHOLE_DISC_GATE` beside its sibling gate states, and the one place `_build` corrects `gates.ctdb` from the verdict, where the settings-derived gate and the result meet. The verdict's value is imported from `ctdb/coverage.py`, so the builder stays adapter-free.
+    "rip_report.py": 2609,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -2014,7 +2018,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4803 -> 4820 on 2026-09-28 (review R4, R5): `_rip_metadata_for`, the one metadata snapshot the rip and the overwrite guard both read, and the guard saying so when a folder-less template leaves it nothing to check.
     # 4820 -> 4830 on 2026-09-28: the overwrite guard decides on folders that exist, and does not promise an overwrite of a look-alike (review Q4).
     # **4830 -> 4852** (2026-09-28, the Full run's track 3): two auto-fix sentences, one per reason a re-read is kept, since a read kept on AccurateRip's word may not have read consistently; and the unstable-track warning names the read the album keeps.
-    "ui/main_window_rip.py": 4852,
+    # **4852 -> 4861** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `_start_ctdb_verify` hands the worker the rip's parsed log and the probe's track count, read at launch on the GUI thread, because the daemon runs later.
+    "ui/main_window_rip.py": 4861,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2052,7 +2057,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # saying so (tests/test_labels_state_their_text_format.py checks this builder).
     "ui/main_window_update.py": 1023,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
-    "ui/rip_progress.py": 1659,
+    # **1659 -> 1667** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Details-tab line for a partial rip shows the verdict's own "not run" sentence and can never fall through to "this disc isn't in the database".
+    "ui/rip_progress.py": 1667,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,

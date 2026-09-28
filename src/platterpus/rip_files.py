@@ -48,7 +48,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from platterpus.parity import decode_log_bytes
@@ -92,12 +92,20 @@ class RipFileSet:
       non-empty tuple is the contamination this module exists to keep out.
     * ``missing`` — filenames the log declared that are not on disk. Real
       anomalies (a file deleted or moved between rip and verify), worth logging.
+
+    ``rip_log`` is the parsed log that named ``files`` (``None`` for a folder
+    scan). It is carried so a consumer that needs another fact from the SAME
+    record reads it here instead of parsing the folder again: the CTDB verify
+    needs the disc's own track count, and a second parse could settle on a
+    different log than the one that scoped the files. Left out of equality and
+    ``repr`` — it describes where the answer came from, not the answer.
     """
 
     files: tuple[Path, ...]
     source: str
     excluded: tuple[Path, ...] = ()
     missing: tuple[str, ...] = ()
+    rip_log: object | None = field(default=None, compare=False, repr=False)
 
     @property
     def authoritative(self) -> bool:
@@ -167,7 +175,7 @@ def _log_candidates(rip_dir: Path) -> list[Path]:
     ``.log``: the ripper's own, the optional ``… (EAC-compatible).log`` companion
     (written *after* it), and possibly a previous rip's. The newest one that
     actually parses into filenames is this rip's record — see
-    :func:`_names_from_disk`, which walks this list until one answers.
+    :func:`_declaring_log_from_disk`, which walks this list until one answers.
 
     Non-recursive: the album folder is the log's parent by construction, so a
     log in a subfolder belongs to some other album (a bonus disc, a nested
@@ -222,13 +230,14 @@ def _parse_log_file(path: Path) -> object | None:
     return parse_rip_log(text)
 
 
-def _names_from_disk(rip_dir: Path) -> tuple[str, ...]:
-    """Filenames declared by the newest log in ``rip_dir`` that names any.
+def _declaring_log_from_disk(rip_dir: Path) -> tuple[tuple[str, ...], object | None]:
+    """The newest log in ``rip_dir`` that names any file: ``(names, parsed log)``.
 
     Walking the candidates (instead of taking the newest outright) is what makes
     the optional EAC-layout companion log harmless: it is newer than the
     ripper's log but neither parser recognises its filename lines, so it yields
     nothing and we move on to the real log rather than falling back to the glob.
+    ``((), None)`` when no log names anything.
     """
     for candidate in _log_candidates(rip_dir):
         parsed = _parse_log_file(candidate)
@@ -237,8 +246,8 @@ def _names_from_disk(rip_dir: Path) -> tuple[str, ...]:
         names = declared_names(parsed)
         if names:
             log.debug("rip file list taken from %s (%d files)", candidate, len(names))
-            return names
-    return ()
+            return names, parsed
+    return (), None
 
 
 def _glob_audio(rip_dir: Path, *, recursive: bool, suffix: str | None) -> list[Path]:
@@ -303,8 +312,12 @@ def rip_master_files(rip_dir: Path, *, rip_log: object | None = None) -> RipFile
     log names any file that is actually on disk, and logs that it did so.
     """
     names = declared_names(rip_log) if rip_log is not None else ()
+    # The record the names came from, handed back on the result (see
+    # `RipFileSet.rip_log`): the caller's log when it named files, else the one
+    # read off disk.
+    record: object | None = rip_log if names else None
     if not names:
-        names = _names_from_disk(rip_dir)
+        names, record = _declaring_log_from_disk(rip_dir)
     # Keep only masters. A log that names something else entirely (a differently
     # configured ripper writing another format) tells us nothing about the FLACs,
     # so treat it as no answer and fall through to the glob.
@@ -322,6 +335,7 @@ def rip_master_files(rip_dir: Path, *, rip_log: object | None = None) -> RipFile
                 source=SOURCE_RIP_LOG,
                 excluded=excluded,
                 missing=tuple(absent),
+                rip_log=record,
             )
         # The log named files and none of them are here: the folder has moved on
         # (a library move, a manual tidy-up). Its list can't scope anything, so
@@ -388,6 +402,7 @@ def rip_audio_files(rip_dir: Path, *, rip_log: object | None = None) -> RipFileS
         source=SOURCE_RIP_LOG,
         excluded=excluded,
         missing=masters.missing,
+        rip_log=masters.rip_log,
     )
 
 

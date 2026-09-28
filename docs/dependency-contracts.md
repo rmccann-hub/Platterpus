@@ -611,6 +611,22 @@ per-file failure leaves the source FLAC untouched (the master is never at risk).
   so a MATCH renders as **verified**; the "experimental" labelling survives in
   code only as the defensive fallback if `crc.CRC_VALIDATED` is ever re-opened —
   the verdict can only ever under-claim, never fabricate a "verified".
+- **`toc=` must be the WHOLE disc's TOC — enforced before the request, not
+  inferred from the answer.** CTDB keys a disc by every track's offset plus the
+  lead-out, and we build the TOC from the ripped FLACs
+  (`ctdb/toc.py::disc_toc_from_files`), so it is the disc's TOC only when every
+  track was ripped. A partial rip (`-l 1,2` of a 14-track disc) would send a
+  two-track disc that does not exist and get HTTP 404, which reads exactly like a
+  real "not in the database": the 2026-09-28 Full run's five 2-of-14 rips all
+  reported `not_in_db` for a disc its whole-disc rips found with 102 entries.
+  `ctdb/verify.py::verify_rip` therefore returns `not_whole_disc` without any
+  lookup when the files cover fewer tracks than the disc has. The disc's count
+  comes from `ctdb/coverage.py::disc_track_count`: the ripper's own `Rip
+  completed: … N of M tracks` footer (fork builds, every rip), else the `Disc
+  tracks:` count from the disc probe. With neither, the lookup runs as before,
+  because an unknown count is not evidence of a partial rip. The report's
+  `verification.gates.ctdb` then reads `rip_report.NOT_WHOLE_DISC_GATE`, never
+  `"ran"`, and `ctdb.trustworthy` is `null` (no claim was made).
 
 ## Version probes — the "is it installed?" contract (`deps/checks.py`)
 
@@ -694,4 +710,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.6.61.*
+*Last updated for Platterpus v0.6.62.*
