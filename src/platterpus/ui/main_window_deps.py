@@ -28,8 +28,8 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QThread
-from PySide6.QtWidgets import QMainWindow, QMessageBox
+from PySide6.QtCore import Qt, QThread
+from PySide6.QtWidgets import QLabel, QMainWindow, QMessageBox, QStatusBar
 
 from platterpus.deps import manager as dep_manager
 from platterpus.deps.resolvers import (
@@ -73,6 +73,24 @@ _DEP_RESOLVE_MAX_DEFERRALS: int = 40
 #: grace covers the kill itself: a SIGKILLed child can take up to
 #: `killable.REAP_TIMEOUT_S` (5 s) to be reaped.
 _OVERDUE_GRACE_S: float = 15.0
+
+
+def _new_dependency_status_label(bar: QStatusBar) -> QLabel:
+    """Build the label the dependency sentence is shown in, on ``bar``.
+
+    A widget, not ``showMessage``: a status bar's temporary message is replaced
+    by each menu item's status tip, and every item's tip is empty, so opening a
+    menu wiped the sentence (code review, 2026-09-28). A normal widget is covered
+    only while a tip is actually showing, and comes back when it clears.
+    PlainText, because the sentence names tools. A long sentence is clipped at
+    the window's edge, as the message was (measured, PySide6 6.11.2 offscreen:
+    about 1,800 characters left the window's width and minimum unchanged), and
+    the tooltip keeps the whole of it reachable.
+    """
+    label = QLabel(bar)
+    label.setTextFormat(Qt.TextFormat.PlainText)
+    bar.addWidget(label, 1)
+    return label
 
 
 def _optional_purpose(item: MissingItem) -> str:
@@ -135,10 +153,9 @@ class DependencyMixin(MainWindowShared):
     #: The status-bar sentence the last check landed with, so a result that had to
     #: wait for another dialog can put it back when it is finally shown.
     _dep_check_outcome: str = ""
-    #: Whether the running check has put its overdue warning on the status bar.
-    #: Such a check owes the status bar its outcome even when it is a silent one,
-    #: or the warning would outlive the check it describes.
-    _dep_check_overdue_said: bool = False
+    #: The status-bar label showing the dependency sentence; built on first use
+    #: by `_show_dependency_status` (see `_new_dependency_status_label`).
+    _dep_status_label: QLabel | None = None
 
     def _on_check_dependencies(self) -> None:
         """Run the dependency subsystem with GUI-backed resolvers.
@@ -241,7 +258,6 @@ class DependencyMixin(MainWindowShared):
             "deadline — a probe is not honouring it",
             waited,
         )
-        self._dep_check_overdue_said = True
         self._show_dependency_status(dep_status.overdue_message(waited))
 
     def _on_check_requested_while_running(self) -> None:
@@ -288,23 +304,33 @@ class DependencyMixin(MainWindowShared):
         """Put a dependency-check sentence on the status bar, and say it.
 
         Timestamped like the rip status line (``HH:MM:SS · …``), so a message
-        that stops changing shows a time that stops changing. No timeout: it
-        stays until the next dependency sentence replaces it, because a message
-        that vanished before the user looked would be the silence it replaces.
-        The status bar paints plain text, so a tool name cannot be read as
-        markup. Logged too, so a bug report carries what the user was shown.
+        that stops changing shows a time that stops changing. It stays until the
+        next dependency sentence replaces it, because a message that vanished
+        before the user looked would be the silence it replaces — which is why
+        it is a label and not a temporary message (`_new_dependency_status_label`).
+        The label is PlainText, so a tool name cannot be read as markup. Logged
+        too, so a bug report carries what the user was shown.
         """
         log.info("dependency status: %s", text)
         if not isinstance(self, QMainWindow):
             return  # a test double; the log line above is the whole record
-        bar = self.statusBar()
+        label = self._dep_status_label
+        if label is None:
+            label = _new_dependency_status_label(self.statusBar())
+            self._dep_status_label = label
         stamped = f"{datetime.now():%H:%M:%S} · {text}"
-        bar.showMessage(stamped)
-        # A status bar clips a long line at the window's edge. The sentence that
+        label.setText(stamped)
+        # The label clips a long line at the window's edge. The sentence that
         # names what was not checked is the long one, so the whole of it is kept
         # reachable on hover rather than cut off where the window happens to end.
-        bar.setToolTip(stamped)
-        announce(bar, text)
+        # On the label, not the bar, so it is hidden with the text it copies.
+        label.setToolTip(stamped)
+        announce(label, text)
+
+    def _dependency_sentence_on_screen(self) -> bool:
+        """True when the status bar holds a dependency sentence."""
+        label = self._dep_status_label
+        return label is not None and bool(label.text())
 
     def _recheck_dependencies_for(
         self, on_done: Callable[[], None]
@@ -383,7 +409,10 @@ class DependencyMixin(MainWindowShared):
         and the running message must not outlive the check it describes. The
         Setup & Updates line always shows the result; the status bar shows it
         for a check the user asked for, and for a silent check only when that
-        check did not finish, since then the ripper's state is unknown.
+        check did not finish, since then the ripper's state is unknown — or when
+        a dependency sentence is already there. That sentence describes an
+        earlier moment (an overdue warning, a launch check that did not finish),
+        and it stays until replaced, so it must not outlive this check.
         """
         outcome = dep_status.outcome_message(report)
         center = self._setup_center
@@ -391,8 +420,7 @@ class DependencyMixin(MainWindowShared):
             center.show_dependency_check_finished(
                 report, failure=outcome if report is None else ""
             )
-        overdue_said, self._dep_check_overdue_said = self._dep_check_overdue_said, False
-        if show_summary or overdue_said:
+        if show_summary or self._dependency_sentence_on_screen():
             self._dep_check_outcome = outcome
             self._show_dependency_status(outcome)
         elif report is not None and dep_manager.unchecked_names(report):

@@ -150,6 +150,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the drive is freed first, which can take up to a minute, and the panel kept
   promising a retry "in 4 s" the whole time. It now says it will try again once the
   drive has been freed, and says it once rather than every four seconds.
+- **Opening a menu no longer wipes the dependency check's line from the status bar.**
+  The line saying a check is running, how it ended, or that the check at launch did
+  not finish vanished as soon as a menu was opened, although its tooltip kept the old
+  text. So a line telling you to open Tools → Setup & Updates… disappeared when you
+  did. It now stays until the next dependency line replaces it, and a later check
+  replaces it even when it runs in the background, so an old warning is not left
+  behind.
 - **Every message box now shows its text exactly as written.** What a tool told
   us — a version, a build tag, an install error from its own output — could be
   read as formatting instead of shown: Qt's ready-made message boxes guess
