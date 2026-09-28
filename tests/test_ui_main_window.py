@@ -2706,8 +2706,11 @@ def test_suffix_album_folder_template_suffixes_only_the_album_folder() -> None:
     # a "(2)".
     assert suffix_album_folder_template("%A/%d/%t - %n", 2) == "%A/%d (2)/%t - %n"
     assert suffix_album_folder_template("%A/%d (%Y)/%d", 3) == "%A/%d (%Y) (3)/%d"
-    # A single-segment template has no folder to suffix → returned unchanged.
-    assert suffix_album_folder_template("%d", 2) == "%d"
+    # A single-segment template has no folder of its own: its rip lands in
+    # cyanrip's default `<album> [FLAC]`, so the numbered folder is that one,
+    # written out. Returned unchanged, "Rip to a new folder" found nothing free.
+    assert suffix_album_folder_template("%d", 2) == "%d [FLAC] (2)/%d"
+    assert suffix_album_folder_template("%t - %n", 3) == "%d [FLAC] (3)/%t - %n"
 
 
 def test_free_album_folder_templates_finds_smallest_free_sibling(tmp_path) -> None:
@@ -3118,21 +3121,87 @@ def test_known_overwrite_does_not_name_disc_1_when_ripping_disc_2(
     assert seen == [], seen
 
 
-def test_known_overwrite_says_so_when_the_template_has_no_folder(
-    teardown_threads, monkeypatch, tmp_path, caplog
+def test_known_overwrite_checks_cyanrips_own_folder_when_the_template_has_none(
+    teardown_threads, monkeypatch, tmp_path
 ) -> None:
-    """No folder part: no `-D`, so cyanrip picks the folder and there is nothing to
-    check. The guard must say it did not check, not check a guess."""
+    """No folder part: no `-D` is sent and cyanrip writes `<album> [FLAC]`.
+
+    Until 2026-09-28 the guard logged "overwrite check not run" and let the rip
+    overwrite that folder without a word. It now checks the folder cyanrip
+    really writes, and "Rip to a new folder" numbers that folder."""
     from dataclasses import replace
 
     window = teardown_threads()
     _set_album(window, "Art", "Alb")
-    seen = _record_dialog(monkeypatch, "Cancel")
+    written = tmp_path / "Alb [FLAC]"
+    written.mkdir()
+    (written / "01 - One.flac").write_bytes(b"not really audio")
+    seen = _record_dialog(monkeypatch, "Rip to a new folder")
     params = replace(_known_params(tmp_path), track_template="%t - %n")
-    with caplog.at_level(logging.WARNING):
-        assert window._confirm_known_overwrite(params) is params
-    assert seen == []
-    assert "overwrite check not run" in caplog.text, caplog.text
+    result = window._confirm_known_overwrite(params)
+    assert len(seen) == 1, "no prompt over the folder cyanrip writes"
+    assert seen[0]["title"] == "Album already ripped", seen[0]
+    assert "Replace" in seen[0]["buttons"], seen[0]["buttons"]
+    assert str(written) in str(seen[0]["text"]), seen[0]["text"]
+    assert result is not None
+    assert result.track_template == "%d [FLAC] (2)/%t - %n", result
+
+
+def test_known_overwrite_ignores_a_look_alike_branch_that_holds_no_album(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Two artist spellings the app itself makes: an unknown-disc rip turns `/`
+    into `-` (`AC-DC`), cyanrip into `∕` (`AC∕DC`). The resolver returns a path
+    under each, and one does not exist. That phantom was counted as a tie: a first
+    rip was asked "which folder?" with no Replace, and a re-rip lost Replace."""
+    window = teardown_threads()
+    _set_album(window, "AC/DC", "Highway to Hell")
+    (tmp_path / "AC-DC" / "Live Bootleg").mkdir(parents=True)
+    (tmp_path / "AC-DC" / "Live Bootleg" / "01.flac").write_bytes(b"x")
+    ripped = tmp_path / "AC\u2215DC" / "Back in Black"
+    ripped.mkdir(parents=True)
+    (ripped / "01.flac").write_bytes(b"x")
+
+    # A first rip of an album with no folder anywhere: nothing to ask.
+    seen = _record_dialog(monkeypatch, "Cancel")
+    params = _known_params(tmp_path)
+    assert window._confirm_known_overwrite(params) is params
+    assert seen == [], seen
+
+    # A re-rip: the one real folder, with Replace, and a definite overwrite.
+    _set_album(window, "AC/DC", "Back in Black")
+    seen = _record_dialog(monkeypatch, "Replace")
+    assert window._confirm_known_overwrite(params) is params
+    assert len(seen) == 1, seen
+    assert seen[0]["title"] == "Album already ripped", seen[0]
+    assert "Replace" in seen[0]["buttons"], seen[0]["buttons"]
+    assert str(ripped) in str(seen[0]["text"]), seen[0]["text"]
+    assert "will overwrite" in str(seen[0]["text"]), seen[0]["text"]
+    assert "AC-DC" not in str(seen[0]["text"]), "the prompt names a phantom"
+
+
+def test_known_overwrite_does_not_promise_an_overwrite_of_a_look_alike(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """The one existing folder is a look-alike of the predicted one (cyanrip may
+    pick either glyph for a `"`): the prompt says it MAY write there."""
+    window = teardown_threads()
+    _set_album(window, "Art", 'a"b')
+    from platterpus.adapters.cyanrip_backend import predicted_album_folder
+
+    predicted = predicted_album_folder(
+        "%A/%d/%t - %n", window._rip_metadata_for(_known_params(tmp_path))
+    )
+    literal = predicted.split("/")[-1]
+    other = "a\u201db" if literal != "a\u201db" else "a\u201cb"
+    ripped = tmp_path / "Art" / other
+    ripped.mkdir(parents=True)
+    (ripped / "01.flac").write_bytes(b"x")
+    seen = _record_dialog(monkeypatch, "Cancel")
+    assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+    assert len(seen) == 1, seen
+    assert "may write into it" in str(seen[0]["text"]), seen[0]["text"]
+    assert "will overwrite" not in str(seen[0]["text"]), seen[0]["text"]
 
 
 # --- First-run drive-setup offer + manual offset -------------------------

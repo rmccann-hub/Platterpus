@@ -245,13 +245,12 @@ def known_album_folders(
     not exist, so the prompt stood down. A caller must look at every path here.
 
     When nothing on disk matches, the literal prediction comes back alone, which
-    is the right answer for an album that has not been ripped yet. EMPTY only when
-    the track template has no folder part: no ``-D`` is sent, cyanrip picks the
-    folder itself, and there is nothing here to check, which the caller must say.
+    is the right answer for an album that has not been ripped yet. Never empty: a
+    track template with no folder part rips into cyanrip's default folder, which is
+    predicted too (``cyanrip_backend.DEFAULT_FOLDER_FOR_OUR_RIP``). Some paths here
+    may not exist; the caller decides on the ones that do.
     """
     folder = cyanrip_backend.predicted_album_folder(track_template, metadata)
-    if folder is None:
-        return ()
     return resolve_sanitised_paths(output_root, Path(folder))
 
 
@@ -264,11 +263,14 @@ def suffix_album_folder_template(template: str, n: int) -> str:
     stay intact and the FLAC's album tag is unchanged — only the on-disk folder
     gets a ``(2)``. E.g. ``"%A/%d/%t - %n"`` → ``"%A/%d (2)/%t - %n"``.
 
-    A single-segment template (no folder to suffix) is returned unchanged.
+    A single-segment template has no folder of its own: its rip lands in
+    cyanrip's default ``<album> [FLAC]``, so the numbered folder is that one,
+    written out (``%d [FLAC] (2)/%t - %n``). It was returned unchanged, so "Rip to
+    a new folder" found no free folder and fell back to the occupied one.
     """
     parts = template.split("/")
     if len(parts) < 2:
-        return template
+        return f"%d [FLAC] ({n})/{template}"
     folder_idx = len(parts) - 2
     parts[folder_idx] = f"{parts[folder_idx]} ({n})"
     return "/".join(parts)
