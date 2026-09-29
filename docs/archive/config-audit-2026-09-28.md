@@ -1232,8 +1232,8 @@ for Platterpus. Nothing was changed outside Platterpus's session branch.
 | rmccann-hub/Platterpus | `main` (1a752e39); `claude/serene-bell-gzywdr` (#276, open); `claude/session-omka9f` (merged, #275) | #276 only | Merge #276 when green, after N5. Delete `claude/session-omka9f` in the browser; this session's proxy cannot delete branches. X1. The eight held amendments when C3 lifts. N1–N4. |
 | rmccann-hub/cyanrip (the fork) | `platterpus-fork` (tip 2026-09-28, 1,090 commits ahead of `master`); `master` (mirror, 2026-08-21) | not read (no API access to the fork from this session) | Nothing stale found in its branches. Carried from the audit, fork-side: the seam-automation proposal's F9 is stale (f8ebf48 is now on `platterpus-fork`), which the owner relays; vendoring the fork's `.18` provider contract is round 29's own work. This session made no fork-side change. |
 | rmccann-hub/claude-code-skills | `main` (v0.38.0, 2026-09-24); `claude/brave-pasteur-40a2fq` (6 commits ahead, 2026-09-28: F26–F43 and research R22) | that branch, unmerged | This audit's gate half is triaged there as F39–F43; its roadmap says "the apply half is triaged when it comes back", and this file is that apply half. Triage S4–S10 and N5's lesson as F44 and after, then merge the branch. |
-| rmccann-hub/claude-skills-org | not opened (private, last pushed 2026-04-16) | — | Say whether this, rather than claude-code-skills, is "the organization claude skills repo". |
-| rmccann-hub/leadtime-board, rmccann-hub/scheduling-engineV2 | not opened (private, unrelated to this work) | — | — |
+
+*Rows naming the owner's private repositories were removed from this table on 2026-09-29, at the owner's request, before the merge. They were not opened in this run and took no part in the audit.*
 
 ## Working with a second session, live
 
