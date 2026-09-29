@@ -155,6 +155,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   a failed check (exit 4, measured with gh 2.101.0 on 2026-09-28). It now says so, and
   gives the form `install.sh` uses: the release's `.sigstore.json` as `--bundle`, plus
   `--signer-workflow`, which needs gh 2.51.0 or later.
+- **The 2026-09-29 configuration re-check is on the record.** `PLANNING.md` KDD-40
+  records the standard and version that ran, the tier the maintainer reconfirmed (T3),
+  the provenance ruling, what was applied, the two amendments added to the held set,
+  and each browser setting as it was observed: private vulnerability reporting is on,
+  and Dependabot alerts and push protection are still off. KDD-39 gains a dated
+  correction: its report was archived into the repository after all.
 
 ## [0.6.63] — 2026-09-28
 

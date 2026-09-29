@@ -11,6 +11,34 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-29 — Configuration re-check (PROJECT-BOOTSTRAP-AND-AUDIT v0.39.0): 4 applied, 2 more held
+
+**Asked:** the maintainer's run file. Re-check the repository against KDD-39, stop at the
+gate, then apply only what was approved. Hold anything under C3, and anything touching
+`CLAUDE.md`, a workflow, `.claude/settings.json` or the open round. Open a pull request, and
+do not merge or release.
+
+**Built:** one commit per amendment on `claude/new-session-o0rfd0`. The record is
+`PLANNING.md` KDD-40.
+- *A stale clone says so before ten tests blame the laps* (A21). `scripts/check.py` warns
+  when the clone is shallow or behind the remote, and the reachability tests name the clone
+  first. Six reverts through `scripts/revert_probe.py` behaved as expected.
+- *The README stops promising AppImageUpdate* (A23), and *`SECURITY.md` gives the
+  no-login attestation check* (A24).
+- *Held:* A22 (the update information's `latest`) and A25 (a skill deny).
+
+**Learned** (no new rule: each is an instance of a question `CLAUDE.md` already asks):
+- *A stand-in clone carries the working copy's stale refs.* My first gate run cloned this
+  session's checkout, whose `origin/main` was the stale local `main`, and it failed ten tests
+  that pass in a clone from GitHub. The failure was real, and it was about my harness. It
+  then turned out to be the maintainer's real environment: every fresh cloud session starts
+  that way. This is the question *what does my stand-in do that the real thing does not?*
+- *A setting reported done is not a setting observed.* The API showed X1 on. The
+  maintainer's own screenshot showed X2 off, a day after it was reported done. That is
+  *am I answering from the artifact, or from my memory of the artifact?*
+- *A recorded problem gets re-checked like any claim.* KDD-39's N1 did not reproduce, and
+  its N3 did, once it was read from the tool's source instead of inferred.
+
 ## 2026-09-28 — Configuration audit (PROJECT-BOOTSTRAP-AND-AUDIT v0.38.0): 11 amendments applied, 8 held
 
 **Asked:** the maintainer's run file. Audit the repository with the standard, stop at its
