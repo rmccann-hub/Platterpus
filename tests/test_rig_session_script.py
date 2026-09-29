@@ -68,7 +68,18 @@ def _run(tmp_path: Path) -> tuple[int, Path, str]:
     )
     (album / "broken.platterpus.json").write_text("{ not json")
     out = tmp_path / "out"
-    env = {**os.environ, "HOME": str(home)}
+    # NO NETWORK, deliberately, like the absent binaries. Step 12 clones the fork
+    # from GitHub, and on 2026-09-29 a CI runner that could not reach GitHub showed
+    # the clone had escaped `run()` and aborted the whole script with git's 128.
+    # Rewriting the URL to a path that does not exist makes that failure happen
+    # here every time, in milliseconds, instead of only on a runner that is offline.
+    env = {
+        **os.environ,
+        "HOME": str(home),
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "url.file:///nonexistent/platterpus-test/.insteadOf",
+        "GIT_CONFIG_VALUE_0": "https://github.com/",
+    }
     proc = subprocess.run(
         ["bash", str(_SCRIPT), str(out), "/nonexistent/appimage"],
         capture_output=True,
@@ -360,3 +371,47 @@ def test_the_harness_emits_no_shell_arithmetic_errors(tmp_path: Path) -> None:
         "held something other than the number it was assumed to hold:\n"
         + "\n".join(offenders[:10])
     )
+
+
+def test_no_shell_script_continues_a_line_into_a_comment() -> None:
+    """A comment line after a trailing backslash ends the command, silently.
+
+    `rig_session.sh` had a comment between `run "clone the fork" … \\` and its
+    command, so `run` got no command and the clone ran outside it, under `set -e`:
+    on 2026-09-29 a CI runner that could not reach GitHub aborted the whole session
+    with git's 128. Swept over every tracked shell script, not only the one where
+    it was found. Floor: at least three scripts are read.
+    """
+    tracked = subprocess.run(
+        ["git", "ls-files", "*.sh"],
+        cwd=_REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    assert len(tracked) >= 3, f"the floor: only {tracked} were found"
+    offenders: list[str] = []
+    for name in tracked:
+        lines = (_REPO / name).read_text(encoding="utf-8").splitlines()
+        for number, (line, following) in enumerate(zip(lines, lines[1:]), 1):
+            if line.rstrip().endswith("\\") and following.lstrip().startswith("#"):
+                offenders.append(f"{name}:{number}")
+    assert not offenders, (
+        "a line continues into a comment, which ends the command there: "
+        + ", ".join(offenders)
+    )
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
+def test_the_clone_step_runs_inside_run_and_records_its_failure(
+    tmp_path: Path,
+) -> None:
+    """With no network, step 12 records the clone's argv and its non-zero exit."""
+    rc, out, output = _run(tmp_path)
+    summary = (out / "00-summary.txt").read_text(encoding="utf-8", errors="replace")
+    block = summary[summary.index("clone the fork") :]
+    assert "argv: timeout -k 30 300 git clone" in block, block[:400]
+    assert "exit: 128" in block, block[:400]
+    assert "clone failed" in block, block[:400]
+    assert "13  our own gates" in summary, "the session stopped after the clone"
+    assert rc == 0, output[-2000:]

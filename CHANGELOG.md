@@ -14,6 +14,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A rig session no longer stops at the fork-clone step on a machine that cannot
+  reach GitHub.** `--rig-session`'s step 12 clones the fork to run its suite. A comment
+  sat between the `run` call and its command, and a comment after a trailing backslash
+  ends the command, so the clone ran outside the step that records failures. With no
+  network, git's exit 128 then aborted the whole session instead of being recorded.
+  Found on 2026-09-29, when a CI runner could not reach GitHub. The clone now runs
+  inside its step, and the session records the failure and carries on. The script's
+  smoke test now runs with GitHub unreachable every time, and a new sweep refuses a line
+  continued into a comment in any tracked shell script.
 - **A probe Platterpus stops itself is no longer recorded as the ripper failing.**
   Pressing Rescan while the disc probe (`cyanrip -I`) is still running stops that
   probe, and the stop was recorded as *"cyanrip exited -9"*, a dependency-failure
