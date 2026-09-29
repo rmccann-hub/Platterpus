@@ -14,6 +14,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A probe Platterpus stops itself is no longer recorded as the ripper failing.**
+  Pressing Rescan while the disc probe (`cyanrip -I`) is still running stops that
+  probe, and the stop was recorded as *"cyanrip exited -9"*, a dependency-failure
+  warning. Every rip report of the same app session then carried it, and so did Help →
+  Copy diagnostics: the round-29 Full run's reports all show it, from a Rescan pressed
+  twenty minutes before the run began. A probe our own cancel ends is now recorded as
+  that, an `info` item saying Platterpus stopped it (`deps.command_cancelled`), and the
+  version probe and the drive-cache probe say the same instead of reporting a tool
+  that is unavailable or failed. A `-9` that Platterpus did not send is still reported
+  as the tool failing.
 - **The rig check's pin line names the build it means.** Its `ripper/pin` line
   ended *"A test pin is expected to differ during an open round"* whatever was open.
   The round-29 Full run (2026-09-28) printed it beside `51cc789`, the build under

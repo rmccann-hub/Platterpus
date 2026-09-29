@@ -357,6 +357,16 @@ The GUI shells out constantly (cyanrip, flatpak, eject, pkill):
   (`os.killpg`). See `drive_control.force_stop_drive()` and the drive/reader-control
   section of `docs/dependency-contracts.md` for the scoped, user-approved
   force-stop exception (to Critical Rule #3) and its `pkill` anchoring rules.
+- **An exit status our own kill produced is not the tool's answer.** When a
+  `KillableCommand` slot's `cancel()` ends a run, the run comes back as a
+  `killable.CancelledRun`, and every caller asks `killable.was_cancelled` before it
+  reads the exit code: `run_capture` raises `ProbeCancelled` and records an `info`
+  (`deps.command_cancelled`), the version probe logs it as stopped, and the cache
+  probe returns no measurement. The run is ours only when **both** hold: a cancel
+  covered it, and the child died of SIGKILL. A child that had already exited keeps
+  its own status, and so does a `-9` nobody here sent. Why: on the round-29 Full run
+  (2026-09-28) a Rescan superseded the disc probe, and `cyanrip exited -9` was
+  recorded as a dependency failure that every rip report of the session carried.
 
 ### 3.4 Parsers never raise (institutional rule)
 Anything that parses external output uses **named-group regexes** (not column
