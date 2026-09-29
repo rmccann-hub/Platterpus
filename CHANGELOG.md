@@ -14,6 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The lap checker no longer refuses a correct `git log --oneline` result over the
+  size of our own clone.** Git sizes an abbreviated hash by how many objects the clone
+  holds, so the same command prints `f8ebf48` in a clone without blobs and `f8ebf48f` in
+  a full one. The fork's round 29 lap 3 quoted the first, correctly for its clone, and
+  `scripts/lap_language.py check --rerun` refused it in our full clone. Re-runs now set
+  git's abbreviation to seven characters, git's own minimum and the length laps quote
+  (git still lengthens an ambiguous one), whatever the clone's own setting.
 - **A rig session no longer stops at the fork-clone step on a machine that cannot
   reach GitHub.** `--rig-session`'s step 12 clones the fork to run its suite. A comment
   sat between the `run` call and its command, and a comment after a trailing backslash

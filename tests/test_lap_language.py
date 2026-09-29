@@ -1362,6 +1362,42 @@ def test_rerun_matches_refuses_and_reports_each_run(tmp_path: Path) -> None:
     ) in report
 
 
+def test_a_quoted_oneline_hash_does_not_depend_on_the_rerunning_clone(
+    tmp_path: Path,
+) -> None:
+    """Git sizes an abbreviation by the clone's object count; the re-run must not.
+
+    The fork's round 29 lap 3 S23 quoted `git log --oneline` as `f8ebf48 src/…`,
+    right for its blob-less clone; our full clone printed `f8ebf48f` and refused it.
+    The clone here asks for twelve characters, as a bigger clone would get, and the
+    lap quotes seven.
+    """
+    repo, sha = _git_repo(tmp_path, _TOOLS)
+    subprocess.run(["git", "-C", str(repo), "config", "core.abbrev", "12"], check=True)
+    short = subprocess.run(
+        ["git", "-C", str(repo), "log", "--oneline", "-1"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert len(short.split()[0]) == 12, "the floor: this clone abbreviates longer"
+    subject = short.split(" ", 1)[1].strip()
+    run = f'git log --oneline -1 => "{sha[:7]} {subject}"'
+    text = (
+        _header(verdict="OPEN")
+        + "LSL: 3\n\n"
+        + _measured(1, run, at=sha)
+        + "S2 VERDICT: OPEN\n  basis: S1\n"
+    )
+    path = tmp_path / "lap.md"
+    path.write_text(text, encoding="utf-8")
+    lap = check_path(path, root=repo, rerun=True)
+    assert lap.runs is not None
+    assert (lap.runs.matched, lap.runs.mismatched) == (1, 0), [
+        p.message for p in lap.problems
+    ]
+
+
 #: A marked tool that prints a count and FAILS, and one that prints the words
 #: `exit 0` and fails, for the exit-status cases.
 _FAILING_TOOLS: dict[str, str] = {
