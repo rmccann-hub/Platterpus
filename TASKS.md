@@ -660,7 +660,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     `mypy --strict scripts/laplang` reports 3 errors in `scratch.py`.
   - (3) Nothing yet acts on `eac_log_producer`. The parity tool does not warn when its
     "baseline" is one of our own exports.
-- [ ] **S40/S41: refuse `-Z N` with `-r` ≤ N, with one move of the shared
+- [x] **S40/S41: refuse `-Z N` with `-r` ≤ N, with one move of the shared
   `docs/seam-commands.md`.** They refuse it at argument parsing and regenerate their argv
   table, and our two §1a rows ride the same change (the held patch in the *Round 29:
   refuse `-Z N`* row further down).
@@ -712,7 +712,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     `killable.CancelledRun`, and `run_capture`, the version probe and the cache probe
     report it as stopped by Platterpus. A `-9` we did not send is still a failure.
     Revert-probed six ways.
-- [ ] **Our next lap tells the fork `claude/session-omka9f` is deleted, and that every
+- [x] **Our next lap tells the fork `claude/session-omka9f` is deleted, and that every
   commit they cite through it resolves through our `main`** (the operator's instruction,
   2026-09-29). The operator deleted it that day, with `claude/serene-bell-gzywdr` and
   `claude/new-session-o0rfd0`, after a re-check found each an ancestor of `main` with no
@@ -760,12 +760,38 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   `version`, the tool's own version text (the `BuildNote.version_text` Help → About
   now shows). The inventory is the bundle's `components` file, which crosses the
   seam, so the key is declared in a lap before it ships (NEXT-ROUND).
-- [~] **Both readings (S7).** Their pre-commit (S43): their first lap after the bundle is
+- [x] **Both readings (S7).** Their pre-commit (S43): their first lap after the bundle is
   in their tree is `GO` unless the run shows a defect in `.18` that breaks the pin, or
   does not complete. **Ours is our lap 3**, `GO` by our lap 2's S29: the run completed,
   and our reading found no defect in 0.6.63 or `.18` that breaks the pin.
-- [ ] **Closing releases (S9):** ours rolls `FORK_PIN` to `51cc789`; theirs is `.19`,
-  carrying the tag change (S13) and the finalised checksum (S34).
+- [ ] **Closing releases (S9):** ours rolls `FORK_PIN` to `51cc789` (0.6.64); theirs is
+  `.19`, carrying the five `src/` commits past `.18` their lap 3 S18 names: the tag change
+  (`bf50705`), the finalised checksum (`9669d84`), the repeat-limit wording (`fb31a2b`) and
+  the `-Z`/`-r` refusal (`22f7aae`, `ad11743`). Both are named in the closing laps (their
+  lap 3 S18, our lap 4), which is what S9 asks.
+- [x] **Their lap 3, released 2026-09-29** (`cyanrip@b89cbce4`, `GO`, sha256 `9c24b579…`,
+  22,260 bytes), filed byte-exact from `cyanrip@18f79dc5`; both our checkers accept it, and
+  with `--rerun` 3 results re-run and matched. Checked against both trees before filing:
+  S15 (27 of 27 of our filed log and cue blobs are among theirs), S23/S24 (our lap 2 S4
+  was wrong: a full clone of their tree prints six, and ours had been shallow), and S35
+  (our row above put the seven commits in the wrong group). Two challenge-ledger rows, 21
+  and 22, both theirs.
+- [x] **Our lap checker refused a correct `--oneline` result** (their S23) because git
+  sized the abbreviation by our full clone's object count.
+  - *Done in a7a3532d:* re-runs pin `core.abbrev=7`; the fork's lap 3 now re-runs clean.
+- [x] **Adopt their move of the shared `seam-commands.md` in the same commit as our argv
+  check** (their S29-S30, our lap 2 S22-S24).
+  - *Done in 68abbd95:* `167e0d4c` cherry-picked onto 0.6.63's `main`, with their bytes
+    (sha256 `3691c621…`). Our §1a rows are byte-identical to `167e0d4c`'s, and their §7 is
+    the only other change. Their S41 found the check missing from our builder.
+- [~] **Our lap 4, `GO`**, held (`HANDSHAKE-READY-TO-READ: no`). It withdraws our lap 2 S4,
+  meets S6, S7 and S9, and names our closing release. **On the operator's word:** rebuild it
+  from the commit that merges it, announce it, and in the same commit roll `FORK_PIN` to
+  `51cc789` with round 29's approval record (`APPROVED_BY_ROUND` 29, for Platterpus 0.6.63,
+  read from their lap 3's `HANDSHAKE-APP-VERSION`). Pre-checked on 2026-09-29: `meson.build`
+  line 21 at `51cc789` declares `.18`; `meson_options.txt` there is byte-identical to
+  `e0471f4`'s (sha256 `0a32b1f7…`, 973 bytes); the manifest at `ef34a96` builds `51cc789`
+  with `-Ddeclare_released=true` on both channels.
 
 ## Round 28 — CLOSED on both gates on `e0471f4` (`+platterpus.17`), 2026-09-28: the Full run on 0.6.61 + `.17`
 
@@ -1669,7 +1695,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     AccurateRip first (PLANNING KDD-27, amended). **Still open:** the discarded
     re-read's log still dies with its temp folder; its output survives only in the
     report's `artifacts.ripper_stdout`.
-- [ ] **Round 29: refuse `-Z N` with `-r` ≤ N at the argv chokepoint, and ship the
+- [x] **Round 29: refuse `-Z N` with `-r` ≤ N at the argv chokepoint, and ship the
   regenerated `docs/seam-commands.md` §1a both ways.** Written and revert-probed on
   2026-09-28 by a helper (`assert_secure_reread_can_converge`, commit `167e0d4c`). The
   commit is not applied. It is kept on `main` by a `-s ours` merge that leaves the tree
