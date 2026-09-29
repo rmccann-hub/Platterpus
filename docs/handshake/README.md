@@ -152,6 +152,12 @@ documents depend on.
   `91822017…`), 46 files, as `round28full*`. 320 of 320 steps; the run the fork's round
   28 lap 1 S6 names. The directory's `README.md` maps each file to its tarball member and
   says what the run found, ours and the ripper's.
+- **`artifactsround29/`** — the 2026-09-28 **Full** run on **`51cc789`**, round 29's
+  reviewed pin, through our 0.6.63: every text member of the operator's bundle (sha256
+  `43a83741…`), 51 files, as `round29full*`. 320 of 323 steps, the three failures being
+  screenshot steps; the run the fork's round 29 lap 1 S6 names. The directory's
+  `README.md` maps each file to its tarball member and says what the run found, ours and
+  the ripper's.
 
 - **`outbound/artifacts/lsl-amendments-1.md`** — **a proposal, not a lap**: our answer to
   the fork's round 27 lap 6 S23 (sha256 `72a4c65afde184f2…`, 17,666 bytes; revised the same day with F4,

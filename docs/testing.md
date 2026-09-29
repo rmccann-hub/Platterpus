@@ -3852,6 +3852,7 @@ cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
 | 2026-09-26 | 0.6.60 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-28 | 0.6.61 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-28 | 0.6.62 | maintainer | bdr209d | bazzite | partial |
+| 2026-09-28 | 0.6.63 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -4005,6 +4006,24 @@ and ripper build, one day, the same person, and the same blind spots, so it adds
 nothing towards the "two machines, two distros" bar. What it does add is a second
 reading of track 5: `E0036697` four times in one rip, EAC's value, against `6902BCF0`
 three times in the next.
+
+**The 2026-09-28 0.6.63 row is round 29's Full run, on `.18` (`51cc789`): 320 of 323,
+and `partial` because three steps in ARCHIVAL sections failed.** All three are
+screenshot steps, in H (L676), J (L724) and K3 (L850), and each found every window
+unexposed. The severity table grades those sections ARCHIVAL, and it did so before the
+run, so these count as archival failures; nothing here re-grades them, and a re-grade
+that made the run count would be the move this section forbids. The rips beside them
+completed and their records read true. The cause is not established: our hypothesis is
+that the display blanked, which the run's sleep lock does not prevent, and it is a
+`TASKS.md` row for a hardware run to settle. The records also carried one error of ours
+that no step could fail over: every report's diagnostics hold a `-9` warning that was
+our own Rescan stopping a probe, fixed after the run. On the audio, the whole-disc rip
+matches EAC on 13 of 14 tracks, with track 3 at `3D8FCF0C`, a second reading that is
+stable within a pass and that the 2026-09-26 run also read. The secure re-read
+converged on every track; three of them needed a fourth read, which 0.6.62's retry
+limit of 3 did not allow and 0.6.63's 5 does. **It is not a second witness** either,
+for the reasons given for the row above
+(`docs/handshake/artifactsround29/README.md`).
 
 Every row so far is `partial`, zero `full-green`. **No full-green pass has been
 achieved**, so 0.9.1 is not reachable and the count toward it is zero. Recording
