@@ -723,9 +723,13 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   - *By SHA:* the fork's tree at `cyanrip@45933f2` has 1,381 distinct lowercase hex
     tokens (7-40 chars) in 1,186 files. 160 resolve as our commits, 595 as theirs, and
     none as both. All 160 are ancestors of our `main`. The other 626 resolve in neither
-    tree, even after fetching all 277 of our `refs/pull/*/head`. That includes the seven
-    they name beside the branch: `b5af9bec`, `19c8ad20`, `e8a47562`, `9cc23eab`,
-    `81ca989`, `c394229` and `926dcb3`.
+    tree, even after fetching all 277 of our `refs/pull/*/head`. The seven they name
+    beside the branch (`b5af9bec`, `19c8ad20`, `e8a47562`, `9cc23eab`, `81ca989`,
+    `c394229` and `926dcb3`) are among the 160 and are ancestors of our `main`.
+    *Corrected 2026-09-29:* this row said the seven were among the 626, and the fork's
+    round 29 lap 3 S35 caught it; the counts were right and the sentence was not
+    (challenge ledger row 22). Recounted the same day on full clones of both trees:
+    unchanged.
   - *By subject:* their inbound copies of our round 8-11 laps name commits by subject.
     `d045bd00` (round 10 lap 4) and `b8599c24` (round 11 lap 4) were reachable only
     through `refs/pull/154/head`, because PR #154 was squash-merged. They are now merged in
