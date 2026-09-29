@@ -393,7 +393,9 @@ def test_no_shell_script_continues_a_line_into_a_comment() -> None:
     offenders: list[str] = []
     for name in tracked:
         lines = (_REPO / name).read_text(encoding="utf-8").splitlines()
-        for number, (line, following) in enumerate(zip(lines, lines[1:]), 1):
+        for number, (line, following) in enumerate(
+            zip(lines, lines[1:], strict=False), 1
+        ):
             if line.rstrip().endswith("\\") and following.lstrip().startswith("#"):
                 offenders.append(f"{name}:{number}")
     assert not offenders, (
