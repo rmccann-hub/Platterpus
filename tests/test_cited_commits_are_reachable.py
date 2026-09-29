@@ -232,3 +232,80 @@ def test_a_squash_merge_that_strands_a_citation_is_caught(tmp_path: Path) -> Non
     _git(root, "merge", "-q", "-s", "ours", "--no-ff", "-m", "keep topic", "topic")
     assert _git(root, "rev-parse", "HEAD^{tree}") == tree
     assert unreachable(root, commits) == {}
+
+
+# --- Laps that name their own commit by SUBJECT --------------------------------
+#
+# Rounds 8 to 11 wrote provenance as "Committed to `Platterpus` on
+# `claude/session-omka9f` at the commit whose subject is **"…"**", because a file
+# cannot carry the hash of the tree that contains it. The fork holds byte-identical
+# copies of those laps in its own tree, so each subject is a citation of ours that
+# the hex scan above cannot see. Found 2026-09-29, when the operator deleted that
+# branch: two of the named commits (`d045bd00`, `b8599c24`) were reachable only
+# through `refs/pull/154/head`, because PR #154 had been squash-merged. They were
+# brought in with `git merge -s ours`.
+
+#: Our provenance sentence. The subject is bolded and quoted, and it may wrap.
+BY_SUBJECT_RE: Final[re.Pattern[str]] = re.compile(
+    r"`Platterpus`[^.]{0,80}?at\s+the\s+commit\s+whose\s+subject\s+is\s+"
+    r"\*\*\"(?P<subject>[^\"]+?)\"\*\*",
+    re.DOTALL,
+)
+
+#: Subjects a lap paraphrased: no commit anywhere carries these words. The laps
+#: themselves are on `main` byte for byte (`docs/handshake/verified/`), which is
+#: what a reader holding the fork's copy can resolve. Each entry is checked below to
+#: be still cited and still unmatched, so the list cannot hide a real stranding.
+PARAPHRASED_SUBJECTS: Final[frozenset[str]] = frozenset(
+    {
+        "docs(handshake): close round 8 and declare GO on round 9",
+        "docs(handshake): round 9 lap 10 — GO, the round closes",
+    }
+)
+
+#: Measured 2026-09-29: eleven provenance lines, seven subjects, in our tree.
+MIN_BY_SUBJECT: Final[int] = 8
+
+
+def by_subject_citations(root: Path) -> dict[str, set[str]]:
+    """Subject → the files whose provenance line names it."""
+    found: dict[str, set[str]] = {}
+    for path, text in _tracked_text(root).items():
+        if not path.startswith("docs/handshake/"):
+            continue
+        for match in BY_SUBJECT_RE.finditer(text):
+            subject = " ".join(match.group("subject").split())
+            found.setdefault(subject, set()).add(path)
+    return found
+
+
+def unresolved_subjects(root: Path, rev: str, subjects: set[str]) -> set[str]:
+    """The subjects no commit reachable from ``rev`` starts with."""
+    reachable = _git(root, "log", rev, "--format=%s").splitlines()
+    return {s for s in subjects if not any(line.startswith(s) for line in reachable)}
+
+
+def test_every_lap_that_names_its_commit_by_subject_resolves_through_head() -> None:
+    _require_full_history(REPO_ROOT)
+    cited = by_subject_citations(REPO_ROOT)
+    lines = sum(len(files) for files in cited.values())
+    assert lines >= MIN_BY_SUBJECT, (
+        f"found {lines} provenance lines, floor {MIN_BY_SUBJECT}"
+    )
+    missing = unresolved_subjects(REPO_ROOT, "HEAD", set(cited)) - PARAPHRASED_SUBJECTS
+    assert not missing, (
+        "a lap names its commit by a subject no commit reachable from HEAD carries. "
+        "Find it with `git log --all --format='%h %s' | grep -F '<subject>'` (fetch "
+        "`refs/pull/*/head` first) and merge it in with `git merge -s ours`:\n"
+        + "\n".join(f"  {s!r} in {sorted(cited[s])}" for s in sorted(missing))
+    )
+
+
+def test_the_paraphrased_subjects_are_still_paraphrases() -> None:
+    _require_full_history(REPO_ROOT)
+    cited = by_subject_citations(REPO_ROOT)
+    for subject in PARAPHRASED_SUBJECTS:
+        assert subject in cited, f"{subject!r} is allowlisted and no longer cited"
+    assert unresolved_subjects(REPO_ROOT, "HEAD", set(PARAPHRASED_SUBJECTS)) == set(
+        PARAPHRASED_SUBJECTS
+    ), "an allowlisted subject now matches a commit; take it off the list"
