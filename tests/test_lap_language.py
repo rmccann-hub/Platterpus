@@ -131,6 +131,34 @@ def _check(
     return check_path(path, root=root, amendments=amend)
 
 
+def _load_stale_clone_hint() -> str:
+    """`scripts/check.py`'s STALE_CLONE_HINT, loaded by path under its own name so
+    it cannot collide with anything else on `sys.path`."""
+    spec = importlib.util.spec_from_file_location(
+        "_check_for_lap_clone_hint", REPO_ROOT / "scripts" / "check.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    hint: str = module.STALE_CLONE_HINT
+    return hint
+
+
+STALE_CLONE_HINT: str = _load_stale_clone_hint()
+
+
+def _why(detail: object) -> tuple[str, object]:
+    """The failure message for an assertion that reads this tree's origin/main.
+
+    The stale-clone check comes first. A fresh cloud session starts shallow with
+    an old origin/main, and there these tests failed on laps that were fine,
+    showing only the checker's complaint about the lap (2026-09-29 configuration
+    re-check, A21).
+    """
+    return (STALE_CLONE_HINT, detail)
+
+
 def _rules(lap: Lap, severity: str = "REFUSED") -> set[str]:
     return {p.rule for p in lap.problems if p.severity == severity}
 
@@ -198,7 +226,58 @@ def test_a_platterpus_lap_may_cite_its_own_commits_and_measurements(
     # own tree, so even a warning means one was looked for in the wrong tree.
     # (Asserting only "no refusals" let a checker that resolved our commit in the
     # fork's tree pass, because without that clone it warns rather than refuses.)
-    assert lap.problems == [], [(p.rule, p.message) for p in lap.problems]
+    assert lap.problems == [], _why([(p.rule, p.message) for p in lap.problems])
+
+
+def test_a_held_back_origin_main_is_named_before_the_checkers_complaint(
+    tmp_path: Path,
+) -> None:
+    """The case behind A21 (2026-09-29), built in a throwaway clone.
+
+    The cited commit is on the remote's main. Only this clone's origin/main is
+    behind it, as in a fresh cloud session. The checker still complains, since it
+    cannot tell a stale clone from a stranded commit. The message our assertions
+    show must then name the clone before the lap.
+    """
+
+    def git(root: Path, *args: str) -> str:
+        return subprocess.run(
+            ["git", "-c", "commit.gpgsign=false", *args],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    upstream = tmp_path / "upstream"
+    upstream.mkdir()
+    git(upstream, "init", "-q", "-b", "main")
+    git(upstream, "config", "user.email", "test@example.invalid")
+    git(upstream, "config", "user.name", "test")
+    for name in ("base", "cited"):
+        (upstream / name).write_text(name, encoding="utf-8")
+        git(upstream, "add", name)
+        git(upstream, "commit", "-q", "-m", name)
+    base, cited = (
+        git(upstream, "rev-parse", "HEAD~1"),
+        git(upstream, "rev-parse", "HEAD"),
+    )
+    clone = tmp_path / "clone"
+    git(tmp_path, "clone", "-q", str(upstream), str(clone))
+    text = (
+        _header(verdict="OPEN") + "LSL: 1\n\n"
+        f"S1 DID: We merged it.\n  commit: {cited[:7]}\n"
+        "S2 VERDICT: OPEN\n  basis: S1\n"
+    )
+    fresh = _check(tmp_path, text, root=clone)
+    assert fresh.problems == [], [(p.rule, p.message) for p in fresh.problems]
+
+    git(clone, "update-ref", "refs/remotes/origin/main", base)
+    stale = _check(tmp_path, text, root=clone)
+    assert stale.problems, "a held-back origin/main must still be complained about"
+    shown = _why([(p.rule, p.message) for p in stale.problems])
+    assert shown[0] == STALE_CLONE_HINT
+    assert "git fetch --unshallow origin" in shown[0]
 
 
 def test_a_commit_a_shallow_clone_cannot_see_is_unchecked_not_refused(
@@ -592,7 +671,7 @@ def test_the_worked_example_is_clean_with_every_amendment() -> None:
     for problem in lap.problems:
         if problem.rule == "LSL.offrecord":
             sha = problem.message.split()[1]
-            assert sha in branch_only, problem.message
+            assert sha in branch_only, _why(problem.message)
 
 
 def test_lsl_1_alone_refuses_only_what_the_amendments_add() -> None:
@@ -832,7 +911,7 @@ def test_lsl_1_and_2_reports_on_round_28_are_unchanged(
     assert re.search(r"^LSL: 1$", text, re.M), f"{name} no longer declares LSL: 1"
     lap = check_path(path)
     report, code = render(lap)
-    assert (code, _digest(report)) == (0, as_filed), report
+    assert (code, _digest(report)) == (0, as_filed), _why(report)
     assert lap.runs is None and "B1:" not in report
     rewritten = tmp_path / path.name
     rewritten.write_text(
@@ -843,8 +922,8 @@ def test_lsl_1_and_2_reports_on_round_28_are_unchanged(
     by_rule: dict[str, int] = {}
     for problem in lap.refused():
         by_rule[problem.rule] = by_rule.get(problem.rule, 0) + 1
-    assert by_rule == refusals, report
-    assert (code, _digest(report)) == (1, as_lsl_2), report
+    assert by_rule == refusals, _why(report)
+    assert (code, _digest(report)) == (1, as_lsl_2), _why(report)
     assert lap.runs is None and "B1:" not in report
 
 
@@ -973,12 +1052,14 @@ def _numbered(*statements: str) -> str:
 
 def test_b1_a_run_is_satisfied_by_an_at_or_by_the_lap_header(tmp_path: Path) -> None:
     by_at = _check(tmp_path, _lsl3(_numbered(_measured(1, "true => ok", at="da766ca"))))
-    assert by_at.problems == [], [(p.rule, p.message) for p in by_at.problems]
+    assert by_at.problems == [], _why([(p.rule, p.message) for p in by_at.problems])
     by_header = _check(
         tmp_path,
         _lsl3(_numbered(_measured(1, "true => ok")), extra_header=_FROM_COMMIT),
     )
-    assert by_header.problems == [], [(p.rule, p.message) for p in by_header.problems]
+    assert by_header.problems == [], _why(
+        [(p.rule, p.message) for p in by_header.problems]
+    )
     neither = _check(tmp_path, _lsl3(_numbered(_measured(1, "true => ok"))))
     assert _rules(neither) == {"B1"}
     [problem] = neither.refused()
@@ -999,17 +1080,17 @@ def test_b1_refuses_an_at_that_is_not_a_commit_of_the_authors_tree(
     tmp_path: Path, at: str, why: str
 ) -> None:
     lap = _check(tmp_path, _lsl3(_numbered(_measured(1, "true => ok", at=at))))
-    assert _rules(lap) == {"B1"}, [(p.rule, p.message) for p in lap.problems]
-    assert any(why in p.message for p in lap.refused()), [
-        p.message for p in lap.refused()
-    ]
+    assert _rules(lap) == {"B1"}, _why([(p.rule, p.message) for p in lap.problems])
+    assert any(why in p.message for p in lap.refused()), _why(
+        [p.message for p in lap.refused()]
+    )
 
 
 @pytest.mark.parametrize("at", ["da766ca", "platterpus@da766ca"])
 def test_b1_an_at_that_is_a_commit_alone_is_accepted(tmp_path: Path, at: str) -> None:
     """The two forms an `at:` has: a commit, bare or with its side."""
     lap = _check(tmp_path, _lsl3(_numbered(_measured(1, "true => ok", at=at))))
-    assert lap.problems == [], [(p.rule, p.message) for p in lap.problems]
+    assert lap.problems == [], _why([(p.rule, p.message) for p in lap.problems])
 
 
 @pytest.mark.parametrize(
@@ -1084,7 +1165,7 @@ def test_b1_does_not_refuse_such_a_header_where_no_run_needs_it(
             extra_header=_PROSE_HEADER,
         ),
     )
-    assert by_at.problems == [], [(p.rule, p.message) for p in by_at.problems]
+    assert by_at.problems == [], _why([(p.rule, p.message) for p in by_at.problems])
     no_run = _check(
         tmp_path,
         _lsl3(
@@ -1096,7 +1177,7 @@ def test_b1_does_not_refuse_such_a_header_where_no_run_needs_it(
             extra_header=_PROSE_HEADER,
         ),
     )
-    assert no_run.problems == [], [(p.rule, p.message) for p in no_run.problems]
+    assert no_run.problems == [], _why([(p.rule, p.message) for p in no_run.problems])
     assert no_run.runs is not None and no_run.runs.total == 0
 
 

@@ -22,6 +22,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   It now takes the tracked set from `git ls-files`, and walks the tree only where there
   is no `.git` (an unpacked sdist). In a checkout whose git fails, it stops with git's
   message instead of falling back.
+- **A stale clone no longer reads as 50 laps the peer cannot fetch.** A fresh cloud
+  session starts shallow, with an `origin/main` hundreds of commits old (2026-09-29:
+  the 0.6.60 release, 894 commits behind). There, `scripts/check.py` failed ten tests in
+  `tests/test_handshake_tooling.py` and `tests/test_lap_language.py`. Their messages
+  blamed the laps, and the first offered the exemption list as the remedy, which would
+  have switched off a check that was right. `scripts/check.py` now says, before the
+  suite runs, when the clone is shallow or its `origin/main` is behind the remote's,
+  and names the fetch that fixes it. It is a warning only, and no verdict changes.
+  Those tests' messages now name that check first, in one sentence both sides take from
+  `scripts/check.py`.
 
 ### Added
 
