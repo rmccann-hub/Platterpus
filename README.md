@@ -450,7 +450,7 @@ That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so th
 
 **Menu entry / desktop icon:** you don't need to do anything — on its **first run the AppImage offers to add itself to your applications menu** (and copies its icon), **moving itself to `~/Applications`** so it lives with your other apps instead of staying in Downloads. Just say yes. (The old `install-appimage.sh` helper still exists for scripted setups and offers an `--uninstall`, but it's no longer required. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) also works if you prefer.)
 
-**Updates:** use **Tools → Setup & Updates… → Check for updates** — if a newer release exists the app downloads it in the background, verifies it against the release's published checksum, installs it to `~/Applications`, and restarts itself. (Releases also ship a `.zsync` file and the AppImage embeds standard update-information, so [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) delta updates work too, for those who use it.)
+**Updates:** use **Tools → Setup & Updates… → Check for updates** — if a newer release exists the app downloads it in the background, verifies it against the release's published checksum, installs it to `~/Applications`, and restarts itself. (Releases also ship a `.zsync` file and the AppImage embeds standard update-information, but [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) can't use them yet. The update-information asks GitHub for the *latest* release, GitHub leaves pre-releases out of that, and every `v0.*` release is a pre-release, so AppImageUpdate gets an HTTP 404 and updates nothing. Use Check for updates instead.)
 
 > **On a FUSE-less host** (rare on desktop Linux, but some minimal setups): run with `APPIMAGE_EXTRACT_AND_RUN=1 ./platterpus-x86_64.AppImage`, or see [AppImage won't launch](#appimage-wont-launch) in Troubleshooting.
 
@@ -1022,7 +1022,7 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 Core project documents (in this directory):
 
 - [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
-- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-39)
+- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-40)
 - [`TASKS.md`](TASKS.md) — active task checklist. P0 (T01-T32, complete), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope.
 - [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
 

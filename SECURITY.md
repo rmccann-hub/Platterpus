@@ -34,6 +34,12 @@ reproduce on the newest release before reporting.
   attestation** (SLSA, via GitHub OIDC + Sigstore — no maintainer-held key), so
   you can prove a download really came from this repo's release pipeline:
   `gh attestation verify platterpus-x86_64.AppImage --repo rmccann-hub/Platterpus`.
+  That form asks GitHub for the attestation, so it needs `gh auth login` first,
+  and without a login it fails with an authentication error rather than a
+  verification result. To check with no login, download the release's
+  `platterpus-x86_64.AppImage.sigstore.json` beside the AppImage and run the form
+  `install.sh` uses (`gh` 2.51.0 or later):
+  `gh attestation verify platterpus-x86_64.AppImage --repo rmccann-hub/Platterpus --bundle platterpus-x86_64.AppImage.sigstore.json --signer-workflow rmccann-hub/Platterpus/.github/workflows/release.yml`.
   The in-app updater verifies the release's published **SHA-256 checksum**
   (integrity), and **from the release after v0.6.60 it also verifies that
   attestation, fail-closed** (`src/platterpus/update_attestation.py`): an update

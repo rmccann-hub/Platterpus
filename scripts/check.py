@@ -25,7 +25,10 @@ This script therefore:
 * refuses to report success if the pytest run did not reach session-finish. A
   truncated run exits 0 with no summary — that exact thing marked a CI job green
   at 76% once — so the `.pytest-session-complete` sentinel is checked, and its
-  **absence is a failure, not a missing nicety**.
+  **absence is a failure, not a missing nicety**;
+* says, before the suite runs, when this clone cannot answer the suite's
+  questions about `origin/main`: when it is shallow, or when its `origin/main` is
+  behind the remote's. It warns and changes no verdict (see `clone_warnings`).
 
 It is not a replacement for CI, which remains the authority. It is the local
 command whose answer can be trusted without a second thought.
@@ -41,7 +44,10 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import contextlib
+import os
 import shutil
+import signal
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -65,6 +71,203 @@ _GATE_TIMEOUT_S: Final[float] = 1800.0
 
 #: Excerpt budget per end when output is elided. Head *and* tail, always.
 _EXCERPT_CHARS: Final[int] = 1500
+
+#: How long to wait for the remote when comparing `origin/main` with it. A
+#: preflight that can hang is worse than none, so this is short and bounded, and
+#: a timeout is reported as "could not compare", never as "fresh".
+_REMOTE_TIMEOUT_S: Final[float] = 20.0
+
+#: The sentence a test prints before any advice to exempt a lap, when a check
+#: that reads `origin/main` fails. The handshake tests take it from here, so the
+#: script and the tests give one answer to "is it the clone?" (2026-09-29
+#: configuration re-check, A21).
+STALE_CLONE_HINT: Final[str] = (
+    "First rule out the clone: these checks read origin/main, so a shallow clone "
+    "or one whose origin/main is behind the remote fails them for laps that are "
+    "fine. Run `git fetch --unshallow origin` (in a full clone, `git fetch origin "
+    "main`) and re-run before treating this as a problem with a lap. "
+    "`python3 scripts/check.py` warns when it can see this, but not when origin "
+    "is a fork whose own main is behind this repository's."
+)
+
+#: How long any one local git read may take before it counts as "could not tell".
+_LOCAL_GIT_TIMEOUT_S: Final[float] = 10.0
+
+
+@dataclass(frozen=True)
+class CloneState:
+    """What this checkout can say about `origin/main`, read without changing it.
+
+    Tri-state throughout: `None` means "could not tell", which is never read as
+    "fine", and is kept apart from a definite "no".
+    """
+
+    #: True in a git checkout, False where there is no `.git` at all (an unpacked
+    #: sdist), None when git could not be asked.
+    in_git: bool | None
+    #: `git rev-parse --is-shallow-repository`, or None if git could not say.
+    shallow: bool | None
+    #: What this clone has as `origin/main`, or None if it has none or git could
+    #: not say (`local_main_missing` tells the two apart).
+    local_main: str | None
+    #: True only when git answered that `origin/main` does not exist here.
+    local_main_missing: bool
+    #: `refs/heads/main` as the remote reports it, or None if not read.
+    remote_main: str | None
+    #: Why the remote could not be read, or None if it was (or was not asked).
+    remote_error: str | None
+
+
+def clone_warnings(state: CloneState) -> list[str]:
+    """The lines to print before the suite runs. Pure, so it is tested directly.
+
+    **Why this exists.** A fresh cloud session starts shallow, with an
+    `origin/main` hundreds of commits old (2026-09-29: 511 commits visible,
+    `origin/main` at the 0.6.60 release, 894 behind). Ten tests that ask "is this
+    lap's commit on `origin/main`?" then fail, and their messages blamed the laps
+    and offered the exemption list as the remedy. The laps were fine; the clone
+    was stale. Nothing here changes a verdict: it says which of the two it is,
+    before anyone reads the failures.
+    """
+    if state.in_git is False:
+        return []
+    if state.in_git is None:
+        return [
+            "could not ask git about this clone. If the suite reports laps the peer "
+            "cannot fetch, check the clone before believing it."
+        ]
+    lines: list[str] = []
+    if state.shallow is True:
+        lines.append(
+            "this clone is shallow, so tests that read origin/main (the handshake "
+            "reachability checks) fail for laps that are fine. Run "
+            "`git fetch --unshallow origin` first."
+        )
+    elif state.shallow is None:
+        lines.append("could not tell whether this clone is shallow.")
+    if state.local_main is None:
+        if state.local_main_missing:
+            lines.append(
+                "this clone has no origin/main, which the handshake checks read. Run "
+                "`git fetch origin main` first."
+            )
+        else:
+            lines.append("could not read this clone's origin/main.")
+    elif state.remote_main is not None and state.remote_main != state.local_main:
+        lines.append(
+            f"origin/main here is {state.local_main[:9]}, but the remote's main is "
+            f"{state.remote_main[:9]}, so tests that read origin/main answer about "
+            f"{state.local_main[:9]}. Run `git fetch origin main` first."
+        )
+    if state.remote_error is not None:
+        lines.append(
+            f"could not compare origin/main with the remote ({state.remote_error}). "
+            "If the suite reports laps the peer cannot fetch, fetch before believing it."
+        )
+    return lines
+
+
+@dataclass(frozen=True)
+class _GitAnswer:
+    """One git command's result. `code is None` means it never answered."""
+
+    code: int | None
+    out: str
+    err: str
+
+
+def _git(repo: Path, *args: str, timeout: float) -> _GitAnswer:
+    """Run one read-only git command, bounded, with no way to wait on a person.
+
+    - No terminal: stdin is closed, `GIT_TERMINAL_PROMPT=0` stops git asking for
+      credentials, and a new session has no controlling terminal, so ssh cannot
+      ask for a passphrase either. A credential prompt fails at once instead of
+      holding the preflight for its whole timeout.
+    - Bounded: on timeout the whole process group is killed (git and any ssh it
+      started), and the reap after that is bounded too (CLAUDE.md rule 9).
+    - Never raises on odd bytes: output is decoded with `errors="replace"`,
+      because a path, URL or server message need not be UTF-8.
+    """
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    try:
+        proc = subprocess.Popen(  # noqa: S603 — fixed argv, shell=False
+            ["git", *args],
+            cwd=repo,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        return _GitAnswer(None, "", f"git could not start: {exc}")
+    try:
+        out_b, err_b = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            proc.communicate(timeout=5)
+        return _GitAnswer(None, "", f"no answer in {timeout:.0f}s")
+    return _GitAnswer(
+        proc.returncode,
+        out_b.decode("utf-8", errors="replace"),
+        err_b.decode("utf-8", errors="replace"),
+    )
+
+
+def read_clone_state(repo: Path, *, ask_remote: bool) -> CloneState:
+    """Read what `clone_warnings` needs. Never raises and never writes.
+
+    `git ls-remote` reads the remote's refs without fetching anything, so the
+    checkout is left exactly as it was. It is bounded by `_REMOTE_TIMEOUT_S`, and
+    each local read by `_LOCAL_GIT_TIMEOUT_S`.
+    """
+    if not (repo / ".git").exists():
+        return CloneState(False, None, None, False, None, None)
+    probe = _git(repo, "rev-parse", "--git-dir", timeout=_LOCAL_GIT_TIMEOUT_S)
+    if probe.code != 0:
+        return CloneState(None, None, None, False, None, None)
+    flag = _git(
+        repo, "rev-parse", "--is-shallow-repository", timeout=_LOCAL_GIT_TIMEOUT_S
+    )
+    shallow = (
+        {"true": True, "false": False}.get(flag.out.strip()) if flag.code == 0 else None
+    )
+    ref = _git(
+        repo,
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        "refs/remotes/origin/main",
+        timeout=_LOCAL_GIT_TIMEOUT_S,
+    )
+    local_main = (ref.out.strip() or None) if ref.code == 0 else None
+    # `--verify --quiet` exits 1 with no output for a ref that does not exist;
+    # anything else (a timeout, another code) is "could not tell".
+    local_main_missing = ref.code == 1 and not ref.out.strip()
+    remote_main: str | None = None
+    remote_error: str | None = None
+    if ask_remote:
+        answer = _git(
+            repo,
+            "ls-remote",
+            "--exit-code",
+            "origin",
+            "refs/heads/main",
+            timeout=_REMOTE_TIMEOUT_S,
+        )
+        first = answer.out.split()
+        if answer.code == 0 and first:
+            remote_main = first[0]
+        elif answer.code is None:
+            remote_error = answer.err
+        else:
+            said = (answer.err.strip().splitlines() or ["no output"])[-1]
+            remote_error = f"git ls-remote exited {answer.code}: {said[:200]}"
+    return CloneState(
+        True, shallow, local_main, local_main_missing, remote_main, remote_error
+    )
 
 
 @dataclass
@@ -194,6 +397,17 @@ def main(argv: list[str] | None = None) -> int:
         # Clear it first: a stale sentinel from an earlier run would vouch for this
         # one. Same reason `pytest_sessionstart` clears it.
         SENTINEL.unlink(missing_ok=True)
+        # Said BEFORE the suite runs, so it is read before its failures are, and
+        # flushed so it arrives first through a pipe too. A warning only: nothing
+        # here may stop a gate from running or change its verdict.
+        try:
+            warnings = clone_warnings(read_clone_state(REPO_ROOT, ask_remote=True))
+        except (OSError, subprocess.SubprocessError, UnicodeError, ValueError) as exc:
+            warnings = [
+                f"could not read the clone's state ({exc}); no verdict uses it."
+            ]
+        for line in warnings:
+            print(f"  ! clone: {line}", flush=True)
 
     runnable: list[Gate] = []
     for gate in gates:
