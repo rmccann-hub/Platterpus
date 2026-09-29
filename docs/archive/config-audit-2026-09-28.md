@@ -86,7 +86,10 @@ are in the Phase 6 block below.
   UTC, `GET /repos/rmccann-hub/Platterpus/private-vulnerability-reporting` still answered
   `{"enabled": false}`. That call was authenticated, the endpoint accepts `metadata=read`, and
   the URL was cache-busted. Check the repository's own setting under Settings → Advanced
-  Security; an account-wide default for new repositories does not change an existing one.
+  Security; an account-wide default for new repositories does not change an existing one. Read
+  again on 2026-09-29 at 03:01:58 UTC, at the maintainer's request, the same way
+  (authenticated; the endpoint accepts `metadata=read`; the URL cache-busted): HTTP 200,
+  `{"enabled": false}`.
 - **X2** Push protection, Dependabot alerts and Dependabot security updates: **reported done,
   not observable here** (those endpoints answer 403 through this session's proxy).
 - **X3** Release immutability: **skipped for now**, with a reopen trigger in KDD-39.
@@ -1043,7 +1046,7 @@ next_trigger: >-
   the tree of that day before it is applied.
 outstanding_human_actions:
   - {id: X4, state: open, note: "review and merge #276 once its CI is green; decide N5 first (it concerns what the merge ships)"}
-  - {id: X1, state: "reported done, not observed", note: "the API answered {\"enabled\": false} at 22:13 and 22:30 UTC"}
+  - {id: X1, state: "reported done, not observed", note: "the API answered {\"enabled\": false} at 22:13 and 22:30 UTC on 2026-09-28, and again at 03:01:58 UTC on 2026-09-29"}
   - {id: X2, state: "reported done, not observable here", note: "those endpoints answer 403 through this session's proxy"}
   - {id: X3, state: skipped, note: "KDD-39 has its reopen trigger"}
 sequence:

@@ -1563,13 +1563,15 @@ re-check mode from this tier instead of asking again.
   - A12: scan the full history on every CI run.
   - A14: build the SBOM from only what ships.
 - **Declined:** none.
-- **The maintainer's actions, in the browser.** X1 (private vulnerability reporting) and X2
-  (push protection, Dependabot alerts and Dependabot security updates) were reported done on
-  2026-09-28. At 22:30 UTC the API still answered `{"enabled": false}` for private
-  vulnerability reporting, and X2's settings cannot be read from a session. X3 (release
-  immutability) was skipped for now. *Reopen when:* `release.yml` no longer re-uploads assets
-  to a published release, the one path immutability would break, or a published asset is
-  found changed.
+- **The maintainer's actions, in the browser.** X1 (private vulnerability reporting) and
+  X2 (push protection, Dependabot alerts and Dependabot security updates) were reported
+  done on 2026-09-28. At 22:30 UTC the API still answered `{"enabled": false}` for private
+  vulnerability reporting. Read again on 2026-09-29 at 03:01:58 UTC, at the maintainer's
+  request, the same way (authenticated; the endpoint accepts `metadata=read`; the URL
+  cache-busted): HTTP 200, `{"enabled": false}`. X2's settings cannot be read from a
+  session. X3 (release immutability) was skipped for now. *Reopen when:* `release.yml` no
+  longer re-uploads assets to a published release, the one path immutability would break,
+  or a published asset is found changed.
 
 **Do not re-propose**, carried forward with their sources:
 
