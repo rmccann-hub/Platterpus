@@ -784,6 +784,13 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   - *Done in 68abbd95:* `167e0d4c` cherry-picked onto 0.6.63's `main`, with their bytes
     (sha256 `3691c621…`). Our §1a rows are byte-identical to `167e0d4c`'s, and their §7 is
     the only other change. Their S41 found the check missing from our builder.
+- [ ] **Both lap checkers cannot cite the last line of a file with no final newline**
+  (NEXT-ROUND, shared spec). Ours (`scripts/laplang/refs.py`) and theirs
+  (`tools/lap-statements.py`) each count a file's lines by its newlines, so a one-line file
+  without one "has 0 lines". Four files of the round 29 bundle end that way as delivered
+  (`round29fullrigcheckripperversion.txt`, `…components.json`, `…scriptreport.json`,
+  `…transcript.txt`), and our lap 4 cites the banner from the whole-disc log instead. The
+  fix is one change on both sides, agreed in a lap first, so the gates keep agreeing.
 - [~] **Our lap 4, `GO`**, held (`HANDSHAKE-READY-TO-READ: no`). It withdraws our lap 2 S4,
   meets S6, S7 and S9, and names our closing release. **On the operator's word:** rebuild it
   from the commit that merges it, announce it, and in the same commit roll `FORK_PIN` to
