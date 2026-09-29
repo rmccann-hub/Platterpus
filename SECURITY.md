@@ -40,7 +40,10 @@ reproduce on the newest release before reporting.
   installs only if Sigstore confirms it was built by `.github/workflows/release.yml`
   in this repository, from `main` or from the release's own tag, and the signed
   statement names the exact file downloaded. A missing or failing attestation
-  blocks the install and leaves the current version untouched. **What that does
+  blocks the install and leaves the current version untouched. The one-line
+  installer (`install.sh`, since 2026-09-28) makes the same two checks on the
+  AppImage it downloads, the attestation only when an installed GitHub CLI can
+  check it (`gh` 2.51.0 or later), and refuses a file that fails either. **What that does
   not cover:** anyone who can push to `main` can run the release workflow, and
   `main` is not branch-protected, so the attestation proves a build is traceable to
   a public commit here, not that the commit was reviewed. **Offline-key signing**
@@ -55,10 +58,20 @@ reproduce on the newest release before reporting.
   to the minor they were measured against because they gate CI, and whose
   `version-update` PRs are therefore ignored (`.github/dependabot.yml`). Security
   advisories for them still come through.
-- **Secret scanning over the FULL history** (`gitleaks`, gating). Not a diff scan:
-  this repository is public and `git log` is a distribution channel, so a credential
-  removed in a later commit is still published and a diff-only scan passes on it.
-  Same reasoning the media guard uses for audio.
+- **Secret scanning** (`gitleaks`, gating), which covers less than the full history.
+  `gitleaks/gitleaks-action` scans a range it builds itself, `--no-merges
+  --first-parent`. A pull request's run covers that PR's own non-merge commits. A
+  push to `main` that arrives as a merge commit, which is how session-branch pull
+  requests have merged since 2026-09-26, scans nothing: the push run for `a930411b`
+  logged *"0 commits scanned"*. No CI run examines a merge commit's own changes, or
+  history that reaches `main` as a merge's second parent. The full history is what
+  matters: this repository is public and `git log` is a distribution channel, so a
+  credential removed in a later commit is still published. Same reasoning the media
+  guard uses for audio. Until CI scans the full history on every run (approved on
+  2026-09-28, not yet applied), that scan is done by hand. On 2026-09-28, gitleaks
+  8.24.3 over every commit reachable from `main`, merge commits included
+  (`--log-opts="-m origin/main"`, 1,454 commits), found nothing. *Corrected
+  2026-09-28: until then this entry said the job scans the full history.*
 - **A CycloneDX SBOM of what actually ships** (`sbom`, gating), generated on every
   push rather than only at release, with a floor that refuses an SBOM listing fewer
   than ten components — a generated artifact describing an empty room is the shape

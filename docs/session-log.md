@@ -11,6 +11,45 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-28 — Configuration audit (PROJECT-BOOTSTRAP-AND-AUDIT v0.38.0): 11 amendments applied, 8 held
+
+**Asked:** the maintainer's run file. Audit the repository with the standard, stop at its
+gate, then apply only what was approved. Hold anything under the seam-automation
+proposal's C3, which covers a workflow, `CLAUDE.md`, `.claude/settings.json`, or anything
+the open round 29 depends on. Open a pull request, and do not merge or release.
+
+**Built:** each amendment is one commit on `claude/serene-bell-gzywdr`. The record of what
+was applied, held and left, with the tier and the rulings, is `PLANNING.md` KDD-39.
+- *The installer checks what it downloads* (A16). It verifies the release's `.sha256`, and
+  the build attestation too when `gh` is installed, through `gh attestation verify
+  --bundle`, which needs no login. A refused file never replaces an installed one. This was
+  tested against a fake release on a sandbox PATH, and run once for real against v0.6.63.
+- *The `-x` doc check sweeps the tracked files* (A9), so the collected count no longer
+  depends on what a previous run left on disk.
+- *`SECURITY.md` says what the gitleaks job actually scans* (A13). A by-hand scan of all of
+  `main`, merge commits included, found nothing: 1,454 commits.
+- *Records:*
+  - A3: `DEPENDENCIES.md` gains four rows.
+  - A8: the dead `[tool.mutmut]` block is gone.
+  - A11: `docs/testing.md` calls `tests-touched` a gate.
+  - A15: rmccann-hub is named as the copyright holder.
+  - A17: `docs/architecture.md` gains §6.4, *When a release is bad*.
+  - A18: the README qualifies "out of beta" and dates its figures.
+  - A19: an `.editorconfig`, whose exceptions were derived from the tree.
+
+**Learned** (no new rule: each is an instance of a question `CLAUDE.md` already asks):
+- *A verifier can share the blind spot of the thing it verifies.* My first hand scan of the
+  history ran without `-m`, which is the merge blind spot CI's scan has. The figure in
+  `SECURITY.md` is from the re-run with `-m`. This is the question *did I verify this where
+  it could have failed?*
+- *A red commit found before the push is rebuilt, not patched on top.* The A9 test's fixture
+  path `docs/archive/old.md` read as a dead link to the repository-wide pointer sweep. The
+  two unpushed commits were rebuilt from a backup ref, so every commit on the branch is
+  green. The saved work-in-progress was checked by hash before and after.
+- *Read the callee's contract before relying on it.* `gh attestation verify` without
+  `--bundle` asks for a login (exit 4), and a user of the installer has none. That was
+  measured before the call was written, not after.
+
 ## 2026-09-28 — About and Diagnostics say what the ripper build means; the second `.17` Full run filed
 
 **Asked:** the maintainer uploaded a second Full bundle (14:42 UTC, 0.6.62 with `.17`)
