@@ -679,6 +679,37 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   was green before the dispatch. The release carries the AppImage, `.sha256`, `.zsync`
   and `.sigstore.json`.
 - [ ] **The Full run** (S6) on `.18` from 0.6.63, and its bundle filed in both trees.
+- [ ] **Our next lap tells the fork `claude/session-omka9f` is deleted, and that every
+  commit they cite through it resolves through our `main`** (the operator's instruction,
+  2026-09-29). The operator deleted it that day, with `claude/serene-bell-gzywdr` and
+  `claude/new-session-o0rfd0`, after a re-check found each an ancestor of `main` with no
+  commits of its own. The fork's KNOWN-ISSUES file
+  (`cyanrip@45933f2:docs/KNOWN-ISSUES.md:1405-1421`) records our round 23 lap 4 promise to
+  keep it. What was checked, and what
+  the lap says:
+  - *By SHA:* the fork's tree at `cyanrip@45933f2` has 1,381 distinct lowercase hex
+    tokens (7-40 chars) in 1,186 files. 160 resolve as our commits, 595 as theirs, and
+    none as both. All 160 are ancestors of our `main`. The other 626 resolve in neither
+    tree, even after fetching all 277 of our `refs/pull/*/head`. That includes the seven
+    they name beside the branch: `b5af9bec`, `19c8ad20`, `e8a47562`, `9cc23eab`,
+    `81ca989`, `c394229` and `926dcb3`.
+  - *By subject:* their inbound copies of our round 8-11 laps name commits by subject.
+    `d045bd00` (round 10 lap 4) and `b8599c24` (round 11 lap 4) were reachable only
+    through `refs/pull/154/head`, because PR #154 was squash-merged. They are now merged in
+    with `-s ours` (`7ae3df06`, tree unchanged). The three paraphrased subjects (rounds
+    8 lap 18, 9 lap 8 and 9 lap 10) are covered by the laps' own bytes: all eight laps
+    are on `main` under `docs/handshake/verified/`, byte-identical to their inbound
+    copies. The new test (`1904aeb6`) holds every by-subject line to `HEAD`.
+  - *Why not a lap today:* our lap 2's pre-commit (S29, `when:` the Full run's bundle is
+    committed) binds our *next* lap to `GO`. Both checkers' A2 ignore `when:`
+    (`cyanrip@45933f2:docs/handshake/PROPOSAL-lap-statement-language.md:189`), so an
+    `OPEN` lap now is refused. The news goes in the post-bundle lap. A held draft built
+    on 2026-09-29 passed `--check`, and failed only A2 and the not-yet-pushed commits.
+  - *Also for that lap, a NEXT-ROUND finding for the shared spec:* A2 binds a lap written
+    before the pre-commit's own `when:` has come. The fix is for A2 to read `when:`, or
+    for a pre-commit's `when:` to be refused unless it is "the next lap".
+  - *And an ASK:* that they update the KNOWN-ISSUES entry to say the commits resolve
+    through our `main`, and that the branch is gone by the operator's choice (NEXT-ROUND).
 - [ ] **A run stopped by one step prints that step's whole text twice.** The 22:13Z
   quick run on 0.6.63 stopped at section A (`.17` installed, as expected). The stop
   summary's *"Why it stopped"* sentence quotes the failed step's entire detail, fix
