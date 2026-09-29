@@ -159,10 +159,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   records the standard and version that ran, the tier the maintainer reconfirmed (T3),
   the provenance ruling, what was applied, the two amendments added to the held set,
   and each security setting with how it was checked. Private vulnerability reporting
-  and the dependency graph were read on through the API. Dependabot alerts, security
-  updates and push protection were reported on by the maintainer, and this session
-  cannot read them. KDD-39 gains a dated correction: its report was archived into the
-  repository after all.
+  and the dependency graph were read on through the API. The maintainer's screenshot
+  shows Dependabot alerts, Secret Protection and push protection on, and Dependabot
+  security updates off. KDD-39 gains a dated correction: its report was archived into
+  the repository after all.
 
 ## [0.6.63] — 2026-09-28
 
