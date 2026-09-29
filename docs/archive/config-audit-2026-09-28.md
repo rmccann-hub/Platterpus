@@ -1092,6 +1092,11 @@ amendments. N5 concerns an approved change and needs the owner's answer now.
   read files the repository does not ship, or pass on a path only a local build has. This run
   hit the second case (Phase 7 corrections). A9 fixed the same problem in one sweep; the fix
   there (the tracked set, falling back to the disk with no `.git`) would apply to these.
+- **N5 — decided by the owner on 2026-09-29 and applied before the merge:** verify the
+  attestation only when `gh attestation verify --help` lists `--signer-workflow` (gh
+  2.51.0 or later), and otherwise take the checksum-only path and say this `gh` is too
+  old to check the attestation, with both paths tested. KDD-39 records the ruling. As
+  first raised:
 - **N5 (needs your answer: it would change A16's approved mechanism).** `install.sh` runs
   `gh attestation verify` whenever `gh` is on PATH. A `gh` too old to have the `attestation`
   command exits 1 (`unknown command "…" for "gh"`, measured with 2.101.0 on a missing
