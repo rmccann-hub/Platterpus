@@ -78,6 +78,32 @@ was applied, held and left, with the tier and the rulings, is `PLANNING.md` KDD-
   `--bundle` asks for a login (exit 4), and a user of the installer has none. That was
   measured before the call was written, not after.
 
+## 2026-09-29 — The deleted session branch: every commit the fork cites resolves through `main`
+
+**Asked:** the operator deleted `claude/session-omka9f` and two other session branches
+after a re-check found each an ancestor of `main`. The fork's `docs/KNOWN-ISSUES.md`
+records our promise to keep that branch. So: check that every commit the fork cites
+through it is reachable from `main`, and tell the fork in our next lap.
+
+**Built:**
+- *The check, over a closed population:* every lowercase hex token in the fork's tree at
+  `cyanrip@45933f2`, 1,381 of them in 1,186 files. 160 are our commits, all on `main`,
+  and 626 resolve nowhere, even with all 277 of our pull-request heads fetched. Then the
+  by-subject provenance lines of our round 8-11 laps, which the hex sweep cannot see.
+- *Two strandings found and repaired* (`7ae3df06`): `d045bd00` and `b8599c24`, held
+  only by PR #154's head since its squash merge, are merged in with `-s ours`.
+- *A test for the by-subject form* (`1904aeb6`), which fails on the `main` from before
+  the merge.
+- *The lap is deferred to the post-bundle lap*, with its content in TASKS. A held draft
+  proved our lap 2's pre-commit binds the very next lap whatever its `when:` says.
+
+**Learned:**
+- *A citation by subject is a citation.* The SHA check was complete for the form it
+  read, and the fork held two of our commits by a form it could not read. Of any
+  "every citation resolves" claim, ask: *in which forms can a citation be written?*
+- *A2 ignores `when:`, in both checkers and in the shared spec.* A pre-commit written for
+  a later event binds every lap before it. That is a finding for the next round.
+
 ## 2026-09-28 — About and Diagnostics say what the ripper build means; the second `.17` Full run filed
 
 **Asked:** the maintainer uploaded a second Full bundle (14:42 UTC, 0.6.62 with `.17`)
