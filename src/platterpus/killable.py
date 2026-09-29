@@ -58,6 +58,25 @@ log = logging.getLogger(__name__)
 REAP_TIMEOUT_S: float = 5.0
 
 
+class CancelledRun(subprocess.CompletedProcess[str]):
+    """A run that ended because its own slot's :meth:`KillableCommand.cancel` killed it.
+
+    Returned in place of a plain ``CompletedProcess``, with the same fields, so a
+    caller that reads only ``returncode`` behaves as before. What it adds is who
+    ended the run: its ``-9`` is the SIGKILL Platterpus sent, not the tool's answer,
+    so no caller may report it as the tool failing (:func:`was_cancelled`).
+
+    Why (the round-29 Full run, 2026-09-28): the operator pressed Rescan, the rescan
+    superseded the disc probe in flight, and ``cyanrip exited -9`` was recorded as a
+    dependency failure, a warning that every rip report of that session carried.
+    """
+
+
+def was_cancelled(proc: object) -> bool:
+    """Whether ``proc`` is a run that its own slot's ``cancel()`` ended."""
+    return isinstance(proc, CancelledRun)
+
+
 class KillableCommand:
     """One named slot holding at most one live child, killable from any thread.
 
@@ -256,6 +275,17 @@ class KillableCommand:
                 # first (see `__init__`).
                 if self._proc is proc:
                     self._proc = None
+                # Ours only when BOTH hold: a cancel covered this run, and the child
+                # died of SIGKILL. A child that exited on its own just before the
+                # kill landed keeps its own exit status, and so does a -9 nobody here
+                # sent (the kernel's OOM killer), because no cancel covered it.
+                ended_by_our_cancel = (
+                    seq <= self._cancel_through and proc.returncode == -signal.SIGKILL
+                )
+        if ended_by_our_cancel:
+            return CancelledRun(
+                args=argv, returncode=proc.returncode, stdout=stdout, stderr=stderr
+            )
         return subprocess.CompletedProcess(
             args=argv, returncode=proc.returncode, stdout=stdout, stderr=stderr
         )

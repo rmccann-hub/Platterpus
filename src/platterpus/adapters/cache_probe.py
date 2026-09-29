@@ -56,7 +56,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from platterpus import diagnostics
-from platterpus.killable import KillableCommand
+from platterpus.killable import KillableCommand, was_cancelled
 from platterpus.paths import CDPARANOIA_BINARY_DEFAULT
 
 log = logging.getLogger(__name__)
@@ -335,6 +335,12 @@ def probe_cache_defeat(
         return CacheProbeResult(error=str(exc))
 
     combined = (getattr(proc, "stdout", "") or "") + (getattr(proc, "stderr", "") or "")
+    if was_cancelled(proc):
+        # Closing the drive dialog killed it: no measurement, and not a tool failure.
+        log.info("cache probe: stopped by Platterpus on %s", device or "(default)")
+        return CacheProbeResult(
+            error="stopped by Platterpus before it finished", exit_code=proc.returncode
+        )
     result = parse_cache_analysis(combined)
     # READ THE EXIT CODE. It was never looked at, and this verdict feeds an
     # archival field: "cd-paranoia failed" and "cd-paranoia ran and was

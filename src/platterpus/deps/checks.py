@@ -32,7 +32,7 @@ from pathlib import Path
 
 from platterpus.cyanrip_cli import VERSION_FLAGS
 from platterpus.deps.version import parse_version
-from platterpus.killable import KillableCommand
+from platterpus.killable import KillableCommand, was_cancelled
 
 log = logging.getLogger(__name__)
 
@@ -252,6 +252,11 @@ def _run_version_command(
         return False, "", resolved
 
     combined = (proc.stdout or "") + (proc.stderr or "")
+    if was_cancelled(proc):
+        # We killed it (`cancel_version_probes`), so its -9 says nothing about the
+        # tool; the result is unchanged, and the line no longer calls it unavailable.
+        log.info("probe: %s stopped by Platterpus before it answered", argv[0])
+        return False, combined, resolved
     if proc.returncode not in accept_exit_codes:
         # `debug` rather than `warning` when the caller has more flags to try:
         # the evidence is kept (a bug report still carries it) without asserting
