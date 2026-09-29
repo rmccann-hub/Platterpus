@@ -26,6 +26,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import os
+import pprint
 import re
 import shlex
 import signal
@@ -148,15 +149,21 @@ def _load_stale_clone_hint() -> str:
 STALE_CLONE_HINT: str = _load_stale_clone_hint()
 
 
-def _why(detail: object) -> tuple[str, object]:
+def _why(detail: object) -> str:
     """The failure message for an assertion that reads this tree's origin/main.
 
     The stale-clone check comes first. A fresh cloud session starts shallow with
     an old origin/main, and there these tests failed on laps that were fine,
     showing only the checker's complaint about the lap (2026-09-29 configuration
     re-check, A21).
+
+    **A string, never a tuple.** pytest shows a non-string assertion message
+    through `saferepr`, which cuts it at about 240 characters. A tuple therefore
+    showed the first line of the hint and lost its fix, and lost most of the
+    checker's report (review finding B1, 2026-09-29). A string is shown whole.
     """
-    return (STALE_CLONE_HINT, detail)
+    shown = detail if isinstance(detail, str) else pprint.pformat(detail, width=100)
+    return f"{STALE_CLONE_HINT}\n\n{shown}"
 
 
 def _rules(lap: Lap, severity: str = "REFUSED") -> set[str]:
@@ -247,6 +254,7 @@ def test_a_held_back_origin_main_is_named_before_the_checkers_complaint(
             check=True,
             capture_output=True,
             text=True,
+            timeout=60,
         ).stdout.strip()
 
     upstream = tmp_path / "upstream"
@@ -276,8 +284,13 @@ def test_a_held_back_origin_main_is_named_before_the_checkers_complaint(
     stale = _check(tmp_path, text, root=clone)
     assert stale.problems, "a held-back origin/main must still be complained about"
     shown = _why([(p.rule, p.message) for p in stale.problems])
-    assert shown[0] == STALE_CLONE_HINT
-    assert "git fetch --unshallow origin" in shown[0]
+    # A string, so pytest prints all of it: the whole hint, fix included, then
+    # every complaint the checker made (review finding B1).
+    assert isinstance(shown, str)
+    assert shown.startswith(STALE_CLONE_HINT)
+    assert "git fetch --unshallow origin" in shown
+    for problem in stale.problems:
+        assert problem.message in shown
 
 
 def test_a_commit_a_shallow_clone_cannot_see_is_unchecked_not_refused(
