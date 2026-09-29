@@ -1659,6 +1659,15 @@ claude-code-skills holds the standard, but shares nothing into this repository.
   that "a security advisory still reaches us", which needs alerts on. And a public
   repository's free push protection is off. Both are the maintainer's to turn on. The
   session API cannot read either (403).
+
+  *Later on 2026-09-29, after the gate:* the maintainer reported all of them turned on:
+  Dependency graph, Dependabot alerts, Dependabot security updates, and Secret Protection
+  with push protection. **The dependency graph is observed:**
+  `GET /repos/rmccann-hub/Platterpus/dependency-graph/sbom` answered HTTP 200 with an SPDX
+  document at 19:16:54Z. **The rest are reported, not observed.** From this session,
+  `/dependabot/alerts` answers 403 "Resource not accessible by integration", and
+  `/vulnerability-alerts`, `/automated-security-fixes` and `/secret-scanning/alerts` answer
+  403 at the proxy. A later run that can read them should confirm them.
 - X3 (release immutability) stays skipped. Its trigger has not fired:
   `release.yml:425-429` still re-uploads with `--clobber`.
 
