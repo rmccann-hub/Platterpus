@@ -1732,7 +1732,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **940 -> 976** (2026-09-24): the paranoia row reads `READ` (the fork's 3.02x, not our 2.87x) and grades the bound per counter, which a sum could hide.
     # 976 -> 979 on 2026-09-25: errors="replace" on two probe pipes, and the argv
     # builder reached through composition.build_cyanrip_backend, not built here.
-    "rig_check.py": 979,
+    # **979 -> 998** (2026-09-29, the round-29 Full run): `pin_line` names the build under
+    # review and its round, where a fixed sentence said a test pin was expected.
+    "rig_check.py": 998,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
     "rip_addendum.py": 506,

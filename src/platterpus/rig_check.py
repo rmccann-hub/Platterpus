@@ -469,6 +469,34 @@ def check_argv_reaches_the_binary(
     )
 
 
+def pin_line() -> str:
+    """What this Platterpus pins, and which other builds it accepts, and why.
+
+    It used to end *"A test pin is expected to differ during an open round"*
+    whatever was open. The round-29 Full run (2026-09-28) printed that beside
+    `51cc789`, the build under review, when no round had a test pin. Every clause
+    is now read from `fork_source`, so it names the build it means.
+    """
+    from platterpus.deps import fork_source
+
+    accepts: list[str] = []
+    if fork_source.a_round_is_reviewing_a_build():
+        accepts.append(
+            f"{fork_source.PIN_UNDER_REVIEW}, {fork_source.pin_under_review_label()} "
+            f"(round {fork_source.PIN_UNDER_REVIEW_ROUND})"
+        )
+    test_pin = fork_source.current_test_pin()
+    if test_pin:
+        accepts.append(
+            f"{test_pin}, the round-{fork_source.FORK_TEST_PIN_ROUND} test pin"
+        )
+    also = f", and accepts {' and '.join(accepts)}" if accepts else ""
+    return (
+        f"this Platterpus pins {fork_source.FORK_PIN}{also}; the installed banner "
+        "is above."
+    )
+
+
 def check_ripper_identity(manifest: Manifest, binary: str) -> str:
     """Which build is installed, and is it one a channel publishes?
 
@@ -476,7 +504,6 @@ def check_ripper_identity(manifest: Manifest, binary: str) -> str:
     the argv check needs it: ``--consumer`` is gated on the build, so composing a
     reference argv without it would measure a command line no rip ever sends.
     """
-    from platterpus.deps import fork_source
 
     try:
         proc = subprocess.run(  # noqa: S603 — our own binary, no shell
@@ -507,15 +534,7 @@ def check_ripper_identity(manifest: Manifest, binary: str) -> str:
         Result(status, "ripper/handshake", f"{verdict.verdict} — {verdict.detail}")
     )
 
-    pinned = fork_source.FORK_PIN
-    manifest.add(
-        Result(
-            INFO,
-            "ripper/pin",
-            f"this Platterpus pins {pinned}; the installed banner is above. A test "
-            f"pin is expected to differ during an open round.",
-        )
-    )
+    manifest.add(Result(INFO, "ripper/pin", pin_line()))
 
     from platterpus.ripper_identity import identify_from_banner
 

@@ -14,6 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The rig check's pin line names the build it means.** Its `ripper/pin` line
+  ended *"A test pin is expected to differ during an open round"* whatever was open.
+  The round-29 Full run (2026-09-28) printed it beside `51cc789`, the build under
+  review, when round 29 names no test pin. The line now reads each build it names from
+  `fork_source`: *"this Platterpus pins e0471f4, and accepts 51cc789, the build under
+  review (round 29)"*, a test pin only when the round under review names one, and the
+  pin alone between rounds.
 - **The `-x` overread check reads the files git tracks, not whatever is on disk.**
   `tests/test_documented_ripper_flags_are_real.py` found its documents by walking the
   working tree, so it also swept `.pytest_cache/`, `src/platterpus.egg-info/` and stale
