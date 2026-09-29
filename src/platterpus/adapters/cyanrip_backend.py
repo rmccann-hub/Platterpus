@@ -49,6 +49,7 @@ from platterpus.adapters.ripper_log_verify import LogVerification, verify_rip_lo
 from platterpus.cyanrip_cli import (
     VERSION_FLAGS,
     retries_flag_value,
+    secure_reread_problem,
     split_on_unescaped,
 )
 from platterpus.parsers.cd_info import DiscInfo
@@ -1290,6 +1291,59 @@ def assert_numeric_args_in_range(argv: list[str]) -> None:
             )
 
 
+def _last_int_value(argv: list[str], flag: str) -> int | None:
+    """The integer after the LAST ``flag`` in ``argv``, or None if absent or not one.
+
+    The LAST, because that is the one cyanrip applies: genopt makes a repeated
+    single-value option replace the previous one
+    (``cyanrip@faec4a8:src/genopt.h:582``). A value that is not an integer is not
+    this helper's finding — :func:`assert_numeric_args_in_range` refuses it, and
+    runs first at the chokepoint — so it reads as absent here.
+    """
+    value: int | None = None
+    for index, item in enumerate(argv[:-1]):
+        if item != flag:
+            continue
+        try:
+            value = int(argv[index + 1])
+        except ValueError:
+            value = None
+    return value
+
+
+def assert_secure_reread_can_converge(argv: list[str]) -> None:
+    """Refuse an argv whose ``-Z`` can never be satisfied under its ``-r``.
+
+    cyanrip's secure re-read ``-Z N`` converges only when N+1 whole-track reads
+    are identical, and it stops re-reading after ``-r`` of them
+    (``cyanrip@faec4a8:src/cyanrip_main.c:997-1012``). So ``-Z N`` with ``-r`` <=
+    N reads every track ``-r`` times and can never verify one — on a clean disc
+    as surely as a scratched one. Each value is in range on its own, which is
+    why :func:`assert_numeric_args_in_range` could not see it: the defect is the
+    PAIR. With no ``-r`` on the argv cyanrip applies its own default (10), and
+    this reads it that way rather than as "no limit".
+
+    Found 2026-09-28, in our own rig check: its reference argv was ``-r 3 -Z 3``,
+    and the Full run's secure re-reads were all ``-r 3 -Z 2`` (convergeable, but
+    with no room for a single read that disagrees). Nothing refused either.
+
+    Separate from the range check so each failure names one cause (S-12). The
+    rule is :func:`platterpus.cyanrip_cli.secure_reread_problem`, which the
+    settings validator and the rip worker's recovery re-read also use; this
+    function reads the argv and delegates, rather than restating it.
+    """
+    repeat_rips = _last_int_value(argv, "-Z")
+    if repeat_rips is None:
+        return
+    retries = _last_int_value(argv, "-r") if "-r" in argv else None
+    problem = secure_reread_problem(repeat_rips=repeat_rips, retries=retries)
+    if problem:
+        raise RipError(
+            f"refusing to run cyanrip: {problem}. Raise Max retries above "
+            f"{repeat_rips}, or lower the secure re-read"
+        )
+
+
 #: Flags that make cyanrip print a version and exit, doing nothing else.
 #:
 #: **Derived from :data:`cyanrip_cli.VERSION_FLAGS`, never retyped.** The first
@@ -1382,6 +1436,11 @@ def assert_metadata_lookup_disabled(argv: list[str]) -> None:
     # picks it up without a second thing for a caller to remember — the same reason
     # the scripted `cyanrip` verb delegates to this function instead of restating it.
     assert_numeric_args_in_range(argv)
+
+    # And the PAIR: `-Z N` with `-r` <= N is two in-range values that together
+    # can never converge. After the range check, so a malformed value is refused
+    # for what it is before anything reasons about it.
+    assert_secure_reread_can_converge(argv)
 
     # And the SHAPE of the metadata blobs, for the same reason: `_escape_meta_value`
     # is applied at a dozen call sites, and a thirteenth that forgets it loses the

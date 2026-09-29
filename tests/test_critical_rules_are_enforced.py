@@ -1140,7 +1140,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 1670 -> 1757 on 2026-09-28 (review R4, R5): `_path_schemes` builds `-D`/`-F` for the argv and `album_folder_scheme` hands the overwrite guard the same `-D`, with `predicted_album_folder` rendering it from the album-level tags cyanrip fills in (cited). The guard predicted from the disc template as disc 1 of 1 and missed finished rips; one computation beside the argv is the fix, and cyanrip's rendering rules belong in its adapter.
     # 1757 -> 1772 on 2026-09-28: cyanrip's documented `-D` default and its rendering for our rip, which the overwrite guard predicts for a folder-less template (review Q5).
     # **1772 -> 1782** (2026-09-28, `-Z` that `-r` cannot satisfy): the `-r` the argv carries goes through `cyanrip_cli.retries_flag_value`, the one mapping the validator and the rip worker also use to predict it; the comment says why it is not an inline `if`.
-    "adapters/cyanrip_backend.py": 1782,
+    # **1782 -> 1841** (2026-09-28, `-Z` that `-r` cannot satisfy): `assert_secure_reread_can_converge`, called from the argv chokepoint beside the range check it sits next to, and `_last_int_value`, which reads a flag the way genopt applies it (the last occurrence). The rule is `cyanrip_cli.secure_reread_problem`; this is the argv reader and its reasons.
+    "adapters/cyanrip_backend.py": 1841,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1216,7 +1217,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "config.py": 853,
     "cue_validate.py": 1257,
     # **327 -> 426** (2026-09-28, `-Z` that `-r` cannot satisfy): `DEFAULT_MAX_RETRIES`, `retries_flag_value` and `secure_reread_problem`, the convergence rule read from the fork's source. It is a fact about cyanrip's command line that three layers need (the argv chokepoint, the settings validator, the rip worker), which is what this module is for; most of the growth is the mechanism and its citation.
-    "cyanrip_cli.py": 426,
+    # **426 -> 429** (2026-09-28, the argv chokepoint half): the mechanism's hardware citation names the committed round-27 log the new test reads, instead of an uncommitted bundle.
+    "cyanrip_cli.py": 429,
     # **437 -> 522** (2026-09-28, Check dependencies "seems to freeze, not respond, or give no
     # error"): `probe_deadline` and `_probe_timeout`, which cap every probe a dependency check
     # runs at the check's overall deadline and refuse to START one after it. They live here
@@ -1742,7 +1744,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # builder reached through composition.build_cyanrip_backend, not built here.
     # **979 -> 998** (2026-09-29, the round-29 Full run): `pin_line` names the build under
     # review and its round, where a fixed sentence said a test pin was expected.
-    "rig_check.py": 998,
+    # **998 -> 1009** (landed 2026-09-29, written 2026-09-28 as `167e0d4c`): the reference argv's `-r`/`-Z` come from `Config()` instead of a hand-typed `-r 3 -Z 3`, a pair that can never converge and that the argv chokepoint now refuses; the comment says so.
+    "rig_check.py": 1009,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
     "rip_addendum.py": 506,

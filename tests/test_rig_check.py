@@ -80,6 +80,30 @@ class TestReferenceArgv:
         # argv[0] is stripped: the caller puts the binary back with -j in front.
         assert not argv[0].endswith("cyanrip")
 
+    def test_the_retry_pair_is_the_shipped_default_and_can_converge(self) -> None:
+        """The probe's `-r`/`-Z` are what an untouched install sends.
+
+        They were hand-typed as `-r 3 -Z 3` until 2026-09-28 — a pair no rip should
+        send, because `-Z 3` needs four identical reads and `-r 3` stops at three
+        (`cyanrip@faec4a8:src/cyanrip_main.c:997-1012`). The Full run's
+        `argv-probe.json` carried it. Read from `Config()` now, and held to the
+        same convergence rule the argv chokepoint enforces.
+        """
+        from platterpus.config import Config
+        from platterpus.cyanrip_cli import secure_reread_problem
+
+        argv = rig_check._compose_reference_argv(
+            "cyanrip", "/nonexistent.cue", "platterpus-fork-gddf7ac3"
+        )
+        shipped = Config()
+        retries = int(argv[argv.index("-r") + 1])
+        repeat_rips = int(argv[argv.index("-Z") + 1])
+        assert (retries, repeat_rips) == (
+            shipped.max_retries,
+            shipped.secure_rerip_matches,
+        )
+        assert secure_reread_problem(repeat_rips=repeat_rips, retries=retries) == ""
+
     def test_consumer_flag_tracks_the_build_tag(self) -> None:
         """`--consumer` is capability-gated on the build, so composing with an
         empty tag drops it. If this check composed with a blank tag it would be

@@ -460,6 +460,30 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   The fork will write these readings into the shared proposal (their S30).
   (`scripts/laplang/lsl3.py`, `scripts/laplang/rerun.py`.)
 
+### Fixed
+
+- **The automatic recovery re-read no longer asks for a `-Z` that Max retries cannot
+  satisfy.** cyanrip's secure re-read `-Z N` succeeds only when N+1 reads of a track
+  are identical, and it stops after `-r` reads (the fork's `src/cyanrip_main.c`
+  lines 997-1012 at `faec4a8`). With secure re-read Off, the read-speed ladder and
+  the auto-fix fell back to our own `-Z 3` whatever `-r` was, so at Max retries 3
+  they sent `-Z 3 -r 3`: every track read three times, none verified, and every
+  track then re-read again the same way. That fallback is now capped at what `-r`
+  lets converge (`-Z 2` at `-r 3`; none at all at `-r 1`), and a number you set
+  yourself is never lowered.
+- **A rip whose secure re-read could never succeed is now refused before cyanrip
+  starts.** `-Z N` with Max retries (`-r`) at N or less reads every track `-r` times
+  and cannot verify one, on any disc. Each number was in range on its own, so
+  nothing caught the pair. The argv check every route to the ripper passes now
+  refuses it with both numbers and the arithmetic, reading a missing `-r` as
+  cyanrip's own default of 10 and a repeated one as the last, as cyanrip does. Its
+  first catch was our own rig check, whose reference command line was
+  `-r 3 -Z 3`; it now uses the shipped defaults (`-r 5 -Z 2`). The `-r`/`-Z` rows of
+  `docs/dependency-contracts.md` say so. The shared `docs/seam-commands.md` is the
+  fork's one move of it for round 29: our two §1a rows, byte for byte, beside their
+  regenerated §7, which shows their `.19` refusing the same pairs (`-Z 10` with
+  `-r 10`). Adopted in the same commit as this check, as both sides agreed.
+
 ## [0.6.62] — 2026-09-28
 
 ### Changed
