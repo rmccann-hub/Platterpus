@@ -1284,3 +1284,37 @@ def test_the_probe_argv_carries_exactly_one_j_after_composition() -> None:
         f"the surviving -j points at {composed[idx + 1]!r}, not at the probe's "
         f"own record path — the probe would read an absent file again"
     )
+
+
+def test_the_pin_line_names_the_build_under_review_not_a_test_pin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The round-29 Full run's rig check said *"A test pin is expected to differ"*
+    beside `51cc789`, the build under review, when no round had a test pin.
+
+    All three states are set here rather than read off the live pins, so the test
+    cannot pass by finding the one state its assertions skip.
+    """
+    from platterpus.deps import fork_source
+    from platterpus.rig_check import pin_line
+
+    monkeypatch.setattr(fork_source, "FORK_PIN", "aaaaaaa")
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW_ROUND", 29)
+
+    # No round is reviewing a build: the line names the pin and nothing else.
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", "aaaaaaa")
+    assert pin_line() == "this Platterpus pins aaaaaaa; the installed banner is above."
+
+    # A round reviews a build and names no test pin (round 29's state).
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", "bbbbbbb")
+    monkeypatch.setattr(fork_source, "FORK_TEST_PIN", "ccccccc")
+    monkeypatch.setattr(fork_source, "FORK_TEST_PIN_ROUND", 21)
+    line = pin_line()
+    assert "accepts bbbbbbb, the build under review (round 29)" in line, line
+    assert "test pin" not in line and "ccccccc" not in line, line
+
+    # The same round also names a test pin: both are named, each with its role.
+    monkeypatch.setattr(fork_source, "FORK_TEST_PIN_ROUND", 29)
+    line = pin_line()
+    assert "bbbbbbb, the build under review (round 29)" in line, line
+    assert "ccccccc, the round-29 test pin" in line, line

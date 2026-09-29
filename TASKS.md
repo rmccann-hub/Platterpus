@@ -678,7 +678,40 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   `51cc789` as the build under review. Main's own CI on `d226c03b` (run `36475375918`)
   was green before the dispatch. The release carries the AppImage, `.sha256`, `.zsync`
   and `.sigstore.json`.
-- [ ] **The Full run** (S6) on `.18` from 0.6.63, and its bundle filed in both trees.
+- [~] **The Full run** (S6) on `.18` from 0.6.63, and its bundle filed in both trees.
+  - *Run 2026-09-28 22:33 to 03:55 UTC* (bundle sha256 `43a83741…`, 4,293,783 bytes):
+    320 pass, 3 fail, 0 error, 1 info; `counts_as_evidence: true`; it reached its last
+    step. **Filed in our tree** as `docs/handshake/artifactsround29/` (51 text members,
+    byte for byte, `round29full*`), whose README says what the run found. **Theirs is
+    pending.** The ledger grades it `partial` (the three failures are in ARCHIVAL
+    sections), and our round 29 lap 3 carries our reading.
+- [ ] **Three screenshot steps found no window on screen** (L676 H, L724 J, L850 K3). The
+  main window and the console were `visible=True` with `exposed=False`, at 94, 96 and 124
+  minutes; screenshots at 86, 103, 110 and 313 minutes passed. **The cause is not
+  established.** Our hypothesis is that the display blanked or locked, because the sleep
+  lock holds `idle:sleep:handle-lid-switch`, which stops the machine sleeping and says
+  nothing about the screen. Two candidate fixes, not yet chosen: hold a screen-saver
+  inhibit (`org.freedesktop.ScreenSaver.Inhibit`) beside the sleep lock for the run, or
+  capture the window with `QWidget.grab()`, which needs no exposed window, if the step's
+  purpose allows a picture of what Qt painted rather than of the screen. Either needs a
+  hardware run to show the failure is gone, not just explained.
+- [ ] **For the maintainer, and only for runs after the decision: should a screenshot step
+  be able to fail an ARCHIVAL section?** H, J and K3 each contain one, so a blank screen
+  makes the run `partial` whatever the rips did. Grading is fixed in advance and never
+  after a failure (`docs/testing.md` → *Acceptance severity*), and this run stays
+  `partial` either way. A change that makes a future version easier to reach is the
+  direction that rule tells us to be suspicious of, so this is a question, not a change.
+- [x] **The rig check's pin line named a test pin that round 29 does not have** (*"A test
+  pin is expected to differ during an open round"*, `round29fullrigcheckmanifest.txt:5`).
+  - *Done in 702a707e:* `rig_check.pin_line` names the pin, the build under review and its
+    round, and a test pin only when the round under review names one.
+- [x] **A probe our own Rescan stopped was recorded as the ripper failing**: every report
+  of the run carried `deps.command_failed: cyanrip exited -9`, from a Rescan pressed 20
+  minutes before the run (`round29fullplatterpusapplog1.txt:20-36`).
+  - *Done in b23290e9:* a run a `KillableCommand` cancel ends comes back as
+    `killable.CancelledRun`, and `run_capture`, the version probe and the cache probe
+    report it as stopped by Platterpus. A `-9` we did not send is still a failure.
+    Revert-probed six ways.
 - [ ] **Our next lap tells the fork `claude/session-omka9f` is deleted, and that every
   commit they cite through it resolves through our `main`** (the operator's instruction,
   2026-09-29). The operator deleted it that day, with `claude/serene-bell-gzywdr` and
@@ -723,9 +756,10 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   `version`, the tool's own version text (the `BuildNote.version_text` Help → About
   now shows). The inventory is the bundle's `components` file, which crosses the
   seam, so the key is declared in a lap before it ships (NEXT-ROUND).
-- [ ] **Both readings (S7).** Their pre-commit (S43): their first lap after the bundle is
+- [~] **Both readings (S7).** Their pre-commit (S43): their first lap after the bundle is
   in their tree is `GO` unless the run shows a defect in `.18` that breaks the pin, or
-  does not complete.
+  does not complete. **Ours is our lap 3**, `GO` by our lap 2's S29: the run completed,
+  and our reading found no defect in 0.6.63 or `.18` that breaks the pin.
 - [ ] **Closing releases (S9):** ours rolls `FORK_PIN` to `51cc789`; theirs is `.19`,
   carrying the tag change (S13) and the finalised checksum (S34).
 

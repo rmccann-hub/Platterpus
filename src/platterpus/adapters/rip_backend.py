@@ -30,7 +30,7 @@ from pathlib import Path
 # The explicit form is what makes that legal under `no_implicit_reexport`.
 from platterpus import diagnostics
 from platterpus.adapters.ripper_log_verify import LogVerification
-from platterpus.killable import KillableCommand
+from platterpus.killable import KillableCommand, was_cancelled
 from platterpus.parsers.cd_info import DiscInfo as DiscInfo
 from platterpus.parsers.drive_list import DriveDescriptor
 
@@ -76,6 +76,14 @@ class RipError(Exception):
     def __init__(self, message: str, output: str = "") -> None:
         super().__init__(message)
         self.output: str = output
+
+
+class ProbeCancelled(RipError):
+    """A probe Platterpus stopped itself (a rescan, a stopped script): no answer.
+
+    A :class:`RipError`, so every caller's handling is unchanged; its message says
+    who stopped it, where a bare ``exit -9`` read as the ripper failing.
+    """
 
 
 # The single in-flight info/version probe, so the GUI can stop one. A module-level
@@ -139,9 +147,9 @@ def run_capture(
 
     The shared core of a backend's info/version probes. It deliberately does
     NOT raise on a non-zero exit — some callers (offset find) classify the
-    output themselves — but it DOES translate the two unrecoverable failures
-    into a :class:`RipError` the GUI can surface: a missing binary and a
-    timeout.
+    output themselves — but it DOES raise a :class:`RipError` the GUI can
+    surface for the three cases with no exit status worth classifying: a missing
+    binary, a timeout, and a run our own cancel ended (:class:`ProbeCancelled`).
 
     The pieces that genuinely differ between backends are parameters, not
     forks: ``timeout``, ``tool_name`` (shapes the log line and the error
@@ -232,6 +240,20 @@ def run_capture(
         )
         raise RipError(f"{tool_name} timed out after {timeout:.0f}s") from exc
     output = (proc.stdout or "") + (proc.stderr or "")
+    if was_cancelled(proc):
+        # The -9 is the SIGKILL we sent, so it is recorded as ours: an `info`, never
+        # `deps.command_failed`, which every rip report of the session would carry.
+        message = f"{tool_name} was stopped by Platterpus before it answered"
+        diagnostics.info(
+            "deps.command_cancelled",
+            f"{message}; this is not a failure of {tool_name}",
+            tool=tool_name,
+            argv=argv,
+            exit_code=proc.returncode,
+            detail=diagnostics.bounded_output(output),
+            where="adapters.rip_backend.run_capture",
+        )
+        raise ProbeCancelled(message, output)
     if proc.returncode != 0:
         # A non-zero probe is NOT necessarily a failure — some callers classify the
         # output themselves (the offset find reads a non-zero exit as a real answer),

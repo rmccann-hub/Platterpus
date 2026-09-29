@@ -11,6 +11,44 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-29 — Round 29's Full run: filed, graded `partial`, and two defects of ours fixed
+
+**Asked:** the operator uploaded `platterpusbundle20260928t223356z.tar.gz`, the Full run
+round 29 of the cyanrip handshake names (0.6.63 with the fork's `.18`, `51cc789`).
+Analyse it, file it, grade it, and write our post-bundle lap.
+
+**Found:** 320 pass, 3 fail, 0 error. The three failures are screenshot steps in H, J and
+K3 that found every window unexposed, at 94, 96 and 124 minutes, between screenshots that
+passed. The cause is not established, so it went to `TASKS.md` as a hypothesis (the
+display blanked; the sleep lock does not cover the screen) with two candidate fixes. The
+rips completed. The whole-disc rip matches EAC on 13 of 14 tracks; track 3's other reading,
+`3D8FCF0C`, was stable within the pass and was also read on 2026-09-26. The secure re-read
+converged on every track, three of them only because 0.6.63 allows five reads. 0.6.63's
+three record fixes all show on the rig.
+
+**Built:**
+- *The bundle filed byte for byte* in `docs/handshake/artifactsround29/` (51 files), with
+  a README computed from the copies. The ledger's twelfth row, `partial`, with the counts
+  in the README and `PLANNING.md` moved to twelve.
+- *The rig check's pin line* names the build under review, where it named a test pin
+  round 29 does not have (`702a707e`).
+- *A probe our own cancel stopped is recorded as ours* (`b23290e9`). Every rip report of
+  the run carried `cyanrip exited -9` as a dependency failure. The kill was our Rescan,
+  pressed twenty minutes before the run. `KillableCommand` now returns a `CancelledRun`
+  for a run its own cancel ended, and the three callers report it as stopped.
+
+**Learned** (no new rule: each is an instance of a question `CLAUDE.md` already asks):
+- *My summary said the one warning in every report was the expected P2 probe.* It was
+  not: the report named `cyanrip -I` and a `-9`, and the log named the Rescan. That is
+  *am I answering from the artifact, or from my memory of the artifact?*, and the fix to
+  the README came from opening the report, not from re-reading my notes.
+- *I also wrote that the install of `.18` was not in the bundle.* It was, in the rotated
+  app log, a minute before the run. *An absence in a log is a fact about the logger*: I
+  had read only the current log file.
+- *A fix of a check needs a floor.* The first test of the pin line branched on the live
+  pins, so with a different round open it would have asserted almost nothing. It now
+  sets each state itself.
+
 ## 2026-09-29 — Configuration re-check (PROJECT-BOOTSTRAP-AND-AUDIT v0.39.0): 4 applied, 2 more held
 
 **Asked:** the maintainer's run file. Re-check the repository against KDD-39, stop at the
