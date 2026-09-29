@@ -12,15 +12,25 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
-### Documentation
+### Fixed
 
-- **A second Full run on `.17` is filed and graded `partial`.** The operator's
-  14:42 UTC run on 2026-09-28 (0.6.62 with `e0471f4`) passed 320 of 320. Its whole-disc
-  rip matches the EAC baseline on all 14 tracks, and CTDB verifies it. Its records still
-  carry the defects 0.6.63 fixed, so the field-evidence ledger gets an eleventh row,
-  `partial`. The ledger also says why this run is not a second witness for the
-  `0.7.100` bar: same machine, drive, disc and build. The text artifacts are in
-  `docs/handshake/artifactsround28/` (`round28full062*`).
+- **The `-x` overread check reads the files git tracks, not whatever is on disk.**
+  `tests/test_documented_ripper_flags_are_real.py` found its documents by walking the
+  working tree, so it also swept `.pytest_cache/`, `src/platterpus.egg-info/` and stale
+  `build/lib/` copies of the rig scripts, and the number of tests collected depended on
+  what had run before: 6744 in a fresh clone, 6749 in CI, 6750 on a second local run.
+  It now takes the tracked set from `git ls-files`, and walks the tree only where there
+  is no `.git` (an unpacked sdist). In a checkout whose git fails, it stops with git's
+  message instead of falling back.
+
+### Added
+
+- **An `.editorconfig`.** Editors, GitHub's web editor included, now apply the
+  repository's conventions to the files ruff never formats: UTF-8, LF, a final newline,
+  4-space Python, 2-space YAML, and trailing spaces kept in Markdown, where they are a
+  line break. The handshake record, the reference rips' logs and the test fixtures are
+  left exactly as written, because 62 files there carry trailing whitespace, no final
+  newline, or UTF-16 on purpose.
 
 ### Changed
 
@@ -42,6 +52,86 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `Installed ripper:` line under `Approved pair:`, and each dependency row carries the
   tool's own build (`build=0.9.4-rc2+platterpus.18`). A diagnostics paste on
   2026-09-28 could not show whether `.18` was installed.
+- **The published metadata names rmccann-hub as the author and copyright holder.**
+  `pyproject.toml`'s `authors` and the AppStream metainfo's `<developer>` said
+  "Platterpus contributors", which is not a legal entity and so cannot grant the
+  GPL. Both now say rmccann-hub, and the README's licence section carries the
+  copyright line and the GPL-3.0-only notice. PyPI shows the new author from the next
+  release.
+
+### Removed
+
+- **The dead `[tool.mutmut]` block in `pyproject.toml`.** mutmut was retired on
+  2026-09-05 in favour of `scripts/mutation_sweep.py`, and nothing has read the block
+  since. It went on describing a three-path scope and a pinned tool that no longer
+  exist. The weekly sweep's scope is the matrix in `.github/workflows/mutation.yml`.
+
+### Security
+
+- **The one-line installer checks the AppImage before it installs it.** `install.sh`
+  downloaded the newest release's AppImage into `~/Applications` and marked it
+  executable without checking anything, although the app checks every update it
+  installs. It now checks the download against the release's `.sha256` and, when an
+  installed GitHub CLI can check it, verifies its build attestation with `gh
+  attestation verify --bundle`, which needs no login. A file that fails either check
+  is refused, and an AppImage already in `~/Applications` is left as it was. Whether
+  `gh` can check it is read off its own help: the flags list must name
+  `--signer-workflow` (gh 2.51.0 or later). An older `gh`, which would fail the check
+  and refuse a good download, gets the checksum check and a line saying it is too
+  old; without `gh`, the script says the attestation was not checked.
+- **`SECURITY.md` says what the secret scan covers.** It said the `gitleaks` job scans
+  the full history. The job scans a pull request's own non-merge commits, and a push
+  to `main` that arrives as a merge commit scans nothing: the push run for `a930411b`
+  logged *"0 commits scanned"*. The entry now says so, and records a scan by hand of
+  every commit on `main`, merge commits included, on 2026-09-28: 1,454 commits, no
+  findings. `docs/architecture.md` §6.3 carries the same correction beside its
+  verbatim quote of `CLAUDE.md`. Making CI scan the full history is approved and not
+  yet applied.
+
+### Documentation
+
+- **A second Full run on `.17` is filed and graded `partial`.** The operator's
+  14:42 UTC run on 2026-09-28 (0.6.62 with `e0471f4`) passed 320 of 320. Its whole-disc
+  rip matches the EAC baseline on all 14 tracks, and CTDB verifies it. Its records still
+  carry the defects 0.6.63 fixed, so the field-evidence ledger gets an eleventh row,
+  `partial`. The ledger also says why this run is not a second witness for the
+  `0.7.100` bar: same machine, drive, disc and build. The text artifacts are in
+  `docs/handshake/artifactsround28/` (`round28full062*`).
+- **The dependency record names every tool a release depends on, and stops claiming
+  a lock that does not exist.** `DEPENDENCIES.md` gains rows for twine, pip-audit,
+  cyclonedx-bom and gitleaks, each saying how CI gets it today: twine and pip-audit
+  unpinned, cyclonedx-bom `>=7,<8`, gitleaks 8.24.3 through its action. The AppImage
+  recipe said the bundled `cryptography` version was fixed by `requirements.lock`.
+  That lock is not committed, so every AppImage build installs online within the `~=`
+  ranges, and `build/python-appimage/requirements.txt` now says so.
+- **The configuration audit's full report is archived.**
+  `docs/archive/config-audit-2026-09-28.md` holds every phase's block, the branch survey
+  of Platterpus, the fork and claude-code-skills, the changes it proposes to the audit
+  standard itself, and five things found while applying. KDD-39 stays the record of
+  what was decided; the archive is the evidence behind it. Rows naming the owner's
+  private repositories were taken out of its survey before the merge, and the file
+  says so.
+- **The 2026-09-28 configuration audit is on the record.** `PLANNING.md` KDD-39 records
+  the standard and version that ran, the tier the maintainer confirmed (T3), the three
+  rulings, what was applied, the eight amendments approved and held until the
+  seam-automation proposal is answered, and what must not be proposed again, so the next
+  audit starts from these answers instead of asking for them. It also records each API
+  reading of the repository's private vulnerability reporting, the last on 2026-09-29.
+- **A written way to withdraw a bad release.** `docs/architecture.md` gains §6.4,
+  *When a release is bad*: take the GitHub release down, yank the version on PyPI,
+  revert `install.sh` on `main` if it is the bad part, withdraw a bad ripper pin
+  through the fork, publish a higher version, and confirm the offer is gone. Every
+  step works from a browser, and the section says why the order matters: withdrawing
+  stops new offers, but only a higher version reaches someone who already updated.
+- **The README says what "out of beta" means, and dates its figures.** It said
+  "out of beta" while PyPI's classifier says *Beta*. Both stand (the maintainer's
+  choice, 2026-09-28): the README now says the phrase means the `bN` test labels ended
+  with 0.6.12, and that a pre-1.0 project is why PyPI says Beta and GitHub marks every
+  `v0.*` release a pre-release. Its figures went from "5,400+ tests at 91.9%" to the
+  numbers measured on 2026-09-28, with how they were measured.
+- **`docs/testing.md` no longer calls `tests-touched` advisory.** Its tier table still
+  described the job as a "nudge" five weeks after it became a gating job (2026-08-20).
+  It now says what the job refuses and how a change states a reason instead.
 
 ## [0.6.63] — 2026-09-28
 

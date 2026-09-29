@@ -12,6 +12,7 @@ those first; these are the dated narrative behind them.
 | [`audit-2026-07-02.md`](audit-2026-07-02.md) — the 13-agent full-audit report that drove the 0.4.13–0.4.16 fix batch | Fixes shipped as v0.4.13–v0.4.16 (CHANGELOG); §E's deferred remainders graduated to the **TASKS.md Documentation backlog** (hardware checkboxes, property surfaces, Phase-7/TD-1 items) |
 | [`trust-audit-2026-07-08.md`](trust-audit-2026-07-08.md) — the seven-category trust & supply-chain audit behind the v0.4.22 hardening | In-release fixes shipped in v0.4.22/v0.4.23 (CHANGELOG); deferred items graduated to the **TASKS.md trust-hardening section** (release signing + hash-pinning still open there) |
 | [`mp3-wav-support-2026-06.md`](mp3-wav-support-2026-06.md) — the multi-format (FLAC · WavPack · MP3 · WAV) research + design-of-record; **shipped 2026-06-26**, archived 2026-08-06 (was the top-level `mp3-wav-support.md`) | The product decisions are **CLAUDE.md Critical rule #4** (FLAC is the archival master, everything else derived) and **PLANNING.md KDD-22**; the encoder arguments *as actually sent* are `docs/dependency-contracts.md` + `adapters/transcode.py`; the extension recipe is `docs/architecture.md` → *Add an output format*. Its one still-**open** item — embedding cover art inside a `.wv`, which needs the standalone `wavpack` tool because ffmpeg's muxer is audio-only — was graduated to **TASKS.md P2** in the same change, because an open item inside an archived doc is an item nobody reads again |
+| [`config-audit-2026-09-28.md`](config-audit-2026-09-28.md) — the run report of the PROJECT-BOOTSTRAP-AND-AUDIT v0.38.0 configuration audit: every phase's block (0–9), the cross-repository branch survey, the standard changes it proposes (S4–S10) and what it found while applying (N1–N5). Archived at the owner's request, 2026-09-28 | **PLANNING.md KDD-39** (the tier, the rulings, each amendment's outcome, what is held and what must not be proposed again). The applied changes are in `CHANGELOG.md`, and the standard's changes go to claude-code-skills' `ROADMAP.md` |
 
 These files are not maintained going forward. If a conclusion here ever
 conflicts with a living doc, the living doc wins.
@@ -44,4 +45,4 @@ to mine, not as authority over the living docs.
 
 ---
 
-*Last updated for Platterpus v0.6.54.*
+*Last updated for Platterpus v0.6.63.*

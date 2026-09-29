@@ -1,0 +1,51 @@
+# Editor settings for this repository (https://editorconfig.org).
+#
+# ruff formats the Python ([tool.ruff] in pyproject.toml), and .gitattributes
+# decides what git normalises on commit. Neither is read by an editor, so this
+# file tells editors (GitHub's web editor included) the same conventions, and a
+# save does not quietly rewrite a file's whitespace.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.py]
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Two trailing spaces are a line break in Markdown, so they are content.
+[*.md]
+trim_trailing_whitespace = false
+
+# The three paths below are kept byte-for-byte as written, so an editor must
+# change nothing in them. Measured 2026-09-28: 62 tracked files under them have
+# trailing whitespace or no final newline, or are UTF-16.
+
+# The handshake record: a sent lap is immutable, and round digests hash it.
+[docs/handshake/**]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+
+# Reference rips' logs, stored as the tools wrote them (EAC writes UTF-16; see
+# .gitattributes).
+[output_reference/**]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+
+# Fixtures that reproduce a tool's output exactly.
+[tests/fixtures/**]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
