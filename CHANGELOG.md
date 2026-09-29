@@ -14,6 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The lap checker no longer refuses a correct `git log --oneline` result over the
+  size of our own clone.** Git sizes an abbreviated hash by how many objects the clone
+  holds, so the same command prints `f8ebf48` in a clone without blobs and `f8ebf48f` in
+  a full one. The fork's round 29 lap 3 quoted the first, correctly for its clone, and
+  `scripts/lap_language.py check --rerun` refused it in our full clone. Re-runs now set
+  git's abbreviation to seven characters, git's own minimum and the length laps quote
+  (git still lengthens an ambiguous one), whatever the clone's own setting.
 - **A rig session no longer stops at the fork-clone step on a machine that cannot
   reach GitHub.** `--rig-session`'s step 12 clones the fork to run its suite. A comment
   sat between the `run` call and its command, and a comment after a trailing backslash
@@ -459,6 +466,30 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   Every committed lap, and the fork's round 29 lap 1, gets the same report as before.
   The fork will write these readings into the shared proposal (their S30).
   (`scripts/laplang/lsl3.py`, `scripts/laplang/rerun.py`.)
+
+### Fixed
+
+- **The automatic recovery re-read no longer asks for a `-Z` that Max retries cannot
+  satisfy.** cyanrip's secure re-read `-Z N` succeeds only when N+1 reads of a track
+  are identical, and it stops after `-r` reads (the fork's `src/cyanrip_main.c`
+  lines 997-1012 at `faec4a8`). With secure re-read Off, the read-speed ladder and
+  the auto-fix fell back to our own `-Z 3` whatever `-r` was, so at Max retries 3
+  they sent `-Z 3 -r 3`: every track read three times, none verified, and every
+  track then re-read again the same way. That fallback is now capped at what `-r`
+  lets converge (`-Z 2` at `-r 3`; none at all at `-r 1`), and a number you set
+  yourself is never lowered.
+- **A rip whose secure re-read could never succeed is now refused before cyanrip
+  starts.** `-Z N` with Max retries (`-r`) at N or less reads every track `-r` times
+  and cannot verify one, on any disc. Each number was in range on its own, so
+  nothing caught the pair. The argv check every route to the ripper passes now
+  refuses it with both numbers and the arithmetic, reading a missing `-r` as
+  cyanrip's own default of 10 and a repeated one as the last, as cyanrip does. Its
+  first catch was our own rig check, whose reference command line was
+  `-r 3 -Z 3`; it now uses the shipped defaults (`-r 5 -Z 2`). The `-r`/`-Z` rows of
+  `docs/dependency-contracts.md` say so. The shared `docs/seam-commands.md` is the
+  fork's one move of it for round 29: our two §1a rows, byte for byte, beside their
+  regenerated §7, which shows their `.19` refusing the same pairs (`-Z 10` with
+  `-r 10`). Adopted in the same commit as this check, as both sides agreed.
 
 ## [0.6.62] — 2026-09-28
 

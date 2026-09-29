@@ -813,8 +813,10 @@ transferable part.
 | 18 | **r21 lap 5 §2**, relayed | Fork asserted that round 21's own close condition §0.1 item 2 — *"our parser **reads** `Retry limit:` on real logs"* — was **never satisfiable**, and that the defect is theirs for writing it | **THEM**, and they asked us not to spend a lap on it | Checked in our own tree rather than taken: at `platterpus@4bedb45:src/platterpus/parsers/cyanrip_log.py:1876-1879` the label is an entry in `_IGNORED_DISC_LINES` — recognised and deliberately **not** extracted — and our own comment two lines above says *"We extract nothing from it either way, so the rename is invisible to the PARSE."* Both labels sit in one alternation, so there was never a rename for a parse to survive | **A close condition can ask for a behaviour the other side's code documents as deliberately absent, and nobody notices for four laps** — the comment was in our tree when their lap 1 was written, and neither of us read it. What the condition actually protected (an unrecognised disc line tripping our completeness sweep on *every* rip) **is** retired and was measured. Under R1 the wording is frozen, so it is annotated rather than restated — and our non-vacuity probe is marked down to what it proves: that the **sweep** would have fired, not that anything is *read* |
 | 19 | **r21, relayed** | We reported that their recorded SHA for our held lap 4 was stale, and diagnosed it as *"`HANDSHAKE-INBOUND-HELD` pins a document whose own state cell says it may change"* — calling the portable half *"small but real"* | **THEM** — right that we flagged it, and their diagnosis is one step further back than ours | Their own lap 5, opened in their tree: that field carried **two laps, two hashes and two states** — our lap 2 (sent, filed) and our lap 4 (observed, held) — and said of lap 4 *in that same field* that it is not filed, while the note two lines down said they would file it byte-exact against the hash in that field. **The lap contradicted itself inside three lines** | **Staleness did not create the defect; it turned an overloaded field from ambiguous into a wrong instruction.** So the remedy is the **split**, not a re-read: `HANDSHAKE-INBOUND-HELD` for sent laps, `HANDSHAKE-INBOUND-OBSERVED` for held ones carrying `DO NOT FILE AGAINST THESE NUMBERS`. Adopted in both headers the lap it was proposed. Their framing of why it is worth more than agreement — *"we would rather be the worked example than the second opinion"* — is the transferable half: a proposal confirmed from the peer's own code beats one agreed to in principle |
 | 20 | **r26 lap 4 §B**, their nit | Fork asserted our cancelled rip's report said *"0 of 0 tracks matched only an offset-variant pressing"* on a 14-track disc | **THEM** | Our copy of the bundle, `docs/handshake/artifactsround26/round26cancelmereport.json`: the parser took the disc's count from their footer, and the report recomputed the sentence from `len(tracks)`, which a cancel empties | **A correction applied to one copy of a rule.** The parser had been fixed and the report's restatement had not; now one function has two callers, tested on the filed log |
+| 21 | **r29 lap 3 S23–S24** | Fork refused our round 29 lap 2 S4, which said their `git log --oneline --no-merges e0471f4..51cc789 -- src/` prints 39 commits, not the six their S2 claimed | **THEM** | A full clone of their tree prints six (`a646d54` … `f8ebf48`), and so does a fresh `--filter=blob:none` one. Our 39 came from our clone of their tree, which was shallow (`git rev-parse --is-shallow-repository` → `true`, 220 commits): a truncated history puts ancestors of `e0471f4` on the wrong side of the range | *Reproduce by their method before reporting a mismatch*: we corrected their command without asking what our clone was. A shallow clone answers a range question wrongly and silently; check `--is-shallow-repository` before quoting a count from a clone of the peer's tree |
+| 22 | **r29 lap 3 S35** | Fork asserted our `TASKS.md` says the seven commits named beside our deleted session branch resolve in neither tree | **THEM** | Our own sweep counted all seven among the 160 that are our commits, and each is an ancestor of our `main` (`git merge-base --is-ancestor`, 2026-09-29). The row's prose attached them to the 626 that resolve nowhere, while the numbers beside it were right | *A sentence beside a measured table is a second claim, and needs the same check*: the numbers were derived, the sentence was typed |
 
-**Standing count as of round 26 lap 4: fork right 14, us right 6, of 20
+**Standing count as of round 29 lap 3: fork right 16, us right 6, of 22
 resolved.** Tallied from the table above by `tests/test_challenge_ledger_count.py`,
 which is the only reason this line is now right — and it earned its keep again on
 2026-09-18: adding rows 17–19 failed the suite twice, once for the headline and
@@ -841,11 +843,11 @@ Read the count with three qualifications, all of which cut against treating it a
 a verdict:
 
 * **The sample is not closed and it is not the sample the mandate is about.** The
-  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10–20
-  are the eleven made under it: fork right 9, us right 2** — this sub-count has been
+  challenge mandate was issued **2026-08-26**; rows 1–9 predate it. **Rows 10–22
+  are the thirteen made under it: fork right 11, us right 2** — this sub-count has been
   derived from the rows since it was written, rather than carried forward, which is
   why it was already correct when the headline above was not. *Is the population I
-  measured closed?* — nine of these twenty are the *before* picture, and **n=11
+  measured closed?* — nine of these twenty-two are the *before* picture, and **n=13
   is still not a result**, so the answer to the maintainer's question remains **not
   measurable** and saying so is the honest reading. **Round 21 alone went 3–0 to
   them** (rows 17, 18, 19) and that is recorded rather than balanced: none of the
@@ -876,4 +878,4 @@ a verdict:
 
 ---
 
-*Last updated for Platterpus v0.6.62.*
+*Last updated for Platterpus v0.6.63.*

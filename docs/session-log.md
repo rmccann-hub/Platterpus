@@ -49,6 +49,27 @@ three record fixes all show on the rig.
   pins, so with a different round open it would have asserted almost nothing. It now
   sets each state itself.
 
+**Then the fork's lap 3 (`GO`), and our lap 4.** Their lap was published, then revised and
+released on their operator's word (`cyanrip@b89cbce4`). It refused our lap 2 S4 and caught
+a `TASKS.md` sentence; both were theirs to win (challenge-ledger rows 21 and 22). Built for
+the close: their move of the shared `seam-commands.md` adopted byte for byte with our held
+`-Z`/`-r` argv check (`68abbd95`), the re-run abbreviation fix (`a7a3532d`), their lap
+filed, and our lap 4 (`GO`), held. PR #279's CI also found a real bug in the rig session
+script (`b38e3fc7`): a comment after a line continuation had pushed the fork clone out of
+its step, so an offline machine aborted the whole session.
+
+**Learned** (each an instance of an existing question, recorded where it is read: the
+ledger's *mechanism* column):
+- *A number that does not reproduce is about my method first.* Our 39 came from a shallow
+  clone of their tree; a full clone and their blob-less clone both print six. The ledger's
+  row 21 says to check `--is-shallow-repository` before quoting a count from a peer clone.
+- *The same clone question, one level down.* Our re-runner then refused their correct
+  `--oneline` quote because git sized the hash by our clone's object count. Both times the
+  clone was the variable, not the claim.
+- *A gate read through a pipe is not a gate.* I committed `b38e3fc7` with lint red,
+  because `check.py | tail` gave the chain `tail`'s exit code. The next commit fixed it,
+  and every gate after it was read from `check.py`'s own exit.
+
 ## 2026-09-29 — Configuration re-check (PROJECT-BOOTSTRAP-AND-AUDIT v0.39.0): 4 applied, 2 more held
 
 **Asked:** the maintainer's run file. Re-check the repository against KDD-39, stop at the
