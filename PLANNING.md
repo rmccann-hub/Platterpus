@@ -1324,11 +1324,12 @@ is the decision log failing at the one thing it is for. All three were live in
   should not allow a 0.9.1."* Two passes on one rig answer *was it luck* and say
   nothing about *is it green only because of this machine*.
 
-**Status, 2026-09-28:** the ledger carries eleven rows, every one `partial`, and
-no `full-green` row. The newest, 2026-09-28 on app 0.6.61 against `e0471f4`
-(`.17`), is round 28's Full run: 320 of 320, `partial` because its records carried
-two errors of ours no step could fail over (`docs/testing.md` §5B, the 2026-09-28
-row). The 2026-09-26 run on app 0.6.60 against `221a1df` (`.16`) was the first Full
+**Status, 2026-09-29:** the ledger carries twelve rows, every one `partial`, and
+no `full-green` row. The newest, 2026-09-28 on app 0.6.63 against `51cc789`
+(`.18`), is round 29's Full run: 320 of 323, `partial` because three screenshot steps
+in ARCHIVAL sections failed (`docs/testing.md` §5B, the 0.6.63 row). Round 28's Full
+run, 2026-09-28 on app 0.6.61 against `e0471f4` (`.17`), passed 320 of 320 and is
+`partial` because its records carried two errors of ours no step could fail over. The 2026-09-26 run on app 0.6.60 against `221a1df` (`.16`) was the first Full
 run whose every archival check could fail: 320 of 320, graded `partial` by the
 maintainer for the same reason (the 2026-09-26 row). The one before, 2026-09-24 on app 0.6.55 against the round-26
 test pin `df91ae7` (258/261), lost section F's whole-disc rip when the ripper's

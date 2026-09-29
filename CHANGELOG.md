@@ -118,6 +118,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Documentation
 
+- **Round 29's Full run is filed and graded `partial`.** The operator's run on
+  2026-09-28 (0.6.63 with the fork's `.18`, `51cc789`) passed 320 of 323 steps. The
+  three failures are screenshot steps in sections H, J and K3 that found no window on
+  screen, and those sections are graded archival in advance, so the field-evidence
+  ledger gets a twelfth row, `partial`. Its rips completed, and its whole-disc rip
+  matches the EAC baseline on 13 of 14 tracks. The text artifacts are in
+  `docs/handshake/artifactsround29/`, whose README says what the run found, including
+  the install of `.18` from Setup & Updates a minute before the run.
 - **Every commit the fork cites now resolves through `main`, including two it names
   by subject.** On 2026-09-29 the operator deleted `claude/session-omka9f`, which the
   fork's `docs/KNOWN-ISSUES.md` records us promising to keep. We checked every
