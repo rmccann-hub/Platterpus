@@ -267,3 +267,156 @@ def test_the_gates_run_at_the_same_time(
     order = [printed.index(f"==> {gate.name}") for gate in fakes]
     assert order == sorted(order), "the report is not in the fixed gate order"
     assert all(gate.code == 0 for gate in fakes)
+
+
+# --- The stale-clone preflight (2026-09-29 configuration re-check, A21) ---------
+#
+# A fresh cloud session starts shallow, with an origin/main hundreds of commits
+# old. Ten tests that read origin/main then failed on laps that were fine, and
+# their messages offered the exemption list as the remedy. The preflight says
+# which it is before the suite runs. It warns and never changes a verdict.
+
+
+def _state(**overrides: object) -> object:
+    """A CloneState that is fresh unless told otherwise."""
+    fields: dict[str, object] = {
+        "in_git": True,
+        "shallow": False,
+        "local_main": "a" * 40,
+        "remote_main": "a" * 40,
+        "remote_error": None,
+    }
+    fields.update(overrides)
+    return check.CloneState(**fields)
+
+
+def test_a_fresh_full_clone_gets_no_warning() -> None:
+    assert check.clone_warnings(_state()) == []
+
+
+def test_outside_git_there_is_nothing_to_say() -> None:
+    """An unpacked sdist has no origin/main, and no reachability test can run."""
+    assert (
+        check.clone_warnings(_state(in_git=False, shallow=None, local_main=None)) == []
+    )
+
+
+def test_a_shallow_clone_is_named_with_its_fix() -> None:
+    [line] = check.clone_warnings(_state(shallow=True))
+    assert "shallow" in line and "git fetch --unshallow origin" in line
+
+
+def test_an_origin_main_behind_the_remote_is_named_with_both_commits() -> None:
+    [line] = check.clone_warnings(_state(local_main="1" * 40, remote_main="2" * 40))
+    assert "1" * 9 in line and "2" * 9 in line
+    assert "git fetch origin main" in line
+
+
+def test_no_origin_main_at_all_is_named() -> None:
+    [line] = check.clone_warnings(_state(local_main=None))
+    assert "no origin/main" in line
+
+
+def test_an_unreadable_remote_is_said_not_taken_as_fresh() -> None:
+    """Tri-state: "could not compare" is never read as "up to date"."""
+    [line] = check.clone_warnings(_state(remote_main=None, remote_error="exit 128"))
+    assert "could not compare" in line and "exit 128" in line
+
+
+def test_an_unknown_shallow_flag_is_said_not_taken_as_full() -> None:
+    [line] = check.clone_warnings(_state(shallow=None))
+    assert "could not tell" in line
+
+
+def _repo_git(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", *args],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _upstream_with_two_commits(tmp_path: Path) -> tuple[Path, str]:
+    """A throwaway remote whose main has two commits; returns it and the first."""
+    upstream = tmp_path / "upstream"
+    upstream.mkdir()
+    _repo_git(upstream, "init", "-q", "-b", "main")
+    _repo_git(upstream, "config", "user.email", "test@example.invalid")
+    _repo_git(upstream, "config", "user.name", "test")
+    for name in ("base", "tip"):
+        (upstream / name).write_text(name, encoding="utf-8")
+        _repo_git(upstream, "add", name)
+        _repo_git(upstream, "commit", "-q", "-m", name)
+    return upstream, _repo_git(upstream, "rev-parse", "HEAD~1")
+
+
+def test_a_clone_whose_origin_main_is_held_back_is_caught(tmp_path: Path) -> None:
+    """The real reader against a real clone: fresh first, then held back."""
+    upstream, base = _upstream_with_two_commits(tmp_path)
+    clone = tmp_path / "clone"
+    _repo_git(tmp_path, "clone", "-q", str(upstream), str(clone))
+    fresh = check.read_clone_state(clone, ask_remote=True)
+    assert fresh.shallow is False and fresh.local_main == fresh.remote_main
+    assert check.clone_warnings(fresh) == []
+
+    _repo_git(clone, "update-ref", "refs/remotes/origin/main", base)
+    held_back = check.read_clone_state(clone, ask_remote=True)
+    [line] = check.clone_warnings(held_back)
+    assert base[:9] in line and "git fetch origin main" in line
+
+
+def test_a_shallow_clone_is_caught(tmp_path: Path) -> None:
+    upstream, _ = _upstream_with_two_commits(tmp_path)
+    clone = tmp_path / "shallow"
+    _repo_git(tmp_path, "clone", "-q", "--depth", "1", f"file://{upstream}", str(clone))
+    state = check.read_clone_state(clone, ask_remote=True)
+    assert state.shallow is True
+    assert any("--unshallow" in line for line in check.clone_warnings(state))
+
+
+def test_a_remote_that_cannot_be_reached_is_reported(tmp_path: Path) -> None:
+    upstream, _ = _upstream_with_two_commits(tmp_path)
+    clone = tmp_path / "clone"
+    _repo_git(tmp_path, "clone", "-q", str(upstream), str(clone))
+    _repo_git(clone, "remote", "set-url", "origin", str(tmp_path / "gone"))
+    state = check.read_clone_state(clone, ask_remote=True)
+    assert state.remote_main is None and state.remote_error is not None
+    assert any("could not compare" in line for line in check.clone_warnings(state))
+
+
+def test_the_clone_warning_is_printed_before_the_suite_and_changes_no_verdict(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sentinel = tmp_path / ".pytest-session-complete"
+    fake = check.Gate("tests (x)", [sys.executable, "-c", "pass"])
+
+    def fake_run(gate: object) -> None:
+        gate.code = 0  # type: ignore[attr-defined]
+        sentinel.write_text("0", encoding="utf-8")
+
+    monkeypatch.setattr(check, "SENTINEL", sentinel)
+    monkeypatch.setattr(check, "_build_gates", lambda only, coverage: [fake])
+    monkeypatch.setattr(check, "_run", fake_run)
+    monkeypatch.setattr(
+        check, "read_clone_state", lambda repo, ask_remote: _state(shallow=True)
+    )
+    assert check.main(["--log-dir", str(tmp_path)]) == 0, "a warning is not a failure"
+    printed = capsys.readouterr().out
+    assert printed.index("! clone: this clone is shallow") < printed.index("==> tests")
+
+
+def test_no_clone_check_runs_when_the_suite_does_not(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Lint alone reads no origin/main, so it pays for no remote call."""
+    fake = check.Gate("lint (x)", [sys.executable, "-c", "pass"])
+
+    def refuse(repo: object, ask_remote: bool) -> object:
+        raise AssertionError("read_clone_state ran for a run with no suite")
+
+    monkeypatch.setattr(check, "_build_gates", lambda only, coverage: [fake])
+    monkeypatch.setattr(check, "_run", lambda gate: setattr(gate, "code", 0))
+    monkeypatch.setattr(check, "read_clone_state", refuse)
+    assert check.main(["--log-dir", str(tmp_path)]) == 0
