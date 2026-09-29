@@ -139,6 +139,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `GithubReleasesZsyncUpdateInformation.cpp`, 2026-09-29). The README now says so and
   points to Check for updates, which is unaffected. Changing the tag the build embeds is
   approved and held until the seam-automation proposal is answered.
+- **`SECURITY.md` gives a way to check a download without a GitHub login.** Its one
+  command, `gh attestation verify … --repo …`, fetches the attestation from GitHub,
+  so it needs `gh auth login`, and without one it fails with an error that reads like
+  a failed check (exit 4, measured with gh 2.101.0 on 2026-09-28). It now says so, and
+  gives the form `install.sh` uses: the release's `.sigstore.json` as `--bundle`, plus
+  `--signer-workflow`, which needs gh 2.51.0 or later.
 
 ## [0.6.63] — 2026-09-28
 
