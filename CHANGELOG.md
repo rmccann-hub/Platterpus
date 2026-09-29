@@ -29,7 +29,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   blamed the laps, and the first offered the exemption list as the remedy, which would
   have switched off a check that was right. `scripts/check.py` now says, before the
   suite runs, when the clone is shallow or its `origin/main` is behind the remote's,
-  and names the fetch that fixes it. It is a warning only, and no verdict changes.
+  and names the fetch that fixes it. It is a warning only: no verdict changes, it never
+  waits on a credential prompt, and a failure to read the clone is said, not raised.
   Those tests' messages now name that check first, in one sentence both sides take from
   `scripts/check.py`.
 

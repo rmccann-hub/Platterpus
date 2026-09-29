@@ -1696,8 +1696,11 @@ claude-code-skills holds the standard, but shares nothing into this repository.
 - N6, new. In a clone whose `origin/main` is held back, the lap-language checker **refuses**
   (LSL.4) a lap citing a commit that is on the remote's main. So a stale clone can refuse a
   good outbound lap. The checker is round tooling, so this is raised for the next round
-  rather than changed here. A21's preflight names the stale clone before anyone reads the
-  refusal.
+  rather than changed here. A21's preflight does **not** cover it: the preflight runs only
+  inside `scripts/check.py` before the suite, while a lap is checked with
+  `scripts/lap_language.py check` or through `scripts/handshake.py`, and neither prints
+  that warning. *(Corrected before the merge, review finding B3: this said the preflight
+  names the stale clone before anyone reads the refusal.)*
 
 **Do not re-propose**, carried forward whole: branch protection or rulesets on `main`;
 arming update signing (KDD-37 D9); squash merges for session branches; tags for 0.4.0 to

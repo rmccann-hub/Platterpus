@@ -3108,6 +3108,7 @@ def test_a_held_back_origin_main_fails_with_the_clone_named_before_the_exemption
             check=True,
             capture_output=True,
             text=True,
+            timeout=60,
         ).stdout.strip()
 
     upstream = tmp_path / "upstream"
