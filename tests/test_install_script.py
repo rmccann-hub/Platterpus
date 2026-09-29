@@ -138,9 +138,34 @@ fi
 if [ -n "$out" ]; then cp "$src" "$out"; else cat "$src"; fi
 """
 
-#: Records its arguments, then passes or fails as $FAKE_GH_EXIT says, printing
-#: the sentence the real gh printed for a file its bundle does not cover.
+#: Answers install.sh's help probe as $FAKE_GH_HELP says, then records the
+#: arguments of a real `verify` call and passes or fails as $FAKE_GH_EXIT says,
+#: printing the sentence the real gh printed for a file its bundle does not
+#: cover. The three help shapes:
+#:   current: the flags list has the --signer-workflow line gh 2.101.0 prints;
+#:   old:     no such flag line, but the prose names the flag in backticks, as
+#:            the real help's prose does, so a match on prose would be caught;
+#:   missing: no `attestation` command at all, exiting 1 as gh does.
 _FAKE_GH: Final[str] = r"""#!@BASH@
+case " $* " in
+    *" --help "*)
+        case "$FAKE_GH_HELP" in
+            current)
+                echo 'FLAGS'
+                echo '  -b, --bundle string            Path to bundle on disk'
+                echo '      --signer-workflow string   Enforce that the workflow that signed the attestation matches'
+                exit 0 ;;
+            old)
+                echo 'In this situation, use either the `--signer-workflow` or'
+                echo 'FLAGS'
+                echo '  -b, --bundle string            Path to bundle on disk'
+                echo '      --cert-identity string     Enforce that the certificate matches'
+                exit 0 ;;
+            *)
+                echo 'unknown command "attestation" for "gh"' >&2
+                exit 1 ;;
+        esac ;;
+esac
 printf '%s\n' "$@" > "$FAKE_RELEASE/gh-args.txt"
 if [ "$FAKE_GH_EXIT" != 0 ]; then
     echo 'Error: verifying with issuer "sigstore.dev"' >&2
@@ -164,11 +189,13 @@ def _install(
     checksum: str | None = "match",
     bundle: bool = True,
     gh_exit: int | None = 0,
+    gh_help: str = "current",
 ) -> tuple[subprocess.CompletedProcess[str], Path]:
     """Run install.sh --no-host against a fake release; return the run and HOME.
 
     `checksum` is "match", "mismatch", "malformed", or None for a release with
-    no .sha256. `gh_exit` None means gh is not installed at all.
+    no .sha256. `gh_exit` None means gh is not installed at all. `gh_help` is
+    the fake gh's answer to the help probe: "current", "old" or "missing".
     """
     bash = shutil.which("bash")
     assert bash is not None
@@ -226,6 +253,7 @@ def _install(
         "TMPDIR": str(scratch),
         "FAKE_RELEASE": str(release),
         "FAKE_GH_EXIT": str(gh_exit or 0),
+        "FAKE_GH_HELP": gh_help,
         "LC_ALL": "C",
     }
     result = subprocess.run(
@@ -316,3 +344,36 @@ def test_a_download_that_fails_a_check_is_refused_and_changes_nothing(
     assert (home / "Applications" / _ASSET).read_bytes() == _OLD_INSTALL
     assert not (home / "integrated-with.txt").exists()
     assert "no published release yet" not in result.stderr
+
+
+# N5, decided by the maintainer on 2026-09-29: verify the attestation only when
+# `gh attestation verify --help` lists --signer-workflow (gh 2.51.0 or later).
+# A gh without it used to fail the verify call, and the installer then refused a
+# download that was fine.
+@pytest.mark.parametrize(
+    "gh_help",
+    ["old", "missing"],
+    ids=["gh-without-signer-workflow", "gh-without-attestation-command"],
+)
+def test_a_gh_too_old_to_check_attestations_gets_the_checksum_only_path(
+    tmp_path: Path, gh_help: str
+) -> None:
+    result, home = _install(tmp_path, gh_help=gh_help)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (home / "Applications" / _ASSET).read_bytes() == _PAYLOAD
+    assert "checksum matches" in result.stdout
+    assert "too old to check the attestation" in result.stdout
+    # Only the help probe ran: gh was never asked to verify anything.
+    assert not (tmp_path / "release" / "gh-args.txt").exists()
+
+
+def test_with_a_gh_too_old_the_checksum_still_refuses_a_mismatch(
+    tmp_path: Path,
+) -> None:
+    result, home = _install(tmp_path, checksum="mismatch", gh_help="old")
+
+    assert result.returncode != 0, f"accepted:\n{result.stdout}"
+    assert "does not match" in result.stderr, result.stderr
+    assert (home / "Applications" / _ASSET).read_bytes() == _OLD_INSTALL
+    assert not (home / "integrated-with.txt").exists()

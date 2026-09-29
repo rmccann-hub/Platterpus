@@ -1530,6 +1530,7 @@ re-check mode from this tier instead of asking again.
 | H1 | Should the installer check what it downloads? | **(a)** Against the release's `.sha256`, and against the build attestation when `gh` is present. **Not (b)** (fetch `install.sh` from the newest release instead of `main`): every v0.x release is a pre-release, so GitHub's "latest" link reaches none of them. |
 | H2 | "Out of beta" in the README, "4 - Beta" on PyPI | **(b)** Keep the classifier, and qualify the README. |
 | H3 | Open a pull request after applying? | **Yes**, and do not merge it. |
+| N5 | A `gh` too old for `attestation verify --signer-workflow` fails the check, so the installer refused a download that was fine. Found while applying A16 | **Verify only when `gh attestation verify --help` lists `--signer-workflow`** (gh 2.51.0 or later). Otherwise take the checksum-only path, and say this `gh` is too old to check the attestation. Decided 2026-09-29, applied before the merge. |
 
 **Outcome, by amendment.**
 

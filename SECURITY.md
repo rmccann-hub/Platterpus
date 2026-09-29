@@ -42,8 +42,8 @@ reproduce on the newest release before reporting.
   statement names the exact file downloaded. A missing or failing attestation
   blocks the install and leaves the current version untouched. The one-line
   installer (`install.sh`, since 2026-09-28) makes the same two checks on the
-  AppImage it downloads, the attestation only when the GitHub CLI (`gh`) is
-  installed, and refuses a file that fails either. **What that does
+  AppImage it downloads, the attestation only when an installed GitHub CLI can
+  check it (`gh` 2.51.0 or later), and refuses a file that fails either. **What that does
   not cover:** anyone who can push to `main` can run the release workflow, and
   `main` is not branch-protected, so the attestation proves a build is traceable to
   a public commit here, not that the commit was reviewed. **Offline-key signing**

@@ -7,8 +7,9 @@
 #   2. The GUI: downloads the published AppImage release (or uses a local /
 #      freshly-built one) and parks it in ~/Applications. A download is checked
 #      first, the way the in-app updater checks an update: against the
-#      release's published .sha256, and against its build attestation when the
-#      GitHub CLI (`gh`) is installed. A file that fails either check is refused.
+#      release's published .sha256, and against its build attestation when an
+#      installed GitHub CLI (`gh`, 2.51.0 or later) can check it. A file that
+#      fails either check is refused.
 #   3. Desktop integration: an app-menu entry, a Desktop icon, AND an
 #      "Uninstall Platterpus" shortcut (delegated to install-appimage.sh).
 #
@@ -51,8 +52,9 @@ Installs everything an end user needs:
   1. Host stack  : Distrobox + the `ripping` container + cyanrip + flac,
                    exported to ~/.local/bin (via setup-host.sh --no-gui).
   2. GUI         : downloads the published AppImage, checks it against the
-                   release's .sha256 (and its build attestation, if the GitHub
-                   CLI `gh` is installed), and puts it in ~/Applications.
+                   release's .sha256 (and its build attestation, if an installed
+                   GitHub CLI `gh`, 2.51.0 or later, can check it), and puts it
+                   in ~/Applications.
   3. Shortcuts   : app-menu entry, Desktop icon, and an "Uninstall Platterpus"
                    shortcut (via install-appimage.sh).
 
@@ -129,14 +131,27 @@ fetch_script() {
     echo "$TMP_DIR/$name"
 }
 
+# gh_can_verify_attestations — true when the gh on PATH lists
+# --signer-workflow among `gh attestation verify`'s flags. The pattern matches
+# a flag line (leading spaces, then the flag), not the help's prose, which
+# mentions the flag in backticks. The help is captured before it is matched:
+# under `set -o pipefail`, `gh … | grep -q` can report a match as a failure
+# when grep exits early and gh is killed writing to the closed pipe.
+gh_can_verify_attestations() {
+    local help
+    help="$(gh attestation verify --help 2>&1)" || true
+    grep -qE '^[[:space:]]+--signer-workflow[[:space:]]' <<<"$help"
+}
+
 # download_appimage <dest> — fetch the AppImage from the newest release, and
 # install it only after it passes the two checks the in-app updater makes
 # before it installs an update (update_install.py, update_attestation.py):
 #   1. integrity: its SHA-256 matches the release's published .sha256;
-#   2. provenance, when the GitHub CLI (`gh`) is installed: its build
+#   2. provenance, when an installed GitHub CLI (`gh`) can check it: its build
 #      attestation verifies, i.e. it was built by this repository's release
 #      workflow. `--bundle` uses the attestation the release publishes, so gh
-#      needs no login. Without gh, this check is skipped and the script says so.
+#      needs no login. Without gh, or with a gh too old to check it, this
+#      check is skipped and the script says which.
 # The download goes to a .part file beside <dest> and is renamed into place
 # only once both checks pass, so a refused file never replaces a working
 # install. Uses the API (not /releases/latest/download) because v0.x ships as
@@ -186,8 +201,13 @@ download_appimage() {
     fi
     echo "  checksum matches the release's $APPIMAGE_NAME.sha256."
 
-    # 2. Provenance: the build attestation, when gh is here to check it.
-    if command -v gh >/dev/null 2>&1; then
+    # 2. Provenance: the build attestation, when gh is here and can check it.
+    #    "Can check" is read off gh's own help, not guessed from its version:
+    #    the flags list must name --signer-workflow, which gh lists from 2.51.0
+    #    on. An older gh fails `attestation verify` the same way a real
+    #    mismatch does (a gh without the command exits 1, "unknown command"),
+    #    and treating that as a refusal would turn away a download that is fine.
+    if command -v gh >/dev/null 2>&1 && gh_can_verify_attestations; then
         bundle="$TMP_DIR/$APPIMAGE_NAME.sigstore.json"
         if ! curl -fsSL "$url.sigstore.json" -o "$bundle"; then
             echo "Refusing to install: couldn't fetch the release's build" >&2
@@ -204,6 +224,10 @@ download_appimage() {
             return 2
         fi
         echo "  build attestation verified: built by $OWNER_REPO's release workflow."
+    elif command -v gh >/dev/null 2>&1; then
+        echo "  This gh is too old to check the attestation (it needs gh 2.51.0 or"
+        echo "  later), so only the checksum was checked. The app checks the"
+        echo "  attestation before every update it installs."
     else
         echo "  gh (the GitHub CLI) is not installed, so the build attestation"
         echo "  was not checked. The app checks it before every update it installs."
@@ -249,7 +273,7 @@ else
     if [ "$DRY_RUN" -eq 1 ]; then
         echo "  DRY-RUN: download $APPIMAGE_NAME from the newest release, check it"
         echo "  DRY-RUN: against the release's .sha256 (and its build attestation, if"
-        echo "  DRY-RUN: gh is installed), then move it into $APPS_DIR/"
+        echo "  DRY-RUN: an installed gh can check it), then move it into $APPS_DIR/"
     else
         download_appimage "$APPS_DIR/$APPIMAGE_NAME" || {
             status=$?

@@ -125,8 +125,9 @@ Prefer to download and run it yourself? Grab `install.sh` from the [Releases pag
 
 Before it installs the AppImage it downloads, the script checks it the way the app
 checks an update: against the release's `.sha256`, and against its build attestation
-as well when the GitHub CLI (`gh`) is installed. A file that fails either check is
-refused, and an AppImage you already have is left as it was.
+as well when an installed GitHub CLI can check it (`gh` 2.51.0 or later; with an older
+`gh` it says only the checksum was checked). A file that fails either check is refused,
+and an AppImage you already have is left as it was.
 
 Then, inside the GUI: **Tools → Setup & Updates… → Set up drive…** to calibrate your drive's read offset (one time), insert a CD, and rip. To remove everything later, use the **Uninstall Platterpus** shortcut (or see [Uninstalling](#uninstalling)).
 
