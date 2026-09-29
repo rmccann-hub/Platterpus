@@ -348,9 +348,12 @@ def split_meta_blob(blob: str) -> dict[str, str]:
 #   * `-r` == N+1 converges only if every read agrees: one bad read and the track
 #     is left unverified. Each read beyond N+1 is room for one read that disagrees.
 #
-# Measured on the rig, not only read: the 2026-09-28 Full run's secure re-read rip
-# was invoked `-r 3 -Z 2` and its log says "converged after 3 reads" for every
-# track that converged (docs/handshake/artifactsround28/round28fullsecurereread.log).
+# Measured on the rig, not only read: the Full runs' secure re-read rips were
+# invoked `-r 3 -Z 2`, and their logs say "converged after 3 reads" for every
+# track that converged and "did NOT converge after 3 reads" for the one that did
+# not (docs/handshake/artifactsround27/round27fullsecurereread.log; the
+# 2026-09-28 run's is the same). `tests/test_secure_reread_can_converge.py` reads
+# those committed logs rather than trusting this paragraph.
 #
 # `-r` also caps libcdio-paranoia's per-frame retries (rounded up to a multiple of
 # 5, `crip_frame_retry_limit()` in the fork's `src/cyanrip_main.h`), which is the

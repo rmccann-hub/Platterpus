@@ -58,12 +58,24 @@ REMOVE_WORKTREE: Final[tuple[str, ...]] = ("worktree", "remove", "--force", "--f
 
 #: The environment a re-run gets on top of ours: no pager, no prompt, no lock a
 #: read-only query would take, and no `__pycache__` written into the checkout.
+#:
+#: **And git's abbreviated hashes at seven characters.** Left to itself, git sizes
+#: an abbreviation by how many objects the clone holds, so `git log --oneline`
+#: prints `f8ebf48` in a clone without blobs and `f8ebf48f` in a full one. The
+#: fork's round 29 lap 3 S23 quoted the first, correctly for its own clone, and our
+#: re-run in a full clone of 20,772 objects refused it (2026-09-29). Seven is git's
+#: own minimum and the length laps quote; git still lengthens one that would be
+#: ambiguous. Set through `GIT_CONFIG_*`, which git ranks with `-c`, above the
+#: clone's own config.
 RERUN_ENV: Final[dict[str, str]] = {
     "GIT_PAGER": "cat",
     "PAGER": "cat",
     "GIT_TERMINAL_PROMPT": "0",
     "GIT_OPTIONAL_LOCKS": "0",
     "PYTHONDONTWRITEBYTECODE": "1",
+    "GIT_CONFIG_COUNT": "1",
+    "GIT_CONFIG_KEY_0": "core.abbrev",
+    "GIT_CONFIG_VALUE_0": "7",
 }
 
 
