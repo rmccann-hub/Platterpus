@@ -1520,6 +1520,9 @@ produced the audit. The run report stays outside the repository, with the mainta
 result over ten dimensions was 1 BLOCKER, 6 DRIFT and 3 GAP: CI's secret scan reads nothing
 on a push to `main` that arrives as a merge commit.
 
+*Correction, 2026-09-29 (KDD-40):* the report did not stay outside the repository.
+`1ecc1b63` archived it that evening as `docs/archive/config-audit-2026-09-28.md`.
+
 **Tier: T3**, confirmed by the maintainer on 2026-09-28. Blast radius B3: a public release
 channel (PyPI since 0.4.0 on 2026-06-29, GitHub Releases, and the one-line installer that
 runs `install.sh` from `main`). Audience A3: public. Basis: current. A later run starts in
@@ -1603,3 +1606,116 @@ read:
   `cyclonedx-py environment` (A14).
 - `git diff origin/main` is empty for `CLAUDE.md`, `.github/`, `.claude/`, `docs/handshake/`
   and the four shared seam files.
+
+### KDD-40 — Configuration re-check: T3 reconfirmed, four applied, two more held (decided 2026-09-29)
+
+**Context.** One run of the PROJECT-BOOTSTRAP-AND-AUDIT standard, **v0.39.0** (the run file's
+SHA-256 is `3ff2928bea0aa2a0ff5a380ff2bc3f4e72f90c97b0108720b0de1f66cae52803`, 261,063
+bytes), in re-check mode against KDD-39, on `main` at `32f34467`. The run report stays with
+the maintainer. Over ten dimensions: 1 BLOCKER, 7 DRIFT, 1 GAP and 1 OK. Seven of those rest
+on KDD-39's held amendments. The eleven KDD-39 applied were each checked against the tree
+and are in place.
+
+**Tier: T3**, reconfirmed by the maintainer on 2026-09-29: all nine recorded answers are
+unchanged. There is still no local working copy. There is still no standards repository:
+claude-code-skills holds the standard, but shares nothing into this repository.
+
+| # | Question | Ruling |
+|---|---|---|
+| H4 | Commits carry an organisation's address domain, in a repository answered as personal. Is any of that work the employer's? | **No.** Platterpus is the maintainer's personal project, and none of it was done for an employer, on its time or equipment, or under an agreement that covers it. The address is the GitHub account's email, which GitHub puts on commits merged in the browser. |
+
+**Outcome, by amendment.** Ids continue KDD-39's.
+
+- **Applied**, one commit each, on `claude/new-session-o0rfd0`. They reach `main` when the
+  maintainer merges its pull request.
+  - A23 (`d13edb93`): the README stops saying AppImageUpdate can update the AppImage.
+  - A24 (`acb28fe6`): `SECURITY.md` gives the attestation check that needs no login.
+  - A21 (`95e9ef4b`): `scripts/check.py` says when the clone is shallow or its
+    `origin/main` is behind the remote's, and the ten tests that fail there name the clone
+    before the lap.
+  - A20: this entry, the correction under KDD-39, and the session log.
+- **Approved and held** under C3 of the seam-automation proposal, with the same release as
+  KDD-39's eight:
+  - A22: change the AppImage's update information from `latest` to `latest-all`
+    (`build/build_appimage.sh:318`). The build is what round 29's closing release ships.
+    Revisit the choice at 1.0.0, because `latest-all` also offers pre-releases.
+  - A25: deny `Skill(anthropic-skills:*)` in `.claude/settings.json`, then prove it fires.
+- **KDD-39's eight** (A2, A4, A5, A6, A7, A10, A12, A14) are still held. Each one's condition
+  was re-read in the tree and is still live. The secret scan on the push that merged #276
+  scanned 0 commits, so A12's BLOCKER stands.
+- **Declined:** none.
+
+**The maintainer's actions, in the browser.**
+
+- X1, private vulnerability reporting: **done and observed.** The API answered
+  `{"enabled": true}` at 2026-09-29T18:12:29Z and again at 18:24:37Z.
+- X2 was reported done on 2026-09-28. **The maintainer's screenshot of Settings → Advanced
+  Security on 2026-09-29 shows it not done:**
+  - Dependency graph is off, and Dependabot alerts are off.
+  - Secret Protection is not enabled, so push protection is off.
+  - Dependabot version updates are on.
+
+  Two consequences. `.github/dependabot.yml` ignores ruff and mypy updates on the grounds
+  that "a security advisory still reaches us", which needs alerts on. And a public
+  repository's free push protection is off. Both are the maintainer's to turn on. The
+  session API cannot read either (403).
+
+  *Later on 2026-09-29, after the gate:* the maintainer turned them on and sent a second
+  screenshot of the same page.
+  - **On:** Dependency graph, Dependabot alerts (one Dependabot rule enabled), Secret
+    Protection, push protection, and private vulnerability reporting.
+  - **Off:** Dependabot security updates, grouped security updates, Dependabot malware
+    alerts, and automatic dependency submission.
+  - **Not set up:** CodeQL.
+
+  So an advisory now reaches the maintainer as an alert, but no security-update pull
+  request opens. That pull request is what `dependabot.yml`'s comment expects "a human
+  should see". Turning security updates on, or relying on Dependabot rules instead, is the
+  maintainer's choice.
+
+  From this session only the dependency graph can be read back:
+  `GET /repos/rmccann-hub/Platterpus/dependency-graph/sbom` answered HTTP 200 with an SPDX
+  document at 19:16:54Z. `/dependabot/alerts` answers 403 "Resource not accessible by
+  integration", and `/vulnerability-alerts`, `/automated-security-fixes` and
+  `/secret-scanning/alerts` answer 403 at the proxy. The rest rests on the screenshot.
+- X3 (release immutability) stays skipped. Its trigger has not fired:
+  `release.yml:425-429` still re-uploads with `--clobber`.
+
+**Corrections.**
+
+- KDD-39's N1 does not reproduce. The README's `/releases/latest` links redirect (302) to
+  `/releases`, the Releases list. Only the API endpoint answers 404.
+- KDD-39's context said the report stays outside the repository. A dated pointer under that
+  sentence corrects it.
+
+**Found, not acted on:**
+
+- N3, verified. AppImageUpdate's source (`GithubReleasesZsyncUpdateInformation.cpp`) sends
+  the tag `latest` to `/releases/latest`, which answers 404 here because all 62 releases are
+  pre-releases. A23 corrects the README, and A22 is held.
+- N6, new. In a clone whose `origin/main` is held back, the lap-language checker **refuses**
+  (LSL.4) a lap citing a commit that is on the remote's main. So a stale clone can refuse a
+  good outbound lap. The checker is round tooling, so this is raised for the next round
+  rather than changed here. A21's preflight does **not** cover it: the preflight runs only
+  inside `scripts/check.py` before the suite, while a lap is checked with
+  `scripts/lap_language.py check` or through `scripts/handshake.py`, and neither prints
+  that warning. *(Corrected before the merge, review finding B3: this said the preflight
+  names the stale clone before anyone reads the refusal.)*
+
+**Do not re-propose**, carried forward whole: branch protection or rulesets on `main`;
+arming update signing (KDD-37 D9); squash merges for session branches; tags for 0.4.0 to
+0.6.3 (KDD-37 D7); capitalised or unprefixed commit subjects, and a hard 50-character subject
+cap (`CLAUDE.md`, *Deliberate divergences* (1) and (2)).
+
+**Re-checked against the applied tree before this was written:**
+
+- `build/build_appimage.sh:318` still names `latest` (A22 is held).
+- `.claude/settings.json` still ends its audio guard `|| exit 0` (A6 is held), and carries
+  no skill deny (A25 is held).
+- `publish-pypi.yml:66` still runs `pip install build twine` (A2 is held).
+- No `requirements.lock` exists (A4 is held).
+- `git diff origin/main` is empty for `CLAUDE.md`, `.github/`, `.claude/`, `build/`,
+  `docs/handshake/` and the four shared seam files.
+
+**Next run:** when C3 lifts, which releases ten held amendments, or before the next
+release, whichever comes first.

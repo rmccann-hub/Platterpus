@@ -22,6 +22,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   It now takes the tracked set from `git ls-files`, and walks the tree only where there
   is no `.git` (an unpacked sdist). In a checkout whose git fails, it stops with git's
   message instead of falling back.
+- **A stale clone no longer reads as 50 laps the peer cannot fetch.** A fresh cloud
+  session starts shallow, with an `origin/main` hundreds of commits old (2026-09-29:
+  the 0.6.60 release, 894 commits behind). There, `scripts/check.py` failed ten tests in
+  `tests/test_handshake_tooling.py` and `tests/test_lap_language.py`. Their messages
+  blamed the laps, and the first offered the exemption list as the remedy, which would
+  have switched off a check that was right. `scripts/check.py` now says, before the
+  suite runs, when the clone is shallow or its `origin/main` is behind the remote's,
+  and names the fetch that fixes it. It is a warning only: no verdict changes, it never
+  waits on a credential prompt, and a failure to read the clone is said, not raised.
+  Those tests' messages now name that check first, in one sentence both sides take from
+  `scripts/check.py`.
 
 ### Added
 
@@ -132,6 +143,27 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **`docs/testing.md` no longer calls `tests-touched` advisory.** Its tier table still
   described the job as a "nudge" five weeks after it became a gating job (2026-08-20).
   It now says what the job refuses and how a change states a reason instead.
+- **The README no longer says AppImageUpdate can update the AppImage.** It said the
+  embedded update-information made AppImageUpdate delta updates work. That information
+  names GitHub's *latest* release, which leaves out pre-releases, and all 62 releases so
+  far are pre-releases, so AppImageUpdate gets an HTTP 404 (read from its source,
+  `GithubReleasesZsyncUpdateInformation.cpp`, 2026-09-29). The README now says so and
+  points to Check for updates, which is unaffected. Changing the tag the build embeds is
+  approved and held until the seam-automation proposal is answered.
+- **`SECURITY.md` gives a way to check a download without a GitHub login.** Its one
+  command, `gh attestation verify … --repo …`, fetches the attestation from GitHub,
+  so it needs `gh auth login`, and without one it fails with an error that reads like
+  a failed check (exit 4, measured with gh 2.101.0 on 2026-09-28). It now says so, and
+  gives the form `install.sh` uses: the release's `.sigstore.json` as `--bundle`, plus
+  `--signer-workflow`, which needs gh 2.51.0 or later.
+- **The 2026-09-29 configuration re-check is on the record.** `PLANNING.md` KDD-40
+  records the standard and version that ran, the tier the maintainer reconfirmed (T3),
+  the provenance ruling, what was applied, the two amendments added to the held set,
+  and each security setting with how it was checked. Private vulnerability reporting
+  and the dependency graph were read on through the API. The maintainer's screenshot
+  shows Dependabot alerts, Secret Protection and push protection on, and Dependabot
+  security updates off. KDD-39 gains a dated correction: its report was archived into
+  the repository after all.
 
 ## [0.6.63] — 2026-09-28
 

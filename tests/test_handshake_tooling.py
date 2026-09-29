@@ -2987,6 +2987,69 @@ def _laps_declaring_a_from_commit() -> list[tuple[Path, str]]:
     return out
 
 
+def _stale_clone_hint() -> str:
+    """`scripts/check.py`'s STALE_CLONE_HINT, loaded by path (scripts/ is not a
+    package). One sentence, one home: the script that warns about a stale clone
+    and the tests that fail because of one give the same answer."""
+    spec = importlib.util.spec_from_file_location(
+        "_check_for_clone_hint", _REPO_ROOT / "scripts" / "check.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    hint: str = module.STALE_CLONE_HINT
+    return hint
+
+
+def _from_commit_problem(root: Path, token: str) -> str | None:
+    """Why the peer cannot fetch `token` from `root`'s origin/main, or None if it can."""
+    resolves = (
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{token}^{{commit}}"],
+            cwd=root,
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+    reachable = resolves and (
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", token, "origin/main"],
+            cwd=root,
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+    if reachable:
+        return None
+    return (
+        "resolves locally but is NOT an ancestor of origin/main — the peer cannot "
+        "fetch it"
+        if resolves
+        else "does not resolve at all"
+    )
+
+
+def _unreachable_message(problems: list[str]) -> str:
+    """The failure text. The stale-clone check comes BEFORE the exemption list.
+
+    A fresh cloud session starts shallow with an old origin/main, and there this
+    check failed for 50 laps that were fine. The text then went straight to "inventory
+    it in _UNREACHABLE_FROM_COMMITS", which would have exempted all 50 from a
+    check that was right (2026-09-29 configuration re-check, A21).
+    """
+    return (
+        "a lap names a HANDSHAKE-FROM-COMMIT the peer cannot fetch:\n  "
+        + "\n  ".join(problems)
+        + "\n\n"
+        + _stale_clone_hint()
+        + "\n\nIf the clone is current, resolve the pin against `origin/main` (see "
+        "`scripts/handshake.py::our_pin`), because a branch commit is not on main "
+        "until the merge. If the lap is already sent and cannot be corrected, "
+        "inventory it in _UNREACHABLE_FROM_COMMITS with what went wrong."
+    )
+
+
 def test_there_are_laps_declaring_a_from_commit() -> None:
     """The floor, because everything below is satisfiable by an empty sweep."""
     found = _laps_declaring_a_from_commit()
@@ -3015,46 +3078,65 @@ def test_every_declared_from_commit_is_reachable_not_merely_resolvable() -> None
             unprobed.append(f"{path.name}: {value[:50]!r}")
             continue
         probed += 1
-        resolves = (
-            subprocess.run(
-                ["git", "cat-file", "-e", f"{token}^{{commit}}"],
-                cwd=_REPO_ROOT,
-                capture_output=True,
-            ).returncode
-            == 0
-        )
-        reachable = resolves and (
-            subprocess.run(
-                ["git", "merge-base", "--is-ancestor", token, "origin/main"],
-                cwd=_REPO_ROOT,
-                capture_output=True,
-            ).returncode
-            == 0
-        )
-        if reachable or path.name in _UNREACHABLE_FROM_COMMITS:
+        why = _from_commit_problem(_REPO_ROOT, token)
+        if why is None or path.name in _UNREACHABLE_FROM_COMMITS:
             continue
-        problems.append(
-            f"{path.name}: {token} "
-            + (
-                "resolves locally but is NOT an ancestor of origin/main — the "
-                "peer cannot fetch it"
-                if resolves
-                else "does not resolve at all"
-            )
-        )
+        problems.append(f"{path.name}: {token} {why}")
 
     assert probed >= 1, (
         f"no lap declared a bare sha, so nothing was actually probed. "
         f"UNPROBED: {unprobed}"
     )
-    assert not problems, (
-        "a lap names a HANDSHAKE-FROM-COMMIT the peer cannot fetch:\n  "
-        + "\n  ".join(problems)
-        + "\n\nResolve the pin against `origin/main` (see `scripts/handshake.py::"
-        "our_pin`), because a branch commit is not on main until the merge. If the "
-        "lap is already sent and cannot be corrected, inventory it in "
-        "_UNREACHABLE_FROM_COMMITS with what went wrong."
+    assert not problems, _unreachable_message(problems)
+
+
+def test_a_held_back_origin_main_fails_with_the_clone_named_before_the_exemption(
+    tmp_path: Path,
+) -> None:
+    """The case behind A21 (2026-09-29), built in a throwaway clone.
+
+    The commit is on the remote's main. Only this clone's origin/main is behind
+    it, as in a fresh cloud session. The probe must still fail (it cannot tell a
+    stale clone from a stranded commit), and the message must say "check the
+    clone" before it says "exempt the lap".
+    """
+
+    def git(root: Path, *args: str) -> str:
+        return subprocess.run(
+            ["git", "-c", "commit.gpgsign=false", *args],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        ).stdout.strip()
+
+    upstream = tmp_path / "upstream"
+    upstream.mkdir()
+    git(upstream, "init", "-q", "-b", "main")
+    git(upstream, "config", "user.email", "test@example.invalid")
+    git(upstream, "config", "user.name", "test")
+    for name in ("base", "cited"):
+        (upstream / name).write_text(name, encoding="utf-8")
+        git(upstream, "add", name)
+        git(upstream, "commit", "-q", "-m", name)
+    base, cited = (
+        git(upstream, "rev-parse", "HEAD~1"),
+        git(upstream, "rev-parse", "HEAD"),
     )
+    clone = tmp_path / "clone"
+    git(tmp_path, "clone", "-q", str(upstream), str(clone))
+    assert _from_commit_problem(clone, cited[:7]) is None, "a fresh clone reaches it"
+
+    git(clone, "update-ref", "refs/remotes/origin/main", base)
+    why = _from_commit_problem(clone, cited[:7])
+    assert why is not None and "NOT an ancestor of origin/main" in why
+
+    message = _unreachable_message([f"lap.md: {cited[:7]} {why}"])
+    hint = _stale_clone_hint()
+    assert hint in message
+    assert message.index(hint) < message.index("_UNREACHABLE_FROM_COMMITS")
+    assert message.index(hint) < message.index("resolve the pin")
 
 
 def test_the_unreachable_inventory_carries_no_dead_entries() -> None:
