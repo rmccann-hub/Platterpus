@@ -101,6 +101,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Documentation
 
+- **Every commit the fork cites now resolves through `main`, including two it names
+  by subject.** On 2026-09-29 the operator deleted `claude/session-omka9f`, which the
+  fork's `docs/KNOWN-ISSUES.md` records us promising to keep. We checked every
+  lowercase hex token in the fork's tree against our history, all 1,381 across 1,186
+  files: all 160 that are our commits are ancestors of `main`. Our round 10 lap 4 and
+  round 11 lap 4, which the fork holds verbatim, name their commits by subject. Those
+  two commits (`d045bd00`, `b8599c24`) survived only in PR #154's head, because that PR
+  was squash-merged, and are now merged in with `-s ours`. A new test holds every
+  by-subject provenance line in our laps to a commit reachable from `HEAD`, and it
+  fails on the `main` from before the merge.
 - **A second Full run on `.17` is filed and graded `partial`.** The operator's
   14:42 UTC run on 2026-09-28 (0.6.62 with `e0471f4`) passed 320 of 320. Its whole-disc
   rip matches the EAC baseline on all 14 tracks, and CTDB verifies it. Its records still
