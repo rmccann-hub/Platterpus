@@ -14,6 +14,32 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A rig session no longer stops at the fork-clone step on a machine that cannot
+  reach GitHub.** `--rig-session`'s step 12 clones the fork to run its suite. A comment
+  sat between the `run` call and its command, and a comment after a trailing backslash
+  ends the command, so the clone ran outside the step that records failures. With no
+  network, git's exit 128 then aborted the whole session instead of being recorded.
+  Found on 2026-09-29, when a CI runner could not reach GitHub. The clone now runs
+  inside its step, and the session records the failure and carries on. The script's
+  smoke test now runs with GitHub unreachable every time, and a new sweep refuses a line
+  continued into a comment in any tracked shell script.
+- **A probe Platterpus stops itself is no longer recorded as the ripper failing.**
+  Pressing Rescan while the disc probe (`cyanrip -I`) is still running stops that
+  probe, and the stop was recorded as *"cyanrip exited -9"*, a dependency-failure
+  warning. Every rip report of the same app session then carried it, and so did Help →
+  Copy diagnostics: the round-29 Full run's reports all show it, from a Rescan pressed
+  twenty minutes before the run began. A probe our own cancel ends is now recorded as
+  that, an `info` item saying Platterpus stopped it (`deps.command_cancelled`), and the
+  version probe and the drive-cache probe say the same instead of reporting a tool
+  that is unavailable or failed. A `-9` that Platterpus did not send is still reported
+  as the tool failing.
+- **The rig check's pin line names the build it means.** Its `ripper/pin` line
+  ended *"A test pin is expected to differ during an open round"* whatever was open.
+  The round-29 Full run (2026-09-28) printed it beside `51cc789`, the build under
+  review, when round 29 names no test pin. The line now reads each build it names from
+  `fork_source`: *"this Platterpus pins e0471f4, and accepts 51cc789, the build under
+  review (round 29)"*, a test pin only when the round under review names one, and the
+  pin alone between rounds.
 - **The `-x` overread check reads the files git tracks, not whatever is on disk.**
   `tests/test_documented_ripper_flags_are_real.py` found its documents by walking the
   working tree, so it also swept `.pytest_cache/`, `src/platterpus.egg-info/` and stale
@@ -101,6 +127,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Documentation
 
+- **Round 29's Full run is filed and graded `partial`.** The operator's run on
+  2026-09-28 (0.6.63 with the fork's `.18`, `51cc789`) passed 320 of 323 steps. The
+  three failures are screenshot steps in sections H, J and K3 that found no window on
+  screen, and those sections are graded archival in advance, so the field-evidence
+  ledger gets a twelfth row, `partial`. Its rips completed, and its whole-disc rip
+  matches the EAC baseline on 13 of 14 tracks. The text artifacts are in
+  `docs/handshake/artifactsround29/`, whose README says what the run found, including
+  the install of `.18` from Setup & Updates a minute before the run.
 - **Every commit the fork cites now resolves through `main`, including two it names
   by subject.** On 2026-09-29 the operator deleted `claude/session-omka9f`, which the
   fork's `docs/KNOWN-ISSUES.md` records us promising to keep. We checked every

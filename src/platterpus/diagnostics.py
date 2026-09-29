@@ -131,6 +131,8 @@ KNOWN_CODES: Final[frozenset[str]] = frozenset(
         "deps.missing",
         "deps.version_unreadable",
         "deps.command_failed",
+        # NOT a failure: a probe our own cancel ended (a rescan, a closed dialog).
+        "deps.command_cancelled",
         "setup.step_failed",
         # Our own plumbing. An internal error is still the user's problem.
         "config.invalid_value",

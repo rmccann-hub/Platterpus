@@ -394,10 +394,15 @@ say "12  the fork's own test suite, IN A CLEAN CLONE (their lap 25 §C1 lesson)"
 if command -v git >/dev/null 2>&1; then
   CLONE="$OUT/scratch/cyanrip-clean"
   rm -rf "$CLONE"
+  # Bounded for the same reason as the probe above: an unattended rig
+  # session must not be able to sit on a stalled fetch. `-k` included,
+  # because git spawns children that do not always take SIGTERM.
+  # The comment sits ABOVE the call, never between its lines: a comment line
+  # after a trailing backslash ends the command, so `run` received no command
+  # and the clone ran outside it, where `set -e` turned an offline machine's
+  # exit 128 into an abort of the whole session (found 2026-09-29, when a CI
+  # runner could not reach GitHub).
   run "    clone the fork" "12-fork-clone.txt" \
-      # Bounded for the same reason as the probe above: an unattended rig
-      # session must not be able to sit on a stalled fetch. `-k` included,
-      # because git spawns children that do not always take SIGTERM.
       timeout -k 30 300 git clone --quiet https://github.com/rmccann-hub/cyanrip "$CLONE"
   if [ -d "$CLONE" ]; then
     ( cd "$CLONE" && git log --oneline -1 && git branch -a ) \

@@ -1086,7 +1086,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **314 -> 322** (2026-09-26): the drive-name normaliser's separator pattern became linear, and its comment says why the lookbehind is load-bearing (docs/testing.md §5.bu).
     "adapters/accuraterip_offsets.py": 322,
     "adapters/accuraterip_offsets_data.py": 388,
-    "adapters/cache_probe.py": 372,
+    # **372 -> 378** (2026-09-29): a cache probe our cancel ended returns no measurement
+    # and records no tool failure (`killable.was_cancelled`).
+    "adapters/cache_probe.py": 378,
     # **566 -> 567** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "adapters/cover_art.py": 567,
     # **332 -> 339** (2026-09-28, the Full run's five 2-of-14 rips that said "not in CTDB"): comment only. The 404 note said partial-track rips reach this lookup; they no longer do, and it now says where they stop and why.
@@ -1149,7 +1151,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `_raise_if_cwd_failed` reports a folder it could not enter as the folder —
     # `Popen` raises the same type for it as for a missing binary. It is the shared
     # spawn seam every probe uses, so the parameter belongs here, not in a caller.
-    "adapters/rip_backend.py": 641,
+    # **641 -> 663** (2026-09-29, the round-29 Full run): `ProbeCancelled` and the
+    # branch that records a probe our own cancel ended as ours, an `info`, where it was a
+    # `deps.command_failed` warning every rip report of the session carried.
+    "adapters/rip_backend.py": 663,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -1219,7 +1224,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # check was scheduled let cyanrip's second version flag start a fresh 60 s wait after the
     # first was killed. Most of the growth is the comment saying why this is a capped timeout
     # and not a timer calling `cancel_version_probes()`: that slot is shared with other callers.
-    "deps/checks.py": 522,
+    # **522 -> 527** (2026-09-29): a version probe our cancel ended is logged as stopped,
+    # not as a tool that is unavailable (`killable.was_cancelled`).
+    "deps/checks.py": 527,
     # 1678 -> 1691 (2026-09-06): the round-15 close. `FORK_PIN` rolled to
     # `978f9b0` and the roll is documented where the constant is, because the
     # post-close step is the one this file has already watched go stale.
@@ -1446,7 +1453,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # this module's point — a code declared anywhere else would defeat it.
     # **685 -> 691** (2026-09-25, the property-test batches): `bounded_output` clamps its bounds and always keeps the tail.
     # **691 -> 693** (2026-09-28, the round-28 Full run): the `ripper.secure_rerip_verdict` entry says it is graded by direction and names its track.
-    "diagnostics.py": 693,
+    # **693 -> 695** (2026-09-29): `deps.command_cancelled`, a probe Platterpus stopped itself.
+    "diagnostics.py": 695,
     # **411 -> 423 on 2026-09-10** (log-verification race, above):
     # `FORCE_STOP_COUNTDOWN_S` moved here from the UI module that arms the
     # timer, because the rip worker's log wait must outlast it. Two
@@ -1732,7 +1740,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **940 -> 976** (2026-09-24): the paranoia row reads `READ` (the fork's 3.02x, not our 2.87x) and grades the bound per counter, which a sum could hide.
     # 976 -> 979 on 2026-09-25: errors="replace" on two probe pipes, and the argv
     # builder reached through composition.build_cyanrip_backend, not built here.
-    "rig_check.py": 979,
+    # **979 -> 998** (2026-09-29, the round-29 Full run): `pin_line` names the build under
+    # review and its round, where a fixed sentence said a test pin was expected.
+    "rig_check.py": 998,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
     "rip_addendum.py": 506,
