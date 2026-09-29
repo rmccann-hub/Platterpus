@@ -132,6 +132,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **`docs/testing.md` no longer calls `tests-touched` advisory.** Its tier table still
   described the job as a "nudge" five weeks after it became a gating job (2026-08-20).
   It now says what the job refuses and how a change states a reason instead.
+- **The README no longer says AppImageUpdate can update the AppImage.** It said the
+  embedded update-information made AppImageUpdate delta updates work. That information
+  names GitHub's *latest* release, which leaves out pre-releases, and all 62 releases so
+  far are pre-releases, so AppImageUpdate gets an HTTP 404 (read from its source,
+  `GithubReleasesZsyncUpdateInformation.cpp`, 2026-09-29). The README now says so and
+  points to Check for updates, which is unaffected. Changing the tag the build embeds is
+  approved and held until the seam-automation proposal is answered.
 
 ## [0.6.63] — 2026-09-28
 
