@@ -115,7 +115,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the standard and version that ran, the tier the maintainer confirmed (T3), the three
   rulings, what was applied, the eight amendments approved and held until the
   seam-automation proposal is answered, and what must not be proposed again, so the next
-  audit starts from these answers instead of asking for them.
+  audit starts from these answers instead of asking for them. It also records each API
+  reading of the repository's private vulnerability reporting, the last on 2026-09-29.
 - **A written way to withdraw a bad release.** `docs/architecture.md` gains §6.4,
   *When a release is bad*: take the GitHub release down, yank the version on PyPI,
   revert `install.sh` on `main` if it is the bad part, withdraw a bad ripper pin
