@@ -692,7 +692,9 @@ each side's reading; and the closing releases named.
   (the block's `STATUS-OPEN` lines, twelve with S39's three steps), W6 (their S10 amended with a literal
   `when: our next lap`; our half of S20 landed), their S24 (three WILLs), and asks S41
   (`BLOCKING`: their C2-C5) and S42 (`-U`). Pre-commits `GO` for our next lap unless
-  the D1-D10 text has not landed in both trees. **Waits on:** our operator's word, and a
+  the D1-D10 text has not landed in both trees. *2026-09-30: our operator accepted the
+  `CLAUDE.md` rewording D4 needs (the S-14 sentence in rule #12); it lands in the commit that
+  lands the agreed `seam-rules.md` text, not before.* **Waits on:** our operator's word, and a
   PR merging the session branch into `main` first, since its citations are there.
 - [x] **Our lap after the run** (*2026-09-30: written as our lap 4, the row above*): our reading of it (S10); D1 to D10 of their proposal by
   number and our work W1 and W3–W6 (S13, S14); and their S19 amendment and S20, so both
