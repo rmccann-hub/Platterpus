@@ -619,8 +619,9 @@ class RipBackend(ABC):
         action entirely — rather than offer a button that can only fail — and
         relies on the bundled AccurateRip drive-model list + manual entry.
         Default **False**: a backend must actively prove it has a real,
-        AccurateRip-based offset finder. cyanrip does NOT (see ``find_offset``),
-        so it inherits False.
+        AccurateRip-based offset finder. cyanrip has one (``-f``) that has not yet
+        been proved against a known offset (see its ``find_offset`` note), so it
+        inherits False.
         """
         return False
 

@@ -492,6 +492,35 @@ _VERB_LIST: tuple[Verb, ...] = (
         "track-title <n> <title…> — set track n's title as a typed edit would "
         "(refused while a rip runs)",
     ),
+    # The rig verbs (`probe_verbs.py`), from round 30. `expect-newest-pair` is
+    # D3, agreed with the fork and ruled by our operator (option A): a run tests
+    # only the newest pair. The other two are the fork's round 30 lap 3 S24:
+    # cyanrip's own offset finder against this drive's known offset, and
+    # `cd-paranoia -A` beside cyanrip's cache probe so each run measures the
+    # cache both ways.
+    Verb(
+        "expect-newest-pair",
+        0,
+        0,
+        "expect-newest-pair — the build this app reviews is the fork's newest "
+        "release and this app is our newest release; a pair that cannot be shown "
+        "newest fails too (D3; `expect-ripper-under-review` checks the installed "
+        "ripper is that build)",
+    ),
+    Verb(
+        "expect-found-offset",
+        0,
+        0,
+        "expect-found-offset — the previous `cyanrip -f` found the offset "
+        "set-drive-offset set for this drive",
+    ),
+    Verb(
+        "cache-probe",
+        0,
+        0,
+        "cache-probe — run cd-paranoia -A on the selected drive and record what "
+        "it measures (info; its output is saved beside the transcript)",
+    ),
     Verb(
         # `expect-secure-rerip` — grade what section N only ever REPORTED.
         #

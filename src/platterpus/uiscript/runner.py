@@ -44,6 +44,7 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 from platterpus import __version__, build_info, inbound_text
 from platterpus.uiscript import run_sizes
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
+from platterpus.uiscript.probe_verbs import ProbeVerbsMixin
 from platterpus.uiscript.report import (
     CONCEPT,
     VERDICTS,
@@ -413,7 +414,7 @@ def _preflight(steps: list[Step]) -> list[str]:
     return problems
 
 
-class ScriptRunner(ArtifactVerbsMixin, QObject):
+class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
 
     The window is passed in rather than discovered, so tests can drive a real
@@ -482,6 +483,14 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
         #: Replaces the generic "still not finished after Ns" when a verb can say
         #: something more useful about having run out of time.
         self._deadline_timeout_detail: str = ""
+        #: How to stop what a waiting verb started, when the wait ends without
+        #: its answer: the run is stopped, or the deadline passes. A verb that
+        #: spawns a child sets it after arming (today: `cache-probe`, whose
+        #: `cd-paranoia -A` would otherwise go on reading the drive for up to ten
+        #: minutes after the step was recorded). CLAUDE.md rule 9: abandoning a
+        #: helper thread is safe only when the child it waits on is killed.
+        #: Cleared on arming, like the fields above.
+        self._deadline_cancel: Callable[[], None] | None = None
         #: `pick-release` phase 2: `(mbid, title, row, of_total)` once a release
         #: has been chosen and the verb is waiting for the track table to fill.
         #: `None` means no choice has been made on this arming yet. Cleared in
@@ -646,6 +655,7 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
         # step. It began and was prevented from finishing, which is BLOCKED.
         if self._deadline_step is not None:
             waited = time.monotonic() - self._deadline_started
+            self._cancel_deadline_work()
             self._report.steps.append(
                 StepRecord(
                     self._deadline_step.line_no,
@@ -732,6 +742,7 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
         except Exception as exc:  # noqa: BLE001 — a faulty predicate ends its step
             log.exception("ui script deadline predicate faulted")
             elapsed = now - self._deadline_started
+            self._cancel_deadline_work()
             self._deadline = None
             self._deadline_predicate = None
             self._deadline_step = None
@@ -750,6 +761,7 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
             self._deadline_predicate = None
             self._deadline_step = None
             if timed_out:
+                self._cancel_deadline_work()
                 self._record(
                     step,
                     Outcome.FAIL,
@@ -764,6 +776,16 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
                     self._deadline_detail,
                     elapsed=elapsed,
                 )
+
+    def _cancel_deadline_work(self) -> None:
+        """Stop what the waiting verb started, if it said how. Never raises."""
+        cancel, self._deadline_cancel = self._deadline_cancel, None
+        if cancel is None:
+            return
+        try:
+            cancel()
+        except Exception:  # noqa: BLE001 — a failed kill must not end the run
+            log.exception("ui script: stopping a waiting step's work failed")
 
     def _arm_deadline(
         self,
@@ -781,6 +803,7 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
         self._deadline_outcome = Outcome.PASS
         self._deadline_detail = ""
         self._deadline_timeout_detail = ""
+        self._deadline_cancel = None
         self._picked_release = None
 
     def _record(

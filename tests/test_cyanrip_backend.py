@@ -167,6 +167,12 @@ def test_rip_argv_known_disc_with_offset() -> None:
         "-G was dropped because the user wants cover art — but Platterpus always "
         "fetches and embeds art itself, so the ripper must always be told not to"
     )
+    # -U IS ALWAYS SENT too (2026-09-30): -G stops the embedding, and the
+    # "cannot search Cover Art DB!" line is the Cover Art DB query's, which only -U
+    # turns off (cyanrip@174a134:src/coverart.c:382-392). The fork measured -U
+    # safe beside -N and -G: one log line fewer, every checksum identical (their
+    # round 30 lap 5 S15).
+    assert "-U" in argv, "the Cover Art DB query is back, and with it a noise line"
 
 
 def test_rip_argv_unknown_disc_disables_musicbrainz() -> None:

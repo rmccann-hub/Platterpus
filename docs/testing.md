@@ -2181,7 +2181,12 @@ the handler to finish* is. The rule it leaves: **any path that stops the ripper 
 must keep its record gives it a bounded grace before anything that cannot be
 caught** — SIGTERM, then poll whether it still holds the drive
 (`drive_control.stop_reader_gracefully`, `READER_TERM_GRACE_S`), escalate only if
-it does or if that cannot be determined, and never a second SIGTERM. The
+it does or if that cannot be determined, and never a second SIGTERM. **And the grace
+is sized from the longest read on record, not from a guess** (2026-09-30): 8 s lost
+to a single 11 s read the fork found, and our own filed log has one of 20 s, so it
+is 40 s and a test derives that floor from the filed logs. A grace that long cannot
+be waited out on the GUI thread, so it is not: the stop is exit work
+(`exit_work`), joined by `app.main` after the window has gone. The
 undeterminable case escalates because the thing being protected on that path is
 the drive and the shutdown, not the log (§5.bw: say which failure the safe
 direction avoids). Hardware still has to show the footer lands inside the grace on
@@ -3777,6 +3782,7 @@ defect, and two of those sections are archival.
 | L | ARCHIVAL | a preset applies a *bundle* of settings, several reaching cyanrip's argv. B checks each setting round-trips; that a preset applies **all** of it is a different claim, and a preset that silently under-applies hands the user a fast rip they believe is a paranoid one |
 | M | UX | naming templates — where a file lands, not whether its bytes are right |
 | N | ARCHIVAL | T1, the whole-disc uniform secure re-read: the accuracy claim itself |
+| O | ARCHIVAL | cyanrip's own offset finder (`-f`) against this drive's known +667 (the fork's round 30 lap 3 S24). No rip of ours uses its answer yet, and it is graded archival anyway, on P's reasoning: the read offset is the calibration every rip's accuracy rests on, and a finder in the core that disagrees with ground truth is an accuracy defect whoever calls it. Grading it UX would make a version easier to reach, which is the direction to be suspicious of |
 | P | ARCHIVAL | the cache probe feeds the accuracy model |
 | P2 | ARCHIVAL | C1 — a refusal that hangs the drive costs the disc |
 | P3 | ARCHIVAL | round 16's close condition, clause 2 — whether `-H` composes with de-emphasis or silently selects past it. The defect it probes made `-H`, `-H -W` and `-H -E` produce **byte-identical audio** while the log said `(deemphasis applied)` and the cue omitted `FLAGS PRE`, both reading the setting rather than the audio. Wrong samples written to an archival master, with every text artifact agreeing they are right — there is no more archival failure than that |
@@ -3784,7 +3790,7 @@ defect, and two of those sections are archival.
 
 <!-- END-ACCEPTANCE-SEVERITY-TABLE -->
 
-**17 ARCHIVAL, 4 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The four that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
+**18 ARCHIVAL, 4 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The four that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
 `fullacceptance.txt` must appear, so a **new** section has to be classified
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
@@ -3845,6 +3851,7 @@ assigns to us, and it changes nothing on their side.
 | M | 0 | m-templates | — | validator only |
 | Q | 0 | q-restore | — | settings only |
 | E | 1 | e-identify | a-identity | `rescan` + `pick-release`, no `rip` |
+| O | 1 | o-findoffset | e-identify | `cyanrip -N -f` — a few frames around sector 450 of each track AccurateRip knows, no rip |
 | P | 1 | p-cacheprobe | e-identify | `cyanrip -N -x -I` — probe and TOC, no track read |
 | P2 | 1 | p2-c1-refusal | e-identify | `cyanrip -N -l 1` expecting **exit 1** `Offset is unset` — the graded path reads nothing; a regression that *does* read is the failure |
 | H | 2 | h-overwrite | e-identify | `rip` scoped by `select-tracks 1-2` |

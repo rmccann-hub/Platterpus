@@ -709,11 +709,35 @@ each side's reading; and the closing releases named.
   and our status block's release and run lines state the plan they give: round 30's
   closing releases are their `.20` on beta, then our 0.6.66 pinning `174a134` and
   reviewing `.20`.
-- [ ] **O3 on our side** (round 30, before our closing lap): our build-under-review check
+- [x] **Their round 30 lap 5, filed 2026-09-30** (`docs/handshake/inbound/round-30-lap-05.md`,
+  sha256 `8f11cdc3…`, 22,514 bytes, released at `cyanrip@e94e7f7f` on their operator's
+  "release it"). `GO` on the v7 texts as proposed. Our checker: well formed, 3 warnings (the
+  three `run:` lines it cannot re-run); digest `a6d4999d87b6f2e2` reproduces; their S20's
+  contract delta reproduced with their own tool at `c1a43dd2`. The held draft we verified at
+  `a2bc156` differs only in three header lines.
+- [x] **Our round 30 lap 6, RELEASED 2026-09-30** on the operator's word ("announce"; sha256 `c5669248…`, 18,177 bytes; `docs/handshake/outbound/round-30-lap-06.md`, LSL 4,
+  30 statements, well formed; the 24 off-record warnings clear when this branch merges).
+  `OPEN`: it AMENDS the v7 texts four ways on our operator's word ("3. do your
+  recommendation"), S19 blocking (§6d's template has no `TERM` lines, so both checkers refuse
+  its `GO`), S20 to S22 contradictions; the rest goes to v8 (S23). Answers their S17 (40 s
+  grace, off the window, S7; our filed log's 20 s read, S6) and S24 (our operator: yes, S9);
+  declares `-U`, LSL 4, O3, D3 and their lap 3 S24's steps done; asks S14 (is the `-f`
+  summary line stable?); records S15, our own instance of their S18's shape; discharges our
+  lap 4's pre-commit (S25); pre-commits `GO` for lap 8 unless lap 7's texts lack S19 to S22
+  (S29). Envelope `round30lap06FROMplatterpusTOcyanrip.md`; SENT_LAPS freezes its bytes.
+- [ ] **A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags** (round 31; our lap 6 S15, the
+  shape of the fork's round 30 lap 5 S18). `adapters/transcode.py` copies every tag with
+  `-map_metadata 0`, so the MP3's figures describe the FLAC, measured before the lossy encode.
+  WavPack is lossless, so its copy is exact. Decide: re-measure on the MP3, or drop the tags
+  from it and say so.
+- [x] **O3 on our side** (round 30, before our closing lap): our build-under-review check
   follows a manifest build only while both channels name one commit
   (`tests/test_handshake_pin_under_review.py::_choose_source`), so a beta-only `.20` would
   need a lap. Teach it, the rig's install and D3's "newest release" to follow the beta
   channel's build when it is newer than stable's.
+  - *2026-09-30: the derivation is done* (`_choose_source` takes the newest entry by `release_seq` when the channels split; revert-probed). The rig's install and the update offer already work per channel and by commit. D3's check, still to build, reads the same newest entry.
+  - *2026-09-30: DONE.* D3's check reads the same newest entry (`probe_grading.newest_fork_release`, the row below). The rig's install needed no change: the command section A prints is `--install-ripper <commit>`, which checks out a commit whatever channel names it.
+- [x] **D3's stale-pair refusal and their lap 3 S24's three steps** (our lap 4 S33, S39; round 30, before our closing lap). Section A runs `expect-newest-pair` after `expect-ripper-under-review`, under the same `abort-if-failed`: the fork's newest release across both channels (O3) must be `PIN_UNDER_REVIEW`, and this app our newest on the beta channel; a half it cannot read fails, because a run on a pair not shown newest is not evidence. New section O runs `cyanrip -N -f` and `expect-found-offset`, which passes only cyanrip's own finished summary line (`Drive offset of … found`) equal to the drive's set offset; its source was read at `cyanrip@174a134:src/cyanrip_main.c:594-692`, which showed that `Was not able to find drive offset …` is a retry, not a give-up. `expect-tags` writes the first FLAC's tags, screened, as `tags<line>.txt` in the run folder. `cache-probe` in section P runs `cd-paranoia -A` through the drive setup's adapter, INFO always, output saved as `cacheprobe<line>.txt`; it refuses while a rip reads the disc, and the runner's new `_deadline_cancel` kills it if the run stops or the wait runs out. Section O is ARCHIVAL, tier 1, in `docs/testing.md`. The script is 371 steps.
 - [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree,
   sha256 `d5ff0e01…`, 15,658 bytes, at `cyanrip@5c92fc2`): the cycle, and whether routine
   overrides end, the channel before a run, and when runs happen, are the operator's four
@@ -747,6 +771,12 @@ each side's reading; and the closing releases named.
   rip's log must exit 0.** The hardware half of the fix above (split out 2026-09-30, so
   the code fix can stay `[x]`): only a drive run shows cyanrip writes its footer and
   `Log FUN512:` inside `drive_control.READER_TERM_GRACE_S` (8 s) on the container path.
+  - *2026-09-30: the grace is 40 s* (the fork's round 30 lap 5 S17: 8 s is shorter than
+    one read). The rig's drive has done a single read of 20 s
+    (`docs/handshake/outbound/artifacts/round-15-lap-13-cancelled-rip-g978f9b0.log:311`),
+    so the grace is twice that, derived by a test from the filed logs. It no longer holds
+    the window: the stop runs as exit work (`exit_work`), joined by `app.main` before the
+    process exits. The hardware half stays open.
 - [x] **The acceptance test grades what each rip left, not only that it finished**
   (2026-09-30, for the next release; asked for with the round-30 Full run: *"this
   test will do all reasonable permutations… if not we need to fix or update the
@@ -767,7 +797,7 @@ each side's reading; and the closing releases named.
   (`library_dir` is kept, never set). (d) **`max_retries 0`** (no `-r` sent) and
   **`-Z 0`**. (e) `read_speed_mode fixed`, `update_channel beta`, auto-eject and
   Picard on. Each is a real path with no hardware evidence.
-- [ ] **`-U`, not `-G`: every archival log still says "No MusicBrainz release ID at cover
+- [x] **`-U`, not `-G`: every archival log still says "No MusicBrainz release ID at cover
   art lookup, cannot search Cover Art DB!"** (found 2026-09-30, NEXT-ROUND). Our
   `_build_rip_argv` comment implied `-G` removes that line; it does not. `-G` is
   `disable_coverart_embedding` only (cyanrip@174a134:src/cyanrip_encode.c:1293), and the
@@ -779,6 +809,7 @@ each side's reading; and the closing releases named.
   cannot succeed, so the line is noise in the artifact meant to be kept as evidence.
   Sending a flag we have never sent is a change to what crosses the seam: it goes to the
   fork in our next lap, with the consumer contract regenerated when it lands.
+  - *2026-09-30: DONE.* The fork measured `-U` safe (their round 30 lap 5 S15-S16, held when read): `-N -G` vs `-N -G -U` differ by that one line, every checksum identical, `-C` art still loads. We send it on every rip; the consumer contract is regenerated (22 flags); declared in our lap 6.
 
 ## Round 29 — CLOSED on both gates on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
@@ -7287,7 +7318,7 @@ remains. None of these is speculative — each was traced to a file:line.
       `_start_post_rip_processing` takes a `rip_log=` argument and the finish handler passes
       its already-parsed `RipLog`, so the log is read once and all six agree on one list.
       Regression test per site, each verified by reverting the fix.
-- **[~] Closing the window during a rip can freeze it for up to ~100 s.**
+- **[x] Closing the window during a rip can freeze it for up to ~100 s.**
       `_stop_rip_on_shutdown` calls `drive_control.free_drive()` **synchronously on the
       GUI thread**: five subprocess steps each bounded at 20 s. A wedged drive hits the
       worst case. It also runs *before* the rip thread's own stop, so it eats the whole
@@ -7298,6 +7329,13 @@ remains. None of these is speculative — each was traced to a file:line.
     `_SHUTDOWN_DRIVE_FREE_BUDGET_S = drive_control.READER_TERM_GRACE_S + 5.0` (8 + 5)
     in `ui/main_window_rip.py`, still on the GUI thread by design. A close with no rip
     in flight is untouched.
+  - *2026-09-30: DONE, the close no longer waits at all.* The fork measured that 8 s is
+    shorter than one read (their round 30 lap 5 S17), and a grace that outlasts the
+    longest read on record (20 s, so 40 s) would have frozen the window for most of a
+    minute. Our operator chose to move the wait off the window: the stop is now exit work
+    (`exit_work.start`), on a helper thread that `app.main` joins, bounded, after
+    `app.exec()` returns. The window closes at once and the process lingers, windowless,
+    only until the reader lets go. `tests/test_ui_main_window.py::test_a_quit_mid_rip_closes_the_window_without_waiting_out_the_grace`.
 - **[x] Abandoned `in_progress` reports are treated as legitimate priors.**
       `rip_compare.find_prior_report` filters on `same_disc` only, never on
       `outcome.status`. Closing mid-rip leaves the worker's `in_progress` snapshot on

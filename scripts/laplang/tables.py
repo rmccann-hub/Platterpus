@@ -86,6 +86,17 @@ AMENDMENTS: Final[tuple[str, ...]] = ("A1", "A2", "A3", "A4", "A5", "A6", "A7", 
 #: has, so no LSL 1 or LSL 2 check changes. Only `LSL: 3` switches these on.
 LSL3_RULES: Final[tuple[str, ...]] = ("B1", "B2", "B3")
 
+#: The rule LSL 4 adds to LSL 3, from round 30: C1, a `WILL` carrying `verdict:`
+#: says exactly `when: our next lap`, the lap A2 binds (the fork's round 30 lap 3
+#: S10, as our lap 4 S36 and their lap 5 S12 amend it). Carried by the version a
+#: lap declares, since no checker can read when a lap was written: a side
+#: declares `LSL: 4` once both checkers implement it, and an LSL 3 pre-commit
+#: keeps the rule it was written under. Theirs: `cyanrip@049886f`.
+LSL4_RULES: Final[tuple[str, ...]] = ("C1",)
+
+#: The one `when:` a pre-commit may carry under C1.
+PRE_COMMIT_WHEN: Final[str] = "our next lap"
+
 #: What each `LSL: N` line switches on. LSL 2 is LSL 1 with A1-A8 and nothing else:
 #: the fork defined it so and implemented it behind `LSL: 2` (their round 28 lap 3
 #: S14), and asked whether ours would read it the same way (S18). LSL 3 is LSL 2
@@ -96,6 +107,7 @@ LSL_VERSIONS: Final[dict[int, frozenset[str]]] = {
     1: frozenset(),
     2: frozenset(AMENDMENTS),
     3: frozenset(AMENDMENTS) | frozenset(LSL3_RULES),
+    4: frozenset(AMENDMENTS) | frozenset(LSL3_RULES) | frozenset(LSL4_RULES),
 }
 
 
@@ -166,6 +178,8 @@ AMENDMENT_TABLES: Final[dict[str, Amendment]] = {
     "B1": Amendment(fields=frozenset({"at"})),
     "B2": Amendment(),
     "B3": Amendment(),
+    # LSL 4. C1 adds nothing to the tables; its check is in `amend.py`.
+    "C1": Amendment(),
 }
 
 #: The kinds that cannot carry weight: they make no claim, or none either side
@@ -204,12 +218,12 @@ class Tables:
 
 
 def tables_for(amendments: frozenset[str]) -> Tables:
-    """LSL 1 with `amendments` applied, in their declared order: A1-A8, then B1-B3."""
+    """LSL 1 with `amendments` applied, in their declared order: A1-A8, B1-B3, C1."""
     grades = dict(LSL1_GRADES)
     required = dict(LSL1_REQUIRED)
     fields = set(LSL1_FIELDS)
     sources: dict[tuple[str, str | None, str], str] = {}
-    for amendment_id in AMENDMENTS + LSL3_RULES:
+    for amendment_id in AMENDMENTS + LSL3_RULES + LSL4_RULES:
         if amendment_id not in amendments:
             continue
         table = AMENDMENT_TABLES[amendment_id]

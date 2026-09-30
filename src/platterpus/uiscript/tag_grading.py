@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from platterpus.flac_metadata import PICTURE_FRONT_COVER, read_flac_metadata
+from platterpus.inbound_text import screen_line
 from platterpus.uiscript.artifact_grading import Grade
 
 
@@ -48,6 +49,43 @@ def ripped_masters(report: Mapping[str, Any], folder: Path) -> list[tuple[int, P
         if isinstance(number, int) and isinstance(name, str) and name.endswith(".flac"):
             masters.append((number, folder / Path(name).name))
     return masters
+
+
+def render_tags(masters: Sequence[tuple[int, Path]], limit: int = 1) -> str:
+    """The tags of the first ``limit`` ripped FLACs, as text for the bundle.
+
+    The fork's round 30 lap 3 S24: the acceptance bundle carries no audio, so no
+    tag had ever been evidence either side could read. This is what
+    :func:`read_flac_metadata` read, every comment in file order and each
+    picture's type, size and MIME type, so the bundle holds the tags as the
+    file holds them rather than our grade of them. Never raises.
+
+    **Screened like any other external text** (:mod:`platterpus.inbound_text`):
+    a value is MusicBrainz's, or the user's, and one holding a newline would
+    otherwise split into a line that reads as a second tag. Each control
+    character becomes a visible ``\\xNN`` escape, and the count is stated.
+    """
+    lines: list[str] = []
+    for number, path in list(masters)[: max(limit, 0)]:
+        meta = read_flac_metadata(path)
+        body = [f"vendor: {meta.vendor}"]
+        body.extend(f"{name}={value}" for name, value in meta.comments)
+        screened = [screen_line(line) for line in body]
+        lines.append(f"# track {number}: {screen_line(path.name).text}")
+        if not meta.is_flac or meta.problem:
+            lines.append(f"# not read completely: {meta.problem or 'not a FLAC file'}")
+        escaped = sum(one.control_chars for one in screened)
+        if escaped:
+            lines.append(f"# {escaped} control character(s) shown as \\xNN escapes")
+        lines.append(f"# {screened[0].text}")
+        lines.extend(one.text for one in screened[1:])
+        lines.extend(
+            f"# picture: type {pic.picture_type}, "
+            f"{screen_line(pic.mime).text}, {pic.data_bytes} bytes"
+            for pic in meta.pictures
+        )
+        lines.append("")
+    return "\n".join(lines)
 
 
 def _one(values: list[str]) -> str | None:

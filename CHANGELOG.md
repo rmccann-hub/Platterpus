@@ -29,6 +29,28 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   under it, which any log Platterpus writes does. It now also checks that the
   log's per-track CRCs are the ones cyanrip computed, taking a re-read track's
   kept CRC from the auto-fix addendum rather than the discarded first read.
+- **The acceptance test now refuses to run on an out-of-date pair.** Its first
+  section already checked that the installed cyanrip is the build this version of
+  Platterpus is testing. It now also checks, at the start of every run, that this
+  build is the cyanrip fork's newest release (on either of its channels) and that
+  this Platterpus is our newest release. A run on anything else stops in the first
+  minute rather than spending a night producing results about a pair nobody will
+  ship. If it cannot reach either project's releases to check, it stops too.
+- **The acceptance test now measures three things the cyanrip fork asked for.**
+  It runs cyanrip's own drive-offset finder and checks that it finds the offset
+  the drive is set to. It saves the tags of one ripped FLAC as text beside the
+  results, because the results carry no audio. And it runs `cd-paranoia -A` beside
+  cyanrip's own cache measurement, so every run measures the drive's cache two
+  ways, and saves what it printed. The `cd-paranoia` step only records what it
+  finds and never fails the run. It will not run while a rip is reading the disc,
+  and it is stopped if the run is stopped.
+- For contributors: the lap checker's `--help` names the LSL versions it implements
+  from the same table as its version check; it still said LSL 1 to 3 after LSL 4
+  landed.
+- For contributors: the script verbs `expect-newest-pair`, `expect-found-offset`
+  and `cache-probe`. A step that waits on a helper thread can now say how to stop
+  what it started, and the runner calls it when the run stops or the wait times
+  out.
 - For contributors: the script verbs `expect-album-audit`, `expect-accuraterip`,
   `expect-ctdb`, `expect-tags`, `expect-cover-art` and `track-title`, and a
   FLAC tag reader (`flac_metadata.py`) that needs no external tool.
@@ -36,6 +58,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Quitting during a rip now closes the window at once, and gives cyanrip long
+  enough to finish its log.** When you quit mid-rip, Platterpus asks cyanrip to
+  stop and waits for it to write the end of its log before forcing it. cyanrip
+  can only stop between reads, and the rip drive has been recorded taking 20
+  seconds over a single read. The wait was 8 seconds, so a quit during a slow
+  read could still cut the log short. It is now 40 seconds. The window no longer
+  waits with it: it closes straight away, and Platterpus finishes stopping
+  cyanrip in the background before it exits. Usually that takes a second or
+  two, because the wait ends as soon as cyanrip lets go of the drive.
 - **An acceptance-test screenshot no longer fails just because the display went
   dark.** In the round 30 Full run every screenshot taken after the first long rip
   failed. The app's windows were still open, but the desktop had stopped showing
@@ -71,6 +102,21 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- For contributors: the build under review is now derived from the cyanrip
+  fork's newest release when its two channels disagree, by release number,
+  because under our operator's O3 ruling a new build goes to beta alone until
+  its hardware run passes. It used to follow a published build only when both
+  channels named it, which would have left the fork's `.20` unreviewed.
+- For contributors: our lap checker implements LSL 4, agreed with the cyanrip
+  fork in round 30. A lap declaring `LSL: 4` must write a pre-commit's `when:`
+  as exactly `our next lap`, the lap the pre-commit binds; LSL 3 laps are read
+  as before.
+- **Every rip now tells cyanrip not to query the Cover Art DB (`-U`)**, beside
+  `-G`, which already stopped it embedding art. Platterpus does all cover art
+  itself, and with MusicBrainz off cyanrip's own query could never succeed, so
+  every archival log carried a "cannot search Cover Art DB!" line as noise. The
+  cyanrip fork measured the flag safe: one log line fewer, every checksum
+  identical. The generated consumer contract lists 22 flags.
 - **The release-cycle rulings are recorded** (option A; routine pre-run
   overrides end; a new cyanrip build goes to beta until its run passes; a Full
   run every night a new pair exists), and the status block states the plan they

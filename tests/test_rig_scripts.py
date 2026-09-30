@@ -793,6 +793,24 @@ def test_every_acceptance_section_is_classified_in_advance() -> None:
     )
 
 
+def test_the_severity_tables_own_count_matches_its_rows() -> None:
+    """The prose under the table states the split; the rows are the fact.
+
+    A count written beside a table goes stale the day a row is added, and it is
+    the count a reader quotes. Read it off the rows instead of trusting it.
+    """
+    declared = _declared_severities()
+    doc = (DOCS / "testing.md").read_text(encoding="utf-8")
+    stated = re.search(r"\*\*(\d+) ARCHIVAL, (\d+) UX\.\*\*", doc)
+    assert stated, "the severity table's stated split is gone from docs/testing.md"
+    archival = sum(1 for v in declared.values() if v == "ARCHIVAL")
+    ux = sum(1 for v in declared.values() if v == "UX")
+    assert (int(stated.group(1)), int(stated.group(2))) == (archival, ux), (
+        f"docs/testing.md says {stated.group(0)} and its rows say {archival} "
+        f"ARCHIVAL, {ux} UX"
+    )
+
+
 def _section_bodies() -> dict[str, list[str]]:
     """Each acceptance section's executable lines, keyed by its letter.
 
