@@ -680,6 +680,16 @@ each side's reading; and the closing releases named.
   sha256 `d5ff0e01…`, 15,658 bytes, at `cyanrip@5c92fc2`): the cycle, and whether routine
   overrides end, the channel before a run, and when runs happen, are the operator's four
   decisions (O1–O4) after both sides answer.
+- [~] **The Full run on `.19` (S10), filed in our tree 2026-09-30.** Run 03:07-08:27 UTC
+  on 0.6.65 (bundle sha256 `fa1a5333…`, 4,302,318 bytes): 316 pass, 7 fail, 0 error, 1
+  info; `counts_as_evidence: true`; it reached its last step. Filed as
+  `docs/handshake/artifactsround30/` (52 text members, byte for byte, `round30full*`),
+  whose README says what it found; the ledger grades it `partial` (the seven failures
+  are screenshot steps in ARCHIVAL sections). Every rip completed and `-Y` verified all
+  eight logs. **Still open for S10:** the fork's filing of it, and each side's reading
+  lap. Ours is our lap 4, which their held lap 3 names (`cyanrip@7e37cdf`); it waits
+  for their operator to release lap 3, because our gate takes nothing from an
+  unreleased lap.
 - [x] **S25, a rip record with no footer — FOUND, ours, and FIXED (2026-09-30, for the
   next release).** Not the console: the MAIN WINDOW closed (from outside our code,
   source undeterminable: a stray Esc hid the console 3 s earlier, then a Qt close),

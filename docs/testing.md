@@ -3895,6 +3895,7 @@ that is what the section costs, not what its title implies.
 | 2026-09-28 | 0.6.61 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-28 | 0.6.62 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-28 | 0.6.63 | maintainer | bdr209d | bazzite | partial |
+| 2026-09-30 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 

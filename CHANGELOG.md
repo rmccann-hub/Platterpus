@@ -69,6 +69,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 30's Full run is filed and graded `partial`.** The operator's run on
+  2026-09-30 (0.6.65 with the fork's `.19`, `174a134`) passed 316 of 323 steps. The
+  seven failures are screenshot steps, every one after the first long rip, that found
+  the app's windows open but not shown on the display; their sections are graded
+  archival in advance, so the field-evidence ledger gets a thirteenth row, `partial`.
+  Every rip completed and cyanrip verified each log. The whole-disc rip matches the EAC
+  baseline on 13 of 14 tracks after its automatic re-read replaced track 3. The text
+  artifacts are in `docs/handshake/artifactsround30/`, whose README says what the run
+  found.
 - **The project's documents match the code again.** Every document, the in-app
   guide and the code's own comments were checked against the code on 2026-09-30,
   and the out-of-date statements corrected: which ripper build is installed and
