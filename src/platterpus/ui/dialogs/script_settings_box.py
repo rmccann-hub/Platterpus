@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
 
 from platterpus.test_session import builtin_acceptance_script
 from platterpus.ui.accessibility import announce
+from platterpus.uiscript.verbs import UNSAFE_VERBS_BUILT
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -139,18 +140,26 @@ class ScriptSettingsBox(QGroupBox):
         self.unsafe_check: QCheckBox = QCheckBox(
             "Allow the unsafe script verbs (eval, call — not built yet)", self
         )
-        self.unsafe_check.setChecked(allow_unsafe)
+        self.unsafe_check.setChecked(allow_unsafe and UNSAFE_VERBS_BUILT)
+        # READ-ONLY until one of the verbs exists (maintainer, 2026-09-30). A box
+        # that can be ticked for something that is not there invites a user to
+        # believe it did something.
+        self.unsafe_check.setEnabled(UNSAFE_VERBS_BUILT)
         self.unsafe_check.setToolTip(
-            "OFF (default), and turning it ON changes nothing yet: eval and call "
-            "are reserved but not implemented, so a script using either is refused "
-            "either way. The vocabulary is otherwise a closed list of named actions "
-            "with nothing that can run arbitrary code. If the escape hatch is ever "
-            "built, ON is its gate, and a run that used it would say so at the top "
-            "of its own transcript."
+            "Not built yet, so it stays OFF and cannot be turned ON: eval and call "
+            "are reserved names with no implementation, and a script using either "
+            "is refused. The vocabulary is a closed list of named actions with "
+            "nothing that can run arbitrary code."
+            if not UNSAFE_VERBS_BUILT
+            else "OFF by default. ON lets a script use eval and call, and a run "
+            "that used them says so at the top of its own transcript."
         )
-        self.unsafe_check.toggled.connect(
-            lambda on: self._save_box("test_script_allow_unsafe", self.unsafe_check, on)
-        )
+        if UNSAFE_VERBS_BUILT:
+            self.unsafe_check.toggled.connect(
+                lambda on: self._save_box(
+                    "test_script_allow_unsafe", self.unsafe_check, on
+                )
+            )
         box.addWidget(self.unsafe_check)
 
         self._status: QLabel = QLabel("", self)
@@ -168,7 +177,7 @@ class ScriptSettingsBox(QGroupBox):
         """
         for box, value in (
             (self.autorun_check, config.test_script_autorun),
-            (self.unsafe_check, config.test_script_allow_unsafe),
+            (self.unsafe_check, config.test_script_allow_unsafe and UNSAFE_VERBS_BUILT),
         ):
             box.blockSignals(True)
             box.setChecked(bool(value))

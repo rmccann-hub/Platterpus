@@ -46,6 +46,7 @@ import os
 import subprocess
 import time
 from collections.abc import Callable
+from typing import Final
 
 from platterpus import diagnostics
 from platterpus.tool_paths import exported_tools_dir, resolve_tool
@@ -301,9 +302,13 @@ def free_device_holders(
 
     So the post-cancel rescue passes ``signal="TERM"``: cyanrip handles SIGTERM
     (``cyanrip_main.c``, ``quit_signals[] = { SIGINT, SIGTERM }``), so its handler
-    runs, the rip unwinds, and the footer is written. The scan and shutdown paths
-    keep the default: there the reader is wedged rather than mid-rip, and no log
-    is being protected.
+    runs, the rip unwinds, and the footer is written. The shutdown path does the
+    same through :func:`stop_reader_gracefully` (SIGTERM, a grace, then SIGKILL
+    only if the device is still held): it runs only when a rip is in flight, so a
+    log IS being protected there. It went straight to SIGKILL until 2026-09-30, on
+    the premise that the reader was wedged, and a rip in the round-29 Full run was
+    left without its footer that way. Only the stuck-scan path keeps the default,
+    because a scan writes no log.
 
     ONE SIGTERM, AND THIS IS NATURALLY THE FIRST. cyanrip's second-signal branch
     force-exits without the footer, so a duplicate is as destructive as a kill.
@@ -380,6 +385,109 @@ def force_stop_drive(
     if ejected:
         return "Ejected the disc — the drive should stop."
     return "Tried to force-stop the drive (kill + eject)."
+
+
+#: How long a reader signalled with SIGTERM gets to unwind and write its log's
+#: footer before the shutdown path escalates to SIGKILL. **Measured need, not
+#: taste:** the round-29 Full run's rip (2026-09-30) went 5.5 s without a line of
+#: output in the middle of a slow read, and cyanrip acts on SIGTERM only once the
+#: read in hand returns. The old shutdown path allowed 191 ms, then SIGKILLed, and
+#: the log was left without its footer or `Log FUN512:` (the fork's round 30 S25).
+READER_TERM_GRACE_S: Final[float] = 8.0
+
+#: How often the grace loop asks whether the device is still held.
+_HELD_POLL_S: Final[float] = 0.25
+
+
+def device_is_held(device: str, runner: Runner | None = None) -> bool | None:
+    """`fuser -s <device>` with no signal: does anything still hold the device?
+
+    **Tri-state.** ``True`` (exit 0: something holds it), ``False`` (exit 1: nothing
+    does), ``None`` (no answer: fuser could not run, timed out, or a spent budget
+    skipped it). A caller must not read ``None`` as "released".
+    """
+    if not device:
+        return None
+    rc = _run_rc(
+        [_host_tool("fuser", _HOST_TOOL_DIRS_FUSER), "-s", device],
+        runner or _default_runner,
+    )
+    if rc == 0:
+        return True
+    if rc == 1:
+        return False
+    return None
+
+
+def stop_reader_gracefully(
+    device: str,
+    container: str = DEFAULT_CONTAINER,
+    runner: Runner | None = None,
+    already_signalled: bool = False,
+    grace_s: float = READER_TERM_GRACE_S,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> str:
+    """Stop the reader holding ``device`` so that its log keeps its footer.
+
+    SIGTERM first (device-scoped, `fuser -k -TERM`), then wait up to ``grace_s``
+    for the device to be let go, and only if it is still held — or whether it is
+    held cannot be told — escalate to :func:`free_drive`, whose SIGKILL leaves the
+    log without its footer. That order is the archival decision
+    :func:`free_device_holders` explains, applied to the shutdown path, which used
+    to go straight to SIGKILL.
+
+    ``already_signalled`` skips the SIGTERM: cyanrip's second signal force-exits
+    without the footer, so a reader the post-cancel rescue already signalled is
+    only waited for, never signalled again.
+
+    **Fail-safe direction.** An undeterminable answer escalates. The failure the
+    kill protects against is a reader left ripping after the app has gone (the
+    2026-07-01 report); the one the grace protects against is a record without
+    its footer. Escalating on "not determined" keeps the first impossible and
+    costs the second only when fuser itself cannot answer.
+
+    Blocks for up to ``grace_s`` plus the escalation; the shutdown path's own
+    budget bounds it. Never raises.
+    """
+    if not device:
+        log.warning(
+            "no device to scope a SIGTERM to, so the reader is stopped with "
+            "SIGKILL and its log may have no footer"
+        )
+        return free_drive(device=device, container=container, runner=runner)
+    run = runner or _default_runner
+    if not already_signalled:
+        if not free_device_holders(device, runner=run, signal="TERM"):
+            log.info(
+                "nothing on the host held %s to SIGTERM; falling back to the "
+                "broader stop",
+                device,
+            )
+            return free_drive(device=device, container=container, runner=run)
+    started = clock()
+    while True:
+        held = device_is_held(device, runner=run)
+        waited = clock() - started
+        if held is False:
+            log.info(
+                "the reader let go of %s %.1fs after SIGTERM; no SIGKILL was needed, "
+                "so its log was allowed to finish",
+                device,
+                waited,
+            )
+            return "Stopped the rip; its log was allowed to finish."
+        if held is None or waited >= grace_s:
+            break
+        sleep(_HELD_POLL_S)
+    log.warning(
+        "the reader still held %s after %.1fs of grace (or fuser could not say: "
+        "%s); escalating to SIGKILL, so its log may have no footer",
+        device,
+        waited,
+        "held" if held else "not determined",
+    )
+    return free_drive(device=device, container=container, runner=run)
 
 
 def free_drive(

@@ -379,7 +379,9 @@ def test_re_rendering_the_console_never_saves(qapp: QApplication) -> None:
         )
     )
     assert console._autorun_check.isChecked() is True
-    assert console._unsafe_check.isChecked() is True
+    # Read-only while no unsafe verb is built: a stored ON is not shown as ON.
+    assert console._unsafe_check.isChecked() is False
+    assert console._unsafe_check.isEnabled() is False
     assert console._startup_script_edit.text() == "/x.txt"
     assert calls == [], "re-rendering saved a setting"
 
@@ -395,12 +397,38 @@ def test_the_console_carries_one_unsafe_box_and_it_is_the_setting(
 
     unsafe = [box for box in console.findChildren(QCheckBox) if "unsafe" in box.text()]
     assert unsafe == [console._unsafe_check], "a second unsafe-verbs box is back"
+    # READ-ONLY until an unsafe verb exists (maintainer, 2026-09-30): the box is
+    # disabled, and even a programmatic tick saves nothing.
+    assert not console._unsafe_check.isEnabled()
     console._unsafe_check.setChecked(True)
     console._autorun_check.setChecked(True)
-    assert calls == [
-        ("test_script_allow_unsafe", True),
-        ("test_script_autorun", True),
-    ]
+    assert calls == [("test_script_autorun", True)], calls
+
+
+def test_no_unsafe_verb_is_built_so_the_opt_in_is_refused_everywhere(
+    qapp: QApplication,
+) -> None:
+    """The opt-in is read-only in every place a value can come from while `eval`
+    and `call` are unbuilt: the box (above), the runner the console starts, and
+    validation, which a config file and a script's `set` both pass through."""
+    from platterpus.settings_validation import errors_only, validate_config
+    from platterpus.uiscript.verbs import UNSAFE_VERBS, UNSAFE_VERBS_BUILT, VERBS
+
+    assert UNSAFE_VERBS_BUILT is False
+    assert {"eval", "call"} <= set(UNSAFE_VERBS), "the floor: the reserved verbs"
+    assert not any(VERBS[name].implemented for name in UNSAFE_VERBS)
+    refused = errors_only(validate_config(Config(test_script_allow_unsafe=True)))
+    assert [i.field for i in refused] == ["test_script_allow_unsafe"], refused
+    assert not errors_only(validate_config(Config(test_script_allow_unsafe=False)))
+
+    console = _console(allow_unsafe=True)
+    console._unsafe_check.setChecked(True)  # even if something ticked it
+    console._editor.setPlainText("log x\n")
+    assert console.run_now()
+    runner = console._runner
+    assert runner is not None and runner._unsafe_allowed is False
+    runner.stop("test")
+    console.close()
 
 
 def test_choosing_a_startup_script_saves_and_loads_it(

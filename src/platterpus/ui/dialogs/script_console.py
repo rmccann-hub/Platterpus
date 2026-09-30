@@ -46,7 +46,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QCloseEvent, QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QFileDialog,
@@ -68,7 +68,7 @@ from platterpus.ui.scroll_guards import append_keeping_position
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
 from platterpus.uiscript.runner import ScriptRunner
 from platterpus.uiscript.script import parse
-from platterpus.uiscript.verbs import verb_reference
+from platterpus.uiscript.verbs import UNSAFE_VERBS_BUILT, verb_reference
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -262,6 +262,8 @@ class ScriptConsoleDialog(CenteredDialog):
         #: The runner for the current/last run. Recreated per run so a report
         #: from a previous run can never be appended to.
         self._runner: ScriptRunner | None = None
+        #: Why a run in flight ends when this console closes; set by `close_for`.
+        self._close_reason: str = ""
         #: One-shot: the folder the NEXT run writes into, set by an acceptance
         #: session so everything it makes stays in its one folder. Cleared when
         #: that run starts, so a later hand-started run is not redirected.
@@ -438,7 +440,7 @@ class ScriptConsoleDialog(CenteredDialog):
         self._stop_button.setEnabled(True)
         runner.start(
             steps,
-            unsafe_allowed=self._unsafe_check.isChecked(),
+            unsafe_allowed=UNSAFE_VERBS_BUILT and self._unsafe_check.isChecked(),
             source=source,
         )
         # ASK the runner, do not assume. `ScriptRunner.start` has its own refusal
@@ -551,6 +553,35 @@ class ScriptConsoleDialog(CenteredDialog):
 
     # --- Teardown ------------------------------------------------------------
 
+    def close_for(self, reason: str) -> None:
+        """Close the console, recording ``reason`` as why a run in flight ended.
+
+        The main window closes the console as part of its own teardown, and the
+        transcript used to say "the console was closed" either way. The fork read
+        that in round 29's bundle as the operator closing the console, when it
+        was the main window (their round 30 S25). One reason per cause.
+        """
+        self._close_reason = reason
+        self.close()
+
+    def reject(self) -> None:
+        """Esc does not end a run in flight; the window's close button does.
+
+        ``QDialog`` maps Esc to ``reject()``, which hides the dialog through
+        ``done()`` without passing ``closeEvent``, so the run went on with no
+        console on screen (round 29's Full run, 2026-09-30: a stray Esc hid it
+        three seconds before the window closed). A run is stopped deliberately,
+        with the Stop button or the close button, never by a key that may not
+        have been meant.
+        """
+        if self._runner is not None and self._runner.running:
+            log.warning(
+                "script console: Esc ignored while a run is in flight; use Stop "
+                "or the window's close button to end it"
+            )
+            return
+        super().reject()
+
     def closeEvent(self, event: object) -> None:  # noqa: N802 — Qt override
         """Stop a run before the window that hosts its timer goes away.
 
@@ -558,9 +589,19 @@ class ScriptConsoleDialog(CenteredDialog):
         destroy a live ``QTimer`` mid-run — and, worse for the person reading the
         result, leave a transcript with no verdict. ``stop()`` also kills any
         ripper call still in flight.
+
+        Logs whether the close came from outside the app (the window manager, a
+        close button) or from our own code, which round 29's log could not say.
         """
+        reason = self._close_reason or "the console was closed"
+        spontaneous = isinstance(event, QCloseEvent) and event.spontaneous()
         if self._runner is not None and self._runner.running:
-            self._runner.stop("the console was closed")
+            log.info(
+                "script console closing with a run in flight (%s; %s)",
+                reason,
+                "from outside the app" if spontaneous else "from the app itself",
+            )
+            self._runner.stop(reason)
         super().closeEvent(event)  # type: ignore[arg-type]  # Qt's QCloseEvent, typed loosely at this seam
 
 

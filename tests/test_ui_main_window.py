@@ -4332,6 +4332,23 @@ def _patch_free_device_holders(monkeypatch) -> list[dict]:
     return calls
 
 
+def _patch_graceful_stop(monkeypatch, order: list[str] | None = None) -> list[dict]:
+    """Record `drive_control.stop_reader_gracefully` calls (the shutdown stop:
+    SIGTERM, a grace, then SIGKILL only if the drive is still held)."""
+    from platterpus import drive_control
+
+    calls: list[dict] = []
+
+    def _record(**kw: object) -> str:
+        calls.append(kw)
+        if order is not None:
+            order.append("graceful stop")
+        return ""
+
+    monkeypatch.setattr(drive_control, "stop_reader_gracefully", _record)
+    return calls
+
+
 def _patch_free_drive(monkeypatch) -> list[dict]:
     """Record `drive_control.free_drive` calls (the scan-stall recovery that
     kills the reader without ejecting), like `_patch_force_stop` does for rips."""
@@ -4683,40 +4700,59 @@ def test_shutdown_stops_in_container_reader_during_rip(
     kills the host-side process group and podman doesn't forward that into the
     container. `_stop_rip_on_shutdown` must ALSO run the synchronous free_drive
     (which kills the in-container reader) — no eject, just stop the reader."""
-    free_calls = _patch_free_drive(monkeypatch)
+    order: list[str] = []
+    free_calls = _patch_graceful_stop(monkeypatch, order)
     window = teardown_threads()
-    cancelled: list[bool] = []
-    released: list[bool] = []
     window._rip_worker = SimpleNamespace(
-        cancel=lambda: cancelled.append(True),
-        # The worker's bounded wait for the ripper's log footer. On THIS path the
-        # footer is not coming — the rescue timer will never fire and `free_drive`
-        # below kills the reader outright — so a worker sitting out a 20-second
-        # deadline it cannot meet is the frozen-window bug. Recorded rather than
-        # merely tolerated: a stand-in that only stops the AttributeError would
-        # let the release be deleted silently.
-        abandon_log_wait=lambda: released.append(True),
+        cancel=lambda: order.append("cancel"),
+        # The worker's bounded wait for the ripper's log footer, released only
+        # AFTER the graceful stop: a footer written inside the grace reaches the
+        # report (the fork's round 30 S25). Recorded rather than merely tolerated:
+        # a stand-in that only stops the AttributeError would let the release be
+        # deleted silently.
+        abandon_log_wait=lambda: order.append("release log wait"),
     )
     window._rip_thread = SimpleNamespace()  # a rip is in flight
+    window._force_stop_done = False
 
     window._stop_rip_on_shutdown()
 
-    assert cancelled == [True]  # host-side wrapper group killed
-    assert released == [True]  # …and the log wait released, so close is not held
-    assert len(free_calls) == 1  # …AND the in-container reader stopped
+    assert order == ["cancel", "graceful stop", "release log wait"], order
+    assert len(free_calls) == 1  # the in-container reader is stopped
     assert "device" in free_calls[0]
+    # Nothing has signalled this reader yet, so the graceful stop sends the SIGTERM.
+    assert free_calls[0]["already_signalled"] is False
+
+
+def test_shutdown_never_sends_a_second_SIGTERM_after_the_rescue(
+    teardown_threads, monkeypatch
+) -> None:
+    """cyanrip's second SIGTERM force-exits without the footer. After the
+    post-cancel rescue has signalled the reader, shutdown only waits for it."""
+    free_calls = _patch_graceful_stop(monkeypatch)
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None, abandon_log_wait=lambda: None
+    )
+    window._rip_thread = SimpleNamespace()
+    window._force_stop_done = True
+
+    window._stop_rip_on_shutdown()
+
+    assert free_calls and free_calls[0]["already_signalled"] is True
 
 
 def test_shutdown_without_rip_leaves_drive_alone(teardown_threads, monkeypatch) -> None:
     """A normal close (no rip in flight) never touches the drive — no gratuitous
     pkill/fuser on every window close."""
     free_calls = _patch_free_drive(monkeypatch)
+    graceful_calls = _patch_graceful_stop(monkeypatch)
     window = teardown_threads()
     window._rip_thread = None
 
     window._stop_rip_on_shutdown()
 
-    assert free_calls == []
+    assert free_calls == [] and graceful_calls == []
 
 
 def test_close_event_stops_in_flight_rip_in_container(
@@ -4724,7 +4760,7 @@ def test_close_event_stops_in_flight_rip_in_container(
 ) -> None:
     """closeEvent is wired to the synchronous in-container stop — so quitting the
     app while a rip runs stops the drive (the 'exit = force stop' contract)."""
-    free_calls = _patch_free_drive(monkeypatch)
+    free_calls = _patch_graceful_stop(monkeypatch)
     window = teardown_threads()
     window._rip_worker = SimpleNamespace(
         cancel=lambda: None, abandon_log_wait=lambda: None
@@ -13226,3 +13262,87 @@ def test_open_dependencies_in_a_script_probes_off_the_gui_thread(
     finally:
         release.set()
         _pump_until(qapp, lambda: window._dep_check_thread is None)
+
+
+# --- a close from outside asks first while work is in flight (round 30 S25) ------
+
+
+def _spontaneous_close():
+    from PySide6.QtGui import QCloseEvent
+
+    class _FromOutside(QCloseEvent):
+        def spontaneous(self) -> bool:  # noqa: D401 — Qt's own name
+            return True
+
+    return _FromOutside()
+
+
+def _answer(monkeypatch, button_name: str) -> list[str]:
+    from PySide6.QtWidgets import QMessageBox
+
+    from platterpus.ui import message_boxes
+
+    asked: list[str] = []
+
+    def _question(_parent, title, text, *_a, **_k):
+        asked.append(text)
+        return getattr(QMessageBox.StandardButton, button_name)
+
+    monkeypatch.setattr(message_boxes, "question", _question)
+    return asked
+
+
+def test_a_close_from_outside_mid_rip_asks_and_no_keeps_the_rip(
+    teardown_threads, monkeypatch
+) -> None:
+    graceful = _patch_graceful_stop(monkeypatch)
+    asked = _answer(monkeypatch, "No")
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None, abandon_log_wait=lambda: None
+    )
+    window._rip_thread = SimpleNamespace()
+    event = _spontaneous_close()
+
+    window.closeEvent(event)
+
+    assert asked and "a rip" in asked[0], asked
+    assert not event.isAccepted(), "a declined close must be ignored"
+    assert graceful == [], "a declined close must not stop the rip"
+    window._rip_thread = None  # let the fixture's teardown close it normally
+
+
+def test_quit_mid_rip_asks_and_yes_closes(teardown_threads, monkeypatch) -> None:
+    graceful = _patch_graceful_stop(monkeypatch)
+    asked = _answer(monkeypatch, "Yes")
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None, abandon_log_wait=lambda: None
+    )
+    window._rip_thread = SimpleNamespace()
+
+    window._on_quit_requested()
+
+    assert asked, "Quit did not ask"
+    assert len(graceful) == 1, "a confirmed Quit must stop the rip"
+
+
+def test_our_own_closes_and_idle_closes_never_ask(
+    teardown_threads, monkeypatch
+) -> None:
+    """Programmatic closes (tests, update relaunch, unattended runs) never block
+    on a question, and neither does a close with nothing in flight."""
+    _patch_graceful_stop(monkeypatch)
+    asked = _answer(monkeypatch, "No")
+    window = teardown_threads()
+    window._rip_thread = None
+    assert window._confirm_close_mid_work() is True
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None, abandon_log_wait=lambda: None
+    )
+    window._rip_thread = SimpleNamespace()
+    window._unattended = True
+    assert window._confirm_close_mid_work() is True
+    assert asked == []
+    window._unattended = False
+    window._rip_thread = None

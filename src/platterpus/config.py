@@ -453,9 +453,10 @@ class Config:
     # With it on, launching the app *is* the test run — which is what "so I don't
     # need to be present" requires.
     test_script_autorun: bool = False
-    # Allow the script vocabulary's UNSAFE verbs (`eval`, `call`) when the
-    # console or `--run-script` runs. Off by default and re-asked every time the
-    # console opens; a run that used them says so loudly in its own transcript.
+    # Allow the script vocabulary's UNSAFE verbs (`eval`, `call`). They are not
+    # built, so this is read-only everywhere until one is (maintainer, 2026-09-30):
+    # the console's box is disabled, and validation refuses ON from the config
+    # file or a script's `set` (`uiscript.verbs.UNSAFE_VERBS_BUILT`).
     test_script_allow_unsafe: bool = False
 
     # --- Schema bookkeeping ---

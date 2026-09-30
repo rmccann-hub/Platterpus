@@ -12,6 +12,29 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Quitting during a rip no longer destroys the rip's log.** Closing the window
+  sent cyanrip a stop signal and then, a fifth of a second later, killed it
+  outright, so cyanrip never wrote the end of its log or the checksum that proves
+  the log is intact. A rip in the round 29 Full run was left like that. Platterpus
+  now asks cyanrip to stop and waits up to eight seconds for it to finish its log,
+  and only kills it if it is still holding the drive after that. A close that
+  comes from the desktop (the window's close button, a logout) or from File →
+  Quit now asks first while a rip or the acceptance test is running.
+- **Esc no longer hides the test console while a script is running.** It used to
+  hide the window and leave the run going with nothing on screen. Esc is ignored
+  during a run; the Stop and close buttons still end it.
+- **The "Allow the unsafe script verbs" box is read-only.** The two verbs it
+  would allow, `eval` and `call`, were reserved and never built, so ticking it did
+  nothing. It now stays off and cannot be ticked, and neither the config file nor
+  a script's `set` can turn the setting on, until one of them exists.
+- **The test transcript says who closed the console.** When the main window
+  closed, the console's transcript still said "the console was closed", and the
+  cyanrip fork read round 29's run as the operator closing the console by hand. It
+  now says "the main window was closed", and the log says whether a close came
+  from outside the app or from the app itself.
+
 ### Changed
 
 - **The README's status is four lines again.** It had grown into an argument for the

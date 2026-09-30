@@ -726,3 +726,76 @@ def test_the_console_contains_only_the_next_run(qapp, tmp_path: Path) -> None:
         console.deleteLater()
         window.close()
         window.deleteLater()
+
+
+def test_esc_does_not_end_or_hide_a_run_in_flight(qapp) -> None:
+    """Round 29's Full run (the fork's round 30 S25): a stray Esc hid the console
+    through `reject()`, which skips `closeEvent`, and the run went on unseen. Esc
+    is now refused while a run is in flight; the Stop and close buttons still work."""
+    from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
+
+    window = _bare_window()
+    console = ScriptConsoleDialog(window)
+    try:
+        console._editor.setPlainText("wait 30\n")
+        assert console.run_now()
+        runner = console._runner
+        assert runner is not None and runner.running, "the floor: a run is in flight"
+        console.show()
+        console.reject()
+        qapp.processEvents()
+        assert runner.running, "Esc ended the run"
+        assert console.isVisible(), "Esc hid the console while its run went on"
+    finally:
+        console.close()
+        console.deleteLater()
+        window.close()
+        window.deleteLater()
+
+
+def test_esc_still_closes_an_idle_console(qapp) -> None:
+    from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
+
+    window = _bare_window()
+    console = ScriptConsoleDialog(window)
+    try:
+        console.show()
+        console.reject()
+        qapp.processEvents()
+        assert not console.isVisible()
+    finally:
+        console.deleteLater()
+        window.close()
+        window.deleteLater()
+
+
+def test_the_run_names_WHO_closed_the_console(qapp) -> None:
+    """The window's teardown closes the console, and the transcript said "the
+    console was closed" either way, so the fork attributed a window close to the
+    operator. Each cause now has its own reason."""
+    from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
+
+    reasons: dict[str, str] = {}
+    for label, closer in (
+        ("window", lambda c: c.close_for("the main window was closed")),
+        ("console", lambda c: c.close()),
+    ):
+        window = _bare_window()
+        console = ScriptConsoleDialog(window)
+        try:
+            console._editor.setPlainText("wait 30\n")
+            assert console.run_now()
+            runner = console._runner
+            assert runner is not None and runner.running, "the floor"
+            closer(console)
+            qapp.processEvents()
+            assert not runner.running
+            reasons[label] = runner._report.ended_reason
+        finally:
+            console.deleteLater()
+            window.close()
+            window.deleteLater()
+    assert reasons == {
+        "window": "the main window was closed",
+        "console": "the console was closed",
+    }, reasons
