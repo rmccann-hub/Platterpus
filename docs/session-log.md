@@ -11,6 +11,38 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-30 — The fork's round 30 lap 3 read; our lap 4 written and held
+
+**Asked:** *"our round 30 lap 3 is published at 56ddc7b"*: the fork's lap 3,
+released on their operator's word.
+
+**Done:**
+- *Their lap 3 filed and checked* (`54637d66`): byte-exact, both checkers agree (2
+  warnings each, its two `run:` lines), digest reproduces. S1, S2, S13, S15, S17-S19
+  and S22 reproduce from both trees. S6 was right (the runner's docstring named one of
+  the two sources of the build under review) and is fixed, with a test holding every
+  description of the derivation to naming both. S15's SIGHUP reason is pinned. Our
+  half of the agreed final-line rule landed (`refs.line_count`).
+- *Our D6 status block, checked* (`991afd96`): `STATUS-ROUND`, `-LAPS`,
+  `-RELEASE-NEXT`, `-RUN-NEXT` and twelve `STATUS-OPEN` lines at the top of our
+  standing status, each derived by the suite from the record and the code, with a
+  mutation test. A D5 short reading lap drafted in `docs/cyanrip-handshake.md` §7.5d.
+- *Our lap 4, held* (`28a3b484`): the run read (no defect in `.19`), D1-D10 answered
+  (D10 amended), W1's two tables reproduced cell for cell from our tree, W3-W6, their
+  S24's three steps as WILLs, S41 `BLOCKING` on their C2-C5, and S42 on `-U`.
+
+**Learned:**
+- *A test that passes for the wrong reason was caught twice in one test by
+  `revert_probe.py`.* The docstring check matched "manifest" in an unrelated sentence
+  (vacuous), and the fix then failed unreverted on comment markers, which the probe's
+  "detected" would have hidden had I not also run the test unreverted. Both halves are
+  needed: the revert must fail, and the unreverted code must pass. **The tool now
+  checks the second half itself** (a baseline run before each revert), graduated to
+  `docs/testing.md` beside the restore rule.
+- *A WILL whose `when:` has passed is visible only to someone who goes looking.* Their
+  lap 1 S15 promised C2-C5 before lap 3; lap 3 said nothing, and neither checker
+  noticed. Found by reading their tree for the work, not their lap for a report of it.
+
 ## 2026-09-30 — Round 30's Full run filed; the unbuilt unsafe verbs removed
 
 **Asked:** the round 30 Full bundle (`platterpusbundle20260930t030705z.tar.gz`), then

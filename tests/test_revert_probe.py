@@ -18,6 +18,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Final
 
@@ -67,11 +68,26 @@ def _revert(target: Path, **overrides: object) -> object:
     return probe.Revert(**fields)  # type: ignore[arg-type]  # kwargs built above
 
 
+def _after(
+    target: Path, code: int, output: str
+) -> Callable[[tuple[str, ...]], tuple[int, str]]:
+    """A runner that passes while the file is intact and answers (code, output)
+    once the revert is in place, as a real suite does. The probe's baseline run
+    sees the intact file; a fixed answer would fail the baseline."""
+
+    def runner(_tests: tuple[str, ...]) -> tuple[int, str]:
+        if "UNIQUE_MARKER" in target.read_text(encoding="utf-8"):
+            return 0, "1 passed"
+        return code, output
+
+    return runner
+
+
 def test_a_detected_revert_is_reported_ok(target: Path) -> None:
     """The happy path: the test failed, so it guards the line."""
     outcome = probe.apply_and_probe(
         _revert(target),
-        run_tests=lambda _tests: (1, "FAILED tests/whatever.py::test_x"),
+        run_tests=_after(target, 1, "FAILED tests/whatever.py::test_x"),
     )
     assert outcome.ok is True
     assert "detected" in outcome.detail
@@ -82,7 +98,7 @@ def test_a_test_that_passes_with_the_fix_reverted_is_reported_vacuous(
 ) -> None:
     """The finding the whole tool exists to surface — and it must not be silent."""
     outcome = probe.apply_and_probe(
-        _revert(target), run_tests=lambda _tests: (0, "1 passed")
+        _revert(target), run_tests=_after(target, 0, "1 passed")
     )
     assert outcome.ok is False
     assert "VACUOUS" in outcome.detail, outcome.detail
@@ -128,7 +144,9 @@ def test_a_collection_error_is_no_evidence_rather_than_a_detection(
     """
     outcome = probe.apply_and_probe(
         _revert(target),
-        run_tests=lambda _t: (2, "ImportError while loading conftest '/x/conftest.py'"),
+        run_tests=_after(
+            target, 2, "ImportError while loading conftest '/x/conftest.py'"
+        ),
     )
     assert outcome.ok is False
     assert "NO EVIDENCE" in outcome.detail, outcome.detail
@@ -143,7 +161,7 @@ def test_no_tests_collected_is_no_evidence_not_a_detection(target: Path) -> None
     is worse than the false negative below: it ends the investigation.
     """
     outcome = probe.apply_and_probe(
-        _revert(target), run_tests=lambda _t: (5, "no tests ran")
+        _revert(target), run_tests=_after(target, 5, "no tests ran")
     )
     assert outcome.ok is False
     assert "NO EVIDENCE" in outcome.detail, outcome.detail
@@ -174,7 +192,9 @@ def test_an_error_name_echoed_in_output_is_not_mistaken_for_a_collection_error(
         "            continue\n"
         "E   AssertionError: the real failure\n"
     )
-    outcome = probe.apply_and_probe(_revert(target), run_tests=lambda _t: (1, echoed))
+    outcome = probe.apply_and_probe(
+        _revert(target), run_tests=_after(target, 1, echoed)
+    )
     assert outcome.ok is True, (
         "a real failure was discarded as 'no evidence' because the word "
         f"SyntaxError appeared in echoed source: {outcome.detail!r}"
@@ -184,7 +204,7 @@ def test_an_error_name_echoed_in_output_is_not_mistaken_for_a_collection_error(
 def test_an_unrecognised_exit_code_is_no_evidence(target: Path) -> None:
     """Tri-state again: a code neither pytest nor this tool defines is not a verdict."""
     outcome = probe.apply_and_probe(
-        _revert(target), run_tests=lambda _t: (137, "killed")
+        _revert(target), run_tests=_after(target, 137, "killed")
     )
     assert outcome.ok is False
     assert "NO EVIDENCE" in outcome.detail, outcome.detail
@@ -196,7 +216,7 @@ def test_an_unaffected_expectation_fails_when_the_test_does_depend_on_the_line(
     """`expect: unaffected` asserts an anchor is NARROW; it must be able to fail."""
     outcome = probe.apply_and_probe(
         _revert(target, expect="unaffected"),
-        run_tests=lambda _t: (1, "FAILED something"),
+        run_tests=_after(target, 1, "FAILED something"),
     )
     assert outcome.ok is False
     assert "UNEXPECTED" in outcome.detail, outcome.detail
@@ -213,12 +233,14 @@ def test_the_runner_sees_the_reverted_content(target: Path) -> None:
 
     def runner(_tests: tuple[str, ...]) -> tuple[int, str]:
         seen.append(target.read_text(encoding="utf-8"))
-        return 1, "FAILED"
+        return (0, "1 passed") if len(seen) == 1 else (1, "FAILED")
 
     outcome = probe.apply_and_probe(_revert(target), run_tests=runner)
     assert outcome.ok is True
     assert seen, "the runner was never called"
-    assert "UNIQUE_MARKER" not in seen[0], (
+    assert len(seen) == 2, f"expected a baseline run and a probe run, got {len(seen)}"
+    assert "UNIQUE_MARKER" in seen[0], "the baseline ran against the REVERTED file"
+    assert "UNIQUE_MARKER" not in seen[1], (
         "the tests ran against the ORIGINAL content — the revert was not in effect, "
         "so a resulting failure would prove nothing"
     )
@@ -232,9 +254,7 @@ def test_the_file_is_restored_after_every_outcome(target: Path) -> None:
     """
     before = target.read_text(encoding="utf-8")
     for code, output in ((1, "FAILED"), (0, "1 passed"), (2, "INTERNALERROR")):
-        probe.apply_and_probe(
-            _revert(target), run_tests=lambda _t, c=code, o=output: (c, o)
-        )
+        probe.apply_and_probe(_revert(target), run_tests=_after(target, code, output))
         assert target.read_text(encoding="utf-8") == before, (
             f"the file was not restored after a run that exited {code}"
         )
@@ -351,3 +371,27 @@ def test_the_probe_purges_bytecode_around_every_run(tmp_path: Path) -> None:
         "the restore path does not purge, so the REVERTED bytecode outlives the "
         "probe — which is the half that actually caused the incident"
     )
+
+
+def test_a_test_that_already_fails_is_refused_not_reported_detected(
+    target: Path,
+) -> None:
+    """Failure mode #6: the test failed before the revert, for its own reason.
+
+    The measured case (2026-09-30): a docstring check failed on comment markers
+    in a file the revert never touched, and the probe said `detected`. Only a
+    baseline pass makes a later failure evidence, and nothing is edited when the
+    baseline fails.
+    """
+    before = target.read_text(encoding="utf-8")
+    calls: list[str] = []
+
+    def always_failing(_tests: tuple[str, ...]) -> tuple[int, str]:
+        calls.append(target.read_text(encoding="utf-8"))
+        return 1, "FAILED tests/whatever.py::test_x - unrelated"
+
+    outcome = probe.apply_and_probe(_revert(target), run_tests=always_failing)
+    assert outcome.ok is False
+    assert "REFUSED" in outcome.detail and "before any revert" in outcome.detail
+    assert calls == [before], "the probe ran after a failed baseline, or edited first"
+    assert target.read_text(encoding="utf-8") == before

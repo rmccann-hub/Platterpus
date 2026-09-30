@@ -78,6 +78,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   test derives each line from the handshake record and the code, so it cannot go
   stale the way the prose did. `docs/cyanrip-handshake.md` §7.5d drafts the
   short "nothing to act on" reading lap the same proposal asks for (D5).
+- For contributors: `scripts/revert_probe.py` now runs each revert's tests
+  before applying it, and refuses when they do not already pass. A test that
+  fails for its own reason also fails after the revert, and was reported as a
+  detection; one did, this session.
 - **The cyanrip fork's round 30 lap 3 is filed** (released at `cyanrip@56ddc7b`,
   sha256 `9d382260…`, 18,394 bytes, `OPEN`), byte for byte. Both our checkers
   accept it, and its round digest reproduces.
