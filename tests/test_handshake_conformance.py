@@ -707,6 +707,41 @@ def test_a_close_one_lap_before_a_literal_peer_gate_SAYS_so(
     assert "one lap before" in capsys.readouterr().out
 
 
+def test_a_close_one_lap_before_is_not_warned_about_when_the_peer_is_on_6(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Rounds 28 and 29 had this shape at protocol 6 and each printed *"hold a release
+    for that lap"* for a lap of the fork's that never came: v6 dropped step 1's
+    enumeration requirement, and their gate closed round 28 on our lap 9 with no lap
+    10 (`cyanrip@18f79dc5:docs/handshake/STATUS.md:65`). The same files declaring 5
+    still print it, the test above; here they declare 6 and it must not."""
+    root = _they_opened_and_we_closed(hs, tmp_path / "hs")
+    for path in root.glob("*/round-99-lap-*.md"):
+        text = path.read_text(encoding="utf-8")
+        six = text.replace(
+            f"HANDSHAKE-PROTOCOL: {hs.PEER_VERDICT_SOURCE_FROM_PROTOCOL}\n",
+            f"HANDSHAKE-PROTOCOL: {hs.ENUMERATION_NOT_REQUIRED_FROM_PROTOCOL}\n",
+        )
+        assert six != text, f"{path.name}: the protocol line was not rewritten"
+        path.write_text(six, encoding="utf-8")
+    lines = hs.round_status(root)
+    assert _state(lines) == "CLOSED", lines
+    # The floor: the close still rests on §5b step 3, so the note's one trigger held.
+    assert any("resolved from outbound/round-99-lap-02.md" in ln for ln in lines), lines
+    assert not [ln for ln in lines if "one lap before" in ln], lines
+    capsys.readouterr()
+    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 0
+    assert "one lap before" not in capsys.readouterr().out
+
+
+def test_the_enumeration_rule_reads_the_declared_protocol(hs: ModuleType) -> None:
+    """The predicate alone, including the doubt case: no declaration warns."""
+    assert hs.peer_gate_needs_enumeration("HANDSHAKE-PROTOCOL: 5\n")
+    assert not hs.peer_gate_needs_enumeration("HANDSHAKE-PROTOCOL: 6\n")
+    assert not hs.peer_gate_needs_enumeration("HANDSHAKE-PROTOCOL: 7\n")
+    assert hs.peer_gate_needs_enumeration("no header at all\n")
+
+
 def test_a_close_both_gates_agree_on_prints_no_early_note(
     hs: ModuleType, tmp_path: Path
 ) -> None:
