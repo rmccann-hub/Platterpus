@@ -1,11 +1,11 @@
 # Hardware test checklist
 
-> **Read this first (2026-09-28, v0.6.62).** The intro block below was written for the
+> **Read this first (2026-09-29, v0.6.63).** The intro block below was written for the
 > **v0.6.0** sheet and is kept as its record — its "this release" means v0.6.0, and its
 > list of recent releases stops at v0.5.21. What is current: the approved pair is
-> Platterpus **v0.6.61** + cyanrip **`e0471f4`** (`+platterpus.17`, approved by round 28
-> on 2026-09-28 on the Full run, 320 of 320 steps, and shipping in 0.6.63 — 0.6.61 and
-> 0.6.62 as released install `221a1df`, round 27's),
+> Platterpus **v0.6.63** + cyanrip **`51cc789`** (`+platterpus.18`, approved by round 29
+> on 2026-09-29 on the Full run, 320 of 323 steps with the three failures screenshot
+> steps, and shipping in 0.6.64 — 0.6.63 as released installs `e0471f4`, round 28's),
 > and the primary hardware
 > route is now **Tools → Advanced → Run acceptance test…** inside the app, which keeps
 > everything a run makes — rips, screenshots, transcript and one `.tar.gz` — in one
@@ -83,7 +83,7 @@
 | Drive | `PIONEER  BD-RW   BDR-209D 1.51` on `/dev/sr0` |
 | Read offset | **+667** — confirmed, two independent sources agree |
 | Cache defeat | **Yes** — measured (`cd-paranoia -A`: 140-sector cache, backseek flushes) |
-| Tools | cyanrip `0.9.4-rc2+platterpus.17`, build tag `platterpus-fork-ge0471f4` — the handshake-pinned fork (round 28 approved it on the 2026-09-28 Full run on this drive, 320 of 320, `docs/handshake/artifactsround28/`; `.16`, round 27's, ran the 2026-09-26 quick run, 206 passed and 0 failed, `docs/handshake/artifactsround27/`), not stock 0.9.3; the tag identifies it, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
+| Tools | cyanrip `0.9.4-rc2+platterpus.18`, build tag `platterpus-fork-g51cc789` — the handshake-pinned fork (round 29 approved it on the 2026-09-29 Full run on this drive, 320 of 323 with the three failures screenshot steps, `docs/handshake/artifactsround29/`; `.17`, round 28's, ran the 2026-09-28 Full run, 320 of 320, `docs/handshake/artifactsround28/`), not stock 0.9.3; the tag identifies it, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
 | Settings | Overread **off** · offset-variant re-read **on** · verify-every-track **off** · max reads 2 · max retries 5 · adaptive ladder · EAC log **on** · debug log **on** |
 
 **Test disc:** *The Police — Every Breath You Take: The Classics* — 14 tracks,

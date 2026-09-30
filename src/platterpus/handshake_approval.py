@@ -155,7 +155,11 @@ from platterpus.deps import fork_source
 #: requires: round 28 lap 8 declares `HANDSHAKE-APP-VERSION: platterpus 0.6.61`
 #: (sha256 `547872a5…`, 12,348 bytes, `cyanrip@59f1d6a`), the release the Full run
 #: ran on. A new pin (`221a1df` -> `e0471f4`, `+platterpus.17`).
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.61"
+#: **Round 29 moves it to 0.6.63**, read from the peer's closing lap as the rule
+#: requires: round 29 lap 3 declares `HANDSHAKE-APP-VERSION: platterpus 0.6.63`
+#: (sha256 `9c24b579…`, 22,260 bytes, `cyanrip@b89cbce4`), the release the Full run
+#: ran on. A new pin (`e0471f4` -> `51cc789`, `+platterpus.18`).
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.63"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -264,7 +268,13 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.61"
 #: (`docs/handshake/artifactsround28/`), 320 of 320 steps. It approves a NEW pin,
 #: `e0471f4`, on a drive and on a Full run. Our reading found two archival defects
 #: in 0.6.61, not in the pin, both fixed for 0.6.63 (our lap 9 S8 to S15).
-APPROVED_BY_ROUND: Final[int] = 28
+#: **29 on 2026-09-29**, closed on our gate at four laps — their lap 3 `GO`, our lap 4
+#: `GO`, both from the Full run on 0.6.63 with `51cc789` installed
+#: (`docs/handshake/artifactsround29/`), 320 of 323 steps. It approves a NEW pin,
+#: `51cc789`, on a drive and on a Full run. The three failures are screenshot steps
+#: of ours, not in the pin; our reading found two record defects of ours, both fixed
+#: for 0.6.64 (our lap 4's two FINDINGs).
+APPROVED_BY_ROUND: Final[int] = 29
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.
