@@ -571,9 +571,9 @@ class DriveMixin(MainWindowShared):
     def _on_drives_unavailable(self) -> None:
         """A refresh found no drives — proactively offer a fix, once.
 
-        Only auto-interrupts when the diagnosis is *actionable* (a
-        permission fix). "No device connected" stays quiet (there's no
-        command to run); Tools → Diagnose drive access… is there for that.
+        Only auto-interrupts when the diagnosis is *actionable* (a permission
+        fix). "No device connected" stays quiet (there's no command to run);
+        Tools → Setup & Updates… → Diagnose drive access… is there for that.
         """
         if self._drive_access_nudged:
             return
@@ -583,7 +583,7 @@ class DriveMixin(MainWindowShared):
             self._present_drive_diagnosis(diagnosis)
 
     def _show_drive_access_diagnosis(self) -> None:
-        """Tools → Diagnose drive access: always show, any severity."""
+        """Tools → Setup & Updates… → Diagnose drive access…: always show it."""
         self._present_drive_diagnosis(diagnose_drive_access())
 
     def _present_drive_diagnosis(self, diagnosis: DriveAccessDiagnosis) -> None:

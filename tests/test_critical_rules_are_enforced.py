@@ -1081,7 +1081,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # reader needs the reason, not the mechanics.
     # **428 -> 464** (2026-09-24): `run_size` and `counts_as_evidence` in the report, the not-evidence banner, and `ok` forgiving ONLY size-declined steps.
     # **464 -> 469** (2026-09-27, TASKS `report.json` drops the acceptance script's source): the source cap's comment now says what it was sized against and which test holds it to the shipped scripts, replacing the claim that it "only ever fires on an accident".
-    "uiscript/report.py": 469,
+    # **469 -> 462** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `used_unsafe`, its banner and the `used_unsafe_verbs` report key went with the verbs.
+    "uiscript/report.py": 462,
     # **308 -> 314** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **314 -> 322** (2026-09-26): the drive-name normaliser's separator pattern became linear, and its comment says why the lookbehind is load-bearing (docs/testing.md §5.bu).
     "adapters/accuraterip_offsets.py": 322,
@@ -1141,7 +1142,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 1757 -> 1772 on 2026-09-28: cyanrip's documented `-D` default and its rendering for our rip, which the overwrite guard predicts for a folder-less template (review Q5).
     # **1772 -> 1782** (2026-09-28, `-Z` that `-r` cannot satisfy): the `-r` the argv carries goes through `cyanrip_cli.retries_flag_value`, the one mapping the validator and the rip worker also use to predict it; the comment says why it is not an inline `if`.
     # **1782 -> 1841** (2026-09-28, `-Z` that `-r` cannot satisfy): `assert_secure_reread_can_converge`, called from the argv chokepoint beside the range check it sits next to, and `_last_int_value`, which reads a flag the way genopt applies it (the last occurrence). The rule is `cyanrip_cli.secure_reread_problem`; this is the argv reader and its reasons.
-    "adapters/cyanrip_backend.py": 1841,
+    # **1841 -> 1839** (2026-09-30): the `-G` comment corrected (it only stops embedding; `-U` gates the cover-art lookup line) in two fewer lines.
+    "adapters/cyanrip_backend.py": 1839,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1214,7 +1216,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **848 -> 849** (2026-09-25, D18: `%N`/`%M` work everywhere): the template comment no longer says multi-disc folders are impossible.
     # **849 -> 851** (2026-09-28, the round-28 Full run): a hand-edited value about to be reset is logged WITH the value (`log_issues(issues, cfg)`), since the reset destroys it.
     # **851 -> 853** (2026-09-28, the `-Z` wording): the `max_retries` and `secure_rerip_matches` comments say `-r` is also the whole-track read ceiling and `-Z N` is N+1 identical reads, not "the CEILING of effort" the 2026-09-21 correction missed here.
-    "config.py": 853,
+    # **853 -> 854** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): `test_script_allow_unsafe` left the dataclass and joined `RETIRED_CONFIG_KEYS` with the reason, so an old config loads without a warning; the entry's comment is one line longer than the field was.
+    "config.py": 854,
     "cue_validate.py": 1257,
     # **327 -> 426** (2026-09-28, `-Z` that `-r` cannot satisfy): `DEFAULT_MAX_RETRIES`, `retries_flag_value` and `secure_reread_problem`, the convergence rule read from the fork's source. It is a fact about cyanrip's command line that three layers need (the argv chokepoint, the settings validator, the rip worker), which is what this module is for; most of the growth is the mechanism and its citation.
     # **426 -> 429** (2026-09-28, the argv chokepoint half): the mechanism's hardware citation names the committed round-27 log the new test reads, instead of an uncommitted bundle.
@@ -1474,7 +1477,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # explains why the countdown exists at all.
     # **423 -> 411** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 405 -> 417 on 2026-09-28 (review R6): `_host_tool`, so pkill/fuser/eject skip the container exports on PATH as well as in their own lists; rule #3's exception says the host goes first, and this module is where that exception lives.
-    "drive_control.py": 417,
+    # **417 -> 525** (2026-09-30): the shutdown path's graceful stop (`stop_reader_gracefully`, `device_is_held`): SIGTERM, a grace, then SIGKILL only if the drive is still held. It is the same kill sequence's first step, so it lives beside `free_drive` (the fork's round 30 S25).
+    "drive_control.py": 525,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     "drive_profiles.py": 447,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
@@ -1654,7 +1658,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **631 -> 633** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Settings bullet says a rip of only some tracks is not checked against CTDB, and why.
     # **631 -> 637** (2026-09-28, the `-Z` wording): the User Guide's Max retries, secure re-read and Test & Copy bullets say what `-r` limits and that `-Z N` is N+1 identical reads, under the renamed label.
     # **639 -> 637 (2026-09-28, 0.6.63)**: the transitional Tools entry for Set cover art from file… left, with the Guide sentence that named it.
-    "help_content.py": 637,
+    # **637 -> 632** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the Guide paragraph on the unsafe opt-in became one sentence saying no verb runs arbitrary code.
+    "help_content.py": 632,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1758,7 +1763,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "rig_check.py": 1009,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
-    "rip_addendum.py": 506,
+    # **506 -> 511** (2026-09-30): `with_addendum` takes the addendum a caller already holds (`extra`), so the self-audit joins a report's embedded addendum through the one join.
+    "rip_addendum.py": 511,
     # **1216 -> 1287** (2026-09-25): `_grade_a_reported_completion`, round 21 §C. The
     # completion check graded OK off the boolean; it now reads the ripper's own
     # counts and error tally. It is a check of this registry, so it lives here.
@@ -1766,7 +1772,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 1301 -> 1322 on 2026-09-26: `_ar_matched` reads the confidence through
     # `accuraterip_is_match` instead of the result's words, with the docstring saying why.
     # **1322 -> 1464 on 2026-09-28** (the Full run's F6): the audio-file check names every file the ripper's log does not account for (`_audio_accounting`, `_report_unaccounted`) instead of counting a cancelled rip's partial read into "all with content" at OK, and `_rip_did_not_finish` is the one "finished?" predicate both of its findings use. They sit beside the check they serve, in the registry module every check lives in; most of the growth is the docstrings saying what each grade means.
-    "rip_audit.py": 1464,
+    # **1464 -> 1542** (2026-09-30): the `eac_log_agreement` check (the EAC-style log's CRCs against the ripper's own log, a second caller of `parity.compare_logs`) and `run_checks` recording which findings each check produced, so the acceptance grader reads the audit's attribution instead of re-running it.
+    # **1542 -> 1550** (2026-09-30): `eac_log_agreement` applies the auto-fix addendum before comparing (round 27's re-read track 3 read as a disagreement without it).
+    "rip_audit.py": 1550,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.
@@ -1838,7 +1846,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1024 -> 1104** (2026-09-28, the round-28 Full run: five scripted refusals wrote nothing to the log): `log_refusal`, the ONE log line for refused input, and `_loggable_value`, its escaped head-and-tail bound. `field_error` calls it, so every single-setting writer logs without a caller remembering to. The input boundary is this module's job, so its log line lives here.
     # **1024 -> 1033** (2026-09-28, the `-Z` wording): `MAX_RETRIES_LABEL` and `SECURE_REREP_LABEL`, the row names the validator's messages use, so a renamed row cannot leave a message naming a control that is gone (it did, for a week).
     # **1033 -> 1129** (2026-09-28, Max retries vs the secure re-read): `_validate_secure_reread_ceiling`, the input-boundary half of the `-Z`/`-r` rule (the argv chokepoint is the other). It reports on both fields, says which settings actually send `-Z` and why Off is never judged, and warns on a pair with no room for one bad read. The rule itself is `cyanrip_cli.secure_reread_problem`; this is the Settings wording and the reasons.
-    "settings_validation.py": 1209,
+    # **1209 -> 1233** (2026-09-30): the unsafe-verbs opt-in is refused while no unsafe verb is built, in the one module every value passes through (config file, a script's `set`).
+    # **1233 -> 1208** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the unsafe-opt-in refusal went with the setting.
+    "settings_validation.py": 1208,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -1900,7 +1910,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **565 -> 570 (2026-09-24)**: `refresh_settings`, the pass-through the window
     # calls so the console's own script options follow a script's `set`.
     # 570 -> 571 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
-    "ui/dialogs/script_console.py": 571,
+    # **571 -> 612** (2026-09-30): `close_for(reason)` and a `reject()` that refuses Esc during a run, plus where a close came from: the console's own close handling (the fork's round 30 S25).
+    # **612 -> 604** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the console's `allow_unsafe` and its read-only box went.
+    "ui/dialogs/script_console.py": 604,
     # **319 -> 320** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **320 -> 366** (2026-09-27, cover art moves to the album): the panel owns its right-click menu's wiring — the album actions it is handed, the background and per-value connections, and why. Building the menu (Copy, Select All, the popup) is its own module, `ui/album_menu.py`, so what grew here is only what the panel must hold.
     # 366 -> 377 on 2026-09-28: `set_disc_info_retrying`, the panel's "trying again automatically" state beside the error state it precedes (a failed disc read is now retried; disc_probe_retry).
@@ -1955,7 +1967,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1732 -> 1745** (2026-09-28, rig report "restart the app"): the disc-read retry's state and single-shot timer are built with the window's other timers, `closeEvent` stops it, `_start_disc_info` opens a new retry budget for every read that was ASKED for, and `_on_disc_info_failed` hands the failure to the retry instead of ending on an error line.
     # 1745 -> 1749 on 2026-09-28 (code review R0): a successful disc read tells the media watcher a disc is in, so a retry that read the disc is not followed by a phantom insertion and a third read.
     # **1749 -> 1748 (2026-09-28, 0.6.63)**: the transitional Tools entry for Set cover art from file… left, with the Guide sentence that named it.
-    "ui/main_window.py": 1748,
+    # **1748 -> 1797** (2026-09-30): the confirmation before a close from outside or File -> Quit ends a rip or the acceptance test, beside the `closeEvent` it guards (the fork's round 30 S25).
+    "ui/main_window.py": 1797,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2036,7 +2049,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1624 -> 1626** (2026-09-28): opening Setup & Updates during a dependency check shows it running, not the last result.
     # 1626 -> 1627 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
     # **1627 -> 1690 (2026-09-30)**: the acceptance session holds the screen awake beside the sleep lock (`platterpus.screen_inhibit`), after round 29's three screenshot failures found every window unexposed; the wiring sits beside the sleep lock's because it shares its lifecycle: started with it, released on every path that releases it, and recorded in the same facts.
-    "ui/main_window_provision.py": 1690,
+    # **1690 -> 1689** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the console is no longer handed `allow_unsafe`.
+    "ui/main_window_provision.py": 1689,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2103,7 +2117,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4852 -> 4861** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `_start_ctdb_verify` hands the worker the rip's parsed log and the probe's track count, read at launch on the GUI thread, because the daemon runs later.
     # 4861 -> 4867 on 2026-09-28 (the round-28 Full run): the debug block is built from ONE buffer snapshot, so the count in its scope is the count in its marker.
     # **4867 -> 4868** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the `failure_hint` comment names both wordings.
-    "ui/main_window_rip.py": 4868,
+    "ui/main_window_rip.py": 4867,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2178,7 +2192,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1381 -> 1382** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the secure re-read row's comment names both wordings.
     "ui/settings_dialog.py": 1382,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
-    "ui/track_table.py": 832,
+    # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
+    "ui/track_table.py": 852,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces
@@ -2300,11 +2315,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4420 -> 4512 on 2026-09-28: `open dependencies` probed on the GUI thread; it now starts the check on a worker and waits on this file's deadline machinery (_open_dependency_check), and `stop` records a step that was mid-wait.
     # 4512 -> 4598 on 2026-09-28: the `cyanrip` verb runs the ripper in the rips folder (`_ripper_workdir`, beside `_drive_in_offset_list`) and records it (`_job_invocation`); the 2026-09-28 Full run's relative `-D r16deemphon` wrote a commercial track outside the session folder and its logs never reached the bundle.
     # 4512 -> 4536 on 2026-09-28 (the round-28 Full run): `_coerce_script_input`, the coercer as `set` and `expect-refused` use it, logging the value it refuses through `settings_validation.log_refusal`; `expect` keeps the bare coercer, because its value is an assertion, not an input.
-    "uiscript/runner.py": 4622,
+    # **4622 -> 4604** (2026-09-30): lowered: `expect-verification` now asks `artifact_grading.settle_state` and `report_path`, shared with the artifact verbs, instead of reading the report itself.
+    # **4604 -> 4636** (2026-09-30, the round 30 Full run): the screenshot step renders OPEN windows, labelled and as INFO, when the display shows none (all seven post-rip screenshots failed with every window visible and unexposed); it belongs beside the refusal it qualifies.
+    # **4636 -> 4608** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the unsafe gate and `unsafe_allowed` went; dispatch is the handler lookup alone.
+    "uiscript/runner.py": 4608,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
-    "uiscript/script.py": 348,
+    # **348 -> 332** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `Step.unsafe` and `uses_unsafe` went.
+    "uiscript/script.py": 332,
     # +38 on 2026-09-04: the `expect-rip-complete` entry. This module IS the
     # closed vocabulary and its own docstring calls it the security boundary,
     # so a verb declared anywhere else would defeat the file. The comment is
@@ -2319,7 +2338,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `-o flac`, so its log is identical whether our transcode ran or not).
     # **759 -> 801** (2026-09-24): four verbs, `run-size`, `keep`, `set-drive-offset` and `expect-drive-offset`. The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # 801 -> 803 on 2026-09-28: the `cyanrip` verb's help names the folder it runs in.
-    "uiscript/verbs.py": 803,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
+    # **803 -> 811** (2026-09-30): `UNSAFE_VERBS` and `UNSAFE_VERBS_BUILT`, derived from the verb table so every place that offers the opt-in reads one fact.
+    # **811 -> 862** (2026-09-30): six verb declarations for grading what a rip left (`expect-album-audit`, `-accuraterip`, `-ctdb`, `-tags`, `-cover-art`, `track-title`); help lives beside the verb.
+    # 811 was recorded with: "+46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,".
+    # **862 -> 834** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `eval`, `call`, the `unsafe` field and `UNSAFE_VERBS`/`UNSAFE_VERBS_BUILT` went.
+    "uiscript/verbs.py": 834,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical

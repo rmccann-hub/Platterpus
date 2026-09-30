@@ -60,7 +60,7 @@ rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
 | `-a <k=v:k=v…>` | album-level tags | from the GUI's fetched+edited metadata |
 | `-t <n=k=v:…>` | per-track tags (1-based) | from the GUI's metadata |
 | `-D <scheme>` / `-F <scheme>` | directory / filename naming scheme | translated from the Settings path template (`%A`/`%d`/`%t`-style tokens; `scheme_from_template`) |
-| `-G` | disable cover-art embedding | when cover art is not being embedded |
+| `-G` | disable cover-art embedding | **always** — the GUI does all cover art itself (`cover_art.plan_actions(ripper_fetches_art=False)`: fetch from the Cover Art Archive, embed via metaflac, folder copy), so the ripper is never asked to. It was sent only when art was off until 2026-08-23 (`_build_rip_argv` in `adapters/cyanrip_backend.py`). **It turns off embedding only**: the log's *"No MusicBrainz release ID at cover art lookup"* line belongs to the Cover Art DB query, which is `-U` (cyanrip@174a134:src/coverart.c:382-392), and we do not send `-U` — so every archival log still carries that line. Whether to send it is a next-round seam item (TASKS.md) |
 | `-T <mode>` | filename-sanitation scheme applied to tag values before they become path segments | **always, pinned to `unicode`** (`SANITISE_MODE`). Never defaulted: we passed nothing here until 2026-08-23, so every rip inherited whatever default the build shipped while the naming preview and the overwrite guard predicted a two-glyph table — an unpredicted `<` → `‹` silently overwrote a finished 14-track rip. `unicode` is the fork's own default, so the pin is a no-op today and a fence tomorrow; the `os_*` modes substitute *fewer* characters (only those the build's OS forbids), so they are not a way to ask for the look-alikes |
 | `-c <n>/<m>` | disc number / total discs | whenever the release carries a usable disc position, including `-c 1/1` on a single disc. Range-checked in `_disc_args` before it becomes argv — cyanrip refuses the whole rip on a bad value |
 | `--consumer <name>/<version>` | who drove the rip, recorded verbatim in cyanrip's logfile | only when the ripper build is known to accept it (`consumer_tag_for_build` → `fork_source.accepts_consumer_flag`, keyed on the build tag, not the version). Fork-only; the tag is validated at the argv chokepoint |
@@ -221,17 +221,21 @@ that implied a `cache` field, one that said cyanrip prints no cache line at all)
 Two corrections to the paragraph above, both from the 2026-07-31 pass:
 
 - "extraction speed/quality" described the **legacy log format**'s fields, not
-  cyanrip's. cyanrip 0.9.3 prints **no per-track speed, elapsed time or quality**
-  at all (that is the §2.3 gap below), so `extraction_speed` /
-  `extraction_quality` are `None` on every track of every committed cyanrip log.
+  cyanrip's. **Stock** cyanrip 0.9.3 prints **no per-track speed, elapsed time or
+  quality** at all (that is the §2.3 gap below), so `extraction_speed` /
+  `extraction_quality` are `None` on every track of a stock log. The fork prints
+  `Extraction speed:` and `Elapsed:`, so fork logs carry a value (round 29's Full
+  run on `.18`, `docs/handshake/artifactsround29/`: `Extraction speed:  0.9x`).
 - `Appended:    N frames of silence` **is** parsed now, into
   `TrackResult.appended_silence_frames` (see the graduation note below).
 
 **Lines a FORK of cyanrip will print, which we already parse — *fork-only, NOT in
 0.9.3*.** The maintainer is fixing cyanrip in their own fork, and Platterpus reads
-the new rows *before* they exist so one build serves both: an AppImage user's
-deployed **cyanrip 0.9.3 prints none of these**, and every field below then stays
-`None` and every surface behaves exactly as it did. Full specification and evidence
+the new rows so one build serves both. **The default install is the fork at
+`FORK_PIN`** (`deps/fork_source.py`, built over the stock COPR package), **which
+prints them**; stock **cyanrip 0.9.3 is only the COPR fallback** left when the fork
+build fails, and on it every field below stays `None` and every surface behaves
+exactly as it did. Full specification and evidence
 per row: [`cyanrip-upstream.md`](cyanrip-upstream.md).
 
 | Fork-only line (indented, per-track) | → field | EAC row it fills | Ask |
@@ -677,7 +681,7 @@ have to re-derive it:
 
 | Tool | Exit on version flag | Source evidence |
 |---|---|---|
-| cyanrip | **0** on every build, from three different mechanisms — say which | 0.9.3.x: `src/cyanrip_main.c` `case 'V': cyanrip_log(…); return 0;`. Stock after 0.9.3: `genopt.h:497` special-cases `-v`/`--version`, and **`-V` exits 1**. The fork from `e1d800e` — the deployed build, `d9c058c` / `0.9.4-rc2+platterpus.10` — accepts all three spellings and exits 0 |
+| cyanrip | **0** on every build, from three different mechanisms — say which | 0.9.3.x: `src/cyanrip_main.c` `case 'V': cyanrip_log(…); return 0;`. Stock after 0.9.3: `genopt.h:497` special-cases `-v`/`--version`, and **`-V` exits 1**. The fork from `e1d800e` — the deployed build, `51cc789` / `0.9.4-rc2+platterpus.18` (`FORK_PIN`) — accepts all three spellings and exits 0 |
 | cd-paranoia | **0** | libcdio-paranoia `src/cd-paranoia.c`: `case 'V': fprintf(stderr, PARANOIA_VERSION); … exit(0);` |
 | flac | **0** | flac `src/flac/main.c` → `do_it()`: `if(option_values.show_version) { show_version(); return 0; }` |
 | metaflac | **0** | flac `src/metaflac/operations.c` → `do_operations()` prints the banner and returns success |
@@ -723,4 +727,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.6.64.*
+*Last updated for Platterpus v0.6.65.*

@@ -222,6 +222,40 @@ def test_the_source_is_the_lap_until_a_newer_release_is_published() -> None:
     assert _choose_source(laps, None, "").lap == lap
 
 
+def test_every_description_of_the_derivation_names_both_sources() -> None:
+    """The verb's comment, the runner's docstring and this file each describe how
+    `PIN_UNDER_REVIEW` is derived, and the derivation has two sources: the newest
+    inbound lap, or a newer filed release manifest (`_choose_source`).
+
+    When the manifest source was added, the verb's comment and this file were
+    updated and the runner's docstring kept saying "the newest inbound lap" alone
+    (the fork's round 30 lap 3 S6). Each description must name both.
+    """
+    import inspect
+
+    from platterpus.uiscript import runner, verbs
+
+    descriptions = {
+        "runner._do_expect_ripper_under_review": inspect.getdoc(
+            runner.ScriptRunner._do_expect_ripper_under_review
+        )
+        or "",
+        "verbs.py (the verb's comment)": Path(verbs.__file__).read_text("utf-8"),
+    }
+    assert len(descriptions) >= 2, "fewer than two descriptions: nothing compared"
+    for where, text in descriptions.items():
+        # Comment markers out, then whitespace collapsed, so a phrase wrapped
+        # across `# ` lines reads as one.
+        flat = " ".join(re.sub(r"(?m)^\s*#+", " ", text).split())
+        assert "PIN_UNDER_REVIEW" in flat, f"{where} no longer describes it"
+        # The phrase, not the word: "manifest" alone is satisfied by the
+        # docstring's unrelated mention of `release-manifest.json`, which is how
+        # the first version of this test passed with the stale sentence restored.
+        assert "newest inbound" in flat and "newer filed release manifest" in flat, (
+            f"{where} names one source of the derivation, not both"
+        )
+
+
 def test_there_are_inbound_rounds_with_wire_headers() -> None:
     """The floor. Without it a glob that matched nothing would pass every
     assertion below, and this file would be decoration — which is precisely the

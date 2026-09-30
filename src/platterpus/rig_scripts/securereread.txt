@@ -21,7 +21,8 @@
 # 14-of-14 rip, T2 end to end, the three derived formats, cancel and recovery.
 # Re-running them would spend six hours re-confirming what already passed.
 #
-# Use `fullacceptance.txt` for a release gate. Use this file to close round 14.
+# Use `fullacceptance.txt` for a release gate. Round 14, which this file was
+# written to close, closed 2026-08-26; use it to run T1 alone when a round needs that.
 #
 # -----------------------------------------------------------------------------
 # WHAT IT IS MEASURING — the fork's §T1, and the reason it is hard

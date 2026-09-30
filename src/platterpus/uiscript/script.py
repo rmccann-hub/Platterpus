@@ -79,16 +79,10 @@ class Step:
         """The vocabulary entry, or ``None`` for an unparsed line."""
         return VERBS.get(self.verb)
 
-    @property
-    def unsafe(self) -> bool:
-        """True when this step needs the escape-hatch opt-in."""
-        spec = self.spec
-        return spec is not None and spec.unsafe
-
     def joined(self, start: int = 0) -> str:
         """Arguments from ``start`` re-joined with single spaces.
 
-        For the free-text tails (``log``, ``eval``, ``album``) where the split
+        For the free-text tails (``log``, ``album``) where the split
         into tokens was only ever a parsing detail.
         """
         return " ".join(self.args[start:])
@@ -234,16 +228,6 @@ def parse(text: str) -> list[Step]:
             )
         )
     return steps
-
-
-def uses_unsafe(steps: list[Step]) -> bool:
-    """True when any step needs the escape hatch.
-
-    Asked *before* a run starts, so the console can refuse the whole batch with
-    one clear message instead of failing at line 40 of 60 — an unattended run
-    that dies two-thirds through is worse than one that never started.
-    """
-    return any(step.unsafe for step in steps)
 
 
 #: In a ``cyanrip`` step, the drive's read offset — the one ``set-drive-offset``

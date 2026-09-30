@@ -372,35 +372,38 @@ def test_re_rendering_the_console_never_saves(qapp: QApplication) -> None:
     calls: list[tuple[str, object]] = []
     console = _console(lambda f, v: calls.append((f, v)) or SettingWrite(True))
     console.refresh_settings(
-        Config(
-            test_script_autorun=True,
-            test_script_allow_unsafe=True,
-            test_script_path="/x.txt",
-        )
+        Config(test_script_autorun=True, test_script_path="/x.txt")
     )
     assert console._autorun_check.isChecked() is True
-    assert console._unsafe_check.isChecked() is True
     assert console._startup_script_edit.text() == "/x.txt"
     assert calls == [], "re-rendering saved a setting"
 
 
-def test_the_console_carries_one_unsafe_box_and_it_is_the_setting(
+def test_the_console_has_no_unsafe_box_and_its_checkboxes_are_the_settings(
     qapp: QApplication,
 ) -> None:
-    calls: list[tuple[str, object]] = []
-    console = _console(
-        lambda f, v: calls.append((f, v)) or SettingWrite(True), allow_unsafe=False
-    )
+    """The "allow unsafe script verbs" box went with the verbs (maintainer,
+    2026-09-30), so it must not come back on either surface that carried it.
+
+    Floor: the console still HAS checkboxes, so an empty search cannot pass.
+    """
     from PySide6.QtWidgets import QCheckBox
 
-    unsafe = [box for box in console.findChildren(QCheckBox) if "unsafe" in box.text()]
-    assert unsafe == [console._unsafe_check], "a second unsafe-verbs box is back"
-    console._unsafe_check.setChecked(True)
-    console._autorun_check.setChecked(True)
-    assert calls == [
-        ("test_script_allow_unsafe", True),
-        ("test_script_autorun", True),
+    from platterpus.ui.dialogs.script_settings_box import ScriptSettingsBox
+
+    calls: list[tuple[str, object]] = []
+    console = _console(lambda f, v: calls.append((f, v)) or SettingWrite(True))
+    boxes = console.findChildren(QCheckBox)
+    assert boxes, "the console lost its checkboxes; this search proves nothing"
+    assert not [b for b in boxes if "unsafe" in b.text().lower()], [
+        b.text() for b in boxes
     ]
+    assert not hasattr(console, "_unsafe_check")
+    assert not hasattr(Config(), "test_script_allow_unsafe")
+    assert "allow_unsafe" not in ScriptSettingsBox.__init__.__code__.co_varnames
+    console._autorun_check.setChecked(True)
+    assert calls == [("test_script_autorun", True)], calls
+    console.close()
 
 
 def test_choosing_a_startup_script_saves_and_loads_it(

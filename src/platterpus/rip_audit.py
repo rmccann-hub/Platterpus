@@ -12,9 +12,9 @@ So this walks a rips folder and answers them all:
   version number cannot tell, because the fork tracks upstream versions.
 * **Did the rip finish**, according to the ripper's own footer rather than our
   count of how many tracks its log happened to mention.
-* **Pre-gap provenance actually observed** — including whether the fork's
-  sub-channel path has *ever* successfully run on real media, which as of this
-  release it has not, anywhere.
+* **Pre-gap provenance actually observed** — including how many albums read a
+  pre-gap from the sub-channel: routine on fork rips now, though as of v0.6.1
+  that path had never succeeded on real media.
 * **Which disc of a multi-disc release** the tags came from, and whether that
   was determined or guessed.
 * **Do the audio files the log claims actually exist and have bytes** — the
@@ -84,6 +84,12 @@ class AlbumAudit:
     pregap_sources: set[str] = field(default_factory=set)
     completed: bool | None = None
     empty_files: int = 0
+    #: Which findings each registered check produced, by check name, and which
+    #: checks were skipped — filled by :func:`run_checks`. So a caller grading
+    #: one question (the acceptance run's `expect-album-audit`) can ask what THAT
+    #: check said, instead of re-running the checks a second way.
+    by_check: dict[str, list[Finding]] = field(default_factory=dict)
+    skipped_checks: list[str] = field(default_factory=list)
 
     def add(self, level: str, text: str) -> None:
         self.findings.append(Finding(level, text))
@@ -535,10 +541,9 @@ def _audit_medium(report: dict[str, Any], album: AlbumAudit) -> None:
 def _audit_pregaps(report: dict[str, Any], album: AlbumAudit) -> None:
     """What pre-gap provenance this rip actually observed.
 
-    The headline is whether ``sub-channel`` ever appears. The fork's
-    Q-subchannel path (upstream PR #115) has only ever executed its *failure*
-    branch, because disc images always fall into ``unknown``. The first real
-    occurrence anywhere will show up here.
+    Includes whether ``sub-channel`` appears: the fork's Q-subchannel path
+    (upstream PR #115) had only ever run its *failure* branch as of v0.6.1, and
+    fork rips on real discs now take it routinely. :func:`render` counts them.
     """
     tracks = [t for t in (report.get("tracks") or []) if isinstance(t, dict)]
     for track in tracks:
@@ -1000,6 +1005,77 @@ def _audit_ripper_log_integrity(report: dict[str, Any], album: AlbumAudit) -> No
     )
 
 
+def _audit_eac_log_agreement(report: dict[str, Any], album: AlbumAudit) -> None:
+    """Do the EAC-style log's per-track copy CRCs match the RIPPER's own log?
+
+    :func:`_audit_log_integrity` asks whether the EAC-style log still matches the
+    checksum we printed under it — a closed loop, true of any text we render,
+    including a wrong one. This asks the question a tracker's reader relies on:
+    are the CRCs in the log we hand them the ones the ripper computed? The
+    ripper's log is the independent artifact (``CLAUDE.md``: *assert against the
+    source artifact*), and :func:`platterpus.parity.compare_logs` is the one
+    per-track comparison the EAC-parity tooling already uses, so this is a second
+    caller of it rather than a second comparison.
+
+    Reads the texts EMBEDDED in the report, like the checks beside it, so it needs
+    no files and runs inside ``write_report``'s GUI slot without touching disk.
+    """
+    from platterpus.parity import compare_logs
+    from platterpus.rip_addendum import with_addendum
+
+    artifacts = report.get("artifacts") or {}
+    eac = artifacts.get("eac_log") or {}
+    ripper = artifacts.get("rip_log") or {}
+    if not eac.get("text"):
+        album.add(
+            LEVEL_NOTE,
+            "no EAC-style log is embedded in this report, so whether its CRCs "
+            "agree with the ripper's log is not determined",
+        )
+        return
+    if not ripper.get("text") or eac.get("truncated") or ripper.get("truncated"):
+        album.add(
+            LEVEL_NOTE,
+            "the ripper's log or the EAC-style log is missing or truncated in this "
+            "report, so whether their CRCs agree is not determined",
+        )
+        return
+    # WITH THE ADDENDUM. When the auto-fix re-read a track, cyanrip's log still
+    # carries the discarded first read's CRC and the addendum carries the kept
+    # one; the EAC-style log is rendered from the kept one. Without this, every
+    # auto-fixed rip read as a disagreement (the round-27 whole-disc report's
+    # track 3; `tests/test_rip_addendum.py`'s sweep caught it before it shipped).
+    addendum = (artifacts.get("addendum") or {}).get("text") or ""
+    ripper_text = with_addendum(str(ripper["text"]), "", extra=str(addendum))
+    parity = compare_logs(ripper_text, str(eac["text"]))
+    if not parity.tracks:
+        album.add(
+            LEVEL_NOTE,
+            "the ripper's log carries no per-track copy CRC, so there is nothing "
+            "for the EAC-style log to agree with",
+        )
+    elif parity.ok:
+        album.add(
+            LEVEL_OK,
+            f"the EAC-style log's copy CRCs match the ripper's log on all "
+            f"{parity.total} track(s)",
+        )
+    else:
+        wrong = [str(t.number) for t in parity.tracks if not t.ok]
+        extra = [str(n) for n in parity.extra]
+        album.add(
+            LEVEL_WARN,
+            "the EAC-style log's copy CRCs DISAGREE with the ripper's log"
+            + (f" on track(s) {', '.join(wrong)}" if wrong else "")
+            + (
+                f"; it lists track(s) {', '.join(extra)} the ripper did not"
+                if extra
+                else ""
+            )
+            + " — the log a tracker reads is not describing this rip's audio",
+        )
+
+
 def _audit_cue_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
     """Is the ``.cue`` we shipped actually right? It is external input.
 
@@ -1242,6 +1318,12 @@ CHECKS: tuple[Check, ...] = (
         _audit_ripper_log_integrity,
     ),
     Check(
+        "eac_log_agreement",
+        "Do the EAC-style log's CRCs match the ripper's own log?",
+        False,
+        _audit_eac_log_agreement,
+    ),
+    Check(
         # Added v0.6.4b12. The cue is the one artifact we ship that nothing had
         # ever read — see `_audit_cue_integrity`. `needs_files=False`: the cue's
         # text is embedded in the report, so this runs on a report read anywhere.
@@ -1288,6 +1370,7 @@ def run_checks(
             log.exception("audit check %s raised", check.name)
             album.add(LEVEL_NOTE, f"check '{check.name}' could not run: {exc}")
             skipped.append(check.name)
+            album.by_check[check.name] = album.findings[before:]
             continue
         ran.append(check.name)
         if len(album.findings) == before:
@@ -1309,6 +1392,8 @@ def run_checks(
                 f"check '{check.name}' ({check.question}) ran but had nothing to "
                 f"report for this rip — treat this as 'not determined', not 'ok'",
             )
+        album.by_check[check.name] = album.findings[before:]
+    album.skipped_checks = list(skipped)
     return ran, skipped
 
 
@@ -1434,18 +1519,19 @@ def render(audits: list[AlbumAudit], root: Path) -> str:
     else:
         out.append("  - none reported (stock cyanrip, or no disc had a pre-gap)")
 
-    # The headline result nobody has ever had.
-    if any(s.startswith("sub-channel") for s in sources):
-        out += [
-            "",
-            "  *** A SUB-CHANNEL pre-gap read SUCCEEDED. ***",
-            "  As of v0.6.1 this path had never executed successfully anywhere —",
-            "  disc images always fail into 'unknown'. This is new information;",
-            # Name the FILE. "send the log for that album" is ambiguous between the
-            # ripper's `.log`, the EAC-style log and the app log — and the one that
-            # actually carries this evidence is the JSON report.
-            "  please send that album's `.platterpus.json` report.",
-        ]
+    # An informational count, no longer a headline. As of v0.6.1 no sub-channel
+    # pre-gap read had ever succeeded, so the first one got a banner asking for the
+    # report. Fork rips now do it routinely — 13 of 14 tracks in
+    # docs/handshake/artifactsround29/round29fullwholediscreport.json — and a
+    # banner on every ordinary rip reads as an alarm. The wording keeps the phrase
+    # the audit tests pin; nothing here asks the user to send anything.
+    sub_channel = [
+        a for a in audits if any(s.startswith("sub-channel") for s in a.pregap_sources)
+    ]
+    if sub_channel:
+        out.append(
+            f"  SUB-CHANNEL pre-gap read SUCCEEDED on {len(sub_channel)} album(s)"
+        )
 
     warns = [a for a in audits if a.worst == LEVEL_WARN]
     out += ["", f"albums needing attention: {len(warns)}"]

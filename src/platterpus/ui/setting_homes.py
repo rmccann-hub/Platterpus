@@ -9,8 +9,8 @@ audit of every window found five settings with two editors:
   one offset, wrote it back over the one the wizard saved while it was open;
 * the **update channels** for the app and for cyanrip, in Settings, while the
   checks they steer live in Setup & Updates;
-* the three **test-script options**, in Settings, while the console that loads
-  and runs the script has its own copy of the unsafe-verbs box.
+* the **test-script options**, in Settings, while the console that loads and
+  runs the script had its own copy of one of them.
 
 Each now has one home, and this table is the record of it. It is data, not
 behaviour: every window builds its own controls, and
@@ -101,7 +101,6 @@ SETTING_HOMES: Final[dict[str, SettingHome]] = {
     # --- Test scripts: where scripts are loaded and run ---------------------
     "test_script_path": SettingHome(SCRIPT_CONSOLE, "_startup_script_edit"),
     "test_script_autorun": SettingHome(SCRIPT_CONSOLE, "_autorun_check"),
-    "test_script_allow_unsafe": SettingHome(SCRIPT_CONSOLE, "_unsafe_check"),
 }
 
 

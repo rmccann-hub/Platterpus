@@ -197,7 +197,7 @@ class Trees:
             return Resolution(
                 "refused", f"{ref.path} does not exist at {ref.side}@{ref.sha}"
             )
-        return (shown.stdout.count("\n"), reach)
+        return (line_count(shown.stdout), reach)
 
     def _commit_exists(self, root: Path, side: Side, sha: str) -> Resolution:
         result = _git(root, "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}")
@@ -266,6 +266,20 @@ class Trees:
             result = _git(root, "rev-parse", "--is-shallow-repository")
             self._shallow[side] = result is None or result.stdout.strip() != "false"
         return self._shallow[side]
+
+
+def line_count(text: str) -> int:
+    """How many lines a citation can name in `text`: its newlines, plus one for a
+    final line that has none.
+
+    Counting newlines alone said a one-line file without a final newline "has 0
+    lines", so its only line could not be cited. Four files of the round 29
+    bundle end that way as delivered, the host export's one-line banner among
+    them. Our round 29 lap 4 S33 proposed counting the unterminated last line;
+    the fork accepted it (their round 30 lap 1 S20), and both checkers change in
+    round 30.
+    """
+    return text.count("\n") + (1 if text and not text.endswith("\n") else 0)
 
 
 def _check_lines(ref: ArtifactRef, line_count: int) -> Resolution:

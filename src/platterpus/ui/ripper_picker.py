@@ -2,9 +2,10 @@
 
 **Why this file exists, and why it is only a picker.** `--install-ripper list`
 has printed the installable builds since the flag was written, and the acceptance
-script's own header sends an operator to that terminal command when a handshake
-round is open on a build the fork never published — the case where the in-app
-update check can only answer *"your build is current"*, because it reads the
+script's own header used to send an operator to that terminal command when a
+handshake round was open on a build the fork never published (it now sends them
+to Tools → Setup & Updates… → Choose a build…, this dialog) — the case where the
+in-app update check can only answer *"your build is current"*, because it reads the
 fork's **release manifest** and an unreleased commit is not in it. That header
 carried a parenthetical admitting the gap: *"the menu has no GUI caller yet. That
 is a real gap of ours, filed in TASKS.md, and it is the reason this paragraph

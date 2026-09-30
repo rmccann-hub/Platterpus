@@ -136,7 +136,7 @@ def test_a_run_stopped_mid_wait_records_the_waiting_step() -> None:
     """
     window = _Window()
     runner = ScriptRunner(window)  # type: ignore[arg-type]  # a stand-in, by design
-    runner.start(parse("open dependencies\nlog after"), unsafe_allowed=False)
+    runner.start(parse("open dependencies\nlog after"))
     until = time.monotonic() + 5.0
     while runner._deadline is None and time.monotonic() < until:
         runner._tick()

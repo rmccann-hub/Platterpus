@@ -11,6 +11,131 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-30 — The fork's round 30 lap 3 read; our lap 4 written and held
+
+**Asked:** *"our round 30 lap 3 is published at 56ddc7b"*: the fork's lap 3,
+released on their operator's word.
+
+**Done:**
+- *Their lap 3 filed and checked* (`54637d66`): byte-exact, both checkers agree (2
+  warnings each, its two `run:` lines), digest reproduces. S1, S2, S13, S15, S17-S19
+  and S22 reproduce from both trees. S6 was right (the runner's docstring named one of
+  the two sources of the build under review) and is fixed, with a test holding every
+  description of the derivation to naming both. S15's SIGHUP reason is pinned. Our
+  half of the agreed final-line rule landed (`refs.line_count`).
+- *Our D6 status block, checked* (`991afd96`): `STATUS-ROUND`, `-LAPS`,
+  `-RELEASE-NEXT`, `-RUN-NEXT` and twelve `STATUS-OPEN` lines at the top of our
+  standing status, each derived by the suite from the record and the code, with a
+  mutation test. A D5 short reading lap drafted in `docs/cyanrip-handshake.md` §7.5d.
+- *Our lap 4, held* (`28a3b484`): the run read (no defect in `.19`), D1-D10 answered
+  (D10 amended), W1's two tables reproduced cell for cell from our tree, W3-W6, their
+  S24's three steps as WILLs, S41 `BLOCKING` on their C2-C5, and S42 on `-U`.
+- *Our operator ruled on O1-O4* (option A; routine pre-run overrides end; a new fork
+  build to beta until its run passes; a Full run every night a new pair exists) and
+  approved the `CLAUDE.md` S-14 rewording D4 needs, to land with the agreed text.
+  Both went into lap 4, which was then **released on the operator's word** (sha256
+  `5db48a29…`). The status block now states the plan the rulings give: round 30's
+  closing releases are their `.20` on beta, then our 0.6.66 pinning `174a134`.
+
+**Learned:**
+- *A test that passes for the wrong reason was caught twice in one test by
+  `revert_probe.py`.* The docstring check matched "manifest" in an unrelated sentence
+  (vacuous), and the fix then failed unreverted on comment markers, which the probe's
+  "detected" would have hidden had I not also run the test unreverted. Both halves are
+  needed: the revert must fail, and the unreverted code must pass. **The tool now
+  checks the second half itself** (a baseline run before each revert), graduated to
+  `docs/testing.md` beside the restore rule.
+- *A check of a plan must not demand today's values.* The status block's first check
+  required the next release to pin today's `FORK_PIN`, which is false of exactly the
+  release a round's close authorises. It now accepts the build under review as a
+  planned pin and the fork's next `+platterpus.N` as a planned build, and nothing else.
+- *A WILL whose `when:` has passed is visible only to someone who goes looking.* Their
+  lap 1 S15 promised C2-C5 before lap 3; lap 3 said nothing, and neither checker
+  noticed. Found by reading their tree for the work, not their lap for a report of it.
+
+## 2026-09-30 — Round 30's Full run filed; the unbuilt unsafe verbs removed
+
+**Asked:** the round 30 Full bundle (`platterpusbundle20260930t030705z.tar.gz`), then
+*"Do both"*: remove the unbuilt unsafe script verbs entirely, and fix the stale clause
+in the locked Critical rule #12 of `CLAUDE.md`. The 0.6.66 release was asked about
+and is not yet approved; round 30 is open, so it would go out under §6b.
+
+**Done:**
+- *The bundle filed and graded `partial`* (`f73fe6d3`): 316 of 323, the seven
+  failures all screenshot steps after section F's 91-minute rip, with every window
+  open and unexposed while the screen-saver hold was held. 52 text members filed byte
+  for byte in `docs/handshake/artifactsround30/`, a thirteenth ledger row.
+- *Screenshot steps render open windows when the display shows none* (`5fe413a5`),
+  labelled, and recorded INFO rather than PASS. A window never shown still gets no
+  picture, and no open window at all still fails.
+- *The new `eac_log_agreement` audit check applies the auto-fix addendum first*
+  (`c1a0ab04`); compared raw, every auto-fixed rip would have read as a disagreement.
+  Caught by `tests/test_rip_addendum.py`'s sweep before it shipped.
+- *`eval`, `call` and `test_script_allow_unsafe` removed*, with the box in the console
+  and the validator, the runner's gate, `Step.unsafe`, and the report's
+  `used_unsafe_verbs` field. The config key is retired, so an old file loads without
+  a warning (test revert-probed, detected). `test_uiscript.py` now refuses an
+  escape-hatch verb by name. The fork is told about the report field in our next
+  lap (TASKS, round 30).
+- *Rule #12's clause* said the `QLabel` sites were tracked in TASKS; they have had
+  their own sweep since 2026-09-28. It now names both sweeps and the gap that is
+  still open (a label filled later by `setText`).
+
+**Learned:**
+- *A reserved feature with an opt-in is two things to maintain and zero to use.*
+  The read-only box took a validator, a runner gate, two UI paths and four tests,
+  all to guard verbs that did not exist. Removing it took 142 lines out of the
+  source and 49 out of the tests.
+- *The `/dev/null` from the previous entry is a character device again*: the
+  container was replaced, so the lap-checker flake it caused is gone with it.
+
+## 2026-09-30 — While round 30's Full run ran: S25 fixed, the records audited, and the acceptance test taught to read what a rip left
+
+**Asked:** *"i am assuming this test will do all reasonable permutations… if not we
+need to fix or update the test"*; *"i dont touch anything, but if its a problem,
+make sure it isnt"* (S25); make the README concise and move the argument to the
+CHANGELOG; *"audit all text, readme, changelog, tasks, anything"*; make the
+unbuilt unsafe-verbs box read-only *"in all locations"*.
+
+**Done:**
+- *S25 was ours* (`b9ac0974`): the main window closed, and its shutdown SIGKILLed
+  the drive's holder 191 ms after the SIGTERM, so cyanrip never wrote its footer.
+  Now a graceful stop with an 8 s grace; Esc no longer hides a running console; a
+  close from outside the app, or File → Quit, asks while a rip or the test runs;
+  the transcript says which window closed. Graduated to `docs/testing.md` beside
+  §5.ay. The hardware half is a TASKS row.
+- *The unsafe script verbs box is read-only everywhere* (the box, the config
+  loader, the script's `set`), since the two verbs were never built. Whether to
+  remove them outright is the maintainer's call, asked.
+- *README status cut to three paragraphs*; the removed text is in CHANGELOG word
+  for word.
+- *The audit*: every document, the in-app guide, code comments and TASKS.md
+  (15 duplicate groups merged verbatim, about 49 stale statuses corrected). It found
+  our `-G` comment wrong: `-G` only disables embedding; the "No MusicBrainz release
+  ID at cover art lookup" line is `-U`'s (read in the fork's source). A next-round
+  item.
+- *The acceptance test now grades what each rip left* (`16f55d9e`): the self-audit
+  re-run against the files (cyanrip `-Y`, cue, EAC log checksum and CRCs, argv,
+  audio files), AccurateRip answers, CTDB scope, and FLAC tags and cover art read
+  from the files; H rips a title with `\ = ' :`; K2/K3 run the other two
+  cover-art modes. The self-audit gained `eac_log_agreement`. 9 reverts, 9
+  detected. The override-off path could not be written drive-independently and
+  is a TASKS row with the other permutations still missing.
+
+**Learned:**
+- *The test graded that checks RAN, never what they produced*, although the report
+  carried a verdict for each. Graduated to `docs/testing.md` (after the severity
+  table) with the list of what each section now grades.
+- *A flag's name is not its behaviour.* `-G` read as "no cover art" and is "no
+  cover-art embedding"; the fork's source settled it in one grep. Recorded in
+  `docs/dependency-contracts.md`'s `-G` row.
+- *I broke the container's `/dev/null`* with a stray `rm -f -- /dev/null` at the
+  head of a worktree command; every later `2>/dev/null` wrote a regular file, and
+  a lap-checker test whose re-run reads a closed stdin started failing one run in
+  four. It reproduced on demand and the code was right. Restoring the device was
+  refused by the session's permission check and is the maintainer's to allow; the
+  container is ephemeral, and nothing committed is affected.
+
 ## 2026-09-30 — Round 30 opens on `.19`; the fatal inventory catches up two builds; 0.6.65 goes out under §6b
 
 **Asked:** the fork released its round 30 lap 1 (`cyanrip@171bcf9`). File it, confirm
@@ -32,6 +157,9 @@ fix our count of `.19`'s new lines, and release 0.6.65 for the Full run.
 - *Our gate is stricter than the fork's reading.* Their lap says 0.6.65 "needs no lap";
   N4 holds a stable-offered `v0.*` tag while a round is open, so our lap 2 carries the
   operator's §6b override for v0.6.65, on their word *"include my override if needed"*.
+- *0.6.65 released* 02:57Z (release run 36662071393) from `0981c697`, the merge of #283,
+  with the release gate reading the override from our lap 2. The operator started the
+  Full run on it with `.19` at about 03:02Z.
 
 **Learned** (no new rule; each is an instance of a question `CLAUDE.md` already asks):
 - *A generated table that skips a round skips that round's changes silently.* Round 29

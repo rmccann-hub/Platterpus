@@ -23,13 +23,14 @@ exercises the real path rather than a parallel one that could drift from it. It
 inherits that seam's killable child, its bounded timeout and its
 diagnostics-on-failure for free, which is also why it is not reimplemented here.
 
-**The escape hatch.** The maintainer asked for one explicitly, so ``eval`` and
-``call`` exist — and they are marked :attr:`Verb.unsafe`, which means they are
-refused unless the user has separately opted in (a second Settings toggle, off by
-default, distinct from the one that shows the console at all). A run that used an
-unsafe verb says so at the top of its own transcript, because a report that reads
-like an ordinary pass but was produced by arbitrary code is a claim we cannot
-support.
+**There is no escape hatch, on purpose.** ``eval`` and ``call`` (arbitrary Python
+against the window) were reserved here from the start, with a separate "allow the
+unsafe verbs" opt-in, and neither was ever built. They were removed on
+2026-09-30, the verbs, the opt-in setting and its box together, on the
+maintainer's ruling that they were future-proofing rather than something needed.
+Every capability this language has is a named verb in the table below, so the
+table is the whole of what a script can do. A future need is a new verb, argued
+for like any other (``CLAUDE.md``: *a new testing capability is a SCRIPT VERB*).
 """
 
 from __future__ import annotations
@@ -47,8 +48,7 @@ class Verb:
     - ``min_args`` / ``max_args``: arity, checked by the parser so an arity
       mistake is reported against its own line rather than blowing up mid-run.
       ``max_args`` of ``None`` means "the rest of the line", used by the verbs
-      whose tail is free text (``log``, ``eval``).
-    - ``unsafe``: needs the separate escape-hatch opt-in.
+      whose tail is free text (``log``, ``album``).
     - ``help``: one line, shown in the console's built-in reference. Kept here so
       the reference cannot drift from the implementation — the console renders
       this table rather than a second hand-written list.
@@ -58,7 +58,6 @@ class Verb:
     min_args: int
     max_args: int | None
     help: str
-    unsafe: bool = False
     #: True when this verb's arguments can be filesystem paths, so a leading
     #: ``~/`` is expanded at parse time. Declared per verb rather than applied to
     #: every token because the free-text verbs (``log``, ``expect-cyanrip``) carry
@@ -442,6 +441,57 @@ _VERB_LIST: tuple[Verb, ...] = (
         "because the checks run after `wait-for-rip` returns; at least one gate "
         "must have run, so the step cannot pass over a rip that checked nothing",
     ),
+    # --- Grading what the rip LEFT (2026-09-30) -------------------------------
+    # Every rip leaves a report, a ripper's log, an EAC-style log, a cue sheet and
+    # FLAC files, and until these verbs no step read any of them past "the rip
+    # finished and its checks left a result". The graders are pure and delegate
+    # to the product's own predicates (`uiscript/artifact_grading.py`); the
+    # handlers wait for the record to settle (`uiscript/artifact_verbs.py`).
+    Verb(
+        "expect-album-audit",
+        0,
+        None,
+        "expect-album-audit [check…] — re-run the rip's own self-audit against the "
+        "files on disk: every check (or only those named) must run, raise no "
+        "warning and reach ok — among them cyanrip's -Y verdict on its own log, "
+        "the cue sheet, the EAC log's checksum and CRCs, and the audio files",
+    ),
+    Verb(
+        "expect-accuraterip",
+        0,
+        0,
+        "expect-accuraterip — every ripped track has an AccurateRip answer "
+        "(accurate, one frame, mismatch or not in the database all count; no "
+        "lookup does not), and the report agrees with the log on disk",
+    ),
+    Verb(
+        "expect-ctdb",
+        1,
+        1,
+        "expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: "
+        "looked up and compared for a whole disc, declined for a partial one",
+    ),
+    Verb(
+        "expect-tags",
+        0,
+        0,
+        "expect-tags — every ripped FLAC's album, album artist, title, artist and "
+        "track number are exactly what the track table shows, read from the file",
+    ),
+    Verb(
+        "expect-cover-art",
+        0,
+        0,
+        "expect-cover-art — the FLACs hold the cover art the cover_art setting "
+        "asks for (embedded in every one, or none), matching the report's count",
+    ),
+    Verb(
+        "track-title",
+        2,
+        None,
+        "track-title <n> <title…> — set track n's title as a typed edit would "
+        "(refused while a rip runs)",
+    ),
     Verb(
         # `expect-secure-rerip` — grade what section N only ever REPORTED.
         #
@@ -675,23 +725,6 @@ _VERB_LIST: tuple[Verb, ...] = (
         "record, classify the build, and parse the album's log. Read-only",
         takes_paths=True,
     ),
-    # --- The escape hatch ----------------------------------------------------
-    Verb(
-        "eval",
-        1,
-        None,
-        "eval <python> — evaluate an expression against the window (UNSAFE)",
-        unsafe=True,
-        implemented=False,
-    ),
-    Verb(
-        "call",
-        1,
-        None,
-        "call <method> [args] — call a window method by name (UNSAFE)",
-        unsafe=True,
-        implemented=False,
-    ),
 )
 
 #: Name → Verb. Built once; the parser and the console both read this.
@@ -734,8 +767,6 @@ def verb_reference() -> str:
             # First, and in capitals. A user scanning this reference is choosing
             # what to put in a batch that will run while they are not watching.
             marks.append("NOT YET IMPLEMENTED")
-        if verb.unsafe:
-            marks.append("needs the unsafe opt-in")
         mark = f"  [{'; '.join(marks)}]" if marks else ""
         lines.append(f"  {verb.help}{mark}")
     lines.append("")

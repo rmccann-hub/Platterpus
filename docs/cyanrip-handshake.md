@@ -331,12 +331,20 @@ which is exactly what round 13 did in the same position. **Not a loosening:** th
 gate fails closed deliberately, and four releases once went out while a
 presence-only check reported every filed round `CLOSED`.
 
+**Since v5 this property holds only for files declaring protocol 4 or less.** For a
+file declaring 5 or more, §5b lets a close resolve a stale transcription from the
+newer peer lap the gate holds, has enumerated and may read (`resolve_peer_verdict`
+in `scripts/handshake.py`, row C40), so the turn-order property above no longer
+decides whether such a round closes; `--status` prints the resolution as
+*"§5b peer verdict … resolved from …"*.
+
 **Their half is genuine and we confirmed it where we could reach it.** Their
 `stale_peer_verdict` exists at `tools/release-gate.py:350`, cross-checking a
 declared peer verdict against the newest lap in their `inbound/` — a guard they
 have because their gate made the mirror mistake in round 9 and closed a round we
-were holding open. Ours has no equivalent, and that is a real asymmetry in their
-favour rather than a design win for us.
+were holding open. Ours had no equivalent when this was written, a real asymmetry
+in their favour rather than a design win for us; v5 §5b's `resolve_peer_verdict`
+(rows C40 and C42) is ours now.
 
 **Why this is written down rather than let go.** A characterisation of *our* code,
 in *their* settled-facts file, is a claim we can derive and therefore must — the
@@ -395,6 +403,49 @@ theirs as *not released*, which fails closed and could hold a round they conside
 sent; the standing status names that cost to them explicitly rather than letting
 them meet it as a surprise.
 
+### 7.5d A short reading lap — our draft of the fork's D5 (round 30, W4)
+
+The fork's release-cycle proposal (`PROPOSAL-release-cycle.md` in their tree, D5)
+asks each side for a template of the lap a side writes when its reading of a run
+finds nothing to act on. **This is ours.** It is a floor for a clean reading,
+never a ceiling: any finding, disagreement or answer that needs its reasoning
+carries it in full, which is the fork's own amendment to D5 after our operator's
+word that laps exist for full explanations. It lives here, beside the rest of how
+we write a lap, rather than in a file of its own (rule #7).
+
+```
+<the wire headers, as every lap>
+
+LSL: 3
+
+## The run
+
+S1 FACT read: The bundle is sha256 `<64 hex>`, <n> bytes, filed at `<our dir>`.
+  evidence: platterpus@<sha>:<dir>/README.md:1
+  holds: <the pair, ours then theirs>
+S2 FACT read: <one surface read, and what it shows>        (one per surface)
+  evidence: <the filed artifact, with its line>
+  holds: <the pair>
+
+## Fixed
+
+S<n> DID: <each fix landed because of the run>              (none: omit the section)
+  commit: <sha>
+
+## Verdict
+
+S<n> VERDICT: GO
+  basis: S1 S2 …
+```
+
+**What makes a reading "clean"**: no FINDING, no ASK, no CORRECT, no AMEND and no
+REFUSE is needed. The moment one is, the lap is an ordinary lap. **What it keeps**:
+the bundle's hash, so both sides are reading the same bytes; one `FACT` per surface
+with its evidence, so the reading can be checked rather than trusted; and the
+fixes as `DID`s, so D4's "fixed within the round" is visible. **What it drops**:
+`NOTE`s and prose sections, which is where round 29's reading laps spent most of
+their 22,260 and 18,972 bytes.
+
 ## 7.6 Standing status — one home, and it is not this file
 
 **Not a round, and not a call for one.** Rounds are the *formal* channel and they
@@ -403,7 +454,9 @@ both sides' releases). Between rounds the fork still needs to know where we are.
 
 **That answer lives in
 [`docs/handshake/outbound/platterpusstatus.md`](handshake/outbound/platterpusstatus.md),
-and only there.** It is the file that goes over the wire, it is what
+and only there.** Since round 30 it opens with the `STATUS-` block of the fork's D6
+proposal (round, laps, next release, next run, and each open item), each line
+checked against the record and the code by `tests/test_standing_status_is_current.py`. It is the file that goes over the wire, it is what
 `docs/handshake/README.md` designates, and it is the mirror of the fork's own
 `cyanripstatus*.md`. Rewritten in place, never appended to, undated in its
 filename — a stale standing status is worse than none.
@@ -647,8 +700,8 @@ a check that fails when the absence ends.** Same shape as *"there is no
 the three, because it shaped the protocol: round 12 cost a whole round to a
 mechanism we asserted in their build and could simply have read.
 **`main` is the ref of record, and that is the new failure mode.** Work
-happens on a `claude/…` branch and reaches `main` by squash merge, so a lap
-can be committed, correct and invisible. Measured the day the rule changed:
+happens on a `claude/…` branch and reaches `main` by a merge commit (a squash
+until 2026-09-26), so a lap can be committed, correct and invisible. Measured the day the rule changed:
 `main` was **107 commits behind** and carried **none** of round 18's six
 files. So the gate that used to be unable to see a send can now see one —
 *is this lap on `main`?* is a question with an answer — and
@@ -767,7 +820,7 @@ What lives where:
 | our conformance tests | `tests/test_handshake_conformance.py` — one test per row of the shared conformance table that is in force for the version we implement (C1–C45 plus C13a at v6), **except the v3/v4 rows among C21–C36 that still have no row-named test** — binding since round 9, counted in `_BINDING_ROWS_WITHOUT_A_NAMED_TEST`, a ratchet that may only shrink (sixteen until 2026-09-25, when C23 and C24 got tests with v6's K2 field; the count moves, so read the table, not this cell) |
 | their gate | `tools/release-gate.py`; their tests are `tests/release_gate.py` |
 
-**Current protocol version: 6 implemented, 5 declared** — `handshake.PROTOCOL_VERSION` is the authority for what our gate implements, `handshake.DECLARED_PROTOCOL` for what our laps declare, and the shared file's title for the spec. **Implemented since 2026-09-25**, when both of v6 §14's conditions held: the shared file byte-identical in both trees (`05abdfde…`), and the fork's gate at 6 (`cyanrip@643631b`, said in their round 25 lap 5). **Declared 5 until our next released lap says our gate implements 6** — §14: *"neither side declares 6 until both have said, in a lap, that their gate implements it"*. v6 adds §5e's `HANDSHAKE-AGREED-CHANGES` ledger (C44 requires it on a `GO` file declaring 6; C45: its content never gates a close), K2's `HANDSHAKE-INBOUND-OBSERVED` beside `-HELD` (required on a file declaring 6 — a reading of ours, since no row names it; both sides have written it on every lap since round 22), C43 (the version refusal over every file of a round, which we had since 2026-09-22), and the amended **C13a**: once a round is `CLOSED` a later lap declaring a *different* verdict is refused as a file and the round stays closed (`_terminal_at`), while one declaring the same verdict is not a transition. **What a C13a refusal does to a release is ours, because v6 leaves it to v7**: it holds a release until a later round exists, then that round governs (`illegal_transition_blockers`). The fork's gate still reopens on such a lap (its known divergence), so the two gates would print different round states and both hold the release. No such lap exists in either record; replaying ours finds ten later laps in eight rounds, all `GO`. The same commit enforced **C23** (`INBOUND-HELD` on every round ≥ 9 file), binding since round 9 and never checked: one sent file in the record lacks it, our `verified/round-13-lap-03.md`, pinned by hash. v5 (2026-09-22) added §5b (a close may resolve the peer verdict from the newest peer lap the gate holds, has enumerated and may read, when that lap is newer than the transcription's source), §5c (such a lap must declare `HANDSHAKE-READY-TO-READ: yes`, fail-closed), the `HANDSHAKE-PEER-VERDICT-SOURCE` field (ours, from round 23 lap 2) and rows C37–C42. **Implemented the same day the text became byte-identical, before round 24's lap 1**, because a rehearsal showed what staying at 4 would do: `--check` refused a v5 peer lap while `--status` and `--release-gate` closed a round on it. Both halves are fixed — the version refusal now runs on the path that decides a close (`refused_round_files`), and §5b is `resolve_peer_verdict`. **One reading of the spec is ours and was derived, not chosen**: "enumerated" means enumerated by the gate when it decides, because row C40 (a candidate *newer* than the source) is unreachable if it means "listed in the closing lap's own `INBOUND-HELD`". Raised with the fork for round 24. **Files declaring 4 or less keep v4 close semantics**, for the reason row C29 gives: a declared version is a request to be graded by that version's rules. (This sentence said *v4* until 2026-09-22, and said **2** until 2026-08-27, through the whole of v3 and v4: v3 added §3a addressing, §4a's legal state machine — with `CLOSED → OPEN` removed — §4b `WITHDRAWN`, §5a's digest and §6a-bis; v4 added §5a's one-lap rule. Read the numbers from the code and the shared file, never from this sentence.) A gate reading a *higher* number than it
+**Current protocol version: 6 implemented, 6 declared** — `handshake.PROTOCOL_VERSION` is the authority for what our gate implements, `handshake.DECLARED_PROTOCOL` for what our laps declare, and the shared file's title for the spec. **Implemented since 2026-09-25**, when both of v6 §14's conditions held: the shared file byte-identical in both trees (`05abdfde…`), and the fork's gate at 6 (`cyanrip@643631b`, said in their round 25 lap 5). **Declared 6 since round 28 lap 6**, the lap that says our gate implements 6 (its S23, at the fork's round 28 lap 5 S7 request; under C29 a lap declaring less than an earlier lap of the record refuses the round) — §14: *"neither side declares 6 until both have said, in a lap, that their gate implements it"*. v6 adds §5e's `HANDSHAKE-AGREED-CHANGES` ledger (C44 requires it on a `GO` file declaring 6; C45: its content never gates a close), K2's `HANDSHAKE-INBOUND-OBSERVED` beside `-HELD` (required on a file declaring 6 — a reading of ours, since no row names it; both sides have written it on every lap since round 22), C43 (the version refusal over every file of a round, which we had since 2026-09-22), and the amended **C13a**: once a round is `CLOSED` a later lap declaring a *different* verdict is refused as a file and the round stays closed (`_terminal_at`), while one declaring the same verdict is not a transition. **What a C13a refusal does to a release is ours, because v6 leaves it to v7**: it holds a release until a later round exists, then that round governs (`illegal_transition_blockers`). The fork's gate still reopens on such a lap (its known divergence), so the two gates would print different round states and both hold the release. No such lap exists in either record; replaying ours finds ten later laps in eight rounds, all `GO`. The same commit enforced **C23** (`INBOUND-HELD` on every round ≥ 9 file), binding since round 9 and never checked: one sent file in the record lacks it, our `verified/round-13-lap-03.md`, pinned by hash. v5 (2026-09-22) added §5b (a close may resolve the peer verdict from the newest peer lap the gate holds, has enumerated and may read, when that lap is newer than the transcription's source), §5c (such a lap must declare `HANDSHAKE-READY-TO-READ: yes`, fail-closed), the `HANDSHAKE-PEER-VERDICT-SOURCE` field (ours, from round 23 lap 2) and rows C37–C42. **Implemented the same day the text became byte-identical, before round 24's lap 1**, because a rehearsal showed what staying at 4 would do: `--check` refused a v5 peer lap while `--status` and `--release-gate` closed a round on it. Both halves are fixed — the version refusal now runs on the path that decides a close (`refused_round_files`), and §5b is `resolve_peer_verdict`. **One reading of the spec is ours and was derived, not chosen**: "enumerated" means enumerated by the gate when it decides, because row C40 (a candidate *newer* than the source) is unreachable if it means "listed in the closing lap's own `INBOUND-HELD`". Raised with the fork for round 24. **Files declaring 4 or less keep v4 close semantics**, for the reason row C29 gives: a declared version is a request to be graded by that version's rules. (This sentence said *v4* until 2026-09-22, and said **2** until 2026-08-27, through the whole of v3 and v4: v3 added §3a addressing, §4a's legal state machine — with `CLOSED → OPEN` removed — §4b `WITHDRAWN`, §5a's digest and §6a-bis; v4 added §5a's one-lap rule. Read the numbers from the code and the shared file, never from this sentence.) A gate reading a *higher* number than it
 implements must refuse the round rather than guess — it cannot know which of that
 version's rules it is silently not applying. `handshake.PROTOCOL_VERSION` is ours.
 

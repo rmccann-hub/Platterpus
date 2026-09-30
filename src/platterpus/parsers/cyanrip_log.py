@@ -23,7 +23,7 @@ strings verified against cyanreg/cyanrip master ``src/cyanrip_log.c``:
 
 We reuse the shared dataclasses in `parsers/rip_log.py` (`RipLog`, `TrackResult`,
 `AccurateRipResult`) so the GUI's results table, disc panel, and fidelity
-summary work identically on both backends. Mapping notes:
+summary read one shape, whichever log format it came from. Mapping notes:
 
 * cyanrip computes ONE EAC CRC32 per track (no legacy-format test+copy
   dual read) — it lands in ``copy_crc`` and ``test_crc`` stays empty, so
@@ -980,11 +980,11 @@ _PEAK_KIND_HEADER = re.compile(r"^\s+(?P<kind>True|Sample) peak:\s*$")
 # --- 2. the per-track extraction speed / elapsed (§2.3) ----------------------
 #
 # FORK-ONLY. EAC prints a per-track `Extraction speed` as a multiple of 1x read
-# speed ("1.6 X"); cyanrip prints no per-track timing at all today, which is 14
-# labelled cells on a 14-track disc. §2.3's upstream change is "stamp a monotonic
-# clock per track and print the elapsed, optionally with the derived speed", so
-# BOTH halves are read: the speed multiple fills EAC's row directly, the elapsed
-# is recorded on its own field.
+# speed ("1.6 X"); upstream cyanrip prints no per-track timing at all (the fork
+# does) — 14 empty cells on a 14-track disc. §2.3's upstream change is "stamp a
+# monotonic clock per track and print the elapsed, optionally with the derived
+# speed", so BOTH halves are read: the speed multiple fills EAC's row directly,
+# the elapsed is recorded on its own field.
 #
 # `^\s+` matters: cyanrip's *disc* banner already has a column-0 "Speed:" row
 # (the drive's speed-changeability), and `_SPEED_CAP` claims that one. These two

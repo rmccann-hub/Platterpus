@@ -556,7 +556,6 @@ _BAD_VALUES: dict[str, object] = {
     # would make this row test nothing.
     "test_script_path": "/nowhere/at/all/batch.pscript",
     "test_script_autorun": "yes",
-    "test_script_allow_unsafe": "yes",
 }
 
 

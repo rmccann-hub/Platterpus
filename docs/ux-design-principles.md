@@ -38,8 +38,9 @@ and important settings were scattered across many dialogs.
    rip after install must already be on a defensible path; never let the fast
    mode masquerade as the trustworthy one. *Platterpus:* ✅ secure by default;
    tracks that don't match AccurateRip are automatically secure-re-ripped
-   (`-Z`, ceiling default 2) since 0.4.9 — no opt-in needed; the ceiling is a
-   Settings spinner (0 disables).
+   (`-Z 2` by default — an *agreement* count, so three identical reads) since
+   0.4.9 — no opt-in needed; the count is a Settings spinner (0 disables), and the
+   ceiling on reads is `-r` (`max_retries`, default 5), which must exceed it.
 3. **Progressive disclosure, two axes.** Defer advanced controls by *task phase*
    (setup → rip → verify) and by *expertise* (basic → advanced → forensic) — but
    the beginner path must still produce a trustworthy result. *Platterpus:*
@@ -197,6 +198,11 @@ first time someone reaches for `setShortcut("R")`.
    vanishes under it. `_banner_style` sets `color:`, which survives; the
    validation-error border (`border: 1px solid …`) needs checking.
 4. **Committing actions measured against 44 px** rather than left to the style.
+   *Partly done:* the commit-sized buttons in the ripper picker and Setup &
+   Updates are held at ≥ 44 px (`_COMMIT_HEIGHT`, swept by
+   `tests/test_accessibility_standards.py::…::test_a_COMMIT_size_is_at_least_44px`).
+   **Start rip**, **Cancel** and **Force stop** (`ui/rip_controls.py`) are still
+   left to the style.
 5. ~~**The remaining scroll areas**~~ — **closed 2026-08-14.** Both rules are now
    applied by *sweep* rather than per widget, and the sweep is a test
    (`tests/test_scroll_guards.py::TestTheRuleIsAppliedEverywhere`) with two
@@ -224,4 +230,4 @@ finished — put the explanation *in the product*.
 
 ---
 
-*Last updated for Platterpus v0.6.62.*
+*Last updated for Platterpus v0.6.65.*

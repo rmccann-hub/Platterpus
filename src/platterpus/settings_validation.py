@@ -383,7 +383,6 @@ _BOOL_FIELDS: tuple[str, ...] = (
     "write_eac_log_after_rip",
     "save_additional_art",
     "test_script_autorun",
-    "test_script_allow_unsafe",
 )
 
 
@@ -621,8 +620,8 @@ def describe_resets(records: Sequence[ResetRecord]) -> str:
         lines.append(f"    was: {record.old_value}    now using: {record.new_value}")
     lines.append("")
     lines.append(
-        "Nothing has been written back yet — fix the value in Settings (or in "
-        "the file) to keep it. Saving Settings will overwrite the old value."
+        "Nothing is written back yet. To keep your value, fix it in the file or where "
+        "it lives (Settings, Setup & Updates, the script console); saving replaces it."
     )
     return "\n".join(lines)
 
@@ -853,7 +852,7 @@ def _validate_template(field: str, value: object, label: str) -> list[Validation
             ValidationIssue(
                 field,
                 f"{label} has unknown code(s) {tokens}. Valid: %A %a %d %n %t %y "
-                "%Y (a literal % is written %%).",
+                "%Y %N %M (a literal % is written %%).",
                 SEVERITY_WARNING,
             )
         )

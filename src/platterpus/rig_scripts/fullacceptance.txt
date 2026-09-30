@@ -12,9 +12,10 @@
 #                     Full      4 to 6 hours      (LEAVE IT RUNNING OVERNIGHT)
 #                               measured: 4h14m (2026-09-22, 247 steps) and
 #                               5h33m (2026-09-26, 320 steps, the sum of its
-#                               report's step times), both on the Pioneer rig
+#                               report's step times), both on the Pioneer rig;
+#                               the script is 364 steps now
 #                   Full rips the whole disc TWICE (once fast, once with every
-#                   track read at least twice) plus six short partial rips.
+#                   track read at least three times) plus six short partial rips.
 #                   ONLY FULL counts toward a version or a handshake close.
 #
 # RUN SIZES are cut from THIS ONE FILE. Each section's first line is
@@ -141,22 +142,21 @@
 # why. Accepted. The alternative spends the night before learning the ripper was
 # not installed.
 #
-# THE RULE THAT MAKES THIS SAFE TO LEAVE UNATTENDED: a failing step does NOT
-# stop the batch. Only `abort` does, and this file never uses it. Every check
-# below fails loudly and the run continues. A run that stops at the first
-# problem hides every problem behind it, and a disc pass costs hours you do not
-# get back.
+# THE RULE THAT MAKES THIS SAFE TO LEAVE UNATTENDED: a FINDING never stops the
+# batch. Only `abort-if-failed` does, at three preconditions (A the wrong ripper,
+# B an unknown offset, E the disc not identified). Every other check fails loudly
+# and the run continues. A run that stops at the first problem hides every
+# problem behind it, and a disc pass costs hours you do not get back.
 #
 # -----------------------------------------------------------------------------
-# WHAT THIS RUN IS FOR: cyanrip handshake round 14, close condition CC-2
+# WHAT THIS RUN IS FOR: the hardware close of whichever handshake round is open
 # -----------------------------------------------------------------------------
-# CC-2 is the round's ONLY close condition: *one hardware acceptance pass on the
-# RELEASED pair* — the cyanrip beta the round is reviewing, against the current
-# Platterpus release — exercising the fork's round-14 lap 1 §T list.
+# *One hardware acceptance pass on the RELEASED pair* — the cyanrip build the open
+# round is reviewing, against the current Platterpus release. The §T list below
+# began as round 14's close condition CC-2 (its lap 1); the sections still cover it.
 #
-# Round 13's version of CC-2 measured a mid-round TEST PIN while the release
-# would necessarily be a later commit, so satisfying it would have closed a
-# round on evidence about a build nobody installs. This one tests what ships.
+# Round 13's CC-2 measured a mid-round TEST PIN, so satisfying it would have
+# closed a round on evidence about a build nobody installs. This tests what ships.
 #
 #   §T1  a `-Z` rip that GENUINELY re-reads, and keep the log     -> section N
 #   §T2  `-T unicode` end to end on a title carrying `<` and `:`  -> sections F, H
@@ -174,9 +174,9 @@
 # checked is worse than a shorter one.
 #
 #   * THAT THE AUDIO IS BIT-PERFECT. `wait-for-rip` waits for the worker to
-#     disappear; it does not grade the rip. AccurateRip and CTDB verdicts are in
-#     the report and the log — `rig-check` parses them and the bundle carries
-#     both. Read them.
+#     disappear; it does not grade the rip. The AccurateRip verdict is in the
+#     report and the log, CTDB's only in the report; `rig-check` judges neither.
+#     The bundle carries both files. Read them.
 #   * WHETHER DIALOG TEXT IS CLIPPED. A rendering fact at your font size and DPI
 #     that no assertion can see. Section D takes screenshots; a person must look.
 #   * OVERREAD (`-O`). It has run on the BDR-209D and it HUNG THE DRIVE ~23
@@ -240,7 +240,6 @@ keep metaflac_path
 # The run's own machinery: the script that is running, and how it was started.
 keep test_script_path
 keep test_script_autorun
-keep test_script_allow_unsafe
 
 # Debug logging ON for the whole run: the one baseline value that is not the
 # shipped default, on purpose. A defect found at 4am is only as diagnosable as
@@ -290,7 +289,7 @@ snapshot identity
 # a six-hour pass over something that changes no rip.
 probe-ripper-wrapper
 
-# THE ONE PLACE THIS FILE IS ALLOWED TO STOP, and the distinction is the point.
+# THE FIRST OF THREE PLACES THIS FILE MAY STOP, and the distinction is the point.
 #
 # The rule above — "a failing step does NOT stop the batch" — is about FINDINGS,
 # and it is right: a run that halts on the first problem hides every problem
@@ -300,7 +299,7 @@ probe-ripper-wrapper
 # (two artifacts from the same ripper under different app versions are not
 # interchangeable evidence).
 #
-# So: preconditions abort, findings do not. Nothing below this line uses it.
+# So: preconditions abort, findings do not. The other two: B's offset, E's disc.
 abort-if-failed the installed ripper is not the build the handshake record names — fix that first, the failing step above prints the one command
 
 # --- B. SETTINGS VALIDATION: the cheapest real check in the program --------
@@ -517,15 +516,15 @@ abort-if-failed the disc was never identified — the picker did not resolve or 
 # ON for this rip. They are the post-rip subsystem and nothing else in this file
 # reaches all four at once.
 #
-# THE TIMEOUT COVERS A SECURE RE-READ, because this rip does one.
+# THE TIMEOUT COVERS A SECURE RE-READ, because this rip can do one.
 #
 # It said three hours, reasoning that "a full disc on this hardware is 50-70
 # minutes and one real session measured 2h45m". Both figures are real and the
-# conclusion was wrong: they describe a rip WITHOUT the secure re-read, and this
-# rip has one. `secure_rerip_matches` defaults to 2 (config.py), so cyanrip is
-# invoked `-Z 2 -r 5` here (it was `-r 3` until section B stopped leaving 3
-# behind, 2026-09-28) exactly as in section N — the same work, budgeted at
-# a third of the time.
+# conclusion was wrong: they describe a rip WITHOUT the secure re-read. F runs
+# `fast_verified`, DYNAMIC mode: pass 1 has no `-Z`, and only tracks AccurateRip
+# does not confirm are re-read, at `-Z 2 -r 5` (`-r 3` until section B stopped
+# leaving 3 behind, 2026-09-28). Section N re-reads EVERY track that way, so F's
+# worst case — a disc AccurateRip does not know — is N's workload.
 #
 # Measured 2026-09-03: it timed out at 10800.1s with the status reading
 # "Re-ripping track 5 to secure it - 43% - about 1m 50s left in re-read 2".
@@ -534,7 +533,7 @@ abort-if-failed the disc was never identified — the picker did not resolve or 
 # because the rip was still running, the next `rip` collided with it, and the
 # overwrite dialog never came.
 #
-# So it matches section N's budget, because it is section N's workload.
+# So it matches section N's budget, because its worst case is N's workload.
 
 # **SECTION F PINS ITS GOAL, and until 2026-09-15 it inherited one.** F is the
 # FAST whole-disc rip and section N is the UNIFORM SECURE RE-READ of the same
@@ -616,6 +615,31 @@ expect-rip-complete
 # nothing read it. This step waits for the checks and grades what they left, so
 # the section can fail over its own title.
 expect-verification
+# GRADE WHAT THE RIP LEFT, not only that it finished and its checks left A
+# result (2026-09-30). Until these steps no line of this file opened a report's
+# verdicts, its self-audit, the cue, the EAC-style log or a FLAC: a run could go
+# green over a rip whose tags had lost this album title's colon, or whose CTDB
+# lookup had failed. Each verb waits for the record to settle and grades the
+# artifact, delegating to the product's own predicate for the question:
+#   expect-album-audit  the report's self-checks (all of them), re-run against the
+#                       files on disk: cyanrip's own -Y on its log, the cue
+#                       (titles, ISRCs, pre-gaps), the EAC log's checksum AND its
+#                       CRCs against the ripper's, the argv, the audio files.
+#   expect-accuraterip  every track has an AccurateRip ANSWER. Any disc passes:
+#                       one frame, a mismatch or "not in the database" are all
+#                       answers. What fails is no lookup, or the report and the
+#                       log on disk disagreeing about which tracks verified.
+#   expect-ctdb whole   looked up and compared; `partial` after a subset rip
+#                       asserts the lookup was DECLINED, which is correct there.
+#   expect-tags         the FLACs say exactly what the track table says, the
+#                       `:` and `<` in this album title included (that was a
+#                       "WHAT TO LOOK FOR" for a person until now).
+#   expect-cover-art    the cover the cover_art setting asks for, in the files.
+expect-album-audit
+expect-accuraterip
+expect-ctdb whole
+expect-tags
+expect-cover-art
 
 # --- G. POST-RIP VERIFICATION ----------------------------------------------
 # `rig-check` is the seam check the cyanrip fork asked for, reachable both as a
@@ -669,6 +693,14 @@ log --- H. re-rip the same title: the overwrite prompt must fire ---
 run-size standard
 select-tracks 1-2
 album full acceptance: angle<bracket (run) (ripper)
+# THE PER-TRACK ESCAPING PERMUTATION (2026-09-30). The album title above has
+# carried a `:` and a `<` since round 16; no TRACK title ever carried the four
+# characters `-t` escaping exists for (`\ = ' :`, `cyanrip_backend` escapes
+# them). Real titles have them ("E=MC²", "Rock 'n' Roll", "Part 1: …"). The edit
+# goes through the table as a typed one would; `expect-tags` and the audit's
+# cue-title check below read it back out of the FLAC and the cue. J rescans, so
+# the edit does not follow this section.
+track-title 1 E=MC2: Rock 'n' Roll \ Part 2
 rip
 answer-dialog click=new 120 Album already ripped
 wait-for-rip 3600
@@ -679,6 +711,9 @@ expect-rip-complete
 # unless something waits for them. H's rip was one of the three the 2026-09-22
 # run lost.
 expect-verification
+expect-album-audit
+expect-ctdb partial
+expect-tags
 
 # --- I. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT — §T4 -------------
 # Cancel mid-track, not at a boundary — 90 seconds of reading gets us inside one.
@@ -720,6 +755,10 @@ expect-status cancelled
 # not truncated, and the FUN512 signature -- written from atexit, so a hard kill
 # destroys it -- present and the right shape.
 expect-log-well-formed
+# The fork's own verdict on the record a cancel left: `ripper_log_integrity` is
+# cyanrip -Y on this log. A cancelled rip's other checks are about a rip that
+# was not meant to finish, so only these two questions are asked here.
+expect-album-audit ripper_log_integrity argv_agreement
 snapshot aftercancel
 screenshot aftercancel
 rig-check
@@ -751,6 +790,11 @@ expect-rip-complete
 # Same shape as F: K1 starts a rip. J's rip was the third of the three whose
 # CTDB and FLAC-integrity results the 2026-09-22 run dropped.
 expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
 rig-check
 
 # --- K. THE DERIVED FORMATS — the whole of Critical rule #4 ----------------
@@ -819,12 +863,22 @@ expect-derived-output mp3
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.
 expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
 rig-check
 
 log --- K2. WavPack: the second lossless format ---
 run-size full
 set output_format wavpack
 expect output_format wavpack
+# A SECOND cover_art MODE (2026-09-30). Every rip here used `embed`, so `file`
+# and `complete` had never run on hardware. `file` saves a folder copy and
+# embeds nothing; `expect-cover-art` asks the FLACs themselves.
+set cover_art file
+expect cover_art file
 select-tracks 1-2
 album derived wavpack (run) (ripper)
 rip
@@ -836,12 +890,20 @@ expect-derived-output wavpack
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.
 expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
 rig-check
 
 log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
 run-size full
 set output_format wav
 expect output_format wav
+# The third mode: `complete` embeds AND saves the folder copy.
+set cover_art complete
+expect cover_art complete
 select-tracks 1-2
 album derived wav (run) (ripper)
 rip
@@ -854,6 +916,11 @@ expect-derived-output wav
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.
 expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
 rig-check
 
 # --- K4. RESTORE THE FORMAT K1-K3 CHANGED ----------------------------------
@@ -877,6 +944,10 @@ log --- K4. restore the output format K1-K3 changed ---
 run-size quick
 set output_format flac
 expect output_format flac
+# ...and the cover_art mode K2 and K3 changed, back to what every later rip
+# (N) and F's baseline use.
+set cover_art embed
+expect cover_art embed
 
 # --- L. THE GOAL PRESETS: a label must mean what it says -------------------
 # A goal is not a setting; it is a NAME for a set of them. Selecting one applies
@@ -1009,6 +1080,11 @@ expect-secure-rerip
 # K3 had on 2026-09-15, written down in its severity row and never turned into
 # an assertion. Graded here so it stops being luck.
 expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb whole
+expect-tags
+expect-cover-art
 rig-check
 
 # --- P. §T3: THE CACHE PROBE, PROBE-ONLY ------------------------------------

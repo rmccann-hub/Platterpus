@@ -6,18 +6,16 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.65 — out of beta.** *Out of beta* means the `bN` test labels ended with 0.6.12 (2026-08-17). The project is still pre-1.0, which is why PyPI's classifier says *Beta* and GitHub marks every `v0.*` release as a pre-release; the bar for 1.0.0 is `PLANNING.md` KDD-35. Handshake rounds **1 through 29** are closed with `GO` from both projects (round 29 closed on 2026-09-29). The approved pair is cyanrip `0.9.4-rc2+platterpus.18` at **`51cc789`** and Platterpus **`0.6.63`**, approved by **round 29** on the full acceptance run on the Pioneer BDR-209D: 320 of 323 steps passed, the three failures being screenshot steps and none in a rip. **0.6.64 is the first release to install `51cc789` by default**; 0.6.63 installs `e0471f4` (`.17`), which round 28 approved on a full run of 320 of 320, and accepts `51cc789` as the build round 29 was reviewing. **0.6.64** also stops recording a probe that Platterpus itself stopped (a Rescan during the disc probe) as the ripper failing, and a rig session on a machine that cannot reach GitHub records the failed clone and carries on. **0.6.65 is the release the next Full run is on, with the fork's `.19`** (`174a134`, published 2026-09-30): it installs `51cc789` by default and accepts `.19` as the build under review, and handshake round 30 opens from that run's results. **0.6.57 re-reads "partially accurate" tracks by default**, because that AccurateRip match checks only **one frame** of the track, and on that test one such track held wrong audio. It also says so in plain words everywhere it used to say "offset-variant pressing". **Round 28 closed on the full run of 0.6.61**, which the maintainer chose to count rather than wait for one on 0.6.62. **0.6.63** keeps a re-read that AccurateRip verifies even when its reads did not all agree, stops looking a partial rip up in CTDB, and begins its EAC-compatible log with the word Platterpus so no tool mistakes it for a log EAC wrote. **0.6.62** stops Check dependencies from looking frozen, re-reads a disc the drive briefly reported as unavailable, checks the album folder a rip really writes before overwriting it, and shows every message a tool prints exactly as written. 0.6.59 also stops a rip from being killed by closing a different Platterpus window, and 0.6.60 stops the update check and setup from swapping out the build under test.
+> **Status: v0.6.65 — out of beta, pre-1.0.** Handshake rounds **1 through 29** are closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.18` at **`51cc789`** and Platterpus **`0.6.63`**; 0.6.64 and later install that build by default. 0.6.65 also accepts the fork's `.19` (`174a134`), the build handshake round 30 is testing. The next minor, `0.7.100`, needs a Full hardware acceptance run with no failure in its archival sections, and none has passed yet ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
 >
-> **One hardware-gated item remains, and it is a drive limitation rather than a gap in the app.** **Overread is `-O`, it has run on the Pioneer BDR-209D, and it hung the drive ~23 minutes** — do not reach for that toggle on this drive (`docs/dependency-contracts.md`). The fork's `-x` **cache probe** is no longer outstanding, and not because anyone fixed it: `-x` is a *modifier*, not a mode — it proceeds into a full rip by design, which the fork [declined to change](docs/handshake/inbound/round-14-lap-03.md) — and `-x -I` is the probe-only invocation that writes no audio. Platterpus always passes both, and that pairing ran clean on 2026-08-26 (`-N -x -I`, exit 0), as did the C1 detector (`-N -l 1`, exit 1, *Offset is unset*, no hang). The next minor is **0.7.100**, gated on a full hardware pass — and the bar was sharpened by the maintainer on 2026-08-26: **zero failures in the archival sections** — accuracy, provenance, and the records that make a rip trustworthy — with UX failures recorded, triaged and non-blocking. Severity is declared per section *before* the disc goes in, never decided after seeing a failure: of 21 sections, 17 are archival and 4 are UX.
+> **On the Pioneer BDR-209D, leave Overread (`-O`) off:** it hung the drive for about 23 minutes ([`docs/dependency-contracts.md`](docs/dependency-contracts.md)).
 >
-> **Latest hardware: a Full run with three failed steps, and still not the clean pass `0.7.100` needs.** On **2026-09-28** the Full acceptance run on the Pioneer BDR-209D under Bazzite passed **320 of 323** steps, on app `0.6.63` with the fork's `.18` build (`51cc789`), the build cyanrip handshake round 29 reviewed and approved. The three failures are screenshot steps that found no window on screen, and they count: they sit in sections graded archival before the run. The rips completed, the ripper verified its own log for every rip with a report, and the app log held no error; the whole-disc rip matched the EAC baseline on 13 of 14 tracks, and its report says which track did not. It is recorded `partial`. **The field-evidence ledger carries twelve rows and no `full-green` row at all**, and that is the number to read rather than any step count. The next minor, **`0.7.100`**, is gated on a full hardware pass and **has not met it**; `0.9.1` needs **two** full-green passes across **at least two machines and two distros** (maintainer ruling, 2026-09-13). One rig passing twice answers *was it luck* and says nothing about *is it green only because of this machine*. A gate refuses a version bump the ledger does not support.
->
-> **What is in it.** Implemented end-to-end with 6,700+ tests (including a full-pipeline end-to-end test) at 92.8% coverage, branches included (measured 2026-09-28 on 0.6.63 with `scripts/check.py`, Python 3.11: 6,730 passed, 19 skipped; CI enforces 91%, and the floor ratchets up, never down), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (the Platterpus fork of cyanrip — actively maintained, and no >587 read-offset bug; see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line**, **true in-app updates**, **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder**, an **EAC-compatible companion log** with a per-track **EAC CRC32 column**, and **software-version provenance** recorded in the log header and the window title. Release-by-release detail lives in [`CHANGELOG.md`](CHANGELOG.md) — the single authoritative record — rather than accumulating on this page. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
+> **What is in it.** **No-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list, **cyanrip as the single ripping backend** (the Platterpus fork; see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack, MP3 and WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a JSON rip report beside the log, **in-app updates**, **cover art** from the Cover Art Archive, **filing finished rips into your library folder**, and an **EAC-compatible companion log** with a per-track EAC CRC32 column. It is validated on real hardware (Bazzite, Pioneer BDR-209D). This is an early release for wider testing: expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 ## At a glance
 
 - **Linux only.** Primary target is Bazzite KDE Plasma 6; should work on any modern desktop Linux running Qt 6 (Fedora, Arch, Ubuntu, Tumbleweed).
-- **Runs cyanrip inside Distrobox.** The GUI calls the host-exported `cyanrip` binary; it never bundles cyanrip or tries to install it itself (the guided wizard provisions the container). This is intentional — see [PLANNING.md §8 KDD-07](PLANNING.md).
+- **Runs cyanrip inside Distrobox.** The GUI calls the host-exported `cyanrip` binary; it never bundles cyanrip, and the guided wizard installs it inside the container. This is intentional — see [PLANNING.md §8 KDD-07](PLANNING.md).
 - **Single-file AppImage** for the GUI itself; no system-level installs required.
 - **No terminal prompts from the ripper** — the GUI queries MusicBrainz directly, then runs cyanrip offline with the chosen release's tags, so its interactive prompt never surfaces.
 - **Choose your output format** — FLAC (default), WavPack, MP3, or WAV. FLAC is always produced as the lossless master; other formats are derived from it, so you never lose the archival copy. See [Audio output](#audio-output-what-you-get-what-you-dont).
@@ -91,7 +89,7 @@ itself up by asking a couple of questions.
    filled in automatically; click **Save offset**. Insert a CD and **Start**.
 
 That's the whole thing: one download, a couple of clicks, answer the prompts.
-(Updating later = download the new AppImage and replace the old one.)
+(Updating later: **Tools → Setup & Updates… → Check for updates** — the app updates itself.)
 
 ### Easy second option — one command with pipx
 
@@ -290,10 +288,6 @@ You're now inside the container. The prompt should change to show you're in the 
 > verification command in the next section fails on it; and the banner it prints
 > carries no `platterpus-fork` parenthetical, which is the thing that section
 > tells you to look for.
->
-> *This page described the COPR path as the way to install the ripper for the
-> whole v0.6 line, while the verification step one screen later demanded a banner
-> that path cannot produce. Found 2026-09-13 by an audit reading the two together.*
 
 > **Easiest path for the container and `flac`:** run [`setup-host.sh`](setup-host.sh) (or the one-line installer above). The manual steps below are only if you're doing it by hand.
 
@@ -327,10 +321,8 @@ that is expected rather than a broken install: stock 0.9.3 exits non-zero on
 parenthetical in it. Run `--install-ripper` first (see the warning in Step 3), then
 come back to this check.
 
-**On the version flag, because the obvious advice is wrong in both directions.**
-There is no single spelling that works on every cyanrip, and this README used to
-say the opposite of the truth — *"note the capital `-V` — cyanrip has no
-`--version`"*. Measured, and published in the fork's own provider contract:
+**On the version flag:** no single spelling works on every cyanrip. Measured,
+and published in the fork's own provider contract:
 
 | build | `--version` | `-V` | `-v` |
 |---|---|---|---|
@@ -373,15 +365,8 @@ which cyanrip
 
 cyanrip --version
 # → cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-g51cc789)
-#   (`--version`, not `-V` — see the flag table above. A stock build prints
-#    its own version with no `platterpus-fork` parenthetical.)
-#   This must match the banner named earlier on this page — and it is now
-#   CHECKED rather than asked for: `tests/test_no_stale_version_claims.py`
-#   derives the pin from `deps/fork_source.FORK_PIN` and refuses a README
-#   naming another. The note here used to say it had been four pins stale
-#   until 2026-09-13; by 2026-09-22 it was two pins stale again, in the same
-#   line, under a comment describing the problem. A comment where a check
-#   belongs is not a fix.
+#   (`--version`, not `-V`. A stock build prints its own version with no
+#    `platterpus-fork` parenthetical.)
 ```
 
 If `which` returns nothing, your `~/.local/bin` isn't on `$PATH`. Most desktop Linux setups put it there automatically; if yours doesn't, add this to `~/.bashrc` or `~/.zshrc`:
@@ -450,7 +435,7 @@ That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so th
 
 **Menu entry / desktop icon:** you don't need to do anything — on its **first run the AppImage offers to add itself to your applications menu** (and copies its icon), **moving itself to `~/Applications`** so it lives with your other apps instead of staying in Downloads. Just say yes. (The old `install-appimage.sh` helper still exists for scripted setups and offers an `--uninstall`, but it's no longer required. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) also works if you prefer.)
 
-**Updates:** use **Tools → Setup & Updates… → Check for updates** — if a newer release exists the app downloads it in the background, verifies it against the release's published checksum, installs it to `~/Applications`, and restarts itself. (Releases also ship a `.zsync` file and the AppImage embeds standard update-information, but [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) can't use them yet. The update-information asks GitHub for the *latest* release, GitHub leaves pre-releases out of that, and every `v0.*` release is a pre-release, so AppImageUpdate gets an HTTP 404 and updates nothing. Use Check for updates instead.)
+**Updates:** use **Tools → Setup & Updates… → Check for updates** — if a newer release exists the app downloads it in the background, verifies it against the release's published checksum and its build attestation (an update that fails either check is not installed), installs it to `~/Applications`, and restarts itself. (Releases also ship a `.zsync` file and the AppImage embeds standard update-information, but [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) can't use them yet. The update-information asks GitHub for the *latest* release, GitHub leaves pre-releases out of that, and every `v0.*` release is a pre-release, so AppImageUpdate gets an HTTP 404 and updates nothing. Use Check for updates instead.)
 
 > **On a FUSE-less host** (rare on desktop Linux, but some minimal setups): run with `APPIMAGE_EXTRACT_AND_RUN=1 ./platterpus-x86_64.AppImage`, or see [AppImage won't launch](#appimage-wont-launch) in Troubleshooting.
 
@@ -695,7 +680,7 @@ forwards every argument straight to the app):
 
 # Install or update the ripping stack from the terminal, then exit: the
 # Distrobox container, cyanrip, and the pinned Platterpus fork of cyanrip built
-# over it. Same steps the GUI's "Set up ripping" wizard runs, and idempotent —
+# over it. Same steps as Tools → Setup & Updates… → Run setup…, and idempotent —
 # anything already in place reports "already present" and is left alone.
 ./platterpus-x86_64.AppImage --install-ripper
 
@@ -774,9 +759,9 @@ offers **Install it now**, and one click builds and installs it. There is no SHA
 to copy and nothing to read first, because taking that build is what makes your
 rips report `approved`.
 
-The launch-time check is **silent unless it has something to offer**. Which
-channel it looks at is **Settings → Updates**: stable by default, or pre-release
-cyanrip builds if you tick the beta box.
+The launch-time check is **silent unless it has something to offer**. It looks
+at the stable channel by default; tick **Offer beta (pre-release) cyanrip builds**
+in **Tools → Setup & Updates…** to include beta builds.
 
 When the newest published build is one **no round here has verified yet**, the
 app tells you, states plainly that every rip made with it would report its ripper
@@ -789,28 +774,19 @@ installing **a specific commit**: a mid-round test pin, a build under review, or
 going back to an older one. It prints the pin it is building and the build tag the
 finished binary must report, so you can see which ripper you ended up with.
 
-**And it takes a commit**, which is what makes the sentence above actually true:
+It takes a commit:
 
 ```sh
 # ~/Applications/… if you let the app add itself to your menu (see the note at
 # the top of this section); ./platterpus-x86_64.AppImage if you declined.
-~/Applications/platterpus-x86_64.AppImage --install-ripper 9048082
+~/Applications/platterpus-x86_64.AppImage --install-ripper 174a134
 ```
 
-Without an argument it builds the pin baked into *this* Platterpus build — so
-before this option existed, "get it without waiting" still meant waiting for a
-release, which is the granularity the whole point was to avoid. The fork's pin
-moved **five times inside one handshake round**, twice in a single day. With a
-commit it builds that commit instead, through the same steps, and verifies the
-binary reports `platterpus-fork-g<commit>`.
-
-It deliberately does **not** predict the version string for a commit we don't
-pin — we can't read that tree's `meson.build`, and printing a guess next to the
-word "expects" would invite a comparison against a number nobody measured. You
-get the build tag, which is checked, and an explicit note that the version is
-not predictable. Every rip with a non-pinned build reports
-`ripper handshake approval: unapproved`, and the install says so up front rather
-than letting the rip report be the first place you see it.
+Without an argument it builds the pin baked into this Platterpus build. With a
+commit it builds that commit through the same steps and checks that the binary
+reports `platterpus-fork-g<commit>`. It does not predict the version string for a
+commit Platterpus does not pin, and it tells you up front that rips with a
+non-pinned build report `ripper handshake approval: unapproved`.
 
 **For a script that wants the channel's newest build rather than a named one**,
 pass `latest` (the fork's stable channel) or `latest-beta` (its beta channel) in
@@ -902,7 +878,7 @@ distrobox enter ripping
 ls -l /dev/sr*
 ```
 
-If the device shows up inside the container but the GUI still finds no drives from the host, the export wrapper isn't passing through device access. Re-run `distrobox-export --bin /usr/bin/cyanrip` from inside the container.
+If the device shows up inside the container but the GUI still finds no drives from the host, the export wrapper isn't passing through device access. Re-run **Tools → Setup & Updates… → Run setup…** (or, inside the container, `distrobox-export --bin /usr/local/bin/cyanrip` — the fork's install path).
 
 ### "MusicBrainz error: rate limited"
 
@@ -941,17 +917,14 @@ exit
 
 ### Update Platterpus
 
-- **AppImage:** download the new release, replace the old file.
+- **AppImage:** **Tools → Setup & Updates… → Check for updates** — the app downloads, verifies and installs the new release, then restarts.
 - **pipx:** `pipx upgrade platterpus`
 - **From source:** `git pull && pip install -e .`
 
 ### Update cyanrip or metaflac
 
-```bash
-distrobox enter ripping
-sudo dnf upgrade cyanrip flac
-exit
-```
+- **cyanrip:** **Tools → Setup & Updates… → Check for cyanrip updates** (or `--install-ripper`). This builds the pinned fork; `dnf upgrade` only updates the stock COPR package, which the fork replaces.
+- **flac / metaflac:** `distrobox enter ripping -- sudo dnf upgrade flac`
 
 The host-exported wrappers don't change; they always run whatever is currently inside the container.
 

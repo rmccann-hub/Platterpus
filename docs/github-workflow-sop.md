@@ -14,6 +14,9 @@
 >   (e.g. `claude/…`), never a personal `username/…` branch.
 > - We merge session-branch PRs to `main` with a **merge commit**, not a squash
 >   (since 2026-09-26; §7.1 below says why).
+> - GitHub **deletes a merged head branch automatically** (since 2026-09-30), so
+>   start the next change with `git switch -C <branch> origin/main`; the push
+>   recreates the branch.
 > - Commit subjects use **lowercase conventional-commit `type(scope):`
 >   prefixes**, not §5.2's "Capitalize the subject" style, and there is **no
 >   hard 50-char subject cap** (see CLAUDE.md → Commit & PR hygiene).
@@ -167,7 +170,9 @@ origin** (triggers CI).
 
 **Squash and merge is favored** for feature branches (each `main` node = one
 complete, deployable change). *(Platterpus did this for all PRs into `main` until 2026-09-26 and now uses a **merge commit** instead: its handshake laps cite branch commits by SHA, and a squash leaves those commits on no branch once the branch is deleted. `git log --first-parent main` keeps the one-node-per-change view. `CLAUDE.md` → *Commit & PR hygiene* lists this as deliberate divergence (6).)* Merge in the web UI → pick the strategy → **Confirm merge** → **Delete
-branch**. "Merge when ready" / auto-merge merges the instant CI passes.
+branch** (in Platterpus GitHub does this automatically since 2026-09-30; start the next
+change with `git switch -C <branch> origin/main`). "Merge when ready" / auto-merge merges
+the instant CI passes.
 
 ### 7.2 Branch protection (admin, server-enforced on `main`/`release/*`)
 
@@ -204,4 +209,4 @@ what order.*
 
 ---
 
-*Last updated for Platterpus v0.6.61.*
+*Last updated for Platterpus v0.6.65.*
