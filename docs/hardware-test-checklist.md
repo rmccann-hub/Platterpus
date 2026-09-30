@@ -1,12 +1,11 @@
 # Hardware test checklist
 
-> **Read this first (2026-09-29, v0.6.63).** The intro block below was written for the
+> **Read this first (2026-09-30, v0.6.65).** The intro block below was written for the
 > **v0.6.0** sheet and is kept as its record — its "this release" means v0.6.0, and its
-> list of recent releases stops at v0.5.21. What is current: the approved pair is
-> Platterpus **v0.6.63** + cyanrip **`51cc789`** (`+platterpus.18`, approved by round 29
-> on 2026-09-29 on the Full run, 320 of 323 steps with the three failures screenshot
-> steps, and shipping in 0.6.64 — 0.6.63 as released installs `e0471f4`, round 28's),
-> and the primary hardware
+> list of recent releases stops at v0.5.21. What is current: Platterpus **v0.6.65**;
+> cyanrip **`51cc789`** (`+platterpus.18`, approved by round 29) is installed by default
+> since 0.6.64; round 30 is reviewing **`174a134`** (`+platterpus.19`) on the Full run.
+> The primary hardware
 > route is now **Tools → Advanced → Run acceptance test…** inside the app, which keeps
 > everything a run makes — rips, screenshots, transcript and one `.tar.gz` — in one
 > session folder under `~/platterpus-rig/` (`docs/rig-scripts/README.md`,
@@ -83,7 +82,7 @@
 | Drive | `PIONEER  BD-RW   BDR-209D 1.51` on `/dev/sr0` |
 | Read offset | **+667** — confirmed, two independent sources agree |
 | Cache defeat | **Yes** — measured (`cd-paranoia -A`: 140-sector cache, backseek flushes) |
-| Tools | cyanrip `0.9.4-rc2+platterpus.18`, build tag `platterpus-fork-g51cc789` — the handshake-pinned fork (round 29 approved it on the 2026-09-29 Full run on this drive, 320 of 323 with the three failures screenshot steps, `docs/handshake/artifactsround29/`; `.17`, round 28's, ran the 2026-09-28 Full run, 320 of 320, `docs/handshake/artifactsround28/`), not stock 0.9.3; the tag identifies it, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
+| Tools | cyanrip `0.9.4-rc2+platterpus.19`, build tag `platterpus-fork-g174a134` for the current run (round 30's build under review); the default install is `0.9.4-rc2+platterpus.18`, `platterpus-fork-g51cc789` (approved by round 29, `docs/handshake/artifactsround29/`). Not stock 0.9.3; the tag identifies the build, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
 | Settings | Overread **off** · offset-variant re-read **on** · verify-every-track **off** · max reads 2 · max retries 5 · adaptive ladder · EAC log **on** · debug log **on** |
 
 **Test disc:** *The Police — Every Breath You Take: The Classics* — 14 tracks,
@@ -135,7 +134,7 @@ one CRC over the whole disc, so one differing track changes it. Either outcome i
   rendered as "in DB, no match", which claimed a comparison that never took place.
 * **A `Pre-gap length` row can appear where it never did**, and any that appears is now much
   shorter — see A24's warning. It was being computed from the wrong quantity.
-* The `.platterpus.json` report is **schema v24**. Two new blocks: `artifacts`, which holds
+* The `.platterpus.json` report was **schema v24** at v0.6.0 (now 30; `rip_report.REPORT_SCHEMA_VERSION` is the authority). Two new blocks: `artifacts`, which holds
   the full text of the three files written beside it, and `completeness`, which finally
   states the **disc's** track count instead of leaving you to infer it from the track list.
   See A24 — a two-minute file check, not a rip.
@@ -1077,8 +1076,8 @@ about, and moving the ripper build is a handshake event rather than a test step.
 
 ## F — ⭐ The three things we OWE the cyanrip fork
 
-**Read this if you have a disc and half an hour.** Rounds 1–14 are closed, GO on both sides,
-so nothing here is gating a release. Three of the items we owe them can
+**Read this if you have a disc and half an hour.** Rounds 1–29 are closed; round 30 is open
+on `.19`, and nothing in §F gates it. Three of the items we owe them can
 only be produced on your rig — they are not "nice to have", they are the artifacts no fixture
 can stand in for, and the next round will ask for them. Each one below says exactly what to
 run and exactly what to send, so nothing has to be re-derived at the time.
@@ -1231,4 +1230,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.6.64.*
+*Last updated for Platterpus v0.6.65.*

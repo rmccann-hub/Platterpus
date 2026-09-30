@@ -5,10 +5,11 @@
 > in CI** — they need a real CD + drive, a desktop session, or a maintainer
 > credential.
 >
-> **Just want to test the release that's in your hand?** Use
-> [`hardware-test-checklist.md`](hardware-test-checklist.md) — the fillable,
-> every-step-written-out run sheet for the *current* release (updated each cycle).
-> This document is the full reference behind it.
+> **Just want to test the release that's in your hand?** Follow
+> [`rig-session.md`](rig-session.md), the current run sheet, and run
+> **Tools → Advanced → Run acceptance test…** in the app.
+> [`hardware-test-checklist.md`](hardware-test-checklist.md) holds the hardware cases
+> the acceptance run does not cover; this document is the full reference behind both.
 >
 > Two halves, in order of how you'll use them:
 > - **Parts 0–D + Reporting** — the end-to-end *release/acceptance run*: a clean
@@ -134,8 +135,9 @@ GUI thread). On a FUSE-less host, run with `APPIMAGE_EXTRACT_AND_RUN=1`.
 ### A4 — [ ] First-run offers
 *Expected, in order:* (1) "Add to your applications menu?" — say **Yes**; the
 file moves to `~/Applications` and a menu entry appears. (2) The **host-setup
-wizard** — say Yes; it builds the `ripping` container + installs cyanrip/flac
-(and metaflac) and exports them. **~20–40 min** the
+wizard** — say Yes; it builds the `ripping` container, installs cyanrip/flac
+(and metaflac), then builds the pinned fork (`51cc789` at v0.6.65) over the stock
+cyanrip and exports it, plus cd-paranoia. **~20–40 min** the
 first time (≈600 MB image pull); one polkit password prompt only if podman/
 distrobox needs installing (none on Bazzite/Silverblue). (3) Picard offer — your
 call. Record any wizard step that fails **verbatim**.
@@ -197,7 +199,7 @@ full text in git history. Parity checklist: **Test 8**.)*
 ### A10 — [ ] In-app update (when a newer release exists)
 **Tools → Setup & Updates… → Check for updates.** *Expected:* if newer, it downloads (cancellable
 progress), shows phase labels (Downloading → Verifying → *"Installing — almost
-done, please don't close…"*), verifies the checksum, installs to `~/Applications`,
+done, please don't close…"*), verifies the checksum and the build attestation, installs to `~/Applications`,
 and offers to **restart**. The window must **not** go "Not Responding," and
 Cancel/✕ must stay responsive throughout (the 2026-06-13 freeze fixes).
 
@@ -310,7 +312,7 @@ recovers, never hangs or silently fails). One row = one test.
 | D2 | **Drive not readable** (user not in the drive's group) | Diagnosis names the exact `sudo usermod -aG … $USER` fix | run it, log out/in |
 | D3 | **No FUSE** (minimal host) | AppImage won't mount | run `APPIMAGE_EXTRACT_AND_RUN=1 ./…AppImage` |
 | D4 | **podman/distrobox absent** | Wizard offers to install them (one polkit prompt) | accept |
-| D5 | **Container has no network** during a known rip | GUI auto-heals: re-rips as `--unknown`, tags from the on-screen metadata | none needed |
+| D5 | **Container has no network** during a known rip | No effect: cyanrip runs offline (`-N`) with the GUI's already-fetched tags | none needed |
 | D6 | **Cold container** (first launch after boot) | window appears + stays responsive; probes finish in the background | wait a few seconds |
 | D7 | **Disc not ready** (scanned while spinning up) | friendly "couldn't read the TOC… click Rescan disc" — *not* a traceback | **Rescan disc** |
 | D8 | **Disc unknown to MusicBrainz** | numbered blank rows + offer to *Rip as Unknown Album*; no TTY prompt | rip as unknown |
@@ -516,7 +518,7 @@ screenshot to the top of the README.
 toggle actually does.
 
 **Steps**
-1. Enable "Launch MusicBrainz Picard on unknown discs" in Settings (Picard
+1. In Settings, enable **Tick "launch Picard" by default on unknown discs** (Picard
    installed via the GUI's dependency manager).
 2. Rip a disc MusicBrainz can't identify (or use *File → Rip as Unknown Album…*).
 3. Observe whether Picard launches with the ripped files on finish.
@@ -566,9 +568,9 @@ trust a track** (`-Z N`) converges a near-miss to the AccurateRip consensus.
 
 **Steps**
 1. Rip the Police disc (A6). If a track reads as a near-miss/offset-variant
-   (T3-class), set Settings → **Extra matching reads to trust a track → 2** and
-   re-rip.
-   - [ ] The re-rip's argv includes `-Z 2` (visible in the log).
+   (T3-class), set Settings → **Extra matching reads to trust a track → 3** (2 is
+   the default) and re-rip.
+   - [ ] The re-rip's argv includes `-Z 3` (visible in the log).
    - [ ] The track converges to the consensus CRC (matches Part B). (T5 is a
          physical disc defect; EAC fails it too — not expected to converge.)
 2. Run `scripts/eac_parity.py` against the Part B baseline; record the count.
@@ -756,7 +758,7 @@ and if allowed to pass then it should be scrutinized and documented."*
 Parts 0–D say **what to exercise**. This part says **what to disbelieve**, and it
 is derived from the record rather than from imagination: the numbered cases in
 [`testing.md` §5](testing.md), the `[Fixed]` entries in `CHANGELOG.md`, and the
-three rig runs in the [§5B evidence ledger](testing.md). A pass on this project has
+twelve rig runs in the [§5B evidence ledger](testing.md) (none full-green). A pass on this project has
 been wrong often enough that "it passed" is the beginning of the check, not the end.
 
 ### E0. The two measurements that reframe everything here
@@ -840,8 +842,8 @@ has happened here:
    binaries are not interchangeable evidence.
 2. **`--doctor` first.** It costs seconds and it fails on the things that would
    otherwise waste the disc pass.
-3. **Run the current rig script end to end** (`--run-script`, the file named in
-   `docs/rig-scripts/README.md`). Do not stop at the first failure.
+3. **Run Tools → Advanced → Run acceptance test… → Full** (324 steps at v0.6.65)
+   end to end. Only a Full run counts as evidence. Do not stop at the first failure.
 4. **Upload the evidence bundle**, not a transcript. One file, self-describing,
    with the exit code (tri-state — `null` for a child never reaped is a real
    answer), the exact argv as spawned, and complete output with stderr merged and
@@ -901,4 +903,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.6.63.*
+*Last updated for Platterpus v0.6.65.*
