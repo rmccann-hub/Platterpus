@@ -798,10 +798,12 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   gate (`handshake.py --status`: CLOSED), and the same commit rolls `FORK_PIN` to
   `51cc789` with `APPROVED_BY_ROUND` 29 for Platterpus 0.6.63, read from their lap 3's
   `HANDSHAKE-APP-VERSION`. `SENT_LAPS` freezes it, and the envelope carries it alone.
-  - *Their gate:* their lap 3 says it closes round 29 on our lap 4 (v6 §5b step 3). Our
-    status tool still warns that the fork's gate reads a listing literally and closes on
-    their next lap; that warning predates v6 and is to be checked against their gate
-    before 0.6.64 is dispatched.
+  - [x] *Their gate:* their lap 3 says it closes round 29 on our lap 4 (v6 §5b step 3),
+    as it closed round 28 on our lap 9 with no lap 10 of theirs
+    (`cyanrip@18f79dc5:docs/handshake/STATUS.md:65`). Our status tool warned, for both
+    rounds, that their gate would close on a later lap of theirs; the warning belonged to
+    protocol 5, and it now prints only for a peer closing file below 6 (2026-09-30).
+    Nothing holds 0.6.64.
 
 ## Round 28 — CLOSED on both gates on `e0471f4` (`+platterpus.17`), 2026-09-28: the Full run on 0.6.61 + `.17`
 

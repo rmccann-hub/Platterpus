@@ -11,6 +11,37 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-30 — Round 29 closes on our gate; the pin rolls to `51cc789`
+
+**Asked:** "Announce": release our round 29 lap 4 (`GO`), and roll `FORK_PIN` in the same
+commit.
+
+**Built:**
+- *Lap 4 rebuilt from `e61df38b` and announced* (sha256 `67c4167d…`, 18,972 bytes),
+  frozen in `SENT_LAPS`, and carried alone by the envelope. `--status` reads round 29
+  CLOSED.
+- *The pin roll:* `FORK_PIN` `51cc789`, `FORK_EXPECTED_VERSION` `.18`, the approval
+  record round 29 for Platterpus 0.6.63, the consumer contract regenerated, and the
+  standing docs moved. `meson_options.txt` re-derived at the new pin for the ninth time:
+  byte-identical to `e0471f4`'s.
+- *The tests that assumed an open round* now set that state themselves: three in
+  `test_ripper_standing.py`, written while round 29 was open, which read it off the live
+  pins and failed the moment the round closed. A counterpart asserts that the same build
+  reads as approved once it does.
+- *The status tool's one-lap-early warning* now prints only for a peer at protocol 5. It
+  told us, for rounds 28 and 29, to hold a release for a lap of the fork's that v6 makes
+  unnecessary; their `STATUS.md` records round 28 closing on our lap 9.
+
+**Learned** (no new rule: each is an instance of a question `CLAUDE.md` already asks):
+- *A test written during a state reads that state as a constant.* The ripper-standing
+  tests passed for the whole of round 29 and failed on its close, with no code changed.
+  That is `docs/testing.md` §5.bq's lesson again (a test must be able to supply a round
+  state): the fix is the fixture, not a new rule.
+- *A docstring said "retired by v6" and no line of code asked the protocol.* A comment
+  where a check belongs is not a fix, and the warning ran two rounds past its
+  retirement. I nearly held a release on it; the fork's own record, read rather than
+  assumed, said their gate had already closed on our lap.
+
 ## 2026-09-29 — Round 29's Full run: filed, graded `partial`, and two defects of ours fixed
 
 **Asked:** the operator uploaded `platterpusbundle20260928t223356z.tar.gz`, the Full run

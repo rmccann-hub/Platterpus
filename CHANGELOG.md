@@ -14,6 +14,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The handshake status no longer tells us to hold a release for a lap the fork
+  will not write.** When a round closes on a lap of ours that the fork's closing lap
+  does not list, `handshake.py --status` added that the fork's gate would close it one
+  lap later, and to hold a release for that lap. That was true under protocol 5, whose
+  gate needed the lap listed. Protocol 6 dropped the requirement, and the fork's gate
+  closed round 28 on our lap 9 with no further lap of theirs, yet the line printed for
+  rounds 28 and 29, both at protocol 6. It now prints only when the fork's closing lap
+  declares a protocol below 6.
 - **The lap checker no longer refuses a correct `git log --oneline` result over the
   size of our own clone.** Git sizes an abbreviated hash by how many objects the clone
   holds, so the same command prints `f8ebf48` in a clone without blobs and `f8ebf48f` in
