@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.6.65] — 2026-09-30
+
 ### Changed
 
 - **The fork's `.19` (`174a134`) is the build the next Full acceptance run tests.**
@@ -17028,7 +17030,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.64...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.65...HEAD
+[0.6.65]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.64...v0.6.65
 [0.6.64]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.63...v0.6.64
 [0.6.63]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.62...v0.6.63
 [0.6.62]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.61...v0.6.62
@@ -17095,4 +17098,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.64.*
+*Last updated for Platterpus v0.6.65.*

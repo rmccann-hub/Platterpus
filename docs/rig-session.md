@@ -1,8 +1,8 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.65        the release round 30's Full run is on, not yet released: it
-                           installs 51cc789 by default and accepts 174a134 as the
+Platterpus  v0.6.65        the release round 30's Full run is on, released 2026-09-30:
+                           it installs 51cc789 by default and accepts 174a134 as the
                            build under review.
             v0.6.64        round 29's closing release, released 2026-09-30: it
                            installs 51cc789 by default.
@@ -153,4 +153,4 @@ known to be correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.64.*
+*Last updated for Platterpus v0.6.65.*
