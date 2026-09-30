@@ -47,6 +47,7 @@ if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy
 
     from platterpus.config import Config
     from platterpus.deps.host_setup import HostSetup
+    from platterpus.screen_inhibit import ScreenInhibitor
     from platterpus.sleep_inhibit import SleepInhibitor
     from platterpus.test_session import SessionLayout
     from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
@@ -111,6 +112,12 @@ class ProvisioningMixin(MainWindowShared):
     #: the operator reads that dialog in the morning, hours after the notice that
     #: appeared when the run started.
     _acceptance_inhibit_note: str = ""
+    #: The screen hold taken beside the sleep lock (`platterpus.screen_inhibit`),
+    #: so screenshot steps find a window on screen. Released on every path that
+    #: releases the sleep lock, by :meth:`_release_acceptance_inhibitor`.
+    _acceptance_screen_inhibitor: ScreenInhibitor | None = None
+    #: Its tri-state verdict, rendered for a person, kept like the sleep lock's.
+    _acceptance_screen_note: str = ""
     #: The packaged acceptance script this session runs.
     _acceptance_script: Path | None = None
     #: The run size chosen for this session (Quick, Standard or Full).
@@ -723,6 +730,7 @@ class ProvisioningMixin(MainWindowShared):
         )
         self._rip_controls.set_config(self._config)
         self._acceptance_inhibit_note = ""
+        self._acceptance_screen_note = ""
         # Cleared per session: a verdict left over from the PREVIOUS run would be
         # stamped on this one's closing dialog, which is the same "every field
         # true, the sentence false" shape this field exists to fix.
@@ -774,6 +782,51 @@ class ProvisioningMixin(MainWindowShared):
         threading.Thread(
             target=work, daemon=True, name="platterpus-acceptance-inhibit"
         ).start()
+        self._start_acceptance_screen_hold()
+
+    def _start_acceptance_screen_hold(self) -> None:
+        """Hold the screen awake beside the sleep lock, without blocking anything.
+
+        The round 29 Full run's three screenshot failures found every window
+        unexposed, and the sleep lock says nothing to the screen saver. The call is
+        asynchronous on the GUI thread, and the run does not wait for it: the batch
+        starts on the sleep lock's answer, and this verdict goes to the same log
+        line, notice and bundle facts whenever it lands.
+        """
+        from platterpus.screen_inhibit import ScreenInhibitor
+
+        # Parented to the window, not merely referenced: a release while the
+        # desktop is still answering drops our reference, and an unparented
+        # inhibitor would be collected with its watcher, so the reply that must be
+        # given straight back would never arrive and the screen would stay held
+        # until Platterpus exits.
+        inhibitor = ScreenInhibitor(
+            reason="Platterpus acceptance test session",
+            parent=self,
+        )
+        self._acceptance_screen_inhibitor = inhibitor
+        inhibitor.acquire(self._on_acceptance_screen_ready)
+
+    def _on_acceptance_screen_ready(self, outcome: object) -> None:
+        """The screen hold has answered. Record it; never a dialog, never an abort."""
+        from platterpus.sleep_inhibit import STATE_HELD, InhibitOutcome
+
+        if isinstance(outcome, InhibitOutcome):
+            marker = "✓" if outcome.state == STATE_HELD else "⚠"
+            note = f"{marker} Screen lock: {outcome.state} ({outcome.what}) — {outcome.detail}"
+        else:
+            note = (
+                "⚠ Screen lock: not determined — the hold reported a "
+                f"{type(outcome).__name__}, which this window cannot read. Set the "
+                "screen to never turn off for the run."
+            )
+        self._acceptance_screen_note = note
+        log.info("acceptance session: %s", note)
+        if self._acceptance_layout is None:
+            # The session ended while the desktop answered: give the screen back.
+            self._release_acceptance_inhibitor()
+            return
+        self._show_acceptance_notice(note)
 
     def _on_acceptance_inhibitor_ready(self, outcome: object) -> None:
         """The sleep lock has answered — runs on the GUI thread. Start the batch.
@@ -968,6 +1021,7 @@ class ProvisioningMixin(MainWindowShared):
         album_roots: list[Path] = []
         try:
             facts["sleep lock"] = self._acceptance_inhibit_note or "not determined"
+            facts["screen lock"] = self._acceptance_screen_note or "not determined"
             # Which size ran. Only `full` is evidence, so the archive says which.
             facts["run size"] = self._acceptance_run_size
             script = self._acceptance_script
@@ -1379,6 +1433,7 @@ class ProvisioningMixin(MainWindowShared):
         path = getattr(result, "path", None)
         error = str(getattr(result, "error", "") or "")
         note = self._acceptance_inhibit_note or "Sleep lock: not determined."
+        note += "\n" + (self._acceptance_screen_note or "Screen lock: not determined.")
         if error or path is None:
             reason = error or "the bundler returned no path and no error"
             log.error("acceptance session bundle failed: %s", reason)
@@ -1437,6 +1492,10 @@ class ProvisioningMixin(MainWindowShared):
         a watermark that kills a lock child which is still being spawned — so
         calling this while an `acquire()` is in flight is correct, not a race.
         """
+        screen = self._acceptance_screen_inhibitor
+        self._acceptance_screen_inhibitor = None
+        if screen is not None:
+            screen.release()  # never waits: UnInhibit is sent, not awaited
         inhibitor = self._acceptance_inhibitor
         self._acceptance_inhibitor = None
         if inhibitor is None:
@@ -1451,7 +1510,11 @@ class ProvisioningMixin(MainWindowShared):
         this — a console closed during teardown emits `run_finished` — from
         starting a bundle daemon while the window is being destroyed.
         """
-        if self._acceptance_layout is None and self._acceptance_inhibitor is None:
+        if (
+            self._acceptance_layout is None
+            and self._acceptance_inhibitor is None
+            and self._acceptance_screen_inhibitor is None
+        ):
             return
         log.info("acceptance session ending: %s", reason)
         self._acceptance_layout = None

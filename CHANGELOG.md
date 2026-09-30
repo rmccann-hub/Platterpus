@@ -14,6 +14,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [0.6.65] — 2026-09-30
 
+### Fixed
+
+- **The acceptance test keeps the screen awake, not only the machine.** The round 29
+  Full run failed three screenshot steps because every window was on screen in name and
+  hidden in fact, most likely because the display blanked: the sleep lock stops the
+  machine sleeping and says nothing to the screen saver. The run now also asks the
+  desktop to hold the screen on (`org.freedesktop.ScreenSaver`, the interface a video
+  player uses), and gives it back when the run ends, or if Platterpus exits. The bundle
+  records whether it was held, beside the sleep lock, and says to set the screen to
+  never turn off if the desktop refused. The next Full run is what shows whether the
+  blank screen was the cause.
+
 ### Changed
 
 - **The fork's `.19` (`174a134`) is the build the next Full acceptance run tests.**
