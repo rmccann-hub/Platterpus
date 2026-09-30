@@ -131,11 +131,19 @@ def _choose_source(
 ) -> UnderReviewSource:
     """The newest lap declaring a pin, unless the manifest publishes a newer build.
 
-    ``laps`` is ``(round, declared pin, path)``, oldest first. The manifest wins only
-    when all of these hold, each read off their document: both channels name ONE
-    commit and version; no lap names that commit; and it was published on the
-    authority of a round at least as new as the newest lap's (``handshake_round``).
-    The reviewing round is then the next one.
+    ``laps`` is ``(round, declared pin, path)``, oldest first. The manifest's
+    candidate is its NEWEST channel entry: the one entry when both channels name
+    one build, and otherwise the entry with the highest ``release_seq``. It wins
+    only when no lap names that commit and it was published on the authority of a
+    round at least as new as the newest lap's (``handshake_round``). The reviewing
+    round is then the next one.
+
+    **Split channels are the normal case from round 31**, by our operator's O3
+    (2026-09-30): a new fork build goes to beta until its run passes, so `.20`
+    will be on beta while stable still names `.19`. Until then this refused any
+    split manifest ("nothing one entry can pair"), which would have left `.20`
+    unreviewed until a lap named it. A split it cannot order, because an entry
+    lacks ``release_seq``, is still refused.
     """
     assert laps, "no inbound lap declares a HANDSHAKE-PIN"
     lap_round, lap_pin, lap_path = laps[-1]
@@ -144,16 +152,20 @@ def _choose_source(
         return lap_source
     channels = manifest["channels"]
     assert isinstance(channels, dict)
-    entries = {(str(c["commit"]), str(c["version"])) for c in channels.values()}
-    if len(entries) != 1:
-        return lap_source  # the channels disagree: nothing one entry can pair
-    ((commit, version),) = entries
+    entries = list(channels.values())
+    if len({(str(c["commit"]), str(c["version"])) for c in entries}) == 1:
+        newest = entries[0]
+    elif all("release_seq" in c for c in entries):
+        newest = max(entries, key=lambda c: int(c["release_seq"]))
+    else:
+        return lap_source  # a split we cannot order: no entry to name
+    commit, version = str(newest["commit"]), str(newest["version"])
     named = any(
         pin.casefold().startswith(commit.casefold())
         or commit.casefold().startswith(pin.casefold())
         for _, pin, _ in laps
     )
-    authority = min(int(c["handshake_round"]) for c in channels.values())
+    authority = int(newest["handshake_round"])
     if named or authority < lap_round:
         return lap_source
     return UnderReviewSource(commit, authority + 1, version, False, None, name)
@@ -185,9 +197,16 @@ def test_every_filed_manifest_is_the_bytes_their_tree_held() -> None:
     assert _FILED_MANIFESTS, "the floor: at least one manifest is filed"
 
 
-def _manifest(commit: str, version: str, authority: int) -> dict[str, object]:
-    entry = {"commit": commit, "version": version, "handshake_round": authority}
-    return {"latest_seq": 99, "channels": {"beta": entry, "stable": dict(entry)}}
+def _manifest(
+    commit: str, version: str, authority: int, seq: int = 99
+) -> dict[str, object]:
+    entry = {
+        "commit": commit,
+        "version": version,
+        "handshake_round": authority,
+        "release_seq": seq,
+    }
+    return {"latest_seq": seq, "channels": {"beta": entry, "stable": dict(entry)}}
 
 
 def test_the_source_is_the_lap_until_a_newer_release_is_published() -> None:
@@ -202,7 +221,41 @@ def test_the_source_is_the_lap_until_a_newer_release_is_published() -> None:
     named = [*laps, (30, "174a134", Path("round-30-lap-01.md"))]
     back = _choose_source(named, _manifest("174a134", "v19", 29), "m")
     assert back.lap is not None and back.lap.name == "round-30-lap-01.md"
-    # A manifest that is the lap's own build, an older round's, or split: the lap.
+    # O3 (our operator, 2026-09-30): the next build goes to beta alone, so the
+    # channels split and the NEWER entry, by release_seq, is the one to review.
+    round_30 = [*laps, (30, "174a134", Path("round-30-lap-01.md"))]
+    split = {
+        "latest_seq": 30,
+        "channels": {
+            "beta": {
+                "commit": "aaaa200",
+                "version": "v20",
+                "handshake_round": 30,
+                "release_seq": 30,
+            },
+            "stable": {
+                "commit": "174a134",
+                "version": "v19",
+                "handshake_round": 29,
+                "release_seq": 29,
+            },
+        },
+    }
+    on_beta = _choose_source(round_30, split, "m")
+    assert (on_beta.pin, on_beta.round, on_beta.version) == ("aaaa200", 31, "v20")
+    # The same split once a lap names the beta build: the lap.
+    named_beta = [*round_30, (31, "aaaa200", Path("round-31-lap-01.md"))]
+    assert _choose_source(named_beta, split, "m").lap is not None
+    # A split whose newer entry is the one a lap already names: the lap.
+    channels = split["channels"]
+    assert isinstance(channels, dict)
+    reversed_split = {
+        **split,
+        "channels": {"beta": channels["stable"], "stable": channels["stable"]},
+    }
+    assert _choose_source(round_30, reversed_split, "m").lap is not None
+    # A manifest that is the lap's own build, an older round's, or a split it
+    # cannot order (no release_seq): the lap.
     for stale in (
         _manifest("51cc789", "v18", 28),
         _manifest("e0471f4", "v17", 27),
