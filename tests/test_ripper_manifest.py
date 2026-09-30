@@ -13,6 +13,7 @@ which is the shared-ancestor failure `CLAUDE.md` names.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -404,7 +405,16 @@ def test_every_recorded_sequence_agrees_with_a_published_manifest() -> None:
     nothing was actually compared.
     """
     published: dict[str, int] = {}
-    for document in (PUBLISHED, PUBLISHED_V2):
+    # Plus every manifest filed byte-exact from their tree (the first on 2026-09-30,
+    # when `.19` became the build under review before any lap named it).
+    filed = [
+        json.loads(path.read_text(encoding="utf-8"))
+        for path in sorted(
+            (Path(__file__).parent / "fixtures").glob("fork_release_manifest_*.json")
+        )
+    ]
+    assert filed, "the floor: at least one manifest is filed from their tree"
+    for document in (PUBLISHED, PUBLISHED_V2, *filed):
         for row in document["channels"].values():
             published[str(row["commit"])] = int(row["release_seq"])
 

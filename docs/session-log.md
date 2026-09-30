@@ -11,6 +11,89 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-30 — Round 30 opens on `.19`; the fatal inventory catches up two builds; 0.6.65 goes out under §6b
+
+**Asked:** the fork released its round 30 lap 1 (`cyanrip@171bcf9`). File it, confirm
+the build under review, regenerate the fatal-message inventory from `.19`'s contract,
+fix our count of `.19`'s new lines, and release 0.6.65 for the Full run.
+
+**Done:**
+- *Their lap 1 filed byte-exact* (sha256 `6db0ed0d…`, 15,546 bytes); both checkers accept
+  it, and `CURRENT_ROUND` is 30. The build-under-review test now takes the lap as its
+  source rather than the manifest, and both name `174a134`.
+- *`.19`'s contract filed* (`cyanrip@5c92fc2`, built at `g7476e28`, byte-identical to the
+  copy 0.6.65 was checked against) and the inventory regenerated: P5 120 → 123. Their S4
+  count was re-derived from the two contracts rather than taken: P2 +5 −1, P5 +3. Ours had
+  said four.
+- *Regenerating found `.18`'s change too*, because round 29 never filed `.18`'s contract:
+  upstream's `f8ebf48f` replaced one MusicBrainz message. The old one is retained with
+  its reason. `.19`'s reworded repeat-limit line is a P5a row, as the old one is, and is
+  retained beside it; the retention check now counts P5a as sent, with a floor.
+- *Our gate is stricter than the fork's reading.* Their lap says 0.6.65 "needs no lap";
+  N4 holds a stable-offered `v0.*` tag while a round is open, so our lap 2 carries the
+  operator's §6b override for v0.6.65, on their word *"include my override if needed"*.
+
+**Learned** (no new rule; each is an instance of a question `CLAUDE.md` already asks):
+- *A generated table that skips a round skips that round's changes silently.* Round 29
+  filed no contract, so the inventory jumped from `.17` to `.19`; the `.18` change surfaced
+  only because a test compares against the previous filed contract and fails on a lost
+  string. The population we compared was the contracts we filed, not the builds shipped.
+- *Two tests can jointly forbid the right answer.* One demanded a decision for every P5a
+  row, the other that every retained row had been in some P5; a P5a-only string could
+  then only be declined, a claim that it cannot be surfaced, which is false.
+- *An answer is where the questioning starts* (maintainer, 2026-09-30: "just because you
+  get a lap answer doesn't mean you can't push back"). Our first draft of lap 2 accepted
+  or deferred everything; rereading it as a challenge found a claim of theirs (S23) that
+  our own tree already refuted, and a proposal premise (misalignment 3) resting on a
+  commit of ours two commits stale. Graduated to `docs/cyanrip-handshake.md` §7.7m.
+- *A lap's FROM-COMMIT must be reachable from `main`*, so a lap written on the branch that
+  carries its evidence is released only after that branch merges (the round 29 order).
+  I wrote and announced it on the branch; the full suite caught it before any push.
+
+## 2026-09-30 — 0.6.64 released; `.19` becomes the build under review before round 30 has a lap
+
+**Asked:** release 0.6.64 once `main` was green. Then the fork published `.19` at
+`174a134` and asked that 0.6.64 name it as the build under review. The operator
+chose that the fork holds its round 30 lap 1 until the Full run exists.
+
+**Done:**
+- *0.6.64 released* (release run 36653391278, published 01:07Z, from `9b114c5f`), round
+  29's closing release as our lap 4 said. The fork's request arrived after the dispatch,
+  so `.19` goes out in 0.6.65 instead: the version number is all that differs.
+- *The py3.11 CI leg failed on the release PR* on a race in a test, not in the release:
+  a killed process reaped between opening and reading `/proc/<pid>/stat` raises
+  `ProcessLookupError`, which the test did not count as gone (`54520070`, revert-probed).
+- *The operator turned on GitHub's "Automatically delete head branches"*: a merged
+  session branch is now deleted by GitHub, and the next push recreates it. Confirmed on
+  the release PR's merge.
+- *`.19` is the build under review on `main`, read from the fork's published manifest*
+  (`cyanrip@7677b3f5`, filed byte-exact under `tests/fixtures/`), since no lap names it.
+  The pin-under-review tests choose between the newest lap and a newer published
+  release in one function, tested on constructed cases.
+- *The acceptance run holds the screen awake* (`platterpus.screen_inhibit`), on the
+  operator's choice to hold 0.6.65 for it: `org.freedesktop.ScreenSaver.Inhibit`
+  beside the sleep lock, asynchronous, released on every exit path. It is tested
+  against a real private `dbus-daemon` with a stand-in screen saver. The first test
+  lost its answer because nothing referenced the inhibitor, which showed that the
+  window must parent it, or a release during the desktop's reply would leave the
+  screen held until exit.
+
+- *0.6.65 held by the operator's override*, until the fork's next lap or release, after
+  a check of 0.6.65 against `.19` in their tree found one gap (the two `-Z`/`-r` refusals,
+  now surfaced) and nothing else.
+- *The first push of the screen hold failed CI* on the module map: pushed after the
+  related tests and before the full suite. The full suite now runs before every push.
+
+**Learned** (no new rule; each is an instance of a question `CLAUDE.md` already asks):
+- *A peer's request can be about a state that has already moved.* The fork asked for
+  "0.6.64 naming `.19`" against `platterpus@58ad83db`; 0.6.64 had been dispatched from
+  `9b114c5f` minutes earlier. Answering from the artifact (the release run's own steps)
+  rather than from the request's premise gave the right reply: the same change, one
+  version later.
+- *A check that reads its expected value from one kind of artifact breaks the day the
+  process produces the value from another.* The fix kept the check and taught it the
+  second source, with the rule for choosing written once, not a special case per test.
+
 ## 2026-09-30 — Round 29 closes on our gate; the pin rolls to `51cc789`
 
 **Asked:** "Announce": release our round 29 lap 4 (`GO`), and roll `FORK_PIN` in the same
@@ -9468,4 +9551,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.64.*
+*Last updated for Platterpus v0.6.65.*

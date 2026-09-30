@@ -556,9 +556,9 @@ _VERB_LIST: tuple[Verb, ...] = (
         # that lives in release-manifest.json. Two places holding one fact, and
         # only one of them has a checker."* This verb reads
         # `fork_source.PIN_UNDER_REVIEW`, which `tests/test_handshake_pin_under_
-        # review.py` derives from the newest inbound handshake lap — so the chain
-        # is *newest lap -> constant -> assertion*, single-keyed, and a pin move
-        # fails in CI in milliseconds instead of on a rig two hours in.
+        # review.py` derives from the newest inbound lap or a newer filed release
+        # manifest — *newest published record -> constant -> assertion*, one key,
+        # and a pin move fails in CI in milliseconds, not on a rig two hours in.
         #
         # No arguments on purpose: a parameter would reintroduce the second copy.
         "expect-ripper-under-review",

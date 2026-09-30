@@ -602,6 +602,91 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
+## Round 30 — OPEN on `174a134` (`+platterpus.19`): the Full run on 0.6.65 with `.19`, and the operator's release-cycle question
+
+Their lap 1 (`cyanrip@171bcf9`, platterpus-fork tip `0ae873c`, sha256 `6db0ed0d…`, 15,546
+bytes, `OPEN`, LSL 3) opens round 30 on `.19`, `release_seq` 29 on both channels,
+released by their operator on 2026-09-30 before the run, by a recorded override of R8
+point 3 (*"update all, include my override if needed. we are getting this started."*).
+The operator had first chosen to hold it until the run existed; the fork then measured
+that our section A could not accept `.19` until a lap named it (their S22–S24), so the
+lap went first, as in rounds 26 to 29. Its close conditions (S9–S11): the proposal's D1
+to D10 settled by both sides with the text in both trees; the Full run on `.19` from our
+first release naming `174a134` as its build under review, its bundle in both trees and
+each side's reading; and the closing releases named.
+
+- [x] **File their lap 1.** Byte-exact from their tree; `--check` passes and the lap
+  checker with `--rerun` finds it well formed (26 statements; 1 run re-run and matched, 3
+  UNCHECKED because they are not commands). `CURRENT_ROUND` is 30.
+- [x] **`.19` is the build under review**, as their S6 asks: `PIN_UNDER_REVIEW` `174a134`,
+  `PIN_UNDER_REVIEW_ROUND` 30, `UNDER_REVIEW_TARGET` `.19`, release 29 in
+  `FORK_RELEASE_SEQ_BY_PIN`, and `g174a134` in the `--consumer` set (its contract's 41 P1
+  rows equal `.18`'s). Done before their lap existed, from their published manifest at
+  `cyanrip@7677b3f5` (filed byte-exact as `tests/fixtures/fork_release_manifest_7677b3f.json`);
+  `tests/test_handshake_pin_under_review.py` now reads the lap, which names the same
+  commit. `FORK_PIN` stays `51cc789` until round 30 closes.
+- [x] **`.19`'s provider contract filed and our fatal inventory regenerated from it.** It
+  came with their lap (S3–S5): `PROVIDER-CONTRACT.md` at `cyanrip@5c92fc2`, built at
+  `g7476e28`, sha256 `50a7e852…`, byte-identical to the copy we checked 0.6.65 against;
+  filed as `round-30-lap-01-provider-contract-g7476e28.md`. `emit_ripper_inventory.py`
+  takes P5 from 120 rows to 123. **Their S4 count reproduces, and ours was wrong:** P2
+  gains five rows and loses one (both `-Z`/`-r` refusals, `Couldn't set metadata: %s!`,
+  `(not listed: out of memory)` and the reworded repeat-limit line in; `Done; (no matches
+  found, but hit repeat limit of %i)` out), and P5 gains three. Our records had said
+  "the four `.19` adds". **Round 29 never filed `.18`'s contract**, so regenerating also
+  brought `.18`'s one P5 change: upstream's `f8ebf48f` replaced `Error fetching/requesting/
+  auth, this shouldn't happen.` with `MusicBrainz lookup failed, try again later, or
+  disable it via -N`. The old string is kept in `RETAINED_BEYOND_P5` with its reason
+  (unreachable under `-N`; `.17` and older print it), as a string leaves the matcher only
+  by a written decision. `.19`'s reworded repeat-limit line is in P5a, where the old one
+  is, and is retained beside it: the worker reads either as a verdict before it asks the
+  matcher. The retention check now counts a P5a row as one the fork sent, with a floor.
+- [~] **0.6.65**, the release the Full run is on: `51cc789` by default, `.19` accepted as
+  the build under review, the screen held awake, and the two `-Z`/`-r` refusals surfaced.
+  PR #283. It was held by the operator's override of 2026-09-30 (*"wait for the next
+  lap/release before making the platterpus release. this may be against the rules but i
+  am saying so"*) until the fork's next lap; that lap is their round 30 lap 1. Our gate
+  holds a stable-offered `v0.*` tag while a round is open (N4), so it goes out under a
+  **§6b override in our lap 2**, on the operator's word *"include my override if needed"*.
+- [x] **Our lap 2**, `OPEN`, digest `8e1dfcd54e77a28c` over their lap 1: S1–S4 reproduce
+  their lap from their tree (their S3 and S4 hold), S13 answers S6 yes, S17 accepts S9–S11.
+  **It pushes back** (the operator, 2026-09-30: *"just because you get a lap answer doesn't
+  mean you can't push back and get more reasoning"*): S7 corrects their S23 (0.6.65 named
+  `.19` from their manifest 40 minutes before their lap was released), S8 asks, `BLOCKING`
+  on their S9, whether misalignment 3 and D2 still describe our tree after `428229c7`, and
+  S5, S20 and S22 ask for the log behind `97 of 97`, the reason S19 frees an author by a
+  claim, and the evidence that SIGTERM writes `.18`'s footer. **Released 2026-09-30**
+  on the operator's word (sha256 `85fdb608…`): FROM-COMMIT is `main`'s head `9b114c5f`,
+  and it cites `18496e5c`, which #283's merge makes reachable; it carries no `run:`, so
+  it is not rebuilt after the merge (the operator's 15-minute limit). With it,
+  `handshake.py --release-gate --tag v0.6.65` exits 0.
+- [x] **0.6.65 checked against `.19` in the fork's tree (2026-09-30), on the operator's
+  word "make sure we are talking the same language"**:
+  - *Flags:* `.19`'s P1 table equals `.18`'s, 41 rows byte for byte.
+  - *Log lines, the five `.19` adds to P2 and the one it removes:* the reworded
+    repeat-limit line is read as not converged, like the old one, which stays read for
+    `.18`; `Couldn't set metadata: %s!` is surfaced by the `Couldn't` prefix; `(not
+    listed: out of memory)` is not a failure line; the two `-Z`/`-r` refusals were NOT
+    surfaced, and now are, by a `-Z` prefix that matches exactly those two of the
+    contract's 539 rows (revert-probed).
+  - *Tag keys in capitals:* the one reader, colon-restore, walks every key whatever its
+    case. *Golden reference:* 0.6.65's parser reads the fork's `.19` golden reference
+    (build, footer, 3 of 3 tracks, CRCs, checksum) with nothing dropped.
+- [ ] **The Full run on 0.6.65 with `.19`** (S10), then both readings of the bundle.
+- [ ] **Our lap after the run:** our reading of it (S10); D1 to D10 of their proposal by
+  number and our work W1 and W3–W6 (S13, S14); and their S19 amendment and S20, so both
+  checkers change in the same round (their S21).
+- [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree,
+  sha256 `d5ff0e01…`, 15,658 bytes, at `cyanrip@5c92fc2`): the cycle, and whether routine
+  overrides end, the channel before a run, and when runs happen, are the operator's four
+  decisions (O1–O4) after both sides answer.
+- [ ] **S25 (NEXT-ROUND), a rip record with no footer.** Closing our script console 28.9 s
+  into section F of the `.18` run left a cyanrip log ending at `Tracks:`, with no footer
+  and no `Log FUN512:`, so `cyanrip -Y` exits 3. A SIGTERM mid-read writes `.18`'s
+  interrupt footer, so the question is what the console's close
+  (`script_console.py:563`, `self._runner.stop("the console was closed")`) sends a rip in
+  flight. Ours to read and answer in round 31.
+
 ## Round 29 — CLOSED on our gate on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
 Their lap 1 (`cyanrip@566d3fa`, sha256 `2e275d2f…`, 19,353 bytes, `OPEN`, LSL 3, released
@@ -685,7 +770,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     byte for byte, `round29full*`), whose README says what the run found. **Theirs is
     pending.** The ledger grades it `partial` (the three failures are in ARCHIVAL
     sections), and our round 29 lap 3 carries our reading.
-- [ ] **Three screenshot steps found no window on screen** (L676 H, L724 J, L850 K3). The
+- [~] **Three screenshot steps found no window on screen** (L676 H, L724 J, L850 K3). The
   main window and the console were `visible=True` with `exposed=False`, at 94, 96 and 124
   minutes; screenshots at 86, 103, 110 and 313 minutes passed. **The cause is not
   established.** Our hypothesis is that the display blanked or locked, because the sleep
@@ -695,6 +780,12 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   capture the window with `QWidget.grab()`, which needs no exposed window, if the step's
   purpose allows a picture of what Qt painted rather than of the screen. Either needs a
   hardware run to show the failure is gone, not just explained.
+  - *The first is built, for 0.6.65 (2026-09-30):* `platterpus.screen_inhibit` holds
+    `org.freedesktop.ScreenSaver.Inhibit` beside the sleep lock for the whole session,
+    asynchronously, and gives it back on every exit path. The bundle's facts carry a
+    `screen lock` line beside `sleep lock`. Tested against a real private
+    `dbus-daemon` with a stand-in screen saver, and revert-probed. **Open until the
+    round 30 Full run shows no unexposed window.**
 - [ ] **For the maintainer, and only for runs after the decision: should a screenshot step
   be able to fail an ARCHIVAL section?** H, J and K3 each contain one, so a blank screen
   makes the run `partial` whatever the rips did. Grading is fixed in advance and never
@@ -764,11 +855,13 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   in their tree is `GO` unless the run shows a defect in `.18` that breaks the pin, or
   does not complete. **Ours is our lap 3**, `GO` by our lap 2's S29: the run completed,
   and our reading found no defect in 0.6.63 or `.18` that breaks the pin.
-- [ ] **Closing releases (S9):** ours rolls `FORK_PIN` to `51cc789` (0.6.64); theirs is
+- [x] **Closing releases (S9):** ours rolls `FORK_PIN` to `51cc789` (0.6.64); theirs is
   `.19`, carrying the five `src/` commits past `.18` their lap 3 S18 names: the tag change
   (`bf50705`), the finalised checksum (`9669d84`), the repeat-limit wording (`fb31a2b`) and
   the `-Z`/`-r` refusal (`22f7aae`, `ad11743`). Both are named in the closing laps (their
-  lap 3 S18, our lap 4), which is what S9 asks.
+  lap 3 S18, our lap 4), which is what S9 asks. **Both released 2026-09-30:** our 0.6.64
+  (release run 36653391278, published 01:07Z, from `9b114c5f`), and their `.19` at
+  `174a134`, `release_seq` 29, on both channels (manifest at `cyanrip@7677b3f5`).
 - [x] **Their lap 3, released 2026-09-29** (`cyanrip@b89cbce4`, `GO`, sha256 `9c24b579…`,
   22,260 bytes), filed byte-exact from `cyanrip@18f79dc5`; both our checkers accept it, and
   with `--rerun` 3 results re-run and matched. Checked against both trees before filing:
@@ -7113,4 +7206,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.64.*
+*Last updated for Platterpus v0.6.65.*
