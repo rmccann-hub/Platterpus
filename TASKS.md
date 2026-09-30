@@ -683,7 +683,18 @@ each side's reading; and the closing releases named.
   reproduce. S6 was right and is fixed; S15 is pinned in our parser tests; S20's count
   across their tree was not re-derived. **Their lap 1 S15 promised C2 to C5 "before our
   lap 3 is released", and none is in their tree at `1d5c465`**: asked in our lap 4.
-- [ ] **Our lap after the run:** our reading of it (S10); D1 to D10 of their proposal by
+- [~] **Our lap 4, written and HELD** (2026-09-30, `docs/handshake/outbound/round-30-lap-04.md`,
+  49 statements, LSL 3, well formed with `--peer --rerun`, 1 warning: S29's count is an
+  unchecked `run:`). `OPEN`. It reads the run (their S10 met on our side), answers D1-D10
+  (D10 amended: a hotfix while a round is open goes out under the releasing side's gate;
+  a provider hotfix that rewords a matched line keeps round 20's order), W1 (both
+  tables reproduce, cell for cell), W3, W4 (our D6 block, checked, and a D5 draft), W5
+  (the block's `STATUS-OPEN` lines, twelve with S39's three steps), W6 (their S10 amended with a literal
+  `when: our next lap`; our half of S20 landed), their S24 (three WILLs), and asks S41
+  (`BLOCKING`: their C2-C5) and S42 (`-U`). Pre-commits `GO` for our next lap unless
+  the D1-D10 text has not landed in both trees. **Waits on:** our operator's word, and a
+  PR merging the session branch into `main` first, since its citations are there.
+- [x] **Our lap after the run** (*2026-09-30: written as our lap 4, the row above*): our reading of it (S10); D1 to D10 of their proposal by
   number and our work W1 and W3–W6 (S13, S14); and their S19 amendment and S20, so both
   checkers change in the same round (their S21).
   - *2026-09-30:* also tell them, as a NEXT-ROUND item, that the acceptance
