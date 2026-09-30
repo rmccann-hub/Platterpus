@@ -144,8 +144,10 @@ def outcome_from_reply(
         InhibitOutcome(
             state=STATE_HELD,
             detail=(
-                "The screen is held on, with no blanking and no lock, for this run. "
-                "It is released when the run ends, or if Platterpus exits."
+                "The desktop agreed to keep the screen on, with no blanking and no "
+                "lock, for this run; that is its promise, not a measurement, and "
+                "each screenshot step reports whether the display was showing the "
+                "app. It is released when the run ends, or if Platterpus exits."
             ),
             what=SCREEN_WHAT,
         ),

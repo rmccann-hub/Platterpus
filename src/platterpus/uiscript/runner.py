@@ -1245,11 +1245,34 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
         shown = _photograph_order(
             [w for w in windows if _is_on_screen(w)], self._window
         )
+        # THE DISPLAY WENT DARK, NOT THE APP (round 30 Full run, 2026-09-30).
+        # After section F's 91-minute rip every window read `visible=True`, with
+        # a platform window, and `exposed=False` — for the rest of the run, with
+        # the screen-saver inhibit held throughout — so all seven post-rip steps
+        # FAILED with nothing photographed. The pixels here were never a capture
+        # of the screen (`grab()` renders the widget; Wayland allows nothing
+        # else), so an OPEN window can still be rendered truthfully; what is lost
+        # is only the proof that the display was showing it. Rendered, labelled,
+        # and recorded as INFO rather than PASS, because it establishes less.
+        # A window that was never shown still gets no picture (the refusal this
+        # docstring opens with), and no open window at all is still a FAIL.
+        unexposed = (
+            []
+            if shown
+            else _photograph_order([w for w in windows if _is_open(w)], self._window)
+        )
+        shown = shown or unexposed
         for index, widget in enumerate(shown):
             path = directory / (
                 f"{name}.png" if index == 0 else f"{name}-{index}-{_slug(widget)}.png"
             )
-            manifest.append(_window_manifest_line(widget) + f" -> {path.name}")
+            label = (
+                " (RENDERED while the display was not showing it: what the app "
+                "drew, not proof it was on screen)"
+                if unexposed
+                else ""
+            )
+            manifest.append(_window_manifest_line(widget) + f" -> {path.name}{label}")
             try:
                 if widget.grab().save(str(path), "PNG"):
                     written.append(path.name)
@@ -1281,18 +1304,20 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
                 ),
             )
             return
-        detail = "\n".join(
-            [
-                f"examined {len(windows)} window(s); {len(shown)} on screen, "
-                f"wrote {len(written)} PNG(s); {len(unshown)} not on screen, "
-                f"named below without a picture"
-            ]
-            + manifest
+        headline = (
+            f"examined {len(windows)} window(s); NONE was on screen (the display "
+            f"was not showing them), so the {len(shown)} open one(s) were rendered "
+            f"instead, {len(written)} PNG(s) written — a picture of what the app "
+            f"drew, not of the screen; {len(unshown)} not open, named below"
+            if unexposed
+            else f"examined {len(windows)} window(s); {len(shown)} on screen, "
+            f"wrote {len(written)} PNG(s); {len(unshown)} not on screen, "
+            f"named below without a picture"
         )
         self._record(
             step,
-            Outcome.PASS,
-            detail,
+            Outcome.INFO if unexposed else Outcome.PASS,
+            "\n".join([headline] + manifest),
             artifact=str(directory / f"{name}.png") if written else "",
         )
 
@@ -4279,6 +4304,13 @@ def _is_on_screen(widget: QWidget) -> bool:
     """
     handle = widget.windowHandle()
     return widget.isVisible() and handle is not None and handle.isExposed()
+
+
+def _is_open(widget: QWidget) -> bool:
+    """Whether a top level was SHOWN and is still open: visible, with a platform
+    window, whatever the windowing system says about exposure. The weaker fact
+    `_do_screenshot` falls back to when the display stops showing every window."""
+    return widget.isVisible() and widget.windowHandle() is not None
 
 
 def _photograph_order(shown: list[QWidget], main: QWidget) -> list[QWidget]:
