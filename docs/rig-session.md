@@ -1,18 +1,23 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.64        round 29's closing release, released 2026-09-30: it
+Platterpus  v0.6.65        the release round 30's Full run is on, not yet released: it
+                           installs 51cc789 by default and accepts 174a134 as the
+                           build under review.
+            v0.6.64        round 29's closing release, released 2026-09-30: it
                            installs 51cc789 by default.
-            v0.6.63        the release round 29's run was on: it installs e0471f4 by
-                           default, and accepts 51cc789 as the build that round reviewed.
-cyanrip     51cc789        0.9.4-rc2+platterpus.18  (platterpus-fork-g51cc789)  <- PRODUCTION PIN
+cyanrip     174a134        0.9.4-rc2+platterpus.19  (platterpus-fork-g174a134)  <- UNDER REVIEW
+                           published 2026-09-30 on round 29's authority; round 30's subject
+            51cc789        0.9.4-rc2+platterpus.18  (platterpus-fork-g51cc789)  <- PRODUCTION PIN
                            approved by round 29, for Platterpus 0.6.63, on the Full run
 drive       Pioneer BDR-209D 1.51, read offset +667
 rounds 1-29 ALL CLOSED, bilateral GO (round 29 on 2026-09-29).
-round 30    not open.
+round 30    not open: the fork holds its lap 1 until this run exists (operator, 2026-09-30).
 ```
 
-> **Header last moved 2026-09-30**, when 0.6.64 was released to carry `51cc789`.
+> **Header last moved 2026-09-30**, when `.19` became the build under review before
+> round 30 has a lap, and 0.6.65 was named as the release its Full run is on. Before
+> that, the same day, when 0.6.64 was released to carry `51cc789`.
 > Before that, 2026-09-29, when round 29 closed on our gate and `FORK_PIN`
 > rolled to `51cc789`, on the Full run of 0.6.63 (320 of 323 steps, the three failures
 > screenshot steps of ours, none in a rip). Before that, 2026-09-28, when round 29 opened
@@ -56,14 +61,12 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 
 ## What the next run is for
 
-**No round needs a run: round 29 closed on 2026-09-29.** The next Full run is on
-**0.6.64** with `.18` installed, which that release installs by default. Section A then expects `51cc789` as the approved build, and every rip records
-its ripper as approved.
-
-**Round 30 needs its own Full run, and not on 0.6.64.** The fork's next build, `.19`, is
-not published yet (both channels of their manifest name `.18`, 2026-09-30). When it is
-and round 30 opens on it, the run is on the Platterpus release that names `.19` as the
-build under review, 0.6.65 at the earliest, with `.19` installed. One run tests both.
+**The next Full run is round 30's: 0.6.65 with `.19` installed.** The fork published
+`.19` (`174a134`) on 2026-09-30, on both channels, and holds its round 30 lap 1 until
+this run exists, so round 30 opens from the run's results (the operator's choice, that
+day). Section A expects `174a134` as the build under review, and every rip records its
+ripper as *being tested, not approved yet*, which is correct for this run. One run tests
+both sides.
 
 **It is a candidate full-green pass, which the project has never had.** The
 field-evidence ledger (`docs/testing.md` §5B) has twelve rows and no `full-green` one.
@@ -116,10 +119,10 @@ a container that is already running.
 1. **Put the reference disc in the drive** (any ordinary audio CD works; the script
    needs no album name, track count or path) and open Platterpus from the applications
    menu.
-2. **Update Platterpus to 0.6.64 first.** Then check **Tools → Setup & Updates…**: the
-   cyanrip line should read `platterpus-fork-g51cc789` (`0.9.4-rc2+platterpus.18`). If it
-   reads anything else, **Check for cyanrip updates** offers `.18`, the approved build;
-   choose **Install it now**. Then **Tools → Advanced → Run acceptance test…**,
+2. **Update Platterpus to 0.6.65 first.** Then check **Tools → Setup & Updates…**: the
+   cyanrip line should read `platterpus-fork-g174a134` (`0.9.4-rc2+platterpus.19`). If it
+   reads anything else, **Check for cyanrip updates** offers `.19` as the build handshake
+   round 30 is testing, which *"the acceptance test needs"*; choose **Install it anyway**. Then **Tools → Advanced → Run acceptance test…**,
    choose **Full**, and leave it. It holds sleep off, runs every section (4–6 hours), stops in its first
    seconds if the ripper is not the build under review, and puts your own settings back
    when it ends. **During the run, don't close any other Platterpus window or any

@@ -250,7 +250,14 @@ FORK_PIN: Final[str] = "51cc789"
 #: pin that was never a numbered release is deliberately absent: it has no sequence,
 #: and inventing one would order it against releases it was never part of.
 FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
-    # Round 29's subject, and the fork's CURRENT published release on both channels:
+    # Round 30's subject, and the fork's CURRENT published release on both channels:
+    # `release_seq` 29, `handshake_round` 29, `round_closed: true`, version
+    # `0.9.4-rc2+platterpus.19`. Read off their `release-manifest.json` at `7677b3f5`
+    # ("Publish 0.9.4-rc2+platterpus.19 at 174a134, stable"), unchanged at their tip
+    # `ec6ac2d0`, 2026-09-30, and filed byte-exact as
+    # `tests/fixtures/fork_release_manifest_7677b3f.json`.
+    "174a134": 29,
+    # Round 29's subject, and the fork's published release on both channels until `.19`:
     # `release_seq` 28, `handshake_round` 28, `round_closed: true`, version
     # `0.9.4-rc2+platterpus.18`. Read off their `release-manifest.json` at `ef34a96`
     # ("PUBLISH 0.9.4-rc2+platterpus.18 at 51cc789"), and unchanged at their tip
@@ -672,7 +679,20 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: **`FORK_PIN` stays `e0471f4` until round 29 closes.** **It closed on our gate on
 #: 2026-09-29 and `FORK_PIN` rolled with it**, so this is now also the release pin
 #: until round 30 opens on a new subject.
-PIN_UNDER_REVIEW: Final[str] = "51cc789"
+#: **Moved `51cc789` -> `174a134` on 2026-09-30, BEFORE round 30 has a lap**, on
+#: `+platterpus.19`, `release_seq` 29, both channels. The first move read off the
+#: fork's published manifest rather than a lap: the operator chose, that day, that
+#: the fork holds its round 30 lap 1 until the Full run on `.19` exists, so round 30
+#: opens from the run's results (the cycle the fork's `PROPOSAL-release-cycle.md`
+#: recommends). What names the build is therefore their `release-manifest.json` at
+#: `7677b3f5`, filed as `tests/fixtures/fork_release_manifest_7677b3f.json`, and
+#: `meson.build` line 21 at `174a134` declares the version.
+#: `tests/test_handshake_pin_under_review.py` reads that manifest when it publishes a
+#: release newer than any lap names, and the lap again once round 30's names it.
+#: `.19`'s change to `src/` is five commits past `.18` (`git log 51cc789..174a134 --
+#: src/`: `bf50705`, `9669d84`, `fb31a2b`, `22f7aae`, `ad11743`), the five their
+#: round 29 lap 3 S18 names. **`FORK_PIN` stays `51cc789`**, round 29's approval.
+PIN_UNDER_REVIEW: Final[str] = "174a134"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
 #: :data:`FORK_TEST_PIN_ROUND`, and held to the record by
@@ -689,7 +709,10 @@ PIN_UNDER_REVIEW: Final[str] = "51cc789"
 #: **27 from 2026-09-24**: round 27 names `221a1df` and reviews it on a drive.
 #: **28 from 2026-09-26**: round 28 names `e0471f4` and reviews it on a drive.
 #: **29 from 2026-09-28**: round 29 names `51cc789` and reviews it on a drive.
-PIN_UNDER_REVIEW_ROUND: Final[int] = 29
+#: **30 from 2026-09-30, before round 30 has a lap**: `.19` is published on round 29's
+#: authority and is round 30's subject, reviewed on the Full run that round 30 then
+#: opens from (see :data:`PIN_UNDER_REVIEW`).
+PIN_UNDER_REVIEW_ROUND: Final[int] = 30
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:
@@ -950,6 +973,9 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: **Still `False` at round 29, re-derived against `51cc789`**: `git diff --stat
 #: 51cc789 3952c03 -- src/ meson.build` is non-empty (6 files), and round 29 names no
 #: test pin.
+#: **Still `False` for round 30, re-derived against `174a134`**: `git diff --stat
+#: 174a134 3952c03 -- src/ meson.build` is non-empty (8 files), and no round names a
+#: test pin for `.19`.
 TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED: Final[bool] = False
 
 #: Test pins this round has already retired. Listed **only** so a rig that built one
@@ -1116,6 +1142,11 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # (built at `g3770a32`, whose `src/` and `meson.build` equal `51cc789`'s)
         # equals `.17`'s in P1, every flag, so `-u`/`--consumer` is in P1 unchanged.
         "platterpus-fork-g51cc789",
+        # Round 30's pin, `+platterpus.19`. Its `PROVIDER-CONTRACT.md` at `174a134`
+        # (built at `g7476e28`, whose `src/` and `meson.build` equal `174a134`'s)
+        # has the same 41 P1 flag rows as `.18`'s, byte for byte, so `-u`/`--consumer`
+        # is in P1 unchanged (line 58 there).
+        "platterpus-fork-g174a134",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
@@ -1754,7 +1785,11 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # `cyanrip 0.9.4-rc2+platterpus.17 (platterpus-fork-ge0471f4)`.
     # **Round 29's pairing, from their lap-1 wire header line 14:**
     # `cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-g51cc789)`.
-    version="0.9.4-rc2+platterpus.18",
+    # **Round 30's pairing, from ONE entry of their published manifest, not a lap**
+    # (their lap 1 is held until the run): `commit` `174a134` and `version`
+    # `0.9.4-rc2+platterpus.19` on both channels at `7677b3f5`, and `meson.build`
+    # line 21 at `174a134` declares the same version.
+    version="0.9.4-rc2+platterpus.19",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`

@@ -1,4 +1,13 @@
-"""``PIN_UNDER_REVIEW`` must track the newest inbound handshake round.
+"""``PIN_UNDER_REVIEW`` must track the newest inbound handshake round, or a release
+the fork published after it.
+
+**Two sources since 2026-09-30.** Until then only a lap named the build under review.
+That day the operator chose that the fork holds its round 30 lap 1 until the Full run
+on `.19` exists, so the build was named first by the fork's published
+``release-manifest.json``, filed byte-exact under ``tests/fixtures/``. The manifest
+counts only while it publishes a commit no lap names, on the authority of a round at
+least as new as the newest lap's; once a lap names the commit, the lap is the source
+again. :func:`_under_review_source` makes that choice once, for every test here.
 
 **Why this file exists.** The constant it guards spent five rounds at a
 round-7 value, with the comment above it still reading *"round 7 is open"*. The
@@ -26,7 +35,10 @@ half a future reader is most likely to "fix" by adding a row.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
@@ -36,6 +48,15 @@ from platterpus.deps import fork_source
 
 _REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 _INBOUND: Final[Path] = _REPO_ROOT / "docs" / "handshake" / "inbound"
+_FIXTURES: Final[Path] = _REPO_ROOT / "tests" / "fixtures"
+
+#: Each filed fork manifest, by the sha256 of the bytes their tree held at the commit
+#: in its name. Filed byte-exact, so a hand edit to make a test pass is refused.
+_FILED_MANIFESTS: Final[dict[str, str]] = {
+    "fork_release_manifest_7677b3f.json": (
+        "604da9a7cc1ee18b41b71d90c672940ad11f0a1c463f30f223e0a1a2ed088f96"
+    ),
+}
 
 #: ``HANDSHAKE-PIN: <commit>`` at column 0 of a round file's wire header. Anchored
 #: to a line start and to the exact key, because ``HANDSHAKE-PIN-POLICY:`` is a
@@ -84,6 +105,123 @@ def _inbound_rounds() -> list[Path]:
     )
 
 
+@dataclass(frozen=True)
+class UnderReviewSource:
+    """What names the build under review, and what it says about it."""
+
+    pin: str
+    round: int
+    version: str | None  # None: read it from the lap's own banner instead
+    declares_test_pin: bool | None  # None: read it from the lap
+    lap: Path | None  # the lap, when a lap is the source
+    manifest: str | None  # the filed manifest's name, when it is the source
+
+
+def _newest_manifest() -> dict[str, object] | None:
+    """The filed fork manifest with the highest ``latest_seq``, or None."""
+    documents = [
+        json.loads((_FIXTURES / name).read_text(encoding="utf-8"))
+        for name in _FILED_MANIFESTS
+    ]
+    return max(documents, key=lambda d: int(d["latest_seq"]), default=None)
+
+
+def _choose_source(
+    laps: list[tuple[int, str, Path]], manifest: dict[str, object] | None, name: str
+) -> UnderReviewSource:
+    """The newest lap declaring a pin, unless the manifest publishes a newer build.
+
+    ``laps`` is ``(round, declared pin, path)``, oldest first. The manifest wins only
+    when all of these hold, each read off their document: both channels name ONE
+    commit and version; no lap names that commit; and it was published on the
+    authority of a round at least as new as the newest lap's (``handshake_round``).
+    The reviewing round is then the next one.
+    """
+    assert laps, "no inbound lap declares a HANDSHAKE-PIN"
+    lap_round, lap_pin, lap_path = laps[-1]
+    lap_source = UnderReviewSource(lap_pin, lap_round, None, None, lap_path, None)
+    if manifest is None:
+        return lap_source
+    channels = manifest["channels"]
+    assert isinstance(channels, dict)
+    entries = {(str(c["commit"]), str(c["version"])) for c in channels.values()}
+    if len(entries) != 1:
+        return lap_source  # the channels disagree: nothing one entry can pair
+    ((commit, version),) = entries
+    named = any(
+        pin.casefold().startswith(commit.casefold())
+        or commit.casefold().startswith(pin.casefold())
+        for _, pin, _ in laps
+    )
+    authority = min(int(c["handshake_round"]) for c in channels.values())
+    if named or authority < lap_round:
+        return lap_source
+    return UnderReviewSource(commit, authority + 1, version, False, None, name)
+
+
+def _under_review_source() -> UnderReviewSource:
+    laps = [
+        (_round_of(path), match.group(1), path)
+        for path in _inbound_rounds()
+        if (match := _PIN_LINE.search(path.read_text(encoding="utf-8")))
+    ]
+    manifest = _newest_manifest()
+    name = next(
+        (
+            n
+            for n in _FILED_MANIFESTS
+            if manifest is not None
+            and json.loads((_FIXTURES / n).read_text(encoding="utf-8")) == manifest
+        ),
+        "",
+    )
+    return _choose_source(laps, manifest, name)
+
+
+def test_every_filed_manifest_is_the_bytes_their_tree_held() -> None:
+    for name, digest in _FILED_MANIFESTS.items():
+        data = (_FIXTURES / name).read_bytes()
+        assert hashlib.sha256(data).hexdigest() == digest, name
+    assert _FILED_MANIFESTS, "the floor: at least one manifest is filed"
+
+
+def _manifest(commit: str, version: str, authority: int) -> dict[str, object]:
+    entry = {"commit": commit, "version": version, "handshake_round": authority}
+    return {"latest_seq": 99, "channels": {"beta": entry, "stable": dict(entry)}}
+
+
+def test_the_source_is_the_lap_until_a_newer_release_is_published() -> None:
+    """The choice alone, on constructed inputs, so each arm is reached on purpose."""
+    lap = Path("round-29-lap-03.md")
+    laps = [(29, "51cc789", lap)]
+    # A release published on round 29's authority, which no lap names: round 30's.
+    newer = _choose_source(laps, _manifest("174a134", "v19", 29), "m")
+    assert (newer.pin, newer.round, newer.version) == ("174a134", 30, "v19")
+    assert newer.declares_test_pin is False and newer.manifest == "m"
+    # Once round 30's lap names it, the lap is the source again.
+    named = [*laps, (30, "174a134", Path("round-30-lap-01.md"))]
+    back = _choose_source(named, _manifest("174a134", "v19", 29), "m")
+    assert back.lap is not None and back.lap.name == "round-30-lap-01.md"
+    # A manifest that is the lap's own build, an older round's, or split: the lap.
+    for stale in (
+        _manifest("51cc789", "v18", 28),
+        _manifest("e0471f4", "v17", 27),
+        {
+            **_manifest("174a134", "v19", 29),
+            "channels": {
+                "beta": {"commit": "174a134", "version": "v19", "handshake_round": 29},
+                "stable": {
+                    "commit": "51cc789",
+                    "version": "v18",
+                    "handshake_round": 28,
+                },
+            },
+        },
+    ):
+        assert _choose_source(laps, stale, "m").lap == lap, stale
+    assert _choose_source(laps, None, "").lap == lap
+
+
 def test_there_are_inbound_rounds_with_wire_headers() -> None:
     """The floor. Without it a glob that matched nothing would pass every
     assertion below, and this file would be decoration — which is precisely the
@@ -106,22 +244,13 @@ def test_the_pin_under_review_matches_the_newest_inbound_round() -> None:
     memory of it — `CLAUDE.md`: *when a committed artifact can settle a question,
     the test should read the artifact.*
     """
-    newest = next(
-        (
-            path
-            for path in reversed(_inbound_rounds())
-            if _PIN_LINE.search(path.read_text(encoding="utf-8"))
-        ),
-        None,
-    )
-    assert newest is not None, "no inbound round declares a HANDSHAKE-PIN"
-    match = _PIN_LINE.search(newest.read_text(encoding="utf-8"))
-    assert match is not None  # guarded by the generator above
-    declared = match.group(1)
+    source = _under_review_source()
+    declared = source.pin
+    where = source.lap.name if source.lap is not None else source.manifest
 
     assert fork_source.PIN_UNDER_REVIEW.casefold() == declared.casefold(), (
         f"PIN_UNDER_REVIEW is {fork_source.PIN_UNDER_REVIEW!r} but the newest "
-        f"inbound round ({newest.name}) proposes {declared!r}.\n\n"
+        f"source ({where}) names {declared!r}.\n\n"
         f"Update the constant in src/platterpus/deps/fork_source.py. Do NOT also "
         f"add it to BUILD_TAGS_ACCEPTING_CONSUMER_FLAG or "
         f"BUILD_TAGS_ACCEPTING_VERIFY_LOG — see the next test for why.\n\n"
@@ -148,10 +277,10 @@ def _newest_pin_declaring_lap() -> Path:
 def test_the_pin_under_review_ROUND_matches_the_newest_inbound_round() -> None:
     """``PIN_UNDER_REVIEW_ROUND`` is stated; this holds it to the record, so the
     predicate below cannot be steered by a round number nobody updated."""
-    newest = _newest_pin_declaring_lap()
-    assert fork_source.PIN_UNDER_REVIEW_ROUND == _round_of(newest), (
+    source = _under_review_source()
+    assert fork_source.PIN_UNDER_REVIEW_ROUND == source.round, (
         f"PIN_UNDER_REVIEW_ROUND is {fork_source.PIN_UNDER_REVIEW_ROUND} but the "
-        f"newest inbound round declaring a pin is {newest.name}"
+        f"newest source ({source.lap or source.manifest}) gives round {source.round}"
     )
 
 
@@ -171,7 +300,16 @@ def test_the_rig_installs_a_test_pin_ONLY_when_the_open_round_declares_one() -> 
     if not fork_source.a_round_is_reviewing_a_build():
         assert not fork_source.rig_installs_the_test_pin()
         return
-    newest = _newest_pin_declaring_lap()
+    source = _under_review_source()
+    if source.lap is None:
+        # A published release no lap names yet: nothing declares a test pin for it.
+        assert source.declares_test_pin is False
+        assert not fork_source.rig_installs_the_test_pin(), (
+            f"{source.manifest} names {source.pin} and no lap declares a test pin "
+            "for it, but rig_installs_the_test_pin() is True"
+        )
+        return
+    newest = source.lap
     text = newest.read_text(encoding="utf-8")
     match = re.search(r"^HANDSHAKE-TEST-PIN:[ \t]*(\S+)", text, re.M)
     declares_one = bool(match) and match.group(1).strip("*`.,;").lower() != "none"
@@ -284,17 +422,25 @@ def test_the_under_review_pin_and_version_are_one_pairing_from_one_lap() -> None
     have carried a banner-and-pin combination no binary prints.
 
     Both halves are derived from the SAME inbound lap here, because reading them
-    from two places is how they came apart.
+    from two places is how they came apart. When a published manifest is the source
+    (see the module docstring), both come from ONE of its entries, for the same reason.
     """
-    newest = next(
-        (
-            path
-            for path in reversed(_inbound_rounds())
-            if _PIN_LINE.search(path.read_text(encoding="utf-8"))
-        ),
-        None,
-    )
-    assert newest is not None, "no inbound round declares a HANDSHAKE-PIN"
+    source = _under_review_source()
+    target = fork_source.UNDER_REVIEW_TARGET
+    if source.lap is None:
+        assert source.version is not None
+        assert target.pin.casefold() == source.pin.casefold(), (
+            f"UNDER_REVIEW_TARGET.pin is {target.pin!r} but {source.manifest} "
+            f"publishes {source.pin!r}"
+        )
+        assert target.version == source.version, (
+            f"UNDER_REVIEW_TARGET.version is {target.version!r} but {source.manifest} "
+            f"pairs {source.pin} with {source.version!r}. The two fields name ONE "
+            "build; a version rendered against a different commit is the "
+            "mis-pairing this test exists to refuse."
+        )
+        return
+    newest = source.lap
     text = newest.read_text(encoding="utf-8")
 
     pin_match = _PIN_LINE.search(text)
@@ -314,7 +460,6 @@ def test_the_under_review_pin_and_version_are_one_pairing_from_one_lap() -> None
         f"check has nothing to derive the pairing from"
     )
 
-    target = fork_source.UNDER_REVIEW_TARGET
     assert target.pin.casefold() == declared_pin.casefold(), (
         f"UNDER_REVIEW_TARGET.pin is {target.pin!r} but {newest.name} declares "
         f"{declared_pin!r}"

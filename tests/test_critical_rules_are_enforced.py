@@ -1420,7 +1420,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `51cc789` and `FORK_EXPECTED_VERSION` to `.18`, each with the dated record of
     # where it was read and cross-checked, as every roll before it; the production
     # target's `why` names round 29's run.
-    "deps/fork_source.py": 2492,
+    # **2492 -> 2527 (2026-09-30, `.19` under review before round 30 has a lap)**:
+    # `PIN_UNDER_REVIEW` moves to `174a134` with why, and why it was read from the
+    # fork's published manifest rather than a lap; its release sequence, its build tag
+    # in the `--consumer` accept-set with the contract that licenses it, the
+    # re-derived same-program flag, and the pairing line.
+    "deps/fork_source.py": 2527,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
