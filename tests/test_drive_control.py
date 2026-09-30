@@ -407,3 +407,38 @@ def test_device_is_held_is_tri_state() -> None:
     assert drive_control.device_is_held("/dev/sr0", runner=_Recorder(1)) is False
     assert drive_control.device_is_held("/dev/sr0", runner=_Recorder(124)) is None
     assert drive_control.device_is_held("", runner=_Recorder(0)) is None
+
+
+def test_the_shutdown_grace_is_twice_the_longest_read_on_record() -> None:
+    """The fork's round 30 lap 5 S17: a grace shorter than one read loses the log.
+
+    cyanrip acts on SIGTERM only once the read in hand returns, so a grace shorter
+    than a read SIGKILLs the reader before it writes its footer. The fork cited
+    reads of 11 s; our own filed log from the same drive has one of 20 s. So the
+    floor is read from the logs FILED IN THIS TREE (cyanrip's own `Read stalls:`
+    summary line), not from a number in a comment, and the next longer read
+    filed here raises it.
+
+    Only `.log` files count: the `.md` laps quote the line's FORMAT with
+    invented values (`longest 187s`) taken from the fork's tests.
+    """
+    import re
+    from pathlib import Path
+
+    docs = Path(__file__).resolve().parents[1] / "docs"
+    stall = re.compile(r"^Read stalls:\s.*?longest (?P<s>\d{1,5})s\b", re.M)
+    longest: list[tuple[int, str]] = []
+    for path in sorted(docs.rglob("*.log")):
+        for match in stall.finditer(path.read_text(encoding="utf-8", errors="replace")):
+            longest.append((int(match.group("s")), path.name))
+    assert longest, (
+        "no filed ripper log has a `Read stalls: … longest Ns` line, so this "
+        "floor is checking nothing; if the line's wording moved, follow it"
+    )
+    worst, where = max(longest)
+    assert worst >= 20, f"the 20 s read in the round 15 lap 13 log is gone: {longest}"
+    assert drive_control.READER_TERM_GRACE_S >= 2 * worst, (
+        f"the SIGTERM grace is {drive_control.READER_TERM_GRACE_S:.0f}s and {where} "
+        f"records a single read of {worst}s: a quit during such a read loses the "
+        "log's footer"
+    )

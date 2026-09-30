@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
 
-from platterpus import drive_control, rip_addendum, rip_files, tag_hygiene
+from platterpus import drive_control, exit_work, rip_addendum, rip_files, tag_hygiene
 from platterpus.adapters import cover_art
 from platterpus.adapters.derived_verify import DerivedVerifyResult
 from platterpus.adapters.flac_recompress import (
@@ -116,14 +116,16 @@ the two back out of step — which is the shape that produced the defect the
 wait exists to fix.
 """
 
-# How long window-close may spend stopping the in-container reader, in total:
-# the reader's SIGTERM grace, so a slow read can finish and the log keep its footer
-# (2026-09-30), plus 5 s for the SIGKILL escalation. The escalation's share was
-# chosen against what the fast path costs: on rootless podman the in-container
+# How long stopping the in-container reader may take after a window close, in
+# total: the reader's SIGTERM grace, so a slow read can finish and the log keep its
+# footer (2026-09-30), plus 5 s for the SIGKILL escalation. The escalation's share
+# was chosen against what the fast path costs: on rootless podman the in-container
 # processes are host-visible, so `fuser -k` is effectively instant (measured at
 # 0.12 s on the rig), and 5 s caps the pathological case, where every step misses
-# and the `distrobox enter` fallback would otherwise be waited out. A close with a
-# rip in flight can therefore take up to this long; a close without one is untouched.
+# and the `distrobox enter` fallback would otherwise be waited out. It no longer
+# holds the window: the stop runs as exit work (`exit_work`), so the window closes
+# at once and the process, windowless, lingers at most this long plus the join's
+# margin. A close without a rip in flight is untouched.
 _SHUTDOWN_DRIVE_FREE_BUDGET_S: float = drive_control.READER_TERM_GRACE_S + 5.0
 
 # How long the rip may go with NO signal from the worker (no progress line, no
@@ -1212,7 +1214,7 @@ class RipMixin(MainWindowShared):
         thread.start()
 
     def _stop_rip_on_shutdown(self) -> None:
-        """Stop an in-flight rip when the window is closing — SYNCHRONOUSLY.
+        """Stop an in-flight rip when the window is closing, without holding it.
 
         This is the belt for a real-user bug (2026-07-01): closing the app while
         a rip ran left the drive spinning and the *next* track kept ripping until
@@ -1225,16 +1227,19 @@ class RipMixin(MainWindowShared):
 
         The normal in-app Cancel copes by arming ``_force_stop_timer`` and
         escalating to ``force_stop_drive`` after a countdown. On window close that
-        safety net is gone: the app tears down before any QTimer fires, and we
-        can't offload the kill to a daemon thread either — the interpreter exits
-        and kills that thread mid-``pkill``, so the reader is never stopped. So we
-        must stop the in-container reader **synchronously, right here**, before
-        ``closeEvent`` returns. This is the one deliberate exception to the
-        never-block-the-GUI-thread rule: the window is already going away, and a
-        bounded blocking kill is the whole point. It's fast in the common case
-        (host ``pkill``/``fuser`` are instant because rootless in-container procs
-        are host-visible); the slow ``distrobox enter`` fallback only runs if the
-        host saw nothing, and is itself bounded by a subprocess timeout.
+        safety net is gone: the app tears down before any QTimer fires. A plain
+        daemon thread is not enough either, because the interpreter exits and
+        kills it mid-``pkill``, and the reader is never stopped.
+
+        **So the stop is exit work** (`exit_work`), since 2026-09-30. It runs on a
+        helper thread that ``app.main`` joins, bounded, after ``app.exec()``
+        returns and before the process exits. Until then it ran here,
+        synchronously, as this file's one sanctioned block of the GUI thread. That
+        was fine while the grace was short, and wrong once the fork found a single
+        read of 11 s on the rig's drive (their round 30 lap 5 S17), and our own
+        filed log one of 20 s: a grace long enough to outlast that would freeze
+        the window for most of a minute at the moment the user asked it to go. Now the window closes at once, and the
+        process lingers, windowless, while the reader writes its log.
 
         Best-effort and gated on a rip actually being in flight (``_rip_thread``
         set) so a normal close never touches the drive. Does NOT eject — closing
@@ -1269,7 +1274,12 @@ class RipMixin(MainWindowShared):
         # picker is a live UI control and by the time we are closing it may point
         # at a drive that was never involved in this rip.
         device = self._force_stop_device or self._drive_picker.current_device() or ""
-        try:
+        # Read HERE, on the GUI thread, and handed over as values: the helper
+        # below must touch no widget and no attribute a slot might change.
+        already_signalled = self._force_stop_done
+        worker = self._rip_worker
+
+        def stop_the_reader() -> None:
             # SIGTERM the reader, give it a grace to write its log's footer, and
             # SIGKILL only if it still holds the drive (2026-09-30, the fork's round
             # 30 S25: this used to SIGKILL 191 ms after the wrapper's SIGTERM, and a
@@ -1277,23 +1287,28 @@ class RipMixin(MainWindowShared):
             # A reader the post-cancel rescue already signalled is not signalled
             # again: cyanrip's second SIGTERM force-exits without the footer.
             #
-            # BOUNDED, on the GUI thread by design (see docstring): one shared
-            # budget covers the grace and the escalation, and a spent budget skips
-            # the remaining steps and says so in the log.
-            drive_control.stop_reader_gracefully(
-                device=device,
-                already_signalled=self._force_stop_done,
-                runner=drive_control.budgeted_runner(_SHUTDOWN_DRIVE_FREE_BUDGET_S),
-            )
-        except Exception:  # noqa: BLE001 — shutdown cleanup must never crash close
-            log.exception("shutdown drive-free failed; ignored")
-        if self._rip_worker is not None:
-            # Release the worker from its bounded wait for the log's footer only
-            # now, AFTER the grace: a footer written inside it reaches the report.
-            # Past this point it is not coming, and a worker sitting out a deadline
-            # it cannot meet is the frozen-window shape the maintainer reports as
-            # a bug; the verdict degrades to `not_determined`, the honest one.
-            self._rip_worker.abandon_log_wait()
+            # BOUNDED: one budget covers the grace and the escalation, and a spent
+            # budget skips the remaining steps and says so in the log.
+            try:
+                drive_control.stop_reader_gracefully(
+                    device=device,
+                    already_signalled=already_signalled,
+                    runner=drive_control.budgeted_runner(_SHUTDOWN_DRIVE_FREE_BUDGET_S),
+                )
+            finally:
+                if worker is not None:
+                    # Release the worker from its bounded wait for the log's footer
+                    # only now, AFTER the grace, so its own check of the log can
+                    # see a footer written inside it. Past this point the footer is
+                    # not coming, and the verdict degrades to `not_determined`, the
+                    # honest one. Setting an Event: safe from this thread.
+                    worker.abandon_log_wait()
+
+        # Exit work, joined by `app.main` before the process exits (see the
+        # docstring). `abandon_log_wait()` is called inside it, above.
+        exit_work.start(
+            stop_the_reader, name="stop-reader", budget_s=_SHUTDOWN_DRIVE_FREE_BUDGET_S
+        )
 
     def _on_eject_requested(self, device: str) -> None:
         """User clicked Eject — eject the selected disc."""

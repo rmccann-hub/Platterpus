@@ -55,6 +55,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Quitting during a rip now closes the window at once, and gives cyanrip long
+  enough to finish its log.** When you quit mid-rip, Platterpus asks cyanrip to
+  stop and waits for it to write the end of its log before forcing it. cyanrip
+  can only stop between reads, and the rip drive has been recorded taking 20
+  seconds over a single read. The wait was 8 seconds, so a quit during a slow
+  read could still cut the log short. It is now 40 seconds. The window no longer
+  waits with it: it closes straight away, and Platterpus finishes stopping
+  cyanrip in the background before it exits. Usually that takes a second or
+  two, because the wait ends as soon as cyanrip lets go of the drive.
 - **An acceptance-test screenshot no longer fails just because the display went
   dark.** In the round 30 Full run every screenshot taken after the first long rip
   failed. The app's windows were still open, but the desktop had stopped showing

@@ -31,7 +31,7 @@ import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from platterpus import __version__, hard_exit
+from platterpus import __version__, exit_work, hard_exit
 from platterpus.paths import APP_ID, APP_NAME
 
 if TYPE_CHECKING:
@@ -1542,6 +1542,11 @@ def main(argv: list[str] | None = None) -> int:
     # Referenced after the loop so no linter or future refactor can decide the
     # assignment above is dead and remove the reference that keeps it alive.
     del _termination_timer
+    # The window has gone; what it handed over must finish before the process
+    # does. Today that is stopping the ripper after a quit mid-rip, which gives
+    # cyanrip its grace to write the end of its log (`exit_work`, the fork's
+    # round 30 lap 5 S17). Bounded, and a no-op when nothing was handed over.
+    exit_work.wait()
     # If any worker thread had to be abandoned still-running, returning from here
     # would let interpreter shutdown clear `workers._abandoned_threads`, drop the
     # last reference to a live QThread, and abort with SIGABRT (the v0.5.8 crash —
