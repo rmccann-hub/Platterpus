@@ -427,6 +427,33 @@ def test_git_output_that_is_not_utf8_does_not_raise(tmp_path: Path) -> None:
     assert state.remote_main is None and state.remote_error is not None
 
 
+def _proc_state(pid: int) -> str:
+    """The process's state letter from ``/proc``, or ``"gone"`` once it has no entry.
+
+    Both errors mean gone. ``FileNotFoundError`` is the entry already removed;
+    ``ProcessLookupError`` (ESRCH) is the process reaped between the open and the
+    read, which failed the py3.11 leg of PR #282's CI (2026-09-30) on exactly the
+    outcome the test below waits for. A live process always reads.
+    """
+    try:
+        return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except (FileNotFoundError, ProcessLookupError):
+        return "gone"
+
+
+def test_a_process_reaped_mid_read_counts_as_gone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The race, made deterministic: the read raises ESRCH, the answer is gone."""
+    assert _proc_state(os.getpid()) in ("R", "S"), "the floor: a live process reads"
+
+    def _reaped(self: Path, *args: object, **kwargs: object) -> str:
+        raise ProcessLookupError(3, "No such process")
+
+    monkeypatch.setattr(Path, "read_text", _reaped)
+    assert _proc_state(os.getpid()) == "gone"
+
+
 def test_a_git_that_hangs_is_cut_off_with_everything_it_started(
     tmp_path: Path,
 ) -> None:
@@ -454,10 +481,7 @@ def test_a_git_that_hangs_is_cut_off_with_everything_it_started(
     deadline = time.monotonic() + 5
     state = "?"
     while time.monotonic() < deadline:
-        try:
-            state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
-        except FileNotFoundError:
-            state = "gone"
+        state = _proc_state(pid)
         if state in ("gone", "Z", "X"):
             break
         time.sleep(0.1)

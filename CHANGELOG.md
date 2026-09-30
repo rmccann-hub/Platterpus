@@ -16,6 +16,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A test of the check script no longer fails on the outcome it waits for.** It waits
+  for a killed process to disappear by reading `/proc/<pid>/stat`, and treated only
+  "file not found" as gone. A process reaped between the open and the read raises "no
+  such process" instead, which failed the Python 3.11 CI leg of the 0.6.64 release PR.
+  Both now read as gone, and a test raises the second on purpose.
 - **The handshake status no longer tells us to hold a release for a lap the fork
   will not write.** When a round closes on a lap of ours that the fork's closing lap
   does not list, `handshake.py --status` added that the fork's gate would close it one
