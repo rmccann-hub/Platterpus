@@ -709,11 +709,12 @@ each side's reading; and the closing releases named.
   and our status block's release and run lines state the plan they give: round 30's
   closing releases are their `.20` on beta, then our 0.6.66 pinning `174a134` and
   reviewing `.20`.
-- [ ] **O3 on our side** (round 30, before our closing lap): our build-under-review check
+- [~] **O3 on our side** (round 30, before our closing lap): our build-under-review check
   follows a manifest build only while both channels name one commit
   (`tests/test_handshake_pin_under_review.py::_choose_source`), so a beta-only `.20` would
   need a lap. Teach it, the rig's install and D3's "newest release" to follow the beta
   channel's build when it is newer than stable's.
+  - *2026-09-30: the derivation is done* (`_choose_source` takes the newest entry by `release_seq` when the channels split; revert-probed). The rig's install and the update offer already work per channel and by commit. D3's check, still to build, reads the same newest entry.
 - [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree,
   sha256 `d5ff0e01…`, 15,658 bytes, at `cyanrip@5c92fc2`): the cycle, and whether routine
   overrides end, the channel before a run, and when runs happen, are the operator's four

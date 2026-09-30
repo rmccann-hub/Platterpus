@@ -71,6 +71,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- For contributors: the build under review is now derived from the cyanrip
+  fork's newest release when its two channels disagree, by release number,
+  because under our operator's O3 ruling a new build goes to beta alone until
+  its hardware run passes. It used to follow a published build only when both
+  channels named it, which would have left the fork's `.20` unreviewed.
 - For contributors: our lap checker implements LSL 4, agreed with the cyanrip
   fork in round 30. A lap declaring `LSL: 4` must write a pre-commit's `when:`
   as exactly `our next lap`, the lap the pre-commit binds; LSL 3 laps are read
