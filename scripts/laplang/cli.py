@@ -25,7 +25,7 @@ from typing import Final
 from .amend import check_amendments
 from .check import check_lap
 from .context import Context
-from .grammar import read_lap
+from .grammar import implemented_versions, read_lap
 from .model import Lap, RunCoverage, Side
 from .record import Record
 from .refs import Trees, default_at
@@ -197,8 +197,11 @@ def render_runs(runs: RunCoverage) -> list[str]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    # Derived from the table, as the version refusal is: this said "LSL 1, LSL 2
+    # or LSL 3" for a day after LSL 4 landed, the stale-copy shape the table
+    # exists to prevent.
     parser = argparse.ArgumentParser(
-        description="Check a lap written in LSL 1, LSL 2 or LSL 3."
+        description=f"Check a lap written in {implemented_versions()}."
     )
     sub = parser.add_subparsers(dest="command", required=True)
     check = sub.add_parser("check", help="check one lap")
