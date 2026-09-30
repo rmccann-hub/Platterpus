@@ -12,6 +12,48 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.6.65] — 2026-09-30
+
+### Fixed
+
+- **The fork's two new `-Z`/`-r` refusals reach you in cyanrip's own words.** `.19`
+  prints *"-Z N can never converge with -r M: …"* when a secure re-read could never
+  succeed. Our own settings check refuses the same pairs before cyanrip starts, so a
+  rip should not meet them; if one ever does, the error now names cyanrip's sentence
+  rather than a bare "Rip failed." Found by checking 0.6.65 against every line `.19`'s
+  published contract added: the other two are already handled.
+- **The acceptance test keeps the screen awake, not only the machine.** The round 29
+  Full run failed three screenshot steps because every window was on screen in name and
+  hidden in fact, most likely because the display blanked: the sleep lock stops the
+  machine sleeping and says nothing to the screen saver. The run now also asks the
+  desktop to hold the screen on (`org.freedesktop.ScreenSaver`, the interface a video
+  player uses), and gives it back when the run ends, or if Platterpus exits. The bundle
+  records whether it was held, beside the sleep lock, and says to set the screen to
+  never turn off if the desktop refused. The next Full run is what shows whether the
+  blank screen was the cause.
+
+### Changed
+
+- **The fork's `.19` (`174a134`) is the build the next Full acceptance run tests.**
+  `PIN_UNDER_REVIEW` moves from `51cc789` to `174a134` (`0.9.4-rc2+platterpus.19`, fork
+  release 29), so section A accepts `.19` and the cyanrip update offer marks it as the
+  build the acceptance test needs. The pin installed by default stays `51cc789`, round
+  29's approval. The build under review moved first from the fork's published
+  `release-manifest.json`, filed byte-exact under `tests/fixtures/`, while the
+  maintainer had the fork hold its round 30 lap 1; the check that holds the build under
+  review to the record reads that manifest while no lap names the build, and the lap
+  once one does. The fork's round 30 lap 1 is now filed and names the same commit, so
+  round 30 is open on `.19`, and 0.6.65 goes out under the maintainer's §6b override,
+  recorded in our round 30 lap 2. The rig sheet, the standing status, README and TASKS
+  name the new pair.
+- **The list of cyanrip's own error sentences is `.19`'s.** It is regenerated from
+  `.19`'s published contract, filed with the fork's round 30 lap 1: 123 messages, from
+  120. The three new ones are the two `-Z`/`-r` refusals and *"Couldn't set metadata"*.
+  It also picks up the one change `.18` made, which round 29 never filed: a MusicBrainz
+  message replaced by upstream cyanrip. The old message is still recognised, because
+  older builds print it. We had counted `.19`'s new stable log lines as four; the
+  contract shows five added and one removed, as the fork said.
+
 ## [0.6.64] — 2026-09-30
 
 ### Fixed
@@ -17014,7 +17056,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.64...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.65...HEAD
+[0.6.65]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.64...v0.6.65
 [0.6.64]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.63...v0.6.64
 [0.6.63]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.62...v0.6.63
 [0.6.62]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.61...v0.6.62
@@ -17081,4 +17124,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.64.*
+*Last updated for Platterpus v0.6.65.*

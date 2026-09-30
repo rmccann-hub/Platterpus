@@ -1,18 +1,25 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.64        round 29's closing release, released 2026-09-30: it
+Platterpus  v0.6.65        the release round 30's Full run is on, cut 2026-09-30 under
+                           the operator's §6b override (our round 30 lap 2):
+                           it installs 51cc789 and accepts 174a134 as under review.
+            v0.6.64        round 29's closing release, released 2026-09-30: it
                            installs 51cc789 by default.
-            v0.6.63        the release round 29's run was on: it installs e0471f4 by
-                           default, and accepts 51cc789 as the build that round reviewed.
-cyanrip     51cc789        0.9.4-rc2+platterpus.18  (platterpus-fork-g51cc789)  <- PRODUCTION PIN
+cyanrip     174a134        0.9.4-rc2+platterpus.19  (platterpus-fork-g174a134)  <- UNDER REVIEW
+                           published 2026-09-30 on round 29's authority; round 30's subject
+            51cc789        0.9.4-rc2+platterpus.18  (platterpus-fork-g51cc789)  <- PRODUCTION PIN
                            approved by round 29, for Platterpus 0.6.63, on the Full run
 drive       Pioneer BDR-209D 1.51, read offset +667
 rounds 1-29 ALL CLOSED, bilateral GO (round 29 on 2026-09-29).
-round 30    not open.
+round 30    OPEN on 174a134, from the fork's lap 1 (2026-09-30); this run is its S10.
 ```
 
-> **Header last moved 2026-09-30**, when 0.6.64 was released to carry `51cc789`.
+> **Header last moved 2026-09-30**, when round 30 opened on `.19` (the fork's lap 1,
+> sha256 `6db0ed0d…`) and 0.6.65 was released for its Full run. Before that, the same
+> day, when `.19` became the build under review before round 30 had a lap, and 0.6.65
+> was named as the release its Full run is on. Before that, the same day, when 0.6.64
+> was released to carry `51cc789`.
 > Before that, 2026-09-29, when round 29 closed on our gate and `FORK_PIN`
 > rolled to `51cc789`, on the Full run of 0.6.63 (320 of 323 steps, the three failures
 > screenshot steps of ours, none in a rip). Before that, 2026-09-28, when round 29 opened
@@ -56,21 +63,20 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 
 ## What the next run is for
 
-**No round needs a run: round 29 closed on 2026-09-29.** The next Full run is on
-**0.6.64** with `.18` installed, which that release installs by default. Section A then expects `51cc789` as the approved build, and every rip records
-its ripper as approved.
-
-**Round 30 needs its own Full run, and not on 0.6.64.** The fork's next build, `.19`, is
-not published yet (both channels of their manifest name `.18`, 2026-09-30). When it is
-and round 30 opens on it, the run is on the Platterpus release that names `.19` as the
-build under review, 0.6.65 at the earliest, with `.19` installed. One run tests both.
+**The next Full run is round 30's: 0.6.65 with `.19` installed.** The fork published
+`.19` (`174a134`) on 2026-09-30, on both channels, and its round 30 lap 1 opened the
+round the same day, before the run, because section A accepts `.19` only once a
+release of ours names it (the fork's S22–S24). This run is the round's S10. Section A expects `174a134` as the build under review, and every rip records its
+ripper as *being tested, not approved yet*, which is correct for this run. One run tests
+both sides.
 
 **It is a candidate full-green pass, which the project has never had.** The
 field-evidence ledger (`docs/testing.md` §5B) has twelve rows and no `full-green` one.
 Round 29's run is `partial` because three screenshot steps, in sections graded archival
-in advance, found no window on screen. Our hypothesis is that the display blanked, and
-until the app holds the screen awake itself (`TASKS.md`), set the machine's screen to
-never turn off for the run. `0.7.100` is gated on a run with **zero failures in the
+in advance, found no window on screen. Our hypothesis is that the display blanked, so
+0.6.65 holds the screen awake for the run as well as the machine. Its first notice in
+the rip pane says whether it could: if the *Screen lock* line starts with ⚠, set the
+screen to never turn off by hand. `0.7.100` is gated on a run with **zero failures in the
 ARCHIVAL sections**; `0.9.1` needs two such runs on at least two machines and two
 distros. **Only a Full run counts as evidence**; Quick and Standard are for checking the
 setup.
@@ -116,11 +122,11 @@ a container that is already running.
 1. **Put the reference disc in the drive** (any ordinary audio CD works; the script
    needs no album name, track count or path) and open Platterpus from the applications
    menu.
-2. **Update Platterpus to 0.6.64 first.** Then check **Tools → Setup & Updates…**: the
-   cyanrip line should read `platterpus-fork-g51cc789` (`0.9.4-rc2+platterpus.18`). If it
-   reads anything else, **Check for cyanrip updates** offers `.18`, the approved build;
-   choose **Install it now**. Then **Tools → Advanced → Run acceptance test…**,
-   choose **Full**, and leave it. It holds sleep off, runs every section (4–6 hours), stops in its first
+2. **Update Platterpus to 0.6.65 first.** Then check **Tools → Setup & Updates…**: the
+   cyanrip line should read `platterpus-fork-g174a134` (`0.9.4-rc2+platterpus.19`). If it
+   reads anything else, **Check for cyanrip updates** offers `.19` as the build handshake
+   round 30 is testing, which *"the acceptance test needs"*; choose **Install it anyway**. Then **Tools → Advanced → Run acceptance test…**,
+   choose **Full**, and leave it. It holds sleep and the screen off, runs every section (4–6 hours), stops in its first
    seconds if the ripper is not the build under review, and puts your own settings back
    when it ends. **During the run, don't close any other Platterpus window or any
    terminal you have used distrobox in.**
@@ -150,4 +156,4 @@ known to be correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.64.*
+*Last updated for Platterpus v0.6.65.*

@@ -73,7 +73,13 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-29-lap-04.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-30-lap-02.md",)
+
+# WHY IT MOVED TO ROUND-30 LAP 2 (2026-09-30).
+#
+# **Our first lap of round 30**: `OPEN`, answering their lap 1, questioning it, and
+# carrying the operator's §6b override for v0.6.65. Released on the operator's
+# word, so it travels alone, like round 29's lap 2 before it.
 
 # WHY IT MOVED TO ROUND-29 LAP 4 (2026-09-29).
 #
