@@ -11,6 +11,42 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-30 — Round 30's Full run filed; the unbuilt unsafe verbs removed
+
+**Asked:** the round 30 Full bundle (`platterpusbundle20260930t030705z.tar.gz`), then
+*"Do both"*: remove the unbuilt unsafe script verbs entirely, and fix the stale clause
+in the locked Critical rule #12 of `CLAUDE.md`. The 0.6.66 release was asked about
+and is not yet approved; round 30 is open, so it would go out under §6b.
+
+**Done:**
+- *The bundle filed and graded `partial`* (`f73fe6d3`): 316 of 323, the seven
+  failures all screenshot steps after section F's 91-minute rip, with every window
+  open and unexposed while the screen-saver hold was held. 52 text members filed byte
+  for byte in `docs/handshake/artifactsround30/`, a thirteenth ledger row.
+- *Screenshot steps render open windows when the display shows none* (`5fe413a5`),
+  labelled, and recorded INFO rather than PASS. A window never shown still gets no
+  picture, and no open window at all still fails.
+- *The new `eac_log_agreement` audit check applies the auto-fix addendum first*
+  (`c1a0ab04`); compared raw, every auto-fixed rip would have read as a disagreement.
+  Caught by `tests/test_rip_addendum.py`'s sweep before it shipped.
+- *`eval`, `call` and `test_script_allow_unsafe` removed*, with the box in the console
+  and the validator, the runner's gate, `Step.unsafe`, and the report's
+  `used_unsafe_verbs` field. The config key is retired, so an old file loads without
+  a warning (test revert-probed, detected). `test_uiscript.py` now refuses an
+  escape-hatch verb by name. The fork is told about the report field in our next
+  lap (TASKS, round 30).
+- *Rule #12's clause* said the `QLabel` sites were tracked in TASKS; they have had
+  their own sweep since 2026-09-28. It now names both sweeps and the gap that is
+  still open (a label filled later by `setText`).
+
+**Learned:**
+- *A reserved feature with an opt-in is two things to maintain and zero to use.*
+  The read-only box took a validator, a runner gate, two UI paths and four tests,
+  all to guard verbs that did not exist. Removing it took 142 lines out of the
+  source and 49 out of the tests.
+- *The `/dev/null` from the previous entry is a character device again*: the
+  container was replaced, so the lap-checker flake it caused is gone with it.
+
 ## 2026-09-30 — While round 30's Full run ran: S25 fixed, the records audited, and the acceptance test taught to read what a rip left
 
 **Asked:** *"i am assuming this test will do all reasonable permutations… if not we
