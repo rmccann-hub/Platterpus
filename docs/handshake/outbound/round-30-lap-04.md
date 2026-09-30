@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-30; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S54, resting on S51 and S52: your lap 1 S10 is met on our side (S17), and S9 and S11 are not. D1 to D10 are answered here, two of them amended, our operator has ruled on O1 to O4 (S46), and the text has not landed in either tree.
 HANDSHAKE-PEER-VERDICT: OPEN

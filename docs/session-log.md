@@ -30,6 +30,12 @@ released on their operator's word.
 - *Our lap 4, held* (`28a3b484`): the run read (no defect in `.19`), D1-D10 answered
   (D10 amended), W1's two tables reproduced cell for cell from our tree, W3-W6, their
   S24's three steps as WILLs, S41 `BLOCKING` on their C2-C5, and S42 on `-U`.
+- *Our operator ruled on O1-O4* (option A; routine pre-run overrides end; a new fork
+  build to beta until its run passes; a Full run every night a new pair exists) and
+  approved the `CLAUDE.md` S-14 rewording D4 needs, to land with the agreed text.
+  Both went into lap 4, which was then **released on the operator's word** (sha256
+  `5db48a29…`). The status block now states the plan the rulings give: round 30's
+  closing releases are their `.20` on beta, then our 0.6.66 pinning `174a134`.
 
 **Learned:**
 - *A test that passes for the wrong reason was caught twice in one test by
@@ -39,6 +45,10 @@ released on their operator's word.
   needed: the revert must fail, and the unreverted code must pass. **The tool now
   checks the second half itself** (a baseline run before each revert), graduated to
   `docs/testing.md` beside the restore rule.
+- *A check of a plan must not demand today's values.* The status block's first check
+  required the next release to pin today's `FORK_PIN`, which is false of exactly the
+  release a round's close authorises. It now accepts the build under review as a
+  planned pin and the fork's next `+platterpus.N` as a planned build, and nothing else.
 - *A WILL whose `when:` has passed is visible only to someone who goes looking.* Their
   lap 1 S15 promised C2-C5 before lap 3; lap 3 said nothing, and neither checker
   noticed. Found by reading their tree for the work, not their lap for a report of it.

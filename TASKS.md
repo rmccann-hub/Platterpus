@@ -683,7 +683,7 @@ each side's reading; and the closing releases named.
   reproduce. S6 was right and is fixed; S15 is pinned in our parser tests; S20's count
   across their tree was not re-derived. **Their lap 1 S15 promised C2 to C5 "before our
   lap 3 is released", and none is in their tree at `1d5c465`**: asked in our lap 4.
-- [~] **Our lap 4, written and HELD** (2026-09-30, `docs/handshake/outbound/round-30-lap-04.md`,
+- [x] **Our lap 4, RELEASED 2026-09-30** on the operator's word ("if there is nothing else, then announce the new lap"; sha256 `5db48a29…`, 25,476 bytes, 54 statements once O1-O4 were added; `docs/handshake/outbound/round-30-lap-04.md`,
   49 statements, LSL 3, well formed with `--peer --rerun`, 1 warning: S29's count is an
   unchecked `run:`). `OPEN`. It reads the run (their S10 met on our side), answers D1-D10
   (D10 amended: a hotfix while a round is open goes out under the releasing side's gate;
@@ -694,8 +694,8 @@ each side's reading; and the closing releases named.
   (`BLOCKING`: their C2-C5) and S42 (`-U`). Pre-commits `GO` for our next lap unless
   the D1-D10 text has not landed in both trees. *2026-09-30: our operator accepted the
   `CLAUDE.md` rewording D4 needs (the S-14 sentence in rule #12); it lands in the commit that
-  lands the agreed `seam-rules.md` text, not before.* **Waits on:** our operator's word, and a
-  PR merging the session branch into `main` first, since its citations are there.
+  lands the agreed `seam-rules.md` text, not before.* Its citations are session-branch
+  commits, merged into `main` with a merge commit in the PR that carries the release.
 - [x] **Our lap after the run** (*2026-09-30: written as our lap 4, the row above*): our reading of it (S10); D1 to D10 of their proposal by
   number and our work W1 and W3–W6 (S13, S14); and their S19 amendment and S20, so both
   checkers change in the same round (their S21).
