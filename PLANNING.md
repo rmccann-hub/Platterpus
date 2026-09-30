@@ -1345,12 +1345,13 @@ is the decision log failing at the one thing it is for. All three were live in
   should not allow a 0.9.1."* Two passes on one rig answer *was it luck* and say
   nothing about *is it green only because of this machine*.
 
-**Status, 2026-09-30:** the ledger carries twelve rows, every one `partial`, and
-no `full-green` row. **A Full run on app 0.6.65 with the fork's `.19` (`174a134`,
-round 30's build under review) started 2026-09-30 and is in progress**; it has no
-row until its bundle is read. The newest, 2026-09-28 on app 0.6.63 against `51cc789`
-(`.18`), is round 29's Full run: 320 of 323, `partial` because three screenshot steps
-in ARCHIVAL sections failed (`docs/testing.md` §5B, the 0.6.63 row). Round 28's Full
+**Status, 2026-09-30:** the ledger carries thirteen rows, every one `partial`, and
+no `full-green` row. The newest, 2026-09-30 on app 0.6.65 against `174a134` (`.19`),
+is round 30's Full run: 316 of 323, `partial` because seven screenshot steps in
+ARCHIVAL sections failed, every one after the first long rip, with the app's windows
+open and the display not showing them (`docs/testing.md` §5B, the 0.6.65 row;
+`docs/handshake/artifactsround30/`). Round 29's, 2026-09-28 on app 0.6.63 against
+`51cc789` (`.18`): 320 of 323, `partial` for three steps of the same kind. Round 28's Full
 run, 2026-09-28 on app 0.6.61 against `e0471f4` (`.17`), passed 320 of 320 and is
 `partial` because its records carried two errors of ours no step could fail over. The 2026-09-26 run on app 0.6.60 against `221a1df` (`.16`) was the first Full
 run whose every archival check could fail: 320 of 320, graded `partial` by the
@@ -1363,7 +1364,7 @@ so the row is `partial` (`docs/testing.md` §5.br). The 2026-09-12 run (238/238,
 the derived-format files they exist to prove (`docs/testing.md` §5.bi). The most
 complete run since, 2026-09-22 on app 0.6.52 against `2cce60d` (247/247), is
 `partial` for the same class of reason: three of eight rips had their post-rip
-checks dropped and no step could see it (§5.bn). All twelve rows are **one**
+checks dropped and no step could see it (§5.bn). All thirteen rows are **one**
 machine and **one** distro, the BDR-209D on Bazzite, so even a full-green row
 would leave 0.9.1's diversity floor untouched. *(Until the 2026-09-22 document
 audit this line still reported the 2026-09-12 row as full-green — nine days past

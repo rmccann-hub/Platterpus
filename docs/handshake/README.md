@@ -161,6 +161,12 @@ documents depend on.
   screenshot steps; the run the fork's round 29 lap 1 S6 names. The directory's
   `README.md` maps each file to its tarball member and says what the run found, ours and
   the ripper's.
+- **`artifactsround30/`** — the 2026-09-30 **Full** run on **`174a134`**, round 30's
+  build under review, through our 0.6.65: every text member of the operator's bundle
+  (sha256 `fa1a5333…`) but the oldest app-log rotation, 52 files, as `round30full*`. 316
+  of 323 steps, the seven failures being screenshot steps; the run the fork's round 30
+  lap 1 S10 names. The directory's `README.md` maps each file to its tarball member and
+  says what the run found, ours and the ripper's.
 
 - **`outbound/artifacts/lsl-amendments-1.md`** — **a proposal, not a lap**: our answer to
   the fork's round 27 lap 6 S23 (sha256 `72a4c65afde184f2…`, 17,666 bytes; revised the same day with F4,
