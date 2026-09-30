@@ -13,7 +13,7 @@
 #                               measured: 4h14m (2026-09-22, 247 steps) and
 #                               5h33m (2026-09-26, 320 steps, the sum of its
 #                               report's step times), both on the Pioneer rig;
-#                               the script is 364 steps now
+#                               the script is 371 steps now
 #                   Full rips the whole disc TWICE (once fast, once with every
 #                   track read at least three times) plus six short partial rips.
 #                   ONLY FULL counts toward a version or a handshake close.
@@ -268,12 +268,26 @@ snapshot atstart
 # the constant the handshake record derives, so a pin move fails in CI instead
 # of at 2am on your rig.
 
+# AND THE PAIR MUST BE THE NEWEST ONE. Round 30's D3, agreed with the fork and
+# ruled by our operator (O1, option A): a run tests only the newest pair. The
+# step above proves the installed ripper is the build this app reviews; it
+# cannot see that the fork has since released a newer build, or that we have
+# released a newer app, and a run on either stale pair passes it and then spends
+# a night producing evidence about a pair nobody will ship (the fork's round 30
+# lap 3 S4). `expect-newest-pair` reads both projects' releases NOW, the fork's
+# manifest across both channels (a new build goes to beta until its run passes,
+# O3) and ours on the beta channel, where every `v0.*` tag of ours is.
+#
+# A pair it CANNOT show is newest fails too, and that is deliberate: the reads
+# need the network, and so does every MusicBrainz and AccurateRip step after
+# this, so a run that could not make them would not be evidence either.
 log --- A. identity: which ripper is installed ---
 run-size quick
 cyanrip --version
 expect-exit 0
 expect-cyanrip platterpus-fork
 expect-ripper-under-review
+expect-newest-pair
 snapshot identity
 
 # WHICH LINK IN THE RIPPER CHAIN FAILS TO EXIT — gathered, never asserted.
@@ -300,7 +314,7 @@ probe-ripper-wrapper
 # interchangeable evidence).
 #
 # So: preconditions abort, findings do not. The other two: B's offset, E's disc.
-abort-if-failed the installed ripper is not the build the handshake record names — fix that first, the failing step above prints the one command
+abort-if-failed the installed ripper is not the build the handshake record names, or the pair is not the newest — fix that first, the failing step above says which
 
 # --- B. SETTINGS VALIDATION: the cheapest real check in the program --------
 # Pure round-trips through the REAL validator, which is the source of truth — a
@@ -1087,6 +1101,30 @@ expect-tags
 expect-cover-art
 rig-check
 
+# --- O. S24: CYANRIP'S OWN OFFSET FINDER, AGAINST A KNOWN OFFSET -----------
+# The fork asked for it (round 30 lap 3 S24) and the reason is ground truth:
+# this rig's drive is +667 by three independent sources (section B says which),
+# and nothing had ever run `cyanrip -f`, cyanrip's own offset finder, against
+# it. `-f` reads a few frames around sector 450 of each track AccurateRip knows,
+# searches them for AccurateRip's checksum, and rips nothing
+# (`cyanrip@174a134:src/cyanrip_main.c:594-692`).
+#
+# NO `-s`, AND THAT IS RIGHT, not the refusal section P2 provokes: `-f` sets the
+# offset to 0 itself and is exempt from the unset-offset refusal (lines 2089-2096
+# and 2115-2116). `-N` for the sanitiser, as everywhere.
+#
+# `expect-found-offset` grades cyanrip's own summary line, `Drive offset of ±N
+# found (confidence: C)!`, against what `set-drive-offset` set in section B. Only
+# a FINISHED search passes: one stopped part-way, or one with no summary, has
+# not answered, whatever its last candidate was. The confidence is recorded,
+# not graded; cyanrip counts the tracks that agreed, so 1 means found once and
+# never confirmed.
+log --- O. S24: cyanrip -f, its own offset finder, against the known offset ---
+run-size standard
+cyanrip -N -f
+expect-exit 0
+expect-found-offset
+
 # --- P. §T3: THE CACHE PROBE, PROBE-ONLY ------------------------------------
 # LAST OF THE DRIVE WORK, DELIBERATELY. `-x` alone has form: measured once on
 # this rig (32 sectors, 73.5 KiB, uncached read 362.6 ms, 2026-08-19) and then it
@@ -1130,11 +1168,21 @@ rig-check
 # verb records the exact argv, the exit code and the complete output for this
 # step, which is a stronger record than a manifest row would be.
 
+# AND `cd-paranoia -A` BESIDE IT, EVERY RUN (the fork's round 30 lap 3 S24).
+# Their figure has read `at least 2048 sectors` sixteen times against
+# cd-paranoia's 137 to 140, and their lap 3 S25 says why: the calibration seeks
+# full-stroke and the test read seeks back a short way, so every test read
+# scores as a hit. A fix to that has to be measured against something, and
+# `cd-paranoia -A` is it. `cache-probe` runs it through the same adapter the
+# drive setup uses, records INFO whatever it finds (it gathers, it does not
+# judge), and saves its whole output as `cacheprobe<line>.txt` in the run
+# folder, so the figure travels with the text it was read from.
 log --- P. T3: the fork's cache probe, probe-only ---
 run-size standard
 cyanrip -N -x -I
 expect-exit 0
 expect-cyanrip Cache probe
+cache-probe
 snapshot aftercacheprobe
 
 # --- P2. C1: THE THIRTY-MINUTE HANG, DETECTED (NOT DIAGNOSED) ---------------

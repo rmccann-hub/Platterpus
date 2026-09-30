@@ -121,6 +121,60 @@ def test_expect_tags_fails_on_a_title_that_lost_its_apostrophe(
     assert step.outcome is Outcome.FAIL and "track 2: TITLE" in step.detail
 
 
+def test_expect_tags_writes_the_first_flacs_tags_as_text_to_the_run_folder(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The fork's round 30 lap 3 S24: the bundle carries no audio, so the tags
+    travel as text, read by the same reader the grade uses."""
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    step = _run(_rip(tmp_path, _load("overwrite")), qapp, process_until, "expect-tags")
+    assert step.outcome is Outcome.PASS, step.detail
+    saved = list((tmp_path / "share" / "uiscript").rglob("tags*.txt"))
+    assert len(saved) == 1, saved
+    text = saved[0].read_text("utf-8")
+    assert text.startswith("# track 1: ")
+    assert "TITLE=Roxanne\n" in text and f"ALBUM={_ALBUM}\n" in text
+    assert "# picture: type 3, image/jpeg," in text
+    # One track, as S24 asked: the second track's title is not in it.
+    assert "Losing You" not in text
+
+
+def test_expect_tags_writes_the_tags_even_when_the_grade_fails(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The text is evidence of what the file holds, most of all when it is wrong."""
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    win = _rip(tmp_path, _load("overwrite"), titles={1: "Roxane", 2: _TITLES[2]})
+    step = _run(win, qapp, process_until, "expect-tags")
+    assert step.outcome is Outcome.FAIL
+    (saved,) = (tmp_path / "share" / "uiscript").rglob("tags*.txt")
+    assert "TITLE=Roxane\n" in saved.read_text("utf-8")
+
+
+def test_render_tags_shows_a_newline_in_a_value_as_an_escape(tmp_path) -> None:
+    """A value holding a newline must not read as a second tag."""
+    from platterpus.uiscript.tag_grading import render_tags
+
+    path = build_flac(tmp_path / "01.flac", ["TITLE=one\nARTIST=forged", "ALBUM=a"], [])
+    text = render_tags([(1, path)])
+    assert "TITLE=one\\x0aARTIST=forged" in text
+    assert "\nARTIST=forged" not in text
+    assert "# 1 control character(s) shown as \\xNN escapes" in text
+
+
+def test_render_tags_says_when_a_file_could_not_be_read(tmp_path) -> None:
+    from platterpus.uiscript.tag_grading import render_tags
+
+    bogus = tmp_path / "01.flac"
+    bogus.write_bytes(b"not a flac")
+    text = render_tags([(1, bogus)])
+    assert "# not read completely:" in text
+
+
 def test_track_title_edits_through_the_real_table_and_expect_tags_reads_it(
     qapp, process_until, tmp_path
 ) -> None:

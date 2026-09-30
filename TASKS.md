@@ -709,12 +709,14 @@ each side's reading; and the closing releases named.
   and our status block's release and run lines state the plan they give: round 30's
   closing releases are their `.20` on beta, then our 0.6.66 pinning `174a134` and
   reviewing `.20`.
-- [~] **O3 on our side** (round 30, before our closing lap): our build-under-review check
+- [x] **O3 on our side** (round 30, before our closing lap): our build-under-review check
   follows a manifest build only while both channels name one commit
   (`tests/test_handshake_pin_under_review.py::_choose_source`), so a beta-only `.20` would
   need a lap. Teach it, the rig's install and D3's "newest release" to follow the beta
   channel's build when it is newer than stable's.
   - *2026-09-30: the derivation is done* (`_choose_source` takes the newest entry by `release_seq` when the channels split; revert-probed). The rig's install and the update offer already work per channel and by commit. D3's check, still to build, reads the same newest entry.
+  - *2026-09-30: DONE.* D3's check reads the same newest entry (`probe_grading.newest_fork_release`, the row below). The rig's install needed no change: the command section A prints is `--install-ripper <commit>`, which checks out a commit whatever channel names it.
+- [x] **D3's stale-pair refusal and their lap 3 S24's three steps** (our lap 4 S33, S39; round 30, before our closing lap). Section A runs `expect-newest-pair` after `expect-ripper-under-review`, under the same `abort-if-failed`: the fork's newest release across both channels (O3) must be `PIN_UNDER_REVIEW`, and this app our newest on the beta channel; a half it cannot read fails, because a run on a pair not shown newest is not evidence. New section O runs `cyanrip -N -f` and `expect-found-offset`, which passes only cyanrip's own finished summary line (`Drive offset of … found`) equal to the drive's set offset; its source was read at `cyanrip@174a134:src/cyanrip_main.c:594-692`, which showed that `Was not able to find drive offset …` is a retry, not a give-up. `expect-tags` writes the first FLAC's tags, screened, as `tags<line>.txt` in the run folder. `cache-probe` in section P runs `cd-paranoia -A` through the drive setup's adapter, INFO always, output saved as `cacheprobe<line>.txt`; it refuses while a rip reads the disc, and the runner's new `_deadline_cancel` kills it if the run stops or the wait runs out. Section O is ARCHIVAL, tier 1, in `docs/testing.md`. The script is 371 steps.
 - [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree,
   sha256 `d5ff0e01…`, 15,658 bytes, at `cyanrip@5c92fc2`): the cycle, and whether routine
   overrides end, the channel before a run, and when runs happen, are the operator's four
