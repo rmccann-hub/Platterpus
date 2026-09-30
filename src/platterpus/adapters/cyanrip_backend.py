@@ -23,10 +23,12 @@ cyanrip CLI (from its README): ``-d`` device, ``-s`` sample offset, ``-o``
 codec list (flac default), ``-r`` retries, ``-N`` disable MusicBrainz
 (always passed — the GUI feeds the tags instead), ``-a``/``-t`` album/track
 metadata, ``-D``/``-F`` dir/file naming schemes (``{key}`` substitution),
-``-G`` disable cover-art embed, ``-I`` info-only, and the version flag —
-which is ``-V`` on 0.9.3.x but ``-v``/``--version`` from 0.9.4-rc1 on, so we try
-both (see `platterpus.cyanrip_cli`). (``-f`` is cyanrip's *force-overread*, NOT an
-offset finder — we never use it.)
+``-G`` disable cover-art embed, ``-U`` disable the Cover Art DB query, ``-I``
+info-only, and the version flag — which is ``-V`` on 0.9.3.x but
+``-v``/``--version`` from 0.9.4-rc1 on, so we try both (see
+`platterpus.cyanrip_cli`). ``-O`` is cyanrip's overread; ``-f`` is its drive-offset
+finder (``--find-offset``), which a rip never sends. (This line said ``-f`` was
+force-overread until 2026-09-30; the fork's provider contract, P1, says otherwise.)
 """
 
 from __future__ import annotations
@@ -357,12 +359,18 @@ class CyanripImpl(RipBackend):
         #   "No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!"
         # (still at line 41 of the round-29 `.18` whole-disc log, `-G` in its argv):
         # that line is the Cover Art DB query's, gated by `-U`
-        # (cyanrip@174a134:src/coverart.c:382-392), which we do not send. Under
-        # `-N` the query cannot succeed, so it is noise, not a fault; sending `-U`
-        # changes what crosses the seam, so it is a next-round item (TASKS.md,
-        # "`-U`, not `-G`"). `cover_art` stays in the signature — it is recorded
-        # in the rip plan the log prints — but it does not gate this.
+        # (cyanrip@174a134:src/coverart.c:382-392). `cover_art` stays in the
+        # signature — it is recorded in the rip plan the log prints — but it does
+        # not gate this.
         argv.append("-G")  # we always do cover art ourselves; never the ripper
+        # `-U` UNCONDITIONALLY too, from 2026-09-30: it turns off the Cover Art DB
+        # query and nothing else. Under `-N` that query cannot succeed (the release
+        # ID it needs comes only from cyanrip's own lookup), so every archival log
+        # carried its "cannot search Cover Art DB!" line as noise. The fork
+        # measured it (their round 30 lap 5 S15): an image rip with `-N -G` and one
+        # with `-U` added differ by that one line, every checksum identical, and
+        # art given with `-C` still loads. Declared to them in our round 30 lap 6.
+        argv.append("-U")
         # `-j`: cyanrip's own machine-readable diagnostics record, written beside
         # the rip (the child runs with `cwd=output_dir`).
         #

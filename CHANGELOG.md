@@ -71,6 +71,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Every rip now tells cyanrip not to query the Cover Art DB (`-U`)**, beside
+  `-G`, which already stopped it embedding art. Platterpus does all cover art
+  itself, and with MusicBrainz off cyanrip's own query could never succeed, so
+  every archival log carried a "cannot search Cover Art DB!" line as noise. The
+  cyanrip fork measured the flag safe: one log line fewer, every checksum
+  identical. The generated consumer contract lists 22 flags.
 - **The release-cycle rulings are recorded** (option A; routine pre-run
   overrides end; a new cyanrip build goes to beta until its run passes; a Full
   run every night a new pair exists), and the status block states the plan they
