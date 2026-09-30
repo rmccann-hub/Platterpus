@@ -641,7 +641,7 @@ each side's reading; and the closing releases named.
   by a written decision. `.19`'s reworded repeat-limit line is in P5a, where the old one
   is, and is retained beside it: the worker reads either as a verdict before it asks the
   matcher. The retention check now counts a P5a row as one the fork sent, with a floor.
-- [~] **0.6.65**, the release the Full run is on: `51cc789` by default, `.19` accepted as
+- [x] **0.6.65**, released 2026-09-30 02:57Z from `0981c697` (release run 36662071393), the release the Full run is on: `51cc789` by default, `.19` accepted as
   the build under review, the screen held awake, and the two `-Z`/`-r` refusals surfaced.
   PR #283. It was held by the operator's override of 2026-09-30 (*"wait for the next
   lap/release before making the platterpus release. this may be against the rules but i
@@ -672,7 +672,7 @@ each side's reading; and the closing releases named.
   - *Tag keys in capitals:* the one reader, colon-restore, walks every key whatever its
     case. *Golden reference:* 0.6.65's parser reads the fork's `.19` golden reference
     (build, footer, 3 of 3 tracks, CRCs, checksum) with nothing dropped.
-- [ ] **The Full run on 0.6.65 with `.19`** (S10), then both readings of the bundle.
+- [~] **The Full run on 0.6.65 with `.19`** (S10), then both readings of the bundle. Started by the operator 2026-09-30 ~03:02Z, About showing build `0981c69`, cyanrip `.19` `174a134` ⓘ being tested; results expected about six hours later.
 - [ ] **Our lap after the run:** our reading of it (S10); D1 to D10 of their proposal by
   number and our work W1 and W3–W6 (S13, S14); and their S19 amendment and S20, so both
   checkers change in the same round (their S21).

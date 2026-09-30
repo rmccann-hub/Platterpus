@@ -1,8 +1,8 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.65        the release round 30's Full run is on, cut 2026-09-30 under
-                           the operator's §6b override (our round 30 lap 2):
+Platterpus  v0.6.65        the release round 30's Full run is on, released 2026-09-30
+                           02:57Z under the operator's §6b override (our round 30 lap 2):
                            it installs 51cc789 and accepts 174a134 as under review.
             v0.6.64        round 29's closing release, released 2026-09-30: it
                            installs 51cc789 by default.
