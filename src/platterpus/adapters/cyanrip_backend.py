@@ -15,9 +15,10 @@ DiscID/CDDB ID are computed locally from the TOC, so identification needs no
 network), plus `analyze_drive` — cyanrip itself has no cache-analysis command, but
 its read engine IS libcdio-paranoia, so we measure the cache verdict with the
 standalone ``cd-paranoia -A`` via `adapters/cache_probe.py` (KDD-29). **Not**
-implemented: `find_offset` — cyanrip has no trusted offset-finder, so it inherits
-``NotImplementedError`` (the read offset comes from the AccurateRip drive-model
-list + manual entry, and is re-confirmed by an AccurateRip-matching rip, KDD-31).
+implemented: `find_offset` — cyanrip's own finder (``-f``) has not yet been
+measured against a known offset, so it inherits ``NotImplementedError`` (the read
+offset comes from the AccurateRip drive-model list + manual entry, and is
+re-confirmed by an AccurateRip-matching rip, KDD-31).
 
 cyanrip CLI (from its README): ``-d`` device, ``-s`` sample offset, ``-o``
 codec list (flac default), ``-r`` retries, ``-N`` disable MusicBrainz
@@ -642,17 +643,21 @@ class CyanripImpl(RipBackend):
 
         cache_probe.cancel_active_probe()
 
-    # NOTE: `find_offset` is deliberately NOT implemented. cyanrip has no
-    # AccurateRip offset-finder — its ``-f`` is *force-overread*, not a detector —
-    # so there is nothing to run. An earlier version ran ``cyanrip -f`` and
-    # regex-scraped "offset…N" from the output, which latched onto cyanrip's
-    # help/default echo and returned a meaningless 0 that then overrode the
-    # correct AccurateRip-list value (a silent wrong-offset bug on real
-    # hardware — the drive's true offset was +667). By leaving `find_offset`
-    # unimplemented we inherit the base class's ``NotImplementedError``, which the
-    # drive-setup wizard already handles as "this backend can't auto-detect the
-    # read offset"; the offset comes from the bundled AccurateRip drive-model list
-    # + manual entry instead.
+    # NOTE: `find_offset` is deliberately NOT implemented. cyanrip DOES have an
+    # AccurateRip offset finder, ``-f`` (``search_for_drive_offset``,
+    # `cyanrip@174a134:src/cyanrip_main.c:594-692`); this comment said until
+    # 2026-09-30 that ``-f`` was force-overread, which was wrong. What it has
+    # never had is a measurement against a known offset: an earlier version of
+    # this method ran ``cyanrip -f`` and regex-scraped "offset…N" from the
+    # output, which latched onto the wrong line and returned a meaningless 0
+    # that then overrode the correct AccurateRip-list value (a silent
+    # wrong-offset bug on real hardware — the drive's true offset was +667).
+    # Section O of the acceptance run now grades ``-f``'s own summary line
+    # against that +667 (`uiscript/probe_grading.py`), and that is the evidence
+    # to implement this against, if it earns it. Until then we inherit the base
+    # class's ``NotImplementedError``, which the drive-setup wizard already
+    # handles as "this backend can't auto-detect the read offset"; the offset
+    # comes from the bundled AccurateRip drive-model list + manual entry instead.
 
     def _run(
         self, args: list[str], timeout: float = _INFO_TIMEOUT_S, *, strict: bool = False

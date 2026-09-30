@@ -38,10 +38,6 @@ STATUS-OPEN: scripts-outside-gates us fixing at round 30 (size ratchet, regex-ti
 STATUS-OPEN: parity-baseline-is-ours us fixing at round 30 (the parity tool does not warn when its baseline is one of our exports)
 STATUS-OPEN: labels-filled-by-settext us fixing at round 30 (the plain-text sweep does not see a label given its text later)
 STATUS-OPEN: acceptance-permutations us fixing at round 30 for the script lines; their hardware evidence waits on the next Full run
-STATUS-OPEN: stale-pair-refusal us fixing at round 30 (D3's check in section A, once D3 settles)
-STATUS-OPEN: send-minus-U us cannot, because sending a flag we have never sent needs your answer first (our lap 4)
-STATUS-OPEN: beta-channel-under-review us fixing at round 30 (O3: follow a build your manifest publishes on beta alone, for the build under review, the rig's install and D3's check)
-STATUS-OPEN: next-run-steps us fixing at round 30 (your lap 3 S24's three steps: `cyanrip -f`, one FLAC's tags as text, `cd-paranoia -A`)
 
 **Each line is checked, not trusted** (`tests/test_standing_status_is_current.py`):
 the round and its state against the gate's own `round_status()`; the laps against

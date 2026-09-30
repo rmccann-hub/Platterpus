@@ -83,6 +83,9 @@ text is taken verbatim as one value.
 | `expect-tags` | 0 | ready | expect-tags — every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table shows, read from the file |
 | `expect-cover-art` | 0 | ready | expect-cover-art — the FLACs hold the cover art the cover_art setting asks for (embedded in every one, or none), matching the report's count |
 | `track-title` | 2+ (rest of line) | ready | track-title <n> <title…> — set track n's title as a typed edit would (refused while a rip runs) |
+| `expect-newest-pair` | 0 | ready | expect-newest-pair — the build this app reviews is the fork's newest release and this app is our newest release; a pair that cannot be shown newest fails too (D3; `expect-ripper-under-review` checks the installed ripper is that build) |
+| `expect-found-offset` | 0 | ready | expect-found-offset — the previous `cyanrip -f` found the offset set-drive-offset set for this drive |
+| `cache-probe` | 0 | ready | cache-probe — run cd-paranoia -A on the selected drive and record what it measures (info; its output is saved beside the transcript) |
 | `expect-secure-rerip` | 0 | ready | expect-secure-rerip — assert the secure re-read actually RAN on this rip (at least one track block carries cyanrip's Scope: line), the graded form of rig-check's 'genuinely exercised' row |
 | `expect-identified` | 0 | ready | expect-identified — assert the disc was identified against MusicBrainz (a well-formed release MBID is held), not merely that the track table has rows, which placeholder rows also satisfy |
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
@@ -646,6 +649,30 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "track-title <n> <title\u2026> \u2014 set track n's title as a typed edit would (refused while a rip runs)"
+    },
+    {
+      "name": "expect-newest-pair",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-newest-pair \u2014 the build this app reviews is the fork's newest release and this app is our newest release; a pair that cannot be shown newest fails too (D3; `expect-ripper-under-review` checks the installed ripper is that build)"
+    },
+    {
+      "name": "expect-found-offset",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-found-offset \u2014 the previous `cyanrip -f` found the offset set-drive-offset set for this drive"
+    },
+    {
+      "name": "cache-probe",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "cache-probe \u2014 run cd-paranoia -A on the selected drive and record what it measures (info; its output is saved beside the transcript)"
     },
     {
       "name": "expect-secure-rerip",

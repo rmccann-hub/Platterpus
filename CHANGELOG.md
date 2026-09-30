@@ -29,6 +29,25 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   under it, which any log Platterpus writes does. It now also checks that the
   log's per-track CRCs are the ones cyanrip computed, taking a re-read track's
   kept CRC from the auto-fix addendum rather than the discarded first read.
+- **The acceptance test now refuses to run on an out-of-date pair.** Its first
+  section already checked that the installed cyanrip is the build this version of
+  Platterpus is testing. It now also checks, at the start of every run, that this
+  build is the cyanrip fork's newest release (on either of its channels) and that
+  this Platterpus is our newest release. A run on anything else stops in the first
+  minute rather than spending a night producing results about a pair nobody will
+  ship. If it cannot reach either project's releases to check, it stops too.
+- **The acceptance test now measures three things the cyanrip fork asked for.**
+  It runs cyanrip's own drive-offset finder and checks that it finds the offset
+  the drive is set to. It saves the tags of one ripped FLAC as text beside the
+  results, because the results carry no audio. And it runs `cd-paranoia -A` beside
+  cyanrip's own cache measurement, so every run measures the drive's cache two
+  ways, and saves what it printed. The `cd-paranoia` step only records what it
+  finds and never fails the run. It will not run while a rip is reading the disc,
+  and it is stopped if the run is stopped.
+- For contributors: the script verbs `expect-newest-pair`, `expect-found-offset`
+  and `cache-probe`. A step that waits on a helper thread can now say how to stop
+  what it started, and the runner calls it when the run stops or the wait times
+  out.
 - For contributors: the script verbs `expect-album-audit`, `expect-accuraterip`,
   `expect-ctdb`, `expect-tags`, `expect-cover-art` and `track-title`, and a
   FLAC tag reader (`flac_metadata.py`) that needs no external tool.
