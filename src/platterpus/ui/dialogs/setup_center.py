@@ -204,7 +204,7 @@ class SetupCenterDialog(CenteredDialog):
         self._ripper_beta_check.setToolTip(
             "ON: Check for cyanrip updates also tells you about beta builds the "
             "fork has published for testing. OFF (default): only stable builds, "
-            "from a closed handshake round.\n\nThis never installs anything: it "
+            "from a closed handshake round.\n\nThis tick-box installs nothing: it "
             "only reports what the fork has published, and says what taking a "
             "build would cost. A ripper no handshake round has verified makes every "
             "rip afterwards report its ripper as 'unapproved': the audio is "

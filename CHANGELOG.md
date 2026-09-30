@@ -45,7 +45,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   updating cyanrip uses Setup & Updates (the old `dnf upgrade cyanrip` updated only
   the stock build), app updates are checked against their build attestation, and
   the beta tick-box is named where it lives. The rig sheet now says to confirm the
-  installed ripper in Help → About; Setup & Updates always shows the approved one.
+  installed ripper in Help → About Platterpus…, because Setup & Updates always shows
+  the approved one.
   For contributors: PLANNING, the testing and architecture guides, the UX
   principles, the EAC parity notes, the dependency list, the test plans and the
   handshake and fork documents. Our generated half of the cyanrip contract also

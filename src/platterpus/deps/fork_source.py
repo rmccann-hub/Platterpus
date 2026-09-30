@@ -55,8 +55,8 @@ FORK_REPO_URL: Final[str] = "https://github.com/rmccann-hub/cyanrip.git"
 #: unverified work.
 FORK_BRANCH: Final[str] = "platterpus-fork"
 
-#: The handshake-verified commit (round 6, GO, ``docs/handshake/verified/
-#: round-6.md``; the fork calls it release **r2**). Short form
+#: The handshake-verified commit: currently ``51cc789``, round 29's approval
+#: (the history below starts at round 6's release **r2**). Short form
 #: because that is what ``git rev-parse --short HEAD`` bakes into the banner, and
 #: matching the two by eye is part of verifying an install.
 #:
@@ -501,9 +501,9 @@ FORK_EXPECTED_BANNER: Final[str] = (
     f"cyanrip {FORK_EXPECTED_VERSION} ({FORK_EXPECTED_BUILD_TAG})"
 )
 
-# --- The NEXT pin, recorded but deliberately not wired in -------------------
+# --- History: round 7's proposed next pin, kept as `FORK_RELEASE_4_COMMIT` ---
 #
-# Round 7 lap 4 asks for `5bc654d` (fork release **r4**, version
+# Round 7 lap 4 asked for `5bc654d` (fork release **r4**, version
 # `0.9.4-rc1+platterpus.4`), superseding lap 2's `345241b` (r3), which superseded
 # lap 1's `d5d12ec`, which superseded round 6's `ad65a24`. **Four SHAs in one open
 # round**, and the fork-release number moved `.3` → `.4` because r4 adds `-dirty`
@@ -521,12 +521,12 @@ FORK_EXPECTED_BANNER: Final[str] = (
 # happens, not when a commit lands, and this open round is what stops the release.
 # Both new commits came out of our own lap-1 file (their release gate, and the
 # `Duration:` sign correction), which is the handshake working.
-# **The pin has NOT moved to it, on purpose.** Two independent reasons, either
+# **The pin did NOT move to it then, on purpose.** Two independent reasons, either
 # sufficient:
 #
 #   * CLAUDE.md's deviation policy forbids switching the container to a new
-#     cyanrip pin while a handshake round is open, and round 7 is open.
-#   * Their own round-7 §15 asks us to hold: *"We are not releasing r3 while this
+#     cyanrip pin while a handshake round is open, and round 7 was open.
+#   * Their own round-7 §15 asked us to hold: *"We are not releasing r3 while this
 #     round is open, and we ask you to hold too. We expect this to take more than
 #     one lap."* r3 carries a retraction, a corrected measurement affecting stored
 #     records, and a version scheme changed twice.
@@ -569,9 +569,9 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: runs. The rows go in when it becomes a release or a declared test pin.
 #:
 #: Hand-set but **not hand-trusted**: `tests/test_handshake_pin_under_review.py`
-#: derives the expected value from the newest file in `docs/handshake/inbound/`
-#: and fails if this lags it. A constant is required rather than a runtime read
-#: because `docs/` is not present in an installed AppImage.
+#: derives the expected value from the newest inbound lap (or a newer filed fork
+#: manifest no lap names yet) and fails if this lags it. It is a constant, not a
+#: runtime read, because `docs/` is not present in an installed AppImage.
 #:
 #: **Round 14's pin is different in kind from every previous one: it IS a
 #: release** (`0.9.4-rc2+platterpus.10`, `release_seq` 20, channel `beta`), because
@@ -679,16 +679,16 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: **`FORK_PIN` stays `e0471f4` until round 29 closes.** **It closed on our gate on
 #: 2026-09-29 and `FORK_PIN` rolled with it**, so this is now also the release pin
 #: until round 30 opens on a new subject.
-#: **Moved `51cc789` -> `174a134` on 2026-09-30, BEFORE round 30 has a lap**, on
-#: `+platterpus.19`, `release_seq` 29, both channels. The first move read off the
-#: fork's published manifest rather than a lap: the operator chose, that day, that
-#: the fork holds its round 30 lap 1 until the Full run on `.19` exists, so round 30
-#: opens from the run's results (the cycle the fork's `PROPOSAL-release-cycle.md`
-#: recommends). What names the build is therefore their `release-manifest.json` at
-#: `7677b3f5`, filed as `tests/fixtures/fork_release_manifest_7677b3f.json`, and
-#: `meson.build` line 21 at `174a134` declares the version.
-#: `tests/test_handshake_pin_under_review.py` reads that manifest when it publishes a
-#: release newer than any lap names, and the lap again once round 30's names it.
+#: **Moved `51cc789` -> `174a134` on 2026-09-30, before round 30 had a lap**, on
+#: `+platterpus.19`, `release_seq` 29, both channels — first read off their
+#: `release-manifest.json` at `7677b3f5` (filed as
+#: `tests/fixtures/fork_release_manifest_7677b3f.json`), because the operator had
+#: chosen that the fork hold round 30 lap 1 until the Full run on `.19` existed.
+#: The same day the operator overrode R8 point 3 and round 30 lap 1
+#: (`docs/handshake/inbound/round-30-lap-01.md`, `HANDSHAKE-PIN: 174a134`) opened
+#: the round before the run; `tests/test_handshake_pin_under_review.py` now reads
+#: the pin off that lap (a filed manifest wins only when it publishes a release no
+#: lap names yet). `meson.build` line 21 at `174a134` declares the version.
 #: `.19`'s change to `src/` is five commits past `.18` (`git log 51cc789..174a134 --
 #: src/`: `bf50705`, `9669d84`, `fb31a2b`, `22f7aae`, `ad11743`), the five their
 #: round 29 lap 3 S18 names. **`FORK_PIN` stays `51cc789`**, round 29's approval.
@@ -709,9 +709,9 @@ PIN_UNDER_REVIEW: Final[str] = "174a134"
 #: **27 from 2026-09-24**: round 27 names `221a1df` and reviews it on a drive.
 #: **28 from 2026-09-26**: round 28 names `e0471f4` and reviews it on a drive.
 #: **29 from 2026-09-28**: round 29 names `51cc789` and reviews it on a drive.
-#: **30 from 2026-09-30, before round 30 has a lap**: `.19` is published on round 29's
-#: authority and is round 30's subject, reviewed on the Full run that round 30 then
-#: opens from (see :data:`PIN_UNDER_REVIEW`).
+#: **30 from 2026-09-30**: `.19`, published on round 29's authority, is round 30's
+#: subject; round 30 lap 1 names it and opened before the Full run, under the
+#: operator's override of R8 point 3 (see :data:`PIN_UNDER_REVIEW`).
 PIN_UNDER_REVIEW_ROUND: Final[int] = 30
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
@@ -728,18 +728,18 @@ PIN_UNDER_REVIEW_ROUND: Final[int] = 30
 #: `release-manifest.json`, which we cannot read at test time, and inventing a
 #: sequence to quiet a red test would make the check pass for the wrong reason.
 #:
-#: **`False` for round 16, and the consequence is real.** Their lap 1 opens on
+#: **`False` for round 16, and the consequence was real.** Their lap 1 opened on
 #: `a9aedf0`, which is absent from both their ledger (tops out at `978f9b0`,
 #: `release_seq` 21) and their manifest. Round 15 was *"the first pin chosen as a
 #: subject by having been released"* — one round, not a standing rule — so a
 #: nominated pin is legitimate and no row should be invented for it.
 #:
-#: What it costs: `--install-ripper a9aedf0` and the `--install-ripper list` menu
+#: What it cost: `--install-ripper a9aedf0` and the `--install-ripper list` menu
 #: reach the build, but the **update offer** cannot, because that reads their
-#: manifest. `ripper_choices()` has no GUI caller today, so a GUI-only operator has
-#: no route to the build an open round is reviewing — a KDD-17 gap, tracked in
-#: `TASKS.md` and raised with the fork as a NEXT-ROUND ask rather than a blocker,
-#: because it does not make the reviewed pin unsafe and the rig has a terminal.
+#: manifest. `ripper_choices()` then had no GUI caller (`ui/ripper_picker.py`, Choose
+#: a build…, is one now), so a GUI-only operator had no route to the build an open
+#: round reviewed — a KDD-17 gap, raised with the fork as a NEXT-ROUND ask rather
+#: than a blocker, as it did not make the reviewed pin unsafe.
 #:
 #: **`True` for round 17, and it flipped mid-day rather than at the round's open.**
 #: Their lap 1 named `fe4d2c4` unpublished — `release-manifest.json` still resolved
@@ -1069,8 +1069,8 @@ SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
 #: is a release blocker, not a cosmetic miss**: cyanrip exits non-zero on an
 #: unrecognised option, and every availability probe here reads a non-zero exit as
 #: *"the tool is not installed"* — the exact `-V` failure from round 5, in the
-#: opposite direction. The flag arrived in the fork's r4, so the pinned r2 build
-#: (:data:`FORK_PIN`) must never be sent it.
+#: opposite direction. The flag arrived in the fork's r4, so the r2 build that was
+#: then :data:`FORK_PIN` must never be sent it.
 #:
 #: A set rather than a version comparison on purpose: the fork's version string is
 #: deliberately upstream's plus build metadata, so it cannot be ordered, and
@@ -1162,7 +1162,7 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # rig as a test pin nobody was told to keep.
         f"{FORK_BRANCH}-gddf7ac3",  # round 7's release; production until round 14
         f"{FORK_BRANCH}-g{FORK_RELEASE_4_COMMIT}",  # fork release 4
-        FORK_TEST_BUILD_TAG,  # the round-7 test pin, still on the rig
+        FORK_TEST_BUILD_TAG,  # round 21's test pin, retired; may still be on a rig
         *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
         # ROUND 14's THREE BETAS. Added on the artifact, not on trust: the provider
         # contract shipped with their round-14 lap 3 declares `-u` / `--consumer`
@@ -1251,7 +1251,7 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
 #: tables and asserts agreement, so this cannot drift from the documents.
 BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
     {
-        FORK_EXPECTED_BUILD_TAG,  # the round-6 approved pin
+        FORK_EXPECTED_BUILD_TAG,  # FORK_PIN, the approved production pin
         f"{FORK_BRANCH}-g{FORK_RELEASE_4_COMMIT}",  # fork release 4
         FORK_TEST_BUILD_TAG,
         *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
@@ -1746,8 +1746,9 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
 #: condition was rewritten to measure the shipped artifact. Collapsing the two
 #: constants was tried on 2026-08-26 and reverted — see :data:`FORK_TEST_PIN`.
 #:
-#: The version is **read off the fork's own `HANDSHAKE-RIPPER-VERSION`** in round
-#: 14 laps 16 and 17 (`cyanrip 0.9.4-rc2+platterpus.10 (platterpus-fork-gd9c058c)`)
+#: The version is **read off the fork's own `HANDSHAKE-RIPPER-VERSION`**, today in
+#: round 30 lap 1 (`cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)`),
+#: first in round 14 laps 16 and 17 (`+platterpus.10` on `d9c058c`)
 #: — from the artifact, not from memory of it, and it is a pairing they stated
 #: rather than one we inferred. The verify step still keys on the build tag, so a
 #: wrong version string here would be caught rather than believed.
@@ -1785,9 +1786,9 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # `cyanrip 0.9.4-rc2+platterpus.17 (platterpus-fork-ge0471f4)`.
     # **Round 29's pairing, from their lap-1 wire header line 14:**
     # `cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-g51cc789)`.
-    # **Round 30's pairing, from ONE entry of their published manifest, not a lap**
-    # (their lap 1 is held until the run): `commit` `174a134` and `version`
-    # `0.9.4-rc2+platterpus.19` on both channels at `7677b3f5`, and `meson.build`
+    # **Round 30's pairing**, first read off ONE entry of their manifest at
+    # `7677b3f5` while lap 1 was held, then off their lap-1 wire header line 14:
+    # `cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)`. `meson.build`
     # line 21 at `174a134` declares the same version.
     version="0.9.4-rc2+platterpus.19",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
@@ -2460,15 +2461,14 @@ def ripper_choices() -> list[RipperChoice]:
     release. For the *ripper* it is not: the build a closed handshake round
     approved is the one whose output both projects have verified, and a newer
     test pin is by definition less checked, not more. So the approved build
-    leads and the round's test pin follows, each labelled with what it is.
+    leads, then the build an open round is reviewing, then the round's test pin
+    (only while the rig is told to install one), each labelled with what it is.
 
-    **What this deliberately does NOT do yet: ask GitHub for the fork's newest
-    builds.** That needs facts about the fork's release practice we do not hold
-    — whether it publishes GitHub releases at all, how a beta is marked, and
-    which tag shape a release carries — and inventing an answer would produce a
-    menu that looks authoritative and lists builds that may not exist. It is the
-    open question in the next handshake file rather than a guess here. Every
-    entry below is one we can state from our own constants.
+    **It does not read the fork's published releases.** That is the update
+    check's job (*Check for cyanrip updates* reads their `release-manifest.json`).
+    Every entry below is one we can state from our own constants, so this menu
+    cannot list a build that may not exist. (Its GUI caller is
+    `ui/ripper_picker.py`, *Choose a build…*.)
 
     A commit typed by hand still reaches the installer through
     :func:`target_for_commit`; this is the menu, not the only door.

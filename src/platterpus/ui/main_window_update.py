@@ -309,10 +309,9 @@ class UpdateMixin(MainWindowShared):
         # every bit as unavailable then.
         #
         # Read through `getattr` because `_acceptance_layout` is declared on
-        # `ProvisioningMixin`: the concrete `MainWindow` inherits both mixins, but
-        # this one must not import that one to see it. A window without the
-        # provisioning mixin has no session, so `None` is the right default
-        # rather than a fail-open.
+        # `ProvisioningMixin`: the concrete `MainWindow` inherits both mixins, but this
+        # one must not import that one to see it. A window without the provisioning
+        # mixin has no session, so `None` is the right default, not a fail-open.
         session: object | None = getattr(self, "_acceptance_layout", None)
         if session is not None:
             return "an acceptance test session is running"
@@ -740,6 +739,7 @@ class UpdateMixin(MainWindowShared):
     def _on_update_result(self, info: object) -> None:
         """Show the verdict; offer the standard update path when newer."""
         from platterpus import __version__, appimage_integration
+        from platterpus.ui.setting_homes import home_path  # the channel's one window
         from platterpus.update_check import (
             CHANNEL_BETA,
             RELEASES_PAGE_URL,
@@ -771,12 +771,12 @@ class UpdateMixin(MainWindowShared):
                 if on_beta
                 else (
                     "\n\nYou're on the stable channel — pre-releases (betas) are not "
-                    "offered. Settings → Updates can change that."
+                    f"offered. {home_path('update_channel')} can change that."
                 )
             )
             running_beta = (
                 "\n\nNote: you are running a pre-release build. Turn on the beta "
-                "channel in Settings → Updates to be offered newer betas."
+                f"channel in {home_path('update_channel')} to be offered newer betas."
                 if is_prerelease_version(__version__) and not on_beta
                 else ""
             )

@@ -1995,7 +1995,7 @@ class RipMixin(MainWindowShared):
             # unknown-album rip. We pass the plain dataclasses into the thread.
             album_snapshot = self._track_table.album_metadata() if tag else None
             tracks_snapshot = list(self._track_table.tracks()) if tag else None
-            # Output format: both backends rip to FLAC, so a non-FLAC choice
+            # Output format: cyanrip always rips to FLAC, so a non-FLAC choice
             # means a post-rip transcode (FLAC kept as the master). "flac" (or
             # any value we don't transcode) leaves transcode_fmt empty = no-op.
             transcode_fmt = (
