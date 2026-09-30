@@ -32,6 +32,9 @@ fix our count of `.19`'s new lines, and release 0.6.65 for the Full run.
 - *Our gate is stricter than the fork's reading.* Their lap says 0.6.65 "needs no lap";
   N4 holds a stable-offered `v0.*` tag while a round is open, so our lap 2 carries the
   operator's §6b override for v0.6.65, on their word *"include my override if needed"*.
+- *0.6.65 released* 02:57Z (release run 36662071393) from `0981c697`, the merge of #283,
+  with the release gate reading the override from our lap 2. The operator started the
+  Full run on it with `.19` at about 03:02Z.
 
 **Learned** (no new rule; each is an instance of a question `CLAUDE.md` already asks):
 - *A generated table that skips a round skips that round's changes silently.* Round 29
