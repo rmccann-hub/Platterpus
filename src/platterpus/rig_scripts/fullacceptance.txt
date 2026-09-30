@@ -13,7 +13,7 @@
 #                               measured: 4h14m (2026-09-22, 247 steps) and
 #                               5h33m (2026-09-26, 320 steps, the sum of its
 #                               report's step times), both on the Pioneer rig;
-#                               the script is 365 steps now
+#                               the script is 364 steps now
 #                   Full rips the whole disc TWICE (once fast, once with every
 #                   track read at least three times) plus six short partial rips.
 #                   ONLY FULL counts toward a version or a handshake close.
@@ -240,7 +240,6 @@ keep metaflac_path
 # The run's own machinery: the script that is running, and how it was started.
 keep test_script_path
 keep test_script_autorun
-keep test_script_allow_unsafe
 
 # Debug logging ON for the whole run: the one baseline value that is not the
 # shipped default, on purpose. A defect found at 4am is only as diagnosable as

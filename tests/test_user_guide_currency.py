@@ -74,7 +74,6 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     # the noise this classification exists to prevent.
     "test_script_path": "Startup script",
     "test_script_autorun": "Run it automatically when Platterpus starts",
-    "test_script_allow_unsafe": "unsafe script verbs",
 }
 
 # Fields deliberately NOT in the end-user guide, each with the reason. These are

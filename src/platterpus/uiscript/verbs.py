@@ -23,13 +23,14 @@ exercises the real path rather than a parallel one that could drift from it. It
 inherits that seam's killable child, its bounded timeout and its
 diagnostics-on-failure for free, which is also why it is not reimplemented here.
 
-**The escape hatch.** The maintainer asked for one explicitly, so ``eval`` and
-``call`` exist — and they are marked :attr:`Verb.unsafe`, which means they are
-refused unless the user has separately opted in (a second Settings toggle, off by
-default, distinct from the one that shows the console at all). A run that used an
-unsafe verb says so at the top of its own transcript, because a report that reads
-like an ordinary pass but was produced by arbitrary code is a claim we cannot
-support.
+**There is no escape hatch, on purpose.** ``eval`` and ``call`` (arbitrary Python
+against the window) were reserved here from the start, with a separate "allow the
+unsafe verbs" opt-in, and neither was ever built. They were removed on
+2026-09-30, the verbs, the opt-in setting and its box together, on the
+maintainer's ruling that they were future-proofing rather than something needed.
+Every capability this language has is a named verb in the table below, so the
+table is the whole of what a script can do. A future need is a new verb, argued
+for like any other (``CLAUDE.md``: *a new testing capability is a SCRIPT VERB*).
 """
 
 from __future__ import annotations
@@ -47,8 +48,7 @@ class Verb:
     - ``min_args`` / ``max_args``: arity, checked by the parser so an arity
       mistake is reported against its own line rather than blowing up mid-run.
       ``max_args`` of ``None`` means "the rest of the line", used by the verbs
-      whose tail is free text (``log``, ``eval``).
-    - ``unsafe``: needs the separate escape-hatch opt-in.
+      whose tail is free text (``log``, ``album``).
     - ``help``: one line, shown in the console's built-in reference. Kept here so
       the reference cannot drift from the implementation — the console renders
       this table rather than a second hand-written list.
@@ -58,7 +58,6 @@ class Verb:
     min_args: int
     max_args: int | None
     help: str
-    unsafe: bool = False
     #: True when this verb's arguments can be filesystem paths, so a leading
     #: ``~/`` is expanded at parse time. Declared per verb rather than applied to
     #: every token because the free-text verbs (``log``, ``expect-cyanrip``) carry
@@ -726,35 +725,10 @@ _VERB_LIST: tuple[Verb, ...] = (
         "record, classify the build, and parse the album's log. Read-only",
         takes_paths=True,
     ),
-    # --- The escape hatch ----------------------------------------------------
-    Verb(
-        "eval",
-        1,
-        None,
-        "eval <python> — evaluate an expression against the window (UNSAFE)",
-        unsafe=True,
-        implemented=False,
-    ),
-    Verb(
-        "call",
-        1,
-        None,
-        "call <method> [args] — call a window method by name (UNSAFE)",
-        unsafe=True,
-        implemented=False,
-    ),
 )
 
 #: Name → Verb. Built once; the parser and the console both read this.
 VERBS: dict[str, Verb] = {v.name: v for v in _VERB_LIST}
-
-#: Whether any verb that needs the unsafe opt-in exists yet. Derived from the table,
-#: never stated: `eval` and `call` are reserved and not built, so today it is False,
-#: and every place that offers the opt-in reads this and stays read-only
-#: (maintainer, 2026-09-30: "if not, make it read-only until we do ... in all
-#: locations"). Building either verb is what turns the opt-in on.
-UNSAFE_VERBS: tuple[str, ...] = tuple(v.name for v in _VERB_LIST if v.unsafe)
-UNSAFE_VERBS_BUILT: bool = any(v.unsafe and v.implemented for v in _VERB_LIST)
 
 #: The dialogs `open` knows about, mapped to the window method that opens each.
 #: Data rather than branches for the same reason as the verb table: a reader can
@@ -793,8 +767,6 @@ def verb_reference() -> str:
             # First, and in capitals. A user scanning this reference is choosing
             # what to put in a batch that will run while they are not watching.
             marks.append("NOT YET IMPLEMENTED")
-        if verb.unsafe:
-            marks.append("needs the unsafe opt-in")
         mark = f"  [{'; '.join(marks)}]" if marks else ""
         lines.append(f"  {verb.help}{mark}")
     lines.append("")

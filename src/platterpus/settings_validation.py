@@ -287,36 +287,12 @@ def validate_config(config: Config) -> list[ValidationIssue]:
     )
     run("test_script_path", _validate_test_script_path, config.test_script_path)
     run(
-        "test_script_allow_unsafe",
-        _validate_unsafe_opt_in,
-        config.test_script_allow_unsafe,
-    )
-    run(
         "schema_version",
         _validate_plain_int,
         "schema_version",
         config.schema_version,
     )
     return issues
-
-
-def _validate_unsafe_opt_in(value: object) -> list[ValidationIssue]:
-    """The unsafe-verbs opt-in may be ON only once an unsafe verb is built.
-
-    Read-only until then in every place a value can come from: this box, the config
-    file (a hand-edited ``true`` is reset on load) and a script's ``set``.
-    """
-    from platterpus.uiscript.verbs import UNSAFE_VERBS_BUILT
-
-    if value is True and not UNSAFE_VERBS_BUILT:
-        return [
-            ValidationIssue(
-                "test_script_allow_unsafe",
-                "The unsafe script verbs (eval, call) are not built yet, so this "
-                "cannot be turned on until they exist.",
-            )
-        ]
-    return []
 
 
 def _validate_test_script_path(value: object) -> list[ValidationIssue]:
@@ -407,7 +383,6 @@ _BOOL_FIELDS: tuple[str, ...] = (
     "write_eac_log_after_rip",
     "save_additional_art",
     "test_script_autorun",
-    "test_script_allow_unsafe",
 )
 
 

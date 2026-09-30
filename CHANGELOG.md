@@ -57,10 +57,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **Esc no longer hides the test console while a script is running.** It used to
   hide the window and leave the run going with nothing on screen. Esc is ignored
   during a run; the Stop and close buttons still end it.
-- **The "Allow the unsafe script verbs" box is read-only.** The two verbs it
-  would allow, `eval` and `call`, were reserved and never built, so ticking it did
-  nothing. It now stays off and cannot be ticked, and neither the config file nor
-  a script's `set` can turn the setting on, until one of them exists.
+- **The unbuilt `eval` and `call` script verbs are gone, and so is the "Allow
+  the unsafe script verbs" box.** They were reserved and never built, so the box
+  enabled nothing. The script language is now a fixed list of named actions with
+  no way to run arbitrary code. The setting was removed too: a config file that
+  still carries `test_script_allow_unsafe` loads without a warning, and a test
+  report no longer has a `used_unsafe_verbs` field.
 - **The test transcript says who closed the console.** When the main window
   closed, the console's transcript still said "the console was closed", and the
   cyanrip fork read round 29's run as the operator closing the console by hand. It
