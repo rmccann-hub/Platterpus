@@ -145,6 +145,10 @@ SENT_LAPS: dict[str, str] = {
     # D1-D10 and our operator's rulings on O1-O4, released on the maintainer's word
     # 2026-09-30 ("if there is nothing else, then announce the new lap").
     "outbound/round-30-lap-04.md": "5db48a297957db5244b33566869713f72f1741188fb68ac87b67e2ad918232e6",
+    # Round 30 lap 6 — our `OPEN` amendment of the proposed v7 texts (four, one
+    # blocking), our answers to their lap 5's S17 and S24, and the pre-commit of
+    # GO for our lap 8; released on the maintainer's word 2026-09-30 ("announce").
+    "outbound/round-30-lap-06.md": "c5669248128ba75d24d9853cafa062bdc7015e09e93cc781dbb86df99869983d",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
