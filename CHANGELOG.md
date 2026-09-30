@@ -71,6 +71,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The release-cycle rulings are recorded** (option A; routine pre-run
+  overrides end; a new cyanrip build goes to beta until its run passes; a Full
+  run every night a new pair exists), and the status block states the plan they
+  give: round 30's closing releases are cyanrip `.20` on beta, then 0.6.66. The
+  block's check now accepts a planned release that pins the build under review
+  and reviews the fork's next, unreleased build, and nothing else.
 - **Our standing status for the cyanrip fork opens with a checked status block.**
   Their release-cycle proposal (D6) asks each side for a few `STATUS-` lines saying
   which round is open, which laps are sent and held, what the next release and
