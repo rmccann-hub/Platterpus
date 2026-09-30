@@ -697,6 +697,14 @@ _VERB_LIST: tuple[Verb, ...] = (
 #: Name → Verb. Built once; the parser and the console both read this.
 VERBS: dict[str, Verb] = {v.name: v for v in _VERB_LIST}
 
+#: Whether any verb that needs the unsafe opt-in exists yet. Derived from the table,
+#: never stated: `eval` and `call` are reserved and not built, so today it is False,
+#: and every place that offers the opt-in reads this and stays read-only
+#: (maintainer, 2026-09-30: "if not, make it read-only until we do ... in all
+#: locations"). Building either verb is what turns the opt-in on.
+UNSAFE_VERBS: tuple[str, ...] = tuple(v.name for v in _VERB_LIST if v.unsafe)
+UNSAFE_VERBS_BUILT: bool = any(v.unsafe and v.implemented for v in _VERB_LIST)
+
 #: The dialogs `open` knows about, mapped to the window method that opens each.
 #: Data rather than branches for the same reason as the verb table: a reader can
 #: see the entire reachable set without following call chains. Resolved lazily by

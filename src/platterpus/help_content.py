@@ -534,10 +534,10 @@ ripper's own `-x` and `-j` probes (a rip never sends those), pre-gap screening,
 a library audit and the handshake status — writing one artifact per step into
 FOLDER. Neither needs a source checkout; they work from the AppImage.
 
-**Allow the unsafe script verbs** (in the console, beside the two above) is off by default and should stay
-that way — and as of v0.6.23 there is nothing for it to allow: `eval` and `call`
-are reserved in the script vocabulary but not implemented, so a script using
-either is refused whether the box is ticked or not. Everything else in the
+**Allow the unsafe script verbs** (in the console, beside the two above) is
+read-only: there is nothing for it to allow. `eval` and `call` are reserved in the
+script vocabulary but not built, so the box stays off and cannot be ticked, and a
+script using either is refused. Everything else in the
 vocabulary is a fixed list of named actions with nothing that can run arbitrary
 code. If the escape hatch is ever built, this setting is its gate, and a run that
 used it will say so at the top of its own transcript.

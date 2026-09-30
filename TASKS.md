@@ -680,12 +680,21 @@ each side's reading; and the closing releases named.
   sha256 `d5ff0e01…`, 15,658 bytes, at `cyanrip@5c92fc2`): the cycle, and whether routine
   overrides end, the channel before a run, and when runs happen, are the operator's four
   decisions (O1–O4) after both sides answer.
-- [ ] **S25 (NEXT-ROUND), a rip record with no footer.** Closing our script console 28.9 s
-  into section F of the `.18` run left a cyanrip log ending at `Tracks:`, with no footer
-  and no `Log FUN512:`, so `cyanrip -Y` exits 3. A SIGTERM mid-read writes `.18`'s
-  interrupt footer, so the question is what the console's close
-  (`script_console.py:563`, `self._runner.stop("the console was closed")`) sends a rip in
-  flight. Ours to read and answer in round 31.
+- [x] **S25, a rip record with no footer — FOUND, ours, and FIXED (2026-09-30, for the
+  next release).** Not the console: the MAIN WINDOW closed (from outside our code,
+  source undeterminable: a stray Esc hid the console 3 s earlier, then a Qt close),
+  its teardown closed the console, whose transcript said "the console was closed",
+  and `_stop_rip_on_shutdown` sent the wrapper SIGTERM and 191 ms later SIGKILLed the
+  holder of `/dev/sr0` through `free_drive` (fuser's default), so cyanrip wrote no
+  footer. Fixed: `drive_control.stop_reader_gracefully` (SIGTERM, an 8 s grace,
+  SIGKILL only if still held or undeterminable; no second SIGTERM after the rescue);
+  the log wait is released after the grace; Esc is refused during a run; the run
+  says "the main window was closed"; both closes log where they came from; a close
+  from outside or File → Quit asks while a rip or acceptance test is running.
+  Revert-probed 6 ways. **Still hardware-gated:** that cyanrip writes its footer
+  inside the grace on the container path (close the window mid-rip; `cyanrip -Y`
+  must exit 0). Our round 30 lap 2 S21 said the window's rip was untouched by the
+  console, which holds; the correction to the fork's attribution goes in our next lap.
 
 ## Round 29 — CLOSED on our gate on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 

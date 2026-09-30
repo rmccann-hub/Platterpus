@@ -18,7 +18,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
@@ -869,6 +869,46 @@ class MainWindow(
         except Exception:  # noqa: BLE001 — layout polish must never break startup
             log.exception("could not apply the initial pane split; keeping Qt's")
 
+    def _work_in_flight(self) -> str:
+        """What a close would interrupt, in words, or "" when nothing would."""
+        if self._rip_thread is not None:
+            return "a rip"
+        if self._acceptance_layout is not None:
+            return "the acceptance test"
+        return ""
+
+    def _confirm_close_mid_work(self) -> bool:
+        """Ask before a close ends a rip or the acceptance test. True to close.
+
+        Asked only for closes a person or the desktop makes, never for our own:
+        the unattended mode, an update relaunch and the tests close on purpose.
+        The round-29 Full run lost a rip's log footer to a close nobody confirmed
+        (the fork's round 30 S25).
+        """
+        work = self._work_in_flight()
+        if not work or self._unattended:
+            return True
+        from platterpus.ui import message_boxes
+
+        detail = (
+            " The rip is stopped, and its log is finished where it stopped."
+            if self._rip_thread is not None
+            else ""
+        )
+        answer = message_boxes.question(
+            self,
+            "Quit Platterpus?",
+            f"Quitting now stops {work}.{detail} Quit anyway?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return answer == QMessageBox.StandardButton.Yes
+
+    def _on_quit_requested(self) -> None:
+        """File → Quit: the same question as a close from outside, then close."""
+        if self._confirm_close_mid_work():
+            self.close()
+
     def closeEvent(self, event: object) -> None:  # noqa: N802 — Qt API
         """Tear down worker threads cleanly on window close.
 
@@ -886,6 +926,11 @@ class MainWindow(
         ``hard_exit`` stops interpreter shutdown from destroying a live QThread."""
         from platterpus.workers import ShutdownDeadline, stop_thread
 
+        spontaneous = isinstance(event, QCloseEvent) and event.spontaneous()
+        if spontaneous and not self._confirm_close_mid_work():
+            event.ignore()  # type: ignore[attr-defined]  # a QCloseEvent here
+            log.info("window close from outside the app declined: work in flight")
+            return
         # Shutdown wrote nothing to the log until now, so a log could not answer
         # the two questions that matter after a bad quit: did the app begin closing
         # at all, and was a rip live when it did. The rig's A11 run turned on
@@ -893,8 +938,12 @@ class MainWindow(
         # says the window was still alive but not whether close had started
         # (rig session, 2026-07-30). One line, at the top, before anything can
         # block or abandon.
+        # And WHERE the close came from. Round 29's log could say the window closed
+        # mid-rip and not whether a person, the window manager or our own code
+        # closed it (the fork's round 30 S25).
         log.info(
-            "window close requested; tearing down workers (rip active=%s)",
+            "window close requested (%s); tearing down workers (rip active=%s)",
+            "from outside the app" if spontaneous else "from the app itself",
             self._rip_worker is not None,
         )
 
@@ -915,7 +964,7 @@ class MainWindow(
         # kills any in-flight child, so the teardown below is not racing a script
         # that is still opening dialogs on the window being destroyed.
         if self._script_console is not None:
-            self._script_console.close()
+            self._script_console.close_for("the main window was closed")
             self._script_console = None
 
         # One budget for the whole close, not one per worker — see the docstring.
@@ -1022,7 +1071,7 @@ class MainWindow(
         quit_action.setShortcut(
             standard_shortcut(QKeySequence.StandardKey.Quit, "Ctrl+Q")
         )
-        quit_action.triggered.connect(self.close)
+        quit_action.triggered.connect(self._on_quit_requested)
 
         tools_menu = menubar.addMenu("&Tools")
         settings_action = tools_menu.addAction("&Settings…")

@@ -116,15 +116,15 @@ the two back out of step — which is the shape that produced the defect the
 wait exists to fix.
 """
 
-# How long window-close may spend stopping the in-container reader, in total.
-# Chosen against what the fast path actually costs: on rootless podman the
-# in-container processes are host-visible, so the `fuser -k` that does the real
-# work is effectively instant (measured at 0.12 s on the rig — 20:50:03,949 →
-# 20:50:04,067). 5 s therefore leaves the common case untouched while capping the
-# pathological one, where every step misses and the `distrobox enter` fallback
-# would otherwise be waited out. Deliberately smaller than the worker shutdown
-# budget: this runs BEFORE the workers are stopped and must not eat their share.
-_SHUTDOWN_DRIVE_FREE_BUDGET_S: float = 5.0
+# How long window-close may spend stopping the in-container reader, in total:
+# the reader's SIGTERM grace, so a slow read can finish and the log keep its footer
+# (2026-09-30), plus 5 s for the SIGKILL escalation. The escalation's share was
+# chosen against what the fast path costs: on rootless podman the in-container
+# processes are host-visible, so `fuser -k` is effectively instant (measured at
+# 0.12 s on the rig), and 5 s caps the pathological case, where every step misses
+# and the `distrobox enter` fallback would otherwise be waited out. A close with a
+# rip in flight can therefore take up to this long; a close without one is untouched.
+_SHUTDOWN_DRIVE_FREE_BUDGET_S: float = drive_control.READER_TERM_GRACE_S + 5.0
 
 # How long the rip may go with NO signal from the worker (no progress line, no
 # status, no log output) before the liveness watchdog calls it a stall and shows
@@ -1265,36 +1265,35 @@ class RipMixin(MainWindowShared):
         if self._rip_worker is not None:
             # Host-side: set the cancel flag + killpg the wrapper group.
             self._rip_worker.cancel()
-            # AND release the worker from its bounded wait for the ripper's log
-            # footer. That wait exists because the in-container reader normally
-            # writes the footer only once the force-stop rescue reaches it — and on
-            # this path the rescue timer will never fire (the app is closing) while
-            # `free_drive` below kills the reader outright. So the footer is not
-            # coming, and a worker sitting out a 20-second deadline it cannot meet
-            # is exactly the frozen-window shape the maintainer reports as a bug.
-            # The verdict degrades to `not_determined`, which is the honest one.
-            self._rip_worker.abandon_log_wait()
         # The armed device, for the same reason the rescue timer captures it: the
         # picker is a live UI control and by the time we are closing it may point
         # at a drive that was never involved in this rip.
         device = self._force_stop_device or self._drive_picker.current_device() or ""
         try:
-            # free_drive kills the in-container reader (host pkill → fuser →
-            # distrobox-enter fallback) WITHOUT ejecting. Synchronous by design
-            # (see docstring); best-effort and never raises on its own.
+            # SIGTERM the reader, give it a grace to write its log's footer, and
+            # SIGKILL only if it still holds the drive (2026-09-30, the fork's round
+            # 30 S25: this used to SIGKILL 191 ms after the wrapper's SIGTERM, and a
+            # round-29 rip was left with no footer and no `Log FUN512:`). No eject.
+            # A reader the post-cancel rescue already signalled is not signalled
+            # again: cyanrip's second SIGTERM force-exits without the footer.
             #
-            # BOUNDED. The sequence is up to seven subprocesses, each previously
-            # capped at 20 s on its own, so a wedged drive could hold the window
-            # in a closing state for over a minute — indistinguishable from a
-            # hang, and the maintainer reports freezes as bugs because they are.
-            # One shared budget caps the whole thing; a spent budget skips the
-            # remaining steps and says so in the log.
-            drive_control.free_drive(
+            # BOUNDED, on the GUI thread by design (see docstring): one shared
+            # budget covers the grace and the escalation, and a spent budget skips
+            # the remaining steps and says so in the log.
+            drive_control.stop_reader_gracefully(
                 device=device,
+                already_signalled=self._force_stop_done,
                 runner=drive_control.budgeted_runner(_SHUTDOWN_DRIVE_FREE_BUDGET_S),
             )
         except Exception:  # noqa: BLE001 — shutdown cleanup must never crash close
             log.exception("shutdown drive-free failed; ignored")
+        if self._rip_worker is not None:
+            # Release the worker from its bounded wait for the log's footer only
+            # now, AFTER the grace: a footer written inside it reaches the report.
+            # Past this point it is not coming, and a worker sitting out a deadline
+            # it cannot meet is the frozen-window shape the maintainer reports as
+            # a bug; the verdict degrades to `not_determined`, the honest one.
+            self._rip_worker.abandon_log_wait()
 
     def _on_eject_requested(self, device: str) -> None:
         """User clicked Eject — eject the selected disc."""
