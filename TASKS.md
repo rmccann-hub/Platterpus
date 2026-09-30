@@ -615,8 +615,28 @@ results, the cycle their `PROPOSAL-release-cycle.md` recommends (option A).
   byte-exact as `tests/fixtures/fork_release_manifest_7677b3f.json`, and
   `tests/test_handshake_pin_under_review.py` reads it while no lap names the build.
   `FORK_PIN` stays `51cc789`.
-- [ ] **0.6.65**, the release the Full run is on: `51cc789` by default, `.19` accepted as
-  the build under review. No round is open, so no override.
+- [~] **0.6.65**, the release the Full run is on: `51cc789` by default, `.19` accepted as
+  the build under review. Prepared in PR #283, every gate green, and **HELD by the
+  operator's override of 2026-09-30**: *"wait for the next lap/release before making the
+  platterpus release. this may be against the rules but i am saying so."* No Platterpus
+  release until the fork's next lap or release. The override also covers the order: the
+  run on `.19` comes before round 30 has a lap, so the round's evidence exists before
+  the round does.
+- [x] **0.6.65 checked against `.19` in the fork's tree (2026-09-30), on the operator's
+  word "make sure we are talking the same language"**:
+  - *Flags:* `.19`'s P1 table (`PROVIDER-CONTRACT.md` at `174a134`, built at `g7476e28`
+    with identical `src/`) equals `.18`'s, 41 rows byte for byte.
+  - *Log lines, the four `.19` adds:* the reworded repeat-limit line is read as not
+    converged, like the old one; `Couldn't set metadata: %s!` is surfaced by the
+    `Couldn't` prefix; `(not listed: out of memory)` is not a failure line; the two
+    `-Z`/`-r` refusals were NOT surfaced, and now are, by a `-Z` prefix that matches
+    exactly those two of the contract's 539 rows (revert-probed).
+  - *Tag keys in capitals:* the one reader, colon-restore, walks every key whatever its
+    case. *Golden reference:* 0.6.65's parser reads the fork's `.19` golden reference
+    (build, footer, 3 of 3 tracks, CRCs, checksum) with nothing dropped.
+  - *Still one contract behind, by design:* our fatal inventory is round 28's until
+    `.19`'s contract is filed with their round 30 lap; `emit_ripper_inventory.py` then
+    regenerates it.
 - [ ] **The Full run on 0.6.65 with `.19`**, then both readings of the bundle. Their lap
   1 is rewritten as their reading plus the proposal, released on their operator's word.
 - [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree, at `cyanrip@ec6ac2d0`): the

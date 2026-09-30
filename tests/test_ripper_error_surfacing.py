@@ -1030,3 +1030,21 @@ def test_the_inventory_and_its_fixture_are_GENERATED_and_current() -> None:
     assert "P5" in result.stdout, (
         f"--check passed without reporting what it measured: {result.stdout!r}"
     )
+
+
+def test_the_two_19_convergence_refusals_are_surfaced_as_written() -> None:
+    """`.19` (cyanrip@174a134) added two fatal `-Z`/`-r` refusals our round-28
+    inventory does not list. The `-Z` fallback prefix carries them until `.19`'s
+    contract is filed; an ordinary line and a `-Z`-free sentence still do not match."""
+    from platterpus.workers import rip_worker
+
+    refusals = [
+        "-Z 2 can never converge with -r 2: it needs 3 reads to agree, and -r 2 "
+        "never allows that many. Use -r 3 or more!",
+        "-Z 20 can never converge with -r 5: it needs 21 reads to agree, more than "
+        "any -r allows. Use a smaller -Z!",
+    ]
+    for line in refusals:
+        assert rip_worker._RIPPER_ERROR_RE.search(line), line
+    for line in ("Ripping track 1, progress - 12.34%", "Zero errors so far"):
+        assert not rip_worker._RIPPER_ERROR_RE.search(line), line

@@ -2356,7 +2356,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3586 -> 3611** (2026-09-28, the round-28 Full run): the secure re-read verdict diagnostic is graded by its direction (warning when the reads never agreed) and names its track, with why the progress lines' track is the verdict's. The worker is the only place that sees both lines in stream order.
     # **3523 -> 3531** (2026-09-28, `-Z` that `-r` cannot satisfy): the ladder and the instability auto-fix ask `recovery_secure_rerip_ceiling` instead of `secure_rerip_matches or MAX_SECURE_REREP`; the decision lives in `read_speed_ladder.py`, only the calls and their comments are here.
     # **3619 -> 3621** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the verdict-grading comment names both wordings, and "four verdicts whose reads never agreed" now says they hit the repeat limit.
-    "workers/rip_worker.py": 3621,
+    # **3621 -> 3630 (2026-09-30)**: the `-Z` fallback prefix for `.19`'s two new
+    # `-Z`/`-r` refusals, with the measurement behind it (2 of the contract's 539 rows).
+    "workers/rip_worker.py": 3630,
 }
 
 

@@ -39,6 +39,12 @@ chose that the fork holds its round 30 lap 1 until the Full run exists.
   window must parent it, or a release during the desktop's reply would leave the
   screen held until exit.
 
+- *0.6.65 held by the operator's override*, until the fork's next lap or release, after
+  a check of 0.6.65 against `.19` in their tree found one gap (the two `-Z`/`-r` refusals,
+  now surfaced) and nothing else.
+- *The first push of the screen hold failed CI* on the module map: pushed after the
+  related tests and before the full suite. The full suite now runs before every push.
+
 **Learned** (no new rule; each is an instance of a question `CLAUDE.md` already asks):
 - *A peer's request can be about a state that has already moved.* The fork asked for
   "0.6.64 naming `.19`" against `platterpus@58ad83db`; 0.6.64 had been dispatched from

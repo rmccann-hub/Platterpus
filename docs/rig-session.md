@@ -1,9 +1,9 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.65        the release round 30's Full run is on, released 2026-09-30:
-                           it installs 51cc789 by default and accepts 174a134 as the
-                           build under review.
+Platterpus  v0.6.65        the release round 30's Full run is on, PREPARED and HELD
+                           until the fork's next lap or release (operator, 2026-09-30):
+                           it installs 51cc789 and accepts 174a134 as under review.
             v0.6.64        round 29's closing release, released 2026-09-30: it
                            installs 51cc789 by default.
 cyanrip     174a134        0.9.4-rc2+platterpus.19  (platterpus-fork-g174a134)  <- UNDER REVIEW
