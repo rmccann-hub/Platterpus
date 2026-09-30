@@ -39,7 +39,10 @@ Platterpus/
 │   ├── mutation.yml                     # weekly non-gating mutation sweep via scripts/mutation_sweep.py
 │   │                                    #   (OURS, not mutmut, since 2026-09-05 — rule #11 applied to a
 │   │                                    #   signal: swapping one external mutator for another keeps the
-│   │                                    #   failure mode). Targets parsers/, verdict.py, ctdb/crc.py
+│   │                                    #   failure mode). One matrix leg per trust-bearing module —
+│   │                                    #   15 targets (verdict, ctdb/, parsers/, eac_log_export,
+│   │                                    #   cyanrip_backend, handshake_approval, naming, rig_check,
+│   │                                    #   ripper_identity, settings_validation); the matrix is the authority
 │   ├── release.yml                      # tag- or dispatch-driven: build AppImage + attach to a GitHub Release
 │   └── publish-pypi.yml                 # publish wheel+sdist to PyPI via Trusted Publishing on release
 │
@@ -71,7 +74,8 @@ Platterpus/
 │   ├── handshake/                       # the handshake correspondence record (see handshake/README.md)
 │   │   ├── README.md                    # round-by-round map
 │   │   ├── outbound/  inbound/  verified/   # what we sent, what came back, what we verified
-│   │   └── artifacts-round-*/           # the evidence a round was argued from
+│   │   └── artifacts-round-07*/  artifactsroundNN/   # the evidence a round was argued from
+│   │                                    #   (hyphenated names for round 7; artifactsround08, 26-29 since)
 │   ├── archive/                         # retired investigations + external reference (see archive/README.md)
 │   │   ├── README.md                    # index + graduation notes for the archived material
 │   │   ├── ecosystem-audit-2026-06.md   # previous-backend-stalled / cyanrip-successor audit (KDD-18)
@@ -81,7 +85,8 @@ Platterpus/
 │   │   ├── audit-2026-07-02.md          # dated full-repo audit record (archived 2026-07-21)
 │   │   ├── audit-2026-07-21.md          # dated documentation-audit record
 │   │   ├── trust-audit-2026-07-08.md    # dated trust & supply-chain audit record (archived 2026-07-21)
-│   │   ├── rig-session-{c5fb909,f5e11ba,b9,b10}.md  # the 4 superseded per-pairing rig sheets
+│   │   ├── config-audit-2026-09-28.md   # the configuration-audit run report (archived 2026-09-28; KDD-39)
+│   │   ├── rig-session-{c5fb909,f5e11ba,b9,b10,d9c058c}.md  # the 5 superseded per-pairing rig sheets
 │   │   └── archival-extraction-guide-2026-06.md   # external EAC archival master guide (reference)
 │   └── (compass_artifact_*.md if/when produced — see docs/README.md)
 │   # Also tracked and previously unlisted here (added 2026-09-13): OWNERSHIP.md
@@ -117,6 +122,12 @@ Platterpus/
 │   ├── probe_argv_surface.py            # measures the argv we actually hand the ripper
 │   ├── verify_log_surface.py            # accounts for every line of a ripper log against our parser
 │   ├── tree_lock.py                     # guards a tree against concurrent mutating runs
+│   ├── check_bundled_verifier.py        # proves a built AppImage's OWN Python can verify a release
+│   │                                    #   attestation (sigstore imports lazily, so nothing else notices)
+│   ├── release_attestation.py           # run by release.yml: picks + checks the attestation bundle the
+│   │                                    #   updater will accept, before the release becomes visible
+│   ├── lap_language.py                  # CLI: check a handshake lap written in LSL (the fork's lap language)
+│   ├── laplang/                         # our second, independent LSL 1-3 checker + our amendments A1-A8
 │   #
 │   # The seven rows above `check.py` were the whole of this block until 2026-09-13:
 │   # 12 of 19 tracked scripts had no row and TEN were not named anywhere in this
@@ -217,6 +228,7 @@ Platterpus/
         ├── screen_inhibit.py            # hold the screen awake (no blanking, no lock) beside the sleep lock
         ├── test_session.py              # plan/prepare/collect an in-app acceptance session into ONE sendable file
         ├── rig_scripts/                 # the acceptance + situational test scripts, shipped INSIDE the package
+        ├── rig_session.sh               # the unattended half of a rig session: every step writes an artifact
         ├── verdict.py                   # the single pure AccurateRip trust verdict (shared by every surface)
         ├── one_frame_match.py           # what cyanrip's `Accurip 450` match is (ONE frame), in the words every surface uses
         ├── album_loudness.py            # what the ripper's "Album" loudness rows were measured over (whole disc, or only what was read)
@@ -339,7 +351,7 @@ Platterpus/
         │       ├── manual_install.py    # tier (c) copyable search string dialog
         │       ├── file_viewer.py       # in-app read-only .log/.json viewer (no Open-With chooser)
         │       ├── diagnostics_dialog.py # Help → Copy diagnostics: one selectable block for a bug report
-        │       ├── script_console.py    # Tools → Run test script: the surface that makes uiscript reachable
+        │       ├── script_console.py    # Tools → Advanced → Run test script…: the surface that makes uiscript reachable
         │       ├── script_settings_box.py # the console's startup script / autorun / unsafe verbs: their one home
         │       └── setup_center.py     # Tools → Setup & Updates: six old menu items as one window
         ├── scroll_guards.py         # a scroll gesture never changes a value; log panes stick to the bottom
@@ -472,7 +484,7 @@ Every call into an external tool goes through this layer. CLAUDE.md Critical Rul
 - **`tool_run.py`** — the shape of *"we ran an external tool; here is everything it told us"*: `ToolRun` carries the **exit code (tri-state)**, the **exact argv as spawned**, and the tool's **complete output with stderr merged**, bounded head-and-tail via `diagnostics.bounded_output`. It exists because the three post-rip adapters each declared their injected command seam as `Callable[[list[str]], int]`, which made it *structurally impossible* for the dependency's own words to reach the result, the report or the user — a report could say "FLAC verify FAILED for 3 file(s)" and could not say what `flac` said about them. Not an oversight at a call site; a missing channel. `started` is a **third** state beside "exit 0" and "non-zero": a missing binary is a problem with the *pass* (blame nothing), a timeout is a problem with *this input* (blame the file), and collapsing them is how a missing `flac` came to be reported as a corrupt FLAC. `run_tool`/`make_runner` are the real runners, and they route every failure through the diagnostics collector so it lands in the log **and** the report JSON in one call. Never raises.
 - **`flac_verify.py`** — post-rip FLAC integrity check: `verify_flac_files()` runs `flac --test` (decode + stored-MD5 verify) on each output FLAC, returning a `FlacVerifyResult` (never raises; distinguishes "couldn't run" from "a file failed"). Gives the cyanrip path the decode==PCM guarantee the previous backend got for free from `flac --verify`; only runs when `RipBackend.self_verifies_encode()` is False (the GUI gates it).
 - **`flac_recompress.py`** — optional post-rip FLAC re-compression: `recompress_flac_files()` re-encodes each output FLAC at `flac -8 -e -p --verify` (lossless; `flac` preserves tags + embedded art; `-e`/`-p` add exhaustive encode-time search at zero decode-time cost) to a sibling temp, then `os.replace`s it in atomically, returning a `RecompressResult` (never raises; same couldn't-run vs per-file-failure split as `flac_verify`; a failed file is left untouched). Opt-in, off by default; only runs when `RipBackend.produces_max_compression_flac()` is False (the previous backend encoded at `-5`; cyanrip already maxes, so the GUI skips it). The GUI folds it into the post-rip tag/cover thread so it runs *after* those, on the final files.
-- **`transcode.py`** (shipped 2026-06-26 — the multi-format output feature; KDD-22) — post-rip transcode of the rip's FLAC to the user's chosen format: `transcode_files(paths, *, fmt, mp3_vbr_quality)` re-encodes each FLAC to a sibling **WavPack** (`-c:a wavpack`, lossless, APEv2 text tags → `.wv`), **MP3** (libmp3lame VBR `-q:a 0` + ID3/APIC cover), or **WAV** (`pcm_s16le -map 0:a`) via ffmpeg; atomic swap-in, **FLAC kept as the master**, returns a `TranscodeResult` (never raises; same split as the FLAC adapters). `SUPPORTED_FORMATS`/`_FORMAT_EXT` are public so the GUI knows which `output_format` needs a transcode (anything but `flac`). **Transcode-always model** (KDD-22): both backends rip FLAC, then derive — so MP3 is best-practice VBR on both (cyanrip's native MP3 is only CBR) and the FLAC master always exists; `RipBackend.native_output_formats()` is kept as a reserved seam, not consumed. Wired into the post-rip daemon thread (`main_window_rip._start_post_rip_processing`, last step) via the `transcode_done` signal. Design + the encoder-arg rationale: `docs/archive/mp3-wav-support-2026-06.md` (archived 2026-08-06 once shipped; the still-open `.wv` embedded-art item is a `TASKS.md` P2 row).
+- **`transcode.py`** (shipped 2026-06-26 — the multi-format output feature; KDD-22) — post-rip transcode of the rip's FLAC to the user's chosen format: `transcode_files(paths, *, fmt, mp3_vbr_quality)` re-encodes each FLAC to a sibling **WavPack** (`-c:a wavpack`, lossless, APEv2 text tags → `.wv`), **MP3** (libmp3lame VBR `-q:a N`, N from `mp3_vbr_quality`, default 0 + ID3/APIC cover), or **WAV** (`pcm_s16le -map 0:a`) via ffmpeg; atomic swap-in, **FLAC kept as the master**, returns a `TranscodeResult` (never raises; same split as the FLAC adapters). `SUPPORTED_FORMATS`/`_FORMAT_EXT` are public so the GUI knows which `output_format` needs a transcode (anything but `flac`). **Transcode-always model** (KDD-22): cyanrip — the sole backend since KDD-18's 2026-06-30 amendment; this was "both backends" when it shipped — rips FLAC, then we derive — so MP3 is best-practice VBR (cyanrip's native MP3 is only CBR) and the FLAC master always exists; `RipBackend.native_output_formats()` is kept as a reserved seam, not consumed. Wired into the post-rip daemon thread (`main_window_rip._start_post_rip_processing`, last step) via the `transcode_done` signal. Design + the encoder-arg rationale: `docs/archive/mp3-wav-support-2026-06.md` (archived 2026-08-06 once shipped; the still-open `.wv` embedded-art item is a `TASKS.md` P2 row).
 - **`derived_verify.py`** — post-transcode verification of the *derived* files (KDD-22): WavPack/WAV are proven **bit-identical** to the FLAC master (decode both to PCM and compare); MP3 is lossy so it's only checked as cleanly decodable. Honest per format (Critical Rule #4); never raises.
 
 ### CTDB verify library (`ctdb/`)
@@ -544,7 +556,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`unknown_album.py`** — `UnknownAlbumDialog(QDialog)` + helper functions. Triggers an unknown-album rip (cyanrip, no MBID), applies placeholder tags via `MetaflacAdapter`, optionally invokes `flatpak run org.musicbrainz.Picard <output_folder>`.
 - **`drive_setup_dialog.py`** — `DriveSetupDialog`, the drive-setup wizard (KDD-15). The read offset comes from the bundled AccurateRip drive-model list (pre-filled when the drive is recognised) or manual entry, persisted to Platterpus's own config (applied to cyanrip as `-s`). cyanrip has **no** offset finder (its `-f` is force-overread, not detection) — so `RipBackend.supports_offset_detection()` is False for it and the wizard hides the "Detect" button rather than offer a probe that can only fail. The `DriveSetupWorker`/`find_offset` seam remains for a future backend that can genuinely measure an offset.
 - **`ripper_picker.py`** — `RipperPickerDialog`, the GUI half of `--install-ripper` (Help → Install a cyanrip build…). Lists `fork_source.ripper_choices()` — the same function the CLI prints, asserted as a relation — and pre-selects `fork_source.pin_the_rig_should_install()`, so an acceptance run needs no build chosen by hand. **Installs nothing itself:** it returns a commit to `main_window_update._begin_ripper_install`, which runs the build on `HostSetupWorker`'s thread, keeping one install subsystem (Critical rule #6). Exists because the in-app update check reads the fork's *release manifest* and so cannot offer a build the fork never released — the case a handshake round routinely creates, and the abort that ended an overnight run three times.
-- **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when the ripper is absent and on Tools → Set up Platterpus…. Installs the cyanrip backend into the container.
+- **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when the ripper is absent and from Tools → Setup & Updates… (its *Run setup…* button; the old Tools → *Set up Platterpus…* item was folded into that window 2026-09-21). Installs the cyanrip backend into the container.
 - **`uninstall_dialog.py`** — `UninstallDialog`, the in-app Uninstaller (Tools → Uninstall Platterpus…, also launched directly by `platterpus --uninstall` from the menu entry). Confirmation gate + per-piece checkboxes (container, and *leftover ripper settings from older versions* — `~/.config/whipper/`; the AppImage step appears only when running as one); drives `deps/host_teardown.py` via the shared worker; on success the main window offers to close itself (its settings no longer exist on disk).
 - **`help_dialogs.py`** — `AboutDialog` (version + Python/Qt/PySide6 versions + config/log/cyanrip-binary paths) and `HelpDialog` (renders `help_content.USER_GUIDE`).
 - **`dialogs/centering.py`** — `CenteredDialog`, a `QDialog` base that centres itself over the parent window on first show (fixes a multi-monitor "modal on another screen looks frozen" report; best-effort, a no-op under native Wayland), and fits itself to its content and the screen: height grows to what its wrapped text needs at its real width, capped at the screen (2026-09-23 — a picker opened 360 px tall with every paragraph clipped on a 540 px logical screen).
@@ -558,7 +570,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`setting_homes.py`** — pure data: `SETTING_HOMES` maps every user setting to its ONE window and control (`SETTINGS`, `DRIVE_SETUP`, `SETUP_CENTER`, `SCRIPT_CONSOLE`), with `WINDOW_PATHS` for the menu path a read-only view names. The rule it records: a setting lives beside what it steers. `tests/test_setting_homes.py` builds every such window and fails on a setting with no home or a value control no setting is homed on (the second-editor defect that once let Settings write a stale offset over the wizard's).
 - **`main_window_settings.py`** — `SettingsMixin`: the two write paths. `_on_open_settings` / `_apply_settings_from` (Settings' OK and Apply, only what the user changed) and `_save_user_setting(field, value) -> SettingWrite` for a control that saves as it changes — validated by the same `settings_validation.field_error` as the `set` script verb, refusing app state and unknown names. `_refresh_setting_views` keeps an open Setup & Updates showing the current channels and offset.
 - **`dialogs/script_settings_box.py`** — `ScriptSettingsBox`, the script console's startup script (Choose / Use built-in / Clear), autorun and unsafe-verbs box, saved as they change through `_save_user_setting`. Split from the console so the console stays about running a batch; the console never replaces a typed batch when the startup script changes.
-- **`dialogs/script_console.py`** — **Tools → Run test script…**: paste or load a batch, run it against the live window, read the transcript. It adds no behaviour — `uiscript/` already had the parser, vocabulary, runner and renderer, with tests — it adds the **surface**, which that subsystem shipped without: `grep` for the package outside itself returned nothing, so the maintainer's own ask (*"a debug testing option where i can copy and paste command code into it so i dont need to be present"*) existed as a library nobody could invoke. Modeless on purpose (a modal console would sit in front of the window it drives), and its transcript widget is `PlainText` because it carries the ripper's own output. The same method backs the menu item, `--run-script` and the config's autorun, so there is one description of how a batch starts.
+- **`dialogs/script_console.py`** — **Tools → Advanced → Run test script…**: paste or load a batch, run it against the live window, read the transcript. It adds no behaviour — `uiscript/` already had the parser, vocabulary, runner and renderer, with tests — it adds the **surface**, which that subsystem shipped without: `grep` for the package outside itself returned nothing, so the maintainer's own ask (*"a debug testing option where i can copy and paste command code into it so i dont need to be present"*) existed as a library nobody could invoke. Modeless on purpose (a modal console would sit in front of the window it drives), and its transcript widget is `PlainText` because it carries the ripper's own output. The same method backs the menu item, `--run-script` and the config's autorun, so there is one description of how a batch starts.
 - **`dialogs/diagnostics_dialog.py`** — **Help → Copy diagnostics**: the version *pair*, the live environment, and **every diagnostic the collector recorded this session**, in one read-only selectable box with a Copy button. Added because an audit found the UI had **no** export, bundle or copy-diagnostics action at all — the only clipboard call in the whole tree copied a package search string — and the per-rip `.platterpus.json`, which *is* the richer bundle, exists only for a rip and is reachable only from the rip pane. So a setup failure, a dependency-check crash, a failed update or a drive probe had no copyable surface. `build_diagnostics_text()` is **pure and never raises** (a diagnostics view that cannot open fails exactly when the user is already reporting a failure) and is deliberately separate from the widget, so a future `--diagnostics` CLI flag renders the same text rather than a second version of it. Reads the same collector the report reads, so the pasted text and the JSON cannot disagree; states its own truncation; and renders the tri-state exit code as *"none (no child was reaped)"* rather than `0`.
 - **`dialogs/file_viewer.py`** — in-app read-only viewer for a rip's `.log` / `.platterpus.json`, so viewing a log never falls into KDE's "Open With" chooser (zero-terminal bar); "Open externally…" still defers to the OS.
 
@@ -761,8 +773,8 @@ CLAUDE.md Critical Rule #2: `python-appimage` is the builder. `appimage-builder`
 
 #### What the AppImage contains
 
-- A CPython 3.11 interpreter (provided by `python-appimage`'s manylinux base).
-- All Python runtime deps from `build/python-appimage/requirements.txt` (PySide6, musicbrainzngs, tomli-w).
+- A CPython 3.12 interpreter (provided by `python-appimage`'s manylinux base; `PLATTERPUS_PYTHON_VERSION` in `build/build_appimage.sh`).
+- All Python runtime deps from `build/python-appimage/requirements.txt` (PySide6, musicbrainzngs, tomli-w, cryptography, sigstore).
 - The `platterpus` package source.
 - Desktop integration metadata (`.desktop` file, icon).
 
@@ -1036,7 +1048,7 @@ Decided 2026-06-04 (user-approved; this is a sanctioned evolution of the distrib
 
 Decided 2026-06-04 after a researched ecosystem audit ([docs/archive/ecosystem-audit-2026-06.md](docs/archive/ecosystem-audit-2026-06.md)), prompted by whipper's `offset find` failing on real hardware (Pioneer BDR-209D) and the question of long-term foundation.
 
-> **AMENDED 2026-06-30 — whipper removed entirely; cyanrip is now the *sole* backend.** Research (the comparison in [docs/cyanrip-fork.md](docs/cyanrip-fork.md) + the two backend impls) confirmed cyanrip needs **nothing structural** for EAC parity — it already reaches AccurateRip confidence 200 / bit-perfect on the BDR-209D rig — and that whipper had **no functional advantage**: its only drive-dependent factor (the cd-paranoia >587 read-offset bug) *always* favours cyanrip, and its other edges (cdrdao gap detection, `--keep-going`, CD-R safety) are niche and feature-not-drive-dependent. With the maintainer's explicit sign-off, the whipper backend, its Settings option, its whipper-only rip flags, and its container install/export were all deleted; the `RipBackend` ABC moved to a neutral `adapters/rip_backend.py` (so a future engine can still slot in). The read offset now lives in the GUI's own config (cyanrip is fed it as `-s`; `whipper.conf` is kept read-only for reference). The "never fork" stance below stands unchanged. The original decision text is preserved as the record of how we got here.
+> **AMENDED 2026-06-30 — whipper removed entirely; cyanrip is now the *sole* backend.** Research (the comparison in [docs/cyanrip-fork.md](docs/cyanrip-fork.md) + the two backend impls) confirmed cyanrip needs **nothing structural** for EAC parity — it already reaches AccurateRip confidence 200 / bit-perfect on the BDR-209D rig — and that whipper had **no functional advantage**: its only drive-dependent factor (the cd-paranoia >587 read-offset bug) *always* favours cyanrip, and its other edges (cdrdao gap detection, `--keep-going`, CD-R safety) are niche and feature-not-drive-dependent. With the maintainer's explicit sign-off, the whipper backend, its Settings option, its whipper-only rip flags, and its container install/export were all deleted; the `RipBackend` ABC moved to a neutral `adapters/rip_backend.py` (so a future engine can still slot in). The read offset now lives in the GUI's own config (cyanrip is fed it as `-s`; `whipper.conf` is kept read-only for reference). The "never fork" stance below stood unchanged *at this amendment*; it is **superseded by KDD-32 (2026-07-24) and KDD-33 (2026-08-03)** — the Platterpus soft-fork of cyanrip is now the ripper the setup wizard installs. The original decision text is preserved as the record of how we got here.
 
 > **Under long-term research (2026-06-23, maintainer-requested).** The "never
 > fork" stance is the *current* operating decision, but the maintainer has asked
@@ -1097,7 +1109,7 @@ satisfy our own declared dependency range. Same bite as the regression-test rule
 
 ### KDD-21 — Behaviour-preserving refactor: shared composition root, step-engine module, and one worker-thread helper (decided 2026-06-22)
 
-A whole-codebase, behaviour-preserving refactor (user-requested "complete refactor") to cut redundancy, improve readability, and split/merge by cohesion. No feature or contract change; the 943-test suite stayed green at every commit (now 950) and branch coverage rose 92.04 % → 92.43 %. The structural decisions worth recording:
+A whole-codebase, behaviour-preserving refactor (user-requested "complete refactor") to cut redundancy, improve readability, and split/merge by cohesion. No feature or contract change; the 943-test suite stayed green at every commit (950 when the refactor closed, 2026-06-22) and branch coverage rose 92.04 % → 92.43 %. The structural decisions worth recording:
 
 - **One composition root (`composition.py`).** `app.py` and `preflight.default_context()` each built the same adapters (backend selection + host-exported-path fallback, MusicBrainz client, contact URL). They now both call `composition.build_backend()` / `build_musicbrainz_client()`, so the GUI and `--doctor` can't wire the adapters differently. The trivial zero-arg adapters (`CtdbHttpImpl`, `DependencyManager`) stay inline at each site — wrapping them would add indirection without removing duplication. `app.py` imports it *inside* the startup-guard `try:` so an import failure still surfaces the fatal dialog.
 - **Step-engine vocabulary split out (`deps/step_engine.py`).** `StepStatus`/`StepResult`/`CommandRunner`/`SubprocessRunner`/`StepEngine` were defined in `host_setup.py`, so the *teardown* engine imported its core types from the *setup* engine — a backwards sibling dependency. They moved to their own module both engines (and the worker + dialogs) depend on. This is the canonical "split a file that's secretly doing two jobs" — driven by the import graph, not a line count.
@@ -1165,7 +1177,7 @@ The in-app updater verifies a download's **SHA-256** against the release's publi
 - **Dormant until armed.** `update_signing.PUBLIC_KEY_B64` ships **empty**, so `signing_configured()` is False and the updater keeps its SHA-256-only behaviour — shipping the code changes nothing. Baking in the maintainer's public key is the single deliberate act that **arms** the gate.
 - **Fail-closed, and the transition it implies.** Once armed, the updater refuses to install a release whose `.minisig` is missing/unfetchable *or* fails verification (never a fall-through to unverified bytes). Consequence: **the release that first sets the key MUST also be the first to carry a `.minisig`**, and every release after it must be signed — documented in `docs/architecture.md` §6.2 along with the out-of-CI signing ritual.
 - **Release-flow change.** Because the key is offline, `release.yml` cannot sign. The maintainer signs the built AppImage locally and uploads the `.minisig` to the release (the ritual is the doc's subject). CI is unchanged; no key lives in CI.
-- **Status:** the *verify* side (module + updater wiring + tests, all fail-closed) shipped 2026-07-21, dormant. Remaining, maintainer-only: generate the keypair, bake in the public key, and sign the first release — at which point the 2026-07-08 trust audit's item #1 is fully closed (and `trust-audit-2026-07-08.md` can finally be archived).
+- **Status:** the *verify* side (module + updater wiring + tests, all fail-closed) shipped 2026-07-21, dormant. **It will stay dormant: KDD-37 D9 (2026-09-25) rules that signing is never armed.** The authenticity check an update gets instead is the release's build attestation, verified fail-closed in the updater (`src/platterpus/update_attestation.py`). The 2026-07-08 trust audit is archived (`docs/archive/trust-audit-2026-07-08.md`). *(Until 2026-09-30 this line listed generating the keypair and signing the first release as remaining work.)*
 
 ### KDD-27 — An offset-variant AccurateRip match is NOT proof of a reproducible read; re-read by default (decided 2026-07-23 as opt-in, default flipped 2026-09-24)
 
@@ -1291,7 +1303,6 @@ Three consequences, now standing:
 
 ---
 
-*Last updated for Platterpus v0.6.65.*
 ### KDD-35 — A version number is a claim about the field, not about CI (decided 2026-08-19)
 
 **Decision.** Version thresholds are gated on *evidence from hardware in people's
@@ -1326,8 +1337,10 @@ is the decision log failing at the one thing it is for. All three were live in
   should not allow a 0.9.1."* Two passes on one rig answer *was it luck* and say
   nothing about *is it green only because of this machine*.
 
-**Status, 2026-09-29:** the ledger carries twelve rows, every one `partial`, and
-no `full-green` row. The newest, 2026-09-28 on app 0.6.63 against `51cc789`
+**Status, 2026-09-30:** the ledger carries twelve rows, every one `partial`, and
+no `full-green` row. **A Full run on app 0.6.65 with the fork's `.19` (`174a134`,
+round 30's build under review) started 2026-09-30 and is in progress**; it has no
+row until its bundle is read. The newest, 2026-09-28 on app 0.6.63 against `51cc789`
 (`.18`), is round 29's Full run: 320 of 323, `partial` because three screenshot steps
 in ARCHIVAL sections failed (`docs/testing.md` §5B, the 0.6.63 row). Round 28's Full
 run, 2026-09-28 on app 0.6.61 against `e0471f4` (`.17`), passed 320 of 320 and is
@@ -1342,7 +1355,7 @@ so the row is `partial` (`docs/testing.md` §5.br). The 2026-09-12 run (238/238,
 the derived-format files they exist to prove (`docs/testing.md` §5.bi). The most
 complete run since, 2026-09-22 on app 0.6.52 against `2cce60d` (247/247), is
 `partial` for the same class of reason: three of eight rips had their post-rip
-checks dropped and no step could see it (§5.bn). All nine rows are **one**
+checks dropped and no step could see it (§5.bn). All twelve rows are **one**
 machine and **one** distro, the BDR-209D on Bazzite, so even a full-green row
 would leave 0.9.1's diversity floor untouched. *(Until the 2026-09-22 document
 audit this line still reported the 2026-09-12 row as full-green — nine days past
@@ -1540,8 +1553,8 @@ re-check mode from this tier instead of asking again.
 
 **Outcome, by amendment.**
 
-- **Applied**, on the session branch `claude/serene-bell-gzywdr`, one commit each. They reach
-  `main` when the maintainer merges its pull request.
+- **Applied**, on the session branch `claude/serene-bell-gzywdr`, one commit each. They
+  reached `main` when the maintainer merged its pull request, #276 (`32f34467`).
   - A3: `DEPENDENCIES.md` rows for twine, pip-audit, cyclonedx-bom and gitleaks. The
     recipe's comment no longer says a lock exists.
   - A8: the dead `[tool.mutmut]` block is deleted.
@@ -1629,8 +1642,8 @@ claude-code-skills holds the standard, but shares nothing into this repository.
 
 **Outcome, by amendment.** Ids continue KDD-39's.
 
-- **Applied**, one commit each, on `claude/new-session-o0rfd0`. They reach `main` when the
-  maintainer merges its pull request.
+- **Applied**, one commit each, on `claude/new-session-o0rfd0`. They reached `main` when the
+  maintainer merged its pull request, #277 (`d3fe8944`).
   - A23 (`d13edb93`): the README stops saying AppImageUpdate can update the AppImage.
   - A24 (`acb28fe6`): `SECURITY.md` gives the attestation check that needs no login.
   - A21 (`95e9ef4b`): `scripts/check.py` says when the clone is shallow or its
@@ -1640,7 +1653,8 @@ claude-code-skills holds the standard, but shares nothing into this repository.
 - **Approved and held** under C3 of the seam-automation proposal, with the same release as
   KDD-39's eight:
   - A22: change the AppImage's update information from `latest` to `latest-all`
-    (`build/build_appimage.sh:318`). The build is what round 29's closing release ships.
+    (`build/build_appimage.sh:318`). Round 29 has since closed, and 0.6.64 and 0.6.65
+    shipped with `latest` unchanged; A22 is still held.
     Revisit the choice at 1.0.0, because `latest-all` also offers pre-releases.
   - A25: deny `Skill(anthropic-skills:*)` in `.claude/settings.json`, then prove it fires.
 - **KDD-39's eight** (A2, A4, A5, A6, A7, A10, A12, A14) are still held. Each one's condition
@@ -1722,3 +1736,7 @@ cap (`CLAUDE.md`, *Deliberate divergences* (1) and (2)).
 
 **Next run:** when C3 lifts, which releases ten held amendments, or before the next
 release, whichever comes first.
+
+---
+
+*Last updated for Platterpus v0.6.65.*

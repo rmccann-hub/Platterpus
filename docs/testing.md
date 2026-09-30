@@ -49,7 +49,7 @@ the point: **we do not pretend CI proves the app rips a disc.**
 | **Startup smoke** | `pytest` + offscreen Qt | the real `app.main()` entry point comes up headless (composition root, real adapters, a turn of the real event loop), with probes stubbed for hermeticity. `test_app_smoke.py` asserts the window composes (menus + widgets) and the launch dependency check applies **on the GUI thread** with no cross-thread Qt warnings — it caught a real off-thread-apply bug unit tests couldn't. |
 | **Property-based** | `hypothesis` | invariants over huge input spaces — see §4. |
 | **Packaging smoke** | `appimage.yml` | the built AppImage launches headless and reaches the Qt loop (`test_build_harness.py` guards the recipe). |
-| **Supply-chain / audit** | `ci.yml` + `mutation.yml` | gating `pip-audit` (dependency CVEs), the server-side media-guard (rule 9's CI backstop), the `tests-touched` gate (rule 1's backstop: it fails when `src/platterpus` changes with no change under `tests/` and no `[no-test-needed] <reason>`; advisory when the 2026-07-08 audit added it, gating since 2026-08-20), and the weekly non-gating mutation run — from the 2026-07-08 trust audit ([trust-audit-2026-07-08.md](archive/trust-audit-2026-07-08.md)). |
+| **Supply-chain / audit** | `ci.yml` + `mutation.yml` | gating `pip-audit` (dependency CVEs), the server-side media-guard (rule 9's CI backstop), the `tests-touched` gate (rule 1's backstop: it fails when `src/platterpus` changes with no change under `tests/` and no `[no-test-needed] <reason>`; advisory when the 2026-07-08 audit added it, gating since 2026-08-20), the gating `gitleaks` job (secret scanning over the full history) and the gating `sbom` job (a CycloneDX inventory of what ships, with a component floor), and the weekly non-gating mutation run — from the 2026-07-08 trust audit ([trust-audit-2026-07-08.md](archive/trust-audit-2026-07-08.md)). |
 | **Manual / hardware** | [test-plan.md](test-plan.md) | a real rip, CTDB verify CRC, the drive-setup wizard screens (Test 3), the read-effort/CD-Extra/companion-log cases (Tests 12–14), the GUI screenshot. Gated work that the cloud env can't validate. |
 
 ## 3. The five-tier case taxonomy (apply to every feature)
@@ -2382,8 +2382,11 @@ lap naming one of ours in `HANDSHAKE-INBOUND-HELD` or
 * **every hash the peer declares for one of our laps must match our copy** — seven
   such declarations exist and all seven match; this would have fired the moment lap
   14 was filed, instead of when someone thought to recompute a digest;
-* **every lap the peer says it holds is pinned or ratcheted** — 19 rows in
-  `PEER_CONFIRMED_UNPINNED`, a set that may shrink and never grow.
+* **every lap the peer says it holds is pinned or ratcheted** — `PEER_CONFIRMED_UNPINNED`,
+  a set that may shrink and never grow. It held 19 rows when the gate was written;
+  it has been **empty since 2026-09-28** — eighteen graduated to `SENT_LAPS` on
+  2026-09-27 by measurement against the fork's filed copies, and round 14 lap 18
+  by restoring the bytes we sent (`tests/test_sent_laps_are_immutable.py`).
 
 Two details worth keeping. **The ratchet is not a set of `SENT_LAPS` rows**, and
 deliberately: pinning today's bytes for a lap sent months ago asserts a
@@ -3811,8 +3814,8 @@ assigns to us, and it changes nothing on their side.
 | K2 | 2 | k2-wavpack | e-identify | `rip` scoped by `select-tracks 1-2` |
 | K3 | 2 | k3-wav | e-identify | `rip` scoped by `select-tracks 1-2` |
 | P3 | 2 | p3-deemphasis | e-identify | `cyanrip … -l 1 …` twice — one track each, `-H -E` against `-H -W` |
-| F | 3 | f-fulldisc | e-identify | `rip` with **no** `select-tracks` — every track |
-| N | 3 | n-securereread | e-identify | `rip` with **no** `select-tracks`, uniform secure re-read |
+| F | 3 | f-fulldisc | e-identify | `rip` after `select-tracks all` — every track |
+| N | 3 | n-securereread | e-identify | `rip` after `select-tracks all`, uniform secure re-read |
 | G | 3 | g-postrip | f-fulldisc | no disc verb of its own: `rig-check` grades **F's** log, so it rests on F rather than on a rip in general |
 
 <!-- END-ACCEPTANCE-TIER-TABLE -->
@@ -3826,16 +3829,17 @@ would let a rip failure prune the sweep whose purpose is to characterise that
 failure. The engine holds up its half: `tier` clears any inherited `needs`, so a
 sweep that declares none cannot silently acquire the previous block's.
 
-**One thing this derivation found, and it is ours.** **K4 is classified
+**One thing this derivation found, and it is ours.** **K4 was classified
 `ARCHIVAL` and contains no rip and no assertion about any output.** Its title —
 *"back to FLAC, the archival master"* — promises a check on the archival format;
 what it does is `set output_format flac` and read the setting back, which is a
 settings round-trip section B already covers. Nothing about FLAC output is
 verified there. The severity is not wrong about FLAC's importance and the
-section is not wrong to restore the setting; what is wrong is that a row graded
-`ARCHIVAL` — a grade that can block a version — is satisfied by a check that
-cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
-`0` because that is what the section costs today, not what its title implies.
+section is not wrong to restore the setting; what was wrong is that a row graded
+`ARCHIVAL` — a grade that can block a version — was satisfied by a check that
+cannot fail for any archival reason. **Resolved 2026-09-14: K4 was regraded
+`UX`** (its row in the severity table above). The tier table says `0` because
+that is what the section costs, not what its title implies.
 
 <!-- FIELD-EVIDENCE-TABLE: parsed by tests/test_no_stale_version_claims.py -->
 
@@ -4237,4 +4241,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.64.*
+*Last updated for Platterpus v0.6.65.*
