@@ -27,7 +27,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **Each rip's self-audit now checks the EAC-style log against cyanrip's own.**
   It used to check only that the EAC-style log matched the checksum printed
   under it, which any log Platterpus writes does. It now also checks that the
-  log's per-track CRCs are the ones cyanrip computed.
+  log's per-track CRCs are the ones cyanrip computed, taking a re-read track's
+  kept CRC from the auto-fix addendum rather than the discarded first read.
 - For contributors: the script verbs `expect-album-audit`, `expect-accuraterip`,
   `expect-ctdb`, `expect-tags`, `expect-cover-art` and `track-title`, and a
   FLAC tag reader (`flac_metadata.py`) that needs no external tool.

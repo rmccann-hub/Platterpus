@@ -318,14 +318,19 @@ def addendum_text(log_path: str | Path) -> str:
         return ""
 
 
-def with_addendum(text: str, log_path: str | Path) -> str:
+def with_addendum(text: str, log_path: str | Path, extra: str | None = None) -> str:
     """``text`` (already-decoded log content) plus its sidecar, if any.
 
     Split out from :func:`read_log_with_addendum` because one caller decodes the
     log itself (``rip_files`` handles a BOM / UTF-16 log via ``decode_log_bytes``)
     and must not lose that handling to reach the addendum.
+
+    ``extra`` is for a caller that already HOLDS the addendum — the report embeds
+    it as ``artifacts.addendum.text``, and the self-audit reads only the report —
+    so the join below stays the one place a log and its addendum are combined.
     """
-    extra = addendum_text(log_path)
+    if extra is None:
+        extra = addendum_text(log_path)
     if not extra.strip():
         return text
     if text and not text.endswith("\n"):
