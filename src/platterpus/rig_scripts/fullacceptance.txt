@@ -12,9 +12,10 @@
 #                     Full      4 to 6 hours      (LEAVE IT RUNNING OVERNIGHT)
 #                               measured: 4h14m (2026-09-22, 247 steps) and
 #                               5h33m (2026-09-26, 320 steps, the sum of its
-#                               report's step times), both on the Pioneer rig
+#                               report's step times), both on the Pioneer rig;
+#                               the script is 324 steps now
 #                   Full rips the whole disc TWICE (once fast, once with every
-#                   track read at least twice) plus six short partial rips.
+#                   track read at least three times) plus six short partial rips.
 #                   ONLY FULL counts toward a version or a handshake close.
 #
 # RUN SIZES are cut from THIS ONE FILE. Each section's first line is
@@ -141,22 +142,21 @@
 # why. Accepted. The alternative spends the night before learning the ripper was
 # not installed.
 #
-# THE RULE THAT MAKES THIS SAFE TO LEAVE UNATTENDED: a failing step does NOT
-# stop the batch. Only `abort` does, and this file never uses it. Every check
-# below fails loudly and the run continues. A run that stops at the first
-# problem hides every problem behind it, and a disc pass costs hours you do not
-# get back.
+# THE RULE THAT MAKES THIS SAFE TO LEAVE UNATTENDED: a FINDING never stops the
+# batch. Only `abort-if-failed` does, at three preconditions (A the wrong ripper,
+# B an unknown offset, E the disc not identified). Every other check fails loudly
+# and the run continues. A run that stops at the first problem hides every
+# problem behind it, and a disc pass costs hours you do not get back.
 #
 # -----------------------------------------------------------------------------
-# WHAT THIS RUN IS FOR: cyanrip handshake round 14, close condition CC-2
+# WHAT THIS RUN IS FOR: the hardware close of whichever handshake round is open
 # -----------------------------------------------------------------------------
-# CC-2 is the round's ONLY close condition: *one hardware acceptance pass on the
-# RELEASED pair* — the cyanrip beta the round is reviewing, against the current
-# Platterpus release — exercising the fork's round-14 lap 1 §T list.
+# *One hardware acceptance pass on the RELEASED pair* — the cyanrip build the open
+# round is reviewing, against the current Platterpus release. The §T list below
+# began as round 14's close condition CC-2 (its lap 1); the sections still cover it.
 #
-# Round 13's version of CC-2 measured a mid-round TEST PIN while the release
-# would necessarily be a later commit, so satisfying it would have closed a
-# round on evidence about a build nobody installs. This one tests what ships.
+# Round 13's CC-2 measured a mid-round TEST PIN, so satisfying it would have
+# closed a round on evidence about a build nobody installs. This tests what ships.
 #
 #   §T1  a `-Z` rip that GENUINELY re-reads, and keep the log     -> section N
 #   §T2  `-T unicode` end to end on a title carrying `<` and `:`  -> sections F, H
@@ -174,9 +174,9 @@
 # checked is worse than a shorter one.
 #
 #   * THAT THE AUDIO IS BIT-PERFECT. `wait-for-rip` waits for the worker to
-#     disappear; it does not grade the rip. AccurateRip and CTDB verdicts are in
-#     the report and the log — `rig-check` parses them and the bundle carries
-#     both. Read them.
+#     disappear; it does not grade the rip. The AccurateRip verdict is in the
+#     report and the log, CTDB's only in the report; `rig-check` judges neither.
+#     The bundle carries both files. Read them.
 #   * WHETHER DIALOG TEXT IS CLIPPED. A rendering fact at your font size and DPI
 #     that no assertion can see. Section D takes screenshots; a person must look.
 #   * OVERREAD (`-O`). It has run on the BDR-209D and it HUNG THE DRIVE ~23
@@ -290,7 +290,7 @@ snapshot identity
 # a six-hour pass over something that changes no rip.
 probe-ripper-wrapper
 
-# THE ONE PLACE THIS FILE IS ALLOWED TO STOP, and the distinction is the point.
+# THE FIRST OF THREE PLACES THIS FILE MAY STOP, and the distinction is the point.
 #
 # The rule above — "a failing step does NOT stop the batch" — is about FINDINGS,
 # and it is right: a run that halts on the first problem hides every problem
@@ -300,7 +300,7 @@ probe-ripper-wrapper
 # (two artifacts from the same ripper under different app versions are not
 # interchangeable evidence).
 #
-# So: preconditions abort, findings do not. Nothing below this line uses it.
+# So: preconditions abort, findings do not. The other two: B's offset, E's disc.
 abort-if-failed the installed ripper is not the build the handshake record names — fix that first, the failing step above prints the one command
 
 # --- B. SETTINGS VALIDATION: the cheapest real check in the program --------
@@ -517,15 +517,15 @@ abort-if-failed the disc was never identified — the picker did not resolve or 
 # ON for this rip. They are the post-rip subsystem and nothing else in this file
 # reaches all four at once.
 #
-# THE TIMEOUT COVERS A SECURE RE-READ, because this rip does one.
+# THE TIMEOUT COVERS A SECURE RE-READ, because this rip can do one.
 #
 # It said three hours, reasoning that "a full disc on this hardware is 50-70
 # minutes and one real session measured 2h45m". Both figures are real and the
-# conclusion was wrong: they describe a rip WITHOUT the secure re-read, and this
-# rip has one. `secure_rerip_matches` defaults to 2 (config.py), so cyanrip is
-# invoked `-Z 2 -r 5` here (it was `-r 3` until section B stopped leaving 3
-# behind, 2026-09-28) exactly as in section N — the same work, budgeted at
-# a third of the time.
+# conclusion was wrong: they describe a rip WITHOUT the secure re-read. F runs
+# `fast_verified`, DYNAMIC mode: pass 1 has no `-Z`, and only tracks AccurateRip
+# does not confirm are re-read, at `-Z 2 -r 5` (`-r 3` until section B stopped
+# leaving 3 behind, 2026-09-28). Section N re-reads EVERY track that way, so F's
+# worst case — a disc AccurateRip does not know — is N's workload.
 #
 # Measured 2026-09-03: it timed out at 10800.1s with the status reading
 # "Re-ripping track 5 to secure it - 43% - about 1m 50s left in re-read 2".
@@ -534,7 +534,7 @@ abort-if-failed the disc was never identified — the picker did not resolve or 
 # because the rip was still running, the next `rip` collided with it, and the
 # overwrite dialog never came.
 #
-# So it matches section N's budget, because it is section N's workload.
+# So it matches section N's budget, because its worst case is N's workload.
 
 # **SECTION F PINS ITS GOAL, and until 2026-09-15 it inherited one.** F is the
 # FAST whole-disc rip and section N is the UNIFORM SECURE RE-READ of the same

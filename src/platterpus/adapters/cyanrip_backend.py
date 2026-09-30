@@ -579,7 +579,7 @@ class CyanripImpl(RipBackend):
         # cyanrip CAN emit WAV/MP3/WavPack (among others) natively via `-o`. We
         # advertise just the formats the GUI offers; cyanrip supports more
         # (opus/alac/…), out of scope here. Reserved seam (KDD-22): the shipped
-        # feature transcodes from FLAC for both backends instead (best-practice
+        # feature transcodes from cyanrip's FLAC instead (best-practice
         # VBR MP3 + FLAC master), so this isn't consumed for the rip today.
         return frozenset({"flac", "wav", "mp3", "wavpack"})
 

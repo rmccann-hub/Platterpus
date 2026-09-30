@@ -12,9 +12,9 @@ So this walks a rips folder and answers them all:
   version number cannot tell, because the fork tracks upstream versions.
 * **Did the rip finish**, according to the ripper's own footer rather than our
   count of how many tracks its log happened to mention.
-* **Pre-gap provenance actually observed** — including whether the fork's
-  sub-channel path has *ever* successfully run on real media, which as of this
-  release it has not, anywhere.
+* **Pre-gap provenance actually observed** — including how many albums read a
+  pre-gap from the sub-channel: routine on fork rips now, though as of v0.6.1
+  that path had never succeeded on real media.
 * **Which disc of a multi-disc release** the tags came from, and whether that
   was determined or guessed.
 * **Do the audio files the log claims actually exist and have bytes** — the
@@ -535,10 +535,9 @@ def _audit_medium(report: dict[str, Any], album: AlbumAudit) -> None:
 def _audit_pregaps(report: dict[str, Any], album: AlbumAudit) -> None:
     """What pre-gap provenance this rip actually observed.
 
-    The headline is whether ``sub-channel`` ever appears. The fork's
-    Q-subchannel path (upstream PR #115) has only ever executed its *failure*
-    branch, because disc images always fall into ``unknown``. The first real
-    occurrence anywhere will show up here.
+    Includes whether ``sub-channel`` appears: the fork's Q-subchannel path
+    (upstream PR #115) had only ever run its *failure* branch as of v0.6.1, and
+    fork rips on real discs now take it routinely. :func:`render` counts them.
     """
     tracks = [t for t in (report.get("tracks") or []) if isinstance(t, dict)]
     for track in tracks:
@@ -1434,18 +1433,19 @@ def render(audits: list[AlbumAudit], root: Path) -> str:
     else:
         out.append("  - none reported (stock cyanrip, or no disc had a pre-gap)")
 
-    # The headline result nobody has ever had.
-    if any(s.startswith("sub-channel") for s in sources):
-        out += [
-            "",
-            "  *** A SUB-CHANNEL pre-gap read SUCCEEDED. ***",
-            "  As of v0.6.1 this path had never executed successfully anywhere —",
-            "  disc images always fail into 'unknown'. This is new information;",
-            # Name the FILE. "send the log for that album" is ambiguous between the
-            # ripper's `.log`, the EAC-style log and the app log — and the one that
-            # actually carries this evidence is the JSON report.
-            "  please send that album's `.platterpus.json` report.",
-        ]
+    # An informational count, no longer a headline. As of v0.6.1 no sub-channel
+    # pre-gap read had ever succeeded, so the first one got a banner asking for the
+    # report. Fork rips now do it routinely — 13 of 14 tracks in
+    # docs/handshake/artifactsround29/round29fullwholediscreport.json — and a
+    # banner on every ordinary rip reads as an alarm. The wording keeps the phrase
+    # the audit tests pin; nothing here asks the user to send anything.
+    sub_channel = [
+        a for a in audits if any(s.startswith("sub-channel") for s in a.pregap_sources)
+    ]
+    if sub_channel:
+        out.append(
+            f"  SUB-CHANNEL pre-gap read SUCCEEDED on {len(sub_channel)} album(s)"
+        )
 
     warns = [a for a in audits if a.worst == LEVEL_WARN]
     out += ["", f"albums needing attention: {len(warns)}"]
