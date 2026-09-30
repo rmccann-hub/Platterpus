@@ -1,8 +1,8 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.64        round 29's closing release, not yet released: it installs
-                           51cc789 by default.
+Platterpus  v0.6.64        round 29's closing release, released 2026-09-30: it
+                           installs 51cc789 by default.
             v0.6.63        the release round 29's run was on: it installs e0471f4 by
                            default, and accepts 51cc789 as the build that round reviewed.
 cyanrip     51cc789        0.9.4-rc2+platterpus.18  (platterpus-fork-g51cc789)  <- PRODUCTION PIN
@@ -12,7 +12,8 @@ rounds 1-29 ALL CLOSED, bilateral GO (round 29 on 2026-09-29).
 round 30    not open.
 ```
 
-> **Header last moved 2026-09-29**, when round 29 closed on our gate and `FORK_PIN`
+> **Header last moved 2026-09-30**, when 0.6.64 was released to carry `51cc789`.
+> Before that, 2026-09-29, when round 29 closed on our gate and `FORK_PIN`
 > rolled to `51cc789`, on the Full run of 0.6.63 (320 of 323 steps, the three failures
 > screenshot steps of ours, none in a rip). Before that, 2026-09-28, when round 29 opened
 > on `.18` (the fork's lap 1, sha256 `2e275d2f…`), for that Full run. Before that, the
@@ -56,8 +57,7 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 ## What the next run is for
 
 **No round needs a run: round 29 closed on 2026-09-29.** The next Full run is on
-**0.6.64**, once it is released, with `.18` installed, which that release installs by
-default. Section A then expects `51cc789` as the approved build, and every rip records
+**0.6.64** with `.18` installed, which that release installs by default. Section A then expects `51cc789` as the approved build, and every rip records
 its ripper as approved.
 
 **Round 30 needs its own Full run, and not on 0.6.64.** The fork's next build, `.19`, is
@@ -116,10 +116,10 @@ a container that is already running.
 1. **Put the reference disc in the drive** (any ordinary audio CD works; the script
    needs no album name, track count or path) and open Platterpus from the applications
    menu.
-2. **Update Platterpus to 0.6.63 first.** Then check **Tools → Setup & Updates…**: the
+2. **Update Platterpus to 0.6.64 first.** Then check **Tools → Setup & Updates…**: the
    cyanrip line should read `platterpus-fork-g51cc789` (`0.9.4-rc2+platterpus.18`). If it
-   reads anything else, **Check for cyanrip updates** offers `.18` as *"the build the
-   acceptance test needs"*; choose **Install it anyway**. Then **Tools → Advanced → Run acceptance test…**,
+   reads anything else, **Check for cyanrip updates** offers `.18`, the approved build;
+   choose **Install it now**. Then **Tools → Advanced → Run acceptance test…**,
    choose **Full**, and leave it. It holds sleep off, runs every section (4–6 hours), stops in its first
    seconds if the ripper is not the build under review, and puts your own settings back
    when it ends. **During the run, don't close any other Platterpus window or any
@@ -150,4 +150,4 @@ known to be correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.63.*
+*Last updated for Platterpus v0.6.64.*
