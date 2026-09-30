@@ -85,6 +85,36 @@ def test_the_two_non_negotiable_flags_are_emitted() -> None:
     assert "-o" in flags, "the rip must always produce the FLAC archival master"
 
 
+def test_the_build_gated_consumer_flag_is_in_the_contract() -> None:
+    """``--consumer`` is sent on every real rip to an allowlisted build, so §3
+    *"Flags we pass you"* must list it.
+
+    It was missing: the generator called ``_build_rip_argv`` without a
+    ``ripper_build_tag``, which takes the builder's safe default (an unknown build
+    gets no capability-gated flags), so the published contract described a rip
+    to a build we never ship — while production (`CyanripImpl.rip` passes
+    ``_observed_build_tag()``) sends the flag to the pin. Asserted against the
+    real gate too, so the test cannot pass merely because the pin stopped being
+    allowlisted and someone typed the flag in.
+    """
+    from platterpus.deps import fork_source
+
+    generator = _load_generator()
+    assert fork_source.accepts_consumer_flag(fork_source.FORK_EXPECTED_BUILD_TAG), (
+        "the production pin's build tag is not in the --consumer allowlist; the "
+        "contract's claim below would then describe a flag the pin never receives"
+    )
+    assert "--consumer" in generator._emitted_flags(), (
+        "the contract omits --consumer, which every rip to the pinned build sends; "
+        "pass the pin's build tag to _build_rip_argv in _emitted_flags()"
+    )
+    committed = generator.OUTPUT_PATH.read_text(encoding="utf-8")
+    assert (
+        "--consumer"
+        in committed.split("## 3. Flags we pass you", 1)[1].split("## 4.", 1)[0]
+    ), "§3 of the committed contract does not list --consumer"
+
+
 #: Every place in the product that spawns the ripper, with the flag that makes
 #: that invocation *distinct* from a rip. The contract's "Flags we pass you"
 #: section must cover all of them.
