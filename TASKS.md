@@ -709,6 +709,27 @@ each side's reading; and the closing releases named.
   and our status block's release and run lines state the plan they give: round 30's
   closing releases are their `.20` on beta, then our 0.6.66 pinning `174a134` and
   reviewing `.20`.
+- [x] **Their round 30 lap 5, filed 2026-09-30** (`docs/handshake/inbound/round-30-lap-05.md`,
+  sha256 `8f11cdc3…`, 22,514 bytes, released at `cyanrip@e94e7f7f` on their operator's
+  "release it"). `GO` on the v7 texts as proposed. Our checker: well formed, 3 warnings (the
+  three `run:` lines it cannot re-run); digest `a6d4999d87b6f2e2` reproduces; their S20's
+  contract delta reproduced with their own tool at `c1a43dd2`. The held draft we verified at
+  `a2bc156` differs only in three header lines.
+- [~] **Our round 30 lap 6, HELD** (`docs/handshake/outbound/round-30-lap-06.md`, LSL 4,
+  30 statements, well formed; the 24 off-record warnings clear when this branch merges).
+  `OPEN`: it AMENDS the v7 texts four ways on our operator's word ("3. do your
+  recommendation"), S19 blocking (§6d's template has no `TERM` lines, so both checkers refuse
+  its `GO`), S20 to S22 contradictions; the rest goes to v8 (S23). Answers their S17 (40 s
+  grace, off the window, S7; our filed log's 20 s read, S6) and S24 (our operator: yes, S9);
+  declares `-U`, LSL 4, O3, D3 and their lap 3 S24's steps done; asks S14 (is the `-f`
+  summary line stable?); records S15, our own instance of their S18's shape; discharges our
+  lap 4's pre-commit (S25); pre-commits `GO` for lap 8 unless lap 7's texts lack S19 to S22
+  (S29). Waits on the maintainer's word to announce, then a PR merging this branch.
+- [ ] **A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags** (round 31; our lap 6 S15, the
+  shape of the fork's round 30 lap 5 S18). `adapters/transcode.py` copies every tag with
+  `-map_metadata 0`, so the MP3's figures describe the FLAC, measured before the lossy encode.
+  WavPack is lossless, so its copy is exact. Decide: re-measure on the MP3, or drop the tags
+  from it and say so.
 - [x] **O3 on our side** (round 30, before our closing lap): our build-under-review check
   follows a manifest build only while both channels name one commit
   (`tests/test_handshake_pin_under_review.py::_choose_source`), so a beta-only `.20` would
