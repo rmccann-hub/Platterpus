@@ -84,6 +84,12 @@ class AlbumAudit:
     pregap_sources: set[str] = field(default_factory=set)
     completed: bool | None = None
     empty_files: int = 0
+    #: Which findings each registered check produced, by check name, and which
+    #: checks were skipped — filled by :func:`run_checks`. So a caller grading
+    #: one question (the acceptance run's `expect-album-audit`) can ask what THAT
+    #: check said, instead of re-running the checks a second way.
+    by_check: dict[str, list[Finding]] = field(default_factory=dict)
+    skipped_checks: list[str] = field(default_factory=list)
 
     def add(self, level: str, text: str) -> None:
         self.findings.append(Finding(level, text))
@@ -999,6 +1005,69 @@ def _audit_ripper_log_integrity(report: dict[str, Any], album: AlbumAudit) -> No
     )
 
 
+def _audit_eac_log_agreement(report: dict[str, Any], album: AlbumAudit) -> None:
+    """Do the EAC-style log's per-track copy CRCs match the RIPPER's own log?
+
+    :func:`_audit_log_integrity` asks whether the EAC-style log still matches the
+    checksum we printed under it — a closed loop, true of any text we render,
+    including a wrong one. This asks the question a tracker's reader relies on:
+    are the CRCs in the log we hand them the ones the ripper computed? The
+    ripper's log is the independent artifact (``CLAUDE.md``: *assert against the
+    source artifact*), and :func:`platterpus.parity.compare_logs` is the one
+    per-track comparison the EAC-parity tooling already uses, so this is a second
+    caller of it rather than a second comparison.
+
+    Reads the texts EMBEDDED in the report, like the checks beside it, so it needs
+    no files and runs inside ``write_report``'s GUI slot without touching disk.
+    """
+    from platterpus.parity import compare_logs
+
+    artifacts = report.get("artifacts") or {}
+    eac = artifacts.get("eac_log") or {}
+    ripper = artifacts.get("rip_log") or {}
+    if not eac.get("text"):
+        album.add(
+            LEVEL_NOTE,
+            "no EAC-style log is embedded in this report, so whether its CRCs "
+            "agree with the ripper's log is not determined",
+        )
+        return
+    if not ripper.get("text") or eac.get("truncated") or ripper.get("truncated"):
+        album.add(
+            LEVEL_NOTE,
+            "the ripper's log or the EAC-style log is missing or truncated in this "
+            "report, so whether their CRCs agree is not determined",
+        )
+        return
+    parity = compare_logs(str(ripper["text"]), str(eac["text"]))
+    if not parity.tracks:
+        album.add(
+            LEVEL_NOTE,
+            "the ripper's log carries no per-track copy CRC, so there is nothing "
+            "for the EAC-style log to agree with",
+        )
+    elif parity.ok:
+        album.add(
+            LEVEL_OK,
+            f"the EAC-style log's copy CRCs match the ripper's log on all "
+            f"{parity.total} track(s)",
+        )
+    else:
+        wrong = [str(t.number) for t in parity.tracks if not t.ok]
+        extra = [str(n) for n in parity.extra]
+        album.add(
+            LEVEL_WARN,
+            "the EAC-style log's copy CRCs DISAGREE with the ripper's log"
+            + (f" on track(s) {', '.join(wrong)}" if wrong else "")
+            + (
+                f"; it lists track(s) {', '.join(extra)} the ripper did not"
+                if extra
+                else ""
+            )
+            + " — the log a tracker reads is not describing this rip's audio",
+        )
+
+
 def _audit_cue_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
     """Is the ``.cue`` we shipped actually right? It is external input.
 
@@ -1241,6 +1310,12 @@ CHECKS: tuple[Check, ...] = (
         _audit_ripper_log_integrity,
     ),
     Check(
+        "eac_log_agreement",
+        "Do the EAC-style log's CRCs match the ripper's own log?",
+        False,
+        _audit_eac_log_agreement,
+    ),
+    Check(
         # Added v0.6.4b12. The cue is the one artifact we ship that nothing had
         # ever read — see `_audit_cue_integrity`. `needs_files=False`: the cue's
         # text is embedded in the report, so this runs on a report read anywhere.
@@ -1287,6 +1362,7 @@ def run_checks(
             log.exception("audit check %s raised", check.name)
             album.add(LEVEL_NOTE, f"check '{check.name}' could not run: {exc}")
             skipped.append(check.name)
+            album.by_check[check.name] = album.findings[before:]
             continue
         ran.append(check.name)
         if len(album.findings) == before:
@@ -1308,6 +1384,8 @@ def run_checks(
                 f"check '{check.name}' ({check.question}) ran but had nothing to "
                 f"report for this rip — treat this as 'not determined', not 'ok'",
             )
+        album.by_check[check.name] = album.findings[before:]
+    album.skipped_checks = list(skipped)
     return ran, skipped
 
 

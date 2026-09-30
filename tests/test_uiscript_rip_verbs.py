@@ -2986,8 +2986,39 @@ def _album_with_report(tmp_path: Path, report: dict, name: str = "verif test") -
     return log_file
 
 
-def _report(gates: dict, issues: list[dict]) -> dict:
-    return {"verification": {"gates": gates}, "issues": issues}
+def _report(gates: dict, issues: list[dict], status: str = "success") -> dict:
+    """A settled report's verification shape. `outcome.status` is here because
+    every real report carries one (`rip_report.build_outcome`), and the verb
+    now asks it whether the record is final (`artifact_grading.settle_state`)."""
+    return {
+        "outcome": {"status": status},
+        "verification": {"gates": gates},
+        "issues": issues,
+    }
+
+
+def test_expect_verification_does_not_pass_an_in_progress_report(
+    qapp, process_until, tmp_path
+) -> None:
+    """The report is written INCREMENTALLY during a rip, with `outcome.status`
+    `"in_progress"` (`rip_worker`). Its gates can already read "ran" from the
+    settings, so the verb used to accept it as final; it now waits for the
+    finished record and times out on one that never finishes."""
+    win = _window_after_a_rip_into(
+        _album_with_report(
+            tmp_path,
+            _report(
+                {"ctdb": "ran", "flac_integrity": "ran"},
+                issues=[],
+                status="in_progress",
+            ),
+        )
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 0.2"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "did not all leave a result" in step.detail
 
 
 def test_expect_verification_passes_when_every_started_check_left_a_result(

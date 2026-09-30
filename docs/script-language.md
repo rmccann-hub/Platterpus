@@ -77,6 +77,12 @@ text is taken verbatim as one value.
 | `expect-log-well-formed` | 0 | ready | expect-log-well-formed — assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim |
 | `expect-derived-output` | 1–2 | ready | expect-derived-output <mp3|wavpack|wav> [seconds] — assert the derived files the chosen output format calls for exist beside the FLAC masters, one per master. Waits (default 600s) because the transcode runs after `wait-for-rip` returns; the format is named here rather than read from Settings, so the step cannot check a setting against itself |
 | `expect-verification` | 0–1 | ready | expect-verification [seconds] — assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format, re-compress) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing |
+| `expect-album-audit` | 0+ (rest of line) | ready | expect-album-audit [check…] — re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok — among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files |
+| `expect-accuraterip` | 0 | ready | expect-accuraterip — every ripped track has an AccurateRip answer (accurate, one frame, mismatch or not in the database all count; no lookup does not), and the report agrees with the log on disk |
+| `expect-ctdb` | 1 | ready | expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: looked up and compared for a whole disc, declined for a partial one |
+| `expect-tags` | 0 | ready | expect-tags — every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table shows, read from the file |
+| `expect-cover-art` | 0 | ready | expect-cover-art — the FLACs hold the cover art the cover_art setting asks for (embedded in every one, or none), matching the report's count |
+| `track-title` | 2+ (rest of line) | ready | track-title <n> <title…> — set track n's title as a typed edit would (refused while a rip runs) |
 | `expect-secure-rerip` | 0 | ready | expect-secure-rerip — assert the secure re-read actually RAN on this rip (at least one track block carries cyanrip's Scope: line), the graded form of rig-check's 'genuinely exercised' row |
 | `expect-identified` | 0 | ready | expect-identified — assert the disc was identified against MusicBrainz (a well-formed release MBID is held), not merely that the track table has rows, which placeholder rows also satisfy |
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
@@ -367,6 +373,8 @@ found nothing wrong*.
       "album",
       "album-artist",
       "expect-status",
+      "expect-album-audit",
+      "track-title",
       "expect-refused",
       "tier",
       "needs",
@@ -620,6 +628,60 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-verification [seconds] \u2014 assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format, re-compress) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing"
+    },
+    {
+      "name": "expect-album-audit",
+      "min_args": 0,
+      "max_args": null,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-album-audit [check\u2026] \u2014 re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok \u2014 among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files"
+    },
+    {
+      "name": "expect-accuraterip",
+      "min_args": 0,
+      "max_args": 0,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-accuraterip \u2014 every ripped track has an AccurateRip answer (accurate, one frame, mismatch or not in the database all count; no lookup does not), and the report agrees with the log on disk"
+    },
+    {
+      "name": "expect-ctdb",
+      "min_args": 1,
+      "max_args": 1,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-ctdb <whole|partial> \u2014 CTDB reached the verdict this rip calls for: looked up and compared for a whole disc, declined for a partial one"
+    },
+    {
+      "name": "expect-tags",
+      "min_args": 0,
+      "max_args": 0,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-tags \u2014 every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table shows, read from the file"
+    },
+    {
+      "name": "expect-cover-art",
+      "min_args": 0,
+      "max_args": 0,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-cover-art \u2014 the FLACs hold the cover art the cover_art setting asks for (embedded in every one, or none), matching the report's count"
+    },
+    {
+      "name": "track-title",
+      "min_args": 2,
+      "max_args": null,
+      "unsafe": false,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "track-title <n> <title\u2026> \u2014 set track n's title as a typed edit would (refused while a rip runs)"
     },
     {
       "name": "expect-secure-rerip",

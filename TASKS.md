@@ -699,6 +699,26 @@ each side's reading; and the closing releases named.
   rip's log must exit 0.** The hardware half of the fix above (split out 2026-09-30, so
   the code fix can stay `[x]`): only a drive run shows cyanrip writes its footer and
   `Log FUN512:` inside `drive_control.READER_TERM_GRACE_S` (8 s) on the container path.
+- [x] **The acceptance test grades what each rip left, not only that it finished**
+  (2026-09-30, for the next release; asked for with the round-30 Full run: *"this
+  test will do all reasonable permutations… if not we need to fix or update the
+  test"*). New verbs `expect-album-audit`, `expect-accuraterip`, `expect-ctdb`,
+  `expect-tags`, `expect-cover-art` and `track-title`, on F, H, J, K1-K3 and N
+  (§I asks only the two questions a cancel leaves); H rips a title with `\ = ' :`;
+  K2 and K3 run `cover_art` `file` and `complete`. The self-audit gained
+  `eac_log_agreement`. Every grader is tested against the committed round-29
+  reports, and 9 reverts were each caught (`scripts/revert_probe.py`). The next
+  Full run is the first to exercise them on hardware.
+- [ ] **Permutations the acceptance test still does not run** (found 2026-09-30,
+  with the row above). (a) **Offset override off**: a drive in AccurateRip's list
+  auto-applies the list offset and rips, an unknown drive is refused with a
+  dialog, so no one script line holds on every drive, and on the rig the
+  auto-apply could move the offset mid-run; it needs the script to branch on the
+  drive, or a drive-independent verb. (b) The **unknown-album** path (section E
+  aborts the run before any unidentified rip). (c) A **library move**
+  (`library_dir` is kept, never set). (d) **`max_retries 0`** (no `-r` sent) and
+  **`-Z 0`**. (e) `read_speed_mode fixed`, `update_channel beta`, auto-eject and
+  Picard on. Each is a real path with no hardware evidence.
 - [ ] **`-U`, not `-G`: every archival log still says "No MusicBrainz release ID at cover
   art lookup, cannot search Cover Art DB!"** (found 2026-09-30, NEXT-ROUND). Our
   `_build_rip_argv` comment implied `-G` removes that line; it does not. `-G` is

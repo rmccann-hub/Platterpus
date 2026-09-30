@@ -12,6 +12,27 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **The acceptance test now checks what each rip produced, not only that it
+  finished.** Every rip already left a report with its own self-audit, the
+  AccurateRip and CTDB verdicts, a cue sheet, an EAC-style log and tagged FLACs,
+  and no step of the test read any of it. After each rip the test now re-runs
+  the self-audit against the files on disk (including cyanrip's own check of its
+  log, the cue sheet, and the EAC-style log), requires an AccurateRip answer for
+  every track, checks CTDB was looked up for a whole disc and skipped for a
+  partial one, and opens the FLACs to check their tags and cover art. The run
+  also tries a track title containing `= ' : \`, and the two cover-art settings
+  it had never used ("Save as file" and "Both").
+- **Each rip's self-audit now checks the EAC-style log against cyanrip's own.**
+  It used to check only that the EAC-style log matched the checksum printed
+  under it, which any log Platterpus writes does. It now also checks that the
+  log's per-track CRCs are the ones cyanrip computed.
+- For contributors: the script verbs `expect-album-audit`, `expect-accuraterip`,
+  `expect-ctdb`, `expect-tags`, `expect-cover-art` and `track-title`, and a
+  FLAC tag reader (`flac_metadata.py`) that needs no external tool.
+  `expect-verification` no longer accepts a report that is still being written.
+
 ### Fixed
 
 - **Quitting during a rip no longer destroys the rip's log.** Closing the window
