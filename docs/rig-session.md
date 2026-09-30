@@ -1,8 +1,8 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.65        the release round 30's Full run is on, PREPARED and HELD
-                           until the fork's next lap or release (operator, 2026-09-30):
+Platterpus  v0.6.65        the release round 30's Full run is on, cut 2026-09-30 under
+                           the operator's §6b override (our round 30 lap 2):
                            it installs 51cc789 and accepts 174a134 as under review.
             v0.6.64        round 29's closing release, released 2026-09-30: it
                            installs 51cc789 by default.
@@ -12,12 +12,14 @@ cyanrip     174a134        0.9.4-rc2+platterpus.19  (platterpus-fork-g174a134)  
                            approved by round 29, for Platterpus 0.6.63, on the Full run
 drive       Pioneer BDR-209D 1.51, read offset +667
 rounds 1-29 ALL CLOSED, bilateral GO (round 29 on 2026-09-29).
-round 30    not open: the fork holds its lap 1 until this run exists (operator, 2026-09-30).
+round 30    OPEN on 174a134, from the fork's lap 1 (2026-09-30); this run is its S10.
 ```
 
-> **Header last moved 2026-09-30**, when `.19` became the build under review before
-> round 30 has a lap, and 0.6.65 was named as the release its Full run is on. Before
-> that, the same day, when 0.6.64 was released to carry `51cc789`.
+> **Header last moved 2026-09-30**, when round 30 opened on `.19` (the fork's lap 1,
+> sha256 `6db0ed0d…`) and 0.6.65 was released for its Full run. Before that, the same
+> day, when `.19` became the build under review before round 30 had a lap, and 0.6.65
+> was named as the release its Full run is on. Before that, the same day, when 0.6.64
+> was released to carry `51cc789`.
 > Before that, 2026-09-29, when round 29 closed on our gate and `FORK_PIN`
 > rolled to `51cc789`, on the Full run of 0.6.63 (320 of 323 steps, the three failures
 > screenshot steps of ours, none in a rip). Before that, 2026-09-28, when round 29 opened
@@ -62,9 +64,9 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 ## What the next run is for
 
 **The next Full run is round 30's: 0.6.65 with `.19` installed.** The fork published
-`.19` (`174a134`) on 2026-09-30, on both channels, and holds its round 30 lap 1 until
-this run exists, so round 30 opens from the run's results (the operator's choice, that
-day). Section A expects `174a134` as the build under review, and every rip records its
+`.19` (`174a134`) on 2026-09-30, on both channels, and its round 30 lap 1 opened the
+round the same day, before the run, because section A accepts `.19` only once a
+release of ours names it (the fork's S22–S24). This run is the round's S10. Section A expects `174a134` as the build under review, and every rip records its
 ripper as *being tested, not approved yet*, which is correct for this run. One run tests
 both sides.
 

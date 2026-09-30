@@ -1820,7 +1820,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # for the rows we retain past P5 — a line count is not a cohesion signal for
     # a table.
     # **1081 -> 1086** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): a comment at the retained repeat-limit row saying why the new wording gets no row until a contract of theirs publishes it, and why it is graded right without one.
-    "ripper_message_inventory.py": 1086,
+    # **1086 -> 1137** (2026-09-30, round 30 lap 1): regenerated from `.19`'s
+    # contract (P5 120 -> 123 rows, each row six lines), plus two retained rows with
+    # their reasons: the MusicBrainz message `.18` dropped, and `.19`'s reworded
+    # repeat-limit line, which is in P5a beside the old one.
+    "ripper_message_inventory.py": 1137,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
@@ -2358,7 +2362,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3619 -> 3621** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the verdict-grading comment names both wordings, and "four verdicts whose reads never agreed" now says they hit the repeat limit.
     # **3621 -> 3630 (2026-09-30)**: the `-Z` fallback prefix for `.19`'s two new
     # `-Z`/`-r` refusals, with the measurement behind it (2 of the contract's 539 rows).
-    "workers/rip_worker.py": 3630,
+    # **3630 -> 3632 (2026-09-30, round 30 lap 1)**: the `-Z` prefix comment says the
+    # inventory now lists both refusals, and why the prefix stays.
+    "workers/rip_worker.py": 3632,
 }
 
 

@@ -602,46 +602,78 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
-## Round 30 — NOT OPEN; `.19` (`174a134`) under review on `main` for 0.6.65, before the round has a lap
+## Round 30 — OPEN on `174a134` (`+platterpus.19`): the Full run on 0.6.65 with `.19`, and the operator's release-cycle question
 
-The operator chose on 2026-09-30 that the fork holds its round 30 lap 1 (pushed held at
-`cyanrip@ec6ac2d0`) until the Full run on `.19` exists, so round 30 opens from the run's
-results, the cycle their `PROPOSAL-release-cycle.md` recommends (option A).
+Their lap 1 (`cyanrip@171bcf9`, platterpus-fork tip `0ae873c`, sha256 `6db0ed0d…`, 15,546
+bytes, `OPEN`, LSL 3) opens round 30 on `.19`, `release_seq` 29 on both channels,
+released by their operator on 2026-09-30 before the run, by a recorded override of R8
+point 3 (*"update all, include my override if needed. we are getting this started."*).
+The operator had first chosen to hold it until the run existed; the fork then measured
+that our section A could not accept `.19` until a lap named it (their S22–S24), so the
+lap went first, as in rounds 26 to 29. Its close conditions (S9–S11): the proposal's D1
+to D10 settled by both sides with the text in both trees; the Full run on `.19` from our
+first release naming `174a134` as its build under review, its bundle in both trees and
+each side's reading; and the closing releases named.
 
-- [x] **`.19` is the build under review, read from their published manifest, not a lap.**
-  `PIN_UNDER_REVIEW` `174a134`, `PIN_UNDER_REVIEW_ROUND` 30, `UNDER_REVIEW_TARGET` `.19`,
-  release 29 in `FORK_RELEASE_SEQ_BY_PIN`, and `g174a134` in the `--consumer` set (its
-  contract's 41 P1 rows equal `.18`'s). The manifest at `cyanrip@7677b3f5` is filed
-  byte-exact as `tests/fixtures/fork_release_manifest_7677b3f.json`, and
-  `tests/test_handshake_pin_under_review.py` reads it while no lap names the build.
-  `FORK_PIN` stays `51cc789`.
+- [x] **File their lap 1.** Byte-exact from their tree; `--check` passes and the lap
+  checker with `--rerun` finds it well formed (26 statements; 1 run re-run and matched, 3
+  UNCHECKED because they are not commands). `CURRENT_ROUND` is 30.
+- [x] **`.19` is the build under review**, as their S6 asks: `PIN_UNDER_REVIEW` `174a134`,
+  `PIN_UNDER_REVIEW_ROUND` 30, `UNDER_REVIEW_TARGET` `.19`, release 29 in
+  `FORK_RELEASE_SEQ_BY_PIN`, and `g174a134` in the `--consumer` set (its contract's 41 P1
+  rows equal `.18`'s). Done before their lap existed, from their published manifest at
+  `cyanrip@7677b3f5` (filed byte-exact as `tests/fixtures/fork_release_manifest_7677b3f.json`);
+  `tests/test_handshake_pin_under_review.py` now reads the lap, which names the same
+  commit. `FORK_PIN` stays `51cc789` until round 30 closes.
+- [x] **`.19`'s provider contract filed and our fatal inventory regenerated from it.** It
+  came with their lap (S3–S5): `PROVIDER-CONTRACT.md` at `cyanrip@5c92fc2`, built at
+  `g7476e28`, sha256 `50a7e852…`, byte-identical to the copy we checked 0.6.65 against;
+  filed as `round-30-lap-01-provider-contract-g7476e28.md`. `emit_ripper_inventory.py`
+  takes P5 from 120 rows to 123. **Their S4 count reproduces, and ours was wrong:** P2
+  gains five rows and loses one (both `-Z`/`-r` refusals, `Couldn't set metadata: %s!`,
+  `(not listed: out of memory)` and the reworded repeat-limit line in; `Done; (no matches
+  found, but hit repeat limit of %i)` out), and P5 gains three. Our records had said
+  "the four `.19` adds". **Round 29 never filed `.18`'s contract**, so regenerating also
+  brought `.18`'s one P5 change: upstream's `f8ebf48f` replaced `Error fetching/requesting/
+  auth, this shouldn't happen.` with `MusicBrainz lookup failed, try again later, or
+  disable it via -N`. The old string is kept in `RETAINED_BEYOND_P5` with its reason
+  (unreachable under `-N`; `.17` and older print it), as a string leaves the matcher only
+  by a written decision. `.19`'s reworded repeat-limit line is in P5a, where the old one
+  is, and is retained beside it: the worker reads either as a verdict before it asks the
+  matcher. The retention check now counts a P5a row as one the fork sent, with a floor.
 - [~] **0.6.65**, the release the Full run is on: `51cc789` by default, `.19` accepted as
-  the build under review. Prepared in PR #283, every gate green, and **HELD by the
-  operator's override of 2026-09-30**: *"wait for the next lap/release before making the
-  platterpus release. this may be against the rules but i am saying so."* No Platterpus
-  release until the fork's next lap or release. The override also covers the order: the
-  run on `.19` comes before round 30 has a lap, so the round's evidence exists before
-  the round does.
+  the build under review, the screen held awake, and the two `-Z`/`-r` refusals surfaced.
+  PR #283. It was held by the operator's override of 2026-09-30 (*"wait for the next
+  lap/release before making the platterpus release. this may be against the rules but i
+  am saying so"*) until the fork's next lap; that lap is their round 30 lap 1. Our gate
+  holds a stable-offered `v0.*` tag while a round is open (N4), so it goes out under a
+  **§6b override in our lap 2**, on the operator's word *"include my override if needed"*.
 - [x] **0.6.65 checked against `.19` in the fork's tree (2026-09-30), on the operator's
   word "make sure we are talking the same language"**:
-  - *Flags:* `.19`'s P1 table (`PROVIDER-CONTRACT.md` at `174a134`, built at `g7476e28`
-    with identical `src/`) equals `.18`'s, 41 rows byte for byte.
-  - *Log lines, the four `.19` adds:* the reworded repeat-limit line is read as not
-    converged, like the old one; `Couldn't set metadata: %s!` is surfaced by the
-    `Couldn't` prefix; `(not listed: out of memory)` is not a failure line; the two
-    `-Z`/`-r` refusals were NOT surfaced, and now are, by a `-Z` prefix that matches
-    exactly those two of the contract's 539 rows (revert-probed).
+  - *Flags:* `.19`'s P1 table equals `.18`'s, 41 rows byte for byte.
+  - *Log lines, the five `.19` adds to P2 and the one it removes:* the reworded
+    repeat-limit line is read as not converged, like the old one, which stays read for
+    `.18`; `Couldn't set metadata: %s!` is surfaced by the `Couldn't` prefix; `(not
+    listed: out of memory)` is not a failure line; the two `-Z`/`-r` refusals were NOT
+    surfaced, and now are, by a `-Z` prefix that matches exactly those two of the
+    contract's 539 rows (revert-probed).
   - *Tag keys in capitals:* the one reader, colon-restore, walks every key whatever its
     case. *Golden reference:* 0.6.65's parser reads the fork's `.19` golden reference
     (build, footer, 3 of 3 tracks, CRCs, checksum) with nothing dropped.
-  - *Still one contract behind, by design:* our fatal inventory is round 28's until
-    `.19`'s contract is filed with their round 30 lap; `emit_ripper_inventory.py` then
-    regenerates it.
-- [ ] **The Full run on 0.6.65 with `.19`**, then both readings of the bundle. Their lap
-  1 is rewritten as their reading plus the proposal, released on their operator's word.
-- [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree, at `cyanrip@ec6ac2d0`): the
-  cycle, and whether routine overrides end, the channel before a run, and when runs
-  happen, are the operator's four decisions; we answer the rest in our first lap.
+- [ ] **The Full run on 0.6.65 with `.19`** (S10), then both readings of the bundle.
+- [ ] **Our lap after the run:** our reading of it (S10); D1 to D10 of their proposal by
+  number and our work W1 and W3–W6 (S13, S14); and their S19 amendment and S20, so both
+  checkers change in the same round (their S21).
+- [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree,
+  sha256 `d5ff0e01…`, 15,658 bytes, at `cyanrip@5c92fc2`): the cycle, and whether routine
+  overrides end, the channel before a run, and when runs happen, are the operator's four
+  decisions (O1–O4) after both sides answer.
+- [ ] **S25 (NEXT-ROUND), a rip record with no footer.** Closing our script console 28.9 s
+  into section F of the `.18` run left a cyanrip log ending at `Tracks:`, with no footer
+  and no `Log FUN512:`, so `cyanrip -Y` exits 3. A SIGTERM mid-read writes `.18`'s
+  interrupt footer, so the question is what the console's close
+  (`script_console.py:563`, `self._runner.stop("the console was closed")`) sends a rip in
+  flight. Ours to read and answer in round 31.
 
 ## Round 29 — CLOSED on our gate on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
