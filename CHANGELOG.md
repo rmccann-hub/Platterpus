@@ -77,7 +77,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   line from every rip's log: `-G` only stops cyanrip embedding art, and the line
   belongs to the lookup `-U` would turn off. Whether to send `-U` goes to the fork
   in the next round. TASKS.md had 15 groups of duplicate rows merged into one row
-  each (the moved text kept word for word) and 49 stale statuses corrected.
+  each (the moved text kept word for word) and 49 stale statuses corrected. The
+  testing guide records why quitting mid-rip lost the log (beside §5.ay): one stop
+  signal was not enough, cyanrip also needs time to finish writing.
 - **The README's status is three short paragraphs.** It says the version, the
   approved pair, the build under test and what `0.7.100` still needs, and links
   here. The release highlights were already in this file's own entries; the rest of

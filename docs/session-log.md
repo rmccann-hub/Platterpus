@@ -11,6 +11,53 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-30 — While round 30's Full run ran: S25 fixed, the records audited, and the acceptance test taught to read what a rip left
+
+**Asked:** *"i am assuming this test will do all reasonable permutations… if not we
+need to fix or update the test"*; *"i dont touch anything, but if its a problem,
+make sure it isnt"* (S25); make the README concise and move the argument to the
+CHANGELOG; *"audit all text, readme, changelog, tasks, anything"*; make the
+unbuilt unsafe-verbs box read-only *"in all locations"*.
+
+**Done:**
+- *S25 was ours* (`b9ac0974`): the main window closed, and its shutdown SIGKILLed
+  the drive's holder 191 ms after the SIGTERM, so cyanrip never wrote its footer.
+  Now a graceful stop with an 8 s grace; Esc no longer hides a running console; a
+  close from outside the app, or File → Quit, asks while a rip or the test runs;
+  the transcript says which window closed. Graduated to `docs/testing.md` beside
+  §5.ay. The hardware half is a TASKS row.
+- *The unsafe script verbs box is read-only everywhere* (the box, the config
+  loader, the script's `set`), since the two verbs were never built. Whether to
+  remove them outright is the maintainer's call, asked.
+- *README status cut to three paragraphs*; the removed text is in CHANGELOG word
+  for word.
+- *The audit*: every document, the in-app guide, code comments and TASKS.md
+  (15 duplicate groups merged verbatim, about 49 stale statuses corrected). It found
+  our `-G` comment wrong: `-G` only disables embedding; the "No MusicBrainz release
+  ID at cover art lookup" line is `-U`'s (read in the fork's source). A next-round
+  item.
+- *The acceptance test now grades what each rip left* (`16f55d9e`): the self-audit
+  re-run against the files (cyanrip `-Y`, cue, EAC log checksum and CRCs, argv,
+  audio files), AccurateRip answers, CTDB scope, and FLAC tags and cover art read
+  from the files; H rips a title with `\ = ' :`; K2/K3 run the other two
+  cover-art modes. The self-audit gained `eac_log_agreement`. 9 reverts, 9
+  detected. The override-off path could not be written drive-independently and
+  is a TASKS row with the other permutations still missing.
+
+**Learned:**
+- *The test graded that checks RAN, never what they produced*, although the report
+  carried a verdict for each. Graduated to `docs/testing.md` (after the severity
+  table) with the list of what each section now grades.
+- *A flag's name is not its behaviour.* `-G` read as "no cover art" and is "no
+  cover-art embedding"; the fork's source settled it in one grep. Recorded in
+  `docs/dependency-contracts.md`'s `-G` row.
+- *I broke the container's `/dev/null`* with a stray `rm -f -- /dev/null` at the
+  head of a worktree command; every later `2>/dev/null` wrote a regular file, and
+  a lap-checker test whose re-run reads a closed stdin started failing one run in
+  four. It reproduced on demand and the code was right. Restoring the device was
+  refused by the session's permission check and is the maintainer's to allow; the
+  container is ephemeral, and nothing committed is affected.
+
 ## 2026-09-30 — Round 30 opens on `.19`; the fatal inventory catches up two builds; 0.6.65 goes out under §6b
 
 **Asked:** the fork released its round 30 lap 1 (`cyanrip@171bcf9`). File it, confirm
