@@ -35,7 +35,7 @@ from .lsl3 import check_lsl3
 from .model import Statement
 from .refs import first_token, parse_artifact, parse_statement, tokens
 from .round_rules import check_round_rules
-from .tables import NO_WEIGHT_KINDS, carries_no_weight
+from .tables import NO_WEIGHT_KINDS, PRE_COMMIT_WHEN, carries_no_weight
 
 EXAMINED_RE: Final[re.Pattern[str]] = re.compile(
     r"^(?P<count>\d+) (?P<unit>\S.*?), (?P<state>closed|open)$"
@@ -115,6 +115,19 @@ def _check_promise_fields(ctx: Context, stmt: Statement) -> None:
         for fld in stmt.values("verdict"):
             if fld.value not in ("GO", "HOLD"):
                 ctx.refuse(fld.line, "A2", f"{stmt.tag}: verdict: is GO or HOLD")
+        # LSL 4's C1: A2 binds the author's NEXT lap, so a verdict promised for
+        # any other moment would be enforced at the wrong lap, and no checker can
+        # decide what "once the bundle is committed" means. Refused under A2, the
+        # rule it tightens, as the fork's checker does (`cyanrip@049886f`).
+        whens = [f.value for f in stmt.values("when")]
+        if "C1" in ctx.tables.amendments and whens != [PRE_COMMIT_WHEN]:
+            ctx.refuse(
+                stmt.values("verdict")[0].line,
+                "A2",
+                f"{stmt.tag}: in LSL 4 a WILL carrying verdict: says exactly "
+                f"'when: {PRE_COMMIT_WHEN}', the lap A2 binds; it says "
+                f"{whens or 'no when:'}",
+            )
         if [f.value for f in stmt.values("owner")] != ["us"]:
             ctx.refuse(
                 stmt.line,

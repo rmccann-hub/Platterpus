@@ -71,6 +71,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- For contributors: our lap checker implements LSL 4, agreed with the cyanrip
+  fork in round 30. A lap declaring `LSL: 4` must write a pre-commit's `when:`
+  as exactly `our next lap`, the lap the pre-commit binds; LSL 3 laps are read
+  as before.
 - **Every rip now tells cyanrip not to query the Cover Art DB (`-U`)**, beside
   `-G`, which already stopped it embedding art. Platterpus does all cover art
   itself, and with MusicBrainz off cyanrip's own query could never succeed, so
