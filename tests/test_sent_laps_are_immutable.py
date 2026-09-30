@@ -141,6 +141,10 @@ SENT_LAPS: dict[str, str] = {
     # the operator's §6b override for v0.6.65, released on the maintainer's word
     # 2026-09-30 ("include my override if needed"). The release gate reads it.
     "outbound/round-30-lap-02.md": "85fdb6081cc6890dd12c3442bb0fdb0406e873470014db31855ffe9f877086aa",
+    # Round 30 lap 4 — our `OPEN` reading of the Full run on `.19`, our answers to
+    # D1-D10 and our operator's rulings on O1-O4, released on the maintainer's word
+    # 2026-09-30 ("if there is nothing else, then announce the new lap").
+    "outbound/round-30-lap-04.md": "5db48a297957db5244b33566869713f72f1741188fb68ac87b67e2ad918232e6",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
