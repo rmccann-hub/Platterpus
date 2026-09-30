@@ -602,6 +602,27 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
+## Round 30 — NOT OPEN; `.19` (`174a134`) under review on `main` for 0.6.65, before the round has a lap
+
+The operator chose on 2026-09-30 that the fork holds its round 30 lap 1 (pushed held at
+`cyanrip@ec6ac2d0`) until the Full run on `.19` exists, so round 30 opens from the run's
+results, the cycle their `PROPOSAL-release-cycle.md` recommends (option A).
+
+- [x] **`.19` is the build under review, read from their published manifest, not a lap.**
+  `PIN_UNDER_REVIEW` `174a134`, `PIN_UNDER_REVIEW_ROUND` 30, `UNDER_REVIEW_TARGET` `.19`,
+  release 29 in `FORK_RELEASE_SEQ_BY_PIN`, and `g174a134` in the `--consumer` set (its
+  contract's 41 P1 rows equal `.18`'s). The manifest at `cyanrip@7677b3f5` is filed
+  byte-exact as `tests/fixtures/fork_release_manifest_7677b3f.json`, and
+  `tests/test_handshake_pin_under_review.py` reads it while no lap names the build.
+  `FORK_PIN` stays `51cc789`.
+- [ ] **0.6.65**, the release the Full run is on: `51cc789` by default, `.19` accepted as
+  the build under review. No round is open, so no override.
+- [ ] **The Full run on 0.6.65 with `.19`**, then both readings of the bundle. Their lap
+  1 is rewritten as their reading plus the proposal, released on their operator's word.
+- [ ] **Their proposal** (`docs/handshake/PROPOSAL-release-cycle.md` in their tree): the
+  cycle, and whether routine overrides end, the channel before a run, and when runs
+  happen, are the operator's four decisions; we answer the rest in our first lap.
+
 ## Round 29 — CLOSED on our gate on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
 Their lap 1 (`cyanrip@566d3fa`, sha256 `2e275d2f…`, 19,353 bytes, `OPEN`, LSL 3, released
@@ -764,11 +785,13 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   in their tree is `GO` unless the run shows a defect in `.18` that breaks the pin, or
   does not complete. **Ours is our lap 3**, `GO` by our lap 2's S29: the run completed,
   and our reading found no defect in 0.6.63 or `.18` that breaks the pin.
-- [ ] **Closing releases (S9):** ours rolls `FORK_PIN` to `51cc789` (0.6.64); theirs is
+- [x] **Closing releases (S9):** ours rolls `FORK_PIN` to `51cc789` (0.6.64); theirs is
   `.19`, carrying the five `src/` commits past `.18` their lap 3 S18 names: the tag change
   (`bf50705`), the finalised checksum (`9669d84`), the repeat-limit wording (`fb31a2b`) and
   the `-Z`/`-r` refusal (`22f7aae`, `ad11743`). Both are named in the closing laps (their
-  lap 3 S18, our lap 4), which is what S9 asks.
+  lap 3 S18, our lap 4), which is what S9 asks. **Both released 2026-09-30:** our 0.6.64
+  (release run 36653391278, published 01:07Z, from `9b114c5f`), and their `.19` at
+  `174a134`, `release_seq` 29, on both channels (manifest at `cyanrip@7677b3f5`).
 - [x] **Their lap 3, released 2026-09-29** (`cyanrip@b89cbce4`, `GO`, sha256 `9c24b579…`,
   22,260 bytes), filed byte-exact from `cyanrip@18f79dc5`; both our checkers accept it, and
   with `--rerun` 3 results re-run and matched. Checked against both trees before filing:

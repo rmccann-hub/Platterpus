@@ -11,6 +11,37 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-30 — 0.6.64 released; `.19` becomes the build under review before round 30 has a lap
+
+**Asked:** release 0.6.64 once `main` was green. Then the fork published `.19` at
+`174a134` and asked that 0.6.64 name it as the build under review. The operator
+chose that the fork holds its round 30 lap 1 until the Full run exists.
+
+**Done:**
+- *0.6.64 released* (release run 36653391278, published 01:07Z, from `9b114c5f`), round
+  29's closing release as our lap 4 said. The fork's request arrived after the dispatch,
+  so `.19` goes out in 0.6.65 instead: the version number is all that differs.
+- *The py3.11 CI leg failed on the release PR* on a race in a test, not in the release:
+  a killed process reaped between opening and reading `/proc/<pid>/stat` raises
+  `ProcessLookupError`, which the test did not count as gone (`54520070`, revert-probed).
+- *The operator turned on GitHub's "Automatically delete head branches"*: a merged
+  session branch is now deleted by GitHub, and the next push recreates it. Confirmed on
+  the release PR's merge.
+- *`.19` is the build under review on `main`, read from the fork's published manifest*
+  (`cyanrip@7677b3f5`, filed byte-exact under `tests/fixtures/`), since no lap names it.
+  The pin-under-review tests choose between the newest lap and a newer published
+  release in one function, tested on constructed cases.
+
+**Learned** (no new rule; each is an instance of a question `CLAUDE.md` already asks):
+- *A peer's request can be about a state that has already moved.* The fork asked for
+  "0.6.64 naming `.19`" against `platterpus@58ad83db`; 0.6.64 had been dispatched from
+  `9b114c5f` minutes earlier. Answering from the artifact (the release run's own steps)
+  rather than from the request's premise gave the right reply: the same change, one
+  version later.
+- *A check that reads its expected value from one kind of artifact breaks the day the
+  process produces the value from another.* The fix kept the check and taught it the
+  second source, with the rule for choosing written once, not a special case per test.
+
 ## 2026-09-30 — Round 29 closes on our gate; the pin rolls to `51cc789`
 
 **Asked:** "Announce": release our round 29 lap 4 (`GO`), and roll `FORK_PIN` in the same

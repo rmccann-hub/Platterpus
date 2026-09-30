@@ -76,7 +76,7 @@ documents (the interrupted sample carries one) at read time.
 
 ---
 
-*Last updated for Platterpus v0.6.61.*
+*Last updated for Platterpus v0.6.64.*
 
 ## attestation_v0660.sigstore.json + sigstore_trusted_root_20260925.json (added 2026-09-25)
 
@@ -104,3 +104,14 @@ with every amendment on, and LSL 1 alone refuses exactly the 12 statements and 1
 fields the amendments add. It lives here,
 not under `docs/handshake/`, so that no gate ever reads its header as a lap.
 
+
+## fork_release_manifest_7677b3f.json (added 2026-09-30)
+
+The cyanrip fork's `release-manifest.json` exactly as their tree held it at
+`cyanrip@7677b3f5` ("Publish 0.9.4-rc2+platterpus.19 at 174a134, stable"): sha256
+`604da9a7…`, 1,134 bytes, pinned by `tests/test_handshake_pin_under_review.py`. It is
+the record that names `.19` as the build under review while no handshake lap does
+(the fork held its round 30 lap 1 until the Full run on `.19` existed, by the
+operator's choice). Read by that file and by
+`tests/test_ripper_manifest.py`'s release-sequence check. Not edited: a new manifest
+is filed beside it under its own commit's name.

@@ -12,6 +12,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The fork's `.19` (`174a134`) is the build the next Full acceptance run tests.**
+  `PIN_UNDER_REVIEW` moves from `51cc789` to `174a134` (`0.9.4-rc2+platterpus.19`, fork
+  release 29), so section A accepts `.19` and the cyanrip update offer marks it as the
+  build the acceptance test needs. The pin installed by default stays `51cc789`, round
+  29's approval. This is the first time the build under review moved before a lap named
+  it: the maintainer chose that the fork holds its round 30 lap 1 until the run exists,
+  so round 30 opens from the run's results. The pairing of commit and version is read
+  from the fork's published `release-manifest.json` instead, filed byte-exact under
+  `tests/fixtures/`. The check that holds the build under review to the record reads
+  that manifest while no lap names the build, and the lap again once one does. The rig
+  sheet, the standing status, README and TASKS name the new pair.
+
 ## [0.6.64] — 2026-09-30
 
 ### Fixed
