@@ -15,7 +15,7 @@
 ## At a glance
 
 - **Linux only.** Primary target is Bazzite KDE Plasma 6; should work on any modern desktop Linux running Qt 6 (Fedora, Arch, Ubuntu, Tumbleweed).
-- **Runs cyanrip inside Distrobox.** The GUI calls the host-exported `cyanrip` binary; it never bundles cyanrip or tries to install it itself (the guided wizard provisions the container). This is intentional — see [PLANNING.md §8 KDD-07](PLANNING.md).
+- **Runs cyanrip inside Distrobox.** The GUI calls the host-exported `cyanrip` binary; it never bundles cyanrip, and the guided wizard installs it inside the container. This is intentional — see [PLANNING.md §8 KDD-07](PLANNING.md).
 - **Single-file AppImage** for the GUI itself; no system-level installs required.
 - **No terminal prompts from the ripper** — the GUI queries MusicBrainz directly, then runs cyanrip offline with the chosen release's tags, so its interactive prompt never surfaces.
 - **Choose your output format** — FLAC (default), WavPack, MP3, or WAV. FLAC is always produced as the lossless master; other formats are derived from it, so you never lose the archival copy. See [Audio output](#audio-output-what-you-get-what-you-dont).
@@ -89,7 +89,7 @@ itself up by asking a couple of questions.
    filled in automatically; click **Save offset**. Insert a CD and **Start**.
 
 That's the whole thing: one download, a couple of clicks, answer the prompts.
-(Updating later = download the new AppImage and replace the old one.)
+(Updating later: **Tools → Setup & Updates… → Check for updates** — the app updates itself.)
 
 ### Easy second option — one command with pipx
 
@@ -288,10 +288,6 @@ You're now inside the container. The prompt should change to show you're in the 
 > verification command in the next section fails on it; and the banner it prints
 > carries no `platterpus-fork` parenthetical, which is the thing that section
 > tells you to look for.
->
-> *This page described the COPR path as the way to install the ripper for the
-> whole v0.6 line, while the verification step one screen later demanded a banner
-> that path cannot produce. Found 2026-09-13 by an audit reading the two together.*
 
 > **Easiest path for the container and `flac`:** run [`setup-host.sh`](setup-host.sh) (or the one-line installer above). The manual steps below are only if you're doing it by hand.
 
@@ -325,10 +321,8 @@ that is expected rather than a broken install: stock 0.9.3 exits non-zero on
 parenthetical in it. Run `--install-ripper` first (see the warning in Step 3), then
 come back to this check.
 
-**On the version flag, because the obvious advice is wrong in both directions.**
-There is no single spelling that works on every cyanrip, and this README used to
-say the opposite of the truth — *"note the capital `-V` — cyanrip has no
-`--version`"*. Measured, and published in the fork's own provider contract:
+**On the version flag:** no single spelling works on every cyanrip. Measured,
+and published in the fork's own provider contract:
 
 | build | `--version` | `-V` | `-v` |
 |---|---|---|---|
@@ -441,7 +435,7 @@ That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so th
 
 **Menu entry / desktop icon:** you don't need to do anything — on its **first run the AppImage offers to add itself to your applications menu** (and copies its icon), **moving itself to `~/Applications`** so it lives with your other apps instead of staying in Downloads. Just say yes. (The old `install-appimage.sh` helper still exists for scripted setups and offers an `--uninstall`, but it's no longer required. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) also works if you prefer.)
 
-**Updates:** use **Tools → Setup & Updates… → Check for updates** — if a newer release exists the app downloads it in the background, verifies it against the release's published checksum, installs it to `~/Applications`, and restarts itself. (Releases also ship a `.zsync` file and the AppImage embeds standard update-information, but [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) can't use them yet. The update-information asks GitHub for the *latest* release, GitHub leaves pre-releases out of that, and every `v0.*` release is a pre-release, so AppImageUpdate gets an HTTP 404 and updates nothing. Use Check for updates instead.)
+**Updates:** use **Tools → Setup & Updates… → Check for updates** — if a newer release exists the app downloads it in the background, verifies it against the release's published checksum and its build attestation (an update that fails either check is not installed), installs it to `~/Applications`, and restarts itself. (Releases also ship a `.zsync` file and the AppImage embeds standard update-information, but [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) can't use them yet. The update-information asks GitHub for the *latest* release, GitHub leaves pre-releases out of that, and every `v0.*` release is a pre-release, so AppImageUpdate gets an HTTP 404 and updates nothing. Use Check for updates instead.)
 
 > **On a FUSE-less host** (rare on desktop Linux, but some minimal setups): run with `APPIMAGE_EXTRACT_AND_RUN=1 ./platterpus-x86_64.AppImage`, or see [AppImage won't launch](#appimage-wont-launch) in Troubleshooting.
 
@@ -686,7 +680,7 @@ forwards every argument straight to the app):
 
 # Install or update the ripping stack from the terminal, then exit: the
 # Distrobox container, cyanrip, and the pinned Platterpus fork of cyanrip built
-# over it. Same steps the GUI's "Set up ripping" wizard runs, and idempotent —
+# over it. Same steps as Tools → Setup & Updates… → Run setup…, and idempotent —
 # anything already in place reports "already present" and is left alone.
 ./platterpus-x86_64.AppImage --install-ripper
 
@@ -765,9 +759,9 @@ offers **Install it now**, and one click builds and installs it. There is no SHA
 to copy and nothing to read first, because taking that build is what makes your
 rips report `approved`.
 
-The launch-time check is **silent unless it has something to offer**. Which
-channel it looks at is **Settings → Updates**: stable by default, or pre-release
-cyanrip builds if you tick the beta box.
+The launch-time check is **silent unless it has something to offer**. It looks
+at the stable channel by default; tick **Offer beta (pre-release) cyanrip builds**
+in **Tools → Setup & Updates…** to include beta builds.
 
 When the newest published build is one **no round here has verified yet**, the
 app tells you, states plainly that every rip made with it would report its ripper
@@ -780,28 +774,19 @@ installing **a specific commit**: a mid-round test pin, a build under review, or
 going back to an older one. It prints the pin it is building and the build tag the
 finished binary must report, so you can see which ripper you ended up with.
 
-**And it takes a commit**, which is what makes the sentence above actually true:
+It takes a commit:
 
 ```sh
 # ~/Applications/… if you let the app add itself to your menu (see the note at
 # the top of this section); ./platterpus-x86_64.AppImage if you declined.
-~/Applications/platterpus-x86_64.AppImage --install-ripper 9048082
+~/Applications/platterpus-x86_64.AppImage --install-ripper 174a134
 ```
 
-Without an argument it builds the pin baked into *this* Platterpus build — so
-before this option existed, "get it without waiting" still meant waiting for a
-release, which is the granularity the whole point was to avoid. The fork's pin
-moved **five times inside one handshake round**, twice in a single day. With a
-commit it builds that commit instead, through the same steps, and verifies the
-binary reports `platterpus-fork-g<commit>`.
-
-It deliberately does **not** predict the version string for a commit we don't
-pin — we can't read that tree's `meson.build`, and printing a guess next to the
-word "expects" would invite a comparison against a number nobody measured. You
-get the build tag, which is checked, and an explicit note that the version is
-not predictable. Every rip with a non-pinned build reports
-`ripper handshake approval: unapproved`, and the install says so up front rather
-than letting the rip report be the first place you see it.
+Without an argument it builds the pin baked into this Platterpus build. With a
+commit it builds that commit through the same steps and checks that the binary
+reports `platterpus-fork-g<commit>`. It does not predict the version string for a
+commit Platterpus does not pin, and it tells you up front that rips with a
+non-pinned build report `ripper handshake approval: unapproved`.
 
 **For a script that wants the channel's newest build rather than a named one**,
 pass `latest` (the fork's stable channel) or `latest-beta` (its beta channel) in
@@ -893,7 +878,7 @@ distrobox enter ripping
 ls -l /dev/sr*
 ```
 
-If the device shows up inside the container but the GUI still finds no drives from the host, the export wrapper isn't passing through device access. Re-run `distrobox-export --bin /usr/bin/cyanrip` from inside the container.
+If the device shows up inside the container but the GUI still finds no drives from the host, the export wrapper isn't passing through device access. Re-run **Tools → Setup & Updates… → Run setup…** (or, inside the container, `distrobox-export --bin /usr/local/bin/cyanrip` — the fork's install path).
 
 ### "MusicBrainz error: rate limited"
 
@@ -932,17 +917,14 @@ exit
 
 ### Update Platterpus
 
-- **AppImage:** download the new release, replace the old file.
+- **AppImage:** **Tools → Setup & Updates… → Check for updates** — the app downloads, verifies and installs the new release, then restarts.
 - **pipx:** `pipx upgrade platterpus`
 - **From source:** `git pull && pip install -e .`
 
 ### Update cyanrip or metaflac
 
-```bash
-distrobox enter ripping
-sudo dnf upgrade cyanrip flac
-exit
-```
+- **cyanrip:** **Tools → Setup & Updates… → Check for cyanrip updates** (or `--install-ripper`). This builds the pinned fork; `dnf upgrade` only updates the stock COPR package, which the fork replaces.
+- **flac / metaflac:** `distrobox enter ripping -- sudo dnf upgrade flac`
 
 The host-exported wrappers don't change; they always run whatever is currently inside the container.
 

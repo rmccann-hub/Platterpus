@@ -16,44 +16,9 @@ round 30    OPEN on 174a134, from the fork's lap 1 (2026-09-30); this run is its
 ```
 
 > **Header last moved 2026-09-30**, when round 30 opened on `.19` (the fork's lap 1,
-> sha256 `6db0ed0d…`) and 0.6.65 was released for its Full run. Before that, the same
-> day, when `.19` became the build under review before round 30 had a lap, and 0.6.65
-> was named as the release its Full run is on. Before that, the same day, when 0.6.64
-> was released to carry `51cc789`.
-> Before that, 2026-09-29, when round 29 closed on our gate and `FORK_PIN`
-> rolled to `51cc789`, on the Full run of 0.6.63 (320 of 323 steps, the three failures
-> screenshot steps of ours, none in a rip). Before that, 2026-09-28, when round 29 opened
-> on `.18` (the fork's lap 1, sha256 `2e275d2f…`), for that Full run. Before that, the
-> same day, when round 28 closed on our gate and `FORK_PIN`
-> rolled to `e0471f4`, on the Full run of 0.6.61 (320 of 320 steps), which the operator
-> chose to close the round on. Before that, the same day, to 0.6.62: the operator had
-> moved round 28's Full run from 0.6.61 to it, an override of R1 our lap 6 records
-> (S36), which fell away when the operator chose the 0.6.61 run. Before that,
-> 2026-09-26, when round 28 opened on `.17` (the fork's lap 1, sha256 `060fd251…`),
-> and on 2026-09-27 when 0.6.61 was released to carry it. Before that, 2026-09-26,
-> when round 27 closed on our gate and `FORK_PIN` rolled to
-> `221a1df`, on the quick run that stood in for the Full one by the maintainer's override.
-> Before that, 2026-09-25, to 0.6.60. The first Full attempt on 0.6.59 stopped at
-> section A with `.15` installed: 0.6.59's update check and setup wizard could each replace
-> the build under review with the approved one. 0.6.60 keeps it.
-> Before that, 2026-09-24, to round 27 and 0.6.59. The fork opened round 27
-> on `.16` the same evening, and a quick run on 0.6.58 with `.16` installed stopped at
-> section A, as their lap 1 said it would. Before that, the same day, to 0.6.58, which
-> splits the acceptance run into
-> Quick / Standard / Full and takes the read offset from the drive in the machine.
-> Before that, the same day, to 0.6.57, which re-reads one-frame AccurateRip matches
-> by default; before that, to 0.6.56, the release that ships
-> `df91ae7`; before that, the same evening, when round 26 closed on our gate and `FORK_PIN` rolled to
-> `df91ae7`. The move before that was the same day, to 0.6.55: the first attempt on 0.6.54 stopped at
-> section A, which refused `.15` on a defect of ours (`docs/testing.md` §5.bq). Before
-> that, 2026-09-23, when round 26 opened on `.15`; the move before that was the same day, when round 24 closed on our gate and `FORK_PIN` rolled to
-> `3e01bb3`. Before that it was 2026-09-22, by the pre-round-24 document audit, and
-> before that it named `v0.6.30` + cyanrip `d9c058c` and *"round 15 is not open"* —
-> twenty-three patch versions and nine rounds behind — and its body was round 7's
-> `b12` acceptance criteria, with steps for a menu layout that no longer exists. That
-> sheet is [`archive/rig-session-d9c058c.md`](archive/rig-session-d9c058c.md). A sheet
-> that names the wrong pair is worse than no sheet, because a run against it produces
-> evidence about a different subject.
+> sha256 `6db0ed0d…`) and 0.6.65 was released for its Full run. The move before that
+> was the same day, when 0.6.64 was released to carry `51cc789`. Earlier moves are in
+> this file's git history.
 
 **This is the one rig sheet.** It is rewritten in place when the pairing moves, never
 joined by a sibling — the header above names the pair it is written for. Superseded
@@ -63,12 +28,15 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 
 ## What the next run is for
 
-**The next Full run is round 30's: 0.6.65 with `.19` installed.** The fork published
-`.19` (`174a134`) on 2026-09-30, on both channels, and its round 30 lap 1 opened the
-round the same day, before the run, because section A accepts `.19` only once a
-release of ours names it (the fork's S22–S24). This run is the round's S10. Section A expects `174a134` as the build under review, and every rip records its
-ripper as *being tested, not approved yet*, which is correct for this run. One run tests
-both sides.
+**Round 30's Full run — 0.6.65 with `.19` installed — started about 03:02Z on
+2026-09-30 and is in progress.** It is the round's S10. Section A expects `174a134` as
+the build under review, and every rip records its ripper as *being tested, not approved
+yet*, which is correct for this run. One run tests both sides.
+
+**What `.19` carries** over `.18`, five commits of the fork's in `src/`: the build-tag
+change (`bf50705`), the finalised checksum (`9669d84`), the repeat-limit wording
+(`fb31a2b`) and the `-Z`/`-r` refusal (`22f7aae`, `ad11743`) — the fork's round 29 lap 3
+S18.
 
 **It is a candidate full-green pass, which the project has never had.** The
 field-evidence ledger (`docs/testing.md` §5B) has twelve rows and no `full-green` one.
@@ -81,33 +49,10 @@ ARCHIVAL sections**; `0.9.1` needs two such runs on at least two machines and tw
 distros. **Only a Full run counts as evidence**; Quick and Standard are for checking the
 setup.
 
-**What 0.6.64 changes for the person at the rig.** Nothing to do differently. A Rescan
-no longer leaves a "cyanrip exited -9" warning in every later report, and a rig session
-on a machine that cannot reach GitHub records the failed clone and carries on.
-
-**What `.18` carries** over `.17`, five commits of the fork's in `src/` and one merge of
-upstream's: `Encoder errors:` counts only tracks whose read completed, and a new line,
-`Partial files:`, names a partial file (`f150c0c`); `Stopping, ripping incomplete!`
-prints on every signal stop of a read (`9d52271`); the AccurateRip parse is tested on
-a recorded response (`5b7493c`, `a646d54`); the disc-level `AccurateRip:` line can read
-`mismatch` or `not found` (`64642db`); and upstream's `f8ebf48`, a MusicBrainz retry,
-which Platterpus never reaches because it runs cyanrip with `-N`.
-
-**What 0.6.63 changes for the person at the rig.** Nothing to do differently. A track
-whose re-read AccurateRip verifies keeps that re-read, a partial rip is no longer looked
-up in CTDB, and the EAC-compatible log's first line begins with "Platterpus".
-
-**What 0.6.62 changes for the person at the rig.** A disc that the drive briefly
-reports as unavailable is read again when it comes back, and a first read that fails
-on a cold container is retried, so you should not need to open and close the drive or
-restart the app. The dependency check says it is running and stops within two
-minutes, and the script's `open dependencies` step no longer freezes the window. The
-acceptance test is under **Tools → Advanced**.
-
-**`.17`, now the production pin**, compares only frame-450 checksums on a frame-450
-AccurateRip lookup, says a one-frame match covers one frame only, and writes its banner
-as soon as the log opens (`10f36fe`, `ec0fe47`, `ee0221c`). The 2026-09-28 Full run
-tested it on this drive.
+**What changed for the person at the rig since 0.6.62:** nothing to do differently.
+The acceptance test is under **Tools → Advanced**. A disc the drive briefly reports as
+unavailable is read again when it comes back, and a first read on a cold container is
+retried, so you should not need to open and close the drive or restart the app.
 
 **Why section F should hold this time.** In round 26, section F's whole-disc rip was
 killed 95 seconds in when the `ripping` container died underneath it. The container
@@ -122,10 +67,12 @@ a container that is already running.
 1. **Put the reference disc in the drive** (any ordinary audio CD works; the script
    needs no album name, track count or path) and open Platterpus from the applications
    menu.
-2. **Update Platterpus to 0.6.65 first.** Then check **Tools → Setup & Updates…**: the
-   cyanrip line should read `platterpus-fork-g174a134` (`0.9.4-rc2+platterpus.19`). If it
-   reads anything else, **Check for cyanrip updates** offers `.19` as the build handshake
-   round 30 is testing, which *"the acceptance test needs"*; choose **Install it anyway**. Then **Tools → Advanced → Run acceptance test…**,
+2. **Update Platterpus to 0.6.65 first.** Then check **Help → About Platterpus…**: the
+   *Installed* line should name `platterpus-fork-g174a134` (`0.9.4-rc2+platterpus.19`).
+   (**Tools → Setup & Updates…** always shows the *approved* build, `51cc789`; that is
+   expected.) If it names anything else, **Tools → Setup & Updates… → Check for cyanrip
+   updates** offers `.19` as the build handshake round 30 is testing, which *"the
+   acceptance test needs"*; choose **Install it anyway**. Then **Tools → Advanced → Run acceptance test…**,
    choose **Full**, and leave it. It holds sleep and the screen off, runs every section (4–6 hours), stops in its first
    seconds if the ripper is not the build under review, and puts your own settings back
    when it ends. **During the run, don't close any other Platterpus window or any
