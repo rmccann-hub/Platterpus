@@ -351,19 +351,17 @@ class CyanripImpl(RipBackend):
         # cover and booklet. So with art turned ON we were suppressing nothing and
         # asking cyanrip to attempt a lookup whose result we would overwrite.
         #
-        # It cannot succeed anyway, and the archival log carried the proof:
-        # `-N` means cyanrip never resolves a release of its own, so every rip
-        # with art enabled printed
+        # `-G` turns off cyanrip's EMBEDDING and nothing else (read from the fork,
+        # not its name: cyanrip@174a134:src/cyanrip_encode.c:1293). We embed
+        # ourselves, so it is always right. It does NOT silence the log's
         #   "No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!"
-        # into the log a user is meant to keep as evidence, followed by
-        # "Album Art: none" (measured 2026-08-23). A scary sentence about a step
-        # that was never ours to run, in the artifact whose job is being
-        # trustworthy.
-        #
-        # The argument does not rest on that measurement, which is the point: we
-        # always do cover art ourselves, so the flag that says "do not do cover
-        # art" is always correct. `cover_art` stays in the signature — it is
-        # recorded in the rip plan the log prints — but it no longer gates this.
+        # (still at line 41 of the round-29 `.18` whole-disc log, `-G` in its argv):
+        # that line is the Cover Art DB query's, gated by `-U`
+        # (cyanrip@174a134:src/coverart.c:382-392), which we do not send. Under
+        # `-N` the query cannot succeed, so it is noise, not a fault; sending `-U`
+        # changes what crosses the seam, so it is a next-round item (TASKS.md,
+        # "`-U`, not `-G`"). `cover_art` stays in the signature — it is recorded
+        # in the rip plan the log prints — but it does not gate this.
         argv.append("-G")  # we always do cover art ourselves; never the ripper
         # `-j`: cyanrip's own machine-readable diagnostics record, written beside
         # the rip (the child runs with `cwd=output_dir`).
