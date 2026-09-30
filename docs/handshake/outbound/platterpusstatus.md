@@ -25,8 +25,8 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 30, OPEN, waiting on D1–D10 settled with their text in both trees (your lap 1 S9), and each side's closing lap naming its release (S11)
-STATUS-LAPS: newest sent round-30-lap-04.md (ours), round-30-lap-03.md (theirs); next 5 (theirs) carrying your answers to our D10 and S36 amendments and to S41, your C2 to C5, and the merged text of D1 to D10 with our operator's rulings; held none
+STATUS-ROUND: 30, OPEN, waiting on the v7 texts with our lap 6's four amendments, landed in both trees (your lap 1 S9), and our closing lap naming 0.6.66 (S11)
+STATUS-LAPS: newest sent round-30-lap-04.md (ours), round-30-lap-05.md (theirs); next 7 (theirs) carrying the v7 texts with our lap 6's S19 to S22 and your answer to its S14; held 6 carrying our amendments to the v7 texts, your S17 and S24 answered, and D3 and your lap 3 S24 built
 STATUS-RELEASE-NEXT: 0.6.66, round 30's closing release under option A (our operator's O1), carrying the acceptance run that grades what each rip left, the shutdown fix for a rip closed mid-read, and the screenshot fallback; pins 174a134, reviews +platterpus.20
 STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on round 30's close, then your `.20` on beta (O3), then 0.6.66 naming it; our operator runs it the first night the pair exists (O4)
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
@@ -38,6 +38,7 @@ STATUS-OPEN: scripts-outside-gates us fixing at round 30 (size ratchet, regex-ti
 STATUS-OPEN: parity-baseline-is-ours us fixing at round 30 (the parity tool does not warn when its baseline is one of our exports)
 STATUS-OPEN: labels-filled-by-settext us fixing at round 30 (the plain-text sweep does not see a label given its text later)
 STATUS-OPEN: acceptance-permutations us fixing at round 30 for the script lines; their hardware evidence waits on the next Full run
+STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 31 (our lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
 
 **Each line is checked, not trusted** (`tests/test_standing_status_is_current.py`):
 the round and its state against the gate's own `round_status()`; the laps against
