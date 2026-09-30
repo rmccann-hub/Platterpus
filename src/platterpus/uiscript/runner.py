@@ -386,9 +386,8 @@ def _preflight(steps: list[Step]) -> list[str]:
     one function wide, doing the identical job for a different verb — the same
     shape as `docs/testing.md` §5.o (enforce a rule across the surface, not at the
     place it was learned) and as the `-V` half-contract lesson, where the evidence
-    sat in a committed file for a full round. `uiscript.script.uses_unsafe` states
-    the principle outright: *"an unattended run that dies two-thirds through is
-    worse than one that never started."*
+    sat in a committed file for a full round. The principle: *an unattended run
+    that dies two-thirds through is worse than one that never started.*
 
     Does **not** filter or reorder the run. Those steps still execute and still
     record their own failures in place; this only moves the *notice* earlier — the
@@ -434,7 +433,6 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
         self._steps: list[Step] = []
         self._index: int = 0
         self._report: RunReport = RunReport(started_at="", app_version=__version__)
-        self._unsafe_allowed: bool = False
         # TIER / PRUNE STATE (round 18's procedure, scaffolding). Declared here and
         # annotated rather than sprung into existence by a handler, so a reader sees
         # the runner's whole state in one place — and so `mypy` sees it too.
@@ -533,7 +531,6 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
         self,
         steps: list[Step],
         *,
-        unsafe_allowed: bool = False,
         source: str = "",
     ) -> None:
         """Begin a run.
@@ -547,7 +544,6 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
             return
         self._steps = list(steps)
         self._index = 0
-        self._unsafe_allowed = unsafe_allowed
         self._artifact_dir = None
         self._deadline = None
         self._pending_cyanrip = None
@@ -571,11 +567,7 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
             preflight=_preflight(self._steps),
             run_size=self._run_size,
         )
-        log.info(
-            "ui script run starting: %d step(s), unsafe verbs %s",
-            len(self._steps),
-            "ALLOWED" if unsafe_allowed else "refused",
-        )
+        log.info("ui script run starting: %d step(s)", len(self._steps))
         for problem in self._report.preflight:
             # WARNING, not debug: this is a finding about the batch about to run,
             # and it must be in the log file a bug report carries.
@@ -883,30 +875,10 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
                 declined_by_size=True,
             )
             return
-        # HANDLER FIRST, then the unsafe gate — the order carries the honesty.
-        # Reversed, a script using `eval` (unsafe AND unimplemented) was told "this
-        # verb needs the 'allow unsafe script verbs' setting, which is off", which
-        # points the reader at a checkbox that would not have helped: with it
-        # ticked the very next line refuses the same step for having no handler.
-        # A true diagnosis of the wrong cause is the expensive kind — it sends
-        # somebody into Settings instead of telling them the verb does not exist
-        # (found 2026-08-24, in the sweep that followed `expect-status`).
         handler = getattr(self, f"_do_{step.verb.replace('-', '_')}", None)
         if handler is None:
             self._record(step, Outcome.ERROR, f"'{step.verb}' is not implemented yet")
             return
-        if step.unsafe and not self._unsafe_allowed:
-            self._record(
-                step,
-                # DECLINED: the operator chose not to enable the escape hatch, so
-                # we decline rather than fail. The action it implies is "decide
-                # whether to escalate", which is exactly enabling the setting.
-                Outcome.SKIPPED,
-                "this verb needs the 'allow unsafe script verbs' setting, which is off",
-            )
-            return
-        if step.unsafe:
-            self._report.used_unsafe = True
         # PRUNING: a failure prunes its own dependents (round 18). The run keeps
         # going — halting on the first problem hides every problem behind it, and a
         # disc pass costs hours nobody gets back — but a step resting on something

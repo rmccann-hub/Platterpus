@@ -41,15 +41,17 @@ def test_the_vocabulary_is_not_empty_and_every_entry_is_coherent() -> None:
             assert verb.max_args >= verb.min_args
 
 
-def test_exactly_the_intended_verbs_are_unsafe() -> None:
-    """The escape hatch is two verbs, and a third appearing is a review event.
+def test_no_verb_runs_arbitrary_code() -> None:
+    """The escape hatch is gone, and it must not come back by the side door.
 
-    This is the security boundary; it must not widen because somebody needed
-    something quickly. If a new unsafe verb is genuinely wanted, this list is the
-    deliberate edit that admits it.
+    `eval` and `call` were reserved with an "allow the unsafe verbs" opt-in and
+    never built; the maintainer removed all three on 2026-09-30. This is the
+    security boundary, so the names are refused rather than merely absent: one
+    reappearing is a review event, and it would need its opt-in back with it.
     """
-    unsafe = {name for name, verb in verbs_mod.VERBS.items() if verb.unsafe}
-    assert unsafe == {"eval", "call"}
+    forbidden = {"eval", "exec", "call", "python", "shell", "run", "invoke"}
+    assert not (forbidden & set(verbs_mod.VERBS)), "an escape-hatch verb returned"
+    assert not hasattr(verbs_mod.Verb, "unsafe"), "the unsafe flag came back"
 
 
 def test_no_destructive_verb_exists() -> None:
@@ -79,7 +81,6 @@ def test_the_reference_is_rendered_from_the_table_not_hand_written() -> None:
     text = verbs_mod.verb_reference()
     for name in verbs_mod.VERBS:
         assert name in text, f"{name} missing from the reference"
-    assert "unsafe opt-in" in text  # the hatch is disclosed, not hidden
     for target in verbs_mod.OPENABLE:
         assert target in text
 
@@ -334,16 +335,6 @@ def test_every_line_of_any_script_is_accounted_for(text: str) -> None:
             assert step.error, f"a step that cannot run must say why: {step}"
 
 
-def test_unsafe_use_is_detectable_before_the_run_starts() -> None:
-    """Refuse the batch up front, not at line 40 of 60.
-
-    An unattended run that dies two-thirds of the way through is worse than one
-    that never started, because the partial transcript looks like a result.
-    """
-    assert not script_mod.uses_unsafe(script_mod.parse("log hi\nopen settings"))
-    assert script_mod.uses_unsafe(script_mod.parse("log hi\neval window.width()"))
-
-
 # --- The transcript -------------------------------------------------------
 
 
@@ -385,19 +376,6 @@ def test_a_run_that_ended_early_is_never_ok_however_its_steps_went() -> None:
     assert "ENDED EARLY" in report_mod.render(rep)
 
 
-def test_an_unsafe_run_says_so_at_the_top_of_its_own_transcript() -> None:
-    """Evidence produced with arbitrary code in play is not the same evidence.
-
-    At the top, because a reader must not have to scroll to find it out.
-    """
-    rep = _report(Outcome.PASS)
-    rep.used_unsafe = True
-    rendered = report_mod.render(rep)
-    assert "UNSAFE" in rendered
-    header_end = rendered.index("[")  # first step line
-    assert "UNSAFE" in rendered[:header_end], "the warning is below the first step"
-
-
 def test_the_transcript_shows_failures_with_their_detail() -> None:
     rep = _report(Outcome.PASS)
     rep.steps.append(
@@ -413,11 +391,9 @@ def test_the_serialised_shape_carries_everything_the_text_does() -> None:
     """It is embedded in the rip JSON, where nothing else explains the run."""
     rep = _report(Outcome.PASS, Outcome.FAIL)
     rep.ended_reason = "stopped by the user"
-    rep.used_unsafe = True
     rep.artifact_dir = "/tmp/run-1"
     data = rep.as_dict()
     assert data["ended_reason"] == "stopped by the user"
-    assert data["used_unsafe_verbs"] is True
     assert data["artifact_dir"] == "/tmp/run-1"
     assert data["ok"] is False
     assert data["counts"]["fail"] == 1

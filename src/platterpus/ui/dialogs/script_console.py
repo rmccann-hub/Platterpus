@@ -23,11 +23,10 @@ markup. A cyanrip line containing ``<`` would be swallowed as an unknown tag and
 the reader would never learn text went missing — ``CLAUDE.md``'s inbound-seam
 rule, applied at the one widget that displays dependency output here.
 
-**It is the home of the three test-script settings** (2026-09-24): which script
-loads at start-up, whether it runs by itself, and whether the unsafe verbs are
-allowed. They used to be edited in Settings too, with a second unsafe-verbs box
-here — two editors of one setting, where the one a user last touched was not
-necessarily the one in force. Now they are edited only here, where scripts are
+**It is the home of the two test-script settings** (2026-09-24): which script
+loads at start-up, and whether it runs by itself. They used to be edited in
+Settings too — two editors of one setting, where the one a user last touched was
+not necessarily the one in force. Now they are edited only here, where scripts are
 loaded and run, and each saves as it is changed through the window's one
 single-setting writer, validated by the same predicate as the ``set`` verb
 (`ui/setting_homes.py`, `tests/test_setting_homes.py`).
@@ -68,7 +67,7 @@ from platterpus.ui.scroll_guards import append_keeping_position
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord, render
 from platterpus.uiscript.runner import ScriptRunner
 from platterpus.uiscript.script import parse
-from platterpus.uiscript.verbs import UNSAFE_VERBS_BUILT, verb_reference
+from platterpus.uiscript.verbs import verb_reference
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -146,7 +145,6 @@ class ScriptConsoleDialog(CenteredDialog):
         window: QWidget,
         *,
         script_path: str = "",
-        allow_unsafe: bool = False,
         autorun: bool = False,
         save_setting: Callable[[str, object], SettingWrite] | None = None,
         parent: QWidget | None = None,
@@ -198,12 +196,11 @@ class ScriptConsoleDialog(CenteredDialog):
         self._editor.setAccessibleName("Test script")
         layout.addWidget(self._editor, stretch=3)
 
-        # The three test-script settings, in their one home.
+        # The two test-script settings, in their one home.
         self._script_settings: ScriptSettingsBox = ScriptSettingsBox(
             self,
             script_path=script_path,
             autorun=autorun,
-            allow_unsafe=allow_unsafe,
             save_setting=save_setting,
         )
         self._script_settings.startup_script_saved.connect(
@@ -213,7 +210,6 @@ class ScriptConsoleDialog(CenteredDialog):
         #: as the console's own so the run and the tests read one object.
         self._startup_script_edit: QLineEdit = self._script_settings.startup_script_edit
         self._autorun_check: QCheckBox = self._script_settings.autorun_check
-        self._unsafe_check: QCheckBox = self._script_settings.unsafe_check
         top_layout.addWidget(self._script_settings)
         self._top_scroll.setWidget(top)
 
@@ -438,11 +434,7 @@ class ScriptConsoleDialog(CenteredDialog):
         self._runner = runner
         self._run_button.setEnabled(False)
         self._stop_button.setEnabled(True)
-        runner.start(
-            steps,
-            unsafe_allowed=UNSAFE_VERBS_BUILT and self._unsafe_check.isChecked(),
-            source=source,
-        )
+        runner.start(steps, source=source)
         # ASK the runner, do not assume. `ScriptRunner.start` has its own refusal
         # ("already running"), and a `return True` here would be this method's
         # opinion of what it requested rather than a statement about what is

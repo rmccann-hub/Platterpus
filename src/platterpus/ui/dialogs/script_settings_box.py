@@ -1,10 +1,10 @@
-"""The three test-script settings, in their one home: the script console.
+"""The two test-script settings, in their one home: the script console.
 
-Which script loads at start-up, whether it runs by itself when Platterpus
-starts, and whether the unsafe verbs are allowed. Until 2026-09-24 they were
-edited in Settings as well, and the console carried a second, per-run copy of
-the unsafe-verbs box: two editors of one setting, where the one a user last
-touched was not necessarily the one in force. `ui/setting_homes.py` records that
+Which script loads at start-up, and whether it runs by itself when Platterpus
+starts. Until 2026-09-24 they were edited in Settings as well: two editors of one
+setting, where the one a user last touched was not necessarily the one in force.
+(A third, "allow the unsafe script verbs", went on 2026-09-30 with the two verbs
+it would have allowed, which were never built.) `ui/setting_homes.py` records that
 they live here now, and `tests/test_setting_homes.py` holds every window to it.
 
 **Each change is saved as it is made**, through the window's single-setting
@@ -16,7 +16,7 @@ validator's own sentence is shown, so a control never displays a value that is
 not in force.
 
 **Why a widget of its own.** The console's job is to run a batch and show its
-transcript; this box's job is three settings. Kept apart so neither file has to
+transcript; this box's job is two settings. Kept apart so neither file has to
 be read to understand the other (`CLAUDE.md`: one responsibility per module).
 
 Nothing here blocks: validation is pure, and a save writes a small TOML file.
@@ -44,7 +44,6 @@ from PySide6.QtWidgets import (
 
 from platterpus.test_session import builtin_acceptance_script
 from platterpus.ui.accessibility import announce
-from platterpus.uiscript.verbs import UNSAFE_VERBS_BUILT
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -56,7 +55,7 @@ log = logging.getLogger(__name__)
 
 
 class ScriptSettingsBox(QGroupBox):
-    """Startup script, autorun and the unsafe verbs, saved as they change."""
+    """Startup script and autorun, saved as they change."""
 
     #: A startup script was saved (``""`` when it was cleared). The console
     #: decides whether loading it now would discard anything.
@@ -68,7 +67,6 @@ class ScriptSettingsBox(QGroupBox):
         *,
         script_path: str,
         autorun: bool,
-        allow_unsafe: bool,
         save_setting: Callable[[str, object], SettingWrite] | None,
     ) -> None:
         super().__init__("Script settings (saved as you change them)", parent)
@@ -133,35 +131,6 @@ class ScriptSettingsBox(QGroupBox):
         )
         box.addWidget(self.autorun_check)
 
-        # "not built yet" because they are not: `eval` and `call` carry
-        # `implemented=False` and have no handler, so this box gates nothing
-        # today. A control that advertises a capability it cannot deliver is the
-        # same defect as the `expect-status` gap (2026-08-24).
-        self.unsafe_check: QCheckBox = QCheckBox(
-            "Allow the unsafe script verbs (eval, call — not built yet)", self
-        )
-        self.unsafe_check.setChecked(allow_unsafe and UNSAFE_VERBS_BUILT)
-        # READ-ONLY until one of the verbs exists (maintainer, 2026-09-30). A box
-        # that can be ticked for something that is not there invites a user to
-        # believe it did something.
-        self.unsafe_check.setEnabled(UNSAFE_VERBS_BUILT)
-        self.unsafe_check.setToolTip(
-            "Not built yet, so it stays OFF and cannot be turned ON: eval and call "
-            "are reserved names with no implementation, and a script using either "
-            "is refused. The vocabulary is a closed list of named actions with "
-            "nothing that can run arbitrary code."
-            if not UNSAFE_VERBS_BUILT
-            else "OFF by default. ON lets a script use eval and call, and a run "
-            "that used them says so at the top of its own transcript."
-        )
-        if UNSAFE_VERBS_BUILT:
-            self.unsafe_check.toggled.connect(
-                lambda on: self._save_box(
-                    "test_script_allow_unsafe", self.unsafe_check, on
-                )
-            )
-        box.addWidget(self.unsafe_check)
-
         self._status: QLabel = QLabel("", self)
         self._status.setTextFormat(Qt.TextFormat.PlainText)
         self._status.setWordWrap(True)
@@ -169,19 +138,15 @@ class ScriptSettingsBox(QGroupBox):
         box.addWidget(self._status)
 
     def refresh_settings(self, config: Config) -> None:
-        """Show ``config``'s three script settings. Changes nothing.
+        """Show ``config``'s two script settings. Changes nothing.
 
         Called by the window when one of them changed elsewhere (a script's
         ``set``), so the boxes never show a value no longer in force. Signals are
         blocked: re-rendering must not look like a click and save again.
         """
-        for box, value in (
-            (self.autorun_check, config.test_script_autorun),
-            (self.unsafe_check, config.test_script_allow_unsafe and UNSAFE_VERBS_BUILT),
-        ):
-            box.blockSignals(True)
-            box.setChecked(bool(value))
-            box.blockSignals(False)
+        self.autorun_check.blockSignals(True)
+        self.autorun_check.setChecked(bool(config.test_script_autorun))
+        self.autorun_check.blockSignals(False)
         self.startup_script_edit.setText(config.test_script_path)
 
     # --- Saving -------------------------------------------------------------

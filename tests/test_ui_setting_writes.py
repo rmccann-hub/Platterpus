@@ -372,62 +372,37 @@ def test_re_rendering_the_console_never_saves(qapp: QApplication) -> None:
     calls: list[tuple[str, object]] = []
     console = _console(lambda f, v: calls.append((f, v)) or SettingWrite(True))
     console.refresh_settings(
-        Config(
-            test_script_autorun=True,
-            test_script_allow_unsafe=True,
-            test_script_path="/x.txt",
-        )
+        Config(test_script_autorun=True, test_script_path="/x.txt")
     )
     assert console._autorun_check.isChecked() is True
-    # Read-only while no unsafe verb is built: a stored ON is not shown as ON.
-    assert console._unsafe_check.isChecked() is False
-    assert console._unsafe_check.isEnabled() is False
     assert console._startup_script_edit.text() == "/x.txt"
     assert calls == [], "re-rendering saved a setting"
 
 
-def test_the_console_carries_one_unsafe_box_and_it_is_the_setting(
+def test_the_console_has_no_unsafe_box_and_its_checkboxes_are_the_settings(
     qapp: QApplication,
 ) -> None:
-    calls: list[tuple[str, object]] = []
-    console = _console(
-        lambda f, v: calls.append((f, v)) or SettingWrite(True), allow_unsafe=False
-    )
+    """The "allow unsafe script verbs" box went with the verbs (maintainer,
+    2026-09-30), so it must not come back on either surface that carried it.
+
+    Floor: the console still HAS checkboxes, so an empty search cannot pass.
+    """
     from PySide6.QtWidgets import QCheckBox
 
-    unsafe = [box for box in console.findChildren(QCheckBox) if "unsafe" in box.text()]
-    assert unsafe == [console._unsafe_check], "a second unsafe-verbs box is back"
-    # READ-ONLY until an unsafe verb exists (maintainer, 2026-09-30): the box is
-    # disabled, and even a programmatic tick saves nothing.
-    assert not console._unsafe_check.isEnabled()
-    console._unsafe_check.setChecked(True)
+    from platterpus.ui.dialogs.script_settings_box import ScriptSettingsBox
+
+    calls: list[tuple[str, object]] = []
+    console = _console(lambda f, v: calls.append((f, v)) or SettingWrite(True))
+    boxes = console.findChildren(QCheckBox)
+    assert boxes, "the console lost its checkboxes; this search proves nothing"
+    assert not [b for b in boxes if "unsafe" in b.text().lower()], [
+        b.text() for b in boxes
+    ]
+    assert not hasattr(console, "_unsafe_check")
+    assert not hasattr(Config(), "test_script_allow_unsafe")
+    assert "allow_unsafe" not in ScriptSettingsBox.__init__.__code__.co_varnames
     console._autorun_check.setChecked(True)
     assert calls == [("test_script_autorun", True)], calls
-
-
-def test_no_unsafe_verb_is_built_so_the_opt_in_is_refused_everywhere(
-    qapp: QApplication,
-) -> None:
-    """The opt-in is read-only in every place a value can come from while `eval`
-    and `call` are unbuilt: the box (above), the runner the console starts, and
-    validation, which a config file and a script's `set` both pass through."""
-    from platterpus.settings_validation import errors_only, validate_config
-    from platterpus.uiscript.verbs import UNSAFE_VERBS, UNSAFE_VERBS_BUILT, VERBS
-
-    assert UNSAFE_VERBS_BUILT is False
-    assert {"eval", "call"} <= set(UNSAFE_VERBS), "the floor: the reserved verbs"
-    assert not any(VERBS[name].implemented for name in UNSAFE_VERBS)
-    refused = errors_only(validate_config(Config(test_script_allow_unsafe=True)))
-    assert [i.field for i in refused] == ["test_script_allow_unsafe"], refused
-    assert not errors_only(validate_config(Config(test_script_allow_unsafe=False)))
-
-    console = _console(allow_unsafe=True)
-    console._unsafe_check.setChecked(True)  # even if something ticked it
-    console._editor.setPlainText("log x\n")
-    assert console.run_now()
-    runner = console._runner
-    assert runner is not None and runner._unsafe_allowed is False
-    runner.stop("test")
     console.close()
 
 

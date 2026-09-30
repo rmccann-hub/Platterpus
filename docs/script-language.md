@@ -99,8 +99,6 @@ text is taken verbatim as one value.
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
 | `expect-exit` | 1 | ready | expect-exit <code> — assert the last cyanrip exit code |
 | `rig-check` | 0+ (rest of line) | ready | rig-check [album-folder] — run the seam check the cyanrip fork asked for: compose a real rip's argv, read it back out of the ripper's own -j record, classify the build, and parse the album's log. Read-only |
-| `eval` | 1+ (rest of line) | **NOT IMPLEMENTED**; needs the unsafe opt-in | eval <python> — evaluate an expression against the window (UNSAFE) |
-| `call` | 1+ (rest of line) | **NOT IMPLEMENTED**; needs the unsafe opt-in | call <method> [args] — call a window method by name (UNSAFE) |
 
 A verb marked **NOT IMPLEMENTED** is listed on purpose rather than
 omitted: a documented capability that is not a capability fails at *run*
@@ -202,7 +200,6 @@ than the UI it stands in for.
 | `ripper_channel` | text |
 | `test_script_path` | text |
 | `test_script_autorun` | boolean (on/off) |
-| `test_script_allow_unsafe` | boolean (on/off) |
 | `schema_version` | integer |
 
 ## Rules for writing a test that is worth running
@@ -339,8 +336,10 @@ of them is a script that needs a person.
 | `PASS` | the step did what it said |
 | `FAIL` | the step ran and the assertion did not hold — **the batch continues** |
 | `ERROR` | the step could not run at all: a bad argument, a missing widget, a runner fault |
-| `BLOCKED` | the verb needs the unsafe opt-in, which is off |
-| `SKIPPED` | never reached, because `abort` stopped the batch earlier |
+| `SKIPPED` | declined: the chosen run size leaves this step's section out (recorded, never dropped) |
+| `BLOCKED` | prevented: the batch was stopped before it (`abort`, a stop from the console), or a block it `needs` had already failed; the record says which |
+| `UNREACHABLE` | cannot run on this equipment at all, which is not a choice that could be reversed |
+| `INFO` | the step gathered a fact and asserted nothing (the wrapper probe, or a screenshot rendered while the display was not showing the app) |
 
 `ERROR` and `FAIL` are different on purpose. `FAIL` is a measurement —
 the product did something you did not expect. `ERROR` is the script or the
@@ -380,9 +379,7 @@ found nothing wrong*.
       "needs",
       "cyanrip",
       "expect-cyanrip",
-      "rig-check",
-      "eval",
-      "call"
+      "rig-check"
     ]
   },
   "verbs": [
@@ -390,7 +387,6 @@ found nothing wrong*.
       "name": "log",
       "min_args": 1,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "log <text> \u2014 write a line into the transcript"
@@ -399,7 +395,6 @@ found nothing wrong*.
       "name": "wait",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "wait <seconds> \u2014 pause (fractions allowed, max 600)"
@@ -408,7 +403,6 @@ found nothing wrong*.
       "name": "abort",
       "min_args": 0,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "abort [reason] \u2014 stop the batch here (the only verb that does)"
@@ -417,7 +411,6 @@ found nothing wrong*.
       "name": "abort-if-failed",
       "min_args": 0,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "abort-if-failed [reason] \u2014 stop ONLY if a step has already failed. For a PRECONDITION (am I on the right build?), where continuing gathers hours of evidence about the wrong subject. A finding must never use this."
@@ -426,7 +419,6 @@ found nothing wrong*.
       "name": "screenshot",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "screenshot <name> \u2014 save a PNG of the whole app, dialogs included"
@@ -435,7 +427,6 @@ found nothing wrong*.
       "name": "snapshot",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "snapshot <name> \u2014 record the visible state as text in the transcript"
@@ -444,7 +435,6 @@ found nothing wrong*.
       "name": "open",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "open <settings|dependencies|about|diagnostics|guide|setup|drive> \u2014 open a dialog"
@@ -453,7 +443,6 @@ found nothing wrong*.
       "name": "ok",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "ok \u2014 accept the dialog on top"
@@ -462,7 +451,6 @@ found nothing wrong*.
       "name": "cancel",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "cancel \u2014 dismiss the dialog on top"
@@ -471,7 +459,6 @@ found nothing wrong*.
       "name": "answer-dialog",
       "min_args": 3,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "answer-dialog <ok|cancel|click=<label-substring>> <seconds> <title-substring> \u2014 wait up to <seconds> for a dialog whose title contains <title-substring>, then accept it, dismiss it, or click the one button whose label contains <label-substring>; fails if a different dialog is up at the deadline, or if the named button is absent, ambiguous or disabled"
@@ -480,7 +467,6 @@ found nothing wrong*.
       "name": "expect-dialog",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-dialog <title-or-none> \u2014 assert which dialog is on screen"
@@ -489,7 +475,6 @@ found nothing wrong*.
       "name": "set",
       "min_args": 2,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": true,
       "implemented": true,
       "help": "set <config-field> <value> \u2014 change a setting (validated, then saved); booleans take on/off"
@@ -498,7 +483,6 @@ found nothing wrong*.
       "name": "expect",
       "min_args": 2,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect <config-field> <value> \u2014 assert a setting equals a value"
@@ -507,7 +491,6 @@ found nothing wrong*.
       "name": "expect-contains",
       "min_args": 2,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-contains <config-field> <text> \u2014 assert a setting contains text"
@@ -516,7 +499,6 @@ found nothing wrong*.
       "name": "rescan",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "rescan \u2014 re-read the disc in the drive"
@@ -525,7 +507,6 @@ found nothing wrong*.
       "name": "pick-release",
       "min_args": 1,
       "max_args": 2,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "pick-release <mbid|prefix|N> [seconds] \u2014 answer the MusicBrainz release picker when a disc has more than one candidate, so an unattended run does not stop at a modal. Passes without choosing only if no picker appears AND tracks are loaded (the disc was unambiguous)"
@@ -534,7 +515,6 @@ found nothing wrong*.
       "name": "album",
       "min_args": 1,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "album <title> \u2014 set the album title, so repeat rips land in separate folders"
@@ -543,7 +523,6 @@ found nothing wrong*.
       "name": "album-artist",
       "min_args": 1,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "album-artist <name> \u2014 set the album artist for this rip"
@@ -552,7 +531,6 @@ found nothing wrong*.
       "name": "select-tracks",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "select-tracks <all|none|1,3,5-7> \u2014 choose which tracks the rip covers (this is cyanrip's -l)"
@@ -561,7 +539,6 @@ found nothing wrong*.
       "name": "rip",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "rip \u2014 start the rip (needs an identified disc)"
@@ -570,7 +547,6 @@ found nothing wrong*.
       "name": "wait-for-rip",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "wait-for-rip <seconds> \u2014 wait for the rip to finish, up to a timeout"
@@ -579,7 +555,6 @@ found nothing wrong*.
       "name": "cancel-rip",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "cancel-rip \u2014 cancel a rip in progress"
@@ -588,7 +563,6 @@ found nothing wrong*.
       "name": "expect-status",
       "min_args": 1,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-status <text> \u2014 assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively"
@@ -597,7 +571,6 @@ found nothing wrong*.
       "name": "expect-rip-complete",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-rip-complete \u2014 assert the last rip FINISHED, read from the ripper's own log (completion footer, track tally, no truncation) rather than from the status line; read instability is reported, not graded"
@@ -606,7 +579,6 @@ found nothing wrong*.
       "name": "expect-log-well-formed",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-log-well-formed \u2014 assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim"
@@ -615,7 +587,6 @@ found nothing wrong*.
       "name": "expect-derived-output",
       "min_args": 1,
       "max_args": 2,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-derived-output <mp3|wavpack|wav> [seconds] \u2014 assert the derived files the chosen output format calls for exist beside the FLAC masters, one per master. Waits (default 600s) because the transcode runs after `wait-for-rip` returns; the format is named here rather than read from Settings, so the step cannot check a setting against itself"
@@ -624,7 +595,6 @@ found nothing wrong*.
       "name": "expect-verification",
       "min_args": 0,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-verification [seconds] \u2014 assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format, re-compress) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing"
@@ -633,7 +603,6 @@ found nothing wrong*.
       "name": "expect-album-audit",
       "min_args": 0,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-album-audit [check\u2026] \u2014 re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok \u2014 among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files"
@@ -642,7 +611,6 @@ found nothing wrong*.
       "name": "expect-accuraterip",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-accuraterip \u2014 every ripped track has an AccurateRip answer (accurate, one frame, mismatch or not in the database all count; no lookup does not), and the report agrees with the log on disk"
@@ -651,7 +619,6 @@ found nothing wrong*.
       "name": "expect-ctdb",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-ctdb <whole|partial> \u2014 CTDB reached the verdict this rip calls for: looked up and compared for a whole disc, declined for a partial one"
@@ -660,7 +627,6 @@ found nothing wrong*.
       "name": "expect-tags",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-tags \u2014 every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table shows, read from the file"
@@ -669,7 +635,6 @@ found nothing wrong*.
       "name": "expect-cover-art",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-cover-art \u2014 the FLACs hold the cover art the cover_art setting asks for (embedded in every one, or none), matching the report's count"
@@ -678,7 +643,6 @@ found nothing wrong*.
       "name": "track-title",
       "min_args": 2,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "track-title <n> <title\u2026> \u2014 set track n's title as a typed edit would (refused while a rip runs)"
@@ -687,7 +651,6 @@ found nothing wrong*.
       "name": "expect-secure-rerip",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-secure-rerip \u2014 assert the secure re-read actually RAN on this rip (at least one track block carries cyanrip's Scope: line), the graded form of rig-check's 'genuinely exercised' row"
@@ -696,7 +659,6 @@ found nothing wrong*.
       "name": "expect-identified",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-identified \u2014 assert the disc was identified against MusicBrainz (a well-formed release MBID is held), not merely that the track table has rows, which placeholder rows also satisfy"
@@ -705,7 +667,6 @@ found nothing wrong*.
       "name": "expect-refused",
       "min_args": 2,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-refused <setting> <value> \u2014 assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal)"
@@ -714,7 +675,6 @@ found nothing wrong*.
       "name": "keep",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "keep <config-field> \u2014 leave this setting as it is for the run, on purpose, and record its value (the baseline sets or keeps every setting)"
@@ -723,7 +683,6 @@ found nothing wrong*.
       "name": "set-drive-offset",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "set-drive-offset \u2014 set the read offset for the drive in THIS machine: the one it is already set to, or else the AccurateRip drive list's (fails if neither is known)"
@@ -732,7 +691,6 @@ found nothing wrong*.
       "name": "expect-drive-offset",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-drive-offset \u2014 assert the read offset is still the one set-drive-offset set, with the override on"
@@ -741,7 +699,6 @@ found nothing wrong*.
       "name": "expect-ripper-under-review",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-ripper-under-review \u2014 assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first)"
@@ -750,7 +707,6 @@ found nothing wrong*.
       "name": "probe-ripper-wrapper",
       "min_args": 0,
       "max_args": 0,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "probe-ripper-wrapper \u2014 time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run"
@@ -759,7 +715,6 @@ found nothing wrong*.
       "name": "expect-tracks",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-tracks <count|count+> \u2014 assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants"
@@ -768,7 +723,6 @@ found nothing wrong*.
       "name": "tier",
       "min_args": 2,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "tier <0-4> <label> \u2014 the steps after this belong to tier N, in a block named <label> that later steps can declare a dependency on"
@@ -777,7 +731,6 @@ found nothing wrong*.
       "name": "needs",
       "min_args": 1,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "needs <label\u2026> \u2014 the steps after this are PREVENTED (not skipped) if any named block already failed; the record names the prerequisite"
@@ -786,7 +739,6 @@ found nothing wrong*.
       "name": "run-size",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "run-size <quick|standard|full> \u2014 the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped)"
@@ -795,7 +747,6 @@ found nothing wrong*.
       "name": "cyanrip",
       "min_args": 1,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": true,
       "implemented": true,
       "help": "cyanrip <args\u2026> \u2014 run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output"
@@ -804,7 +755,6 @@ found nothing wrong*.
       "name": "expect-cyanrip",
       "min_args": 1,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-cyanrip <text> \u2014 assert the last cyanrip output contains text"
@@ -813,7 +763,6 @@ found nothing wrong*.
       "name": "expect-exit",
       "min_args": 1,
       "max_args": 1,
-      "unsafe": false,
       "takes_paths": false,
       "implemented": true,
       "help": "expect-exit <code> \u2014 assert the last cyanrip exit code"
@@ -822,28 +771,9 @@ found nothing wrong*.
       "name": "rig-check",
       "min_args": 0,
       "max_args": null,
-      "unsafe": false,
       "takes_paths": true,
       "implemented": true,
       "help": "rig-check [album-folder] \u2014 run the seam check the cyanrip fork asked for: compose a real rip's argv, read it back out of the ripper's own -j record, classify the build, and parse the album's log. Read-only"
-    },
-    {
-      "name": "eval",
-      "min_args": 1,
-      "max_args": null,
-      "unsafe": true,
-      "takes_paths": false,
-      "implemented": false,
-      "help": "eval <python> \u2014 evaluate an expression against the window (UNSAFE)"
-    },
-    {
-      "name": "call",
-      "min_args": 1,
-      "max_args": null,
-      "unsafe": true,
-      "takes_paths": false,
-      "implemented": false,
-      "help": "call <method> [args] \u2014 call a window method by name (UNSAFE)"
     }
   ],
   "openable_dialogs": [
@@ -1026,10 +956,6 @@ found nothing wrong*.
     },
     {
       "field": "test_script_autorun",
-      "type": "boolean (on/off)"
-    },
-    {
-      "field": "test_script_allow_unsafe",
       "type": "boolean (on/off)"
     },
     {

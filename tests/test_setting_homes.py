@@ -160,7 +160,6 @@ def test_the_moved_settings_live_beside_what_they_steer() -> None:
     assert fields_homed_in(SCRIPT_CONSOLE) == {
         "test_script_path",
         "test_script_autorun",
-        "test_script_allow_unsafe",
     }
     assert home_path("read_offset") == "Tools → Setup & Updates… → Set up drive…"
     assert home_path("no_such_setting") == ""

@@ -453,10 +453,6 @@ class Config:
     # With it on, launching the app *is* the test run — which is what "so I don't
     # need to be present" requires.
     test_script_autorun: bool = False
-    # Allow the UNSAFE verbs (`eval`, `call`). Not built, so read-only everywhere
-    # until one is (2026-09-30): the box is disabled and validation refuses ON
-    # from the file or a `set` (`uiscript.verbs.UNSAFE_VERBS_BUILT`).
-    test_script_allow_unsafe: bool = False
 
     # --- Schema bookkeeping ---
     schema_version: int = SCHEMA_VERSION
@@ -713,6 +709,11 @@ RETIRED_CONFIG_KEYS: frozenset[str] = frozenset(
         # the Settings tooltip told users it was "a scratch folder used while a
         # rip is in progress".
         "working_dir",
+        # Removed on 2026-09-30 (after 0.6.65), on the maintainer's ruling. It
+        # allowed the script language's `eval` and `call`, which were reserved
+        # and never built, so it enabled nothing; the verbs, this setting and its
+        # box went together. An older saved file carries it, usually as `false`.
+        "test_script_allow_unsafe",
     }
 )
 

@@ -66,6 +66,39 @@ def test_load_ignores_unknown_legacy_keys(
     assert not hasattr(cfg, "ripper_backend")
 
 
+def test_an_old_config_carrying_the_removed_unsafe_opt_in_loads_quietly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`test_script_allow_unsafe` was removed with the unbuilt `eval`/`call`
+    verbs (maintainer, 2026-09-30), and every config saved while it existed
+    carries it, usually as `false`.
+
+    It is a RETIRED key, so it is dropped the way an unknown one is, but logged
+    at DEBUG rather than WARNING: the warning would be about our decision, aimed
+    at a user who can do nothing with it, in the log we ask them to send us.
+    """
+    import logging
+
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text(
+        "test_script_allow_unsafe = true\ntest_script_autorun = true\n",
+        encoding="utf-8",
+    )
+    assert "test_script_allow_unsafe" in config_module.RETIRED_CONFIG_KEYS
+    assert not hasattr(config_module.Config(), "test_script_allow_unsafe")
+    with caplog.at_level(logging.DEBUG, logger=config_module.log.name):
+        cfg = config_module.load()
+    assert cfg.test_script_autorun is True, "the rest of the file was not read"
+    warned = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert not warned, [r.getMessage() for r in warned]
+    assert any(
+        "retired" in r.getMessage() and "test_script_allow_unsafe" in r.getMessage()
+        for r in caplog.records
+    ), "the retired key was not named at DEBUG either"
+
+
 def test_save_preserves_newer_binary_keys(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

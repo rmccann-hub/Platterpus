@@ -593,7 +593,7 @@ round 26 is open.
   what it steers. Moved: the read offset and its Apply tick-box to *Set up drive…* (Settings
   shows it read-only), both update channels above their checks in Setup & Updates, the
   startup script / autorun / unsafe verbs to the script console (its second unsafe box is
-  gone), and *Diagnose drive access…* from the Tools menu to Setup & Updates → Drive. Gate:
+  gone; the first went with the unbuilt verbs on 2026-09-30), and *Diagnose drive access…* from the Tools menu to Setup & Updates → Drive. Gate:
   `tests/test_setting_homes.py` (every setting has a home; every value control in every
   window is a home control or on an allowlist with a reason). Settings has **OK / Apply /
   Cancel / Restore Defaults**. Found on the way and fixed: a Setup & Updates window left
@@ -676,6 +676,10 @@ each side's reading; and the closing releases named.
 - [ ] **Our lap after the run:** our reading of it (S10); D1 to D10 of their proposal by
   number and our work W1 and W3–W6 (S13, S14); and their S19 amendment and S20, so both
   checkers change in the same round (their S21).
+  - *2026-09-30:* also tell them, as a NEXT-ROUND item, that the acceptance
+    transcript's `report.json` no longer has `used_unsafe_verbs`: `eval`, `call` and
+    their opt-in were removed (maintainer). Anything of theirs that reads a bundle
+    should treat the key as absent, not as `false`.
 - [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree,
   sha256 `d5ff0e01…`, 15,658 bytes, at `cyanrip@5c92fc2`): the cycle, and whether routine
   overrides end, the channel before a run, and when runs happen, are the operator's four
@@ -5638,6 +5642,7 @@ and only the argv proves the second.
    the rule. **Plus the one-line sweep** asserting the two sets agree, which is
    what stops the next one.
   - *Audit 2026-09-25: done.* 43 of 45 verbs have handlers; eval/call are deliberately implemented=False. Swept by test_uiscript::test_the_verb_table_and_the_runner_agree_about_what_works.
+  - *2026-09-30:* `eval` and `call` were removed (maintainer), so every verb in the table is now implemented and the sweep's unimplemented set is empty.
 2. **[x] `set`/`expect` keyed on `Config` field names, not row labels.** Seven form
    rows have the label `""`, five of them interactive — a label namespace cannot
    reach five real switches. Generalise `settings_dialog.py:700`'s existing
@@ -5659,6 +5664,7 @@ and only the argv proves the second.
    console; allow unsafe verbs), plus the Tools menu entry.
   - *Audit 2026-09-25: partly done.* Tools → Run test script… and test_script_allow_unsafe exist; there is no "show the console" toggle.
   - *2026-09-25:* **Decided (D12 A):** keep today's arrangement: the console is in Tools, and its risky verbs run only when `test_script_allow_unsafe` is on. No show-the-console toggle. It moves under Tools → Advanced with D4.
+  - *2026-09-30:* **Superseded in part (maintainer).** The risky verbs, `eval` and `call`, were never built; they and `test_script_allow_unsafe` were removed, so there is no second toggle left to gate. The console stays in Tools.
 5. **[x] Handshake lap 28.** Independent of the rip *except* for the pin verdict —
    draft everything else now: withdraw the stale HOLD (their flag table arrived;
    `_MAX_TABLE_LAG` is 0), correct the recommendation of a pin our own
@@ -6380,6 +6386,7 @@ the record: ~~`verbs.py` advertises **25** verbs; `runner.py` implements **12**.
 
 - **[x] Either implement the thirteen or mark them unavailable in the table**, and add the sweep that makes the two halves agree — `set(VERBS) == {handlers on ScriptRunner}` is a one-line assertion and it would have failed the moment the gap opened.
   - *Audit 2026-09-25: done.* 43 of 45 verbs implemented and eval/call flagged; swept by test_uiscript::test_the_verb_table_and_the_runner_agree_about_what_works.
+  - *2026-09-30:* `eval` and `call` were removed (maintainer), so every verb in the table is now implemented and the sweep's unimplemented set is empty.
 
 ### P0 — `set`/`expect` must key on Config field names, NOT row labels (audit, 2026-08-06)
 

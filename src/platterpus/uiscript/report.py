@@ -187,7 +187,6 @@ class RunReport:
     script_source: str = ""
     steps: list[StepRecord] = field(default_factory=list)
     ended_reason: str = ""
-    used_unsafe: bool = False
     #: Which run size was chosen (`uiscript/run_sizes.py`). Anything but ``full``
     #: DECLINED part of the script on purpose, so its result is not evidence toward
     #: a version gate or a handshake close, and the transcript says so at the top.
@@ -333,7 +332,6 @@ class RunReport:
             # cannot be reproduced by the person reading the report.
             "script_source": _bounded(self.script_source),
             "ended_reason": self.ended_reason or None,
-            "used_unsafe_verbs": self.used_unsafe,
             # A smaller run declined sections on purpose. Written beside `ok` so a
             # reader cannot count a green Quick run as the evidence a Full one is.
             "run_size": self.run_size,
@@ -387,18 +385,13 @@ def render(report: RunReport) -> str:
     ]
     head.append(f"run size: {report.run_size}")
     if not counts_as_evidence(report.run_size):
-        # At the top for the same reason as the unsafe banner below: a smaller run
-        # declined sections on purpose, and a reader who counts its green result
+        # At the top, where a reader starts: a smaller run declined sections on
+        # purpose, and a reader who counts its green result
         # toward a version gate has been misled by the transcript, not by us.
         head.append(
             f"*** A {report.run_size.upper()} RUN: it declines part of the script, "
             "so it is NOT evidence toward a version or a handshake close ***"
         )
-    if report.used_unsafe:
-        # Loud, and at the top. A transcript produced with arbitrary code in play
-        # is not the same evidence as one produced by the closed vocabulary, and
-        # a reader must not have to scroll to find that out.
-        head.append("*** THIS RUN USED UNSAFE VERBS (eval/call) ***")
     if report.artifact_dir:
         # Named as the thing to upload, not as "where the screenshots went". The
         # runner writes `transcript.txt` and `report.json` into this same folder
