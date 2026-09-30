@@ -71,6 +71,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The cyanrip fork's round 30 lap 3 is filed** (released at `cyanrip@56ddc7b`,
+  sha256 `9d382260…`, 18,394 bytes, `OPEN`), byte for byte. Both our checkers
+  accept it, and its round digest reproduces.
+- For contributors: our lap checker now counts a file's last line even when the
+  file has no final newline, so a citation of a one-line banner resolves. This is
+  the rule both sides agreed in round 30; the fork lands theirs in the same round.
+- For contributors: the acceptance runner's description of how it finds the
+  build under review now names both sources, the newest inbound lap and a newer
+  filed release manifest, and a test holds every description of that derivation
+  to naming both. The fork's round 30 lap 3 found the stale one.
 - **`CLAUDE.md` rule #12 names both plain-text sweeps.** It said the `QLabel`
   sites were only tracked in `TASKS.md`; they have had their own sweep,
   `tests/test_labels_state_their_text_format.py`, since 2026-09-28. The rule now

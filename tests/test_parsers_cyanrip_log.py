@@ -3006,6 +3006,23 @@ def test_the_18_lines_are_claimed_before_any_18_log_is_committed() -> None:
         assert _classify_top_level(line) is not None, line
 
 
+@pytest.mark.parametrize("signal", ["SIGTERM", "SIGINT", "SIGHUP"])
+def test_the_interrupt_reason_is_read_for_every_signal_the_fork_handles(
+    signal: str,
+) -> None:
+    """`.20` handles SIGHUP the way `.19` handles SIGTERM and SIGINT, writing
+    `Rip completed:  no (interrupted by SIGHUP, …)` (their round 30 lap 3 S15,
+    at `cyanrip@1184a04`). No line's shape changes, only the name inside it, and
+    the reason must reach the report as written rather than be rebuilt from the
+    verdict."""
+    block = _R18_INTERRUPTED_BLOCK.replace("SIGTERM", signal)
+    assert f"interrupted by {signal}" in block, "the fixture lost its signal name"
+    log = parse_cyanrip_log(block)
+    assert log.rip_completed is False
+    assert log.rip_completed_reason == f"interrupted by {signal}"
+    assert (log.rip_completed_tracks, log.rip_completed_total) == (0, 3)
+
+
 def test_a_partial_file_changes_no_verdict_the_log_does_not_already_give() -> None:
     """`Partial files:` is ignored on purpose: `Rip completed:` says it already.
 
