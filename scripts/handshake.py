@@ -2387,12 +2387,42 @@ SOURCE_LINE_PREFIX: Final[str] = "  §5b "
 #: while the peer's gate prints OPEN is two surfaces answering one question
 #: differently. Retired by v6, which makes both gates close on the same lap (TASKS.md,
 #: round 25). Ends in ")" so the release gate never counts it as an OPEN round.
+#:
+#: **Printed only for a peer closing file below
+#: :data:`ENUMERATION_NOT_REQUIRED_FROM_PROTOCOL`.** Until 2026-09-30 it printed for
+#: every §5b step-3 close whatever the peer declared, so rounds 28 and 29, both at
+#: protocol 6, each told us to *"hold a release for that lap"*, a lap of the fork's that
+#: never came and was never needed: their `STATUS.md` records round 28 *"CLOSED
+#: `GO`/`GO` … on Platterpus's lap 9 by v6 §5b step 3, with no lap 10 of ours"*
+#: (`cyanrip@18f79dc5:docs/handshake/STATUS.md:65`). The docstring said "retired by
+#: v6"; nothing in the code asked which protocol the peer was on.
 CLOSED_ONE_LAP_EARLY_NOTE: Final[str] = (
     "{name} is CLOSED on this gate one lap before a gate that reads 'enumerated' "
     "literally: {peer_file} does not list {our_file}, so the fork's gate (literal "
     "until v6) closes this round on their next lap — hold a release for that lap "
     "(round-25 item: one close lap for both gates)"
 )
+
+#: The protocol from which §5b step 1 no longer requires the candidate lap to be
+#: enumerated in the closing file's own ``HANDSHAKE-INBOUND-HELD`` (v6's amendment to
+#: step 1). A peer gate that closes a file declaring this or later closes on the same
+#: lap ours does, so :data:`CLOSED_ONE_LAP_EARLY_NOTE` has nothing to warn about.
+#: Named apart from :data:`V6_FIELDS_FROM_PROTOCOL`: the two moved in the same version,
+#: and are separate rules.
+ENUMERATION_NOT_REQUIRED_FROM_PROTOCOL: Final[int] = 6
+
+
+def peer_gate_needs_enumeration(text: str) -> bool:
+    """Whether a gate closing this file still reads "enumerated" in §5b step 1
+    literally, so it closes one lap later than a gate resolving by step 3 alone.
+
+    Keyed on the protocol the file declares, because that is the version its gate
+    grades it under. A file with no readable declaration answers ``True``: the note
+    it gates is a warning, and a warning printed in doubt costs one line.
+    """
+    version = declared_protocol(text)
+    return version is None or version < ENUMERATION_NOT_REQUIRED_FROM_PROTOCOL
+
 
 _ROUND_DIGEST_SCRIPT: Final[Path] = (
     Path(__file__).resolve().with_name("round_digest.py")
@@ -3438,7 +3468,11 @@ def _grade_round(
             their_blockers += list(resolution.blockers)
             v5_notes += list(resolution.notes)
             v5_notes += [f"{SOURCE_LINE_PREFIX}{b}" for b in resolution.blockers]
-            if resolution.superseded and resolution.source is not None:
+            if (
+                resolution.superseded
+                and resolution.source is not None
+                and peer_gate_needs_enumeration(_safe_read(back[-1]))
+            ):
                 closes_early_on = (back[-1], resolution.source)
     # ROW C15 ON THE GATE PATH — see `refused_round_files`.
     refused = refused_round_files([*sent, *back, *done])

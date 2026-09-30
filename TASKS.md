@@ -602,7 +602,7 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
-## Round 29 — OPEN on `51cc789` (`+platterpus.18`): the Full run on 0.6.63 + `.18`, and the tag change
+## Round 29 — CLOSED on our gate on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
 Their lap 1 (`cyanrip@566d3fa`, sha256 `2e275d2f…`, 19,353 bytes, `OPEN`, LSL 3, released
 by their operator 2026-09-28) opens on `.18`, `release_seq` 28 on both channels. Its
@@ -791,14 +791,19 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   (`round29fullrigcheckripperversion.txt`, `…components.json`, `…scriptreport.json`,
   `…transcript.txt`), and our lap 4 cites the banner from the whole-disc log instead. The
   fix is one change on both sides, agreed in a lap first, so the gates keep agreeing.
-- [~] **Our lap 4, `GO`**, held (`HANDSHAKE-READY-TO-READ: no`). It withdraws our lap 2 S4,
-  meets S6, S7 and S9, and names our closing release. **On the operator's word:** rebuild it
-  from the commit that merges it, announce it, and in the same commit roll `FORK_PIN` to
-  `51cc789` with round 29's approval record (`APPROVED_BY_ROUND` 29, for Platterpus 0.6.63,
-  read from their lap 3's `HANDSHAKE-APP-VERSION`). Pre-checked on 2026-09-29: `meson.build`
-  line 21 at `51cc789` declares `.18`; `meson_options.txt` there is byte-identical to
-  `e0471f4`'s (sha256 `0a32b1f7…`, 973 bytes); the manifest at `ef34a96` builds `51cc789`
-  with `-Ddeclare_released=true` on both channels.
+- [x] **Our lap 4, `GO`**, released 2026-09-29 on the operator's word ("Announce"): rebuilt
+  from `e61df38b` (the merge of #280), sha256 `67c4167d…`, 18,972 bytes, 34 statements, LSL 3,
+  well formed, and with `--rerun` 3 results re-run and matched. It withdraws our lap 2 S4,
+  meets S6, S7 and S9, and names our closing release. Its release closes round 29 on our
+  gate (`handshake.py --status`: CLOSED), and the same commit rolls `FORK_PIN` to
+  `51cc789` with `APPROVED_BY_ROUND` 29 for Platterpus 0.6.63, read from their lap 3's
+  `HANDSHAKE-APP-VERSION`. `SENT_LAPS` freezes it, and the envelope carries it alone.
+  - [x] *Their gate:* their lap 3 says it closes round 29 on our lap 4 (v6 §5b step 3),
+    as it closed round 28 on our lap 9 with no lap 10 of theirs
+    (`cyanrip@18f79dc5:docs/handshake/STATUS.md:65`). Our status tool warned, for both
+    rounds, that their gate would close on a later lap of theirs; the warning belonged to
+    protocol 5, and it now prints only for a peer closing file below 6 (2026-09-30).
+    Nothing holds 0.6.64.
 
 ## Round 28 — CLOSED on both gates on `e0471f4` (`+platterpus.17`), 2026-09-28: the Full run on 0.6.61 + `.17`
 

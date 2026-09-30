@@ -14,9 +14,11 @@ neither said what it meant. These tests pin the replacement:
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from types import SimpleNamespace as _NS
 
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from PySide6.QtWidgets import QApplication, QTextBrowser
@@ -35,6 +37,42 @@ _OTHER_FORK = "cyanrip 0.9.4-rc2+platterpus.16 (platterpus-fork-g221a1df)"
 _NO_TAG = "cyanrip 0.9.4"
 
 
+@pytest.fixture
+def a_round_is_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Round 29 as it stood while it was open: `e0471f4` (`.17`) approved, `51cc789`
+    (`.18`) under review.
+
+    **Set here, not read off the live pins.** These tests were written while round 29
+    was open and first read the state from the constants; when the round closed on
+    2026-09-29 the two pins became one and each test was about a state that no longer
+    existed. Both commits are rows of the fork's release table, so the state is a real
+    one, not a made-up pair.
+    """
+    monkeypatch.setattr(fork_source, "FORK_PIN", "e0471f4")
+    monkeypatch.setattr(fork_source, "FORK_EXPECTED_VERSION", "0.9.4-rc2+platterpus.17")
+    monkeypatch.setattr(
+        fork_source, "FORK_EXPECTED_BUILD_TAG", "platterpus-fork-ge0471f4"
+    )
+    monkeypatch.setattr(
+        fork_source,
+        "FORK_EXPECTED_BANNER",
+        "cyanrip 0.9.4-rc2+platterpus.17 (platterpus-fork-ge0471f4)",
+    )
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", "51cc789")
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW_ROUND", 29)
+    monkeypatch.setattr(
+        fork_source,
+        "UNDER_REVIEW_TARGET",
+        dataclasses.replace(
+            fork_source.UNDER_REVIEW_TARGET,
+            pin="51cc789",
+            version="0.9.4-rc2+platterpus.18",
+        ),
+    )
+    assert fork_source.a_round_is_reviewing_a_build(), "the fixture's own floor"
+    assert fork_source.current_test_pin() is None, "round 29 named no test pin"
+
+
 def test_the_approved_build_is_named_and_says_approved() -> None:
     standing = ripper_standing.describe_installed_ripper(_APPROVED)
     assert fork_source.FORK_EXPECTED_VERSION in standing.installed
@@ -44,15 +82,31 @@ def test_the_approved_build_is_named_and_says_approved() -> None:
     assert f"round {handshake_approval.APPROVED_BY_ROUND}" in standing.status
 
 
-def test_the_build_under_review_says_being_tested_and_keep_it() -> None:
-    assert fork_source.a_round_is_reviewing_a_build(), (
-        "the floor: this test is about the state where a round is testing a build"
+def test_the_build_under_review_says_being_tested_and_keep_it(
+    a_round_is_open: None,
+) -> None:
+    standing = ripper_standing.describe_installed_ripper(
+        fork_source.UNDER_REVIEW_TARGET.banner
     )
-    standing = ripper_standing.describe_installed_ripper(_UNDER_REVIEW)
     assert f"commit {fork_source.PIN_UNDER_REVIEW}" in standing.installed
     assert standing.status.startswith("ⓘ Being tested, not approved yet")
     assert f"round {fork_source.PIN_UNDER_REVIEW_ROUND}" in standing.status
     assert "unapproved" in standing.status and "bit-perfect" in standing.status
+
+
+def test_once_the_round_closes_the_same_build_says_approved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The other side of the test above, which a close reaches without any code
+    changing: the reviewed build and the approved one are one commit, so the same
+    banner reads as approved and nothing calls it "being tested"."""
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", fork_source.FORK_PIN)
+    assert not fork_source.a_round_is_reviewing_a_build(), "the floor"
+    standing = ripper_standing.describe_installed_ripper(
+        fork_source.FORK_EXPECTED_BANNER
+    )
+    assert standing.status.startswith("✓ Approved"), standing.status
+    assert "Being tested" not in standing.status
 
 
 def test_another_fork_build_says_not_approved_and_names_the_way_back() -> None:
@@ -180,7 +234,9 @@ def test_about_shows_the_rippers_own_text_literally(qapp: QApplication) -> None:
     assert "<b>bold" not in html.replace("&lt;b&gt;", ""), "a banner made bold text"
 
 
-def test_the_update_offer_names_both_builds_and_explains_the_numbers() -> None:
+def test_the_update_offer_names_both_builds_and_explains_the_numbers(
+    a_round_is_open: None,
+) -> None:
     """The maintainer's quote: 'release 28 — you have release 27 (e0471f4)'."""
     from test_ripper_manifest import PUBLISHED_V2
 
@@ -212,14 +268,16 @@ def test_the_update_offer_names_both_builds_and_explains_the_numbers() -> None:
     assert f"round {fork_source.PIN_UNDER_REVIEW_ROUND} is testing" in offer.detail
 
 
-def test_diagnostics_names_the_installed_ripper_beside_the_approved_pair() -> None:
+def test_diagnostics_names_the_installed_ripper_beside_the_approved_pair(
+    a_round_is_open: None,
+) -> None:
     """The maintainer pasted a diagnostics file on 2026-09-28 that said only
     ``cyanrip: … version=0.9.4``, so it could not show whether `.18` was installed."""
     from platterpus.ui.dialogs.diagnostics_dialog import build_diagnostics_text
 
     dep_manager.remember_report(
         _report(
-            _UNDER_REVIEW,
+            fork_source.UNDER_REVIEW_TARGET.banner,
             fork_source.UNDER_REVIEW_TARGET.version,
             fork_source.UNDER_REVIEW_TARGET.build_tag,
         )
