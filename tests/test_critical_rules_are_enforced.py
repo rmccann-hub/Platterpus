@@ -2310,7 +2310,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4512 -> 4598 on 2026-09-28: the `cyanrip` verb runs the ripper in the rips folder (`_ripper_workdir`, beside `_drive_in_offset_list`) and records it (`_job_invocation`); the 2026-09-28 Full run's relative `-D r16deemphon` wrote a commercial track outside the session folder and its logs never reached the bundle.
     # 4512 -> 4536 on 2026-09-28 (the round-28 Full run): `_coerce_script_input`, the coercer as `set` and `expect-refused` use it, logging the value it refuses through `settings_validation.log_refusal`; `expect` keeps the bare coercer, because its value is an assertion, not an input.
     # **4622 -> 4604** (2026-09-30): lowered: `expect-verification` now asks `artifact_grading.settle_state` and `report_path`, shared with the artifact verbs, instead of reading the report itself.
-    "uiscript/runner.py": 4604,
+    # **4604 -> 4636** (2026-09-30, the round 30 Full run): the screenshot step renders OPEN windows, labelled and as INFO, when the display shows none (all seven post-rip screenshots failed with every window visible and unexposed); it belongs beside the refusal it qualifies.
+    "uiscript/runner.py": 4636,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.

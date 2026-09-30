@@ -835,6 +835,19 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     `screen lock` line beside `sleep lock`. Tested against a real private
     `dbus-daemon` with a stand-in screen saver, and revert-probed. **Open until the
     round 30 Full run shows no unexposed window.**
+  - *Measured by the round 30 Full run (2026-09-30): the inhibit did NOT prevent it.*
+    It was held from 23:07:05 to 04:27:48 local (the bundle's app log), yet every
+    screenshot after section F's 91-minute rip (7 of 7, L585-L988) found every window
+    `visible=True`, platform window present, `exposed=False`; the four at minute 1
+    passed. So the display stopped showing the app with the screen-saver held; the
+    cause is still not established (a monitor or output powering down is consistent
+    with it, a lock is not). *The second candidate is built:* a screenshot now
+    renders the OPEN windows when none is exposed, labels them, and records INFO,
+    not PASS; a never-shown window still gets no picture and no open window still
+    FAILs (`_do_screenshot`, revert-probed twice). The inhibit stays, and the
+    bundle's `screen lock` line now calls it the desktop's promise, not a
+    measurement. Open for one thing only: a Full run on this build to show the
+    steps record INFO where they failed.
 - [ ] **For the maintainer, and only for runs after the decision: should a screenshot step
   be able to fail an ARCHIVAL section?** H, J and K3 each contain one, so a blank screen
   makes the run `partial` whatever the rips did. Grading is fixed in advance and never

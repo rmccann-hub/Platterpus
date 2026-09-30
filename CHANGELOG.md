@@ -36,6 +36,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **An acceptance-test screenshot no longer fails just because the display went
+  dark.** In the round 30 Full run every screenshot taken after the first long rip
+  failed. The app's windows were still open, but the desktop had stopped showing
+  them, even though the desktop had agreed to keep the screen on. The picture was
+  always drawn by the app rather than taken of the screen, so an open window is
+  now drawn anyway, marked as drawn while the display was not showing it, and
+  recorded as "gathered" rather than "passed". A window that was never opened is
+  still not photographed, and a step with no open window still fails. The
+  session's "Screen lock" line now says the desktop agreed to keep the screen on,
+  not that it stayed on.
 - **Quitting during a rip no longer destroys the rip's log.** Closing the window
   sent cyanrip a stop signal and then, a fifth of a second later, killed it
   outright, so cyanrip never wrote the end of its log or the checksum that proves

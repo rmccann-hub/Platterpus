@@ -3232,3 +3232,63 @@ def test_screenshot_photographs_only_windows_on_screen_main_window_first(
         for widget in (main, never_shown, was_shown, other):
             widget.close()
             widget.deleteLater()
+
+
+def test_screenshot_renders_open_windows_when_the_display_shows_none(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The round 30 Full run (2026-09-30): after section F's 91-minute rip every
+    window read `visible=True`, platform window present, `exposed=False`, with the
+    screen-saver inhibit held — and all seven post-rip screenshots FAILED with no
+    picture. The display went dark, not the app. An OPEN window is rendered and
+    labelled, and the step reports INFO, not PASS: it proves what the app drew,
+    not that the screen showed it. A window never shown still gets no picture."""
+    from PySide6.QtWidgets import QDialog
+
+    from platterpus.uiscript import runner as runner_module
+
+    main = _window()
+    main.setWindowTitle("the main window")
+    main.resize(320, 200)
+    main.show()
+    never_shown = QDialog()
+    never_shown.setWindowTitle("never shown")
+    assert process_until(lambda: main.windowHandle() is not None)
+    # The one fact that changed on the rig: the windowing system stopped
+    # reporting any window as exposed.
+    monkeypatch.setattr(runner_module, "_is_on_screen", lambda _widget: False)
+    try:
+        runner = ScriptRunner(main)
+        runner.contain_in(tmp_path)
+        step = _step_outcome(runner, qapp, process_until, "screenshot dark")
+        assert step.outcome is Outcome.INFO, step.detail
+        assert "NONE was on screen" in step.detail and "RENDERED" in step.detail
+        assert (tmp_path / "dark.png").is_file()
+        assert "'never shown'" in step.detail
+        assert not any("never" in p.name for p in tmp_path.glob("dark*.png"))
+    finally:
+        for widget in (main, never_shown):
+            widget.close()
+            widget.deleteLater()
+
+
+def test_screenshot_still_fails_when_no_window_is_open(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The floor survives the fallback: with the display dark AND no window open,
+    there is nothing honest to render, and the step fails as before."""
+    from platterpus.uiscript import runner as runner_module
+
+    main = _window()
+    main.setWindowTitle("the main window")
+    monkeypatch.setattr(runner_module, "_is_on_screen", lambda _widget: False)
+    monkeypatch.setattr(runner_module, "_is_open", lambda _widget: False)
+    try:
+        runner = ScriptRunner(main)
+        runner.contain_in(tmp_path)
+        step = _step_outcome(runner, qapp, process_until, "screenshot nothing")
+        assert step.outcome is Outcome.FAIL, step.detail
+        assert "none was on screen" in step.detail
+    finally:
+        main.close()
+        main.deleteLater()
