@@ -51,7 +51,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   principles, the EAC parity notes, the dependency list, the test plans and the
   handshake and fork documents. Our generated half of the cyanrip contract also
   lists `--consumer` now, which every rip on an approved build sends and the
-  generator had left out.
+  generator had left out. The rip-command comment and the dependency contracts no
+  longer say `-G` removes the *"No MusicBrainz release ID at cover art lookup"*
+  line from every rip's log: `-G` only stops cyanrip embedding art, and the line
+  belongs to the lookup `-U` would turn off. Whether to send `-U` goes to the fork
+  in the next round. TASKS.md had 15 groups of duplicate rows merged into one row
+  each (the moved text kept word for word) and 49 stale statuses corrected.
 - **The README's status is three short paragraphs.** It says the version, the
   approved pair, the build under test and what `0.7.100` still needs, and links
   here. The release highlights were already in this file's own entries; the rest of

@@ -1141,7 +1141,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 1757 -> 1772 on 2026-09-28: cyanrip's documented `-D` default and its rendering for our rip, which the overwrite guard predicts for a folder-less template (review Q5).
     # **1772 -> 1782** (2026-09-28, `-Z` that `-r` cannot satisfy): the `-r` the argv carries goes through `cyanrip_cli.retries_flag_value`, the one mapping the validator and the rip worker also use to predict it; the comment says why it is not an inline `if`.
     # **1782 -> 1841** (2026-09-28, `-Z` that `-r` cannot satisfy): `assert_secure_reread_can_converge`, called from the argv chokepoint beside the range check it sits next to, and `_last_int_value`, which reads a flag the way genopt applies it (the last occurrence). The rule is `cyanrip_cli.secure_reread_problem`; this is the argv reader and its reasons.
-    "adapters/cyanrip_backend.py": 1841,
+    # **1841 -> 1839** (2026-09-30): the `-G` comment corrected (it only stops embedding; `-U` gates the cover-art lookup line) in two fewer lines.
+    "adapters/cyanrip_backend.py": 1839,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
