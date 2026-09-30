@@ -1416,7 +1416,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `51cc789` (`+platterpus.18`) with why, its release sequence, its build tag in
     # the `--consumer` accept-set with the contract that licenses it, the re-derived
     # same-program flag, and the round-29 pairing line.
-    "deps/fork_source.py": 2477,
+    # **2477 -> 2492 (2026-09-29, round 29 closed on our gate)**: `FORK_PIN` rolls to
+    # `51cc789` and `FORK_EXPECTED_VERSION` to `.18`, each with the dated record of
+    # where it was read and cross-checked, as every roll before it; the production
+    # target's `why` names round 29's run.
+    "deps/fork_source.py": 2492,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1620,7 +1624,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # run approves the build without having exercised `.16`'s two changes.
     # **693 -> 735** (2026-09-28, the round-28 Full run): the approved pair names the app version the record approved, not the running one, and `_running_app_clause` states the running version apart, tri-state; the pair line is this module's own renderer.
     # **735 -> 744 (2026-09-28, round 28 closed on our gate)**: the approval record moves to round 28 for 0.6.61, read off their closing lap as the rule requires.
-    "handshake_approval.py": 744,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **744 -> 754 (2026-09-29, round 29 closed on our gate)**: the approval record moves to round 29 for 0.6.63, read off their closing lap (round 29 lap 3) as the rule requires.
+    "handshake_approval.py": 754,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect

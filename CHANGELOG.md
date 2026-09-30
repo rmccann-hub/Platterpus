@@ -14,6 +14,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The handshake status no longer tells us to hold a release for a lap the fork
+  will not write.** When a round closes on a lap of ours that the fork's closing lap
+  does not list, `handshake.py --status` added that the fork's gate would close it one
+  lap later, and to hold a release for that lap. That was true under protocol 5, whose
+  gate needed the lap listed. Protocol 6 dropped the requirement, and the fork's gate
+  closed round 28 on our lap 9 with no further lap of theirs, yet the line printed for
+  rounds 28 and 29, both at protocol 6. It now prints only when the fork's closing lap
+  declares a protocol below 6.
 - **The lap checker no longer refuses a correct `git log --oneline` result over the
   size of our own clone.** Git sizes an abbreviated hash by how many objects the clone
   holds, so the same command prints `f8ebf48` in a clone without blobs and `f8ebf48f` in
@@ -78,6 +86,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The approved ripper is now the fork's `.18`, `51cc789`.** Handshake round 29
+  closed on our side with `GO` from both projects, on the Full acceptance run on
+  0.6.63 with `.18` installed (320 of 323 steps; the three failures are screenshot
+  steps of ours, none in a rip). `FORK_PIN` moves from `e0471f4` to `51cc789` and the
+  expected version to `0.9.4-rc2+platterpus.18`, and the approval record now names
+  round 29 and Platterpus 0.6.63. Over `.17`, `.18` prints *"Stopping, ripping
+  incomplete!"* whenever a signal stops a read, counts only whole tracks under
+  `Encoder errors:` and names a partial file on a new `Partial files:` line, and lets
+  the disc-level `AccurateRip:` line read `mismatch` or `not found`. Our round 29 lap 4
+  is released. The standing status, rig sheet, README, dependency table and hardware
+  checklist name the new pin, the envelope carries lap 4, and the generated consumer
+  contract is regenerated for it. The tests about a round that is still open now set
+  that state themselves rather than reading it off the live pins.
 - **The About box (Help → About Platterpus…) and the ripper update offer now say
   what the ripper build means.** About listed the ripper as `cyanrip: 0.9.4 ✓`, which does not say whether it is the
   Platterpus fork or upstream, which build it is, or whether it is approved. The
