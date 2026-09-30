@@ -11,6 +11,41 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-30 — Round 30 lap 6: the v7 texts amended, S17 fixed off the window, D3 and S24 built
+
+**Asked:** *"our round 30 lap 5 is published at a2bc156"*, then, on the three
+questions it raised, *"1, B. 2, yes. 3. do your recommendation."*, then *"announce"*.
+
+**Done:**
+- *Before lap 6, as lap 4 promised*: `-U` on every rip (`c11de6e7`); LSL 4 in our
+  checker (`ea13c57b`); O3, our build-under-review check follows the newest channel
+  (`2bd9c7ab`); D3, section A refuses a stale pair, and the fork's lap 3 S24 steps
+  (`cyanrip -f` graded as section O, one FLAC's tags as text, `cd-paranoia -A`) as
+  three new script verbs (`22af4bc4`).
+- *S17, option B* (`ba1a2d76`): the SIGTERM grace is 40 s and the wait is exit work,
+  joined by `app.main` after the window has gone (`exit_work.py`,
+  `docs/architecture.md` §3.2).
+- *Their lap 5 filed, our lap 6 written and released* (`0b7a36ee`, then the release
+  commit): four AMENDs to the v7 texts on our operator's word, one blocking; S17 and
+  S24 answered; `GO` pre-committed for our lap 8.
+
+**Learned:**
+- *Check the peer's number against our own artifacts before adopting it.* The fork's
+  S17 cited reads of 11 s. A log in OUR tree from the same drive has one of 20 s, so a
+  grace sized to their number would have been wrong on day one. The floor is now read
+  from the filed logs by a test (`tests/test_drive_control.py`).
+- *A wait moved off the GUI thread into the SAME event loop creates hidden-window
+  states* (slots firing into a closing window, a rescue timer SIGKILLing mid-grace).
+  Joining after `app.exec()` returns avoids all of them: nothing can fire into a
+  window once the loop has ended.
+- *Read the dependency's source before writing its parser.* `cyanrip -f`'s
+  "Was not able to find drive offset" is a retry at twice the radius, not an ending,
+  and its real answer is a summary line nobody had quoted.
+- *A test that passes because a thread happened to finish first is a race, not a
+  test.* Every shutdown test now joins the exit work before it asserts.
+- *LSL: `answers:` names only an ASK.* A reply to a FINDING or a FACT says so in
+  prose.
+
 ## 2026-09-30 — The fork's round 30 lap 3 read; our lap 4 written and held
 
 **Asked:** *"our round 30 lap 3 is published at 56ddc7b"*: the fork's lap 3,
