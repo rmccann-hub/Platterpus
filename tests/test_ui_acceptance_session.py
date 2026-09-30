@@ -137,6 +137,39 @@ class _FakeInhibitor:
         self.releases += 1
 
 
+class _FakeScreenInhibitor:
+    """A `ScreenInhibitor` stand-in that never touches a bus.
+
+    The window's contract with it is `acquire(on_done)` once, `on_done` called with
+    an outcome, and `release()` at least once. `defer` holds the answer back, for the
+    case the real one has: the desktop answering after the session has ended.
+    """
+
+    def __init__(self, outcome: InhibitOutcome, *, defer: bool = False) -> None:
+        self.outcome = outcome
+        self.defer = defer
+        self.acquires = 0
+        self.releases = 0
+        self.on_done: Any = None
+
+    def acquire(self, on_done: Any) -> None:
+        self.acquires += 1
+        self.on_done = on_done
+        if not self.defer:
+            on_done(self.outcome)
+
+    def release(self) -> None:
+        self.releases += 1
+
+
+def _screen_held() -> InhibitOutcome:
+    return InhibitOutcome(
+        state=STATE_HELD,
+        detail="The screen is held on, with no blanking and no lock, for this run.",
+        what="screensaver (no blanking, no lock)",
+    )
+
+
 def _held() -> InhibitOutcome:
     return InhibitOutcome(
         state=STATE_HELD,
@@ -244,6 +277,16 @@ def session(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
         return inhibitor
 
     monkeypatch.setattr("platterpus.sleep_inhibit.SleepInhibitor", make_inhibitor)
+
+    state.screens = []
+    state.screen_defer = False
+
+    def make_screen(**kwargs: Any) -> _FakeScreenInhibitor:
+        screen = _FakeScreenInhibitor(_screen_held(), defer=state.screen_defer)
+        state.screens.append(screen)
+        return screen
+
+    monkeypatch.setattr("platterpus.screen_inhibit.ScreenInhibitor", make_screen)
 
     # The batch itself is not the subject of this file — `test_uiscript.py` owns
     # that — and letting it drive the real window here would make every test in
@@ -630,6 +673,52 @@ def test_a_held_lock_is_reported_as_held(window, session, process_until) -> None
     assert session.inhibitors[-1].acquires == 1
 
 
+def test_the_screen_is_held_beside_the_sleep_lock_and_said_so(
+    window, session, process_until
+) -> None:
+    """The round 29 Full run's three screenshot failures found no window exposed."""
+    win = _start(window, session, process_until)
+
+    assert session.screens and session.screens[-1].acquires == 1
+    assert win._acceptance_screen_note.startswith("✓"), win._acceptance_screen_note
+    assert "Screen lock" in win._rip_progress._log_view.toPlainText()
+
+
+def test_the_screen_hold_is_released_when_the_run_finishes(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "platterpus.test_session.finish_session",
+        lambda layout, **kwargs: BundleResult(path=Path("/dev/null")),
+    )
+    win = _start(window, session, process_until)
+    screen = session.screens[-1]
+    assert screen.releases == 0
+
+    _finish(win, process_until)
+
+    assert screen.releases >= 1, "the screen was left held after the run"
+
+
+def test_a_screen_answer_after_the_session_ended_gives_it_back(
+    window, session, process_until
+) -> None:
+    session.screen_defer = True
+    win = _start(window, session, process_until)
+    screen = session.screens[-1]
+    win._end_acceptance_session("test: ended before the desktop answered")
+    before = screen.releases
+    notices = win._rip_progress._log_view.toPlainText().count("Screen lock")
+
+    screen.on_done(_screen_held())
+
+    assert screen.releases >= before, "released on the end, and again is harmless"
+    assert win._acceptance_screen_inhibitor is None
+    assert win._rip_progress._log_view.toPlainText().count("Screen lock") == notices, (
+        "a notice was shown for a session that had already ended"
+    )
+
+
 def test_an_unreadable_outcome_is_reported_as_not_determined(
     window, session, process_until
 ) -> None:
@@ -784,6 +873,7 @@ def test_the_bundle_collects_the_app_log_and_the_transcript(
     facts = captured["facts"]
     assert isinstance(facts, dict)
     assert STATE_HELD in facts["sleep lock"]
+    assert STATE_HELD in facts["screen lock"]
 
 
 # --- What the closing dialog says about the RUN ---------------------------

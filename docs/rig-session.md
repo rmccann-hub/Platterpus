@@ -71,9 +71,10 @@ both sides.
 **It is a candidate full-green pass, which the project has never had.** The
 field-evidence ledger (`docs/testing.md` §5B) has twelve rows and no `full-green` one.
 Round 29's run is `partial` because three screenshot steps, in sections graded archival
-in advance, found no window on screen. Our hypothesis is that the display blanked, and
-until the app holds the screen awake itself (`TASKS.md`), set the machine's screen to
-never turn off for the run. `0.7.100` is gated on a run with **zero failures in the
+in advance, found no window on screen. Our hypothesis is that the display blanked, so
+0.6.65 holds the screen awake for the run as well as the machine. Its first notice in
+the rip pane says whether it could: if the *Screen lock* line starts with ⚠, set the
+screen to never turn off by hand. `0.7.100` is gated on a run with **zero failures in the
 ARCHIVAL sections**; `0.9.1` needs two such runs on at least two machines and two
 distros. **Only a Full run counts as evidence**; Quick and Standard are for checking the
 setup.
@@ -123,7 +124,7 @@ a container that is already running.
    cyanrip line should read `platterpus-fork-g174a134` (`0.9.4-rc2+platterpus.19`). If it
    reads anything else, **Check for cyanrip updates** offers `.19` as the build handshake
    round 30 is testing, which *"the acceptance test needs"*; choose **Install it anyway**. Then **Tools → Advanced → Run acceptance test…**,
-   choose **Full**, and leave it. It holds sleep off, runs every section (4–6 hours), stops in its first
+   choose **Full**, and leave it. It holds sleep and the screen off, runs every section (4–6 hours), stops in its first
    seconds if the ripper is not the build under review, and puts your own settings back
    when it ends. **During the run, don't close any other Platterpus window or any
    terminal you have used distrobox in.**

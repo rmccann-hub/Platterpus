@@ -31,6 +31,13 @@ chose that the fork holds its round 30 lap 1 until the Full run exists.
   (`cyanrip@7677b3f5`, filed byte-exact under `tests/fixtures/`), since no lap names it.
   The pin-under-review tests choose between the newest lap and a newer published
   release in one function, tested on constructed cases.
+- *The acceptance run holds the screen awake* (`platterpus.screen_inhibit`), on the
+  operator's choice to hold 0.6.65 for it: `org.freedesktop.ScreenSaver.Inhibit`
+  beside the sleep lock, asynchronous, released on every exit path. It is tested
+  against a real private `dbus-daemon` with a stand-in screen saver. The first test
+  lost its answer because nothing referenced the inhibitor, which showed that the
+  window must parent it, or a release during the desktop's reply would leave the
+  screen held until exit.
 
 **Learned** (no new rule; each is an instance of a question `CLAUDE.md` already asks):
 - *A peer's request can be about a state that has already moved.* The fork asked for

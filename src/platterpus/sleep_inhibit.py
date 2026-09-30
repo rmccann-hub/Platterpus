@@ -17,9 +17,9 @@ nothing to remember, and no state left behind if the run dies at 3 a.m.
 
 **`idle:sleep:handle-lid-switch` is the exact set the run needs** — the idle timer,
 an explicit suspend, and the lid. `handle-lid-switch` is included even on a desktop
-because it costs nothing and the rig has been a laptop before. It deliberately does
-**not** inhibit the screensaver: a blanked screen is harmless (the session keeps
-running) and holding the display on all night for nobody is worse.
+because it costs nothing and the rig has been a laptop before. The screen is held by
+:mod:`platterpus.screen_inhibit`: a blanked screen is harmless to a rip and not to a
+step that photographs a window (the round 29 Full run's screenshot failures).
 
 **PRESENT IS NOT THE SAME AS WORKING.** `systemd-inhibit` is installed on machines
 where it cannot work, and it fails two different ways:

@@ -706,7 +706,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     byte for byte, `round29full*`), whose README says what the run found. **Theirs is
     pending.** The ledger grades it `partial` (the three failures are in ARCHIVAL
     sections), and our round 29 lap 3 carries our reading.
-- [ ] **Three screenshot steps found no window on screen** (L676 H, L724 J, L850 K3). The
+- [~] **Three screenshot steps found no window on screen** (L676 H, L724 J, L850 K3). The
   main window and the console were `visible=True` with `exposed=False`, at 94, 96 and 124
   minutes; screenshots at 86, 103, 110 and 313 minutes passed. **The cause is not
   established.** Our hypothesis is that the display blanked or locked, because the sleep
@@ -716,6 +716,12 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   capture the window with `QWidget.grab()`, which needs no exposed window, if the step's
   purpose allows a picture of what Qt painted rather than of the screen. Either needs a
   hardware run to show the failure is gone, not just explained.
+  - *The first is built, for 0.6.65 (2026-09-30):* `platterpus.screen_inhibit` holds
+    `org.freedesktop.ScreenSaver.Inhibit` beside the sleep lock for the whole session,
+    asynchronously, and gives it back on every exit path. The bundle's facts carry a
+    `screen lock` line beside `sleep lock`. Tested against a real private
+    `dbus-daemon` with a stand-in screen saver, and revert-probed. **Open until the
+    round 30 Full run shows no unexposed window.**
 - [ ] **For the maintainer, and only for runs after the decision: should a screenshot step
   be able to fail an ARCHIVAL section?** H, J and K3 each contain one, so a blank screen
   makes the run `partial` whatever the rips did. Grading is fixed in advance and never
