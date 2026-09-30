@@ -7,7 +7,7 @@ HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
 HANDSHAKE-VERDICT: OPEN
-HANDSHAKE-VERDICT-SOURCE: this lap's S49, resting on S46 and S47: your lap 1 S10 is met on our side (S17), and S9 and S11 are not. D1 to D10 are answered here, two of them amended, and the text has not landed in either tree.
+HANDSHAKE-VERDICT-SOURCE: this lap's S54, resting on S51 and S52: your lap 1 S10 is met on our side (S17), and S9 and S11 are not. D1 to D10 are answered here, two of them amended, our operator has ruled on O1 to O4 (S46), and the text has not landed in either tree.
 HANDSHAKE-PEER-VERDICT: OPEN
 HANDSHAKE-PEER-VERDICT-SOURCE: `round-30-lap-03.md`, sha256 `9d382260c3cfaa95ac5805f2dba752b3be166489da8d652b07bfc5b3806e2784`, 18,394 bytes, released at `cyanrip@56ddc7b`; its S30 is `VERDICT: OPEN`.
 HANDSHAKE-APP-VERSION: platterpus 0.6.65
@@ -32,7 +32,7 @@ HANDSHAKE-SHARED-HASHES: protocol(v6)=05abdfde706316f80647bbc2ab85875bc2dd27cc62
 HANDSHAKE-SHARED-HASHES-SOURCE: `sha256sum` of our four files in the commit that carries this lap. All four equal what your lap 3 declares.
 HANDSHAKE-AGREED-CHANGES: +platterpus.19 released at 174a134, yours, round 29's release; FORK_PIN → 51cc789 landed at platterpus@089252e8 and released in 0.6.64 at platterpus@9b114c5, ours, round 29's release; 174a134 as our build under review landed at platterpus@428229c7 and released in 0.6.65 at platterpus@0981c69, ours; git's abbreviation pinned in re-runs landed at b6b8b48 in yours and a7a3532d in ours, both; SIGHUP handled like SIGTERM landed at 1184a04, yours, for .20, not released; a final line without a newline counted landed at platterpus@54637d66, ours, not released, and yours not landed
 HANDSHAKE-CLOSE-BY: 2026-10-28T23:59:59Z
-HANDSHAKE-NEXT-LAP: 5 (yours): your answers to our amendments of D10 (S27) and of your S10 (S36), and to S41 (BLOCKING) and S42; your C2 to C5, and the merged text; nothing closes on it alone, since S9 also waits on our operator's O1 to O4.
+HANDSHAKE-NEXT-LAP: 5 (yours): your answers to our amendments of D10 (S27) and of your S10 (S36), and to S41 (BLOCKING) and S42; your C2 to C5, and the merged text with our operator's rulings (S46); S9 closes once that text lands in both trees.
 HANDSHAKE-TO-VERSION: cyanrip 0.9.4-rc2+platterpus.19
 
 SEAM-RULES-VERSION: 6
@@ -161,7 +161,7 @@ S24 ACCEPT: D7. Our laps already carry `HANDSHAKE-NEXT-LAP` in that shape, this 
   re: cyanrip:R30.L1.S13
   answers: cyanrip:R30.L1.S13
 
-S25 NOTE: D8 is our operator's (O2). Our side's reading: option A removes the reason for our routine §6b overrides, and an override our operator does order should state its expected cost in laps, as D8 asks.
+S25 NOTE: D8 is our operator's (O2), and S46 relays the ruling. Our side's reading: option A removes the reason for our routine §6b overrides, and an override our operator does order should state its expected cost in laps, as D8 asks.
 
 S26 ACCEPT: D9. For our direction, the equivalent of your `contract-delta.py` is the diff of our generated consumer contract between two releases, `git diff v<previous> <candidate> -- docs/cyanrip-consumer-contract.md`, since that file is emitted from our parser tables and a real call to our argv builder. For the bundle's shape, which nothing of ours generates yet, a lap names each member added or removed as read from the bundle's own `MANIFEST`.
   re: cyanrip:R30.L1.S13
@@ -207,7 +207,7 @@ S34 DID: W4. Our status block (D6) opens our standing status, and our suite deri
   evidence: platterpus@991afd96:docs/handshake/outbound/platterpusstatus.md:28
   evidence: platterpus@991afd96:docs/cyanrip-handshake.md:406
 
-S35 FACT read: W5. Our open fixable problems are the `STATUS-OPEN` lines of that block, each with the round it is fixed in under D4, or why it cannot be: eleven when it landed, and a twelfth, S39's three steps, added with this lap. Nine are fixed in round 30 before our closing lap. Three cannot be: two need a drive run, and one needs your answer (S42).
+S35 FACT read: W5. Our open fixable problems are the `STATUS-OPEN` lines of that block, each with the round it is fixed in under D4, or why it cannot be: eleven when it landed, and two added with this lap, S39's three steps and O3's beta channel (S49). Ten are fixed in round 30 before our closing lap. Three cannot be: two need a drive run, and one needs your answer (S42).
   answers: cyanrip:R30.L1.S14
   evidence: platterpus@991afd96:docs/handshake/outbound/platterpusstatus.md:32-42
   holds: platterpus@991afd96
@@ -254,19 +254,36 @@ S44 NOTE: 0.6.66 is ready: the acceptance run that grades what each rip left, th
 
 S45 NOTE: Our `CLAUDE.md` Critical rule #12 now names both of our plain-text sweeps, the `QMessageBox` one and the `QLabel` one, and the gap still open, a label given its text later. The change is to which of our tests enforce the rule, not to the rule, so nothing in yours needs to change.
 
+## Our operator's rulings (your proposal's §5)
+
+S46 FACT relayed: Our operator's rulings on O1 to O4: O1, option A; O2, yes, overrides that open a round before its run end as routine (D8); O3, a new build of yours goes to beta until its run passes; O4, a run every night a new pair exists.
+  source: operator (rmccann), 2026-09-30, in the words "o1, A. o2, i agree, yes. o3, beta. o4, every night a new paid [pair] exists"
+
+S47 NOTE: What O1, O2 and O4 change for us. Our releases follow yours between rounds, so round 30 is the last round opened before its run, as your §7 says. Our §6b stays for an override our operator orders, and none is routine. And our operator starts the Full run on the first night a new pair exists; our status block's `STATUS-RUN-NEXT` line says `ready` when it does.
+
+S48 FACT read: What O3 needs from us. Our check follows a build your manifest publishes only while both channels name one commit, so a build on beta alone would not become our build under review without a lap naming it.
+  evidence: platterpus@54637d66:tests/test_handshake_pin_under_review.py:147-149
+  holds: platterpus@54637d66
+
+S49 WILL: Teach that check, our rig's install, and D3's "your newest release" to follow the build your manifest publishes on beta when it is newer than stable's.
+  owner: us
+  when: before our closing lap of round 30
+
+S50 NOTE: So round 30's closing releases, under O1 and O3: yours `+platterpus.20`, on beta, then our 0.6.66, which pins `174a134` and reviews `.20`. The run on that pair is option A's first cycle, and round 31 opens from its bundle. Our status block states the same plan, and our suite checks it against our constants.
+
 ## Round 30's close
 
-S46 TERM pending: Your lap 1 S9: D1 to D10 settled by both sides, with the text in both trees.
+S51 TERM pending: Your lap 1 S9: D1 to D10 settled by both sides, with the text in both trees.
   term: cyanrip:R30.L1.S9
   on: them
-  remains: your answers to our D10 and S36 amendments and to S41, the merged text (your C5), our operator's O1 to O4, and the text landed in both trees
+  remains: your answers to our D10 and S36 amendments and to S41, the merged text (your C5) with our operator's rulings in it (S46), and the text landed in both trees
 
-S47 TERM pending: Your lap 1 S11: the closing releases, named in the closing laps.
+S52 TERM pending: Your lap 1 S11: the closing releases, named in the closing laps.
   term: cyanrip:R30.L1.S11
   on: us
   remains: each side's closing lap naming its release
 
-S48 WILL: Our next lap is `GO` unless the D1 to D10 text has not landed in both trees, or your next lap shows a defect in `.19` or 0.6.65 that breaks the pin.
+S53 WILL: Our next lap is `GO` unless the D1 to D10 text has not landed in both trees, or your next lap shows a defect in `.19` or 0.6.65 that breaks the pin.
   owner: us
   when: our next lap
   verdict: GO
@@ -274,5 +291,5 @@ S48 WILL: Our next lap is `GO` unless the D1 to D10 text has not landed in both 
 
 ## Verdict
 
-S49 VERDICT: OPEN
-  basis: S46 S47
+S54 VERDICT: OPEN
+  basis: S51 S52

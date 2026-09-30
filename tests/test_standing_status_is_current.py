@@ -475,8 +475,28 @@ def _status_block_problems(text: str) -> list[str]:
                 f"STATUS-LAPS says held {stated_held or 'none'}; round {newest} holds {held or 'none'}"
             )
 
+    # A PLANNED release may move the constants: round N's closing release pins
+    # the build round N reviewed and reviews the fork's next build, which does
+    # not exist yet (option A, their D2). So `pins` is today's approved pin or
+    # the build under review, and a build is named either by its commit or, not
+    # yet released, as the fork's next `+platterpus.N`, N one past ours.
+    reviewed = re.search(
+        r"\+platterpus\.(\d+)$", fork_source.UNDER_REVIEW_TARGET.version
+    )
+    if reviewed is None:
+        return [
+            f"the build under review's version has no +platterpus.N: "
+            f"{fork_source.UNDER_REVIEW_TARGET.version!r}"
+        ]
+    reviewed_n = int(reviewed.group(1))
+    next_build = f"+platterpus.{reviewed_n + 1}"
+    build = r"([0-9a-f]{7,40}|\+platterpus\.\d+)"
+
+    def known_build(name: str) -> bool:
+        return name in (fork_source.PIN_UNDER_REVIEW, next_build)
+
     release = re.match(
-        r"(\d+\.\d+\.\d+), carrying .+; pins ([0-9a-f]{7,40}), reviews ([0-9a-f]{7,40})$",
+        rf"(\d+\.\d+\.\d+), .+; pins ([0-9a-f]{{7,40}}), reviews {build}$",
         lines["RELEASE-NEXT"][0],
     )
     if release is None:
@@ -488,17 +508,22 @@ def _status_block_problems(text: str) -> list[str]:
             problems.append(
                 f"STATUS-RELEASE-NEXT names {release.group(1)}, not after {__version__}"
             )
-        if release.group(2) != fork_source.FORK_PIN:
+        if release.group(2) not in (fork_source.FORK_PIN, fork_source.PIN_UNDER_REVIEW):
             problems.append(
-                f"STATUS-RELEASE-NEXT pins {release.group(2)}; FORK_PIN is {fork_source.FORK_PIN}"
+                f"STATUS-RELEASE-NEXT pins {release.group(2)}; neither FORK_PIN "
+                f"{fork_source.FORK_PIN} nor the build under review "
+                f"{fork_source.PIN_UNDER_REVIEW}"
             )
-        if release.group(3) != fork_source.PIN_UNDER_REVIEW:
+        if not known_build(release.group(3)):
             problems.append(
-                f"STATUS-RELEASE-NEXT reviews {release.group(3)}; PIN_UNDER_REVIEW is {fork_source.PIN_UNDER_REVIEW}"
+                f"STATUS-RELEASE-NEXT reviews {release.group(3)}; neither "
+                f"PIN_UNDER_REVIEW {fork_source.PIN_UNDER_REVIEW} nor {next_build}"
             )
+        if release.group(2) == release.group(3):
+            problems.append("STATUS-RELEASE-NEXT pins and reviews the same build")
 
     run = re.match(
-        r"([0-9a-f]{7,40}) with (\d+\.\d+\.\d+); (waiting on .+|ready)$",
+        rf"{build} with (\d+\.\d+\.\d+); (waiting on .+|ready)$",
         lines["RUN-NEXT"][0],
     )
     if run is None:
@@ -506,9 +531,15 @@ def _status_block_problems(text: str) -> list[str]:
             f"STATUS-RUN-NEXT is not in D6's shape: {lines['RUN-NEXT'][0]!r}"
         )
     else:
-        if run.group(1) != fork_source.PIN_UNDER_REVIEW:
+        if not known_build(run.group(1)):
             problems.append(
-                f"STATUS-RUN-NEXT tests {run.group(1)}; PIN_UNDER_REVIEW is {fork_source.PIN_UNDER_REVIEW}"
+                f"STATUS-RUN-NEXT tests {run.group(1)}; neither PIN_UNDER_REVIEW "
+                f"{fork_source.PIN_UNDER_REVIEW} nor {next_build}"
+            )
+        if release is not None and run.group(1) != release.group(3):
+            problems.append(
+                f"STATUS-RUN-NEXT tests {run.group(1)}, but the next release "
+                f"reviews {release.group(3)}"
             )
         consumers = {__version__} | ({release.group(1)} if release else set())
         if run.group(2) not in consumers:
@@ -549,27 +580,34 @@ def test_the_status_block_check_can_fail() -> None:
     text = _status_text()
     newest = _newest_round_on_disk()
     released_ours = [name for _, _, name, released in _laps("outbound") if released]
+    reviewed = re.search(
+        r"\+platterpus\.(\d+)$", fork_source.UNDER_REVIEW_TARGET.version
+    )
+    assert reviewed is not None, fork_source.UNDER_REVIEW_TARGET.version
+    next_build = f"+platterpus.{int(reviewed.group(1)) + 1}"
+    far_build = f"+platterpus.{int(reviewed.group(1)) + 5}"
     mutations = {
         "the round": (f"STATUS-ROUND: {newest},", f"STATUS-ROUND: {newest - 1},"),
         "our newest lap": (
             f"newest sent {released_ours[-1]}",
             "newest sent round-01-lap-01.md",
         ),
-        "the approved pin": (f"pins {fork_source.FORK_PIN}", "pins 0000000"),
-        "the build under review": (
+        "the pin": (f"pins {fork_source.PIN_UNDER_REVIEW}", "pins 0000000"),
+        "the build to review": (f"reviews {next_build}", f"reviews {far_build}"),
+        "a build both pinned and reviewed": (
+            f"reviews {next_build}",
             f"reviews {fork_source.PIN_UNDER_REVIEW}",
-            "reviews 0000000",
         ),
         "the run's provider": (
-            f"STATUS-RUN-NEXT: {fork_source.PIN_UNDER_REVIEW}",
-            "STATUS-RUN-NEXT: 0000000",
+            f"STATUS-RUN-NEXT: {next_build}",
+            f"STATUS-RUN-NEXT: {far_build}",
         ),
         "an open item's shape": (
             "STATUS-OPEN: screenshot-unexposed us cannot, because",
             "STATUS-OPEN: screenshot-unexposed maybe later",
         ),
     }
-    assert len(mutations) >= 6
+    assert len(mutations) >= 7
     for what, (needle, replacement) in mutations.items():
         assert needle in text, f"{what}: the needle {needle!r} is not in the block"
         assert _status_block_problems(text.replace(needle, replacement, 1)), (

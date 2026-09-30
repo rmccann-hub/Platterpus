@@ -703,6 +703,17 @@ each side's reading; and the closing releases named.
     transcript's `report.json` no longer has `used_unsafe_verbs`: `eval`, `call` and
     their opt-in were removed (maintainer). Anything of theirs that reads a bundle
     should treat the key as absent, not as `false`.
+- [x] **Our operator's rulings on O1-O4** (2026-09-30): O1 option A; O2 yes, routine
+  overrides that open a round before its run end (D8); O3 a new fork build goes to beta
+  until its run passes; O4 a Full run every night a new pair exists. In our lap 4 (S46-S50),
+  and our status block's release and run lines state the plan they give: round 30's
+  closing releases are their `.20` on beta, then our 0.6.66 pinning `174a134` and
+  reviewing `.20`.
+- [ ] **O3 on our side** (round 30, before our closing lap): our build-under-review check
+  follows a manifest build only while both channels name one commit
+  (`tests/test_handshake_pin_under_review.py::_choose_source`), so a beta-only `.20` would
+  need a lap. Teach it, the rig's install and D3's "newest release" to follow the beta
+  channel's build when it is newer than stable's.
 - [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree,
   sha256 `d5ff0e01…`, 15,658 bytes, at `cyanrip@5c92fc2`): the cycle, and whether routine
   overrides end, the channel before a run, and when runs happen, are the operator's four

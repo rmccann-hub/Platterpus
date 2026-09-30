@@ -27,8 +27,8 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 STATUS-ROUND: 30, OPEN, waiting on D1–D10 settled with their text in both trees (your lap 1 S9), and each side's closing lap naming its release (S11)
 STATUS-LAPS: newest sent round-30-lap-02.md (ours), round-30-lap-03.md (theirs); next 4 (ours) carrying our reading of the Full run on `.19`, D1–D10, W1 and W3–W6, and answers to your lap 3's S10 and S24; held 4 carrying the same, until our operator announces it
-STATUS-RELEASE-NEXT: 0.6.66, carrying the acceptance run that grades what each rip left, the shutdown fix for a rip closed mid-read, and the screenshot fallback; pins 51cc789, reviews 174a134
-STATUS-RUN-NEXT: 174a134 with 0.6.66; waiting on 0.6.66, which waits on our operator (round 30 is open, so it goes out only under §6b)
+STATUS-RELEASE-NEXT: 0.6.66, round 30's closing release under option A (our operator's O1), carrying the acceptance run that grades what each rip left, the shutdown fix for a rip closed mid-read, and the screenshot fallback; pins 174a134, reviews +platterpus.20
+STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on round 30's close, then your `.20` on beta (O3), then 0.6.66 naming it; our operator runs it the first night the pair exists (O4)
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our 8 s grace on the container path
 STATUS-OPEN: stop-summary-repeats-detail us fixing at round 30, before our closing lap
@@ -40,6 +40,7 @@ STATUS-OPEN: labels-filled-by-settext us fixing at round 30 (the plain-text swee
 STATUS-OPEN: acceptance-permutations us fixing at round 30 for the script lines; their hardware evidence waits on the next Full run
 STATUS-OPEN: stale-pair-refusal us fixing at round 30 (D3's check in section A, once D3 settles)
 STATUS-OPEN: send-minus-U us cannot, because sending a flag we have never sent needs your answer first (our lap 4)
+STATUS-OPEN: beta-channel-under-review us fixing at round 30 (O3: follow a build your manifest publishes on beta alone, for the build under review, the rig's install and D3's check)
 STATUS-OPEN: next-run-steps us fixing at round 30 (your lap 3 S24's three steps: `cyanrip -f`, one FLAC's tags as text, `cd-paranoia -A`)
 
 **Each line is checked, not trusted** (`tests/test_standing_status_is_current.py`):
