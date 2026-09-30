@@ -767,7 +767,7 @@ each side's reading; and the closing releases named.
   (`library_dir` is kept, never set). (d) **`max_retries 0`** (no `-r` sent) and
   **`-Z 0`**. (e) `read_speed_mode fixed`, `update_channel beta`, auto-eject and
   Picard on. Each is a real path with no hardware evidence.
-- [ ] **`-U`, not `-G`: every archival log still says "No MusicBrainz release ID at cover
+- [x] **`-U`, not `-G`: every archival log still says "No MusicBrainz release ID at cover
   art lookup, cannot search Cover Art DB!"** (found 2026-09-30, NEXT-ROUND). Our
   `_build_rip_argv` comment implied `-G` removes that line; it does not. `-G` is
   `disable_coverart_embedding` only (cyanrip@174a134:src/cyanrip_encode.c:1293), and the
@@ -779,6 +779,7 @@ each side's reading; and the closing releases named.
   cannot succeed, so the line is noise in the artifact meant to be kept as evidence.
   Sending a flag we have never sent is a change to what crosses the seam: it goes to the
   fork in our next lap, with the consumer contract regenerated when it lands.
+  - *2026-09-30: DONE.* The fork measured `-U` safe (their round 30 lap 5 S15-S16, held when read): `-N -G` vs `-N -G -U` differ by that one line, every checksum identical, `-C` art still loads. We send it on every rip; the consumer contract is regenerated (22 flags); declared in our lap 6.
 
 ## Round 29 — CLOSED on both gates on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
