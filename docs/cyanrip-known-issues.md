@@ -12,8 +12,9 @@
 > still open:** §7, **§8** and §9. The fork delivered all three in round 9 lap 1
 > — "Ten defects fixed since `ddf7ac3`, eight from your known-issues hand-off"
 > (`docs/handshake/inbound/round-09-lap-01.md:207-220`) — and the pin has moved
-> to `d9c058c` (`cyanrip 0.9.4-rc2+platterpus.10`) since round 14 closed GO/GO,
-> so nothing in this file describes a defect in the build we install. The
+> many times since; it is `51cc789` (`cyanrip 0.9.4-rc2+platterpus.18`) since round
+> 29 closed on our gate (2026-09-29), so those three are fixed in the build we
+> install. (This said `d9c058c`, round 14's pin, until 2026-09-30.) The
 > round-8 disposition table and the round-9 asks are in
 > `docs/handshake/verified/round-08-lap-10.md` §C and §O. **§8 is also now
 > detected on our side** (`platterpus.cue_validate`, finding
@@ -984,4 +985,4 @@ The one thing worth asking of you, and it is §4 and §5 rather than a new item:
 
 ---
 
-*Last updated for Platterpus v0.6.48.*
+*Last updated for Platterpus v0.6.65.*

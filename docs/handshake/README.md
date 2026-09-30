@@ -49,9 +49,12 @@ lap 17, and enforced on our side by `tests/test_handshake_file_naming.py`.
 > commits to its own public repo and the other reads it (`CLAUDE.md` Critical rule
 > #12, *Laps travel by git*). The envelope existed so an operator could send one
 > attachment, and a commit carries every byte losslessly with a sha covering all of
-> them — strictly stronger than a per-part hash in a wrapper. The section is kept
-> because nineteen envelopes are committed here and a reader needs to know what
-> they are; it is **history, not procedure**. What has *not* moved with laps: rig
+> them — strictly stronger than a per-part hash in a wrapper. **One is still made
+> per released lap** (`scripts/emit_envelope.py`): thirty-two are committed under
+> `outbound/`, from round 16 lap 3 to round 30 lap 2 (of our `outbound/` laps in that
+> span, only round 21 lap 4 and round 28 lap 7 lack one). The lap on `main` is the
+> record; the envelope is a convenience copy, and reading this section as history
+> would miss that the step is still taken. What has *not* moved with laps: rig
 > scripts and evidence bundles still cross by hand, so the cross-machine filename
 > rule keeps a live subject.
 

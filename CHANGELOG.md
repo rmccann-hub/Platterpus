@@ -47,7 +47,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the beta tick-box is named where it lives. The rig sheet now says to confirm the
   installed ripper in Help → About; Setup & Updates always shows the approved one.
   For contributors: PLANNING, the testing and architecture guides, the UX
-  principles, the EAC parity notes, the dependency list and the test plans.
+  principles, the EAC parity notes, the dependency list, the test plans and the
+  handshake and fork documents. Our generated half of the cyanrip contract also
+  lists `--consumer` now, which every rip on an approved build sends and the
+  generator had left out.
 - **The README's status is three short paragraphs.** It says the version, the
   approved pair, the build under test and what `0.7.100` still needs, and links
   here. The release highlights were already in this file's own entries; the rest of

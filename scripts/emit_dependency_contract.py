@@ -51,6 +51,9 @@ from platterpus.cyanrip_cli import (  # noqa: E402
 from platterpus.deps.fork_source import (  # noqa: E402
     FORK_EXPECTED_BANNER as _APPROVED_BANNER,
 )
+from platterpus.deps.fork_source import (  # noqa: E402
+    FORK_EXPECTED_BUILD_TAG as _APPROVED_BUILD_TAG,
+)
 from platterpus.handshake_approval import (  # noqa: E402
     APPROVED_BY_ROUND as _APPROVED_ROUND,
 )
@@ -218,7 +221,7 @@ def _emitted_flags() -> list[str]:
     """Every flag we can hand cyanrip, obtained by *calling* the arg builder.
 
     A maximal parameter set is used so conditional flags (``-Z``, ``-O``, ``-S``,
-    ``-l``, ``-G``) are all present. This is a derivation, not a list: a flag the
+    ``-l``, and the build-gated ``--consumer``) are all present. This is a derivation, not a list: a flag the
     adapter stops passing vanishes from the contract, and one it starts passing
     appears, without anyone remembering to edit a doc.
     """
@@ -226,7 +229,7 @@ def _emitted_flags() -> list[str]:
     argv = backend._build_rip_argv(
         "/dev/sr0",
         unknown=False,
-        cover_art="",  # falsy -> emits -G, so the flag appears in the contract
+        cover_art="",  # recorded only; `-G` is now sent unconditionally
         max_retries=8,
         read_offset_override=667,
         release_id="00000000-0000-0000-0000-000000000000",
@@ -245,6 +248,14 @@ def _emitted_flags() -> list[str]:
         read_speed=8,
         only_tracks=(1, 2),
         disc_track_total=14,
+        # The production pin's build tag, so the capability-gated `--consumer` is
+        # emitted as it is on every real rip to an allowlisted build
+        # (`CyanripImpl.rip` passes `_observed_build_tag()`). Without it this
+        # call took the builder's safe default — an unknown build, no gated
+        # flags — and §3 "Flags we pass you" omitted a flag every production rip
+        # sends, while the comment below said that omission was the failure to
+        # avoid. Derived from `fork_source`, never typed, so it moves with the pin.
+        ripper_build_tag=_APPROVED_BUILD_TAG,
     )
     # argv[0] is the binary path, not a flag.
     #
