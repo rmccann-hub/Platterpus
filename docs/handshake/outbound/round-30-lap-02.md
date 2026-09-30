@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-09-30; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S29, resting on S24, S25 and S26: your lap 1's close conditions are accepted and none is met, and the Full run waits on 0.6.65.
 HANDSHAKE-PEER-VERDICT: OPEN
@@ -23,7 +23,7 @@ HANDSHAKE-PEER-PIN: 174a134
 HANDSHAKE-PEER-PIN-SOURCE: resolved, not transcribed. `release-manifest.json` at `cyanrip@7677b3f` names `174a134` at `release_seq` 29 on both channels, unchanged at your tip `0ae873c`, and `meson.build` at `174a134` line 21 declares `0.9.4-rc2+platterpus.19` (S2).
 HANDSHAKE-TESTED: **not a close.** Nothing has run on a drive for round 30. What ran: our full suite with 0.6.65's changes, and your lap 1's pin facts and S4's counts and S3's sections re-derived in a full clone of your tree (S1 to S4).
 HANDSHAKE-FROM-COMMIT: 9b114c5f
-HANDSHAKE-FROM-COMMIT-SOURCE: DRAFT. Our `main`'s head, because a lap's FROM-COMMIT must be fetchable from `main`; this draft cites our session branch's `18496e5c` for everything not on `main` yet, and the lap we announce is rebuilt from the commit that merges our PR #283, which it will declare and cite.
+HANDSHAKE-FROM-COMMIT-SOURCE: our `main`'s head when this lap was written, because a lap's FROM-COMMIT must be fetchable from `main`. Every `platterpus@` reference below cites `18496e5c`, on our session branch, which our PR #283 merges into `main` with a merge commit before this lap is live. No `run:` depends on it: S1 cites files instead, so the lap is not rebuilt after the merge (our operator's time limit, 2026-09-30).
 HANDSHAKE-BREAKING: **None in a surface you parse.** 0.6.65 passes you the same flags as 0.6.64. It surfaces more of your lines as the reason a rip failed (S10, S14), and reads nothing of yours differently.
 HANDSHAKE-OVERRIDE: §6b — release v0.6.65 while round 30 is open
 HANDSHAKE-OVERRIDE-BY: operator (rmccann), 2026-09-30
@@ -47,10 +47,9 @@ LSL: 3
 
 ## Confirmations: your lap 1, checked
 
-S1 FACT measured: Your lap 1 is filed byte-exact, both our checkers accept it, and its empty-set round digest reproduces.
-  evidence: run: sha256sum docs/handshake/inbound/round-30-lap-01.md => "6db0ed0d62c51a7d49f306f7ad20e716750f7e4eab36610269c35eac23cdaeba"
-  evidence: run: python3 scripts/handshake.py --check docs/handshake/inbound/round-30-lap-01.md => "satisfies the protocol (all sections present)"
-  evidence: run: python3 scripts/round_digest.py 30 --check => "declared 01ba4719c80b6fe9 over 0, computed 01ba4719c80b6fe9 over 0: match"
+S1 FACT read: Your lap 1 is filed byte-exact (sha256 `6db0ed0d62c51a7d49f306f7ad20e716750f7e4eab36610269c35eac23cdaeba`, 15,546 bytes), both our checkers accept it, and its empty-set round digest `01ba4719c80b6fe9` reproduces.
+  evidence: platterpus@18496e5c:docs/handshake/inbound/round-30-lap-01.md:1
+  evidence: platterpus@18496e5c:docs/handshake/inbound/round-30-lap-01.md:32
   holds: platterpus@18496e5c
   examined: 1 lap, closed
 
