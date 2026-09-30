@@ -37,6 +37,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The project's documents match the code again.** Every document, the in-app
+  guide and the code's own comments were checked against the code on 2026-09-30,
+  and the out-of-date statements corrected: which ripper build is installed and
+  which is under test, menu paths that moved into Setup & Updates, the CI jobs that
+  gate a merge, and records that still called finished work open. For contributors:
+  PLANNING, the testing and architecture guides, the UX principles and the EAC
+  parity notes.
 - **The README's status is three short paragraphs.** It says the version, the
   approved pair, the build under test and what `0.7.100` still needs, and links
   here. The release highlights were already in this file's own entries; the rest of

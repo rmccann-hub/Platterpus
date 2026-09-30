@@ -1526,7 +1526,9 @@ release, never the ripper's interactive prompt).
   runs every test in parallel, plus `ruff`
   lint + format, the gating `mypy` typecheck (strict def-typing,
   `pyproject.toml [tool.mypy]`), and the changelog / media-guard /
-  `pip-audit` backstop jobs.
+  `pip-audit` / `gitleaks` / `sbom` / `tests-touched` backstop jobs — **nine
+  gating jobs** in `.github/workflows/ci.yml` (`lint`, `typecheck`, `changelog`,
+  `media-guard`, `pip-audit`, `gitleaks`, `sbom`, `tests-touched`, `test`).
 - **Institutional rules:** every shipped bug gets a regression test in the
   same change; every new external-output parser gets a never-raises property
   test.
@@ -2004,4 +2006,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.6.64.*
+*Last updated for Platterpus v0.6.65.*
