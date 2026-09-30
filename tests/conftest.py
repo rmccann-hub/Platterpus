@@ -553,6 +553,15 @@ def stop_window_threads(window: object) -> None:
         except RuntimeError:
             continue
 
+    # EXIT WORK a close handed over (`exit_work`, 2026-09-30): stopping the ripper
+    # after a quit mid-rip runs on a helper thread that `app.main` joins before
+    # the process exits. Joined here for the same reason, and for the daemon
+    # threads' reason above: the helper holds the rip worker. This is the join
+    # production does, not one the product lacks.
+    from platterpus import exit_work
+
+    exit_work.wait()
+
     # THE WINDOW MUST BE INERT once this returns, and joining its threads does not
     # make it so. It outlives this call: `deleteLater()` waits for an event loop,
     # so the object lingers into later tests, and every later test that pumps

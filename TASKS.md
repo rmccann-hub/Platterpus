@@ -750,6 +750,12 @@ each side's reading; and the closing releases named.
   rip's log must exit 0.** The hardware half of the fix above (split out 2026-09-30, so
   the code fix can stay `[x]`): only a drive run shows cyanrip writes its footer and
   `Log FUN512:` inside `drive_control.READER_TERM_GRACE_S` (8 s) on the container path.
+  - *2026-09-30: the grace is 40 s* (the fork's round 30 lap 5 S17: 8 s is shorter than
+    one read). The rig's drive has done a single read of 20 s
+    (`docs/handshake/outbound/artifacts/round-15-lap-13-cancelled-rip-g978f9b0.log:311`),
+    so the grace is twice that, derived by a test from the filed logs. It no longer holds
+    the window: the stop runs as exit work (`exit_work`), joined by `app.main` before the
+    process exits. The hardware half stays open.
 - [x] **The acceptance test grades what each rip left, not only that it finished**
   (2026-09-30, for the next release; asked for with the round-30 Full run: *"this
   test will do all reasonable permutations… if not we need to fix or update the
@@ -7291,7 +7297,7 @@ remains. None of these is speculative — each was traced to a file:line.
       `_start_post_rip_processing` takes a `rip_log=` argument and the finish handler passes
       its already-parsed `RipLog`, so the log is read once and all six agree on one list.
       Regression test per site, each verified by reverting the fix.
-- **[~] Closing the window during a rip can freeze it for up to ~100 s.**
+- **[x] Closing the window during a rip can freeze it for up to ~100 s.**
       `_stop_rip_on_shutdown` calls `drive_control.free_drive()` **synchronously on the
       GUI thread**: five subprocess steps each bounded at 20 s. A wedged drive hits the
       worst case. It also runs *before* the rip thread's own stop, so it eats the whole
@@ -7302,6 +7308,13 @@ remains. None of these is speculative — each was traced to a file:line.
     `_SHUTDOWN_DRIVE_FREE_BUDGET_S = drive_control.READER_TERM_GRACE_S + 5.0` (8 + 5)
     in `ui/main_window_rip.py`, still on the GUI thread by design. A close with no rip
     in flight is untouched.
+  - *2026-09-30: DONE, the close no longer waits at all.* The fork measured that 8 s is
+    shorter than one read (their round 30 lap 5 S17), and a grace that outlasts the
+    longest read on record (20 s, so 40 s) would have frozen the window for most of a
+    minute. Our operator chose to move the wait off the window: the stop is now exit work
+    (`exit_work.start`), on a helper thread that `app.main` joins, bounded, after
+    `app.exec()` returns. The window closes at once and the process lingers, windowless,
+    only until the reader lets go. `tests/test_ui_main_window.py::test_a_quit_mid_rip_closes_the_window_without_waiting_out_the_grace`.
 - **[x] Abandoned `in_progress` reports are treated as legitimate priors.**
       `rip_compare.find_prior_report` filters on `same_disc` only, never on
       `outcome.status`. Closing mid-rip leaves the worker's `in_progress` snapshot on

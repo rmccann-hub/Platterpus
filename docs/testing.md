@@ -2181,7 +2181,12 @@ the handler to finish* is. The rule it leaves: **any path that stops the ripper 
 must keep its record gives it a bounded grace before anything that cannot be
 caught** — SIGTERM, then poll whether it still holds the drive
 (`drive_control.stop_reader_gracefully`, `READER_TERM_GRACE_S`), escalate only if
-it does or if that cannot be determined, and never a second SIGTERM. The
+it does or if that cannot be determined, and never a second SIGTERM. **And the grace
+is sized from the longest read on record, not from a guess** (2026-09-30): 8 s lost
+to a single 11 s read the fork found, and our own filed log has one of 20 s, so it
+is 40 s and a test derives that floor from the filed logs. A grace that long cannot
+be waited out on the GUI thread, so it is not: the stop is exit work
+(`exit_work`), joined by `app.main` after the window has gone. The
 undeterminable case escalates because the thing being protected on that path is
 the drive and the shutdown, not the log (§5.bw: say which failure the safe
 direction avoids). Hardware still has to show the footer lands inside the grace on

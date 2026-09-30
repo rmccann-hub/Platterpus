@@ -1199,7 +1199,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `finally` that clears it is the one that stops the timers and breaks the
     # closure->box reference (measured: one leaked hidden QMessageBox per
     # auto-close without it). A separate module would split one `finally` in two.
-    "app.py": 1555,
+    # **1555 -> 1560** (2026-09-30): `app.main` joins `exit_work` after `app.exec()` returns and before `hard_exit` decides how to leave; the exit path is where that join belongs.
+    "app.py": 1560,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
@@ -1480,7 +1481,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **423 -> 411** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 405 -> 417 on 2026-09-28 (review R6): `_host_tool`, so pkill/fuser/eject skip the container exports on PATH as well as in their own lists; rule #3's exception says the host goes first, and this module is where that exception lives.
     # **417 -> 525** (2026-09-30): the shutdown path's graceful stop (`stop_reader_gracefully`, `device_is_held`): SIGTERM, a grace, then SIGKILL only if the drive is still held. It is the same kill sequence's first step, so it lives beside `free_drive` (the fork's round 30 S25).
-    "drive_control.py": 525,
+    # **525 -> 538** (2026-09-30, the fork's round 30 lap 5 S17): `READER_TERM_GRACE_S` 8 -> 40 s, with the evidence (our filed log's 20 s read, the fork's 11 s) beside the number; `free_drive`'s docstring no longer claims a sanctioned GUI-thread caller.
+    "drive_control.py": 538,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     "drive_profiles.py": 447,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
@@ -2119,7 +2121,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4852 -> 4861** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `_start_ctdb_verify` hands the worker the rip's parsed log and the probe's track count, read at launch on the GUI thread, because the daemon runs later.
     # 4861 -> 4867 on 2026-09-28 (the round-28 Full run): the debug block is built from ONE buffer snapshot, so the count in its scope is the count in its marker.
     # **4867 -> 4868** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the `failure_hint` comment names both wordings.
-    "ui/main_window_rip.py": 4867,
+    # **4867 -> 4882** (2026-09-30, the fork's round 30 lap 5 S17, our operator's option B): `_stop_rip_on_shutdown` hands the reader stop to `exit_work` instead of blocking the GUI thread for the grace, reading the two values the helper needs on the GUI thread first; the docstring says why the old sanctioned block ended. The job itself went to the new `exit_work.py`.
+    "ui/main_window_rip.py": 4882,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared

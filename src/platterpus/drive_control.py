@@ -393,7 +393,20 @@ def force_stop_drive(
 #: output in the middle of a slow read, and cyanrip acts on SIGTERM only once the
 #: read in hand returns. The old shutdown path allowed 191 ms, then SIGKILLed, and
 #: the log was left without its footer or `Log FUN512:` (the fork's round 30 S25).
-READER_TERM_GRACE_S: Final[float] = 8.0
+#:
+#: **8 s was shorter than one read, so it is 40 s** (2026-09-30, the fork's round
+#: 30 lap 5 S17). A SIGTERM that arrives during a read is acted on only when the
+#: read returns. The fork cited two of their filed logs from this rig's drive, each
+#: with a longest read of 11 s. Our own filed log from the same drive records one
+#: of **20 s**, among fifteen reads over 10 s in a three-track rip
+#: (`docs/handshake/outbound/artifacts/round-15-lap-13-cancelled-rip-g978f9b0.log:311`),
+#: so 11 s is not the ceiling. The grace is TWICE the longest read on record in
+#: this tree, and `tests/test_drive_control.py` derives that floor from the filed
+#: logs rather than from this comment. It costs nothing in the ordinary case,
+#: where the wait ends the moment the reader lets go, and it could only become
+#: this long because the wait no longer holds the window: the window closes at
+#: once and the wait runs as exit work (`exit_work`), joined before exit.
+READER_TERM_GRACE_S: Final[float] = 40.0
 
 #: How often the grace loop asks whether the device is still held.
 _HELD_POLL_S: Final[float] = 0.25
@@ -506,12 +519,12 @@ def free_drive(
     (#23). Killing the reader releases the device; leaving the disc in place lets
     the user immediately Rescan (or switch backends) without re-inserting it.
 
-    Synchronous and best-effort; normally run OFF the GUI thread. The one
-    sanctioned exception is the shutdown path (`_stop_rip_on_shutdown` in
-    `closeEvent`), which calls it *on* the GUI thread by design — the window is
-    already going away, a daemon thread would be killed mid-`pkill`, and every
-    subprocess here is bounded by a timeout so the close can't hang unbounded
-    (Rule #3 exception; see that method's docstring).
+    Synchronous and best-effort; always run OFF the GUI thread. The shutdown
+    path (`_stop_rip_on_shutdown` in `closeEvent`) ran it on the GUI thread by
+    design until 2026-09-30, and was this rule's one sanctioned exception; it now
+    reaches it through `stop_reader_gracefully` as exit work (`exit_work`), on a
+    helper thread `app.main` joins before the process exits, so the exception is
+    gone (see that method's docstring).
     """
     run = runner or _default_runner
     killed = free_device_holders(device, runner=run)

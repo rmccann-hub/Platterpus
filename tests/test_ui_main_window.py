@@ -4332,6 +4332,19 @@ def _patch_free_device_holders(monkeypatch) -> list[dict]:
     return calls
 
 
+def _join_exit_work() -> None:
+    """Wait for the shutdown stop, as `app.main` does before the process exits.
+
+    Since 2026-09-30 the stop runs as exit work on a helper thread, so a test
+    that asserts on it straight after the close races that thread. Joining here
+    is what production does too (`app.main` calls `exit_work.wait()`), not a
+    kindness the product lacks.
+    """
+    from platterpus import exit_work
+
+    assert exit_work.wait(), "the shutdown stop did not finish within its budget"
+
+
 def _patch_graceful_stop(monkeypatch, order: list[str] | None = None) -> list[dict]:
     """Record `drive_control.stop_reader_gracefully` calls (the shutdown stop:
     SIGTERM, a grace, then SIGKILL only if the drive is still held)."""
@@ -4716,12 +4729,66 @@ def test_shutdown_stops_in_container_reader_during_rip(
     window._force_stop_done = False
 
     window._stop_rip_on_shutdown()
+    _join_exit_work()
 
     assert order == ["cancel", "graceful stop", "release log wait"], order
     assert len(free_calls) == 1  # the in-container reader is stopped
     assert "device" in free_calls[0]
     # Nothing has signalled this reader yet, so the graceful stop sends the SIGTERM.
     assert free_calls[0]["already_signalled"] is False
+
+
+def test_a_quit_mid_rip_closes_the_window_without_waiting_out_the_grace(
+    teardown_threads, monkeypatch
+) -> None:
+    """The fork's round 30 lap 5 S17, and our operator's option B.
+
+    The grace outlasts the longest read on record, 20 s on the rig's drive, and
+    until 2026-09-30 it was waited out on the GUI thread inside `closeEvent`, so
+    a quit mid-rip froze the window for as long as the reader took. Now the stop
+    is exit work: the close returns at once, and the stop is still running on a
+    helper thread that `app.main` joins before the process exits.
+    """
+    import threading
+    import time
+
+    from platterpus import drive_control, exit_work
+
+    release = threading.Event()
+    order: list[str] = []
+
+    def _slow_graceful_stop(**_kw: object) -> str:
+        # Stands in for a reader mid-read: holds until released, up to 5 s.
+        release.wait(5)
+        order.append("graceful stop")
+        return ""
+
+    monkeypatch.setattr(drive_control, "stop_reader_gracefully", _slow_graceful_stop)
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: order.append("cancel"),
+        abandon_log_wait=lambda: order.append("release log wait"),
+    )
+    window._rip_thread = SimpleNamespace()
+
+    started = time.monotonic()
+    try:
+        window.close()
+        held_for = time.monotonic() - started
+        assert held_for < 2.0, (
+            f"closing mid-rip held the window for {held_for:.1f}s: the wait for "
+            "the reader is back on the GUI thread"
+        )
+        assert exit_work.pending() == 1, "the stop was not handed over as exit work"
+        # The close has returned and the reader has not been waited for yet.
+        # (`cancel` may appear twice: `stop_thread` cancels the worker again.)
+        assert order and order[0] == "cancel", order
+        assert "graceful stop" not in order, order
+    finally:
+        release.set()
+    _join_exit_work()
+    # The log wait is released only AFTER the grace, from the helper thread.
+    assert order[-2:] == ["graceful stop", "release log wait"], order
 
 
 def test_shutdown_never_sends_a_second_SIGTERM_after_the_rescue(
@@ -4738,6 +4805,7 @@ def test_shutdown_never_sends_a_second_SIGTERM_after_the_rescue(
     window._force_stop_done = True
 
     window._stop_rip_on_shutdown()
+    _join_exit_work()
 
     assert free_calls and free_calls[0]["already_signalled"] is True
 
@@ -4751,6 +4819,7 @@ def test_shutdown_without_rip_leaves_drive_alone(teardown_threads, monkeypatch) 
     window._rip_thread = None
 
     window._stop_rip_on_shutdown()
+    _join_exit_work()
 
     assert free_calls == [] and graceful_calls == []
 
@@ -4768,6 +4837,7 @@ def test_close_event_stops_in_flight_rip_in_container(
     window._rip_thread = SimpleNamespace()  # a rip is in flight
 
     window.close()
+    _join_exit_work()
 
     assert len(free_calls) == 1
 
@@ -7886,10 +7956,11 @@ def test_shutdown_drive_free_targets_the_armed_device_and_is_bounded(
     """Two properties of the shutdown drive-free, both learned the hard way.
 
     * It must target the armed device for the same reason the rescue does.
-    * It must be BOUNDED. It runs on the GUI thread by design (a daemon thread
-      would be killed mid-`pkill` as the interpreter exits), and the kill sequence
-      is up to seven subprocesses that were each capped at 20 s independently — so
-      the worst case was a window frozen in a closing state for over a minute.
+    * It must be BOUNDED. The kill sequence is up to seven subprocesses that
+      were each capped at 20 s independently, so the worst case was a window
+      frozen in a closing state for over a minute. It no longer runs on the GUI
+      thread (it is exit work, joined before the process exits), but the budget
+      still bounds how long the windowless process lingers.
     """
     free_calls = _patch_free_drive(monkeypatch)
     window = teardown_threads()
@@ -7903,6 +7974,7 @@ def test_shutdown_drive_free_targets_the_armed_device_and_is_bounded(
     )
 
     window._stop_rip_on_shutdown()
+    _join_exit_work()
 
     assert len(free_calls) == 1
     assert free_calls[0]["device"] == "/dev/sr0"
@@ -8633,6 +8705,7 @@ def test_shutdown_drive_free_returns_early_when_nothing_is_reading(
     window._force_stop_timer.stop()
 
     window._stop_rip_on_shutdown()
+    _join_exit_work()
 
     assert free_calls == []
 
@@ -8653,6 +8726,7 @@ def test_shutdown_drive_free_also_runs_while_a_rescue_is_still_pending(
 
     try:
         window._stop_rip_on_shutdown()
+        _join_exit_work()
     finally:
         window._force_stop_timer.stop()
 
@@ -8689,6 +8763,7 @@ def test_shutdown_drive_free_swallows_a_failing_kill(
     window._rip_worker = None
 
     window._stop_rip_on_shutdown()  # must not raise
+    _join_exit_work()
 
     assert attempts, (
         "shutdown never tried to free the drive — the OSError was 'swallowed' "
@@ -13322,6 +13397,7 @@ def test_quit_mid_rip_asks_and_yes_closes(teardown_threads, monkeypatch) -> None
     window._rip_thread = SimpleNamespace()
 
     window._on_quit_requested()
+    _join_exit_work()
 
     assert asked, "Quit did not ask"
     assert len(graceful) == 1, "a confirmed Quit must stop the rip"

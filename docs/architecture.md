@@ -179,6 +179,19 @@ Worker mechanics, all demonstrated in `workers/`:
   FLAC re-compress all rewrite the rip's FLACs — run them **sequentially on one
   thread**, in a fixed order, not in parallel, to avoid a same-file race. The
   re-compress runs **last** so it operates on the final tagged-and-arted files.)
+- **Work that must finish after the window has gone → exit work** (`exit_work`,
+  2026-09-30). The one case where a daemon thread dying with the process is
+  wrong: stopping the ripper after a quit mid-rip. cyanrip needs up to a read's
+  length to act on SIGTERM and write the end of its log, and a daemon thread the
+  interpreter kills part-way through leaves it holding the drive after the app
+  has gone. Waiting on the GUI thread froze the window instead. So `closeEvent`
+  hands the stop to `exit_work.start`, the window closes at once, and `app.main`
+  calls `exit_work.wait()` after `app.exec()` returns and before `hard_exit`
+  decides how to leave. The wait is bounded by each job's own budget. The work
+  must be thread-safe, and no slot can fire into the window during it, because
+  the event loop has already ended. Use it only for work whose absence would
+  leave something outside the process wrong. Anything that only reports back
+  belongs on a daemon thread and a queued signal, as above.
 - **Clean up deterministically:** connect `worker.finished → thread.quit`,
   `worker.finished → worker.deleteLater`, `thread.finished →
   thread.deleteLater`. **Join/stop threads before the window closes**
