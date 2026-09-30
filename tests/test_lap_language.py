@@ -854,6 +854,17 @@ def test_the_version_line_names_every_implemented_version(tmp_path: Path) -> Non
     assert opened.lsl_version == 3
 
 
+def test_the_help_names_every_implemented_version(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`--help` says what the checker implements, from the same table."""
+    from laplang import cli
+
+    with pytest.raises(SystemExit):
+        cli.main(["--help"])
+    assert "LSL 1, 2, 3 and 4" in " ".join(capsys.readouterr().out.split())
+
+
 _PRE_COMMIT = (
     "S2 WILL: Our next lap is GO unless the run fails.\n"
     "  owner: us\n"

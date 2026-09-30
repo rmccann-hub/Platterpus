@@ -44,6 +44,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   ways, and saves what it printed. The `cd-paranoia` step only records what it
   finds and never fails the run. It will not run while a rip is reading the disc,
   and it is stopped if the run is stopped.
+- For contributors: the lap checker's `--help` names the LSL versions it implements
+  from the same table as its version check; it still said LSL 1 to 3 after LSL 4
+  landed.
 - For contributors: the script verbs `expect-newest-pair`, `expect-found-offset`
   and `cache-probe`. A step that waits on a helper thread can now say how to stop
   what it started, and the runner calls it when the run stops or the wait times
