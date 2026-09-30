@@ -71,6 +71,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`CLAUDE.md` rule #12 names both plain-text sweeps.** It said the `QLabel`
+  sites were only tracked in `TASKS.md`; they have had their own sweep,
+  `tests/test_labels_state_their_text_format.py`, since 2026-09-28. The rule now
+  names it beside the `QMessageBox` one, and names the gap that is still open: a
+  label given its text later by `setText`. Changed on the maintainer's approval,
+  since the rules section is locked.
 - **Round 30's Full run is filed and graded `partial`.** The operator's run on
   2026-09-30 (0.6.65 with the fork's `.19`, `174a134`) passed 316 of 323 steps. The
   seven failures are screenshot steps, every one after the first long rip, that found
