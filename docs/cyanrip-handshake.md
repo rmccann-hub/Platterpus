@@ -403,6 +403,49 @@ theirs as *not released*, which fails closed and could hold a round they conside
 sent; the standing status names that cost to them explicitly rather than letting
 them meet it as a surprise.
 
+### 7.5d A short reading lap — our draft of the fork's D5 (round 30, W4)
+
+The fork's release-cycle proposal (`PROPOSAL-release-cycle.md` in their tree, D5)
+asks each side for a template of the lap a side writes when its reading of a run
+finds nothing to act on. **This is ours.** It is a floor for a clean reading,
+never a ceiling: any finding, disagreement or answer that needs its reasoning
+carries it in full, which is the fork's own amendment to D5 after our operator's
+word that laps exist for full explanations. It lives here, beside the rest of how
+we write a lap, rather than in a file of its own (rule #7).
+
+```
+<the wire headers, as every lap>
+
+LSL: 3
+
+## The run
+
+S1 FACT read: The bundle is sha256 `<64 hex>`, <n> bytes, filed at `<our dir>`.
+  evidence: platterpus@<sha>:<dir>/README.md:1
+  holds: <the pair, ours then theirs>
+S2 FACT read: <one surface read, and what it shows>        (one per surface)
+  evidence: <the filed artifact, with its line>
+  holds: <the pair>
+
+## Fixed
+
+S<n> DID: <each fix landed because of the run>              (none: omit the section)
+  commit: <sha>
+
+## Verdict
+
+S<n> VERDICT: GO
+  basis: S1 S2 …
+```
+
+**What makes a reading "clean"**: no FINDING, no ASK, no CORRECT, no AMEND and no
+REFUSE is needed. The moment one is, the lap is an ordinary lap. **What it keeps**:
+the bundle's hash, so both sides are reading the same bytes; one `FACT` per surface
+with its evidence, so the reading can be checked rather than trusted; and the
+fixes as `DID`s, so D4's "fixed within the round" is visible. **What it drops**:
+`NOTE`s and prose sections, which is where round 29's reading laps spent most of
+their 22,260 and 18,972 bytes.
+
 ## 7.6 Standing status — one home, and it is not this file
 
 **Not a round, and not a call for one.** Rounds are the *formal* channel and they
@@ -411,7 +454,9 @@ both sides' releases). Between rounds the fork still needs to know where we are.
 
 **That answer lives in
 [`docs/handshake/outbound/platterpusstatus.md`](handshake/outbound/platterpusstatus.md),
-and only there.** It is the file that goes over the wire, it is what
+and only there.** Since round 30 it opens with the `STATUS-` block of the fork's D6
+proposal (round, laps, next release, next run, and each open item), each line
+checked against the record and the code by `tests/test_standing_status_is_current.py`. It is the file that goes over the wire, it is what
 `docs/handshake/README.md` designates, and it is the mirror of the fork's own
 `cyanripstatus*.md`. Rewritten in place, never appended to, undated in its
 filename — a stale standing status is worse than none.

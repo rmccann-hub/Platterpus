@@ -30,6 +30,7 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+from types import ModuleType
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _STATUS = _REPO_ROOT / "docs" / "handshake" / "outbound" / "platterpusstatus.md"
@@ -366,3 +367,211 @@ def test_the_gate_is_not_vacuous() -> None:
         "the round number survived being blanked, so the round check is not "
         "shown to be capable of failing"
     )
+
+
+# --- The D6 status block (the fork's release-cycle proposal, round 30) ---------
+#
+# The proposal's D6 asks each side to keep a block of `STATUS-` declarations at
+# column 0, current in the same commit as any change to what they state, and
+# checked by its own suite. The fork's own C2 had not landed when we wrote ours
+# (round 30 lap 3 carries no DID for it), so this is the worked example, and the
+# check is what makes it one: a block nothing checks decays like the prose did.
+
+
+def _handshake_module() -> ModuleType:
+    """`scripts/handshake.py`, loaded the way `_derived_round_state` loads it."""
+    import importlib.util  # noqa: PLC0415
+
+    if "handshake" in sys.modules:
+        return sys.modules["handshake"]
+    spec = importlib.util.spec_from_file_location(
+        "handshake", _REPO_ROOT / "scripts" / "handshake.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # before exec: its dataclasses need it
+    spec.loader.exec_module(module)
+    return module
+
+
+def _laps(direction: str) -> list[tuple[int, int, str, bool]]:
+    """(round, lap, file name, released) for every lap file in one direction."""
+    hs = _handshake_module()
+    found = []
+    for path in (_REPO_ROOT / "docs" / "handshake" / direction).glob("round-*.md"):
+        named = hs.name_round_and_lap(path)
+        if named is None:
+            continue
+        text = path.read_text(encoding="utf-8")
+        released = hs.is_released_for_reading(text, round_hint=named[0])
+        found.append((named[0], named[1], path.name, bool(released)))
+    return sorted(found)
+
+
+def _version_tuple(text: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in text.split("."))
+
+
+def _status_block_problems(text: str) -> list[str]:
+    """Every way the block disagrees with the record, the code, or D6's shape.
+
+    A pure function of the document's text, so the mutation test below can prove
+    each check is load-bearing by feeding it a copy with one fact changed.
+    """
+    from platterpus import __version__
+    from platterpus.deps import fork_source
+
+    lines: dict[str, list[str]] = {}
+    for match in re.finditer(r"(?m)^STATUS-([A-Z-]+): (.+)$", text):
+        lines.setdefault(match.group(1), []).append(match.group(2).strip())
+    problems: list[str] = []
+    for key in ("ROUND", "LAPS", "RELEASE-NEXT", "RUN-NEXT"):
+        if len(lines.get(key, [])) != 1:
+            problems.append(f"STATUS-{key} appears {len(lines.get(key, []))} times")
+    if not lines.get("OPEN"):
+        problems.append("no STATUS-OPEN line: D6 repeats it once per open item")
+    if problems:
+        return problems
+
+    newest = _newest_round_on_disk()
+    got = re.match(r"(\d+), (OPEN|CLOSED)\b", lines["ROUND"][0])
+    if got is None:
+        problems.append(
+            f"STATUS-ROUND is not '<round>, OPEN|CLOSED': {lines['ROUND'][0]!r}"
+        )
+    else:
+        if int(got.group(1)) != newest:
+            problems.append(
+                f"STATUS-ROUND names {got.group(1)}; the record's newest is {newest}"
+            )
+        state = _derived_round_state(newest)
+        if got.group(2) != state:
+            problems.append(
+                f"STATUS-ROUND says {got.group(2)}; the gate computes {state}"
+            )
+
+    ours, theirs = _laps("outbound"), _laps("inbound")
+    sent_ours = [name for _, _, name, released in ours if released]
+    sent_theirs = [name for _, _, name, released in theirs if released]
+    held = [lap for rnd, lap, _, released in ours if rnd == newest and not released]
+    laps = re.match(
+        r"newest sent (\S+) \(ours\), (\S+) \(theirs\); next .+; held (none|(\d+) carrying .+)$",
+        lines["LAPS"][0],
+    )
+    if laps is None:
+        problems.append(f"STATUS-LAPS is not in D6's shape: {lines['LAPS'][0]!r}")
+    else:
+        if not sent_ours or laps.group(1) != sent_ours[-1]:
+            problems.append(
+                f"STATUS-LAPS names {laps.group(1)} as ours; newest released is {sent_ours[-1:]}"
+            )
+        if not sent_theirs or laps.group(2) != sent_theirs[-1]:
+            problems.append(
+                f"STATUS-LAPS names {laps.group(2)} as theirs; newest released is {sent_theirs[-1:]}"
+            )
+        stated_held = [] if laps.group(3) == "none" else [int(laps.group(4))]
+        if stated_held != held:
+            problems.append(
+                f"STATUS-LAPS says held {stated_held or 'none'}; round {newest} holds {held or 'none'}"
+            )
+
+    release = re.match(
+        r"(\d+\.\d+\.\d+), carrying .+; pins ([0-9a-f]{7,40}), reviews ([0-9a-f]{7,40})$",
+        lines["RELEASE-NEXT"][0],
+    )
+    if release is None:
+        problems.append(
+            f"STATUS-RELEASE-NEXT is not in D6's shape: {lines['RELEASE-NEXT'][0]!r}"
+        )
+    else:
+        if _version_tuple(release.group(1)) <= _version_tuple(__version__):
+            problems.append(
+                f"STATUS-RELEASE-NEXT names {release.group(1)}, not after {__version__}"
+            )
+        if release.group(2) != fork_source.FORK_PIN:
+            problems.append(
+                f"STATUS-RELEASE-NEXT pins {release.group(2)}; FORK_PIN is {fork_source.FORK_PIN}"
+            )
+        if release.group(3) != fork_source.PIN_UNDER_REVIEW:
+            problems.append(
+                f"STATUS-RELEASE-NEXT reviews {release.group(3)}; PIN_UNDER_REVIEW is {fork_source.PIN_UNDER_REVIEW}"
+            )
+
+    run = re.match(
+        r"([0-9a-f]{7,40}) with (\d+\.\d+\.\d+); (waiting on .+|ready)$",
+        lines["RUN-NEXT"][0],
+    )
+    if run is None:
+        problems.append(
+            f"STATUS-RUN-NEXT is not in D6's shape: {lines['RUN-NEXT'][0]!r}"
+        )
+    else:
+        if run.group(1) != fork_source.PIN_UNDER_REVIEW:
+            problems.append(
+                f"STATUS-RUN-NEXT tests {run.group(1)}; PIN_UNDER_REVIEW is {fork_source.PIN_UNDER_REVIEW}"
+            )
+        consumers = {__version__} | ({release.group(1)} if release else set())
+        if run.group(2) not in consumers:
+            problems.append(
+                f"STATUS-RUN-NEXT runs {run.group(2)}, neither ours nor the next release"
+            )
+
+    ids: list[str] = []
+    for item in lines["OPEN"]:
+        shaped = re.match(
+            r"(\S+) (us|them) (fixing at \S.*|cannot, because \S.*)$", item
+        )
+        if shaped is None:
+            problems.append(
+                f"STATUS-OPEN is not '<id> <owner> <fixing at …|cannot, because …>': {item!r}"
+            )
+        else:
+            ids.append(shaped.group(1))
+    if len(ids) != len(set(ids)):
+        problems.append(f"STATUS-OPEN repeats an id: {sorted(ids)}")
+    return problems
+
+
+def test_the_status_block_is_current() -> None:
+    """Every D6 line agrees with the record and the code, and is in D6's shape."""
+    problems = _status_block_problems(_status_text())
+    assert not problems, "the status block is stale:\n  " + "\n  ".join(problems)
+
+
+def test_the_status_block_check_can_fail() -> None:
+    """Each check fails on a copy of the real text with its one fact changed.
+
+    Floor: every mutation must land (the needle is in the text) and must produce
+    a problem, so the check cannot pass by parsing nothing.
+    """
+    from platterpus.deps import fork_source
+
+    text = _status_text()
+    newest = _newest_round_on_disk()
+    released_ours = [name for _, _, name, released in _laps("outbound") if released]
+    mutations = {
+        "the round": (f"STATUS-ROUND: {newest},", f"STATUS-ROUND: {newest - 1},"),
+        "our newest lap": (
+            f"newest sent {released_ours[-1]}",
+            "newest sent round-01-lap-01.md",
+        ),
+        "the approved pin": (f"pins {fork_source.FORK_PIN}", "pins 0000000"),
+        "the build under review": (
+            f"reviews {fork_source.PIN_UNDER_REVIEW}",
+            "reviews 0000000",
+        ),
+        "the run's provider": (
+            f"STATUS-RUN-NEXT: {fork_source.PIN_UNDER_REVIEW}",
+            "STATUS-RUN-NEXT: 0000000",
+        ),
+        "an open item's shape": (
+            "STATUS-OPEN: screenshot-unexposed us cannot, because",
+            "STATUS-OPEN: screenshot-unexposed maybe later",
+        ),
+    }
+    assert len(mutations) >= 6
+    for what, (needle, replacement) in mutations.items():
+        assert needle in text, f"{what}: the needle {needle!r} is not in the block"
+        assert _status_block_problems(text.replace(needle, replacement, 1)), (
+            f"changing {what} in the status block was not caught"
+        )

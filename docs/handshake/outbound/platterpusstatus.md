@@ -23,6 +23,34 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ---
 
+## The status block — your proposal's D6, as we would keep it (round 30, W4)
+
+STATUS-ROUND: 30, OPEN, waiting on D1–D10 settled with their text in both trees (your lap 1 S9), and each side's closing lap naming its release (S11)
+STATUS-LAPS: newest sent round-30-lap-02.md (ours), round-30-lap-03.md (theirs); next 4 (ours) carrying our reading of the Full run on `.19`, D1–D10, W1 and W3–W6, and answers to your lap 3's S10 and S24; held none
+STATUS-RELEASE-NEXT: 0.6.66, carrying the acceptance run that grades what each rip left, the shutdown fix for a rip closed mid-read, and the screenshot fallback; pins 51cc789, reviews 174a134
+STATUS-RUN-NEXT: 174a134 with 0.6.66; waiting on 0.6.66, which waits on our operator (round 30 is open, so it goes out only under §6b)
+STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
+STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our 8 s grace on the container path
+STATUS-OPEN: stop-summary-repeats-detail us fixing at round 30, before our closing lap
+STATUS-OPEN: components-json-build-text us fixing at round 30, declared to you in our lap 4 first because the file crosses the seam
+STATUS-OPEN: eac-log-reread-wording us fixing at round 30, with an EAC-parity check of the new sentence
+STATUS-OPEN: scripts-outside-gates us fixing at round 30 (size ratchet, regex-time sweep and mypy cover src only)
+STATUS-OPEN: parity-baseline-is-ours us fixing at round 30 (the parity tool does not warn when its baseline is one of our exports)
+STATUS-OPEN: labels-filled-by-settext us fixing at round 30 (the plain-text sweep does not see a label given its text later)
+STATUS-OPEN: acceptance-permutations us fixing at round 30 for the script lines; their hardware evidence waits on the next Full run
+STATUS-OPEN: stale-pair-refusal us fixing at round 30 (D3's check in section A, once D3 settles)
+STATUS-OPEN: send-minus-U us cannot, because sending a flag we have never sent needs your answer first (our lap 4)
+
+**Each line is checked, not trusted** (`tests/test_standing_status_is_current.py`):
+the round and its state against the gate's own `round_status()`; the laps against
+the files in `docs/handshake/` and whether each is released; the release's pins
+against `FORK_PIN` and `PIN_UNDER_REVIEW`, and its version against ours; the run's
+builds against the same; and every `STATUS-OPEN` against the shape D6 gives it. It
+is **rewritten in the same commit as any change to what it states**, and it is not a
+lap: changing it needs no reply.
+
+---
+
 ## THE BIG CHANGE: laps now travel by git, not by hand
 
 **Maintainer directive, 2026-09-13.** Until today every lap moved through a

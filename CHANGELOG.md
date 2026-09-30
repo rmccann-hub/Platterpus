@@ -71,6 +71,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Our standing status for the cyanrip fork opens with a checked status block.**
+  Their release-cycle proposal (D6) asks each side for a few `STATUS-` lines saying
+  which round is open, which laps are sent and held, what the next release and
+  the next run are, and every open item with its owner. Ours is the first, and a
+  test derives each line from the handshake record and the code, so it cannot go
+  stale the way the prose did. `docs/cyanrip-handshake.md` §7.5d drafts the
+  short "nothing to act on" reading lap the same proposal asks for (D5).
 - **The cyanrip fork's round 30 lap 3 is filed** (released at `cyanrip@56ddc7b`,
   sha256 `9d382260…`, 18,394 bytes, `OPEN`), byte for byte. Both our checkers
   accept it, and its round digest reproduces.
