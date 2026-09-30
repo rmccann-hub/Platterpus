@@ -846,12 +846,54 @@ def test_lsl_3_rule_ids_are_the_ones_their_proposal_defines() -> None:
     assert "`LSL: 3`" in text.split("## Syntax", 1)[1].split("\n## ", 1)[0]
 
 
-def test_the_version_line_names_all_three_versions(tmp_path: Path) -> None:
-    lap = _check(tmp_path, _header() + "LSL: 4\n\n" + PLAIN_FACT + _BODY_END)
+def test_the_version_line_names_every_implemented_version(tmp_path: Path) -> None:
+    lap = _check(tmp_path, _header() + "LSL: 5\n\n" + PLAIN_FACT + _BODY_END)
     [problem] = [p for p in lap.problems if p.rule == "LSL.version"]
-    assert "implements LSL 1, 2 and 3" in problem.message
+    assert "implements LSL 1, 2, 3 and 4" in problem.message
     opened = _check(tmp_path, _header(verdict="OPEN") + "LSL: 3\n\nS1 VERDICT: OPEN\n")
     assert opened.lsl_version == 3
+
+
+def test_the_help_names_every_implemented_version(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`--help` says what the checker implements, from the same table."""
+    from laplang import cli
+
+    with pytest.raises(SystemExit):
+        cli.main(["--help"])
+    assert "LSL 1, 2, 3 and 4" in " ".join(capsys.readouterr().out.split())
+
+
+_PRE_COMMIT = (
+    "S2 WILL: Our next lap is GO unless the run fails.\n"
+    "  owner: us\n"
+    "  when: {when}\n"
+    "  verdict: GO\n"
+    "  unless: the run fails\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("version", "when", "refused"),
+    [
+        (4, "our next lap", False),
+        (4, "once the bundle is committed to our tree", True),
+        (3, "once the bundle is committed to our tree", False),
+    ],
+)
+def test_lsl_4_holds_a_pre_commit_to_the_one_literal(
+    tmp_path: Path, version: int, when: str, refused: bool
+) -> None:
+    """LSL 4's C1 (round 30: their lap 3 S10, our lap 4 S36, their lap 5 S12):
+    under `LSL: 4` a WILL carrying verdict: says exactly `when: our next lap`,
+    refused under A2 otherwise; an LSL 3 lap keeps the rule it was written
+    under, so the same prose is accepted there."""
+    body = PLAIN_FACT + _PRE_COMMIT.format(when=when) + "S3 VERDICT: GO\n  basis: S1\n"
+    lap = _check(tmp_path, _header() + f"LSL: {version}\n\n" + body)
+    assert lap.lsl_version == version
+    c1 = [p for p in lap.problems if p.rule == "A2" and "LSL 4" in p.message]
+    assert bool(c1) is refused, [p.message for p in lap.problems]
 
 
 #: Our checker's report on each committed round-28 lap: once as filed (`LSL: 1`)
@@ -1027,7 +1069,7 @@ def test_r6_counts_exactly_the_pre_commits_a2_accepts(
         # The refusal says why the WILL did not count, and where it would.
         assert "S2 WILL states verdict: GO and unless:" in r6[0], r6
         assert "this lap declares LSL 1" in r6[0], r6
-        assert "in LSL 2 or 3, as a WILL" in r6[0], r6
+        assert "in LSL 2, 3 or 4, as a WILL" in r6[0], r6
 
 
 # B1 without --rerun: every run: names the commit it ran at.

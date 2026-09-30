@@ -75,6 +75,8 @@ class ArtifactVerbsMixin:
 
         def _rip_album_dir(self, step: Step) -> Path | None: ...
 
+        def _ensure_artifact_dir(self) -> Path | None: ...
+
     def _grade_when_settled(
         self,
         step: Step,
@@ -189,13 +191,20 @@ class ArtifactVerbsMixin:
         if expected is None:
             self._record(step, Outcome.ERROR, "no track table on the window")
             return
-        self._grade_when_settled(
-            step,
-            folder,
-            lambda _path, report: tag_grading.grade_tags(
-                tag_grading.ripped_masters(report, folder), expected
-            ),
-        )
+
+        def grade(_path: Path, report: dict[str, Any]) -> grading.Grade:
+            masters = tag_grading.ripped_masters(report, folder)
+            # The first FLAC's tags as text in the run folder, so the bundle,
+            # which carries no audio, carries the tags as the file holds them
+            # (the fork's round 30 lap 3 S24). Written whatever the grade says.
+            directory = self._ensure_artifact_dir()
+            if directory is not None and masters:
+                (directory / f"tags{step.line_no:04d}.txt").write_text(
+                    tag_grading.render_tags(masters), encoding="utf-8"
+                )
+            return tag_grading.grade_tags(masters, expected)
+
+        self._grade_when_settled(step, folder, grade)
 
     def _do_expect_cover_art(self, step: Step) -> None:
         """The cover art on disk is what the ``cover_art`` setting asks for."""

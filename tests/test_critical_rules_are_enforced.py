@@ -1143,7 +1143,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1772 -> 1782** (2026-09-28, `-Z` that `-r` cannot satisfy): the `-r` the argv carries goes through `cyanrip_cli.retries_flag_value`, the one mapping the validator and the rip worker also use to predict it; the comment says why it is not an inline `if`.
     # **1782 -> 1841** (2026-09-28, `-Z` that `-r` cannot satisfy): `assert_secure_reread_can_converge`, called from the argv chokepoint beside the range check it sits next to, and `_last_int_value`, which reads a flag the way genopt applies it (the last occurrence). The rule is `cyanrip_cli.secure_reread_problem`; this is the argv reader and its reasons.
     # **1841 -> 1839** (2026-09-30): the `-G` comment corrected (it only stops embedding; `-U` gates the cover-art lookup line) in two fewer lines.
-    "adapters/cyanrip_backend.py": 1839,
+    # **1839 -> 1852** (2026-09-30, round 30): `-U` on every rip, with the fork's measurement that it changes one log line and no checksum (their lap 5 S15); and the `-f` notes corrected: cyanrip HAS an AccurateRip offset finder (`cyanrip@174a134:src/cyanrip_main.c:594-692`), what it lacks is a measurement against a known offset, which acceptance section O now takes. The history of the scraped-0 bug stays, because it is why `find_offset` is still unimplemented.
+    "adapters/cyanrip_backend.py": 1852,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1157,7 +1158,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **641 -> 663** (2026-09-29, the round-29 Full run): `ProbeCancelled` and the
     # branch that records a probe our own cancel ended as ours, an `info`, where it was a
     # `deps.command_failed` warning every rip report of the session carried.
-    "adapters/rip_backend.py": 663,
+    # **663 -> 664** (2026-09-30): `supports_offset_detection` said cyanrip has no AccurateRip offset finder; it has one (`-f`), not yet proved against a known offset.
+    "adapters/rip_backend.py": 664,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -1197,7 +1199,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `finally` that clears it is the one that stops the timers and breaks the
     # closure->box reference (measured: one leaked hidden QMessageBox per
     # auto-close without it). A separate module would split one `finally` in two.
-    "app.py": 1555,
+    # **1555 -> 1560** (2026-09-30): `app.main` joins `exit_work` after `app.exec()` returns and before `hard_exit` decides how to leave; the exit path is where that join belongs.
+    "app.py": 1560,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
@@ -1478,7 +1481,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **423 -> 411** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # 405 -> 417 on 2026-09-28 (review R6): `_host_tool`, so pkill/fuser/eject skip the container exports on PATH as well as in their own lists; rule #3's exception says the host goes first, and this module is where that exception lives.
     # **417 -> 525** (2026-09-30): the shutdown path's graceful stop (`stop_reader_gracefully`, `device_is_held`): SIGTERM, a grace, then SIGKILL only if the drive is still held. It is the same kill sequence's first step, so it lives beside `free_drive` (the fork's round 30 S25).
-    "drive_control.py": 525,
+    # **525 -> 538** (2026-09-30, the fork's round 30 lap 5 S17): `READER_TERM_GRACE_S` 8 -> 40 s, with the evidence (our filed log's 20 s read, the fork's 11 s) beside the number; `free_drive`'s docstring no longer claims a sanctioned GUI-thread caller.
+    "drive_control.py": 538,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     "drive_profiles.py": 447,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
@@ -2117,7 +2121,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4852 -> 4861** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `_start_ctdb_verify` hands the worker the rip's parsed log and the probe's track count, read at launch on the GUI thread, because the daemon runs later.
     # 4861 -> 4867 on 2026-09-28 (the round-28 Full run): the debug block is built from ONE buffer snapshot, so the count in its scope is the count in its marker.
     # **4867 -> 4868** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the `failure_hint` comment names both wordings.
-    "ui/main_window_rip.py": 4867,
+    # **4867 -> 4882** (2026-09-30, the fork's round 30 lap 5 S17, our operator's option B): `_stop_rip_on_shutdown` hands the reader stop to `exit_work` instead of blocking the GUI thread for the grace, reading the two values the helper needs on the GUI thread first; the docstring says why the old sanctioned block ended. The job itself went to the new `exit_work.py`.
+    "ui/main_window_rip.py": 4882,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2318,7 +2323,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4622 -> 4604** (2026-09-30): lowered: `expect-verification` now asks `artifact_grading.settle_state` and `report_path`, shared with the artifact verbs, instead of reading the report itself.
     # **4604 -> 4636** (2026-09-30, the round 30 Full run): the screenshot step renders OPEN windows, labelled and as INFO, when the display shows none (all seven post-rip screenshots failed with every window visible and unexposed); it belongs beside the refusal it qualifies.
     # **4636 -> 4608** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the unsafe gate and `unsafe_allowed` went; dispatch is the handler lookup alone.
-    "uiscript/runner.py": 4608,
+    # **4608 -> 4631** (2026-09-30, round 30's D3 and S24): `_deadline_cancel` and `_cancel_deadline_work`, so a waiting verb that started a child says how to stop it, and the runner calls it on stop, on timeout and on a faulted predicate (Critical rule #9: abandoning a helper is safe only once its child is dead). It is deadline machinery and lives with it. The three verb handlers went to a new mixin, `probe_verbs.py`, not here.
+    "uiscript/runner.py": 4631,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2342,7 +2348,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **811 -> 862** (2026-09-30): six verb declarations for grading what a rip left (`expect-album-audit`, `-accuraterip`, `-ctdb`, `-tags`, `-cover-art`, `track-title`); help lives beside the verb.
     # 811 was recorded with: "+46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,".
     # **862 -> 834** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `eval`, `call`, the `unsafe` field and `UNSAFE_VERBS`/`UNSAFE_VERBS_BUILT` went.
-    "uiscript/verbs.py": 834,
+    # **834 -> 863** (2026-09-30, round 30): three verb declarations, `expect-newest-pair` (D3), `expect-found-offset` and `cache-probe` (the fork's lap 3 S24). The table is the vocabulary's security boundary, so a verb is an entry here by design.
+    "uiscript/verbs.py": 863,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical

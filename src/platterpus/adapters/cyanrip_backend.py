@@ -15,18 +15,21 @@ DiscID/CDDB ID are computed locally from the TOC, so identification needs no
 network), plus `analyze_drive` — cyanrip itself has no cache-analysis command, but
 its read engine IS libcdio-paranoia, so we measure the cache verdict with the
 standalone ``cd-paranoia -A`` via `adapters/cache_probe.py` (KDD-29). **Not**
-implemented: `find_offset` — cyanrip has no trusted offset-finder, so it inherits
-``NotImplementedError`` (the read offset comes from the AccurateRip drive-model
-list + manual entry, and is re-confirmed by an AccurateRip-matching rip, KDD-31).
+implemented: `find_offset` — cyanrip's own finder (``-f``) has not yet been
+measured against a known offset, so it inherits ``NotImplementedError`` (the read
+offset comes from the AccurateRip drive-model list + manual entry, and is
+re-confirmed by an AccurateRip-matching rip, KDD-31).
 
 cyanrip CLI (from its README): ``-d`` device, ``-s`` sample offset, ``-o``
 codec list (flac default), ``-r`` retries, ``-N`` disable MusicBrainz
 (always passed — the GUI feeds the tags instead), ``-a``/``-t`` album/track
 metadata, ``-D``/``-F`` dir/file naming schemes (``{key}`` substitution),
-``-G`` disable cover-art embed, ``-I`` info-only, and the version flag —
-which is ``-V`` on 0.9.3.x but ``-v``/``--version`` from 0.9.4-rc1 on, so we try
-both (see `platterpus.cyanrip_cli`). (``-f`` is cyanrip's *force-overread*, NOT an
-offset finder — we never use it.)
+``-G`` disable cover-art embed, ``-U`` disable the Cover Art DB query, ``-I``
+info-only, and the version flag — which is ``-V`` on 0.9.3.x but
+``-v``/``--version`` from 0.9.4-rc1 on, so we try both (see
+`platterpus.cyanrip_cli`). ``-O`` is cyanrip's overread; ``-f`` is its drive-offset
+finder (``--find-offset``), which a rip never sends. (This line said ``-f`` was
+force-overread until 2026-09-30; the fork's provider contract, P1, says otherwise.)
 """
 
 from __future__ import annotations
@@ -357,12 +360,18 @@ class CyanripImpl(RipBackend):
         #   "No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!"
         # (still at line 41 of the round-29 `.18` whole-disc log, `-G` in its argv):
         # that line is the Cover Art DB query's, gated by `-U`
-        # (cyanrip@174a134:src/coverart.c:382-392), which we do not send. Under
-        # `-N` the query cannot succeed, so it is noise, not a fault; sending `-U`
-        # changes what crosses the seam, so it is a next-round item (TASKS.md,
-        # "`-U`, not `-G`"). `cover_art` stays in the signature — it is recorded
-        # in the rip plan the log prints — but it does not gate this.
+        # (cyanrip@174a134:src/coverart.c:382-392). `cover_art` stays in the
+        # signature — it is recorded in the rip plan the log prints — but it does
+        # not gate this.
         argv.append("-G")  # we always do cover art ourselves; never the ripper
+        # `-U` UNCONDITIONALLY too, from 2026-09-30: it turns off the Cover Art DB
+        # query and nothing else. Under `-N` that query cannot succeed (the release
+        # ID it needs comes only from cyanrip's own lookup), so every archival log
+        # carried its "cannot search Cover Art DB!" line as noise. The fork
+        # measured it (their round 30 lap 5 S15): an image rip with `-N -G` and one
+        # with `-U` added differ by that one line, every checksum identical, and
+        # art given with `-C` still loads. Declared to them in our round 30 lap 6.
+        argv.append("-U")
         # `-j`: cyanrip's own machine-readable diagnostics record, written beside
         # the rip (the child runs with `cwd=output_dir`).
         #
@@ -634,17 +643,21 @@ class CyanripImpl(RipBackend):
 
         cache_probe.cancel_active_probe()
 
-    # NOTE: `find_offset` is deliberately NOT implemented. cyanrip has no
-    # AccurateRip offset-finder — its ``-f`` is *force-overread*, not a detector —
-    # so there is nothing to run. An earlier version ran ``cyanrip -f`` and
-    # regex-scraped "offset…N" from the output, which latched onto cyanrip's
-    # help/default echo and returned a meaningless 0 that then overrode the
-    # correct AccurateRip-list value (a silent wrong-offset bug on real
-    # hardware — the drive's true offset was +667). By leaving `find_offset`
-    # unimplemented we inherit the base class's ``NotImplementedError``, which the
-    # drive-setup wizard already handles as "this backend can't auto-detect the
-    # read offset"; the offset comes from the bundled AccurateRip drive-model list
-    # + manual entry instead.
+    # NOTE: `find_offset` is deliberately NOT implemented. cyanrip DOES have an
+    # AccurateRip offset finder, ``-f`` (``search_for_drive_offset``,
+    # `cyanrip@174a134:src/cyanrip_main.c:594-692`); this comment said until
+    # 2026-09-30 that ``-f`` was force-overread, which was wrong. What it has
+    # never had is a measurement against a known offset: an earlier version of
+    # this method ran ``cyanrip -f`` and regex-scraped "offset…N" from the
+    # output, which latched onto the wrong line and returned a meaningless 0
+    # that then overrode the correct AccurateRip-list value (a silent
+    # wrong-offset bug on real hardware — the drive's true offset was +667).
+    # Section O of the acceptance run now grades ``-f``'s own summary line
+    # against that +667 (`uiscript/probe_grading.py`), and that is the evidence
+    # to implement this against, if it earns it. Until then we inherit the base
+    # class's ``NotImplementedError``, which the drive-setup wizard already
+    # handles as "this backend can't auto-detect the read offset"; the offset
+    # comes from the bundled AccurateRip drive-model list + manual entry instead.
 
     def _run(
         self, args: list[str], timeout: float = _INFO_TIMEOUT_S, *, strict: bool = False
