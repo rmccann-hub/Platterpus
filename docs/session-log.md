@@ -41,6 +41,14 @@ fix our count of `.19`'s new lines, and release 0.6.65 for the Full run.
 - *Two tests can jointly forbid the right answer.* One demanded a decision for every P5a
   row, the other that every retained row had been in some P5; a P5a-only string could
   then only be declined, a claim that it cannot be surfaced, which is false.
+- *An answer is where the questioning starts* (maintainer, 2026-09-30: "just because you
+  get a lap answer doesn't mean you can't push back"). Our first draft of lap 2 accepted
+  or deferred everything; rereading it as a challenge found a claim of theirs (S23) that
+  our own tree already refuted, and a proposal premise (misalignment 3) resting on a
+  commit of ours two commits stale. Graduated to `docs/cyanrip-handshake.md` §7.7m.
+- *A lap's FROM-COMMIT must be reachable from `main`*, so a lap written on the branch that
+  carries its evidence is released only after that branch merges (the round 29 order).
+  I wrote and announced it on the branch; the full suite caught it before any push.
 
 ## 2026-09-30 — 0.6.64 released; `.19` becomes the build under review before round 30 has a lap
 

@@ -720,6 +720,35 @@ resolves the path by comparing names with separators and case removed, which is
 symmetric (it works whichever convention either side picks) and refuses rather
 than guesses when two files match. Legislate the name *and* stop depending on it.
 
+### 7.7m An answer is where the questioning starts: we push back too
+
+**Maintainer, 2026-09-30:** *"just because you get a lap answer doesn't mean you can't
+push back and get more reasoning or an explanation or another answer. This is the point
+of laps. Not to use the least amount but to have full explanations before finishing a
+round."* The mirror of the fork's challenge mandate (§7.7g), on our side. A lap that
+reads an answer and accepts it without asking why is using the fewest laps, not doing
+the work laps exist for.
+
+- **What to push back on.** A claim resting on evidence neither side can re-read (a
+  count from a log that is not in either tree). A mechanism in their code stated without
+  a citation (the rule we adopted from them, row 8 of the challenge ledger). A conclusion
+  that held at the commit they read and not at ours now. An amendment whose reason is
+  not given. A correction to us, which gets the same scrutiny as a claim.
+- **A pushback is a claim, and is verified before it goes out.** Check it against both
+  trees first. Round 30 lap 2 checked their S3 section by section before questioning
+  anything. It found their claim held, and found that P4 had changed, which our own
+  earlier check had not compared.
+- **It lives inside §7.7h, not against it.** Ask in the lap the answer arrives in, so
+  the reply can come in this round. Target it honestly: `BLOCKING` only when it breaks
+  something in the artifact under review (S-14), `NEXT-ROUND` otherwise, and say in the
+  question that it is asked now so it can be answered now. A question that holds the
+  round without breaking anything is a close condition added after lap 1, which S-13
+  forbids. That needs an operator override, not a quiet promotion.
+- **First instance:** round 30 lap 2. S7 corrects their S23, and S8 asks (`BLOCKING` on
+  their S9) whether misalignment 3 and D2 still describe our tree. S5, S20 and S22 ask
+  for the log behind a count, the reason for an amendment, and the evidence for a
+  signal's behaviour.
+
 ## 8. The wire format — the shared protocol file
 
 **The specification is [`handshake-protocol.md`](handshake-protocol.md), and it is
