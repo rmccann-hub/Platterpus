@@ -1,22 +1,22 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.63        the release for round 29's run. It installs e0471f4 by
-                           default, and accepts 51cc789 as the build under review.
-            v0.6.62        the release before it: it accepts e0471f4 as the build under
-                           review, not .18, so section A stops a run on it.
-cyanrip     e0471f4        0.9.4-rc2+platterpus.17  (platterpus-fork-ge0471f4)  <- PRODUCTION PIN
-                           approved by round 28, for Platterpus 0.6.61, on the Full run
-            51cc789        0.9.4-rc2+platterpus.18  (platterpus-fork-g51cc789)  <- UNDER REVIEW
-                           released, release_seq 28, both channels; round 29's subject
+Platterpus  v0.6.64        round 29's closing release, not yet released: it installs
+                           51cc789 by default.
+            v0.6.63        the release round 29's run was on: it installs e0471f4 by
+                           default, and accepts 51cc789 as the build that round reviewed.
+cyanrip     51cc789        0.9.4-rc2+platterpus.18  (platterpus-fork-g51cc789)  <- PRODUCTION PIN
+                           approved by round 29, for Platterpus 0.6.63, on the Full run
 drive       Pioneer BDR-209D 1.51, read offset +667
-rounds 1-28 ALL CLOSED on both gates, bilateral GO.
-round 29    OPEN on 51cc789. Close condition 1 is this sheet's run.
+rounds 1-29 ALL CLOSED, bilateral GO (round 29 on 2026-09-29).
+round 30    not open.
 ```
 
-> **Header last moved 2026-09-28**, when round 29 opened on `.18` (the fork's lap 1,
-> sha256 `2e275d2f…`): the next run is round 29's Full run on `.18` from 0.6.63.
-> Before that, the same day, when round 28 closed on our gate and `FORK_PIN`
+> **Header last moved 2026-09-29**, when round 29 closed on our gate and `FORK_PIN`
+> rolled to `51cc789`, on the Full run of 0.6.63 (320 of 323 steps, the three failures
+> screenshot steps of ours, none in a rip). Before that, 2026-09-28, when round 29 opened
+> on `.18` (the fork's lap 1, sha256 `2e275d2f…`), for that Full run. Before that, the
+> same day, when round 28 closed on our gate and `FORK_PIN`
 > rolled to `e0471f4`, on the Full run of 0.6.61 (320 of 320 steps), which the operator
 > chose to close the round on. Before that, the same day, to 0.6.62: the operator had
 > moved round 28's Full run from 0.6.61 to it, an override of R1 our lap 6 records
@@ -55,25 +55,29 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 
 ## What the next run is for
 
-**Round 29's close condition 1** (the fork's round 29 lap 1 S6): our **Full** acceptance
-run on the rig, with `.18` installed through the app, from **0.6.63**, whose
-`PIN_UNDER_REVIEW` is `51cc789`, and the bundle committed to both repositories. Then
-each side reads it (S7): they read every cyanrip log in the bundle and we read our
-reports. Round 29 closes when the tag change is read (S8, done on our side: our
-operator accepted the key set as landed) and both closing laps name their releases
-(S9): ours rolls `FORK_PIN` to `51cc789`, and theirs is `+platterpus.19`.
+**No round needs a run: round 29 closed on 2026-09-29.** The next Full run is on
+**0.6.64**, once it is released, with `.18` installed, which that release installs by
+default. Section A then expects `51cc789` as the approved build, and every rip records
+its ripper as approved.
 
-**A run on 0.6.62 or earlier is a setup check, not this round's evidence**: 0.6.62
-accepts `e0471f4` as the build under review, not `.18`, so section A stops it in its
-first seconds with `.18` installed.
+**Round 30 needs its own Full run, and not on 0.6.64.** The fork's next build, `.19`, is
+not published yet (both channels of their manifest name `.18`, 2026-09-30). When it is
+and round 30 opens on it, the run is on the Platterpus release that names `.19` as the
+build under review, 0.6.65 at the earliest, with `.19` installed. One run tests both.
 
-**The run is also a candidate full-green pass, which the project has never had.** The
-field-evidence ledger (`docs/testing.md` §5B) has no `full-green` row; the 2026-09-28
-run is graded `partial`, because our own records carried two archival defects, both
-fixed for 0.6.63. `0.7.100` is gated on a run with **zero failures in the ARCHIVAL
-sections**; `0.9.1` needs two such runs on at least two machines and two distros. Its
-ripper will be stamped `unapproved` in every report, correctly, while round 29 is open.
-**Only a Full run counts as evidence**; Quick and Standard are for checking the setup.
+**It is a candidate full-green pass, which the project has never had.** The
+field-evidence ledger (`docs/testing.md` §5B) has twelve rows and no `full-green` one.
+Round 29's run is `partial` because three screenshot steps, in sections graded archival
+in advance, found no window on screen. Our hypothesis is that the display blanked, and
+until the app holds the screen awake itself (`TASKS.md`), set the machine's screen to
+never turn off for the run. `0.7.100` is gated on a run with **zero failures in the
+ARCHIVAL sections**; `0.9.1` needs two such runs on at least two machines and two
+distros. **Only a Full run counts as evidence**; Quick and Standard are for checking the
+setup.
+
+**What 0.6.64 changes for the person at the rig.** Nothing to do differently. A Rescan
+no longer leaves a "cyanrip exited -9" warning in every later report, and a rig session
+on a machine that cannot reach GitHub records the failed clone and carries on.
 
 **What `.18` carries** over `.17`, five commits of the fork's in `src/` and one merge of
 upstream's: `Encoder errors:` counts only tracks whose read completed, and a new line,

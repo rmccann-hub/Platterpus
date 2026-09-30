@@ -216,7 +216,14 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: 0.6.61 with `e0471f4` installed, 320 of 320 steps with none failed, errored or
 #: skipped (`docs/handshake/artifactsround28/`). Our lap 9 said this commit would
 #: roll it. The RELEASE that ships this constant is 0.6.63, our closing release.
-FORK_PIN: Final[str] = "e0471f4"
+#: **Rolled to `51cc789` (`+platterpus.18`) on round 29's close on OUR gate
+#: (2026-09-29)** — our lap 4 `GO`, released on the maintainer's word ("Announce"),
+#: against their lap 3 `GO`. Round 29's evidence is the FULL run on 0.6.63 with
+#: `51cc789` installed through the app, 320 of 323 steps, the three failures being
+#: screenshot steps of ours and none in a rip (`docs/handshake/artifactsround29/`).
+#: Our lap 4 said this commit would roll it. The RELEASE that ships this constant is
+#: 0.6.64, our closing release.
+FORK_PIN: Final[str] = "51cc789"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -476,7 +483,11 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: round 28 lap 8's `HANDSHAKE-RIPPER-VERSION` — `cyanrip 0.9.4-rc2+platterpus.17
 #: (platterpus-fork-ge0471f4)` — and cross-checked against `meson.build` at
 #: `e0471f4` in their tree (line 21), which declares the same string.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.17"
+#: **Rolled to `0.9.4-rc2+platterpus.18` on 2026-09-29, with `FORK_PIN`**, read off
+#: round 29 lap 3's `HANDSHAKE-RIPPER-VERSION` — `cyanrip 0.9.4-rc2+platterpus.18
+#: (platterpus-fork-g51cc789)` — and cross-checked against `meson.build` at
+#: `51cc789` in their tree (line 21), which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.18"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -658,7 +669,9 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: lets section A accept it. `.18`'s change to `src/` is five commits of theirs and
 #: the merge of upstream's `f8ebf48` (`git log --first-parent e0471f4..51cc789 --
 #: src/`), and that merge changes only `musicbrainz.c`; none touches option parsing.
-#: **`FORK_PIN` stays `e0471f4` until round 29 closes.**
+#: **`FORK_PIN` stays `e0471f4` until round 29 closes.** **It closed on our gate on
+#: 2026-09-29 and `FORK_PIN` rolled with it**, so this is now also the release pin
+#: until round 30 opens on a new subject.
 PIN_UNDER_REVIEW: Final[str] = "51cc789"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
@@ -1627,17 +1640,19 @@ PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
     why=(
-        "the build round 28 approved, GO on both sides, and published by the fork "
-        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 27 — read "
+        "the build round 29 approved, GO on both sides, and published by the fork "
+        f"to BOTH channels (cyanrip {FORK_EXPECTED_VERSION}, release_seq 28 — read "
         "from their live release-manifest.json, and the version cross-checked "
         "against meson.build at the pin itself rather than taken from the lap). "
-        "Over +platterpus.16 it compares only frame-450 checksums on a frame-450 "
-        "AccurateRip lookup, says a frame-450 match covers one frame only, and "
-        "writes its banner as soon as the log opens. Round 28's evidence is the "
-        "Full run on a drive, installed through Platterpus 0.6.61: 320 of 320 "
-        "steps passed and all eight rips' logs verify. The early-failure banner "
-        "was not reached on that run. See "
-        "docs/handshake/inbound/round-28-lap-08.md"
+        "Over +platterpus.17 it prints a stop marker when a signal stops a read, "
+        "counts only whole tracks under Encoder errors and names partial files, "
+        "lets the disc-level AccurateRip line say mismatch and not found, and "
+        "takes upstream's MusicBrainz retry. Round 29's evidence is the Full run "
+        "on a drive, installed through Platterpus 0.6.63: 320 of 323 steps passed, "
+        "the three failures being screenshot steps, and all ten rips' logs verify. "
+        "The stop marker and the new footer lines printed on that run; the "
+        "AccurateRip mismatch and not-found arms and the MusicBrainz retry were not "
+        "reached. See docs/handshake/inbound/round-29-lap-03.md"
     ),
 )
 

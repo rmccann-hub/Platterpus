@@ -78,6 +78,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The approved ripper is now the fork's `.18`, `51cc789`.** Handshake round 29
+  closed on our side with `GO` from both projects, on the Full acceptance run on
+  0.6.63 with `.18` installed (320 of 323 steps; the three failures are screenshot
+  steps of ours, none in a rip). `FORK_PIN` moves from `e0471f4` to `51cc789` and the
+  expected version to `0.9.4-rc2+platterpus.18`, and the approval record now names
+  round 29 and Platterpus 0.6.63. Over `.17`, `.18` prints *"Stopping, ripping
+  incomplete!"* whenever a signal stops a read, counts only whole tracks under
+  `Encoder errors:` and names a partial file on a new `Partial files:` line, and lets
+  the disc-level `AccurateRip:` line read `mismatch` or `not found`. Our round 29 lap 4
+  is released. The standing status, rig sheet, README, dependency table and hardware
+  checklist name the new pin, the envelope carries lap 4, and the generated consumer
+  contract is regenerated for it. The tests about a round that is still open now set
+  that state themselves rather than reading it off the live pins.
 - **The About box (Help → About Platterpus…) and the ripper update offer now say
   what the ripper build means.** About listed the ripper as `cyanrip: 0.9.4 ✓`, which does not say whether it is the
   Platterpus fork or upstream, which build it is, or whether it is approved. The
