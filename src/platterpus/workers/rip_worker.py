@@ -280,6 +280,15 @@ _RIPPER_ERROR_PREFIXES: tuple[str, ...] = (
     # not — which the fixture caught immediately, and reading the prefix list
     # would not have.
     "-J",
+    # `.19`'s two `-Z`/`-r` refusals, fatal and new (cyanrip@174a134,
+    # PROVIDER-CONTRACT.md: `cyanrip_main.c:2071` and `:2077`, both "control flow").
+    # They begin with a hyphen, so no word prefix reaches them, and our inventory
+    # is round 28's until `.19`'s contract is filed with the fork's round 30 lap.
+    # Measured before adding: of the 539 table rows in that contract, exactly
+    # these two begin with `-Z`. Our own argv check refuses the same pairs before
+    # cyanrip starts, so a rip should never reach them; if one does, the user
+    # reads cyanrip's sentence rather than a bare "Rip failed." (2026-09-30).
+    "-Z",
     # Two more, found on our side while implementing `-c disc/totaldiscs` by
     # reading the fork's `src/cyanrip_main.c` at the pin instead of reading its
     # generated inventory. Both are fatal (`return 1`), both are argument

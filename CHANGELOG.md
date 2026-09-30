@@ -16,6 +16,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The fork's two new `-Z`/`-r` refusals reach you in cyanrip's own words.** `.19`
+  prints *"-Z N can never converge with -r M: …"* when a secure re-read could never
+  succeed. Our own settings check refuses the same pairs before cyanrip starts, so a
+  rip should not meet them; if one ever does, the error now names cyanrip's sentence
+  rather than a bare "Rip failed." Found by checking 0.6.65 against every line `.19`'s
+  published contract added: the other two are already handled.
 - **The acceptance test keeps the screen awake, not only the machine.** The round 29
   Full run failed three screenshot steps because every window was on screen in name and
   hidden in fact, most likely because the display blanked: the sleep lock stops the
