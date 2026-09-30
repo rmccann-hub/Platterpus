@@ -3608,10 +3608,10 @@ class ScriptRunner(ArtifactVerbsMixin, QObject):
         script is a second copy of a fact that lives in `release-manifest.json`,
         and only one copy has a checker.*
 
-        `PIN_UNDER_REVIEW` is derived from the newest inbound handshake lap by
-        ``tests/test_handshake_pin_under_review.py``, so this reads one key rather
-        than a duplicate of one, and a pin move now fails in CI rather than on a
-        rig.
+        `PIN_UNDER_REVIEW` is derived by ``tests/test_handshake_pin_under_review.py``
+        from the newest inbound handshake lap, or from a newer filed release
+        manifest when no lap names its build (``_choose_source``). So this reads
+        one key, not a copy of one, and a pin move fails in CI, not on a rig.
 
         Matches against the previous ``cyanrip`` step's output, exactly as
         ``expect-cyanrip`` does — the banner is the only statement of identity

@@ -1251,6 +1251,30 @@ def _commit(repo: Path, message: str) -> None:
     )
 
 
+def test_a_final_line_without_a_newline_can_be_cited(tmp_path: Path) -> None:
+    """Our round 29 lap 4 S33, accepted as their round 30 lap 1 S20: the last line
+    counts whether or not it ends in a newline. Resolved through a real
+    repository, since the count is taken from `git show`'s output."""
+    assert refs.line_count("") == 0
+    assert refs.line_count("banner") == 1
+    assert refs.line_count("banner\n") == 1
+    assert refs.line_count("a\nb") == 2
+    repo, sha = _git_repo(
+        tmp_path, {"one.txt": "cyanrip 0.9.4 banner", "two.txt": "a\nb\n"}
+    )
+    trees = refs.Trees({"platterpus": repo, "cyanrip": None}, {"platterpus": "main"})
+    for token, outcome in (
+        (f"platterpus@{sha}:one.txt:1", "ok"),
+        (f"platterpus@{sha}:one.txt:2", "refused"),
+        (f"platterpus@{sha}:two.txt:2", "ok"),
+        (f"platterpus@{sha}:two.txt:3", "refused"),
+    ):
+        ref = refs.parse_artifact(token)
+        assert ref is not None, token
+        got = trees.artifact(ref, "cyanrip")
+        assert got.outcome == outcome, (token, got)
+
+
 def _worktrees(repo: Path) -> list[str]:
     listed = _in(repo, "worktree", "list", "--porcelain")
     return [line for line in listed.splitlines() if line.startswith("worktree ")]

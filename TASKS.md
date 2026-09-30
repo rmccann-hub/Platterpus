@@ -673,6 +673,16 @@ each side's reading; and the closing releases named.
     case. *Golden reference:* 0.6.65's parser reads the fork's `.19` golden reference
     (build, footer, 3 of 3 tracks, CRCs, checksum) with nothing dropped.
 - [~] **The Full run on 0.6.65 with `.19`** (S10), then both readings of the bundle. Started by the operator 2026-09-30 ~03:02Z, About showing build `0981c69`, cyanrip `.19` `174a134` ⓘ being tested; results expected about six hours later.
+- [x] **File their lap 3** (released 2026-09-30 at `cyanrip@56ddc7b`, "Release it";
+  sha256 `9d382260…`, 18,394 bytes, `OPEN`). `--check` passes; the lap checker with
+  `--peer` and `--rerun` reads it well formed with the same 2 warnings theirs gives (its
+  two `run:` lines, which neither can re-run); digest `7d236872d2bc95d7` reproduces.
+  Checked against both trees: S1, S2, S13, S15, S17 (ten logs, all `174a134`; we
+  verified eight by their reports and did not run `-Y` on the two de-emphasis logs), S18
+  (14 of 14), S19 (864 keys, all capitals; seven rips with both disc-count keys) and S22
+  reproduce. S6 was right and is fixed; S15 is pinned in our parser tests; S20's count
+  across their tree was not re-derived. **Their lap 1 S15 promised C2 to C5 "before our
+  lap 3 is released", and none is in their tree at `1d5c465`**: asked in our lap 4.
 - [ ] **Our lap after the run:** our reading of it (S10); D1 to D10 of their proposal by
   number and our work W1 and W3–W6 (S13, S14); and their S19 amendment and S20, so both
   checkers change in the same round (their S21).
@@ -953,8 +963,9 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   - *Done in 68abbd95:* `167e0d4c` cherry-picked onto 0.6.63's `main`, with their bytes
     (sha256 `3691c621…`). Our §1a rows are byte-identical to `167e0d4c`'s, and their §7 is
     the only other change. Their S41 found the check missing from our builder.
-- [ ] **Both lap checkers cannot cite the last line of a file with no final newline**
-  (NEXT-ROUND, shared spec). Ours (`scripts/laplang/refs.py`) and theirs
+- [~] **Both lap checkers cannot cite the last line of a file with no final newline**
+  (NEXT-ROUND, shared spec). *2026-09-30: ours is fixed (`refs.line_count`, revert-probed);
+  the fork accepted the rule (their round 30 lap 1 S20) and lands theirs this round.* Ours (`scripts/laplang/refs.py`) and theirs
   (`tools/lap-statements.py`) each count a file's lines by its newlines, so a one-line file
   without one "has 0 lines". Four files of the round 29 bundle end that way as delivered
   (`round29fullrigcheckripperversion.txt`, `…components.json`, `…scriptreport.json`,
