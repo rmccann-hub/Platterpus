@@ -2167,6 +2167,24 @@ Four things this cost, each worth its own note:
 
 **"Idempotent", "free", "harmless to repeat" — properties of the CALLEE, and I cannot establish them by reading my own call site.** `f(x); f(x)` is safe only if *`f`* is safe to repeat, so the question is never *"is calling this twice harmless?"* but *"harmless **to whom** — me, or the thing on the other end?"* Three call sites in `RipWorker` each sent their own SIGTERM on a cancel, the third one commented *"asking again is free and idempotent."* Every clause is true of `Popen.terminate()` and none of it is true of **cyanrip's handler**, whose second-signal branch is `SIG_WRITE_LIT("Force quitting"); _exit(1)` — an escape hatch for a user hammering Ctrl-C. `_exit` runs no `atexit`, and `atexit` is where the completion footer and the FUN512 checksum are written, so the "free" repeat replaced a clean shutdown with a forced one and turned an archival log into an unverifiable fragment. Measured at **0.445 ms** between the two signals; half a millisecond is not an impatient human. The callee's source was in a repository we had checked out. Three corollaries, all paid for in the same hour (`docs/testing.md` §5.ay): **a loosened assertion with a confident comment is worse than no assertion** — the test asserted `terminate_calls >= 1` and explained that the double send was deliberate, which tells the next reader the question has been settled; **when a flag needs a reset, ask whether it wanted to be an identity comparison** — "have we signalled?" is a fact about a *subprocess*, and a bool scoped to the worker has no correct place to be reset, while keying on the handle's identity has no window at all; and **a refactor that trips a correctness sweep is a prompt to teach the sweep, not to exempt the subject** — extracting the kill into a chokepoint made `tests/test_qthread_ownership.py` report the cancel as flag-only, and the convenient repair was an allowlist entry asserting something false, in the very file that exists to stop that.
 
+**The same loss, a month later, by a different route (2026-09-30, S25).** A rip
+in the round-29 Full run was left with no footer and no `Log FUN512:`, and the
+fork read the transcript's "the console was closed" as the operator closing it.
+It was the MAIN WINDOW closing (from outside our code), and its shutdown path
+sent the wrapper one SIGTERM — correct, and single — then **191 ms later** freed
+the drive through `fuser -k`, whose default signal is SIGKILL. SIGKILL skips
+`atexit` exactly as the second SIGTERM's `_exit` does, so the lesson above held and
+was defeated one layer down: *one signal* is not the property to protect; *time for
+the handler to finish* is. The rule it leaves: **any path that stops the ripper and
+must keep its record gives it a bounded grace before anything that cannot be
+caught** — SIGTERM, then poll whether it still holds the drive
+(`drive_control.stop_reader_gracefully`, `READER_TERM_GRACE_S`), escalate only if
+it does or if that cannot be determined, and never a second SIGTERM. The
+undeterminable case escalates because the thing being protected on that path is
+the drive and the shutdown, not the log (§5.bw: say which failure the safe
+direction avoids). Hardware still has to show the footer lands inside the grace on
+the container path (TASKS, "S25 on hardware").
+
 ### §5.az — We deleted the ripper's dying words, then reasoned from the gap
 
 **2026-08-25, found while answering the above.** The cyanrip fork examined the
