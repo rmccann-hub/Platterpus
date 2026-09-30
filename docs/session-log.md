@@ -11,6 +11,37 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-09-30 — Round 30 opens on `.19`; the fatal inventory catches up two builds; 0.6.65 goes out under §6b
+
+**Asked:** the fork released its round 30 lap 1 (`cyanrip@171bcf9`). File it, confirm
+the build under review, regenerate the fatal-message inventory from `.19`'s contract,
+fix our count of `.19`'s new lines, and release 0.6.65 for the Full run.
+
+**Done:**
+- *Their lap 1 filed byte-exact* (sha256 `6db0ed0d…`, 15,546 bytes); both checkers accept
+  it, and `CURRENT_ROUND` is 30. The build-under-review test now takes the lap as its
+  source rather than the manifest, and both name `174a134`.
+- *`.19`'s contract filed* (`cyanrip@5c92fc2`, built at `g7476e28`, byte-identical to the
+  copy 0.6.65 was checked against) and the inventory regenerated: P5 120 → 123. Their S4
+  count was re-derived from the two contracts rather than taken: P2 +5 −1, P5 +3. Ours had
+  said four.
+- *Regenerating found `.18`'s change too*, because round 29 never filed `.18`'s contract:
+  upstream's `f8ebf48f` replaced one MusicBrainz message. The old one is retained with
+  its reason. `.19`'s reworded repeat-limit line is a P5a row, as the old one is, and is
+  retained beside it; the retention check now counts P5a as sent, with a floor.
+- *Our gate is stricter than the fork's reading.* Their lap says 0.6.65 "needs no lap";
+  N4 holds a stable-offered `v0.*` tag while a round is open, so our lap 2 carries the
+  operator's §6b override for v0.6.65, on their word *"include my override if needed"*.
+
+**Learned** (no new rule; each is an instance of a question `CLAUDE.md` already asks):
+- *A generated table that skips a round skips that round's changes silently.* Round 29
+  filed no contract, so the inventory jumped from `.17` to `.19`; the `.18` change surfaced
+  only because a test compares against the previous filed contract and fails on a lost
+  string. The population we compared was the contracts we filed, not the builds shipped.
+- *Two tests can jointly forbid the right answer.* One demanded a decision for every P5a
+  row, the other that every retained row had been in some P5; a P5a-only string could
+  then only be declined, a claim that it cannot be surfaced, which is false.
+
 ## 2026-09-30 — 0.6.64 released; `.19` becomes the build under review before round 30 has a lap
 
 **Asked:** release 0.6.64 once `main` was green. Then the fork published `.19` at

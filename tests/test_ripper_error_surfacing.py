@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Final
 
 import pytest
 
@@ -608,15 +609,22 @@ _P5_ROW = re.compile(
 _MIN_PUBLISHED_FATALS = 100
 
 
-def _their_p5(text: str) -> list[tuple[str, str, str, bool]]:
+#: The heading of a provider contract's unclassified table, beside P5.
+_P5A_HEADING: Final[str] = "## P5a - Strings this document does NOT classify"
+
+
+def _their_p5(
+    text: str, heading: str = "## P5 - Fatal and error message inventory"
+) -> list[tuple[str, str, str, bool]]:
     """The P5 table of one provider contract: (site, message, evidence, logfile).
 
     Sliced to the P5 section first. Without that, P2's two-column table and P3's
     three-column one both leak rows in through a permissive row regex, and the
     result is a check that agrees with itself about the wrong population — the
     round-6 defect this whole file is about, arriving through the parser.
+
+    ``heading`` selects P5a instead, whose rows have the same four columns.
     """
-    heading = "## P5 - Fatal and error message inventory"
     if heading not in text:
         return []
     section = text[text.index(heading) + len(heading) :]
@@ -745,10 +753,25 @@ def test_a_string_removed_from_p5_is_retained_rather_than_dropped() -> None:
     # turn this into a test that fails on the round AFTER the removal for a reason
     # that is not a defect. Scanning every committed contract keeps the real
     # guarantee — the string was sent to us — without a built-in expiry.
+    #
+    # P5a counts as sent. A string they publish only there is one they sent, and
+    # the test above obliges us to decide about every P5a row: `.19`'s reworded
+    # repeat-limit line has only ever been in P5a (round 30), and is retained
+    # beside the old wording for the same reason. Without P5a here the two tests
+    # together would allow only declining it, which would claim it cannot be
+    # surfaced when the matcher builds a pattern from it like any other row.
     ever_published: set[str] = set()
+    p5a_published: set[str] = set()
     for _, path in contracts:
-        ever_published.update(text for _, text, _, _ in _their_p5(path.read_text()))
+        contract = path.read_text()
+        ever_published.update(text for _, text, _, _ in _their_p5(contract))
+        p5a_published.update(
+            text for _, text, _, _ in _their_p5(contract, _P5A_HEADING)
+        )
     assert len(ever_published) >= _MIN_PUBLISHED_FATALS
+    # Floor: the P5a slice finds rows at all, or widening to it is decoration.
+    assert len(p5a_published) >= 7, f"P5a yielded only {len(p5a_published)} rows"
+    ever_published |= p5a_published
 
     from platterpus.ripper_message_inventory import MESSAGES
 

@@ -38,13 +38,21 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `PIN_UNDER_REVIEW` moves from `51cc789` to `174a134` (`0.9.4-rc2+platterpus.19`, fork
   release 29), so section A accepts `.19` and the cyanrip update offer marks it as the
   build the acceptance test needs. The pin installed by default stays `51cc789`, round
-  29's approval. This is the first time the build under review moved before a lap named
-  it: the maintainer chose that the fork holds its round 30 lap 1 until the run exists,
-  so round 30 opens from the run's results. The pairing of commit and version is read
-  from the fork's published `release-manifest.json` instead, filed byte-exact under
-  `tests/fixtures/`. The check that holds the build under review to the record reads
-  that manifest while no lap names the build, and the lap again once one does. The rig
-  sheet, the standing status, README and TASKS name the new pair.
+  29's approval. The build under review moved first from the fork's published
+  `release-manifest.json`, filed byte-exact under `tests/fixtures/`, while the
+  maintainer had the fork hold its round 30 lap 1; the check that holds the build under
+  review to the record reads that manifest while no lap names the build, and the lap
+  once one does. The fork's round 30 lap 1 is now filed and names the same commit, so
+  round 30 is open on `.19`, and 0.6.65 goes out under the maintainer's §6b override,
+  recorded in our round 30 lap 2. The rig sheet, the standing status, README and TASKS
+  name the new pair.
+- **The list of cyanrip's own error sentences is `.19`'s.** It is regenerated from
+  `.19`'s published contract, filed with the fork's round 30 lap 1: 123 messages, from
+  120. The three new ones are the two `-Z`/`-r` refusals and *"Couldn't set metadata"*.
+  It also picks up the one change `.18` made, which round 29 never filed: a MusicBrainz
+  message replaced by upstream cyanrip. The old message is still recognised, because
+  older builds print it. We had counted `.19`'s new stable log lines as four; the
+  contract shows five added and one removed, as the fork said.
 
 ## [0.6.64] — 2026-09-30
 

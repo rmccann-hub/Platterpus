@@ -110,8 +110,8 @@ not under `docs/handshake/`, so that no gate ever reads its header as a lap.
 The cyanrip fork's `release-manifest.json` exactly as their tree held it at
 `cyanrip@7677b3f5` ("Publish 0.9.4-rc2+platterpus.19 at 174a134, stable"): sha256
 `604da9a7…`, 1,134 bytes, pinned by `tests/test_handshake_pin_under_review.py`. It is
-the record that names `.19` as the build under review while no handshake lap does
-(the fork held its round 30 lap 1 until the Full run on `.19` existed, by the
-operator's choice). Read by that file and by
+the record that named `.19` as the build under review before any handshake lap did
+(the operator had the fork hold its round 30 lap 1; the lap, filed since, names the
+same commit, and is the source now). Read by that file and by
 `tests/test_ripper_manifest.py`'s release-sequence check. Not edited: a new manifest
 is filed beside it under its own commit's name.

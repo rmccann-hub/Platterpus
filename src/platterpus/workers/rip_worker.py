@@ -282,8 +282,10 @@ _RIPPER_ERROR_PREFIXES: tuple[str, ...] = (
     "-J",
     # `.19`'s two `-Z`/`-r` refusals, fatal and new (cyanrip@174a134,
     # PROVIDER-CONTRACT.md: `cyanrip_main.c:2071` and `:2077`, both "control flow").
-    # They begin with a hyphen, so no word prefix reaches them, and our inventory
-    # is round 28's until `.19`'s contract is filed with the fork's round 30 lap.
+    # They begin with a hyphen, so no word prefix reaches them. Added while our
+    # inventory was still round 28's; `.19`'s contract, filed with the fork's round
+    # 30 lap 1, now lists both in P5 too, and this prefix stays so that a later
+    # rewording of either keeps being surfaced.
     # Measured before adding: of the 539 table rows in that contract, exactly
     # these two begin with `-Z`. Our own argv check refuses the same pairs before
     # cyanrip starts, so a rip should never reach them; if one does, the user
