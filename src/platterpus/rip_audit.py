@@ -1021,6 +1021,7 @@ def _audit_eac_log_agreement(report: dict[str, Any], album: AlbumAudit) -> None:
     no files and runs inside ``write_report``'s GUI slot without touching disk.
     """
     from platterpus.parity import compare_logs
+    from platterpus.rip_addendum import with_addendum
 
     artifacts = report.get("artifacts") or {}
     eac = artifacts.get("eac_log") or {}
@@ -1039,7 +1040,14 @@ def _audit_eac_log_agreement(report: dict[str, Any], album: AlbumAudit) -> None:
             "report, so whether their CRCs agree is not determined",
         )
         return
-    parity = compare_logs(str(ripper["text"]), str(eac["text"]))
+    # WITH THE ADDENDUM. When the auto-fix re-read a track, cyanrip's log still
+    # carries the discarded first read's CRC and the addendum carries the kept
+    # one; the EAC-style log is rendered from the kept one. Without this, every
+    # auto-fixed rip read as a disagreement (the round-27 whole-disc report's
+    # track 3; `tests/test_rip_addendum.py`'s sweep caught it before it shipped).
+    addendum = (artifacts.get("addendum") or {}).get("text") or ""
+    ripper_text = with_addendum(str(ripper["text"]), "", extra=str(addendum))
+    parity = compare_logs(ripper_text, str(eac["text"]))
     if not parity.tracks:
         album.add(
             LEVEL_NOTE,

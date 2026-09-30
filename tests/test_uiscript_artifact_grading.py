@@ -138,6 +138,22 @@ def test_the_eac_log_agrees_with_the_ripper_log_on_a_real_rip() -> None:
     ]
 
 
+def test_an_auto_fixed_rip_agrees_once_its_addendum_is_applied() -> None:
+    """THE REGRESSION, from a committed report. Round 27's whole-disc rip re-read
+    track 3; cyanrip's log keeps the discarded read's CRC, the addendum the kept
+    one, and the EAC-style log was rendered from the kept one. Compared without
+    the addendum, track 3 disagrees."""
+    loaded = json.loads(
+        (
+            _ROUND29.parent / "artifactsround27/round27fullwholediscreport.json"
+        ).read_text("utf-8")
+    )
+    assert loaded["artifacts"]["addendum"]["text"], "the fixture lost its addendum"
+    album = rip_audit.AlbumAudit(folder=Path("."))
+    rip_audit._audit_eac_log_agreement(loaded, album)
+    assert [f.level for f in album.findings] == ["ok"], album.findings
+
+
 def test_an_eac_log_with_a_changed_crc_is_a_warning() -> None:
     report = _report("wholedisc")
     eac = report["artifacts"]["eac_log"]
