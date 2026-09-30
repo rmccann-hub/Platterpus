@@ -648,6 +648,11 @@ each side's reading; and the closing releases named.
   am saying so"*) until the fork's next lap; that lap is their round 30 lap 1. Our gate
   holds a stable-offered `v0.*` tag while a round is open (N4), so it goes out under a
   **§6b override in our lap 2**, on the operator's word *"include my override if needed"*.
+- [x] **Our lap 2**, written from `18496e5c` and released 2026-09-30 on that word (sha256
+  `feff0d5e…`, 13,109 bytes, digest `8e1dfcd54e77a28c` over their lap 1, `OPEN`): S1–S3
+  reproduce their lap from their tree, S6 answered yes, S9–S11 accepted, the rest deferred
+  to our lap after the run (S14, S15) and S25 to round 31 (S16, S17). With it,
+  `handshake.py --release-gate --tag v0.6.65` exits 0.
 - [x] **0.6.65 checked against `.19` in the fork's tree (2026-09-30), on the operator's
   word "make sure we are talking the same language"**:
   - *Flags:* `.19`'s P1 table equals `.18`'s, 41 rows byte for byte.
