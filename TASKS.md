@@ -619,7 +619,7 @@ results, the cycle their `PROPOSAL-release-cycle.md` recommends (option A).
   the build under review. No round is open, so no override.
 - [ ] **The Full run on 0.6.65 with `.19`**, then both readings of the bundle. Their lap
   1 is rewritten as their reading plus the proposal, released on their operator's word.
-- [ ] **Their proposal** (`docs/handshake/PROPOSAL-release-cycle.md` in their tree): the
+- [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree, at `cyanrip@ec6ac2d0`): the
   cycle, and whether routine overrides end, the channel before a run, and when runs
   happen, are the operator's four decisions; we answer the rest in our first lap.
 
