@@ -308,8 +308,8 @@ class Config:
     # disc once FAST (no `-Z`), then secure-re-rip ONLY the tracks that don't match
     # AccurateRip, up to `secure_rerip_matches` reads. A track that matched the DB
     # on its first read is already proven bit-perfect, so re-reading it is wasted
-    # time. There's no Settings checkbox for this — it's just how ripping works;
-    # a power user can force `-Z` on *every* track by hand-editing this to false.
+    # time. Settings shows it inverted, as "Verify every track with a second read":
+    # ticking that sets this to false, which forces `-Z` on *every* track.
     secure_rerip_dynamic: bool = True
 
     # Re-read offset-variant tracks too (default ON since the release after
@@ -384,15 +384,15 @@ class Config:
     # Which audio format the rip delivers. "flac" (default, the lossless
     # archival master) | "wavpack" (.wv, lossless, with tags) | "mp3" (lossy,
     # best-practice VBR, with tags + cover) | "wav" (raw PCM, no tags/art).
-    # Both backends always rip to FLAC; for a non-FLAC choice the GUI keeps that
+    # cyanrip always rips to FLAC; for a non-FLAC choice the GUI keeps that
     # FLAC as the master and derives the chosen format with a post-rip ffmpeg
     # transcode (adapters/transcode.py). Design of record:
     # docs/archive/mp3-wav-support-2026-06.md.
     output_format: str = "flac"
     # MP3 VBR quality for libmp3lame when output_format == "mp3": ffmpeg
-    # `-q:a N` == lame `-V N` (0 = best/~245kbps, 9 = smallest). Fixed at 0
-    # (best-practice VBR) for now — the field exists for a future Settings
-    # exposure. The LAME `-q4` noise-shaping bug is CBR/ABR-only, so VBR is
+    # `-q:a N` == lame `-V N` (0 = best/~245kbps, 9 = smallest). Default 0
+    # (best-practice VBR); Settings exposes it as "MP3 VBR quality". The
+    # LAME `-q4` noise-shaping bug is CBR/ABR-only, so VBR is
     # unaffected (docs/archive/mp3-wav-support-2026-06.md §3). Ignored unless
     # MP3 is selected.
     mp3_vbr_quality: int = 0
@@ -404,7 +404,7 @@ class Config:
     # individual fields, not this. See goal_presets.py.
     rip_goal: str = "fast_verified"
 
-    # --- Update channel (Settings → Updates) ---
+    # --- Update channel (Tools → Setup & Updates…; ui/setting_homes.py) ---
     # Which releases "Check for updates" will offer: "stable" (default — never a
     # pre-release) or "beta" (whichever is newest, including a beta/rc).
     #
@@ -453,10 +453,6 @@ class Config:
     # With it on, launching the app *is* the test run — which is what "so I don't
     # need to be present" requires.
     test_script_autorun: bool = False
-    # Allow the script vocabulary's UNSAFE verbs (`eval`, `call`) when the
-    # console or `--run-script` runs. Off by default and re-asked every time the
-    # console opens; a run that used them says so loudly in its own transcript.
-    test_script_allow_unsafe: bool = False
 
     # --- Schema bookkeeping ---
     schema_version: int = SCHEMA_VERSION
@@ -713,6 +709,11 @@ RETIRED_CONFIG_KEYS: frozenset[str] = frozenset(
         # the Settings tooltip told users it was "a scratch folder used while a
         # rip is in progress".
         "working_dir",
+        # Removed on 2026-09-30 (after 0.6.65), on the maintainer's ruling. It
+        # allowed the script language's `eval` and `call`, which were reserved
+        # and never built, so it enabled nothing; the verbs, this setting and its
+        # box went together. An older saved file carries it, usually as `false`.
+        "test_script_allow_unsafe",
     }
 )
 

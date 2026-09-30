@@ -365,14 +365,14 @@ actually ran against the build the cyanrip handshake approved, and says so
 in the rip report, the log and the EAC-compatible export.
 
 This check asks the fork which builds it has published and tells you
-whether a newer one exists. **It never installs anything**, and that is
-deliberate rather than unfinished. Taking a newer ripper before a handshake
-round has verified it means every rip you make afterwards reports its
-ripper as *unapproved* — the audio is unaffected and still bit-perfect if
-its own checks pass, but the record can no longer say the ripper was
-jointly verified. That is your call to make, not the app's, so the offer
-spells out the consequence and stops there. If you want the build it names,
-it gives you the exact command to install it.
+whether a newer one exists. **It installs nothing without asking.** It says
+what the build is and offers **Install it now** when a closed handshake round
+approved it, or **Install it anyway** for the build an open round is testing
+(the acceptance test needs it) — never the default button, because until a
+round approves it every rip you make reports its ripper as *unapproved*: the
+audio is unaffected and still bit-perfect if its own checks pass, but the
+record can no longer say the ripper was jointly verified. Any other unapproved
+build is only described, with the command to install it deliberately.
 
 **cyanrip update channel** — Setup & Updates has an **Offer beta (pre-release)
 cyanrip builds** tick-box just above *Check for cyanrip updates*: off means
@@ -534,13 +534,8 @@ ripper's own `-x` and `-j` probes (a rip never sends those), pre-gap screening,
 a library audit and the handshake status — writing one artifact per step into
 FOLDER. Neither needs a source checkout; they work from the AppImage.
 
-**Allow the unsafe script verbs** (in the console, beside the two above) is off by default and should stay
-that way — and as of v0.6.23 there is nothing for it to allow: `eval` and `call`
-are reserved in the script vocabulary but not implemented, so a script using
-either is refused whether the box is ticked or not. Everything else in the
-vocabulary is a fixed list of named actions with nothing that can run arbitrary
-code. If the escape hatch is ever built, this setting is its gate, and a run that
-used it will say so at the top of its own transcript.
+The script vocabulary is a fixed list of named actions, and nothing in it can
+run arbitrary code.
 
 ## Checking your rips afterwards
 
@@ -576,10 +571,10 @@ identified it says so, rather than staying silent, because an absent row would
 read as "nothing unusual" in a log that carries a checksum.
 
 **Tools → Setup & Updates… → Check dependencies** reports the same thing
-*before* you rip. It names
-the build next to the version — which matters because the version alone cannot
-tell you: the Platterpus fork deliberately keeps upstream's version string, so
-`cyanrip 0.9.3` and `cyanrip 0.9.4-rc1 (platterpus-fork-…)` look equally normal.
+*before* you rip. It names the build next to the version — which matters
+because the version alone cannot tell you: the fork keeps upstream's version and
+adds only build metadata, so `cyanrip 0.9.3` and
+`cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-…)` look equally normal.
 If the check says **"unmodified upstream, NOT the Platterpus fork"** it also says
 how to fix it. (`--doctor` reports the same from a terminal.)
 
@@ -609,7 +604,7 @@ an older commit is rebuilt rather than accepted.
 
 - Project & issues: see **Help → About Platterpus…** for links.
 - Dependencies (cyanrip, MusicBrainz Picard, etc.) are checked automatically at
-  launch and from the Settings dialog.
+  launch and from Tools → Setup & Updates… → Check dependencies.
 """
 
 

@@ -1880,7 +1880,7 @@ def test_the_preflight_names_an_unimplemented_verb_before_step_one_runs() -> Non
     The verb table was honest and the generated reference printed
     `NOT IMPLEMENTED`; the handler lookup simply happens at dispatch, so a batch
     learns about it when it gets there. `_preflight` already did exactly this job
-    for `cyanrip` steps — one function wide — and `uses_unsafe`'s docstring
+    for `cyanrip` steps — one function wide — and the since-removed `uses_unsafe`'s docstring
     already states the principle: *"an unattended run that dies two-thirds
     through is worse than one that never started."*
 
@@ -1904,45 +1904,6 @@ def test_the_preflight_names_an_unimplemented_verb_before_step_one_runs() -> Non
     assert "L2" in joined, f"the notice must name the line: {joined}"
     # And it must not cry wolf over the implemented verb on line 1.
     assert len(problems) == 1, f"preflight flagged an implemented verb too: {problems}"
-
-
-def test_an_unimplemented_unsafe_verb_blames_the_missing_handler_not_a_checkbox(
-    qapp,
-) -> None:
-    """`eval` and `call` are BOTH unsafe and unimplemented, and the order of the
-    two refusals decides whether the message is useful.
-
-    With the unsafe gate first, a script using `eval` was told *"this verb needs
-    the 'allow unsafe script verbs' setting, which is off"* — true, and the wrong
-    cause. Ticking that box (in Settings, or the console's own checkbox, both of
-    which advertised the verbs by name) changes nothing: the very next line
-    refuses the same step for having no handler. A true diagnosis of the wrong
-    cause is the expensive kind, because it sends somebody into Settings instead
-    of telling them the verb does not exist.
-
-    Uses whichever unsafe+unimplemented verbs the table actually has, so it keeps
-    testing the property rather than a hardcoded name, and asserts the population
-    is non-empty rather than passing on an empty sweep.
-    """
-    from platterpus.uiscript import verbs as verbs_mod
-
-    candidates = [
-        n for n, v in verbs_mod.VERBS.items() if v.unsafe and not v.implemented
-    ]
-    if not candidates:
-        pytest.skip("no verb is both unsafe and unimplemented — the happy future")
-    win = _window()
-    for name in candidates:
-        record, _ = _run_one(win, f"{name} whatever")
-        assert record.outcome is Outcome.ERROR, (
-            f"{name} is unimplemented, so it must ERROR rather than report as "
-            f"merely gated: got {record.outcome} — {record.detail}"
-        )
-        assert "not implemented" in record.detail, record.detail
-        assert "setting" not in record.detail, (
-            f"{name} blamed a setting the user could tick, which would not have "
-            f"helped: {record.detail!r}"
-        )
 
 
 # --- abort-if-failed: preconditions stop, findings do not -------------------
@@ -2986,8 +2947,39 @@ def _album_with_report(tmp_path: Path, report: dict, name: str = "verif test") -
     return log_file
 
 
-def _report(gates: dict, issues: list[dict]) -> dict:
-    return {"verification": {"gates": gates}, "issues": issues}
+def _report(gates: dict, issues: list[dict], status: str = "success") -> dict:
+    """A settled report's verification shape. `outcome.status` is here because
+    every real report carries one (`rip_report.build_outcome`), and the verb
+    now asks it whether the record is final (`artifact_grading.settle_state`)."""
+    return {
+        "outcome": {"status": status},
+        "verification": {"gates": gates},
+        "issues": issues,
+    }
+
+
+def test_expect_verification_does_not_pass_an_in_progress_report(
+    qapp, process_until, tmp_path
+) -> None:
+    """The report is written INCREMENTALLY during a rip, with `outcome.status`
+    `"in_progress"` (`rip_worker`). Its gates can already read "ran" from the
+    settings, so the verb used to accept it as final; it now waits for the
+    finished record and times out on one that never finishes."""
+    win = _window_after_a_rip_into(
+        _album_with_report(
+            tmp_path,
+            _report(
+                {"ctdb": "ran", "flac_integrity": "ran"},
+                issues=[],
+                status="in_progress",
+            ),
+        )
+    )
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 0.2"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "did not all leave a result" in step.detail
 
 
 def test_expect_verification_passes_when_every_started_check_left_a_result(
@@ -3201,3 +3193,63 @@ def test_screenshot_photographs_only_windows_on_screen_main_window_first(
         for widget in (main, never_shown, was_shown, other):
             widget.close()
             widget.deleteLater()
+
+
+def test_screenshot_renders_open_windows_when_the_display_shows_none(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The round 30 Full run (2026-09-30): after section F's 91-minute rip every
+    window read `visible=True`, platform window present, `exposed=False`, with the
+    screen-saver inhibit held — and all seven post-rip screenshots FAILED with no
+    picture. The display went dark, not the app. An OPEN window is rendered and
+    labelled, and the step reports INFO, not PASS: it proves what the app drew,
+    not that the screen showed it. A window never shown still gets no picture."""
+    from PySide6.QtWidgets import QDialog
+
+    from platterpus.uiscript import runner as runner_module
+
+    main = _window()
+    main.setWindowTitle("the main window")
+    main.resize(320, 200)
+    main.show()
+    never_shown = QDialog()
+    never_shown.setWindowTitle("never shown")
+    assert process_until(lambda: main.windowHandle() is not None)
+    # The one fact that changed on the rig: the windowing system stopped
+    # reporting any window as exposed.
+    monkeypatch.setattr(runner_module, "_is_on_screen", lambda _widget: False)
+    try:
+        runner = ScriptRunner(main)
+        runner.contain_in(tmp_path)
+        step = _step_outcome(runner, qapp, process_until, "screenshot dark")
+        assert step.outcome is Outcome.INFO, step.detail
+        assert "NONE was on screen" in step.detail and "RENDERED" in step.detail
+        assert (tmp_path / "dark.png").is_file()
+        assert "'never shown'" in step.detail
+        assert not any("never" in p.name for p in tmp_path.glob("dark*.png"))
+    finally:
+        for widget in (main, never_shown):
+            widget.close()
+            widget.deleteLater()
+
+
+def test_screenshot_still_fails_when_no_window_is_open(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The floor survives the fallback: with the display dark AND no window open,
+    there is nothing honest to render, and the step fails as before."""
+    from platterpus.uiscript import runner as runner_module
+
+    main = _window()
+    main.setWindowTitle("the main window")
+    monkeypatch.setattr(runner_module, "_is_on_screen", lambda _widget: False)
+    monkeypatch.setattr(runner_module, "_is_open", lambda _widget: False)
+    try:
+        runner = ScriptRunner(main)
+        runner.contain_in(tmp_path)
+        step = _step_outcome(runner, qapp, process_until, "screenshot nothing")
+        assert step.outcome is Outcome.FAIL, step.detail
+        assert "none was on screen" in step.detail
+    finally:
+        main.close()
+        main.deleteLater()

@@ -36,13 +36,14 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
 from platterpus import __version__, build_info, inbound_text
 from platterpus.uiscript import run_sizes
+from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
 from platterpus.uiscript.report import (
     CONCEPT,
     VERDICTS,
@@ -385,9 +386,8 @@ def _preflight(steps: list[Step]) -> list[str]:
     one function wide, doing the identical job for a different verb — the same
     shape as `docs/testing.md` §5.o (enforce a rule across the surface, not at the
     place it was learned) and as the `-V` half-contract lesson, where the evidence
-    sat in a committed file for a full round. `uiscript.script.uses_unsafe` states
-    the principle outright: *"an unattended run that dies two-thirds through is
-    worse than one that never started."*
+    sat in a committed file for a full round. The principle: *an unattended run
+    that dies two-thirds through is worse than one that never started.*
 
     Does **not** filter or reorder the run. Those steps still execute and still
     record their own failures in place; this only moves the *notice* earlier — the
@@ -413,7 +413,7 @@ def _preflight(steps: list[Step]) -> list[str]:
     return problems
 
 
-class ScriptRunner(QObject):
+class ScriptRunner(ArtifactVerbsMixin, QObject):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
 
     The window is passed in rather than discovered, so tests can drive a real
@@ -433,7 +433,6 @@ class ScriptRunner(QObject):
         self._steps: list[Step] = []
         self._index: int = 0
         self._report: RunReport = RunReport(started_at="", app_version=__version__)
-        self._unsafe_allowed: bool = False
         # TIER / PRUNE STATE (round 18's procedure, scaffolding). Declared here and
         # annotated rather than sprung into existence by a handler, so a reader sees
         # the runner's whole state in one place — and so `mypy` sees it too.
@@ -532,7 +531,6 @@ class ScriptRunner(QObject):
         self,
         steps: list[Step],
         *,
-        unsafe_allowed: bool = False,
         source: str = "",
     ) -> None:
         """Begin a run.
@@ -546,7 +544,6 @@ class ScriptRunner(QObject):
             return
         self._steps = list(steps)
         self._index = 0
-        self._unsafe_allowed = unsafe_allowed
         self._artifact_dir = None
         self._deadline = None
         self._pending_cyanrip = None
@@ -570,11 +567,7 @@ class ScriptRunner(QObject):
             preflight=_preflight(self._steps),
             run_size=self._run_size,
         )
-        log.info(
-            "ui script run starting: %d step(s), unsafe verbs %s",
-            len(self._steps),
-            "ALLOWED" if unsafe_allowed else "refused",
-        )
+        log.info("ui script run starting: %d step(s)", len(self._steps))
         for problem in self._report.preflight:
             # WARNING, not debug: this is a finding about the batch about to run,
             # and it must be in the log file a bug report carries.
@@ -882,30 +875,10 @@ class ScriptRunner(QObject):
                 declined_by_size=True,
             )
             return
-        # HANDLER FIRST, then the unsafe gate — the order carries the honesty.
-        # Reversed, a script using `eval` (unsafe AND unimplemented) was told "this
-        # verb needs the 'allow unsafe script verbs' setting, which is off", which
-        # points the reader at a checkbox that would not have helped: with it
-        # ticked the very next line refuses the same step for having no handler.
-        # A true diagnosis of the wrong cause is the expensive kind — it sends
-        # somebody into Settings instead of telling them the verb does not exist
-        # (found 2026-08-24, in the sweep that followed `expect-status`).
         handler = getattr(self, f"_do_{step.verb.replace('-', '_')}", None)
         if handler is None:
             self._record(step, Outcome.ERROR, f"'{step.verb}' is not implemented yet")
             return
-        if step.unsafe and not self._unsafe_allowed:
-            self._record(
-                step,
-                # DECLINED: the operator chose not to enable the escape hatch, so
-                # we decline rather than fail. The action it implies is "decide
-                # whether to escalate", which is exactly enabling the setting.
-                Outcome.SKIPPED,
-                "this verb needs the 'allow unsafe script verbs' setting, which is off",
-            )
-            return
-        if step.unsafe:
-            self._report.used_unsafe = True
         # PRUNING: a failure prunes its own dependents (round 18). The run keeps
         # going — halting on the first problem hides every problem behind it, and a
         # disc pass costs hours nobody gets back — but a step resting on something
@@ -1244,11 +1217,34 @@ class ScriptRunner(QObject):
         shown = _photograph_order(
             [w for w in windows if _is_on_screen(w)], self._window
         )
+        # THE DISPLAY WENT DARK, NOT THE APP (round 30 Full run, 2026-09-30).
+        # After section F's 91-minute rip every window read `visible=True`, with
+        # a platform window, and `exposed=False` — for the rest of the run, with
+        # the screen-saver inhibit held throughout — so all seven post-rip steps
+        # FAILED with nothing photographed. The pixels here were never a capture
+        # of the screen (`grab()` renders the widget; Wayland allows nothing
+        # else), so an OPEN window can still be rendered truthfully; what is lost
+        # is only the proof that the display was showing it. Rendered, labelled,
+        # and recorded as INFO rather than PASS, because it establishes less.
+        # A window that was never shown still gets no picture (the refusal this
+        # docstring opens with), and no open window at all is still a FAIL.
+        unexposed = (
+            []
+            if shown
+            else _photograph_order([w for w in windows if _is_open(w)], self._window)
+        )
+        shown = shown or unexposed
         for index, widget in enumerate(shown):
             path = directory / (
                 f"{name}.png" if index == 0 else f"{name}-{index}-{_slug(widget)}.png"
             )
-            manifest.append(_window_manifest_line(widget) + f" -> {path.name}")
+            label = (
+                " (RENDERED while the display was not showing it: what the app "
+                "drew, not proof it was on screen)"
+                if unexposed
+                else ""
+            )
+            manifest.append(_window_manifest_line(widget) + f" -> {path.name}{label}")
             try:
                 if widget.grab().save(str(path), "PNG"):
                     written.append(path.name)
@@ -1280,18 +1276,20 @@ class ScriptRunner(QObject):
                 ),
             )
             return
-        detail = "\n".join(
-            [
-                f"examined {len(windows)} window(s); {len(shown)} on screen, "
-                f"wrote {len(written)} PNG(s); {len(unshown)} not on screen, "
-                f"named below without a picture"
-            ]
-            + manifest
+        headline = (
+            f"examined {len(windows)} window(s); NONE was on screen (the display "
+            f"was not showing them), so the {len(shown)} open one(s) were rendered "
+            f"instead, {len(written)} PNG(s) written — a picture of what the app "
+            f"drew, not of the screen; {len(unshown)} not open, named below"
+            if unexposed
+            else f"examined {len(windows)} window(s); {len(shown)} on screen, "
+            f"wrote {len(written)} PNG(s); {len(unshown)} not on screen, "
+            f"named below without a picture"
         )
         self._record(
             step,
-            Outcome.PASS,
-            detail,
+            Outcome.INFO if unexposed else Outcome.PASS,
+            "\n".join([headline] + manifest),
             artifact=str(directory / f"{name}.png") if written else "",
         )
 
@@ -2726,12 +2724,7 @@ class ScriptRunner(QObject):
         than passing or skipping: the section turned the checks on, and a run in
         which they never ran has not tested them.
         """
-        import json
-
-        from platterpus.rip_report import (
-            UNFINISHED_RIP_STATUSES,
-            VERIFICATION_DROPPED_CODES,
-        )
+        from platterpus.uiscript import artifact_grading
 
         try:
             seconds = float(step.args[0]) if step.args else 600.0
@@ -2749,33 +2742,27 @@ class ScriptRunner(QObject):
         if folder is None:
             return  # the shared reader recorded the FAIL and named the reason
 
-        def _report() -> dict[str, object] | None:
+        def _report() -> dict[str, Any] | None:
             """This rip's report, or None while it is absent/unreadable/partial.
 
             Re-read on every poll rather than cached: the report is rewritten as
             each check lands, so a cached copy would answer about the moment the
-            rip finished — which is the state this verb exists to refuse.
+            rip finished — which is the state this verb exists to refuse. Which
+            file is "this rip's report" is `artifact_grading.report_path`'s
+            answer, shared with the artifact verbs.
             """
-            try:
-                candidates = sorted(folder.glob("*.platterpus.json"))
-            except OSError:
-                return None
-            for path in candidates:
-                try:
-                    loaded = json.loads(path.read_text(encoding="utf-8"))
-                except (OSError, ValueError):
-                    continue  # a half-written report is "not yet", not a failure
-                if isinstance(loaded, dict):
-                    return loaded
-            return None
+            path = artifact_grading.report_path(folder)
+            return artifact_grading.read_report(path) if path is not None else None
 
         def _every_gate_left_a_result() -> bool:
+            # WHEN the record is final is `artifact_grading.settle_state`'s answer,
+            # shared with every artifact verb so they cannot disagree about it.
+            # What is left here is this verb's own question: the floor.
             report = _report()
-            if report is None:
-                return False
-            outcome = report.get("outcome")
-            status = outcome.get("status") if isinstance(outcome, dict) else None
-            if status in UNFINISHED_RIP_STATUSES:
+            state = artifact_grading.settle_state(report)
+            if state == artifact_grading.SETTLE_UNFINISHED:
+                outcome = report.get("outcome") if report is not None else None
+                status = outcome.get("status") if isinstance(outcome, dict) else None
                 exit_code = (
                     outcome.get("ripper_exit_code")
                     if isinstance(outcome, dict)
@@ -2790,24 +2777,16 @@ class ScriptRunner(QObject):
                     f"finding, and the report's `outcome.failure_hint` says why."
                 )
                 return True
-            # Narrowed rather than trusted: this is a JSON document written by
-            # another process and possibly mid-write, so a shape that is not what
-            # we expect is "not yet", never a pass.
+            if state != artifact_grading.SETTLE_SETTLED or report is None:
+                return False
             verification = report.get("verification")
             gates = (
                 verification.get("gates") if isinstance(verification, dict) else None
             )
-            if not isinstance(gates, dict):
-                return False
-            if not any(state == "ran" for state in gates.values()):
-                return False  # the floor: nothing ran, so nothing is being claimed
-            issues = report.get("issues")
-            codes = {
-                issue.get("code")
-                for issue in (issues if isinstance(issues, list) else [])
-                if isinstance(issue, dict)
-            }
-            return not (codes & VERIFICATION_DROPPED_CODES)
+            # The floor: nothing ran, so nothing is being claimed.
+            return isinstance(gates, dict) and any(
+                gate == "ran" for gate in gates.values()
+            )
 
         self._arm_deadline(step, seconds, _every_gate_left_a_result)
         self._deadline_outcome = Outcome.PASS
@@ -3629,10 +3608,10 @@ class ScriptRunner(QObject):
         script is a second copy of a fact that lives in `release-manifest.json`,
         and only one copy has a checker.*
 
-        `PIN_UNDER_REVIEW` is derived from the newest inbound handshake lap by
-        ``tests/test_handshake_pin_under_review.py``, so this reads one key rather
-        than a duplicate of one, and a pin move now fails in CI rather than on a
-        rig.
+        `PIN_UNDER_REVIEW` is derived by ``tests/test_handshake_pin_under_review.py``
+        from the newest inbound handshake lap, or from a newer filed release
+        manifest when no lap names its build (``_choose_source``). So this reads
+        one key, not a copy of one, and a pin move fails in CI, not on a rig.
 
         Matches against the previous ``cyanrip`` step's output, exactly as
         ``expect-cyanrip`` does — the banner is the only statement of identity
@@ -4297,6 +4276,13 @@ def _is_on_screen(widget: QWidget) -> bool:
     """
     handle = widget.windowHandle()
     return widget.isVisible() and handle is not None and handle.isExposed()
+
+
+def _is_open(widget: QWidget) -> bool:
+    """Whether a top level was SHOWN and is still open: visible, with a platform
+    window, whatever the windowing system says about exposure. The weaker fact
+    `_do_screenshot` falls back to when the display stops showing every window."""
+    return widget.isVisible() and widget.windowHandle() is not None
 
 
 def _photograph_order(shown: list[QWidget], main: QWidget) -> list[QWidget]:

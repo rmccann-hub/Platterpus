@@ -51,9 +51,9 @@ from platterpus.deps import fork_source
 #:
 #: **Derived from the record, and now gated against it.** Read off the
 #: ``HANDSHAKE-APP-VERSION`` of the newest **closed** round's verification file that
-#: names :data:`~platterpus.deps.fork_source.FORK_PIN` — today
-#: ``docs/handshake/verified/round-07-lap-41.md``, which declares ``platterpus
-#: 0.6.5`` against pin ``ddf7ac3``.
+#: names :data:`~platterpus.deps.fork_source.FORK_PIN` — today round 29's
+#: ``docs/handshake/inbound/round-29-lap-03.md``, which declares ``platterpus
+#: 0.6.63`` against pin ``51cc789``. First, round 7 lap 41: 0.6.5 on ``ddf7ac3``.
 #: **Moved to `platterpus/0.6.28` when round 14 closed** — its verification,
 #: `docs/handshake/outbound/round-14-lap-18.md`, declares that against pin
 #: `d9c058c`, and it is the first close whose evidence is a whole-disc secure
@@ -411,7 +411,7 @@ def _why_this_build_is_here(tag: str) -> str:
             # say "a round-{FORK_TEST_PIN_ROUND} test pin", which reads as true and
             # is not: that constant names the round of the CURRENT pin, so the
             # moment a round closed every previously-retired build was relabelled
-            # into the new one. The retired pins on that list span rounds 6 and 7;
+            # into the new one. The retired pins on that list span rounds 6 to 21;
             # we do not track which, so the honest sentence omits it rather than
             # asserting the only number to hand.
             current = (

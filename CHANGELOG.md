@@ -12,6 +12,154 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **The acceptance test now checks what each rip produced, not only that it
+  finished.** Every rip already left a report with its own self-audit, the
+  AccurateRip and CTDB verdicts, a cue sheet, an EAC-style log and tagged FLACs,
+  and no step of the test read any of it. After each rip the test now re-runs
+  the self-audit against the files on disk (including cyanrip's own check of its
+  log, the cue sheet, and the EAC-style log), requires an AccurateRip answer for
+  every track, checks CTDB was looked up for a whole disc and skipped for a
+  partial one, and opens the FLACs to check their tags and cover art. The run
+  also tries a track title containing `= ' : \`, and the two cover-art settings
+  it had never used ("Save as file" and "Both").
+- **Each rip's self-audit now checks the EAC-style log against cyanrip's own.**
+  It used to check only that the EAC-style log matched the checksum printed
+  under it, which any log Platterpus writes does. It now also checks that the
+  log's per-track CRCs are the ones cyanrip computed, taking a re-read track's
+  kept CRC from the auto-fix addendum rather than the discarded first read.
+- For contributors: the script verbs `expect-album-audit`, `expect-accuraterip`,
+  `expect-ctdb`, `expect-tags`, `expect-cover-art` and `track-title`, and a
+  FLAC tag reader (`flac_metadata.py`) that needs no external tool.
+  `expect-verification` no longer accepts a report that is still being written.
+
+### Fixed
+
+- **An acceptance-test screenshot no longer fails just because the display went
+  dark.** In the round 30 Full run every screenshot taken after the first long rip
+  failed. The app's windows were still open, but the desktop had stopped showing
+  them, even though the desktop had agreed to keep the screen on. The picture was
+  always drawn by the app rather than taken of the screen, so an open window is
+  now drawn anyway, marked as drawn while the display was not showing it, and
+  recorded as "gathered" rather than "passed". A window that was never opened is
+  still not photographed, and a step with no open window still fails. The
+  session's "Screen lock" line now says the desktop agreed to keep the screen on,
+  not that it stayed on.
+- **Quitting during a rip no longer destroys the rip's log.** Closing the window
+  sent cyanrip a stop signal and then, a fifth of a second later, killed it
+  outright, so cyanrip never wrote the end of its log or the checksum that proves
+  the log is intact. A rip in the round 29 Full run was left like that. Platterpus
+  now asks cyanrip to stop and waits up to eight seconds for it to finish its log,
+  and kills it only if it still holds the drive then, or if that cannot be checked. A close that
+  comes from the desktop (the window's close button, a logout) or from File →
+  Quit now asks first while a rip or the acceptance test is running.
+- **Esc no longer hides the test console while a script is running.** It used to
+  hide the window and leave the run going with nothing on screen. Esc is ignored
+  during a run; the Stop and close buttons still end it.
+- **The unbuilt `eval` and `call` script verbs are gone, and so is the "Allow
+  the unsafe script verbs" box.** They were reserved and never built, so the box
+  enabled nothing. The script language is now a fixed list of named actions with
+  no way to run arbitrary code. The setting was removed too: a config file that
+  still carries `test_script_allow_unsafe` loads without a warning, and a test
+  report no longer has a `used_unsafe_verbs` field.
+- **The test transcript says who closed the console.** When the main window
+  closed, the console's transcript still said "the console was closed", and the
+  cyanrip fork read round 29's run as the operator closing the console by hand. It
+  now says "the main window was closed", and the log says whether a close came
+  from outside the app or from the app itself.
+
+### Changed
+
+- **The release-cycle rulings are recorded** (option A; routine pre-run
+  overrides end; a new cyanrip build goes to beta until its run passes; a Full
+  run every night a new pair exists), and the status block states the plan they
+  give: round 30's closing releases are cyanrip `.20` on beta, then 0.6.66. The
+  block's check now accepts a planned release that pins the build under review
+  and reviews the fork's next, unreleased build, and nothing else.
+- **Our standing status for the cyanrip fork opens with a checked status block.**
+  Their release-cycle proposal (D6) asks each side for a few `STATUS-` lines saying
+  which round is open, which laps are sent and held, what the next release and
+  the next run are, and every open item with its owner. Ours is the first, and a
+  test derives each line from the handshake record and the code, so it cannot go
+  stale the way the prose did. `docs/cyanrip-handshake.md` §7.5d drafts the
+  short "nothing to act on" reading lap the same proposal asks for (D5).
+- For contributors: `scripts/revert_probe.py` now runs each revert's tests
+  before applying it, and refuses when they do not already pass. A test that
+  fails for its own reason also fails after the revert, and was reported as a
+  detection; one did, this session.
+- **The cyanrip fork's round 30 lap 3 is filed** (released at `cyanrip@56ddc7b`,
+  sha256 `9d382260…`, 18,394 bytes, `OPEN`), byte for byte. Both our checkers
+  accept it, and its round digest reproduces.
+- For contributors: our lap checker now counts a file's last line even when the
+  file has no final newline, so a citation of a one-line banner resolves. This is
+  the rule both sides agreed in round 30; the fork lands theirs in the same round.
+- For contributors: the acceptance runner's description of how it finds the
+  build under review now names both sources, the newest inbound lap and a newer
+  filed release manifest, and a test holds every description of that derivation
+  to naming both. The fork's round 30 lap 3 found the stale one.
+- **`CLAUDE.md` rule #12 names both plain-text sweeps.** It said the `QLabel`
+  sites were only tracked in `TASKS.md`; they have had their own sweep,
+  `tests/test_labels_state_their_text_format.py`, since 2026-09-28. The rule now
+  names it beside the `QMessageBox` one, and names the gap that is still open: a
+  label given its text later by `setText`. Changed on the maintainer's approval,
+  since the rules section is locked.
+- **Round 30's Full run is filed and graded `partial`.** The operator's run on
+  2026-09-30 (0.6.65 with the fork's `.19`, `174a134`) passed 316 of 323 steps. The
+  seven failures are screenshot steps, every one after the first long rip, that found
+  the app's windows open but not shown on the display; their sections are graded
+  archival in advance, so the field-evidence ledger gets a thirteenth row, `partial`.
+  Every rip completed and cyanrip verified each log. The whole-disc rip matches the EAC
+  baseline on 13 of 14 tracks after its automatic re-read replaced track 3. The text
+  artifacts are in `docs/handshake/artifactsround30/`, whose README says what the run
+  found.
+- **The project's documents match the code again.** Every document, the in-app
+  guide and the code's own comments were checked against the code on 2026-09-30,
+  and the out-of-date statements corrected: which ripper build is installed and
+  which is under test, menu paths that moved into Setup & Updates, the CI jobs that
+  gate a merge, and records that still called finished work open. In the README:
+  updating cyanrip uses Setup & Updates (the old `dnf upgrade cyanrip` updated only
+  the stock build), app updates are checked against their build attestation, and
+  the beta tick-box is named where it lives. The rig sheet now says to confirm the
+  installed ripper in Help → About Platterpus…, because Setup & Updates always shows
+  the approved one.
+  For contributors: PLANNING, the testing and architecture guides, the UX
+  principles, the EAC parity notes, the dependency list, the test plans and the
+  handshake and fork documents. Our generated half of the cyanrip contract also
+  lists `--consumer` now, which every rip on an approved build sends and the
+  generator had left out. The rip-command comment and the dependency contracts no
+  longer say `-G` removes the *"No MusicBrainz release ID at cover art lookup"*
+  line from every rip's log: `-G` only stops cyanrip embedding art, and the line
+  belongs to the lookup `-U` would turn off. Whether to send `-U` goes to the fork
+  in the next round. TASKS.md had 15 groups of duplicate rows merged into one row
+  each (the moved text kept word for word) and 49 stale statuses corrected. The
+  testing guide records why quitting mid-rip lost the log (beside §5.ay): one stop
+  signal was not enough, cyanrip also needs time to finish writing.
+- **The README's status is three short paragraphs.** It says the version, the
+  approved pair, the build under test and what `0.7.100` still needs, and links
+  here. The release highlights were already in this file's own entries; the rest of
+  what the README said, as of 0.6.65, is kept below word for word, with the note its
+  `cyanrip --version` example carried.
+  - *The status banner:*
+    > **Status: v0.6.65 — out of beta.** *Out of beta* means the `bN` test labels ended with 0.6.12 (2026-08-17). The project is still pre-1.0, which is why PyPI's classifier says *Beta* and GitHub marks every `v0.*` release as a pre-release; the bar for 1.0.0 is `PLANNING.md` KDD-35. Handshake rounds **1 through 29** are closed with `GO` from both projects (round 29 closed on 2026-09-29). The approved pair is cyanrip `0.9.4-rc2+platterpus.18` at **`51cc789`** and Platterpus **`0.6.63`**, approved by **round 29** on the full acceptance run on the Pioneer BDR-209D: 320 of 323 steps passed, the three failures being screenshot steps and none in a rip. **0.6.64 is the first release to install `51cc789` by default**; 0.6.63 installs `e0471f4` (`.17`), which round 28 approved on a full run of 320 of 320, and accepts `51cc789` as the build round 29 was reviewing. **0.6.64** also stops recording a probe that Platterpus itself stopped (a Rescan during the disc probe) as the ripper failing, and a rig session on a machine that cannot reach GitHub records the failed clone and carries on. **0.6.65 is the release the next Full run is on, with the fork's `.19`** (`174a134`, published 2026-09-30): it installs `51cc789` by default and accepts `.19` as the build under review, and handshake round 30 opens from that run's results. **0.6.57 re-reads "partially accurate" tracks by default**, because that AccurateRip match checks only **one frame** of the track, and on that test one such track held wrong audio. It also says so in plain words everywhere it used to say "offset-variant pressing". **Round 28 closed on the full run of 0.6.61**, which the maintainer chose to count rather than wait for one on 0.6.62. **0.6.63** keeps a re-read that AccurateRip verifies even when its reads did not all agree, stops looking a partial rip up in CTDB, and begins its EAC-compatible log with the word Platterpus so no tool mistakes it for a log EAC wrote. **0.6.62** stops Check dependencies from looking frozen, re-reads a disc the drive briefly reported as unavailable, checks the album folder a rip really writes before overwriting it, and shows every message a tool prints exactly as written. 0.6.59 also stops a rip from being killed by closing a different Platterpus window, and 0.6.60 stops the update check and setup from swapping out the build under test.
+    >
+    > **One hardware-gated item remains, and it is a drive limitation rather than a gap in the app.** **Overread is `-O`, it has run on the Pioneer BDR-209D, and it hung the drive ~23 minutes** — do not reach for that toggle on this drive (`docs/dependency-contracts.md`). The fork's `-x` **cache probe** is no longer outstanding, and not because anyone fixed it: `-x` is a *modifier*, not a mode — it proceeds into a full rip by design, which the fork [declined to change](docs/handshake/inbound/round-14-lap-03.md) — and `-x -I` is the probe-only invocation that writes no audio. Platterpus always passes both, and that pairing ran clean on 2026-08-26 (`-N -x -I`, exit 0), as did the C1 detector (`-N -l 1`, exit 1, *Offset is unset*, no hang). The next minor is **0.7.100**, gated on a full hardware pass — and the bar was sharpened by the maintainer on 2026-08-26: **zero failures in the archival sections** — accuracy, provenance, and the records that make a rip trustworthy — with UX failures recorded, triaged and non-blocking. Severity is declared per section *before* the disc goes in, never decided after seeing a failure: of 21 sections, 17 are archival and 4 are UX.
+    >
+    > **Latest hardware: a Full run with three failed steps, and still not the clean pass `0.7.100` needs.** On **2026-09-28** the Full acceptance run on the Pioneer BDR-209D under Bazzite passed **320 of 323** steps, on app `0.6.63` with the fork's `.18` build (`51cc789`), the build cyanrip handshake round 29 reviewed and approved. The three failures are screenshot steps that found no window on screen, and they count: they sit in sections graded archival before the run. The rips completed, the ripper verified its own log for every rip with a report, and the app log held no error; the whole-disc rip matched the EAC baseline on 13 of 14 tracks, and its report says which track did not. It is recorded `partial`. **The field-evidence ledger carries twelve rows and no `full-green` row at all**, and that is the number to read rather than any step count. The next minor, **`0.7.100`**, is gated on a full hardware pass and **has not met it**; `0.9.1` needs **two** full-green passes across **at least two machines and two distros** (maintainer ruling, 2026-09-13). One rig passing twice answers *was it luck* and says nothing about *is it green only because of this machine*. A gate refuses a version bump the ledger does not support.
+    >
+    > **What is in it.** Implemented end-to-end with 6,700+ tests (including a full-pipeline end-to-end test) at 92.8% coverage, branches included (measured 2026-09-28 on 0.6.63 with `scripts/check.py`, Python 3.11: 6,730 passed, 19 skipped; CI enforces 91%, and the floor ratchets up, never down), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (the Platterpus fork of cyanrip — actively maintained, and no >587 read-offset bug; see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast Verified / Archival Exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line**, **true in-app updates**, **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder**, an **EAC-compatible companion log** with a per-track **EAC CRC32 column**, and **software-version provenance** recorded in the log header and the window title. Release-by-release detail lives in [`CHANGELOG.md`](CHANGELOG.md) — the single authoritative record — rather than accumulating on this page. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
+  - *The note under its `cyanrip --version` example:*
+
+    ```
+    #   This must match the banner named earlier on this page — and it is now
+    #   CHECKED rather than asked for: `tests/test_no_stale_version_claims.py`
+    #   derives the pin from `deps/fork_source.FORK_PIN` and refuses a README
+    #   naming another. The note here used to say it had been four pins stale
+    #   until 2026-09-13; by 2026-09-22 it was two pins stale again, in the same
+    #   line, under a comment describing the problem. A comment where a check
+    #   belongs is not a fix.
+    ```
+
 ## [0.6.65] — 2026-09-30
 
 ### Fixed
@@ -20,8 +168,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   prints *"-Z N can never converge with -r M: …"* when a secure re-read could never
   succeed. Our own settings check refuses the same pairs before cyanrip starts, so a
   rip should not meet them; if one ever does, the error now names cyanrip's sentence
-  rather than a bare "Rip failed." Found by checking 0.6.65 against every line `.19`'s
-  published contract added: the other two are already handled.
+  rather than a bare "Rip failed." The other lines `.19` added were already shown
+  or are not failures.
 - **The acceptance test keeps the screen awake, not only the machine.** The round 29
   Full run failed three screenshot steps because every window was on screen in name and
   hidden in fact, most likely because the display blanked: the sleep lock stops the
@@ -51,8 +199,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   120. The three new ones are the two `-Z`/`-r` refusals and *"Couldn't set metadata"*.
   It also picks up the one change `.18` made, which round 29 never filed: a MusicBrainz
   message replaced by upstream cyanrip. The old message is still recognised, because
-  older builds print it. We had counted `.19`'s new stable log lines as four; the
-  contract shows five added and one removed, as the fork said.
+  older builds print it.
 
 ## [0.6.64] — 2026-09-30
 
@@ -101,9 +248,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   ended *"A test pin is expected to differ during an open round"* whatever was open.
   The round-29 Full run (2026-09-28) printed it beside `51cc789`, the build under
   review, when round 29 names no test pin. The line now reads each build it names from
-  `fork_source`: *"this Platterpus pins e0471f4, and accepts 51cc789, the build under
-  review (round 29)"*, a test pin only when the round under review names one, and the
-  pin alone between rounds.
+  `fork_source`: while a round reviews a build it reads *"this Platterpus pins X, and
+  accepts Y, the build under review (round N)"* (0.6.63 printed it with `e0471f4` and
+  `51cc789`), a test pin only when that round names one, and the pin alone between
+  rounds, which is what 0.6.64 prints.
 - **The `-x` overread check reads the files git tracks, not whatever is on disk.**
   `tests/test_documented_ripper_flags_are_real.py` found its documents by walking the
   working tree, so it also swept `.pytest_cache/`, `src/platterpus.egg-info/` and stale
@@ -345,16 +493,6 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the track the ripper was reading when it printed it. One function in the log
   parser now decides which way a verdict went, for the parser and the rip worker
   both.
-- **A track whose secure re-reads never agreed is now a warning, and names its
-  track.** Every `-Z` verdict was filed in the diagnostics at `info`, whichever way it
-  went, and none said which track it was about. So the round-28 Full run's
-  diagnostics read `warnings: 1 … worst: warning`, and that one warning was a
-  deliberate negative test, while four `Done; (no matches found, but hit repeat
-  limit of 3)` verdicts sat at `info` among thirteen that converged. A verdict whose
-  reads never agreed is now `warning`, a converged one stays `info`, and each carries
-  the track the ripper was reading when it printed it. One function in the log
-  parser now decides which way a verdict went, for the parser and the rip worker
-  both.
 - **The diagnostics header no longer contradicts itself about the approved pair.**
   It named the running app as half of the pair and then said the pair was approved
   for another version: *"Approved pair: Platterpus 0.6.61 + cyanrip … — verified by
@@ -427,15 +565,6 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   track then re-read again the same way. That fallback is now capped at what `-r`
   lets converge (`-Z 2` at `-r 3`; none at all at `-r 1`), and a number you set
   yourself is never lowered.
-- **The automatic recovery re-read no longer asks for a `-Z` that Max retries cannot
-  satisfy.** cyanrip's secure re-read `-Z N` succeeds only when N+1 reads of a track
-  are identical, and it stops after `-r` reads (the fork's `src/cyanrip_main.c`
-  lines 997-1012 at `faec4a8`). With secure re-read Off, the read-speed ladder and
-  the auto-fix fell back to our own `-Z 3` whatever `-r` was, so at Max retries 3
-  they sent `-Z 3 -r 3`: every track read three times, none verified, and every
-  track then re-read again the same way. That fallback is now capped at what `-r`
-  lets converge (`-Z 2` at `-r 3`; none at all at `-r 1`), and a number you set
-  yourself is never lowered.
 - **The secure re-read setting now counts what cyanrip counts.** `-Z 2` needs three
   identical reads (the rig logs say "converged after 3 reads"), so the Settings row
   that read *Reads that must agree to trust a track: 2* was one short. It is now
@@ -469,6 +598,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the new pair refusal fires (`expect-refused max_retries 2`). A test replays the
   script to every rip and checks the ceiling it runs on; the end-state check that
   already existed could not see this, and passed on that run.
+
+- **A rip whose secure re-read could never succeed is now refused before cyanrip
+  starts.** `-Z N` with Max retries (`-r`) at N or less reads every track `-r` times
+  and cannot verify one, on any disc. Each number was in range on its own, so
+  nothing caught the pair. The argv check every route to the ripper passes now
+  refuses it with both numbers and the arithmetic, reading a missing `-r` as
+  cyanrip's own default of 10 and a repeated one as the last, as cyanrip does. Its
+  first catch was our own rig check, whose reference command line was
+  `-r 3 -Z 3`; it now uses the shipped defaults (`-r 5 -Z 2`). The `-r`/`-Z` rows of
+  `docs/dependency-contracts.md` say so. The shared `docs/seam-commands.md` is the
+  fork's one move of it for round 29: our two §1a rows, byte for byte, beside their
+  regenerated §7, which shows their `.19` refusing the same pairs (`-Z 10` with
+  `-r 10`). Adopted in the same commit as this check, as both sides agreed.
 
 ### Changed
 
@@ -536,31 +678,6 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   Every committed lap, and the fork's round 29 lap 1, gets the same report as before.
   The fork will write these readings into the shared proposal (their S30).
   (`scripts/laplang/lsl3.py`, `scripts/laplang/rerun.py`.)
-
-### Fixed
-
-- **The automatic recovery re-read no longer asks for a `-Z` that Max retries cannot
-  satisfy.** cyanrip's secure re-read `-Z N` succeeds only when N+1 reads of a track
-  are identical, and it stops after `-r` reads (the fork's `src/cyanrip_main.c`
-  lines 997-1012 at `faec4a8`). With secure re-read Off, the read-speed ladder and
-  the auto-fix fell back to our own `-Z 3` whatever `-r` was, so at Max retries 3
-  they sent `-Z 3 -r 3`: every track read three times, none verified, and every
-  track then re-read again the same way. That fallback is now capped at what `-r`
-  lets converge (`-Z 2` at `-r 3`; none at all at `-r 1`), and a number you set
-  yourself is never lowered.
-- **A rip whose secure re-read could never succeed is now refused before cyanrip
-  starts.** `-Z N` with Max retries (`-r`) at N or less reads every track `-r` times
-  and cannot verify one, on any disc. Each number was in range on its own, so
-  nothing caught the pair. The argv check every route to the ripper passes now
-  refuses it with both numbers and the arithmetic, reading a missing `-r` as
-  cyanrip's own default of 10 and a repeated one as the last, as cyanrip does. Its
-  first catch was our own rig check, whose reference command line was
-  `-r 3 -Z 3`; it now uses the shipped defaults (`-r 5 -Z 2`). The `-r`/`-Z` rows of
-  `docs/dependency-contracts.md` say so. The shared `docs/seam-commands.md` is the
-  fork's one move of it for round 29: our two §1a rows, byte for byte, beside their
-  regenerated §7, which shows their `.19` refusing the same pairs (`-Z 10` with
-  `-r 10`). Adopted in the same commit as this check, as both sides agreed.
-
 ## [0.6.62] — 2026-09-28
 
 ### Changed

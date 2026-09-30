@@ -12,7 +12,7 @@ The fix at the right altitude: the GUI fetches the front cover *itself*
 from the Cover Art Archive (https://coverartarchive.org) using the
 release MBID the user already picked in the release list, then embeds it
 into the ripped FLACs via the existing metaflac adapter and/or saves it
-as `cover.jpg` next to the tracks. Works identically for both backends.
+as `cover.jpg` next to the tracks. Independent of the ripper (cyanrip).
 
 Design rules:
 - **Best-effort, never fatal.** A rip without art is still a perfect rip;

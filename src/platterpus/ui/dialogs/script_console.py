@@ -23,11 +23,10 @@ markup. A cyanrip line containing ``<`` would be swallowed as an unknown tag and
 the reader would never learn text went missing — ``CLAUDE.md``'s inbound-seam
 rule, applied at the one widget that displays dependency output here.
 
-**It is the home of the three test-script settings** (2026-09-24): which script
-loads at start-up, whether it runs by itself, and whether the unsafe verbs are
-allowed. They used to be edited in Settings too, with a second unsafe-verbs box
-here — two editors of one setting, where the one a user last touched was not
-necessarily the one in force. Now they are edited only here, where scripts are
+**It is the home of the two test-script settings** (2026-09-24): which script
+loads at start-up, and whether it runs by itself. They used to be edited in
+Settings too — two editors of one setting, where the one a user last touched was
+not necessarily the one in force. Now they are edited only here, where scripts are
 loaded and run, and each saves as it is changed through the window's one
 single-setting writer, validated by the same predicate as the ``set`` verb
 (`ui/setting_homes.py`, `tests/test_setting_homes.py`).
@@ -46,7 +45,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QCloseEvent, QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QFileDialog,
@@ -146,7 +145,6 @@ class ScriptConsoleDialog(CenteredDialog):
         window: QWidget,
         *,
         script_path: str = "",
-        allow_unsafe: bool = False,
         autorun: bool = False,
         save_setting: Callable[[str, object], SettingWrite] | None = None,
         parent: QWidget | None = None,
@@ -198,12 +196,11 @@ class ScriptConsoleDialog(CenteredDialog):
         self._editor.setAccessibleName("Test script")
         layout.addWidget(self._editor, stretch=3)
 
-        # The three test-script settings, in their one home.
+        # The two test-script settings, in their one home.
         self._script_settings: ScriptSettingsBox = ScriptSettingsBox(
             self,
             script_path=script_path,
             autorun=autorun,
-            allow_unsafe=allow_unsafe,
             save_setting=save_setting,
         )
         self._script_settings.startup_script_saved.connect(
@@ -213,7 +210,6 @@ class ScriptConsoleDialog(CenteredDialog):
         #: as the console's own so the run and the tests read one object.
         self._startup_script_edit: QLineEdit = self._script_settings.startup_script_edit
         self._autorun_check: QCheckBox = self._script_settings.autorun_check
-        self._unsafe_check: QCheckBox = self._script_settings.unsafe_check
         top_layout.addWidget(self._script_settings)
         self._top_scroll.setWidget(top)
 
@@ -262,6 +258,8 @@ class ScriptConsoleDialog(CenteredDialog):
         #: The runner for the current/last run. Recreated per run so a report
         #: from a previous run can never be appended to.
         self._runner: ScriptRunner | None = None
+        #: Why a run in flight ends when this console closes; set by `close_for`.
+        self._close_reason: str = ""
         #: One-shot: the folder the NEXT run writes into, set by an acceptance
         #: session so everything it makes stays in its one folder. Cleared when
         #: that run starts, so a later hand-started run is not redirected.
@@ -436,11 +434,7 @@ class ScriptConsoleDialog(CenteredDialog):
         self._runner = runner
         self._run_button.setEnabled(False)
         self._stop_button.setEnabled(True)
-        runner.start(
-            steps,
-            unsafe_allowed=self._unsafe_check.isChecked(),
-            source=source,
-        )
+        runner.start(steps, source=source)
         # ASK the runner, do not assume. `ScriptRunner.start` has its own refusal
         # ("already running"), and a `return True` here would be this method's
         # opinion of what it requested rather than a statement about what is
@@ -551,6 +545,35 @@ class ScriptConsoleDialog(CenteredDialog):
 
     # --- Teardown ------------------------------------------------------------
 
+    def close_for(self, reason: str) -> None:
+        """Close the console, recording ``reason`` as why a run in flight ended.
+
+        The main window closes the console as part of its own teardown, and the
+        transcript used to say "the console was closed" either way. The fork read
+        that in round 29's bundle as the operator closing the console, when it
+        was the main window (their round 30 S25). One reason per cause.
+        """
+        self._close_reason = reason
+        self.close()
+
+    def reject(self) -> None:
+        """Esc does not end a run in flight; the window's close button does.
+
+        ``QDialog`` maps Esc to ``reject()``, which hides the dialog through
+        ``done()`` without passing ``closeEvent``, so the run went on with no
+        console on screen (round 29's Full run, 2026-09-30: a stray Esc hid it
+        three seconds before the window closed). A run is stopped deliberately,
+        with the Stop button or the close button, never by a key that may not
+        have been meant.
+        """
+        if self._runner is not None and self._runner.running:
+            log.warning(
+                "script console: Esc ignored while a run is in flight; use Stop "
+                "or the window's close button to end it"
+            )
+            return
+        super().reject()
+
     def closeEvent(self, event: object) -> None:  # noqa: N802 — Qt override
         """Stop a run before the window that hosts its timer goes away.
 
@@ -558,9 +581,19 @@ class ScriptConsoleDialog(CenteredDialog):
         destroy a live ``QTimer`` mid-run — and, worse for the person reading the
         result, leave a transcript with no verdict. ``stop()`` also kills any
         ripper call still in flight.
+
+        Logs whether the close came from outside the app (the window manager, a
+        close button) or from our own code, which round 29's log could not say.
         """
+        reason = self._close_reason or "the console was closed"
+        spontaneous = isinstance(event, QCloseEvent) and event.spontaneous()
         if self._runner is not None and self._runner.running:
-            self._runner.stop("the console was closed")
+            log.info(
+                "script console closing with a run in flight (%s; %s)",
+                reason,
+                "from outside the app" if spontaneous else "from the app itself",
+            )
+            self._runner.stop(reason)
         super().closeEvent(event)  # type: ignore[arg-type]  # Qt's QCloseEvent, typed loosely at this seam
 
 

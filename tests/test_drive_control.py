@@ -87,9 +87,11 @@ def test_fuser_sends_the_NAMED_signal_and_SIGKILL_only_by_default() -> None:
     cancelled rip's log into an unverifiable fragment — the exact loss §I of the
     acceptance run exists to detect.
 
-    Both directions, because the default must stay SIGKILL: the scan and shutdown
-    paths free a *wedged* reader with no log to protect, and quietly softening
-    those to SIGTERM would leave a reader that ignores it holding the drive.
+    Both directions, because the default must stay SIGKILL: the stuck-scan path
+    frees a *wedged* reader with no log to protect, and quietly softening it to
+    SIGTERM would leave a reader that ignores it holding the drive. (The shutdown
+    path used to share that default, and cost a log its footer; it now goes
+    through `stop_reader_gracefully`, tested below.)
     """
     rec = _Recorder(returncode=0)
     assert (
@@ -286,3 +288,122 @@ def test_free_drive_accepts_a_budgeted_runner_and_still_kills() -> None:
     assert any("fuser" in _base(c)[0] for c in rec.calls), (
         "the device-scoped kill must still be the first thing tried"
     )
+
+
+# --- shutdown: SIGTERM, a grace, then SIGKILL (the fork's round 30 S25) ---------
+
+
+class _Scripted:
+    """Fake runner: answers each argv by its shape, and records every call.
+
+    `fuser -s -k -TERM <dev>` and `fuser -s <dev>` are told apart by argv, so a
+    test states what the device holder does over time: `held` is consumed one
+    answer per `fuser -s` probe (its last value repeats).
+    """
+
+    def __init__(
+        self, *, term_rc: int = 0, kill_rc: int = 0, held: list[int | None]
+    ) -> None:
+        self.calls: list[list[str]] = []
+        self.term_rc = term_rc
+        self.kill_rc = kill_rc
+        self.held = held
+
+    def __call__(self, argv: list[str]) -> SimpleNamespace:
+        self.calls.append(argv)
+        base = _base(argv)
+        if base == ["fuser", "-s", "-k", "-TERM", "/dev/sr0"]:
+            return SimpleNamespace(returncode=self.term_rc)
+        if base == ["fuser", "-s", "/dev/sr0"]:
+            rc = self.held[0] if len(self.held) == 1 else self.held.pop(0)
+            if rc is None:
+                raise OSError("fuser could not start")
+            return SimpleNamespace(returncode=rc)
+        if base == ["fuser", "-s", "-k", "/dev/sr0"]:
+            return SimpleNamespace(returncode=self.kill_rc)
+        return SimpleNamespace(returncode=0)  # pkill / distrobox "kill"
+
+    def sigkills(self) -> list[list[str]]:
+        """Every call that kills without a TERM flag: fuser -k, pkill, distrobox."""
+        return [
+            _base(c)
+            for c in self.calls
+            if (_base(c)[:3] == ["fuser", "-s", "-k"] and "-TERM" not in c)
+            or _base(c)[0] in ("pkill", "distrobox")
+        ]
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def _stop(run: _Scripted, clock: _Clock, **kw: object) -> str:
+    return drive_control.stop_reader_gracefully(
+        "/dev/sr0",
+        runner=run,
+        sleep=clock.sleep,
+        clock=clock,
+        **kw,  # type: ignore[arg-type]  # test kwargs
+    )
+
+
+def test_shutdown_sends_SIGTERM_first_and_no_SIGKILL_once_the_reader_lets_go() -> None:
+    """The round-29 rip was SIGKILLed 191 ms after a SIGTERM and lost its footer.
+    Here the reader lets go on the third probe, inside the grace: no SIGKILL at all."""
+    run, clock = _Scripted(held=[0, 0, 1]), _Clock()
+    message = _stop(run, clock)
+    assert _base(run.calls[0]) == ["fuser", "-s", "-k", "-TERM", "/dev/sr0"]
+    assert run.sigkills() == [], run.calls
+    assert "allowed to finish" in message
+    assert clock.now < drive_control.READER_TERM_GRACE_S
+
+
+def test_shutdown_escalates_to_SIGKILL_only_after_the_whole_grace() -> None:
+    run, clock = _Scripted(held=[0]), _Clock()
+    _stop(run, clock)
+    assert _base(run.calls[0])[-2:] == ["-TERM", "/dev/sr0"]
+    assert run.sigkills(), "a reader still holding the drive must be killed"
+    assert clock.now >= drive_control.READER_TERM_GRACE_S, (
+        f"escalated after {clock.now}s, before the grace was out"
+    )
+    first_kill = next(i for i, c in enumerate(run.calls) if _base(c) in run.sigkills())
+    assert all(_base(c) != ["fuser", "-s", "/dev/sr0"] for c in run.calls[first_kill:])
+
+
+def test_shutdown_escalates_when_fuser_cannot_say_whether_the_drive_is_held() -> None:
+    """Fail-safe direction: "not determined" is never read as "released", or a
+    reader could be left ripping after the app has gone (2026-07-01)."""
+    for held in ([None], [124]):
+        run, clock = _Scripted(held=list(held)), _Clock()
+        _stop(run, clock)
+        assert run.sigkills(), f"{held}: no escalation on an undeterminable answer"
+
+
+def test_a_reader_already_signalled_is_not_signalled_again() -> None:
+    """cyanrip's second SIGTERM force-exits without the footer."""
+    run, clock = _Scripted(held=[0, 1]), _Clock()
+    _stop(run, clock, already_signalled=True)
+    assert not any("-TERM" in c for c in run.calls), run.calls
+    assert run.sigkills() == []
+
+
+def test_nothing_on_the_host_to_SIGTERM_falls_back_to_the_broad_stop() -> None:
+    """If the host sees no holder, the in-container fallback is all that is left."""
+    run, clock = _Scripted(term_rc=1, kill_rc=1, held=[1]), _Clock()
+    _stop(run, clock)
+    assert [os.path.basename(c[0]) for c in run.calls][:1] == ["fuser"]
+    assert any(os.path.basename(c[0]) in ("pkill", "distrobox") for c in run.calls)
+
+
+def test_device_is_held_is_tri_state() -> None:
+    assert drive_control.device_is_held("/dev/sr0", runner=_Recorder(0)) is True
+    assert drive_control.device_is_held("/dev/sr0", runner=_Recorder(1)) is False
+    assert drive_control.device_is_held("/dev/sr0", runner=_Recorder(124)) is None
+    assert drive_control.device_is_held("", runner=_Recorder(0)) is None

@@ -49,7 +49,7 @@ the point: **we do not pretend CI proves the app rips a disc.**
 | **Startup smoke** | `pytest` + offscreen Qt | the real `app.main()` entry point comes up headless (composition root, real adapters, a turn of the real event loop), with probes stubbed for hermeticity. `test_app_smoke.py` asserts the window composes (menus + widgets) and the launch dependency check applies **on the GUI thread** with no cross-thread Qt warnings — it caught a real off-thread-apply bug unit tests couldn't. |
 | **Property-based** | `hypothesis` | invariants over huge input spaces — see §4. |
 | **Packaging smoke** | `appimage.yml` | the built AppImage launches headless and reaches the Qt loop (`test_build_harness.py` guards the recipe). |
-| **Supply-chain / audit** | `ci.yml` + `mutation.yml` | gating `pip-audit` (dependency CVEs), the server-side media-guard (rule 9's CI backstop), the `tests-touched` gate (rule 1's backstop: it fails when `src/platterpus` changes with no change under `tests/` and no `[no-test-needed] <reason>`; advisory when the 2026-07-08 audit added it, gating since 2026-08-20), and the weekly non-gating mutation run — from the 2026-07-08 trust audit ([trust-audit-2026-07-08.md](archive/trust-audit-2026-07-08.md)). |
+| **Supply-chain / audit** | `ci.yml` + `mutation.yml` | gating `pip-audit` (dependency CVEs), the server-side media-guard (rule 9's CI backstop), the `tests-touched` gate (rule 1's backstop: it fails when `src/platterpus` changes with no change under `tests/` and no `[no-test-needed] <reason>`; advisory when the 2026-07-08 audit added it, gating since 2026-08-20), the gating `gitleaks` job (secret scanning over the full history) and the gating `sbom` job (a CycloneDX inventory of what ships, with a component floor), and the weekly non-gating mutation run — from the 2026-07-08 trust audit ([trust-audit-2026-07-08.md](archive/trust-audit-2026-07-08.md)). |
 | **Manual / hardware** | [test-plan.md](test-plan.md) | a real rip, CTDB verify CRC, the drive-setup wizard screens (Test 3), the read-effort/CD-Extra/companion-log cases (Tests 12–14), the GUI screenshot. Gated work that the cloud env can't validate. |
 
 ## 3. The five-tier case taxonomy (apply to every feature)
@@ -642,6 +642,8 @@ So, the obligations:
 
 **Would this test fail if I reverted the fix?** Check by actually reverting it. This has caught a vacuous detector here **twice** — including one whose first version passed against the very bug it was written for, because it looked for a *mention* of a thread rather than a *call* that stops it. **And prove the revert landed before believing the run.** A passing test after a revert that never applied is indistinguishable from a vacuous test, and there are now four measured ways to get one: a `str.replace` whose anchor the formatter has reflowed; a patch script that asserts *after* it edits, so the write never happens; `ruff --fix` deleting an import between two halves of a change; and — from the cyanrip fork, same week — a `sed` that produced non-compiling C while build output was suppressed, so the **stale binary** ran the test and passed. Assert the file changed (hash or re-read), assert the build/collection succeeded, and assert the reverted thing actually behaves differently, *then* believe the run.
 **And the RESTORE step is the dangerous half, which none of those four cover.** `git checkout -- <file>` restores to **HEAD**, not to the state before the probe — so on a file whose changes are not yet committed it does not undo the revert, it deletes the whole feature. Measured 2026-09-14: a probe written to prove the new release-state guard was not vacuous wiped every edit to `scripts/handshake.py` — the emitter field, both predicates, `announce_lap`, the gate wiring and the CLI — and the next run failed with `module has no attribute`, which reads like a typo rather than an amputation. The tests and docs survived because they were different files, which is exactly what made it look survivable. **Copy the file aside and restore from the copy**, verify the restore by hash, and never point `git checkout` at uncommitted work. `scripts/revert_probe.py` exists so this is not hand-rolled each time; the incident is what happens when it is.
+
+**And a failure is evidence only if the same test passed a moment earlier.** Measured 2026-09-30: a new check of the runner's docstring failed on comment markers in `verbs.py`, a file the revert never touched, so the reverted run failed for its own reason and the probe reported `detected`. It was caught only because the test was also run unreverted by hand. `revert_probe.py` now runs each revert's tests **before** applying it, through the same runner, and refuses the probe when that baseline does not pass (`tests/test_revert_probe.py::test_a_test_that_already_fails_is_refused_not_reported_detected`, itself probed).
 
 #### Moved from `CLAUDE.md` (2026-09-26): Can this check be satisfied by finding nothing?
 
@@ -2167,6 +2169,24 @@ Four things this cost, each worth its own note:
 
 **"Idempotent", "free", "harmless to repeat" — properties of the CALLEE, and I cannot establish them by reading my own call site.** `f(x); f(x)` is safe only if *`f`* is safe to repeat, so the question is never *"is calling this twice harmless?"* but *"harmless **to whom** — me, or the thing on the other end?"* Three call sites in `RipWorker` each sent their own SIGTERM on a cancel, the third one commented *"asking again is free and idempotent."* Every clause is true of `Popen.terminate()` and none of it is true of **cyanrip's handler**, whose second-signal branch is `SIG_WRITE_LIT("Force quitting"); _exit(1)` — an escape hatch for a user hammering Ctrl-C. `_exit` runs no `atexit`, and `atexit` is where the completion footer and the FUN512 checksum are written, so the "free" repeat replaced a clean shutdown with a forced one and turned an archival log into an unverifiable fragment. Measured at **0.445 ms** between the two signals; half a millisecond is not an impatient human. The callee's source was in a repository we had checked out. Three corollaries, all paid for in the same hour (`docs/testing.md` §5.ay): **a loosened assertion with a confident comment is worse than no assertion** — the test asserted `terminate_calls >= 1` and explained that the double send was deliberate, which tells the next reader the question has been settled; **when a flag needs a reset, ask whether it wanted to be an identity comparison** — "have we signalled?" is a fact about a *subprocess*, and a bool scoped to the worker has no correct place to be reset, while keying on the handle's identity has no window at all; and **a refactor that trips a correctness sweep is a prompt to teach the sweep, not to exempt the subject** — extracting the kill into a chokepoint made `tests/test_qthread_ownership.py` report the cancel as flag-only, and the convenient repair was an allowlist entry asserting something false, in the very file that exists to stop that.
 
+**The same loss, a month later, by a different route (2026-09-30, S25).** A rip
+in the round-29 Full run was left with no footer and no `Log FUN512:`, and the
+fork read the transcript's "the console was closed" as the operator closing it.
+It was the MAIN WINDOW closing (from outside our code), and its shutdown path
+sent the wrapper one SIGTERM — correct, and single — then **191 ms later** freed
+the drive through `fuser -k`, whose default signal is SIGKILL. SIGKILL skips
+`atexit` exactly as the second SIGTERM's `_exit` does, so the lesson above held and
+was defeated one layer down: *one signal* is not the property to protect; *time for
+the handler to finish* is. The rule it leaves: **any path that stops the ripper and
+must keep its record gives it a bounded grace before anything that cannot be
+caught** — SIGTERM, then poll whether it still holds the drive
+(`drive_control.stop_reader_gracefully`, `READER_TERM_GRACE_S`), escalate only if
+it does or if that cannot be determined, and never a second SIGTERM. The
+undeterminable case escalates because the thing being protected on that path is
+the drive and the shutdown, not the log (§5.bw: say which failure the safe
+direction avoids). Hardware still has to show the footer lands inside the grace on
+the container path (TASKS, "S25 on hardware").
+
 ### §5.az — We deleted the ripper's dying words, then reasoned from the gap
 
 **2026-08-25, found while answering the above.** The cyanrip fork examined the
@@ -2382,8 +2402,11 @@ lap naming one of ours in `HANDSHAKE-INBOUND-HELD` or
 * **every hash the peer declares for one of our laps must match our copy** — seven
   such declarations exist and all seven match; this would have fired the moment lap
   14 was filed, instead of when someone thought to recompute a digest;
-* **every lap the peer says it holds is pinned or ratcheted** — 19 rows in
-  `PEER_CONFIRMED_UNPINNED`, a set that may shrink and never grow.
+* **every lap the peer says it holds is pinned or ratcheted** — `PEER_CONFIRMED_UNPINNED`,
+  a set that may shrink and never grow. It held 19 rows when the gate was written;
+  it has been **empty since 2026-09-28** — eighteen graduated to `SENT_LAPS` on
+  2026-09-27 by measurement against the fork's filed copies, and round 14 lap 18
+  by restoring the bytes we sent (`tests/test_sent_laps_are_immutable.py`).
 
 Two details worth keeping. **The ratchet is not a set of `SENT_LAPS` rows**, and
 deliberately: pinning today's bytes for a lap sent months ago asserts a
@@ -3766,6 +3789,26 @@ defect, and two of those sections are archival.
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
 
+**What a ripping section grades, beyond "it finished" (added 2026-09-30).** Until
+then every ripping section asserted `expect-rip-complete` and
+`expect-verification` (the checks left *a* result), and no step read what the
+rip left. Each of F, H, J, K1–K3 and N now also grades the artifacts:
+`expect-album-audit` re-runs the report's own self-audit against the files
+(cyanrip's `-Y` on its log, the cue, the EAC log's checksum and its CRCs against
+the ripper's, the argv, the audio files), `expect-accuraterip` requires an
+AccurateRip answer for every track (any answer; the plumbing is what is graded),
+`expect-ctdb whole|partial` requires the lookup on a whole disc and its refusal
+on a subset, and `expect-tags` / `expect-cover-art` read the FLACs. H adds the
+per-track escaping permutation (`track-title` with `\ = ' :`); K2 and K3 run the
+`file` and `complete` cover-art modes. §I asks only the two audit questions a
+cancel leaves standing. The graders delegate to the product's own predicates
+(`uiscript/artifact_grading.py`, `uiscript/tag_grading.py`); the reasons are in
+their docstrings. **Not added, and why:** the offset-override-off path cannot be
+one script line on every drive — a drive in AccurateRip's list auto-applies the
+list offset and rips, an unknown one is refused with a dialog — so a line that
+passes on one rig fails on the other, and on the rig it could move the offset
+mid-run. It is a TASKS row until the language can branch on the drive.
+
 ### Acceptance tiers — what each section costs, and what it rests on
 
 **Round 18 fixed the tiers and round 19 lap 1 §5.4 fixed whose job this is:**
@@ -3811,8 +3854,8 @@ assigns to us, and it changes nothing on their side.
 | K2 | 2 | k2-wavpack | e-identify | `rip` scoped by `select-tracks 1-2` |
 | K3 | 2 | k3-wav | e-identify | `rip` scoped by `select-tracks 1-2` |
 | P3 | 2 | p3-deemphasis | e-identify | `cyanrip … -l 1 …` twice — one track each, `-H -E` against `-H -W` |
-| F | 3 | f-fulldisc | e-identify | `rip` with **no** `select-tracks` — every track |
-| N | 3 | n-securereread | e-identify | `rip` with **no** `select-tracks`, uniform secure re-read |
+| F | 3 | f-fulldisc | e-identify | `rip` after `select-tracks all` — every track |
+| N | 3 | n-securereread | e-identify | `rip` after `select-tracks all`, uniform secure re-read |
 | G | 3 | g-postrip | f-fulldisc | no disc verb of its own: `rig-check` grades **F's** log, so it rests on F rather than on a rip in general |
 
 <!-- END-ACCEPTANCE-TIER-TABLE -->
@@ -3826,16 +3869,17 @@ would let a rip failure prune the sweep whose purpose is to characterise that
 failure. The engine holds up its half: `tier` clears any inherited `needs`, so a
 sweep that declares none cannot silently acquire the previous block's.
 
-**One thing this derivation found, and it is ours.** **K4 is classified
+**One thing this derivation found, and it is ours.** **K4 was classified
 `ARCHIVAL` and contains no rip and no assertion about any output.** Its title —
 *"back to FLAC, the archival master"* — promises a check on the archival format;
 what it does is `set output_format flac` and read the setting back, which is a
 settings round-trip section B already covers. Nothing about FLAC output is
 verified there. The severity is not wrong about FLAC's importance and the
-section is not wrong to restore the setting; what is wrong is that a row graded
-`ARCHIVAL` — a grade that can block a version — is satisfied by a check that
-cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
-`0` because that is what the section costs today, not what its title implies.
+section is not wrong to restore the setting; what was wrong is that a row graded
+`ARCHIVAL` — a grade that can block a version — was satisfied by a check that
+cannot fail for any archival reason. **Resolved 2026-09-14: K4 was regraded
+`UX`** (its row in the severity table above). The tier table says `0` because
+that is what the section costs, not what its title implies.
 
 <!-- FIELD-EVIDENCE-TABLE: parsed by tests/test_no_stale_version_claims.py -->
 
@@ -3853,6 +3897,7 @@ cannot fail for any archival reason. Queued in `TASKS.md`; the tier table says
 | 2026-09-28 | 0.6.61 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-28 | 0.6.62 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-28 | 0.6.63 | maintainer | bdr209d | bazzite | partial |
+| 2026-09-30 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -4237,4 +4282,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.64.*
+*Last updated for Platterpus v0.6.65.*

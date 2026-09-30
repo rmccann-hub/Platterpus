@@ -587,11 +587,18 @@ between the old duplicate copies is what forced the choice).
 cyanreg/cyanrip (upstream)
         └── rmccann-hub/cyanrip (our fork)
               ├── master              # mirrors upstream, fast-forward only — never commit here
-              ├── fix/meta-colon      # one topic branch per upstream PR
+              ├── fix/meta-colon      # planned: one topic branch per upstream PR (none exist today)
               └── feat/encoder-opts   #   "        "
-              └── platterpus          # optional: integration branch = master + all our not-yet-merged patches,
-                                      #           the exact tree we build in the ripping container
+              └── platterpus-fork     # integration branch = master + all our not-yet-merged patches;
+                                      #   the tree we build in the ripping container, at FORK_PIN
 ```
+
+**As it actually is (checked 2026-09-30 with `git ls-remote`):** the fork has two
+branches, `master` (an ancestor of the other) and **`platterpus-fork`**, which the
+container builds at `FORK_PIN` (`src/platterpus/deps/fork_source.py`). The fork
+carries its work on `platterpus-fork` directly; the per-contribution topic branches
+below are the plan for an upstream PR, and none exists today. (This diagram named
+the integration branch `platterpus` until 2026-09-30.)
 
 - **`master` tracks upstream, untouched.** `git remote add upstream
   https://github.com/cyanreg/cyanrip && git fetch upstream && git switch master
@@ -599,7 +606,7 @@ cyanreg/cyanrip (upstream)
   what keeps re-merge trivial.
 - **One topic branch per contribution**, branched off `master`, holding **one
   focused commit**. That branch is what becomes the upstream PR.
-- **`platterpus` integration branch** (optional) = `master` + each topic branch,
+- **`platterpus-fork` integration branch** = `master` + each topic branch,
   rebased whenever `master` advances. This is the tree the `ripping` container
   builds so we get a fix *before* upstream releases (see §4). Keep it a pure
   rebase of the topic branches — no unique work — so it stays a no-op to
@@ -607,8 +614,8 @@ cyanreg/cyanrip (upstream)
 
 **Staying current:** `git fetch upstream && git switch master && git merge
 --ff-only upstream/master`, then `git rebase master fix/meta-colon` (etc.), then
-rebuild `platterpus`. When a topic branch's PR merges upstream, **delete the
-branch and drop it from `platterpus`** — it's now in `master`.
+rebuild `platterpus-fork`. When a topic branch's PR merges upstream, **delete the
+branch and drop it from `platterpus-fork`** — it's now in `master`.
 
 ---
 
@@ -630,7 +637,8 @@ int err = av_dict_parse_string(&ctx->meta, copy, "=", ":", 0);
 ```
 
 > **⚠️ SCOPE CORRECTION (2026-07-31).** This is real at **v0.9.3.1**, the tag the
-> container deploys (`src/cyanrip_main.c`), and was reproduced on hardware
+> stock COPR package ships (`src/cyanrip_main.c`); the container now builds the
+> fork at `FORK_PIN` over it (`deps/fork_source.py`, KDD-32). It was reproduced on hardware
 > 2026-06-27. It is **fixed upstream in `master`**: the function moved to
 > `src/naming.c` and is a hand-rolled scan that minds `\:` / `\=` escapes. The
 > fork session could not reproduce it against their tree for exactly that reason.
@@ -842,7 +850,7 @@ Source-confirmed (2026-07-07, and re-verified 2026-07-21 that #115 is still open
    slow PR. Capture **log + per-track CRCs only, never audio** (Critical rule #8).
 2. **Carry it on `feat/pregap`** = a topic branch tracking PR #115's head
    (`git fetch upstream pull/115/head:feat/pregap`), rebased onto `master` and
-   folded into the `platterpus` integration branch (§1). That is how we ship
+   folded into the `platterpus-fork` integration branch (§1). That is how we ship
    exact pregaps/HTOA *before* #115 merges upstream.
 3. If a blocker is trivial (the `assert.h` leftover), offer it as a
    suggestion/commit **against #115's branch**, coordinated with UltraFuzzy — not
@@ -855,9 +863,9 @@ Source-confirmed (2026-07-07, and re-verified 2026-07-21 that #115 is still open
 **Essentially nothing to build.** Platterpus consumes cyanrip's `.cue` verbatim
 (surfaced via the *View cue* button; the EAC-parity check reads Copy CRCs from
 logs, not the cue), so INDEX 00 appears automatically once the built cyanrip
-emits it. The only Platterpus change is upstream of this doc: `host_setup.py`
-building cyanrip from the pinned integration-branch commit instead of the COPR
-package (§4 below) — the one real new maintenance commitment (KDD-32). The
+emits it. The only Platterpus change was upstream of this doc, and it is **done**:
+`deps/fork_source.py` builds the pinned `platterpus-fork` commit (`FORK_PIN`) over
+the COPR package (§4 below) — the one real new maintenance commitment (KDD-32). The
 Platterpus-side **cdrdao fallback** (a `read-toc` adapter, `cyanrip-upstream.md`)
 stays the no-upstream-dependency backup **only if #115 stalls indefinitely** —
 it duplicates #115 and adds a dependency, so it is not the first move.
@@ -896,10 +904,10 @@ cyanrip built it.
 - **Rebase, don't merge**, onto upstream `master` to keep topic branches linear
   and cherry-pick-clean.
 - **When a PR merges upstream:** delete the topic branch, drop it from
-  `platterpus`, fast-forward `master`, and remove the corresponding
+  `platterpus-fork`, fast-forward `master`, and remove the corresponding
   Platterpus-side workaround (behind a version guard). The end state of a
   successful contribution is **our fork carrying nothing** for that change.
 
 ---
 
-*Last updated for Platterpus v0.6.60.*
+*Last updated for Platterpus v0.6.65.*

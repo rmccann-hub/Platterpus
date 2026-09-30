@@ -564,7 +564,6 @@ class ProvisioningMixin(MainWindowShared):
         console = ScriptConsoleDialog(
             self,
             script_path=cfg.test_script_path,
-            allow_unsafe=cfg.test_script_allow_unsafe,
             autorun=cfg.test_script_autorun,
             save_setting=self._save_user_setting,
         )

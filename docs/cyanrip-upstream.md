@@ -313,15 +313,19 @@ post the result, offer fixes against UltraFuzzy's branch), moderate as a
 *maintenance commitment* (KDD-32: the `ripping` container builds cyanrip from our
 pinned integration branch instead of the 2-year-old COPR tag).
 
-**Route.** **Soft-fork carry + upstream support.** `feat/pregap` tracking #115's
-head, folded into the `platterpus` integration branch. Do **not** open a
-competing PR (soft-fork §3.1, §5).
+**Route.** **Soft-fork carry + upstream support.** Carried on the fork's
+`platterpus-fork` integration branch (the plan named a `feat/pregap` topic branch
+and a `platterpus` branch; neither exists — `git ls-remote`, 2026-09-30). Do **not**
+open a competing PR (soft-fork §3.1, §5).
 
 **Platterpus side.** Essentially nothing — the `.cue` is consumed verbatim and
 `pregap_sectors` is already parsed. **One exception, found while assembling this
-(§6.3): our `Pre-gap length` formatting is probably wrong**, and it is latent
-only because cyanrip currently reports no pre-gaps. Fix that in the same change
-that lands the detection, or the row will appear and disagree with EAC.
+(§6.3): our `Pre-gap length` formatting was wrong** (CD frames where EAC prints
+hundredths of a second), and `eac_log_export._pregap_line` now renders hundredths.
+It was latent only while no build reported pre-gaps; **the pinned fork now does**
+(round 29's Full-run logs on `.18` carry `Pregap length:` and `Pregap source:`,
+`docs/handshake/artifactsround29/`), while upstream `master` still does not (the
+fork's mirror of it, at `f8ebf48f`, has no `Pregap source` line in `src/`).
 
 ---
 
@@ -1337,4 +1341,4 @@ never fake provenance — the signed EAC checksum stays permanently out of scope
 
 ---
 
-*Last updated for Platterpus v0.6.63.*
+*Last updated for Platterpus v0.6.65.*

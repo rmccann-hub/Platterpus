@@ -68,7 +68,6 @@ def _verb_rows() -> list[dict[str, Any]]:
                 # rather than a sentinel number: a cap of -1 or 9999 would be a
                 # value a machine reader has to know to special-case.
                 "max_args": verb.max_args,
-                "unsafe": verb.unsafe,
                 "takes_paths": verb.takes_paths,
                 "implemented": verb.implemented,
                 "help": verb.help,
@@ -225,8 +224,6 @@ def _document() -> str:
         marks = []
         if not verb["implemented"]:
             marks.append("**NOT IMPLEMENTED**")
-        if verb["unsafe"]:
-            marks.append("needs the unsafe opt-in")
         status = "; ".join(marks) if marks else "ready"
         # The help text already reads as a sentence and is the same string the
         # in-app reference renders, so it is reused rather than re-worded here.
@@ -437,8 +434,23 @@ def _document() -> str:
     add(
         "| `ERROR` | the step could not run at all: a bad argument, a missing widget, a runner fault |"
     )
-    add("| `BLOCKED` | the verb needs the unsafe opt-in, which is off |")
-    add("| `SKIPPED` | never reached, because `abort` stopped the batch earlier |")
+    add(
+        "| `SKIPPED` | declined: the chosen run size leaves this step's section out "
+        "(recorded, never dropped) |"
+    )
+    add(
+        "| `BLOCKED` | prevented: the batch was stopped before it (`abort`, a stop "
+        "from the console), or a block it `needs` had already failed; the record "
+        "says which |"
+    )
+    add(
+        "| `UNREACHABLE` | cannot run on this equipment at all, which is not a "
+        "choice that could be reversed |"
+    )
+    add(
+        "| `INFO` | the step gathered a fact and asserted nothing (the wrapper "
+        "probe, or a screenshot rendered while the display was not showing the app) |"
+    )
     add("")
     add("`ERROR` and `FAIL` are different on purpose. `FAIL` is a measurement —")
     add("the product did something you did not expect. `ERROR` is the script or the")

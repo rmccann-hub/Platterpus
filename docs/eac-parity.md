@@ -145,8 +145,11 @@ Findings:
 - It only matters for a **single-file disc image** or a **gapless re-burn** — not
   for tagged per-track FLACs, where the audio is already equivalent.
 
-So writing EAC-style `INDEX 00` pre-gaps is **blocked on pre-gap detection**,
-which cyanrip doesn't currently do on this path. Options are in the plan.
+So on **stock cyanrip 0.9.3**, writing EAC-style `INDEX 00` pre-gaps is **blocked
+on pre-gap detection**, which stock cyanrip doesn't do on this path. The Platterpus
+fork — the build the setup wizard installs (KDD-32/KDD-33) — does detect them and
+its cue carries `INDEX 00` (the *Subcode / pre-gap / `INDEX 00`* scorecard row
+below). The findings above are the stock-0.9.3 record.
 
 ### Extraction-vector scorecard (vs. the 2026 landscape doc)
 
@@ -160,7 +163,7 @@ Scoring Platterpus/cyanrip against that full list, one row per vector:
 | Cache defeat | **Measured (KDD-29)** | libcdio-paranoia attempts cache defeat every rip; cyanrip emits no verdict, so we **measure** it with `cd-paranoia -A` (libcdio's copy of that same engine) via Set up drive → Analyse cache, recorded per drive and folded into the EAC-compatible log. Still `(unknown)` (never forged) when the probe is inconclusive — the KDD-25 honesty rule holds. Hardware-tuned on the BDR-209D. |
 | Overread (into lead-in/lead-out) | **Present (opt-in)** | Surfaced 2026-07-21 as the Settings "Overread" toggle → cyanrip `-O`, off by default (EAC's baseline setting is "overread: No", and that's how the 12/14 parity proof matched). Flag-letter corrected the same day: this row previously said `-x`, which does not exist in cyanrip — `-O` verified against 0.9.3.1 + master. |
 | Subcode / pre-gap / `INDEX 00` | **Present on the fork; absent on stock 0.9.3** | Stock cyanrip 0.9.3 performs no subchannel pre-gap detection, so it emits no `INDEX 00` cue metadata — that is the `cyanrip_flac/` reference, still cited by tests. The Platterpus fork, which is the build the setup wizard installs (KDD-33), reads them from the sub-channel: the 2026-08-04 rig rip matched **all ten** of EAC's `Pre-gap length` rows to the hundredth of a second, in order, and its cue carries the `INDEX 00` markers (`output_reference/cyanrip_fork_flac/`, asserted by `tests/test_fork_rip_eac_parity.py`). The underlying *audio* was never affected either way (append/merge-to-previous matches EAC). See "Pre-gaps" above. |
-| HTOA (hidden track one audio) | **Absent — explicit scope note** | Not pursued: HTOA discs are rare in practice, and neither backend gives us a clean, low-effort path to it. Out of scope rather than a tracked gap; see `TASKS.md` "Out of scope." |
+| HTOA (hidden track one audio) | **Absent — explicit scope note** | Not pursued: HTOA discs are rare in practice, and cyanrip (the sole backend since KDD-18) gives us no clean, low-effort path to it. Out of scope rather than a tracked gap; see `TASKS.md` "Out of scope." |
 | Pre-emphasis | **Flag-only, intentionally unused** | cyanrip's `-E` (de-emphasis) flag exists but is deliberately not passed — Platterpus preserves pre-emphasis-encoded discs as-is (an archival choice: don't alter samples) rather than actively de-emphasizing. See `docs/dependency-contracts.md`. |
 | AccurateRip v1/v2 | **Present** | Queried every rip; v1+v2 confidence parsed and rendered (KDD-12). |
 | CTDB (whole-disc verify) | **Present, validated** | `ctdb/` clean-room client (KDD-16); GUI-wired; `crc.CRC_VALIDATED=True` since 2026-07-07 (a real disc's CRC reproduced at offset 0 on hardware), so a match reads "verified". |
@@ -260,8 +263,10 @@ a burnable disc image; revisit with KDD-18 (ripper-engine strategy).
 - **File-byte identity with EAC is impossible across encoders and is the wrong
   goal** — lossless audio + AccurateRip CRC is the archival standard, and we meet
   it where the disc allows.
-- **EAC-style pre-gap cue markers are a metadata nicety, currently blocked on
-  cyanrip pre-gap detection**, and only matter for disc-image use (P3/P5).
+- **EAC-style pre-gap cue markers are a metadata nicety**, and only matter for
+  disc-image use (P3/P5). On **stock cyanrip 0.9.3** they are blocked on pre-gap
+  detection; the Platterpus fork detects pre-gaps and emits `INDEX 00`
+  (`output_reference/cyanrip_fork_flac/`).
 
 ---
 
@@ -690,7 +695,7 @@ cyanrip's default already merges pregaps into the previous track.
 | Defeat audio cache | *measured* via `cd-paranoia -A` (KDD-29), not asserted | **met when probed** |
 | Delete silent blocks: No | asserted for cyanrip (it writes what it reads) | **met** |
 | Null samples in CRC: Yes | asserted for cyanrip (CRCs matched a real EAC log, 12/14 tracks) | **met** |
-| Gap handling | wording **actually** fixed 2026-07-30 (see below) — says "Not detected, thus appended to previous track" | **wording met, detection is not** |
+| Gap handling | wording **actually** fixed 2026-07-30 (see below) — says "Not detected, thus appended to previous track" when the ripper signals none, and "Appended to previous track" when gaps are signalled (`eac_log_export.py`) | **met on the fork** (it detects pre-gaps); **wording met, detection is not** on stock cyanrip 0.9.3 |
 | Test & Copy | `-Z` convergence rendered as a Test/Copy pair | **partial** |
 | AccurateRip | parsed and rendered; `verdict.py` is the single predicate | **met** |
 | No ID3 on FLAC | Vorbis comments only | **met** |
@@ -753,11 +758,14 @@ disagreement so nobody later "fixes" it by making the string match.
 
 ### 4. Ranked next steps, cheapest first
 
-1. **Earn the C2 row** — read libcdio-paranoia's source for C2 handling, or measure it,
-   then assert `No` with the evidence recorded next to the assertion. ~10 lines once the
-   evidence exists; the point is the evidence, not the lines.
-2. **`Fill up missing offset samples with silence`** — plumb `force_overread` into the
-   renderer, which currently only sees parsed log text. ~30 lines.
+1. ~~**Earn the C2 row**~~ — **done 2026-07-30**: earned from cyanrip's own
+   `C2 errors: unsupported by drive` header on the rig, not from the survey (*The C2
+   row* above). Still "(not reported)" on a C2-capable drive, by design.
+2. ~~**`Fill up missing offset samples with silence`** — plumb `force_overread` into the
+   renderer~~ — **rejected (review finding, 2026-07-28)**: EAC's overread and
+   fill-with-silence checkboxes are independent questions, so the flag cannot answer
+   this row. It is read from cyanrip's own overread *mode* line instead, and stays
+   "(not reported)" when that line is absent (`eac_log_export._fill_with_silence`).
 3. **Assert the offset is *correct*, not merely applied** — the AccurateRip drive table
    is already in `adapters/accuraterip_offsets_data.py`, so the log can say
    `+667 (matches the AccurateRip database for PIONEER BD-RW BDR-209D)`. Genuine
@@ -831,4 +839,4 @@ policy limit, not a technical one.
 
 ---
 
-*Last updated for Platterpus v0.6.63.*
+*Last updated for Platterpus v0.6.65.*

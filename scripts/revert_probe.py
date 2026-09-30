@@ -27,7 +27,16 @@ looks exactly like a vacuous test**. All four are on the record here:
    message: before believing a test is dead, confirm the replacement is
    semantically different, not merely textually different.
 
+6. a test that **already failed with the fix in place**. Found using this tool,
+   2026-09-30: a new docstring check failed on comment markers in a file the
+   revert never touched, so the reverted run failed for a reason unrelated to the
+   revert, and the probe reported `detected`. A failure proves something only if
+   the same test passed a moment earlier.
+
 So this tool refuses rather than guesses, and it proves each step:
+
+* the tests must **pass before the revert** — the baseline run, with the file as
+  it is, is what makes a failure after the revert evidence about the revert;
 
 * the anchor must appear **exactly once** — zero means the edit cannot land, more
   than one means we do not know which site we changed;
@@ -315,6 +324,22 @@ def apply_and_probe(revert: Revert, run_tests: TestRunner | None = None) -> Outc
                 f"{path.relative_to(REPO_ROOT)}, and this probe needs exactly one. "
                 "Zero means the edit cannot land (a formatter may have reflowed it); "
                 "more than one means we would not know which site was changed."
+            ),
+        )
+
+    # THE BASELINE, with the file as it is. A test that fails here would fail
+    # after the revert too, for its own reason, and read as a detection. Run
+    # through the same runner as the probe, so no stand-in can skip it.
+    base_code, base_output = runner(revert.tests)
+    if base_code != 0:
+        return Outcome(
+            revert.label,
+            ok=False,
+            detail=(
+                f"REFUSED: the tests do not pass with the fix in place (pytest "
+                f"exited {base_code} before any revert), so a failure after the "
+                "revert would be no evidence about it. Make them pass first.\n"
+                + _failed_lines(base_output)
             ),
         )
 

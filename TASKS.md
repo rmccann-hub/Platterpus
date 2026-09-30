@@ -378,7 +378,7 @@ which row that is. Three answers differ from my recommendation (D2, D8, D9).
 
 - [x] **D11. Where does the automatic re-rip's own log go?** When a track is re-read
   and swapped in, the re-read writes a complete cyanrip log of its own, which today
-  is deleted. Row: Route 2.
+  is deleted. Row: Route 2 (merged 2026-09-30 into *"The automatic re-rip's own log is collected nowhere"*).
   - **A. Inside the rip's `.platterpus.json` report.**
     - Up: nothing new in the album folder.
     - Up: the record is complete.
@@ -461,7 +461,7 @@ which row that is. Three answers differ from my recommendation (D2, D8, D9).
 | D8 | A | `-f` as a cross-check, and as the answer for unlisted drives; hardware run first | *"Re-evaluate a vetted cyanrip `-f` offset-detect"* |
 | D9 | C | Signing stays dormant. The question overstated the protection (see the correction under D9); the follow-up, verifying the attestation in the app, was approved and built | Update-authenticity row, closed; *"Verify the build attestation in the updater"*, closed; KDD-37; `docs/architecture.md` §6.2 |
 | D10 | A | Pick two screenshots from the next Full run's bundle | *"Add a screenshot or two"* |
-| D11 | A | Embed the re-rip's cyanrip log in `.platterpus.json` | *"Route 2"* |
+| D11 | A | Embed the re-rip's cyanrip log in `.platterpus.json` | *"Route 2"*, merged into *"The automatic re-rip's own log is collected nowhere"* |
 | D12 | A | Nothing; the console moves with D4 | Console row, closed |
 | D13 | A | Cancelled-rip facts in the JSON report only | *"The cancelled-rip log addendum, properly"*; E15 |
 | D14 | B | **Built 2026-09-25**: `tag_hygiene`, report v28 `disc.tag_control_characters_replaced` | E12 (partly); the `_metadata_args` fuzz row, closed |
@@ -593,7 +593,7 @@ round 26 is open.
   what it steers. Moved: the read offset and its Apply tick-box to *Set up drive…* (Settings
   shows it read-only), both update channels above their checks in Setup & Updates, the
   startup script / autorun / unsafe verbs to the script console (its second unsafe box is
-  gone), and *Diagnose drive access…* from the Tools menu to Setup & Updates → Drive. Gate:
+  gone; the first went with the unbuilt verbs on 2026-09-30), and *Diagnose drive access…* from the Tools menu to Setup & Updates → Drive. Gate:
   `tests/test_setting_homes.py` (every setting has a home; every value control in every
   window is a home control or on an allowlist with a reason). Settings has **OK / Apply /
   Cancel / Restore Defaults**. Found on the way and fixed: a Setup & Updates window left
@@ -641,7 +641,7 @@ each side's reading; and the closing releases named.
   by a written decision. `.19`'s reworded repeat-limit line is in P5a, where the old one
   is, and is retained beside it: the worker reads either as a verdict before it asks the
   matcher. The retention check now counts a P5a row as one the fork sent, with a floor.
-- [~] **0.6.65**, the release the Full run is on: `51cc789` by default, `.19` accepted as
+- [x] **0.6.65**, released 2026-09-30 02:57Z from `0981c697` (release run 36662071393), the release the Full run is on: `51cc789` by default, `.19` accepted as
   the build under review, the screen held awake, and the two `-Z`/`-r` refusals surfaced.
   PR #283. It was held by the operator's override of 2026-09-30 (*"wait for the next
   lap/release before making the platterpus release. this may be against the rules but i
@@ -672,22 +672,115 @@ each side's reading; and the closing releases named.
   - *Tag keys in capitals:* the one reader, colon-restore, walks every key whatever its
     case. *Golden reference:* 0.6.65's parser reads the fork's `.19` golden reference
     (build, footer, 3 of 3 tracks, CRCs, checksum) with nothing dropped.
-- [ ] **The Full run on 0.6.65 with `.19`** (S10), then both readings of the bundle.
-- [ ] **Our lap after the run:** our reading of it (S10); D1 to D10 of their proposal by
+- [~] **The Full run on 0.6.65 with `.19`** (S10), then both readings of the bundle. Started by the operator 2026-09-30 ~03:02Z, About showing build `0981c69`, cyanrip `.19` `174a134` ⓘ being tested; results expected about six hours later.
+- [x] **File their lap 3** (released 2026-09-30 at `cyanrip@56ddc7b`, "Release it";
+  sha256 `9d382260…`, 18,394 bytes, `OPEN`). `--check` passes; the lap checker with
+  `--peer` and `--rerun` reads it well formed with the same 2 warnings theirs gives (its
+  two `run:` lines, which neither can re-run); digest `7d236872d2bc95d7` reproduces.
+  Checked against both trees: S1, S2, S13, S15, S17 (ten logs, all `174a134`; we
+  verified eight by their reports and did not run `-Y` on the two de-emphasis logs), S18
+  (14 of 14), S19 (864 keys, all capitals; seven rips with both disc-count keys) and S22
+  reproduce. S6 was right and is fixed; S15 is pinned in our parser tests; S20's count
+  across their tree was not re-derived. **Their lap 1 S15 promised C2 to C5 "before our
+  lap 3 is released", and none is in their tree at `1d5c465`**: asked in our lap 4.
+- [x] **Our lap 4, RELEASED 2026-09-30** on the operator's word ("if there is nothing else, then announce the new lap"; sha256 `5db48a29…`, 25,476 bytes, 54 statements once O1-O4 were added; `docs/handshake/outbound/round-30-lap-04.md`,
+  49 statements, LSL 3, well formed with `--peer --rerun`, 1 warning: S29's count is an
+  unchecked `run:`). `OPEN`. It reads the run (their S10 met on our side), answers D1-D10
+  (D10 amended: a hotfix while a round is open goes out under the releasing side's gate;
+  a provider hotfix that rewords a matched line keeps round 20's order), W1 (both
+  tables reproduce, cell for cell), W3, W4 (our D6 block, checked, and a D5 draft), W5
+  (the block's `STATUS-OPEN` lines, twelve with S39's three steps), W6 (their S10 amended with a literal
+  `when: our next lap`; our half of S20 landed), their S24 (three WILLs), and asks S41
+  (`BLOCKING`: their C2-C5) and S42 (`-U`). Pre-commits `GO` for our next lap unless
+  the D1-D10 text has not landed in both trees. *2026-09-30: our operator accepted the
+  `CLAUDE.md` rewording D4 needs (the S-14 sentence in rule #12); it lands in the commit that
+  lands the agreed `seam-rules.md` text, not before.* Its citations are session-branch
+  commits, merged into `main` with a merge commit in the PR that carries the release.
+- [x] **Our lap after the run** (*2026-09-30: written as our lap 4, the row above*): our reading of it (S10); D1 to D10 of their proposal by
   number and our work W1 and W3–W6 (S13, S14); and their S19 amendment and S20, so both
   checkers change in the same round (their S21).
+  - *2026-09-30:* also tell them, as a NEXT-ROUND item, that the acceptance
+    transcript's `report.json` no longer has `used_unsafe_verbs`: `eval`, `call` and
+    their opt-in were removed (maintainer). Anything of theirs that reads a bundle
+    should treat the key as absent, not as `false`.
+- [x] **Our operator's rulings on O1-O4** (2026-09-30): O1 option A; O2 yes, routine
+  overrides that open a round before its run end (D8); O3 a new fork build goes to beta
+  until its run passes; O4 a Full run every night a new pair exists. In our lap 4 (S46-S50),
+  and our status block's release and run lines state the plan they give: round 30's
+  closing releases are their `.20` on beta, then our 0.6.66 pinning `174a134` and
+  reviewing `.20`.
+- [ ] **O3 on our side** (round 30, before our closing lap): our build-under-review check
+  follows a manifest build only while both channels name one commit
+  (`tests/test_handshake_pin_under_review.py::_choose_source`), so a beta-only `.20` would
+  need a lap. Teach it, the rig's install and D3's "newest release" to follow the beta
+  channel's build when it is newer than stable's.
 - [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree,
   sha256 `d5ff0e01…`, 15,658 bytes, at `cyanrip@5c92fc2`): the cycle, and whether routine
   overrides end, the channel before a run, and when runs happen, are the operator's four
   decisions (O1–O4) after both sides answer.
-- [ ] **S25 (NEXT-ROUND), a rip record with no footer.** Closing our script console 28.9 s
-  into section F of the `.18` run left a cyanrip log ending at `Tracks:`, with no footer
-  and no `Log FUN512:`, so `cyanrip -Y` exits 3. A SIGTERM mid-read writes `.18`'s
-  interrupt footer, so the question is what the console's close
-  (`script_console.py:563`, `self._runner.stop("the console was closed")`) sends a rip in
-  flight. Ours to read and answer in round 31.
+- [~] **The Full run on `.19` (S10), filed in our tree 2026-09-30.** Run 03:07-08:27 UTC
+  on 0.6.65 (bundle sha256 `fa1a5333…`, 4,302,318 bytes): 316 pass, 7 fail, 0 error, 1
+  info; `counts_as_evidence: true`; it reached its last step. Filed as
+  `docs/handshake/artifactsround30/` (52 text members, byte for byte, `round30full*`),
+  whose README says what it found; the ledger grades it `partial` (the seven failures
+  are screenshot steps in ARCHIVAL sections). Every rip completed and `-Y` verified all
+  eight logs. **Still open for S10:** the fork's filing of it, and each side's reading
+  lap. Ours is our lap 4, which their held lap 3 names (`cyanrip@7e37cdf`); it waits
+  for their operator to release lap 3, because our gate takes nothing from an
+  unreleased lap.
+- [x] **S25, a rip record with no footer — FOUND, ours, and FIXED (2026-09-30, for the
+  next release).** Not the console: the MAIN WINDOW closed (from outside our code,
+  source undeterminable: a stray Esc hid the console 3 s earlier, then a Qt close),
+  its teardown closed the console, whose transcript said "the console was closed",
+  and `_stop_rip_on_shutdown` sent the wrapper SIGTERM and 191 ms later SIGKILLed the
+  holder of `/dev/sr0` through `free_drive` (fuser's default), so cyanrip wrote no
+  footer. Fixed: `drive_control.stop_reader_gracefully` (SIGTERM, an 8 s grace,
+  SIGKILL only if still held or undeterminable; no second SIGTERM after the rescue);
+  the log wait is released after the grace; Esc is refused during a run; the run
+  says "the main window was closed"; both closes log where they came from; a close
+  from outside or File → Quit asks while a rip or acceptance test is running.
+  Revert-probed 6 ways. **Still hardware-gated:** that cyanrip writes its footer
+  inside the grace on the container path (close the window mid-rip; `cyanrip -Y`
+  must exit 0). Our round 30 lap 2 S21 said the window's rip was untouched by the
+  console, which holds; the correction to the fork's attribution goes in our next lap.
+- [ ] **S25 on hardware: close the window mid-rip on the rig, then `cyanrip -Y` on that
+  rip's log must exit 0.** The hardware half of the fix above (split out 2026-09-30, so
+  the code fix can stay `[x]`): only a drive run shows cyanrip writes its footer and
+  `Log FUN512:` inside `drive_control.READER_TERM_GRACE_S` (8 s) on the container path.
+- [x] **The acceptance test grades what each rip left, not only that it finished**
+  (2026-09-30, for the next release; asked for with the round-30 Full run: *"this
+  test will do all reasonable permutations… if not we need to fix or update the
+  test"*). New verbs `expect-album-audit`, `expect-accuraterip`, `expect-ctdb`,
+  `expect-tags`, `expect-cover-art` and `track-title`, on F, H, J, K1-K3 and N
+  (§I asks only the two questions a cancel leaves); H rips a title with `\ = ' :`;
+  K2 and K3 run `cover_art` `file` and `complete`. The self-audit gained
+  `eac_log_agreement`. Every grader is tested against the committed round-29
+  reports, and 9 reverts were each caught (`scripts/revert_probe.py`). The next
+  Full run is the first to exercise them on hardware.
+- [ ] **Permutations the acceptance test still does not run** (found 2026-09-30,
+  with the row above). (a) **Offset override off**: a drive in AccurateRip's list
+  auto-applies the list offset and rips, an unknown drive is refused with a
+  dialog, so no one script line holds on every drive, and on the rig the
+  auto-apply could move the offset mid-run; it needs the script to branch on the
+  drive, or a drive-independent verb. (b) The **unknown-album** path (section E
+  aborts the run before any unidentified rip). (c) A **library move**
+  (`library_dir` is kept, never set). (d) **`max_retries 0`** (no `-r` sent) and
+  **`-Z 0`**. (e) `read_speed_mode fixed`, `update_channel beta`, auto-eject and
+  Picard on. Each is a real path with no hardware evidence.
+- [ ] **`-U`, not `-G`: every archival log still says "No MusicBrainz release ID at cover
+  art lookup, cannot search Cover Art DB!"** (found 2026-09-30, NEXT-ROUND). Our
+  `_build_rip_argv` comment implied `-G` removes that line; it does not. `-G` is
+  `disable_coverart_embedding` only (cyanrip@174a134:src/cyanrip_encode.c:1293), and the
+  line is the Cover Art DB query's, gated by `disable_coverart_db`, i.e. `-U`
+  (cyanrip@174a134:src/coverart.c:382-392; their round 30 lap 1 provider contract rows
+  `-U` and `-G`). Measured: the round-29 `.18` whole-disc log prints it at line 41 with
+  `-G` in its argv. The comment and `docs/dependency-contracts.md` are corrected. Still
+  open: whether to send `-U` too. We do all cover art ourselves, and under `-N` the query
+  cannot succeed, so the line is noise in the artifact meant to be kept as evidence.
+  Sending a flag we have never sent is a change to what crosses the seam: it goes to the
+  fork in our next lap, with the consumer contract regenerated when it lands.
 
-## Round 29 — CLOSED on our gate on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
+## Round 29 — CLOSED on both gates on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
 Their lap 1 (`cyanrip@566d3fa`, sha256 `2e275d2f…`, 19,353 bytes, `OPEN`, LSL 3, released
 by their operator 2026-09-28) opens on `.18`, `release_seq` 28 on both channels. Its
@@ -763,13 +856,17 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   `51cc789` as the build under review. Main's own CI on `d226c03b` (run `36475375918`)
   was green before the dispatch. The release carries the AppImage, `.sha256`, `.zsync`
   and `.sigstore.json`.
-- [~] **The Full run** (S6) on `.18` from 0.6.63, and its bundle filed in both trees.
+- [x] **The Full run** (S6) on `.18` from 0.6.63, and its bundle filed in both trees.
   - *Run 2026-09-28 22:33 to 03:55 UTC* (bundle sha256 `43a83741…`, 4,293,783 bytes):
     320 pass, 3 fail, 0 error, 1 info; `counts_as_evidence: true`; it reached its last
     step. **Filed in our tree** as `docs/handshake/artifactsround29/` (51 text members,
-    byte for byte, `round29full*`), whose README says what the run found. **Theirs is
-    pending.** The ledger grades it `partial` (the three failures are in ARCHIVAL
+    byte for byte, `round29full*`), whose README says what the run found. ~~**Theirs is
+    pending.**~~ The ledger grades it `partial` (the three failures are in ARCHIVAL
     sections), and our round 29 lap 3 carries our reading.
+  - *Theirs filed (2026-09-30 audit):* their round 29 lap 3 S3 files it as
+    `docs/rig-2026-09-28c-51cc789/` (41 of its 72 files, each byte-identical to its tar
+    member), and S15 declares S6 met: 28 of 28 of our filed logs and cues match theirs
+    (`docs/handshake/inbound/round-29-lap-03.md:62`, `:122`).
 - [~] **Three screenshot steps found no window on screen** (L676 H, L724 J, L850 K3). The
   main window and the console were `visible=True` with `exposed=False`, at 94, 96 and 124
   minutes; screenshots at 86, 103, 110 and 313 minutes passed. **The cause is not
@@ -786,6 +883,19 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     `screen lock` line beside `sleep lock`. Tested against a real private
     `dbus-daemon` with a stand-in screen saver, and revert-probed. **Open until the
     round 30 Full run shows no unexposed window.**
+  - *Measured by the round 30 Full run (2026-09-30): the inhibit did NOT prevent it.*
+    It was held from 23:07:05 to 04:27:48 local (the bundle's app log), yet every
+    screenshot after section F's 91-minute rip (7 of 7, L585-L988) found every window
+    `visible=True`, platform window present, `exposed=False`; the four at minute 1
+    passed. So the display stopped showing the app with the screen-saver held; the
+    cause is still not established (a monitor or output powering down is consistent
+    with it, a lock is not). *The second candidate is built:* a screenshot now
+    renders the OPEN windows when none is exposed, labels them, and records INFO,
+    not PASS; a never-shown window still gets no picture and no open window still
+    FAILs (`_do_screenshot`, revert-probed twice). The inhibit stays, and the
+    bundle's `screen lock` line now calls it the desktop's promise, not a
+    measurement. Open for one thing only: a Full run on this build to show the
+    steps record INFO where they failed.
 - [ ] **For the maintainer, and only for runs after the decision: should a screenshot step
   be able to fail an ARCHIVAL section?** H, J and K3 each contain one, so a blank screen
   makes the run `partial` whatever the rips did. Grading is fixed in advance and never
@@ -877,8 +987,9 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   - *Done in 68abbd95:* `167e0d4c` cherry-picked onto 0.6.63's `main`, with their bytes
     (sha256 `3691c621…`). Our §1a rows are byte-identical to `167e0d4c`'s, and their §7 is
     the only other change. Their S41 found the check missing from our builder.
-- [ ] **Both lap checkers cannot cite the last line of a file with no final newline**
-  (NEXT-ROUND, shared spec). Ours (`scripts/laplang/refs.py`) and theirs
+- [~] **Both lap checkers cannot cite the last line of a file with no final newline**
+  (NEXT-ROUND, shared spec). *2026-09-30: ours is fixed (`refs.line_count`, revert-probed);
+  the fork accepted the rule (their round 30 lap 1 S20) and lands theirs this round.* Ours (`scripts/laplang/refs.py`) and theirs
   (`tools/lap-statements.py`) each count a file's lines by its newlines, so a one-line file
   without one "has 0 lines". Four files of the round 29 bundle end that way as delivered
   (`round29fullrigcheckripperversion.txt`, `…components.json`, `…scriptreport.json`,
@@ -1421,7 +1532,7 @@ by a recorded operator override of R8 point 3, because our acceptance run can on
 - [x] **Re-run F (or the whole script)** on the next release. F's fast whole-disc path is
   untested by the 2026-09-24 run, and that path is F's whole purpose.
   - *Audit 2026-09-25: not ours to verify.* A hardware re-run by the operator. No round-27 bundle exists yet.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"The real test on 0.6.60, then each side's reading and the closing laps."*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"The real test on 0.6.60, then each side's reading and the closing laps."*, which is now done (2026-09-30 audit).
 - [x] **Each side's reading, then the closing laps**; at the close, roll `FORK_PIN` to
   `df91ae7` in our release and move the approval record to round 26. Done: round 26 closed
   2026-09-24, and 0.6.56 shipped `df91ae7`.
@@ -1500,7 +1611,7 @@ other agenda item is placed by name in their §E; we accept the placement.
   row-named test each, `_BOOTSTRAP_REASON` cleared, C13a out of `_KNOWN_DIVERGENCES`, the
   skeleton emits `-HELD`/`-OBSERVED`/`-AGREED-CHANGES`. Twelve reverts probed, twelve
   detected; `--status` on the real record byte-identical before and after.
-- [ ] **Our next released lap says our gate implements 6** (v6 §14), declaring 5. Then
+- [~] **Our next released lap says our gate implements 6** (v6 §14), declaring 5. Then
   raise `DECLARED_PROTOCOL` to 6 in the commit after, so later laps declare 6. Same lap,
   `NEXT-ROUND` items for the fork: (a) our reading of C13a's release effect, proposed for
   v7; (b) K2's `-OBSERVED` — we require it on a file declaring 6 and their gate does not
@@ -1524,6 +1635,11 @@ other agenda item is placed by name in their §E; we accept the placement.
     on ours, check that `known_album_folder` and every tag reader ignore case before it lands;
     **(f) D15 B**, the answer to their question: a beta stops being offered when its round
     closes or a newer beta appears.
+  - *Audit 2026-09-30: partly done.* `DECLARED_PROTOCOL` is 6 (`scripts/handshake.py`),
+    and our round 28 lap 6 said the gate implements 6 and declared it (S23); the same lap
+    carries (d) as S31, (e) as S32 and (f) as S34. **Still never sent:** (a) C13a's release
+    effect, (b) K2's `-OBSERVED`, (c) C23 — no outbound lap from round 28 lap 6 to round 30
+    lap 2 raises any of the three.
 
 ## Round 25 — the complete known-issue agenda (compiled 2026-09-23)
 
@@ -1561,7 +1677,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   `handshake.PIN_ROLL_TRIGGER` and `--check` refuses a round-25+ lap of ours that
   restates it. **Still owed: the prose correction in our first round-25 lap** (lap 2
   is sent and immutable; the standing status already carries it). §5.bp.
-- [ ] **N3. The unapproved window.** The fork published `+platterpus.14` to BOTH
+- [~] **N3. The unapproved window.** The fork published `+platterpus.14` to BOTH
   channels on round 22's authority before any round reviewed it, so our offer showed
   it to stable users stamped `unapproved` until our roll ships. Their own plan
   recommended beta-until-reviewed (option B); their operator chose stable. Because our
@@ -1570,6 +1686,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   explicitly bounded window. *Both · v6 candidate (A8).* Cite: their r24 lap 1 §0; fork
   `RELEASE-PLAN-platterpus.14.md` §3 and `ROUND-23-PLAN.md` item 11 note (their `docs/`).
   - *2026-09-25:* **Decided (D1 A):** a new build reaches stable only after a round reviews it. Ours to propose to the fork as v7 release-ordering text, in our next lap (the row *"Our next released lap says our gate implements 6"*).
+  - *Audit 2026-09-30: partly done.* Proposed in our round 28 lap 6 S31. The ordering is now inside round 30's release-cycle question: their `PROPOSAL-release-cycle.md` (the row *"Their proposal"* under round 30) leaves "the channel before a run" to the operator (O1–O4). Closes when that answer lands in both specs.
 - [x] **N4. OUR HANDSHAKE RELEASE GATE NEVER BLOCKS IN THE v0 LINE — a decision for the
   maintainer.** `release.yml` runs `--release-gate --prerelease` for every `v0.*` tag,
   and that path permits a release with a round OPEN (the round-7 lap 6 deadlock fix:
@@ -1625,6 +1742,9 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   artifact class and `HANDSHAKE-NEXT-LAP` with its crossing tiebreak (both r15 lap 3 §5;
   the tiebreak depends on A5); and "a Platterpus pre-release counts as your release"
   (our lap 2 §E), which collides with §6b's meaning of "pre-release". *Derived.*
+  - *Merged 2026-09-30, from the round-15 row "Their round-15 items, already declared
+    and awaiting their lap 1":* the fork declared the §1 `HOTFIX` carve-out as a
+    round-15 item; the 2026-09-25 audit found it unwritten, deferred to v7.
 - [x] **A8. Release ordering in the spec?** (N3) — stable only after review, or a
   bounded accepted window.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"N3. The unapproved window. The fork published +platterpus.14 to BOTH"*, which stays open.
@@ -1640,6 +1760,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   adopt or retire (K1 may subsume it). TASKS@b8f89a2:2928.
 - [ ] **A12. A `SEAM-COMMANDS: audited @ N` close field** — prototyped, reverted for
   want of the shared file; the round-8 bump never happened. TASKS@b8f89a2:3734.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "Propose the protocol version bump in round 8" (P0, 2026-08-06) (it was `[ ]`):* **Propose the protocol version bump in round 8**, with the four-row table above as the specified behaviour, and land the gate change **in the round where both sides adopt it** — not before.
 - [ ] **A13. A semantic-change marker** — a derived contract diff cannot see a change
   of meaning (round 21's `Ripping errors:` recount changed no format string); pairs with
   defining `BREAKING`. KI:1364.
@@ -1672,7 +1793,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 
 - [x] **C1. `scripts/round_digest.py --check`** — every digest agreement so far was
   compared by eye. TASKS@b8f89a2:1254.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"OURS, found by their §H2: we have NEVER mechanically verified a declared"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"OURS, found by their §H2: we have NEVER mechanically verified a declared"*, which is now done (2026-09-30 audit).
 - [x] **C2. Conformance holes** — C21–C36 have no row-named tests (shrink-only
   ratchet); **C31/C32 are unimplemented** (`HANDSHAKE-OVERRIDE` has 0 hits in
   `handshake.py`, so we cannot honour an override, including C30's lap-22+ limit);
@@ -1681,10 +1802,10 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Sixteen binding conformance rows have never had a named test: C21–C36."*, which stays open.
 - [x] **C3. `--status` cannot see a premature `GO`** — print the closing lap's stated
   conditions. TASKS@b8f89a2:170.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"ROUND-24: our --status cannot see a premature GO. It closes a round"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"ROUND-24: our --status cannot see a premature GO. It closes a round"*, which is now done (2026-09-30 audit).
 - [x] **C4. `--status` prints close-by countdowns for CLOSED rounds** (rounds 9–14,
   19–23 today). Fix at the print site.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"handshake.py --status prints close-by countdowns for CLOSED rounds —"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"handshake.py --status prints close-by countdowns for CLOSED rounds —"*, which is now done (2026-09-30 audit).
 - [x] **C5. No R6 gate** — nothing refuses a pre-commit that names a lap number instead
   of an event.
   - *Done 2026-09-27:* `scripts/handshake.py` `pre_commit_problems`, wired into both
@@ -1696,6 +1817,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [ ] **C6. `_strip_fences` misses unterminated and indented fences**
   (`handshake.py`, the fence regex needs a closing column-0 fence), so a field inside
   one counts as a declaration. Portable shape — tell the fork. TASKS@b8f89a2:2014.
+  - *Merged 2026-09-30, verbatim, from the duplicate row `fuzz:scripts.handshake._strip_fences` (the property-test backlog) (it was `[ ]`):* **`fuzz:scripts.handshake._strip_fences`** (ungated, medium) — An illustrated close inside an UNTERMINATED or INDENTED fence is adopted as a real declaration — a round closes on a fabricated…
 - [~] **C7. The receiving half of the omission gate** — nothing checks that every
   artifact a lap names was filed; answering 5b.3 honestly needs it.
   - *Audit 2026-09-25: partly done.* tests/test_named_artifacts_are_filed.py (7fc3946) checks inbound|outbound/artifacts/ only. It is not in the gate, and misses docs/handshake/artifactsround26/, which laps cite.
@@ -1714,10 +1836,14 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   circular `GO`, they were right), r22 lap 5 (our withdrawn `handshake_round` claim),
   r22 lap 3 §H1, r23 §A (tracks 3 and 5, we were right), r23 lap 1 §H6, r24 §B3 (the
   §5b reading, we were right). `docs/cyanrip-handshake.md` §9. *Derived.*
-- [ ] **C11. Handshake-gate test quality** — the vacuity and rule rows at
+- [~] **C11. Handshake-gate test quality** — the vacuity and rule rows at
   TASKS@b8f89a2:1882, 1883, 1895, 1913, 1923, 1951; and the weekly mutation sweep omits
   `handshake_approval.py`, `deps/fork_source.py`, `ripper_identity.py`,
   `adapters/cyanrip_backend.py`, `rig_check.py` (:1970–1980).
+  - *Audit 2026-09-30: partly done.* `.github/workflows/mutation.yml` now has legs for
+    `handshake_approval.py`, `ripper_identity.py`, `adapters/cyanrip_backend.py` and
+    `rig_check.py`; `deps/fork_source.py` still has none. The vacuity and rule rows were
+    not re-checked here.
 - [ ] **C12. Two meta-sweeps never run** — "a check that agrees for the wrong reason",
   and status questions #5 (a bound reached every run) and #8 (right direction, wrong
   magnitude). TASKS@b8f89a2:1429.
@@ -1763,7 +1889,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     still stripped by `expect-status` and `expect-contains`.
     (5) the `-t` guard: **kept on purpose**, and its message now says which builds
     overread (our pin has their fix, `cyanrip@221a1df:src/cyanrip_main.c:2353`).
-    Reported in our round 28 lap 5, NEXT-ROUND, so they can retire the rows.
+    Reported in our round 28 ~~lap 5~~ lap 6 (`docs/handshake/outbound/round-28-lap-06.md` S9; lap 5 is the fork's), NEXT-ROUND, so they can retire the rows.
 - [x] **D8. A record correction we never sent** — their r16 lap 8 §3 credits `bc2ef8e`
   for work in `a0830e0`. Low. TASKS@b8f89a2:985.
   - *2026-09-25:* **Withdrawn.** Sent, and the fork corrected it (inbound/round-25-lap-02.md, "Your D8 … corrected").
@@ -1790,25 +1916,19 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [ ] **E3. The loudness block is measured before the filter graph** — wrong under `-H`
   or de-emphasis; moving it changes five P2 values. Theirs (deferred item 4); ours: the
   `(R128)` migration and re-parsing `Encoder:`/`CD-TEXT:`. KI:429; TASKS@b8f89a2:4469, 4487.
-- [ ] **E4. A marker for a superseded or abandoned read** — theirs to propose; ours:
-  capture the discarded re-rip's log (schema bump), record re-read attempts not only
-  swaps, tighten "kept the best read". KI:1171; TASKS@b8f89a2:197, 4327.
-  - *2026-09-28, part done:* "kept the best read" is gone; the warning names the read
-    the album keeps, and the auto-fix messages name why a re-read was kept. The rule
-    behind it changed too: the Full run of that day deleted a re-read AccurateRip had
-    verified (track 3), so which read to keep is now `verdict.reread_supersedes`,
-    AccurateRip first (PLANNING KDD-27, amended). **Still open:** the discarded
-    re-read's log still dies with its temp folder; its output survives only in the
-    report's `artifacts.ripper_stdout`.
+- E4. Duplicate of **The automatic re-rip's own log is collected nowhere** — merged 2026-09-30.
 - [x] **Round 29: refuse `-Z N` with `-r` ≤ N at the argv chokepoint, and ship the
   regenerated `docs/seam-commands.md` §1a both ways.** Written and revert-probed on
-  2026-09-28 by a helper (`assert_secure_reread_can_converge`, commit `167e0d4c`). The
-  commit is not applied. It is kept on `main` by a `-s ours` merge that leaves the tree
+  2026-09-28 by a helper (`assert_secure_reread_can_converge`, commit `167e0d4c`). ~~The
+  commit is not applied.~~ It is kept on `main` by a `-s ours` merge that leaves the tree
   unchanged (`d7cea503`), because until then it lived only in one container.
-  **To land it:** `git cherry-pick 167e0d4c`, not `git merge`, which would do nothing.
+  ~~**To land it:** `git cherry-pick 167e0d4c`, not `git merge`, which would do nothing.
   On the 0.6.63 tree it conflicts in `CHANGELOG.md`, `docs/dependency-contracts.md` (the
   stamp) and `tests/test_secure_reread_can_converge.py`, which has grown since.
-  Then regenerate §1a with `scripts/probe_argv_surface.py`. It was
+  Then regenerate §1a with `scripts/probe_argv_surface.py`.~~ **Landed 2026-09-29 in
+  `68abbd95`** (`fix(argv): refuse a -Z that -r can never satisfy, and adopt the shared
+  seam-commands.md`), after the fork made the shared file's move at `cyanrip@83bcd70`;
+  `assert_secure_reread_can_converge` runs at the argv chokepoint. It was
   held back from round 28's close because it changes a jointly held file whose hash
   both gates check (the `-Z 10` probe row becomes `raised`), and S-14 puts a finding in
   the next round. What landed without it: the settings validator refuses the pair
@@ -1817,22 +1937,40 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   moves from `-r 3 -Z 3` (which can never converge; it probes a nonexistent cue and never
   rips) to the shipped defaults, and the fork is asked whether cyanrip's own argument
   parsing should refuse the pair (`cyanrip@e0471f4:src/cyanrip_main.c:1005`, `:1011`).
+  *Both done (2026-09-30 audit):* `68abbd95`'s message says the rig check's argv now
+  comes from `Config()` (`-r 5 -Z 2`), and the fork's `.19` refuses `-Z N` with `-r` ≤ N
+  at argument parsing (round 30 lap 1's `HANDSHAKE-BREAKING`).
 - [ ] **The ripper-stdout capture drops every `Track N read successfully!` header** with
   the progress redraws, so the parser cannot open a track from the capture alone. Found
   2026-09-28 building a test on the Full run's embedded re-read
   (`round28fullwholediscreport.json`, `artifacts.ripper_stdout`, lines 1182-1229): the
   track blocks are all there, without the lines that start them. Matters when the
   capture is the only copy, as it is for every discarded re-read (E4).
-- [ ] **E5. The `-j` diagnostics record goes nowhere** — lands in the rips root, nothing
-  reads it, the auto-bundle does not collect it; and **`Encoder errors:` has no `-j`
+- [ ] **E5.** ~~**The `-j` diagnostics record goes nowhere** — lands in the rips root, nothing
+  reads it, the auto-bundle does not collect it;~~ and **`Encoder errors:` has no `-j`
   field in P8 at `3e01bb3`** (*derived*), leaving half of TASKS@b8f89a2:805 open. Both.
-- [ ] **E6. Exit codes do not discriminate** — P4 at `3e01bb3` has 0–5 and `1` is
+  - *2026-09-30:* the struck `-j` half is merged into **Embed the `-j` record in
+    `.platterpus.json`**, where its stale clause is corrected (`09636001` collects the
+    record into each rip's bundle). The `Encoder errors:` half stays open here.
+- [~] **E6. Exit codes do not discriminate** — P4 at `3e01bb3` has 0–5 and `1` is
   generic across 28 sites; the round-8 three classes and the sixth `--verify-log` code
   were never delivered. Ours: stop treating every non-zero exit as one thing.
+  - *Audit 2026-09-30: our half partly done.* `ripper_exit.py` reads the status apart:
+    128+N (and a negative status) is a death by signal N, 125 is podman's own error, and
+    cyanrip's own codes are 0–5. The fork's three classes and the sixth `--verify-log`
+    code remain undelivered, so a cyanrip `1` is still one thing.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "Round 8 — the three exit codes we named" (it was `[ ]`):* **Round 8 — the three exit codes we named**, in the fork's queue: "the flag I sent does
+    not exist in this build" first, then disc/drive-failure vs argument-refusal, then
+    cancelled/signalled. Our side is the consumption: stop treating every non-zero as one thing.
+    - *Audit 2026-09-25: not ours to verify.* The fork's; not landed. Their round-26 provider contract says exit 1 is the generic failure.
+  - *Merged 2026-09-30, from the round-15 row "Their round-15 items, already declared
+    and awaiting their lap 1":* the sixth `--verify-log` exit code, declared by the
+    fork for round 15 as naming **which builds** emit it; the 2026-09-25 audit found the
+    fork still has 5 `--verify-log` codes, not 6.
 - [x] **E7. Two of our consumers ignore the error count** — `rip_audit._audit_completion`
   grades OK from the boolean; the summary-vs-error-lines reconciler is unbuilt and
   should now include `Encoder errors:`. Ours. TASKS@b8f89a2:1320, 1397, 1410.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"rip_audit._audit_completion grades LEVEL_OK off the boolean while"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"rip_audit._audit_completion grades LEVEL_OK off the boolean while"*, which is now done (2026-09-30 audit).
 - [x] **E8. `defeat_audio_cache` provenance is in the EAC export but not the JSON** —
   schema bump; the fork says it is now available. TASKS@b8f89a2:1364.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"defeat_audio_cache carries its provenance in the EAC export and NOT in"*, which stays open.
@@ -1845,7 +1983,11 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [~] **E11. The inbound half of the seam is unguarded** — no return-path sanitiser; 13
   `QLabel(<non-literal>)` sites outside the PlainText sweep; no test that what reaches
   the user is what cyanrip said. TASKS@b8f89a2:3818–3821.
-  - *2026-09-25:* **Sanitiser done** (`inbound_text`, and `errors="replace"` on every text-mode read). The 13 `QLabel(<non-literal>)` sites are still unswept.
+  - *2026-09-25:* **Sanitiser done** (`inbound_text`, and `errors="replace"` on every text-mode read). ~~The 13 `QLabel(<non-literal>)` sites are still unswept.~~
+  - *Audit 2026-09-30:* the `QLabel(<non-literal>)` sites are swept: `98b3a8c3` added
+    `tests/test_labels_state_their_text_format.py` (it found 17, not 13). **Still open:**
+    labels given their value later by `setText(...)`, which that sweep does not cover, and
+    a two-way test that what reaches the user is what cyanrip said.
 - [~] **E12. Outbound argv property gaps** — `_metadata_args` rejects control characters
   on 4 of 11 fields; `sanitise_cyanrip_args` misses line terminators; plus the rest of
   the 2026-08-28 list (TASKS@b8f89a2:1993–2028, not re-derived one by one).
@@ -1854,11 +1996,19 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [ ] **E13. `seam-commands` structural work** — rows for all 41 flags, generated types
   and ranges, string/path probes, reasons for the `-I`/`-J` and `-F` exclusions,
   NEED 1–3 / WANT 1–3. TASKS@b8f89a2:3704–3709, 3766.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "Rows for all 41 of their flags" (P0, 2026-08-06) (it was `[ ]`):* **Rows for all 41 of their flags, not our 17.** For every flag we do not send, the row must say `NO: <reason>` or `?`. Today nothing distinguishes *"we decline it"* from *"we never noticed it"* — and those are different facts about the same blank cell.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "Extend the emitter to carry types + ranges" (P0, 2026-08-06) (it was `[~]`):* **Extend the emitter to carry types + ranges; build the merge; add the both-sides-audited gate; propose the shared file in the round-8 outbound alongside `docs/seam-rules.md`.**
+    - *Audit 2026-09-25: partly done.* docs/seam-commands.md is byte-identical in both repos, but the emitter carries no types, and there is no merge tool or audited gate.
 - [ ] **E14. Fork lines we do not consume** — the progress line's `, errors - %i`;
   `Cache model:`; per-track paranoia counts in the read-effort flag; `Duration:` vs
   `Samples:` (T14(c)). TASKS@b8f89a2:4483, 4479, 4461, 4502, 4371.
-- [ ] **E15. A cancelled-rip log addendum (J2) and the tag-casing ruling (J7).**
+- [~] **E15. A cancelled-rip log addendum (J2) and the tag-casing ruling (J7).**
   - *2026-09-25:* **Decided:** D13 A (a cancelled rip's kept tracks and their checksums go in the JSON report only; cyanrip's log is untouched and no sidecar is written; ready to build) and D2 B (the fork writes every tag key in capitals, plus both `DISCTOTAL` and `TOTALDISCS`; asked in our next lap).
+  - *Audit 2026-09-30: the tag-casing half landed in round 29.* The fork's tag change
+    (`bf50705`) writes every key in capitals plus both `DISCTOTAL` and `TOTALDISCS`, our
+    operator accepted the key set as landed (round 29's S8 row), and it ships in `.19`
+    (round 30 lap 1's `HANDSHAKE-BREAKING`). The D13 A half (a cancelled rip's kept
+    tracks in the JSON report) is not built.
 - [ ] **E16. AccurateRip skip discrimination** (round 8 J13) — ours to answer; the
   track-3 CRC puzzle is related. KI:1388.
 - [x] **E17. Does cyanrip emit `Accurip` lines under `-l`?** — gates the AR-carryover
@@ -1868,6 +2018,11 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   (:1842); the C2-pointers row (:4674); their H3 sanitiser question (:2966); `-f` in the
   wizard (:3545); upstream PR asks (:3918–3921); their eight unfiled upstream defect
   reports; the cache-probe calibration (KI:516).
+  - *Merged 2026-09-30, verbatim, from the duplicate row "Answer the fork's H3 question" (it was `[ ]`):* **Answer the fork's H3 question about a Platterpus-side sanitiser blind spot.** They
+    found ASAN and UBSAN both blind to their argv overread. Our nearest equivalent of that false
+    comfort is *"the parsers have a `hypothesis` never-raises property test, so malformed input is
+    covered"* — which proves survival, not correctness of the value returned. Worth a real audit
+    rather than the one example we volunteered.
 
 ### F — Pin, approval and release ordering
 
@@ -1877,20 +2032,50 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [ ] **F5. The approval's app half is never the build that carries the roll** (0.6.53
   approves; 0.6.54 ships). By design, but the stale-claim guard re-arms on every bump;
   make the provenance chain a structure. TASKS@b8f89a2:2055.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "handshake_approval.py's provenance chain wants to be a structure" (it was `[ ]`):* **`handshake_approval.py`'s provenance chain wants to be a structure, not
+    consecutive comment blocks.** It has grown by ~8 lines on each of the last three
+    round closes (547 → 563 → 571) and will do so again every round, because what it
+    stores is a *table* — `(round, pin, app version, why)` — written as prose. The
+    module is ~40% provenance by line count. Making it iterable would let the tests
+    assert the chain rather than the endpoint, and would let a rip report cite the
+    round that approved its pin without a constant per round. **Deliberately not
+    done during a round close** — the constants are load-bearing at exactly the
+    moment a round closes — so this is queued for a quiet commit between rounds.
+    Promoted from a comment in `tests/test_critical_rules_are_enforced.py` after the
+    same note was written three times.
 - [~] **F6. The ripper install surface** — the wizard silently rebuilds the production pin
   over a test pin (:2669); verify the binary before installing (:2795);
   `--install-ripper` prints its shell scripts (:2810); `latest`/`latest-beta` (:2857);
   `target_for_commit` version lookup (:917); the launch-time notice gap (:812).
   - *Audit 2026-09-25: partly done.* The wizard/offer over the build under review was fixed in c36efa4 (is_the_build_under_review). Binary verification, script printing, latest/latest-beta, target_for_commit and the notice gap are not evidenced.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "The setup wizard silently rebuilds the production pin" (round 8) (it was `[~]`):* **The setup wizard silently rebuilds the production pin over a test pin.**
+    Found while answering the fork's J10 (*"what reverts our binary?"*) from source
+    rather than from memory: nothing reverts it at launch, and the only code running
+    `git checkout --force --detach <pin>` is the setup wizard and `--install-ripper`,
+    both explicit. But the wizard builds `WIZARD_TARGET` (= `PRODUCTION_TARGET`), so
+    an operator running a test pin who opens the wizard for any other reason —
+    a missing encoder, a drive question — gets it **downgraded with no warning**,
+    which is exactly the shape of every revert in their reflog landing on `ddf7ac3`.
+    The wizard should say *"this will replace cyanrip <test pin> with <production
+    pin>"* and let the operator decline. Deliberately **not** fixed mid-round
+    (S-14: a real defect that does not break the artifact under review).
+    - *Audit 2026-09-25: partly done.* c36efa4: the default target keeps the build under review. Other installed test builds are still replaced with no "will replace X with Y" prompt.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "The launch-time notice gap" (round 16) (it was `[ ]`):* **The launch-time notice gap.** The app knew the wrong cyanrip build was
+        installed and said nothing: the deferred automatic ripper check is a bare
+        `return` with no retry, so a condition that refuses at arming time is never
+        re-asked. Same shape as the *"did I check the preconditions where the thing
+        HAPPENS"* rule — make the guards a named function that reports **which** one
+        refused, and call it at every point that can interrupt.
 - [x] **F7. `observed_version_pair_line` has no caller.** TASKS@b8f89a2:1832, 4294.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"observed_version_pair_line still has no caller. 0.6.36 fixed the"*, which stays open.
-- [ ] **F8. Their two channel questions** — "should a beta expire?" (asked of us, never
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"observed_version_pair_line still has no caller. 0.6.36 fixed the"*, which is now done (2026-09-30 audit).
+- [~] **F8. Their two channel questions** — "should a beta expire?" (asked of us, never
   answered) and `release/*` markers (planned, relates to A5). Fork `CLAUDE.md:2076-2104`.
   - *2026-09-25:* **Decided (D15 B):** a beta stops being offered when its round closes or a newer beta appears. The answer goes to the fork in our next lap. The `release/*` half stays open.
+  - *Audit 2026-09-30:* the D15 answer was sent, in our round 28 lap 6 S34. The `release/*` half is still open.
 - [x] **F9. Keep `claude/session-omka9f`** — it also holds round 24 lap 2's evidence
   (`247bb89`). Until A5 settles what a citation names.
   - *Audit 2026-09-25: partly done.* The branch is kept and holds 247bb89, which is not on main. A5 is settled (v6 §3b), but the citation still needs the branch.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"DO NOT DELETE the branch claude/session-omka9f. The cyanrip fork's"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"DO NOT DELETE the branch claude/session-omka9f. The cyanrip fork's"*, which is now done (2026-09-30 audit).
 
 ### G — Evidence, rig and acceptance the seam depends on
 
@@ -1920,16 +2105,74 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   - *Audit 2026-09-25: partly done.* One session folder with rips landed (b720b2b). App-log timestamps still lack a UTC offset (logging_setup.py plain asctime); the other sub-items are unverified.
   - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Filed out of the fork's reading of our bundle (all ours). The raw"*, which stays open.
 - [ ] **G9. Rig hygiene** — an unattended run blocks on its first fatal dialog (:2397);
-  the rig is left on `max_retries 3` and beta (:230); exact-match script paths (:2681);
-  rewrite `docs/hardware-test-checklist.md` (:126, 2358); the colon safety net on
+  ~~the rig is left on `max_retries 3` and beta (:230);~~ exact-match script paths (:2681);
+  ~~rewrite `docs/hardware-test-checklist.md` (:126, 2358);~~ the colon safety net on
   hardware (:2325).
+  - *2026-09-30:* the `max_retries`/beta item is closed, superseded (the app restores the
+    user's settings when an acceptance session ends; its row is `[x]`). The checklist
+    rewrite is a duplicate of **Rewrite `docs/hardware-test-checklist.md` rather than
+    patch it again**, merged 2026-09-30.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "A filesystem path inside a script is still an exact-match string" (round 8) (it was `[ ]`):* **A filesystem path inside a script is still an exact-match string.** Fixed
+    for `--run-script` itself (`uiscript/find_script.py` matches names with case and
+    ASCII separators removed), and *not* for paths the script hands to a tool. C6 of
+    the round-8 joint script named the EAC log as
+    `…Every Breath You Take-The Classics.log`; the file on disk is
+    `…Every Breath You Take- The Classics.log`. One space. `--verify-log` would have
+    exited non-zero because the file could not be **opened**, and `expect-exit 1`
+    would have **passed** — on the one test whose entire purpose is telling that
+    apart from "the log was refused". Satisfied by the wrong thing, again, and it
+    survived because the path was checked by eye rather than against the filesystem.
+    The fix is a glob or a normalising resolve for `takes_paths` arguments, plus a
+    parse-time warning when a literal path does not exist. **Not done mid-round
+    (S-14):** the corrected literal works and does not make the reviewed pin unsafe.
+    Found 2026-08-13 by asking the operator to `ls` the path before the run — which
+    is the cheap check that should have existed the first time the path was written.
 - [ ] **G10. Our never-exercised list is stale** — the fork retired the diagnosed abort and
   a non-zero `Read stalls:` (KI:829-848); still open: `-x` correctness (wrong in all ten
   sessions), C2 (unreachable here), `-f` at another offset, damaged media, physical
   CD-TEXT, the forced-error corpus, H9, H10.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "The never-exercised list, which is joint with the fork" (what v1.0.0 needs) (it was `[ ]`):* **The never-exercised list, which is joint with the fork and has not moved
+    in four rounds:** `-x` on a real drive, C2 error reporting, `-f`, damaged media,
+    CD-TEXT from a physical disc, a diagnosed abort, a non-zero `Read stalls:`.
+    Nobody on either project has touched any of them, on any build.
+    - *Audit 2026-09-25: not ours to verify.* Hardware, joint with the fork (-x is blocked on the BDR-209D).
+  - *Merged 2026-09-30, verbatim, from the duplicate row "Run the rig session: H9, H10, H12, T9, T12, T13" (round 7) (it was `[ ]`):* **Run the rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
+        invocation** — seven of the ripper's refusal paths fire before its logfile exists,
+        so nothing in the archived log can show them, and its heartbeat lines are
+        stdout-only too. Send the artifacts to **both** repositories. Their lap 8 adds one
+        cheap step worth taking: run `-x` on a rip you can afford to lose first, since it
+        is the least-exercised code in the binary.
+    - *Audit 2026-09-25: not ours to verify.* The maintainer's hardware run; H9 open and H10 blocked (the BDR-209D rejects -O).
+    - *Reconciled 2026-09-30 with the v0.6.4 plan's blocker 1, which is `[x]`:* that
+      tick means superseded as a v0.6.4 blocker, not run in full. The session did run
+      on 2026-08-04 (`c5fb909`), and its results table
+      (`docs/handshake/artifacts-round-07/rig-session-results-c5fb909.md`) records H10/`-O`,
+      the `-x` probe, `-j` and the mid-rip cancel as NOT RUN; what is still owed is
+      listed in this row.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "Send the A7/G2/H12 forced-error corpus" (round 7) (it was `[ ]`):* **Send the A7/G2/H12 forced-error corpus.** Hardware-gated and deliberately not
+        hand-assembled: a corpus built from my reading of their control flow is a fixture
+        carrying my assumptions about their control flow. **Now runnable without re-derivation:
+        `docs/hardware-test-checklist.md` §F3** gives the five states as five one-line commands
+        with exactly what to record for each. Case 1 needs no disc and nothing is written.
 - [ ] **G11. Version-gate evidence** — zero full-green rows; a second drive, machine and
   distro missing. `docs/testing.md` §5B.
   - *Audit 2026-09-25: not ours to verify.* Needs hardware runs and the maintainer: every ledger row so far is partial, none full-green.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "Run fullacceptance.txt overnight" (round 14) (it was `[~]`):* **Run `fullacceptance.txt` overnight** — now **0.6.30** against `d9c058c`.
+    No longer a round-14 close condition (the round closed on T1); it is the
+    **0.7.100 gate** run: zero failures in the ARCHIVAL sections, UX failures
+    recorded and non-blocking (`docs/testing.md` → *Acceptance severity*). The
+    2026-08-27 attempt aborted correctly in two seconds on a wrong-ripper
+    precondition — see the round-state fix below.
+    - *Audit 2026-09-25: not ours to verify.* The maintainer's hardware run. The 0.6.30 pairing is stale; the ledger has only `partial` rows, so the 0.7.100 gate run is still owed.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "More than one drive" (what v1.0.0 needs) (it was `[ ]`):* **More than one drive.** Every hardware result this project has is from one
+    Pioneer BDR-209D 1.51 at offset +667. A read-offset bug, a speed-lock quirk or
+    a cache behaviour that is drive-specific is invisible in a sample of one, and
+    the offset path is the single most correctness-critical thing we do.
+    - *Audit 2026-09-25: not ours to verify.* Hardware coverage: every ledger row is the BDR-209D.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "More than one machine" (what v1.0.0 needs) (it was `[ ]`):* **More than one machine.** Bazzite + KDE Plasma 6 is the primary target and
+    the only one anyone has run. Fedora/Arch/Ubuntu are claimed in the README and
+    unverified by a person.
+    - *Audit 2026-09-25: not ours to verify.* Hardware coverage: every ledger row is one machine (Bazzite).
 - [~] **G12. The leaving-beta objective has dropped out of our laps** — the rule says it
   *"must appear in every lap we write"*; round 20–24 outbound laps mention it once
   (round 23 lap 4). *Derived; rule text re-read 2026-09-23.* Carry it in our round-25 lap.
@@ -1937,7 +2180,11 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     stated in `--emit`'s skeleton under *The objective*, and checked word for word against
     `docs/handshake/verified/round-08-lap-10.md` §A by
     `tests/test_handshake_tooling.py::test_the_skeleton_states_the_maintainers_objective_in_their_words`
-    (revert-probed 2 of 2). Our round 28 lap 5 carries it. Closes when that lap is released.
+    (revert-probed 2 of 2). ~~Our round 28 lap 5 carries it. Closes when that lap is released.~~
+  - *Corrected 2026-09-30:* it was our round 28 **lap 6** (S38) that carried it; lap 5 is
+    the fork's. And the objective has appeared in none of our laps since: round 28 laps 7
+    and 9, round 29 laps 2 and 4 and round 30 lap 2 do not state it, so the skeleton's
+    text is not reaching the released laps. Still open.
 - [ ] **G13. The audit we owe ourselves** — *"a file you declined to file is a file you
   will reason about without opening"*; we said we had not audited our side. r23 lap 4 §A.
 
@@ -2021,6 +2268,53 @@ most important thing on this page before round 24's lap 1 arrives.
   overrides, the lap limit); the work is one `test_C<nn>_…` per row, and any row
   whose test fails is a divergence to report, not to fix quietly.
   - *Audit 2026-09-25: partly done.* C23/C24 got test_C23_/test_C24_ on 2026-09-25 (f93bd59). The other 14 rows (C21, C22, C25–C36) are still counted in _BINDING_ROWS_WITHOUT_A_NAMED_TEST.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "14 of 37 shared-protocol conformance rows have no test" (round 18) (it was `[~]`):* **14 of 37 shared-protocol conformance rows have no test — C21–C30 and
+        C33–C36, contiguous — and the file
+        claiming "one test per row" was written when the table had 14.**
+        `tests/test_handshake_conformance.py`'s docstring says *"`PROTOCOL.md` §8 is
+        a 14-row table… one test per row, in the table's order"*. The jointly-owned
+        table now defines **C1–C36 plus C13a — 37 rows**; nine are named by a test
+        here, and three of those only inside an assertion message, so nine is an
+        upper bound. **The fork found the miscount in their round-18 lap 3 §4a, one
+        day after this row was written**: our id pattern was `C\d+`, which cannot
+        match `C13a` — and a row the denominator cannot include can never be
+        reported as uncovered, so the check would have printed full coverage while
+        one row had none. Their own counter has the identical blind spot
+        (`\bC[0-9]+\b`); same defect, both projects, independently. Fixed here by
+        widening to `C\d+[a-z]?` and pinning `C13a` by id. The
+        table grew 2.5× and the completeness claim did not — `CLAUDE.md`'s
+        *a map is only ever wrong by omission*, in the file whose job is proving we
+        conform to a spec neither project owns alone.
+        **The cyanrip fork found the symptom before we found the disease.** Their
+        round-18 status ran their own checks against our public tree and reported
+        `HANDSHAKE-OVERRIDE` in `docs/handshake-protocol.md` and **zero** `.py`
+        files. Verified: 0 references in any `.py`, `scripts/handshake.py` included.
+        So **C31** (refuse an override missing `-BY`/`-WHY`) and **C32** (honour it,
+        and print it whenever the round's state is printed) are unimplemented. C32 is
+        the one that bites — an override our gate cannot see is, in that row's own
+        words, indistinguishable from the rule never existing. With their gate
+        honouring overrides and ours ignoring them, an operator override makes the
+        two gates reach **opposite conclusions about whether a round can close**.
+        *Counted, not fixed:* `test_the_conformance_table_has_not_outgrown_this_file_any_further`
+        derives the row set from the protocol, floors it at 30, and ratchets coverage
+        so it cannot shrink. Full coverage is not asserted because that fails today
+        and a red suite is not a record.
+        *Do first:* C31 and C32 — they are the two a peer is already relying on.
+    - *Audit 2026-09-25: partly done.* C31/C32 are implemented for §6b overrides (release_overrides), but only on --release-gate, so --status does not print overrides. 14 rows still have no named test.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "We claim 'one test per conformance row'" (round 15) (it was `[~]`):* **We claim "one test per conformance row" and it is not true: 37 rows, 24
+    tests.** Measured 2026-08-27: `docs/handshake-protocol.md` §8 carries `C1`–`C36`
+    plus `C13a` (37 rows); `tests/test_handshake_conformance.py` defines 24
+    `test_C*` functions. `docs/cyanrip-handshake.md` said *"one test per §8 row"* and
+    `docs/README.md` said *"20-row … one test per ID, with the ID set derived from the
+    file"* — both were written when the table had 20 rows and neither noticed it grow.
+    Both sentences are now softened to point at the table, which stops the claim being
+    false but does **not** close the gap. Two things needed, in order: **(1)** fix the
+    ID-derivation regex to `(C\d+[a-z]?)` so `C13a` is visible at all — a derived set
+    that silently skips a row is the "satisfied by finding nothing" shape in the file
+    that exists to prevent it; **(2)** write the 13 missing tests, or record per
+    missing row why it is untestable here. Do not re-assert "one test per row" until
+    the numbers agree.
+    - *Audit 2026-09-25: partly done.* The row-id regex is fixed (_ROW_ID `C\d+[a-z]?`). 14 binding rows still have no named test, counted by _BINDING_ROWS_WITHOUT_A_NAMED_TEST.
 
 - [x] **ANSWERED in their round 24 lap 1 §B3: they read it literally, agree ours is the reading under which §5b works, keep the literal one until v6, and propose v6 text** (step 1 and C37: *held, and enumerated by the gate when it decides*). Carried to round 25. Original:
 - [x] ~~**Ask the fork, in round 24: does their gate read §5b's "enumerated" the way
@@ -2042,11 +2336,28 @@ most important thing on this page before round 24's lap 1 arrives.
   is theirs to ship; our `FORK_PIN` stays `2cce60d` until a round reviews `.14`.
   - *Audit 2026-09-25: done.* Said in docs/handshake/outbound/round-24-lap-02.md ("a Platterpus pre-release counts"), released 2026-09-23.
 
-- [ ] **Rewrite `docs/hardware-test-checklist.md` rather than patch it again.** Its
+- [~] **Rewrite `docs/hardware-test-checklist.md` rather than patch it again.** Its
   intro is the v0.6.0 sheet's ("v0.6.0 (this sheet)", releases listed to v0.5.21);
   the audit added a dated banner and corrected the tools row, but deciding which
   §A–§D cases the acceptance run has absorbed is a per-case call against hardware
   results.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "docs/hardware-test-checklist.md is titled v0.6.0" (doc drift, 2026-08-20) (it was `[~]`):* **`docs/hardware-test-checklist.md` is titled "v0.6.0" and stamped "v0.6.19".**
+    Both facts are true and together they are the failure `CLAUDE.md` names exactly: *a
+    stamp records when a doc was edited, and a doc nobody rewrites keeps an accurate
+    stamp while its prose quietly expires.* Its narrative still opens on the v0.6.0
+    one-file-upload change and "four releases since your last completed run", which is
+    now nineteen minors stale. The stamp gate cannot see this, and neither can the
+    version-claims gate — they check the footer and the CHANGELOG, not whether the
+    document still describes the release it is for.
+    **Deliberately not rewritten inside this release**: it is a ~700-line run sheet and
+    the release window is the wrong place for it. It is also partly superseded — the
+    *reference* half now lives in `docs/test-plan.md` Part E, so the rewrite should
+    reduce this sheet to the fillable per-release instance Part E describes rather than
+    restate it. Do that before the next hardware pass, and consider whether the
+    promise-of-completeness sweep (§5.af) can be extended to catch a title/stamp
+    mismatch mechanically — the check that would have caught this is "does the version
+    in the H1 match the version in the footer", which is two lines of test.
+    - *Audit 2026-09-25: partly done.* H1 no longer says v0.6.0 and a current note was added (9986868). The rewrite to a per-release sheet is not done, and there is no H1/footer check.
 
 ## 2026-09-22 hardware run — 247/247, graded `partial`, and what it left open
 
@@ -2139,6 +2450,31 @@ What it left:
   round 23 lap 2 re-cited it). Capture it into the report
   rather than the album folder, which stays EAC-clean with one log; that is a
   `REPORT_SCHEMA_VERSION` bump.
+  - *Merged 2026-09-30, verbatim, from the duplicate row E4 (the round-25 agenda) (it was `[ ]`):* **E4. A marker for a superseded or abandoned read** — theirs to propose; ours:
+    capture the discarded re-rip's log (schema bump), record re-read attempts not only
+    swaps, tighten "kept the best read". KI:1171; TASKS@b8f89a2:197, 4327.
+    - *2026-09-28, part done:* "kept the best read" is gone; the warning names the read
+      the album keeps, and the auto-fix messages name why a re-read was kept. The rule
+      behind it changed too: the Full run of that day deleted a re-read AccurateRip had
+      verified (track 3), so which read to keep is now `verdict.reread_supersedes`,
+      AccurateRip first (PLANNING KDD-27, amended). **Still open:** the discarded
+      re-read's log still dies with its temp folder; its output survives only in the
+      report's `artifacts.ripper_stdout`.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "Route 2" (the v0.6.4 plan's blockers, item 4) (it was `[ ]`):* **Route 2: cite the re-rip's own log instead of paraphrasing it.** The better
+        record, deliberately **not** batched with the H1 fix: it changes which files an
+        album folder contains, which is a contract of ours with users and with tooling
+        we do not control. Same reasoning that made us keep `-j`'s explicit path.
+    - *2026-09-25:* **Decided (D11 A):** the automatic re-rip's own cyanrip log goes inside the rip's `.platterpus.json`. No second `.log` in the album folder, because log checkers and library tools could read it and misjudge the rip. Ready to build.
+  - *Merged 2026-09-30, verbatim, from the duplicate row "The addendum must record re-read attempts" (round 7) (it was `[ ]`):* **The addendum must record re-read *attempts*, not only successful swaps.** Round 7
+        §2c: our whole-disc log says track 3 `Secure re-read: not attempted` (true of pass 1)
+        while our EAC-style log says "re-reads did NOT agree" (true of pass 2, and measured).
+        Nothing in the archived artifact reconciles them, though our app log has the fact
+        outright. Captured and not surfaced — our own rule. **Blocked on Q8:** whether their
+        `-Z N -l <tracks>` invocation writes its own logfile we can cite instead of
+        paraphrasing.
+    - *2026-09-30:* no longer blocked. Q8 is answered (the v0.6.4 plan's blockers, item
+      3: that pass writes a complete, self-checksummed cyanrip log), and D11 A decides
+      where the log goes, so this row's fix is the one above.
 
 - [x] **Section P3 cannot detect the defect it is graded ARCHIVAL for.** It runs
   `-H -E` and `-H -W` and asserts `expect-exit 0` on each — it compares nothing.
@@ -2173,10 +2509,15 @@ What it left:
     and `::test_status_on_the_real_record_counts_the_closed_rounds_it_leaves_out`, both
     shown to fail with the filter reverted (`scripts/revert_probe.py`).
 
-- [ ] **The rig is left on `max_retries = 3` and `ripper_channel = "beta"`** after
+- [x] **The rig is left on `max_retries = 3` and `ripper_channel = "beta"`** after
   a run (defaults 5 and `stable`). Fixed in the script for the NEXT run; the
   current rig still carries them.
   - *Audit 2026-09-25: not ours to verify.* The rig's state is the operator's. The script half landed: fullacceptance.txt restores max_retries 5 and ripper_channel stable at the end.
+  - *2026-09-30: closed, superseded.* The app now puts the user's own settings back
+    whenever an acceptance session ends, aborted runs included
+    (`ui/main_window_provision.py` `_restore_settings_after_acceptance`, called from
+    `_end_acceptance_session`), and `src/platterpus/rig_scripts/fullacceptance.txt`
+    (~1291-1294) still ends on `max_retries 5` and `ripper_channel stable` as the guard.
 
 ## 2026-09-21 UX audit — the post-update prompt chain, and the menu (real-user report)
 
@@ -2467,39 +2808,7 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       description of when a round can close is the failure rule #12 exists to
       prevent. **Round 19, §A.** Ask the maintainer before writing the lap.
   - *Audit 2026-09-25: done.* Sent in verified/round-18-lap-04.md; the fork accepted it in inbound/round-19-lap-01.md ("The turn-order correction: accepted").
-- [~] **14 of 37 shared-protocol conformance rows have no test — C21–C30 and
-      C33–C36, contiguous — and the file
-      claiming "one test per row" was written when the table had 14.**
-      `tests/test_handshake_conformance.py`'s docstring says *"`PROTOCOL.md` §8 is
-      a 14-row table… one test per row, in the table's order"*. The jointly-owned
-      table now defines **C1–C36 plus C13a — 37 rows**; nine are named by a test
-      here, and three of those only inside an assertion message, so nine is an
-      upper bound. **The fork found the miscount in their round-18 lap 3 §4a, one
-      day after this row was written**: our id pattern was `C\d+`, which cannot
-      match `C13a` — and a row the denominator cannot include can never be
-      reported as uncovered, so the check would have printed full coverage while
-      one row had none. Their own counter has the identical blind spot
-      (`\bC[0-9]+\b`); same defect, both projects, independently. Fixed here by
-      widening to `C\d+[a-z]?` and pinning `C13a` by id. The
-      table grew 2.5× and the completeness claim did not — `CLAUDE.md`'s
-      *a map is only ever wrong by omission*, in the file whose job is proving we
-      conform to a spec neither project owns alone.
-      **The cyanrip fork found the symptom before we found the disease.** Their
-      round-18 status ran their own checks against our public tree and reported
-      `HANDSHAKE-OVERRIDE` in `docs/handshake-protocol.md` and **zero** `.py`
-      files. Verified: 0 references in any `.py`, `scripts/handshake.py` included.
-      So **C31** (refuse an override missing `-BY`/`-WHY`) and **C32** (honour it,
-      and print it whenever the round's state is printed) are unimplemented. C32 is
-      the one that bites — an override our gate cannot see is, in that row's own
-      words, indistinguishable from the rule never existing. With their gate
-      honouring overrides and ours ignoring them, an operator override makes the
-      two gates reach **opposite conclusions about whether a round can close**.
-      *Counted, not fixed:* `test_the_conformance_table_has_not_outgrown_this_file_any_further`
-      derives the row set from the protocol, floors it at 30, and ratchets coverage
-      so it cannot shrink. Full coverage is not asserted because that fails today
-      and a red suite is not a record.
-      *Do first:* C31 and C32 — they are the two a peer is already relying on.
-  - *Audit 2026-09-25: partly done.* C31/C32 are implemented for §6b overrides (release_overrides), but only on --release-gate, so --status does not print overrides. 14 rows still have no named test.
+- Duplicate of **Sixteen binding conformance rows have never had a named test: C21–C36** — merged 2026-09-30.
 - [x] **THE TOKEN COLLISION — our `SKIPPED`/`BLOCKED` mean the OPPOSITE of theirs,
       and it is unfixed on our side.** `uiscript/report.py:31-32`: our `SKIPPED` is
       *"never reached (the batch aborted before it)"* — a CONSEQUENCE — and our
@@ -2656,6 +2965,10 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       citing where it was read (rule #12). The ask is a measurement, not a fix:
       changing the rescue on a guess would be a change with nothing behind it.
       Not blocking under S-14 — it broke nothing in the artifact under review.
+  - *2026-09-30: still open.* `b9ac0974` stops a second SIGTERM at SHUTDOWN
+    (`drive_control.stop_reader_gracefully(already_signalled=…)` skips a reader the
+    rescue already signalled), but the post-cancel rescue itself still sends its own
+    device-scoped SIGTERM after the cancel's, so the margin this row measures is unchanged.
 - [ ] **We cannot settle clause 2 ourselves, and the missing piece is a digest
       verb.** P3 captures the two `-H` arms and now says plainly that it settles
       nothing. To settle it on our own rig we would need to rip `-o pcm` and
@@ -2792,12 +3105,7 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       contradict; and the same fact in the `-j` record, since the two artifacts
       disagreeing is the actual defect. `NEXT-ROUND`.
   - *Audit 2026-09-25: done.* Accepted in round-16-lap-10.md; `Encoder errors:` is parsed and folded into health (parsers/cyanrip_log.py, 66e228d).
-- [ ] **The launch-time notice gap.** The app knew the wrong cyanrip build was
-      installed and said nothing: the deferred automatic ripper check is a bare
-      `return` with no retry, so a condition that refuses at arming time is never
-      re-asked. Same shape as the *"did I check the preconditions where the thing
-      HAPPENS"* rule — make the guards a named function that reports **which** one
-      refused, and call it at every point that can interrupt.
+- Duplicate of **F6. The ripper install surface** — merged 2026-09-30.
 
 ## Round 16 — CLOSED `GO`/`GO` 2026-09-12 (written 2026-09-07 as *"ROUND 16 IS OPEN — their lap 1 filed, runbook run, everything verified"*)
 
@@ -2854,7 +3162,10 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       So `cyanrip-diagnostics/4` is a no-op for us in every direction: we produce
       the record on every rip, ship it as opaque bytes, and read none of it.
 
-- [~] **THEIR `riground16.sh` — four findings, none blocking the run.** Filed at
+- [x] **OBSOLETE (2026-09-30 audit): round 16 closed 2026-09-12, so this is a closed
+      round's rig script.** Findings 1–3 were sent in `round-16-lap-03.md`; the fourth
+      (an absolute `OUT`) never was. Original:
+- [x] ~~**THEIR `riground16.sh` — four findings, none blocking the run.**~~ Filed at
       `docs/handshake/inbound/artifacts/round-16-lap-01-riground16.sh`. **Every
       cyanrip flag in it is in their own round-16 P1 table** (checked
       mechanically; the `-i`/`-n` a naive scan reports are `ffmpeg -i` and
@@ -3013,6 +3324,7 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       fact about the subject*, and it is the reason the section matters. We do not
       match on the string (checked: no occurrence in `src/`), which is correct.
   - *Audit 2026-09-25: partly done.* The fork corrected the misattribution (inbound/round-25-lap-02.md, "Your D8"); the commit undercount was never raised.
+  - *Re-checked 2026-09-30:* the correction is `inbound/round-25-lap-02.md:198-201` (§C) and its §E table (`:235`, "D8 | corrected"). It names the commit only, so the undercount half stays unraised and the row stays `[~]`.
 
 
       Their round-16 lap 4 §E says it *"**was** regenerated, at `0f8523b`, as its
@@ -3048,8 +3360,16 @@ and round 15's row — which still read OPEN — now reads its real verdict.
       so it is a change to the rig surface rather than a comment fix.
       NEXT-ROUND: the cancel defect itself is fixed, so §J is no longer *actively*
       misleading; it is still not evidence.
+  - *2026-09-30: the probe half exists.* `drive_control.device_is_held` (`b9ac0974`) is
+    `fuser -s <device>` with no signal, tri-state (`None` when fuser cannot answer, never
+    read as "released"). What is missing is the script verb that asks it at §J's
+    point, and §J's assertion on it.
 
-- [ ] **Move the `-j` diagnostics record into the album folder after the rip.** Its
+- [ ] **Embed the `-j` record in `.platterpus.json`.** *(Retitled 2026-09-30 from
+      ~~**Move the `-j` diagnostics record into the album folder after the rip.**~~,
+      which the maintainer ruled out on 2026-09-27: the album folder holds only `.log`,
+      `.cue` and `.platterpus.json`, per the `DIAGNOSTICS_RECORD_PREFIX` comment in
+      `adapters/cyanrip_backend.py`.)* Its
       name is now per-rip (2026-09-07), which fixes the overwrite and the concurrency
       race, but it still lands in `output_dir` — the rips root — so the evidence
       bundle does not collect it and it litters the user's music library one file per
@@ -3064,6 +3384,12 @@ and round 15's row — which still read OPEN — now reads its real verdict.
     `.platterpus.json` instead, which moves the report schema, so it waits for the next
     round and is announced to the fork in a lap first. Until then the record stays in the
     rips root, one file per rip, and the row above sends it in each rip's bundle.
+  - *Merged 2026-09-30, from row E5 (its `-j` half):* "The `-j` diagnostics record goes
+    nowhere — lands in the rips root, nothing reads it, the auto-bundle does not collect
+    it". The last clause is stale: `09636001` (2026-09-28) collects each album pass's
+    record into that rip's report bundle, by name from the rips root. The rest holds:
+    it still lands in the rips root and nothing parses it. E5's other half (`Encoder
+    errors:` has no `-j` field) stays in E5.
 
 - [x] **KDD-17 GAP: `ripper_choices()` has no GUI caller.**
       **CLOSED 2026-09-08 (0.6.45).** `Help → Install a cyanrip build…` opens
@@ -3528,10 +3854,13 @@ test the rehearsal said was missing.
 ### Only if the pin moves
 
 `PIN_UNDER_REVIEW` and `UNDER_REVIEW_TARGET.pin`/`.version` together (one fact,
-two fields), plus `FORK_RELEASE_SEQ_BY_PIN` if it is a numbered release. **Today
+two fields), plus `FORK_RELEASE_SEQ_BY_PIN` if it is a numbered release. ~~**Today
 `PIN_UNDER_REVIEW == FORK_PIN == 2cce60d`** (re-read 2026-09-22), so
 `a_round_is_reviewing_a_build()` is False and the install menu offers the approved
-build with no warning. If `+platterpus.14` becomes the pin under review,
+build with no warning. If `+platterpus.14` becomes the pin under review,~~
+**Re-read 2026-09-30:** `PIN_UNDER_REVIEW` is `174a134` (`+platterpus.19`, round 30)
+and `FORK_PIN` is `51cc789` (`+platterpus.18`), both in `deps/fork_source.py`, so
+`a_round_is_reviewing_a_build()` is True. Whenever the pin under review moves,
 `docs/rig-session.md` moves with it — its header is gated on the current pair.
 
 ### What round 24 is expected to contain
@@ -3627,7 +3956,7 @@ items it names, filed so none is lost between rounds.
       holding whose sent bytes were never independently attested. Pinning today's
       bytes would assert a byte-identity nobody measured, so a row graduates only
       when a peer lap declares a digest for it. The set may shrink, never grow.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"C8. PEER_CONFIRMED_UNPINNED holds 19 laps — ask the fork for sha256 values of"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"C8. PEER_CONFIRMED_UNPINNED holds 19 laps — ask the fork for sha256 values of"*, which is now done (2026-09-30 audit).
 
 ## Mutation sweep — give the weekly audit a SCORE floor (2026-09-06)
 
@@ -3653,11 +3982,17 @@ items it names, filed so none is lost between rounds.
 - [x] **Pass `-j` on every rip.** Landed in `f9376f2`. Measured rather than read:
       `_build_rip_argv` emits `-j cyanrip-diagnostics.json` on **both** shapes
       (no-metadata/unknown disc and full-metadata/known disc), and the relative path
-      is deliberate — the child's cwd is the rip's output directory, so the record
+      is deliberate — ~~the child's cwd is the rip's output directory, so the record
       lands with the other artifacts and the evidence bundle takes it under the
-      existing `.json` allowlist. Their `PROVIDER-CONTRACT.md` P4 says a run refused
+      existing `.json` allowlist.~~ Their `PROVIDER-CONTRACT.md` P4 says a run refused
       during argument validation **opens no logfile at all**, and the `-j` record is
       the only artifact for that class — the 2026-08-02 `-t 17=` shape.
+  - *Corrected 2026-09-30:* the struck reason was wrong twice (`adapters/cyanrip_backend.py`,
+    the `DIAGNOSTICS_RECORD_PREFIX` comment). The child's cwd is the rips ROOT, so the
+    record lands above every album folder, and the bundle collected it 0 times in the
+    2026-09-07 run. Since `09636001` each rip's report bundle collects it by name from
+    the rips root; the album folder keeps only `.log`, `.cue` and `.platterpus.json`.
+    What is left is the row *"Embed the `-j` record in `.platterpus.json`"*.
 - [ ] **Split `uiscript/runner.py` (3898 lines).** The oversize ratchet was raised
       rather than split for the same reason — refactoring the script engine on the
       night of the run it drives is the risk this project keeps paying for. The
@@ -3678,11 +4013,15 @@ items it names, filed so none is lost between rounds.
       done in 0.6.49: a hardware re-run is waiting on the fix, and a structural move
       shipped under a release is how a correct fix arrives broken.
   - *Audit 2026-09-25: partly done.* ui/post_rip_record.py (the per-album record) landed. The chain itself (tagging → transcode → verify) is still in main_window_rip.py, now 4715 lines.
-- [x] **The receiving half of the omission gate still does not exist.** Nothing
+- [~] **The receiving half of the omission gate still does not exist.** Nothing
       checks that every artifact a lap names was actually filed; we do it by hand,
       and so does the fork (their lap 12 §4). Answering their v5 5b.3 question with
       *"yes, it should gate both sides"* is only honest once ours is built.
   - *Audit 2026-09-25: done.* tests/test_named_artifacts_are_filed.py (7fc3946, 0.6.38), "the receiving half of the gate".
+  - *Re-audited 2026-09-30: partly done, not done.* That test matches only
+    `docs/handshake/(inbound|outbound)/artifacts/`, so the folders laps now cite
+    (`docs/handshake/artifactsround26/` to `artifactsround29/`) are outside it, and it
+    is not in the gate. Same finding as row C7, which tracks the work.
 
 ---
 
@@ -3691,7 +4030,9 @@ items it names, filed so none is lost between rounds.
 **Status: their lap 10 and the `PROTOCOL-v5-PROPOSAL` are filed. Nothing is
 proposed back yet.** Their proposal is explicitly **for round 16** — *"Refuse it,
 amend it, or counter it there"* — and round 15 closes on our hardware run, so
-this is staged, not sent. **Do not write a lap on it without asking.**
+this is staged, not sent. ~~**Do not write a lap on it without asking.**~~
+*(2026-09-30: the open decision is carried by row A10 in the round-25 agenda, and
+the ask-before-writing-a-lap rule was retired 2026-09-13 — laps travel by git.)*
 
 ### What was verified, from their source rather than from their lap
 
@@ -3936,7 +4277,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 ### 5. Existing gates satisfiable by finding nothing (20)
 
 - [x] **`vacuity:tests/test_accessibility_standards.py::test_no_explicit_size_drops_below_the_floor`** (partial, small) — WCAG 2.5.8 target-size sweep has no match floor and cannot see setFixedSize
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"conv.a11y-target-size (partial, small) — Code convention / WCAG 2.5.8 — an explicit size …"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"conv.a11y-target-size (partial, small) — Code convention / WCAG 2.5.8 — an explicit size …"*, which is now done (2026-09-30 audit).
 - [x] **`vacuity:tests/test_dialog_lifecycle_logging.py::test_every_dialog_in_the_app_inherits_the_logging_base`** (partial, small) — The dialog-opt-out sweep has a provably empty candidate set today
   - *2026-09-25:* **Done.** Now an AST sweep over every package module; `CenteredDialog` must be the one direct `QDialog` subclass and at least 12 classes inherit it (15 measured). Old version passed with a dialog rebased onto `QtWidgets.QDialog`. Revert-probed: the old test passed the vacuous condition; the new one fails it.
 - [x] **`vacuity:tests/test_handshake_file_naming.py::test_no_two_files_in_a_directory_claim_the_same_lap`** (partial, small) — Doubly-nested assertion with a continue above it and no examined counter
@@ -4011,7 +4352,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *2026-09-25:* **Done.** `src/platterpus/inbound_text.py` screens each line: control characters become `\xNN` escapes, lines over 65,536 characters keep head and tail with the cut counted, and U+FFFD is counted. The rip worker screens once per pipe line, for the log pane and the record, and the capture ends with what was changed. Parsers still read the raw line. Checking this found a worse hole, now fixed: eight text-mode reads had no `errors` policy, so one byte that was not UTF-8 ended the read (the rip's own pipe among them). `tests/test_inbound_text.py` sweeps every text-mode subprocess call for one.
 - [x] **`rule-12.plaintext`** (partial, medium) — Critical rule #12 — every widget carrying dependency output is PlainText
   - *Audit 2026-09-25: partly done.* test_message_boxes_are_plaintext sweeps QMessageBox only; the 13 QLabel(non-literal) sites are unswept.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"The 13 QLabel(<non-literal>) sites are outside the PlainText sweep."*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"The 13 QLabel(<non-literal>) sites are outside the PlainText sweep."*, which is now done (2026-09-30 audit).
 - [~] **`rule-4.one-transcode-adapter`** (partial, medium) — Critical rule #4 — one transcode adapter, no bespoke per-encoder install code
   - *Audit 2026-09-25: partly done.* test_deps_registry::test_ffmpeg_spec_is_registered_and_optional and the spawn-site classification. No sweep that encoders are invoked or installed only via adapters/transcode.py and deps/.
 - [ ] **`rule-6.one-subsystem`** (ungated, medium) — Critical rule #6 — dependency self-management is one subsystem, not scattered checks
@@ -4142,7 +4483,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   - *2026-09-25:* Measured in a separate worktree at 24755e1 (`--limit 40 --seed 0`). By leg: cyanrip-backend 14, rig-check 14, settings-validation 14, ripper-identity 11, ctdb-diagnose 9, ctdb-decode 5, handshake-approval 4, naming 4, ctdb-toc 2. **Not all are test gaps:** several are `@dataclass(frozen=True)` flipped to `False` (naming.py:130, ripper_identity.py:63, ctdb/toc.py:40, handshake_approval.py:257), which only says no test asserts immutability. Triage each as *equivalent*, *immutability only*, or *a real missed behaviour*, and write a test for the last kind. The weekly run's artifact lists them all.
 - [x] **`mutation:_proposed_expansion`** (ungated, medium) — Concrete proposal: tier A now (+~2,900 mutants), tier B next, measured test cost 14.5 s
   - *Audit 2026-09-25: partly done.* The matrix grew to 6 legs (rip_log, eac_log, eac_log_export added); none of the other candidates listed here was added.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"mutation:adapters/cyanrip_backend.py (ungated, small) — The argv chokepoint — 5 fix …"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"mutation:adapters/cyanrip_backend.py (ungated, small) — The argv chokepoint — 5 fix …"*, which is now done (2026-09-30 audit).
 - [x] **`mutation:_runner_checks_nothing`** (partial, medium) — The mutation audit checks ZERO mutants today — measured, not inferred
   - *Audit 2026-09-25: done.* mutmut was replaced by scripts/mutation_sweep.py with a per-leg --min-checked floor; test_mutation_sweep.py::test_the_floor_refuses_a_sweep_that_CHECKED_NOTHING.
 - [ ] **`mutation:deps/fork_source.py`** (ungated, medium) — Ripper build offers and pins — 6 fix commits, pure, and the two-surfaces-one-key defect lives here
@@ -4155,9 +4496,9 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 - [ ] **`mutation:rip_report.py`** (ungated, medium) — The JSON report of record — 5 fix commits, pure, 2,302 lines, largest single addition
 - [~] **`mutation:verdict.py`** (partial, medium) — In scope, 348 mutants, 0 checked — and the thinnest test selection in the config
   - *Audit 2026-09-25: partly done.* Now a leg with a floor of 30 (66 generated, capped at 40); the test selection is still tests/test_verdict.py only.
-- [ ] **`mutation:app.py`** (ungated, large) — 6 fix commits, second-highest count — and not a mutmut candidate
-- [ ] **`mutation:ui/main_window*.py`** (ungated, large) — 16 fix-commit touches across the main-window mixins — outside scope and outside mutmut's reach
-- [ ] **`mutation:uiscript/runner.py`** (ungated, large) — Top shipped-bug module in the window (11 fix commits) and the worst mutmut candidate
+- [ ] **`mutation:app.py`** (ungated, large) — 6 fix commits, second-highest count — and not a mutmut candidate *(2026-09-30: the audit is `scripts/mutation_sweep.py`, not mutmut, so the open question is a sweep leg for it)*
+- [ ] **`mutation:ui/main_window*.py`** (ungated, large) — 16 fix-commit touches across the main-window mixins — outside scope and outside mutmut's reach *(2026-09-30: the audit is `scripts/mutation_sweep.py`, not mutmut, so the open question is a sweep leg for them)*
+- [ ] **`mutation:uiscript/runner.py`** (ungated, large) — Top shipped-bug module in the window (11 fix commits) and the worst mutmut candidate *(2026-09-30: the audit is `scripts/mutation_sweep.py`, not mutmut, so the open question is a sweep leg for it)*
 
 ### 7. Boundary functions with no property test (23)
 
@@ -4212,7 +4553,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
     pattern is built from the format's first non-blank printed line. Tests in
     `tests/test_ripper_messages.py`: never raises, round trip against Python's own printf,
     the three real formats, and a scope guard. Revert-probed 8/8.
-- [ ] **`fuzz:scripts.handshake._strip_fences`** (ungated, medium) — An illustrated close inside an UNTERMINATED or INDENTED fence is adopted as a real declaration — a round closes on a fabricated…
+- Duplicate of **C6. `_strip_fences` misses unterminated and indented fences** — merged 2026-09-30.
 - [x] **`fuzz:ui.main_window_helpers._is_sanitised_rendering_of`** (partial, medium) — The overwrite guard's match rule is exercised on exactly one character and one glyph pair
   - *Done 2026-09-27:* `tests/test_overwrite_guard_match_rule.py` over the pinned `unicode`
     column of P7b, parsed from the contract: recognised, refused, and every pair (floor 10).
@@ -4282,17 +4623,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
   `tests/test_rig_scripts.py::test_every_WHOLE_DISC_rip_pins_the_format_it_writes_in`,
   revert-proved. Reported to the fork as round 19 lap 2 §D3.
 
-- [ ] **`handshake_approval.py`'s provenance chain wants to be a structure, not
-  consecutive comment blocks.** It has grown by ~8 lines on each of the last three
-  round closes (547 → 563 → 571) and will do so again every round, because what it
-  stores is a *table* — `(round, pin, app version, why)` — written as prose. The
-  module is ~40% provenance by line count. Making it iterable would let the tests
-  assert the chain rather than the endpoint, and would let a rip report cite the
-  round that approved its pin without a constant per round. **Deliberately not
-  done during a round close** — the constants are load-bearing at exactly the
-  moment a round closes — so this is queued for a quiet commit between rounds.
-  Promoted from a comment in `tests/test_critical_rules_are_enforced.py` after the
-  same note was written three times.
+- Duplicate of **F5. The approval's app half is never the build that carries the roll** — merged 2026-09-30.
 
 - [x] **`HANDSHAKE-CLOSE-BY`: ENFORCE from round 20 — decided, not yet built.**
   `docs/handshake-protocol.md` §6a-bis R2: *"set in lap 1 and is not extended…
@@ -4325,20 +4656,7 @@ more than the 54 that genuinely work, so section 5 below outranks the rest.
 
 ## Round 15 — ours to raise, the fork's to open (2026-08-27)
 
-- [~] **We claim "one test per conformance row" and it is not true: 37 rows, 24
-  tests.** Measured 2026-08-27: `docs/handshake-protocol.md` §8 carries `C1`–`C36`
-  plus `C13a` (37 rows); `tests/test_handshake_conformance.py` defines 24
-  `test_C*` functions. `docs/cyanrip-handshake.md` said *"one test per §8 row"* and
-  `docs/README.md` said *"20-row … one test per ID, with the ID set derived from the
-  file"* — both were written when the table had 20 rows and neither noticed it grow.
-  Both sentences are now softened to point at the table, which stops the claim being
-  false but does **not** close the gap. Two things needed, in order: **(1)** fix the
-  ID-derivation regex to `(C\d+[a-z]?)` so `C13a` is visible at all — a derived set
-  that silently skips a row is the "satisfied by finding nothing" shape in the file
-  that exists to prevent it; **(2)** write the 13 missing tests, or record per
-  missing row why it is untestable here. Do not re-assert "one test per row" until
-  the numbers agree.
-  - *Audit 2026-09-25: partly done.* The row-id regex is fixed (_ROW_ID `C\d+[a-z]?`). 14 binding rows still have no named test, counted by _BINDING_ROWS_WITHOUT_A_NAMED_TEST.
+- Duplicate of **Sixteen binding conformance rows have never had a named test: C21–C36** — merged 2026-09-30.
 
 `docs/cyanrip-handshake.md` §1a is normative: **the provider opens, by default
 every time.** So these are *filed*, not sent, until their lap 1 exists.
@@ -4367,11 +4685,7 @@ every time.** So these are *filed*, not sent, until their lap 1 exists.
   narrow and cites the artifact — *does `handshake_round` mean "the round open
   when this was built" or "the round that approved this"?* Those differ for
   exactly the builds where it matters.
-- [~] **Their round-15 items, already declared and awaiting their lap 1:** the §1
-  `HOTFIX` carve-out, `OWNERSHIP.md` v2 (`accff838cb32c99f3…`) with "bump on
-  every content change", and the sixth `--verify-log` exit code naming **which
-  builds** emit it.
-  - *Audit 2026-09-25: partly done.* OWNERSHIP v2 landed (dba2ab2), now v3 (b198136). The HOTFIX carve-out is unwritten (deferred to v7), and the fork still has 5 --verify-log codes, not 6.
+- Duplicate of **A7. Agreed rules that never reached the spec** (the `HOTFIX` carve-out) and **E6. Exit codes do not discriminate** (the sixth `--verify-log` code) — merged 2026-09-30; its third item, `OWNERSHIP.md` v2 (`accff838cb32c99f3…`, "bump on every content change"), landed in dba2ab2 (v3 since b198136), as the next row records.
 - [x] **Adopt `OWNERSHIP.md` v2 in the lap that announces it**, not before —
   held at v1 (`3204fe15…`) so our sent lap 18's declaration still matches disk.
   - *Audit 2026-09-25: done.* dba2ab2 set OWNERSHIP-VERSION 1 → 2 (3 since b198136).
@@ -4404,8 +4718,8 @@ shell wrapper is one step better than prose, not the destination.
       `evidence_bundle.build_bundle()` **without `album_dir`**, which is the
       parameter that admits a rip folder's files — so it carries the app log and
       the script-run folder and **not one rip log, cue sheet, EAC log or `-j`
-      record**. That single omission is the entire reason
-      `platterpusmorning.sh` exists. Passing the run's rip folders would collapse
+      record**. That single omission ~~is~~ was the entire reason
+      `platterpusmorning.sh` existed (deleted 2026-09-27 in `1b2f7007`). Passing the run's rip folders would collapse
       three collectors into the one the app already builds. **Every text artifact
       from every rip folder, not the newest** — the acceptance run performs seven
       rips and the one the handshake round is waiting on is not the last of them.
@@ -4466,16 +4780,10 @@ shell wrapper is one step better than prose, not the destination.
   exact `none` reads as an absence.
 - [x] Fork's **C1 detector added as section P2**; **J6 answered** (the verb is
   bounded — 300 s + kill + 20 s, then an unreapable-child report).
-- [~] **Run `fullacceptance.txt` overnight** — now **0.6.30** against `d9c058c`.
-  No longer a round-14 close condition (the round closed on T1); it is the
-  **0.7.100 gate** run: zero failures in the ARCHIVAL sections, UX failures
-  recorded and non-blocking (`docs/testing.md` → *Acceptance severity*). The
-  2026-08-27 attempt aborted correctly in two seconds on a wrong-ripper
-  precondition — see the round-state fix below.
-  - *Audit 2026-09-25: not ours to verify.* The maintainer's hardware run. The 0.6.30 pairing is stale; the ledger has only `partial` rows, so the 0.7.100 gate run is still owed.
+- Duplicate of **G11. Version-gate evidence** — merged 2026-09-30.
 - [x] Run the fork's `rig-c1-probe.sh` **only if section P2 hangs**.
   - *Audit 2026-09-25: not ours to verify.* A conditional operator action; nothing in the record says P2 hung.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Run fullacceptance.txt overnight — now 0.6.30 against d9c058c."*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Run fullacceptance.txt overnight — now 0.6.30 against d9c058c."* (merged 2026-09-30 into **G11. Version-gate evidence**, which stays open).
 
 ## Round 14 lap 10, 2026-08-25 — the cancel that destroyed its own log
 
@@ -4618,23 +4926,7 @@ shell wrapper is one step better than prose, not the destination.
 
 ## Doc drift found 2026-08-20 — a stamp can be current while the prose is not
 
-- [~] **`docs/hardware-test-checklist.md` is titled "v0.6.0" and stamped "v0.6.19".**
-  Both facts are true and together they are the failure `CLAUDE.md` names exactly: *a
-  stamp records when a doc was edited, and a doc nobody rewrites keeps an accurate
-  stamp while its prose quietly expires.* Its narrative still opens on the v0.6.0
-  one-file-upload change and "four releases since your last completed run", which is
-  now nineteen minors stale. The stamp gate cannot see this, and neither can the
-  version-claims gate — they check the footer and the CHANGELOG, not whether the
-  document still describes the release it is for.
-  **Deliberately not rewritten inside this release**: it is a ~700-line run sheet and
-  the release window is the wrong place for it. It is also partly superseded — the
-  *reference* half now lives in `docs/test-plan.md` Part E, so the rewrite should
-  reduce this sheet to the fillable per-release instance Part E describes rather than
-  restate it. Do that before the next hardware pass, and consider whether the
-  promise-of-completeness sweep (§5.af) can be extended to catch a title/stamp
-  mismatch mechanically — the check that would have caught this is "does the version
-  in the H1 match the version in the footer", which is two lines of test.
-  - *Audit 2026-09-25: partly done.* H1 no longer says v0.6.0 and a current note was added (9986868). The rewrite to a per-release sheet is not done, and there is no H1/footer check.
+- Duplicate of **Rewrite `docs/hardware-test-checklist.md` rather than patch it again** — merged 2026-09-30.
 
 ## Found in CI, 2026-08-20 — the crash handler was the crash — **FIXED in 0.6.19**
 
@@ -4984,34 +5276,9 @@ worth re-reading and it is not what the symptom said.
   machine. Either `set` it first, or asserting it is the point and the script
   should say which. Correct this to the fork in lap 10.
 
-- [~] **The setup wizard silently rebuilds the production pin over a test pin.**
-  Found while answering the fork's J10 (*"what reverts our binary?"*) from source
-  rather than from memory: nothing reverts it at launch, and the only code running
-  `git checkout --force --detach <pin>` is the setup wizard and `--install-ripper`,
-  both explicit. But the wizard builds `WIZARD_TARGET` (= `PRODUCTION_TARGET`), so
-  an operator running a test pin who opens the wizard for any other reason —
-  a missing encoder, a drive question — gets it **downgraded with no warning**,
-  which is exactly the shape of every revert in their reflog landing on `ddf7ac3`.
-  The wizard should say *"this will replace cyanrip <test pin> with <production
-  pin>"* and let the operator decline. Deliberately **not** fixed mid-round
-  (S-14: a real defect that does not break the artifact under review).
-  - *Audit 2026-09-25: partly done.* c36efa4: the default target keeps the build under review. Other installed test builds are still replaced with no "will replace X with Y" prompt.
+- Duplicate of **F6. The ripper install surface** — merged 2026-09-30.
 
-- [ ] **A filesystem path inside a script is still an exact-match string.** Fixed
-  for `--run-script` itself (`uiscript/find_script.py` matches names with case and
-  ASCII separators removed), and *not* for paths the script hands to a tool. C6 of
-  the round-8 joint script named the EAC log as
-  `…Every Breath You Take-The Classics.log`; the file on disk is
-  `…Every Breath You Take- The Classics.log`. One space. `--verify-log` would have
-  exited non-zero because the file could not be **opened**, and `expect-exit 1`
-  would have **passed** — on the one test whose entire purpose is telling that
-  apart from "the log was refused". Satisfied by the wrong thing, again, and it
-  survived because the path was checked by eye rather than against the filesystem.
-  The fix is a glob or a normalising resolve for `takes_paths` arguments, plus a
-  parse-time warning when a literal path does not exist. **Not done mid-round
-  (S-14):** the corrected literal works and does not make the reviewed pin unsafe.
-  Found 2026-08-13 by asking the operator to `ls` the path before the run — which
-  is the cheap check that should have existed the first time the path was written.
+- Duplicate of **G9. Rig hygiene** — merged 2026-09-30.
 
 ## Leaving beta — the standing objective for every round from here (set 2026-08-15)
 
@@ -5030,7 +5297,8 @@ the *release*.** The rigour stays. What ends is a round that cannot terminate
 because every finding it makes is a reason to extend it.
 
 Named in `docs/handshake/verified/round-08-lap-10.md` §A so the fork holds the
-same objective; it must appear in every lap we write from here.
+same objective; it must appear in every lap we write from here. *(2026-09-30: it has
+not appeared in any of our laps since round 28 lap 6 S38; tracked in row G12.)*
 
 - [x] **Round 8: declare `GO` on `ddf7ac3`.** Done — lap 10, 2026-08-15. Our half
   only: the round stays OPEN until their lap 11 declares `GO`, and `handshake.py
@@ -5210,15 +5478,8 @@ evidence for it does not exist yet. Naming it now means nobody has to argue abou
 the finish line later — and if any row turns out to be the wrong bar, that is a
 decision to take deliberately rather than by drift.
 
-- [ ] **More than one drive.** Every hardware result this project has is from one
-  Pioneer BDR-209D 1.51 at offset +667. A read-offset bug, a speed-lock quirk or
-  a cache behaviour that is drive-specific is invisible in a sample of one, and
-  the offset path is the single most correctness-critical thing we do.
-  - *Audit 2026-09-25: not ours to verify.* Hardware coverage: every ledger row is the BDR-209D.
-- [ ] **More than one machine.** Bazzite + KDE Plasma 6 is the primary target and
-  the only one anyone has run. Fedora/Arch/Ubuntu are claimed in the README and
-  unverified by a person.
-  - *Audit 2026-09-25: not ours to verify.* Hardware coverage: every ledger row is one machine (Bazzite).
+- Duplicate of **G11. Version-gate evidence** (this criterion: more than one drive) — merged 2026-09-30.
+- Duplicate of **G11. Version-gate evidence** (this criterion: more than one machine) — merged 2026-09-30.
 - [ ] **A disc sample with the awkward cases in it, not just more of the same.**
   Currently: a handful of pressed, AccurateRip-listed, single-disc albums. Missing
   and each one exercises different code: a **CD-R** or an obscure pressing (not in
@@ -5228,11 +5489,7 @@ decision to take deliberately rather than by drift.
   unresolved-track flagging, never once exercised), a disc with **CD-TEXT**, and a
   **pre-emphasis** disc.
   - *Audit 2026-09-25: not ours to verify.* Disc coverage: no CD-R, multi-disc, VA, damaged, CD-TEXT or pre-emphasis evidence in the record.
-- [ ] **The never-exercised list, which is joint with the fork and has not moved
-  in four rounds:** `-x` on a real drive, C2 error reporting, `-f`, damaged media,
-  CD-TEXT from a physical disc, a diagnosed abort, a non-zero `Read stalls:`.
-  Nobody on either project has touched any of them, on any build.
-  - *Audit 2026-09-25: not ours to verify.* Hardware, joint with the fork (-x is blocked on the BDR-209D).
+- Duplicate of **G10. Our never-exercised list is stale** (this criterion: the never-exercised list, joint with the fork) — merged 2026-09-30.
 
 **Not a blocker for any of it:** none of these makes `0.6.4` unsafe, and by S-14
 none of them holds a release. They are what a **1.0** would be claiming stability
@@ -5301,10 +5558,7 @@ around, which is a different question from whether today's build is good.
   said so.
   - *Audit 2026-09-25: done.* 3bab6e6: test_handshake_tooling::test_the_PEERS_declared_shared_hashes_match_our_copies (a test, not in the gate).
 
-- [ ] **Round 8 — the three exit codes we named**, in the fork's queue: "the flag I sent does
-  not exist in this build" first, then disc/drive-failure vs argument-refusal, then
-  cancelled/signalled. Our side is the consumption: stop treating every non-zero as one thing.
-  - *Audit 2026-09-25: not ours to verify.* The fork's; not landed. Their round-26 provider contract says exit 1 is the generic failure.
+- Duplicate of **E6. Exit codes do not discriminate** — merged 2026-09-30.
 
 - [x] **Three CHANGELOG headings claim releases that were never tagged** — `0.5.16`, `0.2.0`,
   `0.0.1` — and the `0.5.16`/`0.5.17` compare links resolve to nothing. Found while fixing the
@@ -5315,11 +5569,7 @@ around, which is a different question from whether today's build is good.
   rather than a skip.
   - *2026-09-25:* **Decided (D7 A) and done the same day.** Measured against GitHub's tag list (59 tags, all v0.6.4 or later), the problem was wider than three headings: 84 headings have no tag, 67 before v0.6.4 and 17 after (0.6.4b1–b15 except b12, 0.6.7, 0.6.27, 0.6.46). Their 85 link rows are removed (one, `[0.5.6]`, had no heading at all), four links whose base had no tag now start at the previous tag, and a note says which versions have none. `tests/test_no_stale_version_claims.py` now refuses a link naming an untagged version.
 
-- [ ] **Answer the fork's H3 question about a Platterpus-side sanitiser blind spot.** They
-  found ASAN and UBSAN both blind to their argv overread. Our nearest equivalent of that false
-  comfort is *"the parsers have a `hypothesis` never-raises property test, so malformed input is
-  covered"* — which proves survival, not correctness of the value returned. Worth a real audit
-  rather than the one example we volunteered.
+- Duplicate of **E18. Long-standing optional asks** — merged 2026-09-30.
 
 ## Next release — gated on the rig package
 
@@ -5427,6 +5677,7 @@ and only the argv proves the second.
    the rule. **Plus the one-line sweep** asserting the two sets agree, which is
    what stops the next one.
   - *Audit 2026-09-25: done.* 43 of 45 verbs have handlers; eval/call are deliberately implemented=False. Swept by test_uiscript::test_the_verb_table_and_the_runner_agree_about_what_works.
+  - *2026-09-30:* `eval` and `call` were removed (maintainer), so every verb in the table is now implemented and the sweep's unimplemented set is empty.
 2. **[x] `set`/`expect` keyed on `Config` field names, not row labels.** Seven form
    rows have the label `""`, five of them interactive — a label namespace cannot
    reach five real switches. Generalise `settings_dialog.py:700`'s existing
@@ -5443,11 +5694,12 @@ and only the argv proves the second.
    spot-fix.
   - *Audit 2026-09-25: partly done.* The QMessageBox PlainText sweep exists; QLabels are unswept and no inbound line sanitiser was found.
   - *2026-09-25:* The sanitiser half is done (`inbound_text`). The QLabel sweep is what keeps this row open.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"The 13 QLabel(<non-literal>) sites are outside the PlainText sweep."*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"The 13 QLabel(<non-literal>) sites are outside the PlainText sweep."*, which is now done (2026-09-30 audit).
 4. **[x] The console dialog**, gated behind two separate Settings toggles (show the
    console; allow unsafe verbs), plus the Tools menu entry.
   - *Audit 2026-09-25: partly done.* Tools → Run test script… and test_script_allow_unsafe exist; there is no "show the console" toggle.
   - *2026-09-25:* **Decided (D12 A):** keep today's arrangement: the console is in Tools, and its risky verbs run only when `test_script_allow_unsafe` is on. No show-the-console toggle. It moves under Tools → Advanced with D4.
+  - *2026-09-30:* **Superseded in part (maintainer).** The risky verbs, `eval` and `call`, were never built; they and `test_script_allow_unsafe` were removed, so there is no second toggle left to gate. The console stays in Tools.
 5. **[x] Handshake lap 28.** Independent of the rip *except* for the pin verdict —
    draft everything else now: withdraw the stale HOLD (their flag table arrived;
    `_MAX_TABLE_LAG` is 0), correct the recommendation of a pin our own
@@ -5823,16 +6075,20 @@ The sub-sections below are ordered by current priority for picking up work:
 5. **P1 — Install automation** — pre-clone host bootstrap script. Blocked on the repo flipping public.
 6. **P1 — Documentation backlog** — items that need real-system output from T32 to write authoritatively.
 
-### ⭐ Current plan & priorities (re-ranked 2026-07-21 — START HERE)
+### ⭐ Current plan & priorities (re-ranked 2026-07-21 — HISTORICAL since 2026-09-30)
+
+> **Historical, not the live queue** (2026-09-30 audit). This was START HERE in July
+> 2026; the live queue is the newest dated section at the top of this file. Kept for
+> its numbering, which other text cites.
 
 The live, ordered work queue — what to pick up next. Difficulty: **S** = a focused session, **M** = 1–2 sessions (may need upstream-source research), **L** = multi-session. **HW** = hardware-gated (needs the user's machine/drive/disc — code-side prep can still be done first). Each entry is deliberately just the queue line; the linked section carries the full context. *(Originally set 2026-06-09; re-ranked 2026-07-21 per the docs-audit consolidation plan, because 11 of the original 15 items were ✅ and the genuinely live workstreams sat in later sections a START-HERE reader never reached. The original numbered list — still cited elsewhere as "current-plan item N" — is preserved with its numbering as ranked history just below.)*
 
-1. **🟡 Trust & supply-chain hardening — open audit follow-ups (M; maintainer-gated in part).** The **verify** half of update authenticity **shipped 2026-07-21** (KDD-26): the `cryptography` dep was approved and is a hard runtime requirement, `update_signing.py` exists, and `update_install.py` is wired fail-closed — dormant until a key exists. **Remaining, maintainer-only:** generate the keypair, bake in the public key, sign the first release (see [docs/architecture.md §6.2](docs/architecture.md)). Separately, full-AppImage byte-reproducibility still needs validating on a real release build. See *P1 — Trust & supply-chain hardening* below.
-2. **🟡 cyanrip soft-fork upstream PRs — prepared, env-gated (M).** Both contributions (the `-a`/`-t` colon-parsing fix; full libavcodec encoder args) are researched, patched, and paste-ready in `scripts/cyanrip/` + [docs/cyanrip-fork.md](docs/cyanrip-fork.md); execution (fork → build in the container → issue → PR) needs an environment with cyanrip repo access (local, or a cyanrip-seeded session — this cloud session is scoped to Platterpus only). See the *cyanrip upstream contributions* block below.
-3. **⬜ Hardware-gated proof queue — HW (user), S each.** Everything only the Bazzite + BDR-209D rig can prove, consolidated. **The run sheet is [`docs/hardware-test-checklist.md`](docs/hardware-test-checklist.md)** — as of 2026-07-30 it is *consolidated*: it carries **every** outstanding hardware test rather than only the newest release's, grouped by why each is still open, with stable test IDs that are retired once they pass. Work that sheet first; it, not this bullet, is the live list. **First run done 2026-07-26 (partial):** the log checksum verified end-to-end (test 3 ✅, recomputed independently from the real artifact + tamper detected), force-stop/post-cancel recovery held (test 15 ✅), the wizard's `dnf install /usr/bin/cd-paranoia` provides-install + export **succeeded on a real Fedora container** (previously flagged unverified — now proven), and the real `cd-paranoia -A` output was captured and committed as a fixture (the KDD-29 gate is CLOSED). That run also surfaced **five defects, all fixed** (see CHANGELOG `[Unreleased]`): the 90 s probe timeout, the undiagnosable unknown verdict, "Finished with issues." on a successful cache-only run, the EAC log calling offset-variant tracks absent from AccurateRip, and overread rendering "(unknown)". **Second run done 2026-07-26 (v0.5.9, Overread OFF — a complete 14-track rip):** all eight v0.5.9 fixes confirmed on the rig — the cache probe finishes and reaches both the panel and the log as a measured `Yes`, the wizard reports "Done.", the offset trust line reached **"confirmed — two independent sources agree"** (KDD-31 earned on hardware), overread renders `No`, and offset-variant tracks are described correctly — so **tests 2, 5, 14 are ✅**. **⭐ Test 17 is ANSWERED:** the `.cue` carried 14 × `INDEX 01`, no `PREGAP` — the pre-gap gap is real on the deployed cyanrip 0.9.3, so KDD-32's build-cyanrip-from-source step is now **required** and is the run sheet's final part. That run also surfaced **two new honesty defects, both fixed in v0.5.10**: a re-read track's Test & Copy proof never reached the log, and a track whose re-reads *disagreed* rendered as clean. **Third run done 2026-07-26 (v0.5.10, step 1 only):** the Test & Copy rendering fired but paired the convergence proof with the **first pass's** CRC on both swapped tracks (log `52DFDF7D`/`6902BCF0`; files `3D8FCF0C`/`E0036697`) — the swapped-in read's own record now replaces the first pass's (fixed in v0.5.11, regression-pinned). Both problem tracks converged for the first time (`unresolved: false`). **Still open** — the run sheet's own §A–§E are authoritative and the old flat test numbers below were superseded by them on 2026-07-30; everything *not* on the sheet: the `-Z` convergence re-rip (history item 14); the from-scratch wizard/`setup-host.sh` run + drive-setup success screens + README screenshots + Picard UX (history item 10; test-plan Tests 3/5/6); cyanrip WAV parity (proof matrix below); the new test-plan Tests 12–14; a real in-app uninstall run (history item 4); UX gap #3 (timestamp-localized anomalies — needs real anomaly-bearing output); and a live screen-reader (e.g. Orca) session over the announced surfaces (UX gap #4's last fraction, 2026-07-21). *(The EAC gap-handling check was removed from this queue 2026-07-21 — closed as already-satisfied; cyanrip's default matches EAC, verified upstream, no hardware run needed.)*
+1. **🟡 Trust & supply-chain hardening — open audit follow-ups (M; maintainer-gated in part).** The **verify** half of update authenticity **shipped 2026-07-21** (KDD-26): the `cryptography` dep was approved and is a hard runtime requirement, `update_signing.py` exists, and `update_install.py` is wired fail-closed — dormant until a key exists. **Remaining, maintainer-only:** ~~generate the keypair, bake in the public key, sign the first release (see [docs/architecture.md §6.2](docs/architecture.md)).~~ ✅ **Superseded (2026-09-30 audit):** KDD-37 D9 (2026-09-25) rules that signing is never armed; an update is protected instead by the build attestation, checked fail-closed in the app (`update_attestation.py`). Separately, full-AppImage byte-reproducibility still needs validating on a real release build (the *Reproducible AppImage build* row, still `[~]`). See *P1 — Trust & supply-chain hardening* below.
+2. **🟡 cyanrip soft-fork upstream PRs — prepared, env-gated (M).** *(2026-09-30 audit: only the encoder-args contribution remains; the colon fix is done — an escape-aware pre-splitter is in upstream `master` and the fork, per the colon row's 2026-09-25 audit under "cyanrip upstream contributions".)* Both contributions (the `-a`/`-t` colon-parsing fix; full libavcodec encoder args) are researched, patched, and paste-ready in `scripts/cyanrip/` + [docs/cyanrip-fork.md](docs/cyanrip-fork.md); execution (fork → build in the container → issue → PR) needs an environment with cyanrip repo access (local, or a cyanrip-seeded session — this cloud session is scoped to Platterpus only). See the *cyanrip upstream contributions* block below.
+3. **🟡 Hardware-gated proof queue — HW (user), S each.** *(2026-09-30 audit: the hardware runs this queue waited for have happened — the in-app acceptance run, rounds 26–29 — and the current run sheet is [`docs/rig-session.md`](docs/rig-session.md); `docs/hardware-test-checklist.md` is kept as the full reference. The "Still open" items below were not re-checked one by one.)* Everything only the Bazzite + BDR-209D rig can prove, consolidated. **The run sheet is [`docs/hardware-test-checklist.md`](docs/hardware-test-checklist.md)** — as of 2026-07-30 it is *consolidated*: it carries **every** outstanding hardware test rather than only the newest release's, grouped by why each is still open, with stable test IDs that are retired once they pass. Work that sheet first; it, not this bullet, is the live list. **First run done 2026-07-26 (partial):** the log checksum verified end-to-end (test 3 ✅, recomputed independently from the real artifact + tamper detected), force-stop/post-cancel recovery held (test 15 ✅), the wizard's `dnf install /usr/bin/cd-paranoia` provides-install + export **succeeded on a real Fedora container** (previously flagged unverified — now proven), and the real `cd-paranoia -A` output was captured and committed as a fixture (the KDD-29 gate is CLOSED). That run also surfaced **five defects, all fixed** (see CHANGELOG `[Unreleased]`): the 90 s probe timeout, the undiagnosable unknown verdict, "Finished with issues." on a successful cache-only run, the EAC log calling offset-variant tracks absent from AccurateRip, and overread rendering "(unknown)". **Second run done 2026-07-26 (v0.5.9, Overread OFF — a complete 14-track rip):** all eight v0.5.9 fixes confirmed on the rig — the cache probe finishes and reaches both the panel and the log as a measured `Yes`, the wizard reports "Done.", the offset trust line reached **"confirmed — two independent sources agree"** (KDD-31 earned on hardware), overread renders `No`, and offset-variant tracks are described correctly — so **tests 2, 5, 14 are ✅**. **⭐ Test 17 is ANSWERED:** the `.cue` carried 14 × `INDEX 01`, no `PREGAP` — the pre-gap gap is real on the deployed cyanrip 0.9.3, so KDD-32's build-cyanrip-from-source step is now **required** and is the run sheet's final part. That run also surfaced **two new honesty defects, both fixed in v0.5.10**: a re-read track's Test & Copy proof never reached the log, and a track whose re-reads *disagreed* rendered as clean. **Third run done 2026-07-26 (v0.5.10, step 1 only):** the Test & Copy rendering fired but paired the convergence proof with the **first pass's** CRC on both swapped tracks (log `52DFDF7D`/`6902BCF0`; files `3D8FCF0C`/`E0036697`) — the swapped-in read's own record now replaces the first pass's (fixed in v0.5.11, regression-pinned). Both problem tracks converged for the first time (`unresolved: false`). **Still open** — the run sheet's own §A–§E are authoritative and the old flat test numbers below were superseded by them on 2026-07-30; everything *not* on the sheet: the `-Z` convergence re-rip (history item 14); the from-scratch wizard/`setup-host.sh` run + drive-setup success screens + README screenshots + Picard UX (history item 10; test-plan Tests 3/5/6); cyanrip WAV parity (proof matrix below); the new test-plan Tests 12–14; a real in-app uninstall run (history item 4); UX gap #3 (timestamp-localized anomalies — needs real anomaly-bearing output); and a live screen-reader (e.g. Orca) session over the announced surfaces (UX gap #4's last fraction, 2026-07-21). *(The EAC gap-handling check was removed from this queue 2026-07-21 — closed as already-satisfied; cyanrip's default matches EAC, verified upstream, no hardware run needed.)*
 4. **🟡 Documentation backlog — the 2026-07-21 docs-audit consolidation plan (S–M).** In execution; per-item status under *P1 — Documentation backlog* below.
 5. **🟡 UX gap backlog remainder (S–M).** Gap #4 is ✅ complete (the keyboard-reachability sweep + focus-safe live announcements shipped 2026-07-21; only the live screen-reader confirmation rides queue item 3); gap #3 is hardware-gated (queue item 3 above). Canonical ranked table: [docs/ux-design-principles.md](docs/ux-design-principles.md); tracking checklist: history item 15 below.
-6. **⛔ CTDB repair (Phase 2) — parked by decision (L; "D → B", maintainer 2026-07-21).** The everyday "beyond EAC" differentiator; its CRC gate cleared 2026-07-07 (KDD-16). **Shipping decided:** *not now* — the documented manual power-user workflow ([docs/manual-ctdb-repair.md](docs/manual-ctdb-repair.md)) covers the rare recovery case (D); wire `ctdb-cli` as an **optional user-installed tool** via the dependency subsystem (Picard model, B) only when a real user actually hits an uncorrectable-error rip CTDB could repair. Bundling a .NET runtime into the AppImage (A) is off the table; a pure-Python parity port (C) stays rejected. So this is no longer "maintainer-gated" — it's demand-gated. See KDD-14 and [docs/eac-parity.md](docs/eac-parity.md) Part B.
+6. Duplicate of **CTDB parity repair** — merged 2026-09-30.
 
 8. **[x] ✅ The fork is installed by the app, and "which build" is visible — DONE 2026-08-03 (v0.6.3, KDD-33).** The container switch to the fork was a manual step in a test plan, and it never ran: **every rip through v0.6.2 used the stock COPR `cyanrip 0.9.3`**, including the AccurateRip-verified hardware runs. The maintainer found out by reading the dependency dialog. Fixed at both ends — the setup wizard now builds/installs/**verifies** the pinned fork (`deps/fork_source.py`, `cyanrip_fork` step, additive so a failed build leaves a working ripper), and the dependency check names the build next to the version because the fork keeps upstream's version string on purpose. See KDD-33.
 
@@ -5898,12 +6154,12 @@ The queue as set 2026-06-09 and worked down through 2026-07 — 11 of its 15 ite
 3. **✅ Drive-access permission diagnostics** — done 2026-05-30; see P1.1.
 4. **✅ EAC parity-gap Settings widgets** (cover art / force-overread / max-retries / keep-going) — done 2026-05-30; below.
 5. **✅ CTDB verify (read-only)** — Phase 1 of KDD-14. Library landed 2026-06-03 (clean-room per KDD-16); GUI-wired 2026-06-17; `toc=` wire format verified live 0.4.5; **CRC hardware-validated 2026-07-07 (v0.4.20)**. Status is canonical in **current-plan item 8** — this row is the historical rank record.
-6. **⬜ CTDB repair (parity, wrap `ctdb-cli`, explicit trigger)** — Phase 2 of KDD-14; the headline EAC++ differentiator. Note: `ctdb-cli` is .NET 10 (not C), so AppImage bundling is heavy — bundle-vs-optional-install is undecided.
-7. **🟡 ⭐ HIGH PRIORITY — Zero-CLI distribution (PLANNING.md [KDD-17](PLANNING.md), user-approved 2026-06-04).** Goal: a non-technical user touches no terminal — download one file, double-click, done. Three independently-shippable pieces: (a) **[x] self-integrate on first run — SHIPPED 2026-06-05:** `appimage_integration.py` offers (first AppImage run, one-time) to write its own `.desktop` + icon and set the AppImage +x, so it becomes a menu app; supersedes `install-appimage.sh`; no-op on source/pipx. (b) **self-update** via AppImage update-information (zsync) + `.sha256` verify — *not built yet*; (c) **[x] GUI first-run host wizard — SHIPPED 2026-06-05:** `deps/host_setup.py` (idempotent bootstrap engine, injectable runner, dry-run, fully unit-tested) + `ui/host_setup_dialog.py` + `workers/host_setup_worker.py`, offered on first launch when whipper is absent and on **Tools → Set up Platterpus…**. Installs Distrobox + container backend + the `ripping` container + whipper + host export; host-root installs use **`pkexec`** (graphical polkit, no TTY) and are skipped entirely on Bazzite/Silverblue. *Final proof outstanding:* a real from-scratch run on hardware (the command execution is the hardware-gated part; orchestration is unit-tested + dry-run-validated). Rejected: Flatpak (Critical Rule #3) and a bespoke download stub. See KDD-17 + P1.1 below.
+6. Duplicate of **CTDB parity repair** — merged 2026-09-30.
+7. **✅ ⭐ HIGH PRIORITY — Zero-CLI distribution (PLANNING.md [KDD-17](PLANNING.md), user-approved 2026-06-04).** *(2026-09-30 audit: all three pieces shipped; (b) is the 2026-06-09 plan's item 6, and the P1.1 row says "ALL THREE SLICES SHIPPED".)* Goal: a non-technical user touches no terminal — download one file, double-click, done. Three independently-shippable pieces: (a) **[x] self-integrate on first run — SHIPPED 2026-06-05:** `appimage_integration.py` offers (first AppImage run, one-time) to write its own `.desktop` + icon and set the AppImage +x, so it becomes a menu app; supersedes `install-appimage.sh`; no-op on source/pipx. (b) **[x] self-update** via AppImage update-information (zsync) + `.sha256` verify — ~~*not built yet*~~ **SHIPPED 2026-06-09** (KDD-17b); (c) **[x] GUI first-run host wizard — SHIPPED 2026-06-05:** `deps/host_setup.py` (idempotent bootstrap engine, injectable runner, dry-run, fully unit-tested) + `ui/host_setup_dialog.py` + `workers/host_setup_worker.py`, offered on first launch when whipper is absent and on **Tools → Set up Platterpus…**. Installs Distrobox + container backend + the `ripping` container + whipper + host export; host-root installs use **`pkexec`** (graphical polkit, no TTY) and are skipped entirely on Bazzite/Silverblue. *Final proof outstanding:* a real from-scratch run on hardware (the command execution is the hardware-gated part; orchestration is unit-tested + dry-run-validated). Rejected: Flatpak (Critical Rule #3) and a bespoke download stub. See KDD-17 + P1.1 below.
 8. **✅ Auto drive-offset lookup (backend-independent; high-value). DONE 2026-06-05.** Surfaced by real-hardware testing: whipper's `offset find` is "primitive" and failed on a Pioneer BDR-209D even with a recognizable CD. Shipped ([docs/archive/offset-investigation-2026-06.md](docs/archive/offset-investigation-2026-06.md)): `adapters/accuraterip_offsets.py` resolves the offset by drive vendor+model and the wizard pre-fills it for one-click save (no disc, no whipper probe). The **full AccurateRip `DriveOffsets.bin` list (~4,800 drives) is imported and bundled** in-code (`accuraterip_offsets_data.py`); the 69-byte record format was reverse-engineered and **validated against the known BDR-209D=+667** (importer `scripts/update_drive_offsets.py` refuses to write unless that sentinel passes). Works offline for any drive; layered user-CSV > curated > bundled. *Final proof outstanding:* a real from-scratch wizard run on hardware.
-9. **🟡 `CyanripImpl` successor backend (PLANNING.md [KDD-18](PLANNING.md), decided 2026-06-04).** whipper is stalled (last release 2021-05) and its cd-paranoia has a real **>587 read-offset bug** that fails tracks on the BDR-209D (+667) — confirmed on hardware. **cyanrip** (active, C/FFmpeg, LGPL-2.1, AccurateRip v1/v2 + EAC CRC, applies the offset via `-s` with its own paranoia → no >587 bug) is the successor. **Phase 1 SHIPPED 2026-06-08:** `adapters/cyanrip_backend.py` (`CyanripImpl`) behind the ABC, `Config.ripper_backend` selector wired in app.py (default whipper). Tested core = rip argv builder, `version`, `find_offset`, backend-independent drive scan. **Phase 2 (2026-06-09): Settings UI toggle** (whipper | cyanrip) shipped. **Phase 3 (2026-06-09): container packaging/provisioning SHIPPED** — research resolved (Fedora + RPM Fusion do NOT package cyanrip; the COPR `barsnick/non-fed` has 0.9.3.1 built for F42–44, GPG-checked — see the audit doc's "Packaging research" section): the host-setup wizard now has an optional cyanrip step (`HostSetup.include_cyanrip`, on when `Config.ripper_backend == "cyanrip"`) that writes the COPR `.repo` stanza in-container, `dnf install`s cyanrip, and `distrobox-export`s it to `~/.local/bin/cyanrip`; switching the Settings backend to cyanrip offers the wizard if cyanrip is missing; app.py prefers the exported absolute path. *Follow-ups:* `setup-host.sh` CLI parity (a `--cyanrip` flag) and `uninstall.sh` removal of `~/.local/bin/cyanrip` (fold into the in-app Uninstaller work). **Phase 4 (2026-06-09): `disc_info` SHIPPED** — `CyanripImpl.disc_info` runs `-I -N` (offline; DiscID/CDDB computed locally from the TOC per cyanrip's discid.c) and `parsers/cyanrip_info.py` parses the report into the shared `DiscInfo` (exact labels verified against cyanrip master's `cyanrip_log_start_report`; property-based never-raises test included). **Phase 5 (2026-06-09): metadata model + template mapping + unified Settings SHIPPED** — rips snapshot the track table into `RipMetadata` (new ABC param; whipper ignores it); cyanrip always runs `-N` and is fed `-a`/`-t` (values escaped for `av_dict_parse_string`; release MBID recorded as a tag) so known-disc rips need no in-container network and can't pick the wrong release; whipper `%`-templates translate to cyanrip `-D`/`-F` `{…}` schemes (`scheme_from_template`) for the same library layout; Settings is one unified page — whipper-only options (CD-R, cover art, overread, keep-going, whipper path) grey out under cyanrip with a why+how-to-re-enable tooltip, values preserved. **Remaining:** cyanrip stdout progress parsing (bars sit still during a cyanrip rip; completion/result still correct), cyanrip log parsing for the fidelity verdict, and the hardware parity run. See [docs/archive/ecosystem-audit-2026-06.md](docs/archive/ecosystem-audit-2026-06.md). **Never fork whipper.** CTDB is backend-independent and unaffected.
+9. **✅ `CyanripImpl` successor backend (PLANNING.md [KDD-18](PLANNING.md), decided 2026-06-04).** *(2026-09-30 audit: obsolete as a work item. cyanrip became the sole backend and the previous one was removed 2026-06-30 (KDD-18); the "Remaining" pieces below shipped as the 2026-06-09 plan's items 1–3.)* whipper is stalled (last release 2021-05) and its cd-paranoia has a real **>587 read-offset bug** that fails tracks on the BDR-209D (+667) — confirmed on hardware. **cyanrip** (active, C/FFmpeg, LGPL-2.1, AccurateRip v1/v2 + EAC CRC, applies the offset via `-s` with its own paranoia → no >587 bug) is the successor. **Phase 1 SHIPPED 2026-06-08:** `adapters/cyanrip_backend.py` (`CyanripImpl`) behind the ABC, `Config.ripper_backend` selector wired in app.py (default whipper). Tested core = rip argv builder, `version`, `find_offset`, backend-independent drive scan. **Phase 2 (2026-06-09): Settings UI toggle** (whipper | cyanrip) shipped. **Phase 3 (2026-06-09): container packaging/provisioning SHIPPED** — research resolved (Fedora + RPM Fusion do NOT package cyanrip; the COPR `barsnick/non-fed` has 0.9.3.1 built for F42–44, GPG-checked — see the audit doc's "Packaging research" section): the host-setup wizard now has an optional cyanrip step (`HostSetup.include_cyanrip`, on when `Config.ripper_backend == "cyanrip"`) that writes the COPR `.repo` stanza in-container, `dnf install`s cyanrip, and `distrobox-export`s it to `~/.local/bin/cyanrip`; switching the Settings backend to cyanrip offers the wizard if cyanrip is missing; app.py prefers the exported absolute path. *Follow-ups:* `setup-host.sh` CLI parity (a `--cyanrip` flag) and `uninstall.sh` removal of `~/.local/bin/cyanrip` (fold into the in-app Uninstaller work). **Phase 4 (2026-06-09): `disc_info` SHIPPED** — `CyanripImpl.disc_info` runs `-I -N` (offline; DiscID/CDDB computed locally from the TOC per cyanrip's discid.c) and `parsers/cyanrip_info.py` parses the report into the shared `DiscInfo` (exact labels verified against cyanrip master's `cyanrip_log_start_report`; property-based never-raises test included). **Phase 5 (2026-06-09): metadata model + template mapping + unified Settings SHIPPED** — rips snapshot the track table into `RipMetadata` (new ABC param; whipper ignores it); cyanrip always runs `-N` and is fed `-a`/`-t` (values escaped for `av_dict_parse_string`; release MBID recorded as a tag) so known-disc rips need no in-container network and can't pick the wrong release; whipper `%`-templates translate to cyanrip `-D`/`-F` `{…}` schemes (`scheme_from_template`) for the same library layout; Settings is one unified page — whipper-only options (CD-R, cover art, overread, keep-going, whipper path) grey out under cyanrip with a why+how-to-re-enable tooltip, values preserved. **Remaining:** cyanrip stdout progress parsing (bars sit still during a cyanrip rip; completion/result still correct), cyanrip log parsing for the fidelity verdict, and the hardware parity run. See [docs/archive/ecosystem-audit-2026-06.md](docs/archive/ecosystem-audit-2026-06.md). **Never fork whipper.** CTDB is backend-independent and unaffected.
 
-*Downgraded:* Test & Copy dual-pass — whipper already emits a per-track Test CRC and Copy CRC, so the guarantee is already delivered (see P2).
+*Downgraded:* Test & Copy dual-pass — whipper already emits a per-track Test CRC and Copy CRC, so the guarantee is already delivered (see P2). *(Obsolete since 2026-06-30: that backend was removed (KDD-18). Test & Copy is now CRC pairs from cyanrip's `-Z` convergence, KDD-30.)*
 
 High-level feature backlog (not bucketed into a sub-section because each is small):
 
@@ -6008,9 +6264,12 @@ These remove most of the README's "until X happens" caveats. Done in order, they
 ### P1 — The `FORK_PIN` gap: gated on hardware, not on code (assessed 2026-08-18)
 
 **SUPERSEDED 2026-08-27 — this section described the gap as it stood before round 14.**
-Our pin is `d9c058c` = `0.9.4-rc2+platterpus.10`, approved by round 14; the fork's
+**Re-read 2026-09-30:** our pin is `51cc789` = `0.9.4-rc2+platterpus.18`, approved by
+round 29; the fork's newest published build is `174a134` = `+platterpus.19`,
+`release_seq` 29, under review in round 30 (`deps/fork_source.py`). The 2026-08-27
+statement, as the record: ~~Our pin is `d9c058c` = `0.9.4-rc2+platterpus.10`, approved by round 14; the fork's
 newest published build is `978f9b0` = `platterpus.11`, `release_seq` 21, which no
-round has reviewed. The gap is real again, deliberately, and for the same reason.
+round has reviewed.~~ The gap is real again, deliberately, and for the same reason.
 The original text, as the record: ~~Our pin is `ddf7ac3` = fork release **11**; the
 fork's published stable is `c4d1a00` = release **16**.~~ **This is a decision, not drift** — round 11's `HANDSHAKE-PIN-POLICY` reads *"Reviewed and approved, not installed. FORK_PIN stays ddf7ac3"*, and its §5 gives the reason: `ddf7ac3` has BDR-209D evidence behind it and nothing published since has been near a drive. *"We do not ship a ripper to users on the strength of a suite."*
 
@@ -6084,7 +6343,7 @@ Maintainer, and it is now `docs/seam-rules.md` **S-8/S-9/S-10** (version 2): *"i
 
 **What we owe, and it is a real body of work:**
 
-- **[ ] Rows for all 41 of their flags, not our 17.** For every flag we do not send, the row must say `NO: <reason>` or `?`. Today nothing distinguishes *"we decline it"* from *"we never noticed it"* — and those are different facts about the same blank cell.
+- Duplicate of **E13. `seam-commands` structural work** — merged 2026-09-30.
 - **[~] Black-box limit probes for every argument we DO send**, run against the real binary rather than read out of the builder: the **real** accepted min/max (the declared type is not the range — `int` says nothing about whether `-1` is taken); behaviour at min, at max and **one past each**; and on a bad value the exit code, the message, and **whether the operation dies or the flag is silently ignored**. That last distinction is the difference between a bad tag and a lost rip: `-t 17=` on a 16-track disc killed a rip in two seconds and the *type* was fine.
   - *Audit 2026-09-25: partly done.* scripts/probe_argv_surface.py probes the builder for -r/-S/-Z/-s and tag shapes, not the real binary; -d/-c/-l/-t are not probed.
 - **[ ] The same for our own surface** — every `Config` field and every CLI flag, including ones the GUI cannot set. Same columns, same rule.
@@ -6093,7 +6352,7 @@ Maintainer, and it is now `docs/seam-rules.md` **S-8/S-9/S-10** (version 2): *"i
 - **[~] Interactions**: `-I` must never appear with `-J` in our builder and **neither of us has recorded why**; `-F` is in the builder with no recorded reason at all. Probe both, document both, or delete them — carrying a flag we cannot explain is worse than not having it.
   - *Audit 2026-09-25: partly done.* The fork's §7 records the -I/-J refusal and -F semantics; our §1 rows still say the semantics need confirming.
 - **[x] Generate, do not transcribe.** The type/range columns in `docs/seam-commands.md` are currently hand-written and carry a provenance warning saying so. `emit_dependency_contract.py` must emit them from the builder's signatures and range checks, and the probe results must land beside them mechanically.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Extend the emitter to carry types + ranges; build the merge; add the both-sides-audited …"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Extend the emitter to carry types + ranges; build the merge; add the both-sides-audited …"* (merged 2026-09-30 into **E13. `seam-commands` structural work**, which stays open).
 
 The limit probes are a natural fit for the in-app script runner once `cyanrip`/`expect-exit` are joined by the rest of the vocabulary — a generated batch that walks every argument to its boundary and records the exit code is exactly the artifact S-9 asks for.
 
@@ -6118,7 +6377,7 @@ All four verified against the real `close_blockers` before the revert.
 
 **Why it was reverted rather than shipped:** `tests/test_handshake_tooling.py::test_the_required_field_set_matches_the_published_spec` failed with *"SEAM-COMMANDS is required by our gate and absent from the shared docs/handshake-protocol.md — one of the two has drifted."* **That test is doing its job.** `handshake-protocol.md` is the file *neither project owns*, and rule #12 is explicit: editing it is a version bump **both sides must ship before the next close**. A gate demanding a field the shared spec does not define would reject the fork's conforming files — we would have broken their side to tighten ours.
 
-- **[ ] Propose the protocol version bump in round 8**, with the four-row table above as the specified behaviour, and land the gate change **in the round where both sides adopt it** — not before.
+- Duplicate of **A12. A `SEAM-COMMANDS: audited @ N` close field** — merged 2026-09-30.
 
 ### P0 — There is no single shared command/type/meaning table, and ours has no types at all (2026-08-06)
 
@@ -6150,8 +6409,7 @@ Three defects fall out, and the third is the one that matters:
 - **Audited by both sides every round**, completely — the handshake gate fails when a row's status is `not-audited-this-round`, so "we did not look" is distinguishable from "we looked and it was fine".
 - **`docs/dependency-contracts.md` gets absorbed or demoted.** It cannot remain the authority for semantics while a generated file exists; two descriptions of one thing is the drift this fixes.
 
-- **[~] Extend the emitter to carry types + ranges; build the merge; add the both-sides-audited gate; propose the shared file in the round-8 outbound alongside `docs/seam-rules.md`.**
-  - *Audit 2026-09-25: partly done.* docs/seam-commands.md is byte-identical in both repos, but the emitter carries no types, and there is no merge tool or audited gate.
+- Duplicate of **E13. `seam-commands` structural work** — merged 2026-09-30.
 
 ### P0 — The script vocabulary advertises 13 verbs the runner does not implement (found 2026-08-06)
 
@@ -6163,6 +6421,7 @@ the record: ~~`verbs.py` advertises **25** verbs; `runner.py` implements **12**.
 
 - **[x] Either implement the thirteen or mark them unavailable in the table**, and add the sweep that makes the two halves agree — `set(VERBS) == {handlers on ScriptRunner}` is a one-line assertion and it would have failed the moment the gap opened.
   - *Audit 2026-09-25: done.* 43 of 45 verbs implemented and eval/call flagged; swept by test_uiscript::test_the_verb_table_and_the_runner_agree_about_what_works.
+  - *2026-09-30:* `eval` and `call` were removed (maintainer), so every verb in the table is now implemented and the sweep's unimplemented set is empty.
 
 ### P0 — `set`/`expect` must key on Config field names, NOT row labels (audit, 2026-08-06)
 
@@ -6207,7 +6466,7 @@ The maintainer asked the mirror of the argv question: *"do all logs and commands
 
 - **[x] Pin every user-facing widget that can carry dependency output to `PlainText`**, and add a sweep test asserting no `QLabel`/`QMessageBox` receiving tool output is left on `AutoText`. The sweep matters more than the individual fixes — this is a rule to enforce across the codebase, not at the one place it was found (`docs/testing.md` §5.o).
   - *Audit 2026-09-25: partly done.* The QMessageBox sweep exists (tests/test_message_boxes_are_plaintext.py); the 13 QLabel(<non-literal>) sites are not swept.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"The 13 QLabel(<non-literal>) sites are outside the PlainText sweep."*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"The 13 QLabel(<non-literal>) sites are outside the PlainText sweep."*, which is now done (2026-09-30 audit).
 - **[x] Add the return-path sanitiser as the mirror of `sanitise_cyanrip_args`**: strip/flag control characters and NULs, bound absurd line lengths (a 10 MB single line will freeze the GUI thread rendering it), and preserve everything else verbatim. It must **never silently drop** — an elision is counted and marked, same rule as the argv side.
   - *Audit 2026-09-25: confirmed open.* Confirmed: no control-character/NUL flagging or per-line length cap on ripper output, only head-and-tail line-count elision (rip_worker.py).
   - *2026-09-25:* **Done** as `inbound_text` (see the `rule-12.inbound-sanitising` row). The QLabel half of rule #12's plain-text pinning is still open, in its own rows.
@@ -6246,7 +6505,7 @@ Raised by the maintainer while walking through the b10 build on the Bazzite rig,
 
 - **[x] The naming ask — DONE for the option labels; the `[Debugging]`-on-the-Goal-row half is still a decision for the maintainer.** Shipped in v0.6.4b11: `option_labels.py` defines the one convention (`Name — Descriptor In Title Case [Qualifier]`) with a pure `check_option_label()`, and `tests/test_option_labels.py` sweeps every item of every combo in the *constructed dialog* — not a table of the labels we know about — so a sixth dropdown is covered without anyone remembering. Pinned non-vacuous by a test asserting all 19 pre-rename labels fail the checker, and by one asserting every combo still carries the same item data. `naming.CUSTOM_LABEL` is now the shared constant. **What is deliberately NOT done:** annotating the *Goal* row with state no preset owns (his `[Debugging]` example). That needs a decision on which fields a label may speak for, and `docs/rig-session.md` §1 asks him for it.
   - *Audit 2026-09-25: partly done.* option_labels.check_option_label and tests/test_option_labels.py exist; the Goal-row [Debugging] suffix awaits the maintainer.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Decide the [Debugging]-on-the-Goal-row question. Still the maintainer's"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Decide the [Debugging]-on-the-Goal-row question. Still the maintainer's"*, which is now decided (D6 C, 2026-09-30 audit); the build is the row *"Build D6 C: descriptive preset names, and a separate line for state no preset"*, which stays open.
 
   Original ask: Maintainer's words: *"These settings should be called something like Flack - Lossless Archival Master [Debugging] or similar, and other settings should reflect similar naming syntax."*
 
@@ -6323,7 +6582,10 @@ Items that need real-system output to write authoritatively. Address as T32's sm
 - **[x] Remove the Method C "private repo, authenticate first" blockquote — done.** The repo is public; the README's auth section states a plain HTTPS `git clone` needs no authentication (auth only matters if you intend to *push*).
 - **[x] Add a Quick Start for users who already have whipper + Distrobox set up — done 2026-06-02.** README quickstart now has an "Already have whipper + Distrobox set up?" callout pointing at `install.sh --no-host` (GUI-only), for re-installs or a second box sharing the stack.
 - **[ ] Add a screenshot or two** of the GUI to the top of the README once T32 confirms it looks right on Bazzite KDE Plasma 6. *(Needs a real GUI screenshot — hardware/display; [docs/test-plan.md](docs/test-plan.md) Test 5.)*
-  - *2026-09-25:* **Decided (D10 A):** take two of the screenshots the next Full run saves in its bundle. I pick, the maintainer approves. Waits for that run.
+  - *2026-09-25:* **Decided (D10 A):** take two of the screenshots the next Full run saves in its bundle. I pick, the maintainer approves. ~~Waits for that run.~~
+  - *2026-09-30: unblocked.* The acceptance runs of rounds 27–29 have happened (Full on
+    rounds 28 and 29), and their session bundles hold the screenshots. The pick is owed,
+    not the run.
 - **[ ] Document Picard's actual auto-launch behavior** under Step 6 once T32 verifies it. The README currently says it works "if you enable the toggle"; T32 will confirm what the toggle UX actually feels like end-to-end. *([docs/test-plan.md](docs/test-plan.md) Test 6.)*
 - **[x] Sanity-check the "Where things live" table — done 2026-06-02.** Added a row for the rip output folder (`Artist/Album/`) documenting that whipper writes the FLAC tracks **plus** `.log`/`.cue`/`.m3u`/`.toc` next to them — confirmed on the real 16-track T32 rip (KDD-13 findings). Output goes under the configured output dir (not the working dir).
 
@@ -6335,6 +6597,8 @@ Previously it was out of scope to modify the programs underneath us; this is the
 - **[x] CTDB verify (read-only)** — **HIGH. DONE** (library 2026-06-03, clean-room per KDD-16; GUI-wired 2026-06-17; **CRC hardware-validated 2026-07-07**). Protocol/CRC spec preserved in [docs/archive/upstream-modification-investigation.md](docs/archive/upstream-modification-investigation.md); status is canonical in **current-plan item 8**.
 - **[~] CTDB parity repair** — **HIGH; shipping DECIDED "D → B" (maintainer 2026-07-21), demand-gated.** KDD-14 Phase 2; the one genuine "beyond EAC" everyday win. Wrap `ctdb-cli verify|repair`; depends on verify. `ctdb-cli` is C#/.NET 10 (correction 2026-06-02), so the ship decision is: **D** manual workflow now ([docs/manual-ctdb-repair.md](docs/manual-ctdb-repair.md)), **B** optional dep-subsystem tool when a real user hits it — **not** an AppImage .NET bundle. See KDD-14 and the investigation doc.
   - *Audit 2026-09-25: partly done.* D shipped as docs/manual-ctdb-repair.md; B (a ctdb-cli repair tool through the dependency subsystem) is not built.
+  - *Merged 2026-09-30, verbatim, from the duplicate row item 6 of the 2026-07-21 queue (it was `[⛔]`):* **CTDB repair (Phase 2) — parked by decision (L; "D → B", maintainer 2026-07-21).** The everyday "beyond EAC" differentiator; its CRC gate cleared 2026-07-07 (KDD-16). **Shipping decided:** *not now* — the documented manual power-user workflow ([docs/manual-ctdb-repair.md](docs/manual-ctdb-repair.md)) covers the rare recovery case (D); wire `ctdb-cli` as an **optional user-installed tool** via the dependency subsystem (Picard model, B) only when a real user actually hits an uncorrectable-error rip CTDB could repair. Bundling a .NET runtime into the AppImage (A) is off the table; a pure-Python parity port (C) stays rejected. So this is no longer "maintainer-gated" — it's demand-gated. See KDD-14 and [docs/eac-parity.md](docs/eac-parity.md) Part B.
+  - *Merged 2026-09-30, verbatim, from the duplicate row item 6 of the 2026-05-30 ranked execution order (it was `[⬜]`):* **CTDB repair (parity, wrap `ctdb-cli`, explicit trigger)** — Phase 2 of KDD-14; the headline EAC++ differentiator. Note: `ctdb-cli` is .NET 10 (not C), so AppImage bundling is heavy — bundle-vs-optional-install is undecided.
 - **[x] Upstream whipper bug fixes — CLOSED, no upstream to route to (2026-07-21).** `whipper cd info` non-zero exit on unknown discs and HTOA accuracy edge cases (issues #75/#82) were about *whipper* upstream specifically; whipper was fully removed as a backend 2026-06-30 (KDD-18), so there is no longer an upstream we're routing fixes to. Closed rather than left dangling: the cyanrip soft-fork below is the live upstream-contribution path now, and HTOA stays out of scope regardless of backend (see the explicit HTOA note under "Out of scope" below).
 - **[x] EAC-style signed log checksum — CLOSED, superseded by research (2026-07).** Re-evaluated as part of the tracker-log-acceptance research session: this item proposed literally the forgery this project's own rules reject (CLAUDE.md Critical Rule #8's spirit + the brief's "never fake a log/checksum") — signing a log as if EAC produced it. **Decision: do not build this.** The tracker-acceptance path it was aimed at is out of scope *by design*, not by degrees — see PLANNING.md **KDD-24** and `docs/eac-parity.md`. The follow-through work that actually matters for trust is already tracked separately: **CTDB CRC hardware validation** (KDD-16's remaining step — pinning the bit-exact CRC trim against a real CD and flipping `crc.CRC_VALIDATED`; see the "⭐ EAC output-parity proof matrix" section and `docs/test-plan.md` Test 1), not a signed checksum.
 
@@ -6361,12 +6625,12 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
-### ⭐ P1 — Release plan: v0.6.4 (non-beta) — PLANNED, NOT CUT
+### ⭐ P1 — Release plan: v0.6.4 (non-beta) — SHIPPED 2026-08-07 (planned here as "PLANNED, NOT CUT")
 
 > *"Get ready for a new non-beta release, but just plan for the release for now."*
 > — maintainer, 2026-08-04
 
-**Status: BLOCKED, and the blocker is the gate working correctly.**
+**Status (2026-09-30 audit): shipped — v0.6.4 released 2026-08-07 (`CHANGELOG.md`), after round 7 closed.** The status as planned: ~~**BLOCKED, and the blocker is the gate working correctly.**~~
 
 ```
 $ python3 scripts/handshake.py --release-gate            → exit 1  (refused)
@@ -6404,6 +6668,10 @@ two verdicts turning GO.
       rip."* Their lap-21 §H ask for `-x` means their probe, run directly against the
       binary — not something Platterpus can invoke.
   - *Audit 2026-09-25: superseded.* A v0.6.4 blocker; v0.6.4 shipped and round 7 closed GO/GO.
+  - *Reconciled 2026-09-30:* `[x]` here is "superseded", not "ran in full". The session
+    ran 2026-08-04 with H10/`-O`, `-x`, `-j` and the cancel NOT RUN (its results table),
+    and the round-7 row *"Run the rig session: H9, H10, H12, T9, T12, T13"*, which was
+    still `[ ]`, is merged into **G10. Our never-exercised list is stale**, which stays open.
 2. **[x] The fork's reply to lap 25** — the round is one exchange from closing:
    - **[x] The rig session ran** (2026-08-04, `c5fb909`): 14/14 vs EAC, log verification
       `verified`, first hardware sightings of `Read stalls:` and `C2 errors: unsupported by
@@ -6544,16 +6812,12 @@ two verdicts turning GO.
       self-checksummed cyanrip log. We took **route 1 (the sidecar)** rather than
       route 2 (cite that log) because route 1 needed no round while one is open —
       route 2 remains the better *record* and is filed below as its own change.
-4. **[ ] Route 2: cite the re-rip's own log instead of paraphrasing it.** The better
-      record, deliberately **not** batched with the H1 fix: it changes which files an
-      album folder contains, which is a contract of ours with users and with tooling
-      we do not control. Same reasoning that made us keep `-j`'s explicit path.
-  - *2026-09-25:* **Decided (D11 A):** the automatic re-rip's own cyanrip log goes inside the rip's `.platterpus.json`. No second `.log` in the album folder, because log checkers and library tools could read it and misjudge the rip. Ready to build.
+4. Duplicate of **The automatic re-rip's own log is collected nowhere** — merged 2026-09-30.
 5. **[x] `-x` on one throwaway rip** (their J6). The least-tested path in the binary,
       never measured on hardware; the fork's new stall report makes the cost one track
       rather than a session. First group of the hardware plan, not the last.
   - *Audit 2026-09-25: not ours to verify.* The maintainer's hardware run.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"The never-exercised list, which is joint with the fork and has not moved"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"The never-exercised list, which is joint with the fork and has not moved"* (merged 2026-09-30 into **G10. Our never-exercised list is stale**, which stays open).
 6. **[x] Both verdicts GO.** One side's GO against the other's HOLD is an open round;
       the gate reads both and will keep refusing until it is not.
   - *Audit 2026-09-25: done.* verified/round-07-lap-41.md: HANDSHAKE-VERDICT GO, HANDSHAKE-PEER-VERDICT GO.
@@ -6754,7 +7018,7 @@ behaviour they had. Raised as lap 22 §D1/I2.
       `ripper_handshake_approval` structurally); what is missing is the *rendering*, and
       its docstring asserted a use it does not have. The docstring now says so rather than
       a call site being invented during a release.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"observed_version_pair_line still has no caller. 0.6.36 fixed the"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"observed_version_pair_line still has no caller. 0.6.36 fixed the"*, which is now done (2026-09-30 audit).
 - **[x] Adopt the fork's beta as the wizard's build target.** `WIZARD_TARGET` →
       `9003e6f`, checked out as an exact detached commit; `platterpus-fork-g9003e6f`
       added to the `--consumer` allowlist so rig logs carry both halves of the pair.
@@ -6770,13 +7034,7 @@ behaviour they had. Raised as lap 22 §D1/I2.
       Platterpus **v0.6.4b3**. It took b1 → b2 → b3 to get here: b2 added the
       diagnostics that made the failure visible, and b3 fixed what they revealed (the
       unexpanded `$HOME`). **This was the last precondition the round was waiting on.**
-- **[ ] Run the rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
-      invocation** — seven of the ripper's refusal paths fire before its logfile exists,
-      so nothing in the archived log can show them, and its heartbeat lines are
-      stdout-only too. Send the artifacts to **both** repositories. Their lap 8 adds one
-      cheap step worth taking: run `-x` on a rip you can afford to lose first, since it
-      is the least-exercised code in the binary.
-  - *Audit 2026-09-25: not ours to verify.* The maintainer's hardware run; H9 open and H10 blocked (the BDR-209D rejects -O).
+- Duplicate of **G10. Our never-exercised list is stale** — merged 2026-09-30.
 - **[x] Answer their lap 7 §4** — whether the seven stdout-only refusal paths should be
       fixed by opening the logfile earlier or documented in the contract as stdout-only.
       They asked for our view rather than assuming. Not blocking the session.
@@ -6784,24 +7042,14 @@ behaviour they had. Raised as lap 22 §D1/I2.
 
 What we owe, and what waits on their answers:
 
-- **[ ] The addendum must record re-read *attempts*, not only successful swaps.** Round 7
-      §2c: our whole-disc log says track 3 `Secure re-read: not attempted` (true of pass 1)
-      while our EAC-style log says "re-reads did NOT agree" (true of pass 2, and measured).
-      Nothing in the archived artifact reconciles them, though our app log has the fact
-      outright. Captured and not surfaced — our own rule. **Blocked on Q8:** whether their
-      `-Z N -l <tracks>` invocation writes its own logfile we can cite instead of
-      paraphrasing.
-- **[ ] Send the A7/G2/H12 forced-error corpus.** Hardware-gated and deliberately not
-      hand-assembled: a corpus built from my reading of their control flow is a fixture
-      carrying my assumptions about their control flow. **Now runnable without re-derivation:
-      `docs/hardware-test-checklist.md` §F3** gives the five states as five one-line commands
-      with exactly what to record for each. Case 1 needs no disc and nothing is written.
+- Duplicate of **The automatic re-rip's own log is collected nowhere** — merged 2026-09-30.
+- Duplicate of **G10. Our never-exercised list is stale** — merged 2026-09-30.
 - **[x] H9 — a second gate-1 disc (checklist §F1).** One disc verified their pre-gap emission exactly
       (13 sub-channel entries, 1 lead-in, zeros on tracks 3/6/11/12, 9 `Gaps:` rows). One
       disc is an existence proof, not a range: a disc with a *non-zero* pre-gap on a
       non-first track is the case that could still fail. Hardware-gated.
   - *Audit 2026-09-25: not ours to verify.* The maintainer's hardware run; every rig artifact found is the same disc.
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Run the rig session: H9, H10, H12, T9, T12, T13. Capture stdout for every"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Run the rig session: H9, H10, H12, T9, T12, T13. Capture stdout for every"* (merged 2026-09-30 into **G10. Our never-exercised list is stale**, which stays open).
 - **[?] H10 — send the overread (`-O`) log line (checklist §F2). BLOCKED, and the block is
       the finding.** We ship the toggle and have never captured the line it produces *on a
       drive that accepts the command* — and the BDR-209D **does not accept it**: `-O` is
@@ -6865,7 +7113,7 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       speeds!` and the `goto end` family need real device states on the BDR-209D, and a
       hand-built corpus would be a fixture carrying my assumptions about their control
       flow — the §4d failure again (`docs/testing.md` §5.ac).
-  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Send the A7/G2/H12 forced-error corpus. Hardware-gated and deliberately not"*, which stays open.
+  - *2026-09-25:* **Closed as a duplicate, not done.** The work is tracked in the row *"Send the A7/G2/H12 forced-error corpus. Hardware-gated and deliberately not"* (merged 2026-09-30 into **G10. Our never-exercised list is stale**, which stays open).
 - **[~] An archival record must say when its post-rip verification was cut short.**
       The half of the 2026-08-23 unattended-quit defect that is NOT fixed. The grace
       clock now starts at the right moment, so the common case is closed — but a
@@ -7044,7 +7292,12 @@ remains. None of these is speculative — each was traced to a file:line.
       GUI thread**: five subprocess steps each bounded at 20 s. A wedged drive hits the
       worst case. It also runs *before* the rip thread's own stop, so it eats the whole
       shared shutdown budget and guarantees the rip thread is abandoned.
-  - *Audit 2026-09-25: partly done.* free_drive on close is bounded by a 5 s budgeted_runner (f024a3b; tests/test_drive_control.py), down from about 100 s. It still runs on the GUI thread, so a close can still freeze the window for up to 5 s.
+  - *Audit 2026-09-25: partly done.* free_drive on close is bounded by a 5 s budgeted_runner (f024a3b; tests/test_drive_control.py), down from about 100 s. It still runs on the GUI thread, so a close can still freeze the window for up to ~~5 s~~ 13 s (below).
+  - *2026-09-30: the bound is now 13 s with a rip in flight.* `b9ac0974` made the close
+    SIGTERM the reader and wait out a grace before any SIGKILL, so its footer survives:
+    `_SHUTDOWN_DRIVE_FREE_BUDGET_S = drive_control.READER_TERM_GRACE_S + 5.0` (8 + 5)
+    in `ui/main_window_rip.py`, still on the GUI thread by design. A close with no rip
+    in flight is untouched.
 - **[x] Abandoned `in_progress` reports are treated as legitimate priors.**
       `rip_compare.find_prior_report` filters on `same_disc` only, never on
       `outcome.status`. Closing mid-rip leaves the worker's `in_progress` snapshot on
