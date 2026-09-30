@@ -13,7 +13,7 @@
 #                               measured: 4h14m (2026-09-22, 247 steps) and
 #                               5h33m (2026-09-26, 320 steps, the sum of its
 #                               report's step times), both on the Pioneer rig;
-#                               the script is 324 steps now
+#                               the script is 365 steps now
 #                   Full rips the whole disc TWICE (once fast, once with every
 #                   track read at least three times) plus six short partial rips.
 #                   ONLY FULL counts toward a version or a handshake close.
@@ -616,6 +616,31 @@ expect-rip-complete
 # nothing read it. This step waits for the checks and grades what they left, so
 # the section can fail over its own title.
 expect-verification
+# GRADE WHAT THE RIP LEFT, not only that it finished and its checks left A
+# result (2026-09-30). Until these steps no line of this file opened a report's
+# verdicts, its self-audit, the cue, the EAC-style log or a FLAC: a run could go
+# green over a rip whose tags had lost this album title's colon, or whose CTDB
+# lookup had failed. Each verb waits for the record to settle and grades the
+# artifact, delegating to the product's own predicate for the question:
+#   expect-album-audit  the report's self-checks (all of them), re-run against the
+#                       files on disk: cyanrip's own -Y on its log, the cue
+#                       (titles, ISRCs, pre-gaps), the EAC log's checksum AND its
+#                       CRCs against the ripper's, the argv, the audio files.
+#   expect-accuraterip  every track has an AccurateRip ANSWER. Any disc passes:
+#                       one frame, a mismatch or "not in the database" are all
+#                       answers. What fails is no lookup, or the report and the
+#                       log on disk disagreeing about which tracks verified.
+#   expect-ctdb whole   looked up and compared; `partial` after a subset rip
+#                       asserts the lookup was DECLINED, which is correct there.
+#   expect-tags         the FLACs say exactly what the track table says, the
+#                       `:` and `<` in this album title included (that was a
+#                       "WHAT TO LOOK FOR" for a person until now).
+#   expect-cover-art    the cover the cover_art setting asks for, in the files.
+expect-album-audit
+expect-accuraterip
+expect-ctdb whole
+expect-tags
+expect-cover-art
 
 # --- G. POST-RIP VERIFICATION ----------------------------------------------
 # `rig-check` is the seam check the cyanrip fork asked for, reachable both as a
@@ -669,6 +694,14 @@ log --- H. re-rip the same title: the overwrite prompt must fire ---
 run-size standard
 select-tracks 1-2
 album full acceptance: angle<bracket (run) (ripper)
+# THE PER-TRACK ESCAPING PERMUTATION (2026-09-30). The album title above has
+# carried a `:` and a `<` since round 16; no TRACK title ever carried the four
+# characters `-t` escaping exists for (`\ = ' :`, `cyanrip_backend` escapes
+# them). Real titles have them ("E=MC²", "Rock 'n' Roll", "Part 1: …"). The edit
+# goes through the table as a typed one would; `expect-tags` and the audit's
+# cue-title check below read it back out of the FLAC and the cue. J rescans, so
+# the edit does not follow this section.
+track-title 1 E=MC2: Rock 'n' Roll \ Part 2
 rip
 answer-dialog click=new 120 Album already ripped
 wait-for-rip 3600
@@ -679,6 +712,9 @@ expect-rip-complete
 # unless something waits for them. H's rip was one of the three the 2026-09-22
 # run lost.
 expect-verification
+expect-album-audit
+expect-ctdb partial
+expect-tags
 
 # --- I. THE CANCEL PATH, AND THE ONLY HONEST PROOF OF IT — §T4 -------------
 # Cancel mid-track, not at a boundary — 90 seconds of reading gets us inside one.
@@ -720,6 +756,10 @@ expect-status cancelled
 # not truncated, and the FUN512 signature -- written from atexit, so a hard kill
 # destroys it -- present and the right shape.
 expect-log-well-formed
+# The fork's own verdict on the record a cancel left: `ripper_log_integrity` is
+# cyanrip -Y on this log. A cancelled rip's other checks are about a rip that
+# was not meant to finish, so only these two questions are asked here.
+expect-album-audit ripper_log_integrity argv_agreement
 snapshot aftercancel
 screenshot aftercancel
 rig-check
@@ -751,6 +791,11 @@ expect-rip-complete
 # Same shape as F: K1 starts a rip. J's rip was the third of the three whose
 # CTDB and FLAC-integrity results the 2026-09-22 run dropped.
 expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
 rig-check
 
 # --- K. THE DERIVED FORMATS — the whole of Critical rule #4 ----------------
@@ -819,12 +864,22 @@ expect-derived-output mp3
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.
 expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
 rig-check
 
 log --- K2. WavPack: the second lossless format ---
 run-size full
 set output_format wavpack
 expect output_format wavpack
+# A SECOND cover_art MODE (2026-09-30). Every rip here used `embed`, so `file`
+# and `complete` had never run on hardware. `file` saves a folder copy and
+# embeds nothing; `expect-cover-art` asks the FLACs themselves.
+set cover_art file
+expect cover_art file
 select-tracks 1-2
 album derived wavpack (run) (ripper)
 rip
@@ -836,12 +891,20 @@ expect-derived-output wavpack
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.
 expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
 rig-check
 
 log --- K3. WAV: raw PCM, no tags, no art - the UI must say so ---
 run-size full
 set output_format wav
 expect output_format wav
+# The third mode: `complete` embeds AND saves the folder copy.
+set cover_art complete
+expect cover_art complete
 select-tracks 1-2
 album derived wav (run) (ripper)
 rip
@@ -854,6 +917,11 @@ expect-derived-output wav
 # on this rip too and are graded here, so every ripping section states the
 # same claim in the same words.
 expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
 rig-check
 
 # --- K4. RESTORE THE FORMAT K1-K3 CHANGED ----------------------------------
@@ -877,6 +945,10 @@ log --- K4. restore the output format K1-K3 changed ---
 run-size quick
 set output_format flac
 expect output_format flac
+# ...and the cover_art mode K2 and K3 changed, back to what every later rip
+# (N) and F's baseline use.
+set cover_art embed
+expect cover_art embed
 
 # --- L. THE GOAL PRESETS: a label must mean what it says -------------------
 # A goal is not a setting; it is a NAME for a set of them. Selecting one applies
@@ -1009,6 +1081,11 @@ expect-secure-rerip
 # K3 had on 2026-09-15, written down in its severity row and never turned into
 # an assertion. Graded here so it stops being luck.
 expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb whole
+expect-tags
+expect-cover-art
 rig-check
 
 # --- P. §T3: THE CACHE PROBE, PROBE-ONLY ------------------------------------

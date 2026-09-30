@@ -750,6 +750,26 @@ class TrackTable(QWidget):
         """
         self._model.set_only_selected(track_numbers)
 
+    def edit_track_title(self, number: int, title: str) -> str:
+        """Set track ``number``'s title as a typed edit would. ``""`` on success.
+
+        The write behind the script's ``track-title``, so the acceptance run can
+        rip a title carrying the characters cyanrip's ``-t`` escaping exists for
+        (``\\ = ' :``) and then read the FLAC back. It goes through the model's
+        own ``flags``/``setData``, the path the view's editor takes, so a locked
+        table (a rip running) refuses it exactly as it refuses a user.
+        """
+        for row, track in enumerate(self._model.tracks()):
+            if track.number != number:
+                continue
+            index = self._model.index(row, _COL_TITLE)
+            if not self._model.flags(index) & Qt.ItemFlag.ItemIsEditable:
+                return "the track list is locked (a rip is running)"
+            if not self._model.setData(index, title, Qt.ItemDataRole.EditRole):
+                return "the table refused the edit"
+            return ""
+        return f"there is no track {number} in the list"
+
     def _highlighted_track_numbers(self) -> list[int]:
         """1-based track numbers of the rows the user has highlighted (selected
         in the view), for the right-click actions. Row index == number - 1."""

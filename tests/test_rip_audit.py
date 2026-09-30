@@ -167,7 +167,13 @@ def _healthy(**over: object) -> dict:
             },
         ],
         "artifacts": {
-            "eac_log": {"text": _stamped_eac_log()},
+            # The ripper's log and the EAC-style log, with the SAME per-track
+            # CRCs as `tracks` above, because `eac_log_agreement` compares the
+            # two texts (2026-09-30) and this fixture's contract is that every
+            # check reaches ok. The EAC body carries our banner, which is how the
+            # parity tooling tells our export from a log EAC wrote.
+            "rip_log": {"text": _healthy_ripper_log()},
+            "eac_log": {"text": _stamped_eac_log(_HEALTHY_EAC_BODY)},
             # A cue that is actually CORRECT — both ISRCs present, no INDEX 00
             # (track 2 has a measured zero pre-gap; track 1's lead-in gap is
             # never appended to a previous track), a real colon in the title.
@@ -220,6 +226,30 @@ def _healthy_cue() -> str:
         "    ISRC GBAAM0000002\n"
         "    INDEX 01 00:00:00\n"
     )
+
+
+def _healthy_ripper_log() -> str:
+    """The smallest cyanrip log whose two tracks carry `_healthy`'s copy CRCs."""
+    return (
+        "cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-ga04a94b)\n"
+        "Tracks:\n"
+        "Track 1 read successfully!\n"
+        "  EAC CRC32:     A1B2C3D4\n"
+        "Track 2 read successfully!\n"
+        "  EAC CRC32:     E5F60718\n"
+    )
+
+
+#: An EAC-layout body with our banner and `_healthy`'s two copy CRCs.
+_HEALTHY_EAC_BODY: str = (
+    "Platterpus rip log in EAC's layout, not produced by Exact Audio Copy\n\n"
+    "Track  1\n"
+    "     Copy CRC A1B2C3D4\n"
+    "     Copy OK\n\n"
+    "Track  2\n"
+    "     Copy CRC E5F60718\n"
+    "     Copy OK\n"
+)
 
 
 def _stamped_eac_log(body: str = "Track  1\n     Copy OK\n") -> str:

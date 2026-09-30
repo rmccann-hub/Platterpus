@@ -442,6 +442,57 @@ _VERB_LIST: tuple[Verb, ...] = (
         "because the checks run after `wait-for-rip` returns; at least one gate "
         "must have run, so the step cannot pass over a rip that checked nothing",
     ),
+    # --- Grading what the rip LEFT (2026-09-30) -------------------------------
+    # Every rip leaves a report, a ripper's log, an EAC-style log, a cue sheet and
+    # FLAC files, and until these verbs no step read any of them past "the rip
+    # finished and its checks left a result". The graders are pure and delegate
+    # to the product's own predicates (`uiscript/artifact_grading.py`); the
+    # handlers wait for the record to settle (`uiscript/artifact_verbs.py`).
+    Verb(
+        "expect-album-audit",
+        0,
+        None,
+        "expect-album-audit [check…] — re-run the rip's own self-audit against the "
+        "files on disk: every check (or only those named) must run, raise no "
+        "warning and reach ok — among them cyanrip's -Y verdict on its own log, "
+        "the cue sheet, the EAC log's checksum and CRCs, and the audio files",
+    ),
+    Verb(
+        "expect-accuraterip",
+        0,
+        0,
+        "expect-accuraterip — every ripped track has an AccurateRip answer "
+        "(accurate, one frame, mismatch or not in the database all count; no "
+        "lookup does not), and the report agrees with the log on disk",
+    ),
+    Verb(
+        "expect-ctdb",
+        1,
+        1,
+        "expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: "
+        "looked up and compared for a whole disc, declined for a partial one",
+    ),
+    Verb(
+        "expect-tags",
+        0,
+        0,
+        "expect-tags — every ripped FLAC's album, album artist, title, artist and "
+        "track number are exactly what the track table shows, read from the file",
+    ),
+    Verb(
+        "expect-cover-art",
+        0,
+        0,
+        "expect-cover-art — the FLACs hold the cover art the cover_art setting "
+        "asks for (embedded in every one, or none), matching the report's count",
+    ),
+    Verb(
+        "track-title",
+        2,
+        None,
+        "track-title <n> <title…> — set track n's title as a typed edit would "
+        "(refused while a rip runs)",
+    ),
     Verb(
         # `expect-secure-rerip` — grade what section N only ever REPORTED.
         #

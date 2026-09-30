@@ -1768,7 +1768,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 1301 -> 1322 on 2026-09-26: `_ar_matched` reads the confidence through
     # `accuraterip_is_match` instead of the result's words, with the docstring saying why.
     # **1322 -> 1464 on 2026-09-28** (the Full run's F6): the audio-file check names every file the ripper's log does not account for (`_audio_accounting`, `_report_unaccounted`) instead of counting a cancelled rip's partial read into "all with content" at OK, and `_rip_did_not_finish` is the one "finished?" predicate both of its findings use. They sit beside the check they serve, in the registry module every check lives in; most of the growth is the docstrings saying what each grade means.
-    "rip_audit.py": 1464,
+    # **1464 -> 1542** (2026-09-30): the `eac_log_agreement` check (the EAC-style log's CRCs against the ripper's own log, a second caller of `parity.compare_logs`) and `run_checks` recording which findings each check produced, so the acceptance grader reads the audit's attribution instead of re-running it.
+    "rip_audit.py": 1542,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.
@@ -2183,7 +2184,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1381 -> 1382** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the secure re-read row's comment names both wordings.
     "ui/settings_dialog.py": 1382,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
-    "ui/track_table.py": 832,
+    # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
+    "ui/track_table.py": 852,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces
@@ -2305,7 +2307,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4420 -> 4512 on 2026-09-28: `open dependencies` probed on the GUI thread; it now starts the check on a worker and waits on this file's deadline machinery (_open_dependency_check), and `stop` records a step that was mid-wait.
     # 4512 -> 4598 on 2026-09-28: the `cyanrip` verb runs the ripper in the rips folder (`_ripper_workdir`, beside `_drive_in_offset_list`) and records it (`_job_invocation`); the 2026-09-28 Full run's relative `-D r16deemphon` wrote a commercial track outside the session folder and its logs never reached the bundle.
     # 4512 -> 4536 on 2026-09-28 (the round-28 Full run): `_coerce_script_input`, the coercer as `set` and `expect-refused` use it, logging the value it refuses through `settings_validation.log_refusal`; `expect` keeps the bare coercer, because its value is an assertion, not an input.
-    "uiscript/runner.py": 4622,
+    # **4622 -> 4604** (2026-09-30): lowered: `expect-verification` now asks `artifact_grading.settle_state` and `report_path`, shared with the artifact verbs, instead of reading the report itself.
+    "uiscript/runner.py": 4604,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2325,7 +2328,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **759 -> 801** (2026-09-24): four verbs, `run-size`, `keep`, `set-drive-offset` and `expect-drive-offset`. The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # 801 -> 803 on 2026-09-28: the `cyanrip` verb's help names the folder it runs in.
     # **803 -> 811** (2026-09-30): `UNSAFE_VERBS` and `UNSAFE_VERBS_BUILT`, derived from the verb table so every place that offers the opt-in reads one fact.
-    "uiscript/verbs.py": 811,  # +46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,
+    # **811 -> 862** (2026-09-30): six verb declarations for grading what a rip left (`expect-album-audit`, `-accuraterip`, `-ctdb`, `-tags`, `-cover-art`, `track-title`); help lives beside the verb.
+    # 811 was recorded with: "+46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,".
+    "uiscript/verbs.py": 862,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical

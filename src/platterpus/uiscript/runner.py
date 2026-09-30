@@ -36,13 +36,14 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
 from platterpus import __version__, build_info, inbound_text
 from platterpus.uiscript import run_sizes
+from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
 from platterpus.uiscript.report import (
     CONCEPT,
     VERDICTS,
@@ -413,7 +414,7 @@ def _preflight(steps: list[Step]) -> list[str]:
     return problems
 
 
-class ScriptRunner(QObject):
+class ScriptRunner(ArtifactVerbsMixin, QObject):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
 
     The window is passed in rather than discovered, so tests can drive a real
@@ -2726,12 +2727,7 @@ class ScriptRunner(QObject):
         than passing or skipping: the section turned the checks on, and a run in
         which they never ran has not tested them.
         """
-        import json
-
-        from platterpus.rip_report import (
-            UNFINISHED_RIP_STATUSES,
-            VERIFICATION_DROPPED_CODES,
-        )
+        from platterpus.uiscript import artifact_grading
 
         try:
             seconds = float(step.args[0]) if step.args else 600.0
@@ -2749,33 +2745,27 @@ class ScriptRunner(QObject):
         if folder is None:
             return  # the shared reader recorded the FAIL and named the reason
 
-        def _report() -> dict[str, object] | None:
+        def _report() -> dict[str, Any] | None:
             """This rip's report, or None while it is absent/unreadable/partial.
 
             Re-read on every poll rather than cached: the report is rewritten as
             each check lands, so a cached copy would answer about the moment the
-            rip finished — which is the state this verb exists to refuse.
+            rip finished — which is the state this verb exists to refuse. Which
+            file is "this rip's report" is `artifact_grading.report_path`'s
+            answer, shared with the artifact verbs.
             """
-            try:
-                candidates = sorted(folder.glob("*.platterpus.json"))
-            except OSError:
-                return None
-            for path in candidates:
-                try:
-                    loaded = json.loads(path.read_text(encoding="utf-8"))
-                except (OSError, ValueError):
-                    continue  # a half-written report is "not yet", not a failure
-                if isinstance(loaded, dict):
-                    return loaded
-            return None
+            path = artifact_grading.report_path(folder)
+            return artifact_grading.read_report(path) if path is not None else None
 
         def _every_gate_left_a_result() -> bool:
+            # WHEN the record is final is `artifact_grading.settle_state`'s answer,
+            # shared with every artifact verb so they cannot disagree about it.
+            # What is left here is this verb's own question: the floor.
             report = _report()
-            if report is None:
-                return False
-            outcome = report.get("outcome")
-            status = outcome.get("status") if isinstance(outcome, dict) else None
-            if status in UNFINISHED_RIP_STATUSES:
+            state = artifact_grading.settle_state(report)
+            if state == artifact_grading.SETTLE_UNFINISHED:
+                outcome = report.get("outcome") if report is not None else None
+                status = outcome.get("status") if isinstance(outcome, dict) else None
                 exit_code = (
                     outcome.get("ripper_exit_code")
                     if isinstance(outcome, dict)
@@ -2790,24 +2780,16 @@ class ScriptRunner(QObject):
                     f"finding, and the report's `outcome.failure_hint` says why."
                 )
                 return True
-            # Narrowed rather than trusted: this is a JSON document written by
-            # another process and possibly mid-write, so a shape that is not what
-            # we expect is "not yet", never a pass.
+            if state != artifact_grading.SETTLE_SETTLED or report is None:
+                return False
             verification = report.get("verification")
             gates = (
                 verification.get("gates") if isinstance(verification, dict) else None
             )
-            if not isinstance(gates, dict):
-                return False
-            if not any(state == "ran" for state in gates.values()):
-                return False  # the floor: nothing ran, so nothing is being claimed
-            issues = report.get("issues")
-            codes = {
-                issue.get("code")
-                for issue in (issues if isinstance(issues, list) else [])
-                if isinstance(issue, dict)
-            }
-            return not (codes & VERIFICATION_DROPPED_CODES)
+            # The floor: nothing ran, so nothing is being claimed.
+            return isinstance(gates, dict) and any(
+                gate == "ran" for gate in gates.values()
+            )
 
         self._arm_deadline(step, seconds, _every_gate_left_a_result)
         self._deadline_outcome = Outcome.PASS

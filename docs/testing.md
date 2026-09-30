@@ -3769,6 +3769,26 @@ defect, and two of those sections are archival.
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
 
+**What a ripping section grades, beyond "it finished" (added 2026-09-30).** Until
+then every ripping section asserted `expect-rip-complete` and
+`expect-verification` (the checks left *a* result), and no step read what the
+rip left. Each of F, H, J, K1–K3 and N now also grades the artifacts:
+`expect-album-audit` re-runs the report's own self-audit against the files
+(cyanrip's `-Y` on its log, the cue, the EAC log's checksum and its CRCs against
+the ripper's, the argv, the audio files), `expect-accuraterip` requires an
+AccurateRip answer for every track (any answer; the plumbing is what is graded),
+`expect-ctdb whole|partial` requires the lookup on a whole disc and its refusal
+on a subset, and `expect-tags` / `expect-cover-art` read the FLACs. H adds the
+per-track escaping permutation (`track-title` with `\ = ' :`); K2 and K3 run the
+`file` and `complete` cover-art modes. §I asks only the two audit questions a
+cancel leaves standing. The graders delegate to the product's own predicates
+(`uiscript/artifact_grading.py`, `uiscript/tag_grading.py`); the reasons are in
+their docstrings. **Not added, and why:** the offset-override-off path cannot be
+one script line on every drive — a drive in AccurateRip's list auto-applies the
+list offset and rips, an unknown one is refused with a dialog — so a line that
+passes on one rig fails on the other, and on the rig it could move the offset
+mid-run. It is a TASKS row until the language can branch on the drive.
+
 ### Acceptance tiers — what each section costs, and what it rests on
 
 **Round 18 fixed the tiers and round 19 lap 1 §5.4 fixed whose job this is:**
