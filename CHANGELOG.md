@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.6.64] — 2026-09-30
+
 ### Fixed
 
 - **The handshake status no longer tells us to hold a release for a lap the fork
@@ -17007,7 +17009,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.63...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.64...HEAD
+[0.6.64]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.63...v0.6.64
 [0.6.63]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.62...v0.6.63
 [0.6.62]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.61...v0.6.62
 [0.6.61]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.60...v0.6.61
@@ -17073,4 +17076,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.63.*
+*Last updated for Platterpus v0.6.64.*
