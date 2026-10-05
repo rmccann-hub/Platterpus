@@ -1100,7 +1100,7 @@ each side's reading; and the closing releases named.
   their S26 wording; S30 is a correction in our lap 10. **Our lap 10 must answer:** S13
   (keep exit 0 for a skip-only rip), S16 (take the text), S39 (S35's items), S3 (yes,
   for round 31), and say our gate implements 7 from `1dbf9ac0`.
-- [~] **Our round 30 lap 10** (`docs/handshake/outbound/round-30-lap-10.md`, `OPEN`, LSL 4,
+- [x] **Our round 30 lap 10, RELEASED 2026-10-05** (`docs/handshake/outbound/round-30-lap-10.md`, `OPEN`, LSL 4, sha256 `20e17e55…`, 27,675 bytes,
   38 statements, digest `d72da50b46f7ea72` over 9 laps). It answers their S13 (keep exit 0),
   S16 (take the text), S39 (S35's items) and S3 (yes, round 31); withdraws our lap 8 S28
   (their S27) and corrects our lap 8 S42 (their S30); reports our gate at protocol 7
