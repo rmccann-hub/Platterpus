@@ -1475,9 +1475,12 @@ CURRENT_ROUND: Final[int] = 30
 #: *ignored* by both parsers, so either side can add one without breaking the
 #: other. Column-0 anchored because a round file legitimately quotes ``GO`` in
 #: prose and block-quotes example headers — their lap-2 file does both, on purpose,
-#: as its own first test.
+#: as its own first test. ``value`` runs to the line's last non-blank character,
+#: written greedily: the lazy ``\S.*?`` it replaced read the same text in time
+#: quadratic in a run of blanks (2026-10-05, `tests/test_regex_bounded_time.py`).
 _WIRE_FIELD = re.compile(
-    r"^(?P<key>[A-Z][A-Z0-9-]*):[ \t]*(?P<value>\S.*?)[ \t]*$", re.MULTILINE
+    r"^(?P<key>[A-Z][A-Z0-9-]*):[ \t]*(?P<value>\S(?:[^\n]*[^ \t\n])?)[ \t]*$",
+    re.MULTILINE,
 )
 
 #: A fenced code block (``` or ~~~), stripped BEFORE any field matching.

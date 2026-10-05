@@ -754,6 +754,7 @@ def _pattern_assigned_to(rel: str, name: str) -> re.Pattern[str]:
 #: (module, name, a line that drives the old pattern into its quadratic region).
 _PREFIXED_OFFENDERS: list[tuple[str, str, str]] = [
     ("scripts/bommap/reading.py", "_REQUIREMENT", "a b" + " " * 20_000 + "c"),
+    ("scripts/handshake.py", "_WIRE_FIELD", "KEY: x" + " " * 20_000 + "y"),
 ]
 
 
@@ -792,8 +793,28 @@ def _match_shape(match: re.Match[str] | None) -> tuple[object, ...] | None:
     return None if match is None else (match.span(), match.groupdict())
 
 
+#: Requirement-shaped lines, built from the parts the pattern branches on, mixed
+#: with free text over the same characters. Free text alone almost never forms a
+#: name, a spec and a trailing blank in one line, so a strategy of only that
+#: compared two misses most of the time and proved little.
+_REQUIREMENT_LINES = st.one_of(
+    st.builds(
+        lambda lead, name, extras, gap, spec, tail: (
+            f"{lead}{name}{extras}{gap}{spec}{tail}"
+        ),
+        st.text(alphabet=" \t", max_size=2),
+        st.from_regex(r"[A-Za-z0-9][A-Za-z0-9._-]{0,5}", fullmatch=True),
+        st.sampled_from(["", "[x]", "[a,b]", "[", "]"]),
+        st.text(alphabet=" \t", max_size=3),
+        st.text(alphabet="=<>,.0 \t\r\x0ca", max_size=12),
+        st.text(alphabet=" \t\r\n\x0c", max_size=3),
+    ),
+    st.text(alphabet="aZ0._-[]= <,\t\n\r", max_size=40),
+)
+
+
 @settings(max_examples=400)
-@given(st.text(alphabet="aZ0._-[]= <,\t\n\r", max_size=40))
+@given(_REQUIREMENT_LINES)
 def test_the_rewritten_requirement_pattern_reads_what_the_old_one_read(
     text: str,
 ) -> None:
@@ -826,6 +847,88 @@ def test_the_requirement_rewrite_agrees_on_the_lines_the_tool_reads() -> None:
     shapes = [(_match_shape(old.match(s)), _match_shape(new.match(s))) for s in lines]
     assert all(o == n for o, n in shapes), shapes
     assert sum(o is not None for o, _ in shapes) >= 6, "too few lines matched"
+
+
+#: The pattern `handshake._WIRE_FIELD` replaced: the wire-header parser every
+#: lap, ours and the fork's, goes through. Kept as the reference its rewrite must
+#: agree with on every input, because a parser of the shared protocol may change
+#: its speed and nothing else.
+_OLD_WIRE_FIELD = r"^(?P<key>[A-Z][A-Z0-9-]*):[ \t]*(?P<value>\S.*?)[ \t]*$"
+
+
+def _finditer_shape(pattern: re.Pattern[str], text: str) -> list[tuple[object, ...]]:
+    return [(m.span(), m.groupdict()) for m in pattern.finditer(text)]
+
+
+#: Lap-shaped text: header-field lines built from the parts the pattern branches
+#: on (a key, blanks, a value with blanks and kept whitespace inside and after
+#: it), mixed with free lines, joined by newlines. Free text alone rarely puts a
+#: key, a colon and a value at the start of a line, so it cannot carry the proof.
+_WIRE_LINES = st.lists(
+    st.one_of(
+        st.builds(
+            lambda key, gap, value, tail: f"{key}:{gap}{value}{tail}",
+            st.from_regex(r"[A-Z][A-Z0-9-]{0,6}", fullmatch=True),
+            st.text(alphabet=" \t", max_size=3),
+            st.text(alphabet="x \t\r\x0c`*:-", max_size=12),
+            st.text(alphabet=" \t\r\x0c", max_size=3),
+        ),
+        st.text(alphabet="KEY-0:x \t\r\x0c`*", max_size=20),
+    ),
+    max_size=6,
+).map("\n".join)
+
+
+@settings(max_examples=400)
+@given(_WIRE_LINES)
+def test_the_rewritten_wire_field_pattern_reads_what_the_old_one_read(
+    text: str,
+) -> None:
+    """Every match, span and group identical, as `_parse_wire_fields` iterates them.
+
+    The alphabet holds a key's characters, the colon, a value character, every
+    blank the two patterns treat differently (space and tab are stripped; carriage
+    return and form feed are kept as part of the value), the newline that ends a
+    field, and two markdown characters a lap puts around a value.
+    """
+    old = re.compile(_OLD_WIRE_FIELD, re.MULTILINE)
+    new = _pattern_assigned_to("scripts/handshake.py", "_WIRE_FIELD")
+    assert _finditer_shape(new, text) == _finditer_shape(old, text)
+
+
+def test_the_wire_field_rewrite_agrees_on_the_lines_laps_carry() -> None:
+    """The equivalence above, on real header shapes, with a floor on fields read."""
+    old = re.compile(_OLD_WIRE_FIELD, re.MULTILINE)
+    new = _pattern_assigned_to("scripts/handshake.py", "_WIRE_FIELD")
+    text = (
+        "HANDSHAKE-PROTOCOL: 6\n"
+        "HANDSHAKE-VERDICT:   GO  \n"
+        "HANDSHAKE-FROM: platterpus@abc123\t\n"
+        "HANDSHAKE-READY-TO-READ: no\r\n"
+        "NOTE: two  spaces inside   stay\n"
+        "EMPTY:   \n"
+        "lowercase: not a field\n"
+        "> QUOTED: not at column 0\n"
+        "KEY: x" + " " * 50 + "y\n"
+    )
+    old_fields = _finditer_shape(old, text)
+    assert _finditer_shape(new, text) == old_fields
+    assert len(old_fields) >= 6, f"too few fields read: {old_fields}"
+
+    # And on the whole committed record: every lap either side has filed. 330
+    # files and 7,720 fields on 2026-10-05, every one identical; the floors are
+    # well under that so the record can be reorganised without failing this.
+    files = sorted((_REPO_ROOT / "docs" / "handshake").rglob("*.md"))
+    differing: list[str] = []
+    fields = 0
+    for path in files:
+        lap = path.read_text(encoding="utf-8")
+        before = _finditer_shape(old, lap)
+        fields += len(before)
+        if _finditer_shape(new, lap) != before:
+            differing.append(path.relative_to(_REPO_ROOT).as_posix())
+    assert len(files) >= 100 and fields >= 2000, (len(files), fields)
+    assert not differing, f"the rewrite reads these laps differently: {differing}"
 
 
 def test_the_sweep_reads_inline_calls_and_times_each_as_it_runs() -> None:
