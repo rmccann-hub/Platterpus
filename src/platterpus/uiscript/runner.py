@@ -46,6 +46,7 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 from platterpus import __version__, build_info, inbound_text
 from platterpus.uiscript import run_sizes
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
+from platterpus.uiscript.permutation_verbs import PermutationVerbsMixin
 from platterpus.uiscript.probe_verbs import ProbeVerbsMixin
 from platterpus.uiscript.report import (
     CONCEPT,
@@ -416,7 +417,7 @@ def _preflight(steps: list[Step]) -> list[str]:
     return problems
 
 
-class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
+class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, PermutationVerbsMixin, QObject):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
 
     The window is passed in rather than discovered, so tests can drive a real

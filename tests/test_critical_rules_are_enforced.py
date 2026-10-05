@@ -2374,7 +2374,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4631 -> 4703** (2026-10-05): `cancel-rip` stops only a rip the script's last `rip` started, and `pick-release` passes only on a held, well-formed release, read through one helper shared with `expect-identified` (2026-10-04 rig runs).
     # **4703 -> 4782** (2026-10-05, the same run): a `wait-for-rip` that runs out with the rip still reading ends the run, and a run that stops early cancels the rip its last `rip` step started (`_own_rip_running`, the predicate `cancel-rip` now shares).
     # **4782 -> 4786** (2026-10-05, the same TASKS row): `abort-if-failed` quotes the failed step's `headline()`, not its whole detail, with the comment saying why; the cut itself lives on `StepRecord`.
-    "uiscript/runner.py": 4786,
+    # **4786 -> 4787** (2026-10-05, TASKS "Permutations the acceptance test still does not run"): the import of `PermutationVerbsMixin`. Its three handlers (section J2) went to their own mixin, `permutation_verbs.py`, and their graders to `permutation_grading.py`, not here.
+    "uiscript/runner.py": 4787,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2400,7 +2401,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **862 -> 834** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `eval`, `call`, the `unsafe` field and `UNSAFE_VERBS`/`UNSAFE_VERBS_BUILT` went.
     # **834 -> 863** (2026-09-30, round 30): three verb declarations, `expect-newest-pair` (D3), `expect-found-offset` and `cache-probe` (the fork's lap 3 S24). The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **863 -> 874** (2026-10-05): the `wait-for-rip` and `cancel-rip` help says a run that ends early cancels its rip, and `abort`'s no longer claims to be the only verb that ends one.
-    "uiscript/verbs.py": 874,
+    # **874 -> 901** (2026-10-05, section J2): three verb declarations, `set-library-scratch`, `expect-library-move` and `expect-rip-argv`, with the comment saying why the first must be a verb. The table is the vocabulary's security boundary, so a verb is an entry here by design.
+    "uiscript/verbs.py": 901,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical
