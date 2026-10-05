@@ -566,6 +566,9 @@ class MainWindow(
         # just-finished rip, keyed by track number — the shipped files' own
         # reads, which the whole-disc first-pass log cannot describe.
         self._last_swapped_tracks: dict = {}
+        # How many reads agreed in each of those re-reads, swapped in or not,
+        # from the re-rip's own log (`RipWorker.reread_agreements`).
+        self._last_reread_agreements: dict = {}
         # The just-finished rip's ETA trace (PC clock + cyanrip's ETA + our ETA +
         # read speed) — recorded in the report "for posterity" / future modelling.
         self._last_eta_trace: list = []

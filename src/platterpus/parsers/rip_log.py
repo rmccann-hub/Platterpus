@@ -146,6 +146,38 @@ class AccurateRipResult:
 
 
 @dataclass(frozen=True)
+class RereadAgreement:
+    """How far a secure re-read (``-Z N``) got when it hit the repeat limit.
+
+    ``most_reads_agreed`` is the size of the largest group of this track's reads
+    that produced one checksum. cyanrip counts a read's matches against EVERY
+    earlier read, not only the previous one (``cyanrip@e5a4ddf:src/cyanrip_main.c:999-1001``),
+    so this is "how many reads were identical", whatever order they came in.
+
+    ``exact`` says whether the log PROVES that number or only a floor under it:
+
+    * the fork's own wording, ``Done; (repeat limit of 3 reads reached; at most
+      2 reads agreed)``, states it outright (``cyanrip@8b1581a:src/cyanrip_main.c:1020-1037``),
+      so it is exact;
+    * the older wording, ``Done; (no matches found, but hit repeat limit of 3)``,
+      states nothing, and the count comes from the ``Repeating ripping (k out
+      of N matches …)`` line printed after every read but the last. The last
+      read's own count is never printed, so the number is a floor — exact only
+      when the floor already equals N, because the last read cannot have joined
+      a group that size without converging (see
+      ``cyanrip_log.secure_rerip_limit_agreement``).
+
+    Why it exists: the EAC-layout log used to say "re-reads did NOT agree" for
+    every track that hit the limit, which was false of the round-28 Full run's
+    track 5, where two of three reads agreed (``TASKS.md``, *Found while
+    integrating*, item 1).
+    """
+
+    most_reads_agreed: int
+    exact: bool
+
+
+@dataclass(frozen=True)
 class TrackResult:
     """One track's results from the rip log."""
 
@@ -199,6 +231,14 @@ class TrackResult:
     # the offset-variant pressing — that's a pressing difference, NOT instability
     # — so the two are recorded separately and never conflated.
     secure_rerip_converged: bool | None = None
+    # For a track whose secure re-read hit the repeat limit
+    # (`secure_rerip_converged is False`): how many of its reads agreed, and
+    # whether the log proves that number or only a floor under it. None when the
+    # log does not say, which is the honest reading of an old-wording log whose
+    # reads never matched before the last one. Describes the SAME reads as
+    # `secure_rerip_converged`, so anything that replaces that verdict must
+    # replace this too (`ui/main_window_rip._merge_shipped_track`).
+    secure_rerip_agreement: RereadAgreement | None = None
     # ReplayGain / loudness tags cyanrip computed and wrote into the FLAC (a
     # dict of the raw "REPLAYGAIN_*"/"R128_TRACK_GAIN" values, as strings). The
     # JSON report is the only machine-readable record of what was tagged without

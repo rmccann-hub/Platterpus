@@ -1173,7 +1173,10 @@ def test_a_logged_did_not_converge_verdict_reaches_the_crc_caveat() -> None:
         "Ripping errors: 0\n"
     )
     text = render_eac_style_log(parsed)
-    assert "re-reads did NOT agree" in text
+    # The labelled row carries no count, so the caveat claims only the verdict:
+    # not converged. Not "did NOT agree", which would say no two reads matched.
+    assert "(re-reads did not converge — this read is not confirmed" in text
+    assert "did NOT agree" not in text
     assert "Test CRC" not in text
     assert "Read stability      : track(s) 1 did not read identically" in text
 
@@ -1227,10 +1230,13 @@ def test_a_non_converged_track_never_gets_the_test_and_copy_pair() -> None:
     assert "confirmed across" in track1, (
         "track 1 converged and must carry the reproducibility claim; got:\n" + track1
     )
-    assert "did NOT agree" not in track1
-    assert "did NOT agree" in track2, (
-        "track 2 hit the repeat limit without agreeing and must say so; got:\n" + track2
+    assert "did not converge" not in track1
+    assert "re-reads did not converge" in track2, (
+        "track 2 hit the repeat limit and must say so; got:\n" + track2
     )
+    # Its log has no progress lines, so how many reads agreed is unknown, and
+    # the caveat must not claim that none did.
+    assert "did NOT agree" not in track2, track2
     assert "confirmed across" not in track2, (
         "a track whose re-reads never agreed was given EAC's strongest "
         "reproducibility claim"
@@ -1271,7 +1277,151 @@ def test_the_forks_proposed_repeat_limit_wording_never_earns_the_test_copy_pair(
         "a track that hit the repeat limit was given EAC's strongest "
         "reproducibility claim:\n" + text
     )
-    assert "did NOT agree" in text, text
+    # Two of the three reads agreed, and the ripper said so: the caveat carries
+    # its count rather than claiming that none agreed.
+    assert "re-reads did not converge; at most 2 of 3 reads agreed" in text, text
+    assert "did NOT agree" not in text, text
+
+
+# --- The repeat-limit sentence, case by case -----------------------------------
+#
+# TASKS.md, *Found while integrating*, item 1. Every track whose `-Z` re-read hit
+# the repeat limit used to read "re-reads did NOT agree", whatever its reads did.
+# The limit means NOT ENOUGH reads agreed, never NONE did, and on the round-28
+# Full run's track 5 two of the three agreed. Each case is driven from a committed
+# rig log through the real parser and renderer, because the count lives in lines
+# (`Repeating ripping`, the fork's `at most M reads agreed`) that a hand-built
+# TrackResult would skip. Which case each log is, and why, is derived in
+# `tests/test_parsers_cyanrip_log.py` (the agreement section).
+
+_HANDSHAKE_ARTIFACTS = _REPO_ROOT / "docs" / "handshake"
+
+#: (rig log, track, the Copy CRC caveat that is TRUE of that track).
+_LIMIT_CASES: tuple[tuple[str, int, str], ...] = (
+    # (b) No two reads agreed: the fork's own `at most 1 read agreed`, at -r 5.
+    # The one case where the old sentence was true, so it is unchanged.
+    (
+        "artifactsround30/round30oct05fullsecurereread.log",
+        3,
+        "(re-reads did NOT agree — this read is not confirmed reproducible)",
+    ),
+    # (c) Two of three agreed: read 2 printed `1 out of 2 matches`, and at -Z 2
+    # that makes the count exact (the last read cannot have joined a pair).
+    (
+        "artifactsround28/round28fullsecurereread.log",
+        5,
+        "(re-reads did not converge; at most 2 of 3 reads agreed — this read is "
+        "not confirmed reproducible)",
+    ),
+    # (d) The log cannot say: reads 1 and 2 differed, and read 3's count was
+    # never printed (old wording). It did match read 2, as its CRC shows, which
+    # is exactly why "did NOT agree" was false here too.
+    (
+        "artifactsround27/round27fullsecurereread.log",
+        3,
+        "(re-reads did not converge — this read is not confirmed reproducible)",
+    ),
+)
+
+
+def _rendered(log_name: str, number: int) -> tuple[TrackResult, str, str]:
+    """A rig log's parsed track, the rendered EAC-layout log, and its block."""
+    parsed = parse_cyanrip_log(
+        (_HANDSHAKE_ARTIFACTS / log_name).read_text(encoding="utf-8", errors="replace")
+    )
+    track = next(t for t in parsed.tracks if t.number == number)
+    text = render_eac_style_log(parsed)
+    start = text.index(f"Track {number:>2}\n")
+    end = text.find("\nTrack ", start + 1)
+    return track, text, text[start : end if end != -1 else len(text)]
+
+
+def _rendered_track(log_name: str, number: int) -> tuple[TrackResult, str]:
+    """A rig log's parsed track and its block in the rendered EAC-layout log."""
+    track, _text, block = _rendered(log_name, number)
+    return track, block
+
+
+@pytest.mark.parametrize(
+    ("log_name", "number", "caveat"),
+    _LIMIT_CASES,
+    ids=["no-two-agreed", "two-of-three-agreed", "not-stated"],
+)
+def test_the_repeat_limit_caveat_says_what_the_log_proves(
+    log_name: str, number: int, caveat: str
+) -> None:
+    track, block = _rendered_track(log_name, number)
+    # Floor: this IS a limit-hit track, so the caveat branch is the one examined.
+    assert track.secure_rerip_converged is False, (log_name, number)
+    assert f"Copy CRC {track.copy_crc}  {caveat}" in block, block
+    # The verdict line claims only the verdict, which is true in every case.
+    assert (
+        "Copy NOT confirmed — re-reads did not converge, so this track is not "
+        "verified reproducible" in block
+    ), block
+
+
+def test_round_28s_track_5_no_longer_says_no_two_reads_agreed() -> None:
+    """The case the TASKS item names, against what the app shipped for it.
+
+    Platterpus 0.6.61 rendered this track, and its committed EAC-layout log is
+    the before: line 126 says "re-reads did NOT agree" of a track whose rig log
+    shows two agreeing reads (lines 381-385). Read from the artifact, so the
+    claim that the old sentence was printed cannot drift from the evidence.
+    """
+    shipped = (
+        _HANDSHAKE_ARTIFACTS / "artifactsround28" / "round28fullsecurerereadeac.log"
+    ).read_text(encoding="utf-8")
+    assert "Copy CRC 6902BCF0  (re-reads did NOT agree" in shipped
+    _track, block = _rendered_track("artifactsround28/round28fullsecurereread.log", 5)
+    assert "did NOT agree" not in block, block
+    assert "did not agree" not in block, block
+    assert "at most 2 of 3 reads agreed" in block, block
+
+
+def test_a_floor_says_at_least_and_never_at_most() -> None:
+    """(c) when the log proves only a floor. No committed rig log has this shape.
+
+    -Z 3 at -r 4: reads 1 and 2 agreed, read 3 differed, and read 4 printed no
+    count. Read 4 may have matched reads 1 and 2 (three agreeing, still short of
+    the four -Z 3 needs), so "at most 2" would be false and "at least 2" is true.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\n"
+        "Repeating ripping (0 out of 3 matches for current checksum AAAA0001)\n"
+        "Repeating ripping (1 out of 3 matches for current checksum AAAA0001)\n"
+        "Repeating ripping (0 out of 3 matches for current checksum BBBB0002)\n"
+        "Done; (no matches found, but hit repeat limit of 4)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     CCCC0003 (after 4 rips)\n"
+    )
+    text = render_eac_style_log(log)
+    assert (
+        "Copy CRC CCCC0003  (re-reads did not converge; at least 2 of 4 reads agreed "
+        "— this read is not confirmed reproducible)" in text
+    ), text
+    assert "at most" not in text, text
+
+
+def test_the_repeat_limit_sentences_stay_out_of_eacs_vocabulary() -> None:
+    """The EAC-parity check of the new sentences (`docs/eac-parity.md`, Part B).
+
+    The words are ours, on our own Copy CRC line, so they must not read as an EAC
+    state they are not. What a logchecker keys on (Part D §2): `Copy OK` is the
+    clean verdict, `Copy aborted` is an automatic zero, and a `Test CRC` line
+    asserts EAC's two full passes, which never ran. And the Copy CRC must still
+    read back as the shipped read's CRC through our own EAC-log reader.
+    """
+    examined = 0
+    for log_name, number, _caveat in _LIMIT_CASES:
+        track, text, block = _rendered(log_name, number)
+        for phrase in ("Copy OK", "Copy aborted", "Copy finished", "Test CRC"):
+            assert phrase not in block, (log_name, number, phrase, block)
+        # Through the format sniffer, as the parity tool reads it.
+        crcs = track_copy_crcs(text)
+        assert crcs.get(number) == track.copy_crc, (log_name, crcs)
+        examined += 1
+    assert examined == 3, examined
 
 
 def test_gap_handling_reads_cyanrips_own_wording_not_eacs() -> None:

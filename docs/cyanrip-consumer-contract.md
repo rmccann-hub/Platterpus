@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (62)
+## 1. Log lines we parse (63)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -89,6 +89,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_block_start` | section header | `^Track (?P<number>\\d+) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|read successfully!\|read with errors\\.\|is data:)` |
 | `secure_rerip_converged` **(fork-only)** | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\((?:no matches found\|repeat limit)\\b` |
+| `secure_rerip_progress` | section header | `^\\s*Repeating ripping\\s+\\((?P<matches>\\d{1,6})\\s+out of\\s+(?P<target>\\d{1,6})\\s+matches\\b` |
 | `gaps_value` | indented | `^\\s+(?P<value>\\S.*?)\\s*$` |
 | `track_paranoia_counts_section` | indented | `^\\s+Paranoia status counts:\\s*$` |
 | `track_paranoia_scope` **(fork-only)** | indented | `^\\s+Scope:\\s+(?P<text>\\S.*?)\\s*$` |
@@ -159,7 +160,7 @@ the log **and** its addendum (`rip_addendum.with_addendum`), because the
 addendum is the only statement in the folder about which bytes actually
 shipped after an auto-fix re-rip.
 
-## 2. Log lines we knowingly ignore (23)
+## 2. Log lines we knowingly ignore (22)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -171,7 +172,6 @@ dropped.
 | `^Partial files:\\s` | partial-read files (.18+); Rip completed says it |
 | `^System device:\\s` | device node; GUI already knows it |
 | `^(?:Over\|Under)read:\\s` | derived from offset; not a verdict |
-| `^Repeating ripping\\s+\\(` | secure re-rip attempt; the Done; line carries the verdict |
 | `^(?:Frame retries\|Retry limit):\\s` | candidate: rip-effort setting (renamed Retry limit in round 20) |
 | `^Disc number:\\s` | our own -a tag echoed back; we hold it |
 | `^Total discs:\\s` | our own -a tag echoed back; we hold it |

@@ -341,11 +341,54 @@ The brief promises "EAC-equivalent archival quality" — so the rip log should b
 | Track header | `Track  1` | `Track 5 ripped and encoded successfully!` | cyanrip opens the block with the outcome line. |
 | Pre-emphasis flag | (not in EAC log) | `Preemphasis:   none detected` | cyanrip extra. Useful for archival pre-emphasis-encoded discs. |
 | Duration | `... (per-track)` | `Duration:    03:51.44` | Both capture. |
-| CRC | `Test CRC 0025D726` / `Copy CRC 0025D726` (two reads) | `EAC CRC32:     A1B2C3D4 (after 2 rips)` | **Different verification models.** EAC does a test read then a copy read and compares. cyanrip computes ONE EAC-style CRC32 per track and, with `-Z N`, re-reads until N+1 reads are identical — it records how many rips it took. Platterpus stores cyanrip's single CRC in `copy_crc` and leaves `test_crc` empty, so the fidelity summary can tell the two models apart. **In the EAC-compatible export** (KDD-30) a track whose reads *converged* is rendered as an EAC-style `Test CRC` == `Copy CRC` pair — convergence is the same two-reads-agree proof — while a track whose re-reads **disagreed** carries an explicit "not confirmed reproducible" caveat and a whole-disc `Read stability :` line. A never-re-read track keeps a lone `Copy CRC`: we neither fabricate a test read nor imply doubt we didn't measure. Note the CRC is always the **shipped** file's: cyanrip's whole-disc log records the first pass, so when the auto-fix swaps in a re-read, that track's record is replaced with the re-rip's own (matching the swap addendum cyanrip's log carries — hardware-found 2026-07-26). |
+| CRC | `Test CRC 0025D726` / `Copy CRC 0025D726` (two reads) | `EAC CRC32:     A1B2C3D4 (after 2 rips)` | **Different verification models.** EAC does a test read then a copy read and compares. cyanrip computes ONE EAC-style CRC32 per track and, with `-Z N`, re-reads until N+1 reads are identical — it records how many rips it took. Platterpus stores cyanrip's single CRC in `copy_crc` and leaves `test_crc` empty, so the fidelity summary can tell the two models apart. **In the EAC-compatible export** (KDD-30) a track whose reads *converged* is rendered as an EAC-style `Test CRC` == `Copy CRC` pair — convergence is the same two-reads-agree proof — while a track whose re-reads **hit the repeat limit** carries an explicit "not confirmed reproducible" caveat, worded by what its log proves about how many reads agreed (*The repeat-limit caveat*, below the table), and a whole-disc `Read stability :` line. A never-re-read track keeps a lone `Copy CRC`: we neither fabricate a test read nor imply doubt we didn't measure. Note the CRC is always the **shipped** file's: cyanrip's whole-disc log records the first pass, so when the auto-fix swaps in a re-read, that track's record is replaced with the re-rip's own (matching the swap addendum cyanrip's log carries — hardware-found 2026-07-26). |
 | AccurateRip v1 result | `Accurately ripped (confidence 14)  [95E6A189]  (AR v1)` | `Accurip v1:  12345678 (accurately ripped, confidence 3)` | Both capture the CRC + confidence; the primary bit-perfection proof on both tools. |
 | AccurateRip v2 result | `Accurately ripped (confidence 11)  [113FA733]  (AR v2)` | `Accurip v2:  9ABCDEF0 (not found, ...)` | Same structure as v1. |
 | Frame-450 ("offset-variant") match | (not distinctly labelled) | `Accurip 450: BF62B1DA (..., track is partially accurately ripped)` up to `+platterpus.16`; `(..., one frame only; whole-track checksums not found)` from `.17` (`cyanrip@ec0fe47:src/cyanrip_log.c:625`) | **cyanrip extra.** The checksum of **one frame** (frame 450, six seconds in), printed only after both whole-track checksums missed (`cyanrip@df91ae7:src/checksums.h:74-78`, `src/cyanrip_log.c:594`). It is not a pressing: a shifted pressing moves frame 450 too, and a submitted pressing matches its own whole-track entry. Surfaced as "partially accurate", never as a verified match. Our screens and report say "only one frame matched" since 2026-09-24. Our EAC-compatible log says `Only one frame matched AccurateRip (confidence N); whole-track checksums not found  [CRC]  (AR frame 450)` per track and `N track(s) matched AccurateRip on one frame only` in its summary, the words agreed with the fork in round 27 (round 7 lap 11, H4: neither side rewords this log alone). |
 | Per-track loudness (ReplayGain / R128) | (not in EAC log) | `REPLAYGAIN_TRACK_GAIN: -4.10 dB` / `R128_TRACK_GAIN: 229` | **cyanrip extra**, written into the FLAC tags and captured in the report. |
+
+##### The repeat-limit caveat (2026-10-05)
+
+EAC never prints any of these sentences. They are ours, in the two places our
+export already words this state itself: a parenthetical on the `Copy CRC` line and
+the per-track verdict line that replaces `Copy OK`. Until 2026-10-05 every track
+that hit the limit read *"re-reads did NOT agree"*, which was false of the round-28
+Full run's track 5: two of its three reads agreed
+(`docs/handshake/artifactsround28/round28fullsecurereread.log` lines 381-385, beside
+the app's own export of it, `round28fullsecurerereadeac.log` line 126). The limit
+means *not enough* reads agreed, never *none did*. So the words now follow what the
+log proves (`eac_log_export._reread_shortfall`, from
+`TrackResult.secure_rerip_agreement`):
+
+| What the log proves | Copy CRC parenthetical | Committed example |
+|---|---|---|
+| no two reads agreed (the fork's `at most 1 read agreed`, or `-Z 1`) | `re-reads did NOT agree — this read is not confirmed reproducible` (unchanged) | round 30, 10-05 secure re-read, track 3 |
+| the largest group of agreeing reads, exactly | `re-reads did not converge; at most 2 of 3 reads agreed — …` | round 28 track 5, round 26 track 5 |
+| only a floor under it (old wording, short of the `-Z` target) | `re-reads did not converge; at least 2 of 4 reads agreed — …` | none committed |
+| nothing (old wording, no read matched before the last) | `re-reads did not converge — this read is not confirmed reproducible` | round 27 track 3 |
+
+The verdict line reads `Copy NOT confirmed — re-reads did not converge, so this
+track is not verified reproducible`, one wording for all four, since *did not
+converge* is the `-Z` verdict itself. *At most* is the fork's own word for the exact
+count, so their line and ours say the same thing about one track.
+
+**The parity reasoning.** (1) Nothing EAC-shaped was added: no new line, no new
+field, and none of the strings a logchecker keys on (Part D §2). `Copy OK` (the clean
+verdict) and `Copy aborted` (an automatic zero) stay out of the track block.
+`tests/test_eac_log_export.py::test_the_repeat_limit_sentences_stay_out_of_eacs_vocabulary`
+asserts it on the three committed cases, and asserts that the `Copy CRC` still reads
+back through our own EAC-log reader. (2) We deliberately do **not** print a
+`Test CRC` from the reads that agreed, although the old-wording log prints their
+checksum. A `Test CRC` asserts EAC's two full passes, which never ran. On round 28's
+track 5 the kept read is the last one (the fork's round 29 lap 1 S35), and it is not
+one of the two that agreed. So the pair would print EAC's *Test ≠ Copy* state, which
+checkers deduct 30 per track for, about a different procedure. And the checksum
+cyanrip printed for those reads is the complement of the CRC on builds before
+`9669d84` (S34), so the number would be wrong on every older log. (3) The *at least /
+at most* split is not cosmetic. Round 27's track 3 shows why a floor of 1 must not be
+read as *none agreed*: its last read did match its second (EAC CRC32 `59D352DD` is
+the complement of the second read's printed `A62CAD22`), and the old sentence said
+otherwise.
 
 #### Summary / status report
 
@@ -727,7 +770,7 @@ cyanrip's default already merges pregaps into the previous track.
 | Delete silent blocks: No | asserted for cyanrip (it writes what it reads) | **met** |
 | Null samples in CRC: Yes | asserted for cyanrip (CRCs matched a real EAC log, 12/14 tracks) | **met** |
 | Gap handling | wording **actually** fixed 2026-07-30 (see below) — says "Not detected, thus appended to previous track" when the ripper signals none, and "Appended to previous track" when gaps are signalled (`eac_log_export.py`) | **met on the fork** (it detects pre-gaps); **wording met, detection is not** on stock cyanrip 0.9.3 |
-| Test & Copy | `-Z` convergence rendered as a Test/Copy pair | **partial** |
+| Test & Copy | `-Z` convergence rendered as a Test/Copy pair; a track at the repeat limit gets no pair, and a caveat saying how many reads agreed (Part B, *The repeat-limit caveat*) | **partial** |
 | AccurateRip | parsed and rendered; `verdict.py` is the single predicate | **met** |
 | No ID3 on FLAC | Vorbis comments only | **met** |
 | Individual tracks (not a range rip) | cyanrip is always per-track | **met** |

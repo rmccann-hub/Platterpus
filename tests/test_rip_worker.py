@@ -953,6 +953,12 @@ def test_a_stopped_securing_pass_keeps_the_verdicts_it_reached(
     ]
     # Nothing from the stopped pass reached the album folder.
     assert not (tmp_path / "Artist" / "Album" / "02 - B.flac").exists()
+    # And its count is kept beside its verdict, so the EAC-layout log can say "re-
+    # reads did NOT agree", which the ripper's `at most 1 read agreed` proves
+    # (2026-10-05), rather than only that they did not converge.
+    from platterpus.parsers.rip_log import RereadAgreement
+
+    assert worker.reread_agreements == {2: RereadAgreement(1, True)}
 
 
 def test_a_stopped_securing_pass_whose_log_never_settles_keeps_its_whole_verdicts(
@@ -1101,6 +1107,47 @@ def test_auto_fix_keeps_a_re_read_that_matches_accuraterip_without_converging(
     text = addenda[0].read_text(encoding="utf-8")
     assert "did not converge; kept because it matches AccurateRip" in text
     assert "kept anyway only if it read cleanly" not in text
+
+
+def test_auto_fix_records_how_many_reads_agreed_even_when_nothing_is_swapped(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The GUI gives a re-read track the RE-READ's verdict whether or not its file
+    was swapped in, so it needs the re-read's agreement count in both cases too
+    (2026-10-05). Swapped records alone would leave the 2026-10-04 shape, five
+    reads and no two agreeing, unswapped and uncounted, and the EAC-layout log
+    would say less than the re-rip's own log did.
+    """
+    from platterpus.parsers.rip_log import RereadAgreement
+
+    rerip_no_two_agreed = (
+        "cyanrip 0.9.4+platterpus.19 (platterpus-fork-g174a134)\n"
+        "Disc tracks:    3\n"
+        "Repeating ripping (0 out of 2 matches for current checksum D7C5EF7C)\n"
+        "Repeating ripping (0 out of 2 matches for current checksum 1AC787A1)\n"
+        "Done; (repeat limit of 3 reads reached; at most 1 read agreed)\n"
+        "Track 3 read successfully!\n"
+        "  EAC CRC32:     44444444 (after 3 rips)\n"
+        "  File(s):\n"
+        "    Artist/Album/03 - C.flac\n"
+        "Ripping errors: 0\n"
+    )
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend.rip_side_effect = _fake_rip_writer(
+        _PASS1_UNSTABLE, rerip_no_two_agreed, True
+    )
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+
+    worker.start_rip()
+
+    # Floor: the re-read ran and was refused, the case this record exists for.
+    assert len(backend.rip_calls) == 2
+    assert [(e["track"], e["replaced"]) for e in worker.retried_tracks] == [(3, False)]
+    assert worker.swapped_track_records == {}
+    assert worker.reread_agreements == {3: RereadAgreement(1, True)}
 
 
 def test_dynamic_mode_ripps_fast_then_secures_only_unverified_track(
