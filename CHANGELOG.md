@@ -150,6 +150,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **The setup wizard's introduction shows its list as a list.** Its three
   bullet points, and the paragraphs of the "Updating cyanrip" wizard, ran
   together into one paragraph.
+- **The EAC-style log no longer says no two reads agreed when some did.** When
+  cyanrip ran out of re-reads on a track before enough of them matched, the
+  EAC-style log always said "re-reads did NOT agree". On the 2026-09-28 test run,
+  two of track 5's three reads had matched. The log now says only what cyanrip's
+  own log shows: "did NOT agree" when no two reads matched, how many matched when
+  that is known ("at most 2 of 3 reads agreed"), and otherwise only "re-reads did
+  not converge", meaning not enough of them matched. Such a track is still never
+  marked "Copy OK".
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached

@@ -23,7 +23,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from platterpus.eac_log_export import render_eac_style_log
-from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
+from platterpus.parsers.rip_log import (
+    AccurateRipResult,
+    RereadAgreement,
+    RipLog,
+    TrackResult,
+)
 from platterpus.ui.main_window_rip import RipMixin, _merge_shipped_track
 
 
@@ -366,3 +371,68 @@ def test_an_untouched_track_keeps_everything_it_had() -> None:
     merged = _merge_shipped_track(track, None, {})
     assert merged is track
     assert merged.accuraterip_v1 is verified
+
+
+# --- the agreement count belongs to the verdict's reads ----------------------
+
+
+#: The first pass of the round-28 Full run's track 5: two of three reads agreed.
+_FIRST_PASS_TWO_OF_THREE = TrackResult(
+    number=5,
+    filename="05.flac",
+    copy_crc="6902BCF0",
+    rip_count=3,
+    secure_rerip_converged=False,
+    secure_rerip_agreement=RereadAgreement(most_reads_agreed=2, exact=True),
+)
+
+
+def test_the_agreement_count_travels_with_the_verdict_it_describes() -> None:
+    """`secure_rerip_agreement` says how many of THE SAME reads agreed as the
+    verdict beside it, so it moves when the verdict moves (2026-10-05).
+
+    When the auto-fix's own re-read replaces the verdict, keeping the first pass's
+    count would make the EAC-layout log print "at most 2 of 3 reads agreed" about
+    reads the re-rip never made. The re-rip's count when we have it, else nothing.
+    """
+    first_pass = _FIRST_PASS_TWO_OF_THREE
+    rerip_count = RereadAgreement(most_reads_agreed=1, exact=True)
+
+    # Re-read, not swapped in, its count unknown: nothing, never the first pass's.
+    unknown = _merge_shipped_track(first_pass, None, {5: False})
+    assert unknown.secure_rerip_converged is False
+    assert unknown.secure_rerip_agreement is None
+
+    # Re-read, not swapped in, its count recorded by the worker: that count.
+    counted = _merge_shipped_track(first_pass, None, {5: False}, {5: rerip_count})
+    assert counted.secure_rerip_agreement == rerip_count
+
+    # Re-read and swapped in (kept for AccurateRip): the swapped read's own count.
+    shipped = TrackResult(
+        number=5,
+        copy_crc="E0036697",
+        rip_count=5,
+        secure_rerip_converged=False,
+        secure_rerip_agreement=rerip_count,
+    )
+    swapped = _merge_shipped_track(first_pass, shipped, {5: False})
+    assert swapped.secure_rerip_agreement == rerip_count
+
+    # Untouched: its own verdict and its own count stay together.
+    assert _merge_shipped_track(first_pass, None, {}) is first_pass
+
+
+def test_the_rendered_log_states_the_rereads_count_not_the_first_passs() -> None:
+    """End to end through the enricher, the way the window renders the log."""
+    log = RipLog(log_creator="cyanrip 0.9.3", tracks=(_FIRST_PASS_TWO_OF_THREE,))
+    retried = [{"track": 5, "reripped_z": 4, "converged": False, "replaced": False}]
+
+    window = _window(retried)
+    text = render_eac_style_log(RipMixin._apply_auto_fix_results(window, log))
+    assert "reads agreed" not in text, text
+    assert "(re-reads did not converge — this read is not confirmed" in text, text
+
+    window._last_reread_agreements = {5: RereadAgreement(1, exact=True)}
+    text = render_eac_style_log(RipMixin._apply_auto_fix_results(window, log))
+    assert "(re-reads did NOT agree — this read is not confirmed" in text, text
+    assert "2 of 3" not in text, text

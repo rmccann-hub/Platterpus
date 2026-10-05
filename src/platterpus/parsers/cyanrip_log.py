@@ -66,13 +66,14 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Final
 
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers.rip_log import (
     AccurateRipResult,
+    RereadAgreement,
     RipLog,
     RippingInfo,
     TrackResult,
@@ -282,11 +283,13 @@ _TRACK_START = re.compile(
 # limit", and no such line can mean convergence. So we match the prefix, as the
 # old arm matches only "no matches found" and not the rest of its sentence.
 #
-# **We do not store the "at most M reads agreed" count on the track.** No build
-# prints it yet, the old wording has no count to put beside it, and nothing
-# (the report, the EAC log, the UI) would read the field. It is not lost: the
-# rip worker writes this line WORD FOR WORD into the diagnostics record, and the
-# rip log itself is kept.
+# **The "at most M reads agreed" count IS stored now** (2026-10-05), as
+# `TrackResult.secure_rerip_agreement`, read by `secure_rerip_limit_agreement`
+# below. This comment used to say it was not, for three reasons that have all
+# expired: `.19` prints it (round 30's 10-05 secure re-read, track 3: "at most 1
+# read agreed"); the old wording DOES have a count beside it, in the `Repeating
+# ripping` lines before it; and the EAC-layout log now reads the field, because
+# its "re-reads did NOT agree" was false of a track whose reads had agreed.
 #
 # **`\s*`, not `^`, and that leading whitespace is the whole point.** These lines
 # are emitted from inside `cyanrip_rip_track()`'s repeat loop, which runs BEFORE
@@ -309,6 +312,30 @@ _SECURE_DONE_FAIL = re.compile(
     r"^\s*Done;\s+\("
     r"(?:no matches found"  # every build so far: said whatever the count was
     r"|repeat limit)\b"  # proposed by the fork, round 29 lap 1 S38
+)
+
+# The count inside the fork's limit-hit wording: `... at most 2 reads agreed)`,
+# or `at most 1 read agreed` (their `read%s`). Applied only to a line
+# `_SECURE_DONE_FAIL` already matched, so it is a FRAGMENT pattern; the line is
+# claimed there. Searched rather than anchored, so a rewording of the words
+# before it costs us the count and never the verdict.
+_SECURE_LIMIT_AGREED = re.compile(r"\bat most (?P<agreed>\d{1,6}) reads? agreed\b")
+
+# cyanrip's progress line, printed after every `-Z` read that neither converged
+# nor reached the limit, so after every read but the last:
+#   "Repeating ripping (1 out of 2 matches for current checksum 1FFC9968)"
+# `matches` is how many EARLIER reads had this read's checksum, counted against
+# all of them (cyanrip@e5a4ddf:src/cyanrip_main.c:999-1001), and `target` is the
+# `-Z` value. Read since 2026-10-05 for one fact: under the old limit-hit wording,
+# which states no count, these lines are the only record of whether any reads
+# agreed. The checksum is NOT read: before cyanrip 9669d84 it printed the
+# complement of the track block's EAC CRC32 (round 29 lap 1 S34), so its meaning
+# depends on the build. The fork lists this line as stable (P2 of their round 30
+# provider contract). `\s*` for the same reason as the `Done;` lines: these come
+# from the repeat loop before the track opens, whatever their indentation.
+_SECURE_PROGRESS = re.compile(
+    r"^\s*Repeating ripping\s+\((?P<matches>\d{1,6})\s+out of\s+"
+    r"(?P<target>\d{1,6})\s+matches\b"
 )
 
 
@@ -378,6 +405,71 @@ def secure_rerip_verdict_converged(line: str) -> bool | None:
     if _SECURE_DONE_FAIL.match(line):
         return False
     return None
+
+
+def secure_rerip_progress(line: str) -> tuple[int, int] | None:
+    """``(matches, target)`` from a ``Repeating ripping (k out of N matches …)`` line.
+
+    None for any other line. Pure; never raises (both numbers are bounded to six
+    digits by ``_SECURE_PROGRESS``).
+    """
+    match = _SECURE_PROGRESS.match(line)
+    if not match:
+        return None
+    matches = int_or_none(match.group("matches"), field="cyanrip -Z progress matches")
+    target = int_or_none(match.group("target"), field="cyanrip -Z progress target")
+    if matches is None or target is None:
+        return None
+    return matches, target
+
+
+def secure_rerip_limit_agreement(
+    done_line: str, progress: Sequence[tuple[int, int]]
+) -> RereadAgreement | None:
+    """How many reads agreed, for a track whose ``-Z`` re-read hit the limit.
+
+    ``done_line`` is the track's ``Done; (…)`` verdict and ``progress`` holds the
+    ``(matches, target)`` pairs of the ``Repeating ripping`` lines printed before
+    it (:func:`secure_rerip_progress`). None unless the line is a limit-hit
+    verdict, and None when the log does not say.
+
+    Three sources, in the order they are trusted:
+
+    1. **The fork's own count**, ``at most 2 reads agreed``. cyanrip computes it
+       over every read, the last one included
+       (``cyanrip@8b1581a:src/cyanrip_main.c:1020-1037``), so it is exact.
+    2. **The progress lines, under the old wording**, which states no count. Read
+       *i* printed *k* matches, so *k* + 1 reads shared its checksum, and the
+       largest *k* + 1 is a floor under the answer. The last read printed no
+       progress line, so it may have joined a group and made it one bigger.
+       **Except when the floor already equals the** ``-Z`` **target N.** The last
+       read's own count is below N, because a count of N is convergence and
+       prints the other ``Done;`` line. So it cannot have joined a group of N,
+       nothing bigger can exist, and the floor is exact. The round-28 Full run's
+       track 5 is that case: ``-Z 2``, ``1 out of 2 matches`` on its second read,
+       so exactly two of its three reads agreed, and the third did not.
+    3. **Nothing**: no progress lines, so None.
+
+    A floor of 1 below the target is kept as a floor, not shown as "no two reads
+    agreed": the last read may have matched one of the others. Round 27's track 3
+    is that case, and its last read did match its second (its EAC CRC32,
+    ``59D352DD``, is the complement of the second read's printed ``A62CAD22``).
+
+    Pure; never raises.
+    """
+    if not _SECURE_DONE_FAIL.match(done_line):
+        return None
+    stated = _SECURE_LIMIT_AGREED.search(done_line)
+    if stated:
+        agreed = int_or_none(stated.group("agreed"), field="cyanrip -Z reads agreed")
+        if agreed is not None and agreed >= 1:
+            return RereadAgreement(most_reads_agreed=agreed, exact=True)
+    if not progress:
+        return None
+    floor = max(matches for matches, _target in progress) + 1
+    targets = {target for _matches, target in progress}
+    exact = len(targets) == 1 and floor == min(targets)
+    return RereadAgreement(most_reads_agreed=floor, exact=exact)
 
 
 # "Total time:     00:59:42.354" — the disc's AUDIO duration (start report).
@@ -1206,8 +1298,9 @@ def _parse_secure_verdict(text: str) -> bool | None:
 
     * **converged** → ``True``. Two or more reads produced the same checksum, which
       is EAC's "Test CRC == Copy CRC" guarantee by a cheaper mechanism.
-    * **did NOT converge** → ``False``. The re-read limit was reached with no two
-      reads agreeing. cyanrip's own health line still says "No errors occurred"
+    * **did NOT converge** → ``False``. The re-read limit was reached before
+      enough reads agreed (two may have; see ``secure_rerip_limit_agreement``).
+      cyanrip's own health line still says "No errors occurred"
       here, so without this the log cannot tell a non-converging track from a clean
       one (real-hardware finding, 2026-07-01).
     * **not attempted / unrecognised** → ``None``, i.e. no verdict. The caller
@@ -1420,6 +1513,8 @@ class _TrackAcc:
     # cyanrip prints a track's secure re-read verdict on the line BEFORE the
     # track opens, so the loop buffers it and hands it in at construction.
     secure_rerip_converged: bool | None
+    # How many of those reads agreed, buffered the same way (see TrackResult).
+    secure_rerip_agreement: RereadAgreement | None = None
     filename: str = ""
     pre_emphasis: bool | None = None
     copy_crc: str = ""
@@ -2129,6 +2224,8 @@ _SECTION_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # The key is named after the OLD wording and is kept anyway: it is a row key in
     # the published consumer contract, and the row now covers both wordings.
     ("secure_rerip_no_match", _SECURE_DONE_FAIL),
+    # Read for its match count since 2026-10-05; it was on the ignored list.
+    ("secure_rerip_progress", _SECURE_PROGRESS),
 )
 
 # The INDENTED rows the loop reads inside a section or a track block, listed for
@@ -2171,6 +2268,9 @@ _FRAGMENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # publishes: the fork should be able to read that we check the digest's SHAPE
     # and not only its presence, which is the half their `<=` mutant slipped past.
     ("fun512_alphabet", _FUN512_ALPHABET),
+    # The count inside the fork's limit-hit wording, applied by
+    # `secure_rerip_limit_agreement` to a line `_SECURE_DONE_FAIL` claimed.
+    ("secure_rerip_limit_agreed", _SECURE_LIMIT_AGREED),
 )
 
 _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -2255,16 +2355,9 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     # switches to "Underread:" when the read offset is negative.
     (re.compile(r"^(?:Over|Under)read:\s"), "derived from offset; not a verdict"),
     # Rip-effort / feature rows: real facts, no field to put them in yet.
-    # The secure-re-rip progress line, one per non-agreeing read. The VERDICT
-    # is the `Done;` line we already parse; these are the attempts leading to
-    # it and carry no fact the verdict does not. Listed rather than left
-    # unrecognised so the completeness test stays meaningful — an unlisted,
-    # unmatched line is supposed to be a failure, and three of them per track
-    # would drown the signal.
-    (
-        re.compile(r"^Repeating ripping\s+\("),
-        "secure re-rip attempt; the Done; line carries the verdict",
-    ),
+    # (`Repeating ripping (…)` was listed here until 2026-10-05, as carrying "no
+    # fact the verdict does not". Under the old limit-hit wording it carries the
+    # only count of agreeing reads, so it is parsed now: `_SECURE_PROGRESS`.)
     # BOTH LABELS, for the same reason `_OVERREAD_MODE` accepts both. The fork
     # is renaming this line in round 20 (`Frame retries:` names half of what
     # `-r` does — it caps paranoia's per-frame retries AND the whole-track
@@ -2579,6 +2672,11 @@ def parse_cyanrip_log(text: str) -> RipLog:
     # just BEFORE that track's "Track N ripped…" opener, so we buffer it here and
     # attach it when the track block opens. None = no verdict seen (no -Z).
     pending_converged: bool | None = None
+    # The same buffering for HOW FAR a non-converged re-read got: the
+    # `Repeating ripping` counts seen since the last verdict, and the agreement
+    # they and the verdict line add up to (`secure_rerip_limit_agreement`).
+    pending_progress: list[tuple[int, int]] = []
+    pending_agreement: RereadAgreement | None = None
     # Which peak the NEXT indented "Peak:  N dBFS" line reports: "true", "sample",
     # or "" for no header seen. cyanrip prints its peaks as a sub-header plus a
     # value line, and a FORK adding the sample peak is likely to do the same — so
@@ -2686,6 +2784,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 paranoia_scope=current.paranoia_scope,
                 rip_count=current.rip_count,
                 secure_rerip_converged=current.secure_rerip_converged,
+                secure_rerip_agreement=current.secure_rerip_agreement,
                 start_sector=current.start_sector,
                 end_sector=current.end_sector,
                 pregap_sectors=current.pregap_sectors,
@@ -2834,6 +2933,14 @@ def parse_cyanrip_log(text: str) -> RipLog:
         verdict = secure_rerip_verdict_converged(line)
         if verdict is not None:
             pending_converged = verdict
+            pending_agreement = secure_rerip_limit_agreement(line, pending_progress)
+            pending_progress = []
+            continue
+        # A progress line from the same repeat loop, buffered for the same track.
+        # It never decides the verdict; it only counts how many reads agreed.
+        progress = secure_rerip_progress(line)
+        if progress is not None:
+            pending_progress.append(progress)
             continue
 
         match = _TRACK_START.match(line)
@@ -2853,8 +2960,13 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 # The verdict buffered from this track's "Done; (…)" line above;
                 # consumed so the next track starts fresh (None if -Z was off).
                 secure_rerip_converged=pending_converged,
+                secure_rerip_agreement=pending_agreement,
             )
             pending_converged = None
+            pending_agreement = None
+            # Progress lines with no verdict after them (a cancelled re-read stops
+            # without one) describe nothing this track can claim.
+            pending_progress = []
             expect_filename = False
             # A new track's peaks are its own: a dangling header from the previous
             # block must not decide what this track's first "Peak:" line means, and

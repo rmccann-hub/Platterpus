@@ -474,7 +474,8 @@ ourselves.**
 **Why it matters if true.** `TrackResult.secure_rerip_converged` is what
 `eac_log_export._crc_lines` uses to decide between rendering an EAC-style
 `Test CRC` / `Copy CRC` pair and rendering a bare `Copy CRC` with a
-"re-reads did NOT agree" caveat. The GUI is safe either way because it reads
+"not confirmed reproducible" caveat (worded since 2026-10-05 by how many reads
+agreed: `docs/eac-parity.md`, *The repeat-limit caveat*). The GUI is safe either way because it reads
 live worker state — but anything re-reading the saved log (`--compare`,
 `parity.compare_logs`, a third-party tool, a human in five years) would see a
 converged track as merely single-read, and *under*-claim. Under-claiming is the

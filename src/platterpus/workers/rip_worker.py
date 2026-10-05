@@ -50,6 +50,7 @@ from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
 from platterpus.adapters.ripper_log_verify import LogVerification
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
 from platterpus.parsers import cyanrip_log
+from platterpus.parsers.rip_log import RereadAgreement
 from platterpus.read_speed_ladder import (
     MAX_ATTEMPTS,
     SpeedAttempt,
@@ -1066,6 +1067,12 @@ class RipWorker(QObject):
         # DISCARDED bytes). The GUI folds these over the parsed log before any
         # rendering, so every surface describes the audio actually on disk.
         self._swapped_track_records: dict[int, object] = {}
+        # How many reads agreed, from the RE-RIP's own log, for every re-read
+        # track whose verdict `_retried_tracks` records, swapped in or not. The
+        # GUI gives such a track the re-rip's verdict, so the count beside it
+        # must be the re-rip's too, or the EAC-layout log would describe one
+        # pass's reads under another's verdict (2026-10-05).
+        self._reread_agreements: dict[int, RereadAgreement] = {}
         # Why the dynamic secure re-rip did or didn't run (report's
         # read_speed.secure_rerip), so "why wasn't my shaky track re-ripped?" is
         # answerable from the JSON. `mode` is dynamic / uniform / off; `engaged`
@@ -1680,6 +1687,16 @@ class RipWorker(QObject):
         file it names (real-hardware bug, 2026-07-26). Empty when nothing was
         swapped."""
         return dict(self._swapped_track_records)
+
+    @property
+    def reread_agreements(self) -> dict[int, RereadAgreement]:
+        """How many reads agreed in each re-read that hit the repeat limit.
+
+        Keyed by track number, from the re-rip's own log, for every track
+        ``retried_tracks`` records a verdict for, whether or not its read was
+        swapped in. A track whose log stated no count is absent. Read by the GUI
+        so the agreement count always sits beside the verdict it belongs to."""
+        return dict(self._reread_agreements)
 
     @property
     def eta_trace(self) -> list[dict]:
@@ -2980,6 +2997,9 @@ class RipWorker(QObject):
                 if number not in tracks:
                     continue
                 converged = getattr(track, "secure_rerip_converged", None) is True
+                agreement = getattr(track, "secure_rerip_agreement", None)
+                if isinstance(number, int) and isinstance(agreement, RereadAgreement):
+                    self._reread_agreements[number] = agreement
                 reason = reread_supersedes((first_pass_tracks or {}).get(number), track)
                 replaced = False
                 if reason is not None:
@@ -3122,6 +3142,9 @@ class RipWorker(QObject):
                 if number not in tracks or verdict is None:
                     continue
                 recorded.append(number)
+                agreement = getattr(track, "secure_rerip_agreement", None)
+                if isinstance(number, int) and isinstance(agreement, RereadAgreement):
+                    self._reread_agreements[number] = agreement
                 self._retried_tracks.append(
                     {
                         "track": number,

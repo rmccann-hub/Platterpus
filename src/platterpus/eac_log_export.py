@@ -1654,20 +1654,69 @@ def _crc_lines(track: TrackResult) -> list[str]:
         out.append(f"     Copy CRC {crc}{note}")
     else:
         # An explicit ``False`` is a MEASURED negative, not an absence: this track
-        # WAS read more than once and the reads *disagreed*, so the shipped bytes
-        # are a single read that nothing corroborates. EAC signals this with
-        # suspicious positions / a reduced track quality; we have no equivalent
-        # number, so say it in words rather than let a bare CRC imply confidence
-        # we don't have (real-hardware finding, 2026-07-26 — track 3 of the Police
-        # disc read differently on every attempt yet rendered indistinguishably
-        # from a clean track). ``None`` (never re-read) stays a plain Copy CRC.
+        # WAS read more than once and not enough of the reads agreed, so nothing
+        # corroborates the shipped bytes. EAC signals this with suspicious
+        # positions / a reduced track quality; we have no equivalent number, so
+        # say it in words rather than let a bare CRC imply confidence we don't
+        # have (real-hardware finding, 2026-07-26 — track 3 of the Police disc
+        # read differently on every attempt yet rendered indistinguishably from a
+        # clean track). ``None`` (never re-read) stays a plain Copy CRC.
         caveat = (
-            "  (re-reads did NOT agree — this read is not confirmed reproducible)"
+            f"  ({_reread_shortfall(track)} — this read is not confirmed reproducible)"
             if track.secure_rerip_converged is False
             else ""
         )
         out.append(f"     Copy CRC {crc}{caveat}")
     return out
+
+
+def _reread_shortfall(track: TrackResult) -> str:
+    """What a non-converged secure re-read achieved, in words that are true of it.
+
+    **The defect this closes (TASKS.md, *Found while integrating*, item 1).** Every
+    track whose re-reads hit the repeat limit used to read *"re-reads did NOT
+    agree"*. On the round-28 Full run's track 5 two of the three reads agreed,
+    so the sentence was false. The limit means *not enough* reads agreed, never
+    *none did* (cyanrip prints its old limit line whatever the count:
+    ``cyanrip@e5a4ddf:src/cyanrip_main.c:1019-1024``).
+
+    Three cases, decided by ``TrackResult.secure_rerip_agreement``:
+
+    * **no two reads agreed**, which only an exact count of 1 proves (the fork's
+      ``at most 1 read agreed``): the old sentence, unchanged, because it is
+      true here — round 30's 10-05 secure re-read, track 3;
+    * **two or more agreed**: say how many, ``at most`` when the log proves the
+      number (the fork's own word for it), ``at least`` when it proves only a
+      floor — round 28's track 5, ``at most 2 of 3``;
+    * **the log does not say**: only that the reads did not converge — round
+      27's track 3, whose log cannot show whether its last read matched one of
+      the others (it did).
+
+    Never a Test CRC built from the reads that agreed. That would print EAC's
+    *Test CRC ≠ Copy CRC* state, which describes two full passes EAC ran; here
+    the kept read is the last one (the fork's round 29 lap 1 S35), on round 28's
+    track 5 it is not one of the two that agreed, and the checksum cyanrip
+    printed for them is the complement of the CRC on builds before 9669d84
+    (S34). ``docs/eac-parity.md`` (Part B, the CRC row) has the parity reasoning.
+    """
+    agreement = track.secure_rerip_agreement
+    if agreement is None or agreement.most_reads_agreed < 2:
+        if agreement is not None and agreement.exact:
+            return "re-reads did NOT agree"
+        return "re-reads did not converge"
+    bound = "at most" if agreement.exact else "at least"
+    reads = track.rip_count
+    # "of N" only when the read count can hold the number we are about to print;
+    # a log that disagrees with itself gets the count alone rather than "3 of 2".
+    of_reads = (
+        f" of {reads}"
+        if isinstance(reads, int) and reads >= agreement.most_reads_agreed
+        else ""
+    )
+    return (
+        f"re-reads did not converge; {bound} {agreement.most_reads_agreed}"
+        f"{of_reads} reads agreed"
+    )
 
 
 def _accuraterip_line(track: TrackResult) -> str:
@@ -1761,8 +1810,12 @@ def _status_line(status: str, *, reproducible: bool | None = None) -> str:
     the mirror defect.
     """
     if reproducible is False:
+        # "did not converge", not "did not agree": on the round-28 Full run's
+        # track 5 two reads DID agree, and the Copy CRC line above says how many.
+        # Converging is the -Z verdict itself, so the sentence is true of every
+        # track that reaches this branch (TASKS.md, *Found while integrating*, 1).
         return (
-            "Copy NOT confirmed — re-reads did not agree, so this track is not "
+            "Copy NOT confirmed — re-reads did not converge, so this track is not "
             "verified reproducible (see Read stability above)"
         )
     # EAC writes "Copy OK"; our backends use phrases like "ripped successfully".

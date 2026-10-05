@@ -1531,7 +1531,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # is the comment beside `_BANNER` giving the reason (the first-words misfiling,
     # KDD-24's no-forging line) and naming the parser table that must learn any
     # rewording. The reason belongs beside the line it explains.
-    "eac_log_export.py": 1779,
+    # **1779 -> 1832** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_reread_shortfall`, the Copy CRC caveat for a track at the repeat limit worded by how many reads its log proves agreed, where every such track read "re-reads did NOT agree" (false of the round-28 Full run's track 5). Most of it is the docstring: the three cases, and why no Test CRC is built from the reads that agreed. It is this document's own sentence, so it stays beside the renderer.
+    "eac_log_export.py": 1832,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1724,7 +1725,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3032 -> 3064** (2026-09-28, the round-28 Full run): `secure_rerip_verdict_converged`, the one home of which way a `-Z` verdict went, so the rip worker can grade its diagnostic by it; the parser's own loop now calls it instead of restating the `agreed >= 1` rule.
     # **3064 -> 3189** (2026-09-28, the Full run's F5/F6): `Tracks to rip:` graduates from the ignore list to a line rule, and `interruption_point` classifies the two published `Interrupted at:` shapes. The patterns must live here: the completeness sweep walks this module's own regex constants, and the rule table is what the generated consumer contract publishes.
     # **3189 -> 3233** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): `_SECURE_DONE_FAIL` reads it beside `no matches found`, before any build prints it (round 20's order). Nearly all of it is the reasoning: why "no matches found" never meant "no two reads agreed" (the round-28 artifact, lines 381-385), and why the new arm matches only the prefix — too strict a pattern fails toward a false "Test and Copy CRC identical".
-    "parsers/cyanrip_log.py": 3233,
+    # **3233 -> 3345** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `secure_rerip_progress` and `secure_rerip_limit_agreement`. The `Repeating ripping` line graduates from the ignore list to a parsed rule, and the fork's `at most M reads agreed` is read as a fragment, so a limit-hit track carries how many of its reads agreed. They must live here: the completeness sweep walks this module's regex constants and the rule tables are what the consumer contract publishes. Most of the growth is the derivation from cyanrip's source of when a floor is exact.
+    "parsers/cyanrip_log.py": 3345,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1736,7 +1738,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **890 -> 896** (2026-09-26): `partially_accurate_logged`, the log's own one-frame count beside the ripper's tally (the Full run).
     # **896 -> 904** (2026-09-28, the Full run's F5): `tracks_to_rip` and `tracks_to_rip_numbers`, the ripper's own statement of which tracks it was told to extract.
     # **904 -> 905** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the `secure_rerip_converged` comment names both wordings and no longer says a hit limit means no two reads agreed.
-    "parsers/rip_log.py": 905,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **905 -> 945** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `RereadAgreement` and `TrackResult.secure_rerip_agreement`, the count of agreeing reads beside the verdict it belongs to, with what makes it exact or a floor. It belongs beside the dataclass it extends.
+    "parsers/rip_log.py": 945,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -1998,7 +2001,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 1745 -> 1749 on 2026-09-28 (code review R0): a successful disc read tells the media watcher a disc is in, so a retry that read the disc is not followed by a phantom insertion and a third read.
     # **1749 -> 1748 (2026-09-28, 0.6.63)**: the transitional Tools entry for Set cover art from file… left, with the Guide sentence that named it.
     # **1748 -> 1797** (2026-09-30): the confirmation before a close from outside or File -> Quit ends a rip or the acceptance test, beside the `closeEvent` it guards (the fork's round 30 S25).
-    "ui/main_window.py": 1797,
+    # **1797 -> 1800** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` initialised beside `_last_swapped_tracks`.
+    "ui/main_window.py": 1800,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2157,7 +2161,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4893 -> 4903** (2026-10-05): the post-cancel rescue says, while the rip is still running, that a slow disc can take a minute or two to stop, where the status kept promising a 5 s force-stop (the 2026-10-04 run's 54 s read).
     # **4903 -> 4907** (2026-10-05): the launcher records each check in `PostRipRecord.launched`, and `_gates_for` hands that ledger to the report (the 2026-10-04 section I report).
     # **4907 -> 4919** (2026-10-05): the start path hands the worker the drive's reading speed, and the elapsed line records the estimate beside the actual (2026-10-05).
-    "ui/main_window_rip.py": 4919,
+    # **4919 -> 4952** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_merge_shipped_track` moves the agreement count with the verdict it describes (the re-rip's, or nothing, never the first pass's under the re-rip's verdict), and the finish handler captures the worker's `reread_agreements`. The merge rule lives here.
+    "ui/main_window_rip.py": 4952,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2177,7 +2182,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 446 -> 452 on 2026-09-28: the disc-read retry state (`_disc_retries`, `_disc_retry_timer`) DriveMixin reads, and `_start_disc_info`'s `automatic_retry` keyword.
     # 452 -> 453 on 2026-09-28: `_show_dependency_check_in_setup_center`, which ProvisioningMixin calls when the window opens.
     # **453 -> 456** (2026-10-05): the two drive-rate methods declared for the mixins that call them (2026-10-05).
-    "ui/main_window_shared.py": 456,
+    # **456 -> 457** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` declared.
+    "ui/main_window_shared.py": 457,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2441,7 +2447,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3694 -> 3733** (2026-10-05): the cancel-path log wait covers the read in hand (`READER_TERM_GRACE_S`), in one function (`cancelled_log_wait_s`) the acceptance script's cancel sections are held to, and a stopped securing pass whose log never settles keeps the verdicts it wrote whole, with why that is safe; the real 2026-10-04 case never settles inside any wait.
     # **3733 -> 3762** (2026-10-05): `_keep_securing_pass_log`, which copies the securing pass's own ripper log beside the album's before its temp folder is deleted (the 2026-10-04 run's cancelled pass left no record).
     # **3762 -> 3830** (2026-10-05): the up-front time estimate in the plan and the log, and shown as the ETA until the live one has measured enough (`_make_estimate`, `_early_estimate_text`; operator, 2026-10-05).
-    "workers/rip_worker.py": 3830,
+    # **3830 -> 3853** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `reread_agreements`, the re-rip's own count of agreeing reads for every re-read track with a verdict, swapped in or not, recorded at both places a re-read verdict is recorded.
+    "workers/rip_worker.py": 3853,
 }
 
 

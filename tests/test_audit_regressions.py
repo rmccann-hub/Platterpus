@@ -136,7 +136,11 @@ def test_a_track_whose_rereads_disagreed_never_gets_a_test_copy_pair() -> None:
     text = render_eac_style_log(rip_log)
     assert "Test CRC" not in text
     assert "Copy CRC 329DC760" in text
-    assert "re-reads did NOT agree" in text
+    # No agreement count on the record, so the caveat says only what the verdict
+    # proves. "did NOT agree" would claim no two reads matched, which a bare
+    # limit-hit verdict cannot show (TASKS.md, *Found while integrating*, 1).
+    assert "re-reads did not converge — this read is not confirmed" in text
+    assert "did NOT agree" not in text
     # …and the status report still carries the caveat, so the two agree.
     assert "not confirmed reproducible" in text
 

@@ -71,7 +71,12 @@ from platterpus.adapters.transcode import (
 from platterpus.drive_profiles import OffsetSource
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
-from platterpus.parsers.rip_log import RipLog, TrackResult, parse_rip_log
+from platterpus.parsers.rip_log import (
+    RereadAgreement,
+    RipLog,
+    TrackResult,
+    parse_rip_log,
+)
 from platterpus.paths import LOG_PATH
 from platterpus.report_types import ArtifactsBlock, DebugBlock, TimingBlock
 from platterpus.rip_addendum import read_log_with_addendum
@@ -307,7 +312,10 @@ def _verified_by_this_read(new: _T, current: _T, *, track: int, field: str) -> _
 
 
 def _merge_shipped_track(
-    track: TrackResult, shipped: TrackResult | None, verdicts: dict[int, bool]
+    track: TrackResult,
+    shipped: TrackResult | None,
+    verdicts: dict[int, bool],
+    agreements: dict[int, RereadAgreement] | None = None,
 ) -> TrackResult:
     """One track's first-pass record, corrected to describe the shipped file.
 
@@ -321,6 +329,10 @@ def _merge_shipped_track(
     which a ``**dict`` splat cannot. ``number`` and ``filename`` are deliberately
     absent: the re-rip ran in a throwaway directory under the same track number,
     so its identity fields are either irrelevant or wrong.
+
+    ``agreements`` is the worker's ``reread_agreements``: how many reads agreed in
+    each re-read, from the re-rip's own log, swapped in or not. It is applied
+    with the verdict, never without it.
     """
     from dataclasses import replace
 
@@ -373,7 +385,18 @@ def _merge_shipped_track(
     if verdict is not None:
         # The convergence verdict is ours, from the auto-fix history — it wins
         # over whatever the re-rip's own log did or didn't say.
-        track = replace(track, secure_rerip_converged=verdict)
+        #
+        # The agreement count travels WITH it, because it describes the same
+        # reads: the re-rip's, from the worker's record or the swapped-in read's
+        # own, else nothing. Keeping the first pass's count under the re-rip's
+        # verdict would let the EAC-layout log say "at most 2 of 3 reads agreed"
+        # about reads the re-rip never made.
+        reread = (agreements or {}).get(track.number)
+        if reread is None and shipped is not None:
+            reread = shipped.secure_rerip_agreement
+        track = replace(
+            track, secure_rerip_converged=verdict, secure_rerip_agreement=reread
+        )
     return track
 
 
@@ -1663,6 +1686,11 @@ class RipMixin(MainWindowShared):
         # whole-disc log only knows the first pass.
         self._last_swapped_tracks = getattr(
             self._rip_worker, "swapped_track_records", {}
+        )
+        # How many reads agreed in each re-read, swapped in or not: the count that
+        # belongs beside the re-read's verdict in the EAC-layout log.
+        self._last_reread_agreements = getattr(
+            self._rip_worker, "reread_agreements", {}
         )
         # The "for posterity" ETA trace (PC clock + cyanrip's ETA + our ETA),
         # captured while the worker is alive; folded into the report below.
@@ -3800,8 +3828,13 @@ class RipMixin(MainWindowShared):
             )
             if not verdicts and not shipped:
                 return rip_log
+            agreements: dict[int, RereadAgreement] = (
+                getattr(self, "_last_reread_agreements", {}) or {}
+            )
             tracks = tuple(
-                _merge_shipped_track(track, shipped.get(track.number), verdicts)
+                _merge_shipped_track(
+                    track, shipped.get(track.number), verdicts, agreements
+                )
                 for track in rip_log.tracks
             )
             return replace(rip_log, tracks=tracks)

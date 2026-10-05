@@ -53,6 +53,8 @@ from platterpus.parsers.cyanrip_log import (
     interruption_point,
     looks_like_cyanrip_log,
     parse_cyanrip_log,
+    secure_rerip_limit_agreement,
+    secure_rerip_progress,
     secure_rerip_verdict_converged,
 )
 from platterpus.parsers.drive_list import DriveDescriptor, parse_drive_list
@@ -204,6 +206,67 @@ def test_finished_track_never_raises(text: str) -> None:
     assert result is None or (
         isinstance(result[0], int) and isinstance(result[1], bool)
     )
+
+
+_digits = st.text(alphabet="0123456789", max_size=12)
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.builds(
+            "{}Repeating ripping ({} out of {} matches{}".format,
+            st.sampled_from(["", "  ", "\t"]),
+            _digits,
+            _digits,
+            st.text(max_size=200),
+        ),
+    )
+)
+def test_secure_rerip_progress_never_raises(text: str) -> None:
+    """A `Repeating ripping` line, parsed since 2026-10-05 for its match count."""
+    result = secure_rerip_progress(text)
+    assert result is None or (
+        isinstance(result, tuple)
+        and len(result) == 2
+        and all(isinstance(n, int) and n >= 0 for n in result)
+    )
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.builds("Done; (no matches found{}".format, st.text(max_size=200)),
+        st.builds(
+            "{}Done; (repeat limit of {} reads reached; at most {} read{} agreed{}".format,
+            st.sampled_from(["", "  ", "\t"]),
+            _digits,
+            _digits,
+            st.sampled_from(["", "s"]),
+            st.text(max_size=200),
+        ),
+    ),
+    st.lists(
+        st.tuples(
+            st.integers(min_value=0, max_value=10**6),
+            st.integers(min_value=0, max_value=10**6),
+        ),
+        max_size=20,
+    ),
+)
+def test_secure_rerip_limit_agreement_never_raises(
+    line: str, progress: list[tuple[int, int]]
+) -> None:
+    """Never raises, and never claims fewer than one agreeing read: a read always
+    agrees with itself, and an agreement of 0 would render as "did not agree"
+    with nothing measured behind it."""
+    result = secure_rerip_limit_agreement(line, progress)
+    if result is not None:
+        assert result.most_reads_agreed >= 1, (line, progress, result)
+        # Only a limit-hit verdict carries a count at all.
+        assert secure_rerip_verdict_converged(line) is False, line
 
 
 @_SETTINGS
