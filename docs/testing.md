@@ -3538,6 +3538,16 @@ Three things to carry:
   cannot fail, so they are now counted per file in `_UNTIMED_CALLS`, with the reason
   each cannot stall, and `test_every_pattern_the_sweep_cannot_read_is_ledgered` holds
   that ledger to the tree in both directions.
+- **The INPUTS are a population too** (added 2026-10-05). The sweep feeds each
+  pattern runs of one character, so a pattern that only backtracks after a literal
+  prefix has matched (`Read stalls: x`, `KEY: x`) never reaches its slow region, and
+  the sweep reports it linear. Extended to `scripts/`, it passed all 88 tooling
+  patterns while two of them took a third of a second on one 8,000-character line;
+  both were found by building the line by hand. Same shape both times, a lazy
+  capture before trailing whitespace (`\S.*?\s*$`), which retries the whitespace at
+  every step; the greedy `\S(?:.*\S)?` reads the same text in linear time. The
+  same shape in `src/` and the change to the sweep are TASKS "Found while
+  integrating" (4). A clean sweep says nothing about inputs it cannot construct.
 - **A second measurement under the same conditions is not a second witness**
   (added 2026-09-27). The sweep called a pattern super-linear only if it was slow
   twice, and it took the second timing immediately, at the same two sizes. On a
