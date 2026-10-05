@@ -1484,7 +1484,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **417 -> 525** (2026-09-30): the shutdown path's graceful stop (`stop_reader_gracefully`, `device_is_held`): SIGTERM, a grace, then SIGKILL only if the drive is still held. It is the same kill sequence's first step, so it lives beside `free_drive` (the fork's round 30 S25).
     # **525 -> 538** (2026-09-30, the fork's round 30 lap 5 S17): `READER_TERM_GRACE_S` 8 -> 40 s, with the evidence (our filed log's 20 s read, the fork's 11 s) beside the number; `free_drive`'s docstring no longer claims a sanctioned GUI-thread caller.
     # **538 -> 557** (2026-10-05): `running_readers()`, the reader probe the exit check asks, beside the reader names the kill path uses so the two cannot disagree (2026-10-05).
-    "drive_control.py": 557,
+    # **557 -> 565** (2026-10-05): `free_device_holders` says why the rescue's SIGTERM is the first the reader gets (the container boundary, measured 2026-09-07 and 2026-09-09), where it said a signalled reader would have exited, which a 54 s read disproves.
+    "drive_control.py": 565,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     "drive_profiles.py": 447,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
@@ -2128,7 +2129,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4867 -> 4868** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the `failure_hint` comment names both wordings.
     # **4867 -> 4882** (2026-09-30, the fork's round 30 lap 5 S17, our operator's option B): `_stop_rip_on_shutdown` hands the reader stop to `exit_work` instead of blocking the GUI thread for the grace, reading the two values the helper needs on the GUI thread first; the docstring says why the old sanctioned block ended. The job itself went to the new `exit_work.py`.
     # **4882 -> 4893** (2026-10-05): the finish handler passes the cancel to `fidelity_summary`, and `exit_audit_device()` names the drive for the exit check (2026-10-04 rig run; operator, 2026-10-05).
-    "ui/main_window_rip.py": 4893,
+    # **4893 -> 4903** (2026-10-05): the post-cancel rescue says, while the rip is still running, that a slow disc can take a minute or two to stop, where the status kept promising a 5 s force-stop (the 2026-10-04 run's 54 s read).
+    "ui/main_window_rip.py": 4903,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2403,7 +2405,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3630 -> 3632 (2026-09-30, round 30 lap 1)**: the `-Z` prefix comment says the
     # inventory now lists both refusals, and why the prefix stays.
     # **3632 -> 3694** (2026-10-05): `_record_unfinished_refix`: a securing pass that was stopped keeps the verdicts it reached, which a cancel used to discard with the temp folder (2026-10-04 rig run, tracks 12-17).
-    "workers/rip_worker.py": 3694,
+    # **3694 -> 3733** (2026-10-05): the cancel-path log wait covers the read in hand (`READER_TERM_GRACE_S`), in one function (`cancelled_log_wait_s`) the acceptance script's cancel sections are held to, and a stopped securing pass whose log never settles keeps the verdicts it wrote whole, with why that is safe; the real 2026-10-04 case never settles inside any wait.
+    "workers/rip_worker.py": 3733,
 }
 
 

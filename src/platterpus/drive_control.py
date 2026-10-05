@@ -310,11 +310,19 @@ def free_device_holders(
     left without its footer that way. Only the stuck-scan path keeps the default,
     because a scan writes no log.
 
-    ONE SIGTERM, AND THIS IS NATURALLY THE FIRST. cyanrip's second-signal branch
+    ONE SIGTERM, AND ON THE RIG IT IS THE FIRST. cyanrip's second-signal branch
     force-exits without the footer, so a duplicate is as destructive as a kill.
-    ``fuser`` only signals a process that is STILL holding the device, so a reader
-    that already received our SIGTERM has exited and is not signalled again —
-    the conditionality is what makes this safe rather than a second guess.
+    The rip worker's cancel signals the host wrapper's process group, and that
+    signal has not been seen to cross into the container: on 2026-09-07 one left
+    the reader ripping for fifteen and a half minutes, and on 2026-09-09 the
+    footer came 1.7 s after this rescue's SIGTERM. So the rescue's is the first
+    signal the reader gets. This said until 2026-10-05 that a reader which had
+    received our SIGTERM would have exited, and so not be signalled again. That
+    is false on a slow disc, where cyanrip stops only once the read in hand
+    returns (54 s on 2026-10-04); what keeps this the only signal is the
+    container boundary, not ``fuser``. If a podman ever forwards the wrapper's
+    signal, this becomes the second on any read longer than the countdown
+    (``TASKS.md``).
     """
     if not device:
         return False

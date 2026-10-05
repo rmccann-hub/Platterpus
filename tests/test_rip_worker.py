@@ -954,17 +954,34 @@ def test_a_stopped_securing_pass_keeps_the_verdicts_it_reached(
     assert not (tmp_path / "Artist" / "Album" / "02 - B.flac").exists()
 
 
-def test_a_stopped_securing_pass_whose_log_never_settles_records_nothing(
+def test_a_stopped_securing_pass_whose_log_never_settles_keeps_its_whole_verdicts(
     qapp: QApplication, tmp_path: Path
 ) -> None:
-    """No footer, no verdicts: a half-written log is not read for one."""
+    """The 2026-10-04 case as it really ends: the log never reaches its footer.
+
+    That disc took 54 s over one read, so a reader stopped mid-read cannot sign
+    its log inside any wait we can afford. Until 2026-10-05 an unsigned log
+    recorded nothing, which on the rig would have discarded tracks 12-17 again:
+    the fixture this test replaced carried a footer the real case never has.
+
+    The log here is cut where a log being written can be cut, at its end, in
+    the middle of track 3's line. Track 2's verdict line is followed whole by its
+    track line, so it is kept. Track 3's ``Done; (…)`` line is whole too, and
+    must NOT be attributed: its track line is cut short.
+    """
     backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
     worker = RipWorker(
         backend,
         _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
     )
-    unsigned = _REFIX_STOPPED_DURING_TRACK_3.replace("Log FUN512: abc\n", "")
-    write_logs = _fake_rip_writer(_PASS1_TWO_UNSTABLE, unsigned, True)
+    lines: list[str] = []
+    worker.log_line.connect(lines.append)
+    cut_short = _REFIX_STOPPED_DURING_TRACK_3.replace(
+        "Ripping errors: 0\nLog FUN512: abc\n",
+        "Done; (2 out of 2 matches for current checksum 3333AAAA)\nTrack 3 rip",
+    )
+    assert "FUN512" not in cut_short and cut_short.endswith("Track 3 rip")
+    write_logs = _fake_rip_writer(_PASS1_TWO_UNSTABLE, cut_short, True)
 
     def rip_side_effect(call: dict) -> None:
         write_logs(call)
@@ -976,7 +993,18 @@ def test_a_stopped_securing_pass_whose_log_never_settles_records_nothing(
     worker.start_rip()
 
     assert len(backend.rip_calls) == 2, "floor: the securing pass never ran"
-    assert worker.retried_tracks == []
+    assert worker.retried_tracks == [
+        {
+            "track": 2,
+            "trigger": "instability",
+            "reripped_z": 2,
+            "converged": False,
+            "replaced": False,
+            "replaced_because": None,
+        }
+    ]
+    joined = "\n".join(lines)
+    assert "never reached its footer" in joined, joined
 
 
 def test_auto_fix_keeps_a_re_read_that_matches_accuraterip_without_converging(
@@ -3926,6 +3954,14 @@ def test_the_wait_budget_outlasts_the_force_stop_rescue(tmp_path: Path) -> None:
         f"({drive_control.FORCE_STOP_COUNTDOWN_S}s), so it could never see the "
         f"footer the rescue causes to be written"
     )
+    # And the read the rescue's SIGTERM lands in: cyanrip stops only once it
+    # returns, and the 2026-10-04 disc took 54 s over one. A budget that ends
+    # before the longest read filed (half the grace) cannot see that footer.
+    longest_read_filed = drive_control.READER_TERM_GRACE_S / 2
+    assert budget >= drive_control.FORCE_STOP_COUNTDOWN_S + longest_read_filed, (
+        f"the wait budget ({budget}s) ends before a reader in the longest read "
+        f"filed ({longest_read_filed:.0f}s) can answer the rescue's SIGTERM"
+    )
 
 
 def test_the_budget_derives_from_the_countdown_rather_than_restating_it() -> None:
@@ -3938,12 +3974,22 @@ def test_the_budget_derives_from_the_countdown_rather_than_restating_it() -> Non
     """
     import inspect
 
+    from platterpus.workers.rip_worker import cancelled_log_wait_s
+
     body = inspect.getsource(RipWorker._await_ripper_log)
     # Everything after the closing triple-quote of the docstring. A literal-text
     # match against a method that documents its own constants is not a check.
-    _, _, code = body.partition('"""')
+    _, _, method_code = body.partition('"""')
+    _, _, method_code = method_code.partition('"""')
+    assert method_code.strip(), "could not separate the method body from its docstring"
+    # The wait asks the one function for its number rather than summing its own.
+    assert "cancelled_log_wait_s()" in method_code, (
+        "the wait no longer takes its budget from `cancelled_log_wait_s`, so the "
+        "acceptance script's cancel section is held to a different number"
+    )
+    _, _, code = inspect.getsource(cancelled_log_wait_s).partition('"""')
     _, _, code = code.partition('"""')
-    assert code.strip(), "could not separate the method body from its docstring"
+    assert code.strip(), "could not separate the function body from its docstring"
     assert "drive_control.FORCE_STOP_COUNTDOWN_S" in code, (
         "the wait budget does not derive from the rescue countdown it must "
         "outlast — two expressions of one number is how they came to disagree"
@@ -3951,6 +3997,10 @@ def test_the_budget_derives_from_the_countdown_rather_than_restating_it() -> Non
     assert "_RIPPER_EXIT_GRACE_S" in code, (
         "the budget does not include the ripper's own flush allowance for "
         "closing the FLAC it was writing"
+    )
+    assert "drive_control.READER_TERM_GRACE_S" in code, (
+        "the budget does not derive from the read grace, so raising the grace "
+        "for a slower disc would leave this wait short of it"
     )
 
 

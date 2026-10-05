@@ -660,6 +660,22 @@ _RIPPER_TERM_GRACE_S: float = 5.0
 _RIPPER_KILL_GRACE_S: float = 5.0
 
 
+def cancelled_log_wait_s() -> float:
+    """How long a cancelled rip waits for the ripper to sign its log.
+
+    The rescue's countdown, then the read in hand when its SIGTERM lands, then
+    the flush; :meth:`RipWorker._await_ripper_log` says why each term is there.
+    A function rather than a constant so the acceptance script's cancel section
+    can be held to the same number (``tests/test_rig_scripts.py``) and both
+    follow either constant when it moves.
+    """
+    return (
+        drive_control.FORCE_STOP_COUNTDOWN_S
+        + drive_control.READER_TERM_GRACE_S
+        + _RIPPER_EXIT_GRACE_S
+    )
+
+
 def _coarsen_eta_seconds(seconds: float) -> int:
     """Round an ETA to a bucket sized to its magnitude, so the displayed number
     is steady instead of ticking every second (a 1-hour ETA doesn't need
@@ -1960,10 +1976,17 @@ class RipWorker(QObject):
 
         The budget is derived, not chosen: the reader usually writes its footer
         *because* the GUI's force-stop rescue fires, so the wait must outlast that
-        countdown (``drive_control.FORCE_STOP_COUNTDOWN_S``) plus the same flush
-        allowance ``_RIPPER_EXIT_GRACE_S`` already budgets for cyanrip closing the
-        FLAC it was writing. Measured on the run that produced this method: rescue
-        at +4.9 s, footer at +6.6 s.
+        countdown (``drive_control.FORCE_STOP_COUNTDOWN_S``), then the read in hand
+        when the rescue's SIGTERM arrives (cyanrip acts on it only once that read
+        returns, so ``drive_control.READER_TERM_GRACE_S``, twice the longest read
+        filed), plus the flush allowance ``_RIPPER_EXIT_GRACE_S`` already budgets
+        for cyanrip closing the FLAC it was writing. Measured on the run that
+        produced this method: rescue at +4.9 s, footer at +6.6 s, on a disc that
+        read quickly. The read in hand joined the budget after the 2026-10-04 run,
+        whose damaged disc took 54 s over one read: the countdown plus the flush
+        gives up at +20 s, before a reader in such a read can write a footer, and
+        the log is then archived as unsigned. It polls, so a quick disc still
+        costs seconds.
 
         Interruptible: ``abandon_log_wait`` sets an event this polls, so window
         close is not held up by it. That is a real interrupt rather than a flag the
@@ -1983,7 +2006,7 @@ class RipWorker(QObject):
         if writer_exit_observed:
             deadline = 0.0
         else:
-            deadline = drive_control.FORCE_STOP_COUNTDOWN_S + _RIPPER_EXIT_GRACE_S
+            deadline = cancelled_log_wait_s()
             self.log_line.emit(
                 "[verify] the rip was cancelled, so the ripper may still be "
                 "writing its log. Waiting up to "
@@ -2975,16 +2998,25 @@ class RipWorker(QObject):
         for it. The securing pass stays marked interrupted.
 
         On a cancel the in-container reader writes its log after we stop reading
-        it, so the log is read only once its footer is on disk; a log that never
-        settles records nothing, rather than a verdict read off a half-written
-        file. Never raises.
+        it, so the log is waited for first (:meth:`_await_ripper_log`): the track
+        in hand may then finish too. **A log that never settles is still read**,
+        and that is safe for this field in particular. A log is written by
+        appending, so it can only be cut short at its end. A track's verdict is
+        its ``Done; (…)`` line, which the parser attaches only when the track's own
+        ``Track N …`` line follows it whole, both printed after that track's reads
+        ended; the block's ``Secure re-read:`` row can then restate it, and every
+        cut-short form of that row reads as no verdict or the same one
+        (``cyanrip@174a134:src/cyanrip_log.c:593-601``). So a short log loses the
+        last verdict and never alters an earlier one. Until
+        2026-10-05 a log with no footer recorded nothing, and that was the
+        2026-10-04 run's case: a reader in a 54 s read cannot sign its log inside
+        any wait we can afford, so six verdicts would have been discarded again.
+        Never raises.
         """
         try:
-            if (
-                self._cancelled
-                and not self._await_ripper_log(rerip_log_path).is_settled
-            ):
-                return
+            settled = True
+            if self._cancelled:
+                settled = self._await_ripper_log(rerip_log_path).is_settled
             rerip_log = self._parse_log(rerip_log_path)
             recorded: list[int] = []
             for track in getattr(rerip_log, "tracks", ()) or ():
@@ -3005,10 +3037,17 @@ class RipWorker(QObject):
                 )
             if recorded:
                 listed = ", ".join(str(n) for n in recorded)
+                unsigned = (
+                    ""
+                    if settled
+                    else " Its log never reached its footer, so they were read "
+                    "from the lines it had written; each verdict line was "
+                    "followed whole by its track's line."
+                )
                 self.log_line.emit(
                     f"[auto-fix] the securing pass stopped before it finished; "
                     f"track(s) {listed} had been re-read and their verdicts are "
-                    "kept. Their first reads stay in the album."
+                    f"kept. Their first reads stay in the album.{unsigned}"
                 )
         except Exception:  # noqa: BLE001 — a record must never crash the rip
             log.exception("could not record the stopped securing pass's verdicts")

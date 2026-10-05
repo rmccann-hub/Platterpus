@@ -4773,6 +4773,43 @@ def test_auto_force_stop_frees_the_DEVICE_and_never_ejects(
     )
 
 
+def test_the_rescue_says_the_ripper_may_take_minutes_while_the_rip_is_running(
+    teardown_threads, monkeypatch
+) -> None:
+    """The countdown the status promised has run out; say what happens next.
+
+    On the 2026-10-04 damaged disc one read took 54 s, and cyanrip stops only
+    once the read in hand returns, so after the rescue the rip can stay
+    "Cancelling" for a minute or two. A status still reading "force-stopped in
+    5s" a minute later is a window that looks frozen. Only while the rip is
+    running: after it finishes, its own final line ("Rip cancelled…") stands,
+    and the rescue firing later must not overwrite it.
+    """
+    _patch_free_device_holders(monkeypatch)
+    window = teardown_threads()
+    window._force_stop_device = "/dev/sr0"
+    label = window._rip_progress._status_label
+
+    window._rip_progress.set_status("Rip cancelled by user.")
+    window._rip_worker = None
+    window._auto_force_stop()
+    _join_force_stop(window)
+    # `set_status` stamps the time in front, so the line is matched by its end.
+    assert label.text().endswith("Rip cancelled by user."), (
+        f"the rescue overwrote a finished rip's own status: {label.text()!r}"
+    )
+
+    window._force_stop_done = False
+    window._rip_worker = object()  # type: ignore[assignment]  # a rip in flight
+    try:
+        window._auto_force_stop()
+        _join_force_stop(window)
+        assert "minute or two" in label.text(), label.text()
+        assert "Force stop" in label.text(), label.text()
+    finally:
+        window._rip_worker = None
+
+
 def test_a_rescue_with_no_device_says_NOT_DETERMINED_rather_than_nothing(
     teardown_threads, monkeypatch
 ) -> None:

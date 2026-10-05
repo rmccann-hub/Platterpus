@@ -386,7 +386,7 @@ def _document() -> str:
         "| prove a probe refuses on a disc image | `cyanrip -x -N` then `expect-cyanrip not run` |"
     )
     add("| check a setting without changing it | `expect <field> <value>` |")
-    add("| test the cancel path | `rip`, `wait 30`, `cancel-rip`, `wait-for-rip 120` |")
+    add("| test the cancel path | `rip`, `wait 30`, `cancel-rip`, `wait-for-rip 180` |")
     add("| capture the whole window, dialogs included | `screenshot <name>` |")
     add("| record visible state as text | `snapshot <name>` |")
     add("| run any ripper invocation for real | `cyanrip <args…>` |")
