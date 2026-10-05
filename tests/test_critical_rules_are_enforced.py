@@ -1747,7 +1747,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **370 -> 410** (2026-09-28, `-Z` that `-r` cannot satisfy): `recovery_secure_rerip_ceiling`, which caps the ladder's own fallback `-Z` (`MAX_SECURE_REREP`, defined here) at what the user's `-r` lets converge. Beside the bound it caps, and shared by the ladder and the auto-fix so they cannot disagree.
     # **410 -> 414** (2026-09-28, the `-Z` wording): the ladder's reason strings name N+1 identical passes for `-Z N`, and two comments say so.
     # **414 -> 415** (2026-09-28, same): `unstable_tracks`' docstring stops saying a track that hit the limit had no two reads agree.
-    "read_speed_ladder.py": 418,
+    # **418 -> 450** (2026-10-05, the fork's `+platterpus.20`): `_instability_explains_arm`, which keeps a paranoia skip and a `-Z` track at the repeat limit, both `with errors` from `.20`, out of the whole-disc step-down. It is the trigger's own exclusion, so it sits beside `read_errors_present`; most of the growth is the docstring saying why, and that the policy question is the maintainer's.
+    "read_speed_ladder.py": 450,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
