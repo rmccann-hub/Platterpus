@@ -133,6 +133,12 @@ class PostRipRecord:
     #: at the single launcher chokepoint so the ledger cannot drift from what
     #: actually ran.
     pending: set[str] = field(default_factory=set)
+    #: Every check ever launched for this album, by gate key; unlike ``pending``,
+    #: never emptied. It is what says the post-rip chain began, which a rip's
+    #: outcome cannot: a cancel during the securing pass leaves the album pass
+    #: finished, so the chain starts on a rip whose status is "cancelled"
+    #: (2026-10-04, 19:07:11).
+    launched: set[str] = field(default_factory=set)
     #: Checks a newer rip cut short. A gate is only moved here when the check was
     #: genuinely launched AND produced no result — both halves matter, in both
     #: directions (see :meth:`seal_superseded`).
