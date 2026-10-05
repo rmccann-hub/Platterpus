@@ -768,6 +768,14 @@ Open:
   `update_check.is_prerelease_version` keeps off the stable channel and `release.yml`
   sends through the relaxed handshake gate. Nothing to build before the cut; at the cut,
   `__version__` and the CHANGELOG heading carry the `b1`.
+- [ ] **A message box shown a second time is not fitted again.** `fit_message_box`
+  finds Qt's label by its place in the box's grid; once a first fit has moved it into
+  the scroll area, a second fit (the filter on a later Show, on another screen) logs
+  "text label not in its layout" and leaves the box sized for the first screen. Found
+  when `test_app_smoke` leaked the app-wide filter into `test_ui_message_box_fit`
+  (PR #286, Python 3.13 leg); the harness half is fixed in `tests/conftest.py`. The
+  product half needs a refit that resizes the existing area. Rare (a box re-shown on
+  another screen), and it fails safe: the box is left as it was.
 - [x] **A full map of what Platterpus has or relies on** (operator, 2026-10-05).
   `bom.cdx.json` (CycloneDX 1.7) and the generated block in `DEPENDENCIES.md`, from
   `scripts/emit_bom.py`; `--check` and `tests/test_bom_emitted.py` hold it fresh, and a tool
