@@ -43,6 +43,13 @@ inaccurate"*.
   in its body (§5c) and takes the fork's findings from their released rig README instead.
 - *The data register*: `docs/cyanrip-handshake.md` §10, six wants and six gives, the giver
   rating ease and accuracy; lap 8 asks the fork to rate its half.
+- *Window sizes and readability* (agent, `d9ec219b`, `9de67cd6`, `5bce3ea3`): the cyanrip
+  update and install offers, the script reference and the dependency summary opened
+  taller than small screens, with their buttons off screen, and message boxes were
+  centred before Qt had sized them. Every message box is now fitted to its screen before
+  it is centred, scrolling its text when no width fits. The manual-install reason wraps,
+  and the release picker shows titles and artists in full. The conformance matrix now
+  measures all 40 routed message boxes and the 9 hand-built ones, with real content.
 - *The dependency map* (`dba00711`, agent): `bom.cdx.json` (CycloneDX 1.7) and a generated
   block in `DEPENDENCIES.md`; its two-way tool check caught `pgrep` on integration
   (`575eda61`).
