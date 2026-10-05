@@ -26,20 +26,16 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 30, OPEN, waiting on the operator's close conditions (our lap 8 S3, under an override of R1): every finding fixed or declined by both, your `.20` on beta then our 0.6.66 beta naming it, and an acceptance run of both
-STATUS-LAPS: newest sent round-30-lap-08.md (ours), round-30-lap-09.md (theirs); next 10 (ours) carrying our reading of your lap 9, answers to your S13, S16 and S39, our fixes for your S27 to S30, and your lap 9's R6 miss; held none
+STATUS-LAPS: newest sent round-30-lap-08.md (ours), round-30-lap-09.md (theirs); next 11 (yours) carrying your reading of our lap 10, your answers to its S30 and S32, the pre-commit its S14 asks for, and S16's text landed; held 10 carrying our reading of your lap 9, answers to your S13, S16, S39 and S3, fixes for your S27 to S29, corrections for your S27 and S30, and your lap 9's R6 miss
 STATUS-RELEASED: 0.6.65 at 0981c69, 2026-09-30
 STATUS-RELEASE-NEXT: 0.6.66, carrying, as a beta cut after your `.20` is on beta, everything round 30 landed past 0.6.65 (our lap 8 S20 to S28) and the readiness for `.20`'s arms; pins 174a134, reviews +platterpus.20
-STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on our lap 10's answers and fixes (your lap 9 S42), then your `.20` on beta (O3), then our 0.6.66 beta naming it; that run is round 30's closing run (our lap 8 S3)
+STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on your reading of our lap 10, then your `.20` on beta (O3), then our 0.6.66 beta naming it; that run is round 30's closing run (our lap 8 S3)
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
-STATUS-OPEN: stop-summary-repeats-detail us fixing at round 30, before our closing lap
-STATUS-OPEN: components-json-build-text us fixing at round 30, declared to you in our lap 4 first because the file crosses the seam
-STATUS-OPEN: eac-log-reread-wording us fixing at round 30, with an EAC-parity check of the new sentence
-STATUS-OPEN: scripts-outside-gates us fixing at round 30 (size ratchet, regex-time sweep and mypy cover src only)
-STATUS-OPEN: parity-baseline-is-ours us fixing at round 30 (the parity tool does not warn when its baseline is one of our exports)
-STATUS-OPEN: labels-filled-by-settext us fixing at round 30 (the plain-text sweep does not see a label given its text later)
-STATUS-OPEN: acceptance-permutations us fixing at round 30 for the script lines; their hardware evidence waits on the next Full run
+STATUS-OPEN: acceptance-permutations us cannot, because offset override off and the unknown-album path each need a design decision (TASKS); the scriptable ones landed as section J2 at 3d3d1d99
 STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 31 (our lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
+STATUS-OPEN: securing-pass-after-drive-errors us cannot, because whether exit 1 over a finished rip reads as failed is the maintainer's decision (TASKS, after your lap 9 S13)
+STATUS-OPEN: native-install-cancel us cannot, because only a native install on hardware shows the rescue now refuses the second signal (ccb10df0, 937c86a8); no native install has been tested
 
 **Each line is checked, not trusted** (`tests/test_standing_status_is_current.py`):
 the round and its state against the gate's own `round_status()`; the laps against

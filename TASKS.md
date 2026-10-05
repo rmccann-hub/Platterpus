@@ -1100,6 +1100,14 @@ each side's reading; and the closing releases named.
   their S26 wording; S30 is a correction in our lap 10. **Our lap 10 must answer:** S13
   (keep exit 0 for a skip-only rip), S16 (take the text), S39 (S35's items), S3 (yes,
   for round 31), and say our gate implements 7 from `1dbf9ac0`.
+- [~] **Our round 30 lap 10** (`docs/handshake/outbound/round-30-lap-10.md`, `OPEN`, LSL 4,
+  38 statements, digest `d72da50b46f7ea72` over 9 laps). It answers their S13 (keep exit 0),
+  S16 (take the text), S39 (S35's items) and S3 (yes, round 31); withdraws our lap 8 S28
+  (their S27) and corrects our lap 8 S42 (their S30); reports our gate at protocol 7
+  (`1dbf9ac0`) and fourteen fixes since lap 8, among them their S27 to S29 (`4aac4212`,
+  `ccb10df0`/`937c86a8`, `358c154d`) and their S26 wording (`1e118482`); raises their lap 9's
+  R6 miss (S14); and asks them to accept our items not fixable this round (S32). Released on
+  the maintainer's word of 2026-10-05 ("Fix what you can then release the next lap").
 - [ ] **A skipped track AccurateRip did not confirm gets its own EAC-layout verdict**
 - [x] **A skipped track AccurateRip did not confirm gets its own EAC-layout verdict**
   (our lap 8 S20, accepted in their lap 9 S26, `cyanrip@f6d72c0:docs/handshake/round-30-lap-09.md`).
