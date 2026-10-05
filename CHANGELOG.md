@@ -110,6 +110,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   linear time. Its pattern took about a third of a second on one line with 8,000
   spaces inside the version and four times longer each time the run doubled. It
   now reads exactly what it read before, faster.
+- For contributors: the handshake tool reads a lap's header fields in linear
+  time. The pattern every `KEY: value` line goes through, in our laps and the
+  fork's, took about a third of a second on a value with a run of 8,000 spaces
+  in it, and four times longer each time the run doubled. It now reads the same
+  fields with the same values: all 7,720 fields in the 330 filed laps compare
+  identical, and a test keeps them so.
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached

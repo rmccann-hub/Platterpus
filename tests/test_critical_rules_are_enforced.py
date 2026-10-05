@@ -2497,7 +2497,9 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     "scripts/emit_envelope.py": 849,
     "scripts/emit_ripper_inventory.py": 316,
     "scripts/emit_script_language.py": 504,
-    "scripts/handshake.py": 4365,
+    # **4365 -> 4368** (2026-10-05): `_WIRE_FIELD` rewritten greedy (linear in a
+    # run of blanks, same matches), one line of it the formatter's wrap.
+    "scripts/handshake.py": 4368,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     "scripts/laplang/lsl3.py": 433,
     "scripts/laplang/refs.py": 324,
