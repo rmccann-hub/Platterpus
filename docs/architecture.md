@@ -261,10 +261,12 @@ Worker mechanics, all demonstrated in `workers/`:
   centring the 640-px placeholder put a box that fitted half below the screen.
 - **Measure the real content, not a stand-in.** The matrix built the install
   dialog from a test spec with a one-line description and passed it while the
-  real ffmpeg description ran 2,656 px off its edge. A window whose text comes
-  from data is measured with the real data (every registry spec, every
-  ripper-offer verdict, the real pins and versions), and the populations are
-  derived from the source so a new window or box cannot be skipped.
+  real ffmpeg description ran 2,656 px off its edge; the release picker's
+  stand-ins ("Album" by "Artist") hid Title and Artist squeezed to three
+  characters by a real label and note. A window whose text comes from data is
+  measured with the real data (every registry spec, every ripper-offer verdict,
+  the real pins and versions, MusicBrainz-length releases), and the populations
+  are derived from the source so a new window or box cannot be skipped.
 - **A UI rule is written ONCE and applied to every window, in every condition.**
   Every defect in the 2026-09-23 report had the same root: a rule solved in one
   window and never applied to the rest. `tests/test_ui_conformance.py` is the
@@ -276,8 +278,8 @@ Worker mechanics, all demonstrated in `workers/`:
   text, fits the screen, placed on the screen, scrolls only when capped, text
   contrast ≥ 4.5:1 measured from the colours actually applied, no button smaller
   than we set or the style asked for, no cut-off one-line text or text running
-  past a scroll area that cannot scroll sideways, no two controls sharing an
-  Alt-key (per
+  past a scroll area that cannot scroll sideways, no cut-off table cell, no two
+  controls sharing an Alt-key (per
   window and per menu), and no nameless input. A new window is measured the day
   it lands; a new rule reaches every window the day it is added; each rule has a
   floor on what it examined and was revert-probed. Its first run found four real

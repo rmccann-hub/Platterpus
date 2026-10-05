@@ -119,6 +119,7 @@ RULES: tuple[str, ...] = (
     "text_contrast",
     "button_floor",
     "cut_off_labels",
+    "cut_off_cells",
     "duplicate_shortcuts",
     "unnamed_inputs",
 )
@@ -328,7 +329,7 @@ def _duplicate_mnemonics(
 
 def _measure_one(window: object) -> dict[str, object]:
     """Show one window and apply every rule to what was rendered."""
-    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtCore import QPoint, QRect, Qt
     from PySide6.QtGui import QPalette
     from PySide6.QtWidgets import (
         QAbstractButton,
@@ -343,6 +344,8 @@ def _measure_one(window: object) -> dict[str, object]:
         QPlainTextEdit,
         QPushButton,
         QScrollArea,
+        QStyle,
+        QTableView,
         QTextEdit,
         QToolButton,
     )
@@ -513,6 +516,48 @@ def _measure_one(window: object) -> dict[str, object]:
                 f"{type(widget).__name__} {text[:50]!r}"
             )
 
+    # cut_off_cells — a table cell, in view, whose text does not fit it. Added
+    # 2026-10-05: with real releases the MusicBrainz picker squeezed Title and
+    # Artist to three characters ("Lift Y…"), and no rule looked inside a table.
+    # Measured with the view's own font and wrap setting against the cell's
+    # rectangle less the style's text margin; a cell with a check box or an icon
+    # is skipped, because part of its width is not text.
+    for view in w.findChildren(QTableView):  # type: ignore[attr-defined]  # a QWidget
+        model = view.model()
+        if not shown(view) or model is None:
+            continue
+        metrics = view.fontMetrics()
+        margin = 2 * (
+            view.style().pixelMetric(
+                QStyle.PixelMetric.PM_FocusFrameHMargin, None, view
+            )
+            + 1
+        )
+        wrap = Qt.TextFlag.TextWordWrap if view.wordWrap() else Qt.TextFlag(0)
+        in_view = view.viewport().rect()
+        for row in range(model.rowCount()):
+            for column in range(model.columnCount()):
+                index = model.index(row, column)
+                text = model.data(index, Qt.ItemDataRole.DisplayRole)
+                rect = view.visualRect(index)
+                if (
+                    not text
+                    or not rect.intersects(in_view)
+                    or model.data(index, Qt.ItemDataRole.CheckStateRole) is not None
+                    or model.data(index, Qt.ItemDataRole.DecorationRole) is not None
+                ):
+                    continue
+                examined["cut_off_cells"] += 1
+                room = rect.width() - margin
+                need = metrics.boundingRect(
+                    QRect(0, 0, max(room, 1), 100_000), int(wrap), str(text)
+                )
+                if need.width() > room + 1 or need.height() > rect.height():
+                    violations["cut_off_cells"].append(
+                        f"{room}x{rect.height()}px cell needs "
+                        f"{need.width()}x{need.height()}px: {str(text)[:40]!r}"
+                    )
+
     # duplicate_shortcuts — two controls in one window claiming the same Alt-key.
     sources: list[str] = [
         b.text()
@@ -647,8 +692,68 @@ def _measure_all() -> dict[str, object]:
     results.update(_measure_states())
     results.update(_measure_every_real_spec())
     results.update(_measure_real_cyanrip_windows())
+    results.update(_measure_real_releases())
     results.update(measure_message_boxes(_measure_one, _main_window))
     return results
+
+
+def _measure_real_releases() -> dict[str, object]:
+    """The release picker with releases as long as MusicBrainz's real ones.
+
+    Its factory uses `_release()` stand-ins — "Album" by "Artist", no label, no
+    notes — and with those it always fitted. With a two-label credit and a
+    disambiguation note, the columns sized to their content took the width and
+    Title and Artist were squeezed to three characters (audit, 2026-10-05).
+    """
+    from test_ui_release_picker import _release
+
+    from platterpus.ui.release_picker import ReleasePickerDialog
+
+    skinny = "Lift Your Skinny Fists Like Antennas to Heaven"
+    gybe = "Godspeed You! Black Emperor"
+    releases = [
+        _release("a", skinny, gybe, "2000-10-09", "CA", 4, "Constellation", "CST012"),
+        _release(
+            "b",
+            skinny,
+            gybe,
+            "2000-10-09",
+            "XE",
+            4,
+            "Kranky",
+            "KRANK043",
+            disambiguation="European edition with alternate artwork",
+        ),
+        _release(
+            "c",
+            skinny,
+            gybe,
+            "2021",
+            "JP",
+            4,
+            "Constellation / Daymare Recordings",
+            "DYMC-1234",
+            medium="SHM-CD",
+            disambiguation="Japanese reissue, remastered, with obi",
+        ),
+        _release(
+            "d",
+            "The Rise and Fall of Ziggy Stardust and the Spiders From Mars "
+            "(2012 Remastered Version)",
+            "David Bowie",
+            "2012-06-04",
+            "GB",
+            11,
+            "EMI",
+            "5099946362622",
+            disambiguation="40th anniversary edition",
+        ),
+    ]
+    return {
+        "ReleasePickerDialog[real-length releases]": _measure_one(
+            ReleasePickerDialog(releases)
+        )
+    }
 
 
 #: Two cyanrip windows measured with what they really say, by key.
@@ -965,6 +1070,9 @@ FLOORS: dict[str, int] = {
     "cut_off_labels": 1000,
     "duplicate_shortcuts": 200,
     "unnamed_inputs": 200,
+    # The release picker's cells: 18 stand-in and 36 real-length cells per
+    # condition when this was written (2026-10-05).
+    "cut_off_cells": 500,
 }
 
 
@@ -988,6 +1096,7 @@ def test_every_rule_examined_real_subjects(
     expected = (
         MEASURED
         | {"MainWindow", *STATES, *REAL_CYANRIP_WINDOWS}
+        | {"ReleasePickerDialog[real-length releases]"}
         | _real_spec_keys()
         | expected_keys()
     )

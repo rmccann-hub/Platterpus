@@ -176,6 +176,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   errors", because cyanrip's own error count leaves those reads out. It now names
   the track. A track AccurateRip confirms is still clean, however hard it was to
   read.
+- **The MusicBrainz release picker shows each release's title and artist in
+  full.** With real releases, a label credit such as "Constellation / Daymare
+  Recordings" or a note such as "Japanese reissue, remastered, with obi" took the
+  table's width and squeezed Title and Artist, the two columns you choose by, to
+  three letters ("Lift Y…"). Long text now wraps inside its cell and the rows
+  grow to fit it, the columns share the width by how much each needs, and the
+  picker opens wider on a big screen. When even single words do not fit (large
+  text on a small screen), the table scrolls sideways instead of cutting a word
+  off.
+- For contributors: the conformance matrix has a `cut_off_cells` rule (a table
+  cell, in view, whose text does not fit it) and measures the release picker
+  with MusicBrainz-length releases as well as its stand-ins.
 - **Message boxes now fit on the screen, and open where all of them can be
   seen.** Qt sizes its message boxes itself: no wider than half the screen, and
   as tall as the text, with no limit. Nothing checked the result, so on a small

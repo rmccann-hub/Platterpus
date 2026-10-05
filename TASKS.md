@@ -41,6 +41,35 @@ at 100 % and 150 % text, and the screenshots were looked at.
   the edge. `ui/dialogs/message_box_fit.py`, run by `DialogCenterFilter` before it
   centres; every message box and inline Qt dialog is in the matrix
   (`tests/test_ui_message_box_conformance.py`), with a `window_on_screen` rule.
+- [x] **The MusicBrainz release picker squeezed Title and Artist to three
+  letters** with real releases (a long label credit or note). The prose columns
+  share the width by need and wrap, never narrower than their longest word, and
+  the table scrolls sideways when even that does not fit; a `cut_off_cells` rule
+  covers every table the matrix measures.
+- [ ] **Confirm on the rig what headless cannot show.** Real KWin decorations and
+  placement, Noto Sans metrics (DejaVu Sans, used here, is wider), and native
+  Wayland, where a client cannot place its own window. At 150 % text, open Help →
+  Check for cyanrip updates and the test console's script reference, and confirm
+  the buttons are on screen.
+- [ ] **A window exactly as wide as the screen has its frame's side border off
+  it** (the release picker on a 1280 × 800 panel at 150 %; a message box carrying
+  a long path on a screen up to 1024 px wide). No content is lost, only the border
+  and part of the layout margin. `fit_dialog_to_screen` keeps a chosen width up
+  to the full screen on purpose, so whether to leave a side margin is the
+  maintainer's call, not a fix taken here.
+- [ ] **The track table is not measured with a disc loaded.** The matrix's main
+  window has no disc, so `cut_off_cells` examines none of its cells; a disc with
+  long track titles is the next population to add. Not done here because the
+  track table's column widths are a deliberate design (measured once per disc,
+  2026-08-05) and the rule's verdict on it needs the maintainer's view first.
+- [ ] **Qt's own file dialog and tooltips are not measured.** On the desktop the
+  file dialog is usually the desktop's own, not ours to size.
+- [ ] **The conformance matrix is built once per xdist worker that runs one of
+  its tests**, so under `-n 4` the same 22 conditions can be measured four
+  times. Its processes are now bounded (one per CPU per worker), which stopped
+  the memory exhaustion; sharing one matrix across workers, or `--dist
+  loadgroup` for it, would also cut the duplicated time. Not done here: it
+  changes how CI distributes the suite.
 
 ## Faster CI and dev loop — measured, and planned in phases (maintainer, 2026-09-26)
 

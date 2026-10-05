@@ -15,12 +15,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialogButtonBox,
     QHeaderView,
     QLabel,
+    QStyle,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -44,6 +45,17 @@ _COLUMNS: list[tuple[str, str]] = [
     ("Format", "medium_format"),
     ("Notes", "disambiguation"),
 ]
+
+#: The columns whose text has no natural length limit: they share the table's
+#: width and wrap. The rest (a date, a country code, a catalog number, a count,
+#: a format) are short by nature and are sized to their content.
+_PROSE_ATTRIBUTES: frozenset[str] = frozenset(
+    {"title", "artist_credit", "label", "disambiguation"}
+)
+
+#: The widest the picker opens, whatever its text would like: about the width of
+#: Settings on a large screen. Wider, a row is harder to follow across.
+_WIDEST_OPENING_PX: int = 1200
 
 
 class ReleasePickerDialog(CenteredDialog):
@@ -89,20 +101,39 @@ class ReleasePickerDialog(CenteredDialog):
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        # Stretch the Title and Artist columns; the rest fit content.
+        # **Every column whose text can run long shares the width and wraps;
+        # only the short codes fit their content.** Title and Artist used to be
+        # the only stretching columns, with Label and Notes sized to their whole
+        # text — so with real releases (a two-label credit, a disambiguation like
+        # "Japanese reissue, remastered, with obi") those two took the width and
+        # squeezed Title and Artist, the columns a user reads to choose, to three
+        # characters: "Lift Y…", "G… Y…" (audit, 2026-10-05; the test stand-ins,
+        # "Album" and "Artist" with no label or notes, never showed it). Now the
+        # prose columns divide what the short ones leave, in proportion to what
+        # each needs, never narrower than its longest word (a word cannot wrap);
+        # rows grow to the wrapped text, and if even the words do not fit — 150 %
+        # text on a small screen — the table scrolls sideways rather than cutting
+        # one off. Recomputed whenever the table changes size.
         header = self._table.horizontalHeader()
-        for i in range(len(_COLUMNS)):
+        for i, (_, attr) in enumerate(_COLUMNS):
             mode = (
-                QHeaderView.ResizeMode.Stretch
-                if i in (0, 1)
+                QHeaderView.ResizeMode.Interactive
+                if attr in _PROSE_ATTRIBUTES
                 else QHeaderView.ResizeMode.ResizeToContents
             )
             header.setSectionResizeMode(i, mode)
+        self._table.setWordWrap(True)
         self._table.verticalHeader().setVisible(False)
         self._table.setAlternatingRowColors(True)
 
         self._populate_rows()
+        self._table.installEventFilter(self)
         root.addWidget(self._table, stretch=1)
+        # Open as wide as the text would like, up to a width past which a row is
+        # harder to scan than a wrapped cell is to read; `CenteredDialog` caps it
+        # at the screen, where wrapping takes over.
+        natural = min(self._natural_width(), _WIDEST_OPENING_PX)
+        self.resize(max(self.width(), natural), self.height())
 
         # Double-click on a row accepts the dialog (matches OS pattern
         # for "pick from list" dialogs).
@@ -142,6 +173,77 @@ class ReleasePickerDialog(CenteredDialog):
         return self._releases[row]
 
     # --- Internals ---------------------------------------------------------
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802 — Qt API
+        """Share the width out again whenever the table changes size."""
+        if watched is self._table and event.type() == QEvent.Type.Resize:
+            self._share_prose_width()
+        return super().eventFilter(watched, event)
+
+    def _share_prose_width(self) -> None:
+        """Divide the table's free width among the prose columns; see `__init__`."""
+        header = self._table.horizontalHeader()
+        prose = [i for i, (_, a) in enumerate(_COLUMNS) if a in _PROSE_ATTRIBUTES]
+        short = sum(
+            header.sectionSize(i) for i in range(len(_COLUMNS)) if i not in prose
+        )
+        # The vertical bar's width is ALWAYS set aside, so the bar appearing or
+        # going as the rows reflow cannot change the answer and trigger another.
+        room = (
+            self._table.width()
+            - 2 * self._table.frameWidth()
+            - self._table.verticalScrollBar().sizeHint().width()
+            - short
+        )
+        need = {
+            i: max(self._table.sizeHintForColumn(i), header.sectionSizeHint(i))
+            for i in prose
+        }
+        total = sum(need.values()) or 1
+        for i in prose:
+            header.resizeSection(
+                i, max(self._longest_word_width(i), room * need[i] // total)
+            )
+        self._table.resizeRowsToContents()
+
+    def _longest_word_width(self, column: int) -> int:
+        """The width column ``column``'s widest single word needs, heading included."""
+        attr = _COLUMNS[column][1]
+        cells = [str(getattr(release, attr, "") or "") for release in self._releases]
+        margin = (
+            self._table.style().pixelMetric(QStyle.PixelMetric.PM_FocusFrameHMargin) + 1
+        )
+        widest_cell = max(
+            (
+                self._table.fontMetrics().horizontalAdvance(word)
+                for text in cells
+                for word in text.split()
+            ),
+            default=0,
+        )
+        heading = self._table.horizontalHeader().fontMetrics()
+        widest_heading = max(
+            (heading.horizontalAdvance(w) for w in _COLUMNS[column][0].split()),
+            default=0,
+        )
+        # A few pixels of slack: the header pads its text more than a cell does.
+        return max(widest_cell, widest_heading) + 2 * margin + 4
+
+    def _natural_width(self) -> int:
+        """The dialog width at which no cell would need to wrap."""
+        columns = sum(
+            max(
+                self._table.sizeHintForColumn(i),
+                self._table.horizontalHeader().sectionSizeHint(i),
+            )
+            for i in range(len(_COLUMNS))
+        )
+        bar = self._table.verticalScrollBar().sizeHint().width()
+        frame = 2 * self._table.frameWidth()
+        layout = self.layout()
+        margins = layout.contentsMargins() if layout is not None else None
+        sides = margins.left() + margins.right() if margins is not None else 0
+        return columns + bar + frame + sides
 
     def _populate_rows(self) -> None:
         for row, release in enumerate(self._releases):
