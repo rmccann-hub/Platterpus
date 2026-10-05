@@ -26,10 +26,10 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 30, OPEN, waiting on the operator's close conditions (our lap 8 S3, under an override of R1): every finding fixed or declined by both, your `.20` on beta then our 0.6.66 beta naming it, and an acceptance run of both
-STATUS-LAPS: newest sent round-30-lap-08.md (ours), round-30-lap-07.md (theirs); next 9 (yours) carrying your reading of our lap 8, of the 2026-10-05 run and of the data register; held none
+STATUS-LAPS: newest sent round-30-lap-08.md (ours), round-30-lap-09.md (theirs); next 10 (ours) carrying our reading of your lap 9, answers to your S13, S16 and S39, our fixes for your S27 to S30, and your lap 9's R6 miss; held none
 STATUS-RELEASED: 0.6.65 at 0981c69, 2026-09-30
 STATUS-RELEASE-NEXT: 0.6.66, carrying, as a beta cut after your `.20` is on beta, everything round 30 landed past 0.6.65 (our lap 8 S20 to S28) and the readiness for `.20`'s arms; pins 174a134, reviews +platterpus.20
-STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on your `.20` on beta (O3), then our 0.6.66 beta naming it; that run is round 30's closing run (our lap 8 S3)
+STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on our lap 10's answers and fixes (your lap 9 S42), then your `.20` on beta (O3), then our 0.6.66 beta naming it; that run is round 30's closing run (our lap 8 S3)
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
 STATUS-OPEN: stop-summary-repeats-detail us fixing at round 30, before our closing lap
