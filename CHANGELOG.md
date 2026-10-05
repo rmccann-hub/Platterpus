@@ -421,6 +421,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **`TASKS.md` ranks what is open for the 0.6.66 beta, the cyanrip fork and quick
+  wins** (contributor-facing). A new section at the top orders the open rows, each
+  with its fix and a time, and names the maintainer's decisions they wait on. Seven
+  rows that said open were done or answered and now say so, one duplicated row was
+  removed, and the open count is measured in every checkbox form: 178 before, 173
+  after. `SECURITY.md` now says the full-history secret scan is approved but held
+  under the freeze on CI changes, rather than only "not yet applied".
+
 - For contributors: the module-size ratchet now covers `scripts/` and `build/`,
   not only `src/platterpus`. The 19 tooling modules already over 300 lines are
   recorded at their current length and may not grow, and a module that crosses

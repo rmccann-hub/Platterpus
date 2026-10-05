@@ -11,6 +11,34 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-05 (night) — lap 10 on `main`, and the open list ranked for the 0.6.66 beta
+
+**What was done.** PR #287 merged as `9425a524` once all twelve checks passed; three had
+to be re-run twice because GitHub could not assign runners (its incident of 19:11 UTC),
+not over anything in the change. Lap 10's bytes and all 35 commits it cites resolve from
+`main`. Fifteen finished agent worktrees were removed (1.4 GB). `TASKS.md` now opens with
+the open work ranked for the beta, for the fork and as quick wins, each item pointing at
+the row that carries its status; seven stale rows were corrected and a duplicated one
+removed.
+
+**What was decided.** Nothing new: the list names eight maintainer decisions with a
+recommendation each (C1 to C8), and holds every CI change behind C3.
+
+**What was learned.**
+- **I listed four things as open from memory, and the file said otherwise:** O1 to O4
+  (ruled 2026-09-30), the fork's register ratings (their lap 9 S34), the EAC log's
+  repeat-limit wording (`ce04e1fe`) and the screenshot fix (built; only a run is
+  missing). The row that would have corrected each was one `grep` away. *Answer from
+  the artifact* is already in `CLAUDE.md`; the miss was not asking it before answering.
+- **My first count of open rows matched one checkbox form of five** (135 against 178),
+  the miss the 2026-09-25 audit had already recorded. The count in `TASKS.md` is now
+  stated with its forms, so the next count can be checked against the method.
+- **"Approved" and "may be applied" are different states.** `SECURITY.md` said the
+  full-history secret scan was "approved, not yet applied"; `PLANNING.md` KDD-39 says it
+  is approved *and held* under C3, which freezes CI changes until the maintainer lifts it
+  for one. I had ranked it as quick work. `SECURITY.md` now says held, which is where the
+  record was incomplete.
+
 ## 2026-10-05 (evening) — protocol 7, the fork's lap 9 answered, fourteen fixes, lap 10
 
 **What was built.** Our handshake gate implements protocol 7 (`1dbf9ac0`): row C46,
