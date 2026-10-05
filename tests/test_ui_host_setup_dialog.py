@@ -7,10 +7,12 @@ without touching Distrobox/podman.
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
+from test_labels_state_their_text_format import _shown
 
 from platterpus.deps.step_engine import StepResult, StepStatus
-from platterpus.ui.host_setup_dialog import HostSetupDialog
+from platterpus.ui.host_setup_dialog import HostSetupDialog, ripper_update_copy
 
 
 class _FakeHost:
@@ -177,3 +179,42 @@ def test_step_starts_and_finish_are_announced(qapp: QApplication, monkeypatch) -
 
     assert any("Create container" in m for m in heard)
     assert heard[-1] == dialog._status_label.text()
+
+
+def test_the_intro_shows_its_list_as_a_list(qapp: QApplication) -> None:
+    """The intro is markup (its `<b>cyanrip</b>`), and markup reads `\\n` as a space.
+
+    Until 2026-10-05 its line breaks were `\\n`, so the three-item list showed as
+    one run-on paragraph (found 2026-09-28, recorded on the TASKS row for labels
+    given text by `setText`). What the user sees is read the way QLabel renders
+    it (`_shown`), so the test is about the rendering, not the source.
+    """
+    dialog = _dialog(qapp)
+    shown = _shown(dialog._intro)
+    assert dialog._intro.textFormat() == Qt.TextFormat.RichText
+    assert "<b>" not in shown and "<br>" not in shown, shown
+    assert (
+        "no terminal needed:\n\n"
+        "• installs Distrobox + a container runtime (if missing)\n"
+        "• creates the 'ripping' container and installs cyanrip + flac into it\n"
+        "• makes the ripping tools available to this app\n\n"
+        "Installing system packages"
+    ) in shown, shown
+
+
+def test_the_ripper_update_intro_keeps_its_paragraphs_and_its_pin(
+    qapp: QApplication,
+) -> None:
+    """The other `SetupCopy` intro: three paragraphs, and the pin shown as written.
+
+    The pin names a build the user picked, so `ripper_update_copy` escapes it into
+    the markup; a pin shaped like a tag must come out exactly as typed.
+    """
+    pin = "abc<1234>&co"
+    dialog = HostSetupDialog(host_setup=_FakeHost(False), copy=ripper_update_copy(pin))
+    shown = _shown(dialog._intro)
+    assert shown.startswith(
+        f"Installing cyanrip build {pin}.\n\nPlatterpus builds the ripper"
+    ), shown
+    assert "rows below say which.\n\nThe build is verified" in shown, shown
+    assert dialog.windowTitle() == "Updating cyanrip"

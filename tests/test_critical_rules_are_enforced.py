@@ -1951,7 +1951,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/drive_setup_dialog.py": 577,
     # **341 -> 342** (2026-09-25, Critical rule #9: Qt has no "detach"): the teardown comment now says the dialog ABANDONS a running thread and keeps its reference, which reflowed one line.
     # **342 -> 353** (2026-09-28, every label built from a value states its format): the intro states RichText, and `SetupCopy.intro` documents that it is markup whose builders must escape what they interpolate.
-    "ui/host_setup_dialog.py": 353,
+    # **353 -> 384** (2026-10-05, the setup wizard's intro shows its list as a list): the intro's line breaks are `<br>` (markup reads a `\n` as a space, so its list showed as one paragraph), and `ripper_update_copy`, the update's words moved here from `main_window_update.py` so they are built beside the `SetupCopy` contract and can be tested without a main window.
+    "ui/host_setup_dialog.py": 384,
     # **1558 -> 1572 on 2026-09-08**: the `Help → Install a cyanrip build…`
     # action, plus the paragraph saying why a SECOND ripper entry exists — the
     # update check reads the fork's release manifest and cannot offer a build the
@@ -2190,7 +2191,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1020 -> 1023 (2026-09-28)**: `import html`, and the ripper update's build
     # pin is html-escaped into the setup dialog's RichText intro, with the comment
     # saying so (tests/test_labels_state_their_text_format.py checks this builder).
-    "ui/main_window_update.py": 1023,
+    # **1023 -> 1004** (2026-10-05, the setup wizard's intro shows its list as a list): down: the ripper update's `SetupCopy` moved to `host_setup_dialog.ripper_update_copy`, and `import html` with it.
+    "ui/main_window_update.py": 1004,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **1659 -> 1667** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Details-tab line for a partial rip shows the verdict's own "not run" sentence and can never fall through to "this disc isn't in the database".
     "ui/rip_progress.py": 1667,
