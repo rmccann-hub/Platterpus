@@ -1532,7 +1532,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # KDD-24's no-forging line) and naming the parser table that must learn any
     # rewording. The reason belongs beside the line it explains.
     # **1779 -> 1832** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_reread_shortfall`, the Copy CRC caveat for a track at the repeat limit worded by how many reads its log proves agreed, where every such track read "re-reads did NOT agree" (false of the round-28 Full run's track 5). Most of it is the docstring: the three cases, and why no Test CRC is built from the reads that agreed. It is this document's own sentence, so it stays beside the renderer.
-    "eac_log_export.py": 1832,
+    # **1832 -> 1873** (2026-10-05, our round 30 lap 8 S20, accepted in the fork's lap 9 S26): `UNVERIFIED_SKIPS_VERDICT`, the per-track verdict for a track paranoia skipped on that AccurateRip did not confirm, where it printed "Copy OK" (track 18 of the 2026-10-04 run), and the precedence over the re-read verdict stated in `_status_line`. The verdict is this document's own line, so it stays beside the renderer.
+    "eac_log_export.py": 1873,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,

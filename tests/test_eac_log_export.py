@@ -1424,6 +1424,136 @@ def test_the_repeat_limit_sentences_stay_out_of_eacs_vocabulary() -> None:
     assert examined == 3, examined
 
 
+# --- A track paranoia skipped on, that AccurateRip did not confirm --------------
+#
+# Our round 30 lap 8 S20, accepted by the fork in their lap 9 S26: track 18 of the
+# 2026-10-04 rig run had 2,586 paranoia skips and no whole-track AccurateRip match,
+# and this log said "Copy OK" over it.
+
+_SKIP_VERDICT = (
+    "Copy NOT confirmed — the ripper could not verify every read and AccurateRip "
+    "did not confirm the audio"
+)
+
+_AR_EXACT = AccurateRipResult(
+    version=2, result="accurately ripped", confidence=200, local_crc="ABCD1234"
+)
+
+
+def _skipped_track(
+    *,
+    status: str = "ripped successfully",
+    paranoia_counts: dict[str, int] | None = None,
+    accuraterip_v2: AccurateRipResult | None = None,
+    accuraterip_offset: AccurateRipResult | None = None,
+) -> TrackResult:
+    """One skipped-on track, varied by what the case under test needs."""
+    return TrackResult(
+        number=1,
+        copy_crc="0AC0374D",
+        status=status,
+        paranoia_counts=(
+            {"READ": 900, "SKIP": 12} if paranoia_counts is None else paranoia_counts
+        ),
+        accuraterip_v2=accuraterip_v2,
+        accuraterip_offset=accuraterip_offset,
+    )
+
+
+def _block_rows(text: str, header: str) -> list[str]:
+    """The non-blank rows of one track block, stripped: the rows under `header`
+    up to the next line not indented five spaces, as every block row is (the
+    status report's lines are indented one)."""
+    rows: list[str] = []
+    for line in text[text.index(header + "\n") :].splitlines()[1:]:
+        if line.strip() and not line.startswith("     "):
+            break
+        if line.strip():
+            rows.append(line.strip())
+    assert rows, (header, text)
+    return rows
+
+
+def _verdict_line(track: TrackResult) -> str:
+    """The block's last row, which is its per-track verdict."""
+    text = render_eac_style_log(RipLog(log_creator="cyanrip 0.9.3", tracks=(track,)))
+    return _block_rows(text, "Track  1")[-1]
+
+
+def test_round_30s_skipped_track_18_is_not_copy_ok() -> None:
+    """The committed case, against what the app shipped for it.
+
+    The 2026-10-04 run's own EAC-layout log (`round30oct04fulleac.log`, lines
+    298-310) printed "Copy OK" under track 18; its rig log carries `SKIP: 2586`
+    and an AccurateRip match on one frame only.
+    """
+    shipped = (
+        _HANDSHAKE_ARTIFACTS / "artifactsround30" / "round30oct04fulleac.log"
+    ).read_text(encoding="utf-8")
+    assert _block_rows(shipped, "Track 18")[-1] == "Copy OK", "the before moved"
+
+    track, block = _rendered_track("artifactsround30/round30oct04full.log", 18)
+    # Floor: this is the skipped, unconfirmed track, not a look-alike.
+    assert track.paranoia_counts.get("SKIP") == 2586
+    assert track.status == "ripped successfully"
+    assert f"     {_SKIP_VERDICT}\n" in block + "\n", block
+    assert "Copy OK" not in block, block
+    assert "Copy aborted" not in block, block
+
+
+def test_a_skipped_track_accuraterip_confirmed_keeps_copy_ok() -> None:
+    """An exact match proves the audio however it was read."""
+    assert _verdict_line(_skipped_track(accuraterip_v2=_AR_EXACT)) == "Copy OK"
+
+
+def test_a_one_frame_match_is_not_a_confirmation() -> None:
+    """Track 18's own shape: frame 450 matched, the whole track did not."""
+    one_frame = replace(_AR_EXACT, version=450)
+    track = _skipped_track(accuraterip_offset=one_frame)
+    assert _verdict_line(track) == _SKIP_VERDICT
+
+
+def test_the_skip_verdict_replaces_ripped_with_errors_too() -> None:
+    """`.20` prints such a track `read with errors` (their S34). The fork's S26:
+    that says a specific error happened, and on a skip none was reported."""
+    track = _skipped_track(status="ripped with errors")
+    assert _verdict_line(track) == _SKIP_VERDICT
+
+
+def test_no_skips_means_no_skip_verdict() -> None:
+    """Zero is the line, and a track with no paranoia block is unmeasured."""
+    assert _verdict_line(_skipped_track(paranoia_counts={"SKIP": 0})) == "Copy OK"
+    assert _verdict_line(_skipped_track(paranoia_counts={})) == "Copy OK"
+
+
+def test_skipped_and_at_the_repeat_limit_the_skip_takes_the_verdict_line() -> None:
+    """The precedence `_status_line` states, and why both facts survive it.
+
+    The verdict line takes the skip wording; the re-read shortfall stays on the
+    Copy CRC line, and the Read stability line still names the track. And when
+    AccurateRip confirmed the audio, the skip no longer counts, so the re-read
+    verdict is the one left.
+    """
+    from platterpus.parsers.rip_log import RereadAgreement
+
+    both = replace(
+        _skipped_track(),
+        rip_count=3,
+        secure_rerip_converged=False,
+        secure_rerip_agreement=RereadAgreement(most_reads_agreed=2, exact=True),
+    )
+    text = render_eac_style_log(RipLog(log_creator="cyanrip 0.9.3", tracks=(both,)))
+    assert _verdict_line(both) == _SKIP_VERDICT
+    assert "re-reads did not converge; at most 2 of 3 reads agreed" in text, text
+    assert "Read stability      : track(s) 1 did not read identically" in text, text
+    assert "Copy NOT confirmed — re-reads did not converge" not in text, text
+
+    confirmed = replace(both, accuraterip_v2=_AR_EXACT)
+    assert _verdict_line(confirmed).startswith(
+        "Copy NOT confirmed — re-reads did not converge"
+    ), _verdict_line(confirmed)
+
+
 def test_gap_handling_reads_cyanrips_own_wording_not_eacs() -> None:
     """Driven with cyanrip's strings as INPUT, which is the whole point.
 

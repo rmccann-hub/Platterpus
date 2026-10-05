@@ -65,7 +65,11 @@ from platterpus.parsers.rip_log import (
 from platterpus.report_types import SecureReripBlock
 from platterpus.ripper_identity import identify_ripper
 from platterpus.safe_int import int_or_none
-from platterpus.verdict import accuraterip_lookup_happened, expected_track_total
+from platterpus.verdict import (
+    accuraterip_lookup_happened,
+    expected_track_total,
+    track_has_unverified_skips,
+)
 
 log = logging.getLogger(__name__)
 
@@ -518,6 +522,21 @@ def _render(
 # A single constant so no row invents its own phrasing, and so a reader can grep
 # the log for everything we couldn't fill.
 _UNREPORTED = "(not reported by the ripper)"
+
+#: The per-track verdict for a track paranoia SKIPPED on (gave up verifying a read
+#: and kept what it had) that AccurateRip did not confirm. Track 18 of the
+#: 2026-10-04 rig run had 2,586 skips, no whole-track AccurateRip match, and this
+#: log said "Copy OK" over it. The words are ours, proposed in our round 30 lap 8
+#: S20 and accepted by the fork in their lap 9 S26
+#: (cyanrip@f6d72c0:docs/handshake/round-30-lap-09.md), because this log is what
+#: they diff against and neither side rewords it alone (round 7 lap 11, H4).
+#: Their reason for preferring it to the track's own "ripped with errors", which
+#: `.20` prints for such a track: that says a specific error happened, and on a
+#: skip none was reported; what happened is that the reads could not be verified.
+UNVERIFIED_SKIPS_VERDICT: str = (
+    "Copy NOT confirmed — the ripper could not verify every read and AccurateRip "
+    "did not confirm the audio"
+)
 
 # The TOC's columns are too narrow for the sentence above, so an unmeasured cell
 # gets this instead. Same rule: name the gap, never compute a value from nothing.
@@ -1593,9 +1612,12 @@ def _track_block(track: TrackResult) -> list[str]:
     out.extend(_crc_lines(track))
     out.append(f"     {_accuraterip_line(track)}")
     if track.status:
-        out.append(
-            f"     {_status_line(track.status, reproducible=track.secure_rerip_converged)}"
+        verdict = _status_line(
+            track.status,
+            reproducible=track.secure_rerip_converged,
+            unverified_skips=track_has_unverified_skips(track),
         )
+        out.append(f"     {verdict}")
     out.append("")
     return out
 
@@ -1774,7 +1796,9 @@ def _accuraterip_line(track: TrackResult) -> str:
     return "Track not present in AccurateRip database"
 
 
-def _status_line(status: str, *, reproducible: bool | None = None) -> str:
+def _status_line(
+    status: str, *, reproducible: bool | None = None, unverified_skips: bool = False
+) -> str:
     """Render the track status the way EAC does — but never `Copy OK` for a track
     whose re-reads disagreed.
 
@@ -1808,7 +1832,24 @@ def _status_line(status: str, *, reproducible: bool | None = None) -> str:
     means the rip recorded no convergence data — a backend that does not report
     it, or a rip with no secure re-read — and inventing a doubt there would be
     the mirror defect.
+
+    ``unverified_skips`` is ``verdict.track_has_unverified_skips``: paranoia
+    skipped on the track and AccurateRip did not confirm it. It renders
+    :data:`UNVERIFIED_SKIPS_VERDICT`, whatever the track's own status says. A
+    skipped track AccurateRip DID confirm keeps ``Copy OK``: an exact match proves
+    the audio however it was read.
+
+    **Precedence, when a track both was skipped on and hit the repeat limit: the
+    skip verdict takes this line.** Both facts stay in the block that way. The
+    re-read shortfall is already on the ``Copy CRC`` line above, in words that say
+    how many reads agreed, and the ``Read stability`` line names the track; the
+    skip is said nowhere else in this document. The other order would print
+    "re-reads did not converge" twice and drop the skip. Both verdicts begin
+    ``Copy NOT confirmed``, so a reader scanning for that phrase finds the track
+    either way.
     """
+    if unverified_skips:
+        return UNVERIFIED_SKIPS_VERDICT
     if reproducible is False:
         # "did not converge", not "did not agree": on the round-28 Full run's
         # track 5 two reads DID agree, and the Copy CRC line above says how many.
