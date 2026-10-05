@@ -137,6 +137,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   as a cyanrip log, is still compared, but the output says the match is not
   parity with EAC. The rip self-audit's comparison of the EAC-style log with
   cyanrip's log gets the same guard.
+- **The setup wizard's introduction shows its list as a list.** Its three
+  bullet points, and the paragraphs of the "Updating cyanrip" wizard, ran
+  together into one paragraph.
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached
