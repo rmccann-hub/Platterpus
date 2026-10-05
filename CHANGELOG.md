@@ -128,6 +128,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   every record written during the session, and if rips landed but no record did,
   its facts say so instead of leaving the gap unmentioned. The cyanrip fork found
   this in its reading of our 2026-10-04 runs.
+- **The re-read path's description no longer says it has never run on a drive.**
+  The 2026-10-04 Full run exercised it on a damaged disc, and no track
+  converged, so nothing was swapped; the docstring now says that.
 - **Starting Platterpus should no longer stall for a minute while the ripping
   container starts.** At launch, the dependency check and the first disc scan
   both started the stopped container in the same second, and both hung: the
