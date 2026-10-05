@@ -421,6 +421,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The maintainer's eight rulings on the ranked open list are recorded**
+  (contributor-facing; `PLANNING.md` KDD-41). The securing pass will also run after a
+  finished pass the drive could not read cleanly; paranoia skips keep not slowing the
+  drive; screenshot grading is unchanged; the acceptance run gains two paths; windows
+  keep a side margin; the track table is measured with a disc loaded; a CycloneDX
+  schema validator is approved for the dev extra; and the freeze on CI changes is
+  lifted for three of them only: the full-history secret scan, `ruff` over
+  `scripts/` and `build/`, and grouping the conformance matrix under xdist.
+
 - **`TASKS.md` ranks what is open for the 0.6.66 beta, the cyanrip fork and quick
   wins** (contributor-facing). A new section at the top orders the open rows, each
   with its fix and a time, and names the maintainer's decisions they wait on. Seven

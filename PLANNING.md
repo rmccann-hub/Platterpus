@@ -1769,6 +1769,40 @@ cap (`CLAUDE.md`, *Deliberate divergences* (1) and (2)).
 **Next run:** when C3 lifts, which releases ten held amendments, or before the next
 release, whichever comes first.
 
+
+### KDD-41 — Eight rulings on the ranked open list, and C3 lifted for three CI changes (decided 2026-10-05)
+
+**Context.** `TASKS.md` gained a ranked list of the open work on 2026-10-05 (*what next,
+ranked*), with eight questions for the maintainer, C1 to C8, each carrying a
+recommendation. The maintainer's answer, verbatim: *"Do all recommendations."*
+
+**Rulings.**
+- **C1, yes:** the securing pass runs after a finished pass the drive could not read
+  cleanly, not only after exit 0. A finished pass is the one `ladder_trigger.
+  why_pass_incomplete` passes; the report keeps the album pass's exit code apart from the
+  securing pass's.
+- **C2, no:** paranoia skips do not step the read speed down. Instability is flagged per
+  track; the ladder stays keyed on drive-failed reads (`4790a16a`).
+- **C3, keep the grading:** a screenshot step may still fail an ARCHIVAL section when no
+  window is open at all; open-but-unexposed windows already record INFO.
+- **C4, the recommended design:** a script verb that turns the offset override off and
+  skips, saying why, on a drive AccurateRip lists; and a second acceptance script for a
+  disc MusicBrainz does not know.
+- **C5, yes:** a window fitted to the screen keeps a small side margin.
+- **C6, yes:** the conformance matrix measures the track table with a long-title disc
+  loaded.
+- **C7, yes:** a CycloneDX schema validator, in the dev extra only (a new dependency,
+  approved here; `DEPENDENCIES.md` lists it in the commit that adds it).
+- **C8, yes, and only for these three:** C3 of the operator's seam-automation proposal
+  (*"No routine, CI, settings, or CLAUDE.md change until both sides answer and I
+  approve"*) is lifted for (1) amendment A12, CI scanning the full history for secrets on
+  every run; (2) `ruff` over `scripts/` and `build/`; (3) grouping the conformance matrix
+  under xdist (`--dist loadgroup`). The other held amendments stay held: KDD-39's A2, A4,
+  A5, A6, A7, A10 and A14, and KDD-40's A22 and A25.
+
+**Not decided here.** Nothing about the cyanrip seam: the fork-bound items of the same list
+travel in our next lap, and round 31's wording items wait for that round.
+
 ---
 
 *Last updated for Platterpus v0.6.65.*
