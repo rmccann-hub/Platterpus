@@ -126,6 +126,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   in it, and four times longer each time the run doubled. It now reads the same
   fields with the same values: all 7,720 fields in the 330 filed laps compare
   identical, and a test keeps them so.
+- **The EAC-parity tool refuses one of Platterpus's own EAC-compatible logs as
+  its "EAC baseline".** `scripts/eac_parity.py` compares a rip with a log Exact
+  Audio Copy wrote. Handed one of our own exports instead, it compared the rip
+  with our rendering of that same rip, printed "14/14 tracks match — PARITY ✓"
+  and exited 0, a pass that proves nothing about EAC. It now says who wrote the
+  baseline, quoting the baseline's first line, before any table. Our own export
+  (either wording of its first line) is refused with exit 2 and the line that
+  identified it, on screen and in the log. A baseline it cannot attribute, such
+  as a cyanrip log, is still compared, but the output says the match is not
+  parity with EAC. The rip self-audit's comparison of the EAC-style log with
+  cyanrip's log gets the same guard.
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached

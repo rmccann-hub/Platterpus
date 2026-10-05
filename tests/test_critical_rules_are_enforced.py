@@ -1795,7 +1795,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1322 -> 1464 on 2026-09-28** (the Full run's F6): the audio-file check names every file the ripper's log does not account for (`_audio_accounting`, `_report_unaccounted`) instead of counting a cancelled rip's partial read into "all with content" at OK, and `_rip_did_not_finish` is the one "finished?" predicate both of its findings use. They sit beside the check they serve, in the registry module every check lives in; most of the growth is the docstrings saying what each grade means.
     # **1464 -> 1542** (2026-09-30): the `eac_log_agreement` check (the EAC-style log's CRCs against the ripper's own log, a second caller of `parity.compare_logs`) and `run_checks` recording which findings each check produced, so the acceptance grader reads the audit's attribution instead of re-running it.
     # **1542 -> 1550** (2026-09-30): `eac_log_agreement` applies the auto-fix addendum before comparing (round 27's re-read track 3 read as a disagreement without it).
-    "rip_audit.py": 1550,
+    # **1550 -> 1562** (2026-10-05, `parity-baseline-is-ours`): `parity.ParityReport.ok` now refuses a baseline that is one of our own EAC-layout exports, and `eac_log_agreement` says so, naming the line, instead of falling through to a "DISAGREE" no track showed. It is a branch of the check it serves.
+    "rip_audit.py": 1562,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.
