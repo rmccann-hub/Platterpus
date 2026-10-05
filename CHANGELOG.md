@@ -14,6 +14,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **The handshake gate implements protocol 7** (contributor-facing:
+  `scripts/handshake.py`, `tests/test_standing_status_is_current.py`). v7 adds one gate
+  row, C46: every lap of a file declaring 7 must say which lap comes next and whose, in
+  `HANDSHAKE-NEXT-LAP` (`<n> (ours): …`, `<n> (yours): …` or `none — …`). It is
+  checked on every verdict, by `--check` and on the path that decides a close, and is
+  keyed on the version a file declares, so round 30's laps, which declare 6, read as
+  before. Our laps keep declaring 6 until both sides have said in a lap that their
+  gate implements 7. The standing status block gains `STATUS-RELEASED` where v7 §6c
+  puts it, and its check now reads that line against the newest release tag and the
+  block's order against §6c.
 - **Platterpus checks, as it exits, that it left nothing behind.** Once the window
   has closed and any rip has been stopped, it asks whether anything still holds the
   drive and whether a cyanrip process is still running, and writes the answer to

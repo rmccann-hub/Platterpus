@@ -998,6 +998,29 @@ each side's reading; and the closing releases named.
   Sending a flag we have never sent is a change to what crosses the seam: it goes to the
   fork in our next lap, with the consumer contract regenerated when it lands.
   - *2026-09-30: DONE.* The fork measured `-U` safe (their round 30 lap 5 S15-S16, held when read): `-N -G` vs `-N -G -U` differ by that one line, every checksum identical, `-C` art still loads. We send it on every rip; the consumer contract is regenerated (22 flags); declared in our lap 6.
+- [x] **Our gate implements protocol 7** (our lap 8 S41: *"before our round 31 lap 1"*;
+  done 2026-10-05). v7 §15's condition held: `docs/handshake-protocol.md` is byte-identical
+  to `cyanrip@872b4156:docs/handshake/PROTOCOL.md` (`b9611d3b…`). `PROTOCOL_VERSION` is 7;
+  `DECLARED_PROTOCOL` stays 6 until both sides have said in a lap that their gate
+  implements 7. Row C46 is `next_lap_problems`: on any verdict, at `--check` and on the
+  close path, keyed on the declared version, with the fork's own value pattern
+  (`cyanrip@872b4156:tools/release-gate.py:173`) and a field declared twice refused even
+  with identical values (§2 rule 3). Six reverts probed, all detected (one test first
+  proved unable to tell the two call sites apart and was replaced by an `OPEN`-lap case).
+  `--status` over the real record is byte-identical before and after. `STATUS-RELEASED:
+  0.6.65 at 0981c69, 2026-09-30` is in our block where §6c puts it, checked against the
+  newest release tag reachable from HEAD, with the block's order checked too.
+  **Still to say in a lap:** our next lap says our gate implements 7 from the commit that
+  landed this, which is half of what v7 §15 needs before either side declares 7.
+- [ ] **File `.20`'s provider contract when it ships, and retain `Error in encoding: %s`.**
+  A dry run of `.20`'s contract at the fork's tip (`cyanrip@ac542074`, and again at
+  `cyanrip@872b4156`, whose cache-probe line change our parser reads as the known
+  `Cache probe:` prefix) against our seam tests passed everywhere but one: the string left P5 at `cyanrip@d7ee6c40` (it was at
+  `cyanrip@174a134:src/cyanrip_main.c:1070`), and `ripper_message_inventory` refuses a
+  string that leaves the matcher without a written reason. Add its `RETAINED_BEYOND_P5` row
+  (reason: `.19` and older print it) in the commit that files the contract. It cannot be
+  added earlier, because while `.19`'s contract is the newest, the string is still a P5
+  row and `ALL_FORMATS` refuses a duplicate.
 
 ## Round 29 — CLOSED on both gates on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 

@@ -1124,6 +1124,133 @@ def test_v6_K2_a_file_declaring_6_says_what_it_can_see_but_does_not_hold(
     assert not any("K2" in p for p in hs.inbound_field_problems(five, 99))
 
 
+#: A well-formed ``HANDSHAKE-NEXT-LAP`` for every lap of the v7 world below except
+#: the one a test is about. The writer's side: our lap 2 expects their lap 3.
+_V7_NEXT_LAP: dict[str, str] = {
+    "round-99-lap-01.md": "2 (yours): your reading of our opening; none",
+    "round-99-lap-02.md": "3 (yours): your reading; the round closes on it",
+    "round-99-lap-03.md": "none — the round closes on this lap",
+}
+
+
+def _v7(hs: ModuleType, root: Path, **their_close: str | None) -> Path:
+    """The v6 close above, every lap re-declared as protocol 7 with a NEXT-LAP."""
+    _v6(hs, root, **their_close)
+    for path in root.glob("*/round-99-lap-*.md"):
+        text = path.read_text(encoding="utf-8")
+        seven = text.replace(
+            f"HANDSHAKE-PROTOCOL: {hs.V6_FIELDS_FROM_PROTOCOL}\n",
+            f"HANDSHAKE-PROTOCOL: {hs.V7_FIELDS_FROM_PROTOCOL}\n"
+            f"{hs.NEXT_LAP_FIELD}: {_V7_NEXT_LAP[path.name]}\n",
+        )
+        assert seven != text, f"{path.name}: the protocol line was not rewritten"
+        path.write_text(seven, encoding="utf-8")
+    return root
+
+
+def _set_next_lap(path: Path, lines: str | None, field: str) -> None:
+    """Replace a lap's NEXT-LAP declaration with ``lines`` (``None`` removes it)."""
+    text = path.read_text(encoding="utf-8")
+    current = next(ln for ln in text.splitlines() if ln.startswith(f"{field}:"))
+    edited = text.replace(f"{current}\n", "" if lines is None else f"{lines}\n")
+    assert edited != text or lines == current, f"{path.name}: NEXT-LAP not rewritten"
+    path.write_text(edited, encoding="utf-8")
+
+
+# The cases are the spec's wording, v7 §3: `<n> (ours|yours): <what it carries>;
+# <what closes on it, or none>` or `none — <why no lap follows>`, and C46's refusal
+# of "one that is neither `<n> (ours)` or `<n> (yours)` followed by `:`, nor `none`".
+# The fork pins the same set (cyanrip@872b4156:tests/release_gate.py:3300-3308);
+# the identical-duplicate case is ours, from §2 rule 3.
+_C46_GOOD: tuple[str, ...] = (
+    "4 (yours): your reading; the round closes on it",
+    "12 (ours): the closing lap; none",
+    "none — the round closes on this lap",
+)
+#: Each case is the closing lap's whole NEXT-LAP text (``None``: the field is
+#: absent). Written out literally rather than built from a list, so the population
+#: is fixed in the source and cannot be emptied by a computation.
+_C46_REFUSED: tuple[str | None, ...] = (
+    None,
+    "HANDSHAKE-NEXT-LAP: 4: your reading",
+    "HANDSHAKE-NEXT-LAP: yours, lap 4",
+    "HANDSHAKE-NEXT-LAP: 4 (theirs): your reading",
+    "HANDSHAKE-NEXT-LAP: (yours): your reading",
+    "HANDSHAKE-NEXT-LAP: nonesuch",
+    "HANDSHAKE-NEXT-LAP: none-of-the-above",
+    "HANDSHAKE-NEXT-LAP: 4 (yours): a\nHANDSHAKE-NEXT-LAP: none",
+    "HANDSHAKE-NEXT-LAP: none — closes\nHANDSHAKE-NEXT-LAP: none — closes",
+)
+
+
+@pytest.mark.parametrize("value", _C46_GOOD)
+def test_C46_a_well_formed_next_lap_closes(
+    hs: ModuleType, tmp_path: Path, value: str
+) -> None:
+    """C46, the allow side: each form §3 defines is accepted on the closing lap."""
+    root = _v7(hs, tmp_path / "hs")
+    closing = root / "inbound" / "round-99-lap-03.md"
+    _set_next_lap(closing, f"{hs.NEXT_LAP_FIELD}: {value}", hs.NEXT_LAP_FIELD)
+    assert hs.check_wire_header(closing) == []
+    assert _state(hs.round_status(root)) == "CLOSED"
+
+
+@pytest.mark.parametrize("lines", _C46_REFUSED)
+def test_C46_a_file_declaring_7_without_a_usable_next_lap_is_refused_naming_the_field(
+    hs: ModuleType, tmp_path: Path, lines: str | None
+) -> None:
+    """C46 — *"a file declaring protocol 7 or later with no `HANDSHAKE-NEXT-LAP`, or
+    one that is neither `<n> (ours)` or `<n> (yours)` followed by `:`, nor `none` →
+    refuse, naming the field (§3)."* Asserted at ``--check`` and at the gate, on the
+    peer's closing lap, because that is the lap a v7 gate closes on by §5b step 3."""
+    root = _v7(hs, tmp_path / "hs")
+    closing = root / "inbound" / "round-99-lap-03.md"
+    assert _state(hs.round_status(root)) == "CLOSED", "the world must close first"
+    _set_next_lap(closing, lines, hs.NEXT_LAP_FIELD)
+    problems = hs.check_wire_header(closing)
+    assert any(hs.NEXT_LAP_FIELD in p and "C46" in p for p in problems), problems
+    assert _state(hs.round_status(root)) == "OPEN"
+
+
+def test_C46_binds_our_own_lap_too(hs: ModuleType, tmp_path: Path) -> None:
+    """§3 says *every* lap of a file declaring 7. Our GO lap without the field keeps
+    the round open, so the check is not only a filter on what the fork sends."""
+    root = _v7(hs, tmp_path / "hs")
+    ours = root / "outbound" / "round-99-lap-02.md"
+    _set_next_lap(ours, None, hs.NEXT_LAP_FIELD)
+    problems = hs.check_wire_header(ours)
+    assert any(hs.NEXT_LAP_FIELD in p and "C46" in p for p in problems), problems
+    assert _state(hs.round_status(root)) == "OPEN"
+
+
+def test_C46_binds_a_lap_of_any_verdict(hs: ModuleType, tmp_path: Path) -> None:
+    """§3: *"Required on every lap"*, not every closing lap. Their OPEN lap 1 cannot
+    close anything, so only ``--check`` can see the missing field; on a ``GO`` lap
+    the close check would report it as well, which is why this test uses an
+    ``OPEN`` one (the revert probe found the ``GO`` case could not tell the two
+    call sites apart)."""
+    root = _v7(hs, tmp_path / "hs")
+    opener = root / "inbound" / "round-99-lap-01.md"
+    assert "HANDSHAKE-VERDICT: OPEN" in opener.read_text(encoding="utf-8")
+    assert hs.check_wire_header(opener) == []
+    _set_next_lap(opener, None, hs.NEXT_LAP_FIELD)
+    problems = hs.check_wire_header(opener)
+    assert any(hs.NEXT_LAP_FIELD in p and "C46" in p for p in problems), problems
+
+
+def test_C46_is_not_asked_of_a_file_declaring_6(hs: ModuleType, tmp_path: Path) -> None:
+    """The C29 reasoning, at a gate implementing 7: a file declaring 6 asked to be
+    read by v6's rules, which have no NEXT-LAP. Round 30's laps declare 6 (v7 §15),
+    so this is the case that keeps the current round's record reading as it did."""
+    assert hs.PROTOCOL_VERSION >= hs.V7_FIELDS_FROM_PROTOCOL
+    root = _v6(hs, tmp_path / "hs")
+    closing = root / "inbound" / "round-99-lap-03.md"
+    assert hs.NEXT_LAP_FIELD not in closing.read_text(encoding="utf-8")
+    assert hs.next_lap_problems(closing.read_text(encoding="utf-8")) == []
+    assert hs.check_wire_header(closing) == []
+    assert _state(hs.round_status(root)) == "CLOSED"
+
+
 def test_we_declare_no_protocol_we_have_not_told_the_fork_our_gate_implements(
     hs: ModuleType,
 ) -> None:
