@@ -102,6 +102,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- For contributors: `scripts/check.py` now reports a gate that printed something
+  and then hung as timed out, with what it printed. It used to crash with a
+  `TypeError` instead, because Python hands back a timed-out child's output as
+  bytes even when text was asked for. Found by pointing `mypy` at `scripts/`.
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached
