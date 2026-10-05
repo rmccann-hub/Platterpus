@@ -29,6 +29,7 @@ To keep the docs efficient and stop the same rule from sprawling across files (a
 | Who owns which shared file, and what to do when the two records disagree | `docs/OWNERSHIP.md` |
 | Every flag, type, argument and meaning crossing the seam — the one table | `docs/seam-commands.md` |
 | Dependency pins, dates, licenses, retirement log | `DEPENDENCIES.md` |
+| The complete map of everything the project has or relies on (generated) | `bom.cdx.json` (CycloneDX) and `DEPENDENCIES.md` → *The full map*, both written by `scripts/emit_bom.py` |
 | User-facing changes | `CHANGELOG.md` |
 | Active task queue | `TASKS.md` |
 | What happened each session (chronology) | `docs/session-log.md` |
@@ -95,7 +96,7 @@ Outside this directory:
 | [`../CLAUDE.md`](../CLAUDE.md) | Persistent rules and conventions; locked rules section; project operations |
 | [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-40) |
 | [`../TASKS.md`](../TASKS.md) | Active task checklist — P0 (T01-T32), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope |
-| [`../DEPENDENCIES.md`](../DEPENDENCIES.md) | Pinned versions, last upstream release dates, retirement-review log |
+| [`../DEPENDENCIES.md`](../DEPENDENCIES.md) | Pinned versions, last upstream release dates, retirement-review log, and *The full map*: the generated human-readable copy of [`../bom.cdx.json`](../bom.cdx.json), the CycloneDX bill of materials of everything the project has or relies on (`python3 scripts/emit_bom.py`) |
 | [`../README.md`](../README.md) | User-facing install instructions, troubleshooting, EAC comparison |
 | [`../SECURITY.md`](../SECURITY.md) | Security policy: vulnerability reporting, supported versions, supply-chain posture |
 | [`../CHANGELOG.md`](../CHANGELOG.md) | The one authoritative record of user-facing changes (SSOT table above) |

@@ -1,0 +1,3599 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.7.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.7",
+  "version": 1,
+  "metadata": {
+    "lifecycles": [
+      {
+        "phase": "pre-build"
+      }
+    ],
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "group": "platterpus",
+          "name": "scripts/emit_bom.py",
+          "version": "0.6.65"
+        }
+      ]
+    },
+    "component": {
+      "type": "application",
+      "bom-ref": "platterpus",
+      "name": "platterpus",
+      "version": "0.6.65",
+      "description": "A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3)",
+      "licenses": [
+        {
+          "expression": "GPL-3.0-only"
+        }
+      ],
+      "purl": "pkg:pypi/platterpus@0.6.65",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/rmccann-hub/Platterpus"
+        }
+      ]
+    },
+    "properties": [
+      {
+        "name": "platterpus:generated-by",
+        "value": "python3 scripts/emit_bom.py"
+      },
+      {
+        "name": "platterpus:check",
+        "value": "python3 scripts/emit_bom.py --check"
+      },
+      {
+        "name": "platterpus:human-readable-copy",
+        "value": "DEPENDENCIES.md (the generated block)"
+      },
+      {
+        "name": "platterpus:count:runtime",
+        "value": "4"
+      },
+      {
+        "name": "platterpus:count:python-runtime",
+        "value": "5"
+      },
+      {
+        "name": "platterpus:count:ripper",
+        "value": "3"
+      },
+      {
+        "name": "platterpus:count:container",
+        "value": "2"
+      },
+      {
+        "name": "platterpus:count:ripper-build",
+        "value": "13"
+      },
+      {
+        "name": "platterpus:count:host-tool",
+        "value": "28"
+      },
+      {
+        "name": "platterpus:count:desktop",
+        "value": "1"
+      },
+      {
+        "name": "platterpus:count:data",
+        "value": "1"
+      },
+      {
+        "name": "platterpus:count:python-dev",
+        "value": "6"
+      },
+      {
+        "name": "platterpus:count:python-build",
+        "value": "8"
+      },
+      {
+        "name": "platterpus:count:ci-action",
+        "value": "6"
+      },
+      {
+        "name": "platterpus:count:ci-tool",
+        "value": "11"
+      },
+      {
+        "name": "platterpus:count:ci-runner",
+        "value": "2"
+      },
+      {
+        "name": "platterpus:count:service",
+        "value": "15"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "operating-system",
+      "bom-ref": "runtime:linux",
+      "name": "Linux",
+      "isExternal": true,
+      "description": "The only operating system Platterpus targets.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "runtime"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "platterpus-x86_64.AppImage, pip / pipx installs"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project].classifiers"
+        },
+        {
+          "name": "platterpus:classifiers",
+          "value": "Operating System :: POSIX :: Linux, Environment :: X11 Applications :: Qt"
+        },
+        {
+          "name": "platterpus:appimage-architecture",
+          "value": "x86_64"
+        }
+      ]
+    },
+    {
+      "type": "platform",
+      "bom-ref": "runtime:python",
+      "group": "CPython",
+      "name": "python",
+      "versionRange": "vers:generic/>=3.11",
+      "isExternal": true,
+      "description": "The interpreter a pipx or development install runs on. The AppImage brings its own (next row).",
+      "scope": "required",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://www.python.org/"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "runtime"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "pip / pipx installs, development checkouts, CI"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project].requires-python, .github/workflows/ci.yml (test matrix)"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=3.11"
+        },
+        {
+          "name": "platterpus:ci-matrix",
+          "value": "3.11, 3.12, 3.13, 3.14"
+        },
+        {
+          "name": "platterpus:ci-coverage-leg",
+          "value": "3.14"
+        },
+        {
+          "name": "platterpus:ci-single-version-jobs",
+          "value": "3.11"
+        },
+        {
+          "name": "platterpus:classifiers",
+          "value": "3.11, 3.12, 3.13, 3.14"
+        }
+      ]
+    },
+    {
+      "type": "platform",
+      "bom-ref": "runtime:python-appimage-bundled",
+      "group": "CPython",
+      "name": "python (bundled in the AppImage)",
+      "version": "3.12",
+      "description": "The interpreter python-appimage bundles into the AppImage; pinned so a new upstream beta cannot become the release's runtime.",
+      "scope": "required",
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://github.com/niess/python-appimage/releases",
+          "comment": "python-appimage's CPython base images"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "runtime"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "platterpus-x86_64.AppImage"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "build/build_appimage.sh (PLATTERPUS_PYTHON_VERSION, overridable)"
+        }
+      ]
+    },
+    {
+      "type": "framework",
+      "bom-ref": "runtime:qt",
+      "name": "Qt",
+      "description": "The GUI toolkit. It ships inside the PySide6 wheels, and PySide6 releases carry Qt's version number, so the PySide6 constraint is the Qt constraint.",
+      "scope": "required",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://www.qt.io/"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "runtime"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "every window and dialog (through PySide6)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project].dependencies (PySide6), build/python-appimage/requirements.txt (PySide6)"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=6.11.1,<6.12"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the PySide6 constraint"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:cryptography",
+      "name": "cryptography",
+      "description": "Ed25519 verification for the minisign path of the updater.",
+      "scope": "required",
+      "purl": "pkg:pypi/cryptography",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-runtime"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/update_signing.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project].dependencies, build/python-appimage/requirements.txt"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=50.0.0,<51"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "src/platterpus/update_signing.py"
+        },
+        {
+          "name": "platterpus:appimage-constraint",
+          "value": "~=50.0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:musicbrainzngs",
+      "name": "musicbrainzngs",
+      "version": "0.7.1",
+      "description": "MusicBrainz client, behind the MusicBrainzClient adapter (Critical rule #1; unmaintained upstream).",
+      "scope": "required",
+      "purl": "pkg:pypi/musicbrainzngs@0.7.1",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-runtime"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/adapters/musicbrainz_client.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project].dependencies, build/python-appimage/requirements.txt, src/platterpus/deps/registry.py (checked at launch)"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": "==0.7.1"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "src/platterpus/adapters/musicbrainz_client.py"
+        },
+        {
+          "name": "platterpus:appimage-constraint",
+          "value": "==0.7.1"
+        },
+        {
+          "name": "platterpus:checked-minimum",
+          "value": "0.7.1"
+        }
+      ]
+    },
+    {
+      "type": "framework",
+      "bom-ref": "pypi:pyside6",
+      "name": "PySide6",
+      "description": "Qt for Python: the whole GUI.",
+      "scope": "required",
+      "purl": "pkg:pypi/pyside6",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-runtime"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/, src/platterpus/ui/, src/platterpus/ui/dialogs/, src/platterpus/uiscript/, src/platterpus/workers/ (every importer is in these directories)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project].dependencies, build/python-appimage/requirements.txt"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=6.11.1,<6.12"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "src/platterpus/, src/platterpus/ui/, src/platterpus/ui/dialogs/, src/platterpus/uiscript/, src/platterpus/workers/ (every importer is in these directories)"
+        },
+        {
+          "name": "platterpus:appimage-constraint",
+          "value": "~=6.11.1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:sigstore",
+      "name": "sigstore",
+      "description": "Verifies each release's build-provenance attestation before an update installs.",
+      "scope": "required",
+      "purl": "pkg:pypi/sigstore",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-runtime"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/update_attestation.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project].dependencies, build/python-appimage/requirements.txt"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=4.5.0,<4.6"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "src/platterpus/update_attestation.py"
+        },
+        {
+          "name": "platterpus:appimage-constraint",
+          "value": "~=4.5.0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:tomli-w",
+      "name": "tomli-w",
+      "description": "Writes config.toml (the standard library reads TOML but cannot write it).",
+      "scope": "required",
+      "purl": "pkg:pypi/tomli-w",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-runtime"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/config.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project].dependencies, build/python-appimage/requirements.txt"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=1.0,<2"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "src/platterpus/config.py"
+        },
+        {
+          "name": "platterpus:appimage-constraint",
+          "value": "~=1.0"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "ripper:cyanrip-fork",
+      "group": "rmccann-hub/platterpus-fork",
+      "name": "cyanrip",
+      "version": "0.9.4-rc2+platterpus.18",
+      "isExternal": true,
+      "description": "The ripping backend (KDD-18): the Platterpus fork of cyanrip, built from source at the handshake-approved pin by the setup wizard and by --install-ripper, then exported to the host.",
+      "scope": "required",
+      "purl": "pkg:github/rmccann-hub/cyanrip@51cc789",
+      "pedigree": {
+        "ancestors": [
+          {
+            "type": "application",
+            "group": "cyanreg",
+            "name": "cyanrip",
+            "purl": "pkg:github/cyanreg/cyanrip"
+          }
+        ],
+        "notes": "A fork that tracks this upstream and keeps its version string."
+      },
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/rmccann-hub/cyanrip#platterpus-fork",
+          "comment": "the fork; the bidirectional handshake partner"
+        },
+        {
+          "type": "other",
+          "url": "https://raw.githubusercontent.com/rmccann-hub/cyanrip/platterpus-fork/release-manifest.json",
+          "comment": "the fork's release-manifest.json (update offers)"
+        },
+        {
+          "type": "documentation",
+          "url": "https://github.com/rmccann-hub/Platterpus/blob/main/docs/cyanrip-handshake.md",
+          "comment": "the release handshake"
+        },
+        {
+          "type": "documentation",
+          "url": "https://github.com/rmccann-hub/Platterpus/blob/main/docs/handshake-protocol.md",
+          "comment": "shared with the fork (its PROTOCOL.md)"
+        },
+        {
+          "type": "documentation",
+          "url": "https://github.com/rmccann-hub/Platterpus/blob/main/docs/seam-rules.md",
+          "comment": "shared with the fork, byte-identical"
+        },
+        {
+          "type": "documentation",
+          "url": "https://github.com/rmccann-hub/Platterpus/blob/main/docs/seam-commands.md",
+          "comment": "shared with the fork, byte-identical"
+        },
+        {
+          "type": "documentation",
+          "url": "https://github.com/rmccann-hub/Platterpus/blob/main/docs/OWNERSHIP.md",
+          "comment": "shared with the fork: who owns which shared file"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/adapters/cyanrip_backend.py, src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/registry.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_PIN, FORK_EXPECTED_VERSION), src/platterpus/handshake_approval.py (APPROVED_BY_ROUND), src/platterpus/deps/registry.py (min_version)"
+        },
+        {
+          "name": "platterpus:pin",
+          "value": "51cc789"
+        },
+        {
+          "name": "platterpus:build-tag",
+          "value": "platterpus-fork-g51cc789"
+        },
+        {
+          "name": "platterpus:banner",
+          "value": "cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-g51cc789)"
+        },
+        {
+          "name": "platterpus:branch",
+          "value": "platterpus-fork"
+        },
+        {
+          "name": "platterpus:release-seq",
+          "value": "28"
+        },
+        {
+          "name": "platterpus:approved-by-round",
+          "value": "29"
+        },
+        {
+          "name": "platterpus:approved-for-platterpus",
+          "value": "0.6.63"
+        },
+        {
+          "name": "platterpus:checked-minimum",
+          "value": "0.9.0"
+        },
+        {
+          "name": "platterpus:installed-at",
+          "value": "/usr/local/bin/cyanrip inside the ripping container"
+        },
+        {
+          "name": "platterpus:host-export",
+          "value": "~/.local/bin/cyanrip"
+        },
+        {
+          "name": "platterpus:exported-from",
+          "value": "/usr/bin/cyanrip, /usr/local/bin/cyanrip (the last export wins)"
+        },
+        {
+          "name": "platterpus:pin-under-review",
+          "value": "174a134 (0.9.4-rc2+platterpus.19, round 30, published: yes)"
+        },
+        {
+          "name": "platterpus:test-pin",
+          "value": "3952c03 (0.9.4-rc2+platterpus.12, nominated by round 21)"
+        },
+        {
+          "name": "platterpus:handshake",
+          "value": "bidirectional release handshake: docs/cyanrip-handshake.md"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "ripper:cyanrip-fork-under-review",
+      "group": "rmccann-hub/platterpus-fork",
+      "name": "cyanrip (build under review)",
+      "version": "0.9.4-rc2+platterpus.19",
+      "isExternal": true,
+      "description": "The build handshake round 30 is reviewing; installable on request, never the default.",
+      "scope": "optional",
+      "purl": "pkg:github/rmccann-hub/cyanrip@174a134",
+      "pedigree": {
+        "ancestors": [
+          {
+            "type": "application",
+            "group": "cyanreg",
+            "name": "cyanrip",
+            "purl": "pkg:github/cyanreg/cyanrip"
+          }
+        ],
+        "notes": "A fork that tracks this upstream and keeps its version string."
+      },
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/rmccann-hub/cyanrip#platterpus-fork"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/fork_source.py (UNDER_REVIEW_TARGET)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (PIN_UNDER_REVIEW)"
+        },
+        {
+          "name": "platterpus:pin",
+          "value": "174a134"
+        },
+        {
+          "name": "platterpus:round",
+          "value": "30"
+        },
+        {
+          "name": "platterpus:published",
+          "value": "yes"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "ripper:cyanrip-upstream",
+      "group": "cyanreg",
+      "name": "cyanrip (upstream)",
+      "versionRange": "vers:generic/>=0.9.0",
+      "isExternal": true,
+      "description": "Stock cyanrip. The wizard installs it first from the COPR so a failed fork build still leaves a working ripper; the fork is then exported over it. Also the project the fork tracks.",
+      "scope": "optional",
+      "purl": "pkg:github/cyanreg/cyanrip",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/cyanreg/cyanrip",
+          "comment": "upstream; the fork's ancestor"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py (the cyanrip step)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/registry.py (min_version)"
+        },
+        {
+          "name": "platterpus:installed-by",
+          "value": "dnf install cyanrip from the COPR repo in the container"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "whatever the COPR serves; not pinned by Platterpus"
+        },
+        {
+          "name": "platterpus:checked-minimum",
+          "value": "0.9.0"
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "bom-ref": "container:fedora-toolbox",
+      "name": "fedora-toolbox",
+      "version": "latest",
+      "description": "The image the ripping container is created from.",
+      "scope": "required",
+      "purl": "pkg:docker/fedora-toolbox@latest?repository_url=registry.fedoraproject.org",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "container"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/host_setup.py (DEFAULT_IMAGE)"
+        },
+        {
+          "name": "platterpus:image",
+          "value": "registry.fedoraproject.org/fedora-toolbox:latest"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the moving 'latest' tag; the pull decides the Fedora release"
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "bom-ref": "container:ripping",
+      "name": "ripping",
+      "isExternal": true,
+      "description": "The Distrobox container the ripper runs in. The GUI never enters it to rip; it calls the host-exported wrapper (Critical rule #3).",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "container"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py (creates it), src/platterpus/drive_control.py (the scoped force-stop exception), src/platterpus/deps/host_teardown.py (removes it)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/host_setup.py (DEFAULT_CONTAINER)"
+        },
+        {
+          "name": "platterpus:created-by",
+          "value": "distrobox create --yes --name ripping --image registry.fedoraproject.org/fedora-toolbox:latest"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "build:gcc",
+      "name": "gcc",
+      "isExternal": true,
+      "description": "Toolchain for building the cyanrip fork; not needed to run it.",
+      "scope": "excluded",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:installed-by",
+          "value": "dnf install gcc in the container"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "build:git",
+      "name": "git",
+      "isExternal": true,
+      "description": "Toolchain for building the cyanrip fork; not needed to run it.",
+      "scope": "excluded",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:installed-by",
+          "value": "dnf install git in the container"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "lib:libavcodec",
+      "name": "libavcodec",
+      "isExternal": true,
+      "description": "Linked by the cyanrip fork (its src/meson.build).",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building and running the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:requested-as",
+          "value": "pkgconfig(libavcodec)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "whichever package the container's dnf resolves for the pkg-config name"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "lib:libavfilter",
+      "name": "libavfilter",
+      "isExternal": true,
+      "description": "Linked by the cyanrip fork (its src/meson.build).",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building and running the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:requested-as",
+          "value": "pkgconfig(libavfilter)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "whichever package the container's dnf resolves for the pkg-config name"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "lib:libavformat",
+      "name": "libavformat",
+      "isExternal": true,
+      "description": "Linked by the cyanrip fork (its src/meson.build).",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building and running the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:requested-as",
+          "value": "pkgconfig(libavformat)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "whichever package the container's dnf resolves for the pkg-config name"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "lib:libavutil",
+      "name": "libavutil",
+      "isExternal": true,
+      "description": "Linked by the cyanrip fork (its src/meson.build).",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building and running the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:requested-as",
+          "value": "pkgconfig(libavutil)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "whichever package the container's dnf resolves for the pkg-config name"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "lib:libcdio",
+      "name": "libcdio",
+      "isExternal": true,
+      "description": "Linked by the cyanrip fork (its src/meson.build).",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building and running the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:requested-as",
+          "value": "pkgconfig(libcdio)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "whichever package the container's dnf resolves for the pkg-config name"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "lib:libcdio_paranoia",
+      "name": "libcdio_paranoia",
+      "isExternal": true,
+      "description": "Linked by the cyanrip fork (its src/meson.build).",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building and running the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:requested-as",
+          "value": "pkgconfig(libcdio_paranoia)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "whichever package the container's dnf resolves for the pkg-config name"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "lib:libcurl",
+      "name": "libcurl",
+      "isExternal": true,
+      "description": "Linked by the cyanrip fork (its src/meson.build).",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building and running the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:requested-as",
+          "value": "pkgconfig(libcurl)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "whichever package the container's dnf resolves for the pkg-config name"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "lib:libmusicbrainz5",
+      "name": "libmusicbrainz5",
+      "isExternal": true,
+      "description": "Linked by the cyanrip fork (its src/meson.build).",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building and running the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:requested-as",
+          "value": "pkgconfig(libmusicbrainz5)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "whichever package the container's dnf resolves for the pkg-config name"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "lib:libswresample",
+      "name": "libswresample",
+      "isExternal": true,
+      "description": "Linked by the cyanrip fork (its src/meson.build).",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building and running the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:requested-as",
+          "value": "pkgconfig(libswresample)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "whichever package the container's dnf resolves for the pkg-config name"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "build:meson",
+      "name": "meson",
+      "isExternal": true,
+      "description": "Toolchain for building the cyanrip fork; not needed to run it.",
+      "scope": "excluded",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:installed-by",
+          "value": "dnf install meson in the container"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "build:ninja-build",
+      "name": "ninja-build",
+      "isExternal": true,
+      "description": "Toolchain for building the cyanrip fork; not needed to run it.",
+      "scope": "excluded",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ripper-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "building the cyanrip fork, inside the container"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES)"
+        },
+        {
+          "name": "platterpus:installed-by",
+          "value": "dnf install ninja-build in the container"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:apt-get",
+      "name": "apt-get",
+      "isExternal": true,
+      "description": "Host installer for Distrobox / podman on Debian and Ubuntu.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:bash",
+      "name": "bash",
+      "isExternal": true,
+      "description": "Runs the packaged rig_session.sh for --rig-session. That script uses ordinary shell utilities, which are not listed one by one.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/app.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool:cdparanoia",
+      "name": "cd-paranoia",
+      "isExternal": true,
+      "description": "Optional. libcdio's cd-paranoia — the same read engine cyanrip uses. Its `-A` self-test measures whether this drive defeats its audio cache, so the EAC-compatible log's 'Defeat audio cache' line can carry a measured Yes/No instead of '(unknown)' (KDD-29). Absent only means that verdict stays unmeasured; ripping is unaffected. Installed into the container + exported by the one-time setup wizard.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/adapters/cache_probe.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/deps/registry.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/registry.py (min_version, probed at launch)"
+        },
+        {
+          "name": "platterpus:registry-id",
+          "value": "cdparanoia"
+        },
+        {
+          "name": "platterpus:checked-minimum",
+          "value": "any version"
+        },
+        {
+          "name": "platterpus:resolution-tier",
+          "value": "manual"
+        },
+        {
+          "name": "platterpus:install-route",
+          "value": "dnf install /usr/bin/cd-paranoia in the container (step cache_tool); exported to ~/.local/bin by the setup wizard from /usr/bin/cd-paranoia"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "ripping container (through the host export)"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:curl",
+      "name": "curl",
+      "isExternal": true,
+      "description": "Fetches the upstream Distrobox installer on an unrecognised distro.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:distrobox",
+      "name": "distrobox",
+      "isExternal": true,
+      "description": "Creates and enters the ripping container: setup, the fork build, the scoped force-stop exception, and teardown.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/drive_control.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:distrobox-enter",
+      "name": "distrobox-enter",
+      "isExternal": true,
+      "description": "What the exported ~/.local/bin wrappers run; the wrapper probe times it to diagnose a wrapper that hangs.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/ripper_wrapper_probe.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:distrobox-export",
+      "name": "distrobox-export",
+      "isExternal": true,
+      "description": "Exports cyanrip, flac, metaflac and cd-paranoia from the container to ~/.local/bin.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "ripping container"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:dnf",
+      "name": "dnf",
+      "isExternal": true,
+      "description": "Installs flac, cyanrip, cd-paranoia and the fork's build inputs inside the container; also the host installer on Fedora-family systems.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "ripping container; host on Fedora-family systems"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:docker",
+      "name": "docker",
+      "isExternal": true,
+      "description": "Accepted in place of podman as Distrobox's engine when present.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:eject",
+      "name": "eject",
+      "isExternal": true,
+      "description": "Opens the drive tray after a force-stop.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/drive_control.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool:ffmpeg",
+      "name": "ffmpeg",
+      "versionRange": "vers:generic/>=4.0",
+      "isExternal": true,
+      "description": "Optional. The encoder for the Output-format feature (KDD-22): transcodes the FLAC master to WavPack, MP3, or WAV when a non-FLAC output is selected, AND verifies those derived files afterward (decode-to-PCM bit-compare for lossless, decode-clean for MP3). Absent only disables non-FLAC output (FLAC ripping is unaffected, and the FLAC master is always kept). Already present wherever cyanrip is installed (cyanrip is built on FFmpeg).",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/adapters/derived_verify.py, src/platterpus/adapters/transcode.py, src/platterpus/deps/checks.py, src/platterpus/deps/registry.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/registry.py (min_version, probed at launch)"
+        },
+        {
+          "name": "platterpus:registry-id",
+          "value": "ffmpeg"
+        },
+        {
+          "name": "platterpus:checked-minimum",
+          "value": "4.0"
+        },
+        {
+          "name": "platterpus:resolution-tier",
+          "value": "manual"
+        },
+        {
+          "name": "platterpus:install-route",
+          "value": "the user's own package manager"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:encoders-used",
+          "value": "libmp3lame, pcm_s16le, wavpack"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool:flac",
+      "name": "flac",
+      "versionRange": "vers:generic/>=1.3.0",
+      "isExternal": true,
+      "description": "Optional. Only needed for the 'Verify with CTDB after a rip' setting: the CTDB audio check decodes the FLACs back to PCM on the host. The setup wizard installs it into the container alongside cyanrip and metaflac; re-run the wizard if it's missing.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/adapters/flac_recompress.py, src/platterpus/adapters/flac_verify.py, src/platterpus/ctdb/decode.py, src/platterpus/deps/checks.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/deps/registry.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/registry.py (min_version, probed at launch)"
+        },
+        {
+          "name": "platterpus:registry-id",
+          "value": "flac"
+        },
+        {
+          "name": "platterpus:checked-minimum",
+          "value": "1.3.0"
+        },
+        {
+          "name": "platterpus:resolution-tier",
+          "value": "manual"
+        },
+        {
+          "name": "platterpus:install-route",
+          "value": "dnf install flac in the container (step tools); exported to ~/.local/bin by the setup wizard from /usr/bin/flac"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "ripping container (through the host export)"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:flatpak",
+      "name": "flatpak",
+      "isExternal": true,
+      "description": "Installs MusicBrainz Picard from Flathub and launches it for an unknown disc.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/registry.py, src/platterpus/ui/unknown_album.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:fuser",
+      "name": "fuser",
+      "isExternal": true,
+      "description": "Device-scoped force-stop of whatever holds the drive on cancel (host copy only).",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/drive_control.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:gio",
+      "name": "gio",
+      "isExternal": true,
+      "description": "Marks the desktop shortcut trusted after AppImage integration.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/appimage_integration.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:kbuildsycoca5",
+      "name": "kbuildsycoca5",
+      "isExternal": true,
+      "description": "The same refresh for KDE Plasma 5 (fire-and-forget).",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/appimage_integration.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:kbuildsycoca6",
+      "name": "kbuildsycoca6",
+      "isExternal": true,
+      "description": "Refreshes KDE Plasma 6's menu cache after AppImage integration (fire-and-forget).",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/appimage_integration.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool:metaflac",
+      "name": "metaflac",
+      "versionRange": "vers:generic/>=1.3.0",
+      "isExternal": true,
+      "description": "Part of the FLAC reference encoder package. Used to apply tags after a rip and to add placeholders for unknown discs. Installed + exported by the one-time setup wizard.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/adapters/metaflac.py, src/platterpus/ctdb/decode.py, src/platterpus/deps/checks.py, src/platterpus/deps/registry.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/registry.py (min_version, probed at launch)"
+        },
+        {
+          "name": "platterpus:registry-id",
+          "value": "metaflac"
+        },
+        {
+          "name": "platterpus:checked-minimum",
+          "value": "1.3.0"
+        },
+        {
+          "name": "platterpus:resolution-tier",
+          "value": "manual"
+        },
+        {
+          "name": "platterpus:install-route",
+          "value": "dnf install flac in the container (step tools); exported to ~/.local/bin by the setup wizard from /usr/bin/metaflac"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "ripping container (through the host export)"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool:picard",
+      "name": "MusicBrainz Picard",
+      "isExternal": true,
+      "description": "Optional. Auto-launched on unknown discs when the 'Auto-launch Picard' setting is enabled.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/checks.py, src/platterpus/deps/registry.py, src/platterpus/ui/unknown_album.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "src/platterpus/deps/registry.py (min_version, probed at launch)"
+        },
+        {
+          "name": "platterpus:registry-id",
+          "value": "picard"
+        },
+        {
+          "name": "platterpus:checked-minimum",
+          "value": "any version"
+        },
+        {
+          "name": "platterpus:resolution-tier",
+          "value": "auto"
+        },
+        {
+          "name": "platterpus:install-route",
+          "value": "flatpak install --user -y https://dl.flathub.org/repo/appstream/org.musicbrainz.Picard.flatpakref"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:pacman",
+      "name": "pacman",
+      "isExternal": true,
+      "description": "Host installer for Distrobox / podman on Arch.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:pkexec",
+      "name": "pkexec",
+      "isExternal": true,
+      "description": "Graphical privilege prompt for installing Distrobox or podman on the host (a GUI has no terminal for sudo).",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:pkill",
+      "name": "pkill",
+      "isExternal": true,
+      "description": "Name-matched force-stop of the reader on cancel (host first, then the container — Critical rule #3's scoped exception).",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/drive_control.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:podman",
+      "name": "podman",
+      "isExternal": true,
+      "description": "Distrobox's container engine; the wizard installs it when no engine is present. Docker is accepted instead when it is already there.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:sh",
+      "name": "sh",
+      "isExternal": true,
+      "description": "Runs the fork's build, install and verify scripts in the container, and the upstream Distrobox installer on an unrecognised distro.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "ripping container; host for the Distrobox installer"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:sudo",
+      "name": "sudo",
+      "isExternal": true,
+      "description": "Root inside the container for dnf and the fork install.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "ripping container"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:systemd-inhibit",
+      "name": "systemd-inhibit",
+      "isExternal": true,
+      "description": "Holds idle sleep, suspend and the lid switch off during a long unattended run.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/sleep_inhibit.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:update-desktop-database",
+      "name": "update-desktop-database",
+      "isExternal": true,
+      "description": "Refreshes the menu after AppImage integration (fire-and-forget).",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/appimage_integration.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:zypper",
+      "name": "zypper",
+      "isExternal": true,
+      "description": "Host installer for Distrobox / podman on openSUSE.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "platform",
+      "bom-ref": "desktop:org.freedesktop.ScreenSaver",
+      "name": "org.freedesktop.ScreenSaver",
+      "isExternal": true,
+      "description": "The freedesktop screensaver D-Bus interface, used to keep the screen from blanking during a run that takes screenshots.",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "desktop"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/screen_inhibit.py"
+        },
+        {
+          "name": "platterpus:dbus-object-path",
+          "value": "/org/freedesktop/ScreenSaver"
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "data:accuraterip-drive-offsets",
+      "name": "AccurateRip drive offsets",
+      "version": "2026-06-05",
+      "description": "A snapshot of AccurateRip's drive read-offset table, shipped in the package so offset lookup works offline.",
+      "scope": "required",
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "http://www.accuraterip.com/accuraterip/DriveOffsets.bin",
+          "comment": "the source the snapshot was taken from"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "data"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/adapters/accuraterip_offsets.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "scripts/update_drive_offsets.py (regenerates it)"
+        },
+        {
+          "name": "platterpus:drives",
+          "value": "4804"
+        },
+        {
+          "name": "platterpus:stored-in",
+          "value": "src/platterpus/adapters/accuraterip_offsets_data.py"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:hypothesis",
+      "name": "hypothesis",
+      "description": "Property-based tests, including the parsers' never-raises properties.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/hypothesis",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-dev"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "tests/ (every importer is in these directories)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].dev"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=6"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "tests/ (every importer is in these directories)"
+        },
+        {
+          "name": "platterpus:gates-ci",
+          "value": "no"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:mypy",
+      "name": "mypy",
+      "description": "Strict type checking; gates CI.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/mypy",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-dev"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml, scripts/check.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].dev"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=2.3,<2.4"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "not imported directly"
+        },
+        {
+          "name": "platterpus:gates-ci",
+          "value": "yes (pinned to the measured minor, Critical rule #11)"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:pytest",
+      "name": "pytest",
+      "description": "The test runner.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/pytest",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-dev"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "tests/ (every importer is in these directories), .github/workflows/ci.yml, scripts/check.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].dev"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=8,<10"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "tests/ (every importer is in these directories)"
+        },
+        {
+          "name": "platterpus:gates-ci",
+          "value": "no"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:pytest-cov",
+      "name": "pytest-cov",
+      "description": "Branch coverage and the CI coverage floor.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/pytest-cov",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-dev"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "loaded by pytest as a plugin"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].dev"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=5"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "not imported directly"
+        },
+        {
+          "name": "platterpus:gates-ci",
+          "value": "no"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:pytest-xdist",
+      "name": "pytest-xdist",
+      "description": "Parallel test runs (CI and scripts/check.py pass -n auto).",
+      "scope": "excluded",
+      "purl": "pkg:pypi/pytest-xdist",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-dev"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "loaded by pytest as a plugin"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].dev"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=3.6,<4"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "not imported directly"
+        },
+        {
+          "name": "platterpus:gates-ci",
+          "value": "no"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:ruff",
+      "name": "ruff",
+      "description": "Lint and format; gates CI.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/ruff",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-dev"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml, scripts/check.py"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].dev"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=0.15.22,<0.16"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "not imported directly"
+        },
+        {
+          "name": "platterpus:gates-ci",
+          "value": "yes (pinned to the measured minor, Critical rule #11)"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "pypi:build",
+      "name": "build",
+      "description": "PEP 517 frontend: builds the wheel and sdist.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/build",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release), build/build_appimage.sh"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release), build/build_appimage.sh"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=1,<2 in .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh; unpinned in .github/workflows/publish-pypi.yml (publish)"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "pypi:cyclonedx-bom",
+      "name": "cyclonedx-bom",
+      "description": "Writes the CI sbom job's resolved-environment SBOM.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/cyclonedx-bom",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (sbom)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/ci.yml (sbom)"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=7,<8"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "pypi:pip",
+      "name": "pip",
+      "description": "Installs everything else.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/pip",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": "unpinned"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "pypi:pip-audit",
+      "name": "pip-audit",
+      "description": "The gating vulnerability audit of the resolved runtime graph.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/pip-audit",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (pip-audit)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/ci.yml (pip-audit)"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": "unpinned"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "pypi:python-appimage",
+      "name": "python-appimage",
+      "description": "Builds the AppImage (Critical rule #2).",
+      "scope": "excluded",
+      "purl": "pkg:pypi/python-appimage",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=1.4,<2"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "pypi:setuptools",
+      "name": "setuptools",
+      "description": "The build backend.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/setuptools",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (pip-audit), pyproject.toml [build-system].requires"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/ci.yml (pip-audit), pyproject.toml [build-system].requires"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=77 in pyproject.toml [build-system].requires; unpinned in .github/workflows/ci.yml (pip-audit)"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "pypi:twine",
+      "name": "twine",
+      "description": "Checks the wheel and sdist before the PyPI upload.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/twine",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/publish-pypi.yml (publish)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/publish-pypi.yml (publish)"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": "unpinned"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "pypi:wheel",
+      "name": "wheel",
+      "description": "Wheel support for the build backend.",
+      "scope": "excluded",
+      "purl": "pkg:pypi/wheel",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-build"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "pyproject.toml [build-system].requires"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [build-system].requires"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": "unpinned"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "gha:actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373",
+      "group": "actions",
+      "name": "attest-build-provenance",
+      "version": "v4",
+      "description": "Signs the release AppImage's build-provenance attestation.",
+      "scope": "excluded",
+      "purl": "pkg:github/actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/actions/attest-build-provenance"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-action"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/release.yml (build-and-release)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/release.yml"
+        },
+        {
+          "name": "platterpus:pinned-ref",
+          "value": "0f67c3f4856b2e3261c31976d6725780e5e4c373"
+        },
+        {
+          "name": "platterpus:pinned-to-commit-sha",
+          "value": "yes"
+        },
+        {
+          "name": "platterpus:version-comment",
+          "value": "v4"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "gha:actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "group": "actions",
+      "name": "checkout",
+      "version": "v7.0.1",
+      "description": "Checks out the repository.",
+      "scope": "excluded",
+      "purl": "pkg:github/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/actions/checkout"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-action"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml"
+        },
+        {
+          "name": "platterpus:pinned-ref",
+          "value": "3d3c42e5aac5ba805825da76410c181273ba90b1"
+        },
+        {
+          "name": "platterpus:pinned-to-commit-sha",
+          "value": "yes"
+        },
+        {
+          "name": "platterpus:version-comment",
+          "value": "v7.0.1"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "gha:pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247",
+      "group": "pypa",
+      "name": "gh-action-pypi-publish",
+      "version": "release/v1",
+      "description": "Publishes the wheel and sdist to PyPI.",
+      "scope": "excluded",
+      "purl": "pkg:github/pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/pypa/gh-action-pypi-publish"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-action"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/publish-pypi.yml (publish)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/publish-pypi.yml"
+        },
+        {
+          "name": "platterpus:pinned-ref",
+          "value": "ba38be9e461d3875417946c167d0b5f3d385a247"
+        },
+        {
+          "name": "platterpus:pinned-to-commit-sha",
+          "value": "yes"
+        },
+        {
+          "name": "platterpus:version-comment",
+          "value": "release/v1"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "gha:gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
+      "group": "gitleaks",
+      "name": "gitleaks-action",
+      "version": "v3.0.0",
+      "description": "Runs the gitleaks secret scan.",
+      "scope": "excluded",
+      "purl": "pkg:github/gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/gitleaks/gitleaks-action"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-action"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (gitleaks)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/ci.yml"
+        },
+        {
+          "name": "platterpus:pinned-ref",
+          "value": "e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e"
+        },
+        {
+          "name": "platterpus:pinned-to-commit-sha",
+          "value": "yes"
+        },
+        {
+          "name": "platterpus:version-comment",
+          "value": "v3.0.0"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "gha:actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+      "group": "actions",
+      "name": "setup-python",
+      "version": "v7.0.0",
+      "description": "Installs the job's Python.",
+      "scope": "excluded",
+      "purl": "pkg:github/actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/actions/setup-python"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-action"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml"
+        },
+        {
+          "name": "platterpus:pinned-ref",
+          "value": "5fda3b95a4ea91299a34e894583c3862153e4b97"
+        },
+        {
+          "name": "platterpus:pinned-to-commit-sha",
+          "value": "yes"
+        },
+        {
+          "name": "platterpus:version-comment",
+          "value": "v7.0.0"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "gha:actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+      "group": "actions",
+      "name": "upload-artifact",
+      "version": "v7.0.1",
+      "description": "Keeps a job's output (the SBOM, the AppImage, mutation reports).",
+      "scope": "excluded",
+      "purl": "pkg:github/actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/actions/upload-artifact"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-action"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep)"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml"
+        },
+        {
+          "name": "platterpus:pinned-ref",
+          "value": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+        },
+        {
+          "name": "platterpus:pinned-to-commit-sha",
+          "value": "yes"
+        },
+        {
+          "name": "platterpus:version-comment",
+          "value": "v7.0.1"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "ci:appimagetool",
+      "name": "appimagetool",
+      "description": "Re-packs the AppImage to embed the zsync update information (the copy python-appimage caches, or the system's).",
+      "scope": "excluded",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "build/build_appimage.sh"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not pinned; whatever the runner or tool cache provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "ci:gh",
+      "name": "gh",
+      "description": "GitHub CLI on the runner: creates the release and uploads its assets.",
+      "scope": "excluded",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/release.yml"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not pinned; whatever the runner or tool cache provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "ci:gitleaks",
+      "name": "gitleaks",
+      "description": "The secret scanner the gitleaks job runs.",
+      "scope": "excluded",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/gitleaks/gitleaks"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (gitleaks)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "chosen by gitleaks/gitleaks-action at its pinned commit; not pinned in this repository"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "apt:libdbus-1-3",
+      "name": "libdbus-1-3",
+      "description": "A system library PySide6 needs to run headless in CI.",
+      "scope": "excluded",
+      "purl": "pkg:deb/ubuntu/libdbus-1-3",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the runner image's Ubuntu archive"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "apt:libegl1",
+      "name": "libegl1",
+      "description": "A system library PySide6 needs to run headless in CI.",
+      "scope": "excluded",
+      "purl": "pkg:deb/ubuntu/libegl1",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the runner image's Ubuntu archive"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "apt:libfontconfig1",
+      "name": "libfontconfig1",
+      "description": "A system library PySide6 needs to run headless in CI.",
+      "scope": "excluded",
+      "purl": "pkg:deb/ubuntu/libfontconfig1",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the runner image's Ubuntu archive"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "apt:libfreetype6",
+      "name": "libfreetype6",
+      "description": "A system library PySide6 needs to run headless in CI.",
+      "scope": "excluded",
+      "purl": "pkg:deb/ubuntu/libfreetype6",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the runner image's Ubuntu archive"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "apt:libgl1",
+      "name": "libgl1",
+      "description": "A system library PySide6 needs to run headless in CI.",
+      "scope": "excluded",
+      "purl": "pkg:deb/ubuntu/libgl1",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the runner image's Ubuntu archive"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "apt:libglib2.0-0",
+      "name": "libglib2.0-0",
+      "description": "A system library PySide6 needs to run headless in CI.",
+      "scope": "excluded",
+      "purl": "pkg:deb/ubuntu/libglib2.0-0",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the runner image's Ubuntu archive"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "apt:libxkbcommon0",
+      "name": "libxkbcommon0",
+      "description": "A system library PySide6 needs to run headless in CI.",
+      "scope": "excluded",
+      "purl": "pkg:deb/ubuntu/libxkbcommon0",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the runner image's Ubuntu archive"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "apt:zsync",
+      "name": "zsync",
+      "description": "zsyncmake, which writes the AppImage's .zsync delta-update file.",
+      "scope": "excluded",
+      "purl": "pkg:deb/ubuntu/zsync",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/release.yml (build-and-release)"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "the runner image's Ubuntu archive"
+        }
+      ]
+    },
+    {
+      "type": "operating-system",
+      "bom-ref": "runner:ubuntu-22.04",
+      "name": "ubuntu-22.04",
+      "description": "GitHub-hosted runner image.",
+      "scope": "excluded",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-runner"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/release.yml (build-and-release)"
+        },
+        {
+          "name": "platterpus:pinned",
+          "value": "to the image's major release"
+        }
+      ]
+    },
+    {
+      "type": "operating-system",
+      "bom-ref": "runner:ubuntu-latest",
+      "name": "ubuntu-latest",
+      "description": "GitHub-hosted runner image.",
+      "scope": "excluded",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "ci-runner"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/publish-pypi.yml (publish)"
+        },
+        {
+          "name": "platterpus:pinned",
+          "value": "no (a moving label)"
+        }
+      ]
+    }
+  ],
+  "services": [
+    {
+      "bom-ref": "svc:accuraterip",
+      "provider": {
+        "name": "Illustrate"
+      },
+      "name": "AccurateRip",
+      "description": "Source of the bundled drive-offset table. The per-track AccurateRip results in a rip come from cyanrip's log; Platterpus does not query the AccurateRip database itself.",
+      "endpoints": [
+        "http://www.accuraterip.com/accuraterip/DriveOffsets.bin",
+        "https://www.accuraterip.com/driveoffsets.htm"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "scripts/update_drive_offsets.py, src/platterpus/ui/drive_setup_dialog.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "maintenance (the offset snapshot); a link in the drive setup dialog"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:cover-art-archive",
+      "provider": {
+        "name": "MetaBrainz Foundation / Internet Archive"
+      },
+      "name": "Cover Art Archive",
+      "description": "Front cover images for the identified release.",
+      "endpoints": [
+        "https://coverartarchive.org/",
+        "https://coverartarchive.org/release/"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "outbound",
+          "classification": "release MBID"
+        },
+        {
+          "flow": "inbound",
+          "classification": "cover image"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/adapters/cover_art.py, src/platterpus/preflight.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "runtime (cover art after a rip; a reachability check in --doctor)"
+        },
+        {
+          "name": "platterpus:url-template",
+          "value": "https://coverartarchive.org/release/{mbid}/front"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:ctdb",
+      "provider": {
+        "name": "CUETools"
+      },
+      "name": "CUETools Database (CTDB)",
+      "description": "Per-track CRCs to compare with the rip. Plain HTTP by necessity: the host serves no valid certificate, and trust comes from comparing CRCs, not from the transport.",
+      "endpoints": [
+        "http://db.cuetools.net/lookup2.php"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "outbound",
+          "classification": "disc table of contents"
+        },
+        {
+          "flow": "inbound",
+          "classification": "CRCs"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/adapters/ctdb_client.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "runtime (optional verify after a rip)"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:fork-release-manifest",
+      "provider": {
+        "name": "rmccann-hub/cyanrip"
+      },
+      "name": "cyanrip fork release manifest",
+      "description": "The fork's published builds per channel, for the ripper update offer.",
+      "endpoints": [
+        "https://raw.githubusercontent.com/rmccann-hub/cyanrip/platterpus-fork/release-manifest.json"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "inbound",
+          "classification": "release manifest JSON"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/ripper_manifest.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "runtime (ripper update offers)"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:fork-source",
+      "provider": {
+        "name": "GitHub"
+      },
+      "name": "cyanrip fork source (git clone)",
+      "description": "Cloned at the pinned commit to build the fork.",
+      "endpoints": [
+        "https://github.com/rmccann-hub/cyanrip.git"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "inbound",
+          "classification": "source tree"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/fork_source.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "setup (the wizard and --install-ripper, inside the container)"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:distrobox-installer",
+      "provider": {
+        "name": "89luca89/distrobox"
+      },
+      "name": "Distrobox upstream installer",
+      "description": "Installs Distrobox where no known package manager applies.",
+      "endpoints": [
+        "https://raw.githubusercontent.com/89luca89/distrobox/main/install"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "inbound",
+          "classification": "installer script"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "setup (only on an unrecognised distro)"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:fedora-registry",
+      "provider": {
+        "name": "Fedora Project"
+      },
+      "name": "Fedora container registry",
+      "description": "Serves the fedora-toolbox image.",
+      "endpoints": [
+        "https://registry.fedoraproject.org/"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "inbound",
+          "classification": "container image"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "setup (creating the container)"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:copr-barsnick-non-fed",
+      "provider": {
+        "name": "Fedora COPR"
+      },
+      "name": "Fedora COPR barsnick/non-fed",
+      "description": "The GPG-signed COPR that packages stock cyanrip for Fedora.",
+      "endpoints": [
+        "https://download.copr.fedorainfracloud.org/results/barsnick/non-fed/",
+        "https://download.copr.fedorainfracloud.org/results/barsnick/non-fed/pubkey.gpg"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "inbound",
+          "classification": "RPM packages"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "setup (the stock cyanrip package)"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:fedora-repositories",
+      "provider": {
+        "name": "Fedora Project"
+      },
+      "name": "Fedora package repositories",
+      "description": "flac, cd-paranoia and the fork's build inputs.",
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "inbound",
+          "classification": "RPM packages"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/host_setup.py, src/platterpus/deps/fork_source.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "setup (dnf inside the container)"
+        },
+        {
+          "name": "platterpus:endpoint-basis",
+          "value": "the container image's own configured repositories; not named in Platterpus"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:flathub",
+      "provider": {
+        "name": "Flathub"
+      },
+      "name": "Flathub",
+      "description": "MusicBrainz Picard's Flatpak.",
+      "endpoints": [
+        "https://dl.flathub.org/repo/appstream/org.musicbrainz.Picard.flatpakref"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "inbound",
+          "classification": "Flatpak"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/deps/registry.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "on request (installing Picard)"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:github-release-downloads",
+      "provider": {
+        "name": "GitHub"
+      },
+      "name": "GitHub release downloads (update install)",
+      "description": "The AppImage, its .sha256 and its .sigstore.json attestation for an in-app update.",
+      "endpoints": [
+        "https://github.com/rmccann-hub/Platterpus/releases/download/"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "inbound",
+          "classification": "AppImage and attestation"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/update_install.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "runtime (installing an update)"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:github-releases-api",
+      "provider": {
+        "name": "GitHub"
+      },
+      "name": "GitHub Releases API (update check)",
+      "description": "Lists Platterpus releases for the in-app update check.",
+      "endpoints": [
+        "https://api.github.com/repos/rmccann-hub/Platterpus/releases?per_page=5"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "inbound",
+          "classification": "release list"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/update_check.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "runtime (update check)"
+        },
+        {
+          "name": "platterpus:release-page",
+          "value": "https://github.com/rmccann-hub/Platterpus/releases"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:musicbrainz",
+      "provider": {
+        "name": "MetaBrainz Foundation"
+      },
+      "name": "MusicBrainz web service",
+      "description": "Release metadata for the disc. The only metadata source (Critical rule #5); the endpoint is musicbrainzngs's own, which our client never overrides.",
+      "endpoints": [
+        "https://musicbrainz.org/ws/2/"
+      ],
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "outbound",
+          "classification": "disc ID and table of contents"
+        },
+        {
+          "flow": "inbound",
+          "classification": "release metadata"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/adapters/musicbrainz_client.py"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "runtime (every disc lookup)"
+        },
+        {
+          "name": "platterpus:user-agent-contact",
+          "value": "https://github.com/rmccann-hub/Platterpus"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:pypi",
+      "provider": {
+        "name": "Python Software Foundation"
+      },
+      "name": "PyPI",
+      "description": "Where Platterpus's wheel and sdist are published, and where pip resolves every Python package above.",
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "outbound",
+          "classification": "wheel and sdist"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://pypi.org/project/platterpus/"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": ".github/workflows/publish-pypi.yml"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "release (publishing) and development (installing)"
+        },
+        {
+          "name": "platterpus:endpoint-basis",
+          "value": "the pip and gh-action-pypi-publish defaults; not named in Platterpus"
+        }
+      ]
+    },
+    {
+      "bom-ref": "svc:sigstore",
+      "provider": {
+        "name": "Sigstore (OpenSSF)"
+      },
+      "name": "Sigstore public-good instance",
+      "description": "Signs the release's build-provenance attestation and supplies the trust root the updater verifies it against.",
+      "authenticated": false,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "inbound",
+          "classification": "trust root"
+        }
+      ],
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "service"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/update_attestation.py, .github/workflows/release.yml"
+        },
+        {
+          "name": "platterpus:when",
+          "value": "runtime (installing an update) and release (attesting the build)"
+        },
+        {
+          "name": "platterpus:endpoint-basis",
+          "value": "not named in Platterpus; the sigstore library's production trust root decides"
+        },
+        {
+          "name": "platterpus:accepted-issuer",
+          "value": "https://token.actions.githubusercontent.com"
+        },
+        {
+          "name": "platterpus:predicate-type",
+          "value": "https://slsa.dev/provenance/v1"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "container:fedora-toolbox",
+      "dependsOn": [
+        "svc:fedora-registry"
+      ]
+    },
+    {
+      "ref": "container:ripping",
+      "dependsOn": [
+        "container:fedora-toolbox",
+        "svc:fedora-repositories",
+        "tool-host:distrobox-export",
+        "tool-host:sudo"
+      ]
+    },
+    {
+      "ref": "data:accuraterip-drive-offsets",
+      "dependsOn": [
+        "svc:accuraterip"
+      ]
+    },
+    {
+      "ref": "gha:gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
+      "dependsOn": [
+        "ci:gitleaks"
+      ]
+    },
+    {
+      "ref": "platterpus",
+      "dependsOn": [
+        "data:accuraterip-drive-offsets",
+        "desktop:org.freedesktop.ScreenSaver",
+        "pypi:cryptography",
+        "pypi:musicbrainzngs",
+        "pypi:pyside6",
+        "pypi:sigstore",
+        "pypi:tomli-w",
+        "ripper:cyanrip-fork",
+        "ripper:cyanrip-fork-under-review",
+        "ripper:cyanrip-upstream",
+        "runtime:linux",
+        "runtime:python",
+        "runtime:python-appimage-bundled",
+        "svc:cover-art-archive",
+        "svc:ctdb",
+        "svc:fork-release-manifest",
+        "svc:github-release-downloads",
+        "svc:github-releases-api",
+        "tool-host:apt-get",
+        "tool-host:bash",
+        "tool-host:curl",
+        "tool-host:distrobox",
+        "tool-host:distrobox-enter",
+        "tool-host:dnf",
+        "tool-host:eject",
+        "tool-host:flatpak",
+        "tool-host:fuser",
+        "tool-host:gio",
+        "tool-host:kbuildsycoca5",
+        "tool-host:kbuildsycoca6",
+        "tool-host:pacman",
+        "tool-host:pkexec",
+        "tool-host:pkill",
+        "tool-host:sh",
+        "tool-host:systemd-inhibit",
+        "tool-host:update-desktop-database",
+        "tool-host:zypper",
+        "tool:cdparanoia",
+        "tool:ffmpeg",
+        "tool:flac",
+        "tool:metaflac",
+        "tool:picard"
+      ]
+    },
+    {
+      "ref": "pypi:musicbrainzngs",
+      "dependsOn": [
+        "svc:musicbrainz"
+      ]
+    },
+    {
+      "ref": "pypi:pyside6",
+      "dependsOn": [
+        "runtime:qt"
+      ]
+    },
+    {
+      "ref": "pypi:sigstore",
+      "dependsOn": [
+        "svc:sigstore"
+      ]
+    },
+    {
+      "ref": "ripper:cyanrip-fork",
+      "dependsOn": [
+        "container:ripping",
+        "lib:libavcodec",
+        "lib:libavfilter",
+        "lib:libavformat",
+        "lib:libavutil",
+        "lib:libcdio",
+        "lib:libcdio_paranoia",
+        "lib:libcurl",
+        "lib:libmusicbrainz5",
+        "lib:libswresample",
+        "svc:fork-source"
+      ]
+    },
+    {
+      "ref": "ripper:cyanrip-fork-under-review",
+      "dependsOn": [
+        "container:ripping",
+        "lib:libavcodec",
+        "lib:libavfilter",
+        "lib:libavformat",
+        "lib:libavutil",
+        "lib:libcdio",
+        "lib:libcdio_paranoia",
+        "lib:libcurl",
+        "lib:libmusicbrainz5",
+        "lib:libswresample"
+      ]
+    },
+    {
+      "ref": "ripper:cyanrip-upstream",
+      "dependsOn": [
+        "container:ripping",
+        "svc:copr-barsnick-non-fed"
+      ]
+    },
+    {
+      "ref": "tool-host:distrobox",
+      "dependsOn": [
+        "svc:distrobox-installer",
+        "tool-host:docker",
+        "tool-host:podman"
+      ]
+    },
+    {
+      "ref": "tool:picard",
+      "dependsOn": [
+        "svc:flathub",
+        "tool-host:flatpak"
+      ]
+    }
+  ]
+}
