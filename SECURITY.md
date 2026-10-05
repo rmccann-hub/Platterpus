@@ -74,7 +74,9 @@ reproduce on the newest release before reporting.
   matters: this repository is public and `git log` is a distribution channel, so a
   credential removed in a later commit is still published. Same reasoning the media
   guard uses for audio. Until CI scans the full history on every run (approved on
-  2026-09-28, not yet applied), that scan is done by hand. On 2026-09-28, gitleaks
+  2026-09-28 as amendment A12 and held under C3 of the operator's seam-automation
+  proposal, which freezes CI changes until the maintainer lifts it for one:
+  `PLANNING.md` KDD-39 and KDD-40), that scan is done by hand. On 2026-09-28, gitleaks
   8.24.3 over every commit reachable from `main`, merge commits included
   (`--log-opts="-m origin/main"`, 1,454 commits), found nothing. *Corrected
   2026-09-28: until then this entry said the job scans the full history.*

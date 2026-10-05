@@ -20,6 +20,134 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## 2026-10-05 — what next, ranked: the 0.6.66 beta, the fork, quick wins
+
+The maintainer, 2026-10-05: *"Fix the tasks file so this is updated and recorded.
+Prioritize things for this beta version that matter or things to send to cyanrip fork.
+Also quick things. Mark up as needed."*
+
+**How to read it.** This section is an order, not a second copy of each row. The
+freeze to know first: C3 of the seam-automation proposal stops any CI, settings or
+`CLAUDE.md` change until the maintainer lifts it for that change (C8). Each item
+points at the row that carries its status, by the row's title (line numbers move); the
+three items no other row held are rows here, under *New rows*. Times are working time.
+Rig time, and waiting on the fork or the maintainer, are named separately. Before
+re-ranking, open the row: four of the things I listed as open from memory on 2026-10-05
+were not (below).
+
+**The count, measured, in all five checkbox forms** (`- [ ]`, `- **[ ]**`, `N. **[ ]`,
+`[~]`, and the emoji): **178 open rows** before this change (116 `[ ]`, 52 `[~]`, 1
+`[?]`, 7 🟡, 2 ⬜), **170** after the corrections below, and **173** with this section's
+three new rows. My first count said 135, because its pattern matched one form only: the
+same miss the 2026-09-25 audit recorded, repeated.
+
+**Corrected in this change**, each with a dated note on its row:
+- closed: the register (their ratings arrived in their lap 9 S34); the Full run on `.19`
+  (two rows, both read by both sides); their release-cycle proposal (O1 to O4 were ruled
+  on 2026-09-30); their lap 9 (answered by our lap 10); `COMPONENTS.json` (`55b6da6f`);
+  the post-cancel rescue HAZARD (superseded by two rows that each carry one half);
+- moved to `[~]`: the unverified-skips wording (the EAC-layout half is done) and *Found
+  while integrating* (re-sorted; (1) to (3) done, (4) to (6) open);
+- removed: a duplicated row header (*A skipped track AccurateRip did not confirm*), left
+  by a union merge;
+- noted, still open: C13a, K2 and C23 never sent (the protocol-6 row), and the two split
+  rows' current sizes.
+
+**What I told the maintainer was open on 2026-10-05 and was not:** the O1 to O4
+decisions (ruled 2026-09-30); the fork's register ratings (arrived); the EAC log's
+"re-reads did NOT agree" overstatement (`ce04e1fe`); and the screenshot fix (the
+screen-saver inhibit and the rendering of unexposed windows are both built; only a run
+on that build is missing). *Am I answering from the artifact, or from my memory of the
+artifact?* was the question to ask before answering, not after.
+
+### A. For the 0.6.66 beta, before the cut
+
+| # | What | Why it matters for the beta | Fix | Time | Row |
+|---|---|---|---|---|---|
+| A1 | Eight parser patterns go quadratic on a long line | The parser grades every rip, and a line may reach 65,536 characters: tens of seconds a line | Rewrite as `\S(?:.*\S)?` with an equivalence property test; give the regex sweep inputs past a literal prefix; regenerate the consumer contract; a DID in our next lap | 2–3 h | *Found while integrating* (4) |
+| A2 | No securing pass after a finished pass the drive could not read cleanly | The tracks AccurateRip did not confirm are not re-read when the ladder ends on such a pass, or in fixed mode | The maintainer's decision (C1); then keep the album pass's exit code apart from the securing pass's, and key the pass on `ladder_trigger.why_pass_incomplete` (the pass finished) instead of exit 0 | 4–6 h after C1 | *Should the securing pass run after a finished pass…* |
+| A3 | W6: the `-j` record's `interrupted`, `interrupted_by` and `exit_code` are unread | The 2026-10-04 runs showed our status line inferring a cancel the ripper had recorded | Read them into the status line and the report, tri-state | 3–4 h | *W6, ours to close* |
+| A4 | The hardware-only checks have no drive run of their own | The closing Full run is the only drive run before round 30 closes | Steps in the closing run's script for each; no extra rig time | 3 h | *Fold the hardware-only checks into the closing run* (new) |
+| A5 | The cut | O3: our beta follows `.20` on their beta | `PIN_UNDER_REVIEW` to `.20`, `__version__` 0.6.66b1, CHANGELOG, a lap and the status block; dispatched only on the maintainer's word, since a round is open | 2 h, after `.20` | Lap 10 S35; *The beta path exists* |
+
+### B. To send the cyanrip fork, in our next lap
+
+| # | What | Why | Time | Row |
+|---|---|---|---|---|
+| B1 | C13a's release effect, K2's `-OBSERVED`, C23 on their gate | Owed since 2026-09-25 and never sent; NEXT-ROUND | 30 min in the lap | *Our next released lap says our gate implements 6* (a) to (c) |
+| B2 | Round 31: the disc-level "No errors occurred", and the report's `issues` code, for a track with unverified skips | Proposed in our lap 8; the EAC-layout half shipped in `1e118482` | 2 h, plus the lap | *The EAC-layout log and the report for a track with unverified skips* |
+| B3 | Round 31: ReplayGain on a derived MP3 describes the FLAC | Our lap 6 S15. Recommended: re-measure on the MP3 | 3–5 h | *A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags* |
+| B4 | Their lap checker's no-final-newline fix | Accepted in their lap 1 S20, theirs to land; ask where it stands | One line | *Both lap checkers cannot cite the last line of a file with no final newline* |
+| B5 | A1's rewrite regenerates our consumer contract | The patterns are published, so the change is declared | With A1 | *Found while integrating* (4) |
+| B6 | `_strip_fences` misses unterminated and indented fences (D3 below) | The row says the shape is portable: tell the fork | With D3 | *C6.* |
+
+**Waiting on the fork, already asked in our lap 10:** their lap 11 (S30, S32, the
+pre-commit R6 asks for, S16's `seam-commands.md` text landed) and `+platterpus.20` on
+their beta.
+
+### C. The maintainer's decisions (each unblocks a row)
+
+| # | Question | Recommended | Then | Row |
+|---|---|---|---|---|
+| C1 | Run the securing pass after a finished pass with drive errors? | Yes: re-reading those tracks is what the pass is for | A2 | *Should the securing pass run after…* |
+| C2 | Should paranoia skips step the read speed down? | No: instability is flagged per track; a whole-disc re-read does not mend it | Nothing to build | *Ask the maintainer: should paranoia skips step the read speed down?* |
+| C3 | May a screenshot step fail an ARCHIVAL section? | Keep today's grading. Unexposed open windows already record INFO; easing a gate is the direction the rule distrusts | Nothing to build | *For the maintainer, and only for runs after the decision* |
+| C4 | Acceptance permutations (a) offset override off, (b) an album MusicBrainz does not know | A verb that sets the override off and skips on a drive AccurateRip lists; a second script for an unknown disc | 1–2 days | *Permutations the acceptance test still does not run* |
+| C5 | A side margin on a window exactly as wide as the screen? | Yes, a small one | 1 h | *A window exactly as wide as the screen…* |
+| C6 | Measure the track table with a disc loaded? | Yes, with a long-title disc | 2 h | *The track table is not measured with a disc loaded* |
+| C7 | A CycloneDX schema validator (a new dev dependency)? | Yes, dev extra only | 1 h | *A full map of what Platterpus has or relies on* |
+| C8 | Lift C3 for three CI changes? C3 of the seam-automation proposal: *"No routine, CI, settings, or CLAUDE.md change until both sides answer and I approve"*, lifted change by change, as for S13 on 2026-09-28 | Yes, for these three: A12, CI scans the full history for secrets (approved 2026-09-28 and held, KDD-39/40; a merge push to `main` scans 0 commits and the repository is public); D1; D5 | 1–2 h, 20 min, 1–2 h | *CI scans the full history for secrets* (new); D1; D5 |
+
+### D. Quick, about two hours or less each
+
+| # | What | Time | Row |
+|---|---|---|---|
+| D1 | `ruff` over `scripts/` and `build/` in CI and `scripts/check.py` (clean on 2026-10-05); a CI change, so after C8 | 20 min | *Found while integrating* (5) |
+| D2 | Retire the two smallest `disallow_any_generics` opt-outs: `workers.rip_worker` (5), `ui.main_window` (6) | Under 1 h each | *Retire the two smallest…* (new) |
+| D3 | `_strip_fences` misses unterminated and indented fences; C46 counts through it | 1 h | *C6.* |
+| D4 | A message box shown a second time is not refitted | 2 h | *A message box shown a second time is not fitted again* |
+| D5 | The conformance matrix is built once per xdist worker: `xdist_group` and `--dist loadgroup`; changes how CI distributes the suite, so after C8 | 1–2 h | *The conformance matrix is built once per xdist worker* |
+| D6 | The acceptance run's overall estimate (small rather than quick) | 3 h | *The acceptance run's overall estimate* |
+
+### E. Hard, after the beta
+
+| # | What | Time | Row |
+|---|---|---|---|
+| E1 | Event ordering: no test explores it; every fixture starts in an end state | 3–5 days | `stateful:harness` |
+| E2 | Module splits: 72 `src/` and 19 tooling modules over the size heuristic; the largest are `ui/main_window_rip.py` 4,977, `uiscript/runner.py` 4,787, `scripts/handshake.py` 4,453, `workers/rip_worker.py` 4,066, `parsers/cyanrip_log.py` 3,428 lines | About a day per large file | *Split `uiscript/runner.py`*; *Split the post-rip chain* |
+| E3 | Mutation scope: 77 survivors of 241 never triaged; `cyanrip_log` and `verdict` legs unchecked; `rip_report`, `rip_compare`, `fork_source` out of scope; no score floor | 2–4 days | `mutation:_survivors-20260925`; *Add `--min-score` per leg* |
+| E4 | Version-gate evidence: 0.7.100 needs a full hardware pass; 0.9.1 two, on two machines and two distros | Rig calendar, not code | *G11. Version-gate evidence* |
+| E5 | The round 25 agenda (about 40 rows) and the lesson-to-gate audit (about 45) | 2–4 weeks, by risk | Their own sections |
+
+### New rows
+
+- [?] **CI scans the full history for secrets on every run** (C8; `SECURITY.md`, *Secret
+  scanning*). **Blocked on C3**, the seam-automation proposal's freeze on CI changes: this is
+  amendment A12, approved 2026-09-28 and held (`PLANNING.md` KDD-39, KDD-40). `gitleaks/gitleaks-action` scans a range it builds itself with
+  `--no-merges --first-parent`, so a session-branch PR merged with a merge commit gives
+  `main`'s push run *"0 commits scanned"*, and no run reads a merge commit's own change.
+  Until it is applied, the scan is by hand (gitleaks 8.24.3,
+  `--log-opts="-m origin/main"`, 1,454 commits, nothing found, 2026-09-28). Fix: run the
+  gitleaks CLI directly, version pinned (rule 11), over every commit including merges,
+  with a floor on the commits scanned so a run that reads nothing fails; then correct
+  `SECURITY.md`.
+- [ ] **Fold the hardware-only checks into the closing run** (A4). Each needs a drive and
+  the closing Full run is the next drive run, so each becomes a step there instead of a
+  separate run: the S25 footer inside the grace on the container path (*S25 on
+  hardware*), screenshots recording INFO where they failed (*Three screenshot steps
+  found no window on screen*), the cold container's first entry (*Cold-container start*,
+  inferred, not reproduced), which SIGTERM world the rig is in (*If a podman ever
+  forwards the wrapper's SIGTERM*), and the 150 % text windows on KWin (*Confirm on the
+  rig what headless cannot show*). Each step names its row, so the bundle closes rows
+  rather than a person.
+- [ ] **Retire the two smallest `disallow_any_generics` opt-outs** (D2; rule 10: one per
+  commit, never add one). `pyproject.toml` lists six modules: `rip_report` 67 sites,
+  `rip_compare` 18, `adapters.musicbrainz_client` 10, `ui.main_window_shared` 9,
+  `ui.main_window` 6, `workers.rip_worker` 5. The two smallest first; `rip_report` needs
+  a typed `.platterpus.json` and is a day of its own.
+
+---
+
 ## 2026-10-05 window size and readability audit
 
 The maintainer: *"double check window sizes and readability, especially on obscure
@@ -694,11 +822,15 @@ runs, each with a regression test:
 
 Open:
 
-- [ ] **The EAC-layout log and the report for a track with unverified skips.** Track 18
+- [~] **The EAC-layout log and the report for a track with unverified skips.** Track 18
   still renders "Copy OK" and the status report "No errors occurred". The EAC-layout
   log is a surface the fork diffs against, so its wording goes through the handshake:
   proposed for round 31 in our round 30 lap 8. The report could carry an `issues` code
   sooner; it changes the report's vocabulary, so it waits for the same round.
+  - *2026-10-05: the EAC-layout half is done* (`1e118482`; the row *"A skipped track
+    AccurateRip did not confirm gets its own EAC-layout verdict"*): track 18 renders
+    "Copy NOT confirmed". Still open, for round 31: the disc-level "No errors
+    occurred" for such a disc, and the report's `issues` code.
 - [x] **Stopping a run from the console leaves the rip it started running.** Run 3's
   section N rip was still reading when the session restored the settings and wrote its
   bundle. Decided: cancel it. A run that stops early (Stop, `abort`, a `wait-for-rip`
@@ -749,12 +881,16 @@ Open:
 - [x] **The realtime multiplier means one thing** (found while reading the filed timing
   data): elapsed over the audio read, finished or not.
 
-- [~] **What each side wants from the other, and can give** (operator, 2026-10-05: *"you
+- [x] **What each side wants from the other, and can give** (operator, 2026-10-05: *"you
   and cyanrip should both be communicating what data you want or can give to the other
   for better experience. And saying if it's easy or hard to get, or accurate vs
   inaccurate."*). The register is `docs/cyanrip-handshake.md` §10: six wants (W1–W6) and
   six gives (G1–G6) of ours, the giver rating ease and accuracy. Lap 8 S37 asks the fork
   to rate its half once in round 30. Open until their ratings arrive.
+  - *2026-10-05: their ratings arrived* in their round 30 lap 9 S34 (ease and accuracy
+    of our wants, their decline of G2, their X1 to X5 and Y1 to Y3). They are in §10,
+    and our lap 10 S28 records them and rates their wants, since we are the giver. W6
+    stays open as its own row below.
 - [ ] **W6, ours to close: read the `-j` record's `interrupted` / `interrupted_by` /
   `exit_code`** for the status line and the report. The records reach the bundle since
   `a7a631b9`; the app does not read them yet.
@@ -853,7 +989,10 @@ each side's reading; and the closing releases named.
   - *Tag keys in capitals:* the one reader, colon-restore, walks every key whatever its
     case. *Golden reference:* 0.6.65's parser reads the fork's `.19` golden reference
     (build, footer, 3 of 3 tracks, CRCs, checksum) with nothing dropped.
-- [~] **The Full run on 0.6.65 with `.19`** (S10), then both readings of the bundle. Started by the operator 2026-09-30 ~03:02Z, About showing build `0981c69`, cyanrip `.19` `174a134` ⓘ being tested; results expected about six hours later.
+- [x] **The Full run on 0.6.65 with `.19`** (S10), then both readings of the bundle. Started by the operator 2026-09-30 ~03:02Z, About showing build `0981c69`, cyanrip `.19` `174a134` ⓘ being tested; results expected about six hours later.
+  - *2026-10-05: done.* The bundle is filed (the row *"The Full run on `.19` (S10),
+    filed in our tree"*), and both sides read it: their lap 3 (`cyanrip@56ddc7b`) and
+    our lap 4, both released 2026-09-30.
 - [x] **File their lap 3** (released 2026-09-30 at `cyanrip@56ddc7b`, "Release it";
   sha256 `9d382260…`, 18,394 bytes, `OPEN`). `--check` passes; the lap checker with
   `--peer` and `--rerun` reads it well formed with the same 2 warnings theirs gives (its
@@ -919,11 +1058,15 @@ each side's reading; and the closing releases named.
   - *2026-09-30: the derivation is done* (`_choose_source` takes the newest entry by `release_seq` when the channels split; revert-probed). The rig's install and the update offer already work per channel and by commit. D3's check, still to build, reads the same newest entry.
   - *2026-09-30: DONE.* D3's check reads the same newest entry (`probe_grading.newest_fork_release`, the row below). The rig's install needed no change: the command section A prints is `--install-ripper <commit>`, which checks out a commit whatever channel names it.
 - [x] **D3's stale-pair refusal and their lap 3 S24's three steps** (our lap 4 S33, S39; round 30, before our closing lap). Section A runs `expect-newest-pair` after `expect-ripper-under-review`, under the same `abort-if-failed`: the fork's newest release across both channels (O3) must be `PIN_UNDER_REVIEW`, and this app our newest on the beta channel; a half it cannot read fails, because a run on a pair not shown newest is not evidence. New section O runs `cyanrip -N -f` and `expect-found-offset`, which passes only cyanrip's own finished summary line (`Drive offset of … found`) equal to the drive's set offset; its source was read at `cyanrip@174a134:src/cyanrip_main.c:594-692`, which showed that `Was not able to find drive offset …` is a retry, not a give-up. `expect-tags` writes the first FLAC's tags, screened, as `tags<line>.txt` in the run folder. `cache-probe` in section P runs `cd-paranoia -A` through the drive setup's adapter, INFO always, output saved as `cacheprobe<line>.txt`; it refuses while a rip reads the disc, and the runner's new `_deadline_cancel` kills it if the run stops or the wait runs out. Section O is ARCHIVAL, tier 1, in `docs/testing.md`. The script is 371 steps.
-- [ ] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree,
+- [x] **Their proposal** (`PROPOSAL-release-cycle.md` under `docs/handshake/` in their tree,
   sha256 `d5ff0e01…`, 15,658 bytes, at `cyanrip@5c92fc2`): the cycle, and whether routine
   overrides end, the channel before a run, and when runs happen, are the operator's four
   decisions (O1–O4) after both sides answer.
-- [~] **The Full run on `.19` (S10), filed in our tree 2026-09-30.** Run 03:07-08:27 UTC
+  - *2026-10-05: decided 2026-09-30* (O1 option A; O2 yes; O3 a new fork build goes
+    to beta until its run passes; O4 a run every night a new pair exists), relayed in
+    our lap 4 S46; the row *"Our operator's rulings on O1-O4"*. This row was left open
+    when that one closed.
+- [x] **The Full run on `.19` (S10), filed in our tree 2026-09-30.** Run 03:07-08:27 UTC
   on 0.6.65 (bundle sha256 `fa1a5333…`, 4,302,318 bytes): 316 pass, 7 fail, 0 error, 1
   info; `counts_as_evidence: true`; it reached its last step. Filed as
   `docs/handshake/artifactsround30/` (52 text members, byte for byte, `round30full*`),
@@ -933,6 +1076,8 @@ each side's reading; and the closing releases named.
   lap. Ours is our lap 4, which their held lap 3 names (`cyanrip@7e37cdf`); it waits
   for their operator to release lap 3, because our gate takes nothing from an
   unreleased lap.
+  - *2026-10-05: done.* Their lap 3 was released 2026-09-30 (`cyanrip@56ddc7b`) and
+    our lap 4 the same day, each reading this bundle.
 - [x] **S25, a rip record with no footer — FOUND, ours, and FIXED (2026-09-30, for the
   next release).** Not the console: the MAIN WINDOW closed (from outside our code,
   source undeterminable: a stray Esc hid the console 3 s earlier, then a Qt close),
@@ -1087,7 +1232,7 @@ each side's reading; and the closing releases named.
     the four `-Z` spool errors in, `Error in encoding: %s` out), and the string is in
     `RETAINED_BEYOND_P5` with its reason. Their S17 count reproduces from the two
     contracts: P2 changes in nine rows.
-- [~] **Their round 30 lap 9, filed 2026-10-05** (`cyanrip@f6d72c0`, released by their
+- [x] **Their round 30 lap 9, filed 2026-10-05** (`cyanrip@f6d72c0`, released by their
   operator, sha256 `be2f763b…`, 38,642 bytes, `OPEN`, basis S27 to S30; their digest
   `525abc43c7d759b7` over 8 laps reproduces). Our lap checker reads it well formed (50
   statements, 2 warnings on relays). **Our `--check` refuses it for R6**: no "our next
@@ -1100,6 +1245,7 @@ each side's reading; and the closing releases named.
   their S26 wording; S30 is a correction in our lap 10. **Our lap 10 must answer:** S13
   (keep exit 0 for a skip-only rip), S16 (take the text), S39 (S35's items), S3 (yes,
   for round 31), and say our gate implements 7 from `1dbf9ac0`.
+  - *2026-10-05: answered,* every item above, by our lap 10 (the row below).
 - [x] **Our round 30 lap 10, RELEASED 2026-10-05** (`docs/handshake/outbound/round-30-lap-10.md`, `OPEN`, LSL 4, sha256 `20e17e55…`, 27,675 bytes,
   38 statements, digest `d72da50b46f7ea72` over 9 laps). It answers their S13 (keep exit 0),
   S16 (take the text), S39 (S35's items) and S3 (yes, round 31); withdraws our lap 8 S28
@@ -1108,7 +1254,6 @@ each side's reading; and the closing releases named.
   `ccb10df0`/`937c86a8`, `358c154d`) and their S26 wording (`1e118482`); raises their lap 9's
   R6 miss (S14); and asks them to accept our items not fixable this round (S32). Released on
   the maintainer's word of 2026-10-05 ("Fix what you can then release the next lap").
-- [ ] **A skipped track AccurateRip did not confirm gets its own EAC-layout verdict**
 - [x] **A skipped track AccurateRip did not confirm gets its own EAC-layout verdict**
   (our lap 8 S20, accepted in their lap 9 S26, `cyanrip@f6d72c0:docs/handshake/round-30-lap-09.md`).
   Track 18 of the 2026-10-04 run (2,586 paranoia skips, one-frame AccurateRip match)
@@ -1212,11 +1357,29 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   - *Done in df6d4dd5:* no committed lap's report changed (205 laps, old checker against
     new), and it agrees with theirs on seven constructed laps. Three edge cases where
     the two checkers still read a stated exit code differently go to them in our lap 2.
-- [ ] **Found while integrating, for later.** None of these blocks round 29.
-  - (1) The EAC-compatible log still says "re-reads did NOT agree" for a track whose
+- [~] **Found while integrating, for later.** None of these blocks round 29.
+  - *2026-10-05: re-sorted.* Merging the agents' branches had left (1)'s and (3)'s
+    done notes under (2) and (6), and (2) written twice. Each note is now under its
+    own item, and the only text removed is the second copy of (2). Open: (4), (5)
+    and (6). (4) and (5) are in the 2026-10-05 ranked list at the top of this file.
+  - (1) ~~The EAC-compatible log still says "re-reads did NOT agree" for a track whose
     re-reads hit the limit (`eac_log_export.py`). That overstates it for a track like
     round 28's track 5, where two reads agreed. Changing rendered EAC text has parity
-    consequences, so this needs its own change.
+    consequences, so this needs its own change.~~
+    - [x] *Done in ce04e1fe:* the caveat follows what the log proves. "did NOT agree"
+      stays only where no two reads agreed (the fork's `at most 1 read agreed`; round
+      30's 10-05 track 3); an exact count reads "re-reads did not converge; at most 2
+      of 3 reads agreed" (round 28 and round 26, track 5); a floor reads "at least";
+      a log that does not say reads "re-reads did not converge" (round 27, track 3).
+      The verdict line says "re-reads did not converge" for all of them. The count is
+      parsed from the fork's line or from the `Repeating ripping` lines, now off the
+      ignore list (consumer contract regenerated), and travels with the verdict through
+      the auto-fix merge. Parity reasoning: `docs/eac-parity.md`, Part B, *The
+      repeat-limit caveat*. **Still owed:** a NOTE in our next lap. Our round 29 lap 2
+      S18 told the fork we skip the `Repeating ripping` line entirely; we now read its
+      match count (not its checksum), and the rendered sentence changed (round 7 H4).
+      *Sent 2026-10-05:* our round 30 lap 10 S20 says we read the count from your
+      `Done;` line, or from the `Repeating ripping` lines before it.
   - (2) ~~The size ratchet, the regex-time sweep and the mypy gate cover
     `src/platterpus` only, not `scripts/`. `scripts/laplang/lsl3.py` is 428 lines, and
     `mypy --strict scripts/laplang` reports 3 errors in `scratch.py`.~~
@@ -1234,23 +1397,23 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
       were fixed, one of them a crash in `scripts/check.py`. Two quadratic patterns
       the sweep could not see were fixed by hand (`bommap._REQUIREMENT`,
       `handshake._WIRE_FIELD`); see (4).
-    - [x] *Done in ce04e1fe:* the caveat follows what the log proves. "did NOT agree"
-      stays only where no two reads agreed (the fork's `at most 1 read agreed`; round
-      30's 10-05 track 3); an exact count reads "re-reads did not converge; at most 2
-      of 3 reads agreed" (round 28 and round 26, track 5); a floor reads "at least";
-      a log that does not say reads "re-reads did not converge" (round 27, track 3).
-      The verdict line says "re-reads did not converge" for all of them. The count is
-      parsed from the fork's line or from the `Repeating ripping` lines, now off the
-      ignore list (consumer contract regenerated), and travels with the verdict through
-      the auto-fix merge. Parity reasoning: `docs/eac-parity.md`, Part B, *The
-      repeat-limit caveat*. **Still owed:** a NOTE in our next lap. Our round 29 lap 2
-      S18 told the fork we skip the `Repeating ripping` line entirely; we now read its
-      match count (not its checksum), and the rendered sentence changed (round 7 H4).
-  - (2) The size ratchet, the regex-time sweep and the mypy gate cover `src/platterpus`
-    only, not `scripts/`. `scripts/laplang/lsl3.py` is 428 lines, and
-    `mypy --strict scripts/laplang` reports 3 errors in `scratch.py`.
-  - (3) Nothing yet acts on `eac_log_producer`. The parity tool does not warn when its
-    "baseline" is one of our own exports.
+  - (3) ~~Nothing yet acts on `eac_log_producer`. The parity tool does not warn when its
+    "baseline" is one of our own exports.~~
+    - *Done in 67a86d06 (its tests' parametrize made literal in c369cfb9):*
+      `scripts/eac_parity.py` names the baseline's producer and
+      quotes its first line before any table. One of our exports (either banner) is
+      refused, exit 2, with that line on stderr and in the log, and no table is
+      printed. Before the fix, the committed export against its own rip printed
+      "14/14 PARITY ✓" and exited 0. Refused rather than warned: a false pass gets
+      cited, and a false refusal would need a real EAC log to begin with one of our
+      banners. A baseline it cannot attribute is compared, but the output says the
+      match is not parity with EAC. `parity.ParityReport.ok` now refuses a baseline
+      that is ours, and rip_audit's `eac_log_agreement` (the other caller of
+      `compare_logs`) gives that case a "not determined" WARN naming the line. Both
+      read `identify_baseline`, which delegates to `eac_log_producer` and to the new
+      `eac_log_producer_line`. revert_probe: 10 of 10 reverts behaved as expected.
+      Not changed: `verify_log_surface.py::_is_ours_by_text` still uses its own,
+      broader head-of-file rule. It is not a baseline consumer.
   - (4) **The regex-time sweep cannot see a pattern that only backtracks behind a
     literal prefix**, because it feeds runs of one character. Found 2026-10-05 while
     extending it to `scripts/`. The two in the tooling are fixed; the same shape, a
@@ -1269,21 +1432,6 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     formatted), so adding them is a CI and `scripts/check.py` change with no fixes.
   - (6) `tests/` is outside the size ratchet: 139 of its 280 modules are over 300 lines
     (2026-10-05). Whether a test module should be split is its own question.
-    - *Done in 67a86d06 (its tests' parametrize made literal in c369cfb9):*
-      `scripts/eac_parity.py` names the baseline's producer and
-      quotes its first line before any table. One of our exports (either banner) is
-      refused, exit 2, with that line on stderr and in the log, and no table is
-      printed. Before the fix, the committed export against its own rip printed
-      "14/14 PARITY ✓" and exited 0. Refused rather than warned: a false pass gets
-      cited, and a false refusal would need a real EAC log to begin with one of our
-      banners. A baseline it cannot attribute is compared, but the output says the
-      match is not parity with EAC. `parity.ParityReport.ok` now refuses a baseline
-      that is ours, and rip_audit's `eac_log_agreement` (the other caller of
-      `compare_logs`) gives that case a "not determined" WARN naming the line. Both
-      read `identify_baseline`, which delegates to `eac_log_producer` and to the new
-      `eac_log_producer_line`. revert_probe: 10 of 10 reverts behaved as expected.
-      Not changed: `verify_log_surface.py::_is_ours_by_text` still uses its own,
-      broader head-of-file rule. It is not a baseline consumer.
 - [x] **S40/S41: refuse `-Z N` with `-r` ≤ N, with one move of the shared
   `docs/seam-commands.md`.** They refuse it at argument parsing and regenerate their argv
   table, and our two §1a rows ride the same change (the held patch in the *Round 29:
@@ -1407,7 +1555,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     line(s), printed in full with L<n>]`, so the cut is counted. One fix covers all
     three surfaces, because each prints the run's `ended_reason`. Two tests, the
     transcript and the dialog, each caught the revert (`scripts/revert_probe.py`).
-- [ ] **`COMPONENTS.json` names the ripper as `0.9.4`.** The acceptance bundle's
+- [x] **`COMPONENTS.json` names the ripper as `0.9.4`.** The acceptance bundle's
   component inventory carries each tool's parsed version, so the 14:42Z Full run's
   bundle says `"cyanrip": {"version": "0.9.4"}` and cannot tell the fork from upstream,
   or `.17` from `.18`. The rip logs and reports in the same bundle do name the build,
@@ -2098,6 +2246,12 @@ other agenda item is placed by name in their §E; we accept the placement.
     carries (d) as S31, (e) as S32 and (f) as S34. **Still never sent:** (a) C13a's release
     effect, (b) K2's `-OBSERVED`, (c) C23 — no outbound lap from round 28 lap 6 to round 30
     lap 2 raises any of the three.
+  - *2026-10-05: still unsent through our round 30 lap 10* (none of our laps 2 to 10
+    names C13a, C23 or K2). C13a and C23 are rows of the shared protocol now, so (a) is
+    the question its own text leaves open (`docs/handshake-protocol.md`, *It does not
+    settle what refusing a C13a file does to a release*), and (b) and (c) are whether
+    their gate reads what ours requires. Queued for our next lap as NEXT-ROUND items:
+    B1 of the 2026-10-05 ranked list.
 
 ## Round 25 — the complete known-issue agenda (compiled 2026-09-23)
 
@@ -3410,7 +3564,7 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
       `detected`. **Both lessons are already written rules:** *ask what state the
       fix UNBLOCKS*, and *what does my stand-in do that the real thing does not*
       (the earlier test's "disk" log was the 14-track corpus rip).
-- [ ] **HAZARD, latent, raise with the fork NEXT-ROUND: our post-cancel rescue
+- [x] **HAZARD, latent, raise with the fork NEXT-ROUND: our post-cancel rescue
       sends a SECOND signal toward the drive holder ~2 s before the ripper
       finishes writing its footer.** Measured on 2026-09-11: cancel SIGTERM at
       `11:17:36.104`; `post-cancel rescue: device-scoped SIGTERM` with
@@ -3431,6 +3585,15 @@ tracks)`, `Interrupted at: track 1, mid-read` and a valid `Log FUN512:`.
     (`drive_control.stop_reader_gracefully(already_signalled=…)` skips a reader the
     rescue already signalled), but the post-cancel rescue itself still sends its own
     device-scoped SIGTERM after the cancel's, so the margin this row measures is unchanged.
+  - *2026-10-05: closed as superseded, not as proved on a drive.* The question split in
+    two, and each half has its own row. On a native install the rescue's SIGTERM WAS
+    cyanrip's second (their lap 9 S28), and `ccb10df0` and `937c86a8` now refuse a
+    second signal to anything our cancel reached until the grace has passed (the row
+    *"Their lap 9 S28: on a native install the rescue's SIGTERM was cyanrip's
+    second"*; untested on hardware). On the container path our measurements say the
+    wrapper's SIGTERM does not cross into the container, so the rescue's is the first;
+    the world where a podman does forward it is the open row *"If a podman ever
+    forwards the wrapper's SIGTERM into the container"*.
 - [ ] **We cannot settle clause 2 ourselves, and the missing piece is a digest
       verb.** P3 captures the two `-H` arms and now says plainly that it settles
       nothing. To settle it on our own rig we would need to rip `-o pcm` and
@@ -4461,6 +4624,7 @@ items it names, filed so none is lost between rounds.
       raised numbers are the debt marker, not a settlement. Mixins, per the
       `MainWindow` precedent in `docs/architecture.md`.
   - *Audit 2026-09-25: confirmed open.* Not split, and runner.py has grown to 4305 lines.
+  - *2026-10-05: 4,787 lines.* E2 of the 2026-10-05 ranked list: after the beta.
 - [~] **Split the post-rip chain out of `ui/main_window_rip.py` (4458 lines).**
       **Raised for the third time in a month** (2026-08-18, 2026-09-08,
       2026-09-15), which is the signal the ratchet exists to produce rather than a
@@ -4475,6 +4639,7 @@ items it names, filed so none is lost between rounds.
       done in 0.6.49: a hardware re-run is waiting on the fix, and a structural move
       shipped under a release is how a correct fix arrives broken.
   - *Audit 2026-09-25: partly done.* ui/post_rip_record.py (the per-album record) landed. The chain itself (tagging → transcode → verify) is still in main_window_rip.py, now 4715 lines.
+  - *2026-10-05: 4,977 lines,* the largest module in `src/`. E2 of the 2026-10-05 ranked list: after the beta.
 - [~] **The receiving half of the omission gate still does not exist.** Nothing
       checks that every artifact a lap names was actually filed; we do it by hand,
       and so does the fork (their lap 12 §4). Answering their v5 5b.3 question with
