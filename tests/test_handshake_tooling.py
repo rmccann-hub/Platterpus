@@ -1444,7 +1444,15 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = ""
+_BOOTSTRAP_REASON: str = (
+    "v7 landed 2026-09-30 in both trees as round 30's close condition S9: the "
+    "fork's at cyanrip@a3a49647, ours in the commit that files their lap 7. v7 §15: "
+    "'Neither gate implements 7 until this file is byte-identical in both trees', "
+    "and neither side declares 7 until both have said in a lap that their gate "
+    "implements it; round 30's laps declare 6 and it closes under v6. Clear this in "
+    "the commit that teaches the gate C46 (HANDSHAKE-NEXT-LAP) with a row-named "
+    "test, before our round 31 lap 1."
+)
 #: History of this constant, newest first. **Empty again from 2026-09-25**: the gate
 #: implements 6 (C43-C45, the amended C13a, the K2 field split, each with a row-named
 #: test), cleared in that commit as the reason itself required. It had read: *"v6
@@ -1846,6 +1854,10 @@ _SHARED_FILE_PATHS: dict[str, str] = {
     # **v6, landed on our side 2026-09-23 (round 25 §0.1)**, first this time: our
     # lap 2 lands the texts and the fork's next lap lands ours byte for byte.
     "protocol(v6)": "docs/handshake-protocol.md",
+    # **v7, landed 2026-09-30 in both trees (round 30's close condition S9)**: the
+    # fork first, at `cyanrip@a3a49647`, then ours in the commit that files their
+    # lap 7. Round 30 still closes under v6; v7 governs from round 31.
+    "protocol(v7)": "docs/handshake-protocol.md",
     "seam-rules": "docs/seam-rules.md",
     "seam-commands": "docs/seam-commands.md",
     # Adopted round 14 lap 17. Same mechanism as the three above: a file NEITHER
@@ -1999,9 +2011,16 @@ def _latest_inbound_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
 #: file's real hash with at most two characters dropped, so a real divergence, or
 #: a different file, still fails.
 #:
-#: A sent lap is immutable, so a row never leaves; the sweep below keeps a new one
-#: from arriving silently.
-_PEER_HASHES_MISQUOTED: dict[tuple[str, str], str] = {}
+#: ``round-30-lap-07.md`` declares ``protocol(v7)=b9611d3b18fff42a…``, 62 digits,
+#: in its header and again in its S9: the real hash, ``b9611d3b1b18fff4…``, with
+#: ``1b`` dropped after the eighth digit. The file itself is byte-identical in
+#: both trees, checked by the full hash of their landed ``docs/handshake/
+#: PROTOCOL.md`` at ``cyanrip@4371a501``. Reported in our round 30 lap 8. A
+#: sent lap is immutable, so this row never leaves; the sweep below keeps a
+#: new one from arriving silently.
+_PEER_HASHES_MISQUOTED: dict[tuple[str, str], str] = {
+    ("round-30-lap-07.md", "protocol(v7)"): "62 digits: '1b' dropped after digit 8",
+}
 
 
 def _is_a_misquote(claimed: str, actual: str) -> bool:

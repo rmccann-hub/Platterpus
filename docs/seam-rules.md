@@ -18,7 +18,7 @@ it is free.
 | **`[PLATTERPUS]`** | the GUI only | cyanrip, so they know what we promise |
 | **`[CYANRIP]`** | the ripper only | Platterpus, so we know what to expect |
 
-Format version: **6** (`SEAM-RULES-VERSION: 6`). Cite it when you claim
+Format version: **7** (`SEAM-RULES-VERSION: 7`). Cite it when you claim
 conformance.
 
 ---
@@ -218,18 +218,28 @@ make the work good are exactly the ones that keep extending it. Without this
 rule the finish line moves every time either side is thorough, and thoroughness
 is the one thing neither side will give up.
 
-### `[BOTH]` S-14 — A finding defaults to the next round
+### `[BOTH]` S-14 — A finding is fixed within the round, and is never a blocker by being real
 
-Promoting one to blocking requires naming **what it breaks in the artifact
-under review**. *"It is a real defect"* is an argument for fixing it, never on
-its own for holding a release.
+**v7 replaces the first half of this rule**, *"a finding defaults to the next
+round"*, with `PROTOCOL.md` v7's R3 (round 30, D4): every defect a round finds
+that can be fixed without a drive, the other side's code, or the operator's
+decision is fixed and landed before that side's closing lap, and ships in the
+release the close authorises. A lap lists only what could not be fixed that
+way, each item with why and whose it is.
+
+**The second half stays.** A fix never holds the verdict on the build that was
+tested. Promoting a finding to blocking requires naming **what it breaks in
+the artifact under review**; *"it is a real defect"* is an argument for fixing
+it, never on its own for holding a release.
 
 None of round 7's findings made the reviewed pin unsafe; they made the *next*
-build better. Every one was promoted to a blocker by reflex.
+build better. Every one was promoted to a blocker by reflex. That is what the
+second half stops, and it is why the first half could change without it.
 
 ### `[BOTH]` S-15 — An agreed test pin does not move for the rest of the round
 
-Unless it is found unsafe. Fixes queue for the next round.
+Unless it is found unsafe. Fixes land past the pin within the round (R3, S-14)
+and ship in the release the close authorises; the next round reviews them.
 
 A pin that moves whenever something is fixed guarantees that the hardware
 evidence is always about a build nobody is reviewing any more — ten test pins
@@ -362,7 +372,7 @@ last read it. Every row names a direction, a type, and what must be checked.
 State the version and which tags you implement:
 
 ```
-SEAM-RULES-VERSION: 6
+SEAM-RULES-VERSION: 7
 IMPLEMENTS: BOTH(S-1..S-18) PLATTERPUS(P-1..P-3)
 ```
 
@@ -381,5 +391,13 @@ assign, and the rule forbidding exactly that is in this section.
 while the round was open, at lap 37. Round 7 closed `GO` at lap 39 and produced
 one release, `+platterpus.5`. A version-frozen file keeps a present-tense figure
 until the next bump, and this is that bump.
+
+**v7 changes S-14, and S-15's sentence on fixes to agree with it, and nothing
+else**, to match `PROTOCOL.md` v7's R3 and R4, since the two stated one rule
+twice and a change to one would otherwise leave the other contradicting it.
+Agreed in round 30: D4 of cyanrip's release-cycle proposal, accepted in
+Platterpus's lap 4 S21, whose `CLAUDE.md` changes in the commit that lands this
+file, and S-15 by Platterpus's lap 6 S20. Round 30's laps declare
+SEAM-RULES-VERSION 6; v7 binds from round 31, as PROTOCOL v7 §15 says.
 
 ---
