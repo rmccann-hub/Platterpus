@@ -77,6 +77,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `expect-ctdb`, `expect-tags`, `expect-cover-art` and `track-title`, and a
   FLAC tag reader (`flac_metadata.py`) that needs no external tool.
   `expect-verification` no longer accepts a report that is still being written.
+- For contributors: the script verbs `set-library-scratch` (point the library
+  folder at a scratch folder inside the rips folder), `expect-library-move` (the
+  last rip was filed there, with its log and report, and nothing left behind) and
+  `expect-rip-argv with|without <flag>` (what the last rip's whole-disc pass sent
+  cyanrip, read from its report).
 - A full map of everything Platterpus has or relies on, in a standard format other
   tools can read: `bom.cdx.json`, a CycloneDX 1.7 bill of materials at the top of
   the repository. It lists the Python versions it runs on, Qt, every Python

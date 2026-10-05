@@ -503,6 +503,33 @@ _VERB_LIST: tuple[Verb, ...] = (
         "track-title <n> <title…> — set track n's title as a typed edit would "
         "(refused while a rip runs)",
     ),
+    # --- Permutations: settings no other rip uses (section J2, 2026-10-05) ----
+    # A library move, no `-r`, no `-Z`. `set-library-scratch` exists because the
+    # library folder must be absolute and the run's rips folder is known only at
+    # run time; the two graders read what the rip DID (`permutation_verbs.py`).
+    Verb(
+        "set-library-scratch",
+        0,
+        0,
+        "set-library-scratch — point library_dir at a scratch folder inside the "
+        "rips folder (the output directory), so a finished rip is filed there and "
+        'never in your library; `set library_dir ""` turns the move off again',
+    ),
+    Verb(
+        "expect-library-move",
+        0,
+        0,
+        "expect-library-move — the last rip's album folder was filed in the "
+        "library folder, with its log and report, and nothing left behind; waits "
+        "(600s), because a rip is filed only after its post-rip checks finish",
+    ),
+    Verb(
+        "expect-rip-argv",
+        2,
+        2,
+        "expect-rip-argv <with|without> <flag> — the last rip's whole-disc pass "
+        "sent this cyanrip flag, or left it out, read from the argv as spawned",
+    ),
     # The rig verbs (`probe_verbs.py`), from round 30. `expect-newest-pair` is
     # D3, agreed with the fork and ruled by our operator (option A): a run tests
     # only the newest pair. The other two are the fork's round 30 lap 3 S24:
