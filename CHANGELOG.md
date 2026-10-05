@@ -89,6 +89,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   not "superseded". It now records which checks actually started: one that started
   and finished says it ran, one that a newer rip cut short says superseded, and
   only a check that never started says not run.
+- **A test run no longer leaves its rip reading after the run has ended.** When a
+  run stops early (from the console's Stop, an `abort`, or a `wait-for-rip` whose
+  time runs out), it now cancels the rip it started. The session then waits for
+  that rip to stop, up to about two and a half minutes, before it puts your
+  settings back and packs the results, and the results say what it waited for.
+  The bundle also records which cyanrip processes were still running when it was
+  packed. On 2026-10-04 a stopped run packed its results while a rip was still
+  reading, so one of its logs had no ending, and nothing in the bundle said why.
+- **A `wait-for-rip` whose time runs out with the rip still reading now ends the
+  run.** Every later step would be graded against the wrong rip: on 2026-10-04
+  section F's six-hour wait ran out, sections H and I then failed against F's rip,
+  and I's cancel stopped it. Nothing after F was evidence. (Contributor-facing:
+  the script verb's help says so.)
 - **Changing discs no longer blanks the drive's read offset and cache-defeat rows.**
   Taking a disc out cleared them along with the disc's own details, and putting the
   next disc in did not bring them back until a Rescan. They describe the drive, which

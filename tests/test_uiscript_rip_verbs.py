@@ -572,6 +572,106 @@ def test_wait_for_rip_caps_an_absurd_timeout_loudly(qapp, process_until) -> None
     )
 
 
+def test_a_wait_for_rip_that_runs_out_ends_the_run_and_cancels_its_rip(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The 2026-10-04 run: section F's wait ran out with its rip still reading.
+
+    H and I then failed against F's rip, and I's `cancel-rip` stopped it, so
+    nothing after F was evidence. A wait that runs out with the rip still
+    reading now ends the run, every later step is recorded as never reached,
+    and the run's own rip is cancelled rather than left to outlive it.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    win = _window()
+    runner = ScriptRunner(win)
+    emitted: list[Any] = []
+    runner.finished.connect(emitted.append)
+    runner.start(parse("rip\nwait-for-rip 1\nlog after the wait"))
+    assert process_until(lambda: win._rip_controls.started), "floor: Start pressed"
+    win._rip_worker = object()  # the rip Start created, still reading
+
+    assert process_until(lambda: bool(emitted), timeout=10), "the run never ended"
+    report = emitted[0]
+    by_source = {r.source: r for r in report.steps}
+    assert by_source["wait-for-rip 1"].outcome is Outcome.FAIL
+    assert by_source["log after the wait"].outcome is Outcome.BLOCKED, (
+        "a step after a wait that ran out still ran against the live rip"
+    )
+    assert "still reading" in report.ended_reason, report.ended_reason
+    assert win.cancelled, "the run ended and left its rip reading"
+    assert any(
+        r.outcome is Outcome.INFO and "cancelled" in r.detail for r in report.steps
+    ), "the cancel is not in the transcript"
+
+
+def test_stopping_a_run_cancels_only_its_own_rip(qapp, process_until) -> None:
+    """The console's Stop, and `abort`: the run's rip stops with the run.
+
+    Only a rip this script's last `rip` step started, which is the predicate
+    `cancel-rip` uses; a rip already being cancelled is not cancelled again.
+    """
+    own = _window()
+    records, runner = _run_lines(own, "rip")
+    assert records[0].outcome is Outcome.PASS, "floor: Start pressed"
+    own._rip_worker = object()
+    runner._timer.start()  # what `start()` does, so `stop()` sees a live run
+    runner.stop("stopped by the user")
+    assert own.cancelled, "Stop left the run's own rip reading"
+
+    # The 2026-10-04 shape: an earlier `rip` step started a rip (F), and the
+    # last one was refused because that rip was still reading (I). The rip
+    # running now is not the last `rip` step's, so Stop must leave it to the
+    # predicate `cancel-rip` uses rather than to "some rip is running".
+    foreign = _window()
+    records, runner = _run_lines(foreign, "rip")
+    assert records[0].outcome is Outcome.PASS, "floor: the earlier rip started"
+    foreign._rip_worker = object()  # F's rip, still reading
+    (refused,) = parse("rip")
+    runner._execute(refused)
+    assert runner._report.steps[-1].outcome is Outcome.FAIL, "floor: I was refused"
+    runner._timer.start()
+    runner.stop("stopped by the user")
+    assert not foreign.cancelled, "Stop cancelled a rip the last rip step did not start"
+
+    cancelling = _window()
+    records, runner = _run_lines(cancelling, "rip")
+    cancelling._rip_worker = object()
+    cancelling._rip_cancelled = True  # the window is already cancelling it
+    runner._timer.start()
+    runner.stop("stopped by the user")
+    assert not cancelling.cancelled, "a second Cancel was sent to a rip stopping"
+
+
+def test_a_run_that_reaches_its_end_leaves_a_rip_it_did_not_wait_for(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """Only an early stop cancels. A script that starts a rip and ends without
+    waiting has said what it wants; the session then waits for the rip before
+    it packs (`_acceptance_rip_at_end`)."""
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    win = _window()
+    controls = win._rip_controls
+
+    def press_start() -> None:
+        controls.started = True
+        win._rip_worker = object()  # the rip Start creates, still reading
+
+    controls._on_start = press_start
+    runner = ScriptRunner(win)
+    emitted: list[Any] = []
+    runner.finished.connect(emitted.append)
+    runner.start(parse("rip\nwait 1\nlog done"))
+    assert process_until(lambda: bool(emitted), timeout=10)
+    assert win._rip_worker is not None, "floor: the rip was not running at the end"
+    assert emitted[0].steps[-1].source == "log done", "floor: the run reached its end"
+    assert not win.cancelled
+
+
 # --- expect-tracks ----------------------------------------------------------
 
 

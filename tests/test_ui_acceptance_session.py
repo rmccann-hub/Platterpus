@@ -1491,6 +1491,104 @@ def test_an_UNREADABLE_payload_still_packs_an_archive(
     assert launched, "an unreadable report skipped the archive"
 
 
+# --- A run's rip does not outlive the session (2026-10-04) -------------------
+
+
+def test_the_session_waits_for_a_rip_still_reading_before_it_packs(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 2026-10-04 run was stopped while section N's rip was still reading,
+    and in the same second the session restored the user's settings and packed
+    its bundle around a log still being written. It now waits for the rip, keeps
+    the session armed while it does, and the bundle says what it waited for.
+    """
+    from platterpus import test_session as provision
+
+    launched: list[dict] = []
+    monkeypatch.setattr(
+        type(window()),
+        "_launch_acceptance_bundle",
+        lambda self, *a, **k: launched.append(k),
+    )
+    monkeypatch.setattr(provision, "RIP_POLL_MS", 20)
+    win = window()
+    win._acceptance_layout = object()  # type: ignore[assignment]  # armed enough
+    win._rip_worker = object()  # type: ignore[assignment]  # still reading
+
+    win._on_acceptance_run_finished(_report_with(("rip", "pass")))
+    assert launched == [], "the bundle was packed around a rip still reading"
+    assert win._acceptance_layout is not None, "the session ended under the rip"
+
+    win._rip_worker = None  # the cancel lands; the worker is released
+    assert process_until(lambda: bool(launched), timeout=5), "never packed"
+    note = launched[0]["facts"]["rip at the end of the run"]
+    assert "waited" in note, note
+    assert win._acceptance_layout is None
+
+
+def test_a_rip_that_will_not_stop_is_packed_around_and_named(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The wait is bounded: a run must not be held forever by a rip that will
+    not stop. Past the bound the bundle is packed and says the rip was STILL
+    READING, so the absence of a footer in it is not read as anything else."""
+    from platterpus import test_session as provision
+
+    launched: list[dict] = []
+    monkeypatch.setattr(
+        type(window()),
+        "_launch_acceptance_bundle",
+        lambda self, *a, **k: launched.append(k),
+    )
+    monkeypatch.setattr(provision, "RIP_POLL_MS", 20)
+    monkeypatch.setattr(provision, "rip_wait_s", lambda: 0.2)
+    win = window()
+    win._acceptance_layout = object()  # type: ignore[assignment]
+    win._rip_worker = object()  # type: ignore[assignment]  # never stops
+    try:
+        win._on_acceptance_run_finished(_report_with(("rip", "pass")))
+        assert process_until(lambda: bool(launched), timeout=5), "never packed"
+    finally:
+        win._rip_worker = None
+    note = launched[0]["facts"]["rip at the end of the run"]
+    assert "STILL READING" in note, note
+
+
+def test_with_no_rip_running_the_session_packs_at_once_and_says_so(
+    window, session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launched: list[dict] = []
+    monkeypatch.setattr(
+        type(window()),
+        "_launch_acceptance_bundle",
+        lambda self, *a, **k: launched.append(k),
+    )
+    win = window()
+    win._acceptance_layout = object()  # type: ignore[assignment]
+    win._on_acceptance_run_finished(_report_with(("rip", "pass")))
+    assert launched, "a run with no rip running was not packed at once"
+    assert launched[0]["facts"]["rip at the end of the run"] == (
+        "no rip was reading when the run ended"
+    )
+
+
+def test_the_bundle_names_the_ripper_processes_the_host_sees(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tri-state, from the exit check's own probe: none, the processes, or not
+    determined, never an empty answer read as none."""
+    from platterpus import drive_control
+    from platterpus.test_session import ripper_processes_fact as _ripper_processes_fact
+
+    key = "ripper processes when packed"
+    monkeypatch.setattr(drive_control, "running_readers", lambda: ())
+    assert _ripper_processes_fact() == {key: "none"}
+    monkeypatch.setattr(drive_control, "running_readers", lambda: ("4242 cyanrip",))
+    assert _ripper_processes_fact() == {key: "STILL RUNNING: 4242 cyanrip"}
+    monkeypatch.setattr(drive_control, "running_readers", lambda: None)
+    assert "not determined" in _ripper_processes_fact()[key]
+
+
 # --- The user's settings survive the run (2026-09-23) --------------------
 
 

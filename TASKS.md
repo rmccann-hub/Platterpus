@@ -648,12 +648,17 @@ Open:
   log is a surface the fork diffs against, so its wording goes through the handshake:
   proposed for round 31 in our round 30 lap 8. The report could carry an `issues` code
   sooner; it changes the report's vocabulary, so it waits for the same round.
-- [ ] **Stopping a run from the console leaves the rip it started running.** Run 3's
+- [x] **Stopping a run from the console leaves the rip it started running.** Run 3's
   section N rip was still reading when the session restored the settings and wrote its
-  bundle. Decide: cancel it, or ask.
-- [ ] **A section whose rip outlives its wait should end the run.** F's six-hour wait
+  bundle. Decided: cancel it. A run that stops early (Stop, `abort`, a `wait-for-rip`
+  that runs out) cancels the rip its last `rip` step started, through the window's own
+  Cancel; the session keeps itself armed until the rip has stopped, bounded at the
+  app's cancel wait plus 30 s, and the bundle says what it waited for and which ripper
+  processes the host saw as it was packed. A run that reaches its end leaves a rip it
+  chose not to wait for, and the session still waits before packing.
+- [x] **A section whose rip outlives its wait should end the run.** F's six-hour wait
   ran out and H and I then failed against the still-running rip; nothing after F was
-  evidence. An `abort-if-failed` after F, or a wait that stops the run.
+  evidence. A `wait-for-rip` that runs out with the rip still reading now ends the run.
 - [x] **The report says post-rip checks were "not run — the rip did not finish" when they
   started and were superseded.** On the cancelled rip, CTDB and FLAC verify started at
   19:07:11 and were abandoned 46 s later when section J's rip began; the report's reason
