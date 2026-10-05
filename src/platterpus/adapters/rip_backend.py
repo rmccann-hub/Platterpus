@@ -401,6 +401,31 @@ class RipHandle:
             return None
         return _kill_group(self._process, signal.SIGTERM)
 
+    def kill(self, timeout: float = 5.0) -> int | None:
+        """SIGKILL the group and wait, bounded: the escalation for a ripper that
+        has ALREADY had its one SIGTERM.
+
+        :meth:`cancel` starts with a SIGTERM, which for a cyanrip our cancel
+        already signalled is its second signal: it `_exit()`s with no log footer,
+        the same loss a SIGKILL causes. So once the grace is spent the escalation
+        is this alone (``RipWorker._reap_ripper``). Blocks for up to ``timeout``,
+        so never on the GUI thread. Returns the exit code, or ``None`` if even
+        SIGKILL could not reap it (a reader in D state).
+        """
+        if self._process.returncode is not None:
+            return self._process.returncode
+        _kill_group(self._process, signal.SIGKILL)
+        try:
+            return self._process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            log.error(
+                "ripper survived SIGKILL for %.1fs — it is almost certainly "
+                "blocked in an uninterruptible drive ioctl (D state). Abandoning "
+                "the reap.",
+                timeout,
+            )
+            return None
+
     def cancel(
         self, term_timeout: float = 5.0, kill_timeout: float = 5.0
     ) -> int | None:

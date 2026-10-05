@@ -940,11 +940,13 @@ class RipWorker(QObject):
         #: `_sigterm_sent_for` under the lock and only meaningful while that field
         #: names the current handle. The window's post-cancel rescue and shutdown
         #: stop read it (`stop_signal_reach`) so they never send the same cyanrip a
-        #: second signal (the fork's round 30 lap 9 S28).
+        #: second signal; `_reap_ripper` reads it to wait out the grace instead of
+        #: sending one itself (the fork's round 30 lap 9 S28).
         self._sigterm_reach: drive_control.SignalledRipper | None = None
-        #: WHICH handle `_reap_ripper` had to escalate against (SIGTERM, then
-        #: SIGKILL on the group) — the one stop this worker sends that does not go
-        #: through `_signal_stop`. Kept for the same identity reason as the field
+        #: WHICH handle `_reap_ripper` had to escalate against (SIGKILL on the
+        #: group, after a SIGTERM if `_signal_stop` had sent none) — the one stop
+        #: this worker sends that does not go through `_signal_stop`. Kept for the
+        #: same identity reason as the field
         #: above, and read by `_we_stopped_ripper` so a death we caused is never
         #: described to the user as one that came from outside.
         self._escalated_for: RipHandle | None = None
@@ -2847,6 +2849,25 @@ class RipWorker(QObject):
         only when even SIGKILL could not reap it (a reader wedged in an
         uninterruptible drive ioctl), and the caller treats that as "not a clean
         exit" rather than hanging.
+
+        **After our own SIGTERM, the escalation waits out the grace and sends no
+        second one** (the fork's round 30 lap 9 S28, and the door it did not name).
+        ``RipHandle.cancel()`` starts with a SIGTERM. On a native install the
+        process we signalled is cyanrip itself, whose handler prints its stop
+        notice at once (so the read loop above breaks) but which stops only when
+        the read in hand returns: 54 s on 2026-10-04. Fifteen seconds later this
+        sent its second signal, and cyanrip ``_exit()``ed with no footer
+        (``cyanrip@174a134:src/cyanrip_main.c:1216-1221``), on the same rip the
+        rescue's fix protects. So when our one SIGTERM reached this handle, the
+        wait runs to ``drive_control.READER_TERM_GRACE_S`` after it, the grace the
+        shutdown stop and the rescue's predicate allow, and then goes straight to
+        SIGKILL (``RipHandle.kill``). Behind the Distrobox wrapper the process we
+        signalled is the wrapper, which exits within a second, so nothing changes
+        there; a wrapper that did not would now be SIGKILLed at the grace, not at
+        20 s, while the rescue still signals the reader inside the container.
+        The pipe stays undrained for that wait; what a signalled cyanrip still
+        writes is its stop lines and footer, a few KB, against a 64 KiB pipe, and
+        the bound still ends it if that were ever wrong.
         """
         handle = self._handle
         if handle is None:  # pragma: no cover — callers hold a handle
@@ -2859,20 +2880,34 @@ class RipWorker(QObject):
         # signal has already gone and this is a no-op.
         if self._cancelled:
             self._signal_stop("before reaping a cancelled rip")
+        reach = self._reach_for(handle)
+        first_wait = _RIPPER_EXIT_GRACE_S
+        if reach is not None:
+            first_wait = max(
+                _RIPPER_EXIT_GRACE_S,
+                reach.sent_at + drive_control.READER_TERM_GRACE_S - time.monotonic(),
+            )
         try:
-            return handle.wait(timeout=_RIPPER_EXIT_GRACE_S)
+            return handle.wait(timeout=first_wait)
         except subprocess.TimeoutExpired:
             self._escalated_for = handle
             log.warning(
                 "ripper still running %.1fs after we stopped reading its output — "
-                "escalating to SIGTERM/SIGKILL on the process group. Its stdout "
+                "escalating to %s on the process group. Its stdout "
                 "pipe is no longer drained, so it may be blocked writing to a full "
                 "pipe rather than doing work.",
-                _RIPPER_EXIT_GRACE_S,
+                first_wait,
+                "SIGTERM/SIGKILL"
+                if reach is None
+                else "SIGKILL, with no second SIGTERM (it already had ours, and "
+                "the grace is spent)",
             )
-        exit_code = handle.cancel(
-            term_timeout=_RIPPER_TERM_GRACE_S, kill_timeout=_RIPPER_KILL_GRACE_S
-        )
+        if reach is not None:
+            exit_code = handle.kill(timeout=_RIPPER_KILL_GRACE_S)
+        else:
+            exit_code = handle.cancel(
+                term_timeout=_RIPPER_TERM_GRACE_S, kill_timeout=_RIPPER_KILL_GRACE_S
+            )
         if exit_code is None:
             log.error(
                 "could not reap the ripper even after SIGKILL; treating the rip as "
@@ -3613,8 +3648,8 @@ class RipWorker(QObject):
         Suppressing the repeat costs nothing, because the guarantee the pre-reap
         nudge was there to provide ("the process has been told to stop before we
         wait on it") is already satisfied by the signal that was actually sent —
-        and the real escalation is untouched: ``_reap_ripper`` still bounds its
-        wait and still escalates to SIGTERM→SIGKILL on the process *group*.
+        and the real escalation is kept: ``_reap_ripper`` still bounds its wait,
+        and after this signal escalates to SIGKILL alone, once the grace is spent.
         What the signal reached is recorded (``_sigterm_reach``) so nothing else
         in the app sends that process a second one either (``stop_signal_reach``).
         """

@@ -1165,7 +1165,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `deps.command_failed` warning every rip report of the session carried.
     # **663 -> 664** (2026-09-30): `supports_offset_detection` said cyanrip has no AccurateRip offset finder; it has one (`-f`), not yet proved against a known offset.
     # **664 -> 680** (2026-10-05, the fork's round 30 lap 9 S28): `RipHandle.pid`, and `terminate()` returns the process group it signalled, so the worker can record what its one SIGTERM reached; the handle is the only thing that knows which group `_kill_group` actually hit.
-    "adapters/rip_backend.py": 680,
+    # **680 -> 705** (2026-10-05, the fork's round 30 lap 9 S28, the reap's door): `RipHandle.kill`, SIGKILL alone with a bounded wait, for a ripper that already had our one SIGTERM, where `cancel()` would have sent it a second. Beside `cancel()`, whose bounded-wait shape it shares.
+    "adapters/rip_backend.py": 705,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -2462,7 +2463,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3853 -> 3923** (2026-10-05, the fork's round 30 lap 9 S29): `_is_progress_redraw`, the one answer to "is this line a redraw?", beside the patterns it reads, so a track's outcome line is no longer left out of the capture; `_capture_line` routes a line by it for both the capture and the log pane's throttle. The run bookkeeping went to a NEW focused module, `redraw_run.py`; what is here is the predicate, the routing and their reasons. +70, the lines added.
     # **3923 -> 3990** (2026-10-05, the fork's round 30 lap 9 S27): the ladder asks `ladder_trigger.judge_step_down` instead of `success and had_read_errors`, and logs why a pass did or did not step; `_log_fingerprint` tells a log this pass wrote from one an earlier pass left, which only the worker can read; and the two `success`-keyed sites after the loop (the securing pass, `finished`) say why they stay keyed on exit 0. The predicate lives in `ladder_trigger.py`.
     # **3990 -> 4031** (2026-10-05, the fork's round 30 lap 9 S28): `_signal_stop` records what its one SIGTERM reached, and `stop_signal_reach()` hands it to the window while that process is unreaped. The worker is the only place that knows which process it signalled.
-    "workers/rip_worker.py": 4031,
+    # **4031 -> 4066** (2026-10-05, the fork's round 30 lap 9 S28, the reap's door): `_reap_ripper` waits out `READER_TERM_GRACE_S` after our own SIGTERM and then SIGKILLs alone, instead of sending a native cyanrip its second SIGTERM 15 s after the read loop broke; the docstring says why and what it costs behind the wrapper.
+    "workers/rip_worker.py": 4066,
 }
 
 

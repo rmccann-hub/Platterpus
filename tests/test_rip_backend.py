@@ -122,6 +122,34 @@ def test_terminate_reports_no_group_when_only_the_process_was_signalled(
     assert sent == [signal.SIGTERM]
 
 
+def test_kill_sends_SIGKILL_alone_and_bounds_its_wait(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The escalation for a ripper that already had our SIGTERM: no second TERM
+    (cyanrip's second signal skips its footer), and a D-state process is reported
+    as unreapable rather than waited on forever."""
+    sent: list[int] = []
+    monkeypatch.setattr(rip_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(rip_backend.os, "killpg", lambda pgid, sig: sent.append(sig))
+
+    class _Unreapable(_FakePopen):
+        def wait(self, timeout: float | None = None) -> int:
+            assert timeout is not None, "kill() waited with no timeout"
+            raise subprocess.TimeoutExpired(cmd="cyanrip", timeout=timeout)
+
+    with caplog.at_level("ERROR"):
+        code = RipHandle(process=_Unreapable(argv=[])).kill(timeout=0.01)  # type: ignore[arg-type]
+    assert sent == [signal.SIGKILL]
+    assert code is None
+    assert any("survived SIGKILL" in r.message for r in caplog.records)
+
+    exited = _FakePopen(argv=[])
+    exited.returncode = 0
+    sent.clear()
+    assert RipHandle(process=exited).kill() == 0  # type: ignore[arg-type]
+    assert sent == [], "an exited process was signalled"
+
+
 def test_rip_handle_cancel_on_already_exited_process_is_safe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
