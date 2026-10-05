@@ -61,6 +61,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `expect-ctdb`, `expect-tags`, `expect-cover-art` and `track-title`, and a
   FLAC tag reader (`flac_metadata.py`) that needs no external tool.
   `expect-verification` no longer accepts a report that is still being written.
+- A full map of everything Platterpus has or relies on, in a standard format other
+  tools can read: `bom.cdx.json`, a CycloneDX 1.7 bill of materials at the top of
+  the repository. It lists the Python versions it runs on, Qt, every Python
+  package and its pin, the cyanrip fork (the approved build and the one under
+  review) and upstream cyanrip, the `ripping` container, the libraries the fork is
+  built from, the external programs the app runs, the online services it uses,
+  and the CI actions and tools, each with where it is used and where its pin is
+  set. `DEPENDENCIES.md` carries the same map as tables. Both are generated from
+  the code by `scripts/emit_bom.py`, and a test fails when either is out of date.
 
 - **Every rip now says up front about how long it should take, and the log
   records how close it came.** The estimate covers the tracks you ticked, at the
