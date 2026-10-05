@@ -68,8 +68,10 @@ def _render(svg: Path, out: Path, size: int) -> bool:
             "-h",
             str(size),
         ]
-    elif shutil.which("magick") or shutil.which("convert"):
-        magick = shutil.which("magick") or shutil.which("convert")
+    elif magick := shutil.which("magick") or shutil.which("convert"):
+        # One lookup, bound and tested together, so `magick` is the str the branch
+        # was entered on (it was looked up twice, and the second answer was typed
+        # `str | None` because nothing tied it to the first).
         cmd = [
             magick,
             "-background",
@@ -83,7 +85,10 @@ def _render(svg: Path, out: Path, size: int) -> bool:
         ]
     else:
         try:
-            import cairosvg  # type: ignore[import-untyped]
+            # No stubs ship for cairosvg, and it is optional, so the module is
+            # missing or untyped depending on the machine; `pyproject.toml` gives it
+            # a targeted `ignore_missing_imports`, as for musicbrainzngs.
+            import cairosvg
         except ImportError:
             return False
         cairosvg.svg2png(

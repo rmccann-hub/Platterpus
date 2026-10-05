@@ -125,6 +125,8 @@ def _document() -> str:
 
     from platterpus import __version__
 
+    # One list for the prose and the JSON (read back out of `machine` it is `object`).
+    outcomes = ["PASS", "FAIL", "ERROR", "BLOCKED", "SKIPPED"]
     machine = {
         "language": "platterpus-uiscript",
         "grammar_version": 1,
@@ -151,7 +153,7 @@ def _document() -> str:
         "cyanrip_probe_flags": probes,
         "limits": limits,
         "settable_fields": fields,
-        "outcomes": ["PASS", "FAIL", "ERROR", "BLOCKED", "SKIPPED"],
+        "outcomes": outcomes,
     }
 
     lines: list[str] = []
@@ -202,9 +204,7 @@ def _document() -> str:
     add("failure throws away every later measurement, and the later ones are often")
     add("the ones that explain the first.")
     add("")
-    add(
-        f"Every step ends in one of: {', '.join(f'`{o}`' for o in machine['outcomes'])}."
-    )
+    add(f"Every step ends in one of: {', '.join(f'`{o}`' for o in outcomes)}.")
     add("")
 
     add("## Verbs")

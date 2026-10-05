@@ -24,7 +24,7 @@ import pytest
 
 # The one canonical window teardown (see its docstring — a second copy of it
 # is how CI segfaulted on 2026-07-28).
-from conftest import stop_window_threads
+from conftest import maintained_tooling_modules, stop_window_threads
 from PySide6.QtWidgets import QApplication
 
 from platterpus.adapters.metaflac import MetaflacAdapter
@@ -726,8 +726,10 @@ def test_uninstall_script_removes_the_same_set() -> None:
 def test_mypy_cannot_silently_lose_its_view_of_pyside6() -> None:
     """A global ``ignore_missing_imports`` meant an unresolvable PySide6 turned
     every Qt class into ``Any`` — the whole UI layer went unchecked and mypy
-    still printed "Success". Only the one genuinely stub-less dependency (and
-    the build-generated ``_build`` module) may be ignored, per module."""
+    still printed "Success". Only the genuinely stub-less dependencies (and the
+    build-generated ``_build`` module) may be ignored, per module: musicbrainzngs,
+    and since 2026-10-05 ``cairosvg``, the optional rasterizer
+    ``build/make_icon.py`` falls back to once mypy reads ``build/*.py``."""
     import tomllib
 
     with Path("pyproject.toml").open("rb") as handle:
@@ -740,7 +742,82 @@ def test_mypy_cannot_silently_lose_its_view_of_pyside6() -> None:
         for override in mypy["overrides"]
         if override.get("ignore_missing_imports")
     }
-    assert ignored == {"musicbrainzngs.*", "platterpus._build"}
+    assert ignored == {"musicbrainzngs.*", "platterpus._build", "cairosvg"}
+
+
+def _mypy_files_cover(entries: list[str], root: Path) -> set[Path]:
+    """The modules mypy reads from ``[tool.mypy] files``, expanded as mypy does.
+
+    mypy expands an entry holding a glob character with ``glob.glob(entry,
+    recursive=True)`` and crawls a directory for ``.py`` files; anything else is
+    a file path. Restated here rather than asked of mypy, because the question is
+    what the CONFIG covers, and running the gate is the CI `typecheck` job's work.
+    """
+    import glob
+
+    covered: set[Path] = set()
+    for entry in entries:
+        if any(char in entry for char in "*?["):
+            matches = [
+                root / m for m in glob.glob(entry, root_dir=root, recursive=True)
+            ]
+        else:
+            matches = [root / entry]
+        for match in matches:
+            if match.is_dir():
+                covered.update(match.rglob("*.py"))
+            elif match.suffix == ".py" and match.is_file():
+                covered.add(match)
+    return {path.resolve() for path in covered}
+
+
+def test_mypy_checks_every_module_the_other_gates_read() -> None:
+    """The type gate reads the package AND the tooling, and cannot quietly narrow.
+
+    ``files`` was ``["src/platterpus"]`` until 2026-10-05, so ``scripts/`` was
+    never type-checked; its first strict run found a crash in ``scripts/check.py``
+    (TASKS ``scripts-outside-gates``). The expected set is NOT read from the config
+    it checks: it is every module under ``src/platterpus`` plus
+    ``conftest.maintained_tooling_modules``, the population the size ratchet and
+    the regex-time sweep already read, so the three gates agree on what "the
+    tooling" is.
+    """
+    import re
+    import tomllib
+
+    repo_root = Path(__file__).resolve().parents[1]
+    with (repo_root / "pyproject.toml").open("rb") as handle:
+        mypy = tomllib.load(handle)["tool"]["mypy"]
+    covered = _mypy_files_cover(list(mypy["files"]), repo_root)
+    exclude = mypy.get("exclude", [])
+    excludes = [exclude] if isinstance(exclude, str) else list(exclude)
+    covered = {
+        path
+        for path in covered
+        if not any(
+            re.search(pattern, path.relative_to(repo_root).as_posix())
+            for pattern in excludes
+        )
+    }
+    expected = {
+        path.resolve()
+        for path in [
+            *sorted((repo_root / "src" / "platterpus").rglob("*.py")),
+            *maintained_tooling_modules(repo_root),
+        ]
+    }
+    # Floors on both halves: an expected set that came back empty would make the
+    # subset check below pass by comparing nothing with nothing.
+    tooling = [p for p in expected if (repo_root / "src") not in p.parents]
+    assert len(expected) - len(tooling) >= 120, "the package population is broken"
+    assert len(tooling) >= 40, "the tooling population is broken"
+    unchecked = sorted(p.relative_to(repo_root).as_posix() for p in expected - covered)
+    assert not unchecked, (
+        "these modules are read by the size ratchet and the regex sweep but not by "
+        "mypy, so nothing type-checks them:\n  " + "\n  ".join(unchecked) + "\n"
+        "Extend `[tool.mypy] files` in pyproject.toml. Do not list `build` as a "
+        "directory: `build/lib/` holds a copy of the package after a wheel build."
+    )
 
 
 # --- Progress that never finished --------------------------------------------
@@ -1342,6 +1419,31 @@ def test_the_mypy_opt_out_list_is_a_ratchet_that_only_shrinks() -> None:
     with (repo_root / "pyproject.toml").open("rb") as handle:
         config = tomllib.load(handle)
 
+    # OURS is the package plus the top-level module names mypy gives the tooling
+    # (`scripts/handshake.py` is `handshake`, `scripts/laplang/check.py` is
+    # `laplang.check`, `build/make_icon.py` is `make_icon`). Until 2026-10-05 this
+    # read `platterpus*` only, which was every module mypy checked; once `files`
+    # reached `scripts/`, an opt-out for `handshake` would have been invisible here.
+    def _top_level_name(path: _Path) -> str:
+        # mypy names a module from the nearest directory WITHOUT an `__init__.py`:
+        # `scripts/laplang/` is a package, `scripts/cyanrip/` is not, so its file
+        # is the top-level module `apply-colon-fix`.
+        base = path.parent
+        while (base / "__init__.py").is_file():
+            base = base.parent
+        return path.relative_to(base).parts[0].removesuffix(".py")
+
+    tooling_tops = {
+        _top_level_name(path) for path in maintained_tooling_modules(repo_root)
+    }
+    assert {"handshake", "laplang", "bommap", "make_icon"} <= tooling_tops, (
+        f"the tooling's module names were not derived: {sorted(tooling_tops)[:8]}"
+    )
+
+    def _is_ours(name: str) -> bool:
+        top = name.split(".", 1)[0]
+        return top == "platterpus" or top in tooling_tops
+
     relaxed: set[str] = set()
     for override in config["tool"]["mypy"]["overrides"]:
         modules = override.get("module")
@@ -1351,11 +1453,11 @@ def test_the_mypy_opt_out_list_is_a_ratchet_that_only_shrinks() -> None:
         # is a fact about them, not a relaxation of our own checking. Rule #10's ratchet
         # is about ours.
         if any(key != "module" and key != "ignore_missing_imports" for key in override):
-            relaxed.update(n for n in names if n.startswith("platterpus"))
+            relaxed.update(n for n in names if _is_ours(n))
         elif override.get("ignore_missing_imports") and any(
-            n.startswith("platterpus.") and not n.endswith("_build") for n in names
+            _is_ours(n) and not n.endswith("_build") for n in names
         ):
-            relaxed.update(n for n in names if n.startswith("platterpus"))
+            relaxed.update(n for n in names if _is_ours(n))
 
     # Floor: if nothing was collected the comparison below is vacuous — it would pass
     # for a pyproject.toml with the whole `[tool.mypy]` table deleted.

@@ -297,6 +297,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   The calls it cannot time, because their pattern is built at run time (2 in the
   package, 13 in the tooling), are now counted per file with the reason each
   cannot stall, and a new one fails the suite until it is recorded.
+- For contributors: `mypy` now type-checks `scripts/` and `build/*.py` under the
+  same strict settings as the app, with no module opted out. Its first run there
+  found 9 errors in 5 files and 3 in `build/make_icon.py`, all fixed, including
+  the `scripts/check.py` crash listed under Fixed. A test holds the list of
+  checked files to the same set the size ratchet and the regex sweep read, and
+  the rule that the list of modules let off strict checking may only shrink now
+  covers the tooling's modules too.
 - For contributors: a test that runs `app.main` in-process no longer leaves the
   app-wide dialog filter installed for the tests after it. The filter now also
   fits message boxes, so the leak made the message-box fit tests fail on whichever

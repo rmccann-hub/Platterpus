@@ -2114,7 +2114,7 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
             for peer in inbound.glob("round-*-lap-*.md")
             if round_number(peer) == ours_round
             and _lap_of(peer) not in (None, AMBIGUOUS_LAP)
-            and _lap_of(peer) >= ours_lap  # type: ignore[operator]  # ints here
+            and _lap_of(peer) >= ours_lap
             and ready_to_read(_safe_read(peer)) is True
         )
         if claimed:
@@ -3566,7 +3566,7 @@ def _grade_round(
         and verdict == AFFIRMATIVE
         and our_lap not in (None, AMBIGUOUS_LAP)
         and their_lap not in (None, AMBIGUOUS_LAP)
-        and our_lap > their_lap  # type: ignore[operator]  # both are ints here
+        and our_lap > their_lap
     ):
         their_blockers = [b for b in their_blockers if b != PEER_VERDICT_NOT_YET_SPOKEN]
     both_go = (
