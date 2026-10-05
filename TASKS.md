@@ -124,7 +124,7 @@ their beta.
 
 ### New rows
 
-- [~] **CI scans the full history for secrets on every run** (C8; `SECURITY.md`, *Secret
+- [x] **CI scans the full history for secrets on every run** (C8; `SECURITY.md`, *Secret
   scanning*). Amendment A12, approved 2026-09-28 and held under C3 (`PLANNING.md` KDD-39,
   KDD-40); **C3 lifted for it 2026-10-05** (KDD-41). In progress. `gitleaks/gitleaks-action` scans a range it builds itself with
   `--no-merges --first-parent`, so a session-branch PR merged with a merge commit gives
@@ -134,6 +134,14 @@ their beta.
   gitleaks CLI directly, version pinned (rule 11), over every commit including merges,
   with a floor on the commits scanned so a run that reads nothing fails; then correct
   `SECURITY.md`.
+  - *Done 2026-10-05 (this commit):* the job installs gitleaks 8.24.3, checksum
+    verified, and scans `-m HEAD` with three floors: no shallow clone, at least
+    `MIN_COMMITS_SCANNED` (1,500), and 90 % of the commits reachable. Run locally on this
+    tree: 1,636 of 1,692 scanned, no leaks; a depth-5 clone refused; a two-commit history
+    refused. The shallow refusal and the absolute floor were added after a depth-5 clone
+    passed the relative floor alone. `tests/test_workflow_permissions.py` holds the shape;
+    four reverts probed, all detected. The BOM generator now reads the pinned version
+    (it had dropped gitleaks from the map when the action went).
 - [ ] **Fold the hardware-only checks into the closing run** (A4). Each needs a drive and
   the closing Full run is the next drive run, so each becomes a step there instead of a
   separate run: the S25 footer inside the grace on the container path (*S25 on
@@ -1443,9 +1451,13 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     `\S(?:.*\S)?`, with an equivalence test against the old form (they are published
     in `docs/cyanrip-consumer-contract.md`, so this regenerates it); and give the
     sweep inputs that pass a pattern's literal prefix, so it can find the next one.
-  - (5) `lint` (`ruff check`, `ruff format --check`) still reads `src tests` only.
+  - (5) ~~`lint` (`ruff check`, `ruff format --check`) still reads `src tests` only.
     `scripts/` and `build/` were clean under both on 2026-10-05 (0 findings, 51 files
-    formatted), so adding them is a CI and `scripts/check.py` change with no fixes.
+    formatted), so adding them is a CI and `scripts/check.py` change with no fixes.~~
+    - *Done 2026-10-05 (this commit), C3 lifted for it by KDD-41:* CI and `scripts/check.py`
+      lint and format-check `src tests scripts build`, and
+      `tests/test_check_script.py::test_the_local_lint_paths_match_ci` holds the two to the
+      same paths (two reverts probed, both detected).
   - (6) `tests/` is outside the size ratchet: 139 of its 280 modules are over 300 lines
     (2026-10-05). Whether a test module should be split is its own question.
 - [x] **S40/S41: refuse `-Z N` with `-r` ≤ N, with one move of the shared

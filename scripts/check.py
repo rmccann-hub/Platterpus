@@ -362,11 +362,12 @@ def _build_gates(only: set[str], coverage: bool) -> list[Gate]:
             "--cov-report=term",
             f"--cov-fail-under={COVERAGE_FLOOR}",
         ]
+    ruff_paths = ("src", "tests", "scripts", "build")  # CI's, test_check_script holds
     catalogue = {
-        "lint": Gate("lint (ruff check)", [py, "-m", "ruff", "check", "src", "tests"]),
+        "lint": Gate("lint (ruff check)", [py, "-m", "ruff", "check", *ruff_paths]),
         "format": Gate(
             "format (ruff format --check)",
-            [py, "-m", "ruff", "format", "--check", "src", "tests"],
+            [py, "-m", "ruff", "format", "--check", *ruff_paths],
         ),
         "types": Gate("types (mypy)", [py, "-m", "mypy"]),
         "tests": Gate("tests (pytest)", pytest_argv),

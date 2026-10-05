@@ -2530,7 +2530,9 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     "scripts/bommap/render.py": 359,
     "scripts/bommap/ripper_entries.py": 340,
     "scripts/bommap/tool_entries.py": 385,
-    "scripts/check.py": 498,
+    # **498 -> 499** (2026-10-05): lint and format-check read `scripts/` and `build/`
+    # too (KDD-41, C8), from one `ruff_paths` tuple both gates share.
+    "scripts/check.py": 499,
     "scripts/emit_dependency_contract.py": 534,
     "scripts/emit_envelope.py": 849,
     "scripts/emit_ripper_inventory.py": 316,
