@@ -1642,6 +1642,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **735 -> 744 (2026-09-28, round 28 closed on our gate)**: the approval record moves to round 28 for 0.6.61, read off their closing lap as the rule requires.
     # **744 -> 754 (2026-09-29, round 29 closed on our gate)**: the approval record moves to round 29 for 0.6.63, read off their closing lap (round 29 lap 3) as the rule requires.
     "handshake_approval.py": 754,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
+    # gate. Kept as one module: it is one class, the killable child slot, and the
+    # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
+    # the gate itself lives in `container_gate.py`.
+    "killable.py": 323,
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect

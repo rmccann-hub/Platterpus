@@ -108,6 +108,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   and a stopped re-read pass left no record of how far it got. It is now saved
   beside the album's log as `<album>.platterpus-securing-pass.txt`, complete or
   not. It is a `.txt` so that nothing mistakes it for the album's own log.
+- **Starting Platterpus should no longer stall for a minute while the ripping
+  container starts.** At launch, the dependency check and the first disc scan
+  both started the stopped container in the same second, and both hung: the
+  version check until its 60-second limit, and the disc scan until a rescan
+  replaced it. The first container command of a session now runs on its own,
+  and the others wait for it (at most 75 seconds, and never past a cancel)
+  before starting. The cause is inferred from the 2026-10-04 log, not
+  reproduced, so the next launch on a cold machine is the test.
 - **Changing discs no longer blanks the drive's read offset and cache-defeat rows.**
   Taking a disc out cleared them along with the disc's own details, and putting the
   next disc in did not bring them back until a Rescan. They describe the drive, which
