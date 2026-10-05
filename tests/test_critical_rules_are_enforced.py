@@ -1754,7 +1754,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **712 -> 723** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): `TagFixEntry` and `DiscBlock.tag_control_characters_replaced`.
     # **723 -> 727** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): `DiscBlock.eac_log_signature_lines_defused`.
     # **727 -> 730** (2026-09-28, the Full run's track 3): `RetriedTrackBlock.replaced_because`, schema v30.
-    "report_types.py": 730,
+    # **730 -> 733** (2026-10-05): `realtime_multiplier_basis` says the multiplier is always elapsed over the audio read, and when the key is absent.
+    "report_types.py": 733,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and

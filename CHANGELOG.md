@@ -116,6 +116,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   and the others wait for it (at most 75 seconds, and never past a cancel)
   before starting. The cause is inferred from the 2026-10-04 log, not
   reproduced, so the next launch on a cold machine is the test.
+- **A rip report's "realtime multiplier" means one thing.** It is how many times
+  the audio's running time the rip took. A rip that did not finish used to record
+  the inverse (how fast the drive read), under the same name. A rip of a few
+  chosen tracks was measured against the whole disc's length, so every two-track
+  rip in the acceptance runs reads 0.12 when the true figure is about 1.0. Both
+  now divide the time taken by the audio actually read.
 - **Changing discs no longer blanks the drive's read offset and cache-defeat rows.**
   Taking a disc out cleared them along with the disc's own details, and putting the
   next disc in did not bring them back until a Rescan. They describe the drive, which
