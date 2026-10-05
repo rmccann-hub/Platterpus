@@ -106,6 +106,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   and then hung as timed out, with what it printed. It used to crash with a
   `TypeError` instead, because Python hands back a timed-out child's output as
   bytes even when text was asked for. Found by pointing `mypy` at `scripts/`.
+- For contributors: the bill-of-materials generator reads a requirement line in
+  linear time. Its pattern took about a third of a second on one line with 8,000
+  spaces inside the version and four times longer each time the run doubled. It
+  now reads exactly what it read before, faster.
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached

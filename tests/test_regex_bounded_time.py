@@ -59,6 +59,8 @@ from pathlib import Path
 
 import pytest
 from conftest import maintained_tooling_modules
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SRC = _REPO_ROOT / "src" / "platterpus"
@@ -700,6 +702,130 @@ def test_the_known_offenders_stay_bounded(module: str, attribute: str) -> None:
         f"{module}.{attribute} took {elapsed * 1000:.1f} ms on 4000 digits — an "
         "unbounded quantifier has come back"
     )
+
+
+# --- Offenders behind a literal prefix (2026-10-05) ----------------------------
+#
+# The sweep feeds each pattern runs of ONE character. A pattern that only
+# backtracks once a literal prefix has matched (`Read stalls: x`, `KEY: x`) never
+# reaches its slow region on such input, so the sweep reports it linear. That is
+# how `_REQUIREMENT` and `_WIRE_FIELD` passed it when it was extended to the
+# tooling, though each took about a third of a second on one 8,000-character line.
+# Both had the same shape: a lazy capture followed by trailing whitespace before
+# `$`, which retries the whitespace run at every step of the lazy capture. They
+# are fixed and pinned by name below; the sweep's blind spot, and the same shape
+# in `src/` (`parsers/cyanrip_log.py`), are recorded in TASKS.
+
+
+def _pattern_assigned_to(rel: str, name: str) -> re.Pattern[str]:
+    """The pattern a module assigns to ``name``, read from source, flags included.
+
+    Read with ``ast`` rather than by importing, as the sweep reads, so the pin
+    holds the text in the file and needs none of the script's import-time path
+    setup. Flags are evaluated from ``re.<FLAG>`` names joined by ``|``.
+    """
+    tree = ast.parse((_REPO_ROOT / rel).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        value: ast.expr | None = None
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == name
+            for target in node.targets
+        ):
+            value = node.value
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == name
+        ):
+            value = node.value
+        if not (isinstance(value, ast.Call) and value.args):
+            continue
+        pattern = value.args[0]
+        assert isinstance(pattern, ast.Constant) and isinstance(pattern.value, str)
+        flags = 0
+        for flag_node in [*value.args[1:], *(k.value for k in value.keywords)]:
+            for part in ast.walk(flag_node):
+                if isinstance(part, ast.Attribute):
+                    flags |= int(getattr(re, part.attr))
+        return re.compile(pattern.value, flags)
+    raise AssertionError(f"{rel} assigns no pattern to {name}")
+
+
+#: (module, name, a line that drives the old pattern into its quadratic region).
+_PREFIXED_OFFENDERS: list[tuple[str, str, str]] = [
+    ("scripts/bommap/reading.py", "_REQUIREMENT", "a b" + " " * 20_000 + "c"),
+]
+
+
+@pytest.mark.parametrize(
+    ("rel", "name", "line"),
+    _PREFIXED_OFFENDERS,
+    ids=[f"{rel}:{name}" for rel, name, _line in _PREFIXED_OFFENDERS],
+)
+def test_the_prefixed_offenders_stay_fast_on_the_line_that_found_them(
+    rel: str, name: str, line: str
+) -> None:
+    """Each fixed pattern, on the line that showed it quadratic, by name.
+
+    20,000 spaces cost the old patterns about 2 s (0.36 s at 8,000, growing 4x
+    per doubling); the greedy forms take microseconds. 50 ms is far from both.
+    """
+    pattern = _pattern_assigned_to(rel, name)
+    start = _clock()
+    pattern.search(line)
+    elapsed = _clock() - start
+    assert elapsed < 0.050, (
+        f"{rel}:{name} took {elapsed * 1000:.1f} ms on a {len(line)}-character "
+        "line: a lazy capture before trailing whitespace has come back"
+    )
+
+
+#: The pattern `_REQUIREMENT` replaced, kept as the reference its rewrite must
+#: agree with on every input.
+_OLD_REQUIREMENT = (
+    r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(?P<extras>\[[^\]]*\])?\s*"
+    r"(?P<spec>.*?)\s*$"
+)
+
+
+def _match_shape(match: re.Match[str] | None) -> tuple[object, ...] | None:
+    return None if match is None else (match.span(), match.groupdict())
+
+
+@settings(max_examples=400)
+@given(st.text(alphabet="aZ0._-[]= <,\t\n\r", max_size=40))
+def test_the_rewritten_requirement_pattern_reads_what_the_old_one_read(
+    text: str,
+) -> None:
+    """Same match, same span, same groups, on every input — or it is not a fix.
+
+    The rewrite exists to change the TIME and nothing else. The alphabet is the
+    characters each part of the pattern branches on: name characters, the extras
+    brackets, the separators of a version spec, and every kind of whitespace,
+    including the newline that `.` refuses and whitespace classes accept.
+    """
+    old = re.compile(_OLD_REQUIREMENT)
+    new = _pattern_assigned_to("scripts/bommap/reading.py", "_REQUIREMENT")
+    assert _match_shape(new.match(text)) == _match_shape(old.match(text))
+
+
+def test_the_requirement_rewrite_agrees_on_the_lines_the_tool_reads() -> None:
+    """The equivalence above, on real shapes, with a floor on matches compared."""
+    old = re.compile(_OLD_REQUIREMENT)
+    new = _pattern_assigned_to("scripts/bommap/reading.py", "_REQUIREMENT")
+    lines = [
+        "PySide6>=6.11.1,<6.12",
+        "  ruff >=0.15.22,<0.16  ",
+        "sigstore[extra]>=4.5.0,<4.6",
+        "pkg",
+        "pkg   ",
+        "a b" + " " * 50 + "c",
+        "name x\n",
+        "name x\n y",
+    ]
+    shapes = [(_match_shape(old.match(s)), _match_shape(new.match(s))) for s in lines]
+    assert all(o == n for o, n in shapes), shapes
+    assert sum(o is not None for o, _ in shapes) >= 6, "too few lines matched"
 
 
 def test_the_sweep_reads_inline_calls_and_times_each_as_it_runs() -> None:

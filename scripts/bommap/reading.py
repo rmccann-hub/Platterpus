@@ -106,8 +106,14 @@ def _normalise(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+#: ``spec`` is "everything up to the last non-space character", written greedily
+#: (``\S(?:.*\S)?``). The lazy ``.*?`` before ``\s*$`` it replaced matched the same
+#: text but retried the trailing ``\s*`` at every step, quadratic in a run of
+#: spaces inside the value: 356 ms at 8,000 (2026-10-05). The regex-time sweep's
+#: one-character fills cannot reach a pattern behind a name, so it did not see it.
 _REQUIREMENT: Final[re.Pattern[str]] = re.compile(
-    r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(?P<extras>\[[^\]]*\])?\s*(?P<spec>.*?)\s*$"
+    r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(?P<extras>\[[^\]]*\])?\s*"
+    r"(?P<spec>(?:\S(?:.*\S)?)?)\s*$"
 )
 
 
