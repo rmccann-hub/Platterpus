@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 30, OPEN, waiting on the operator's close conditions (our lap 8 S3, under an override of R1): every finding fixed or declined by both, your `.20` on beta then our 0.6.66 beta naming it, and an acceptance run of both
-STATUS-LAPS: newest sent round-30-lap-08.md (ours), round-30-lap-09.md (theirs); next 11 (yours) carrying your reading of our lap 10, your answers to its S30 and S32, the pre-commit its S14 asks for, and S16's text landed; held 10 carrying our reading of your lap 9, answers to your S13, S16, S39 and S3, fixes for your S27 to S29, corrections for your S27 and S30, and your lap 9's R6 miss
+STATUS-LAPS: newest sent round-30-lap-10.md (ours), round-30-lap-09.md (theirs); next 11 (yours) carrying your reading of our lap 10, your answers to its S30 and S32, the pre-commit its S14 asks for, and S16's text landed; held none
 STATUS-RELEASED: 0.6.65 at 0981c69, 2026-09-30
 STATUS-RELEASE-NEXT: 0.6.66, carrying, as a beta cut after your `.20` is on beta, everything round 30 landed past 0.6.65 (our lap 8 S20 to S28) and the readiness for `.20`'s arms; pins 174a134, reviews +platterpus.20
 STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on your reading of our lap 10, then your `.20` on beta (O3), then our 0.6.66 beta naming it; that run is round 30's closing run (our lap 8 S3)
