@@ -102,7 +102,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **The acceptance bundle's `COMPONENTS.json` now names which cyanrip build was
   installed, not only `0.9.4`.** Each tool's entry keeps its `version` exactly as
   before and gains `version_text` beside it: what the tool printed about itself,
-  the same text Help → About shows, for example `"0.9.4-rc2+platterpus.18"`. So a
+  the same text Help → About Platterpus… shows, for example
+  `"0.9.4-rc2+platterpus.18"`. So a
   bundle now tells the Platterpus fork from upstream cyanrip, and one fork release
   from the next, which every tool parses to `0.9.4`. Where that text was not
   captured, the key is there and reads `null` (not determined) rather than being

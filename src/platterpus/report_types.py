@@ -225,29 +225,14 @@ class EnvironmentBlock(TypedDict):
 
 
 class ComponentEntry(DependencyEntry):
-    """One tool's row in the component inventory: a `DependencyEntry` plus the
-    tool's own version text.
+    """A `DependencyEntry` plus the tool's own version text, for the inventory.
 
-    ``version`` is the parsed number the minimum-version check compares
-    (``"0.9.4"``), and it stays exactly as it was so every existing reader keeps
-    working. It cannot tell the Platterpus fork of cyanrip from upstream, or
-    ``+platterpus.17`` from ``.18``, because the fork keeps upstream's version on
-    purpose. ``version_text`` is what the tool printed about itself
-    (``"0.9.4-rc2+platterpus.18"``), the same text Help → About shows
-    (`deps.build_notes.BuildNote.version_text`).
-
-    **Tri-state, the way the rest of the inventory says "unknown":** a string is
-    the tool's own text; ``None`` (JSON ``null``) is *not determined*: the check
-    captured no banner, or this tool's check has no build note that reads one.
-    It is never omitted and never ``""``, so a reader can tell "we do not know"
-    from "this file predates the key". Whether the tool is there at all is
-    ``present``, as before.
-
-    A separate type rather than a new key on `DependencyEntry`: that one is also
-    the rip report's ``environment.dependencies`` row, whose shape is versioned by
-    `rip_report.REPORT_SCHEMA_VERSION`. This key was declared to the cyanrip fork
-    for the acceptance bundle's ``COMPONENTS.json`` (round 30 lap 4, S43), and for
-    nothing else.
+    ``version`` stays the parsed ``"0.9.4"``, which cannot tell the fork from
+    upstream or ``.17`` from ``.18``. ``version_text`` is what the tool printed
+    (``"0.9.4-rc2+platterpus.18"``, `BuildNote.version_text`), or ``None``
+    (JSON ``null``) for *not determined*: never omitted, never ``""``. Its own
+    type because `DependencyEntry` is also the rip report's row, and this key
+    was declared to the fork for ``COMPONENTS.json`` only (round 30 lap 4, S43).
     """
 
     version_text: str | None
@@ -257,9 +242,8 @@ class ComponentInventory(TypedDict):
     """Every component a rip depends on, with its version and when it was measured.
 
     One shape for Help → About and the acceptance bundle's ``COMPONENTS.json``
-    (`build_info.component_inventory`), so they cannot describe one machine two
-    ways. Diagnostics and the rip report read the same summariser underneath
-    (`build_info.dependency_summary`).
+    (`build_info.component_inventory`); Diagnostics and the rip report read the
+    summariser under it (`build_info.dependency_summary`).
     """
 
     app: str
