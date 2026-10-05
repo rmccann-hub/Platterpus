@@ -182,7 +182,11 @@ WavPack for the WAV slot is fine — the maintainer's call.
    ```
    It prints a per-track PASS/FAIL table and exits 0 only on full parity. (It
    auto-detects EAC, cyanrip and legacy-format logs; the comparison logic is
-   `platterpus.parity`.)
+   `platterpus.parity`.) It first says who wrote the baseline, from the
+   baseline's own first line, and it **refuses one of Platterpus's own
+   EAC-compatible exports as the baseline** (exit 2): a rip always matches our
+   own export of it, so that "parity" would prove nothing. Details:
+   `docs/eac-parity.md`, P1.
 3. When it passes, drop the backend's `.log` (and `.cue`) into the matching
    directory above, and tick the task in `TASKS.md` with the date + result
    ("14/14 Copy CRCs match EAC").
@@ -195,4 +199,4 @@ That commit is the durable evidence the backend is bit-perfect against EAC.
 
 ---
 
-*Last updated for Platterpus v0.6.60.*
+*Last updated for Platterpus v0.6.65.*

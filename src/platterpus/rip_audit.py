@@ -1048,6 +1048,18 @@ def _audit_eac_log_agreement(report: dict[str, Any], album: AlbumAudit) -> None:
     addendum = (artifacts.get("addendum") or {}).get("text") or ""
     ripper_text = with_addendum(str(ripper["text"]), "", extra=str(addendum))
     parity = compare_logs(ripper_text, str(eac["text"]))
+    if parity.baseline.is_ours:
+        # The reference side is meant to be cyanrip's own log. If it is one of our
+        # EAC-layout exports, the comparison is our export against itself and every
+        # track matches: `parity.ok` refuses it, and this says why rather than
+        # falling through to a "DISAGREE" no track actually showed.
+        album.add(
+            LEVEL_WARN,
+            f"the ripper's log embedded in this report is {parity.baseline.describe()}"
+            ", so comparing the EAC-style log with it would compare our export with "
+            "itself; whether its CRCs agree with the ripper's is not determined",
+        )
+        return
     if not parity.tracks:
         album.add(
             LEVEL_NOTE,

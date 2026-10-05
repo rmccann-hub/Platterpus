@@ -58,6 +58,7 @@ from platterpus.parsers.cyanrip_log import (
 from platterpus.parsers.drive_list import DriveDescriptor, parse_drive_list
 from platterpus.parsers.eac_log import (
     eac_log_producer,
+    eac_log_producer_line,
     looks_like_eac_log,
     parse_eac_copy_crcs,
 )
@@ -385,6 +386,11 @@ def test_looks_like_log_sniffers_never_raise(text: str) -> None:
     assert producer in (None, "exact_audio_copy", "platterpus")
     # The two answers are one predicate, never two that can disagree.
     assert looks_like_eac_log(text) is (producer is not None)
+    # And the line a caller quotes as the reason is the line that decided it:
+    # classifying that line alone gives the same answer as the whole text.
+    line = eac_log_producer_line(text)
+    assert line is None or isinstance(line, str)
+    assert eac_log_producer(line or "") == producer
 
 
 # --- Invariant 2: a well-formed drive block round-trips -------------------
