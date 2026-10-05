@@ -82,6 +82,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   Force stop ends it at once, with an incomplete log. The acceptance test's cancel
   sections now wait as long before they check the cancelled rip's log (135 s,
   where they waited 30), and a test holds them to the app's own number.
+- **A rip's report no longer says its checks "did not run" when they did.** If you
+  cancel a rip while it is re-reading tracks, the main read is already finished,
+  so the CTDB and FLAC checks start. The report still said they were "not run —
+  the rip did not finish", and when the next rip cut them short it still said that,
+  not "superseded". It now records which checks actually started: one that started
+  and finished says it ran, one that a newer rip cut short says superseded, and
+  only a check that never started says not run.
 - **Changing discs no longer blanks the drive's read offset and cache-defeat rows.**
   Taking a disc out cleared them along with the disc's own details, and putting the
   next disc in did not bring them back until a Rescan. They describe the drive, which

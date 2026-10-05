@@ -12212,6 +12212,58 @@ def test_a_check_still_in_flight_when_the_next_rip_starts_is_sealed_superseded(
     assert record.superseded == {"ctdb", "derived"}
 
 
+def test_a_cancelled_rips_superseded_checks_reach_the_report_as_superseded(
+    teardown_threads,
+) -> None:
+    """The 2026-10-04 section I report, end to end through the window.
+
+    A cancel during the securing pass leaves the album pass finished, so the
+    chain starts: the launcher must record the check as launched (``pending``
+    alone empties as checks return, so it cannot say the chain began), and
+    ``_gates_for`` must hand that ledger to the report. Before 2026-10-05 the
+    gate read "not run — the rip did not finish" for a check that had begun and
+    was then superseded by section J's rip.
+    """
+    from platterpus import rip_report
+
+    window = teardown_threads()
+    record = window._capture_post_rip_record(None, None)
+    record.gate_inputs = {
+        "ctdb_enabled": True,
+        "flac_verify_enabled": False,
+        "backend_self_verifies": False,
+        "recompress_enabled": False,
+        "backend_maxes_compression": False,
+        "transcode_requested": False,
+    }
+    record.outcome = {"status": "cancelled"}
+    release = threading.Event()
+    thread = window._launch_post_rip_daemon(
+        compute=lambda _sc: release.wait(10) and None,
+        signal=window.ctdb_verify_done,
+        thread_attr="_ctdb_thread",
+        gate="ctdb",
+    )
+    try:
+        assert record.launched == {"ctdb"}
+        window._seal_superseded_post_rip_work()  # the next rip's Start
+    finally:
+        release.set()
+        thread.join(timeout=10)
+
+    assert record.superseded == {"ctdb"}
+    assert record.launched == {"ctdb"}, "the ledger of launched checks emptied"
+    gates = window._gates_for(record)
+    assert gates["ctdb"] == rip_report.SUPERSEDED_GATE, gates
+
+    # The same cancel with no newer rip: the check began and landed, so it ran.
+    # This half needs the ledger itself to reach the report, not only the order
+    # in which the two relabellings are applied.
+    record.superseded = set()
+    record.ctdb = object()
+    assert window._gates_for(record)["ctdb"] == "ran"
+
+
 def test_a_check_that_landed_just_before_the_next_start_is_not_called_dropped(
     teardown_threads,
 ) -> None:

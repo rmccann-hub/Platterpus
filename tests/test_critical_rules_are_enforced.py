@@ -1816,7 +1816,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2587 -> 2609** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `NOT_WHOLE_DISC_GATE` beside its sibling gate states, and the one place `_build` corrects `gates.ctdb` from the verdict, where the settings-derived gate and the result meet. The verdict's value is imported from `ctdb/coverage.py`, so the builder stays adapter-free.
     # **2609 -> 2667** (2026-09-28, the round-28 Full run: a debug block marked truncated, tail-only, uncounted, under a scope saying "since launch"): `_debug_scope`, the scope sentence built from what the lines ARE — the buffer's counted drop with its span, and this report's own elision — and `build_debug_log` taking the count. The sentence describes the report's block, so it lives with the block.
     # **2581 -> 2582** (2026-09-28, the `-Z` wording): the `secure_rerip_converged` comment says a hit repeat limit can follow two reads that agreed, which "without any two agreeing" denied.
-    "rip_report.py": 2668,
+    # **2668 -> 2683** (2026-10-05, the 2026-10-04 run's section I report): `build_gates` takes the launched-check ledger, so a cancelled rip whose checks began says "superseded" or "ran" rather than "not run", and applies "superseded" first; the docstring says why a cancel can start the chain.
+    "rip_report.py": 2683,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -2130,7 +2131,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4867 -> 4882** (2026-09-30, the fork's round 30 lap 5 S17, our operator's option B): `_stop_rip_on_shutdown` hands the reader stop to `exit_work` instead of blocking the GUI thread for the grace, reading the two values the helper needs on the GUI thread first; the docstring says why the old sanctioned block ended. The job itself went to the new `exit_work.py`.
     # **4882 -> 4893** (2026-10-05): the finish handler passes the cancel to `fidelity_summary`, and `exit_audit_device()` names the drive for the exit check (2026-10-04 rig run; operator, 2026-10-05).
     # **4893 -> 4903** (2026-10-05): the post-cancel rescue says, while the rip is still running, that a slow disc can take a minute or two to stop, where the status kept promising a 5 s force-stop (the 2026-10-04 run's 54 s read).
-    "ui/main_window_rip.py": 4903,
+    # **4903 -> 4907** (2026-10-05): the launcher records each check in `PostRipRecord.launched`, and `_gates_for` hands that ledger to the report (the 2026-10-04 section I report).
+    "ui/main_window_rip.py": 4907,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared

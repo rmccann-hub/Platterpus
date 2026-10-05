@@ -654,10 +654,13 @@ Open:
 - [ ] **A section whose rip outlives its wait should end the run.** F's six-hour wait
   ran out and H and I then failed against the still-running rip; nothing after F was
   evidence. An `abort-if-failed` after F, or a wait that stops the run.
-- [ ] **The report says post-rip checks were "not run — the rip did not finish" when they
+- [x] **The report says post-rip checks were "not run — the rip did not finish" when they
   started and were superseded.** On the cancelled rip, CTDB and FLAC verify started at
   19:07:11 and were abandoned 46 s later when section J's rip began; the report's reason
-  names the wrong one.
+  named the wrong one. The premise was that a cancelled rip never starts the chain, and
+  a cancel during the securing pass does. `PostRipRecord.launched` now says which checks
+  began, `build_gates` applies "superseded" first, and "not run" is kept for a check
+  that never launched.
 - [ ] **Cold-container start: two container entries at launch.** The version probe
   printed its banner and did not exit for 60 s, and the startup disc scan never
   returned (`round30oct04platterpusapplog2.txt:59910`, `:59918`). Serialise the first

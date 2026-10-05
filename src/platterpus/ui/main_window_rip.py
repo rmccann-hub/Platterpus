@@ -2700,6 +2700,7 @@ class RipMixin(MainWindowShared):
         record = self._post_rip_record()
         if gate is not None and record is not None:
             record.pending.add(gate)
+            record.launched.add(gate)
 
         def still_current() -> bool:
             """False once a newer rip has started. Read from the worker thread;
@@ -3973,15 +3974,18 @@ class RipMixin(MainWindowShared):
             "backend_maxes_compression": self._backend.produces_max_compression_flac(),
             "transcode_requested": self._config.output_format in TRANSCODE_FORMATS,
         }
-        # The rip's own outcome decides whether any check was begun at all: on a
-        # failed or cancelled rip the post-rip chain never starts, so a gate that
-        # reads "ran" there is the settings talking (2026-09-24 section F).
+        # On a failed rip the post-rip chain never starts, so a gate that reads
+        # "ran" there is the settings talking (2026-09-24 section F). A cancelled
+        # one may have started it: a cancel during the securing pass leaves the
+        # album pass finished. So the record's own ledger of launched checks says
+        # which began, and the outcome only says the rip did not finish.
         outcome = record.outcome if isinstance(record.outcome, dict) else {}
         status = outcome.get("status")
         return rip_report.build_gates(
             **inputs,
             superseded=sorted(record.superseded),
             rip_status=status if isinstance(status, str) else None,
+            launched=sorted(record.launched),
         )
 
     def _record_post_rip_result(
