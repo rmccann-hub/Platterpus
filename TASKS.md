@@ -1254,7 +1254,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   `version`, the tool's own version text (the `BuildNote.version_text` Help → About
   now shows). The inventory is the bundle's `components` file, which crosses the
   seam, so the key is declared in a lap before it ships (NEXT-ROUND).
-  - *Done:* each tool's entry gains `version_text` beside an unchanged `version`
+  - *Done in 746d4e78:* each tool's entry gains `version_text` beside an unchanged `version`
     (`null` when not determined, never omitted or `""`), as declared in our round 30
     lap 4 S43; About reads the same key. The fork/stock verdict was not added beside
     it: S43 declared one key, so a second needs a lap first.
