@@ -50,6 +50,8 @@ import subprocess
 import threading
 from pathlib import Path
 
+from platterpus.container_gate import FIRST_ENTRY
+
 log = logging.getLogger(__name__)
 
 # How long to wait for a killed child to be reaped before giving up on it. Short
@@ -188,6 +190,36 @@ class KillableCommand:
         with self._lock:
             self._issued += 1
             seq = self._issued
+        # The first container command of the session runs alone
+        # (`container_gate`); the wait ends early on this run's own cancel.
+        first = FIRST_ENTRY.claim(
+            argv[0] if argv else "",
+            name=self._name,
+            should_stop=lambda: self._covered_by_cancel(seq),
+        )
+        try:
+            return self._spawn_and_wait(
+                argv, seq, timeout=timeout, stdin_devnull=stdin_devnull, cwd=cwd
+            )
+        finally:
+            if first:
+                FIRST_ENTRY.release()
+
+    def _covered_by_cancel(self, seq: int) -> bool:
+        """Whether a cancel has been issued that covers run ``seq``."""
+        with self._lock:
+            return seq <= self._cancel_through
+
+    def _spawn_and_wait(
+        self,
+        argv: list[str],
+        seq: int,
+        *,
+        timeout: float,
+        stdin_devnull: bool,
+        cwd: Path | None,
+    ) -> subprocess.CompletedProcess[str]:
+        """Spawn run ``seq`` and wait for it; the body of :meth:`run`."""
         proc = subprocess.Popen(  # noqa: S603 — callers pass a resolved binary
             argv,
             cwd=cwd,

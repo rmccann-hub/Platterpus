@@ -405,6 +405,14 @@ them meet it as a surprise.
 
 ### 7.5d A short reading lap — our draft of the fork's D5 (round 30, W4)
 
+**Superseded by the shared text, 2026-09-30: PROTOCOL v7 §6d**
+([`handshake-protocol.md`](handshake-protocol.md)) is the template now, and it is the
+authority. It converged from this draft with the fork's pair `FACT` and `NONE`, and
+with the close conditions our round 30 lap 6 S19 added, as their lap 7 S4 amended
+them (a condition only the other side can still meet is `TERM pending`). The draft
+below is kept as the history of how §6d got its shape; it has no `TERM` lines, which
+is the defect lap 6 S19 found in it.
+
 The fork's release-cycle proposal (`PROPOSAL-release-cycle.md` in their tree, D5)
 asks each side for a template of the lap a side writes when its reading of a run
 finds nothing to act on. **This is ours.** It is a floor for a clean reading,
@@ -555,8 +563,8 @@ away.
   because it looked parochial is the class of defect this seam exists to
   catch, found twice and shared zero times.
   Vehicle: a NEXT-ROUND item in the current lap — not a new round, not a new
-  file, and never a reason to hold a round open (S-14: a finding defaults to
-  the next round).
+  file, and never a reason to hold a round open (S-14's second half: a finding
+  is never a blocker by being real).
   **Bilateral, and it travels.** Unlike the two carve-outs below, this is a
   term of the seam rather than a rule about our own operator: it is worth
   exactly as much in the other direction, and a one-sided version would read
@@ -581,6 +589,8 @@ away.
 - **S-13 — a round's close conditions are fixed in its lap 1 and cannot grow.** A criterion discovered later belongs to the *next* round, unless it is a regression in the pin under review. (Round 7 opened with three acceptance criteria; the fourth arrived at lap 31 — correct, and it moved the finish line 30 laps in.)
 - **S-14 — a finding defaults to the next round.** Promoting one to blocking requires naming **what it breaks in the artifact under review**. *"It is a real defect"* is an argument for fixing it, never on its own for holding a release. Not one of round 7's findings made the reviewed pin unsafe; every one of them blocked it anyway, because nothing ever asked the question.
 - **S-15 — an agreed test pin does not move for the rest of the round**, unless it is found unsafe. Fixes queue for the next one. Ten pins meant the hardware evidence was always about a build nobody was reviewing any more.
+
+*2026-09-30, seam-rules v7 (binding from round 31): S-14's first half is replaced by PROTOCOL v7's R3, a finding that needs no drive, no code of the other side's and no operator's decision is fixed and landed before that side's closing lap; its second half, never a blocker by being real, stays. S-15's "fixes queue" now reads "fixes land past the pin within the round and ship in the release the close authorises". The bullets here are round 7's text, kept verbatim.*
 - **S-16 — questions carry a target, `BLOCKING` or `NEXT-ROUND`**, and `BLOCKING` must satisfy S-14. **A questions section may be empty**; "no questions" is a complete section and is written out. A spec that *requires* questions makes inventing work mandatory, and a round cannot converge faster than it invents work.
 - **Pre-commit, and it is the one that actually ends rounds.** A lap may declare *"our next lap is GO unless X"*, naming X, and it binds. Both sides did this in round 7 laps 36–37.
 - **The failure in one sentence: release-grade rigour was being applied to the *round* rather than to the *release*.** The rigour is right. Attaching it to a process that must terminate is what produced 37 laps and no release.
@@ -817,10 +827,10 @@ What lives where:
 |---|---|
 | the specification | [`handshake-protocol.md`](handshake-protocol.md) — shared, verbatim, both repos |
 | our gate | `scripts/handshake.py` (`--status`, `--check`, `--release-gate`) |
-| our conformance tests | `tests/test_handshake_conformance.py` — one test per row of the shared conformance table that is in force for the version we implement (C1–C45 plus C13a at v6), **except the v3/v4 rows among C21–C36 that still have no row-named test** — binding since round 9, counted in `_BINDING_ROWS_WITHOUT_A_NAMED_TEST`, a ratchet that may only shrink (sixteen until 2026-09-25, when C23 and C24 got tests with v6's K2 field; the count moves, so read the table, not this cell) |
+| our conformance tests | `tests/test_handshake_conformance.py` — one test per row of the shared conformance table that is in force for the version we implement (C1–C45 plus C13a at v6; v7, landed 2026-09-30, adds C46, which our gate implements before our round 31 lap 1), **except the v3/v4 rows among C21–C36 that still have no row-named test** — binding since round 9, counted in `_BINDING_ROWS_WITHOUT_A_NAMED_TEST`, a ratchet that may only shrink (sixteen until 2026-09-25, when C23 and C24 got tests with v6's K2 field; the count moves, so read the table, not this cell) |
 | their gate | `tools/release-gate.py`; their tests are `tests/release_gate.py` |
 
-**Current protocol version: 6 implemented, 6 declared** — `handshake.PROTOCOL_VERSION` is the authority for what our gate implements, `handshake.DECLARED_PROTOCOL` for what our laps declare, and the shared file's title for the spec. **Implemented since 2026-09-25**, when both of v6 §14's conditions held: the shared file byte-identical in both trees (`05abdfde…`), and the fork's gate at 6 (`cyanrip@643631b`, said in their round 25 lap 5). **Declared 6 since round 28 lap 6**, the lap that says our gate implements 6 (its S23, at the fork's round 28 lap 5 S7 request; under C29 a lap declaring less than an earlier lap of the record refuses the round) — §14: *"neither side declares 6 until both have said, in a lap, that their gate implements it"*. v6 adds §5e's `HANDSHAKE-AGREED-CHANGES` ledger (C44 requires it on a `GO` file declaring 6; C45: its content never gates a close), K2's `HANDSHAKE-INBOUND-OBSERVED` beside `-HELD` (required on a file declaring 6 — a reading of ours, since no row names it; both sides have written it on every lap since round 22), C43 (the version refusal over every file of a round, which we had since 2026-09-22), and the amended **C13a**: once a round is `CLOSED` a later lap declaring a *different* verdict is refused as a file and the round stays closed (`_terminal_at`), while one declaring the same verdict is not a transition. **What a C13a refusal does to a release is ours, because v6 leaves it to v7**: it holds a release until a later round exists, then that round governs (`illegal_transition_blockers`). The fork's gate still reopens on such a lap (its known divergence), so the two gates would print different round states and both hold the release. No such lap exists in either record; replaying ours finds ten later laps in eight rounds, all `GO`. The same commit enforced **C23** (`INBOUND-HELD` on every round ≥ 9 file), binding since round 9 and never checked: one sent file in the record lacks it, our `verified/round-13-lap-03.md`, pinned by hash. v5 (2026-09-22) added §5b (a close may resolve the peer verdict from the newest peer lap the gate holds, has enumerated and may read, when that lap is newer than the transcription's source), §5c (such a lap must declare `HANDSHAKE-READY-TO-READ: yes`, fail-closed), the `HANDSHAKE-PEER-VERDICT-SOURCE` field (ours, from round 23 lap 2) and rows C37–C42. **Implemented the same day the text became byte-identical, before round 24's lap 1**, because a rehearsal showed what staying at 4 would do: `--check` refused a v5 peer lap while `--status` and `--release-gate` closed a round on it. Both halves are fixed — the version refusal now runs on the path that decides a close (`refused_round_files`), and §5b is `resolve_peer_verdict`. **One reading of the spec is ours and was derived, not chosen**: "enumerated" means enumerated by the gate when it decides, because row C40 (a candidate *newer* than the source) is unreachable if it means "listed in the closing lap's own `INBOUND-HELD`". Raised with the fork for round 24. **Files declaring 4 or less keep v4 close semantics**, for the reason row C29 gives: a declared version is a request to be graded by that version's rules. (This sentence said *v4* until 2026-09-22, and said **2** until 2026-08-27, through the whole of v3 and v4: v3 added §3a addressing, §4a's legal state machine — with `CLOSED → OPEN` removed — §4b `WITHDRAWN`, §5a's digest and §6a-bis; v4 added §5a's one-lap rule. Read the numbers from the code and the shared file, never from this sentence.) A gate reading a *higher* number than it
+**Current protocol version: 6 implemented, 6 declared, and the shared spec is 7** (landed in both trees 2026-09-30, round 30's close condition S9; v7 §15: neither gate implements 7 until the file is byte-identical in both trees, and neither side declares 7 until both have said so in a lap, so round 30 closes under 6) — `handshake.PROTOCOL_VERSION` is the authority for what our gate implements, `handshake.DECLARED_PROTOCOL` for what our laps declare, and the shared file's title for the spec. **Implemented since 2026-09-25**, when both of v6 §14's conditions held: the shared file byte-identical in both trees (`05abdfde…`), and the fork's gate at 6 (`cyanrip@643631b`, said in their round 25 lap 5). **Declared 6 since round 28 lap 6**, the lap that says our gate implements 6 (its S23, at the fork's round 28 lap 5 S7 request; under C29 a lap declaring less than an earlier lap of the record refuses the round) — §14: *"neither side declares 6 until both have said, in a lap, that their gate implements it"*. v6 adds §5e's `HANDSHAKE-AGREED-CHANGES` ledger (C44 requires it on a `GO` file declaring 6; C45: its content never gates a close), K2's `HANDSHAKE-INBOUND-OBSERVED` beside `-HELD` (required on a file declaring 6 — a reading of ours, since no row names it; both sides have written it on every lap since round 22), C43 (the version refusal over every file of a round, which we had since 2026-09-22), and the amended **C13a**: once a round is `CLOSED` a later lap declaring a *different* verdict is refused as a file and the round stays closed (`_terminal_at`), while one declaring the same verdict is not a transition. **What a C13a refusal does to a release is ours, because v6 leaves it to v7**: it holds a release until a later round exists, then that round governs (`illegal_transition_blockers`). The fork's gate still reopens on such a lap (its known divergence), so the two gates would print different round states and both hold the release. No such lap exists in either record; replaying ours finds ten later laps in eight rounds, all `GO`. The same commit enforced **C23** (`INBOUND-HELD` on every round ≥ 9 file), binding since round 9 and never checked: one sent file in the record lacks it, our `verified/round-13-lap-03.md`, pinned by hash. v5 (2026-09-22) added §5b (a close may resolve the peer verdict from the newest peer lap the gate holds, has enumerated and may read, when that lap is newer than the transcription's source), §5c (such a lap must declare `HANDSHAKE-READY-TO-READ: yes`, fail-closed), the `HANDSHAKE-PEER-VERDICT-SOURCE` field (ours, from round 23 lap 2) and rows C37–C42. **Implemented the same day the text became byte-identical, before round 24's lap 1**, because a rehearsal showed what staying at 4 would do: `--check` refused a v5 peer lap while `--status` and `--release-gate` closed a round on it. Both halves are fixed — the version refusal now runs on the path that decides a close (`refused_round_files`), and §5b is `resolve_peer_verdict`. **One reading of the spec is ours and was derived, not chosen**: "enumerated" means enumerated by the gate when it decides, because row C40 (a candidate *newer* than the source) is unreachable if it means "listed in the closing lap's own `INBOUND-HELD`". Raised with the fork for round 24. **Files declaring 4 or less keep v4 close semantics**, for the reason row C29 gives: a declared version is a request to be graded by that version's rules. (This sentence said *v4* until 2026-09-22, and said **2** until 2026-08-27, through the whole of v3 and v4: v3 added §3a addressing, §4a's legal state machine — with `CLOSED → OPEN` removed — §4b `WITHDRAWN`, §5a's digest and §6a-bis; v4 added §5a's one-lap rule. Read the numbers from the code and the shared file, never from this sentence.) A gate reading a *higher* number than it
 implements must refuse the round rather than guess — it cannot know which of that
 version's rules it is silently not applying. `handshake.PROTOCOL_VERSION` is ours.
 
@@ -957,6 +967,56 @@ a verdict:
 * **Self-correction is in the record on both sides** (rows 1, 8), and it arrived
   faster than either side's peer review. Row 8 is the strongest single entry in
   this table and the fork wrote it *against themselves*.
+
+
+## 10. Data exchange register — what each side wants from the other, and can give
+
+**Why this exists.** The operator, 2026-10-05: *"you and cyanrip should both be
+communicating what data you want or can give to the other for better experience.
+And saying if it's easy or hard to get, or accurate vs inaccurate. You may be able
+to figure it out between both."* Until then a datum crossed the seam only when one
+side happened to ask for it in a lap, and nobody said what it would cost the giver
+or how far it could be trusted. This table makes both explicit.
+
+**The rules of the table.**
+
+- **The giver rates.** *Ease* (easy / moderate / hard / not possible) and
+  *accuracy* are the giving side's to state, because only the giver can read its
+  own cost. Where we want something from the fork, the ease column holds **our
+  reading of their source, cited**, marked *theirs to rate*. It is a guess until
+  their lap rates it, and a mechanism in their code is never claimed without
+  `cyanrip@<sha>:<path>:<line>`.
+- **Accuracy is stated with what breaks it.** *exact* (a count or a clock),
+  *measured* (from real runs, with the population named), *estimate* (a model,
+  with its inputs), or *heuristic*. Each carries the condition that would make it
+  wrong (`CLAUDE.md`: *name the condition that would break a claim*).
+- **Already available counts as a row.** A datum the other side already gives and
+  we do not read is our gap, not theirs, and saying so is the point.
+- **Status:** proposed → agreed (both laps) → landed (with the commit) or
+  declined (with the reason). Rows arrive and change through laps; this file is
+  our copy, and the fork keeps its own.
+
+### What we want from the fork
+
+| # | datum | what it improves | ease for them | accuracy, and what breaks it | status |
+|---|---|---|---|---|---|
+| W1 | **Paranoia skips so far, live**, in the per-frame progress line beside its `errors - N` | A track like 2026-10-04's track 18 (2h16m, 2,586 skips) read with no live sign anything was wrong. With the count, the window can say a track is reading badly while it reads | Theirs to rate. Our reading: the counter is live (`cyanrip@1770d3c:src/cyanrip_main.c:1276`) and the line is printed per frame (`…:973`). A new field changes a stdout surface we parse (`platterpus@4790a16a:src/platterpus/workers/rip_worker.py:191`) | exact count; it is the current pass's, so it resets on a `-Z` re-read | proposed |
+| W2 | **Which read of the track is running** during `-Z`: read *k*, at most `-r` | We infer a re-read from the progress dropping from 100% to near 0 (`rip_worker.py:549`), so the window cannot say "read 3 of up to 5" | Theirs to rate | exact | proposed |
+| W3 | **Each `-Z` read's elapsed time and checksum** in the `-j` record's `track_state` | Our rip estimate can only give re-reads as a range, N+1 to `-r` times the track (`rip_estimate.py`). Per-read times would let a drive's own history narrow it, and would show which reads agreed | Theirs to rate. Today each track carries `repeats` and a total `rip_time_us` (`golden-reference.diagnostics.json` at `cyanrip@1922a2ec`) | exact clock; a read the stall watchdog interrupted is still one read | proposed |
+| W4 | **Per-track paranoia counts in the `-j` record** | We read them from the log's per-track block today; the record is the copy that survives a log that never reached its footer | Theirs to rate | exact, over the kept pass (the same baseline as the log's block) | proposed |
+| W5 | **The drive's reported maximum read speed** | A drive that has finished no rip gets no time estimate, because drives differ several-fold and a confident wrong figure is worse than none (`rip_estimate.py`). A reported maximum could seed one, labelled as such | Theirs to rate | heuristic: a drive's reported maximum is nominal and often not what it reads audio at | proposed |
+| W6 | **How a rip ended**: `exit_code`, `interrupted`, `interrupted_by` in the `-j` record | Our status line and report could say how the ripper ended from its own record, not from our side's view of it | **Already given** (`-j` schema 6). **Our gap**: bundled since `a7a631b9`, not yet read by the app | exact | available, ours to read |
+
+### What we can give the fork
+
+| # | datum | what it could improve for them | ease for us | accuracy, and what breaks it | status |
+|---|---|---|---|---|---|
+| G1 | **The drive's measured reading speed**: seconds of reading per second of audio over its last N first passes, recent rips weighted more (`drive_profiles.DriveProfile.read_rate`, `cd351a39`) | A stall threshold relative to what this drive normally takes, instead of one figure for every drive (`-k`, default 10 s, `cyanrip@1770d3c:src/cyanrip_main.c:1803`). It could reach them as a `-k` we compute | easy: stored per drive | measured, on this machine's own rips; one damaged batch moves it for a few rips, and a drive with no finished rip has none | proposed |
+| G2 | **The release's TOC and track lengths from MusicBrainz**, and the disc ID it matched | A cross-check of the TOC they read against the one the release lists, to flag a different pressing before ripping | easy: fetched before every rip | the disc-ID match is exact for the TOC it names; the release data is crowd-entered and can be wrong | proposed |
+| G3 | **The read offset's provenance**: AccurateRip's drive table, the user, or a measurement, beside the `-s` we pass (`drive_profile_store.OffsetSource`) | The log could say where its offset came from, which a logchecker reader and their `-f` search could both use | easy: stored per drive | exact as provenance; a value the user typed is only as good as its source | proposed |
+| G4 | **Our post-rip verdicts per track**: CTDB, the FLAC decode check, our own AccurateRip reading, in each `.platterpus.json` | Their rig readings already use our reports; named stable fields would let their tools read them without following our schema changes | easy: written every rip | exact for what each check tests; CTDB covers only discs in its database | proposed |
+| G5 | **The filed rig timings**: every report's per-track extraction time and span, already in our public tree (`docs/handshake/artifactsround*/*report.json`) | Data for their cache and stall calibration without a rig run | easy: already committed | measured on one rig, one drive model (Pioneer BDR-209D); not a population of drives | available |
+| G6 | **Why we sent SIGTERM**: the user cancelled, the app is quitting, or a script ran out of time | Their footer and `-j` record could say which. To them every one is the same signal | moderate: we know which, but a signal carries no payload, so it needs a channel such as a marker file or an argv flag at start | exact | proposed |
 
 ---
 

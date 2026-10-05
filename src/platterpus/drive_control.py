@@ -310,11 +310,19 @@ def free_device_holders(
     left without its footer that way. Only the stuck-scan path keeps the default,
     because a scan writes no log.
 
-    ONE SIGTERM, AND THIS IS NATURALLY THE FIRST. cyanrip's second-signal branch
+    ONE SIGTERM, AND ON THE RIG IT IS THE FIRST. cyanrip's second-signal branch
     force-exits without the footer, so a duplicate is as destructive as a kill.
-    ``fuser`` only signals a process that is STILL holding the device, so a reader
-    that already received our SIGTERM has exited and is not signalled again —
-    the conditionality is what makes this safe rather than a second guess.
+    The rip worker's cancel signals the host wrapper's process group, and that
+    signal has not been seen to cross into the container: on 2026-09-07 one left
+    the reader ripping for fifteen and a half minutes, and on 2026-09-09 the
+    footer came 1.7 s after this rescue's SIGTERM. So the rescue's is the first
+    signal the reader gets. This said until 2026-10-05 that a reader which had
+    received our SIGTERM would have exited, and so not be signalled again. That
+    is false on a slow disc, where cyanrip stops only once the read in hand
+    returns (54 s on 2026-10-04); what keeps this the only signal is the
+    container boundary, not ``fuser``. If a podman ever forwards the wrapper's
+    signal, this becomes the second on any read longer than the countdown
+    (``TASKS.md``).
     """
     if not device:
         return False
@@ -394,19 +402,19 @@ def force_stop_drive(
 #: read in hand returns. The old shutdown path allowed 191 ms, then SIGKILLed, and
 #: the log was left without its footer or `Log FUN512:` (the fork's round 30 S25).
 #:
-#: **8 s was shorter than one read, so it is 40 s** (2026-09-30, the fork's round
-#: 30 lap 5 S17). A SIGTERM that arrives during a read is acted on only when the
-#: read returns. The fork cited two of their filed logs from this rig's drive, each
-#: with a longest read of 11 s. Our own filed log from the same drive records one
-#: of **20 s**, among fifteen reads over 10 s in a three-track rip
-#: (`docs/handshake/outbound/artifacts/round-15-lap-13-cancelled-rip-g978f9b0.log:311`),
-#: so 11 s is not the ceiling. The grace is TWICE the longest read on record in
-#: this tree, and `tests/test_drive_control.py` derives that floor from the filed
-#: logs rather than from this comment. It costs nothing in the ordinary case,
-#: where the wait ends the moment the reader lets go, and it could only become
-#: this long because the wait no longer holds the window: the window closes at
-#: once and the wait runs as exit work (`exit_work`), joined before exit.
-READER_TERM_GRACE_S: Final[float] = 40.0
+#: **8 s was shorter than one read, so it is 108 s** (2026-09-30, the fork's round
+#: 30 lap 5 S17 and lap 7 S16; then the 2026-10-04 rig run). A SIGTERM that arrives
+#: during a read is acted on only when the read returns. The fork first cited reads
+#: of 11 s; our filed logs from this rig's drive hold one of 20 s, the fork's one of
+#: 21 s (`docs/handshake/inbound/artifacts/round-30-lap-07-accurip-gddc1e8c.log:282`),
+#: and a damaged disc one of **54 s**
+#: (`docs/handshake/artifactsround30/round30oct04full.log:1501`).
+#: The grace is TWICE the longest read filed in this tree, and
+#: `tests/test_drive_control.py` derives that floor from the filed logs rather than
+#: from this comment. It costs nothing in the ordinary case, where the wait ends
+#: the moment the reader lets go, and it could only become this long because the
+#: window no longer waits: it closes, and the wait runs as exit work (`exit_work`).
+READER_TERM_GRACE_S: Final[float] = 108.0
 
 #: How often the grace loop asks whether the device is still held.
 _HELD_POLL_S: Final[float] = 0.25
@@ -429,6 +437,25 @@ def device_is_held(device: str, runner: Runner | None = None) -> bool | None:
         return True
     if rc == 1:
         return False
+    return None
+
+
+def running_readers(runner: Runner | None = None) -> tuple[str, ...] | None:
+    """`pgrep -l` for the reader names: which readers does the HOST see running?
+
+    Each entry is pgrep's own ``"<pid> <name>"`` line. ``()`` means pgrep looked
+    and found none; ``None`` means it gave no answer (could not run, timed out),
+    which a caller must not read as "none". The names are the ones the kill path
+    uses (`_READER_NAMES`), so the two cannot disagree about what a reader is.
+    """
+    rc, out = _run_capture(
+        [_host_tool("pgrep", _HOST_TOOL_DIRS_PKILL), "-l", _READER_NAMES],
+        runner or _default_runner,
+    )
+    if rc == 0:
+        return tuple(line.strip() for line in out.splitlines() if line.strip())
+    if rc == 1:
+        return ()
     return None
 
 

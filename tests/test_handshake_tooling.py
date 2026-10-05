@@ -1444,7 +1444,15 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = ""
+_BOOTSTRAP_REASON: str = (
+    "v7 landed 2026-09-30 in both trees as round 30's close condition S9: the "
+    "fork's at cyanrip@a3a49647, ours in the commit that files their lap 7. v7 §15: "
+    "'Neither gate implements 7 until this file is byte-identical in both trees', "
+    "and neither side declares 7 until both have said in a lap that their gate "
+    "implements it; round 30's laps declare 6 and it closes under v6. Clear this in "
+    "the commit that teaches the gate C46 (HANDSHAKE-NEXT-LAP) with a row-named "
+    "test, before our round 31 lap 1."
+)
 #: History of this constant, newest first. **Empty again from 2026-09-25**: the gate
 #: implements 6 (C43-C45, the amended C13a, the K2 field split, each with a row-named
 #: test), cleared in that commit as the reason itself required. It had read: *"v6
@@ -1846,6 +1854,10 @@ _SHARED_FILE_PATHS: dict[str, str] = {
     # **v6, landed on our side 2026-09-23 (round 25 §0.1)**, first this time: our
     # lap 2 lands the texts and the fork's next lap lands ours byte for byte.
     "protocol(v6)": "docs/handshake-protocol.md",
+    # **v7, landed 2026-09-30 in both trees (round 30's close condition S9)**: the
+    # fork first, at `cyanrip@a3a49647`, then ours in the commit that files their
+    # lap 7. Round 30 still closes under v6; v7 governs from round 31.
+    "protocol(v7)": "docs/handshake-protocol.md",
     "seam-rules": "docs/seam-rules.md",
     "seam-commands": "docs/seam-commands.md",
     # Adopted round 14 lap 17. Same mechanism as the three above: a file NEITHER
@@ -1960,6 +1972,19 @@ def test_the_declared_shared_hashes_match_the_files_on_disk() -> None:
         )
 
 
+def _shared_hashes_of(path: Path) -> dict[str, str]:
+    """``name -> value`` from a lap's `HANDSHAKE-SHARED-HASHES`, empty if none."""
+    match = re.search(
+        r"^HANDSHAKE-SHARED-HASHES: (.+)$", path.read_text(encoding="utf-8"), re.M
+    )
+    declared: dict[str, str] = {}
+    for token in match.group(1).split() if match else []:
+        if "=" in token:
+            name, _, value = token.partition("=")
+            declared[name] = value
+    return declared
+
+
 def _latest_inbound_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
     """The peer's newest lap that declares `HANDSHAKE-SHARED-HASHES`.
 
@@ -1974,19 +1999,79 @@ def _latest_inbound_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
 
     inbound = _REPO_ROOT / "docs" / "handshake" / "inbound"
     for path in sorted(inbound.glob("round-*-lap-*.md"), key=_key, reverse=True):
-        match = re.search(
-            r"^HANDSHAKE-SHARED-HASHES: (.+)$", path.read_text(encoding="utf-8"), re.M
-        )
-        if not match:
-            continue
-        declared: dict[str, str] = {}
-        for token in match.group(1).split():
-            if "=" in token:
-                name, _, value = token.partition("=")
-                declared[name] = value
+        declared = _shared_hashes_of(path)
         if declared:
             return path, declared
     return None
+
+
+#: A peer lap that declares a shared hash it MISQUOTED: not a divergence of the
+#: files, a transcription of the hash. Keyed by ``(lap, name)``, and honoured only
+#: when the declared value is not a sha256 at all (not 64 hex digits) AND is the
+#: file's real hash with at most two characters dropped, so a real divergence, or
+#: a different file, still fails.
+#:
+#: ``round-30-lap-07.md`` declares ``protocol(v7)=b9611d3b18fff42a…``, 62 digits,
+#: in its header and again in its S9: the real hash, ``b9611d3b1b18fff4…``, with
+#: ``1b`` dropped after the eighth digit. The file itself is byte-identical in
+#: both trees, checked by the full hash of their landed ``docs/handshake/
+#: PROTOCOL.md`` at ``cyanrip@4371a501``. Reported in our round 30 lap 8. A
+#: sent lap is immutable, so this row never leaves; the sweep below keeps a
+#: new one from arriving silently.
+_PEER_HASHES_MISQUOTED: dict[tuple[str, str], str] = {
+    ("round-30-lap-07.md", "protocol(v7)"): "62 digits: '1b' dropped after digit 8",
+}
+
+
+def _is_a_misquote(claimed: str, actual: str) -> bool:
+    """``claimed`` is ``actual`` with one run of one or two characters dropped.
+
+    So it is always shorter than a sha256, and a well-formed hash is never one.
+    """
+    return any(
+        actual[:i] + actual[i + k :] == claimed
+        for k in (1, 2)
+        for i in range(len(actual) - k + 1)
+    )
+
+
+def test_a_misquote_is_the_real_hash_with_a_character_or_two_dropped() -> None:
+    """What the record above honours, and what it still refuses."""
+    real = "b9611d3b1b18fff42a48c49136ab13dd8682dfd66a160eda3ad4fc77757f0094"
+    assert _is_a_misquote(real[:8] + real[10:], real)  # lap 7's: "1b" dropped
+    assert _is_a_misquote(real[:-1], real)
+    assert not _is_a_misquote(real, real)  # a sha256 is never a misquote
+    assert not _is_a_misquote(real[:8] + real[11:], real)  # three dropped
+    assert not _is_a_misquote("0" + real[1:-1], real)  # changed, not dropped
+    assert not _is_a_misquote(real[2:], "0" * 64)  # another file's hash
+
+
+def test_every_hash_a_peer_lap_declares_is_a_sha256() -> None:
+    """A declared hash that is not 64 hex digits cannot be anybody's sha256.
+
+    Nothing refused a declared hash on its FORM, so the fork's round 30 lap 7
+    went out with a 62-digit one. Our ``handshake.py --check`` and our lap
+    checker read that lap as well formed; the fork's ``tools/seam-check.py``
+    matches only 64 digits, so it read the value as no hash at all, a warning
+    (``cyanrip@4371a501:tools/seam-check.py:402``). This is the inbound half of
+    the check, over every lap we hold; our outbound half is
+    :func:`test_the_declared_shared_hashes_match_the_files_on_disk`. Each
+    misquote already sent is recorded above, with what it drops.
+    """
+    bad: list[str] = []
+    examined = 0
+    for path in sorted(
+        (_REPO_ROOT / "docs" / "handshake" / "inbound").glob("round-*.md")
+    ):
+        fields = _shared_hashes_of(path)
+        for name, claimed in fields.items():
+            examined += 1
+            if re.fullmatch(r"[0-9a-f]{64}", claimed):
+                continue
+            if (path.name, name) not in _PEER_HASHES_MISQUOTED:
+                bad.append(f"{path.name}: {name}={claimed} ({len(claimed)} characters)")
+    assert examined >= 20, f"only {examined} declared hash(es) parsed; the parse broke"
+    assert not bad, "declared hashes that are not a sha256:\n  " + "\n  ".join(bad)
 
 
 #: Peer laps whose shared-hash declaration our tree is CORRECTLY ahead of, because a
@@ -2078,6 +2163,16 @@ def test_the_PEERS_declared_shared_hashes_match_our_copies() -> None:
             )
             continue
         actual = hashlib.sha256((_REPO_ROOT / rel).read_bytes()).hexdigest()
+        if (lap.name, name) in _PEER_HASHES_MISQUOTED:
+            # Recorded above: the right file with a wrongly copied hash. Honoured
+            # only while it IS a misquote of this file's hash, so a later
+            # divergence of the file itself still fails here.
+            assert _is_a_misquote(claimed, actual), (
+                f"{lap.name}'s {name} is recorded as a misquote of our "
+                f"{rel}, but {claimed} is not {actual} with a character or two "
+                "dropped: the files have diverged, or the record is wrong"
+            )
+            continue
         if actual != claimed:
             ahead[name] = actual
             mismatches.append(

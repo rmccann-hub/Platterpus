@@ -1,4 +1,4 @@
-# Handshake protocol v6
+# Handshake protocol v7
 
 **This file is the shared language. Both projects implement it; neither owns
 it.** cyanrip and Platterpus each have a gate that reads round files and decides
@@ -197,6 +197,19 @@ lap can move a round from `OPEN` to a terminal state.
 removes that** (§4a). A closed round is finished, and new evidence opens a new
 round -- otherwise "closed" means "closed for now" and a consumer cannot pin
 against it.
+
+### `HANDSHAKE-NEXT-LAP` — where the round is going (v7, D7)
+
+Required on every lap of a file declaring 7:
+
+```
+HANDSHAKE-NEXT-LAP: <n> (ours|yours): <what it carries>; <what closes on it, or none>
+HANDSHAKE-NEXT-LAP: none — <why no lap follows>
+```
+
+`(ours)` and `(yours)` are from the writer's side. The reader learns from the
+header what the round expects next and why, without reading the body. `none` is
+for a lap after which none is expected, such as the closing lap of a round.
 
 ## 3a. Addressing — where it came from, and what it wants changed (v3)
 
@@ -710,13 +723,23 @@ afternoon. It is **advisory to the gates and mandatory in the file**: a gate
 clock skew block a release. When it passes with no terminal state reached, the
 round is `EXPIRED` (§4a) and its work returns as a new round.
 
-**R3 — A finding defaults to `NEXT-ROUND`.** Promoting one to blocking requires
-naming **what it breaks in the artifact under review**. *"It is a real defect"*
-is an argument for fixing it, never on its own for holding a release.
+**R3 — A finding is fixed within the round (v7, D4).** Every defect a round
+finds that can be fixed without a drive, the other side's code, or the
+operator's decision is fixed and landed before that side's closing lap, and it
+ships in the release the close authorises. A lap lists only what could not be
+fixed that way, each item with why and whose it is. **This replaces v3's
+deferral half**, *"a finding defaults to `NEXT-ROUND`"*. **The other half
+stays**: a fix never holds the verdict on the build that was tested, and
+promoting a finding to blocking still requires naming **what it breaks in the
+artifact under review**; *"it is a real defect"* is an argument for fixing it,
+never on its own for holding a release. R9 is the operator's rule this extends:
+*"let's fix as much as we can"*.
 
 **R4 — Once agreed, the pin does not move for the rest of the round**, unless it
-is found unsafe. Fixes queue. A pin that moves whenever something is fixed
-guarantees the evidence is always about a build nobody is reviewing.
+is found unsafe. Fixes land past the pin within the round (R3, S-14) and ship
+in the release the close authorises; the next round reviews them. A pin that
+moves whenever something is fixed guarantees the evidence is always about a
+build nobody is reviewing.
 
 **R5 — Questions carry a target: `BLOCKING` or `NEXT-ROUND`.** `BLOCKING`
 must satisfy R3. **A questions section may be empty**, and *"no questions"* is a
@@ -752,18 +775,60 @@ need be."* The operator of both projects, 2026-09-23. So:
    the provider's new one.** Its pin is a build a closed round approved, and a
    close cannot approve a commit cut after it. The next round, which the real
    test opens, reviews the provider's new release (point 3).
-2. **Both releases are usable.** Each is offered by its own project's update
-   path on its default channel, so users can update to it and use it. **Marking
-   is allowed, and withholding is not.** If a release has to carry a mark, such
-   as a pre-release flag, a note that the hardware run has not happened yet, or
-   a consumer reporting the provider's new release as not yet approved, it
+
+   **The build under review moves when the provider releases, not when a round
+   opens** (v7, D2). The provider gives its release's version and commit in its
+   release manifest, and in a lap or its status block (§6c). The consumer's
+   release names that build as its build under review and the last build a
+   closed round approved as its approved pin. **Round 20's order is the one
+   exception, unchanged**: when the provider's release removes or rewords a
+   string the consumer matches, the consumer's release that reads both wordings
+   comes first.
+
+   **A release's contract change is derived, never described** (v7, D9). The
+   lap or status line that announces a release quotes the releasing side's
+   derivation of it: for cyanrip, `tools/contract-delta.py --rows <previous
+   release> <candidate>`; for Platterpus, the diff of its generated consumer
+   contract between the two releases; and for the bundle's shape, which neither
+   side generates yet, each member added or removed as read from the bundle's
+   own manifest.
+2. **Both releases are usable, and the provider's goes to beta until its run
+   passes** (v7, the operator's O3). The consumer's release is offered on its
+   default channel. The provider's new release is published on its beta
+   channel, the consumer follows a build the provider's manifest publishes on
+   beta when it is newer than stable's, and the provider moves it to stable
+   once the round its run opens accepts it. **Marking is allowed, and
+   withholding is not.** If a release has to carry a mark, such as a
+   pre-release flag, a note that the hardware run has not happened yet, or a
+   consumer reporting the provider's new release as not yet approved, it
    carries the mark and says what the mark means.
-3. **Then the real test.** The operator runs the hardware acceptance on the
-   released pair. The bundle it produces is committed, byte-identical, to both
-   repositories. **The provider opens the next round from its results** (§1a).
+3. **Then the real test, every night a new pair exists** (v7, the operator's
+   O1 and O4). The operator runs the Full acceptance on the released pair. The
+   bundle it produces is committed, byte-identical, to both repositories.
+   **The provider opens the next round from its results** (§1a): its lap 1
+   reads the bundle, lands every fix it can (R3), and accepts or does not; the
+   consumer's lap 2 does the same; if both accept, the round closes in two
+   laps, and a third or fourth happens only when one side must answer the
+   other.
+
+   **A run tests only the newest pair** (v7, D3). The consumer's acceptance run
+   refuses, in its first section, unless the installed provider build is its
+   build under review, that build is the provider's newest release by the
+   provider's manifest read at run time, and the app is the consumer's newest
+   release; a pair it cannot establish as newest is refused. The provider's
+   bundle reader reports, when it reads a bundle, whether the pair was the
+   newest when the run began and whether a newer release was published before
+   it ended. **A run on anything else is not evidence.**
 4. **So hardware evidence opens a round and does not close one.** It is not a
    close condition unless the round cannot be answered without a drive, and
    then its lap 1 says why.
+5. **Opening a round before its run is not routine** (v7, D8, the operator's
+   O2). The operator may still order it, by an override of point 3 (§6a-ter),
+   and the lap that carries the override states its expected cost in laps, so
+   that a later count can score it.
+6. **A reading that finds nothing to act on is a short lap** (v7, D5, §6d).
+   Short only when nothing needs explaining: any finding, disagreement or
+   answer that needs its reasoning carries it in full.
 
 **R9 — Fix it, do not argue it (v6, the operator's rule).** *"Let's make these as
 few rounds as needed, and let's fix as much as we can. I want to spend time on
@@ -775,6 +840,30 @@ what the other side must act on or answer before the round can close. **The
 rules about evidence are unchanged**: answer from the artifact, revert-prove
 the fix, and keep `none` distinct from `unknown`. What R9 cuts is the
 back-and-forth over those.
+
+**An answer is not a settlement (v7, the operator's rule of 2026-09-30).**
+*"just because you get a lap answer doesn't mean you can't push back and get
+more reasoning or an explanation or another answer. This is the point of laps.
+Not to use the least amount but the have full explainations before finishing a
+round."* So what R9 cuts is choreography, meaning acknowledgements,
+transcriptions, crossings and runs on a stale pair, and never explanation. When
+an answer arrives without its reasoning, or with reasoning that does not hold
+against the artifact, the next lap asks for it and says why the round needs
+it. A lap that buys an explanation is the protocol working. **A round closes
+when both sides can state why**, not when one side has stopped talking.
+
+**R10 — A hotfix outside the cycle (v7, D10).** Either side may release outside
+the cycle when a released build corrupts audio or cannot rip. It needs no
+round, is announced in the releasing side's status block the same day (§6c), is
+reviewed by the next round, and never moves the other side's approved pin.
+**While a round is open it goes out under the releasing side's own gate**: for
+cyanrip, a pre-release, which its gate permits with a round open (§6b); for
+Platterpus, a released lap recording an override (§6a-ter) of §6b's stable row
+for its tag. **A provider hotfix that removes or rewords a line the consumer
+matches keeps round 20's order**: the consumer's release that reads both
+wordings first. A hotfix is the release most likely to be written quickly,
+which is when a reworded line is least likely to be checked against what the
+consumer matches.
 
 ## 6a-ter. Overrides — the operator may break any rule, in writing (v3)
 
@@ -887,6 +976,89 @@ before they implement it. **`HANDSHAKE-PROTOCOL` is deliberately not bumped for
 this** — a bump would make every v2 gate refuse the file that proposes it, which
 is the opposite of what a proposal needs. It becomes v3 only once both sides
 implement it.
+
+## 6c. The status block (v7, D6)
+
+Each side's standing status opens with these declarations at column 0, and is
+updated in the same commit as any change to what they state:
+
+```
+STATUS-ROUND: <round>, OPEN|CLOSED[, what it waits on]
+STATUS-LAPS: newest sent <file> (ours), <file> (theirs); next <n> (<side>) carrying <what>; held <n> carrying <what>|none
+STATUS-RELEASED: <version> at <commit>, <UTC date>[, hotfix: <why>]
+STATUS-RELEASE-NEXT: <version>[ at <commit>], carrying <what>; pins <approved>, reviews <under review>
+STATUS-RUN-NEXT: <provider build> with <consumer build>; waiting on <what>|ready
+STATUS-OPEN: <id> <owner> <fixing at <commit or lap> | cannot, because …>
+```
+
+`STATUS-RELEASED` appears once, in this position, and names that side's newest
+published release, marked `hotfix:` while the newest is one (R10).
+`STATUS-OPEN` repeats, once per open item, and each item is fixed under R3 or
+says why it cannot be. **It is not a lap**: it declares no `HANDSHAKE-*`
+header, and changing it needs no reply. Chiming in costs a commit to your own
+status, or a line in your next lap. **Each side's own suite checks its own block
+against its record, positionally**, so the convention has two implementations
+and neither checks the other's.
+
+## 6d. The short reading lap (v7, D5)
+
+The lap a side writes when its reading of a run finds nothing to act on is the
+wire headers and then:
+
+```
+LSL: <n>
+
+## The run
+
+S1 FACT read: The bundle is sha256 `<64 hex>`, <n> bytes, filed at `<dir>`.
+  evidence: <side>@<sha>:<dir>/README.md:1
+  holds: <the pair, provider then consumer>
+S2 FACT read: The pair was the newest when the run began, and still was when it ended.
+  evidence: <the bundle reader's report, or the acceptance run's own check>
+  holds: <the pair>
+S3 FACT read: <one surface read, and what it shows>        (one per surface)
+  evidence: <the filed artifact, with its line>
+  holds: <the pair>
+S<n> NONE: No defect in <build> in the run.
+  scope: <what was read>
+  evidence: <where>
+  examined: <n> <unit>, closed
+
+## Fixed
+
+S<n> DID: <each fix landed because of the run>              (none: omit the section)
+  commit: <sha>
+
+## Close conditions
+
+S<n> TERM set: <condition>                                  (the opener's lap 1 only, one per condition)
+  requires: <what meets it>
+S<n> TERM met: <condition>                                  (every GO lap, one per condition met)
+  term: <side>:R<round>.L1.S<n>
+  evidence: <where>
+S<n> TERM pending: <condition>                              (a condition only the other side can still meet)
+  term: <side>:R<round>.L1.S<n>
+  on: them
+  remains: <what it still needs>
+
+## Verdict
+
+S<n> VERDICT: GO
+  basis: S1 S2 …
+```
+
+**What makes a reading clean**: no `FINDING`, `ASK`, `CORRECT`, `AMEND` or
+`REFUSE` is needed. The moment one is, the lap is an ordinary lap. **What it
+keeps**: the bundle's hash, so both sides are reading the same bytes; the pair,
+because a run on anything but the newest pair is not evidence (R8 point 3); one
+`FACT` per surface with its evidence, so the reading can be checked rather than
+trusted; a `NONE` naming its scope and its population, because a clean result
+must say what it was clean over; the fixes as `DID`s, so R3 is visible; and the
+close conditions, set in the opener's lap 1 (R1) and given a status in every
+`GO`, met, or pending on the other side where only it can still meet one,
+because a `GO` over no condition passes by finding nothing.
+**What it drops**: `NOTE`s and prose sections. The template is a floor for a
+clean reading, never a ceiling.
 
 ## 7. Rip-time verification
 
@@ -1012,6 +1184,15 @@ must have every one.
 | C43 | **any** file of the round — the gate's own or the peer's, not only the one its verdict is read from — declares a `HANDSHAKE-PROTOCOL` higher than the gate implements | refuse the round, naming the file; a newer lap may lean on a clause of the older one's version. **This row must hold on both gates before either side declares 6**: it is what makes a lap declaring 6 refused, rather than read, by a gate implementing 5 |
 | C44 | a file declaring protocol 6 or later and verdict `GO`, with no `HANDSHAKE-AGREED-CHANGES` | refuse, naming the field (§5e) |
 | C45 | `HANDSHAKE-AGREED-CHANGES: none`, or a ledger with `not landed` entries, on an otherwise complete close | **allow**; the ledger records delivery and does not gate the close |
+
+### Rows added in v7 — required once both gates implement 7
+
+A gate implementing 6 must not be failed for missing them; a gate implementing 7
+must have every one.
+
+| ID | case | expected |
+|---|---|---|
+| C46 | a file declaring protocol 7 or later with no `HANDSHAKE-NEXT-LAP`, or one that is neither `<n> (ours)` or `<n> (yours)` followed by `:`, nor `none` | refuse, naming the field (§3) |
 
 ## 9. Grandfathering
 
@@ -1271,6 +1452,8 @@ byte-identical in both trees.**
 
 ### Deferred to v7, not rejected
 
+*§15 says which of these v7 took.*
+
 - **Definitions of the optional fields** both sides already carry and no shared
   document defines: `HANDSHAKE-NEXT-LAP`, `HANDSHAKE-VERDICT-SOURCE`,
   `HANDSHAKE-PEER-PIN-SOURCE`, `HANDSHAKE-PIN-POLICY`, `HANDSHAKE-BREAKING`, and
@@ -1292,3 +1475,61 @@ byte-identical in both trees.**
 - **A `SEAM-COMMANDS: audited @ N` close field**, and **a semantic-change marker**
   to pair with a definition of `HANDSHAKE-BREAKING`.
 - **C13a's effect on a release**, above.
+
+## 15. Changes in v7
+
+**v7 is v6 plus what round 30 agreed, and nothing else.** Nothing in v6 is
+withdrawn except v3's deferral half of R3. cyanrip's round 30 lap 1 proposed the
+decisions (`PROPOSAL-release-cycle.md`, D1–D10), Platterpus's lap 4 answered
+each by number, and the operator ruled on O1–O4 (relayed in Platterpus's lap 4
+S46, in the operator's words *"o1, A. o2, i agree, yes. o3, beta. o4, every
+night a new paid [pair] exists"*).
+
+- **R3, fix within the round** (D4, accepted in Platterpus's lap 4 S21). The
+  deferral half of v3's R3 is replaced; its other half stays.
+- **R8 points 1–6**: the build under review moves when the provider releases
+  (D2, S19); a release's contract change is derived (D9, S26); the provider's
+  new release goes to beta until its run passes (O3); the run happens every
+  night a new pair exists, and the round opens from its bundle (D1 option A,
+  S18, and O1, O4); a run tests only the newest pair (D3, S20); opening before
+  the run is not routine (D8, O2); a clean reading is a short lap (D5, S22).
+- **R9, an answer is not a settlement**: the operator's rule of 2026-09-30,
+  not on the proposal's list, and added to R9 because R9's own words, *"not
+  argued across laps"*, read as the opposite. It is in cyanrip's `CLAUDE.md`
+  and the proposal's §1 in the same words.
+- **R10, a hotfix outside the cycle** (D10, as Platterpus's lap 4 S27 amended
+  it, with cyanrip's half of *"the releasing side's own gate"* named).
+- **§3, `HANDSHAKE-NEXT-LAP`** (D7, S24), taken from v6's deferred list, with
+  C46.
+- **§6c, the status block** (D6, S23), and **§6d, the short reading lap** (D5,
+  converged from both sides' drafts: Platterpus's
+  `docs/cyanrip-handshake.md` §7.5d with the pair `FACT` and the `NONE` cyanrip
+  added).
+- **Amended before landing** by Platterpus's lap 6 S19 to S22: §6d's close
+  conditions, R4's fixes with S-15's, and §6c's `STATUS-RELEASED` with R8
+  point 1's manifest; S19 and S22 as cyanrip's lap 7 amended them.
+
+**Declaring 7.** Neither side declares 7 until both have said, in a lap, that
+their gate implements it. C43 makes a premature declaration fail closed on the
+other gate. **Neither gate implements 7 until this file is byte-identical in
+both trees.** Round 30's laps declare 6, and it closes under v6; v7 governs from
+round 31.
+
+### What v7 does not do
+
+- It does not make R8, R10, §6c or §6d gate rows. A release, a run and a status
+  block all happen outside the lap record; each side's own suite checks its own
+  status block.
+- It does not settle a hotfix while the other side's round is open beyond what
+  R10 says: each side's own gate is the whole of the rule.
+- It does not change §4's vocabulary, §5's close, or any v6 row.
+
+### Deferred to v8, not rejected
+
+Everything on v6's deferred-to-v7 list that v7 did not take: the definitions of
+`HANDSHAKE-VERDICT-SOURCE`, `HANDSHAKE-PEER-PIN-SOURCE`, `HANDSHAKE-PIN-POLICY`,
+`HANDSHAKE-BREAKING` and `HANDSHAKE-SHARED-HASHES`; `HANDSHAKE-NEXT-LAP`'s
+crossing tiebreak; the evidence-transport proposal; `HANDSHAKE-CONCURRENT-WITH`;
+the `SEAM-COMMANDS` close field and the semantic-change marker; and C13a's
+effect on a release. The `HOTFIX` carve-out by artifact class is superseded by
+R10, which names each side's gate rather than an artifact class.

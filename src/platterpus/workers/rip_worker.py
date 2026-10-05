@@ -37,6 +37,7 @@ from platterpus import (
     diagnostics_record,
     drive_control,
     inbound_text,
+    rip_estimate,
     ripper_exit,
 )
 from platterpus.adapters.rip_backend import (
@@ -62,8 +63,10 @@ from platterpus.read_speed_ladder import (
 from platterpus.rip_addendum import (
     SupersededTrack,
     read_log_with_addendum,
+    securing_pass_log_path_for,
     write_addendum,
 )
+from platterpus.rip_estimate import ReadRate
 from platterpus.rip_plan import describe_rip_plan
 from platterpus.ripper_log_settle import (
     NOT_SETTLED,
@@ -143,6 +146,9 @@ class RipParameters:
     # agree. On by default: `Config`'s own named default, so a worker built from
     # defaults rips the way a user's does. False accepts the match on the fast read.
     rerip_offset_variant: bool = DEFAULT_RERIP_OFFSET_VARIANT
+    # The drive's measured reading speed (or the rig's for its model), for the
+    # up-front time estimate (`rip_estimate`). None: no estimate up front.
+    read_rate: ReadRate | None = None
 
 
 # Human-readable phase descriptions for the status line. Without these
@@ -660,6 +666,22 @@ _RIPPER_TERM_GRACE_S: float = 5.0
 _RIPPER_KILL_GRACE_S: float = 5.0
 
 
+def cancelled_log_wait_s() -> float:
+    """How long a cancelled rip waits for the ripper to sign its log.
+
+    The rescue's countdown, then the read in hand when its SIGTERM lands, then
+    the flush; :meth:`RipWorker._await_ripper_log` says why each term is there.
+    A function rather than a constant so the acceptance script's cancel section
+    can be held to the same number (``tests/test_rig_scripts.py``) and both
+    follow either constant when it moves.
+    """
+    return (
+        drive_control.FORCE_STOP_COUNTDOWN_S
+        + drive_control.READER_TERM_GRACE_S
+        + _RIPPER_EXIT_GRACE_S
+    )
+
+
 def _coarsen_eta_seconds(seconds: float) -> int:
     """Round an ETA to a bucket sized to its magnitude, so the displayed number
     is steady instead of ticking every second (a 1-hour ETA doesn't need
@@ -931,6 +953,11 @@ class RipWorker(QObject):
         # every phase and is wildly wrong early (it printed "822h" at 0.01% on a
         # real disc). None until the loop starts.
         self._started_monotonic: float | None = None
+        # The up-front time estimate (`rip_estimate`), made when the plan is
+        # logged; None when there is none. `_estimate_known` is False when the
+        # reason is that a selected track's length is not known.
+        self._estimate: rip_estimate.RipEstimate | None = None
+        self._estimate_known: bool = True
         # Epoch wall-clock start of this rip (0.0 = unset → log discovery is
         # unfiltered). Set in start_rip; used to ignore a previous album's log.
         self._rip_started_at: float = 0.0
@@ -1061,6 +1088,55 @@ class RipWorker(QObject):
         self._disc_in_accuraterip: bool | None = None
         self._secure_rerip_skipped_reason: str | None = None
 
+    def _make_estimate(self) -> rip_estimate.RipEstimate | None:
+        """The up-front estimate for this rip, from its tracks' lengths. Never raises.
+
+        The lengths are MusicBrainz's, carried on ``params.metadata``; every
+        selected track must have one, or the figure would be for a different
+        rip. Sets ``_estimate_known`` to say which reason a None has.
+        """
+        try:
+            params = self._params
+            metadata = params.metadata
+            wanted = set(params.only_tracks)
+            lengths = [
+                t.length_ms
+                for t in (metadata.tracks if metadata is not None else ())
+                if not wanted or t.number in wanted
+            ]
+            if not lengths or any(not isinstance(ms, int) or ms <= 0 for ms in lengths):
+                self._estimate_known = False
+                return None
+            self._estimate_known = True
+            return rip_estimate.estimate_rip(
+                sum(ms for ms in lengths if isinstance(ms, int)) / 1000,
+                params.read_rate,
+                secure_rerip_matches=params.secure_rerip_matches,
+                dynamic=params.secure_rerip_dynamic,
+                max_retries=params.max_retries,
+            )
+        except Exception:  # noqa: BLE001 — an estimate must never stop a rip
+            log.exception("could not estimate the rip's time")
+            return None
+
+    @property
+    def estimate_seconds(self) -> float | None:
+        """The up-front estimate's main figure, for the finish line's comparison."""
+        return self._estimate.seconds if self._estimate is not None else None
+
+    def _early_estimate_text(self, elapsed: float) -> str:
+        """The up-front estimate as an ETA suffix, while the live one warms up.
+
+        The live estimate needs eight seconds and the first 5% of the album; for
+        that stretch the status said nothing about time at all. Album pass only.
+        """
+        if self._estimate is None or self._pass_kind == _PASS_REFIX:
+            return ""
+        left = self._estimate.seconds - elapsed
+        if left <= 0:
+            return ""
+        return f" · about {rip_estimate.rough(left)} left (estimated)"
+
     def _album_eta_text(self, overall_pct: float, task_pct: float | None = None) -> str:
         """A smoothed, self-correcting album ETA suffix (" · about 25m left").
 
@@ -1102,17 +1178,21 @@ class RipWorker(QObject):
         # pass — there the album bar is deliberately parked at the top of its
         # range (`_POST_RIP_BAND_START`), which would trip the "effectively done"
         # test on every single tick and silence the phase's own estimate.
-        if not securing and (frac <= 0.05 or frac >= 0.999):
+        if not securing and frac >= 0.999:
             return ""
         now = time.monotonic()
         elapsed = now - started
+        if not securing and frac <= 0.05:
+            return self._early_estimate_text(now - (self._started_monotonic or now))
         # A securing pass warms up faster because it is measuring a much shorter
         # thing: 8 seconds of silence out of a 30-second re-read is most of it.
         min_elapsed = (
             _REFIX_MIN_ELAPSED_FOR_ETA_S if securing else _MIN_ELAPSED_FOR_ETA_S
         )
         if elapsed < min_elapsed:
-            return ""
+            if securing:
+                return ""
+            return self._early_estimate_text(now - (self._started_monotonic or now))
         # Stall detection FIRST — before any projection. Track when the drive last
         # proved itself alive; if it hasn't for the threshold, it's stuck on a
         # hard-to-read spot (real hardware: a track that hung for hours while the
@@ -1683,6 +1763,11 @@ class RipWorker(QObject):
             # it while the disc is still spinning up).
             log.info("%s", planned)
             self.log_line.emit(planned)
+        # The time estimate, beside the plan and in the same two places.
+        self._estimate = self._make_estimate()
+        estimate_line = f"[plan]   {rip_estimate.describe(self._estimate, known=self._estimate_known)}"
+        log.info("%s", estimate_line)
+        self.log_line.emit(estimate_line)
 
         # Stamp the wall-clock start once (album-ETA baseline spans all passes).
         self._started_monotonic = time.monotonic()
@@ -1960,10 +2045,17 @@ class RipWorker(QObject):
 
         The budget is derived, not chosen: the reader usually writes its footer
         *because* the GUI's force-stop rescue fires, so the wait must outlast that
-        countdown (``drive_control.FORCE_STOP_COUNTDOWN_S``) plus the same flush
-        allowance ``_RIPPER_EXIT_GRACE_S`` already budgets for cyanrip closing the
-        FLAC it was writing. Measured on the run that produced this method: rescue
-        at +4.9 s, footer at +6.6 s.
+        countdown (``drive_control.FORCE_STOP_COUNTDOWN_S``), then the read in hand
+        when the rescue's SIGTERM arrives (cyanrip acts on it only once that read
+        returns, so ``drive_control.READER_TERM_GRACE_S``, twice the longest read
+        filed), plus the flush allowance ``_RIPPER_EXIT_GRACE_S`` already budgets
+        for cyanrip closing the FLAC it was writing. Measured on the run that
+        produced this method: rescue at +4.9 s, footer at +6.6 s, on a disc that
+        read quickly. The read in hand joined the budget after the 2026-10-04 run,
+        whose damaged disc took 54 s over one read: the countdown plus the flush
+        gives up at +20 s, before a reader in such a read can write a footer, and
+        the log is then archived as unsigned. It polls, so a quick disc still
+        costs seconds.
 
         Interruptible: ``abandon_log_wait`` sets an event this polls, so window
         close is not held up by it. That is a real interrupt rather than a flag the
@@ -1983,7 +2075,7 @@ class RipWorker(QObject):
         if writer_exit_observed:
             deadline = 0.0
         else:
-            deadline = drive_control.FORCE_STOP_COUNTDOWN_S + _RIPPER_EXIT_GRACE_S
+            deadline = cancelled_log_wait_s()
             self.log_line.emit(
                 "[verify] the rip was cancelled, so the ripper may still be "
                 "writing its log. Waiting up to "
@@ -2792,11 +2884,11 @@ class RipWorker(QObject):
         improved FLAC is copied into the album. Whatever couldn't be made to
         converge is left as ``unstable_tracks`` (flagged, never papered over).
 
-        **HARDWARE-GATED:** the re-rip-and-swap path has not been exercised on a
-        real drive yet. It's safe by construction (no swap unless the re-read is
-        the better read by the rule above and the file copies cleanly), but flag
-        it for validation on the Bazzite + BDR-209D rig. Best-effort: never raises
-        (would abort the rip).
+        **On the rig:** the 2026-10-04 Full run exercised this path on a damaged
+        disc (tracks 12 to 18), and no track converged, so nothing was swapped.
+        It is safe by construction (no swap unless
+        the re-read is the better read by the rule above and the file copies
+        cleanly). Best-effort: never raises (would abort the rip).
         """
         import shutil
         import tempfile
@@ -2837,6 +2929,17 @@ class RipWorker(QObject):
                 return  # re-rip failed to start/stream — originals untouched
             success, rerip_log_path = outcome
             if not success or not rerip_log_path:
+                # Nothing is swapped from a pass that did not finish. But the
+                # tracks it DID finish re-reading carry a verdict, and that verdict
+                # is the work: on the 2026-10-04 rig run a cancel during track 18
+                # discarded 90 minutes of re-reads of tracks 12 to 17, each read
+                # five times without two reads agreeing, so their EAC-layout log
+                # said "Copy OK" with no caveat. The guard drops the swap, never
+                # the record.
+                if rerip_log_path:
+                    self._record_unfinished_refix(
+                        rerip_log_path, tracks, trigger, rerip_z
+                    )
                 return
             rerip_log = self._parse_log(rerip_log_path)
             fixed: list[int] = []
@@ -2949,7 +3052,102 @@ class RipWorker(QObject):
             log.exception("auto-fix re-rip failed; originals kept")
         finally:
             if tmp_root is not None:
+                self._keep_securing_pass_log(tmp_root, album_log_path)
                 shutil.rmtree(tmp_root, ignore_errors=True)
+
+    def _keep_securing_pass_log(self, tmp_root: Path, album_log_path: str) -> None:
+        """Keep the securing pass's own ripper log beside the album's. Never raises.
+
+        Whatever the pass did: swapped, swapped nothing, or was stopped. Its log
+        is the per-read record (every re-read's checksum, the repeat counts), and
+        the album keeps only the verdicts. Copied as it stands, so a pass stopped
+        before its ripper signed the log keeps an unsigned one, which is itself a
+        fact (``TASKS.md``: whether a cancel's SIGTERM was the reader's first).
+        """
+        import shutil
+
+        if not album_log_path:
+            return
+        try:
+            logs = [p for p in tmp_root.rglob("*.log") if p.is_file()]
+            if not logs:
+                return
+            source = max(logs, key=lambda p: p.stat().st_mtime)
+            target = securing_pass_log_path_for(album_log_path)
+            shutil.copyfile(source, target)
+        except Exception:  # noqa: BLE001 — runs in a `finally`; must not abort the rip
+            log.exception("could not keep the securing pass's own log")
+            return
+        self.log_line.emit(
+            f"[auto-fix] the securing pass's own ripper log is kept as {target.name}"
+        )
+
+    def _record_unfinished_refix(
+        self, rerip_log_path: str, tracks: list[int], trigger: str, rerip_z: int
+    ) -> None:
+        """Record the verdicts a securing pass reached before it stopped.
+
+        Called when the re-rip was cancelled or failed. Each track the ripper
+        finished re-reading has its verdict line in the log; those are recorded
+        as ``replaced: False``, because nothing is swapped in from a pass that
+        did not finish. A track with no verdict (the one being read when the pass
+        stopped) is left out, so the report keeps saying the pass was interrupted
+        for it. The securing pass stays marked interrupted.
+
+        On a cancel the in-container reader writes its log after we stop reading
+        it, so the log is waited for first (:meth:`_await_ripper_log`): the track
+        in hand may then finish too. **A log that never settles is still read**,
+        and that is safe for this field in particular. A log is written by
+        appending, so it can only be cut short at its end. A track's verdict is
+        its ``Done; (…)`` line, which the parser attaches only when the track's own
+        ``Track N …`` line follows it whole, both printed after that track's reads
+        ended; the block's ``Secure re-read:`` row can then restate it, and every
+        cut-short form of that row reads as no verdict or the same one
+        (``cyanrip@174a134:src/cyanrip_log.c:593-601``). So a short log loses the
+        last verdict and never alters an earlier one. Until
+        2026-10-05 a log with no footer recorded nothing, and that was the
+        2026-10-04 run's case: a reader in a 54 s read cannot sign its log inside
+        any wait we can afford, so six verdicts would have been discarded again.
+        Never raises.
+        """
+        try:
+            settled = True
+            if self._cancelled:
+                settled = self._await_ripper_log(rerip_log_path).is_settled
+            rerip_log = self._parse_log(rerip_log_path)
+            recorded: list[int] = []
+            for track in getattr(rerip_log, "tracks", ()) or ():
+                number = getattr(track, "number", None)
+                verdict = getattr(track, "secure_rerip_converged", None)
+                if number not in tracks or verdict is None:
+                    continue
+                recorded.append(number)
+                self._retried_tracks.append(
+                    {
+                        "track": number,
+                        "trigger": trigger,
+                        "reripped_z": rerip_z,
+                        "converged": verdict is True,
+                        "replaced": False,
+                        "replaced_because": None,
+                    }
+                )
+            if recorded:
+                listed = ", ".join(str(n) for n in recorded)
+                unsigned = (
+                    ""
+                    if settled
+                    else " Its log never reached its footer, so they were read "
+                    "from the lines it had written; each verdict line was "
+                    "followed whole by its track's line."
+                )
+                self.log_line.emit(
+                    f"[auto-fix] the securing pass stopped before it finished; "
+                    f"track(s) {listed} had been re-read and their verdicts are "
+                    f"kept. Their first reads stay in the album.{unsigned}"
+                )
+        except Exception:  # noqa: BLE001 — a record must never crash the rip
+            log.exception("could not record the stopped securing pass's verdicts")
 
     def _append_swap_addendum(
         self,

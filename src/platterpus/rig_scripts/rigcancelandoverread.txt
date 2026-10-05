@@ -253,7 +253,9 @@ wait 90
 snapshot beforecancel
 cancel-rip
 log cancel issued; giving the escalation its full SIGTERM to SIGKILL window
-wait 30
+# As long as the app waits for a cancelled rip's log (`cancelled_log_wait_s`):
+# on a slow disc the ripper finishes the read in hand before it stops.
+wait 135
 snapshot aftercancel
 screenshot aftercancel
 

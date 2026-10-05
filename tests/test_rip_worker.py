@@ -15,6 +15,7 @@ import re
 import subprocess
 import time
 from collections.abc import Iterable
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -875,6 +876,174 @@ def test_auto_fix_keeps_original_when_rerip_still_unstable(
     assert not (tmp_path / "Artist" / "Album" / "03 - C.flac").exists()
 
 
+_PASS1_TWO_UNSTABLE = (
+    "cyanrip 0.9.3 (release)\n"
+    "Disc tracks:    3\n"
+    "Done; (no matches found, but hit repeat limit of 5)\n"
+    "Track 2 ripped and encoded successfully!\n"
+    "  EAC CRC32:     22222222 (after 5 rips)\n"
+    "  File(s):\n"
+    "    Artist/Album/02 - B.flac\n"
+    "Done; (no matches found, but hit repeat limit of 5)\n"
+    "Track 3 ripped and encoded successfully!\n"
+    "  EAC CRC32:     33333333 (after 5 rips)\n"
+    "  File(s):\n"
+    "    Artist/Album/03 - C.flac\n"
+    "Ripping errors: 0\n"
+    # A footer, as every finished album pass has: without it the cancel makes
+    # the worker wait out its whole settle deadline for this log too.
+    "Log FUN512: pass1\n"
+)
+
+# The securing pass, cancelled while track 3 was being read: track 2 finished
+# with a verdict, track 3 has none, and the ripper wrote its footer on the signal.
+_REFIX_STOPPED_DURING_TRACK_3 = (
+    "cyanrip 0.9.3 (release)\n"
+    "Disc tracks:    3\n"
+    "Done; (repeat limit of 5 reads reached; at most 1 read agreed)\n"
+    "Track 2 ripped and encoded successfully!\n"
+    "  EAC CRC32:     2222AAAA (after 5 rips)\n"
+    "  File(s):\n"
+    "    Artist/Album/02 - B.flac\n"
+    "Ripping errors: 0\n"
+    "Log FUN512: abc\n"
+)
+
+
+def test_a_stopped_securing_pass_keeps_the_verdicts_it_reached(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The 2026-10-04 rig run: a cancel during track 18 threw away tracks 12-17.
+
+    The securing pass re-reads every track it was given in ONE ripper run and
+    read its log only when that run succeeded, then deleted the temp folder
+    holding it. A cancel during the last track therefore discarded the verdicts
+    of every track already re-read (five reads each, no two agreeing), and the
+    EAC-layout log printed "Copy OK" over them. A finished verdict is kept;
+    nothing is swapped in; the track that was still being read gets no record.
+    """
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    write_logs = _fake_rip_writer(
+        _PASS1_TWO_UNSTABLE, _REFIX_STOPPED_DURING_TRACK_3, True
+    )
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        if call["only_tracks"]:
+            worker.cancel()  # the user stops the rip during the securing pass
+
+    backend.rip_side_effect = rip_side_effect
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 2, "floor: the securing pass never ran"
+    assert backend.rip_calls[1]["only_tracks"] == (2, 3)
+    assert worker.retried_tracks == [
+        {
+            "track": 2,
+            "trigger": "instability",
+            "reripped_z": 2,
+            "converged": False,
+            "replaced": False,
+            "replaced_because": None,
+        }
+    ]
+    # Nothing from the stopped pass reached the album folder.
+    assert not (tmp_path / "Artist" / "Album" / "02 - B.flac").exists()
+
+
+def test_a_stopped_securing_pass_whose_log_never_settles_keeps_its_whole_verdicts(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The 2026-10-04 case as it really ends: the log never reaches its footer.
+
+    That disc took 54 s over one read, so a reader stopped mid-read cannot sign
+    its log inside any wait we can afford. Until 2026-10-05 an unsigned log
+    recorded nothing, which on the rig would have discarded tracks 12-17 again:
+    the fixture this test replaced carried a footer the real case never has.
+
+    The log here is cut where a log being written can be cut, at its end, in
+    the middle of track 3's line. Track 2's verdict line is followed whole by its
+    track line, so it is kept. Track 3's ``Done; (…)`` line is whole too, and
+    must NOT be attributed: its track line is cut short.
+    """
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    lines: list[str] = []
+    worker.log_line.connect(lines.append)
+    cut_short = _REFIX_STOPPED_DURING_TRACK_3.replace(
+        "Ripping errors: 0\nLog FUN512: abc\n",
+        "Done; (2 out of 2 matches for current checksum 3333AAAA)\nTrack 3 rip",
+    )
+    assert "FUN512" not in cut_short and cut_short.endswith("Track 3 rip")
+    write_logs = _fake_rip_writer(_PASS1_TWO_UNSTABLE, cut_short, True)
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        if call["only_tracks"]:
+            worker.cancel()
+            worker.abandon_log_wait()  # do not sit out the real deadline
+
+    backend.rip_side_effect = rip_side_effect
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 2, "floor: the securing pass never ran"
+    assert worker.retried_tracks == [
+        {
+            "track": 2,
+            "trigger": "instability",
+            "reripped_z": 2,
+            "converged": False,
+            "replaced": False,
+            "replaced_because": None,
+        }
+    ]
+    joined = "\n".join(lines)
+    assert "never reached its footer" in joined, joined
+
+
+def test_the_securing_pass_keeps_its_own_ripper_log_beside_the_albums(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The per-read record of a securing pass was deleted with its temp folder.
+
+    On the 2026-10-04 run the cancelled pass's log is in no artifact, so
+    whether its ripper signed it is not known. It is now kept as a ``.txt``
+    sidecar, whatever the pass did, footer or not; never as a ``.log``, which
+    would be a second candidate for the album's log.
+    """
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    unsigned = _REFIX_STOPPED_DURING_TRACK_3.replace("Log FUN512: abc\n", "")
+    write_logs = _fake_rip_writer(_PASS1_TWO_UNSTABLE, unsigned, True)
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        if call["only_tracks"]:
+            worker.cancel()
+            worker.abandon_log_wait()
+
+    backend.rip_side_effect = rip_side_effect
+    worker.start_rip()
+
+    album = tmp_path / "Artist" / "Album"
+    kept = album / "rip.platterpus-securing-pass.txt"
+    assert len(backend.rip_calls) == 2, "floor: the securing pass never ran"
+    assert kept.read_text(encoding="utf-8") == unsigned
+    assert sorted(p.name for p in album.glob("*.log")) == ["rip.log"], (
+        "the kept log is a second .log in the album folder"
+    )
+
+
 def test_auto_fix_keeps_a_re_read_that_matches_accuraterip_without_converging(
     qapp: QApplication, tmp_path: Path
 ) -> None:
@@ -1365,6 +1534,52 @@ def test_album_eta_is_self_computed_from_elapsed(
     assert worker._album_eta_text(3.0) == ""
     # cyanrip's obsolete first-ETA capture is gone.
     assert not hasattr(worker, "estimated_seconds")
+
+
+def test_the_plan_states_a_time_estimate_and_the_status_uses_it_early(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The operator's request (2026-10-05): an overall estimate up front, in the
+    log too. With the drive's measured rate and every track's length known, the
+    plan carries the figure; for the first seconds, before the live estimate can
+    measure anything, the status line shows it."""
+    from platterpus.rip_estimate import ReadRate
+
+    params = replace(
+        _params_with_lengths(tmp_path, [200_000, 400_000]),
+        read_rate=ReadRate(1200.0, 600.0, 3),  # reads at 2.0x
+    )
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), params)
+    lines: list[str] = []
+    worker.log_line.connect(lines.append)
+    worker.start_rip()
+    planned = [line for line in lines if "Time estimate" in line]
+    assert planned, f"no estimate in the plan: {lines[:12]}"
+    # 600 s of audio at 2.0x is 300 s of reading, plus the overhead.
+    assert "about 5m" in planned[0] and "2.0x" in planned[0], planned[0]
+    assert worker.estimate_seconds == pytest.approx(300.0 + 10.0)
+
+    worker._started_monotonic = time.monotonic() - 2.0
+    worker._eta_pass_started = worker._started_monotonic
+    early = worker._album_eta_text(3.0)
+    assert "(estimated)" in early and "left" in early, early
+
+
+def test_with_no_measured_rate_the_plan_says_why_there_is_no_estimate(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    worker = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=[])),
+        _params_with_lengths(tmp_path, [200_000, None]),
+    )
+    lines: list[str] = []
+    worker.log_line.connect(lines.append)
+    worker.start_rip()
+    planned = [line for line in lines if "Time estimate" in line]
+    assert planned and "not identified" in planned[0], planned
+    assert worker.estimate_seconds is None
+    worker._started_monotonic = time.monotonic() - 2.0
+    assert worker._album_eta_text(3.0) == "", "an estimate appeared from nothing"
 
 
 def test_coarsen_eta_seconds_buckets() -> None:
@@ -3822,6 +4037,14 @@ def test_the_wait_budget_outlasts_the_force_stop_rescue(tmp_path: Path) -> None:
         f"({drive_control.FORCE_STOP_COUNTDOWN_S}s), so it could never see the "
         f"footer the rescue causes to be written"
     )
+    # And the read the rescue's SIGTERM lands in: cyanrip stops only once it
+    # returns, and the 2026-10-04 disc took 54 s over one. A budget that ends
+    # before the longest read filed (half the grace) cannot see that footer.
+    longest_read_filed = drive_control.READER_TERM_GRACE_S / 2
+    assert budget >= drive_control.FORCE_STOP_COUNTDOWN_S + longest_read_filed, (
+        f"the wait budget ({budget}s) ends before a reader in the longest read "
+        f"filed ({longest_read_filed:.0f}s) can answer the rescue's SIGTERM"
+    )
 
 
 def test_the_budget_derives_from_the_countdown_rather_than_restating_it() -> None:
@@ -3834,12 +4057,22 @@ def test_the_budget_derives_from_the_countdown_rather_than_restating_it() -> Non
     """
     import inspect
 
+    from platterpus.workers.rip_worker import cancelled_log_wait_s
+
     body = inspect.getsource(RipWorker._await_ripper_log)
     # Everything after the closing triple-quote of the docstring. A literal-text
     # match against a method that documents its own constants is not a check.
-    _, _, code = body.partition('"""')
+    _, _, method_code = body.partition('"""')
+    _, _, method_code = method_code.partition('"""')
+    assert method_code.strip(), "could not separate the method body from its docstring"
+    # The wait asks the one function for its number rather than summing its own.
+    assert "cancelled_log_wait_s()" in method_code, (
+        "the wait no longer takes its budget from `cancelled_log_wait_s`, so the "
+        "acceptance script's cancel section is held to a different number"
+    )
+    _, _, code = inspect.getsource(cancelled_log_wait_s).partition('"""')
     _, _, code = code.partition('"""')
-    assert code.strip(), "could not separate the method body from its docstring"
+    assert code.strip(), "could not separate the function body from its docstring"
     assert "drive_control.FORCE_STOP_COUNTDOWN_S" in code, (
         "the wait budget does not derive from the rescue countdown it must "
         "outlast — two expressions of one number is how they came to disagree"
@@ -3847,6 +4080,10 @@ def test_the_budget_derives_from_the_countdown_rather_than_restating_it() -> Non
     assert "_RIPPER_EXIT_GRACE_S" in code, (
         "the budget does not include the ripper's own flush allowance for "
         "closing the FLAC it was writing"
+    )
+    assert "drive_control.READER_TERM_GRACE_S" in code, (
+        "the budget does not derive from the read grace, so raising the grace "
+        "for a slower disc would leave this wait short of it"
     )
 
 

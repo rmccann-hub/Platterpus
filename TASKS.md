@@ -20,6 +20,57 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## 2026-10-05 window size and readability audit
+
+The maintainer: *"double check window sizes and readability, especially on obscure
+windows like the beta or odd cyanrip upgrades"*. Every window, message box and Qt
+dialog the app can show was built with its real worst-case text and measured
+headless (offscreen, Fusion, DejaVu Sans) from 853 × 533 to 1920 × 1080 logical,
+at 100 % and 150 % text, and the screenshots were looked at.
+
+- [x] **The "Install required" dialog cut off why a tool is needed.** ffmpeg's and
+  cd-paranoia's descriptions ran off its right edge on every screen and the
+  caption read "Why manu". Wrapped, with the prose in a `FitScrollArea`; the
+  matrix measures every real registry spec, and its cut-off rule now sees text
+  running past a scroll area that cannot scroll sideways.
+- [x] **Message boxes ran off small screens, and opened partly below them.** Qt
+  sizes a `QMessageBox` with no height limit: the cyanrip offers (beta,
+  unapproved), the dependency summary after a failed install and the *Script
+  commands* reference were taller than common screens; and every box was centred
+  before Qt had sized it, so the beta update prompt opened with Yes and No below
+  the edge. `ui/dialogs/message_box_fit.py`, run by `DialogCenterFilter` before it
+  centres; every message box and inline Qt dialog is in the matrix
+  (`tests/test_ui_message_box_conformance.py`), with a `window_on_screen` rule.
+- [x] **The MusicBrainz release picker squeezed Title and Artist to three
+  letters** with real releases (a long label credit or note). The prose columns
+  share the width by need and wrap, never narrower than their longest word, and
+  the table scrolls sideways when even that does not fit; a `cut_off_cells` rule
+  covers every table the matrix measures.
+- [ ] **Confirm on the rig what headless cannot show.** Real KWin decorations and
+  placement, Noto Sans metrics (DejaVu Sans, used here, is wider), and native
+  Wayland, where a client cannot place its own window. At 150 % text, open Help →
+  Check for cyanrip updates and the test console's script reference, and confirm
+  the buttons are on screen.
+- [ ] **A window exactly as wide as the screen has its frame's side border off
+  it** (the release picker on a 1280 × 800 panel at 150 %; a message box carrying
+  a long path on a screen up to 1024 px wide). No content is lost, only the border
+  and part of the layout margin. `fit_dialog_to_screen` keeps a chosen width up
+  to the full screen on purpose, so whether to leave a side margin is the
+  maintainer's call, not a fix taken here.
+- [ ] **The track table is not measured with a disc loaded.** The matrix's main
+  window has no disc, so `cut_off_cells` examines none of its cells; a disc with
+  long track titles is the next population to add. Not done here because the
+  track table's column widths are a deliberate design (measured once per disc,
+  2026-08-05) and the rule's verdict on it needs the maintainer's view first.
+- [ ] **Qt's own file dialog and tooltips are not measured.** On the desktop the
+  file dialog is usually the desktop's own, not ours to size.
+- [ ] **The conformance matrix is built once per xdist worker that runs one of
+  its tests**, so under `-n 4` the same 22 conditions can be measured four
+  times. Its processes are now bounded (one per CPU per worker), which stopped
+  the memory exhaustion; sharing one matrix across workers, or `--dist
+  loadgroup` for it, would also cut the duplicated time. Not done here: it
+  changes how CI distributes the suite.
+
 ## Faster CI and dev loop — measured, and planned in phases (maintainer, 2026-09-26)
 
 *"We need to shorten CI times and everything else. We need optimise. If a refactor is
@@ -602,6 +653,136 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
+## 2026-10-04 hardware runs — two discs MusicBrainz does not know, then a damaged one
+
+Four acceptance runs on 0.6.65 + `.19`, graded `partial` (`docs/testing.md` §5B, and
+`docs/handshake/artifactsround30/README.md` → *The 2026-10-04 runs*). Fixed after the
+runs, each with a regression test:
+
+- [x] **A stopped securing pass keeps the verdicts it reached** (`rip_worker.
+  _record_unfinished_refix`). Tracks 12–17 were each re-read five times with no two
+  reads agreeing, then a cancel during track 18 discarded all six verdicts, so the
+  EAC-layout log printed "Copy OK" over them.
+- [x] **The status line says "cancelled" after a cancel that came after the read**
+  (`fidelity_summary(cancelled=)`), where it read "Done".
+- [x] **A track with paranoia skips and no exact AccurateRip match is not "clean"**
+  (`verdict.track_has_unverified_skips`; track 18: 2,586 skips under cyanrip's
+  "Ripping errors: 0"). The status line only; the EAC-layout log and the report are
+  the next row.
+- [x] **Quit grace 42 → 108 s**, twice the 54 s read the damaged disc took.
+- [x] **`cancel-rip` cancels only a rip the script's last `rip` step started**; a
+  refused `rip` in section I was followed by a cancel of section F's seven-hour rip.
+- [x] **`pick-release` passes only on a held release** and fails on "Rip as unknown
+  album"; it called an unidentified disc identified.
+- [x] **A disc swap no longer blanks the drive's offset and cache-defeat rows**
+  (`clear_disc_state(keep_drive_rows=True)` on removal).
+- [x] **An exit check in the log** (`exit_work.audit`), the operator's request: as the
+  process leaves, whether anything still holds the drive and whether a cyanrip process
+  still runs, tri-state, as the host sees them.
+- [x] **The first of those fixes did not cover the run it came from, and now does.** Its
+  test's securing-pass log had a footer; the real one cannot have one, because a reader
+  in a 54 s read cannot sign its log inside the 20 s the cancel path waited. A stopped
+  pass now keeps every verdict its log wrote whole, footer or not (safe because a log
+  is only ever cut short at its end), and the cancel path waits for the read in hand
+  (`READER_TERM_GRACE_S`), about two minutes at most, saying so on the status line.
+- [x] **Why the rescue's SIGTERM is the reader's first is now stated correctly.** The
+  fork's tree (`cyanrip@64b3a623`) reads the 10-04 cancel as sending a second TERM 4.9 s
+  after the first. On our measurements the wrapper's SIGTERM does not cross into the
+  container (2026-09-07: the reader ripped on for 15.5 minutes; 2026-09-09: footer
+  1.7 s after the rescue), so the rescue's is the first. Our docstring had said a
+  signalled reader would have exited, which a 54 s read disproves.
+
+Open:
+
+- [ ] **The EAC-layout log and the report for a track with unverified skips.** Track 18
+  still renders "Copy OK" and the status report "No errors occurred". The EAC-layout
+  log is a surface the fork diffs against, so its wording goes through the handshake:
+  proposed for round 31 in our round 30 lap 8. The report could carry an `issues` code
+  sooner; it changes the report's vocabulary, so it waits for the same round.
+- [x] **Stopping a run from the console leaves the rip it started running.** Run 3's
+  section N rip was still reading when the session restored the settings and wrote its
+  bundle. Decided: cancel it. A run that stops early (Stop, `abort`, a `wait-for-rip`
+  that runs out) cancels the rip its last `rip` step started, through the window's own
+  Cancel; the session keeps itself armed until the rip has stopped, bounded at the
+  app's cancel wait plus 30 s, and the bundle says what it waited for and which ripper
+  processes the host saw as it was packed. A run that reaches its end leaves a rip it
+  chose not to wait for, and the session still waits before packing.
+- [x] **A section whose rip outlives its wait should end the run.** F's six-hour wait
+  ran out and H and I then failed against the still-running rip; nothing after F was
+  evidence. A `wait-for-rip` that runs out with the rip still reading now ends the run.
+- [x] **The report says post-rip checks were "not run — the rip did not finish" when they
+  started and were superseded.** On the cancelled rip, CTDB and FLAC verify started at
+  19:07:11 and were abandoned 46 s later when section J's rip began; the report's reason
+  named the wrong one. The premise was that a cancelled rip never starts the chain, and
+  a cancel during the securing pass does. `PostRipRecord.launched` now says which checks
+  began, `build_gates` applies "superseded" first, and "not run" is kept for a check
+  that never launched.
+- [x] **Cold-container start: two container entries at launch.** The version probe
+  printed its banner and did not exit for 60 s, and the startup disc scan never
+  returned (`round30oct04platterpusapplog2.txt:59910`, `:59918`); a rescan 84 s later
+  returned in 13.5 s on the running container. The first entry is now serialised
+  (`container_gate.FIRST_ENTRY`, claimed in `KillableCommand.run`). **Inferred, not
+  reproduced:** the next cold launch on the rig is the test, and the app log says
+  when a probe waited.
+- [x] **The securing pass's own ripper log is always deleted with its temp folder.** On
+  success the swap addendum carries what was swapped; the per-read record of a pass
+  that swapped nothing was in no artifact. It is now copied beside the album's log as
+  `<album>.platterpus-securing-pass.txt` (`rip_addendum.securing_pass_log_path_for`),
+  whatever the pass did, footer or not; `.txt` so it is never a second candidate for
+  the album's `.log`.
+- [ ] **If a podman ever forwards the wrapper's SIGTERM into the container, the
+  post-cancel rescue becomes a second signal** on any read longer than its 5 s
+  countdown, and cyanrip `_exit(1)`s without its footer
+  (`cyanrip@174a134:src/cyanrip_main.c` `on_quit_signal`). Nothing measures which
+  world a rig is in. A kept securing-pass log (the row above) would show it: a
+  cancelled pass on a slow read whose log has no footer.
+
+## 2026-10-05 operator requests
+
+- [x] **An overall time estimate for the tracks to rip, in the log too.** `rip_estimate`,
+  from the drive's own measured first reads (`DriveProfile.read_rate`), else the rig's for
+  its model, else none. In the plan, as the early ETA, and beside the actual in the
+  elapsed line. Held against every filed rig rip.
+- [ ] **The acceptance run's overall estimate** (the operator's first wording of the same
+  request): sum the estimate over the script's rip steps plus the measured non-rip
+  sections. Not built; the per-rip estimate is its main input.
+- [x] **The realtime multiplier means one thing** (found while reading the filed timing
+  data): elapsed over the audio read, finished or not.
+
+- [~] **What each side wants from the other, and can give** (operator, 2026-10-05: *"you
+  and cyanrip should both be communicating what data you want or can give to the other
+  for better experience. And saying if it's easy or hard to get, or accurate vs
+  inaccurate."*). The register is `docs/cyanrip-handshake.md` §10: six wants (W1–W6) and
+  six gives (G1–G6) of ours, the giver rating ease and accuracy. Lap 8 S37 asks the fork
+  to rate its half once in round 30. Open until their ratings arrive.
+- [ ] **W6, ours to close: read the `-j` record's `interrupted` / `interrupted_by` /
+  `exit_code`** for the status line and the report. The records reach the bundle since
+  `a7a631b9`; the app does not read them yet.
+- [ ] **Ask the maintainer: should paranoia skips step the read speed down?** From `.20`
+  a skipped-on track reads `with errors`. `4790a16a` keeps the ladder keyed on what it
+  was keyed on under `.19` (drive-failed reads only), because a ripper upgrade must not
+  change our ripping policy unasked. Whether skips SHOULD trigger a slower whole-disc
+  re-read is the maintainer's call; the module's own policy says instability is flagged,
+  not re-ripped.
+- [x] **The beta path exists**: a `v0.6.66b1`-shaped tag is a PEP 440 pre-release, which
+  `update_check.is_prerelease_version` keeps off the stable channel and `release.yml`
+  sends through the relaxed handshake gate. Nothing to build before the cut; at the cut,
+  `__version__` and the CHANGELOG heading carry the `b1`.
+- [ ] **A message box shown a second time is not fitted again.** `fit_message_box`
+  finds Qt's label by its place in the box's grid; once a first fit has moved it into
+  the scroll area, a second fit (the filter on a later Show, on another screen) logs
+  "text label not in its layout" and leaves the box sized for the first screen. Found
+  when `test_app_smoke` leaked the app-wide filter into `test_ui_message_box_fit`
+  (PR #286, Python 3.13 leg); the harness half is fixed in `tests/conftest.py`. The
+  product half needs a refit that resizes the existing area. Rare (a box re-shown on
+  another screen), and it fails safe: the box is left as it was.
+- [x] **A full map of what Platterpus has or relies on** (operator, 2026-10-05).
+  `bom.cdx.json` (CycloneDX 1.7) and the generated block in `DEPENDENCIES.md`, from
+  `scripts/emit_bom.py`; `--check` and `tests/test_bom_emitted.py` hold it fresh, and a tool
+  the code uses with no note stops the run (it caught `pgrep` on integration). Not
+  validated against the CycloneDX JSON schema: no validator is installed, and adding one
+  is a new dependency for the maintainer to approve.
+
 ## Round 30 — OPEN on `174a134` (`+platterpus.19`): the Full run on 0.6.65 with `.19`, and the operator's release-cycle question
 
 Their lap 1 (`cyanrip@171bcf9`, platterpus-fork tip `0ae873c`, sha256 `6db0ed0d…`, 15,546
@@ -777,6 +958,13 @@ each side's reading; and the closing releases named.
     so the grace is twice that, derived by a test from the filed logs. It no longer holds
     the window: the stop runs as exit work (`exit_work`), joined by `app.main` before the
     process exits. The hardware half stays open.
+  - *2026-09-30: 42 s.* The fork's round 30 lap 7 S16 found this test read only our tree;
+    theirs, searched whole, has two reads of 21 s on the same drive. One is filed here
+    (`docs/handshake/inbound/artifacts/round-30-lap-07-accurip-gddc1e8c.log`), and the floor
+    follows it.
+  - *2026-10-05: 108 s.* The 2026-10-04 rig run's damaged disc took 54 s over one read
+    (`docs/handshake/artifactsround30/round30oct04full.log:1501`); filed, and the floor
+    follows it again.
 - [x] **The acceptance test grades what each rip left, not only that it finished**
   (2026-09-30, for the next release; asked for with the round-30 Full run: *"this
   test will do all reasonable permutations… if not we need to fix or update the

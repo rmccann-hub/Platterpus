@@ -765,6 +765,36 @@ def thread_has_stopped():
 
 
 @pytest.fixture(autouse=True)
+def _no_test_leaves_the_dialog_filter_installed() -> Generator[None, None, None]:
+    """No test may leave `app.main`'s app-wide dialog filter on the shared app.
+
+    `app.main` installs a `DialogCenterFilter` on the `QApplication` for the life
+    of the process, which is right in production: one process, one `main`. A test
+    that runs `main` in-process (`test_app_smoke`) left it installed on the one
+    `QApplication` the whole worker shares, and since 2026-10-05 the filter also
+    FITS every message box when it is shown. So the next test in that worker that
+    showed a box and then fitted it itself found the box already fitted for the
+    real screen: `test_ui_message_box_fit` failed on whichever CI leg put it after
+    the smoke test (Python 3.13 on PR #286), and passed everywhere else.
+
+    Restored, not failed, for the reason the crash-dialog fixture above gives:
+    installing the filter is correct in production and a hazard only inside a
+    shared test session, so removing it here is hygiene for state a test dirtied,
+    in one place, for tests nobody has written yet.
+    """
+    yield
+    app = QApplication.instance()
+    if app is None:
+        return
+    from platterpus.ui.dialogs.auto_center import DialogCenterFilter
+
+    for leaked in app.findChildren(DialogCenterFilter):
+        app.removeEventFilter(leaked)
+        leaked.setParent(None)
+        leaked.deleteLater()
+
+
+@pytest.fixture(autouse=True)
 def _cyclic_gc_paused_during_each_test():
     """Run each test with the cyclic collector off; collect between tests.
 

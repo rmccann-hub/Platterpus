@@ -14,7 +14,10 @@ list is derived from the source, so a new window is measured the day it lands.
 **The three axes.**
 
 * WINDOWS — every `CenteredDialog` subclass in `src/` (completeness is asserted
-  against the source) plus the main window.
+  against the source), the main window, and — since the 2026-10-05 audit —
+  every message box and inline Qt dialog the app can show, built with its real
+  worst-case text (`tests/test_ui_message_box_conformance.py`, whose populations
+  are derived from the source the same way).
 * CONDITIONS — :data:`CONDITIONS`: 14 standard screen shapes as the LOGICAL size
   the desktop reports (scaling is what makes a big panel a small screen), a dark
   theme, and a 150% text size, each where it can bite.
@@ -28,10 +31,18 @@ condition gets its own interpreter, all started at once. The offscreen plugin wi
 not move a window between screens (a `setScreen` found its second screen already
 deleted), which is why it is one process per condition rather than one per run.
 
-**Scope, stated so it is not silently narrower than it reads.** NOT covered:
-`QMessageBox` (built inside methods, sized by Qt, short text — the plain-text half
-is swept by `tests/test_message_boxes_are_plaintext.py`), the setup wizard pages,
-and tooltips.
+**Scope, stated so it is not silently narrower than it reads.** This line used
+to say `QMessageBox` was NOT covered — "built inside methods, sized by Qt, short
+text". The texts were not short: measured on 2026-10-05, the cyanrip offers, the
+dependency summary and the script reference were each taller than common
+screens, and the beta update prompt opened with its buttons below the edge. They
+are measured now. Still NOT covered: Qt's own file dialog (usually the
+desktop's), and tooltips.
+
+**Every window is measured as production shows it**: the app-wide
+`DialogCenterFilter` that `app.main` installs is installed here too, because it
+is what fits and places every dialog that is not a `CenteredDialog`
+(`test_the_matrix_installs_the_filter_app_main_installs`).
 """
 
 from __future__ import annotations
@@ -103,10 +114,12 @@ CONDITIONS: tuple[tuple[str, str, str, float], ...] = (
 RULES: tuple[str, ...] = (
     "clipped_text",
     "window_fits_screen",
+    "window_on_screen",
     "scrolls_only_when_capped",
     "text_contrast",
     "button_floor",
     "cut_off_labels",
+    "cut_off_cells",
     "duplicate_shortcuts",
     "unnamed_inputs",
 )
@@ -316,10 +329,12 @@ def _duplicate_mnemonics(
 
 def _measure_one(window: object) -> dict[str, object]:
     """Show one window and apply every rule to what was rendered."""
+    from PySide6.QtCore import QPoint, QRect, Qt
     from PySide6.QtGui import QPalette
     from PySide6.QtWidgets import (
         QAbstractButton,
         QAbstractItemView,
+        QAbstractScrollArea,
         QAbstractSpinBox,
         QApplication,
         QComboBox,
@@ -328,12 +343,16 @@ def _measure_one(window: object) -> dict[str, object]:
         QMainWindow,
         QPlainTextEdit,
         QPushButton,
+        QScrollArea,
+        QStyle,
+        QTableView,
         QTextEdit,
         QToolButton,
     )
 
     from platterpus.ui.dialogs.centering import CenteredDialog
     from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
+    from platterpus.ui.dialogs.message_box_fit import SCROLL_AREA_NAME
     from platterpus.ui.status_colours import contrast_ratio
 
     app = QApplication.instance()
@@ -367,10 +386,38 @@ def _measure_one(window: object) -> dict[str, object]:
             f"{w.width()}x{w.height()} on {avail.width()}x{avail.height()}"  # type: ignore[attr-defined]  # a QWidget
         )
 
+    # window_on_screen — a window that FITS but is PLACED partly off the screen
+    # hides its buttons just the same. Found 2026-10-05: message boxes were
+    # centred while still Qt's 640-wide placeholder and then grew downward, so a
+    # 480 x 420 beta prompt on a 540-px screen opened with Yes and No below the
+    # edge. Measured on the window's own rectangle (its content and buttons).
+    #
+    # Sideways only, the frame's side border is tolerated. A window exactly as
+    # wide as the screen — which `fit_dialog_to_screen` allows on purpose, and
+    # which Qt itself makes a message box carrying a long path on a screen up to
+    # 1024 px wide — cannot have its frame on the screen as well, so the clamp
+    # puts the frame's left edge at the screen's and the content's last few
+    # pixels (the border's width, 2 px offscreen; layout margin, not text) past
+    # the right one. Vertically nothing is tolerated: that is the axis the
+    # defect above was on, and a title bar is tens of pixels, not a border.
+    examined["window_on_screen"] += 1
+    g = w.geometry()  # type: ignore[attr-defined]  # a QWidget
+    frame = w.frameGeometry()  # type: ignore[attr-defined]  # a QWidget
+    border = max(g.left() - frame.left(), frame.right() - g.right(), 0)
+    if not avail.adjusted(-border, 0, border, 0).contains(g):
+        violations["window_on_screen"].append(
+            f"{g.width()}x{g.height()} at ({g.x()},{g.y()}) on "
+            f"{avail.width()}x{avail.height()}"
+        )
+
     # scrolls_only_when_capped — a body that scrolls although the window had room.
+    # The message-box text area (`message_box_fit`) is held to the same rule: it
+    # exists only when no width could fit the text, so it must sit in a box that
+    # is already as tall as the screen allows.
     cap = avail.height() - CenteredDialog.SCREEN_MARGIN_PX
     capped = w.height() >= cap - 1  # type: ignore[attr-defined]  # a QWidget
-    for area in w.findChildren(FitScrollArea):  # type: ignore[attr-defined]  # a QWidget
+    message_areas = w.findChildren(QScrollArea, SCROLL_AREA_NAME)  # type: ignore[attr-defined]  # a QWidget
+    for area in [*w.findChildren(FitScrollArea), *message_areas]:  # type: ignore[attr-defined]  # a QWidget
         examined["scrolls_only_when_capped"] += 1
         bar = area.verticalScrollBar()
         if bar.maximum() > bar.minimum() and not capped:
@@ -426,11 +473,40 @@ def _measure_one(window: object) -> dict[str, object]:
                 f"{button.sizeHint().height()}px: {button.text()!r}"
             )
 
-    # cut_off_labels — a one-line label or a button whose text does not fit.
+    # cut_off_labels — a one-line label or a button whose text does not fit;
+    # and any label or button running past the right edge of a scroll area that
+    # cannot scroll sideways. That second half was added 2026-10-05, when a
+    # revert probe showed the first could not see it: an unwrapped paragraph
+    # inside a `FitScrollArea` widens the body, so the label has its full width
+    # and the VIEWPORT cuts the text off instead — the install dialog's tool
+    # description, ending mid-sentence, passed every rule.
+    def sideways_clip(widget: object) -> object | None:
+        """The viewport of the nearest scroll area with no horizontal bar."""
+        parent = widget.parentWidget()  # type: ignore[attr-defined]  # a QWidget
+        while parent is not None and parent is not w:
+            if isinstance(parent, QAbstractScrollArea):
+                off = Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+                return (
+                    parent.viewport()
+                    if parent.horizontalScrollBarPolicy() == off
+                    else None
+                )
+            parent = parent.parentWidget()
+        return None
+
     for widget in [*w.findChildren(QAbstractButton), *w.findChildren(QLabel)]:  # type: ignore[attr-defined]  # a QWidget
         text = widget.text()
         if not (text and shown(widget)):
             continue
+        viewport = sideways_clip(widget)
+        if viewport is not None:
+            examined["cut_off_labels"] += 1
+            right = widget.mapTo(viewport, QPoint(widget.width(), 0)).x()
+            if right > viewport.width() + 1:  # type: ignore[attr-defined]  # a QWidget
+                violations["cut_off_labels"].append(
+                    f"runs {right - viewport.width()}px past its scroll area: "  # type: ignore[attr-defined]  # a QWidget
+                    f"{type(widget).__name__} {text[:50]!r}"
+                )
         if isinstance(widget, QLabel) and (widget.wordWrap() or "<" in text):
             continue
         examined["cut_off_labels"] += 1
@@ -439,6 +515,48 @@ def _measure_one(window: object) -> dict[str, object]:
                 f"{widget.width()}px of {widget.sizeHint().width()}px: "
                 f"{type(widget).__name__} {text[:50]!r}"
             )
+
+    # cut_off_cells — a table cell, in view, whose text does not fit it. Added
+    # 2026-10-05: with real releases the MusicBrainz picker squeezed Title and
+    # Artist to three characters ("Lift Y…"), and no rule looked inside a table.
+    # Measured with the view's own font and wrap setting against the cell's
+    # rectangle less the style's text margin; a cell with a check box or an icon
+    # is skipped, because part of its width is not text.
+    for view in w.findChildren(QTableView):  # type: ignore[attr-defined]  # a QWidget
+        model = view.model()
+        if not shown(view) or model is None:
+            continue
+        metrics = view.fontMetrics()
+        margin = 2 * (
+            view.style().pixelMetric(
+                QStyle.PixelMetric.PM_FocusFrameHMargin, None, view
+            )
+            + 1
+        )
+        wrap = Qt.TextFlag.TextWordWrap if view.wordWrap() else Qt.TextFlag(0)
+        in_view = view.viewport().rect()
+        for row in range(model.rowCount()):
+            for column in range(model.columnCount()):
+                index = model.index(row, column)
+                text = model.data(index, Qt.ItemDataRole.DisplayRole)
+                rect = view.visualRect(index)
+                if (
+                    not text
+                    or not rect.intersects(in_view)
+                    or model.data(index, Qt.ItemDataRole.CheckStateRole) is not None
+                    or model.data(index, Qt.ItemDataRole.DecorationRole) is not None
+                ):
+                    continue
+                examined["cut_off_cells"] += 1
+                room = rect.width() - margin
+                need = metrics.boundingRect(
+                    QRect(0, 0, max(room, 1), 100_000), int(wrap), str(text)
+                )
+                if need.width() > room + 1 or need.height() > rect.height():
+                    violations["cut_off_cells"].append(
+                        f"{room}x{rect.height()}px cell needs "
+                        f"{need.width()}x{need.height()}px: {str(text)[:40]!r}"
+                    )
 
     # duplicate_shortcuts — two controls in one window claiming the same Alt-key.
     sources: list[str] = [
@@ -533,9 +651,26 @@ def _main_window() -> object:
 
 
 def _measure_all() -> dict[str, object]:
-    """Subprocess entry: every window, in this process's one condition."""
+    """Subprocess entry: every window, in this process's one condition.
+
+    **The cyclic collector is off for the whole run**, for the reason
+    `tests/conftest.py::_cyclic_gc_paused_during_each_test` gives: a collection
+    that starts while the main windows' worker threads are churning Qt objects
+    under the offscreen platform is a hard crash. Every pytest test has that
+    guard; this subprocess, which builds five main windows and hundreds of
+    dialogs, never did. It surfaced on 2026-10-05 as a deterministic SIGSEGV
+    after a change that only added Python wrappers for scroll-area viewports —
+    an allocation pattern, not a bug, moved a collection onto the bad moment.
+    The process exits as soon as it has printed, so nothing needs collecting.
+    """
+    import gc
+
+    gc.disable()
     from conftest import stop_window_threads
     from PySide6.QtWidgets import QApplication
+    from test_ui_message_box_conformance import measure_message_boxes
+
+    from platterpus.ui.dialogs.auto_center import DialogCenterFilter
 
     app = QApplication([])
     _apply_condition(
@@ -543,6 +678,10 @@ def _measure_all() -> dict[str, object]:
         os.environ.get("PLATTERPUS_UI_THEME", "light"),
         float(os.environ.get("PLATTERPUS_UI_TEXT_SCALE", "1.0")),
     )
+    # As `app.main` does: every dialog that is not a `CenteredDialog` is fitted
+    # and placed by this filter, so a matrix without it measures a different app.
+    centring = DialogCenterFilter(app)
+    app.installEventFilter(centring)
     results: dict[str, object] = {}
     for name, make in _factories().items():
         results[name] = _measure_one(make())  # type: ignore[operator]  # factories are callables
@@ -551,7 +690,156 @@ def _measure_all() -> dict[str, object]:
     stop_window_threads(window)
     results.update(_measure_long_picker())
     results.update(_measure_states())
+    results.update(_measure_every_real_spec())
+    results.update(_measure_real_cyanrip_windows())
+    results.update(_measure_real_releases())
+    results.update(measure_message_boxes(_measure_one, _main_window))
     return results
+
+
+def _measure_real_releases() -> dict[str, object]:
+    """The release picker with releases as long as MusicBrainz's real ones.
+
+    Its factory uses `_release()` stand-ins — "Album" by "Artist", no label, no
+    notes — and with those it always fitted. With a two-label credit and a
+    disambiguation note, the columns sized to their content took the width and
+    Title and Artist were squeezed to three characters (audit, 2026-10-05).
+    """
+    from test_ui_release_picker import _release
+
+    from platterpus.ui.release_picker import ReleasePickerDialog
+
+    skinny = "Lift Your Skinny Fists Like Antennas to Heaven"
+    gybe = "Godspeed You! Black Emperor"
+    releases = [
+        _release("a", skinny, gybe, "2000-10-09", "CA", 4, "Constellation", "CST012"),
+        _release(
+            "b",
+            skinny,
+            gybe,
+            "2000-10-09",
+            "XE",
+            4,
+            "Kranky",
+            "KRANK043",
+            disambiguation="European edition with alternate artwork",
+        ),
+        _release(
+            "c",
+            skinny,
+            gybe,
+            "2021",
+            "JP",
+            4,
+            "Constellation / Daymare Recordings",
+            "DYMC-1234",
+            medium="SHM-CD",
+            disambiguation="Japanese reissue, remastered, with obi",
+        ),
+        _release(
+            "d",
+            "The Rise and Fall of Ziggy Stardust and the Spiders From Mars "
+            "(2012 Remastered Version)",
+            "David Bowie",
+            "2012-06-04",
+            "GB",
+            11,
+            "EMI",
+            "5099946362622",
+            disambiguation="40th anniversary edition",
+        ),
+    ]
+    return {
+        "ReleasePickerDialog[real-length releases]": _measure_one(
+            ReleasePickerDialog(releases)
+        )
+    }
+
+
+#: Two cyanrip windows measured with what they really say, by key.
+REAL_CYANRIP_WINDOWS: tuple[str, ...] = (
+    "HostSetupDialog[Updating cyanrip]",
+    "SetupCenterDialog[real pins, every check section]",
+)
+
+
+def _measure_real_cyanrip_windows() -> dict[str, object]:
+    """The cyanrip upgrade wizard and Setup & Updates, built by the real code.
+
+    The factories build both from stand-ins — the setup wizard's own first-run
+    copy, and Setup & Updates with pin `0000000`, version `0.0.0`, round 0 — so
+    neither was ever measured saying what a user reads when a cyanrip build is
+    installed or offered (audit, 2026-10-05, on the maintainer's *"odd cyanrip
+    upgrades"*). The wizard is opened through `_begin_ripper_install`, the path
+    the update offer and the build picker use, with its installer replaced by a
+    stand-in that does nothing, so nothing is built; Setup & Updates through
+    `open_setup_center`, with the real pins and a dependency report carrying
+    every section the check can report.
+    """
+    from unittest import mock
+
+    from conftest import stop_window_threads
+    from test_ui_host_setup_dialog import _FakeHost
+    from test_ui_message_box_conformance import _dependency_report_with_every_section
+
+    import platterpus.deps.host_setup as host_setup
+    from platterpus.deps import fork_source
+
+    measured: dict[str, object] = {}
+    window = _main_window()
+
+    def measure_the_wizard(_self: object, build: object) -> None:
+        measured[REAL_CYANRIP_WINDOWS[0]] = _measure_one(build())  # type: ignore[operator]  # the wizard factory
+
+    with (
+        mock.patch.object(host_setup, "HostSetup", lambda **_kw: _FakeHost(False)),
+        mock.patch.object(type(window), "run_setup_wizard", measure_the_wizard),
+    ):
+        window._begin_ripper_install(None, fork_source.FORK_PIN)  # type: ignore[attr-defined]  # a MainWindow
+    center = window.open_setup_center()  # type: ignore[attr-defined]  # a MainWindow
+    center.show_dependency_check_finished(_dependency_report_with_every_section())
+    measured[REAL_CYANRIP_WINDOWS[1]] = _measure_one(center)
+    window._setup_center = None  # type: ignore[attr-defined]  # a MainWindow
+    stop_window_threads(window)
+    return measured
+
+
+def _real_spec_keys() -> set[str]:
+    """The windows :func:`_measure_every_real_spec` measures, by key."""
+    from platterpus.deps.registry import SPECS
+
+    return {f"ManualInstallDialog[{spec.dep_id}]" for spec in SPECS} | {
+        "PendingInstallsDialog[every spec]"
+    }
+
+
+def _measure_every_real_spec() -> dict[str, object]:
+    """The install dialogs with the REAL dependency specs, not the stand-ins.
+
+    The factories above build `ManualInstallDialog` from a test spec with a
+    one-line description, so the matrix passed it for months while the real
+    `ffmpeg` and `cd-paranoia` descriptions — 2,656 and 2,403 px of unwrapped
+    text — ran off its right edge on every screen, the "Why manual:" caption
+    squeezed to "Why manu" (audit, 2026-10-05). Stand-in content measures the
+    stand-in. Every spec in the registry, so a new one is measured the day it
+    lands.
+    """
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.registry import SPECS
+    from platterpus.deps.resolvers import MissingItem
+    from platterpus.ui.dialogs.manual_install import ManualInstallDialog
+    from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
+
+    absent = ProbeResult(present=False, version=None, location=None)
+    measured: dict[str, object] = {}
+    for spec in SPECS:
+        measured[f"ManualInstallDialog[{spec.dep_id}]"] = _measure_one(
+            ManualInstallDialog(spec, absent, on_setup_wizard=lambda: None)
+        )
+    measured["PendingInstallsDialog[every spec]"] = _measure_one(
+        PendingInstallsDialog([MissingItem(spec=s, probe=absent) for s in SPECS])
+    )
+    return measured
 
 
 def _measure_long_picker() -> dict[str, object]:
@@ -641,13 +929,57 @@ def _measure_states() -> dict[str, object]:
     return results
 
 
+def _concurrent_measurements() -> int:
+    """How many measuring processes this pytest process runs at once.
+
+    Each one builds five main windows and a few hundred dialogs, about 200 MB at
+    its peak (measured 2026-10-05; 144 MB before the message boxes joined the
+    matrix). All 22 used to start together, and under `pytest -n auto` every
+    xdist worker that runs a matrix test builds its own matrix: four workers
+    times 22 processes on a 4-CPU, 16 GB machine. That ran out of memory. The
+    kernel killed workers, xdist replaced them, each replacement started 22
+    more, and the run did not end (153 orphaned processes, load average 166,
+    measured). So the CPUs are shared out instead, one process per CPU per
+    worker. Starting more than that never finished sooner; it only held more
+    memory at once.
+    """
+    workers = int(os.environ.get("PYTEST_XDIST_WORKER_COUNT", "1") or "1")
+    return max(1, (os.cpu_count() or 2) // max(workers, 1))
+
+
+def _collect(cond_id: str, proc: subprocess.Popen[str]) -> dict[str, dict[str, object]]:
+    """One condition's measurements, read off its finished process."""
+    marker = "MEASUREMENTS:"
+    try:
+        out, err = proc.communicate(timeout=300)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        out, err = proc.communicate()
+        raise AssertionError(
+            f"{cond_id}: the measurement hung\n{err[-3000:]}"
+        ) from None
+    assert proc.returncode == 0, (
+        f"{cond_id}: the measuring subprocess failed (exit {proc.returncode}):\n"
+        f"{out[-3000:]}\n{err[-3000:]}"
+    )
+    line = next((ln for ln in out.splitlines() if ln.startswith(marker)), None)
+    assert line is not None, f"{cond_id}: no measurements printed:\n{out[-3000:]}"
+    result: dict[str, dict[str, object]] = json.loads(line[len(marker) :])
+    return result
+
+
 def _run_all_conditions() -> dict[str, dict[str, dict[str, object]]]:
-    """Every window in every condition — one process each, all at once."""
+    """Every window in every condition — one process each, a CPU's worth at a time.
+
+    A failure stops the others: a process left running after its test has
+    failed, or after pytest is killed mid-run, keeps its memory and its CPU
+    until it finishes on its own (`_concurrent_measurements` has the case).
+    """
     shapes = {name: (width, height) for name, width, height in SCREENS}
     tmp = Path(tempfile.mkdtemp())
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(SRC), str(REPO_ROOT / "tests")])
-    procs: dict[str, subprocess.Popen[str]] = {}
+    pending: list[tuple[str, dict[str, str]]] = []
     for cond_id, screen, theme, scale in CONDITIONS:
         width, height = shapes[screen]
         config = tmp / f"{cond_id}.json"
@@ -661,36 +993,37 @@ def _run_all_conditions() -> dict[str, dict[str, dict[str, object]]]:
             "dpr": 1,
         }
         config.write_text(json.dumps({"screens": [spec]}), encoding="utf-8")
-        procs[cond_id] = subprocess.Popen(
-            [sys.executable, __file__, "--measure"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env={
-                **env,
-                "QT_QPA_PLATFORM": f"offscreen:configfile={config}",
-                "PLATTERPUS_UI_THEME": theme,
-                "PLATTERPUS_UI_TEXT_SCALE": str(scale),
-            },
+        pending.append(
+            (
+                cond_id,
+                {
+                    **env,
+                    "QT_QPA_PLATFORM": f"offscreen:configfile={config}",
+                    "PLATTERPUS_UI_THEME": theme,
+                    "PLATTERPUS_UI_TEXT_SCALE": str(scale),
+                },
+            )
         )
+    limit = _concurrent_measurements()
     measured: dict[str, dict[str, dict[str, object]]] = {}
-    marker = "MEASUREMENTS:"
-    for cond_id, proc in procs.items():
-        try:
-            out, err = proc.communicate(timeout=300)
-        except subprocess.TimeoutExpired:
+    running: dict[str, subprocess.Popen[str]] = {}
+    try:
+        while pending or running:
+            while pending and len(running) < limit:
+                cond_id, cond_env = pending.pop(0)
+                running[cond_id] = subprocess.Popen(
+                    [sys.executable, __file__, "--measure"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=cond_env,
+                )
+            oldest = next(iter(running))
+            measured[oldest] = _collect(oldest, running.pop(oldest))
+    finally:
+        for proc in running.values():
             proc.kill()
-            out, err = proc.communicate()
-            raise AssertionError(
-                f"{cond_id}: the measurement hung\n{err[-3000:]}"
-            ) from None
-        assert proc.returncode == 0, (
-            f"{cond_id}: the measuring subprocess failed (exit {proc.returncode}):\n"
-            f"{out[-3000:]}\n{err[-3000:]}"
-        )
-        line = next((ln for ln in out.splitlines() if ln.startswith(marker)), None)
-        assert line is not None, f"{cond_id}: no measurements printed:\n{out[-3000:]}"
-        measured[cond_id] = json.loads(line[len(marker) :])
+            proc.communicate()
     return measured
 
 
@@ -727,12 +1060,19 @@ def test_every_window_passes_every_rule_in_every_condition(
 FLOORS: dict[str, int] = {
     "clipped_text": 300,
     "window_fits_screen": 300,
+    # Every window in every condition: 22 conditions x well over 150 windows once
+    # the message boxes joined (2026-10-05). Set far under that, so it trips only
+    # when a population stops being measured, not when one box is removed.
+    "window_on_screen": 2000,
     "scrolls_only_when_capped": 40,
     "text_contrast": 1000,
     "button_floor": 500,
     "cut_off_labels": 1000,
     "duplicate_shortcuts": 200,
     "unnamed_inputs": 200,
+    # The release picker's cells: 18 stand-in and 36 real-length cells per
+    # condition when this was written (2026-10-05).
+    "cut_off_cells": 500,
 }
 
 
@@ -751,8 +1091,17 @@ def test_every_rule_examined_real_subjects(
     short = {rule: n for rule, n in counts.items() if n < FLOORS[rule]}
     assert not short, f"rules that examined too little: {short} (all: {counts})"
     assert set(matrix) == {c[0] for c in CONDITIONS}, "a condition was not measured"
+    from test_ui_message_box_conformance import expected_keys
+
+    expected = (
+        MEASURED
+        | {"MainWindow", *STATES, *REAL_CYANRIP_WINDOWS}
+        | {"ReleasePickerDialog[real-length releases]"}
+        | _real_spec_keys()
+        | expected_keys()
+    )
     for cond_id, windows in matrix.items():
-        missing = (MEASURED | {"MainWindow", *STATES}) - set(windows)
+        missing = expected - set(windows)
         assert not missing, f"{cond_id}: windows not measured: {sorted(missing)}"
 
 
@@ -824,6 +1173,50 @@ def test_the_shortcut_rule_descends_into_submenus_and_context_menus(
     assert sum(1 for where, _ in groups if where.startswith("album menu")) >= 8
     assert letters >= 10
     window.deleteLater()
+
+
+def test_the_matrix_installs_the_filter_app_main_installs() -> None:
+    """The matrix measures message boxes fitted by `DialogCenterFilter`; that is
+    only evidence about the product if the product installs the same filter.
+
+    Read from `app.py`'s AST: a name bound to `DialogCenterFilter(...)` inside
+    `main`, handed to an `installEventFilter(...)` call there. Both halves,
+    because a filter built and never installed fits nothing.
+    """
+    import ast
+
+    tree = ast.parse((SRC / "platterpus" / "app.py").read_text(encoding="utf-8"))
+    main = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "main"
+    )
+    bound = {
+        target.id
+        for node in ast.walk(main)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "DialogCenterFilter"
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    installed = {
+        arg.id
+        for node in ast.walk(main)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "installEventFilter"
+        for arg in node.args
+        if isinstance(arg, ast.Name)
+    }
+    assert bound, "app.main no longer builds a DialogCenterFilter"
+    assert bound & installed, (
+        f"app.main builds {sorted(bound)} but installs only {sorted(installed)}"
+    )
+    # And the matrix's own subprocess installs it (this file's `_measure_all`).
+    source = Path(__file__).read_text(encoding="utf-8")
+    assert "app.installEventFilter(centring)" in source
 
 
 def test_every_centered_dialog_in_the_source_is_measured() -> None:

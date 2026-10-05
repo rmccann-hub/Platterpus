@@ -98,7 +98,9 @@ _VERB_LIST: tuple[Verb, ...] = (
         "abort",
         0,
         None,
-        "abort [reason] — stop the batch here (the only verb that does)",
+        "abort [reason] — stop the batch here. Two other verbs can end a run: "
+        "`abort-if-failed`, on a failure in its own section, and a `wait-for-rip` "
+        "that runs out with the rip still reading",
     ),
     Verb(
         "abort-if-failed",
@@ -249,9 +251,18 @@ _VERB_LIST: tuple[Verb, ...] = (
         "wait-for-rip",
         1,
         1,
-        "wait-for-rip <seconds> — wait for the rip to finish, up to a timeout",
+        "wait-for-rip <seconds> — wait for the rip to finish, up to a timeout. If "
+        "the timeout runs out with the rip still reading, the run ends there and "
+        "that rip is cancelled: no later step could be graded against it",
     ),
-    Verb("cancel-rip", 0, 0, "cancel-rip — cancel a rip in progress"),
+    Verb(
+        "cancel-rip",
+        0,
+        0,
+        "cancel-rip — cancel the rip this script's last `rip` step started. A run "
+        "that ends early (`abort`, Stop, a `wait-for-rip` that runs out) cancels "
+        "that rip too",
+    ),
     Verb(
         # IMPLEMENTED 2026-08-24. It sat here with `implemented=False` and a
         # written reason — "there is no single 'status line' widget to assert

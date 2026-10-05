@@ -197,6 +197,24 @@ def _check_finding(ctx: Context, stmt: Statement) -> None:
     for fld in stmt.values("portable"):
         if fld.value not in ("yes", "no"):
             ctx.refuse(fld.line, "A3", f"{stmt.tag}: portable: is yes or no")
+    # The fork's amendment of A3 (their round 28 lap 1 S21), which our round 28
+    # lap 2 S11 accepted and this checker did not implement until their round 30
+    # lap 7 S2 found it: R9 puts a finding the other side need not act on in a
+    # commit, not a lap. Same test as theirs (`cyanrip@4371a501:tools/
+    # lap-statements.py:690-696`): portable exactly `no`, a target, none BLOCKING.
+    targets = [f.value for f in stmt.values("target")]
+    if (
+        stmt.grade == "ours"
+        and [f.value for f in stmt.values("portable")] == ["no"]
+        and targets
+        and "BLOCKING" not in targets
+    ):
+        ctx.refuse(
+            stmt.line,
+            "A3",
+            f"{stmt.tag}: a finding of ours that cannot hold in the other side's "
+            "code and blocks nothing is for a commit, not a lap",
+        )
 
 
 def _check_examined(ctx: Context, stmt: Statement) -> None:

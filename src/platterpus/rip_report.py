@@ -424,35 +424,35 @@ def build_timing(
         and disc_seconds > 0
     ):
         timing["disc_seconds"] = round(disc_seconds)
-    # `elapsed / disc_seconds` is only a RATE if the whole disc was ripped. On a
-    # cancelled rip it silently reports the fraction of the disc covered, which
-    # reads as an implausibly fast rip: the rig's 2-of-14 cancel logged
-    # `realtime_multiplier: 0.21` (755 s of a 3582 s disc) when actual throughput
-    # was about 0.93x. A plausible wrong number is worse than none, because
-    # nothing about it invites checking.
+    # ONE QUANTITY UNDER ONE NAME: elapsed ÷ the audio the rip read, "this rip
+    # took N times that audio's running time". Two mistakes lived here, both in
+    # the denominator's reach (2026-10-05, from the filed reports):
     #
-    # Three outcomes, in order of how much we know:
-    #   * a completed rip           -> elapsed / disc audio, the real rate
-    #   * a partial rip that told us how much audio it DID extract
-    #                               -> elapsed / that, still a real rate
-    #   * anything else             -> null, and null means "we cannot say"
+    #   * a rip that did not finish divided the other way, audio ÷ elapsed (the
+    #     drive's throughput), so `0.93` meant "faster than real time" in one
+    #     report and `1.01` meant "slower" in the next, under the same key;
+    #   * a rip that finished on purpose with 2 of 14 tracks divided by the
+    #     WHOLE disc: every 2-track rip filed since round 26 reads `0.12`, when
+    #     413 s over its two tracks is about 1.0.
     #
-    # `completed=None` keeps every existing caller on the old behaviour: a caller
-    # that does not know whether the rip finished has not asserted that it didn't.
+    # So the audio actually extracted is the denominator whenever it is known,
+    # finished or not. Without it, the disc's length is used only for a rip not
+    # known to have stopped early, which is the old behaviour for a caller with no
+    # geometry; a rip known to have stopped early gets null, because elapsed over
+    # the disc is then the fraction covered, not a rate (the rig's 2-of-14 cancel
+    # logged `0.21` that way, 2026-08-01).
     if not isinstance(elapsed_seconds, int | float) or elapsed_seconds <= 0:
         return timing
+    if isinstance(audio_seconds_ripped, int | float) and audio_seconds_ripped > 0:
+        timing["realtime_multiplier"] = round(elapsed_seconds / audio_seconds_ripped, 2)
+        timing["realtime_multiplier_basis"] = "audio actually extracted"
+        return timing
     if completed is False:
-        if isinstance(audio_seconds_ripped, int | float) and audio_seconds_ripped > 0:
-            timing["realtime_multiplier"] = round(
-                audio_seconds_ripped / elapsed_seconds, 2
-            )
-            timing["realtime_multiplier_basis"] = "audio actually extracted"
-        else:
-            timing["realtime_multiplier"] = None
-            timing["realtime_multiplier_basis"] = (
-                "not computed — the rip did not finish, so elapsed over the "
-                "disc's length would be the fraction covered, not a rate"
-            )
+        timing["realtime_multiplier"] = None
+        timing["realtime_multiplier_basis"] = (
+            "not computed — the rip did not finish, so elapsed over the "
+            "disc's length would be the fraction covered, not a rate"
+        )
         return timing
     if isinstance(disc_seconds, int | float) and disc_seconds > 0:
         timing["realtime_multiplier"] = round(elapsed_seconds / disc_seconds, 2)
@@ -870,10 +870,15 @@ def build_settings(config: object, *, read_offset_effective: int | None = None) 
 #: and every one of those reports said `"ran"`.
 SUPERSEDED_GATE: Final[str] = "superseded — a newer rip started before this finished"
 
-#: The state of a requested check on a rip that did not finish. Every post-rip
-#: check starts only after a SUCCESSFUL rip (`_on_rip_finished` gates the whole
-#: chain on `success`), so on a failed or cancelled rip none of them was begun —
-#: and `"ran"` there is a statement about the settings describing the work.
+#: The state of a requested check on a rip that did not finish and never began
+#: it. Every post-rip check starts only after the album pass succeeded
+#: (`_on_rip_finished` gates the whole chain on `success`), so on a failed rip
+#: none of them was begun, and `"ran"` there is a statement about the settings
+#: describing the work. **A cancelled rip is not always that case:** a cancel
+#: during the securing pass leaves the album pass finished, and the chain starts
+#: (2026-10-04, 19:07:11: CTDB and FLAC verify began, and a newer rip superseded
+#: them 46 s later, while this said they never ran). So it is applied only to a
+#: check the caller's ledger says was not launched.
 #:
 #: Measured, not reasoned: the 2026-09-24 acceptance run's section F rip was
 #: killed 95 s in, and its report carried `gates.ctdb: "ran"` and
@@ -935,6 +940,7 @@ def build_gates(
     transcode_requested: bool,
     superseded: Collection[str] = (),
     rip_status: str | None = None,
+    launched: Collection[str] | None = None,
 ) -> dict:
     """Build ``verification.gates``: WHY each verification sub-block is or isn't
     populated.
@@ -956,6 +962,12 @@ def build_gates(
     step earlier: there the work was begun and dropped, here it was never begun.
     ``None`` (unknown) changes nothing, so a caller that has no outcome yet gets
     the request-derived states it always got.
+
+    ``launched`` names the gate keys whose check was actually started. A
+    launched check is never "not run", whatever the rip's status: it ran, or a
+    newer rip cut it short (``superseded``, which is applied first for that
+    reason). ``None`` means the caller keeps no ledger, and every claimed
+    ``"ran"`` on an unfinished rip is replaced, as before.
     """
     if not flac_verify_enabled:
         flac_gate = "disabled"
@@ -978,13 +990,16 @@ def build_gates(
     # Only over a gate that claims the work RAN. A `disabled`/`flac-only` gate is
     # already an accurate account of a null block, and overwriting it would say a
     # check was interrupted when it was never scheduled.
-    if rip_status in UNFINISHED_RIP_STATUSES:
-        for key, state in gates.items():
-            if state == "ran":
-                gates[key] = RIP_DID_NOT_FINISH_GATE
+    # What happened before what was requested: a superseded check was begun, so
+    # it is never relabelled as one that never ran.
     for key in superseded:
         if gates.get(key) == "ran":
             gates[key] = SUPERSEDED_GATE
+    if rip_status in UNFINISHED_RIP_STATUSES:
+        began = set(launched) if launched is not None else set()
+        for key, state in gates.items():
+            if state == "ran" and key not in began:
+                gates[key] = RIP_DID_NOT_FINISH_GATE
     return gates
 
 

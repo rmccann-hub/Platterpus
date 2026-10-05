@@ -963,6 +963,79 @@ def _pin_pioneer(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+def test_the_rip_estimate_uses_the_drives_own_rate_else_the_rigs_for_its_model(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A drive with rips of its own is estimated from them; the rig's drive model
+    with none gets the rig's measurement; any other drive gets no estimate,
+    because drives differ several-fold and a wrong figure is worse than none."""
+    from dataclasses import replace
+
+    from platterpus.drive_profiles import DriveProfile
+    from platterpus.rip_estimate import ReadRate
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    seeded = window._read_rate_for_current_drive()
+    assert seeded is not None and seeded.rips == 0, "the rig's model got no seed"
+
+    own = ReadRate(1800.0, 900.0, 4)
+    window._drive_profiles.upsert(
+        replace(
+            DriveProfile(
+                fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D"
+            ),
+            read_rate=own,
+        )
+    )
+    assert window._read_rate_for_current_drive() == own
+
+    other = DriveDescriptor(device="", vendor="ACME", model="DVD-RW 9000", release="1")
+    monkeypatch.setattr(window._drive_picker, "current_drive", lambda: other)
+    assert window._read_rate_for_current_drive() is None
+
+
+def test_a_finished_rip_teaches_the_drive_its_speed_but_a_uniform_rip_does_not(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only a first pass that read each track once: a uniform `-Z` rip's
+    extraction times hold every read, and would make the drive look slower."""
+    from types import SimpleNamespace
+
+    from platterpus.drive_profiles import DriveProfile
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    window._drive_profiles.upsert(
+        DriveProfile(fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D")
+    )
+    track = SimpleNamespace(
+        start_sector=0, end_sector=7499, extraction_elapsed_seconds=50.0
+    )
+    rip_log = SimpleNamespace(tracks=[track])  # 100 s of audio in 50 s
+
+    window._rip_cancelled = False
+    window._active_rip_params = SimpleNamespace(
+        secure_rerip_matches=2, secure_rerip_dynamic=False
+    )
+    window._learn_read_rate(rip_log, success=True)
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.read_rate is None, "a uniform rip taught"
+
+    window._active_rip_params = SimpleNamespace(
+        secure_rerip_matches=2, secure_rerip_dynamic=True
+    )
+    window._learn_read_rate(rip_log, success=False)
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.read_rate is None, "a failed rip taught"
+
+    window._learn_read_rate(rip_log, success=True)
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.read_rate is not None
+    assert profile.read_rate.rips == 1 and profile.read_rate.multiple == 0.5
+    window._active_rip_params = None
+
+
 def test_rip_lock_greys_conflicting_ui(teardown_threads) -> None:
     """During a rip the drive picker and conflicting menu actions grey out; Quit
     stays available (it force-stops on exit). Unlock restores.
@@ -1274,6 +1347,33 @@ def test_rip_self_heals_untrusted_wrong_offset(
     assert rip_kwargs and rip_kwargs[0].get("read_offset_override") == 667
 
 
+def test_starting_a_rip_hands_the_worker_the_drives_reading_speed(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The estimate is made in the worker, from the rate the start path gives
+    it; a rate that never reaches the worker makes no estimate at all."""
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _o: True
+    )
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    started: list[object] = []
+    monkeypatch.setattr(window, "_start_rip_worker", started.append)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "platterpus.ui.message_boxes.warning",
+        lambda *a, **k: QMessageBox.StandardButton.No,
+    )
+
+    window._on_rip_requested(_params_unknown())
+
+    assert started, "floor: the rip never reached the worker"
+    rate = getattr(started[0], "read_rate", None)
+    assert rate is not None and rate.rips == 0, (
+        f"the Pioneer's rig seed did not reach the worker: {rate}"
+    )
+
+
 def test_rip_does_not_heal_a_deliberate_manual_offset(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1370,6 +1470,42 @@ def test_rip_finished_shows_actionable_failure_hint(
     report_writer.writer().flush()  # the report write is off-thread now
 
     assert any("Track 3" in s for s in statuses)
+
+
+def test_a_rip_cancelled_after_its_read_finished_says_cancelled_not_done(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The window, not only the helper: a cancel during the securing pass.
+
+    The worker still reports the rip produced (the album pass finished), so the
+    finish handler composes the fidelity line. It must say the rip was cancelled,
+    as the report beside it does (the 2026-10-04 rig run read "Done").
+    """
+    from types import SimpleNamespace
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False, failure_hint=""
+    )
+    window._active_rip_params = None
+    window._rip_cancelled = True
+    window._auto_retry_done = True
+    statuses: list[str] = []
+    monkeypatch.setattr(window._rip_progress, "set_status", statuses.append)
+    log_file = tmp_path / "rip.log"
+    log_file.write_text(
+        _ROUND30_OCT04_FULL_LOG.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    window._on_rip_finished(True, str(log_file))
+    report_writer.writer().flush()  # the report write is off-thread now
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+
+    assert any(
+        s.startswith("Rip cancelled after the read finished") for s in statuses
+    ), statuses
+    assert not any(s.startswith("Done — ") for s in statuses), statuses
 
 
 def test_no_auto_heal_when_not_flagged(
@@ -1739,6 +1875,63 @@ def test_fidelity_summary_cyanrip_clean_rip() -> None:
     assert "all 2 tracks ripped cleanly" in summary
     assert "AccurateRip: 2/2" in summary
     assert "CRCs match" not in summary  # never claim a check that didn't run
+
+
+_ROUND30_OCT04_FULL_LOG = (
+    Path(__file__).resolve().parents[1]
+    / "docs"
+    / "handshake"
+    / "artifactsround30"
+    / "round30oct04full.log"
+)
+
+
+def test_fidelity_summary_does_not_call_a_track_with_unverified_skips_clean() -> None:
+    """The 2026-10-04 rig run, track 18: 2,586 paranoia skips, one frame matched.
+
+    cyanrip's own count read "Ripping errors: 0", and the status line said "all 18
+    tracks ripped cleanly, no read errors". Read off the filed log itself.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    rip_log = parse_cyanrip_log(_ROUND30_OCT04_FULL_LOG.read_text(encoding="utf-8"))
+    assert rip_log.tracks[17].paranoia_counts.get("SKIP") == 2586, "floor: the subject"
+    summary = _fidelity_summary(rip_log, expected_track_total=18)
+    assert "ripped cleanly, no read errors" not in summary
+    assert "17/18 tracks ripped cleanly" in summary
+    assert "on track(s) 18 the ripper could not verify every read" in summary
+
+
+def test_skips_on_a_track_accuraterip_verified_do_not_count_against_it() -> None:
+    """An exact AccurateRip match proves the audio however hard it was to read."""
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.4",
+        tracks=(
+            TrackResult(
+                number=1,
+                copy_crc="AAAA",
+                status="ripped successfully",
+                paranoia_counts={"SKIP": 40},
+                accuraterip_v2=AccurateRipResult(version=2, confidence=12),
+            ),
+        ),
+        health_status="No errors occurred",
+    )
+    assert "all 1 tracks ripped cleanly, no read errors" in _fidelity_summary(rip_log)
+
+
+def test_fidelity_summary_says_cancelled_when_the_cancel_came_after_the_read() -> None:
+    """The same run: cancelled during the securing pass, the line still read "Done"."""
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.4",
+        tracks=(TrackResult(number=1, copy_crc="AAAA", status="ripped successfully"),),
+        health_status="No errors occurred",
+    )
+    summary = _fidelity_summary(rip_log, cancelled=True)
+    assert summary.startswith("Rip cancelled after the read finished")
+    assert "Done" not in summary
+    assert "All 1 tracks ripped cleanly" in summary
+    assert _fidelity_summary(rip_log).startswith("Done — ")
 
 
 def test_fidelity_summary_notes_partial_offset_variant_tracks() -> None:
@@ -4680,6 +4873,43 @@ def test_auto_force_stop_frees_the_DEVICE_and_never_ejects(
     )
 
 
+def test_the_rescue_says_the_ripper_may_take_minutes_while_the_rip_is_running(
+    teardown_threads, monkeypatch
+) -> None:
+    """The countdown the status promised has run out; say what happens next.
+
+    On the 2026-10-04 damaged disc one read took 54 s, and cyanrip stops only
+    once the read in hand returns, so after the rescue the rip can stay
+    "Cancelling" for a minute or two. A status still reading "force-stopped in
+    5s" a minute later is a window that looks frozen. Only while the rip is
+    running: after it finishes, its own final line ("Rip cancelled…") stands,
+    and the rescue firing later must not overwrite it.
+    """
+    _patch_free_device_holders(monkeypatch)
+    window = teardown_threads()
+    window._force_stop_device = "/dev/sr0"
+    label = window._rip_progress._status_label
+
+    window._rip_progress.set_status("Rip cancelled by user.")
+    window._rip_worker = None
+    window._auto_force_stop()
+    _join_force_stop(window)
+    # `set_status` stamps the time in front, so the line is matched by its end.
+    assert label.text().endswith("Rip cancelled by user."), (
+        f"the rescue overwrote a finished rip's own status: {label.text()!r}"
+    )
+
+    window._force_stop_done = False
+    window._rip_worker = object()  # type: ignore[assignment]  # a rip in flight
+    try:
+        window._auto_force_stop()
+        _join_force_stop(window)
+        assert "minute or two" in label.text(), label.text()
+        assert "Force stop" in label.text(), label.text()
+    finally:
+        window._rip_worker = None
+
+
 def test_a_rescue_with_no_device_says_NOT_DETERMINED_rather_than_nothing(
     teardown_threads, monkeypatch
 ) -> None:
@@ -6602,6 +6832,26 @@ def test_reset_disc_view_clears_disc_state(teardown_threads) -> None:
     assert window._current_release_id == ""
     assert window._current_num_tracks == 0
     assert window._current_disc_id == ""
+
+
+def test_a_disc_leaving_the_drive_keeps_the_drives_own_rows(teardown_threads) -> None:
+    """The 2026-10-04 rig runs after a disc swap showed "—" for the read offset and
+    the cache defeat until a Rescan: the removal reset cleared rows that describe
+    the DRIVE, and inserting the next disc refilled nothing. A drive change still
+    clears them, then refills them from the new drive's profile."""
+    window = teardown_threads()
+    panel = window._disc_info_panel
+    panel.set_drive_offset_provenance("+667 — confirmed")
+    panel.set_drive_cache_defeat("Yes — measured")
+    panel._mb_id_value.setText("disc-abc")
+
+    window._reset_disc_view()
+
+    assert panel._offset_value.text() == "+667 — confirmed"
+    assert panel._cache_value.text() == "Yes — measured"
+    assert panel._mb_id_value.text() != "disc-abc", "floor: the disc rows did clear"
+    panel.clear_disc_state()
+    assert panel._offset_value.text() != "+667 — confirmed"
 
 
 @pytest.mark.parametrize(
@@ -12060,6 +12310,58 @@ def test_a_check_still_in_flight_when_the_next_rip_starts_is_sealed_superseded(
     window._seal_superseded_post_rip_work()
 
     assert record.superseded == {"ctdb", "derived"}
+
+
+def test_a_cancelled_rips_superseded_checks_reach_the_report_as_superseded(
+    teardown_threads,
+) -> None:
+    """The 2026-10-04 section I report, end to end through the window.
+
+    A cancel during the securing pass leaves the album pass finished, so the
+    chain starts: the launcher must record the check as launched (``pending``
+    alone empties as checks return, so it cannot say the chain began), and
+    ``_gates_for`` must hand that ledger to the report. Before 2026-10-05 the
+    gate read "not run — the rip did not finish" for a check that had begun and
+    was then superseded by section J's rip.
+    """
+    from platterpus import rip_report
+
+    window = teardown_threads()
+    record = window._capture_post_rip_record(None, None)
+    record.gate_inputs = {
+        "ctdb_enabled": True,
+        "flac_verify_enabled": False,
+        "backend_self_verifies": False,
+        "recompress_enabled": False,
+        "backend_maxes_compression": False,
+        "transcode_requested": False,
+    }
+    record.outcome = {"status": "cancelled"}
+    release = threading.Event()
+    thread = window._launch_post_rip_daemon(
+        compute=lambda _sc: release.wait(10) and None,
+        signal=window.ctdb_verify_done,
+        thread_attr="_ctdb_thread",
+        gate="ctdb",
+    )
+    try:
+        assert record.launched == {"ctdb"}
+        window._seal_superseded_post_rip_work()  # the next rip's Start
+    finally:
+        release.set()
+        thread.join(timeout=10)
+
+    assert record.superseded == {"ctdb"}
+    assert record.launched == {"ctdb"}, "the ledger of launched checks emptied"
+    gates = window._gates_for(record)
+    assert gates["ctdb"] == rip_report.SUPERSEDED_GATE, gates
+
+    # The same cancel with no newer rip: the check began and landed, so it ran.
+    # This half needs the ledger itself to reach the report, not only the order
+    # in which the two relabellings are applied.
+    record.superseded = set()
+    record.ctdb = object()
+    assert window._gates_for(record)["ctdb"] == "ran"
 
 
 def test_a_check_that_landed_just_before_the_next_start_is_not_called_dropped(

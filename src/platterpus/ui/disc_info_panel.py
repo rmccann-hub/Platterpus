@@ -159,12 +159,20 @@ class DiscInfoPanel(QWidget):
         self._drive_value.setText(format_drive_summary(descriptor, device))
         self.clear_disc_state()
 
-    def clear_disc_state(self) -> None:
-        """Reset every disc-derived field. Called on drive change."""
+    def clear_disc_state(self, *, keep_drive_rows: bool = False) -> None:
+        """Reset every disc-derived field, and the drive rows unless told not to.
+
+        ``keep_drive_rows`` is for a disc leaving the drive: the drive has not
+        changed, so its offset and cache-defeat rows are still true, and nothing
+        refills them until the next drive change or Rescan. Clearing them there
+        made the 2026-10-04 rig runs that followed a disc swap show "—" for both.
+        """
         self._mb_id_value.setText(_PLACEHOLDER)
         self._cddb_id_value.setText(_PLACEHOLDER)
         self._mb_match_value.setText(_PLACEHOLDER)
         self._accuraterip_value.setText(_PLACEHOLDER)
+        if keep_drive_rows:
+            return
         # The offset row is drive-derived (not disc-derived), but it's cleared
         # here too so a stale value never lingers under a freshly-picked drive;
         # the main window repopulates it from the drive profile right after.
