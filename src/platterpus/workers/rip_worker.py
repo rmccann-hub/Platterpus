@@ -20,6 +20,7 @@ Cancel:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import math
 import re
@@ -49,6 +50,7 @@ from platterpus.adapters.rip_backend import (
 from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
 from platterpus.adapters.ripper_log_verify import LogVerification
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
+from platterpus.ladder_trigger import judge_step_down
 from platterpus.parsers import cyanrip_log
 from platterpus.parsers.rip_log import RereadAgreement
 from platterpus.read_speed_ladder import (
@@ -802,6 +804,24 @@ def _percent_or_none(raw: str) -> float | None:
         log.warning("non-finite percentage in ripper output: %r", raw[:32])
         return None
     return value
+
+
+def _log_fingerprint(log_path_str: str) -> str | None:
+    """The ripper log's content digest, or None when there is no log to read.
+
+    How the ladder tells a log this pass wrote from one an earlier pass left on
+    disk. Content, not mtime: two passes can finish inside one timestamp tick, and
+    two real passes never write the same bytes (each log carries its own start and
+    finish times, and a step changes the argv it prints). Runs on the worker
+    thread. Never raises.
+    """
+    if not log_path_str:
+        return None
+    try:
+        return hashlib.sha256(Path(log_path_str).read_bytes()).hexdigest()
+    except OSError as exc:
+        log.warning("could not read %s to fingerprint it: %s", log_path_str, exc)
+        return None
 
 
 class RipWorker(QObject):
@@ -1784,8 +1804,9 @@ class RipWorker(QObject):
 
     def _run_rip(self) -> None:
         """The rip's main body: run the adaptive read-speed ladder — rip once,
-        and — in ``auto_ladder`` mode — if the pass completed with unrecoverable
-        read errors, re-rip the disc a rung slower (and, at the floor, with a
+        and — in ``auto_ladder`` mode — if the pass finished with unrecoverable
+        read errors (whatever cyanrip's exit code; ``judge_step_down``), re-rip
+        the disc a rung slower (and, at the floor, with a
         higher ``-Z``), until it reads clean or the ladder is exhausted (then the
         disc is FLAGGED via the recorded attempts). A clean disc, or ``fixed``
         mode, is a single pass exactly as before — no regression. Each pass's
@@ -1861,6 +1882,10 @@ class RipWorker(QObject):
         success = False
         log_path_str = ""
         parsed_log: object | None = None
+        # The logs the passes so far wrote, by content. A pass that fails before
+        # cyanrip opens its log leaves the previous pass's log on disk, and the
+        # ladder must not judge it by that one (see `judge_step_down`).
+        logs_seen: set[str] = set()
         attempt = 0
         while True:
             attempt += 1
@@ -1882,8 +1907,15 @@ class RipWorker(QObject):
             if self._cancelled:
                 break
             parsed_log = self._parse_log(log_path_str)
+            fingerprint = _log_fingerprint(log_path_str)
+            log_is_this_passes = (
+                fingerprint is not None and fingerprint not in logs_seen
+            )
+            if fingerprint is not None:
+                logs_seen.add(fingerprint)
             # Whether this pass's log shows unrecoverable read errors — the ONLY
-            # signal that triggers a step-down (below).
+            # signal that triggers a step-down (below), and only on a pass that
+            # finished.
             had_read_errors = read_errors_present(parsed_log)
             # Read instability: tracks whose secure re-read (-Z) never converged.
             # These do NOT trigger the whole-disc step-down (escalation below keys
@@ -1914,14 +1946,33 @@ class RipWorker(QObject):
             self._speed_attempts.append(
                 SpeedAttempt(attempt, speed, secure_rerip, clean=clean)
             )
-            # Escalate only in auto_ladder mode, only on a pass that COMPLETED
-            # with unrecoverable read errors (not a hard crash — re-ripping a
-            # broken drive/disc just burns time; not mere instability — see
-            # above), and only while the ladder + hard cap allow.
-            if (
-                not (auto_ladder and success and had_read_errors)
-                or attempt >= MAX_ATTEMPTS
-            ):
+            # Escalate only in auto_ladder mode, only on a pass that FINISHED with
+            # unrecoverable read errors, and only while the ladder + hard cap
+            # allow. NOT keyed on `success`: cyanrip exits 1 whenever the drive
+            # failed a read, so a gate on exit 0 ended the ladder on the one pass
+            # it exists for (the fork's round 30 lap 9 S27). `judge_step_down` is
+            # the one predicate; it reads completion from the log, refuses a
+            # cancel, a kill, an encoder failure and a log this pass did not
+            # write, and leaves instability and `.20`'s skips to the per-track
+            # handling below.
+            if not auto_ladder or attempt >= MAX_ATTEMPTS:
+                break
+            verdict = judge_step_down(
+                parsed_log,
+                exit_code=self._ripper_exit_code,
+                stopped_by_us=self._we_stopped_ripper(),
+                log_is_this_passes=log_is_this_passes,
+                only_tracks=self._params.only_tracks,
+                disc_track_total=self._params.disc_track_total,
+            )
+            if not verdict.warranted:
+                # Said in the app log, so a returned report shows why a pass that
+                # read badly did not step (the line the fork found missing).
+                log.info(
+                    "read-speed ladder: no step after pass %d: %s",
+                    attempt,
+                    verdict.reason,
+                )
                 break
             step = next_step(
                 current_speed=speed,
@@ -1946,7 +1997,9 @@ class RipWorker(QObject):
                 break
             speed, secure_rerip = step.speed, step.secure_rerip_matches
             self.status.emit(f"Read errors — {step.reason}…")
-            self.log_line.emit(f"[read-speed ladder] {step.reason}")
+            ladder_line = f"[read-speed ladder] {verdict.reason}; {step.reason}"
+            log.info("%s", ladder_line)
+            self.log_line.emit(ladder_line)
 
         # Post-rip targeted secure re-rip: re-rip just the track(s) that need it
         # (via cyanrip's -l, into a temp dir — the album's whole-disc log/cue stay
@@ -1957,6 +2010,15 @@ class RipWorker(QObject):
         #   • else auto_ladder → a -Z pass left an unstable track (never converged),
         #     so re-read it HARDER (escalate to the -Z ceiling).
         # Neither can make a track worse; skipped entirely in plain fixed mode.
+        #
+        # STILL keyed on `success` (exit 0), deliberately, though the ladder above
+        # no longer is. When the ladder ends on a pass the drive could not read
+        # cleanly (exhausted, or fixed mode), cyanrip exited 1 and this is skipped,
+        # as it always was. Running it there would overwrite `_ripper_exit_code`,
+        # which the report states as THE ripper's exit, with the securing pass's
+        # own, under an outcome the window still calls failed; and whether exit 1
+        # over a finished rip should read as failed is the fork's open round 30
+        # lap 9 S13 and the maintainer's verdict. Tracked in TASKS.md (round 30).
         if success and not self._cancelled:
             if dynamic_secure:
                 # Dynamic mode: secure the AccurateRip-failing tracks at the user's
@@ -2089,6 +2151,11 @@ class RipWorker(QObject):
             # overall bar short of full (the post-rip AccurateRip phase
             # has no reliable percentage of its own).
             self.progress.emit(100.0, 100.0)
+        # `success` is the LAST pass's exit 0, unchanged by the ladder fix: the
+        # window's outcome ("failed"), status line and report read it as the
+        # ripper's own verdict, and a ladder that ends on a pass the drive could
+        # not read cleanly reports that pass as cyanrip did. See the securing-pass
+        # gate above for why that verdict is not ours to soften here.
         self.finished.emit(success, log_path_str)
 
     def _await_ripper_log(self, log_path_str: str) -> LogSettle:

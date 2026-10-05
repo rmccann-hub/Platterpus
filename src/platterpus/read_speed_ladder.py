@@ -19,7 +19,9 @@ a disc that still can't read clean at the floor is FLAGGED, never papered over).
     the fork's ``+platterpus.20`` the per-track arm also says "with errors" for
     paranoia skips and for a ``-Z`` track at the repeat limit, which are
     instability, so those two are left out of the trigger
-    (:func:`_instability_explains_arm`).
+    (:func:`_instability_explains_arm`), and its count includes the skips, which
+    are taken out (``RipLog.drive_read_errors``). A step also needs the pass to
+    have FINISHED, whatever cyanrip's exit code says (:mod:`ladder_trigger`).
   * *Read instability* — cyanrip's secure re-read (``-Z N``) hit its repeat limit
     before enough reads agreed (:func:`unstable_tracks`). A real disc proved
     the error COUNT stays 0 even then, so this is the reliable per-track quality
@@ -240,11 +242,24 @@ def read_errors_present(rip_log: object) -> bool:
     there (:func:`_instability_explains_arm`). A disc simply *not in
     AccurateRip* is NOT an error (nothing to re-read for) — this returns False
     for it, so the ladder never spins on a clean-but-unknown disc.
+
+    **The drive's own count first, when the log states one** (``RipLog.
+    drive_read_errors``). From the fork's ``.20`` the count behind
+    ``health_status`` includes paranoia's skips (their round 30 lap 9 S11), and
+    reading the sentence would step the whole disc down on instability that is
+    handled per track (S12). The sentence is the fallback for a log that states
+    no such count. Whether the pass FINISHED is a separate question, asked by
+    ``ladder_trigger.judge_step_down``, which is what the rip worker calls.
     """
     try:
-        health = getattr(rip_log, "health_status", "") or ""
-        if health and "no error" not in health.lower():
-            return True
+        drive = getattr(rip_log, "drive_read_errors", None)
+        if isinstance(drive, int) and not isinstance(drive, bool):
+            if drive > 0:
+                return True
+        else:
+            health = getattr(rip_log, "health_status", "") or ""
+            if health and "no error" not in health.lower():
+                return True
         for track in getattr(rip_log, "tracks", ()) or ():
             if "error" not in (getattr(track, "status", "") or "").lower():
                 continue
