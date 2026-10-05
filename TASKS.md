@@ -998,6 +998,21 @@ each side's reading; and the closing releases named.
   Sending a flag we have never sent is a change to what crosses the seam: it goes to the
   fork in our next lap, with the consumer contract regenerated when it lands.
   - *2026-09-30: DONE.* The fork measured `-U` safe (their round 30 lap 5 S15-S16, held when read): `-N -G` vs `-N -G -U` differ by that one line, every checksum identical, `-C` art still loads. We send it on every rip; the consumer contract is regenerated (22 flags); declared in our lap 6.
+- [x] **Their lap 9 S29: our stdout capture dropped every track's outcome line — HELD,
+  ours, and FIXED** (2026-10-05). The read loop asked `_progress_for(line) is not None` to
+  decide what to leave out of the capture and what to throttle in the log pane, and
+  `Track N read successfully!` / `read with errors.` moves the bar, so it went with the
+  redraws; the report still called the capture *"complete even when the ripper was
+  killed"*. Counted in the filed capture
+  (`cyanrip@89e9b4d:docs/rig-2026-10-05-174a134/rips/full-acceptance-angle-bracket.ripper-stdout.txt`):
+  16 `Flushing encoders...` lines, each followed directly by `Summary:`. From `.20`
+  that line carries a verdict (their S9, S10).
+  - *Done in ef8d770e:* one predicate for a redraw (`rip_worker._is_progress_redraw`),
+    `cyanrip_log.finished_track` for an outcome, one routing call for the capture and
+    the throttle; each run of redraws kept as its first and last line plus a counted
+    `[platterpus] … N progress redraws elided here …` marker (`redraw_run.py`); the
+    report's label says exactly that. 13 reverts probed, all as expected. Still to say
+    in a lap: our next lap answers S29 with this commit. Their S34 X5 asks the same.
 - [x] **Our gate implements protocol 7** (our lap 8 S41: *"before our round 31 lap 1"*;
   done 2026-10-05). v7 §15's condition held: `docs/handshake-protocol.md` is byte-identical
   to `cyanrip@872b4156:docs/handshake/PROTOCOL.md` (`b9611d3b…`). `PROTOCOL_VERSION` is 7;
