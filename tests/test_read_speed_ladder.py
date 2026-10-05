@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from hypothesis import given
 from hypothesis import strategies as st
 
 from platterpus import read_speed_ladder as rsl
+from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 from platterpus.read_speed_ladder import (
     DEFAULT_LADDER,
     FLOOR_SPEED,
@@ -342,3 +345,63 @@ def test_next_step_swallows_internal_failure(monkeypatch) -> None:
 def test_attempts_to_report_swallows_internal_failure(monkeypatch) -> None:
     monkeypatch.setattr(rsl, "_speed_label", _boom)
     assert attempts_to_report([SpeedAttempt(1, 0, 0, clean=True)]) is None
+
+
+# --- the ladder keys on the same thing whichever build wrote the log --------
+#
+# From `+platterpus.20` the fork moves a track to `read with errors.` when
+# paranoia skipped on it or its `-Z` re-read hit the repeat limit
+# (`cyanrip@1770d3c:src/cyanrip_main.c:1276-1282`); up to `.19` only a read the
+# drive failed did. These rewrite real filed `.19`-era logs into `.20`'s arm, by
+# `.20`'s own condition, and require the ladder to decide the same way.
+
+_ARTIFACTS = Path(__file__).resolve().parent.parent / "docs" / "handshake"
+_FILED = (
+    "artifactsround30/round30oct04full.log",  # track 18: 2,586 paranoia skips
+    "artifactsround27/round27fullsecurereread.log",  # a -Z track at the limit
+    "artifactsround28/round28fullsecurereread.log",
+    "artifactsround26/round26securereread.log",
+)
+
+
+def _as_written_by_20(text: str) -> tuple[str, int]:
+    """The same log with `.20`'s arm, and how many tracks it moved."""
+    moved = 0
+    for track in parse_cyanrip_log(text).tracks:
+        counts = track.paranoia_counts or {}
+        skips = counts.get("SKIP", 0) if isinstance(counts, dict) else 0
+        if (skips or track.secure_rerip_converged is False) and (
+            track.status == "ripped successfully"
+        ):
+            old = f"Track {track.number} read successfully!"
+            if old in text:
+                text = text.replace(old, f"Track {track.number} read with errors.")
+                moved += 1
+    return text, moved
+
+
+def test_instability_moved_into_the_errors_arm_does_not_step_the_disc_down() -> None:
+    moved_total = 0
+    for name in _FILED:
+        text = (_ARTIFACTS / name).read_text(encoding="utf-8", errors="replace")
+        rewritten, moved = _as_written_by_20(text)
+        moved_total += moved
+        before = parse_cyanrip_log(text)
+        after = parse_cyanrip_log(rewritten)
+        if moved:
+            assert any("error" in t.status for t in after.tracks), name
+        assert read_errors_present(after) == read_errors_present(before), name
+    # The floor: without a moved track the comparison above is silence against
+    # silence.
+    assert moved_total >= 4, f"only {moved_total} tracks moved across {_FILED}"
+
+
+def test_a_failed_read_still_steps_the_disc_down_beside_instability() -> None:
+    """The drive's own failures are what the ladder is for, and stay counted."""
+    unstable = _Track("ripped with errors", secure_rerip_converged=False)
+    unstable.paranoia_counts = {"SKIP": 12}
+    failed = _Track("ripped with errors")
+    failed.paranoia_counts = {"SKIP": 0}
+    assert read_errors_present(_Log("", (unstable,))) is False
+    assert read_errors_present(_Log("", (unstable, failed))) is True
+    assert read_errors_present(_Log("1 ripping errors", (unstable,))) is True

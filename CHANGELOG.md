@@ -131,6 +131,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **The re-read path's description no longer says it has never run on a drive.**
   The 2026-10-04 Full run exercised it on a damaged disc, and no track
   converged, so nothing was swapped; the docstring now says that.
+- **The next cyanrip build will not make a damaged disc re-read whole at a
+  slower speed.** The fork's next build (`+platterpus.20`) marks a track "read
+  with errors" when the drive's error correction gave up on parts of it, or when
+  its re-reads never agreed. Until now only a read the drive failed outright
+  was marked that way. Platterpus's automatic speed ladder re-reads the whole
+  disc slower when a track is marked with errors, so with the new build one
+  unstable track would have cost a full extra pass, hours on a damaged disc.
+  Those two cases are already handled track by track and flagged, so the
+  ladder now leaves them out and steps down only for reads the drive failed,
+  as before.
 - **Starting Platterpus should no longer stall for a minute while the ripping
   container starts.** At launch, the dependency check and the first disc scan
   both started the stopped container in the same second, and both hung: the

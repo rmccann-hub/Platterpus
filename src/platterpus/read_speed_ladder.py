@@ -15,7 +15,11 @@ a disc that still can't read clean at the floor is FLAGGED, never papered over).
 **Two signals, deliberately kept apart (real-hardware finding, 2026-07-01):**
   * *Unrecoverable read errors* — cyanrip's finish-report ripping-error count /
     a per-track "with errors" status. This is what TRIGGERS the step-down
-    (:func:`read_errors_present`); it means the drive gave up on a read.
+    (:func:`read_errors_present`); it means the drive gave up on a read. From
+    the fork's ``+platterpus.20`` the per-track arm also says "with errors" for
+    paranoia skips and for a ``-Z`` track at the repeat limit, which are
+    instability, so those two are left out of the trigger
+    (:func:`_instability_explains_arm`).
   * *Read instability* — cyanrip's secure re-read (``-Z N``) hit its repeat limit
     before enough reads agreed (:func:`unstable_tracks`). A real disc proved
     the error COUNT stays 0 even then, so this is the reliable per-track quality
@@ -232,7 +236,8 @@ def read_errors_present(rip_log: object) -> bool:
     Pure and never raises (it drives an escalation decision from a best-effort
     parse). cyanrip normalises its finish line to ``health_status`` of
     "No errors occurred" (0 errors) or "N ripping errors"; a per-track failure
-    also lands as an "error" in that track's status. A disc simply *not in
+    also lands as an "error" in that track's status, unless instability put it
+    there (:func:`_instability_explains_arm`). A disc simply *not in
     AccurateRip* is NOT an error (nothing to re-read for) — this returns False
     for it, so the ladder never spins on a clean-but-unknown disc.
     """
@@ -241,12 +246,39 @@ def read_errors_present(rip_log: object) -> bool:
         if health and "no error" not in health.lower():
             return True
         for track in getattr(rip_log, "tracks", ()) or ():
-            if "error" in (getattr(track, "status", "") or "").lower():
-                return True
+            if "error" not in (getattr(track, "status", "") or "").lower():
+                continue
+            if _instability_explains_arm(track):
+                continue
+            return True
         return False
     except Exception:  # noqa: BLE001 — an escalation predicate must not crash
         log.exception("read_errors_present failed; assuming no errors")
         return False
+
+
+def _instability_explains_arm(track: object) -> bool:
+    """True when a track's ``with errors`` arm reports instability, not a failed read.
+
+    **Why this exists.** From ``+platterpus.20`` the fork moves a track to
+    ``read with errors.`` in two cases that were ``read successfully!`` before:
+    paranoia skipped on it, or its ``-Z`` re-read hit the repeat limit
+    (``cyanrip@1770d3c:src/cyanrip_main.c:1276-1282``). Up to ``.19`` only a read
+    the drive failed moved the arm, and every such read is also counted in
+    ``Ripping errors:``, which the health check above reads first.
+
+    Instability is handled per track (the securing pass and the auto-fix), never
+    by re-reading the whole disc slower; see :func:`unstable_tracks`. Leaving
+    these two cases out keeps the ladder keyed on what it was keyed on, whichever
+    build wrote the log. Whether skips SHOULD step the speed down is a policy
+    question for the maintainer; a ripper upgrade must not answer it for them.
+    Never raises.
+    """
+    if getattr(track, "secure_rerip_converged", None) is False:
+        return True
+    counts = getattr(track, "paranoia_counts", None) or {}
+    skips = counts.get("SKIP", 0) if isinstance(counts, dict) else 0
+    return isinstance(skips, int) and skips > 0
 
 
 def unstable_tracks(rip_log: object) -> list[int]:
