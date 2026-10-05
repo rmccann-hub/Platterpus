@@ -40,6 +40,7 @@ import hashlib
 import logging
 from pathlib import Path
 
+from platterpus.redraw_run import REDRAW_ELISION
 from platterpus.report_types import ArtifactEntry, ArtifactsBlock
 
 log = logging.getLogger(__name__)
@@ -51,6 +52,17 @@ log = logging.getLogger(__name__)
 # header carries the drive, offset, paranoia level and disc identity, and
 # losing those costs more than losing the last tracks.
 MAX_ARTIFACT_BYTES: int = 512 * 1024
+
+# The `source` of the embedded ripper stdout: what the capture holds, and only
+# that. `rip_worker` builds the capture; the marker is quoted from the module that
+# writes it, and a test holds the rest of this text to the worker's behaviour.
+RIPPER_STDOUT_LABEL: str = (
+    "captured from the ripper's stdout as it printed, so it survives the ripper "
+    "being killed: every line in order, except that each run of progress redraws "
+    "keeps only its first and last line, with a "
+    f"'{REDRAW_ELISION.format(count='N')}' marker counting the rest; past the "
+    "line cap, the head and tail are kept with a counted marker"
+)
 
 # The only suffixes we will read into the report. Deliberately narrow, and
 # deliberately not "anything that isn't audio" — an allowlist fails closed when
@@ -171,10 +183,14 @@ def build_artifacts(
         "rip_log": build_artifact(rip_log),
         # The kill-proof one. When `rip_log.text` is short and this is long, the
         # difference is exactly what the ripper failed to flush.
+        #
+        # The label says exactly what is kept. Until 2026-10-05 it said "progress
+        # redraws excluded; complete even when the ripper was killed" while the
+        # worker also left out every track's outcome line, the fork's round 30
+        # lap 9 S29. The marker it quotes is `redraw_run.REDRAW_ELISION`.
         "ripper_stdout": build_text_artifact(
             ripper_stdout,
-            label="captured from the ripper's stdout (progress "
-            "redraws excluded); complete even when the ripper was killed",
+            label=RIPPER_STDOUT_LABEL,
         ),
         "eac_log": build_artifact(eac_log),
         "cue": build_artifact(cue),

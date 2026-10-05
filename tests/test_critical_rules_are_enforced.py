@@ -2449,7 +2449,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3733 -> 3762** (2026-10-05): `_keep_securing_pass_log`, which copies the securing pass's own ripper log beside the album's before its temp folder is deleted (the 2026-10-04 run's cancelled pass left no record).
     # **3762 -> 3830** (2026-10-05): the up-front time estimate in the plan and the log, and shown as the ETA until the live one has measured enough (`_make_estimate`, `_early_estimate_text`; operator, 2026-10-05).
     # **3830 -> 3853** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `reread_agreements`, the re-rip's own count of agreeing reads for every re-read track with a verdict, swapped in or not, recorded at both places a re-read verdict is recorded.
-    "workers/rip_worker.py": 3853,
+    # **3853 -> 3923** (2026-10-05, the fork's round 30 lap 9 S29): `_is_progress_redraw`, the one answer to "is this line a redraw?", beside the patterns it reads, so a track's outcome line is no longer left out of the capture; `_capture_line` routes a line by it for both the capture and the log pane's throttle. The run bookkeeping went to a NEW focused module, `redraw_run.py`; what is here is the predicate, the routing and their reasons. +70, the lines added.
+    "workers/rip_worker.py": 3923,
 }
 
 
