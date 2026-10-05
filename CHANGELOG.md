@@ -176,6 +176,28 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   errors", because cyanrip's own error count leaves those reads out. It now names
   the track. A track AccurateRip confirms is still clean, however hard it was to
   read.
+- **Message boxes now fit on the screen, and open where all of them can be
+  seen.** Qt sizes its message boxes itself: no wider than half the screen, and
+  as tall as the text, with no limit. Nothing checked the result, so on a small
+  screen or with large text the longer boxes ran off the bottom of the screen
+  with their buttons: the cyanrip update and install offers (above all for a beta
+  or unapproved build), the dependency summary after a failed install, and the
+  test console's "Script commands" list, which was taller than a 1920 × 1080
+  screen. A box that is too tall is now made wider until it fits. If no width is
+  enough, its text scrolls inside it and the buttons stay on the screen.
+  Separately, every box was placed on the screen before Qt had sized it, so even
+  a box that fitted could open partly below the bottom edge: the update prompt
+  for a beta, at 150 % text on a 1080p screen at 200 % scaling, opened with Yes
+  and No out of view. Boxes are now sized first and placed after.
+- For contributors: `tests/test_ui_conformance.py` now measures every message
+  box and inline Qt dialog the app can show
+  (`tests/test_ui_message_box_conformance.py`): every `message_boxes.*` call found
+  in the source, every function that builds a `QMessageBox` (each needs a
+  scenario that drives the real code, or a test fails by name), the cyanrip offer
+  for every verdict, the app's beta update prompts, and the cyanrip upgrade
+  wizard and Setup & Updates with real pins. A new rule, `window_on_screen`,
+  catches a window that fits but is placed off the screen. The 24 px target-size
+  sweep now reads a minimum of 0 as clearing a size, not setting one.
 - **The "Install required" window no longer cuts off why a tool is needed.** Its
   "Why manual:" line held the tool's whole description on one line, so the
   descriptions of ffmpeg and cd-paranoia ran off the right edge of the window
