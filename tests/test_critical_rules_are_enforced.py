@@ -1086,7 +1086,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **428 -> 464** (2026-09-24): `run_size` and `counts_as_evidence` in the report, the not-evidence banner, and `ok` forgiving ONLY size-declined steps.
     # **464 -> 469** (2026-09-27, TASKS `report.json` drops the acceptance script's source): the source cap's comment now says what it was sized against and which test holds it to the shipped scripts, replacing the claim that it "only ever fires on an accident".
     # **469 -> 462** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `used_unsafe`, its banner and the `used_unsafe_verbs` report key went with the verbs.
-    "uiscript/report.py": 462,
+    # **462 -> 489** (2026-10-05, TASKS "a run stopped by one step prints that step's whole text twice"): `StepRecord.headline`, the failed step's first line with the rest counted, which `abort-if-failed` quotes instead of the whole detail. It is a question about one step's record, so it lives on the record; most of it is the docstring giving the run that printed one failure three times.
+    "uiscript/report.py": 489,
     # **308 -> 314** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **314 -> 322** (2026-09-26): the drive-name normaliser's separator pattern became linear, and its comment says why the lookbehind is load-bearing (docs/testing.md §5.bu).
     "adapters/accuraterip_offsets.py": 322,
@@ -2372,7 +2373,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4608 -> 4631** (2026-09-30, round 30's D3 and S24): `_deadline_cancel` and `_cancel_deadline_work`, so a waiting verb that started a child says how to stop it, and the runner calls it on stop, on timeout and on a faulted predicate (Critical rule #9: abandoning a helper is safe only once its child is dead). It is deadline machinery and lives with it. The three verb handlers went to a new mixin, `probe_verbs.py`, not here.
     # **4631 -> 4703** (2026-10-05): `cancel-rip` stops only a rip the script's last `rip` started, and `pick-release` passes only on a held, well-formed release, read through one helper shared with `expect-identified` (2026-10-04 rig runs).
     # **4703 -> 4782** (2026-10-05, the same run): a `wait-for-rip` that runs out with the rip still reading ends the run, and a run that stops early cancels the rip its last `rip` step started (`_own_rip_running`, the predicate `cancel-rip` now shares).
-    "uiscript/runner.py": 4782,
+    # **4782 -> 4786** (2026-10-05, the same TASKS row): `abort-if-failed` quotes the failed step's `headline()`, not its whole detail, with the comment saying why; the cut itself lives on `StepRecord`.
+    "uiscript/runner.py": 4786,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.

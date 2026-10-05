@@ -1298,12 +1298,20 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     for a pre-commit's `when:` to be refused unless it is "the next lap".
   - *And an ASK:* that they update the KNOWN-ISSUES entry to say the commits resolve
     through our `main`, and that the branch is gone by the operator's choice (NEXT-ROUND).
-- [ ] **A run stopped by one step prints that step's whole text twice.** The 22:13Z
+- [x] **A run stopped by one step prints that step's whole text twice.** The 22:13Z
   quick run on 0.6.63 stopped at section A (`.17` installed, as expected). The stop
   summary's *"Why it stopped"* sentence quotes the failed step's entire detail, fix
   and banner included, directly under the same detail. The fix: the summary names
   the step and its first line, and points up to the detail. UX, not archival.
 - [x] **`COMPONENTS.json` names the ripper as `0.9.4`.** The acceptance bundle's
+  - *2026-10-05: DONE.* Reproduced first: driving the real `expect-ripper-under-review`
+    failure into `abort-if-failed` printed its six-line detail 3 times in the
+    transcript (the step, the guard, ENDED EARLY) and twice in the closing dialog.
+    The guard now quotes `StepRecord.headline()`: the first line, then `[N more
+    line(s), printed in full with L<n>]`, so the cut is counted. One fix covers all
+    three surfaces, because each prints the run's `ended_reason`. Two tests, the
+    transcript and the dialog, each caught the revert (`scripts/revert_probe.py`).
+- [ ] **`COMPONENTS.json` names the ripper as `0.9.4`.** The acceptance bundle's
   component inventory carries each tool's parsed version, so the 14:42Z Full run's
   bundle says `"cyanrip": {"version": "0.9.4"}` and cannot tell the fork from upstream,
   or `.17` from `.18`. The rip logs and reports in the same bundle do name the build,

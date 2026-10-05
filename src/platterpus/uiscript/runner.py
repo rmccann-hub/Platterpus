@@ -1262,9 +1262,13 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
             )
             return
         first = failed[0]
+        # The failed step's FIRST line only (`StepRecord.headline`): this sentence
+        # becomes the run's `ended_reason`, which the transcript's ENDED EARLY line
+        # and the closing dialog's "Why it stopped" both print under the step's
+        # own full text (0.6.63's quick run printed a section-A failure 3 times).
         detail = (
             f"{len(failed)} step(s) have failed in {where!r}; the first was "
-            f"L{first.line_no} ({first.source!r}: {first.detail}). "
+            f"L{first.line_no} ({first.source!r}: {first.headline()}). "
             + (step.joined() or "stopping rather than spending the run on it")
             + earlier_note
         )

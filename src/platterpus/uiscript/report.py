@@ -167,6 +167,33 @@ class StepRecord:
         data["outcome"] = self.outcome.value
         return data
 
+    def headline(self) -> str:
+        """This step's detail cut to its FIRST line, for a sentence that quotes it.
+
+        **Why a quote is one line and not the whole detail.** `abort-if-failed`
+        names the step that stopped a run, and it used to quote that step's whole
+        detail. A failure such as `expect-ripper-under-review`'s is several lines
+        — the sentence, the one command that fixes it, the banner it read — so the
+        0.6.63 quick run printed it three times in the transcript (the step, the
+        guard under it, and ENDED EARLY) and twice in the closing dialog, the
+        second copy as "Why it stopped" directly under the first.
+
+        **The cut is counted and says where the rest is**, because a quote that
+        silently drops lines reads as the whole text (`CLAUDE.md`: a silent
+        truncation reads as completeness). The full detail stays on the step's own
+        entry, which every surface that quotes this also shows.
+        """
+        lines = self.detail.strip().splitlines()
+        if not lines:
+            return "no detail was recorded"
+        more = len(lines) - 1
+        if not more:
+            return lines[0].strip()
+        return (
+            f"{lines[0].strip()} [{more} more line(s), printed in full with "
+            f"L{self.line_no}]"
+        )
+
 
 @dataclass
 class RunReport:

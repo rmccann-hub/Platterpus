@@ -177,6 +177,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   left out, so the record also shows where each read started and how far it got.
   The report's description of the record said it was "complete"; it now says
   exactly what is kept. Found by the cyanrip fork (round 30 lap 9 S29).
+- **An acceptance run that stops at a failed check prints that check's message
+  once.** When a check that guards the rest of the run failed, the run's reason
+  for stopping quoted the check's whole message: the sentence, the fix, and the
+  ripper output it read. The results file therefore printed it three times, and
+  the dialog at the end printed it twice, the second copy as "Why it stopped"
+  right under the first. The reason now names the check and the first line of
+  its message, and says how many more lines are printed in full with the check.
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached

@@ -1452,6 +1452,67 @@ def test_a_precondition_abort_packs_no_archive_and_offers_no_folder(
     )
 
 
+def test_the_stop_dialog_prints_the_failed_steps_text_once(
+    window, session, shown_boxes, process_until, tmp_path: Path, monkeypatch
+) -> None:
+    """The closing dialog shows the failed step's text ONCE (TASKS, 0.6.63 quick run).
+
+    It shows the failed step in full and then *"Why it stopped"*, the run's own
+    reason. That reason used to quote the failed step's whole detail — the fix and
+    the banner included — so the operator read the same block twice, the second
+    copy directly under the first. Driven through the real runner and the real
+    `abort-if-failed`, because the reason is the runner's sentence, not ours.
+    """
+    from platterpus.uiscript.runner import ScriptRunner
+    from platterpus.uiscript.script import parse
+
+    launched: list[object] = []
+    monkeypatch.setattr(
+        type(window()),
+        "_launch_acceptance_bundle",
+        lambda self, *a, **k: launched.append(a),
+    )
+    runner = ScriptRunner(QWidget())
+    runner.contain_in(tmp_path / "run")
+    # What `cyanrip --version` leaves behind on an upstream build: a banner no
+    # handshake record names, so section A's identity check fails as on the rig.
+    runner._last_cyanrip_argv = ["cyanrip", "--version"]
+    runner._last_cyanrip_output = "cyanrip 0.9.4 (upstream build, no fork tag)"
+    script = (
+        "log --- A. identity: which ripper is installed ---\n"
+        "expect-ripper-under-review\n"
+        "abort-if-failed the installed ripper is not the build the record names\n"
+        "log the night that must not be spent"
+    )
+    reports: list[object] = []
+    runner.finished.connect(reports.append)
+    runner.start(parse(script), source=script)
+    assert process_until(lambda: bool(reports)), "the run never finished"
+    report = reports[0]
+    failed = [s for s in report.steps if s.source == "expect-ripper-under-review"]
+    assert failed, f"the identity step never ran: {report.steps}"
+    lines = [line.strip() for line in failed[0].detail.splitlines() if line.strip()]
+    assert len(lines) >= 3, f"the fixture's failure is not multi-line: {lines!r}"
+
+    win = window()
+    win._acceptance_layout = object()  # type: ignore[assignment]  # armed enough
+    win._on_acceptance_run_finished(report)
+
+    assert launched == [], "an archive was packed for a run that touched nothing"
+    said = shown_boxes[-1].text()
+    assert "Why it stopped" in said, f"the dialog lost its reason:\n{said}"
+    for line in lines[1:]:
+        assert said.count(line) == 1, (
+            f"{line!r} appears {said.count(line)} times in the stop dialog — the "
+            f"reason repeats the failed step's whole text:\n{said}"
+        )
+    # The first line is quoted by the reason as well as shown with the step, and
+    # that pair is the intended shape: the reason names what stopped the run.
+    assert said.count(lines[0]) == 2, (
+        f"the reason no longer names the failed step's first line:\n{said}"
+    )
+
+
 def test_a_run_that_ripped_still_packs_its_archive(
     window, session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
