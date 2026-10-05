@@ -40,6 +40,7 @@ from platterpus.deps.checks import ProbeResult
 from platterpus.deps.registry import DependencySpec
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
 
 
 class ManualInstallDialog(CenteredDialog):
@@ -69,6 +70,20 @@ class ManualInstallDialog(CenteredDialog):
         # copyable search-string row, then the button box.
         root = QVBoxLayout(self)
 
+        # **The prose scrolls; the search string and the buttons do not.** The
+        # intro and the spec's description are paragraphs, and on a short screen
+        # at a large font (853 x 533 at 150 % text) there is not room for all of
+        # it: the description was squeezed 4 px short of its last line, with
+        # nothing to scroll (audit, 2026-10-05). `FitScrollArea` asks for the
+        # whole body, so on any ordinary screen it is invisible.
+        body = QWidget(self)
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_scroll = FitScrollArea(self)
+        body_scroll.setWidget(body)
+        body_scroll.setAccessibleName(f"Why {spec.display_name} needs installing")
+        root.addWidget(body_scroll, stretch=1)
+
         # Every label built from a value STATES its text format. Qt's default,
         # AutoText, guesses: it treats the text as HTML when its first line
         # happens to contain a known tag, and then drops what it cannot render —
@@ -82,7 +97,7 @@ class ManualInstallDialog(CenteredDialog):
         intro = QLabel(self._intro_markup(escaped_name=html.escape(spec.display_name)))
         intro.setTextFormat(Qt.TextFormat.RichText)
         intro.setWordWrap(True)
-        root.addWidget(intro)
+        body_layout.addWidget(intro)
 
         # PlainText: versions and a description, none of it markup — and the
         # "Currently" version is read off the installed tool.
@@ -92,11 +107,17 @@ class ManualInstallDialog(CenteredDialog):
         current.setTextFormat(Qt.TextFormat.PlainText)
         why = QLabel(self._why_text())
         why.setTextFormat(Qt.TextFormat.PlainText)
+        # Wrapped: the reason is the spec's DESCRIPTION, a paragraph (ffmpeg's is
+        # 2,600 px of one line at the default font). Unwrapped, it pushed the
+        # dialog to the full screen width and was still cut off mid-sentence at
+        # the right edge, with its "Why manual:" caption squeezed to "Why manu"
+        # (audit, 2026-10-05). The conformance matrix measures every real spec.
+        why.setWordWrap(True)
         form = QFormLayout()
         form.addRow("Required:", required)
         form.addRow("Currently:", current)
         form.addRow("Why manual:", why)
-        root.addLayout(form)
+        body_layout.addLayout(form)
 
         # The copyable field. ReadOnly so the user can select but not
         # accidentally edit; selectByMouse + selectAll on focus keeps

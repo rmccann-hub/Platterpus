@@ -249,6 +249,11 @@ Worker mechanics, all demonstrated in `workers/`:
   mid-sentence. The base class also refuses to be narrower than its content (a
   checkbox or button cannot wrap), and grows once more by whatever a
   `FitScrollArea` still cannot show at the real width.
+- **Measure the real content, not a stand-in.** The matrix built the install
+  dialog from a test spec with a one-line description and passed it while the
+  real ffmpeg description ran 2,656 px off its edge. A window whose text comes
+  from data is measured with the real data (every spec in the registry, so a
+  new one is measured the day it lands).
 - **A UI rule is written ONCE and applied to every window, in every condition.**
   Every defect in the 2026-09-23 report had the same root: a rule solved in one
   window and never applied to the rest. `tests/test_ui_conformance.py` is the
@@ -257,7 +262,8 @@ Worker mechanics, all demonstrated in `workers/`:
   screen shapes, Breeze Dark, 150% text), against every rule: no clipped wrapped
   text, fits the screen, scrolls only when capped, text contrast ≥ 4.5:1 measured
   from the colours actually applied, no button smaller than we set or the style
-  asked for, no cut-off one-line text, no two controls sharing an Alt-key (per
+  asked for, no cut-off one-line text or text running past a scroll area that
+  cannot scroll sideways, no two controls sharing an Alt-key (per
   window and per menu), and no nameless input. A new window is measured the day
   it lands; a new rule reaches every window the day it is added; each rule has a
   floor on what it examined and was revert-probed. Its first run found four real

@@ -176,6 +176,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   errors", because cyanrip's own error count leaves those reads out. It now names
   the track. A track AccurateRip confirms is still clean, however hard it was to
   read.
+- **The "Install required" window no longer cuts off why a tool is needed.** Its
+  "Why manual:" line held the tool's whole description on one line, so the
+  descriptions of ffmpeg and cd-paranoia ran off the right edge of the window
+  mid-sentence on every screen, and the caption was squeezed to "Why manu". The
+  description now wraps, and on a short screen with large text it scrolls while
+  the search string and the buttons stay in view.
+- For contributors: the UI conformance matrix measures the install dialogs with
+  every real dependency in the registry. It used to measure them only with a test
+  stand-in whose description was one short line, which is why it passed this
+  window. Its cut-off-text rule now also catches text running past the edge of a
+  scroll area that cannot scroll sideways, which it could not see before.
 - **Quitting during a rip now closes the window at once, and gives cyanrip long
   enough to finish its log.** When you quit mid-rip, Platterpus asks cyanrip to
   stop and waits for it to write the end of its log before forcing it. cyanrip
