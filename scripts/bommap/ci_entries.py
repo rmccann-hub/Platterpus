@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from typing import Final
 
-from bommap.model import _P, Entry
-from bommap.reading import _join, _require
+from bommap.model import _P, Entry, GeneratorError
+from bommap.reading import _join, _require, _text
 from bommap.workflows import _where, workflows
 
 
@@ -46,27 +46,7 @@ def _ci_entries() -> list[Entry]:
             )
         )
 
-    # The gitleaks binary, which the action downloads and runs.
-    gitleaks_actions = [e for e in entries if e.name == "gitleaks-action"]
-    if gitleaks_actions:
-        entries.append(
-            Entry(
-                ref="ci:gitleaks",
-                category="ci-tool",
-                name="gitleaks",
-                scope="excluded",
-                description="The secret scanner the gitleaks job runs.",
-                used_in=gitleaks_actions[0].used_in,
-                external_refs=(("vcs", "https://github.com/gitleaks/gitleaks", ""),),
-                properties=(
-                    (
-                        _P + "version-basis",
-                        "chosen by gitleaks/gitleaks-action at its pinned commit; not pinned in this repository",
-                    ),
-                ),
-                required_by=tuple(e.ref for e in gitleaks_actions),
-            )
-        )
+    entries.extend(_gitleaks_entries(entries))
 
     apt: dict[str, set[str]] = {}
     for flow in workflows():
@@ -137,6 +117,78 @@ def _ci_entries() -> list[Entry]:
             )
         )
     return entries
+
+
+#: The CI workflow that runs the secret scan, and the pins its install step carries.
+_SECRET_SCAN_WORKFLOW: Final[str] = ".github/workflows/ci.yml"
+_GITLEAKS_VERSION: Final[re.Pattern[str]] = re.compile(
+    r'GITLEAKS_VERSION: "(\d+\.\d+\.\d+)"'
+)
+_GITLEAKS_SHA256: Final[re.Pattern[str]] = re.compile(
+    r'GITLEAKS_SHA256: "([0-9a-f]{64})"'
+)
+
+
+def _gitleaks_entries(entries: list[Entry]) -> list[Entry]:
+    """The gitleaks binary CI runs: pinned in the workflow, or chosen by the action.
+
+    Since 2026-10-05 (`PLANNING.md` KDD-41) the `gitleaks` job installs the CLI
+    itself, its version and the release tarball's sha256 pinned in the job, so the
+    map names that version. The action branch stays for a workflow that still uses
+    it. A `gitleaks` job with neither stops the run: a tool CI runs must not drop
+    out of the map because the way it is installed changed (it did, once, the day
+    this was written).
+    """
+    actions = [e for e in entries if e.name == "gitleaks-action"]
+    text = _text(_SECRET_SCAN_WORKFLOW)
+    version = _GITLEAKS_VERSION.search(text)
+    sha = _GITLEAKS_SHA256.search(text)
+    where = _where(_SECRET_SCAN_WORKFLOW, "gitleaks")
+    base = {
+        "ref": "ci:gitleaks",
+        "category": "ci-tool",
+        "name": "gitleaks",
+        "scope": "excluded",
+        "description": "The secret scanner the gitleaks job runs.",
+        "external_refs": (("vcs", "https://github.com/gitleaks/gitleaks", ""),),
+    }
+    if version is not None and sha is not None:
+        return [
+            Entry(
+                **base,  # type: ignore[arg-type]  # the keys above are Entry's fields
+                version=version.group(1),
+                purl=f"pkg:github/gitleaks/gitleaks@v{version.group(1)}",
+                used_in=(where,),
+                enforced_in=(_SECRET_SCAN_WORKFLOW,),
+                properties=(
+                    (
+                        _P + "version-basis",
+                        "pinned in the workflow, with the release tarball's sha256",
+                    ),
+                    (_P + "tarball-sha256", sha.group(1)),
+                ),
+            )
+        ]
+    if actions:
+        return [
+            Entry(
+                **base,  # type: ignore[arg-type]  # the keys above are Entry's fields
+                used_in=actions[0].used_in,
+                properties=(
+                    (
+                        _P + "version-basis",
+                        "chosen by gitleaks/gitleaks-action at its pinned commit; not pinned in this repository",
+                    ),
+                ),
+                required_by=tuple(e.ref for e in actions),
+            )
+        ]
+    if "\n  gitleaks:\n" in text:
+        raise GeneratorError(
+            f"{_SECRET_SCAN_WORKFLOW} has a gitleaks job but neither the action nor a "
+            "pinned GITLEAKS_VERSION and GITLEAKS_SHA256; say how it gets gitleaks"
+        )
+    return []
 
 
 #: What each action is for. The set of actions comes from the workflows; an

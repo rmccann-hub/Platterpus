@@ -104,3 +104,38 @@ def test_the_parser_reads_the_shapes_it_judges() -> None:
         "(inline)": "write-all"
     }
     assert _top_level_permissions("on: push\njobs:\n  x:\n    permissions:\n") is None
+
+
+def _gitleaks_job() -> str:
+    """The text of ci.yml's `gitleaks` job, from its key to the next job's key."""
+    text = (_WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+    start = text.index("\n  gitleaks:\n")
+    nxt = re.search(r"\n  [a-z][a-z0-9-]*:\n", text[start + 1 :])
+    assert nxt is not None, "the gitleaks job is the last job; read the file again"
+    return text[start : start + 1 + nxt.start()]
+
+
+def test_the_secret_scan_reads_the_whole_history_and_refuses_to_read_less() -> None:
+    """A12 (`PLANNING.md` KDD-39; released from C3 by KDD-41).
+
+    `gitleaks/gitleaks-action` scanned `--no-merges --first-parent <range>`, so a
+    merge push to `main` logged "0 commits scanned" and passed. The job now runs
+    the pinned CLI over every commit with merge diffs, and refuses a scan that read
+    too little three ways, each held here because each was found to be needed:
+    a shallow clone passed a relative floor alone when it was first tried.
+    """
+    job = _gitleaks_job()
+    run_lines = [ln for ln in job.splitlines() if not ln.lstrip().startswith("#")]
+    code = "\n".join(run_lines)
+    assert "gitleaks/gitleaks-action" not in code, "the range-limited action is back"
+    assert "fetch-depth: 0" in code
+    assert '--log-opts="-m HEAD"' in code, "merge commits must be diffed per parent"
+    assert "--is-shallow-repository" in code
+    assert re.search(r'GITLEAKS_VERSION: "\d+\.\d+\.\d+"', code)
+    assert re.search(r'GITLEAKS_SHA256: "[0-9a-f]{64}"', code)
+    assert "sha256sum --check" in code
+    minimum = re.search(r'MIN_COMMITS_SCANNED: "(\d+)"', code)
+    assert minimum is not None and int(minimum.group(1)) >= 1500, (
+        "the absolute floor fell; history on main only grows, so it should not"
+    )
+    assert "commits scanned" in code and "* 90 / 100" in code

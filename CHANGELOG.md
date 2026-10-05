@@ -421,6 +421,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **CI scans the whole history for leaked secrets on every run** (contributor-facing).
+  The secret-scan job installs a pinned, checksum-verified gitleaks and reads every
+  commit, merge commits included. Before, a pull request merged into `main` was
+  scanned as "0 commits" and passed. The job now refuses a scan that read too little:
+  a shallow clone, fewer than 1,500 commits, or under 90 % of the history. The lint
+  jobs, locally and in CI, also check `scripts/` and `build/`.
+
 - **The maintainer's eight rulings on the ranked open list are recorded**
   (contributor-facing; `PLANNING.md` KDD-41). The securing pass will also run after a
   finished pass the drive could not read cleanly; paranoia skips keep not slowing the
