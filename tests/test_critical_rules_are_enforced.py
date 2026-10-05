@@ -1761,7 +1761,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **723 -> 727** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): `DiscBlock.eac_log_signature_lines_defused`.
     # **727 -> 730** (2026-09-28, the Full run's track 3): `RetriedTrackBlock.replaced_because`, schema v30.
     # **730 -> 733** (2026-10-05): `realtime_multiplier_basis` says the multiplier is always elapsed over the audio read, and when the key is absent.
-    "report_types.py": 733,
+    # **733 -> 747** (2026-10-05, round 30 lap 4 S43): `ComponentEntry`, `COMPONENTS.json`'s row with `version_text` beside `version`. A type beside `ComponentInventory`, the type it is a field of; its own type so the rip report's `DependencyEntry` does not change.
+    "report_types.py": 747,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and

@@ -185,37 +185,21 @@ def dependency_summary(report: object) -> dict[str, DependencyEntry]:
     return summary
 
 
-def _own_version_texts(report: object) -> dict[str, str]:
-    """dep id → the tool's own version text, read from ``report``'s build notes.
+def _component_entries(report: object) -> dict[str, ComponentEntry]:
+    """Each tool's `DependencyEntry`, with ``version_text`` beside ``version``.
 
-    Delegates to `deps.build_notes.own_versions`, the reader Help → About used
-    before the inventory carried this, so the two cannot word one binary two
-    ways, and so no tool name is spelled outside the dependency subsystem
-    (Critical rule #6).
-
-    Imported here rather than at the top: this module is imported by the pure
-    `rip_report`, and the build-notes module pulls in the dependency checks.
-
-    Never raises. Any trouble is logged and reads as "no text captured", which
-    the inventory reports as *not determined* (``None``), never as a value.
+    The text is `deps.build_notes.own_versions`, the reader About used, so no
+    tool name is spelled outside the dependency subsystem (rule #6); imported
+    here because the pure `rip_report` imports this module. ``None`` where no
+    text was captured or reading it failed: *not determined*, never ``""``.
     """
     try:
         from platterpus.deps.build_notes import own_versions
 
-        return own_versions(report)
+        own = own_versions(report)
     except Exception:  # noqa: BLE001 — an inventory field is best effort; the inventory must still build
         log.exception("could not read the tools' own version text for the inventory")
-        return {}
-
-
-def _component_entries(report: object) -> dict[str, ComponentEntry]:
-    """Each tool's `DependencyEntry`, plus ``version_text`` beside its ``version``.
-
-    ``version_text`` is ``None`` wherever no text was captured: *not
-    determined*, stated, never omitted and never ``""`` (`ComponentEntry`).
-    Written out key by key so the JSON reads ``version`` then ``version_text``.
-    """
-    own = _own_version_texts(report)
+        own = {}
     return {
         dep_id: {
             "present": entry["present"],
@@ -238,12 +222,8 @@ def component_inventory(report: object) -> ComponentInventory:
     never *no dependencies*. Reads only what is already known: it never probes,
     because a probe enters the ripper's container. Never raises.
 
-    Each tool's row carries ``version`` (the parsed number, unchanged) and
-    ``version_text`` (what the tool said about itself, or ``None`` when not
-    determined). The second exists because the bundle said
-    ``"cyanrip": {"version": "0.9.4"}`` and could not tell the fork from
-    upstream, or one fork release from the next (TASKS.md; declared to the fork
-    in round 30 lap 4, S43).
+    Each row carries ``version_text`` beside the unchanged ``version``, so the
+    bundle names the build that ``0.9.4`` cannot (round 30 lap 4, S43).
     """
     env = environment_report()
     qt: str | None = None
