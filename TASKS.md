@@ -666,10 +666,13 @@ Open:
   a cancel during the securing pass does. `PostRipRecord.launched` now says which checks
   began, `build_gates` applies "superseded" first, and "not run" is kept for a check
   that never launched.
-- [ ] **Cold-container start: two container entries at launch.** The version probe
+- [x] **Cold-container start: two container entries at launch.** The version probe
   printed its banner and did not exit for 60 s, and the startup disc scan never
-  returned (`round30oct04platterpusapplog2.txt:59910`, `:59918`). Serialise the first
-  entry, or bound the scan the way the probe is.
+  returned (`round30oct04platterpusapplog2.txt:59910`, `:59918`); a rescan 84 s later
+  returned in 13.5 s on the running container. The first entry is now serialised
+  (`container_gate.FIRST_ENTRY`, claimed in `KillableCommand.run`). **Inferred, not
+  reproduced:** the next cold launch on the rig is the test, and the app log says
+  when a probe waited.
 - [x] **The securing pass's own ripper log is always deleted with its temp folder.** On
   success the swap addendum carries what was swapped; the per-read record of a pass
   that swapped nothing was in no artifact. It is now copied beside the album's log as
