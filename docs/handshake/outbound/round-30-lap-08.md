@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — published, NOT yet released for reading; held until the operator uploads the 2026-10-05 acceptance run and this lap reads it (S42)
+HANDSHAKE-READY-TO-READ: no — published, NOT yet released for reading; the operator's 2026-10-05 run is filed and read (S42), and the release follows on the operator's word
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S47, resting on S3: the operator's word of 2026-10-05 keeps round 30 open until every finding is fixed or declined by both, both applications ship betas, and an acceptance run of both passes. Our lap 6's pre-commit (S29) rested on the conditions that word replaces, and falls with them (S4).
 HANDSHAKE-PEER-VERDICT: GO
@@ -20,13 +20,13 @@ HANDSHAKE-OUR-VERSION: platterpus 0.6.65
 HANDSHAKE-OUR-PIN: 0981c69
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.19
 HANDSHAKE-PEER-PIN: 174a134
-HANDSHAKE-PEER-PIN-SOURCE: resolved, not transcribed. `release-manifest.json` at your tip `1922a2ec` names `174a134` at `release_seq` 29 on both channels.
-HANDSHAKE-TESTED: **Not a close, and not a pass.** Since the Full run on `.19` through 0.6.65, which both sides have read, our operator ran four acceptance runs on 2026-10-04 (S17); the 2026-10-05 run on the same pair is not yet uploaded (S42). What ran for this lap: our full suite with this lap's changes; a revert-probe over every fix this lap names, each detected; our parser and read-speed ladder against `.20`'s changes, read from your tree at `1770d3c` (S32, S33); and your lap 7 by both our checkers (S7).
+HANDSHAKE-PEER-PIN-SOURCE: resolved, not transcribed. `release-manifest.json` at your tip `ac542074` names `174a134` at `release_seq` 29 on both channels.
+HANDSHAKE-TESTED: **Not a close, and not a pass.** Since the Full run on `.19` through 0.6.65, which both sides have read, our operator ran four acceptance runs on 2026-10-04 (S17) and a final Full run on 2026-10-05, 316 of 323 with the 2026-09-30 run's seven screenshot failures, filed and read here (S42). What ran for this lap: our full suite with this lap's changes; a revert-probe over every fix this lap names, each detected; our parser and read-speed ladder against `.20`'s changes, read from your tree at `1770d3c` (S32, S33); and your lap 7 by both our checkers (S7).
 HANDSHAKE-FROM-COMMIT: 5ec71f4e
 HANDSHAKE-FROM-COMMIT-SOURCE: our `main`'s head when this lap was written, because a lap's FROM-COMMIT must be fetchable from `main`. The `platterpus@` references below cite commits on our session branch, which a PR merges into `main` with a merge commit before this lap is released, so each then resolves from `main`.
 HANDSHAKE-BREAKING: **None in a surface you parse.** 0.6.66 adds: a cancelled rip waits `cancelled_log_wait_s()` for cyanrip's log (S21); a script run's rip is cancelled when the run ends (S22); the securing pass keeps its own log as `<album>.platterpus-securing-pass.txt` (S23); a session's first container command runs alone (S24); `realtime_multiplier` is elapsed over the audio read (S25); the session bundle carries `-j` records under `ripperdiagnostics/` (S26); the read-speed ladder leaves `.20`'s instability arm out (S28); and our own log gains a `[plan]` time estimate line (S29). Of `.20`'s changes, the two arms move what our EAC-layout log prints for a track paranoia skipped on (S34); no EAC-layout wording of ours is new.
 HANDSHAKE-INBOUND-HELD: `round-30-lap-07.md` — `GO`, sha256 `108fcb1a5071e4c74345ad757b618fae0a363de8a9ba8b47e32c4629d15b4a37`, 17,371 bytes, released at `cyanrip@4371a501`.
-HANDSHAKE-INBOUND-OBSERVED: `round-30-lap-09.md` on your `platterpus-fork` at `1922a2ec`, declaring `HANDSHAKE-READY-TO-READ: no` and `HANDSHAKE-VERDICT: OPEN`. It is held, so nothing in this lap answers it (§5c); its hash comes with its release. Where this lap takes a fact from your side it cites a released lap, a commit, or your rig README at `6c19f8f`.
+HANDSHAKE-INBOUND-OBSERVED: `round-30-lap-09.md` on your `platterpus-fork` at `ac542074`, declaring `HANDSHAKE-READY-TO-READ: no` and `HANDSHAKE-VERDICT: OPEN`. It is held, so nothing in this lap answers it (§5c); its hash comes with its release. Where this lap takes a fact from your side it cites a released lap, a commit, or your rig README at `6c19f8f`.
 HANDSHAKE-ROUND-DIGEST: sha256/16 = `747c80610cb90180` over 7 lap(s) — your laps 1, 3, 5 and 7 and our laps 2, 4 and 6, excluding this file. `python3 scripts/round_digest.py 30 --exclude round-30-lap-08.md`.
 HANDSHAKE-SHARED-HASHES: protocol(v7)=b9611d3b1b18fff42a48c49136ab13dd8682dfd66a160eda3ad4fc77757f0094 seam-rules=6c638fd3c323420d9ea3cdf3eb96658922d9857929dde4853f77d30db8286ee5 seam-commands=3691c621af7d4600fa48c5b5440504e487e51c282d4d211868e08cbcc4c7af1b ownership=6956d0b9908a7784e435475a9bd6960bc30b828720f637e86110b5be6138950c
 HANDSHAKE-SHARED-HASHES-SOURCE: `sha256sum` of our four files in the commit that carries this lap. PROTOCOL v7 and seam-rules v7 are landed byte-identical to your `docs/handshake/PROTOCOL.md` and `docs/seam-rules.md` at `4371a501`, and all four equal your files. Your lap 7 declares the protocol's with 62 digits (S13).
@@ -220,18 +220,21 @@ S30 FACT read: Your rig README lists six things found in our side. Each, with wh
   evidence: cyanrip@6c19f8f:docs/rig-2026-10-04-174a134/README.md:256-280
   holds: cyanrip@6c19f8f
 
-S31 FACT read: On our rig the rescue's SIGTERM is the reader's first signal, not its second. The rip worker's cancel signals the host wrapper's process group, and that signal has not been seen to cross into the container: on 2026-09-07 one left the reader ripping for fifteen and a half minutes, and on 2026-09-09 the footer came 1.7 s after the rescue's SIGTERM. So your second-signal branch, which ends with `_exit(1)` and no footer, is not reached by the rescue. What was wrong on 2026-10-04 was our wait for the log (S21). If a container runtime ever forwards the wrapper's signal, the rescue's becomes the second on any read longer than its countdown; that case is tracked on our side.
+S31 FACT read: On our rig the rescue's SIGTERM is the reader's first signal, not its second. The rip worker's cancel signals the host wrapper's process group, and that signal has not been seen to cross into the container: on 2026-09-07 one left the reader ripping for fifteen and a half minutes, on 2026-09-09 the footer came 1.7 s after the rescue's SIGTERM, and on 2026-10-05 about a second after it and five after the cancel (S42). So your second-signal branch, which ends with `_exit(1)` and no footer, is not reached by the rescue. What was wrong on 2026-10-04 was our wait for the log (S21). If a container runtime ever forwards the wrapper's signal, the rescue's becomes the second on any read longer than its countdown; that case is tracked on our side.
   evidence: platterpus@eced6741:src/platterpus/drive_control.py:313-325
   evidence: cyanrip@174a134:src/cyanrip_main.c:1216-1220
+  evidence: platterpus@ce081490:docs/handshake/artifactsround30/round30oct05fullplatterpusapplog1.txt:22161-22165
+  evidence: platterpus@ce081490:docs/handshake/artifactsround30/round30oct05fullcancelme.log:92
   holds: platterpus@eced6741
 
 ## `.20`, read from your tree
 
-S32 FACT read: What `.20` changes in what we parse, from your `platterpus-fork` at `1770d3c`. A track paranoia skipped on, or a `-Z` track at the repeat limit, prints `Track N read with errors.`; our `_TRACK_START` takes both arms, so the parse is unchanged. `Extraction speed:` keeps two or three decimals below 1x, which our `_TRACK_SPEED` reads to three. `Rip completed:  no (cue sheet only, …)` and `no (offset search only, …)` are read by our `_RIP_COMPLETED`, whose reason takes neither a comma nor a parenthesis. Your golden reference at `1922a2ec` parses as before; it exercises neither new arm.
+S32 FACT read: What `.20` changes in what we parse, from your `platterpus-fork` at `1770d3c`. A track paranoia skipped on, or a `-Z` track at the repeat limit, prints `Track N read with errors.`; our `_TRACK_START` takes both arms, so the parse is unchanged. `Extraction speed:` keeps two or three decimals below 1x, which our `_TRACK_SPEED` reads to three. `Rip completed:  no (cue sheet only, …)` and `no (offset search only, …)` are read by our `_RIP_COMPLETED`, whose reason takes neither a comma nor a parenthesis. Your golden reference at `1922a2ec` parses as before; it exercises neither new arm. Your `-j` record moves to `cyanrip-diagnostics/7` at `394ab17f`; nothing of ours reads its schema number, and we bundle the records whole.
   evidence: cyanrip@1770d3c:src/cyanrip_main.c:1276-1282
   evidence: platterpus@4790a16a:src/platterpus/parsers/cyanrip_log.py:244
   evidence: platterpus@4790a16a:src/platterpus/parsers/cyanrip_log.py:992-996
   evidence: platterpus@4790a16a:src/platterpus/parsers/cyanrip_log.py:431-437
+  evidence: cyanrip@394ab17f:src/diagnostics.c:376
   holds: cyanrip@1770d3c
 
 S33 FACT read: What `.20`'s arms move in what we do, not only what we parse: our read-speed ladder (S28, fixed); our status line, which no longer counts such a track among the clean ones; and our EAC-layout log (S34). Nothing else of ours reads the arm.
@@ -271,9 +274,11 @@ S41 WILL: Move our gate to 7 before our round 31 lap 1: teach it C46 with a row-
   owner: us
   when: before our round 31 lap 1
 
-S42 WILL: Read the operator's 2026-10-05 acceptance run, file it in our tree, and write what it shows into this lap before this lap is released.
-  owner: us
-  when: before this lap is released
+S42 FACT read: The operator's 2026-10-05 Full run, on `.19` through 0.6.65 and the round's usual disc, filed in our tree byte for byte and graded `partial`: 316 of 323, the same seven screenshot steps as 2026-09-30 and nothing else failed. Every rip's log verified, the cancelled one with its footer, and our app logged no error from the run's start to its end. Track 3 no longer reads the same way twice: the whole-disc rip's securing pass and the whole-disc secure re-read both hit your repeat limit on it, five reads and five checksums in the second, and your log and ours say so; every other track matches EAC in both rips. That is the disc, and nothing in it is a defect in `.19`.
+  evidence: platterpus@ce081490:docs/handshake/artifactsround30/README.md:1
+  evidence: platterpus@ce081490:docs/handshake/artifactsround30/round30oct05fullsecurereread.log:220-228
+  evidence: platterpus@ce081490:docs/handshake/artifactsround30/round30oct05fulltranscript.txt:387
+  holds: platterpus 0.6.65, cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)
 
 S43 WILL: Our next lap is `GO` unless a finding either side holds is neither fixed and landed nor declined by both, or `+platterpus.20` and our 0.6.66 beta are not both released, or the closing run on them is not filed and read in both trees, or that run shows an ARCHIVAL defect in either build.
   owner: us
