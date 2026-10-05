@@ -128,6 +128,9 @@ class UninstallDialog(CenteredDialog):
         root.addWidget(self._progress)
 
         self._status_label: QLabel = QLabel("", self)
+        # PlainText: a failed step's own detail (a command's output) is quoted
+        # here, and Qt's default AutoText would read a `<` in it as markup.
+        self._status_label.setTextFormat(Qt.TextFormat.PlainText)
         self._status_label.setWordWrap(True)
         self._status_label.setAccessibleName("Uninstall status")
         root.addWidget(self._status_label)

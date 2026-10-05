@@ -214,6 +214,9 @@ class SettingsDialog(CenteredDialog):
         # sees how it copes with the awkward cases before committing. Updates as
         # the preset or the template text changes.
         self._naming_preview: QLabel = QLabel("", self)
+        # PlainText: the preview is the user's own template rendered with sample
+        # tags, so a `<` in the template must show as a `<`, not start markup.
+        self._naming_preview.setTextFormat(Qt.TextFormat.PlainText)
         self._naming_preview.setWordWrap(True)
         self._naming_preview.setAccessibleName("Filename preview")
         # Quieter than the fields, but in the TEXT colour. `palette(mid)` is a
@@ -764,6 +767,9 @@ class SettingsDialog(CenteredDialog):
         # lifting is a pure, tested validator (settings_validation); this label is
         # just its view. Starts hidden and only appears when something's off.
         self._validation_label: QLabel = QLabel("", self)
+        # PlainText: the messages quote what the user typed, which must show as
+        # typed, not be read as markup by Qt's default AutoText.
+        self._validation_label.setTextFormat(Qt.TextFormat.PlainText)
         self._validation_label.setWordWrap(True)
         self._validation_label.setAccessibleName("Settings validation messages")
         self._validation_label.setVisible(False)

@@ -1004,8 +1004,16 @@ offset. Critical rule #12 is the reason; this is how to follow it in a widget.
 - **Enforced by `tests/test_labels_state_their_text_format.py`, with no
   allowlist**: an exemption list is how a sweep stops enforcing anything.
   `QMessageBox` has its own sweep (`tests/test_message_boxes_are_plaintext.py`).
-  A label built empty and filled later by `setText` is outside both, so state
-  its format anyway.
+- **A label given its text LATER states its format where it is BUILT.** Most
+  labels that show a value are built empty and filled by `setText`, so the
+  decision belongs right after `QLabel("", self)`, not beside the `setText`.
+  Enforced by `tests/test_labels_given_text_later_state_their_format.py`
+  (2026-10-05), which traces every `setText` / `setInformativeText` (and a
+  `setText` passed as a slot) back to where its widget is built: through
+  `self.<attr>` across a mixin family, a helper that returns the label, a dict of
+  labels, and `isinstance`; a call into Qt by its return type in PySide6's own
+  stubs. What it cannot trace is listed in a ratchet that may only shrink, and a
+  PlainText label handed markup of ours fails too, since it would show the tags.
 
 ### 3.10 Unattended testing: the script console, and why a subsystem needs a surface
 

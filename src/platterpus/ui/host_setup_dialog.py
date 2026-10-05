@@ -194,6 +194,10 @@ class HostSetupDialog(CenteredDialog):
         root.addWidget(self._progress)
 
         self._status_label: QLabel = QLabel("", self)
+        # PlainText: a step's own words land here (a running step's detail, a
+        # failed step's error from the command it ran), and Qt's default AutoText
+        # would read a `<` in them as markup.
+        self._status_label.setTextFormat(Qt.TextFormat.PlainText)
         self._status_label.setWordWrap(True)
         self._status_label.setAccessibleName("Setup status")
         root.addWidget(self._status_label)

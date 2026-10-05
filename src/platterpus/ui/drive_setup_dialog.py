@@ -254,6 +254,10 @@ class DriveSetupDialog(CenteredDialog):
             root.addWidget(self._progress)
 
         self._status_label: QLabel = QLabel("", self)
+        # PlainText: the detection worker's status and outcome lines land here,
+        # and they quote the drive and the tool. Qt's default AutoText would read
+        # a `<` in them as markup.
+        self._status_label.setTextFormat(Qt.TextFormat.PlainText)
         self._status_label.setWordWrap(True)
         self._status_label.setAccessibleName("Drive setup status")
         root.addWidget(self._status_label)
