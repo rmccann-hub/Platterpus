@@ -1007,7 +1007,7 @@ each side's reading; and the closing releases named.
   (`cyanrip@89e9b4d:docs/rig-2026-10-05-174a134/rips/full-acceptance-angle-bracket.ripper-stdout.txt`):
   16 `Flushing encoders...` lines, each followed directly by `Summary:`. From `.20`
   that line carries a verdict (their S9, S10).
-  - *Done in ef8d770e:* one predicate for a redraw (`rip_worker._is_progress_redraw`),
+  - *Done in 358c154d:* one predicate for a redraw (`rip_worker._is_progress_redraw`),
     `cyanrip_log.finished_track` for an outcome, one routing call for the capture and
     the throttle; each run of redraws kept as its first and last line plus a counted
     `[platterpus] … N progress redraws elided here …` marker (`redraw_run.py`); the
@@ -1064,7 +1064,7 @@ each side's reading; and the closing releases named.
   decided by `verdict.track_has_unverified_skips`; an exact match keeps "Copy OK"; a
   track also at the repeat limit takes the skip verdict, with the re-read shortfall
   left on its Copy CRC line (`docs/eac-parity.md`, *The skipped-read verdict*).
-  - *Done in 3f98eae3.* Re-rendering `round30oct04full.log` gives track 18 the new
+  - *Done in 1e118482.* Re-rendering `round30oct04full.log` gives track 18 the new
     verdict; the committed export of that run is the before. Not done: the disc-level
     "No errors occurred" for such a disc, which S20 also names, is unchanged.
 
@@ -1125,7 +1125,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     `src/platterpus` only, not `scripts/`. `scripts/laplang/lsl3.py` is 428 lines, and
     `mypy --strict scripts/laplang` reports 3 errors in `scratch.py`.~~
     (`scripts-outside-gates`)
-    - *Done in 10be42a3, 6191aebf, e9475ea1, c3ddc54d, ff46ef86, f6211a54:* all three
+    - *Done in 4bd6d23c, 408981d2, 16838ec0, f8692ca1, 1beff95d, d5b489dc:* all three
       gates read `scripts/**/*.py` and `build/*.py`, one population defined once in
       `tests/conftest.py` (`maintained_tooling_modules`; `build/` not recursive,
       because `build/lib/` holds a package copy after a wheel build). Size: 19 tooling
@@ -1138,7 +1138,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
       were fixed, one of them a crash in `scripts/check.py`. Two quadratic patterns
       the sweep could not see were fixed by hand (`bommap._REQUIREMENT`,
       `handshake._WIRE_FIELD`); see (4).
-    - [x] *Done in 675de7bc:* the caveat follows what the log proves. "did NOT agree"
+    - [x] *Done in ce04e1fe:* the caveat follows what the log proves. "did NOT agree"
       stays only where no two reads agreed (the fork's `at most 1 read agreed`; round
       30's 10-05 track 3); an exact count reads "re-reads did not converge; at most 2
       of 3 reads agreed" (round 28 and round 26, track 5); a floor reads "at least";
@@ -1173,7 +1173,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     formatted), so adding them is a CI and `scripts/check.py` change with no fixes.
   - (6) `tests/` is outside the size ratchet: 139 of its 280 modules are over 300 lines
     (2026-10-05). Whether a test module should be split is its own question.
-    - *Done in d70938b3 (its tests' parametrize made literal in 6095e6c3):*
+    - *Done in 67a86d06 (its tests' parametrize made literal in c369cfb9):*
       `scripts/eac_parity.py` names the baseline's producer and
       quotes its first line before any table. One of our exports (either banner) is
       refused, exit 2, with that line on stderr and in the log, and no table is
@@ -1311,7 +1311,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   `version`, the tool's own version text (the `BuildNote.version_text` Help → About
   now shows). The inventory is the bundle's `components` file, which crosses the
   seam, so the key is declared in a lap before it ships (NEXT-ROUND).
-  - *Done in 746d4e78:* each tool's entry gains `version_text` beside an unchanged `version`
+  - *Done in 55b6da6f:* each tool's entry gains `version_text` beside an unchanged `version`
     (`null` when not determined, never omitted or `""`), as declared in our round 30
     lap 4 S43; About reads the same key. The fork/stock verdict was not added beside
     it: S43 declared one key, so a second needs a lap first.
@@ -2342,7 +2342,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     `tests/test_labels_state_their_text_format.py` (it found 17, not 13). **Still open:**
     labels given their value later by `setText(...)`, which that sweep does not cover, and
     a two-way test that what reaches the user is what cyanrip said.
-  - *2026-10-05:* the `setText(...)` half is done in 84adcd9c
+  - *2026-10-05:* the `setText(...)` half is done in adc04a08
     (`tests/test_labels_given_text_later_state_their_format.py`; 14 labels pinned, see
     the row *"Labels given their text by `setText` after they are built"*). **Still
     open:** a two-way test that what reaches the user is what cyanrip said.
@@ -5446,7 +5446,7 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
   from cyanrip's output. The count is an approximation and may be low. Also found
   the same day: the setup wizard's intro is markup, so its bullet list has always
   rendered as one paragraph.
-  - *Done in 84adcd9c:* `tests/test_labels_given_text_later_state_their_format.py`
+  - *Done in adc04a08:* `tests/test_labels_given_text_later_state_their_format.py`
     traces every `setText` / `setInformativeText` (and a `setText` passed as a slot)
     back to where its widget is built, with `ast`: through `self.<attr>` across a
     mixin family, a helper that returns the label, a dict of labels, `isinstance`,
@@ -5458,7 +5458,7 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
     filename preview. All 14 now state PlainText. The 2 receivers the resolver
     cannot trace are listed in `_UNRESOLVED`, a ratchet capped at 2. The setup
     wizard's intro list, and the update wizard's paragraphs, break with `<br>` since
-    6afd1c22. **Still not swept, and said so in the file:** `setToolTip` and wizard
+    aa3c9ee6. **Still not swept, and said so in the file:** `setToolTip` and wizard
     page titles, which guess their format too. **Waiting on the maintainer:**
     CLAUDE.md Critical rule #12 still says a label filled later by `setText` is
     outside both sweeps; that sentence is in the locked rules section, so its
