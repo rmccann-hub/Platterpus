@@ -316,10 +316,12 @@ def _duplicate_mnemonics(
 
 def _measure_one(window: object) -> dict[str, object]:
     """Show one window and apply every rule to what was rendered."""
+    from PySide6.QtCore import QPoint, Qt
     from PySide6.QtGui import QPalette
     from PySide6.QtWidgets import (
         QAbstractButton,
         QAbstractItemView,
+        QAbstractScrollArea,
         QAbstractSpinBox,
         QApplication,
         QComboBox,
@@ -426,11 +428,40 @@ def _measure_one(window: object) -> dict[str, object]:
                 f"{button.sizeHint().height()}px: {button.text()!r}"
             )
 
-    # cut_off_labels — a one-line label or a button whose text does not fit.
+    # cut_off_labels — a one-line label or a button whose text does not fit;
+    # and any label or button running past the right edge of a scroll area that
+    # cannot scroll sideways. That second half was added 2026-10-05, when a
+    # revert probe showed the first could not see it: an unwrapped paragraph
+    # inside a `FitScrollArea` widens the body, so the label has its full width
+    # and the VIEWPORT cuts the text off instead — the install dialog's tool
+    # description, ending mid-sentence, passed every rule.
+    def sideways_clip(widget: object) -> object | None:
+        """The viewport of the nearest scroll area with no horizontal bar."""
+        parent = widget.parentWidget()  # type: ignore[attr-defined]  # a QWidget
+        while parent is not None and parent is not w:
+            if isinstance(parent, QAbstractScrollArea):
+                off = Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+                return (
+                    parent.viewport()
+                    if parent.horizontalScrollBarPolicy() == off
+                    else None
+                )
+            parent = parent.parentWidget()
+        return None
+
     for widget in [*w.findChildren(QAbstractButton), *w.findChildren(QLabel)]:  # type: ignore[attr-defined]  # a QWidget
         text = widget.text()
         if not (text and shown(widget)):
             continue
+        viewport = sideways_clip(widget)
+        if viewport is not None:
+            examined["cut_off_labels"] += 1
+            right = widget.mapTo(viewport, QPoint(widget.width(), 0)).x()
+            if right > viewport.width() + 1:  # type: ignore[attr-defined]  # a QWidget
+                violations["cut_off_labels"].append(
+                    f"runs {right - viewport.width()}px past its scroll area: "  # type: ignore[attr-defined]  # a QWidget
+                    f"{type(widget).__name__} {text[:50]!r}"
+                )
         if isinstance(widget, QLabel) and (widget.wordWrap() or "<" in text):
             continue
         examined["cut_off_labels"] += 1
@@ -533,7 +564,21 @@ def _main_window() -> object:
 
 
 def _measure_all() -> dict[str, object]:
-    """Subprocess entry: every window, in this process's one condition."""
+    """Subprocess entry: every window, in this process's one condition.
+
+    **The cyclic collector is off for the whole run**, for the reason
+    `tests/conftest.py::_cyclic_gc_paused_during_each_test` gives: a collection
+    that starts while the main windows' worker threads are churning Qt objects
+    under the offscreen platform is a hard crash. Every pytest test has that
+    guard; this subprocess, which builds five main windows and hundreds of
+    dialogs, never did. It surfaced on 2026-10-05 as a deterministic SIGSEGV
+    after a change that only added Python wrappers for scroll-area viewports —
+    an allocation pattern, not a bug, moved a collection onto the bad moment.
+    The process exits as soon as it has printed, so nothing needs collecting.
+    """
+    import gc
+
+    gc.disable()
     from conftest import stop_window_threads
     from PySide6.QtWidgets import QApplication
 
@@ -551,7 +596,46 @@ def _measure_all() -> dict[str, object]:
     stop_window_threads(window)
     results.update(_measure_long_picker())
     results.update(_measure_states())
+    results.update(_measure_every_real_spec())
     return results
+
+
+def _real_spec_keys() -> set[str]:
+    """The windows :func:`_measure_every_real_spec` measures, by key."""
+    from platterpus.deps.registry import SPECS
+
+    return {f"ManualInstallDialog[{spec.dep_id}]" for spec in SPECS} | {
+        "PendingInstallsDialog[every spec]"
+    }
+
+
+def _measure_every_real_spec() -> dict[str, object]:
+    """The install dialogs with the REAL dependency specs, not the stand-ins.
+
+    The factories above build `ManualInstallDialog` from a test spec with a
+    one-line description, so the matrix passed it for months while the real
+    `ffmpeg` and `cd-paranoia` descriptions — 2,656 and 2,403 px of unwrapped
+    text — ran off its right edge on every screen, the "Why manual:" caption
+    squeezed to "Why manu" (audit, 2026-10-05). Stand-in content measures the
+    stand-in. Every spec in the registry, so a new one is measured the day it
+    lands.
+    """
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.registry import SPECS
+    from platterpus.deps.resolvers import MissingItem
+    from platterpus.ui.dialogs.manual_install import ManualInstallDialog
+    from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
+
+    absent = ProbeResult(present=False, version=None, location=None)
+    measured: dict[str, object] = {}
+    for spec in SPECS:
+        measured[f"ManualInstallDialog[{spec.dep_id}]"] = _measure_one(
+            ManualInstallDialog(spec, absent, on_setup_wizard=lambda: None)
+        )
+    measured["PendingInstallsDialog[every spec]"] = _measure_one(
+        PendingInstallsDialog([MissingItem(spec=s, probe=absent) for s in SPECS])
+    )
+    return measured
 
 
 def _measure_long_picker() -> dict[str, object]:
@@ -751,8 +835,9 @@ def test_every_rule_examined_real_subjects(
     short = {rule: n for rule, n in counts.items() if n < FLOORS[rule]}
     assert not short, f"rules that examined too little: {short} (all: {counts})"
     assert set(matrix) == {c[0] for c in CONDITIONS}, "a condition was not measured"
+    expected = MEASURED | {"MainWindow", *STATES} | _real_spec_keys()
     for cond_id, windows in matrix.items():
-        missing = (MEASURED | {"MainWindow", *STATES}) - set(windows)
+        missing = expected - set(windows)
         assert not missing, f"{cond_id}: windows not measured: {sorted(missing)}"
 
 

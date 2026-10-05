@@ -20,6 +20,20 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## 2026-10-05 window size and readability audit
+
+The maintainer: *"double check window sizes and readability, especially on obscure
+windows like the beta or odd cyanrip upgrades"*. Every window, message box and Qt
+dialog the app can show was built with its real worst-case text and measured
+headless (offscreen, Fusion, DejaVu Sans) from 853 × 533 to 1920 × 1080 logical,
+at 100 % and 150 % text, and the screenshots were looked at.
+
+- [x] **The "Install required" dialog cut off why a tool is needed.** ffmpeg's and
+  cd-paranoia's descriptions ran off its right edge on every screen and the
+  caption read "Why manu". Wrapped, with the prose in a `FitScrollArea`; the
+  matrix measures every real registry spec, and its cut-off rule now sees text
+  running past a scroll area that cannot scroll sideways.
+
 ## Faster CI and dev loop — measured, and planned in phases (maintainer, 2026-09-26)
 
 *"We need to shorten CI times and everything else. We need optimise. If a refactor is
