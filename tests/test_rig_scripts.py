@@ -2574,6 +2574,11 @@ _DELIBERATELY_NOT_RESTORED: dict[str, str] = {
 #: The rig drive's read offset, for the simulation of `set-drive-offset` only.
 _RIG_OFFSET: int = 667
 
+#: What `set-library-scratch` writes on the rig is `<rips folder>/libraryscratch`,
+#: known only at run time. The simulation needs only a value that is NOT the
+#: default, so a script that forgot to turn the library move off is seen.
+_RIG_SCRATCH_LIBRARY: str = "/rig/session/rips/libraryscratch"
+
 
 def _simulate(script_text: str) -> Config:
     """Replay every `set` in the script against a real Config.
@@ -2582,21 +2587,30 @@ def _simulate(script_text: str) -> Config:
     `runner._do_set` does: `rip_goal` is not a setting, it is a name for eight of
     them, and a test that treated it as one field would miss exactly the changes
     that reach a rip.
+
+    **And the REAL tokenizer** (`uiscript.parse`), since section J2's
+    `set library_dir ""` (2026-10-05). This split each line on whitespace, which
+    is not what the runner does: it read `""` as a two-character value, where the
+    runner reads an empty one. A stand-in that tokenises differently from the
+    product reports the stand-in.
     """
     config = Config()
-    for raw in script_text.splitlines():
-        parts = raw.strip().split()
+    for step in uiscript.parse(script_text):
         # `set-drive-offset` writes the two offset fields through the app's own
         # writer. On the rig that is the BDR-209D's +667 with the override on;
         # the value only has to be non-default for this simulation to see it.
-        if parts == ["set-drive-offset"]:
+        if step.verb == "set-drive-offset":
             config = dataclasses.replace(
                 config, read_offset=_RIG_OFFSET, override_read_offset=True
             )
             continue
-        if len(parts) < 3 or parts[0] != "set":
+        if step.verb == "set-library-scratch":
+            config = dataclasses.replace(config, library_dir=_RIG_SCRATCH_LIBRARY)
             continue
-        field, value = parts[1], " ".join(parts[2:])
+        if step.verb != "set" or len(step.args) < 2:
+            continue
+        # The runner's own join (`_do_set`), so a value is the value it sets.
+        field, value = step.args[0], " ".join(step.args[1:])
         if not hasattr(config, field):  # pragma: no cover - a typo'd field
             raise AssertionError(f"script sets unknown field {field!r}")
         coerced, problem = _coerce_setting(getattr(config, field), value)
@@ -2779,6 +2793,19 @@ def _acceptance_lines() -> list[str]:
     return (RIG_SCRIPTS / "fullacceptance.txt").read_text(encoding="utf-8").splitlines()
 
 
+#: Sections whose rip runs OFF the shipped retry ceiling on purpose, with the
+#: reason. A ratchet: it may shrink, never grow, and the converse in the test
+#: below holds every entry to a section that still does it.
+_OFF_CEILING_ON_PURPOSE: dict[str, str] = {
+    "J2": (
+        "the permutations section: its subject is a rip with no `-r` (Max "
+        "retries 0), the path no other rip takes. It turns the secure re-read "
+        "off as well, so there is no `-Z` for the ceiling to starve, and it puts "
+        "both back before K1"
+    ),
+}
+
+
 def test_every_acceptance_rip_runs_on_the_shipped_retry_ceiling() -> None:
     """**The 2026-09-28 Full run's secure re-reads all ran at `-r 3 -Z 2`.**
 
@@ -2801,17 +2828,25 @@ def test_every_acceptance_rip_runs_on_the_shipped_retry_ceiling() -> None:
     shipped = Config()
     sites: list[int] = []
     offenders: list[str] = []
+    off_ceiling: set[str] = set()
+    section = ""
     for index, raw in enumerate(lines):
+        header = re.match(r"^log --- ([A-Z][0-9]*)\.\s", raw)
+        if header:
+            section = header.group(1)
+            continue
         parts = raw.split()
         if not parts or parts[0] != "rip":
             continue
         sites.append(index + 1)
         state = _simulate("\n".join(lines[:index]))
         if state.max_retries != shipped.max_retries:
-            offenders.append(
-                f"L{index + 1}: rips at max_retries {state.max_retries}, not the "
-                f"shipped {shipped.max_retries}"
-            )
+            off_ceiling.add(section)
+            if section not in _OFF_CEILING_ON_PURPOSE:
+                offenders.append(
+                    f"L{index + 1}: rips at max_retries {state.max_retries}, not "
+                    f"the shipped {shipped.max_retries}"
+                )
         matches = state.secure_rerip_matches
         if matches > 0:
             reads = whole_track_reads_allowed(retries_flag_value(state.max_retries))
@@ -2820,10 +2855,17 @@ def test_every_acceptance_rip_runs_on_the_shipped_retry_ceiling() -> None:
                     f"L{index + 1}: -Z {matches} needs {matches + 1} identical reads "
                     f"and -r allows {reads}, so one bad read fails a track"
                 )
-    # Floor: the eight rips this file has (F, H, I, J, K1-K3, N). Fewer means the
-    # scan stopped finding them, and the check above would pass by not looking.
-    assert len(sites) >= 8, f"only {len(sites)} rip step(s) found: {sites}"
+    # Floor: the nine rips this file has (F, H, I, J, J2, K1-K3, N). Fewer means
+    # the scan stopped finding them, and the check above would pass by not looking.
+    assert len(sites) >= 9, f"only {len(sites)} rip step(s) found: {sites}"
     assert not offenders, "\n  ".join(["a rip runs on the wrong ceiling:", *offenders])
+    # THE CONVERSE, so an excuse cannot outlive its subject: every exempt section
+    # must still rip off the shipped ceiling, or the exemption excuses nothing.
+    stale = sorted(set(_OFF_CEILING_ON_PURPOSE) - off_ceiling)
+    assert not stale, (
+        f"{stale} are excused from the shipped retry ceiling but no longer rip "
+        "off it, so the exemption should be deleted"
+    )
 
 
 def test_every_expect_on_a_retry_setting_matches_what_the_script_set() -> None:
