@@ -1131,6 +1131,21 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     formatted), so adding them is a CI and `scripts/check.py` change with no fixes.
   - (6) `tests/` is outside the size ratchet: 139 of its 280 modules are over 300 lines
     (2026-10-05). Whether a test module should be split is its own question.
+    - *Done in d70938b3 (its tests' parametrize made literal in 6095e6c3):*
+      `scripts/eac_parity.py` names the baseline's producer and
+      quotes its first line before any table. One of our exports (either banner) is
+      refused, exit 2, with that line on stderr and in the log, and no table is
+      printed. Before the fix, the committed export against its own rip printed
+      "14/14 PARITY ✓" and exited 0. Refused rather than warned: a false pass gets
+      cited, and a false refusal would need a real EAC log to begin with one of our
+      banners. A baseline it cannot attribute is compared, but the output says the
+      match is not parity with EAC. `parity.ParityReport.ok` now refuses a baseline
+      that is ours, and rip_audit's `eac_log_agreement` (the other caller of
+      `compare_logs`) gives that case a "not determined" WARN naming the line. Both
+      read `identify_baseline`, which delegates to `eac_log_producer` and to the new
+      `eac_log_producer_line`. revert_probe: 10 of 10 reverts behaved as expected.
+      Not changed: `verify_log_surface.py::_is_ours_by_text` still uses its own,
+      broader head-of-file rule. It is not a baseline consumer.
 - [x] **S40/S41: refuse `-Z N` with `-r` ≤ N, with one move of the shared
   `docs/seam-commands.md`.** They refuse it at argument parsing and regenerate their argv
   table, and our two §1a rows ride the same change (the held patch in the *Round 29:
