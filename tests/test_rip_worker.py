@@ -73,9 +73,18 @@ class _FakeHandle:
         self._cancel_returns: int | None = cancel_returns
         self.cancel_calls: int = 0
         self.terminate_calls: int = 0
+        # Every signal this handle's process was sent, in order. The REAL
+        # `cancel()` sends a SIGTERM before its SIGKILL, and to a cyanrip that
+        # already had our SIGTERM that is its second signal: `_exit(1)`, no
+        # footer. A fake whose `cancel()` only counted calls could not show that
+        # (the round 30 lap 9 S28 review), so it records what the real one sends.
+        self.signals: list[str] = []
         # Every timeout the worker asked us to wait for, so a test can assert the
         # wait was *bounded* rather than merely that it returned.
         self.wait_timeouts: list[float | None] = []
+        # The real handle's process: a PID, and `returncode` set once reaped.
+        self.pid: int = 424242
+        self.returncode: int | None = None
 
     def log_lines(self) -> Iterable[str]:
         yield from self._lines
@@ -93,17 +102,23 @@ class _FakeHandle:
                     "Use RipWorker._reap_ripper, which bounds the wait."
                 )
             raise subprocess.TimeoutExpired(cmd="cyanrip", timeout=timeout)
+        self.returncode = self._exit_code
         return self._exit_code
 
-    def terminate(self) -> None:
+    def terminate(self) -> int | None:
         # Non-blocking cancel path used from the GUI thread — the worker forwards
-        # here so a wedged drive can't freeze the window.
+        # here so a wedged drive can't freeze the window. Returns the process
+        # group signalled, as the real one does: the PID, since the ripper is
+        # started in a session of its own.
         self.terminate_calls += 1
+        self.signals.append("TERM")
+        return self.pid
 
     def cancel(
         self, term_timeout: float = 5.0, kill_timeout: float = 5.0
     ) -> int | None:
         self.cancel_calls += 1
+        self.signals.extend(["TERM", "KILL"])
         return self._cancel_returns
 
 
@@ -2766,6 +2781,60 @@ def test_a_ripper_that_survives_sigkill_is_reported_not_hung(
         "must never compare equal to 0."
     )
     assert any("even after SIGKILL" in r.message for r in caplog.records)
+
+
+class _NativeCyanripHandle(_FakeHandle):
+    """A native cyanrip cancelled in the middle of a long read.
+
+    No Distrobox wrapper: the process the worker spawned and signals IS cyanrip.
+    Its handler prints the stop notice at once, so the read loop breaks, but it
+    stops only when the read in hand returns (54 s on 2026-10-04), so ``wait()``
+    times out (``never_exits``). Records what the worker says its signal reached,
+    from inside the rip, where the window's rescue would read it.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(lines=(), never_exits=True, cancel_returns=-9)
+        self.worker: RipWorker | None = None
+        self.reach_mid_rip: object = "never read"
+
+    def log_lines(self):  # type: ignore[no-untyped-def]
+        yield "Ripping and encoding track 18, progress - 61.20%"
+        assert self.worker is not None
+        self.worker.cancel()
+        self.reach_mid_rip = self.worker.stop_signal_reach()
+        yield "\r"
+        yield "Trying to quit"
+
+
+def test_stop_signal_reach_names_the_signalled_process_only_while_it_runs(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """What the window's rescue and shutdown stop read to spare a native cyanrip.
+
+    Mid-rip, after the cancel: the PID and process group the SIGTERM went to, and
+    when. Before any signal, and once the process is reaped (its PID could then be
+    reused), nothing.
+    """
+    from platterpus import drive_control
+
+    handle = _NativeCyanripHandle()
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    handle.worker = worker
+    assert worker.stop_signal_reach() is None, "nothing has been signalled yet"
+    worker.start_rip()
+
+    reach = handle.reach_mid_rip
+    assert isinstance(reach, drive_control.SignalledRipper), reach
+    assert reach.pid == handle.pid and reach.pgid == handle.pid, reach
+
+    handle.returncode = -9  # what the real handle reports once SIGKILL reaped it
+    assert worker.stop_signal_reach() is None, (
+        "a reaped process's PID can be reused, so it must not be named"
+    )
+    # A later pass is a new handle that has had no signal of ours.
+    worker._handle = _FakeHandle()  # type: ignore[assignment]  # the next pass
+    assert worker.stop_signal_reach() is None
 
 
 class _CancellingHandle(_FakeHandle):

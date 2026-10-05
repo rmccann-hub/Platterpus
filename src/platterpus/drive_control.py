@@ -43,12 +43,16 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 import time
 from collections.abc import Callable
-from typing import Final
+from dataclasses import dataclass
+from signal import SIGTERM
+from typing import Final, Literal
 
 from platterpus import diagnostics
+from platterpus.safe_int import int_or_none
 from platterpus.tool_paths import exported_tools_dir, resolve_tool
 
 log = logging.getLogger(__name__)
@@ -300,40 +304,53 @@ def free_device_holders(
     exactly the loss §I of the acceptance run exists to detect. A cancel that
     stops the drive by destroying the log has traded one failure for a worse one.
 
-    So the post-cancel rescue passes ``signal="TERM"``: cyanrip handles SIGTERM
+    So the post-cancel rescue and the shutdown path SIGTERM the holder (through
+    :func:`term_unsignalled_holders`, which calls this with ``signal="TERM"`` when
+    nothing our own cancel signalled is still running): cyanrip handles SIGTERM
     (``cyanrip_main.c``, ``quit_signals[] = { SIGINT, SIGTERM }``), so its handler
-    runs, the rip unwinds, and the footer is written. The shutdown path does the
-    same through :func:`stop_reader_gracefully` (SIGTERM, a grace, then SIGKILL
-    only if the device is still held): it runs only when a rip is in flight, so a
-    log IS being protected there. It went straight to SIGKILL until 2026-09-30, on
-    the premise that the reader was wedged, and a rip in the round-29 Full run was
-    left without its footer that way. Only the stuck-scan path keeps the default,
+    runs, the rip unwinds, and the footer is written. The shutdown path's
+    :func:`stop_reader_gracefully` follows with a grace, then SIGKILL only if the
+    device is still held: it runs only when a rip is in flight, so a log IS being
+    protected there. It went straight to SIGKILL until 2026-09-30, on the premise
+    that the reader was wedged, and a rip in the round-29 Full run was left
+    without its footer that way. Only the stuck-scan path keeps the default,
     because a scan writes no log.
 
-    ONE SIGTERM, AND ON THE RIG IT IS THE FIRST. cyanrip's second-signal branch
-    force-exits without the footer, so a duplicate is as destructive as a kill.
-    The rip worker's cancel signals the host wrapper's process group, and that
-    signal has not been seen to cross into the container: on 2026-09-07 one left
-    the reader ripping for fifteen and a half minutes, and on 2026-09-09 the
-    footer came 1.7 s after this rescue's SIGTERM. So the rescue's is the first
-    signal the reader gets. This said until 2026-10-05 that a reader which had
-    received our SIGTERM would have exited, and so not be signalled again. That
-    is false on a slow disc, where cyanrip stops only once the read in hand
-    returns (54 s on 2026-10-04); what keeps this the only signal is the
-    container boundary, not ``fuser``. If a podman ever forwards the wrapper's
-    signal, this becomes the second on any read longer than the countdown
-    (``TASKS.md``).
+    THE RESCUE'S SIGTERM IS THE FIRST THE RIPPER GETS, ON BOTH PATHS, and this
+    call alone cannot make it so: it signals whoever holds the device, and
+    cyanrip's second signal force-exits without the footer
+    (``cyanrip@174a134:src/cyanrip_main.c:1216-1221``). Behind the Distrobox
+    wrapper the cancel signals the wrapper's group and has not been seen to cross
+    into the container (2026-09-07: the reader ripped on for 15.5 minutes;
+    2026-09-09 and 2026-10-05: the footer came about a second after the rescue's
+    SIGTERM). But a native cyanrip (``composition.build_backend`` falls back to one
+    on ``PATH``) IS what the cancel signalled, and mid-read (54 s on 2026-10-04) it
+    still holds the drive at +5 s: this call was its second signal (the fork's
+    round 30 lap 9 S28). So the rescue and the shutdown stop reach this only
+    through :func:`term_unsignalled_holders`, which asks
+    :func:`second_signal_refusal` which process the cancel actually reached.
     """
     if not device:
         return False
-    run = runner or _default_runner
+    rc = _fuser_kill_rc(device, runner or _default_runner, signal)
+    return rc == 0
+
+
+def _fuser_kill_rc(device: str, run: Runner, signal: str) -> int | None:
+    """`fuser -s -k [-<signal>] <device>`, returning fuser's exit code (tri-state).
+
+    ``0``: something held the device and was signalled; ``1``: nothing held it;
+    ``None`` or anything else: no answer. One builder for the argv, so the two
+    callers that need the tri-state and the one that needs a yes cannot send
+    different commands.
+    """
     argv = [_host_tool("fuser", _HOST_TOOL_DIRS_FUSER), "-s", "-k"]
     if signal:
         argv.append(f"-{signal}")
     argv.append(device)
     rc = _run_rc(argv, run)
     log.info("fuser -k %s %s rc=%s", signal or "(SIGKILL)", device, rc)
-    return rc == 0
+    return rc
 
 
 def kill_reader_on_host(runner: Runner | None = None) -> bool:
@@ -459,6 +476,234 @@ def running_readers(runner: Runner | None = None) -> tuple[str, ...] | None:
     return None
 
 
+# --- One SIGTERM per ripper: who has our stop signal already reached? ----------
+# The fork's round 30 lap 9 S28; `free_device_holders` says why, and
+# `second_signal_refusal` is the decision.
+
+
+@dataclass(frozen=True)
+class SignalledRipper:
+    """A ripper process our own stop SIGTERM has already reached, and when.
+
+    Handed over by the rip worker (``RipWorker.stop_signal_reach``) only while the
+    process it signalled has not been reaped, so ``pid`` cannot belong to another
+    process yet. ``pgid`` is the process group the SIGTERM went to (the worker
+    signals the whole group, and the ripper is started in a session of its own), or
+    ``None`` when only the single process was signalled. ``sent_at`` is
+    ``time.monotonic()`` when the signal was sent.
+    """
+
+    pid: int
+    pgid: int | None
+    sent_at: float
+
+
+#: Why a process holding the drive was NOT sent a SIGTERM. Each is a sentence the
+#: log line carries as it is. ``""`` from :func:`second_signal_refusal` means go.
+REFUSED_ALREADY_SIGNALLED: Final[str] = (
+    "our cancel's SIGTERM already reached this process directly, and it is still "
+    "inside the grace to finish the read in hand and write its log's footer; a "
+    "second signal makes cyanrip exit at once with no footer"
+)
+REFUSED_GONE: Final[str] = "it exited after fuser listed it"
+REFUSED_OWN_PROCESS: Final[str] = "it is this app's own process"
+
+#: What :func:`term_unsignalled_holders` did. ``"refused"``: something held the
+#: drive, and every holder was one our cancel already reached inside the grace.
+HolderOutcome = Literal["signalled", "nothing held it", "refused", "not determined"]
+
+# A PID as `fuser` prints it: a run of digits standing alone, optionally followed
+# by its access letters (`c`, `e`, `f`, `F`, `r`, `m`). "Standing alone" is what
+# keeps the digit in a device name (`sr0`) or a `/proc/1234/fd` warning out.
+# Bounded at 10 digits: a PID is at most 2^22 on Linux, and an unbounded run is a
+# `ValueError` in `int()` (tests/test_never_raises_contract.py).
+_FUSER_PID: Final[re.Pattern[str]] = re.compile(
+    r"(?<!\S)(?P<pid>\d{1,10})(?P<access>[cefFrm]*)(?!\S)"
+)
+
+
+def parse_fuser_pids(output: str, device: str = "") -> tuple[int, ...]:
+    """The PIDs in ``fuser <device>``'s output, in order, each once. Never raises.
+
+    fuser prints the PIDs on stdout and the file's name (``/dev/sr0:``) and the
+    access letters on stderr; :func:`_run_bounded` merges the two, so the name is
+    removed before matching. Anything that is not a standalone number (a warning,
+    a path) is ignored rather than guessed at: a missed PID costs one signal, and a
+    PID read out of a path could signal an unrelated process.
+    """
+    text = output.replace(f"{device}:", " ") if device else output
+    pids: list[int] = []
+    for match in _FUSER_PID.finditer(text):
+        pid = int_or_none(match.group("pid"), field="fuser PID")
+        if pid is not None and pid > 0 and pid not in pids:
+            pids.append(pid)
+    return tuple(pids)
+
+
+def device_holders(device: str, runner: Runner | None = None) -> tuple[int, ...] | None:
+    """`fuser <device>` with no signal: WHICH processes hold the device?
+
+    **Tri-state**, like :func:`device_is_held`: the PIDs (exit 0), ``()`` (exit 1:
+    nothing holds it), or ``None`` (no answer: fuser could not run, timed out, or
+    said "held" with no PID this parser can read). A caller must not read ``None``
+    as "nothing holds it".
+    """
+    if not device:
+        return None
+    rc, output = _run_capture(
+        [_host_tool("fuser", _HOST_TOOL_DIRS_FUSER), device],
+        runner or _default_runner,
+    )
+    if rc == 1:
+        return ()
+    if rc != 0:
+        return None
+    pids = parse_fuser_pids(output, device)
+    if not pids:
+        log.warning(
+            "fuser says something holds %s but named no PID this parser reads "
+            "(output: %r); which process holds it is NOT DETERMINED",
+            device,
+            output[:200],
+        )
+        return None
+    return pids
+
+
+def second_signal_refusal(
+    holder_pid: int,
+    reached: SignalledRipper | None,
+    *,
+    now: float,
+    grace_s: float = READER_TERM_GRACE_S,
+    pgid_of: Callable[[int], int] = os.getpgid,
+) -> str:
+    """Why ``holder_pid`` must NOT be sent a SIGTERM now, or ``""`` if it may.
+
+    THE predicate for "would this be a ripper's second signal?", asked by
+    :func:`term_unsignalled_holders` for each holder at the moment it would signal
+    it, not when the rescue was armed: the cancel, the countdown and the worker's
+    reap all move underneath it. It refuses a holder that is the process our
+    cancel's SIGTERM reached, or in the process group it went to, until
+    ``grace_s`` (:data:`READER_TERM_GRACE_S`, the same grace the shutdown path
+    allows before SIGKILL, twice the longest read filed) has passed since that
+    signal. That is a native cyanrip; behind the Distrobox wrapper the cancel
+    reached the wrapper's group and the holder is the reader inside the container,
+    which no signal of ours has reached, so it is not refused.
+
+    **Fail-safe direction.** A wrong refusal leaves a reader running that nobody
+    signalled, which the worker's reap, the shutdown stop or Force stop still
+    end; a wrong permit destroys the archival record, which nothing restores. So
+    a holder is refused on identity alone, without asking whether it is mid-read.
+    Past the grace it is signalled again, and cyanrip then exits without its
+    footer: by then the rest of the cancel path has stopped waiting for one, and
+    the worker's reap is SIGKILLing the same process (``RipWorker._reap_ripper``).
+    """
+    if holder_pid == os.getpid():
+        return REFUSED_OWN_PROCESS
+    if reached is None:
+        return ""
+    try:
+        holder_pgid: int | None = pgid_of(holder_pid)
+    except ProcessLookupError:
+        return REFUSED_GONE
+    except OSError as exc:
+        # Linux answers getpgid for any live PID; anything else leaves the group
+        # unknown, and the PID comparison below still applies.
+        log.warning("could not read the process group of pid %d: %s", holder_pid, exc)
+        holder_pgid = None
+    same_process = holder_pid == reached.pid
+    same_group = reached.pgid is not None and holder_pgid == reached.pgid
+    if not (same_process or same_group):
+        return ""
+    if now - reached.sent_at >= grace_s:
+        return ""
+    return REFUSED_ALREADY_SIGNALLED
+
+
+def term_unsignalled_holders(
+    device: str,
+    reached: SignalledRipper | None,
+    runner: Runner | None = None,
+    *,
+    grace_s: float = READER_TERM_GRACE_S,
+    clock: Callable[[], float] = time.monotonic,
+    pgid_of: Callable[[int], int] = os.getpgid,
+    kill: Callable[[int, int], None] = os.kill,
+) -> HolderOutcome:
+    """SIGTERM whatever holds ``device``, except a ripper our cancel already reached.
+
+    The post-cancel rescue and the shutdown stop both call this, so neither can
+    send a ripper its second signal inside the grace (:func:`second_signal_refusal`).
+
+    * ``reached`` is ``None`` (nothing our cancel signalled is still running): the
+      predicate can refuse no holder, so this is the same device-scoped
+      ``fuser -s -k -TERM <device>`` as always. It is the Distrobox path once the
+      wrapper has been reaped, which the 2026-10-05 rig cancel shows happens well
+      inside the 5 s countdown.
+    * Otherwise it asks fuser which PIDs hold the device and signals each one the
+      predicate allows, with ``kill(2)``, which is what ``fuser -k`` does. If fuser
+      cannot say who holds it, nothing is signalled and the log says NOT
+      DETERMINED: guessing could be the second signal this exists to prevent.
+
+    Synchronous and best-effort; run it off the GUI thread. Never raises.
+    """
+    if not device:
+        return "not determined"
+    run = runner or _default_runner
+    if reached is None:
+        rc = _fuser_kill_rc(device, run, "TERM")
+        if rc == 0:
+            return "signalled"
+        return "nothing held it" if rc == 1 else "not determined"
+    holders = device_holders(device, run)
+    if holders is None:
+        log.warning(
+            "a process our cancel signalled (pid %d) is still running and fuser "
+            "could not say which processes hold %s, so NOTHING was signalled: "
+            "whether the holder is that ripper is NOT DETERMINED",
+            reached.pid,
+            device,
+        )
+        return "not determined"
+    if not holders:
+        return "nothing held it"
+    signalled = refused = failed = 0
+    for pid in holders:
+        refusal = second_signal_refusal(
+            pid, reached, now=clock(), grace_s=grace_s, pgid_of=pgid_of
+        )
+        if refusal:
+            log.info("not signalling pid %d, which holds %s: %s", pid, device, refusal)
+            if refusal != REFUSED_GONE:
+                refused += 1
+            continue
+        try:
+            kill(pid, SIGTERM)
+        except ProcessLookupError:
+            log.info("pid %d let go of %s before its SIGTERM", pid, device)
+            continue
+        except OSError as exc:
+            failed += 1
+            log.warning(
+                "could not SIGTERM pid %d, which holds %s: %s", pid, device, exc
+            )
+            continue
+        signalled += 1
+        log.info(
+            "SIGTERM sent to pid %d, which holds %s and is not a process our "
+            "cancel's signal reached in the last %.0fs",
+            pid,
+            device,
+            grace_s,
+        )
+    if signalled:
+        return "signalled"
+    if refused:
+        return "refused"
+    return "not determined" if failed else "nothing held it"
+
+
 def stop_reader_gracefully(
     device: str,
     container: str = DEFAULT_CONTAINER,
@@ -467,19 +712,27 @@ def stop_reader_gracefully(
     grace_s: float = READER_TERM_GRACE_S,
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
+    *,
+    reached: SignalledRipper | None = None,
+    pgid_of: Callable[[int], int] = os.getpgid,
+    kill: Callable[[int, int], None] = os.kill,
 ) -> str:
     """Stop the reader holding ``device`` so that its log keeps its footer.
 
-    SIGTERM first (device-scoped, `fuser -k -TERM`), then wait up to ``grace_s``
-    for the device to be let go, and only if it is still held — or whether it is
-    held cannot be told — escalate to :func:`free_drive`, whose SIGKILL leaves the
-    log without its footer. That order is the archival decision
-    :func:`free_device_holders` explains, applied to the shutdown path, which used
-    to go straight to SIGKILL.
+    SIGTERM first (device-scoped, through :func:`term_unsignalled_holders`), then
+    wait up to ``grace_s`` for the device to be let go, and only if it is still
+    held — or whether it is held cannot be told — escalate to :func:`free_drive`,
+    whose SIGKILL leaves the log without its footer. That order is the archival
+    decision :func:`free_device_holders` explains, applied to the shutdown path,
+    which used to go straight to SIGKILL.
 
-    ``already_signalled`` skips the SIGTERM: cyanrip's second signal force-exits
-    without the footer, so a reader the post-cancel rescue already signalled is
-    only waited for, never signalled again.
+    Never a ripper's second SIGTERM, from either of the two signals it may already
+    have had. ``already_signalled`` skips the SIGTERM: a reader the post-cancel
+    rescue already signalled is only waited for. ``reached`` is the process the
+    window's own cancel just signalled (``RipWorker.stop_signal_reach``): a
+    native cyanrip holding the drive is that process, so it is refused by
+    :func:`second_signal_refusal` and only waited for, while the reader behind the
+    Distrobox wrapper, which that signal never reached, is signalled as before.
 
     **Fail-safe direction.** An undeterminable answer escalates. The failure the
     kill protects against is a reader left ripping after the app has gone (the
@@ -498,11 +751,27 @@ def stop_reader_gracefully(
         return free_drive(device=device, container=container, runner=runner)
     run = runner or _default_runner
     if not already_signalled:
-        if not free_device_holders(device, runner=run, signal="TERM"):
+        outcome = term_unsignalled_holders(
+            device,
+            reached,
+            run,
+            grace_s=grace_s,
+            clock=clock,
+            pgid_of=pgid_of,
+            kill=kill,
+        )
+        # "signalled" and "refused" (every holder a ripper our cancel reached
+        # inside the grace) both mean: wait for it. With a ripper of ours still
+        # running, "not determined" waits too, and the wait escalates at once if
+        # fuser cannot answer at all; with none, it falls back as it always did.
+        if outcome == "nothing held it" or (
+            outcome == "not determined" and reached is None
+        ):
             log.info(
-                "nothing on the host held %s to SIGTERM; falling back to the "
+                "nothing on the host held %s to SIGTERM (%s); falling back to the "
                 "broader stop",
                 device,
+                outcome,
             )
             return free_drive(device=device, container=container, runner=run)
     started = clock()

@@ -936,6 +936,12 @@ class RipWorker(QObject):
         # does not engage the never-block-the-GUI rule.
         self._sigterm_sent_for: RipHandle | None = None
         self._sigterm_lock: threading.Lock = threading.Lock()
+        #: WHAT that signal reached (the pid, the group, when), set with
+        #: `_sigterm_sent_for` under the lock and only meaningful while that field
+        #: names the current handle. The window's post-cancel rescue and shutdown
+        #: stop read it (`stop_signal_reach`) so they never send the same cyanrip a
+        #: second signal (the fork's round 30 lap 9 S28).
+        self._sigterm_reach: drive_control.SignalledRipper | None = None
         #: WHICH handle `_reap_ripper` had to escalate against (SIGTERM, then
         #: SIGKILL on the group) — the one stop this worker sends that does not go
         #: through `_signal_stop`. Kept for the same identity reason as the field
@@ -3609,6 +3615,8 @@ class RipWorker(QObject):
         wait on it") is already satisfied by the signal that was actually sent —
         and the real escalation is untouched: ``_reap_ripper`` still bounds its
         wait and still escalates to SIGTERM→SIGKILL on the process *group*.
+        What the signal reached is recorded (``_sigterm_reach``) so nothing else
+        in the app sends that process a second one either (``stop_signal_reach``).
         """
         with self._sigterm_lock:
             handle = self._handle
@@ -3627,10 +3635,43 @@ class RipWorker(QObject):
                 return
             self._sigterm_sent_for = handle
             log.info("signalling the ripper to stop (SIGTERM, %s)", why)
+            group: int | None = None
             try:
-                handle.terminate()
+                group = handle.terminate()
             except Exception:  # noqa: BLE001 — best-effort, must not mask caller
                 log.exception("terminate() raised; ignored (%s)", why)
+            # Recorded even if terminate() raised: whether the signal left is then
+            # unknown, and assuming it did only delays a signal, never doubles one.
+            self._sigterm_reach = drive_control.SignalledRipper(
+                pid=handle.pid, pgid=group, sent_at=time.monotonic()
+            )
+
+    def _reach_for(self, handle: RipHandle) -> drive_control.SignalledRipper | None:
+        """What our one SIGTERM reached, if it was sent to ``handle``; else None."""
+        with self._sigterm_lock:
+            if self._sigterm_sent_for is handle:
+                return self._sigterm_reach
+        return None
+
+    def stop_signal_reach(self) -> drive_control.SignalledRipper | None:
+        """The process this rip's stop SIGTERM reached, while it is still running.
+
+        Safe from the GUI thread (one lock held for a few attribute reads). The
+        window reads it where its post-cancel rescue fires and where its shutdown
+        stop starts, and hands it to `drive_control.term_unsignalled_holders`, so a
+        process our SIGTERM already reached is not sent a second one inside the
+        grace. On a native install that process is cyanrip itself; behind the
+        Distrobox wrapper it is the wrapper, which exits at once, so by the time
+        the rescue fires this is usually ``None``. ``None`` too once the process
+        has been reaped, so the PID it names cannot have been reused.
+        """
+        handle = self._handle
+        if handle is None:
+            return None
+        reach = self._reach_for(handle)
+        if reach is None or handle.returncode is not None:
+            return None
+        return reach
 
     # --- Internals ---
 

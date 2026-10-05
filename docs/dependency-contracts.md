@@ -724,9 +724,33 @@ never have a rip on another drive killed by a broad name match, #23):
 4. **`eject [<device>]`** — only *after* the holder is killed (a busy device
    ignores eject).
 
-**Shutdown contract (0.4.9):** closing the app during a rip runs `free_drive`
-(kill the reader, no eject) **synchronously** so the in-container reader can't
-outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
+**Post-cancel rescue (`term_unsignalled_holders`):** 5 s after a Cancel, the
+holder of the rip's drive gets **SIGTERM**, never SIGKILL (cyanrip writes its
+log's footer and `Log FUN512:` from `atexit`), and never eject. It must be the
+ripper's **first** signal: cyanrip `_exit(1)`s on a second with no footer
+(`cyanrip@174a134:src/cyanrip_main.c:1216-1221`). Behind the Distrobox wrapper
+the cancel's SIGTERM ends the wrapper and does not cross into the container, so
+when nothing the cancel signalled is still running this is the plain
+**`fuser -s -k -TERM <device>`**. A native cyanrip on `PATH` (the
+`composition.build_backend` fallback) *is* what the cancel signalled, so while
+that process is unreaped the rescue lists the holders first, with
+**`fuser <device>`** (exit 0 held, 1 not held; PIDs on stdout, the name and
+access letters on stderr, merged here as `/dev/sr0:   4321`, psmisc 23.7) and
+`kill(2)`s with SIGTERM only the holders `second_signal_refusal` allows: not
+the process or process group the cancel reached, until `READER_TERM_GRACE_S`
+(108 s) after it. If fuser names no PID it can read, nothing is signalled and
+the log says NOT DETERMINED. (The fork's round 30 lap 9 S28; a native install
+has not been run on hardware.)
+
+**Shutdown contract:** closing the app during a rip stops the reader
+(`stop_reader_gracefully`, no eject) as exit work that `app.main` joins
+before the process exits, so the window closes at once and the in-container
+reader can't outlive the process: SIGTERM through the same
+`term_unsignalled_holders` (skipped if the rescue already signalled, and
+refusing a native cyanrip the close's own cancel reached), then up to
+`READER_TERM_GRACE_S` polling **`fuser -s <device>`**, then `free_drive`'s
+SIGKILL only if the drive is still held or fuser cannot say — see
+`ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 

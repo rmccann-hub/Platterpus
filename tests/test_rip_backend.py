@@ -80,6 +80,48 @@ def test_rip_handle_cancel_signals_group_terminate_then_kill(
     assert code == -9
 
 
+def test_terminate_says_which_process_group_its_SIGTERM_reached() -> None:
+    """The window's rescue spares the process our cancel already signalled (the
+    fork's round 30 lap 9 S28), so the handle must say which group that was. A
+    real child in a session of its own, as the cyanrip backend starts it: the
+    group is its own PID."""
+    proc = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        start_new_session=True,
+    )
+    try:
+        handle = RipHandle(process=proc)  # type: ignore[arg-type]
+        assert handle.pid == proc.pid
+        assert handle.terminate() == proc.pid
+        assert proc.wait(timeout=10) == -signal.SIGTERM
+        assert handle.terminate() is None, "an exited process was signalled again"
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=10)
+
+
+def test_terminate_reports_no_group_when_only_the_process_was_signalled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The fallback signals the single process: its group mates had no signal,
+    so `None` keeps the rescue from sparing them."""
+
+    def _no_group(pid: int) -> int:
+        raise PermissionError("no group")
+
+    monkeypatch.setattr(rip_backend.os, "getpgid", _no_group)
+    sent: list[int] = []
+
+    class _Recording(_FakePopen):
+        def send_signal(self, sig: int) -> None:
+            sent.append(sig)
+
+    handle = RipHandle(process=_Recording(argv=[]))  # type: ignore[arg-type]
+    assert handle.terminate() is None
+    assert sent == [signal.SIGTERM]
+
+
 def test_rip_handle_cancel_on_already_exited_process_is_safe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
