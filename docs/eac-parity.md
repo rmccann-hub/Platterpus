@@ -390,6 +390,38 @@ read as *none agreed*: its last read did match its second (EAC CRC32 `59D352DD` 
 the complement of the second read's printed `A62CAD22`), and the old sentence said
 otherwise.
 
+##### The skipped-read verdict (2026-10-05)
+
+A track libcdio-paranoia **skipped** on (`SKIP` above zero in its per-track
+`Paranoia status counts:` block: paranoia gave up verifying a read and kept what it
+had) that AccurateRip did not confirm now reads
+
+> `Copy NOT confirmed — the ripper could not verify every read and AccurateRip did not confirm the audio`
+
+where it read `Copy OK`. Track 18 of the 2026-10-04 rig run is the case: 2,586 skips,
+AccurateRip matching one frame only, and `Copy OK` under it
+(`docs/handshake/artifactsround30/round30oct04fulleac.log` lines 298-310). cyanrip's
+`Ripping errors:` counts only reads that failed outright, so the disc still says
+`No errors occurred`. The words are ours, proposed in our round 30 lap 8 S20 and
+accepted by the fork in their lap 9 S26: this log is what they diff against, so
+neither side rewords it alone (round 7 lap 11, H4). The test is the shared predicate
+`verdict.track_has_unverified_skips`, the one the results pane reads, so the two
+surfaces cannot disagree about which tracks it names. A skipped track with an exact
+AccurateRip match keeps `Copy OK`: the match proves the audio however it was read.
+A one-frame match does not.
+
+**When a track was skipped on and also hit the repeat limit, the skip takes the
+verdict line.** The re-read shortfall stays on the `Copy CRC` line in its own words,
+and the `Read stability` line names the track, so both facts stay in the block. The
+other order would say *did not converge* twice and the skip nowhere.
+
+**The parity reasoning.** It is the same move as the re-read verdict: an EAC verdict
+we cannot honestly print, replaced by a sentence of ours on the same line. It does
+not contain `Copy OK`, so no mechanical reader takes it for EAC's clean verdict, and
+it does not contain `Copy aborted`, which checkers score as an automatic zero (Part D
+§2). We do not imitate EAC's own per-position way of marking a doubtful read: cyanrip
+reports how many skips a track had, not where they were.
+
 #### Summary / status report
 
 | Field | EAC | cyanrip | Notes |

@@ -1040,6 +1040,14 @@ each side's reading; and the closing releases named.
   their S26 wording; S30 is a correction in our lap 10. **Our lap 10 must answer:** S13
   (keep exit 0 for a skip-only rip), S16 (take the text), S39 (S35's items), S3 (yes,
   for round 31), and say our gate implements 7 from `1dbf9ac0`.
+- [ ] **A skipped track AccurateRip did not confirm gets its own EAC-layout verdict**
+  (our lap 8 S20, accepted in their lap 9 S26, `cyanrip@f6d72c0:docs/handshake/round-30-lap-09.md`).
+  Track 18 of the 2026-10-04 run (2,586 paranoia skips, one-frame AccurateRip match)
+  read "Copy OK". It renders their accepted wording, *"Copy NOT confirmed — the
+  ripper could not verify every read and AccurateRip did not confirm the audio"*,
+  decided by `verdict.track_has_unverified_skips`; an exact match keeps "Copy OK"; a
+  track also at the repeat limit takes the skip verdict, with the re-read shortfall
+  left on its Copy CRC line (`docs/eac-parity.md`, *The skipped-read verdict*).
 
 ## Round 29 — CLOSED on both gates on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 

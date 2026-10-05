@@ -150,6 +150,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **The setup wizard's introduction shows its list as a list.** Its three
   bullet points, and the paragraphs of the "Updating cyanrip" wizard, ran
   together into one paragraph.
+- **The EAC-style log no longer marks "Copy OK" a track the drive could not read
+  reliably.** When the reader gave up checking some of a track's reads and
+  AccurateRip did not confirm the track either, the EAC-style log still said
+  "Copy OK". On the 2026-10-04 damaged disc, track 18 had 2,586 such reads. It now
+  says "Copy NOT confirmed — the ripper could not verify every read and AccurateRip
+  did not confirm the audio", the wording agreed with the cyanrip fork. A track
+  AccurateRip confirmed still says "Copy OK", because the match proves the audio.
 - **The EAC-style log no longer says no two reads agreed when some did.** When
   cyanrip ran out of re-reads on a track before enough of them matched, the
   EAC-style log always said "re-reads did NOT agree". On the 2026-09-28 test run,
