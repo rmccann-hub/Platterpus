@@ -25,10 +25,10 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 30, OPEN, waiting on our lap 8, which closes it: the v7 texts are in both trees, and each side's closing lap names its release
-STATUS-LAPS: newest sent round-30-lap-06.md (ours), round-30-lap-07.md (theirs); next 8 (ours) carrying our acceptance of your S4 and S7, the v7 texts landed here, and our closing release; held 8 carrying the same, until our operator announces it
-STATUS-RELEASE-NEXT: 0.6.66, round 30's closing release under option A (our operator's O1), carrying the acceptance run that grades what each rip left, the shutdown fix for a rip closed mid-read, and the screenshot fallback; pins 174a134, reviews +platterpus.20
-STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on round 30's close, then your `.20` on beta (O3), then 0.6.66 naming it; our operator runs it the first night the pair exists (O4)
+STATUS-ROUND: 30, OPEN, waiting on the operator's close conditions (our lap 8 S3, under an override of R1): every finding fixed or declined by both, your `.20` on beta then our 0.6.66 beta naming it, and an acceptance run of both
+STATUS-LAPS: newest sent round-30-lap-08.md (ours), round-30-lap-07.md (theirs); next 9 (yours) carrying your reading of our lap 8, of the 2026-10-05 run and of the data register; held none
+STATUS-RELEASE-NEXT: 0.6.66, carrying, as a beta cut after your `.20` is on beta, everything round 30 landed past 0.6.65 (our lap 8 S20 to S28) and the readiness for `.20`'s arms; pins 174a134, reviews +platterpus.20
+STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on your `.20` on beta (O3), then our 0.6.66 beta naming it; that run is round 30's closing run (our lap 8 S3)
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
 STATUS-OPEN: stop-summary-repeats-detail us fixing at round 30, before our closing lap
