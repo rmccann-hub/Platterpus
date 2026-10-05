@@ -11,6 +11,53 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-05 (later) — lap 8 redrafted OPEN, eight fixes, `.20` read, a data register, a dependency map
+
+**Asked:** *"i will send 1 final acceptance run file in the morning, same version… want
+this round to look at everything and not end until we fix it… fix, then we release betas
+of both applications, and test to acceptance of both to close the round"*; an overall
+time estimate *"on the tracks ripped… also in log files"*; *"double check window sizes and
+readability"*; *"do a full map out of what prjects/languages/versions/applications/
+deoencies you have or rely on"*; and *"you and cyanrip should both be communicating what
+data you want or can give to the other… saying if it's easy or hard to get, or accurate vs
+inaccurate"*.
+
+**Done:**
+- *The cancel path and the run end*: a cancel on a slow disc waits `cancelled_log_wait_s()`
+  and keeps an unsettled log's verdicts (`eced6741`); a report says a check that began
+  began (`3243518f`); a run's rip is cancelled when the run ends, and the session waits for
+  it before packing (`d62f1ca4`); the securing pass keeps its own log (`32985e07`); the
+  first container command of a session runs alone (`6dc2d4c5`); `realtime_multiplier` is
+  one quantity (`e154af1b`).
+- *An up-front rip time estimate*, in the plan and the log, from the drive's own measured
+  first reads, else the rig's for its model, else none (`cd351a39`).
+- *From the fork's rig README on our side*: every rip's `-j` record now reaches the
+  acceptance bundle, and an absence is named (`a7a631b9`); a stale "never on a drive"
+  docstring corrected (`d6669722`).
+- *`.20` read from their tree before it ships*: our parser takes every new shape; the one
+  behaviour change was ours to make. `.20` marks skips and repeat-limit tracks `with
+  errors`, which would have stepped the whole disc down in our default ladder mode;
+  `4790a16a` keeps the ladder keyed on drive-failed reads.
+- *Lap 8 redrafted* as `OPEN` under the operator's override of R1 (`d3660ab5`), held for
+  the 2026-10-05 run. The fork wrote a held lap 9 on the same word; lap 8 answers nothing
+  in its body (§5c) and takes the fork's findings from their released rig README instead.
+- *The data register*: `docs/cyanrip-handshake.md` §10, six wants and six gives, the giver
+  rating ease and accuracy; lap 8 asks the fork to rate its half.
+- *The dependency map* (`dba00711`, agent): `bom.cdx.json` (CycloneDX 1.7) and a generated
+  block in `DEPENDENCIES.md`; its two-way tool check caught `pgrep` on integration
+  (`575eda61`).
+
+**Learned:**
+- A producer that widens what a status means moves every consumer of that status, not
+  only its parser. Reading `.20` for parse compatibility alone would have passed while
+  the ladder silently changed policy; the check that found it was *what does each reader
+  of this field DO with it*. (Already graduated: `CLAUDE.md` *what does the code
+  downstream do with answers it never used to receive?*)
+- A renumbering pass over a lap must not touch references to the other side's statement
+  numbers; mine shifted a dozen of them and the checkers did not notice, because a wrong
+  number is still a well-formed reference. Re-read every cross-lap reference by hand after
+  renumbering.
+
 ## 2026-10-05 — Round 30 lap 8 (GO, held), v7 landed, and what the 2026-10-04 runs found
 
 **Asked:** *"our round 30 lap 7 is published at 4371a50"*; then three bundles of the
