@@ -112,6 +112,11 @@ _TOOL_NOTES: Final[dict[str, _ToolNote]] = {
         "Name-matched force-stop of the reader on cancel (host first, then the "
         "container — Critical rule #3's scoped exception).",
     ),
+    "pgrep": _ToolNote(
+        "Lists the reader processes the host sees: the exit check, and the "
+        "acceptance bundle's record of whether a ripper was still running as it "
+        "was packed (host copy only; never signals anything).",
+    ),
     "eject": _ToolNote("Opens the drive tray after a force-stop."),
     "gio": _ToolNote(
         "Marks the desktop shortcut trusted after AppImage integration.",

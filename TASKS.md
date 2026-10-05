@@ -698,6 +698,32 @@ Open:
 - [x] **The realtime multiplier means one thing** (found while reading the filed timing
   data): elapsed over the audio read, finished or not.
 
+- [~] **What each side wants from the other, and can give** (operator, 2026-10-05: *"you
+  and cyanrip should both be communicating what data you want or can give to the other
+  for better experience. And saying if it's easy or hard to get, or accurate vs
+  inaccurate."*). The register is `docs/cyanrip-handshake.md` §10: six wants (W1–W6) and
+  six gives (G1–G6) of ours, the giver rating ease and accuracy. Lap 8 S37 asks the fork
+  to rate its half once in round 30. Open until their ratings arrive.
+- [ ] **W6, ours to close: read the `-j` record's `interrupted` / `interrupted_by` /
+  `exit_code`** for the status line and the report. The records reach the bundle since
+  `a7a631b9`; the app does not read them yet.
+- [ ] **Ask the maintainer: should paranoia skips step the read speed down?** From `.20`
+  a skipped-on track reads `with errors`. `4790a16a` keeps the ladder keyed on what it
+  was keyed on under `.19` (drive-failed reads only), because a ripper upgrade must not
+  change our ripping policy unasked. Whether skips SHOULD trigger a slower whole-disc
+  re-read is the maintainer's call; the module's own policy says instability is flagged,
+  not re-ripped.
+- [x] **The beta path exists**: a `v0.6.66b1`-shaped tag is a PEP 440 pre-release, which
+  `update_check.is_prerelease_version` keeps off the stable channel and `release.yml`
+  sends through the relaxed handshake gate. Nothing to build before the cut; at the cut,
+  `__version__` and the CHANGELOG heading carry the `b1`.
+- [x] **A full map of what Platterpus has or relies on** (operator, 2026-10-05).
+  `bom.cdx.json` (CycloneDX 1.7) and the generated block in `DEPENDENCIES.md`, from
+  `scripts/emit_bom.py`; `--check` and `tests/test_bom_emitted.py` hold it fresh, and a tool
+  the code uses with no note stops the run (it caught `pgrep` on integration). Not
+  validated against the CycloneDX JSON schema: no validator is installed, and adding one
+  is a new dependency for the maintainer to approve.
+
 ## Round 30 — OPEN on `174a134` (`+platterpus.19`): the Full run on 0.6.65 with `.19`, and the operator's release-cycle question
 
 Their lap 1 (`cyanrip@171bcf9`, platterpus-fork tip `0ae873c`, sha256 `6db0ed0d…`, 15,546
