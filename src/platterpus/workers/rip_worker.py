@@ -61,6 +61,7 @@ from platterpus.read_speed_ladder import (
     tracks_failing_accuraterip,
     unstable_tracks,
 )
+from platterpus.redraw_run import RedrawRun
 from platterpus.rip_addendum import (
     SupersededTrack,
     read_log_with_addendum,
@@ -200,6 +201,38 @@ _CYANRIP_TRACK_PROGRESS = re.compile(
 # The start report carries the track total ("Disc tracks:    16") — cyanrip's
 # progress lines don't repeat it, so we capture it here for the overall bar.
 _CYANRIP_DISC_TRACKS = re.compile(r"^Disc tracks:\s+(?P<total>\d{1,4})\s*$")
+
+# Every shape of IN-PLACE PROGRESS REDRAW: a line the ripper overwrites with `\r`
+# many times a second, each one superseding the last. cyanrip's is the first; the
+# other three are the previous backend's, each a task line its runner redrew with
+# a trailing percentage (see the examples above), inert under cyanrip (KDD-18).
+# A track's OUTCOME line is not here: it is printed once and never redrawn.
+_REDRAW_PATTERNS: tuple[re.Pattern[str], ...] = (
+    _CYANRIP_TRACK_PROGRESS,
+    _DISC_SCAN_PATTERN,
+    _TRACK_PHASE_PATTERN,
+    _LENGTH_PHASE_PATTERN,
+)
+
+
+def _is_progress_redraw(line: str) -> bool:
+    """Whether ``line`` is a progress redraw. THE one answer; never raises.
+
+    It decides which lines the capture thins and which the log pane throttles. It
+    is not ``_progress_for(line) is not None``, which answered it until 2026-10-05:
+    that asks whether a line moves the bar, and a track's outcome line does (it pegs
+    the track's slice), so every ``Track N read successfully!`` was treated as a
+    redraw and left out of the capture (the fork's round 30 lap 9 S29). From
+    cyanrip ``.20`` that line is the one that says a track read with errors.
+
+    A line the outcome predicate (``cyanrip_log.finished_track``) accepts is never a
+    redraw, whatever else it contains: calling a redraw a line costs one line in a
+    bounded capture, and calling a line a redraw can cost a verdict.
+    """
+    if cyanrip_log.finished_track(line) is not None:
+        return False
+    return any(pattern.search(line) for pattern in _REDRAW_PATTERNS)
+
 
 # A ripper can abort when it can't fetch online metadata (e.g. the container
 # has no network) and wasn't told the disc is "unknown". We detect that so the
@@ -380,9 +413,9 @@ _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 # ~10 updates/second keeps the bar and ETA feeling live while leaving the event
 # loop plenty of room to repaint. Only progress lines are throttled — phase
 # changes, errors, and end-of-rip markers always go through immediately.
-# Cap on retained non-progress ripper output (see RipWorker._stdout_lines).
-# A 14-track album is a few hundred such lines, so this is ~30x headroom while
-# still bounding a pathological ripper.
+# Cap on retained ripper output lines (see RipWorker._stdout_lines). A 14-track
+# album is a few hundred lines once redraws are thinned, so this is ~30x
+# headroom while still bounding a pathological ripper.
 #
 # HEAD **AND TAIL**, not head-only. This was a plain stop at the cap, reasoned as
 # "the head holds the header and the earliest tracks, which is what a report
@@ -906,10 +939,11 @@ class RipWorker(QObject):
         # whatever it *said* is ours the moment it says it, regardless of what
         # reaches disk.
         #
-        # Progress redraws are excluded, not truncated: they are ~98% of the
-        # stream (900+ lines of "progress - 41.65%" for one album) and carry
-        # nothing a report needs. What is left is every Summary block, header
-        # and error — a few hundred lines, small enough to embed in the JSON.
+        # Progress redraws are THINNED, not kept whole: they are ~98% of the
+        # stream (900+ lines of "progress - 41.65%" for one album). Each run of
+        # them keeps its first and last line with a counted marker between
+        # (`redraw_run`), so what is left is every other line in order, each
+        # read's start and end, and the count of what was not kept.
         self._stdout_lines: list[str] = []
         # The rolling tail kept once `_stdout_lines` hits its cap, so a runaway
         # ripper's FINAL lines — where its fatal message is — survive. See
@@ -918,6 +952,10 @@ class RipWorker(QObject):
         # How many lines fell out of that rolling window. Reported in the
         # captured text rather than leaving an unexplained gap.
         self._stdout_elided: int = 0
+        # The run of progress redraws not yet written to the capture. It is
+        # written, thinned, when any other line is retained, and shown by
+        # `captured_stdout` while still open, so no exit path can lose it.
+        self._redraw_run: RedrawRun = RedrawRun()
         # What screening changed in the ripper's output (Critical rule #12, the
         # inbound half — `inbound_text`). Reported at the end of `captured_stdout`
         # so a reader knows an escape was ours, not the ripper's.
@@ -2310,6 +2348,9 @@ class RipWorker(QObject):
         # Stream output. Iteration ends when the ripper closes its stdout
         # (i.e. exits) or when cancel() flips the flag.
         try:
+            # A run of redraws never spans two passes: write the last pass's here,
+            # so this pass's first line is not counted into it.
+            self._flush_redraw_run()
             # Held as an explicit iterator, not just a `for` target, so the cancel
             # branch below can pull the ripper's last words off the pipe.
             lines = iter(self._handle.log_lines())
@@ -2330,7 +2371,7 @@ class RipWorker(QObject):
                     # handshake round came to conclude the ripper's signal handler
                     # had never run.
                     #
-                    # Retained WITHOUT the progress filter the rest of the loop
+                    # Retained WITHOUT the redraw thinning the rest of the loop
                     # applies, deliberately: at a cancel, even a bare progress
                     # redraw is the diagnostic — it says how far the rip had got
                     # when the user stopped it. One line, and the buffer is
@@ -2338,18 +2379,15 @@ class RipWorker(QObject):
                     self._retain_stdout_line(shown)
                     self._retain_last_words(lines, line)
                     break
-                # `_progress_for` both classifies the line (a numeric progress
-                # redraw → not None) AND updates `_current_track` as a side
-                # effect, so call it once up front.
+                # `_progress_for` gives the bar's values for this line AND updates
+                # `_current_track` as a side effect, so call it once up front. It
+                # does NOT say whether the line is a redraw: an outcome line moves
+                # the bar too, and is the line a report most needs.
                 prog = self._progress_for(line)
-                is_progress = prog is not None
-                # Retain the substantive stream (see `_stdout_lines`). Bounded so
-                # a runaway ripper cannot grow this without limit; the cap is far
-                # above a real album's few hundred non-progress lines, and it is
-                # a *stop*, not a ring buffer, because the head is where the
-                # header and the early tracks are.
-                if not is_progress:
-                    self._retain_stdout_line(shown)
+                # Retain the stream (see `_stdout_lines`): every line, except that
+                # a run of redraws is thinned to its first and last line and a
+                # count. Bounded head + tail, so a runaway ripper cannot grow this.
+                is_redraw = self._capture_line(line, shown)
                 # Forward the line to the GUI's log pane — but RATE-LIMIT the
                 # high-frequency progress redraws. Appending to the log widget
                 # (text layout + repaint) is the expensive per-tick work; at
@@ -2359,7 +2397,7 @@ class RipWorker(QObject):
                 # cheap and stay unthrottled, so the progress bar still moves
                 # smoothly even when the log pane updates only ~10×/second.
                 now = time.monotonic()
-                if is_progress:
+                if is_redraw:
                     if now - self._last_progress_emit >= _PROGRESS_MIN_INTERVAL_S:
                         self._last_progress_emit = now
                         # Strip cyanrip's own trailing "ETA - …" so the log pane
@@ -2676,8 +2714,14 @@ class RipWorker(QObject):
 
         One method rather than two call sites doing it inline, so the cancel path
         (which has its own reason to retain a line) cannot drift from the main
-        loop's bookkeeping.
+        loop's bookkeeping. It writes any open run of redraws first, so every path
+        that retains a line keeps the stream's order.
         """
+        self._flush_redraw_run()
+        self._store_line(line)
+
+    def _store_line(self, line: str) -> None:
+        """Append one line to the bounded head, or to the rolling tail once it is full."""
         if len(self._stdout_lines) < _MAX_STDOUT_LINES:
             self._stdout_lines.append(line)
             return
@@ -2685,6 +2729,25 @@ class RipWorker(QObject):
         if len(self._stdout_tail) > _STDOUT_TAIL_LINES:
             self._stdout_tail.pop(0)
             self._stdout_elided += 1
+
+    def _capture_line(self, line: str, shown: str) -> bool:
+        """Keep one line in the capture; True when it was a progress redraw.
+
+        ``line`` is what the ripper wrote, which the predicate reads; ``shown`` is
+        its screened form, which the capture keeps. A redraw joins the open run and
+        any other line is retained as it is. The caller's log-pane throttle reads
+        the answer, so the capture and the throttle cannot disagree about a line.
+        """
+        if _is_progress_redraw(line):
+            self._redraw_run.note(shown)
+            return True
+        self._retain_stdout_line(shown)
+        return False
+
+    def _flush_redraw_run(self) -> None:
+        """Write the open run of redraws into the capture, thinned, and end it."""
+        for kept in self._redraw_run.close():
+            self._store_line(kept)
 
     def _reap_ripper(self) -> int | None:
         """Reap the ripper process, bounded. Returns its exit code, or ``None``.
@@ -3357,7 +3420,7 @@ class RipWorker(QObject):
 
     @property
     def captured_stdout(self) -> str:
-        """Everything substantive the ripper printed, as one text blob.
+        """What the ripper printed, as one text blob.
 
         The recovery source when the logfile is truncated, and the artifact the
         cyanrip project cannot produce for itself (it has no physical drive).
@@ -3368,16 +3431,23 @@ class RipWorker(QObject):
         elision marker naming the number of discarded lines, and the tail. The
         marker matters as much as the tail does: an unmarked jump would read as
         a ripper that fell silent, which is a different (and alarming) fact.
+
+        Every line the ripper printed is here in order except the middle of each
+        run of progress redraws, which a marker counts (`redraw_run`). A run still
+        open, the ripper's last output, is shown as if it had been closed.
         """
         note = [self._inbound.note()] if self._inbound.lines_flagged else []
+        open_run = self._redraw_run.lines()
         if not self._stdout_tail:
-            return "\n".join([*self._stdout_lines, *note])
+            return "\n".join([*self._stdout_lines, *open_run, *note])
         middle = (
             [_STDOUT_ELISION.format(count=self._stdout_elided)]
             if self._stdout_elided
             else []
         )
-        return "\n".join([*self._stdout_lines, *middle, *self._stdout_tail, *note])
+        return "\n".join(
+            [*self._stdout_lines, *middle, *self._stdout_tail, *open_run, *note]
+        )
 
     @property
     def ripper_exit_code(self) -> int | None:

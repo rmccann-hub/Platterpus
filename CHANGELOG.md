@@ -165,6 +165,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   that is known ("at most 2 of 3 reads agreed"), and otherwise only "re-reads did
   not converge", meaning not enough of them matched. Such a track is still never
   marked "Copy OK".
+- **The record of what cyanrip printed now keeps each track's result line.** Every
+  report carries cyanrip's screen output, and it never contained `Track 3 read
+  successfully!` or `Track 3 read with errors.`: Platterpus treated that line like
+  the progress percentage cyanrip redraws many times a second, and left it out with
+  them. From cyanrip `.20` that line is what says a track read with errors. It is
+  now kept, in order. It also reaches the log pane every time, and the app log when
+  Debug logging is on; before, it was shown only if no progress line had been shown
+  in the previous tenth of a second. The progress lines are still not kept in full:
+  each run of them keeps its first and last line and a marker saying how many were
+  left out, so the record also shows where each read started and how far it got.
+  The report's description of the record said it was "complete"; it now says
+  exactly what is kept. Found by the cyanrip fork (round 30 lap 9 S29).
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached

@@ -29,6 +29,7 @@ from platterpus.adapters.rip_backend import (
     RipMetadata,
     TrackTag,
 )
+from platterpus.redraw_run import REDRAW_ELISION_PHRASE
 from platterpus.rip_plan import PLAN_PREFIX
 from platterpus.workers import rip_worker as rip_worker_module
 from platterpus.workers.rip_worker import (
@@ -4329,6 +4330,226 @@ def test_clean_ripper_output_carries_no_screening_note(
     worker.start_rip()
     assert "Track 1 title: Café" in worker.captured_stdout
     assert "were screened" not in worker.captured_stdout
+
+
+# --- A track's outcome line is kept in the capture (round 30 lap 9 S29) -----------
+#
+# The fork read the 2026-10-05 Full run's capture
+# (cyanrip@89e9b4d:docs/rig-2026-10-05-174a134/rips/
+# full-acceptance-angle-bracket.ripper-stdout.txt) and found no `Track N read
+# successfully!` in it. Counted there: 16 `Flushing encoders...` lines (the album
+# pass's 14 tracks and the securing pass's 2), every one followed directly by
+# `Summary:`, where the outcome line belongs. The worker classed it as a redraw
+# (`_progress_for` returns a value for it, to peg the bar) and kept only lines that
+# were not progress. From cyanrip `.20` that line is the one that says a track read
+# with errors (their lap 9 S9/S10), so the drop lost a verdict.
+
+#: cyanrip's stdout around two tracks, in the order `cyanrip_main.c` prints it:
+#: the redraws (each a `\r` turned into its own line by universal newlines), then
+#: `\nFlushing encoders...\n` (stdout only), then the outcome line.
+#: (cyanrip@f6d72c0:src/cyanrip_main.c:1031-1037 for the redraw, :1282 for the
+#: flush notice, :1352-1354 for the outcome.)
+_TWO_TRACK_STDOUT: tuple[str, ...] = (
+    "Disc tracks:    4",
+    "Ripping and encoding track 3, progress - 0.01%, ETA - 3m, errors - 0",
+    "Ripping and encoding track 3, progress - 50.00%, ETA - 1m, errors - 0",
+    "Ripping and encoding track 3, progress - 99.99%, ETA - 0s, errors - 0",
+    "Ripping and encoding track 3, progress - 100.00%, ETA - 0s, errors - 0",
+    "Flushing encoders...",
+    "Track 3 read successfully!",
+    "Summary:",
+    "Ripping and encoding track 4, progress - 0.01%, ETA - 3m, errors - 0",
+    "Ripping and encoding track 4, progress - 100.00%, ETA - 0s, errors - 7",
+    "Flushing encoders...",
+    "Track 4 read with errors.",
+    "Summary:",
+)
+
+
+def test_a_tracks_outcome_line_is_kept_in_the_capture_in_order(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Both outcome lines are in the capture the report embeds, where cyanrip put them."""
+    handle = _FakeHandle(lines=_TWO_TRACK_STDOUT, exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+
+    kept = worker.captured_stdout.splitlines()
+    for outcome in ("Track 3 read successfully!", "Track 4 read with errors."):
+        assert outcome in kept, (
+            f"{outcome!r} was dropped from the capture, which the report calls the "
+            f"record of what the ripper said; kept: {kept!r}"
+        )
+    # In stream order: each outcome after its track's flush notice, before its block.
+    i3 = kept.index("Track 3 read successfully!")
+    i4 = kept.index("Track 4 read with errors.")
+    assert kept[i3 - 1] == "Flushing encoders..." and kept[i3 + 1] == "Summary:"
+    assert kept[i4 - 1] == "Flushing encoders..." and kept[i4 + 1] == "Summary:"
+    assert i3 < i4
+
+
+def test_redraw_runs_keep_first_and_last_and_count_the_rest(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Redraws are thinned, not dropped unmarked: what the capture leaves out, it counts.
+
+    Track 3's run has four redraws (two kept, two counted), track 4's has two (both
+    kept, nothing to count). Every redraw the ripper printed is either in the
+    capture or in a marker's count, which is the claim the report's label makes.
+    """
+    handle = _FakeHandle(lines=_TWO_TRACK_STDOUT, exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+
+    kept = worker.captured_stdout.splitlines()
+    marker = f"[platterpus] … 2 {REDRAW_ELISION_PHRASE} …"
+    assert kept == [
+        "Disc tracks:    4",
+        "Ripping and encoding track 3, progress - 0.01%, ETA - 3m, errors - 0",
+        marker,
+        "Ripping and encoding track 3, progress - 100.00%, ETA - 0s, errors - 0",
+        "Flushing encoders...",
+        "Track 3 read successfully!",
+        "Summary:",
+        "Ripping and encoding track 4, progress - 0.01%, ETA - 3m, errors - 0",
+        "Ripping and encoding track 4, progress - 100.00%, ETA - 0s, errors - 7",
+        "Flushing encoders...",
+        "Track 4 read with errors.",
+        "Summary:",
+    ], kept
+    fed = sum("progress - " in line for line in _TWO_TRACK_STDOUT)
+    shown = sum("progress - " in line for line in kept)
+    counted = sum(
+        int(m.group(1))
+        for m in (re.match(r"\[platterpus\] … (\d+) progress", ln) for ln in kept)
+        if m
+    )
+    assert fed == 6 and shown + counted == fed, (fed, shown, counted)
+
+
+def test_outcome_lines_reach_the_pane_and_app_log_while_redraws_stay_throttled(
+    qapp: QApplication,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The throttle still applies to redraws, and only to redraws.
+
+    The clock is frozen, so every redraw after the first falls inside the 0.1 s
+    window whatever the machine's load: exactly one reaches the pane. Each outcome
+    line used to go through that same throttle, which is how one of six app logs
+    on 2026-10-04 carried one (the fork's lap 9 S29).
+    """
+    import logging
+
+    monkeypatch.setattr(rip_worker_module.time, "monotonic", lambda: 1_000.0)
+    handle = _FakeHandle(lines=_TWO_TRACK_STDOUT, exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+    with caplog.at_level(logging.DEBUG, logger="platterpus.workers.rip_worker"):
+        worker.start_rip()
+
+    pane = _ripper_lines(sigs.log_lines)
+    assert sum("progress - " in line for line in pane) == 1, pane
+    for outcome in ("Track 3 read successfully!", "Track 4 read with errors."):
+        assert outcome in pane, pane
+        assert any(r.getMessage() == f"cyanrip │ {outcome}" for r in caplog.records)
+
+
+def test_outcome_lines_still_drive_the_live_display(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The bar, the status line and the row's Done mark still follow outcome lines.
+
+    The capture's decision changed; `_progress_for` did not. Each outcome line
+    still pegs its track's slice (task 100), names the track in the status, and
+    marks the row done.
+    """
+    handle = _FakeHandle(lines=_TWO_TRACK_STDOUT, exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+    worker.start_rip()
+
+    assert sigs.completed_tracks == [3, 4]
+    assert any(s.startswith("Track 3 done ✓") for s in sigs.statuses), sigs.statuses
+    assert any(s.startswith("Track 4 done with errors") for s in sigs.statuses)
+    # Six redraws and two outcomes each emitted progress; the outcomes peg 100.
+    tasks = [task for _, task in sigs.progress]
+    assert tasks[:8] == [0.01, 50.0, 99.99, 100.0, 100.0, 0.01, 100.0, 100.0], tasks
+
+
+def test_a_run_of_redraws_never_spans_two_passes(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """A pass that ends mid-run and a pass that opens on redraws stay two runs.
+
+    Without the close at the start of each pass, the second pass's first redraw
+    would be counted into the first pass's run, and the capture would show the
+    second pass's line as where the first pass's read ended.
+    """
+    backend = _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0))
+    worker = RipWorker(backend, _params(tmp_path))
+    first = [f"Ripping track 5, progress - {p}.00%, errors - 0" for p in (1, 2, 3)]
+    second = [f"Ripping track 9, progress - {p}.00%, errors - 0" for p in (7, 8, 9)]
+    for lines in (first, second):
+        backend.set_handle(_FakeHandle(lines=lines, exit_code=0))
+        worker._rip_once(read_speed=0, secure_rerip_matches=0)
+
+    marker = f"[platterpus] … 1 {REDRAW_ELISION_PHRASE} …"
+    assert worker.captured_stdout.splitlines() == [
+        first[0],
+        marker,
+        first[-1],
+        second[0],
+        marker,
+        second[-1],
+    ]
+
+
+def test_the_bar_moves_on_exactly_the_redraws_and_the_outcomes(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Two surfaces, one split: `_progress_for` answers for a line exactly when the
+    redraw predicate or the outcome predicate does, and never both.
+
+    `_progress_for` used to BE the redraw test. Now it gives the bar's values and
+    the two predicates decide what the capture keeps, so this relation is what says
+    the split lost no line the bar used and invented none.
+    """
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle()), _params(tmp_path))
+    lines = [
+        "Disc tracks:    14",
+        "Ripping track 5, progress - 42.37%, ETA - 3m, errors - 0",
+        "Ripping and encoding track 5, progress - 100.00%",
+        "Track 5 read successfully!",
+        "Track 5 read with errors.",
+        "Track 5 ripped and encoded successfully!",
+        "Track 5 ripped and encoded with errors.",
+        "Track 6 is data:",
+        "Flushing encoders...",
+        "Done; (2 out of 2 matches for current checksum ABCD1234)",
+        "Repeating ripping (1 out of 3 matches for current checksum ABCD1234)",
+        "Summary:",
+        # The previous backend's shapes (inert under cyanrip, KDD-18).
+        "Reading TOC  50 %",
+        "Reading track 3 of 16 (1 of 9) ...  42 %",
+        "Getting length of audio track (1 of 16) ... 100 %",
+        "Encoding track to FLAC (5 of 9) ...   0 %",
+    ]
+    redraws = 0
+    outcomes = 0
+    for line in lines:
+        is_redraw = rip_worker_module._is_progress_redraw(line)
+        is_outcome = rip_worker_module.cyanrip_log.finished_track(line) is not None
+        assert not (is_redraw and is_outcome), line
+        moves_bar = worker._progress_for(line) is not None
+        assert moves_bar == (is_redraw or is_outcome), (line, moves_bar)
+        redraws += is_redraw
+        outcomes += is_outcome
+    # Floors, so the relation cannot hold by finding nothing on either side.
+    assert redraws == 5 and outcomes == 4, (redraws, outcomes)
 
 
 # --- The secure re-read verdict is graded by its direction, and names its track --

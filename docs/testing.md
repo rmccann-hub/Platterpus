@@ -2239,6 +2239,40 @@ Three lessons, in increasing order of how much they generalise:
 
 **An ABSENCE in a log is a fact about the logger before it is a fact about the subject.** Before inferring anything from a line that is not there, establish that the capture *would have kept it*. Our read loop's cancel `break` sat above the retention code, so the first line the ripper emitted after our signal — its own account of why it was stopping — was dropped silently on every cancel. The cyanrip fork then examined 51,492 captured ripper lines, found **zero** occurrences of their handler's `"Trying to quit"`, and concluded, carefully and marked `[MEASURED]`, that their signal handler *"did not run at all."* True premise, wrong conclusion, and the hole was ours. **The worst artifact is not a missing diagnostic; it is one that looks complete** — we handed a peer a censored capture, they reasoned correctly from it, and it pointed away from the real cause. This is the third violation of *"a silent truncation reads as completeness"* by code written after that rule; the obligation is not "log more" but that **any deliberate drop is counted and marked**. And check the shape before believing a fix: cyanrip writes `"\r\nTrying to quit\n"` in one `write(2)`, so the first line after the signal is the blank terminator of the progress redraw and the message is the *next* one — retaining "one more line" keeps a bare `\r`, loses the sentence, and passes a weaker version of the test.
 
+#### The next instance (2026-10-05): a question's answer reused for another question
+
+The cyanrip fork read the 2026-10-05 Full run's captured stdout and found no
+`Track N read successfully!` in it (their round 30 lap 9 S29). Counted in that file
+(`cyanrip@89e9b4d:docs/rig-2026-10-05-174a134/rips/full-acceptance-angle-bracket.ripper-stdout.txt`):
+16 `Flushing encoders...` lines, the album pass's 14 and the securing pass's 2, each
+followed directly by `Summary:`, where the outcome line belongs. The read loop asked
+`_progress_for(line) is not None` to decide what to leave out of the capture. That
+call answers *"does this line move the bar?"*, and a track's outcome line does,
+because it pegs the track's slice. So every outcome line was left out with the
+redraws, and the report's label still said the capture was *"complete even when the
+ripper was killed"*. From cyanrip `.20` that line carries a verdict (`read with
+errors.`).
+
+Two lessons, beyond the rule above:
+
+* **When code asks question A by calling the function that answers question B,
+  look for the lines where the two answers differ.** One call deciding two things
+  (here, the bar's value and whether a line can be dropped) is where a second
+  meaning gets in unseen. The fix gives each question its own predicate
+  (`rip_worker._is_progress_redraw`, `cyanrip_log.finished_track`), and a test
+  holds the relation between them and the bar
+  (`test_the_bar_moves_on_exactly_the_redraws_and_the_outcomes`).
+* **A drop written down in a test's docstring is a finding nobody reported.**
+  `tests/test_verdict.py` had already noted that *"the capture dropped the `Track 3
+  read successfully!` header with the progress redraws, so the parser cannot open
+  the track"*, and worked around it by reading the block by pattern. The drop was
+  seen, written down, and kept. When a test has to work around a gap in our own
+  artifact, the gap gets a `TASKS.md` row in the same commit.
+
+The capture now keeps every line in order and thins each run of redraws to its
+first and last line plus a marker counting the rest (`redraw_run.py`), so every
+redraw is either kept or counted.
+
 ### §5.ar — The crash handler was the crash: a modal dialog inside its own event loop
 
 **2026-08-19/20.** CI hung on all four Python legs, twice, and burned the whole
