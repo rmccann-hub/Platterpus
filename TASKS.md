@@ -1094,11 +1094,43 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     re-reads hit the limit (`eac_log_export.py`). That overstates it for a track like
     round 28's track 5, where two reads agreed. Changing rendered EAC text has parity
     consequences, so this needs its own change.
-  - (2) The size ratchet, the regex-time sweep and the mypy gate cover `src/platterpus`
-    only, not `scripts/`. `scripts/laplang/lsl3.py` is 428 lines, and
-    `mypy --strict scripts/laplang` reports 3 errors in `scratch.py`.
+  - (2) ~~The size ratchet, the regex-time sweep and the mypy gate cover
+    `src/platterpus` only, not `scripts/`. `scripts/laplang/lsl3.py` is 428 lines, and
+    `mypy --strict scripts/laplang` reports 3 errors in `scratch.py`.~~
+    (`scripts-outside-gates`)
+    - *Done in 10be42a3, 6191aebf, e9475ea1, c3ddc54d, ff46ef86, f6211a54:* all three
+      gates read `scripts/**/*.py` and `build/*.py`, one population defined once in
+      `tests/conftest.py` (`maintained_tooling_modules`; `build/` not recursive,
+      because `build/lib/` holds a package copy after a wheel build). Size: 19 tooling
+      modules ledgered at their real counts (`lsl3.py` was 433 by then), floors of 40
+      tooling and 35 `scripts/` modules, and the population checked against
+      `git ls-files`. Regex: 88 literal patterns timed, all linear; the 15 computed
+      ones (2 in `src/`, 13 in the tooling) ledgered per file. mypy: `files` is
+      `src/platterpus`, `scripts`, `build/*.py`, with no opt-out; `scratch.py` was
+      already clean, and the 12 errors found (9 in 5 scripts, 3 in `make_icon.py`)
+      were fixed, one of them a crash in `scripts/check.py`. Two quadratic patterns
+      the sweep could not see were fixed by hand (`bommap._REQUIREMENT`,
+      `handshake._WIRE_FIELD`); see (4).
   - (3) Nothing yet acts on `eac_log_producer`. The parity tool does not warn when its
     "baseline" is one of our own exports.
+  - (4) **The regex-time sweep cannot see a pattern that only backtracks behind a
+    literal prefix**, because it feeds runs of one character. Found 2026-10-05 while
+    extending it to `scripts/`. The two in the tooling are fixed; the same shape, a
+    lazy capture before trailing whitespace (`\S.*?\s*$`), is in eight
+    `parsers/cyanrip_log.py` patterns (`_GAPS_VALUE`, `_READ_STALLS`,
+    `_TRACK_ACCURIP_STATUS`, `_ENCODER_ERRORS`, `_INTERRUPTED_AT`, `_TRACKS_TO_RIP`,
+    `_TRACK_PARANOIA_SCOPE`, `_TRACK_SECURE_VERDICT`). Measured on one line with
+    8,000 spaces inside the value: `_READ_STALLS` 344 ms, `_GAPS_VALUE` 393 ms,
+    quadratic. `inbound_text.MAX_LINE_CHARS` lets a line reach 65,536 characters,
+    which would be tens of seconds per line. Two parts: rewrite them greedily, as
+    `\S(?:.*\S)?`, with an equivalence test against the old form (they are published
+    in `docs/cyanrip-consumer-contract.md`, so this regenerates it); and give the
+    sweep inputs that pass a pattern's literal prefix, so it can find the next one.
+  - (5) `lint` (`ruff check`, `ruff format --check`) still reads `src tests` only.
+    `scripts/` and `build/` were clean under both on 2026-10-05 (0 findings, 51 files
+    formatted), so adding them is a CI and `scripts/check.py` change with no fixes.
+  - (6) `tests/` is outside the size ratchet: 139 of its 280 modules are over 300 lines
+    (2026-10-05). Whether a test module should be split is its own question.
 - [x] **S40/S41: refuse `-Z N` with `-r` ≤ N, with one move of the shared
   `docs/seam-commands.md`.** They refuse it at argument parsing and regenerate their argv
   table, and our two §1a rows ride the same change (the held patch in the *Round 29:
