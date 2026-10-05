@@ -4271,7 +4271,7 @@ is about. The gates written on the day are
       tooling). Apply **S-14** to what it finds — a real defect is an argument for
       fixing it, not automatically for holding the release.
 - [ ] `ruff check` + `ruff format --check` clean.
-- [ ] `mypy` clean (the gating CI `typecheck` job; strict def-typing package-wide).
+- [ ] `mypy` clean (the gating CI `typecheck` job; strict def-typing over the package, `scripts/` and `build/*.py`).
 - [ ] Coverage gate passes; gate not lowered.
 - [ ] If the change touches hardware-only behaviour, [test-plan.md](test-plan.md)
       has a new/updated checklist item.

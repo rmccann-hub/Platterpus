@@ -111,8 +111,9 @@ def repo_markdown_files(root: Path) -> list[Path]:
 #: Every gate extended past `src/platterpus` reads this one definition, so no two
 #: of them can disagree about what "the tooling" is (TASKS `scripts-outside-gates`,
 #: 2026-10-05). Readers: the size ratchet
-#: (`test_critical_rules_are_enforced.py` §6) and the regex-time sweep
-#: (`test_regex_bounded_time.py`). `build/` is NOT recursive, and on
+#: (`test_critical_rules_are_enforced.py` §6), the regex-time sweep
+#: (`test_regex_bounded_time.py`), and the check that `[tool.mypy] files` covers
+#: it (`test_audit_regressions.py`). `build/` is NOT recursive, and on
 #: purpose: `python -m build` leaves a full copy of the package in `build/lib/`
 #: (git-ignored), so a recursive walk would measure 195 package modules a second
 #: time on any machine that has built a wheel, and every gate would fail there and

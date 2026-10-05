@@ -97,8 +97,10 @@ jobs:
 
   # Static type-checking (added 2026-07-08). Strict def-typing is enforced
   # across the whole package (no per-module exclusions since 2026-07-19/20 —
-  # see pyproject [tool.mypy]). Catches wrong attributes, bad return types, and
-  # None-where-a-value-is-required. It needs the PySide6 wheel installed for its
+  # see pyproject [tool.mypy]), and since 2026-10-05 across `scripts/` and
+  # `build/*.py` too, from the same `files` list. Catches wrong attributes, bad
+  # return types, and None-where-a-value-is-required. It needs the PySide6
+  # wheel installed for its
   # bundled type stubs, but NOT the Qt SYSTEM libraries the `test` job installs —
   # mypy reads `.pyi` stubs and never imports Qt, so there's no apt step.
   typecheck:

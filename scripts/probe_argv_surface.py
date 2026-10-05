@@ -226,12 +226,12 @@ def _probe_shape(field: str, raw: str) -> Probe:
         meta = RipMetadata(album_title="Probe Album", album_artist=raw)
     elif field == "track_title":
         meta = RipMetadata(
-            album_title="Probe Album", tracks=[TrackTag(number=1, title=raw)]
+            album_title="Probe Album", tracks=(TrackTag(number=1, title=raw),)
         )
     else:
         meta = RipMetadata(
             album_title="Probe Album",
-            tracks=[TrackTag(number=1, title="T", isrc=raw)],
+            tracks=(TrackTag(number=1, title="T", isrc=raw),),
         )
 
     kwargs = dict(_BASELINE)
