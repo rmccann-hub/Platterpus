@@ -2300,6 +2300,10 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     `tests/test_labels_state_their_text_format.py` (it found 17, not 13). **Still open:**
     labels given their value later by `setText(...)`, which that sweep does not cover, and
     a two-way test that what reaches the user is what cyanrip said.
+  - *2026-10-05:* the `setText(...)` half is done in 84adcd9c
+    (`tests/test_labels_given_text_later_state_their_format.py`; 14 labels pinned, see
+    the row *"Labels given their text by `setText` after they are built"*). **Still
+    open:** a two-way test that what reaches the user is what cyanrip said.
 - [~] **E12. Outbound argv property gaps** — `_metadata_args` rejects control characters
   on 4 of 11 fields; `sanitise_cyanrip_args` misses line terminators; plus the rest of
   the 2026-08-28 list (TASKS@b8f89a2:1993–2028, not re-derived one by one).
@@ -5392,7 +5396,7 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
     it as plain text. Fixed (RichText, `<br>` for its line breaks), and the sweep now
     also holds a literal label whose markup Qt would not see to stating its format.
 
-- [ ] **Labels given their text by `setText` after they are built are outside both
+- [x] **Labels given their text by `setText` after they are built are outside both
   format sweeps.** `tests/test_labels_state_their_text_format.py` holds every
   `QLabel(<non-literal>)` to stating its format, but a label built empty or from a
   literal and filled later with `setText(<value>)` is not seen: 13 counted on
@@ -5400,6 +5404,23 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
   from cyanrip's output. The count is an approximation and may be low. Also found
   the same day: the setup wizard's intro is markup, so its bullet list has always
   rendered as one paragraph.
+  - *Done in 84adcd9c:* `tests/test_labels_given_text_later_state_their_format.py`
+    traces every `setText` / `setInformativeText` (and a `setText` passed as a slot)
+    back to where its widget is built, with `ast`: through `self.<attr>` across a
+    mixin family, a helper that returns the label, a dict of labels, `isinstance`,
+    and a Qt accessor by its return type in PySide6's own stubs. Measured: 115
+    setters, closed by a second count with `tokenize`; 55 give a label a value, from
+    20 construction sites, of which **14** stated no format (the row's 13 was one
+    low): the 8 in `ui/rip_progress.py`, the setup, uninstall and drive wizards'
+    status lines, each Pending-installs row, and Settings' validation banner and
+    filename preview. All 14 now state PlainText. The 2 receivers the resolver
+    cannot trace are listed in `_UNRESOLVED`, a ratchet capped at 2. The setup
+    wizard's intro list, and the update wizard's paragraphs, break with `<br>` since
+    6afd1c22. **Still not swept, and said so in the file:** `setToolTip` and wizard
+    page titles, which guess their format too. **Waiting on the maintainer:**
+    CLAUDE.md Critical rule #12 still says a label filled later by `setText` is
+    outside both sweeps; that sentence is in the locked rules section, so its
+    replacement is proposed, not made.
 
 - [x] **DELIVERED in round 12 itself** — `inbound/round-12-lap-01.md` §B2,
   *"`--verify-log` should separate absent from mismatched — [MEASURED], done"*.
