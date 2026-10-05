@@ -286,6 +286,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- For contributors: the module-size ratchet now covers `scripts/` and `build/`,
+  not only `src/platterpus`. The 19 tooling modules already over 300 lines are
+  recorded at their current length and may not grow, and a module that crosses
+  the line has to be recorded in a commit that says why. A test compares what
+  the ratchet measures with git's list of committed Python files, so a directory
+  it does not read fails by name.
 - For contributors: a test that runs `app.main` in-process no longer leaves the
   app-wide dialog filter installed for the tests after it. The filter now also
   fits message boxes, so the leak made the message-box fit tests fail on whichever
