@@ -2486,7 +2486,9 @@ _MIN_SCRIPTS_MODULES: Final[int] = 35
 #: lines is larger than every package module but two (`ui/main_window_rip.py`
 #: and `uiscript/runner.py`, measured the same day).
 _OVERSIZE_TOOLING: Final[dict[str, int]] = {
-    "scripts/bommap/reading.py": 320,
+    # **320 -> 326** (2026-10-05): `_REQUIREMENT` rewritten greedy, linear rather
+    # than quadratic on a run of spaces, with the five lines saying why it is shaped so.
+    "scripts/bommap/reading.py": 326,
     "scripts/bommap/render.py": 359,
     "scripts/bommap/ripper_entries.py": 340,
     "scripts/bommap/tool_entries.py": 385,
