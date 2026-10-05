@@ -856,6 +856,7 @@ def test_the_bundle_collects_the_app_log_and_the_transcript(
     def spy(layout: object, **kwargs: object) -> BundleResult:
         captured["sources"] = kwargs["sources"]
         captured["facts"] = kwargs["facts"]
+        captured["record_files"] = kwargs.get("record_files")
         return BundleResult(path=Path("/dev/null"))
 
     monkeypatch.setattr("platterpus.test_session.finish_session", spy)
@@ -874,6 +875,9 @@ def test_the_bundle_collects_the_app_log_and_the_transcript(
     assert isinstance(facts, dict)
     assert STATE_HELD in facts["sleep lock"]
     assert STATE_HELD in facts["screen lock"]
+    # The rips' `-j` records were looked for (a list, possibly empty), never
+    # left out: `None` would put "not determined" in the bundle's facts.
+    assert isinstance(captured["record_files"], list), captured["record_files"]
 
 
 # --- What the closing dialog says about the RUN ---------------------------

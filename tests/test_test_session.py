@@ -958,3 +958,85 @@ def test_many_sessions_add_exactly_ONE_entry_to_home(tmp_path: Path) -> None:
         "runs overwriting one another is the failure the stamp prevents, and it "
         "would be a worse defect than the litter."
     )
+
+
+# ---------------------------------------------------------------------------
+# The rips' `-j` records (the fork's reading of our 2026-10-04 runs)
+# ---------------------------------------------------------------------------
+
+
+def _record(root: Path, stamp: str, *, mtime: float) -> Path:
+    """A `-j` record where cyanrip writes one: the rips root it ran in."""
+    root.mkdir(parents=True, exist_ok=True)
+    record = root / f"cyanrip-diagnostics-{stamp}.json"
+    record.write_text('{"schema": "cyanrip-diagnostics/6"}', encoding="utf-8")
+    os.utime(record, (mtime, mtime))
+    return record
+
+
+def test_the_record_glob_matches_the_name_every_rip_is_given() -> None:
+    """The scan and the argv builder name the record in two places; this is the
+    relation, so a renamed record cannot drop out of every bundle unnoticed."""
+    from fnmatch import fnmatch
+
+    from platterpus.adapters.cyanrip_backend import diagnostics_record_name
+
+    name = diagnostics_record_name()
+    assert fnmatch(name, test_session.DIAGNOSTICS_RECORD_GLOB), name
+
+
+def test_the_sessions_minus_j_records_reach_the_bundle_and_older_ones_do_not(
+    tmp_path: Path,
+) -> None:
+    """Every acceptance bundle up to 0.6.65 carried none: the records sit in the
+    rips root, which the album scan never takes as an album folder."""
+    _, layout = _prepared(tmp_path)
+    out = tmp_path / "out"
+    album = _rip(out, "New Album", mtime=3_000.0)
+    new = _record(out, "20261004T150000Z", mtime=3_000.0)
+    old = _record(out, "20260901T000000Z", mtime=1_000.0)
+
+    records, dropped = test_session.session_diagnostics_records([out], since=2_000.0)
+    assert records == [new] and dropped == 0, records
+    assert old not in records
+
+    result = finish_session(
+        layout,
+        sources=[],
+        album_dirs=[album],
+        record_files=records,
+        records_dropped=dropped,
+    )
+    assert result.ok and result.path is not None, result.error
+    members = _members(result.path)
+    assert f"ripperdiagnostics/{new.name}" in members, members
+    assert not any(old.name in m for m in members), members
+    manifest = _member_text(result.path, "MANIFEST.txt")
+    assert "1 found in the rips folders" in manifest, manifest
+
+
+def test_a_session_whose_rips_left_no_record_says_so(tmp_path: Path) -> None:
+    """An absence named, not skipped: rips landed and no record did."""
+    _, layout = _prepared(tmp_path)
+    album = _rip(tmp_path / "out", "Album", mtime=3_000.0)
+
+    result = finish_session(layout, sources=[], album_dirs=[album], record_files=[])
+    assert result.ok and result.path is not None, result.error
+    manifest = _member_text(result.path, "MANIFEST.txt")
+    assert "0 found in the rips folders although 1 album folder(s) did" in manifest
+
+    unasked = finish_session(layout, sources=[], album_dirs=[album])
+    assert unasked.ok and unasked.path is not None, unasked.error
+    assert "not determined: the caller did not look" in _member_text(
+        unasked.path, "MANIFEST.txt"
+    )
+
+
+def test_the_record_cap_keeps_the_newest_and_counts_the_rest(tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    stamps = [f"2026100{n}T000000Z" for n in range(1, 5)]
+    made = [_record(out, s, mtime=3_000.0 + n) for n, s in enumerate(stamps)]
+    records, dropped = test_session.session_diagnostics_records(
+        [tmp_path / "missing", out], since=2_000.0, limit=2
+    )
+    assert records == [made[3], made[2]] and dropped == 2, (records, dropped)
