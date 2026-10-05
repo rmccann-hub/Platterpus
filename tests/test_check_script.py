@@ -488,6 +488,44 @@ def test_a_git_that_hangs_is_cut_off_with_everything_it_started(
     assert state in ("gone", "Z", "X"), f"the sleep git started is still {state!r}"
 
 
+def test_a_gate_that_prints_and_then_hangs_is_reported_as_timed_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The timeout path, driven for real: no verdict, and what it printed is kept.
+
+    `subprocess.TimeoutExpired` hands back what the child printed as bytes even
+    under `text=True`, and `_run` added it to a str. So a gate that printed a line
+    and then hung crashed the runner with a `TypeError` rather than being reported
+    as timed out, and the line that would explain the hang went with it. `mypy`
+    found it when it was first pointed at `scripts/` (2026-10-05). The child here
+    prints before it sleeps, because a child that printed nothing hands back None
+    and would pass the old code.
+    """
+    monkeypatch.setattr(check, "_GATE_TIMEOUT_S", 1.0)
+    gate = check.Gate(
+        "demo",
+        [
+            sys.executable,
+            "-c",
+            "import time; print('partial line', flush=True); time.sleep(30)",
+        ],
+    )
+    check._run(gate)
+    assert gate.code is None, "a timeout is no verdict, so it is not a pass"
+    assert gate.passed is False
+    assert "partial line" in gate.output, "what the gate printed before it hung"
+    assert isinstance(gate.output, str)
+    assert any("TIMED OUT" in note for note in gate.notes), gate.notes
+
+
+def test_captured_output_is_text_whatever_form_the_timeout_carried_it_in() -> None:
+    """The three forms `TimeoutExpired` can carry: bytes, None, and str."""
+    assert check._captured_text(b"caf\xc3\xa9\n") == "café\n"
+    assert check._captured_text(b"\xff ok") == "� ok", "a bad byte keeps the rest"
+    assert check._captured_text(None) == ""
+    assert check._captured_text("already text") == "already text"
+
+
 def test_git_is_run_so_it_cannot_wait_on_a_person(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

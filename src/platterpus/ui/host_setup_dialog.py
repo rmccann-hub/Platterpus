@@ -13,6 +13,7 @@ way DriveSetupDialog does.
 
 from __future__ import annotations
 
+import html
 import logging
 from dataclasses import dataclass
 
@@ -71,16 +72,15 @@ class SetupCopy:
     #: MARKUP: the dialog shows it as RichText. Whoever builds a `SetupCopy`
     #: must `html.escape` every value it puts in here, and
     #: tests/test_labels_state_their_text_format.py checks each builder does.
-    #: As markup, its `\n` breaks render as spaces, so the list below shows as
-    #: one paragraph. Left so when the format was made explicit, a change meant
-    #: to alter no output; its TASKS note (2026-09-28) records it for a fix.
+    #: Line breaks are `<br>`, because markup reads a `\n` as a space: until
+    #: 2026-10-05 they were `\n`, and the list below showed as one paragraph.
     intro: str = (
         "Platterpus rips through the <b>cyanrip</b> tool, which runs in a "
         "small Linux container so it never touches your system. This sets "
-        "that up for you — no terminal needed:\n\n"
-        "• installs Distrobox + a container runtime (if missing)\n"
-        "• creates the 'ripping' container and installs cyanrip + flac into it\n"
-        "• makes the ripping tools available to this app\n\n"
+        "that up for you — no terminal needed:<br><br>"
+        "• installs Distrobox + a container runtime (if missing)<br>"
+        "• creates the 'ripping' container and installs cyanrip + flac into it<br>"
+        "• makes the ripping tools available to this app<br><br>"
         "Installing system packages may pop up your system password prompt "
         "once. On Bazzite/Silverblue everything's already there, so this is "
         "usually instant. It's safe to re-run."
@@ -94,6 +94,37 @@ class SetupCopy:
         "✓ Setup complete — the ripping tools are installed. You can rip now."
     )
     already: str = "✓ Everything was already set up — you're ready to rip."
+
+
+def ripper_update_copy(pin: str) -> SetupCopy:
+    """The words for installing cyanrip build ``pin`` through the setup engine.
+
+    Used by the main window's ripper update (`_begin_ripper_install`). Kept
+    beside :class:`SetupCopy` so its markup is built where its contract is
+    written, and can be shown, and tested, without a main window.
+    """
+    return SetupCopy(
+        title="Updating cyanrip",
+        # Markup (the dialog shows it as RichText): the words, the <b> and the
+        # <br> paragraph breaks are ours; the pin names a build the user picked,
+        # so it is escaped.
+        intro=(
+            f"Installing cyanrip build <b>{html.escape(pin)}</b>.<br><br>"
+            "Platterpus builds the ripper from source inside its container, "
+            "so this takes a few minutes. Everything already in place is "
+            "skipped — the rows below say which.<br><br>"
+            "The build is verified before anything is installed: if the "
+            "binary does not identify as the build we asked for, nothing is "
+            "replaced and your current ripper keeps working."
+        ),
+        action_label="&Install",
+        rerun_label="Try again",
+        success=(
+            "✓ cyanrip updated — the new build is installed and exported. "
+            "Your next rip uses it."
+        ),
+        already="✓ Nothing to do — that build was already installed.",
+    )
 
 
 class HostSetupDialog(CenteredDialog):
@@ -163,6 +194,10 @@ class HostSetupDialog(CenteredDialog):
         root.addWidget(self._progress)
 
         self._status_label: QLabel = QLabel("", self)
+        # PlainText: a step's own words land here (a running step's detail, a
+        # failed step's error from the command it ran), and Qt's default AutoText
+        # would read a `<` in them as markup.
+        self._status_label.setTextFormat(Qt.TextFormat.PlainText)
         self._status_label.setWordWrap(True)
         self._status_label.setAccessibleName("Setup status")
         root.addWidget(self._status_label)

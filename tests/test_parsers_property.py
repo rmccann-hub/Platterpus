@@ -53,11 +53,14 @@ from platterpus.parsers.cyanrip_log import (
     interruption_point,
     looks_like_cyanrip_log,
     parse_cyanrip_log,
+    secure_rerip_limit_agreement,
+    secure_rerip_progress,
     secure_rerip_verdict_converged,
 )
 from platterpus.parsers.drive_list import DriveDescriptor, parse_drive_list
 from platterpus.parsers.eac_log import (
     eac_log_producer,
+    eac_log_producer_line,
     looks_like_eac_log,
     parse_eac_copy_crcs,
 )
@@ -139,6 +142,14 @@ _FRAGMENTS = st.sampled_from(
         "Offset:         +667 samples",
         "Tracks ripped accurately: 1/2",
         "Ripping errors: many",  # bad int
+        # `.20`'s skip suffix (round 30 lap 9 S11), and near misses of it: a new
+        # optional group is a new never-raises surface.
+        "Ripping errors: 2589 (including 2586 paranoia skips)",
+        "Ripping errors: 1 (including 1 paranoia skip)",
+        "Ripping errors: 3 (including many paranoia skips)",  # bad int
+        "Ripping errors: 3 (including " + "9" * 30 + " paranoia skips)",  # > uint64
+        "Ripping errors: 3 (including",  # cut off mid-suffix
+        "Encoder errors: 1 track failed (3); 17 tracks encoded",
         # The album loudness/peak rows cyanrip OWNS (their P2, fork round 8+).
         # Both the well-formed shape and the ways a reworded or corrupted line
         # can arrive, because these are what the parser now PREFERS over
@@ -205,6 +216,67 @@ def test_finished_track_never_raises(text: str) -> None:
     )
 
 
+_digits = st.text(alphabet="0123456789", max_size=12)
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.builds(
+            "{}Repeating ripping ({} out of {} matches{}".format,
+            st.sampled_from(["", "  ", "\t"]),
+            _digits,
+            _digits,
+            st.text(max_size=200),
+        ),
+    )
+)
+def test_secure_rerip_progress_never_raises(text: str) -> None:
+    """A `Repeating ripping` line, parsed since 2026-10-05 for its match count."""
+    result = secure_rerip_progress(text)
+    assert result is None or (
+        isinstance(result, tuple)
+        and len(result) == 2
+        and all(isinstance(n, int) and n >= 0 for n in result)
+    )
+
+
+@_SETTINGS
+@given(
+    st.one_of(
+        _any_text,
+        st.builds("Done; (no matches found{}".format, st.text(max_size=200)),
+        st.builds(
+            "{}Done; (repeat limit of {} reads reached; at most {} read{} agreed{}".format,
+            st.sampled_from(["", "  ", "\t"]),
+            _digits,
+            _digits,
+            st.sampled_from(["", "s"]),
+            st.text(max_size=200),
+        ),
+    ),
+    st.lists(
+        st.tuples(
+            st.integers(min_value=0, max_value=10**6),
+            st.integers(min_value=0, max_value=10**6),
+        ),
+        max_size=20,
+    ),
+)
+def test_secure_rerip_limit_agreement_never_raises(
+    line: str, progress: list[tuple[int, int]]
+) -> None:
+    """Never raises, and never claims fewer than one agreeing read: a read always
+    agrees with itself, and an agreement of 0 would render as "did not agree"
+    with nothing measured behind it."""
+    result = secure_rerip_limit_agreement(line, progress)
+    if result is not None:
+        assert result.most_reads_agreed >= 1, (line, progress, result)
+        # Only a limit-hit verdict carries a count at all.
+        assert secure_rerip_verdict_converged(line) is False, line
+
+
 @_SETTINGS
 @given(
     st.one_of(
@@ -238,6 +310,32 @@ def test_secure_rerip_verdict_converged_never_raises(text: str) -> None:
     # track that hit the repeat limit reported as verified.
     if re.match(r"\s*Done; \((?:no matches found|repeat limit)\b", text):
         assert result is False, text
+
+
+@_SETTINGS
+@given(
+    n=st.text(alphabet="0123456789", min_size=1, max_size=30),
+    m=st.text(alphabet="0123456789", max_size=30),
+    noun=st.sampled_from(["skip", "skips", "skipz", ""]),
+    tail=st.text(max_size=80),
+)
+def test_the_ripping_errors_skip_suffix_never_raises(
+    n: str, m: str, noun: str, tail: str
+) -> None:
+    """`.20`'s `Ripping errors: N (including M paranoia skips)`, with any numbers.
+
+    Added with the suffix's parse (round 30 lap 9 S11/S12). Stronger than "never
+    raises": the drive's part is either not stated or a count between 0 and N,
+    because the read-speed ladder steps the disc down on it.
+    """
+    line = f"Ripping errors: {n} (including {m} paranoia {noun}){tail}"
+    parsed = parse_cyanrip_log(f"cyanrip 0.9.4\n{line}\n")
+    skips = parsed.ripping_errors_paranoia_skips
+    assert skips is None or (isinstance(skips, int) and skips >= 0)
+    drive = parsed.drive_read_errors
+    if drive is not None:
+        assert isinstance(drive, int)
+        assert 0 <= drive <= (parsed.ripping_errors or 0)
 
 
 @_SETTINGS
@@ -299,6 +397,22 @@ def test_parse_drive_list_never_raises(text: str) -> None:
         assert drive.read_offset is None or isinstance(drive.read_offset, int)
         assert drive.cache_defeat is None or isinstance(drive.cache_defeat, bool)
         assert isinstance(drive.device, str)
+
+
+@_SETTINGS
+@given(_any_text, st.sampled_from(["/dev/sr0", "/dev/cdrom", ""]))
+def test_parse_fuser_pids_never_raises(text: str, device: str) -> None:
+    """`fuser`'s output decides which processes the post-cancel rescue may signal
+    (`drive_control.term_unsignalled_holders`), so what it returns is held too:
+    positive PIDs, each once, and nothing the device's own name could supply."""
+    from platterpus.drive_control import parse_fuser_pids
+
+    pids = parse_fuser_pids(text, device)
+    assert isinstance(pids, tuple)
+    assert all(isinstance(p, int) and p > 0 for p in pids)
+    assert len(pids) == len(set(pids))
+    if device:
+        assert parse_fuser_pids(f"{device}:\n", device) == ()
 
 
 @_SETTINGS
@@ -385,6 +499,11 @@ def test_looks_like_log_sniffers_never_raise(text: str) -> None:
     assert producer in (None, "exact_audio_copy", "platterpus")
     # The two answers are one predicate, never two that can disagree.
     assert looks_like_eac_log(text) is (producer is not None)
+    # And the line a caller quotes as the reason is the line that decided it:
+    # classifying that line alone gives the same answer as the whole text.
+    line = eac_log_producer_line(text)
+    assert line is None or isinstance(line, str)
+    assert eac_log_producer(line or "") == producer
 
 
 # --- Invariant 2: a well-formed drive block round-trips -------------------
@@ -466,6 +585,7 @@ _OVER_THE_DIGIT_LIMIT = "9" * 4301
         f"Offset:         +{_OVER_THE_DIGIT_LIMIT} samples",
         f"Track {_OVER_THE_DIGIT_LIMIT} ripped and encoded successfully!",
         f"Ripping errors: {_OVER_THE_DIGIT_LIMIT}",
+        f"Ripping errors: 1 (including {_OVER_THE_DIGIT_LIMIT} paranoia skips)",
         f"    READ:          {_OVER_THE_DIGIT_LIMIT}",
         f"    Start LSN:   {_OVER_THE_DIGIT_LIMIT}",
         f"    End LSN:     {_OVER_THE_DIGIT_LIMIT}",

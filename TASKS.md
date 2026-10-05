@@ -975,7 +975,7 @@ each side's reading; and the closing releases named.
   `eac_log_agreement`. Every grader is tested against the committed round-29
   reports, and 9 reverts were each caught (`scripts/revert_probe.py`). The next
   Full run is the first to exercise them on hardware.
-- [ ] **Permutations the acceptance test still does not run** (found 2026-09-30,
+- [~] **Permutations the acceptance test still does not run** (found 2026-09-30,
   with the row above). (a) **Offset override off**: a drive in AccurateRip's list
   auto-applies the list offset and rips, an unknown drive is refused with a
   dialog, so no one script line holds on every drive, and on the rig the
@@ -985,6 +985,51 @@ each side's reading; and the closing releases named.
   (`library_dir` is kept, never set). (d) **`max_retries 0`** (no `-r` sent) and
   **`-Z 0`**. (e) `read_speed_mode fixed`, `update_channel beta`, auto-eject and
   Picard on. Each is a real path with no hardware evidence.
+  - *2026-10-05: (c) and (d) DONE in script lines, (e) in part; no hardware
+    evidence yet.* New section **J2** (Standard size, one track) rips with
+    `max_retries 0`, `secure_rerip_matches 0` in UNIFORM mode, `read_speed_mode
+    fixed` at speed 0, and `library_dir` set by the new verb `set-library-scratch`
+    to `<rips folder>/libraryscratch` (inside the session folder, so the bundle
+    still collects the album). Uniform, because dynamic mode's first pass never
+    sends `-Z`, so "no `-Z`" there would hold whatever the setting said. It then
+    grades `expect-library-move` (the window's own pointer moved into the library,
+    log and report with it, nothing left behind), `expect-rip-argv without
+    -r|-Z|-S` (the argv as spawned) and `expect-album-audit argv_agreement` (as
+    received), and puts every setting back before K1 (`set library_dir ""` turns
+    the move off). Section B round-trips `update_channel beta`, auto-eject on and
+    Picard on, each straight back. Tested against the stand-in window and round
+    29's committed reports, with J2's own lines run from the shipped file; 14
+    reverts were each caught (`scripts/revert_probe.py`). The next Standard or
+    Full run is the first on hardware.
+  - *(a) still needs a design decision.* A drive in AccurateRip's list
+    auto-applies the list offset (`_auto_apply_known_offset`, behind an
+    information modal) and rips; a drive not in it is refused with a dialog. So
+    one line passes on one rig and fails on another, and on the rig the
+    auto-apply rewrites the offset `set-drive-offset` set, for every later
+    section. It needs a verb that branches on whether the drive is in the list,
+    or a way to exercise the path that does not depend on the drive. Which one is
+    the maintainer's call.
+  - *(b) still needs a design decision.* Section E stops the run when the disc is
+    not identified, because every later rip would be evidence about a release
+    nobody chose, so no unidentified rip is reached by design. Exercising the path
+    needs either a disc MusicBrainz does not know (the run promises "any ordinary
+    audio CD", so that is media-dependent), or ripping a known disc as unknown
+    (File → Rip as Unknown Album), which the script cannot drive yet: that dialog
+    is not in `open`'s table, and accepting it puts the rip controls in unknown
+    mode for every rip after it. Which route, and where it can sit without
+    affecting the rips after it, is a design decision.
+  - *(e), what stays open and why.* A NON-ZERO fixed read speed sends `-S`, and a
+    drive that reports its speed unchangeable makes cyanrip abort the rip on it
+    (the BDR-209D, 2026-07-01): the same shape as (a). Fixed at 0 cannot tell
+    fixed from the ladder on a healthy disc, whose first rung sends no `-S` either;
+    only read errors show the difference. `update_channel` acts only on Check for
+    updates, which no verb runs and whose answer is a modal (section A's
+    `expect-newest-pair` reads the beta channel itself on every run). Auto-eject
+    would eject the disc every later section needs, nothing records whether the
+    tray opened, and the vocabulary excludes ejecting (`uiscript/verbs.py`).
+    Picard on acts only on the unknown-album path, which is (b), and launching
+    Picard is an external program the vocabulary excludes. So B's round-trips
+    prove each value is accepted and stored, and nothing about what it does.
 - [x] **`-U`, not `-G`: every archival log still says "No MusicBrainz release ID at cover
   art lookup, cannot search Cover Art DB!"** (found 2026-09-30, NEXT-ROUND). Our
   `_build_rip_argv` comment implied `-G` removes that line; it does not. `-G` is
@@ -998,6 +1043,126 @@ each side's reading; and the closing releases named.
   Sending a flag we have never sent is a change to what crosses the seam: it goes to the
   fork in our next lap, with the consumer contract regenerated when it lands.
   - *2026-09-30: DONE.* The fork measured `-U` safe (their round 30 lap 5 S15-S16, held when read): `-N -G` vs `-N -G -U` differ by that one line, every checksum identical, `-C` art still loads. We send it on every rip; the consumer contract is regenerated (22 flags); declared in our lap 6.
+- [x] **Their lap 9 S29: our stdout capture dropped every track's outcome line — HELD,
+  ours, and FIXED** (2026-10-05). The read loop asked `_progress_for(line) is not None` to
+  decide what to leave out of the capture and what to throttle in the log pane, and
+  `Track N read successfully!` / `read with errors.` moves the bar, so it went with the
+  redraws; the report still called the capture *"complete even when the ripper was
+  killed"*. Counted in the filed capture
+  (`cyanrip@89e9b4d:docs/rig-2026-10-05-174a134/rips/full-acceptance-angle-bracket.ripper-stdout.txt`):
+  16 `Flushing encoders...` lines, each followed directly by `Summary:`. From `.20`
+  that line carries a verdict (their S9, S10).
+  - *Done in 358c154d:* one predicate for a redraw (`rip_worker._is_progress_redraw`),
+    `cyanrip_log.finished_track` for an outcome, one routing call for the capture and
+    the throttle; each run of redraws kept as its first and last line plus a counted
+    `[platterpus] … N progress redraws elided here …` marker (`redraw_run.py`); the
+    report's label says exactly that. 13 reverts probed, all as expected. Still to say
+    in a lap: our next lap answers S29 with this commit. Their S34 X5 asks the same.
+- [x] **Our gate implements protocol 7** (our lap 8 S41: *"before our round 31 lap 1"*;
+  done 2026-10-05). v7 §15's condition held: `docs/handshake-protocol.md` is byte-identical
+  to `cyanrip@872b4156:docs/handshake/PROTOCOL.md` (`b9611d3b…`). `PROTOCOL_VERSION` is 7;
+  `DECLARED_PROTOCOL` stays 6 until both sides have said in a lap that their gate
+  implements 7. Row C46 is `next_lap_problems`: on any verdict, at `--check` and on the
+  close path, keyed on the declared version, with the fork's own value pattern
+  (`cyanrip@872b4156:tools/release-gate.py:173`) and a field declared twice refused even
+  with identical values (§2 rule 3). Six reverts probed, all detected (one test first
+  proved unable to tell the two call sites apart and was replaced by an `OPEN`-lap case).
+  `--status` over the real record is byte-identical before and after. `STATUS-RELEASED:
+  0.6.65 at 0981c69, 2026-09-30` is in our block where §6c puts it, checked against the
+  newest release tag reachable from HEAD, with the block's order checked too.
+  **Still to say in a lap:** our next lap says our gate implements 7 from the commit that
+  landed this, which is half of what v7 §15 needs before either side declares 7.
+- [x] **File `.20`'s provider contract when it ships, and retain `Error in encoding: %s`.**
+  A dry run of `.20`'s contract at the fork's tip (`cyanrip@ac542074`, and again at
+  `cyanrip@872b4156`, whose cache-probe line change our parser reads as the known
+  `Cache probe:` prefix) against our seam tests passed everywhere but one: the string left P5 at `cyanrip@d7ee6c40` (it was at
+  `cyanrip@174a134:src/cyanrip_main.c:1070`), and `ripper_message_inventory` refuses a
+  string that leaves the matcher without a written reason. Add its `RETAINED_BEYOND_P5` row
+  (reason: `.19` and older print it) in the commit that files the contract. It cannot be
+  added earlier, because while `.19`'s contract is the newest, the string is still a P5
+  row and `ALL_FORMATS` refuses a duplicate.
+  - *Done 2026-10-05:* the contract their lap 9 ships with (`cyanrip@f6d72c0`,
+    built at `gce2e5a6`, sha256 `10eef519…`) is filed byte-identical as
+    `round-30-lap-09-provider-contract-gce2e5a6.md`, P5 regenerated (123 rows to 126:
+    the four `-Z` spool errors in, `Error in encoding: %s` out), and the string is in
+    `RETAINED_BEYOND_P5` with its reason. Their S17 count reproduces from the two
+    contracts: P2 changes in nine rows.
+- [~] **Their round 30 lap 9, filed 2026-10-05** (`cyanrip@f6d72c0`, released by their
+  operator, sha256 `be2f763b…`, 38,642 bytes, `OPEN`, basis S27 to S30; their digest
+  `525abc43c7d759b7` over 8 laps reproduces). Our lap checker reads it well formed (50
+  statements, 2 warnings on relays). **Our `--check` refuses it for R6**: no "our next
+  lap is `GO` unless X"; pinned by hash in `tests/test_every_inbound_lap_passes_check.py`
+  and to be raised in our lap 10. Verified against both trees: S27 (our ladder needs exit
+  0; cyanrip exits 1 on any drive error), S16's proposed `seam-commands.md` (17 rows
+  `HAVE`, `-D` is the naming scheme, the `\:` escape shipped, and `-f`'s exit 1 breaks
+  nothing of ours: the verb records any exit and the grading reads lines), S11 and S15
+  (our parser reads both new shapes). Fixes in progress for S27 with S12, S28, S29 and
+  their S26 wording; S30 is a correction in our lap 10. **Our lap 10 must answer:** S13
+  (keep exit 0 for a skip-only rip), S16 (take the text), S39 (S35's items), S3 (yes,
+  for round 31), and say our gate implements 7 from `1dbf9ac0`.
+- [x] **Our round 30 lap 10, RELEASED 2026-10-05** (`docs/handshake/outbound/round-30-lap-10.md`, `OPEN`, LSL 4, sha256 `20e17e55…`, 27,675 bytes,
+  38 statements, digest `d72da50b46f7ea72` over 9 laps). It answers their S13 (keep exit 0),
+  S16 (take the text), S39 (S35's items) and S3 (yes, round 31); withdraws our lap 8 S28
+  (their S27) and corrects our lap 8 S42 (their S30); reports our gate at protocol 7
+  (`1dbf9ac0`) and fourteen fixes since lap 8, among them their S27 to S29 (`4aac4212`,
+  `ccb10df0`/`937c86a8`, `358c154d`) and their S26 wording (`1e118482`); raises their lap 9's
+  R6 miss (S14); and asks them to accept our items not fixable this round (S32). Released on
+  the maintainer's word of 2026-10-05 ("Fix what you can then release the next lap").
+- [ ] **A skipped track AccurateRip did not confirm gets its own EAC-layout verdict**
+- [x] **A skipped track AccurateRip did not confirm gets its own EAC-layout verdict**
+  (our lap 8 S20, accepted in their lap 9 S26, `cyanrip@f6d72c0:docs/handshake/round-30-lap-09.md`).
+  Track 18 of the 2026-10-04 run (2,586 paranoia skips, one-frame AccurateRip match)
+  read "Copy OK". It renders their accepted wording, *"Copy NOT confirmed — the
+  ripper could not verify every read and AccurateRip did not confirm the audio"*,
+  decided by `verdict.track_has_unverified_skips`; an exact match keeps "Copy OK"; a
+  track also at the repeat limit takes the skip verdict, with the re-read shortfall
+  left on its Copy CRC line (`docs/eac-parity.md`, *The skipped-read verdict*).
+  - *Done in 1e118482.* Re-rendering `round30oct04full.log` gives track 18 the new
+    verdict; the committed export of that run is the before. Not done: the disc-level
+    "No errors occurred" for such a disc, which S20 also names, is unchanged.
+- [x] **The read-speed ladder steps down on a pass the drive could not read cleanly**
+  (their lap 9 S27/S12, our lap 8 S28 corrected). The worker escalated on `success and
+  had_read_errors`, `success` being exit 0, and cyanrip exits 1 whenever the drive's count
+  is not zero (`cyanrip@910dd99:src/cyanrip_main.c:3124`; upstream
+  `cyanrip@f8ebf48:src/cyanrip_main.c:2128`), so the ladder never stepped on real read
+  errors and our S28 was wrong. From `.20` the count also includes paranoia's skips, which
+  would have stepped the whole disc down. Reproduced on the filed 2026-10-04 log rewritten
+  into each case: exit 1 with drive errors did not step (`[0]`), and `.20`'s skip-only rip
+  stepped six times (`[0, 8, 4, 2, 2, 2]`). The parser reads `.20`'s skip suffix
+  (`RipLog.drive_read_errors` = N - M - failed encodes) and `ladder_trigger.judge_step_down`
+  is the one predicate: finished every requested track by the footer and our own track
+  blocks, exit 0 or 1, the pass's own log, no failed encode, not stopped by us, and drive
+  errors. **Our next lap says S28 was wrong** and points at the commit.
+  - *Done in `4b657700` (the parser reads `.20`'s skip suffix) and `4aac4212` (the
+    ladder asks `judge_step_down`):* 14 reverts probed, all detected.
+- [ ] **Should the securing pass run after a finished pass the drive could not read
+  cleanly?** (follow-up to the row above; round 30 lap 9 S13.) It is still keyed on exit 0,
+  so after a ladder that ends on such a pass, or in fixed mode, the tracks AccurateRip did
+  not confirm are not re-read. Running it there needs the report to keep the album pass's
+  exit code apart from the securing pass's (`_ripper_exit_code` holds the last one), and a
+  decision on whether exit 1 over a finished rip reads as "failed", which is the
+  maintainer's and depends on the fork's S13.
+- [x] **Their lap 9 S28: on a native install the rescue's SIGTERM was cyanrip's second.**
+  Held, read from both trees: `composition.build_backend` falls back to a `cyanrip` on
+  `PATH`; the cancel killpg()s the child's group, which there is cyanrip itself; the rescue
+  ran `fuser -s -k -TERM`, blind to who holds the drive; a cyanrip mid-read at +5 s took a
+  second signal and `_exit()`ed with no footer (`cyanrip@174a134:src/cyanrip_main.c:1216-1221`).
+  Two more doors to the same loss, found while checking it: the shutdown stop's SIGTERM
+  milliseconds after the close's own cancel, and the worker's reap, which sent its
+  second SIGTERM 15 s after the read loop broke.
+  - *Done in ccb10df0:* `drive_control.second_signal_refusal` (returns which condition
+    refused) is asked per holder by `term_unsignalled_holders` at the moment it would
+    signal, on the rescue's thread and in the shutdown stop; it spares the process or
+    group our cancel reached until `READER_TERM_GRACE_S` (108 s) has passed. The worker
+    says what its one SIGTERM reached (`stop_signal_reach`, `None` once reaped), read where
+    the rescue fires. Behind the wrapper nothing of ours is still running at +5 s, so the
+    rescue is the same `fuser -s -k -TERM` as before. Revert-probed 12 ways.
+  - *Done in 937c86a8:* the reap waits out the same grace after our SIGTERM, then
+    SIGKILLs alone (`RipHandle.kill`). Revert-probed 4 ways.
+  - **A native install is untested on hardware**: no rig runs one. Every path above is
+    proved on stand-ins that deliver signals and apply cyanrip's one-signal rule, not on a
+    drive. The open row *"If a podman ever forwards the wrapper's SIGTERM"* is not
+    covered by it: that reader is not in our process group, so it would still be signalled.
 
 ## Round 29 — CLOSED on both gates on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
@@ -1052,11 +1217,73 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     re-reads hit the limit (`eac_log_export.py`). That overstates it for a track like
     round 28's track 5, where two reads agreed. Changing rendered EAC text has parity
     consequences, so this needs its own change.
+  - (2) ~~The size ratchet, the regex-time sweep and the mypy gate cover
+    `src/platterpus` only, not `scripts/`. `scripts/laplang/lsl3.py` is 428 lines, and
+    `mypy --strict scripts/laplang` reports 3 errors in `scratch.py`.~~
+    (`scripts-outside-gates`)
+    - *Done in 4bd6d23c, 408981d2, 16838ec0, f8692ca1, 1beff95d, d5b489dc:* all three
+      gates read `scripts/**/*.py` and `build/*.py`, one population defined once in
+      `tests/conftest.py` (`maintained_tooling_modules`; `build/` not recursive,
+      because `build/lib/` holds a package copy after a wheel build). Size: 19 tooling
+      modules ledgered at their real counts (`lsl3.py` was 433 by then), floors of 40
+      tooling and 35 `scripts/` modules, and the population checked against
+      `git ls-files`. Regex: 88 literal patterns timed, all linear; the 15 computed
+      ones (2 in `src/`, 13 in the tooling) ledgered per file. mypy: `files` is
+      `src/platterpus`, `scripts`, `build/*.py`, with no opt-out; `scratch.py` was
+      already clean, and the 12 errors found (9 in 5 scripts, 3 in `make_icon.py`)
+      were fixed, one of them a crash in `scripts/check.py`. Two quadratic patterns
+      the sweep could not see were fixed by hand (`bommap._REQUIREMENT`,
+      `handshake._WIRE_FIELD`); see (4).
+    - [x] *Done in ce04e1fe:* the caveat follows what the log proves. "did NOT agree"
+      stays only where no two reads agreed (the fork's `at most 1 read agreed`; round
+      30's 10-05 track 3); an exact count reads "re-reads did not converge; at most 2
+      of 3 reads agreed" (round 28 and round 26, track 5); a floor reads "at least";
+      a log that does not say reads "re-reads did not converge" (round 27, track 3).
+      The verdict line says "re-reads did not converge" for all of them. The count is
+      parsed from the fork's line or from the `Repeating ripping` lines, now off the
+      ignore list (consumer contract regenerated), and travels with the verdict through
+      the auto-fix merge. Parity reasoning: `docs/eac-parity.md`, Part B, *The
+      repeat-limit caveat*. **Still owed:** a NOTE in our next lap. Our round 29 lap 2
+      S18 told the fork we skip the `Repeating ripping` line entirely; we now read its
+      match count (not its checksum), and the rendered sentence changed (round 7 H4).
   - (2) The size ratchet, the regex-time sweep and the mypy gate cover `src/platterpus`
     only, not `scripts/`. `scripts/laplang/lsl3.py` is 428 lines, and
     `mypy --strict scripts/laplang` reports 3 errors in `scratch.py`.
   - (3) Nothing yet acts on `eac_log_producer`. The parity tool does not warn when its
     "baseline" is one of our own exports.
+  - (4) **The regex-time sweep cannot see a pattern that only backtracks behind a
+    literal prefix**, because it feeds runs of one character. Found 2026-10-05 while
+    extending it to `scripts/`. The two in the tooling are fixed; the same shape, a
+    lazy capture before trailing whitespace (`\S.*?\s*$`), is in eight
+    `parsers/cyanrip_log.py` patterns (`_GAPS_VALUE`, `_READ_STALLS`,
+    `_TRACK_ACCURIP_STATUS`, `_ENCODER_ERRORS`, `_INTERRUPTED_AT`, `_TRACKS_TO_RIP`,
+    `_TRACK_PARANOIA_SCOPE`, `_TRACK_SECURE_VERDICT`). Measured on one line with
+    8,000 spaces inside the value: `_READ_STALLS` 344 ms, `_GAPS_VALUE` 393 ms,
+    quadratic. `inbound_text.MAX_LINE_CHARS` lets a line reach 65,536 characters,
+    which would be tens of seconds per line. Two parts: rewrite them greedily, as
+    `\S(?:.*\S)?`, with an equivalence test against the old form (they are published
+    in `docs/cyanrip-consumer-contract.md`, so this regenerates it); and give the
+    sweep inputs that pass a pattern's literal prefix, so it can find the next one.
+  - (5) `lint` (`ruff check`, `ruff format --check`) still reads `src tests` only.
+    `scripts/` and `build/` were clean under both on 2026-10-05 (0 findings, 51 files
+    formatted), so adding them is a CI and `scripts/check.py` change with no fixes.
+  - (6) `tests/` is outside the size ratchet: 139 of its 280 modules are over 300 lines
+    (2026-10-05). Whether a test module should be split is its own question.
+    - *Done in 67a86d06 (its tests' parametrize made literal in c369cfb9):*
+      `scripts/eac_parity.py` names the baseline's producer and
+      quotes its first line before any table. One of our exports (either banner) is
+      refused, exit 2, with that line on stderr and in the log, and no table is
+      printed. Before the fix, the committed export against its own rip printed
+      "14/14 PARITY ✓" and exited 0. Refused rather than warned: a false pass gets
+      cited, and a false refusal would need a real EAC log to begin with one of our
+      banners. A baseline it cannot attribute is compared, but the output says the
+      match is not parity with EAC. `parity.ParityReport.ok` now refuses a baseline
+      that is ours, and rip_audit's `eac_log_agreement` (the other caller of
+      `compare_logs`) gives that case a "not determined" WARN naming the line. Both
+      read `identify_baseline`, which delegates to `eac_log_producer` and to the new
+      `eac_log_producer_line`. revert_probe: 10 of 10 reverts behaved as expected.
+      Not changed: `verify_log_surface.py::_is_ours_by_text` still uses its own,
+      broader head-of-file rule. It is not a baseline consumer.
 - [x] **S40/S41: refuse `-Z N` with `-r` ≤ N, with one move of the shared
   `docs/seam-commands.md`.** They refuse it at argument parsing and regenerate their argv
   table, and our two §1a rows ride the same change (the held patch in the *Round 29:
@@ -1167,11 +1394,19 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     for a pre-commit's `when:` to be refused unless it is "the next lap".
   - *And an ASK:* that they update the KNOWN-ISSUES entry to say the commits resolve
     through our `main`, and that the branch is gone by the operator's choice (NEXT-ROUND).
-- [ ] **A run stopped by one step prints that step's whole text twice.** The 22:13Z
+- [x] **A run stopped by one step prints that step's whole text twice.** The 22:13Z
   quick run on 0.6.63 stopped at section A (`.17` installed, as expected). The stop
   summary's *"Why it stopped"* sentence quotes the failed step's entire detail, fix
   and banner included, directly under the same detail. The fix: the summary names
   the step and its first line, and points up to the detail. UX, not archival.
+- [x] **`COMPONENTS.json` names the ripper as `0.9.4`.** The acceptance bundle's
+  - *2026-10-05: DONE.* Reproduced first: driving the real `expect-ripper-under-review`
+    failure into `abort-if-failed` printed its six-line detail 3 times in the
+    transcript (the step, the guard, ENDED EARLY) and twice in the closing dialog.
+    The guard now quotes `StepRecord.headline()`: the first line, then `[N more
+    line(s), printed in full with L<n>]`, so the cut is counted. One fix covers all
+    three surfaces, because each prints the run's `ended_reason`. Two tests, the
+    transcript and the dialog, each caught the revert (`scripts/revert_probe.py`).
 - [ ] **`COMPONENTS.json` names the ripper as `0.9.4`.** The acceptance bundle's
   component inventory carries each tool's parsed version, so the 14:42Z Full run's
   bundle says `"cyanrip": {"version": "0.9.4"}` and cannot tell the fork from upstream,
@@ -1180,6 +1415,10 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   `version`, the tool's own version text (the `BuildNote.version_text` Help → About
   now shows). The inventory is the bundle's `components` file, which crosses the
   seam, so the key is declared in a lap before it ships (NEXT-ROUND).
+  - *Done in 55b6da6f:* each tool's entry gains `version_text` beside an unchanged `version`
+    (`null` when not determined, never omitted or `""`), as declared in our round 30
+    lap 4 S43; About reads the same key. The fork/stock verdict was not added beside
+    it: S43 declared one key, so a second needs a lap first.
 - [x] **Both readings (S7).** Their pre-commit (S43): their first lap after the bundle is
   in their tree is `GO` unless the run shows a defect in `.18` that breaks the pin, or
   does not complete. **Ours is our lap 3**, `GO` by our lap 2's S29: the run completed,
@@ -2207,6 +2446,10 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     `tests/test_labels_state_their_text_format.py` (it found 17, not 13). **Still open:**
     labels given their value later by `setText(...)`, which that sweep does not cover, and
     a two-way test that what reaches the user is what cyanrip said.
+  - *2026-10-05:* the `setText(...)` half is done in adc04a08
+    (`tests/test_labels_given_text_later_state_their_format.py`; 14 labels pinned, see
+    the row *"Labels given their text by `setText` after they are built"*). **Still
+    open:** a two-way test that what reaches the user is what cyanrip said.
 - [~] **E12. Outbound argv property gaps** — `_metadata_args` rejects control characters
   on 4 of 11 fields; `sanitise_cyanrip_args` misses line terminators; plus the rest of
   the 2026-08-28 list (TASKS@b8f89a2:1993–2028, not re-derived one by one).
@@ -5299,7 +5542,7 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
     it as plain text. Fixed (RichText, `<br>` for its line breaks), and the sweep now
     also holds a literal label whose markup Qt would not see to stating its format.
 
-- [ ] **Labels given their text by `setText` after they are built are outside both
+- [x] **Labels given their text by `setText` after they are built are outside both
   format sweeps.** `tests/test_labels_state_their_text_format.py` holds every
   `QLabel(<non-literal>)` to stating its format, but a label built empty or from a
   literal and filled later with `setText(<value>)` is not seen: 13 counted on
@@ -5307,6 +5550,23 @@ after measuring. This also corrects the script's own 2026-08-18 claim that the p
   from cyanrip's output. The count is an approximation and may be low. Also found
   the same day: the setup wizard's intro is markup, so its bullet list has always
   rendered as one paragraph.
+  - *Done in adc04a08:* `tests/test_labels_given_text_later_state_their_format.py`
+    traces every `setText` / `setInformativeText` (and a `setText` passed as a slot)
+    back to where its widget is built, with `ast`: through `self.<attr>` across a
+    mixin family, a helper that returns the label, a dict of labels, `isinstance`,
+    and a Qt accessor by its return type in PySide6's own stubs. Measured: 115
+    setters, closed by a second count with `tokenize`; 55 give a label a value, from
+    20 construction sites, of which **14** stated no format (the row's 13 was one
+    low): the 8 in `ui/rip_progress.py`, the setup, uninstall and drive wizards'
+    status lines, each Pending-installs row, and Settings' validation banner and
+    filename preview. All 14 now state PlainText. The 2 receivers the resolver
+    cannot trace are listed in `_UNRESOLVED`, a ratchet capped at 2. The setup
+    wizard's intro list, and the update wizard's paragraphs, break with `<br>` since
+    aa3c9ee6. **Still not swept, and said so in the file:** `setToolTip` and wizard
+    page titles, which guess their format too. **Waiting on the maintainer:**
+    CLAUDE.md Critical rule #12 still says a label filled later by `setText` is
+    outside both sweeps; that sentence is in the locked rules section, so its
+    replacement is proposed, not made.
 
 - [x] **DELIVERED in round 12 itself** — `inbound/round-12-lap-01.md` §B2,
   *"`--verify-log` should separate absent from mismatched — [MEASURED], done"*.

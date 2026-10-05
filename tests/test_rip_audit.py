@@ -1575,3 +1575,58 @@ def test_a_complete_rip_keeps_its_exact_audio_file_finding(tmp_path: Path) -> No
     album = audit_album(_write(tmp_path / "a", _healthy(), flac_sizes=[_BIG, _BIG]))
     audio = [(f.level, f.text) for f in album.findings if "audio file" in f.text]
     assert audio == [(LEVEL_OK, "2 audio files, all with content")], audio
+
+
+# --- `eac_log_agreement` when the "ripper's log" is one of our own exports --------
+#
+# The second caller of `parity.compare_logs`. Its reference side is meant to be
+# cyanrip's own log; if a report embeds one of OUR EAC-layout exports there, the
+# check compares our export with itself and every track matches. Before the fix
+# that read "the EAC-style log's copy CRCs match the ripper's log on all 14
+# track(s)" at OK (`parity-baseline-is-ours`, 2026-10-05). Real round-29 files.
+
+_R29 = Path(__file__).resolve().parents[1] / "docs" / "handshake" / "artifactsround29"
+_R29_EXPORT = _R29 / "round29fullwholedisceac.log"
+_R29_RIPPER_LOG = _R29 / "round29fullwholedisc.log"
+_R29_BANNER = "Platterpus rip log in EAC's layout, not produced by Exact Audio Copy"
+
+
+def _agreement_findings(rip_log_text: str, eac_log_text: str) -> list[tuple[str, str]]:
+    """What `eac_log_agreement` says about a report embedding these two texts."""
+    report = {
+        "artifacts": {
+            "rip_log": {"text": rip_log_text},
+            "eac_log": {"text": eac_log_text},
+        }
+    }
+    album = rip_audit.AlbumAudit(folder=Path("x"))
+    rip_audit._audit_eac_log_agreement(report, album)
+    return [(f.level, f.text) for f in album.findings]
+
+
+def test_agreement_against_our_own_export_is_not_determined_and_names_the_line() -> (
+    None
+):
+    export = _R29_EXPORT.read_text(encoding="utf-8")
+    assert export.splitlines()[0] == _R29_BANNER, "the fixture must be our export"
+    findings = _agreement_findings(export, export)
+    assert len(findings) == 1, findings
+    level, text = findings[0]
+    assert level == LEVEL_WARN, findings
+    assert f"`{_R29_BANNER}`" in text, text
+    assert "not determined" in text and "DISAGREE" not in text, text
+
+
+def test_agreement_against_the_real_ripper_log_is_still_ok() -> None:
+    """The converse, so the new branch is not a refusal of everything: the same
+    export against the ripper's own log of that rip agrees on every track."""
+    findings = _agreement_findings(
+        _R29_RIPPER_LOG.read_text(encoding="utf-8"),
+        _R29_EXPORT.read_text(encoding="utf-8"),
+    )
+    assert findings == [
+        (
+            LEVEL_OK,
+            "the EAC-style log's copy CRCs match the ripper's log on all 14 track(s)",
+        )
+    ], findings

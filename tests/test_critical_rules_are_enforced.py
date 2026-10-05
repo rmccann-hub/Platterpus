@@ -26,7 +26,8 @@ So this module is the missing subject for six of them:
 * **The population comes off disk, never from a list.** A hand-maintained
   inventory of "the places this could go wrong" decays invisibly
   (`docs/testing.md` §5.af). Every sweep below walks `src/platterpus` with
-  `rglob` and parses with `ast`.
+  `rglob` and parses with `ast`; §6's size ratchet walks `scripts/` and `build/`
+  as well, with a floor of its own (2026-10-05, TASKS `scripts-outside-gates`).
 * **Every sweep asserts a floor on that population.** *"Can this check be
   satisfied by finding nothing?"* is the most-cited question in `CLAUDE.md`, and
   a sweep whose glob silently returns nothing passes having examined nothing.
@@ -62,8 +63,11 @@ from __future__ import annotations
 
 import ast
 import re
+import subprocess
 from pathlib import Path
-from typing import Final
+from typing import Final, NamedTuple
+
+from conftest import maintained_tooling_modules
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 SRC_ROOT: Final[Path] = REPO_ROOT / "src" / "platterpus"
@@ -1082,7 +1086,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **428 -> 464** (2026-09-24): `run_size` and `counts_as_evidence` in the report, the not-evidence banner, and `ok` forgiving ONLY size-declined steps.
     # **464 -> 469** (2026-09-27, TASKS `report.json` drops the acceptance script's source): the source cap's comment now says what it was sized against and which test holds it to the shipped scripts, replacing the claim that it "only ever fires on an accident".
     # **469 -> 462** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `used_unsafe`, its banner and the `used_unsafe_verbs` report key went with the verbs.
-    "uiscript/report.py": 462,
+    # **462 -> 489** (2026-10-05, TASKS "a run stopped by one step prints that step's whole text twice"): `StepRecord.headline`, the failed step's first line with the rest counted, which `abort-if-failed` quotes instead of the whole detail. It is a question about one step's record, so it lives on the record; most of it is the docstring giving the run that printed one failure three times.
+    "uiscript/report.py": 489,
     # **308 -> 314** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **314 -> 322** (2026-09-26): the drive-name normaliser's separator pattern became linear, and its comment says why the lookbehind is load-bearing (docs/testing.md §5.bu).
     "adapters/accuraterip_offsets.py": 322,
@@ -1159,7 +1164,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # branch that records a probe our own cancel ended as ours, an `info`, where it was a
     # `deps.command_failed` warning every rip report of the session carried.
     # **663 -> 664** (2026-09-30): `supports_offset_detection` said cyanrip has no AccurateRip offset finder; it has one (`-f`), not yet proved against a known offset.
-    "adapters/rip_backend.py": 664,
+    # **664 -> 680** (2026-10-05, the fork's round 30 lap 9 S28): `RipHandle.pid`, and `terminate()` returns the process group it signalled, so the worker can record what its one SIGTERM reached; the handle is the only thing that knows which group `_kill_group` actually hit.
+    # **680 -> 705** (2026-10-05, the fork's round 30 lap 9 S28, the reap's door): `RipHandle.kill`, SIGKILL alone with a bounded wait, for a ripper that already had our one SIGTERM, where `cancel()` would have sent it a second. Beside `cancel()`, whose bounded-wait shape it shares.
+    "adapters/rip_backend.py": 705,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -1485,7 +1492,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **525 -> 538** (2026-09-30, the fork's round 30 lap 5 S17): `READER_TERM_GRACE_S` 8 -> 40 s, with the evidence (our filed log's 20 s read, the fork's 11 s) beside the number; `free_drive`'s docstring no longer claims a sanctioned GUI-thread caller.
     # **538 -> 557** (2026-10-05): `running_readers()`, the reader probe the exit check asks, beside the reader names the kill path uses so the two cannot disagree (2026-10-05).
     # **557 -> 565** (2026-10-05): `free_device_holders` says why the rescue's SIGTERM is the first the reader gets (the container boundary, measured 2026-09-07 and 2026-09-09), where it said a signalled reader would have exited, which a 54 s read disproves.
-    "drive_control.py": 565,
+    # **565 -> 834** (2026-10-05, the fork's round 30 lap 9 S28): `second_signal_refusal`, the predicate that keeps the rescue and the shutdown stop from sending a native cyanrip our cancel already reached its second SIGTERM, and `term_unsignalled_holders` / `device_holders` / `parse_fuser_pids`, which ask `fuser` who holds the drive before signalling. Beside `free_device_holders` and `stop_reader_gracefully` because it is the first step of the same kill sequence (rule #3's one scoped exception); the most of it is the docstrings saying why each path is safe.
+    "drive_control.py": 834,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **447 -> 452** (2026-10-05): `DriveProfile.read_rate`, the drive's measured reading speed the up-front rip estimate rests on (operator, 2026-10-05).
     "drive_profiles.py": 452,
@@ -1527,7 +1535,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # is the comment beside `_BANNER` giving the reason (the first-words misfiling,
     # KDD-24's no-forging line) and naming the parser table that must learn any
     # rewording. The reason belongs beside the line it explains.
-    "eac_log_export.py": 1779,
+    # **1779 -> 1832** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_reread_shortfall`, the Copy CRC caveat for a track at the repeat limit worded by how many reads its log proves agreed, where every such track read "re-reads did NOT agree" (false of the round-28 Full run's track 5). Most of it is the docstring: the three cases, and why no Test CRC is built from the reads that agreed. It is this document's own sentence, so it stays beside the renderer.
+    # **1832 -> 1873** (2026-10-05, our round 30 lap 8 S20, accepted in the fork's lap 9 S26): `UNVERIFIED_SKIPS_VERDICT`, the per-track verdict for a track paranoia skipped on that AccurateRip did not confirm, where it printed "Copy OK" (track 18 of the 2026-10-04 run), and the precedence over the re-read verdict stated in `_status_line`. The verdict is this document's own line, so it stays beside the renderer.
+    "eac_log_export.py": 1873,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1720,7 +1730,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3032 -> 3064** (2026-09-28, the round-28 Full run): `secure_rerip_verdict_converged`, the one home of which way a `-Z` verdict went, so the rip worker can grade its diagnostic by it; the parser's own loop now calls it instead of restating the `agreed >= 1` rule.
     # **3064 -> 3189** (2026-09-28, the Full run's F5/F6): `Tracks to rip:` graduates from the ignore list to a line rule, and `interruption_point` classifies the two published `Interrupted at:` shapes. The patterns must live here: the completeness sweep walks this module's own regex constants, and the rule table is what the generated consumer contract publishes.
     # **3189 -> 3233** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): `_SECURE_DONE_FAIL` reads it beside `no matches found`, before any build prints it (round 20's order). Nearly all of it is the reasoning: why "no matches found" never meant "no two reads agreed" (the round-28 artifact, lines 381-385), and why the new arm matches only the prefix — too strict a pattern fails toward a false "Test and Copy CRC identical".
-    "parsers/cyanrip_log.py": 3233,
+    # **3233 -> 3345** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `secure_rerip_progress` and `secure_rerip_limit_agreement`. The `Repeating ripping` line graduates from the ignore list to a parsed rule, and the fork's `at most M reads agreed` is read as a fragment, so a limit-hit track carries how many of its reads agreed. They must live here: the completeness sweep walks this module's regex constants and the rule tables are what the consumer contract publishes. Most of the growth is the derivation from cyanrip's source of when a floor is exact.
+    # **3345 -> 3399** (2026-10-05, the fork's round 30 lap 9 S11/S12): `.20`'s `Ripping errors: N (including M paranoia skips)`. `_RIP_ERRORS` gains the optional `skips` group and the handler keeps N, M and the `Encoder errors:` failed count as numbers, so the read-speed ladder can subtract the skips. The pattern must live here (the rule table is what the generated contract publishes); most of the growth is the citations saying what N counts and why a suffix we cannot read is not zero skips.
+    # **3399 -> 3428** (2026-10-05, found by the structure fuzz test): an
+    # implausible `Ripping errors:` count is stored as not determined and never
+    # reads as "No errors occurred" (`_plausible_count`, `_MAX_PLAUSIBLE_ERROR_COUNT`).
+    "parsers/cyanrip_log.py": 3428,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1732,7 +1747,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **890 -> 896** (2026-09-26): `partially_accurate_logged`, the log's own one-frame count beside the ripper's tally (the Full run).
     # **896 -> 904** (2026-09-28, the Full run's F5): `tracks_to_rip` and `tracks_to_rip_numbers`, the ripper's own statement of which tracks it was told to extract.
     # **904 -> 905** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the `secure_rerip_converged` comment names both wordings and no longer says a hit limit means no two reads agreed.
-    "parsers/rip_log.py": 905,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **905 -> 945** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `RereadAgreement` and `TrackResult.secure_rerip_agreement`, the count of agreeing reads beside the verdict it belongs to, with what makes it exact or a floor. It belongs beside the dataclass it extends.
+    # **945 -> 982** (2026-10-05, the fork's round 30 lap 9 S11/S12): `ripping_errors`, `ripping_errors_paranoia_skips`, `encoder_failed_tracks` and the `drive_read_errors` property, beside the dataclass's other footer fields, with the citations for what cyanrip's count holds.
+    "parsers/rip_log.py": 982,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -1748,7 +1765,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **410 -> 414** (2026-09-28, the `-Z` wording): the ladder's reason strings name N+1 identical passes for `-Z N`, and two comments say so.
     # **414 -> 415** (2026-09-28, same): `unstable_tracks`' docstring stops saying a track that hit the limit had no two reads agree.
     # **418 -> 450** (2026-10-05, the fork's `+platterpus.20`): `_instability_explains_arm`, which keeps a paranoia skip and a `-Z` track at the repeat limit, both `with errors` from `.20`, out of the whole-disc step-down. It is the trigger's own exclusion, so it sits beside `read_errors_present`; most of the growth is the docstring saying why, and that the policy question is the maintainer's.
-    "read_speed_ladder.py": 450,
+    # **450 -> 465** (2026-10-05, the fork's round 30 lap 9 S12): `read_errors_present` reads `RipLog.drive_read_errors` first, so `.20`'s paranoia skips leave the whole-disc step-down, and the module docstring says a step also needs the pass to have finished. The decision itself went to a new focused module, `ladder_trigger.py`, rather than here.
+    "read_speed_ladder.py": 465,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
@@ -1757,7 +1775,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **723 -> 727** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): `DiscBlock.eac_log_signature_lines_defused`.
     # **727 -> 730** (2026-09-28, the Full run's track 3): `RetriedTrackBlock.replaced_because`, schema v30.
     # **730 -> 733** (2026-10-05): `realtime_multiplier_basis` says the multiplier is always elapsed over the audio read, and when the key is absent.
-    "report_types.py": 733,
+    # **733 -> 747** (2026-10-05, round 30 lap 4 S43): `ComponentEntry`, `COMPONENTS.json`'s row with `version_text` beside `version`. A type beside `ComponentInventory`, the type it is a field of; its own type so the rip report's `DependencyEntry` does not change.
+    "report_types.py": 747,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1790,7 +1809,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1322 -> 1464 on 2026-09-28** (the Full run's F6): the audio-file check names every file the ripper's log does not account for (`_audio_accounting`, `_report_unaccounted`) instead of counting a cancelled rip's partial read into "all with content" at OK, and `_rip_did_not_finish` is the one "finished?" predicate both of its findings use. They sit beside the check they serve, in the registry module every check lives in; most of the growth is the docstrings saying what each grade means.
     # **1464 -> 1542** (2026-09-30): the `eac_log_agreement` check (the EAC-style log's CRCs against the ripper's own log, a second caller of `parity.compare_logs`) and `run_checks` recording which findings each check produced, so the acceptance grader reads the audit's attribution instead of re-running it.
     # **1542 -> 1550** (2026-09-30): `eac_log_agreement` applies the auto-fix addendum before comparing (round 27's re-read track 3 read as a disagreement without it).
-    "rip_audit.py": 1550,
+    # **1550 -> 1562** (2026-10-05, `parity-baseline-is-ours`): `parity.ParityReport.ok` now refuses a baseline that is one of our own EAC-layout exports, and `eac_log_agreement` says so, naming the line, instead of falling through to a "DISAGREE" no track showed. It is a branch of the check it serves.
+    "rip_audit.py": 1562,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.
@@ -1849,7 +1869,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # contract (P5 120 -> 123 rows, each row six lines), plus two retained rows with
     # their reasons: the MusicBrainz message `.18` dropped, and `.19`'s reworded
     # repeat-limit line, which is in P5a beside the old one.
-    "ripper_message_inventory.py": 1137,
+    # **1137 -> 1172** (2026-10-05): regenerated from `.20`'s contract (their round
+    # 30 lap 9; P5 123 -> 126 rows, four `-Z` spool errors in, one out), and the
+    # retained `Error in encoding: %s` with its reason (`.19` and older print it).
+    "ripper_message_inventory.py": 1172,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
@@ -1899,7 +1922,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **932 -> 974** (2026-10-05, the 2026-10-04 run's bundle packed around a live rip): how long a finished session waits for its rip to stop (`rip_wait_s`, derived from the app's own wait for a cancelled rip's log) and the ripper processes the host sees as the bundle is packed (`ripper_processes_fact`), Qt-free here beside the facts they join.
     # **974 -> 1053** (2026-10-05, the same reading): `session_diagnostics_records` and `_record_facts`, so the session bundle carries every rip's `-j` record through the strict single-file route and names their absence when rips landed and none did. The album scan's sibling: the same "discovered, not remembered" job over the same roots, so it lives beside it.
     "test_session.py": 1053,
-    "ui/dialogs/pending_installs.py": 419,
+    # **419 -> 422** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the per-row status label, which shows the installer's own error, states PlainText, with the comment saying why.
+    "ui/dialogs/pending_installs.py": 422,
     # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
     # channels (they live above the checks they steer), a Drive section holding
     # the read offset's status, Set up drive… and Diagnose drive access…, and
@@ -1942,10 +1966,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
     # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **561 -> 577** (2026-09-28, every label built from a value states its format): its three labels state PlainText or RichText, the drive's vendor/model is html-escaped into the RichText one, and each site says which parts are ours (tests/test_labels_state_their_text_format.py).
-    "ui/drive_setup_dialog.py": 577,
+    # **577 -> 581** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the status label, fed by the detection worker, states PlainText, with the comment saying why.
+    "ui/drive_setup_dialog.py": 581,
     # **341 -> 342** (2026-09-25, Critical rule #9: Qt has no "detach"): the teardown comment now says the dialog ABANDONS a running thread and keeps its reference, which reflowed one line.
     # **342 -> 353** (2026-09-28, every label built from a value states its format): the intro states RichText, and `SetupCopy.intro` documents that it is markup whose builders must escape what they interpolate.
-    "ui/host_setup_dialog.py": 353,
+    # **353 -> 384** (2026-10-05, the setup wizard's intro shows its list as a list): the intro's line breaks are `<br>` (markup reads a `\n` as a space, so its list showed as one paragraph), and `ripper_update_copy`, the update's words moved here from `main_window_update.py` so they are built beside the `SetupCopy` contract and can be tested without a main window.
+    # **384 -> 388** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the status label, which quotes a step's own words, states PlainText, with the comment saying why.
+    "ui/host_setup_dialog.py": 388,
     # **1558 -> 1572 on 2026-09-08**: the `Help → Install a cyanrip build…`
     # action, plus the paragraph saying why a SECOND ripper entry exists — the
     # update check reads the fork's release manifest and cannot offer a build the
@@ -1988,7 +2015,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 1745 -> 1749 on 2026-09-28 (code review R0): a successful disc read tells the media watcher a disc is in, so a retry that read the disc is not followed by a phantom insertion and a third read.
     # **1749 -> 1748 (2026-09-28, 0.6.63)**: the transitional Tools entry for Set cover art from file… left, with the Guide sentence that named it.
     # **1748 -> 1797** (2026-09-30): the confirmation before a close from outside or File -> Quit ends a rip or the acceptance test, beside the `closeEvent` it guards (the fork's round 30 S25).
-    "ui/main_window.py": 1797,
+    # **1797 -> 1800** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` initialised beside `_last_swapped_tracks`.
+    "ui/main_window.py": 1800,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2147,7 +2175,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4893 -> 4903** (2026-10-05): the post-cancel rescue says, while the rip is still running, that a slow disc can take a minute or two to stop, where the status kept promising a 5 s force-stop (the 2026-10-04 run's 54 s read).
     # **4903 -> 4907** (2026-10-05): the launcher records each check in `PostRipRecord.launched`, and `_gates_for` hands that ledger to the report (the 2026-10-04 section I report).
     # **4907 -> 4919** (2026-10-05): the start path hands the worker the drive's reading speed, and the elapsed line records the estimate beside the actual (2026-10-05).
-    "ui/main_window_rip.py": 4919,
+    # **4919 -> 4952** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_merge_shipped_track` moves the agreement count with the verdict it describes (the re-rip's, or nothing, never the first pass's under the re-rip's verdict), and the finish handler captures the worker's `reread_agreements`. The merge rule lives here.
+    # **4952 -> 4977** (2026-10-05, the fork's round 30 lap 9 S28): the rescue and the shutdown stop read the worker's `stop_signal_reach()` where they fire and hand it over, and the rescue's docstring says why (a native cyanrip IS what the cancel signalled).
+    "ui/main_window_rip.py": 4977,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2167,7 +2197,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 446 -> 452 on 2026-09-28: the disc-read retry state (`_disc_retries`, `_disc_retry_timer`) DriveMixin reads, and `_start_disc_info`'s `automatic_retry` keyword.
     # 452 -> 453 on 2026-09-28: `_show_dependency_check_in_setup_center`, which ProvisioningMixin calls when the window opens.
     # **453 -> 456** (2026-10-05): the two drive-rate methods declared for the mixins that call them (2026-10-05).
-    "ui/main_window_shared.py": 456,
+    # **456 -> 457** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` declared.
+    "ui/main_window_shared.py": 457,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2184,10 +2215,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1020 -> 1023 (2026-09-28)**: `import html`, and the ripper update's build
     # pin is html-escaped into the setup dialog's RichText intro, with the comment
     # saying so (tests/test_labels_state_their_text_format.py checks this builder).
-    "ui/main_window_update.py": 1023,
+    # **1023 -> 1004** (2026-10-05, the setup wizard's intro shows its list as a list): down: the ripper update's `SetupCopy` moved to `host_setup_dialog.ripper_update_copy`, and `import html` with it.
+    "ui/main_window_update.py": 1004,
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **1659 -> 1667** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Details-tab line for a partial rip shows the verdict's own "not run" sentence and can never fall through to "this disc isn't in the database".
-    "ui/rip_progress.py": 1667,
+    # **1667 -> 1681** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the eight labels given a value later (status, stall notice, verdict banner, read effort, comparison, CTDB, reconciliation, loudness) state PlainText; the status line's comment says it shows cyanrip's own fatal sentence.
+    "ui/rip_progress.py": 1681,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
@@ -2221,7 +2254,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1337 -> 1362** (2026-09-28, the `-Z` wording): the secure re-read row is "Extra matching reads to trust a track" (N+1 identical reads, not N), Max retries' tooltip says it is also the whole-track read ceiling and what 0 really does, and the comment that claimed the 2026-09-21 rename fixed every place says which one it missed.
     # **1362 -> 1378** (2026-09-28, Max retries vs the secure re-read): both spin boxes join the validated widgets and revalidate as they move, because two in-range spin boxes can now make an invalid pair; the banner lists a pair rule's message once.
     # **1381 -> 1382** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the secure re-read row's comment names both wordings.
-    "ui/settings_dialog.py": 1382,
+    # **1382 -> 1388** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the validation banner (it quotes what was typed) and the filename preview (it renders the user's template) state PlainText.
+    "ui/settings_dialog.py": 1388,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     "ui/track_table.py": 852,
@@ -2352,7 +2386,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4608 -> 4631** (2026-09-30, round 30's D3 and S24): `_deadline_cancel` and `_cancel_deadline_work`, so a waiting verb that started a child says how to stop it, and the runner calls it on stop, on timeout and on a faulted predicate (Critical rule #9: abandoning a helper is safe only once its child is dead). It is deadline machinery and lives with it. The three verb handlers went to a new mixin, `probe_verbs.py`, not here.
     # **4631 -> 4703** (2026-10-05): `cancel-rip` stops only a rip the script's last `rip` started, and `pick-release` passes only on a held, well-formed release, read through one helper shared with `expect-identified` (2026-10-04 rig runs).
     # **4703 -> 4782** (2026-10-05, the same run): a `wait-for-rip` that runs out with the rip still reading ends the run, and a run that stops early cancels the rip its last `rip` step started (`_own_rip_running`, the predicate `cancel-rip` now shares).
-    "uiscript/runner.py": 4782,
+    # **4782 -> 4786** (2026-10-05, the same TASKS row): `abort-if-failed` quotes the failed step's `headline()`, not its whole detail, with the comment saying why; the cut itself lives on `StepRecord`.
+    # **4786 -> 4787** (2026-10-05, TASKS "Permutations the acceptance test still does not run"): the import of `PermutationVerbsMixin`. Its three handlers (section J2) went to their own mixin, `permutation_verbs.py`, and their graders to `permutation_grading.py`, not here.
+    "uiscript/runner.py": 4787,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2378,7 +2414,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **862 -> 834** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `eval`, `call`, the `unsafe` field and `UNSAFE_VERBS`/`UNSAFE_VERBS_BUILT` went.
     # **834 -> 863** (2026-09-30, round 30): three verb declarations, `expect-newest-pair` (D3), `expect-found-offset` and `cache-probe` (the fork's lap 3 S24). The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **863 -> 874** (2026-10-05): the `wait-for-rip` and `cancel-rip` help says a run that ends early cancels its rip, and `abort`'s no longer claims to be the only verb that ends one.
-    "uiscript/verbs.py": 874,
+    # **874 -> 901** (2026-10-05, section J2): three verb declarations, `set-library-scratch`, `expect-library-move` and `expect-rip-argv`, with the comment saying why the first must be a verb. The table is the vocabulary's security boundary, so a verb is an entry here by design.
+    "uiscript/verbs.py": 901,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical
@@ -2428,7 +2465,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3694 -> 3733** (2026-10-05): the cancel-path log wait covers the read in hand (`READER_TERM_GRACE_S`), in one function (`cancelled_log_wait_s`) the acceptance script's cancel sections are held to, and a stopped securing pass whose log never settles keeps the verdicts it wrote whole, with why that is safe; the real 2026-10-04 case never settles inside any wait.
     # **3733 -> 3762** (2026-10-05): `_keep_securing_pass_log`, which copies the securing pass's own ripper log beside the album's before its temp folder is deleted (the 2026-10-04 run's cancelled pass left no record).
     # **3762 -> 3830** (2026-10-05): the up-front time estimate in the plan and the log, and shown as the ETA until the live one has measured enough (`_make_estimate`, `_early_estimate_text`; operator, 2026-10-05).
-    "workers/rip_worker.py": 3830,
+    # **3830 -> 3853** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `reread_agreements`, the re-rip's own count of agreeing reads for every re-read track with a verdict, swapped in or not, recorded at both places a re-read verdict is recorded.
+    # **3853 -> 3923** (2026-10-05, the fork's round 30 lap 9 S29): `_is_progress_redraw`, the one answer to "is this line a redraw?", beside the patterns it reads, so a track's outcome line is no longer left out of the capture; `_capture_line` routes a line by it for both the capture and the log pane's throttle. The run bookkeeping went to a NEW focused module, `redraw_run.py`; what is here is the predicate, the routing and their reasons. +70, the lines added.
+    # **3923 -> 3990** (2026-10-05, the fork's round 30 lap 9 S27): the ladder asks `ladder_trigger.judge_step_down` instead of `success and had_read_errors`, and logs why a pass did or did not step; `_log_fingerprint` tells a log this pass wrote from one an earlier pass left, which only the worker can read; and the two `success`-keyed sites after the loop (the securing pass, `finished`) say why they stay keyed on exit 0. The predicate lives in `ladder_trigger.py`.
+    # **3990 -> 4031** (2026-10-05, the fork's round 30 lap 9 S28): `_signal_stop` records what its one SIGTERM reached, and `stop_signal_reach()` hands it to the window while that process is unreaped. The worker is the only place that knows which process it signalled.
+    # **4031 -> 4066** (2026-10-05, the fork's round 30 lap 9 S28, the reap's door): `_reap_ripper` waits out `READER_TERM_GRACE_S` after our own SIGTERM and then SIGKILLs alone, instead of sending a native cyanrip its second SIGTERM 15 s after the read loop broke; the docstring says why and what it costs behind the wrapper.
+    "workers/rip_worker.py": 4066,
 }
 
 
@@ -2440,17 +2482,153 @@ def _module_line_counts() -> dict[str, int]:
     }
 
 
+# --- §6, second population: the maintainer tooling (2026-10-05) --------------
+#
+# The convention says "Modules: small and focused", not "modules under
+# `src/platterpus`", and the ratchet above read only the package. TASKS'
+# `scripts-outside-gates` recorded the gap: `scripts/laplang/lsl3.py` had grown
+# to 428 lines with nothing noticing. `scripts/` is where the handshake tooling,
+# the generators and the gate runner live, and they are maintained by the same
+# people under the same convention, so they are held to the same ratchet.
+#
+# `build/` is in the population too, for the same reason: `build/make_icon.py` is
+# Python we maintain, and the only reason it was outside is that the glob was
+# rooted at the package. It is one file under the line today, which costs nothing
+# to watch. The population is `conftest.maintained_tooling_modules`, the one
+# definition every gate extended past the package reads, so they cannot disagree
+# about what "the tooling" is; its comment says why `build/` is not walked
+# recursively. `tests/` is deliberately NOT: 139 of its 280 modules are over 300
+# lines (measured 2026-10-05), because a test module holds one subject's
+# evidence and its length tracks the cases, not the jobs. Whether a test module
+# should be split is a different question from whether a product module should,
+# and answering it belongs in its own change rather than as 139 entries here.
+#
+# Keyed by REPO-relative path ("scripts/handshake.py"), unlike the package
+# ledger above, so the two populations cannot share a key by accident: a
+# `scripts/check.py` and a package `check.py` would otherwise collide.
+
+#: Floor on the tooling population: 51 modules on 2026-10-05 (50 under
+#: `scripts/`, 1 under `build/`). A bar well under that catches a broken glob
+#: without tripping on ordinary consolidation.
+_MIN_TOOLING_MODULES: Final[int] = 40
+
+#: Floor on the part of that population under `scripts/` alone. The combined
+#: floor above could be met by `build/` and a handful of scripts if a subpackage
+#: moved, so the directory the gap was found in carries its own.
+_MIN_SCRIPTS_MODULES: Final[int] = 35
+
+#: RATCHET — every tooling module over the threshold, at its count on 2026-10-05
+#: when this population was added. Same rules as `_OVERSIZE_MODULES`: an entry may
+#: shrink or leave, never grow, and no new module may join without a commit that
+#: says why. These are recorded, not blessed: `scripts/handshake.py` at 4,365
+#: lines is larger than every package module but two (`ui/main_window_rip.py`
+#: and `uiscript/runner.py`, measured the same day).
+_OVERSIZE_TOOLING: Final[dict[str, int]] = {
+    # **320 -> 326** (2026-10-05): `_REQUIREMENT` rewritten greedy, linear rather
+    # than quadratic on a run of spaces, with the five lines saying why it is shaped so.
+    "scripts/bommap/reading.py": 326,
+    "scripts/bommap/render.py": 359,
+    "scripts/bommap/ripper_entries.py": 340,
+    "scripts/bommap/tool_entries.py": 385,
+    "scripts/check.py": 498,
+    "scripts/emit_dependency_contract.py": 534,
+    "scripts/emit_envelope.py": 849,
+    "scripts/emit_ripper_inventory.py": 316,
+    "scripts/emit_script_language.py": 504,
+    # **4365 -> 4368** (2026-10-05): `_WIRE_FIELD` rewritten greedy (linear in a
+    # run of blanks, same matches), one line of it the formatter's wrap.
+    # **4368 -> 4453** (2026-10-05): protocol 7. `next_lap_problems` (row C46,
+    # `HANDSHAKE-NEXT-LAP` on every lap of a file declaring 7), its two call sites,
+    # the bounded value pattern, and `PROTOCOL_VERSION`'s history; one gate row
+    # with its reasons, and the module is the gate the row belongs to.
+    "scripts/handshake.py": 4453,
+    # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
+    "scripts/laplang/lsl3.py": 433,
+    "scripts/laplang/refs.py": 324,
+    "scripts/laplang/rerun.py": 361,
+    "scripts/laplang/scratch.py": 345,
+    "scripts/mutation_sweep.py": 502,
+    "scripts/probe_argv_surface.py": 423,
+    "scripts/revert_probe.py": 546,
+    "scripts/round_digest.py": 544,
+    "scripts/verify_log_surface.py": 362,
+}
+
+
+def _tooling_line_counts() -> dict[str, int]:
+    """Every tooling module's line count, repo-relative."""
+    return {
+        path.relative_to(REPO_ROOT).as_posix(): len(
+            path.read_text(encoding="utf-8").splitlines()
+        )
+        for path in maintained_tooling_modules(REPO_ROOT)
+    }
+
+
+class _SizePopulation(NamedTuple):
+    """One population the size ratchet walks, with the ledger that records it."""
+
+    #: What the failure messages call it.
+    label: str
+    #: Prepended to a key to make it repo-relative (the package ledger is keyed
+    #: package-relative, the tooling one repo-relative already).
+    repo_prefix: str
+    #: Every module's line count, keyed as the ledger is.
+    counts: dict[str, int]
+    #: The ratchet for this population.
+    ledger: dict[str, int]
+    #: The ledger's name, so a message says which dict to edit.
+    ledger_name: str
+
+
+def _size_populations() -> list[_SizePopulation]:
+    """Both populations, each with its floor asserted before anything reads it.
+
+    The floors are asserted here, once, so no test can read a population that has
+    not been shown to be non-empty — the shape that let the package-only sweep
+    report on the package while saying nothing about `scripts/`.
+    """
+    package = _module_line_counts()
+    assert len(package) >= _MIN_SOURCE_MODULES, (
+        f"only {len(package)} package modules measured (floor "
+        f"{_MIN_SOURCE_MODULES}) — the population is broken and this ratchet is "
+        "measuring nothing"
+    )
+    tooling = _tooling_line_counts()
+    assert len(tooling) >= _MIN_TOOLING_MODULES, (
+        f"only {len(tooling)} tooling modules measured (floor "
+        f"{_MIN_TOOLING_MODULES}) — the scripts/ and build/ population is broken"
+    )
+    scripts = sum(1 for name in tooling if name.startswith("scripts/"))
+    assert scripts >= _MIN_SCRIPTS_MODULES, (
+        f"only {scripts} modules under scripts/ (floor {_MIN_SCRIPTS_MODULES}) — "
+        "the ratchet has stopped seeing the directory it was extended to"
+    )
+    return [
+        _SizePopulation(
+            "src/platterpus",
+            "src/platterpus/",
+            package,
+            _OVERSIZE_MODULES,
+            "_OVERSIZE_MODULES",
+        ),
+        _SizePopulation(
+            "scripts/ and build/",
+            "",
+            tooling,
+            _OVERSIZE_TOOLING,
+            "_OVERSIZE_TOOLING",
+        ),
+    ]
+
+
 def test_no_new_module_crosses_the_size_threshold() -> None:
     """A file crossing ~300 lines is a prompt to ask whether it does one job."""
-    counts = _module_line_counts()
-    assert len(counts) >= _MIN_SOURCE_MODULES, (
-        f"only {len(counts)} modules measured (floor {_MIN_SOURCE_MODULES}) — the "
-        "population is broken and this ratchet is measuring nothing"
-    )
     newly_over = sorted(
-        f"{name} ({count} lines)"
-        for name, count in counts.items()
-        if count > _MODULE_LINE_THRESHOLD and name not in _OVERSIZE_MODULES
+        f"{name} ({count} lines) -> {pop.ledger_name}"
+        for pop in _size_populations()
+        for name, count in pop.counts.items()
+        if count > _MODULE_LINE_THRESHOLD and name not in pop.ledger
     )
     assert not newly_over, (
         "CLAUDE.md: 'Split when a file exceeds ~300 lines. One responsibility "
@@ -2458,8 +2636,8 @@ def test_no_new_module_crosses_the_size_threshold() -> None:
         + "\n  ".join(newly_over)
         + "\nThe count is a heuristic for cohesion, not a cap — so the question "
         "is whether the module is doing more than one job, and the answer may "
-        "legitimately be no. If it is genuinely cohesive, add it to "
-        "_OVERSIZE_MODULES with its count in a commit that says why."
+        "legitimately be no. If it is genuinely cohesive, add it to the ledger "
+        "named after the arrow with its count in a commit that says why."
     )
 
 
@@ -2470,14 +2648,12 @@ def test_no_oversize_module_grows() -> None:
     becoming 4,300 — which is the difference between a known debt and a
     spreading one.
     """
-    counts = _module_line_counts()
-    assert len(counts) >= _MIN_SOURCE_MODULES, (
-        f"only {len(counts)} modules measured (floor {_MIN_SOURCE_MODULES})"
-    )
     grown = sorted(
-        f"{name}: {counts[name]} lines, was {recorded} (+{counts[name] - recorded})"
-        for name, recorded in _OVERSIZE_MODULES.items()
-        if name in counts and counts[name] > recorded
+        f"{name}: {pop.counts[name]} lines, was {recorded} "
+        f"(+{pop.counts[name] - recorded})"
+        for pop in _size_populations()
+        for name, recorded in pop.ledger.items()
+        if name in pop.counts and pop.counts[name] > recorded
     )
     assert not grown, (
         "these modules are already past the ~300-line cohesion heuristic and "
@@ -2498,48 +2674,97 @@ def test_the_oversize_ratchet_is_not_stale() -> None:
     `CLAUDE.md` records for the doc-index check that filtered its own candidates
     to files that still exist.
     """
-    counts = _module_line_counts()
-    assert _OVERSIZE_MODULES, "the ratchet is empty, so it cannot fail"
-    gone = sorted(name for name in _OVERSIZE_MODULES if name not in counts)
-    assert not gone, (
-        f"these ratchet entries name modules that no longer exist: {gone}. "
-        "Remove them — an entry with no subject is a check that quietly stopped."
-    )
-    shrunk = sorted(
-        f"{name}: now {counts[name]}, recorded {recorded}"
-        for name, recorded in _OVERSIZE_MODULES.items()
-        if name in counts and counts[name] <= _MODULE_LINE_THRESHOLD
-    )
-    assert not shrunk, (
-        "these modules are no longer oversize — delete their ratchet entries so "
-        f"they cannot silently grow back:\n  {chr(10).join(shrunk)}"
-    )
+    for label, _prefix, counts, ledger, ledger_name in _size_populations():
+        assert ledger, f"{ledger_name} ({label}) is empty, so it cannot fail"
+        gone = sorted(name for name in ledger if name not in counts)
+        assert not gone, (
+            f"these {ledger_name} entries name modules that no longer exist: "
+            f"{gone}. Remove them — an entry with no subject is a check that "
+            "quietly stopped."
+        )
+        shrunk = sorted(
+            f"{name}: now {counts[name]}, recorded {recorded}"
+            for name, recorded in ledger.items()
+            if name in counts and counts[name] <= _MODULE_LINE_THRESHOLD
+        )
+        assert not shrunk, (
+            f"these modules are no longer oversize — delete their {ledger_name} "
+            f"entries so they cannot silently grow back:\n  {chr(10).join(shrunk)}"
+        )
 
 
 def test_the_size_ratchet_can_fail() -> None:
-    """Non-triviality twin for §6.
+    """Non-triviality twin for §6, asserted for EACH population.
 
     The two ways this could be decoration: the threshold could be so high that
     nothing reaches it, or the recorded counts could be padded so far above
     reality that no realistic growth trips them. Both are asserted against —
-    the recorded numbers must be the REAL ones, not headroom.
+    the recorded numbers must be the REAL ones, not headroom. Per population,
+    because a second population is the place a padded ledger hides: the package
+    entries being exact says nothing about the tooling ones.
     """
-    counts = _module_line_counts()
-    over = {n: c for n, c in counts.items() if c > _MODULE_LINE_THRESHOLD}
-    assert over, (
-        "no module exceeds the threshold, so `test_no_oversize_module_grows` "
-        "has an empty population — either the threshold or the measurement is "
-        "wrong"
+    for label, _prefix, counts, ledger, ledger_name in _size_populations():
+        over = {n: c for n, c in counts.items() if c > _MODULE_LINE_THRESHOLD}
+        assert over, (
+            f"no module in {label} exceeds the threshold, so "
+            "`test_no_oversize_module_grows` has an empty population there — "
+            "either the threshold or the measurement is wrong"
+        )
+        padded = sorted(
+            f"{name}: recorded {recorded}, actually {counts[name]}"
+            for name, recorded in ledger.items()
+            if name in counts and recorded > counts[name]
+        )
+        assert not padded, (
+            f"these {ledger_name} counts are ABOVE the file's real length, so the "
+            "module has that much room to grow before the ratchet notices. Record "
+            f"the real count:\n  {chr(10).join(padded)}"
+        )
+
+
+def test_the_size_ratchet_measures_every_committed_module_outside_tests() -> None:
+    """The population is closed: nothing we commit outside `tests/` goes unmeasured.
+
+    The ratchet read `src/platterpus` for five weeks while `scripts/` grew a
+    428-line module beside it, and nothing could notice, because a sweep only
+    reports on what its glob returns. So the population is checked against a
+    witness that does not share the glob: git's own list of committed `.py`
+    files. A new top-level directory of Python, or a tooling root dropped from
+    `conftest.TOOLING_GLOBS`, fails here by name rather than leaving the ratchet
+    green over a population that quietly stopped including it.
+    """
+    listing = subprocess.run(  # noqa: S603 — fixed argv, no shell
+        ["git", "-C", str(REPO_ROOT), "ls-files", "-z", "--", "*.py"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
     )
-    padded = sorted(
-        f"{name}: recorded {recorded}, actually {counts[name]}"
-        for name, recorded in _OVERSIZE_MODULES.items()
-        if name in counts and recorded > counts[name]
+    assert listing.returncode == 0, (
+        f"`git ls-files` failed (exit {listing.returncode}): {listing.stderr!r}"
     )
-    assert not padded, (
-        "these recorded counts are ABOVE the file's real length, so the module "
-        "has that much room to grow before the ratchet notices. Record the real "
-        f"count:\n  {chr(10).join(padded)}"
+    committed = {
+        name
+        for name in listing.stdout.split("\0")
+        if name and not name.startswith("tests/")
+    }
+    # Floor: an empty listing would make the comparison below vacuously true.
+    assert len(committed) >= _MIN_SOURCE_MODULES + _MIN_TOOLING_MODULES, (
+        f"git listed only {len(committed)} committed modules outside tests/ — the "
+        "witness is broken, so it cannot vouch for the population"
+    )
+    # Read from `_size_populations()`, the function every ratchet test reads, so
+    # a population that is measured but not handed to the ratchet counts as
+    # unmeasured here too.
+    measured = {
+        pop.repo_prefix + name for pop in _size_populations() for name in pop.counts
+    }
+    unmeasured = sorted(committed - measured)
+    assert not unmeasured, (
+        "these committed modules are in no size population, so no ratchet can "
+        "see them grow:\n  " + "\n  ".join(unmeasured) + "\nAdd their directory "
+        "to TOOLING_GLOBS in tests/conftest.py (which also puts it under every "
+        "gate that reads it), or say here why it is out."
     )
 
 

@@ -2239,6 +2239,40 @@ Three lessons, in increasing order of how much they generalise:
 
 **An ABSENCE in a log is a fact about the logger before it is a fact about the subject.** Before inferring anything from a line that is not there, establish that the capture *would have kept it*. Our read loop's cancel `break` sat above the retention code, so the first line the ripper emitted after our signal — its own account of why it was stopping — was dropped silently on every cancel. The cyanrip fork then examined 51,492 captured ripper lines, found **zero** occurrences of their handler's `"Trying to quit"`, and concluded, carefully and marked `[MEASURED]`, that their signal handler *"did not run at all."* True premise, wrong conclusion, and the hole was ours. **The worst artifact is not a missing diagnostic; it is one that looks complete** — we handed a peer a censored capture, they reasoned correctly from it, and it pointed away from the real cause. This is the third violation of *"a silent truncation reads as completeness"* by code written after that rule; the obligation is not "log more" but that **any deliberate drop is counted and marked**. And check the shape before believing a fix: cyanrip writes `"\r\nTrying to quit\n"` in one `write(2)`, so the first line after the signal is the blank terminator of the progress redraw and the message is the *next* one — retaining "one more line" keeps a bare `\r`, loses the sentence, and passes a weaker version of the test.
 
+#### The next instance (2026-10-05): a question's answer reused for another question
+
+The cyanrip fork read the 2026-10-05 Full run's captured stdout and found no
+`Track N read successfully!` in it (their round 30 lap 9 S29). Counted in that file
+(`cyanrip@89e9b4d:docs/rig-2026-10-05-174a134/rips/full-acceptance-angle-bracket.ripper-stdout.txt`):
+16 `Flushing encoders...` lines, the album pass's 14 and the securing pass's 2, each
+followed directly by `Summary:`, where the outcome line belongs. The read loop asked
+`_progress_for(line) is not None` to decide what to leave out of the capture. That
+call answers *"does this line move the bar?"*, and a track's outcome line does,
+because it pegs the track's slice. So every outcome line was left out with the
+redraws, and the report's label still said the capture was *"complete even when the
+ripper was killed"*. From cyanrip `.20` that line carries a verdict (`read with
+errors.`).
+
+Two lessons, beyond the rule above:
+
+* **When code asks question A by calling the function that answers question B,
+  look for the lines where the two answers differ.** One call deciding two things
+  (here, the bar's value and whether a line can be dropped) is where a second
+  meaning gets in unseen. The fix gives each question its own predicate
+  (`rip_worker._is_progress_redraw`, `cyanrip_log.finished_track`), and a test
+  holds the relation between them and the bar
+  (`test_the_bar_moves_on_exactly_the_redraws_and_the_outcomes`).
+* **A drop written down in a test's docstring is a finding nobody reported.**
+  `tests/test_verdict.py` had already noted that *"the capture dropped the `Track 3
+  read successfully!` header with the progress redraws, so the parser cannot open
+  the track"*, and worked around it by reading the block by pattern. The drop was
+  seen, written down, and kept. When a test has to work around a gap in our own
+  artifact, the gap gets a `TASKS.md` row in the same commit.
+
+The capture now keeps every line in order and thins each run of redraws to its
+first and last line plus a marker counting the rest (`redraw_run.py`), so every
+redraw is either kept or counted.
+
 ### §5.ar — The crash handler was the crash: a modal dialog inside its own event loop
 
 **2026-08-19/20.** CI hung on all four Python legs, twice, and burned the whole
@@ -3531,8 +3565,23 @@ Three things to carry:
 - **A sweep's population is a claim, and needs a test of its own.** "Every
   compiled regex" was true of the collector's name and false of the codebase.
   `test_the_sweep_reads_inline_calls_and_times_each_as_it_runs` pins the pattern
-  that was missing, so the population cannot quietly narrow again. Two calls remain
-  outside it (their pattern is not a literal), and the docstring names them.
+  that was missing, so the population cannot quietly narrow again. The calls whose
+  pattern is not a literal stay outside it. The docstring named the two in `src/`
+  in prose until 2026-10-05, when the sweep was extended to `scripts/` and `build/`
+  (TASKS `scripts-outside-gates`) and the tooling brought thirteen more. Prose
+  cannot fail, so they are now counted per file in `_UNTIMED_CALLS`, with the reason
+  each cannot stall, and `test_every_pattern_the_sweep_cannot_read_is_ledgered` holds
+  that ledger to the tree in both directions.
+- **The INPUTS are a population too** (added 2026-10-05). The sweep feeds each
+  pattern runs of one character, so a pattern that only backtracks after a literal
+  prefix has matched (`Read stalls: x`, `KEY: x`) never reaches its slow region, and
+  the sweep reports it linear. Extended to `scripts/`, it passed all 88 tooling
+  patterns while two of them took a third of a second on one 8,000-character line;
+  both were found by building the line by hand. Same shape both times, a lazy
+  capture before trailing whitespace (`\S.*?\s*$`), which retries the whitespace at
+  every step; the greedy `\S(?:.*\S)?` reads the same text in linear time. The
+  same shape in `src/` and the change to the sweep are TASKS "Found while
+  integrating" (4). A clean sweep says nothing about inputs it cannot construct.
 - **A second measurement under the same conditions is not a second witness**
   (added 2026-09-27). The sweep called a pattern super-linear only if it was slow
   twice, and it took the second timing immediately, at the same two sizes. On a
@@ -3776,6 +3825,7 @@ defect, and two of those sections are archival.
 | H | ARCHIVAL | the overwrite prompt; missing the collision destroys a finished master |
 | I | ARCHIVAL | cancel; the defect this exists for destroyed the log's completion footer |
 | J | ARCHIVAL | identify and rip again after a cancel — a rip, and a drive-state proof |
+| J2 | ARCHIVAL | the permutations no other rip uses (2026-10-05): no `-r`, no `-Z` in uniform mode, a fixed read speed, and a finished rip filed into a library folder. Archival on B's reasoning: each setting reaches cyanrip's argv, and the argv is read as sent and as received. And a library move that leaves a copy, or files a folder without its log and report, damages a finished master's record |
 | K1 | ARCHIVAL | when a user selects MP3 the MP3 *is* their library entry — the thing they play, with its tags and art. "Lossy by design" describes the codec, not the importance of deriving it correctly. **Asserts `expect-derived-output mp3` since 2026-09-15**: until then this section asserted only that the setting round-tripped and that *cyanrip's* log showed a completed rip, and cyanrip is always invoked `-o flac` — so it passed on 2026-09-15 with no `.mp3` file written at all (§5.bi) |
 | K2 | ARCHIVAL | WavPack is lossless — a second archival-grade output. **Asserts `expect-derived-output wavpack` since 2026-09-15**, for the reason in K1's row — it too passed over a folder holding no `.wv` |
 | K3 | ARCHIVAL | **WAV is raw PCM, i.e. lossless** — those bytes *are* the audio. Classified UX in the first draft, which contradicted K2: "lossless → archival" was applied to WavPack and not to WAV. The maintainer caught it. **Asserts `expect-derived-output wav` since 2026-09-15**; this is the one derived section whose files the 2026-09-15 run did produce, and only because nothing started after it for six minutes |
@@ -3791,7 +3841,7 @@ defect, and two of those sections are archival.
 
 <!-- END-ACCEPTANCE-SEVERITY-TABLE -->
 
-**18 ARCHIVAL, 4 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The four that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
+**19 ARCHIVAL, 4 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The four that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
 `fullacceptance.txt` must appear, so a **new** section has to be classified
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
@@ -3810,11 +3860,17 @@ per-track escaping permutation (`track-title` with `\ = ' :`); K2 and K3 run the
 `file` and `complete` cover-art modes. §I asks only the two audit questions a
 cancel leaves standing. The graders delegate to the product's own predicates
 (`uiscript/artifact_grading.py`, `uiscript/tag_grading.py`); the reasons are in
-their docstrings. **Not added, and why:** the offset-override-off path cannot be
-one script line on every drive — a drive in AccurateRip's list auto-applies the
-list offset and rips, an unknown one is refused with a dialog — so a line that
-passes on one rig fails on the other, and on the rig it could move the offset
-mid-run. It is a TASKS row until the language can branch on the drive.
+their docstrings. **J2 (2026-10-05)** rips one track with the settings no
+other rip uses: no `-r`, no `-Z` (in uniform mode, where a setting of 2 would
+send one), a fixed read speed of 0, and a scratch library folder inside the rips
+folder; `expect-library-move` grades the move and `expect-rip-argv` the argv as
+sent (`uiscript/permutation_grading.py`). **Not added, and why:** the
+offset-override-off path cannot be one script line on every drive — a drive in
+AccurateRip's list auto-applies the list offset and rips, an unknown one is
+refused with a dialog — so a line that passes on one rig fails on the other, and
+on the rig it could move the offset mid-run. A non-zero fixed read speed is the
+same shape: a drive that reports its speed unchangeable aborts the rip on `-S`.
+Both are TASKS rows until the language can branch on the drive.
 
 ### Acceptance tiers — what each section costs, and what it rests on
 
@@ -3858,6 +3914,7 @@ assigns to us, and it changes nothing on their side.
 | H | 2 | h-overwrite | e-identify | `rip` scoped by `select-tracks 1-2` |
 | I | 2 | i-cancel | e-identify | `rip` scoped by `1-3`, then `cancel-rip` |
 | J | 2 | j-reopen | i-cancel | `rescan` + `pick-release` + `rip` over `1-2` — **it proves the drive reopened after I's cancel, so it rests on I and not merely on its tier** |
+| J2 | 2 | j2-permutations | e-identify | `rip` scoped by `select-tracks 1`, with no `-r`, no `-Z`, a fixed speed and the library move; it rests on the disc being identified, not on I's cancel |
 | K1 | 2 | k1-mp3 | e-identify | `rip` scoped by `select-tracks 1-2` |
 | K2 | 2 | k2-wavpack | e-identify | `rip` scoped by `select-tracks 1-2` |
 | K3 | 2 | k3-wav | e-identify | `rip` scoped by `select-tracks 1-2` |
@@ -4266,7 +4323,7 @@ is about. The gates written on the day are
       tooling). Apply **S-14** to what it finds — a real defect is an argument for
       fixing it, not automatically for holding the release.
 - [ ] `ruff check` + `ruff format --check` clean.
-- [ ] `mypy` clean (the gating CI `typecheck` job; strict def-typing package-wide).
+- [ ] `mypy` clean (the gating CI `typecheck` job; strict def-typing over the package, `scripts/` and `build/*.py`).
 - [ ] Coverage gate passes; gate not lowered.
 - [ ] If the change touches hardware-only behaviour, [test-plan.md](test-plan.md)
       has a new/updated checklist item.

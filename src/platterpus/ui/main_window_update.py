@@ -25,7 +25,6 @@ beside the in-app download branch.
 
 from __future__ import annotations
 
-import html
 import logging
 from pathlib import Path
 
@@ -668,7 +667,7 @@ class UpdateMixin(MainWindowShared):
         from platterpus.deps.host_setup import HostSetup
         from platterpus.deps.ripper_offer import RipperOffer
         from platterpus.deps.step_engine import SubprocessRunner
-        from platterpus.ui.host_setup_dialog import HostSetupDialog, SetupCopy
+        from platterpus.ui.host_setup_dialog import HostSetupDialog, ripper_update_copy
 
         # The manifest's build options and version **for the commit we are actually
         # installing** — resolved by the offer, not read off `offer.release` here.
@@ -692,27 +691,9 @@ class UpdateMixin(MainWindowShared):
         dialog = HostSetupDialog(
             self,
             host_setup=HostSetup(runner=SubprocessRunner(), fork_target=target),
-            copy=SetupCopy(
-                title="Updating cyanrip",
-                # Markup (the dialog shows it as RichText): the words and <b> are
-                # ours; the pin names a build the user picked, so it is escaped.
-                intro=(
-                    f"Installing cyanrip build <b>{html.escape(target.pin)}</b>.\n\n"
-                    "Platterpus builds the ripper from source inside its container, "
-                    "so this takes a few minutes. Everything already in place is "
-                    "skipped — the rows below say which.\n\n"
-                    "The build is verified before anything is installed: if the "
-                    "binary does not identify as the build we asked for, nothing is "
-                    "replaced and your current ripper keeps working."
-                ),
-                action_label="&Install",
-                rerun_label="Try again",
-                success=(
-                    "✓ cyanrip updated — the new build is installed and exported. "
-                    "Your next rip uses it."
-                ),
-                already="✓ Nothing to do — that build was already installed.",
-            ),
+            # The words, markup and all, are built beside `SetupCopy`, which
+            # escapes the pin (tests/test_labels_state_their_text_format.py).
+            copy=ripper_update_copy(target.pin),
             start_immediately=True,
         )
         # **Through the window's one wizard chokepoint, not `dialog.exec()`.**

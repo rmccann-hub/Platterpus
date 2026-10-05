@@ -224,12 +224,26 @@ class EnvironmentBlock(TypedDict):
     dependencies_measured_at: NotRequired[str | None]
 
 
+class ComponentEntry(DependencyEntry):
+    """A `DependencyEntry` plus the tool's own version text, for the inventory.
+
+    ``version`` stays the parsed ``"0.9.4"``, which cannot tell the fork from
+    upstream or ``.17`` from ``.18``. ``version_text`` is what the tool printed
+    (``"0.9.4-rc2+platterpus.18"``, `BuildNote.version_text`), or ``None``
+    (JSON ``null``) for *not determined*: never omitted, never ``""``. Its own
+    type because `DependencyEntry` is also the rip report's row, and this key
+    was declared to the fork for ``COMPONENTS.json`` only (round 30 lap 4, S43).
+    """
+
+    version_text: str | None
+
+
 class ComponentInventory(TypedDict):
     """Every component a rip depends on, with its version and when it was measured.
 
-    One shape for Help → About, Diagnostics, the rip report and the acceptance
-    bundle (`build_info.component_inventory`), so they cannot describe one
-    machine four ways.
+    One shape for Help → About and the acceptance bundle's ``COMPONENTS.json``
+    (`build_info.component_inventory`); Diagnostics and the rip report read the
+    summariser under it (`build_info.dependency_summary`).
     """
 
     app: str
@@ -238,7 +252,7 @@ class ComponentInventory(TypedDict):
     qt: str | None
     pyside6: str | None
     platform: str | None
-    dependencies: dict[str, DependencyEntry] | None
+    dependencies: dict[str, ComponentEntry] | None
     dependencies_measured_at: str | None
 
 

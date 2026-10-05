@@ -51,11 +51,15 @@ place (`build`). This file now holds three things:
 **What this sweep does NOT cover, said out loud rather than implied.** It checks
 `QMessageBox`, both routes to one, and nothing else. Labels built from a value
 are swept by `tests/test_labels_state_their_text_format.py`, which requires each to
-state its format; labels given a value later by `setText` are tracked in `TASKS.md`.
-Nor does it follow a box after it is built: a later `setTextFormat(RichText)` on
-the same object, or a `QMessageBox` class reached through a name this file cannot
-resolve statically (a variable holding the class), is outside what an AST sweep
-can see. Scoping a sweep is fine; scoping it *silently while the rule claims
+state its format, and labels (and boxes) given text later by `setText` /
+`setInformativeText` by `tests/test_labels_given_text_later_state_their_format.py`,
+which traces each setter back to where its widget is built. This file does not
+follow a box after it is built: a later `setTextFormat(RichText)` on the same
+object, or a `QMessageBox` class reached through a name this file cannot resolve
+statically (a variable holding the class), is outside what it can see. The box's
+two other text surfaces are covered by Qt itself, and pinned at the bottom of this
+file: its informative label takes the box's format whichever is set first, and its
+detailed text is shown in a read-only text edit as plain text. Scoping a sweep is fine; scoping it *silently while the rule claims
 everything* is the defect this file was written to fix, so `CLAUDE.md` was
 corrected in the same commit to say what is actually swept.
 """
@@ -565,3 +569,56 @@ def test_each_function_shows_the_built_box(
         )
     ]
     assert answer == QMessageBox.StandardButton.NoButton
+
+
+# ==========================================================================
+# The box's other text: what Qt does with it, checked rather than assumed
+# ==========================================================================
+
+
+@pytest.mark.parametrize("format_first", [True, False])
+def test_the_informative_text_takes_the_boxs_plaintext(
+    qapp: QApplication, format_first: bool
+) -> None:
+    """`setInformativeText` is a second label, and Qt gives it the box's format.
+
+    Measured on PySide6 6.11.2 in both orders: the informative label exists only
+    once informative text is set, and `QMessageBox.setTextFormat` reaches it
+    either way. The sweeps above check where the box is built, and the fatal
+    dialog puts an exception's text in its informative line, so the protection
+    rests on this answer from Qt; it is pinned here so an upgrade that changed it
+    fails by name.
+    """
+    box = QMessageBox()
+    try:
+        if format_first:
+            box.setTextFormat(Qt.TextFormat.PlainText)
+        box.setInformativeText(_MISREAD_UNDER_AUTOTEXT)
+        if not format_first:
+            box.setTextFormat(Qt.TextFormat.PlainText)
+        label = box.findChild(QLabel, "qt_msgbox_informativelabel")
+        assert label is not None, "Qt's informative label was not found by its name"
+        assert label.textFormat() == Qt.TextFormat.PlainText
+        assert label.text() == _MISREAD_UNDER_AUTOTEXT
+    finally:
+        box.deleteLater()
+
+
+def test_the_detailed_text_is_shown_as_plain_text(qapp: QApplication) -> None:
+    """`setDetailedText` is shown in a read-only text edit, as typed, whatever it holds.
+
+    Which is why neither sweep holds it to a format (the fatal dialog puts the
+    traceback there): measured on PySide6 6.11.2, and pinned so an upgrade that
+    changed it fails by name.
+    """
+    from PySide6.QtWidgets import QTextEdit
+
+    box = QMessageBox()
+    try:
+        box.setText("x")
+        box.setDetailedText(_MISREAD_UNDER_AUTOTEXT)
+        details = box.findChild(QTextEdit)
+        assert details is not None, "Qt's detailed-text view was not found"
+        assert details.toPlainText() == _MISREAD_UNDER_AUTOTEXT
+    finally:
+        box.deleteLater()

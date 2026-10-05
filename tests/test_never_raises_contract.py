@@ -262,6 +262,11 @@ _PARSER_MODULES: tuple[str, ...] = (
     # conversion today; being on the roster is what keeps the next one guarded.
     # Its behavioural properties live in tests/test_uiscript.py.
     "uiscript/script.py",
+    # Added 2026-10-05 with `parse_fuser_pids` (the fork's round 30 lap 9 S28):
+    # which PIDs `fuser` says hold the drive decides which processes the
+    # post-cancel rescue may signal, and a raise there would leave the rescue
+    # thread dead with nothing logged. Rostered with the parser, not after it.
+    "drive_control.py",
 )
 
 # Exceptions that make an `int()` call safe to leave bare inside a `try`.

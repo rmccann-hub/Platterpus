@@ -48,10 +48,11 @@ own (`Qt.mightBeRichText`), asked of each literal.
 **What this does NOT cover, said out loud.** The population is a `QLabel(...)`
 call whose text argument is not a string literal, plus the literals above. A
 label built EMPTY or from a literal and given a value later through `setText(...)`
-is outside it; the
-2026-09-28 closing note on the TASKS row counts those (13 at the time, most of
-them in the rip progress pane). `tests/test_message_boxes_are_plaintext.py`
-sweeps `QMessageBox`; this file sweeps `QLabel`; neither sweeps the other.
+is outside it, and is swept by
+`tests/test_labels_given_text_later_state_their_format.py` (since 2026-10-05),
+which traces each setter back to where its label is built and holds that label
+to this file's rule there, with this file's `pins_after` and `_judge`.
+`tests/test_message_boxes_are_plaintext.py` sweeps `QMessageBox`.
 """
 
 from __future__ import annotations
@@ -297,6 +298,40 @@ def _end_position(node: ast.AST) -> tuple[int, int]:
     return (
         getattr(node, "end_lineno", None) or getattr(node, "lineno", 0),
         getattr(node, "end_col_offset", None) or 0,
+    )
+
+
+def pins_after(statement: ast.AST, scope: ast.AST, name: str) -> list[ast.Call]:
+    """Each `<name>.setTextFormat(...)` that pins the label `statement` builds.
+
+    A pin must sit in the same function (`scope`), after the statement that
+    builds the label, and before the next time the same name is given something
+    else, since a later `x = QLabel(...)` is a new label. In source order, so the
+    first one is the format the label starts with. Shared with
+    `tests/test_labels_given_text_later_state_their_format.py`, which asks the
+    same question of the labels it traces a `setText(...)` back to.
+    """
+    own = _own_nodes(scope)
+    built_at = _end_position(statement)
+    rebound = [
+        _position(node)
+        for node in own
+        if node is not statement
+        and _position(node) > built_at
+        and name in _assigned_names(node)
+    ]
+    until = min(rebound) if rebound else (10**9, 0)
+    return sorted(
+        (
+            node
+            for node in own
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "setTextFormat"
+            and ast.unparse(node.func.value) == name
+            and built_at < _position(node) < until
+        ),
+        key=_position,
     )
 
 
@@ -750,30 +785,9 @@ def label_sites(source: str, module: str) -> list[LabelSite]:
             continue
         name = ast.unparse(target)
 
-        own = _own_nodes(scope)
-        built_at = _end_position(statement)
         # The pin must fall between this construction and the next time the same
         # name is given something else — a later `x = QLabel(...)` is a new label.
-        rebound = [
-            _position(node)
-            for node in own
-            if node is not statement
-            and _position(node) > built_at
-            and name in _assigned_names(node)
-        ]
-        until = min(rebound) if rebound else (10**9, 0)
-        pins = sorted(
-            (
-                node
-                for node in own
-                if isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "setTextFormat"
-                and ast.unparse(node.func.value) == name
-                and built_at < _position(node) < until
-            ),
-            key=_position,
-        )
+        pins = pins_after(statement, scope, name)
         if not pins:
             sites.append(
                 LabelSite(

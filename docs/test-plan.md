@@ -739,7 +739,9 @@ presets (0.4.0).
 1. Settings → enable **EAC-style log** → rip → confirm
    `<Album> (EAC-compatible).log` appears beside the rip, renders EAC's layout,
    is **plainly attributed to Platterpus and carries no checksum signature**,
-   and `scripts/eac_parity.py` reads it interchangeably with cyanrip's own log.
+   and `scripts/eac_parity.py` reads it interchangeably with cyanrip's own log
+   as a *candidate*. Handed in as the *baseline* it is refused, exit 2, naming
+   its first line (`docs/eac-parity.md`, P1).
 2. Settings → **Goal → Archival Exact / Fast Verified / Portable** — confirm
    each preset snaps the format/verification controls as documented, and that
    editing any snapped control flips the goal to *Custom*.

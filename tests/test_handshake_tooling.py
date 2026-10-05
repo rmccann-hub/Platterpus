@@ -1444,16 +1444,14 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = (
-    "v7 landed 2026-09-30 in both trees as round 30's close condition S9: the "
-    "fork's at cyanrip@a3a49647, ours in the commit that files their lap 7. v7 §15: "
-    "'Neither gate implements 7 until this file is byte-identical in both trees', "
-    "and neither side declares 7 until both have said in a lap that their gate "
-    "implements it; round 30's laps declare 6 and it closes under v6. Clear this in "
-    "the commit that teaches the gate C46 (HANDSHAKE-NEXT-LAP) with a row-named "
-    "test, before our round 31 lap 1."
-)
-#: History of this constant, newest first. **Empty again from 2026-09-25**: the gate
+_BOOTSTRAP_REASON: str = ""
+#: History of this constant, newest first. **Empty again from 2026-10-05**: the gate
+#: implements 7 (row C46, `HANDSHAKE-NEXT-LAP`, with a row-named test), cleared in that
+#: commit as the reason itself required. It had read: *"v7 landed 2026-09-30 in both
+#: trees as round 30's close condition S9 … v7 §15: 'Neither gate implements 7 until
+#: this file is byte-identical in both trees' … Clear this in the commit that teaches
+#: the gate C46 (HANDSHAKE-NEXT-LAP) with a row-named test, before our round 31 lap
+#: 1."* **2026-09-30: non-empty again**, the v7 bootstrap. **Empty again from 2026-09-25**: the gate
 #: implements 6 (C43-C45, the amended C13a, the K2 field split, each with a row-named
 #: test), cleared in that commit as the reason itself required. It had read: *"v6
 #: landed 2026-09-23 as round 25 §0.1's close condition, ahead of the fork. v6 §14:

@@ -780,7 +780,9 @@ def test_the_full_runs_track_3_re_read_is_now_kept() -> None:
     `artifacts.ripper_stdout`, where the capture dropped the `Track 3 read
     successfully!` header with the progress redraws, so the parser cannot open
     the track. The four values the decision reads are therefore taken from the
-    re-read's track-3 block by pattern, from the committed file.
+    re-read's track-3 block by pattern, from the committed file. (The capture keeps
+    that header since 2026-10-05, the fork's round 30 lap 9 S29; this committed
+    file predates the fix, so the workaround stays.)
     """
     first = parse_cyanrip_log(
         (_ROUND28 / "round28fullwholedisc.log").read_text(encoding="utf-8")

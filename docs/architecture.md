@@ -1004,8 +1004,16 @@ offset. Critical rule #12 is the reason; this is how to follow it in a widget.
 - **Enforced by `tests/test_labels_state_their_text_format.py`, with no
   allowlist**: an exemption list is how a sweep stops enforcing anything.
   `QMessageBox` has its own sweep (`tests/test_message_boxes_are_plaintext.py`).
-  A label built empty and filled later by `setText` is outside both, so state
-  its format anyway.
+- **A label given its text LATER states its format where it is BUILT.** Most
+  labels that show a value are built empty and filled by `setText`, so the
+  decision belongs right after `QLabel("", self)`, not beside the `setText`.
+  Enforced by `tests/test_labels_given_text_later_state_their_format.py`
+  (2026-10-05), which traces every `setText` / `setInformativeText` (and a
+  `setText` passed as a slot) back to where its widget is built: through
+  `self.<attr>` across a mixin family, a helper that returns the label, a dict of
+  labels, and `isinstance`; a call into Qt by its return type in PySide6's own
+  stubs. What it cannot trace is listed in a ratchet that may only shrink, and a
+  PlainText label handed markup of ours fails too, since it would show the tags.
 
 ### 3.10 Unattended testing: the script console, and why a subsystem needs a surface
 
@@ -1885,6 +1893,8 @@ above); no rebuild needed, since you sign the exact published bytes.
 **CI:** `.github/workflows/ci.yml` runs on every push to `main` and every PR. **Gating jobs:** `test` (pytest on the 3.11–3.14 matrix, in parallel with `-n auto`; the coverage floor on the 3.14 leg), `lint` (`ruff check` + `ruff format --check`), `typecheck` (`mypy`, config in `pyproject.toml` `[tool.mypy]` — strict def-typing across the whole package), `changelog` (the rule-#7 backstop), `media-guard` (the rule-#8 backstop), `pip-audit` (dependency vulnerabilities), **`gitleaks`** (secret scanning over the **full history**, because this repo is public and `git log` is a distribution channel — the same reasoning rule #8 gives for audio, so a credential removed in a later commit is still published and a diff-only scan would pass on it), and **`sbom`** (a CycloneDX inventory of what actually ships, generated every push rather than only at release, with a floor that refuses an SBOM listing fewer than ten components — a generated artifact describing an empty room is the shape this repo refuses). **`tests-touched` is GATING as of 2026-08-20** — it fails when `src/platterpus` changes with no change under `tests/`, unless a commit in the range carries `[no-test-needed] <reason>` (a bare marker is refused; the reason must be real) or the only src change is the `__version__` bump of a release commit. It used to only warn, and an enforcement audit measured the result: *"every shipped bug gets a regression test in the same change"* is the most-cited rule in this repo and had the weakest enforcement of any examined — a GitHub annotation with no `exit 1` on any path. Escapable by SAYING WHY rather than by silence, which is what stops it being a false-failure machine. Two more workflows: `mutation.yml` runs mutation testing **weekly, non-gating** — and as of 2026-09-05 it runs **`scripts/mutation_sweep.py`, ours, not `mutmut`**, because rule #11's *a tool that gates CI must not float* applies to a signal as much as a gate and swapping one external mutator for another keeps the failure mode; the sweep has no dependency beyond pytest and carries a floor on mutants actually **checked**, so a sweep that measured nothing cannot read as a clean one, and `appimage.yml` builds + smoke-tests the AppImage on every push to `main` and on demand for any branch (procedure: `docs/architecture.md` **§6.1 AppImage build & testing** — absorbed the former `appimage-testing.md` 2026-08-06).
 
 *Correction, 2026-09-28 (configuration audit, amendment A13): the `gitleaks` job does **not** scan the full history, whatever the paragraph above says. `gitleaks/gitleaks-action` builds its own range, `--no-merges --first-parent <first>^..<head>`. A pull request's run covers that PR's own non-merge commits, and a push to `main` that arrives as a merge commit scans nothing: the push run for `a930411b` (CI run 36477804072) logged "0 commits scanned". No run examines a merge commit's own changes, or history that reaches `main` as a merge's second parent. The quote above is left as it was because it is verbatim, and `CLAUDE.md`, which it quotes, still says the same thing. Making CI scan the full history on every run is amendment A12, approved and held with the `CLAUDE.md` change under the seam-automation proposal's C3. `SECURITY.md` says what the job covers today.*
+
+*Amendment, 2026-10-05 (TASKS `scripts-outside-gates`): the `typecheck` job's "strict def-typing across the whole package" now reaches past the package. `[tool.mypy] files` is `src/platterpus`, `scripts` and `build/*.py`, under the same flags and with no per-module opt-out; the first strict run over `scripts/` found 9 errors, one a crash in `scripts/check.py`. The module-size ratchet and the regex-time sweep read the same tooling population (`tests/conftest.py` → `maintained_tooling_modules`), and `tests/test_audit_regressions.py::test_mypy_checks_every_module_the_other_gates_read` holds `files` to it. `lint` (`ruff check` / `ruff format --check`) still reads `src tests` only; `scripts/` and `build/` measured clean under both on the same day.*
 
 #### Releasing is automated
 

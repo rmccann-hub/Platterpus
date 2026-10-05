@@ -14,6 +14,22 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **Error messages from cyanrip `+platterpus.20` are recognised before it ships.**
+  The list of cyanrip's fatal messages that Platterpus turns into a readable reason
+  (instead of a bare "Rip failed.") now includes the four new `-Z` spool errors
+  `.20` can print, such as a full disk stopping a secure re-read. It also keeps
+  `Error in encoding: %s`, which `.20` can no longer print but every older build
+  still can.
+- **The handshake gate implements protocol 7** (contributor-facing:
+  `scripts/handshake.py`, `tests/test_standing_status_is_current.py`). v7 adds one gate
+  row, C46: every lap of a file declaring 7 must say which lap comes next and whose, in
+  `HANDSHAKE-NEXT-LAP` (`<n> (ours): …`, `<n> (yours): …` or `none — …`). It is
+  checked on every verdict, by `--check` and on the path that decides a close, and is
+  keyed on the version a file declares, so round 30's laps, which declare 6, read as
+  before. Our laps keep declaring 6 until both sides have said in a lap that their
+  gate implements 7. The standing status block gains `STATUS-RELEASED` where v7 §6c
+  puts it, and its check now reads that line against the newest release tag and the
+  block's order against §6c.
 - **Platterpus checks, as it exits, that it left nothing behind.** Once the window
   has closed and any rip has been stopped, it asks whether anything still holds the
   drive and whether a cyanrip process is still running, and writes the answer to
@@ -30,6 +46,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   partial one, and opens the FLACs to check their tags and cover art. The run
   also tries a track title containing `= ' : \`, and the two cover-art settings
   it had never used ("Save as file" and "Both").
+- **The acceptance test now tries settings no other rip in it uses, and a
+  library move.** A new short section rips one track with Max retries at 0, the
+  secure re-read off and a fixed read speed, and checks from the rip's own record
+  that cyanrip was sent no retry limit, no secure re-read and no read speed. The
+  same rip is moved into a scratch library folder inside the test's own folder,
+  never your library, and the test checks that the album arrived with its log and
+  report and that nothing was left behind. Every setting goes back before the
+  next rip. The update channel, auto-eject and Picard are only checked to save
+  and go back: using them would eject the disc the rest of the test needs, or
+  needs a disc MusicBrainz does not know.
 - **Each rip's self-audit now checks the EAC-style log against cyanrip's own.**
   It used to check only that the EAC-style log matched the checksum printed
   under it, which any log Platterpus writes does. It now also checks that the
@@ -61,6 +87,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `expect-ctdb`, `expect-tags`, `expect-cover-art` and `track-title`, and a
   FLAC tag reader (`flac_metadata.py`) that needs no external tool.
   `expect-verification` no longer accepts a report that is still being written.
+- For contributors: the script verbs `set-library-scratch` (point the library
+  folder at a scratch folder inside the rips folder), `expect-library-move` (the
+  last rip was filed there, with its log and report, and nothing left behind) and
+  `expect-rip-argv with|without <flag>` (what the last rip's whole-disc pass sent
+  cyanrip, read from its report).
 - A full map of everything Platterpus has or relies on, in a standard format other
   tools can read: `bom.cdx.json`, a CycloneDX 1.7 bill of materials at the top of
   the repository. It lists the Python versions it runs on, Qt, every Python
@@ -83,9 +114,133 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   shows as the time left until the live estimate takes over, and the log line
   with the rip's actual time now gives the estimate beside it. Checked against
   every filed rip from the test rig.
+- **The acceptance bundle's `COMPONENTS.json` now names which cyanrip build was
+  installed, not only `0.9.4`.** Each tool's entry keeps its `version` exactly as
+  before and gains `version_text` beside it: what the tool printed about itself,
+  the same text Help → About Platterpus… shows, for example
+  `"0.9.4-rc2+platterpus.18"`. So a
+  bundle now tells the Platterpus fork from upstream cyanrip, and one fork release
+  from the next, which every tool parses to `0.9.4`. Where that text was not
+  captured, the key is there and reads `null` (not determined) rather than being
+  left out; today only cyanrip's check captures it. The rip report is unchanged.
+  The key was announced to the cyanrip fork in round 30 lap 4 (S43).
 
 ### Fixed
 
+- **A nonsense "Ripping errors" count from cyanrip no longer reads as "No errors
+  occurred".** A count far beyond anything a CD could produce is now recorded as
+  "not determined", and the rip's health line repeats what cyanrip printed.
+- For contributors: the handshake gate's `HANDSHAKE-NEXT-LAP` check (protocol 7,
+  row C46) bounds the lap number it reads to four digits, after the regex-timing
+  sweep, now extended to `scripts/`, measured the unbounded pattern slowing down
+  quadratically on a long line.
+- For contributors: `scripts/check.py` now reports a gate that printed something
+  and then hung as timed out, with what it printed. It used to crash with a
+  `TypeError` instead, because Python hands back a timed-out child's output as
+  bytes even when text was asked for. Found by pointing `mypy` at `scripts/`.
+- For contributors: the bill-of-materials generator reads a requirement line in
+  linear time. Its pattern took about a third of a second on one line with 8,000
+  spaces inside the version and four times longer each time the run doubled. It
+  now reads exactly what it read before, faster.
+- For contributors: the handshake tool reads a lap's header fields in linear
+  time. The pattern every `KEY: value` line goes through, in our laps and the
+  fork's, took about a third of a second on a value with a run of 8,000 spaces
+  in it, and four times longer each time the run doubled. It now reads the same
+  fields with the same values: all 7,720 fields in the 330 filed laps compare
+  identical, and a test keeps them so.
+- **The EAC-parity tool refuses one of Platterpus's own EAC-compatible logs as
+  its "EAC baseline".** `scripts/eac_parity.py` compares a rip with a log Exact
+  Audio Copy wrote. Handed one of our own exports instead, it compared the rip
+  with our rendering of that same rip, printed "14/14 tracks match — PARITY ✓"
+  and exited 0, a pass that proves nothing about EAC. It now says who wrote the
+  baseline, quoting the baseline's first line, before any table. Our own export
+  (either wording of its first line) is refused with exit 2 and the line that
+  identified it, on screen and in the log. A baseline it cannot attribute, such
+  as a cyanrip log, is still compared, but the output says the match is not
+  parity with EAC. The rip self-audit's comparison of the EAC-style log with
+  cyanrip's log gets the same guard.
+- **Status lines show a tool's words exactly as written.** Fourteen labels that
+  are filled in after they appear decided for themselves whether their text was
+  formatting, so a `<` in cyanrip's error, an installer's message, a setup step's
+  output or a typed filename template could turn into bold text or take the rest
+  of the line with it. They now always show the text as written: the rip
+  progress pane's status line, stall notice, verdict banner and the lines below
+  it; the setup, uninstall and drive wizards' status lines; each row of Pending
+  installs; and the validation banner and filename preview in Settings. A new
+  check traces every such label back to where it is built and holds it to the
+  same rule as the rest.
+- **The setup wizard's introduction shows its list as a list.** Its three
+  bullet points, and the paragraphs of the "Updating cyanrip" wizard, ran
+  together into one paragraph.
+- **The EAC-style log no longer marks "Copy OK" a track the drive could not read
+  reliably.** When the reader gave up checking some of a track's reads and
+  AccurateRip did not confirm the track either, the EAC-style log still said
+  "Copy OK". On the 2026-10-04 damaged disc, track 18 had 2,586 such reads. It now
+  says "Copy NOT confirmed — the ripper could not verify every read and AccurateRip
+  did not confirm the audio", the wording agreed with the cyanrip fork. A track
+  AccurateRip confirmed still says "Copy OK", because the match proves the audio.
+- **The EAC-style log no longer says no two reads agreed when some did.** When
+  cyanrip ran out of re-reads on a track before enough of them matched, the
+  EAC-style log always said "re-reads did NOT agree". On the 2026-09-28 test run,
+  two of track 5's three reads had matched. The log now says only what cyanrip's
+  own log shows: "did NOT agree" when no two reads matched, how many matched when
+  that is known ("at most 2 of 3 reads agreed"), and otherwise only "re-reads did
+  not converge", meaning not enough of them matched. Such a track is still never
+  marked "Copy OK".
+- **The record of what cyanrip printed now keeps each track's result line.** Every
+  report carries cyanrip's screen output, and it never contained `Track 3 read
+  successfully!` or `Track 3 read with errors.`: Platterpus treated that line like
+  the progress percentage cyanrip redraws many times a second, and left it out with
+  them. From cyanrip `.20` that line is what says a track read with errors. It is
+  now kept, in order. It also reaches the log pane every time, and the app log when
+  Debug logging is on; before, it was shown only if no progress line had been shown
+  in the previous tenth of a second. The progress lines are still not kept in full:
+  each run of them keeps its first and last line and a marker saying how many were
+  left out, so the record also shows where each read started and how far it got.
+  The report's description of the record said it was "complete"; it now says
+  exactly what is kept. Found by the cyanrip fork (round 30 lap 9 S29).
+- **An acceptance run that stops at a failed check prints that check's message
+  once.** When a check that guards the rest of the run failed, the run's reason
+  for stopping quoted the check's whole message: the sentence, the fix, and the
+  ripper output it read. The results file therefore printed it three times, and
+  the dialog at the end printed it twice, the second copy as "Why it stopped"
+  right under the first. The reason now names the check and the first line of
+  its message, and says how many more lines are printed in full with the check.
+- **The read-speed ladder now slows down on a disc the drive could not read
+  cleanly; before, such a disc ended the ladder at full speed.** In the automatic
+  read-speed mode, Platterpus is meant to re-read a disc more slowly when the drive
+  fails to read it. cyanrip reports such a rip as failed (it exits 1), and the
+  ladder only stepped down after a rip cyanrip reported as successful, so it never
+  slowed down for the one case it exists for. It now steps down after any rip that
+  finished every track with read errors, whatever cyanrip's exit code, and still
+  stops for a cancelled, killed or aborted rip, a failed encode, or a rip that left
+  no log of its own. Paranoia's skips, which cyanrip `.20` adds to its error count,
+  do not slow the whole disc down: they are handled track by track, as before.
+  Each step, and why a rip did not step, is now written to the app's log. The
+  cyanrip fork found this (round 30 lap 9 S27); our round 30 lap 8 S28 had said
+  the opposite. A rip that ends with read errors is still reported as cyanrip
+  reports it.
+- **Cancelling a rip no longer risks the log's signature when cyanrip is installed
+  directly on the computer rather than in the `ripping` container.** Five seconds
+  after a cancel, Platterpus stops whatever still holds the drive. Behind the usual
+  container that is the first stop signal cyanrip gets, because the cancel itself
+  does not reach inside the container. But when there is no container wrapper and
+  Platterpus runs a cyanrip it finds on your `PATH`, the cancel has already reached
+  it, and during a slow read it can still hold the drive at five seconds: the
+  second signal made it quit at once, without writing the end of its log or its
+  signature. Platterpus now asks which processes hold the drive and leaves alone
+  the one its cancel already reached, for the same two minutes the rest of the
+  cancel allows. Closing the window during a rip had the same problem and is fixed
+  the same way. Nothing changes behind the container. Found by the cyanrip fork's
+  review (their round 30 lap 9 S28); a direct install has not yet been tried on
+  real hardware.
+- **The same direct install lost the signature a second way, 15 seconds after the
+  cancel.** If cyanrip had not exited 15 seconds after it acknowledged the cancel,
+  Platterpus sent it another stop signal and then killed it. It now waits the same
+  two minutes for the read in progress to finish and the log to be signed, and only
+  then stops it outright, without the second signal. Force stop still ends it at
+  once. Behind the container nothing changes, because what Platterpus signals there
+  is the container's wrapper, which exits straight away.
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached
@@ -266,6 +421,31 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- For contributors: the module-size ratchet now covers `scripts/` and `build/`,
+  not only `src/platterpus`. The 19 tooling modules already over 300 lines are
+  recorded at their current length and may not grow, and a module that crosses
+  the line has to be recorded in a commit that says why. A test compares what
+  the ratchet measures with git's list of committed Python files, so a directory
+  it does not read fails by name.
+- For contributors: the regex-time sweep now times the 88 literal patterns in
+  `scripts/` and `build/` as well as those in `src/platterpus`; all were linear.
+  The calls it cannot time, because their pattern is built at run time (2 in the
+  package, 13 in the tooling), are now counted per file with the reason each
+  cannot stall, and a new one fails the suite until it is recorded.
+- For contributors: `mypy` now type-checks `scripts/` and `build/*.py` under the
+  same strict settings as the app, with no module opted out. Its first run there
+  found 9 errors in 5 files and 3 in `build/make_icon.py`, all fixed, including
+  the `scripts/check.py` crash listed under Fixed. A test holds the list of
+  checked files to the same set the size ratchet and the regex sweep read, and
+  the rule that the list of modules let off strict checking may only shrink now
+  covers the tooling's modules too.
+- **Platterpus reads cyanrip `.20`'s new error count properly.** From `.20`,
+  cyanrip's `Ripping errors:` line also counts the spots where its error correction
+  gave up checking a stretch of audio ("paranoia skips"), and says how many in a
+  suffix: `Ripping errors: 2589 (including 2586 paranoia skips)`. Platterpus now
+  reads that suffix, and also the count of failed encodes, so it can tell how many
+  reads the drive itself failed. The rip's health line is unchanged and still
+  shows cyanrip's whole count. Logs from earlier builds read exactly as before.
 - For contributors: a test that runs `app.main` in-process no longer leaves the
   app-wide dialog filter installed for the tests after it. The filter now also
   fits message boxes, so the leak made the message-box fit tests fail on whichever
@@ -284,6 +464,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   it is, with the condition that would make it wrong. It starts with six wants
   and six gives of ours. Our round 30 lap 8 asks the fork to rate its half and
   add its own.
+  Their round 30 lap 9 rated our six wants (two turned out already available:
+  which re-read is running, and how a rip ended), declined one of our gives as
+  ours to build, and added five wants and three gives of their own, now in the
+  register. Two of their wants, `cd-paranoia -A`'s output and the securing
+  pass's own log, were already in every acceptance bundle.
 - For contributors: the build under review is now derived from the cyanrip
   fork's newest release when its two channels disagree, by release number,
   because under our operator's O3 ruling a new build goes to beta alone until

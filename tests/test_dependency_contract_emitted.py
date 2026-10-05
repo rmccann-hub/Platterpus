@@ -294,6 +294,19 @@ _NOT_FORK_DESPITE_THE_LOGS: dict[str, str] = {
         "evidence here at all: the row only appears when a release id is known, "
         "which needs the `-a musicbrainz_albumid=` that only Platterpus sends."
     ),
+    "secure_rerip_progress": (
+        "UPSTREAM'S LINE, settled from source on 2026-10-05, the day we began to "
+        "parse it: upstream prints `Repeating ripping (%i out of %i matches for "
+        "current checksum %08X)` at cyanrip@f8ebf48:src/cyanrip_main.c:874 (the "
+        "fork's mirror of cyanreg/cyanrip), and the fork keeps it at "
+        "cyanrip@8b1581a:src/cyanrip_main.c:1055 and lists it as stable in P2 of "
+        "its round 30 provider contract. No committed stock log carries it only "
+        "because none of them was ripped with `-Z`: the line comes from the "
+        "`-Z` repeat loop alone. So the fork is not on the hook for it beyond "
+        "upstream's own stability, and a reword would cost us the agreement "
+        "count (the EAC-layout log falls back to 'did not converge'), never the "
+        "verdict."
+    ),
     "swap_addendum_crc": (
         "OURS. It parses the `[Platterpus auto-fix addendum]` block that "
         "`rip_addendum.render_addendum` writes. `addendum` appears zero times in the "

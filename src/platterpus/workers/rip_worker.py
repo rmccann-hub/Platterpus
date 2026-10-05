@@ -20,6 +20,7 @@ Cancel:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import math
 import re
@@ -49,7 +50,9 @@ from platterpus.adapters.rip_backend import (
 from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
 from platterpus.adapters.ripper_log_verify import LogVerification
 from platterpus.config import DEFAULT_RERIP_OFFSET_VARIANT
+from platterpus.ladder_trigger import judge_step_down
 from platterpus.parsers import cyanrip_log
+from platterpus.parsers.rip_log import RereadAgreement
 from platterpus.read_speed_ladder import (
     MAX_ATTEMPTS,
     SpeedAttempt,
@@ -60,6 +63,7 @@ from platterpus.read_speed_ladder import (
     tracks_failing_accuraterip,
     unstable_tracks,
 )
+from platterpus.redraw_run import RedrawRun
 from platterpus.rip_addendum import (
     SupersededTrack,
     read_log_with_addendum,
@@ -199,6 +203,38 @@ _CYANRIP_TRACK_PROGRESS = re.compile(
 # The start report carries the track total ("Disc tracks:    16") — cyanrip's
 # progress lines don't repeat it, so we capture it here for the overall bar.
 _CYANRIP_DISC_TRACKS = re.compile(r"^Disc tracks:\s+(?P<total>\d{1,4})\s*$")
+
+# Every shape of IN-PLACE PROGRESS REDRAW: a line the ripper overwrites with `\r`
+# many times a second, each one superseding the last. cyanrip's is the first; the
+# other three are the previous backend's, each a task line its runner redrew with
+# a trailing percentage (see the examples above), inert under cyanrip (KDD-18).
+# A track's OUTCOME line is not here: it is printed once and never redrawn.
+_REDRAW_PATTERNS: tuple[re.Pattern[str], ...] = (
+    _CYANRIP_TRACK_PROGRESS,
+    _DISC_SCAN_PATTERN,
+    _TRACK_PHASE_PATTERN,
+    _LENGTH_PHASE_PATTERN,
+)
+
+
+def _is_progress_redraw(line: str) -> bool:
+    """Whether ``line`` is a progress redraw. THE one answer; never raises.
+
+    It decides which lines the capture thins and which the log pane throttles. It
+    is not ``_progress_for(line) is not None``, which answered it until 2026-10-05:
+    that asks whether a line moves the bar, and a track's outcome line does (it pegs
+    the track's slice), so every ``Track N read successfully!`` was treated as a
+    redraw and left out of the capture (the fork's round 30 lap 9 S29). From
+    cyanrip ``.20`` that line is the one that says a track read with errors.
+
+    A line the outcome predicate (``cyanrip_log.finished_track``) accepts is never a
+    redraw, whatever else it contains: calling a redraw a line costs one line in a
+    bounded capture, and calling a line a redraw can cost a verdict.
+    """
+    if cyanrip_log.finished_track(line) is not None:
+        return False
+    return any(pattern.search(line) for pattern in _REDRAW_PATTERNS)
+
 
 # A ripper can abort when it can't fetch online metadata (e.g. the container
 # has no network) and wasn't told the disc is "unknown". We detect that so the
@@ -379,9 +415,9 @@ _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 # ~10 updates/second keeps the bar and ETA feeling live while leaving the event
 # loop plenty of room to repaint. Only progress lines are throttled — phase
 # changes, errors, and end-of-rip markers always go through immediately.
-# Cap on retained non-progress ripper output (see RipWorker._stdout_lines).
-# A 14-track album is a few hundred such lines, so this is ~30x headroom while
-# still bounding a pathological ripper.
+# Cap on retained ripper output lines (see RipWorker._stdout_lines). A 14-track
+# album is a few hundred lines once redraws are thinned, so this is ~30x
+# headroom while still bounding a pathological ripper.
 #
 # HEAD **AND TAIL**, not head-only. This was a plain stop at the cap, reasoned as
 # "the head holds the header and the earliest tracks, which is what a report
@@ -770,6 +806,24 @@ def _percent_or_none(raw: str) -> float | None:
     return value
 
 
+def _log_fingerprint(log_path_str: str) -> str | None:
+    """The ripper log's content digest, or None when there is no log to read.
+
+    How the ladder tells a log this pass wrote from one an earlier pass left on
+    disk. Content, not mtime: two passes can finish inside one timestamp tick, and
+    two real passes never write the same bytes (each log carries its own start and
+    finish times, and a step changes the argv it prints). Runs on the worker
+    thread. Never raises.
+    """
+    if not log_path_str:
+        return None
+    try:
+        return hashlib.sha256(Path(log_path_str).read_bytes()).hexdigest()
+    except OSError as exc:
+        log.warning("could not read %s to fingerprint it: %s", log_path_str, exc)
+        return None
+
+
 class RipWorker(QObject):
     """QObject worker that owns a rip subprocess for its lifetime.
 
@@ -882,9 +936,17 @@ class RipWorker(QObject):
         # does not engage the never-block-the-GUI rule.
         self._sigterm_sent_for: RipHandle | None = None
         self._sigterm_lock: threading.Lock = threading.Lock()
-        #: WHICH handle `_reap_ripper` had to escalate against (SIGTERM, then
-        #: SIGKILL on the group) — the one stop this worker sends that does not go
-        #: through `_signal_stop`. Kept for the same identity reason as the field
+        #: WHAT that signal reached (the pid, the group, when), set with
+        #: `_sigterm_sent_for` under the lock and only meaningful while that field
+        #: names the current handle. The window's post-cancel rescue and shutdown
+        #: stop read it (`stop_signal_reach`) so they never send the same cyanrip a
+        #: second signal; `_reap_ripper` reads it to wait out the grace instead of
+        #: sending one itself (the fork's round 30 lap 9 S28).
+        self._sigterm_reach: drive_control.SignalledRipper | None = None
+        #: WHICH handle `_reap_ripper` had to escalate against (SIGKILL on the
+        #: group, after a SIGTERM if `_signal_stop` had sent none) — the one stop
+        #: this worker sends that does not go through `_signal_stop`. Kept for the
+        #: same identity reason as the field
         #: above, and read by `_we_stopped_ripper` so a death we caused is never
         #: described to the user as one that came from outside.
         self._escalated_for: RipHandle | None = None
@@ -905,10 +967,11 @@ class RipWorker(QObject):
         # whatever it *said* is ours the moment it says it, regardless of what
         # reaches disk.
         #
-        # Progress redraws are excluded, not truncated: they are ~98% of the
-        # stream (900+ lines of "progress - 41.65%" for one album) and carry
-        # nothing a report needs. What is left is every Summary block, header
-        # and error — a few hundred lines, small enough to embed in the JSON.
+        # Progress redraws are THINNED, not kept whole: they are ~98% of the
+        # stream (900+ lines of "progress - 41.65%" for one album). Each run of
+        # them keeps its first and last line with a counted marker between
+        # (`redraw_run`), so what is left is every other line in order, each
+        # read's start and end, and the count of what was not kept.
         self._stdout_lines: list[str] = []
         # The rolling tail kept once `_stdout_lines` hits its cap, so a runaway
         # ripper's FINAL lines — where its fatal message is — survive. See
@@ -917,6 +980,10 @@ class RipWorker(QObject):
         # How many lines fell out of that rolling window. Reported in the
         # captured text rather than leaving an unexplained gap.
         self._stdout_elided: int = 0
+        # The run of progress redraws not yet written to the capture. It is
+        # written, thinned, when any other line is retained, and shown by
+        # `captured_stdout` while still open, so no exit path can lose it.
+        self._redraw_run: RedrawRun = RedrawRun()
         # What screening changed in the ripper's output (Critical rule #12, the
         # inbound half — `inbound_text`). Reported at the end of `captured_stdout`
         # so a reader knows an escape was ours, not the ripper's.
@@ -1066,6 +1133,12 @@ class RipWorker(QObject):
         # DISCARDED bytes). The GUI folds these over the parsed log before any
         # rendering, so every surface describes the audio actually on disk.
         self._swapped_track_records: dict[int, object] = {}
+        # How many reads agreed, from the RE-RIP's own log, for every re-read
+        # track whose verdict `_retried_tracks` records, swapped in or not. The
+        # GUI gives such a track the re-rip's verdict, so the count beside it
+        # must be the re-rip's too, or the EAC-layout log would describe one
+        # pass's reads under another's verdict (2026-10-05).
+        self._reread_agreements: dict[int, RereadAgreement] = {}
         # Why the dynamic secure re-rip did or didn't run (report's
         # read_speed.secure_rerip), so "why wasn't my shaky track re-ripped?" is
         # answerable from the JSON. `mode` is dynamic / uniform / off; `engaged`
@@ -1682,6 +1755,16 @@ class RipWorker(QObject):
         return dict(self._swapped_track_records)
 
     @property
+    def reread_agreements(self) -> dict[int, RereadAgreement]:
+        """How many reads agreed in each re-read that hit the repeat limit.
+
+        Keyed by track number, from the re-rip's own log, for every track
+        ``retried_tracks`` records a verdict for, whether or not its read was
+        swapped in. A track whose log stated no count is absent. Read by the GUI
+        so the agreement count always sits beside the verdict it belongs to."""
+        return dict(self._reread_agreements)
+
+    @property
     def eta_trace(self) -> list[dict]:
         """The "for posterity" ETA trace: throttled samples pairing the PC clock
         time with cyanrip's ETA and our smoothed album ETA. The GUI reads this at
@@ -1729,8 +1812,9 @@ class RipWorker(QObject):
 
     def _run_rip(self) -> None:
         """The rip's main body: run the adaptive read-speed ladder — rip once,
-        and — in ``auto_ladder`` mode — if the pass completed with unrecoverable
-        read errors, re-rip the disc a rung slower (and, at the floor, with a
+        and — in ``auto_ladder`` mode — if the pass finished with unrecoverable
+        read errors (whatever cyanrip's exit code; ``judge_step_down``), re-rip
+        the disc a rung slower (and, at the floor, with a
         higher ``-Z``), until it reads clean or the ladder is exhausted (then the
         disc is FLAGGED via the recorded attempts). A clean disc, or ``fixed``
         mode, is a single pass exactly as before — no regression. Each pass's
@@ -1806,6 +1890,10 @@ class RipWorker(QObject):
         success = False
         log_path_str = ""
         parsed_log: object | None = None
+        # The logs the passes so far wrote, by content. A pass that fails before
+        # cyanrip opens its log leaves the previous pass's log on disk, and the
+        # ladder must not judge it by that one (see `judge_step_down`).
+        logs_seen: set[str] = set()
         attempt = 0
         while True:
             attempt += 1
@@ -1827,8 +1915,15 @@ class RipWorker(QObject):
             if self._cancelled:
                 break
             parsed_log = self._parse_log(log_path_str)
+            fingerprint = _log_fingerprint(log_path_str)
+            log_is_this_passes = (
+                fingerprint is not None and fingerprint not in logs_seen
+            )
+            if fingerprint is not None:
+                logs_seen.add(fingerprint)
             # Whether this pass's log shows unrecoverable read errors — the ONLY
-            # signal that triggers a step-down (below).
+            # signal that triggers a step-down (below), and only on a pass that
+            # finished.
             had_read_errors = read_errors_present(parsed_log)
             # Read instability: tracks whose secure re-read (-Z) never converged.
             # These do NOT trigger the whole-disc step-down (escalation below keys
@@ -1859,14 +1954,33 @@ class RipWorker(QObject):
             self._speed_attempts.append(
                 SpeedAttempt(attempt, speed, secure_rerip, clean=clean)
             )
-            # Escalate only in auto_ladder mode, only on a pass that COMPLETED
-            # with unrecoverable read errors (not a hard crash — re-ripping a
-            # broken drive/disc just burns time; not mere instability — see
-            # above), and only while the ladder + hard cap allow.
-            if (
-                not (auto_ladder and success and had_read_errors)
-                or attempt >= MAX_ATTEMPTS
-            ):
+            # Escalate only in auto_ladder mode, only on a pass that FINISHED with
+            # unrecoverable read errors, and only while the ladder + hard cap
+            # allow. NOT keyed on `success`: cyanrip exits 1 whenever the drive
+            # failed a read, so a gate on exit 0 ended the ladder on the one pass
+            # it exists for (the fork's round 30 lap 9 S27). `judge_step_down` is
+            # the one predicate; it reads completion from the log, refuses a
+            # cancel, a kill, an encoder failure and a log this pass did not
+            # write, and leaves instability and `.20`'s skips to the per-track
+            # handling below.
+            if not auto_ladder or attempt >= MAX_ATTEMPTS:
+                break
+            verdict = judge_step_down(
+                parsed_log,
+                exit_code=self._ripper_exit_code,
+                stopped_by_us=self._we_stopped_ripper(),
+                log_is_this_passes=log_is_this_passes,
+                only_tracks=self._params.only_tracks,
+                disc_track_total=self._params.disc_track_total,
+            )
+            if not verdict.warranted:
+                # Said in the app log, so a returned report shows why a pass that
+                # read badly did not step (the line the fork found missing).
+                log.info(
+                    "read-speed ladder: no step after pass %d: %s",
+                    attempt,
+                    verdict.reason,
+                )
                 break
             step = next_step(
                 current_speed=speed,
@@ -1891,7 +2005,9 @@ class RipWorker(QObject):
                 break
             speed, secure_rerip = step.speed, step.secure_rerip_matches
             self.status.emit(f"Read errors — {step.reason}…")
-            self.log_line.emit(f"[read-speed ladder] {step.reason}")
+            ladder_line = f"[read-speed ladder] {verdict.reason}; {step.reason}"
+            log.info("%s", ladder_line)
+            self.log_line.emit(ladder_line)
 
         # Post-rip targeted secure re-rip: re-rip just the track(s) that need it
         # (via cyanrip's -l, into a temp dir — the album's whole-disc log/cue stay
@@ -1902,6 +2018,15 @@ class RipWorker(QObject):
         #   • else auto_ladder → a -Z pass left an unstable track (never converged),
         #     so re-read it HARDER (escalate to the -Z ceiling).
         # Neither can make a track worse; skipped entirely in plain fixed mode.
+        #
+        # STILL keyed on `success` (exit 0), deliberately, though the ladder above
+        # no longer is. When the ladder ends on a pass the drive could not read
+        # cleanly (exhausted, or fixed mode), cyanrip exited 1 and this is skipped,
+        # as it always was. Running it there would overwrite `_ripper_exit_code`,
+        # which the report states as THE ripper's exit, with the securing pass's
+        # own, under an outcome the window still calls failed; and whether exit 1
+        # over a finished rip should read as failed is the fork's open round 30
+        # lap 9 S13 and the maintainer's verdict. Tracked in TASKS.md (round 30).
         if success and not self._cancelled:
             if dynamic_secure:
                 # Dynamic mode: secure the AccurateRip-failing tracks at the user's
@@ -2034,6 +2159,11 @@ class RipWorker(QObject):
             # overall bar short of full (the post-rip AccurateRip phase
             # has no reliable percentage of its own).
             self.progress.emit(100.0, 100.0)
+        # `success` is the LAST pass's exit 0, unchanged by the ladder fix: the
+        # window's outcome ("failed"), status line and report read it as the
+        # ripper's own verdict, and a ladder that ends on a pass the drive could
+        # not read cleanly reports that pass as cyanrip did. See the securing-pass
+        # gate above for why that verdict is not ours to soften here.
         self.finished.emit(success, log_path_str)
 
     def _await_ripper_log(self, log_path_str: str) -> LogSettle:
@@ -2293,6 +2423,9 @@ class RipWorker(QObject):
         # Stream output. Iteration ends when the ripper closes its stdout
         # (i.e. exits) or when cancel() flips the flag.
         try:
+            # A run of redraws never spans two passes: write the last pass's here,
+            # so this pass's first line is not counted into it.
+            self._flush_redraw_run()
             # Held as an explicit iterator, not just a `for` target, so the cancel
             # branch below can pull the ripper's last words off the pipe.
             lines = iter(self._handle.log_lines())
@@ -2313,7 +2446,7 @@ class RipWorker(QObject):
                     # handshake round came to conclude the ripper's signal handler
                     # had never run.
                     #
-                    # Retained WITHOUT the progress filter the rest of the loop
+                    # Retained WITHOUT the redraw thinning the rest of the loop
                     # applies, deliberately: at a cancel, even a bare progress
                     # redraw is the diagnostic — it says how far the rip had got
                     # when the user stopped it. One line, and the buffer is
@@ -2321,18 +2454,15 @@ class RipWorker(QObject):
                     self._retain_stdout_line(shown)
                     self._retain_last_words(lines, line)
                     break
-                # `_progress_for` both classifies the line (a numeric progress
-                # redraw → not None) AND updates `_current_track` as a side
-                # effect, so call it once up front.
+                # `_progress_for` gives the bar's values for this line AND updates
+                # `_current_track` as a side effect, so call it once up front. It
+                # does NOT say whether the line is a redraw: an outcome line moves
+                # the bar too, and is the line a report most needs.
                 prog = self._progress_for(line)
-                is_progress = prog is not None
-                # Retain the substantive stream (see `_stdout_lines`). Bounded so
-                # a runaway ripper cannot grow this without limit; the cap is far
-                # above a real album's few hundred non-progress lines, and it is
-                # a *stop*, not a ring buffer, because the head is where the
-                # header and the early tracks are.
-                if not is_progress:
-                    self._retain_stdout_line(shown)
+                # Retain the stream (see `_stdout_lines`): every line, except that
+                # a run of redraws is thinned to its first and last line and a
+                # count. Bounded head + tail, so a runaway ripper cannot grow this.
+                is_redraw = self._capture_line(line, shown)
                 # Forward the line to the GUI's log pane — but RATE-LIMIT the
                 # high-frequency progress redraws. Appending to the log widget
                 # (text layout + repaint) is the expensive per-tick work; at
@@ -2342,7 +2472,7 @@ class RipWorker(QObject):
                 # cheap and stay unthrottled, so the progress bar still moves
                 # smoothly even when the log pane updates only ~10×/second.
                 now = time.monotonic()
-                if is_progress:
+                if is_redraw:
                     if now - self._last_progress_emit >= _PROGRESS_MIN_INTERVAL_S:
                         self._last_progress_emit = now
                         # Strip cyanrip's own trailing "ETA - …" so the log pane
@@ -2659,8 +2789,14 @@ class RipWorker(QObject):
 
         One method rather than two call sites doing it inline, so the cancel path
         (which has its own reason to retain a line) cannot drift from the main
-        loop's bookkeeping.
+        loop's bookkeeping. It writes any open run of redraws first, so every path
+        that retains a line keeps the stream's order.
         """
+        self._flush_redraw_run()
+        self._store_line(line)
+
+    def _store_line(self, line: str) -> None:
+        """Append one line to the bounded head, or to the rolling tail once it is full."""
         if len(self._stdout_lines) < _MAX_STDOUT_LINES:
             self._stdout_lines.append(line)
             return
@@ -2668,6 +2804,25 @@ class RipWorker(QObject):
         if len(self._stdout_tail) > _STDOUT_TAIL_LINES:
             self._stdout_tail.pop(0)
             self._stdout_elided += 1
+
+    def _capture_line(self, line: str, shown: str) -> bool:
+        """Keep one line in the capture; True when it was a progress redraw.
+
+        ``line`` is what the ripper wrote, which the predicate reads; ``shown`` is
+        its screened form, which the capture keeps. A redraw joins the open run and
+        any other line is retained as it is. The caller's log-pane throttle reads
+        the answer, so the capture and the throttle cannot disagree about a line.
+        """
+        if _is_progress_redraw(line):
+            self._redraw_run.note(shown)
+            return True
+        self._retain_stdout_line(shown)
+        return False
+
+    def _flush_redraw_run(self) -> None:
+        """Write the open run of redraws into the capture, thinned, and end it."""
+        for kept in self._redraw_run.close():
+            self._store_line(kept)
 
     def _reap_ripper(self) -> int | None:
         """Reap the ripper process, bounded. Returns its exit code, or ``None``.
@@ -2694,6 +2849,25 @@ class RipWorker(QObject):
         only when even SIGKILL could not reap it (a reader wedged in an
         uninterruptible drive ioctl), and the caller treats that as "not a clean
         exit" rather than hanging.
+
+        **After our own SIGTERM, the escalation waits out the grace and sends no
+        second one** (the fork's round 30 lap 9 S28, and the door it did not name).
+        ``RipHandle.cancel()`` starts with a SIGTERM. On a native install the
+        process we signalled is cyanrip itself, whose handler prints its stop
+        notice at once (so the read loop above breaks) but which stops only when
+        the read in hand returns: 54 s on 2026-10-04. Fifteen seconds later this
+        sent its second signal, and cyanrip ``_exit()``ed with no footer
+        (``cyanrip@174a134:src/cyanrip_main.c:1216-1221``), on the same rip the
+        rescue's fix protects. So when our one SIGTERM reached this handle, the
+        wait runs to ``drive_control.READER_TERM_GRACE_S`` after it, the grace the
+        shutdown stop and the rescue's predicate allow, and then goes straight to
+        SIGKILL (``RipHandle.kill``). Behind the Distrobox wrapper the process we
+        signalled is the wrapper, which exits within a second, so nothing changes
+        there; a wrapper that did not would now be SIGKILLed at the grace, not at
+        20 s, while the rescue still signals the reader inside the container.
+        The pipe stays undrained for that wait; what a signalled cyanrip still
+        writes is its stop lines and footer, a few KB, against a 64 KiB pipe, and
+        the bound still ends it if that were ever wrong.
         """
         handle = self._handle
         if handle is None:  # pragma: no cover — callers hold a handle
@@ -2706,20 +2880,34 @@ class RipWorker(QObject):
         # signal has already gone and this is a no-op.
         if self._cancelled:
             self._signal_stop("before reaping a cancelled rip")
+        reach = self._reach_for(handle)
+        first_wait = _RIPPER_EXIT_GRACE_S
+        if reach is not None:
+            first_wait = max(
+                _RIPPER_EXIT_GRACE_S,
+                reach.sent_at + drive_control.READER_TERM_GRACE_S - time.monotonic(),
+            )
         try:
-            return handle.wait(timeout=_RIPPER_EXIT_GRACE_S)
+            return handle.wait(timeout=first_wait)
         except subprocess.TimeoutExpired:
             self._escalated_for = handle
             log.warning(
                 "ripper still running %.1fs after we stopped reading its output — "
-                "escalating to SIGTERM/SIGKILL on the process group. Its stdout "
+                "escalating to %s on the process group. Its stdout "
                 "pipe is no longer drained, so it may be blocked writing to a full "
                 "pipe rather than doing work.",
-                _RIPPER_EXIT_GRACE_S,
+                first_wait,
+                "SIGTERM/SIGKILL"
+                if reach is None
+                else "SIGKILL, with no second SIGTERM (it already had ours, and "
+                "the grace is spent)",
             )
-        exit_code = handle.cancel(
-            term_timeout=_RIPPER_TERM_GRACE_S, kill_timeout=_RIPPER_KILL_GRACE_S
-        )
+        if reach is not None:
+            exit_code = handle.kill(timeout=_RIPPER_KILL_GRACE_S)
+        else:
+            exit_code = handle.cancel(
+                term_timeout=_RIPPER_TERM_GRACE_S, kill_timeout=_RIPPER_KILL_GRACE_S
+            )
         if exit_code is None:
             log.error(
                 "could not reap the ripper even after SIGKILL; treating the rip as "
@@ -2980,6 +3168,9 @@ class RipWorker(QObject):
                 if number not in tracks:
                     continue
                 converged = getattr(track, "secure_rerip_converged", None) is True
+                agreement = getattr(track, "secure_rerip_agreement", None)
+                if isinstance(number, int) and isinstance(agreement, RereadAgreement):
+                    self._reread_agreements[number] = agreement
                 reason = reread_supersedes((first_pass_tracks or {}).get(number), track)
                 replaced = False
                 if reason is not None:
@@ -3122,6 +3313,9 @@ class RipWorker(QObject):
                 if number not in tracks or verdict is None:
                     continue
                 recorded.append(number)
+                agreement = getattr(track, "secure_rerip_agreement", None)
+                if isinstance(number, int) and isinstance(agreement, RereadAgreement):
+                    self._reread_agreements[number] = agreement
                 self._retried_tracks.append(
                     {
                         "track": number,
@@ -3334,7 +3528,7 @@ class RipWorker(QObject):
 
     @property
     def captured_stdout(self) -> str:
-        """Everything substantive the ripper printed, as one text blob.
+        """What the ripper printed, as one text blob.
 
         The recovery source when the logfile is truncated, and the artifact the
         cyanrip project cannot produce for itself (it has no physical drive).
@@ -3345,16 +3539,23 @@ class RipWorker(QObject):
         elision marker naming the number of discarded lines, and the tail. The
         marker matters as much as the tail does: an unmarked jump would read as
         a ripper that fell silent, which is a different (and alarming) fact.
+
+        Every line the ripper printed is here in order except the middle of each
+        run of progress redraws, which a marker counts (`redraw_run`). A run still
+        open, the ripper's last output, is shown as if it had been closed.
         """
         note = [self._inbound.note()] if self._inbound.lines_flagged else []
+        open_run = self._redraw_run.lines()
         if not self._stdout_tail:
-            return "\n".join([*self._stdout_lines, *note])
+            return "\n".join([*self._stdout_lines, *open_run, *note])
         middle = (
             [_STDOUT_ELISION.format(count=self._stdout_elided)]
             if self._stdout_elided
             else []
         )
-        return "\n".join([*self._stdout_lines, *middle, *self._stdout_tail, *note])
+        return "\n".join(
+            [*self._stdout_lines, *middle, *self._stdout_tail, *open_run, *note]
+        )
 
     @property
     def ripper_exit_code(self) -> int | None:
@@ -3447,8 +3648,10 @@ class RipWorker(QObject):
         Suppressing the repeat costs nothing, because the guarantee the pre-reap
         nudge was there to provide ("the process has been told to stop before we
         wait on it") is already satisfied by the signal that was actually sent —
-        and the real escalation is untouched: ``_reap_ripper`` still bounds its
-        wait and still escalates to SIGTERM→SIGKILL on the process *group*.
+        and the real escalation is kept: ``_reap_ripper`` still bounds its wait,
+        and after this signal escalates to SIGKILL alone, once the grace is spent.
+        What the signal reached is recorded (``_sigterm_reach``) so nothing else
+        in the app sends that process a second one either (``stop_signal_reach``).
         """
         with self._sigterm_lock:
             handle = self._handle
@@ -3467,10 +3670,43 @@ class RipWorker(QObject):
                 return
             self._sigterm_sent_for = handle
             log.info("signalling the ripper to stop (SIGTERM, %s)", why)
+            group: int | None = None
             try:
-                handle.terminate()
+                group = handle.terminate()
             except Exception:  # noqa: BLE001 — best-effort, must not mask caller
                 log.exception("terminate() raised; ignored (%s)", why)
+            # Recorded even if terminate() raised: whether the signal left is then
+            # unknown, and assuming it did only delays a signal, never doubles one.
+            self._sigterm_reach = drive_control.SignalledRipper(
+                pid=handle.pid, pgid=group, sent_at=time.monotonic()
+            )
+
+    def _reach_for(self, handle: RipHandle) -> drive_control.SignalledRipper | None:
+        """What our one SIGTERM reached, if it was sent to ``handle``; else None."""
+        with self._sigterm_lock:
+            if self._sigterm_sent_for is handle:
+                return self._sigterm_reach
+        return None
+
+    def stop_signal_reach(self) -> drive_control.SignalledRipper | None:
+        """The process this rip's stop SIGTERM reached, while it is still running.
+
+        Safe from the GUI thread (one lock held for a few attribute reads). The
+        window reads it where its post-cancel rescue fires and where its shutdown
+        stop starts, and hands it to `drive_control.term_unsignalled_holders`, so a
+        process our SIGTERM already reached is not sent a second one inside the
+        grace. On a native install that process is cyanrip itself; behind the
+        Distrobox wrapper it is the wrapper, which exits at once, so by the time
+        the rescue fires this is usually ``None``. ``None`` too once the process
+        has been reaped, so the PID it names cannot have been reused.
+        """
+        handle = self._handle
+        if handle is None:
+            return None
+        reach = self._reach_for(handle)
+        if reach is None or handle.returncode is not None:
+            return None
+        return reach
 
     # --- Internals ---
 
