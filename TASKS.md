@@ -1134,6 +1134,27 @@ each side's reading; and the closing releases named.
   exit code apart from the securing pass's (`_ripper_exit_code` holds the last one), and a
   decision on whether exit 1 over a finished rip reads as "failed", which is the
   maintainer's and depends on the fork's S13.
+- [x] **Their lap 9 S28: on a native install the rescue's SIGTERM was cyanrip's second.**
+  Held, read from both trees: `composition.build_backend` falls back to a `cyanrip` on
+  `PATH`; the cancel killpg()s the child's group, which there is cyanrip itself; the rescue
+  ran `fuser -s -k -TERM`, blind to who holds the drive; a cyanrip mid-read at +5 s took a
+  second signal and `_exit()`ed with no footer (`cyanrip@174a134:src/cyanrip_main.c:1216-1221`).
+  Two more doors to the same loss, found while checking it: the shutdown stop's SIGTERM
+  milliseconds after the close's own cancel, and the worker's reap, which sent its
+  second SIGTERM 15 s after the read loop broke.
+  - *Done in 8423766a:* `drive_control.second_signal_refusal` (returns which condition
+    refused) is asked per holder by `term_unsignalled_holders` at the moment it would
+    signal, on the rescue's thread and in the shutdown stop; it spares the process or
+    group our cancel reached until `READER_TERM_GRACE_S` (108 s) has passed. The worker
+    says what its one SIGTERM reached (`stop_signal_reach`, `None` once reaped), read where
+    the rescue fires. Behind the wrapper nothing of ours is still running at +5 s, so the
+    rescue is the same `fuser -s -k -TERM` as before. Revert-probed 12 ways.
+  - *Done in 52394e18:* the reap waits out the same grace after our SIGTERM, then
+    SIGKILLs alone (`RipHandle.kill`). Revert-probed 4 ways.
+  - **A native install is untested on hardware**: no rig runs one. Every path above is
+    proved on stand-ins that deliver signals and apply cyanrip's one-signal rule, not on a
+    drive. The open row *"If a podman ever forwards the wrapper's SIGTERM"* is not
+    covered by it: that reader is not in our process group, so it would still be signalled.
 
 ## Round 29 — CLOSED on both gates on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
