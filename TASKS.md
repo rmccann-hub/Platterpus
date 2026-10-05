@@ -1125,7 +1125,7 @@ each side's reading; and the closing releases named.
   is the one predicate: finished every requested track by the footer and our own track
   blocks, exit 0 or 1, the pass's own log, no failed encode, not stopped by us, and drive
   errors. **Our next lap says S28 was wrong** and points at the commit.
-  - *Done in `ff67e65e` (the parser reads `.20`'s skip suffix) and `a5e23bda` (the
+  - *Done in `4b657700` (the parser reads `.20`'s skip suffix) and `4aac4212` (the
     ladder asks `judge_step_down`):* 14 reverts probed, all detected.
 - [ ] **Should the securing pass run after a finished pass the drive could not read
   cleanly?** (follow-up to the row above; round 30 lap 9 S13.) It is still keyed on exit 0,
@@ -1142,14 +1142,14 @@ each side's reading; and the closing releases named.
   Two more doors to the same loss, found while checking it: the shutdown stop's SIGTERM
   milliseconds after the close's own cancel, and the worker's reap, which sent its
   second SIGTERM 15 s after the read loop broke.
-  - *Done in 8423766a:* `drive_control.second_signal_refusal` (returns which condition
+  - *Done in ccb10df0:* `drive_control.second_signal_refusal` (returns which condition
     refused) is asked per holder by `term_unsignalled_holders` at the moment it would
     signal, on the rescue's thread and in the shutdown stop; it spares the process or
     group our cancel reached until `READER_TERM_GRACE_S` (108 s) has passed. The worker
     says what its one SIGTERM reached (`stop_signal_reach`, `None` once reaped), read where
     the rescue fires. Behind the wrapper nothing of ours is still running at +5 s, so the
     rescue is the same `fuser -s -k -TERM` as before. Revert-probed 12 ways.
-  - *Done in 52394e18:* the reap waits out the same grace after our SIGTERM, then
+  - *Done in 937c86a8:* the reap waits out the same grace after our SIGTERM, then
     SIGKILLs alone (`RipHandle.kill`). Revert-probed 4 ways.
   - **A native install is untested on hardware**: no rig runs one. Every path above is
     proved on stand-ins that deliver signals and apply cyanrip's one-signal rule, not on a
