@@ -1041,6 +1041,7 @@ each side's reading; and the closing releases named.
   (keep exit 0 for a skip-only rip), S16 (take the text), S39 (S35's items), S3 (yes,
   for round 31), and say our gate implements 7 from `1dbf9ac0`.
 - [ ] **A skipped track AccurateRip did not confirm gets its own EAC-layout verdict**
+- [x] **A skipped track AccurateRip did not confirm gets its own EAC-layout verdict**
   (our lap 8 S20, accepted in their lap 9 S26, `cyanrip@f6d72c0:docs/handshake/round-30-lap-09.md`).
   Track 18 of the 2026-10-04 run (2,586 paranoia skips, one-frame AccurateRip match)
   read "Copy OK". It renders their accepted wording, *"Copy NOT confirmed — the
@@ -1048,6 +1049,9 @@ each side's reading; and the closing releases named.
   decided by `verdict.track_has_unverified_skips`; an exact match keeps "Copy OK"; a
   track also at the repeat limit takes the skip verdict, with the re-read shortfall
   left on its Copy CRC line (`docs/eac-parity.md`, *The skipped-read verdict*).
+  - *Done in 3f98eae3.* Re-rendering `round30oct04full.log` gives track 18 the new
+    verdict; the committed export of that run is the before. Not done: the disc-level
+    "No errors occurred" for such a disc, which S20 also names, is unchanged.
 
 ## Round 29 — CLOSED on both gates on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
@@ -1119,6 +1123,21 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
       were fixed, one of them a crash in `scripts/check.py`. Two quadratic patterns
       the sweep could not see were fixed by hand (`bommap._REQUIREMENT`,
       `handshake._WIRE_FIELD`); see (4).
+    - [x] *Done in 675de7bc:* the caveat follows what the log proves. "did NOT agree"
+      stays only where no two reads agreed (the fork's `at most 1 read agreed`; round
+      30's 10-05 track 3); an exact count reads "re-reads did not converge; at most 2
+      of 3 reads agreed" (round 28 and round 26, track 5); a floor reads "at least";
+      a log that does not say reads "re-reads did not converge" (round 27, track 3).
+      The verdict line says "re-reads did not converge" for all of them. The count is
+      parsed from the fork's line or from the `Repeating ripping` lines, now off the
+      ignore list (consumer contract regenerated), and travels with the verdict through
+      the auto-fix merge. Parity reasoning: `docs/eac-parity.md`, Part B, *The
+      repeat-limit caveat*. **Still owed:** a NOTE in our next lap. Our round 29 lap 2
+      S18 told the fork we skip the `Repeating ripping` line entirely; we now read its
+      match count (not its checksum), and the rendered sentence changed (round 7 H4).
+  - (2) The size ratchet, the regex-time sweep and the mypy gate cover `src/platterpus`
+    only, not `scripts/`. `scripts/laplang/lsl3.py` is 428 lines, and
+    `mypy --strict scripts/laplang` reports 3 errors in `scratch.py`.
   - (3) Nothing yet acts on `eac_log_producer`. The parity tool does not warn when its
     "baseline" is one of our own exports.
   - (4) **The regex-time sweep cannot see a pattern that only backtracks behind a
