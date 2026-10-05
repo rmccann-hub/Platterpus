@@ -52,7 +52,7 @@ text is taken verbatim as one value.
 |---|---|---|---|
 | `log` | 1+ (rest of line) | ready | log <text> — write a line into the transcript |
 | `wait` | 1 | ready | wait <seconds> — pause (fractions allowed, max 600) |
-| `abort` | 0+ (rest of line) | ready | abort [reason] — stop the batch here (the only verb that does) |
+| `abort` | 0+ (rest of line) | ready | abort [reason] — stop the batch here. Two other verbs can end a run: `abort-if-failed`, on a failure in its own section, and a `wait-for-rip` that runs out with the rip still reading |
 | `abort-if-failed` | 0+ (rest of line) | ready | abort-if-failed [reason] — stop ONLY if a step has already failed. For a PRECONDITION (am I on the right build?), where continuing gathers hours of evidence about the wrong subject. A finding must never use this. |
 | `screenshot` | 1 | ready | screenshot <name> — save a PNG of the whole app, dialogs included |
 | `snapshot` | 1 | ready | snapshot <name> — record the visible state as text in the transcript |
@@ -70,8 +70,8 @@ text is taken verbatim as one value.
 | `album-artist` | 1+ (rest of line) | ready | album-artist <name> — set the album artist for this rip |
 | `select-tracks` | 1 | ready | select-tracks <all|none|1,3,5-7> — choose which tracks the rip covers (this is cyanrip's -l) |
 | `rip` | 0 | ready | rip — start the rip (needs an identified disc) |
-| `wait-for-rip` | 1 | ready | wait-for-rip <seconds> — wait for the rip to finish, up to a timeout |
-| `cancel-rip` | 0 | ready | cancel-rip — cancel a rip in progress |
+| `wait-for-rip` | 1 | ready | wait-for-rip <seconds> — wait for the rip to finish, up to a timeout. If the timeout runs out with the rip still reading, the run ends there and that rip is cancelled: no later step could be graded against it |
+| `cancel-rip` | 0 | ready | cancel-rip — cancel the rip this script's last `rip` step started. A run that ends early (`abort`, Stop, a `wait-for-rip` that runs out) cancels that rip too |
 | `expect-status` | 1+ (rest of line) | ready | expect-status <text> — assert the rip status line (the one under the Overall progress bar) contains text, case-insensitively |
 | `expect-rip-complete` | 0 | ready | expect-rip-complete — assert the last rip FINISHED, read from the ripper's own log (completion footer, track tally, no truncation) rather than from the status line; read instability is reported, not graded |
 | `expect-log-well-formed` | 0 | ready | expect-log-well-formed — assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim |
@@ -408,7 +408,7 @@ found nothing wrong*.
       "max_args": null,
       "takes_paths": false,
       "implemented": true,
-      "help": "abort [reason] \u2014 stop the batch here (the only verb that does)"
+      "help": "abort [reason] \u2014 stop the batch here. Two other verbs can end a run: `abort-if-failed`, on a failure in its own section, and a `wait-for-rip` that runs out with the rip still reading"
     },
     {
       "name": "abort-if-failed",
@@ -552,7 +552,7 @@ found nothing wrong*.
       "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "wait-for-rip <seconds> \u2014 wait for the rip to finish, up to a timeout"
+      "help": "wait-for-rip <seconds> \u2014 wait for the rip to finish, up to a timeout. If the timeout runs out with the rip still reading, the run ends there and that rip is cancelled: no later step could be graded against it"
     },
     {
       "name": "cancel-rip",
@@ -560,7 +560,7 @@ found nothing wrong*.
       "max_args": 0,
       "takes_paths": false,
       "implemented": true,
-      "help": "cancel-rip \u2014 cancel a rip in progress"
+      "help": "cancel-rip \u2014 cancel the rip this script's last `rip` step started. A run that ends early (`abort`, Stop, a `wait-for-rip` that runs out) cancels that rip too"
     },
     {
       "name": "expect-status",

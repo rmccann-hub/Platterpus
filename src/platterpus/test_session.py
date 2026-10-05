@@ -930,3 +930,45 @@ def session_album_dirs(
             dropped,
         )
     return AlbumScan(kept, examined=len(found), dropped=dropped)
+
+
+# --- A run's rip does not outlive the session (2026-10-04) -----------------------
+
+#: How often a session whose run has ended looks again for its rip to stop.
+RIP_POLL_MS: Final[int] = 1000
+
+
+def rip_wait_s() -> float:
+    """How long a finished session waits for a rip still reading to stop.
+
+    The app's own wait for a cancelled rip's log, plus half a minute for the
+    finish handler and the post-rip work it starts; asked of the rip worker so
+    the two cannot drift apart.
+    """
+    from platterpus.workers.rip_worker import cancelled_log_wait_s
+
+    return cancelled_log_wait_s() + 30.0
+
+
+def ripper_processes_fact() -> dict[str, str]:
+    """The ripper processes the host sees as the bundle is packed. Never raises.
+
+    The session's facts say whether a rip was still reading when the run ended;
+    this is the host's own answer at the moment of packing, so a bundle packed
+    around a live reader says so even when the app did not know of one. Asked
+    off the GUI thread (``pgrep`` is a subprocess), with the exit check's probe.
+    """
+    from platterpus import drive_control
+
+    try:
+        readers = drive_control.running_readers()
+    except Exception:  # noqa: BLE001 — a fact must never stop the packing
+        log.exception("could not ask which ripper processes are running")
+        readers = None
+    if readers is None:
+        value = "not determined (pgrep gave no answer)"
+    elif not readers:
+        value = "none"
+    else:
+        value = "STILL RUNNING: " + ", ".join(readers)
+    return {"ripper processes when packed": value}

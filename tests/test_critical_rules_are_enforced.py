@@ -1887,7 +1887,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # marker, a log cyanrip itself wrote (`RIPPER_LOG_GLOB`, `_is_ripper_log`), so a
     # script `cyanrip` verb's folder — no app rip, so no `*.platterpus.json` — reaches
     # the bundle's strict album channel. It is the same scan's other half, not a job.
-    "test_session.py": 932,
+    # **932 -> 974** (2026-10-05, the 2026-10-04 run's bundle packed around a live rip): how long a finished session waits for its rip to stop (`rip_wait_s`, derived from the app's own wait for a cancelled rip's log) and the ripper processes the host sees as the bundle is packed (`ripper_processes_fact`), Qt-free here beside the facts they join.
+    "test_session.py": 974,
     "ui/dialogs/pending_installs.py": 419,
     # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
     # channels (they live above the checks they steer), a Drive section holding
@@ -2061,7 +2062,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 1626 -> 1627 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
     # **1627 -> 1690 (2026-09-30)**: the acceptance session holds the screen awake beside the sleep lock (`platterpus.screen_inhibit`), after round 29's three screenshot failures found every window unexposed; the wiring sits beside the sleep lock's because it shares its lifecycle: started with it, released on every path that releases it, and recorded in the same facts.
     # **1690 -> 1689** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the console is no longer handed `allow_unsafe`.
-    "ui/main_window_provision.py": 1689,
+    # **1689 -> 1763** (2026-10-05, the same run): `_acceptance_rip_at_end` keeps the session armed until a rip still reading has stopped, bounded, and puts what it found in the bundle's facts, so settings are not restored under a rip and no bundle is packed around a log still being written.
+    "ui/main_window_provision.py": 1763,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2335,7 +2337,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4636 -> 4608** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the unsafe gate and `unsafe_allowed` went; dispatch is the handler lookup alone.
     # **4608 -> 4631** (2026-09-30, round 30's D3 and S24): `_deadline_cancel` and `_cancel_deadline_work`, so a waiting verb that started a child says how to stop it, and the runner calls it on stop, on timeout and on a faulted predicate (Critical rule #9: abandoning a helper is safe only once its child is dead). It is deadline machinery and lives with it. The three verb handlers went to a new mixin, `probe_verbs.py`, not here.
     # **4631 -> 4703** (2026-10-05): `cancel-rip` stops only a rip the script's last `rip` started, and `pick-release` passes only on a held, well-formed release, read through one helper shared with `expect-identified` (2026-10-04 rig runs).
-    "uiscript/runner.py": 4703,
+    # **4703 -> 4782** (2026-10-05, the same run): a `wait-for-rip` that runs out with the rip still reading ends the run, and a run that stops early cancels the rip its last `rip` step started (`_own_rip_running`, the predicate `cancel-rip` now shares).
+    "uiscript/runner.py": 4782,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2360,7 +2363,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 811 was recorded with: "+46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,".
     # **862 -> 834** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `eval`, `call`, the `unsafe` field and `UNSAFE_VERBS`/`UNSAFE_VERBS_BUILT` went.
     # **834 -> 863** (2026-09-30, round 30): three verb declarations, `expect-newest-pair` (D3), `expect-found-offset` and `cache-probe` (the fork's lap 3 S24). The table is the vocabulary's security boundary, so a verb is an entry here by design.
-    "uiscript/verbs.py": 863,
+    # **863 -> 874** (2026-10-05): the `wait-for-rip` and `cancel-rip` help says a run that ends early cancels its rip, and `abort`'s no longer claims to be the only verb that ends one.
+    "uiscript/verbs.py": 874,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical

@@ -20,9 +20,11 @@ least one event-loop turn, so repaints happen and a screenshot shows what a
 person would have seen.
 
 **Failure policy.** A failing step is recorded and the batch continues. Only
-``abort``, a stop from the console, or the window disappearing ends a run early —
-and in every one of those cases ``ended_reason`` is set, because a transcript
-that stops without a verdict reads exactly like one that passed.
+``abort``, ``abort-if-failed`` on a failure in its section, a ``wait-for-rip``
+that runs out with the rip still reading, a stop from the console, or the window
+disappearing ends a run early — and in every one of those cases ``ended_reason``
+is set, because a transcript that stops without a verdict reads exactly like one
+that passed. A run that ends early cancels the rip it started.
 """
 
 from __future__ import annotations
@@ -500,8 +502,13 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
         #: The last `cyanrip` invocation, so `expect-cyanrip` / `expect-exit`
         #: assert against what actually ran rather than re-running it.
         # Whether the most recent `rip` step pressed Start; `cancel-rip` stops
-        # only such a rip (see `_do_rip`).
+        # only such a rip (see `_do_rip`), and a run that stops early cancels it
+        # (`_cancel_own_rip`). `_last_rip_step` is that step, for the record.
         self._last_rip_step_started: bool = False
+        self._last_rip_step: Step | None = None
+        # Set by `wait-for-rip`: a wait that times out with the rip still reading
+        # ends the run (`_service_deadline`).
+        self._deadline_ends_run_on_timeout: bool = False
         self._last_cyanrip_exit: int | None = None
         self._last_cyanrip_output: str = ""
         self._last_cyanrip_argv: list[str] = []
@@ -590,11 +597,14 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
         """End the run now, marking every unreached step as skipped.
 
         The remaining steps are recorded rather than dropped: "we never got
-        there" and "it passed" must not look the same in the transcript.
+        there" and "it passed" must not look the same in the transcript. A rip
+        this run started and is still reading is cancelled
+        (:meth:`_cancel_own_rip`).
         """
         if not self.running:
             return
         self._timer.stop()
+        self._cancel_own_rip(reason)
         # A ripper call still in flight must be KILLED, not merely forgotten: a
         # `cancel()` that only drops a reference is the false promise CLAUDE.md
         # names. The helper thread is a daemon, so once its child dies the thread
@@ -683,6 +693,59 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
         self._persist()
         self.finished.emit(self._report)
 
+    def _own_rip_running(self) -> bool:
+        """Whether a rip is running that this script's last `rip` step started.
+
+        One predicate for both callers that may stop a rip: `cancel-rip`, and a
+        run that ends early. A rip an earlier step started, or one this script
+        did not start at all, is not this run's to stop.
+        """
+        return (
+            self._last_rip_step_started
+            and getattr(self._window, "_rip_worker", None) is not None
+        )
+
+    def _cancel_own_rip(self, reason: str) -> None:
+        """A rip this run started does not outlive the run. Never raises.
+
+        Decided 2026-10-05 for the operator's runs. On 2026-10-04 the run was
+        stopped from the console while section N's rip was still reading; the
+        session restored the user's settings and packed its bundle in the same
+        second, around a log still being written, and the rip read on with
+        nobody's settings and nothing left to record it. The cancel goes through
+        the window's own Cancel, as `cancel-rip` does, so the rescue and the
+        wait for the log are the ones every cancel gets; the session waits for
+        the rip to stop before it packs (`_on_acceptance_run_finished`).
+        """
+        if not self._own_rip_running():
+            return
+        window = self._window
+        if getattr(window, "_rip_cancelled", False):
+            return  # already being cancelled: a second Cancel adds nothing
+        handler = getattr(window, "_on_rip_cancel", None)
+        step = self._last_rip_step
+        if handler is None or step is None:
+            log.warning(
+                "ui script run ended with its rip still reading and no way to "
+                "cancel it: %s",
+                reason,
+            )
+            return
+        log.info("ui script run ended with its rip still reading; cancelling it")
+        self._report.steps.append(
+            StepRecord(
+                step.line_no,
+                step.source,
+                Outcome.INFO,
+                "the run ended while the rip this step started was still reading "
+                f"({reason}); it was cancelled, so it does not outlive the run",
+            )
+        )
+        try:
+            handler()
+        except Exception:  # noqa: BLE001 — ending a run must not raise into Qt
+            log.exception("ui script: cancelling the run's rip failed")
+
     # --- The tick ------------------------------------------------------------
 
     def _tick(self) -> None:
@@ -760,6 +823,7 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
         if satisfied or now >= self._deadline:
             elapsed = now - self._deadline_started
             timed_out = not satisfied and self._deadline_predicate is not None
+            ends_run = timed_out and self._deadline_ends_run_on_timeout
             self._deadline = None
             self._deadline_predicate = None
             self._deadline_step = None
@@ -772,6 +836,18 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
                     or f"still not finished after {elapsed:.0f}s",
                     elapsed=elapsed,
                 )
+                if ends_run:
+                    # The rip is still reading, so every step after this one runs
+                    # against a live drive and grades the wrong rip. On 2026-10-04
+                    # section F's six-hour wait ran out, and H and I then failed
+                    # against F's rip; I's `cancel-rip` stopped it. Nothing after
+                    # F was evidence. A finding does not stop a run; a run that
+                    # can no longer measure what its steps claim does.
+                    self.stop(
+                        f"`{step.source}` (L{step.line_no}) ran out with the rip "
+                        "still reading, so no later step could be graded against a "
+                        "finished rip; the run ends here"
+                    )
             else:
                 self._record(
                     step,
@@ -807,6 +883,7 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
         self._deadline_detail = ""
         self._deadline_timeout_detail = ""
         self._deadline_cancel = None
+        self._deadline_ends_run_on_timeout = False
         self._picked_release = None
 
     def _record(
@@ -3209,6 +3286,7 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
             return
         self._record(step, Outcome.PASS, "start requested")
         self._last_rip_step_started = True
+        self._last_rip_step = step
         QTimer.singleShot(0, start)
 
     def _do_pick_release(self, step: Step) -> None:
@@ -3536,6 +3614,7 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
         self._arm_deadline(
             step, capped, lambda: getattr(window, "_rip_worker", None) is None
         )
+        self._deadline_ends_run_on_timeout = True
         # AFTER arming, which resets both detail fields. Carried into whichever
         # outcome the wait produces, so the clamp is visible in the transcript on
         # the success path too — a script that asked for six hours and got three
@@ -3558,7 +3637,7 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
         if getattr(self._window, "_rip_worker", None) is None:
             self._record(step, Outcome.FAIL, "no rip is running")
             return
-        if not self._last_rip_step_started:
+        if not self._own_rip_running():
             self._record(
                 step,
                 Outcome.FAIL,
