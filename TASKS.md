@@ -1012,7 +1012,7 @@ each side's reading; and the closing releases named.
   newest release tag reachable from HEAD, with the block's order checked too.
   **Still to say in a lap:** our next lap says our gate implements 7 from the commit that
   landed this, which is half of what v7 §15 needs before either side declares 7.
-- [ ] **File `.20`'s provider contract when it ships, and retain `Error in encoding: %s`.**
+- [x] **File `.20`'s provider contract when it ships, and retain `Error in encoding: %s`.**
   A dry run of `.20`'s contract at the fork's tip (`cyanrip@ac542074`, and again at
   `cyanrip@872b4156`, whose cache-probe line change our parser reads as the known
   `Cache probe:` prefix) against our seam tests passed everywhere but one: the string left P5 at `cyanrip@d7ee6c40` (it was at
@@ -1021,6 +1021,25 @@ each side's reading; and the closing releases named.
   (reason: `.19` and older print it) in the commit that files the contract. It cannot be
   added earlier, because while `.19`'s contract is the newest, the string is still a P5
   row and `ALL_FORMATS` refuses a duplicate.
+  - *Done 2026-10-05:* the contract their lap 9 ships with (`cyanrip@f6d72c0`,
+    built at `gce2e5a6`, sha256 `10eef519…`) is filed byte-identical as
+    `round-30-lap-09-provider-contract-gce2e5a6.md`, P5 regenerated (123 rows to 126:
+    the four `-Z` spool errors in, `Error in encoding: %s` out), and the string is in
+    `RETAINED_BEYOND_P5` with its reason. Their S17 count reproduces from the two
+    contracts: P2 changes in nine rows.
+- [~] **Their round 30 lap 9, filed 2026-10-05** (`cyanrip@f6d72c0`, released by their
+  operator, sha256 `be2f763b…`, 38,642 bytes, `OPEN`, basis S27 to S30; their digest
+  `525abc43c7d759b7` over 8 laps reproduces). Our lap checker reads it well formed (50
+  statements, 2 warnings on relays). **Our `--check` refuses it for R6**: no "our next
+  lap is `GO` unless X"; pinned by hash in `tests/test_every_inbound_lap_passes_check.py`
+  and to be raised in our lap 10. Verified against both trees: S27 (our ladder needs exit
+  0; cyanrip exits 1 on any drive error), S16's proposed `seam-commands.md` (17 rows
+  `HAVE`, `-D` is the naming scheme, the `\:` escape shipped, and `-f`'s exit 1 breaks
+  nothing of ours: the verb records any exit and the grading reads lines), S11 and S15
+  (our parser reads both new shapes). Fixes in progress for S27 with S12, S28, S29 and
+  their S26 wording; S30 is a correction in our lap 10. **Our lap 10 must answer:** S13
+  (keep exit 0 for a skip-only rip), S16 (take the text), S39 (S35's items), S3 (yes,
+  for round 31), and say our gate implements 7 from `1dbf9ac0`.
 
 ## Round 29 — CLOSED on both gates on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 

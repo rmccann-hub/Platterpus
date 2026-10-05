@@ -14,6 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **Error messages from cyanrip `+platterpus.20` are recognised before it ships.**
+  The list of cyanrip's fatal messages that Platterpus turns into a readable reason
+  (instead of a bare "Rip failed.") now includes the four new `-Z` spool errors
+  `.20` can print, such as a full disk stopping a secure re-read. It also keeps
+  `Error in encoding: %s`, which `.20` can no longer print but every older build
+  still can.
 - **The handshake gate implements protocol 7** (contributor-facing:
   `scripts/handshake.py`, `tests/test_standing_status_is_current.py`). v7 adds one gate
   row, C46: every lap of a file declaring 7 must say which lap comes next and whose, in

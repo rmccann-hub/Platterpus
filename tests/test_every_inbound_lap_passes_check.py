@@ -17,6 +17,7 @@ is a new lap our checker refuses, which is exactly what this file exists to catc
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import sys
 from pathlib import Path
@@ -48,6 +49,37 @@ _PRE_FORMAT_INBOUND: Final[frozenset[str]] = frozenset(
 )
 
 
+#: Released peer laps our gate refuses for **R6 alone** (no "our next lap is `GO`
+#: unless X"), pinned by the sha256 of their exact bytes. **Not a pre-format
+#: exemption, and kept apart from** :data:`_PRE_FORMAT_INBOUND` **for that
+#: reason**: these laps were written under the format, our checker is right to
+#: refuse them, and a sent lap is never edited (§4a), so the miss is recorded
+#: rather than repaired, as ``handshake.INBOUND_HELD_EXEMPT_SHA256`` records one of
+#: ours. Each entry is excused only while (1) its bytes are unchanged, (2) R6 is
+#: the ONLY problem ``--check`` finds in it, and (3) once we have sent a later lap
+#: in the same round, the first such lap names the file and R6: the finding goes
+#: to the peer, which is what "answer the lap" means in the sweep's message.
+#:
+#: ``round-30-lap-09.md`` — the fork's round 30 lap 9 (``cyanrip@f6d72c0``),
+#: released 2026-10-05: its S41 and S42 are WILLs with no ``verdict: GO`` and its
+#: prose has no pre-commit. Found by this sweep on filing; raised in our round 30
+#: lap 10.
+_R6_MISSES_ANSWERED: Final[dict[str, str]] = {
+    "round-30-lap-09.md": (
+        "be2f763b63ef77b6989bedcaebd2e70b0d08c9754af2f2408ebe0418293cce03"
+    ),
+}
+
+
+def _is_answered_r6_miss(name: str, problems: list[str]) -> bool:
+    """Whether ``name``'s refusal is exactly a pinned, answered R6 miss."""
+    pinned = _R6_MISSES_ANSWERED.get(name)
+    if pinned is None:
+        return False
+    actual = hashlib.sha256((_INBOUND / name).read_bytes()).hexdigest()
+    return actual == pinned and all(" R6: " in p for p in problems)
+
+
 @pytest.fixture(scope="module")
 def hs() -> ModuleType:
     spec = importlib.util.spec_from_file_location("handshake_inbound_sweep", _SCRIPT)
@@ -74,7 +106,7 @@ def test_every_inbound_lap_passes_our_own_check(hs: ModuleType) -> None:
     refused = {
         name: problems
         for name, problems in _refused(hs, _INBOUND).items()
-        if name not in _PRE_FORMAT_INBOUND
+        if name not in _PRE_FORMAT_INBOUND and not _is_answered_r6_miss(name, problems)
     }
     assert not refused, (
         "inbound lap(s) in the record that our own `handshake.py --check` refuses — "
@@ -112,3 +144,38 @@ def test_the_sweep_catches_the_lap_that_prompted_it(
     assert ahead != text, "the fixture's protocol line was not rewritten"
     (tmp_path / "round-23-lap-01.md").write_text(ahead, encoding="utf-8")
     assert "round-23-lap-01.md" in _refused(hs, tmp_path)
+
+
+def test_every_pinned_r6_miss_is_exact_and_answered(hs: ModuleType) -> None:
+    """Each pinned R6 miss still exists with its bytes, is still refused for R6
+    and nothing else, and is answered by name in our first later lap of its round,
+    once one exists. A pin whose answer never went out is a finding we kept."""
+    assert _R6_MISSES_ANSWERED, "nothing pinned: delete this test with the dict"
+    refused = _refused(hs, _INBOUND)
+    for name, sha in _R6_MISSES_ANSWERED.items():
+        path = _INBOUND / name
+        assert path.is_file(), f"pinned R6 miss {name} no longer exists"
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == sha, (
+            f"{name}'s bytes changed: a sent lap is never edited (§4a)"
+        )
+        problems = refused.get(name, [])
+        assert problems, f"{name} now passes --check: remove its pin"
+        assert all(" R6: " in p for p in problems), problems
+        named = hs.name_round_and_lap(path)
+        assert named is not None, name
+        later = sorted(
+            (lap, candidate)
+            for sub in ("outbound", "verified")
+            for candidate in (_REPO_ROOT / "docs" / "handshake" / sub).glob(
+                f"round-{named[0]:02d}-lap-*.md"
+            )
+            if (got := hs.name_round_and_lap(candidate)) is not None
+            and (lap := got[1]) > named[1]
+        )
+        if not later:
+            continue  # our next lap of this round has not been written yet
+        answer = later[0][1].read_text(encoding="utf-8")
+        assert name in answer and "R6" in answer, (
+            f"our first lap after {name}, {later[0][1].name}, does not raise its "
+            "R6 miss by name"
+        )
