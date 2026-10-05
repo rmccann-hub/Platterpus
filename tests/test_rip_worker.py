@@ -73,6 +73,7 @@ class _FakeHandle:
         self._cancel_returns: int | None = cancel_returns
         self.cancel_calls: int = 0
         self.terminate_calls: int = 0
+        self.kill_calls: int = 0
         # Every signal this handle's process was sent, in order. The REAL
         # `cancel()` sends a SIGTERM before its SIGKILL, and to a cyanrip that
         # already had our SIGTERM that is its second signal: `_exit(1)`, no
@@ -119,6 +120,11 @@ class _FakeHandle:
     ) -> int | None:
         self.cancel_calls += 1
         self.signals.extend(["TERM", "KILL"])
+        return self._cancel_returns
+
+    def kill(self, timeout: float = 5.0) -> int | None:
+        self.kill_calls += 1
+        self.signals.append("KILL")
         return self._cancel_returns
 
 
@@ -2805,6 +2811,44 @@ class _NativeCyanripHandle(_FakeHandle):
         self.reach_mid_rip = self.worker.stop_signal_reach()
         yield "\r"
         yield "Trying to quit"
+
+
+def test_a_native_cyanrip_gets_SIGKILL_after_the_grace_and_never_a_second_SIGTERM(
+    qapp: QApplication, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The fork's round 30 lap 9 S28, at the door it did not name.
+
+    The reap's escalation is ``RipHandle.cancel()``: SIGTERM, then SIGKILL. On a
+    native install the process we signalled at the cancel is cyanrip itself, so
+    that SIGTERM was its SECOND, and cyanrip ``_exit()``s on a second signal with
+    no footer (``cyanrip@174a134:src/cyanrip_main.c:1216-1221``). It was sent 15 s
+    after the read loop broke, well inside a 54 s read. Now the reap waits until
+    ``READER_TERM_GRACE_S`` after our signal, then SIGKILLs alone.
+    """
+    from platterpus import drive_control
+
+    handle = _NativeCyanripHandle()
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    handle.worker = worker
+    before = time.monotonic()
+    with caplog.at_level("WARNING"):
+        worker.start_rip()
+
+    assert handle.signals.count("TERM") == 1, (
+        f"the native cyanrip was sent {handle.signals}: a second SIGTERM makes it "
+        "exit at once with no log footer"
+    )
+    assert handle.signals == ["TERM", "KILL"], handle.signals
+    assert handle.cancel_calls == 0 and handle.kill_calls == 1
+    # The wait before the SIGKILL ran to the grace, measured from our signal.
+    longest = max(t for t in handle.wait_timeouts if t is not None)
+    assert longest >= drive_control.READER_TERM_GRACE_S - (time.monotonic() - before), (
+        f"the reap gave a signalled cyanrip {longest:.1f}s, not the "
+        f"{drive_control.READER_TERM_GRACE_S:.0f}s grace: {handle.wait_timeouts}"
+    )
+    assert any("no second SIGTERM" in r.message for r in caplog.records), [
+        r.message for r in caplog.records
+    ]
 
 
 def test_stop_signal_reach_names_the_signalled_process_only_while_it_runs(

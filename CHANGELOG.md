@@ -227,6 +227,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the same way. Nothing changes behind the container. Found by the cyanrip fork's
   review (their round 30 lap 9 S28); a direct install has not yet been tried on
   real hardware.
+- **The same direct install lost the signature a second way, 15 seconds after the
+  cancel.** If cyanrip had not exited 15 seconds after it acknowledged the cancel,
+  Platterpus sent it another stop signal and then killed it. It now waits the same
+  two minutes for the read in progress to finish and the log to be signed, and only
+  then stops it outright, without the second signal. Force stop still ends it at
+  once. Behind the container nothing changes, because what Platterpus signals there
+  is the container's wrapper, which exits straight away.
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached
