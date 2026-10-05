@@ -15,6 +15,7 @@ import re
 import subprocess
 import time
 from collections.abc import Iterable
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -1533,6 +1534,52 @@ def test_album_eta_is_self_computed_from_elapsed(
     assert worker._album_eta_text(3.0) == ""
     # cyanrip's obsolete first-ETA capture is gone.
     assert not hasattr(worker, "estimated_seconds")
+
+
+def test_the_plan_states_a_time_estimate_and_the_status_uses_it_early(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The operator's request (2026-10-05): an overall estimate up front, in the
+    log too. With the drive's measured rate and every track's length known, the
+    plan carries the figure; for the first seconds, before the live estimate can
+    measure anything, the status line shows it."""
+    from platterpus.rip_estimate import ReadRate
+
+    params = replace(
+        _params_with_lengths(tmp_path, [200_000, 400_000]),
+        read_rate=ReadRate(1200.0, 600.0, 3),  # reads at 2.0x
+    )
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), params)
+    lines: list[str] = []
+    worker.log_line.connect(lines.append)
+    worker.start_rip()
+    planned = [line for line in lines if "Time estimate" in line]
+    assert planned, f"no estimate in the plan: {lines[:12]}"
+    # 600 s of audio at 2.0x is 300 s of reading, plus the overhead.
+    assert "about 5m" in planned[0] and "2.0x" in planned[0], planned[0]
+    assert worker.estimate_seconds == pytest.approx(300.0 + 10.0)
+
+    worker._started_monotonic = time.monotonic() - 2.0
+    worker._eta_pass_started = worker._started_monotonic
+    early = worker._album_eta_text(3.0)
+    assert "(estimated)" in early and "left" in early, early
+
+
+def test_with_no_measured_rate_the_plan_says_why_there_is_no_estimate(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    worker = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=[])),
+        _params_with_lengths(tmp_path, [200_000, None]),
+    )
+    lines: list[str] = []
+    worker.log_line.connect(lines.append)
+    worker.start_rip()
+    planned = [line for line in lines if "Time estimate" in line]
+    assert planned and "not identified" in planned[0], planned
+    assert worker.estimate_seconds is None
+    worker._started_monotonic = time.monotonic() - 2.0
+    assert worker._album_eta_text(3.0) == "", "an estimate appeared from nothing"
 
 
 def test_coarsen_eta_seconds_buckets() -> None:

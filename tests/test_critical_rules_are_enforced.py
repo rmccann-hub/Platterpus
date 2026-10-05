@@ -1487,7 +1487,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **557 -> 565** (2026-10-05): `free_device_holders` says why the rescue's SIGTERM is the first the reader gets (the container boundary, measured 2026-09-07 and 2026-09-09), where it said a signalled reader would have exited, which a 54 s read disproves.
     "drive_control.py": 565,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "drive_profiles.py": 447,
+    # **447 -> 452** (2026-10-05): `DriveProfile.read_rate`, the drive's measured reading speed the up-front rip estimate rests on (operator, 2026-10-05).
+    "drive_profiles.py": 452,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
     # tri-state `_status_line` honesty fix: an EAC-format log must not print
     # "Copy OK" under a track whose own re-reads disagreed. The renderer is the
@@ -2020,7 +2021,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 656 -> 658 on 2026-09-28 (code review R0): the insertion comment says a scan that read the disc tells the watcher, so an eject after it is a removal.
     # 658 -> 668 on 2026-09-28 (code review R9): a disc removal ends the read a pending automatic retry was for, so its timer cannot replace the no-disc line with an error about the disc that left.
     # **668 -> 670** (2026-10-05): the disc-removal reset keeps the drive rows (2026-10-04 rig runs).
-    "ui/main_window_drive.py": 670,
+    # **670 -> 742** (2026-10-05): `_read_rate_for_current_drive` and `_learn_read_rate`: the drive's own measured speed (else the rig's for its model) goes to the rip, and each finished first pass folds into the profile (operator's request for an overall rip estimate, 2026-10-05).
+    "ui/main_window_drive.py": 742,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -2141,7 +2143,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4882 -> 4893** (2026-10-05): the finish handler passes the cancel to `fidelity_summary`, and `exit_audit_device()` names the drive for the exit check (2026-10-04 rig run; operator, 2026-10-05).
     # **4893 -> 4903** (2026-10-05): the post-cancel rescue says, while the rip is still running, that a slow disc can take a minute or two to stop, where the status kept promising a 5 s force-stop (the 2026-10-04 run's 54 s read).
     # **4903 -> 4907** (2026-10-05): the launcher records each check in `PostRipRecord.launched`, and `_gates_for` hands that ledger to the report (the 2026-10-04 section I report).
-    "ui/main_window_rip.py": 4907,
+    # **4907 -> 4919** (2026-10-05): the start path hands the worker the drive's reading speed, and the elapsed line records the estimate beside the actual (2026-10-05).
+    "ui/main_window_rip.py": 4919,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2160,7 +2163,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `_setup_center`, because SettingsMixin now re-renders the console too.
     # 446 -> 452 on 2026-09-28: the disc-read retry state (`_disc_retries`, `_disc_retry_timer`) DriveMixin reads, and `_start_disc_info`'s `automatic_retry` keyword.
     # 452 -> 453 on 2026-09-28: `_show_dependency_check_in_setup_center`, which ProvisioningMixin calls when the window opens.
-    "ui/main_window_shared.py": 453,
+    # **453 -> 456** (2026-10-05): the two drive-rate methods declared for the mixins that call them (2026-10-05).
+    "ui/main_window_shared.py": 456,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2420,7 +2424,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3632 -> 3694** (2026-10-05): `_record_unfinished_refix`: a securing pass that was stopped keeps the verdicts it reached, which a cancel used to discard with the temp folder (2026-10-04 rig run, tracks 12-17).
     # **3694 -> 3733** (2026-10-05): the cancel-path log wait covers the read in hand (`READER_TERM_GRACE_S`), in one function (`cancelled_log_wait_s`) the acceptance script's cancel sections are held to, and a stopped securing pass whose log never settles keeps the verdicts it wrote whole, with why that is safe; the real 2026-10-04 case never settles inside any wait.
     # **3733 -> 3762** (2026-10-05): `_keep_securing_pass_log`, which copies the securing pass's own ripper log beside the album's before its temp folder is deleted (the 2026-10-04 run's cancelled pass left no record).
-    "workers/rip_worker.py": 3762,
+    # **3762 -> 3830** (2026-10-05): the up-front time estimate in the plan and the log, and shown as the ETA until the live one has measured enough (`_make_estimate`, `_early_estimate_text`; operator, 2026-10-05).
+    "workers/rip_worker.py": 3830,
 }
 
 

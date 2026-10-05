@@ -569,6 +569,8 @@ class RipMixin(MainWindowShared):
         params = replace(
             params, disc_track_total=getattr(self, "_current_num_tracks", 0) or None
         )
+        # The drive's measured reading speed, for the up-front time estimate.
+        params = replace(params, read_rate=self._read_rate_for_current_drive())
 
         # Only validate the track table for non-unknown rips — placeholder
         # tags will be applied after the fact in unknown mode.
@@ -1927,6 +1929,7 @@ class RipMixin(MainWindowShared):
                 # multiplier (elapsed ÷ the disc's audio length) — a meaningful
                 # metric that replaces cyanrip's bogus ETA. Best-effort.
                 self._enrich_timing_with_disc_duration(rip_log)
+                self._learn_read_rate(rip_log, success=success)
                 self._write_rip_report(self._capture_post_rip_record(rip_log, log_file))
                 # If a prior rip of THIS disc exists in the library, compare them
                 # and surface a banner — the "you've ripped this before" catch for
@@ -3507,7 +3510,16 @@ class RipMixin(MainWindowShared):
             started_at=self._rip_started_at,
             finished_at=finished_at,
         )
-        log.info("rip elapsed (actual): %s", format_duration(elapsed))
+        estimated = getattr(self._rip_worker, "estimate_seconds", None)
+        if isinstance(estimated, int | float) and estimated > 0:
+            # Beside the actual, so every rip records how far off it was.
+            log.info(
+                "rip elapsed (actual): %s; estimated before it began: %s",
+                format_duration(elapsed),
+                format_duration(estimated),
+            )
+        else:
+            log.info("rip elapsed (actual): %s", format_duration(elapsed))
         # Record this rip's epoch window for the debug-log filtering. It's kept
         # in `_rip_windows` (so a LATER album's report excludes these lines) AND
         # remembered as the current window (so THIS report never excludes its

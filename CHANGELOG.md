@@ -62,6 +62,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   FLAC tag reader (`flac_metadata.py`) that needs no external tool.
   `expect-verification` no longer accepts a report that is still being written.
 
+- **Every rip now says up front about how long it should take, and the log
+  records how close it came.** The estimate covers the tracks you ticked, at the
+  drive's own measured reading speed: Platterpus learns it from each rip the drive
+  finishes, recent rips counting most. Until a drive has finished a rip, only the
+  test rig's drive model gets an estimate, from the rig's measured speed; any
+  other drive gets none rather than a guess, because drives differ several-fold.
+  Re-reads of tracks AccurateRip does not confirm cannot be predicted, so the
+  estimate says what each one costs (3 to 5 times the track's length at the
+  default settings). The figure is in the rip's plan in the log and on screen,
+  shows as the time left until the live estimate takes over, and the log line
+  with the rip's actual time now gives the estimate beside it. Checked against
+  every filed rip from the test rig.
+
 ### Fixed
 
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**

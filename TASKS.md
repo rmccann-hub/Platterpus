@@ -686,6 +686,18 @@ Open:
   world a rig is in. A kept securing-pass log (the row above) would show it: a
   cancelled pass on a slow read whose log has no footer.
 
+## 2026-10-05 operator requests
+
+- [x] **An overall time estimate for the tracks to rip, in the log too.** `rip_estimate`,
+  from the drive's own measured first reads (`DriveProfile.read_rate`), else the rig's for
+  its model, else none. In the plan, as the early ETA, and beside the actual in the
+  elapsed line. Held against every filed rig rip.
+- [ ] **The acceptance run's overall estimate** (the operator's first wording of the same
+  request): sum the estimate over the script's rip steps plus the measured non-rip
+  sections. Not built; the per-rip estimate is its main input.
+- [x] **The realtime multiplier means one thing** (found while reading the filed timing
+  data): elapsed over the audio read, finished or not.
+
 ## Round 30 — OPEN on `174a134` (`+platterpus.19`): the Full run on 0.6.65 with `.19`, and the operator's release-cycle question
 
 Their lap 1 (`cyanrip@171bcf9`, platterpus-fork tip `0ae873c`, sha256 `6db0ed0d…`, 15,546
