@@ -397,6 +397,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   checked files to the same set the size ratchet and the regex sweep read, and
   the rule that the list of modules let off strict checking may only shrink now
   covers the tooling's modules too.
+- **Platterpus reads cyanrip `.20`'s new error count properly.** From `.20`,
+  cyanrip's `Ripping errors:` line also counts the spots where its error correction
+  gave up checking a stretch of audio ("paranoia skips"), and says how many in a
+  suffix: `Ripping errors: 2589 (including 2586 paranoia skips)`. Platterpus now
+  reads that suffix, and also the count of failed encodes, so it can tell how many
+  reads the drive itself failed. The rip's health line is unchanged and still
+  shows cyanrip's whole count. Logs from earlier builds read exactly as before.
 - For contributors: a test that runs `app.main` in-process no longer leaves the
   app-wide dialog filter installed for the tests after it. The filter now also
   fits message boxes, so the leak made the message-box fit tests fail on whichever

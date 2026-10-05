@@ -77,7 +77,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `album_true_peak_level` **(fork-only)** | disc | `^Album true peak level:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^Tracks ripped partially accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
-| `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)` |
+| `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)(?:\\s{1,4}\\(including\\s{1,4}(?P<skips>\\d{1,20})\\s{1,4}paranoia\\s{1,4}skips?\\))?` |
 | `encoder_errors` **(fork-only)** | disc | `^Encoder errors:\\s+(?P<value>\\S.*?)\\s*$` |
 | `interrupted_at` **(fork-only)** | disc | `^Interrupted at:\\s+(?P<where>\\S.*?)\\s*$` |
 | `rip_completed` **(fork-only)** | disc | `^Rip completed:\\s+(?P<verdict>yes\|no)(?:\\s+\\((?:(?P<reason>[^,)]{1,64}),\\s*)?(?P<done>\\d{1,4})\\s+of\\s+(?P<total>\\d{1,4})\\s+tracks?\\))?` |

@@ -334,6 +334,17 @@ class RipLog:
     tracks: tuple[TrackResult, ...] = ()
     accuraterip_summary: str = ""
     health_status: str = ""
+    #: cyanrip's `Ripping errors:` count as printed (N), or None when the line
+    #: was absent or its number unreadable. From the fork's `+platterpus.20` N
+    #: includes paranoia's skips; see :attr:`drive_read_errors`.
+    ripping_errors: int | None = None
+    #: How many of N are paranoia's skips: the `(including M paranoia skips)`
+    #: suffix `.20` prints, 0 for a line with no suffix (no earlier build counted
+    #: skips), None for a suffix we do not recognise or no line at all.
+    ripping_errors_paranoia_skips: int | None = None
+    #: The failed-track count of cyanrip's `Encoder errors:` line (`.14`+): 0 for
+    #: its `none` and `not applicable` arms, None when absent or unrecognised.
+    encoder_failed_tracks: int | None = None
     sha256_hash: str = ""
     # cyanrip-only finish-report extras (empty/absent for legacy-format logs):
     # "Tracks ripped partially accurately: X/Y" — tracks that matched only the
@@ -474,6 +485,32 @@ class RipLog:
     # is present but incomplete, which is a different problem from a track that
     # is missing outright, and a consumer counting "verified" tracks should know.
     last_track_incomplete: bool = False
+
+    @property
+    def drive_read_errors(self) -> int | None:
+        """The reads the DRIVE failed, as far as the log can say. None = not stated.
+
+        cyanrip's `Ripping errors:` count is not only the drive's. On the fork it is
+        ``total_error_count`` plus paranoia's skips (`crip_ripping_errors()`,
+        ``cyanrip@0c692ed:src/cyanrip_main.h:530-547``), and ``total_error_count``
+        holds reads the drive failed or returned nothing for
+        (``cyanrip@0c692ed:src/cyanrip_main.c:600-617``), each failed encoder
+        (``:3054-3055``, since their round 21), and, only on a run that aborted,
+        the operational error that aborted it. So this is N minus the skips minus
+        the failed encodes, floored at 0: on a completed rip, exactly the drive's.
+
+        None when the log has no `Ripping errors:` line, or a skip suffix we cannot
+        read, because subtracting an unknown would state a number we do not have.
+        An unrecognised `Encoder errors:` arm counts as no failed encodes; the
+        read-speed ladder refuses a pass with a failed encode on its own account.
+        One output per rip (`-o flac`), so one failed encode per failed track.
+        """
+        if self.ripping_errors is None or self.ripping_errors_paranoia_skips is None:
+            return None
+        encoder = self.encoder_failed_tracks or 0
+        return max(
+            0, self.ripping_errors - self.ripping_errors_paranoia_skips - encoder
+        )
 
 
 # --- AccurateRip "is this track verified?" — the ONE shared definition -------

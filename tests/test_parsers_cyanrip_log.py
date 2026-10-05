@@ -3212,6 +3212,90 @@ def test_a_build_that_prints_no_encoder_line_is_unchanged() -> None:
     assert parse_cyanrip_log("Ripping errors: 2\n").health_status == "2 ripping errors"
 
 
+# --- `.20`'s `Ripping errors: N (including M paranoia skips)` (round 30 lap 9 S11) --
+#
+# From `+platterpus.20` the count includes paranoia's skips and says so in a
+# suffix whenever there are any (`cyanrip@0c692ed:src/cyanrip_log.c:1048-1053`, P2
+# `Ripping errors: %llu (including %llu paranoia skip%s)`). N keeps parsing as it
+# did; M is read beside it so the read-speed ladder can tell the drive's failures
+# from paranoia's skips (their S12).
+
+
+@pytest.mark.parametrize(
+    ("line", "n", "m", "drive"),
+    [
+        # Every line written before `.20`, and `.20` on a rip that skipped nowhere.
+        ("Ripping errors: 0", 0, 0, 0),
+        ("Ripping errors: 3", 3, 0, 3),
+        # `.20`'s suffix, plural and singular (`skip%s`).
+        ("Ripping errors: 2586 (including 2586 paranoia skips)", 2586, 2586, 0),
+        ("Ripping errors: 2589 (including 2586 paranoia skips)", 2589, 2586, 3),
+        ("Ripping errors: 1 (including 1 paranoia skip)", 1, 1, 0),
+        # More skips than errors cannot happen (N = drive + M); floored, not negative.
+        ("Ripping errors: 2 (including 5 paranoia skips)", 2, 5, 0),
+        # A suffix we do not recognise is not evidence of no skips.
+        ("Ripping errors: 7 (including 7 skips)", 7, None, None),
+    ],
+)
+def test_the_ripping_errors_line_separates_the_drive_from_the_skips(
+    line: str, n: int, m: int | None, drive: int | None
+) -> None:
+    parsed = parse_cyanrip_log(f"cyanrip 0.9.4\n{line}\n")
+    assert parsed.ripping_errors == n
+    assert parsed.ripping_errors_paranoia_skips == m
+    assert parsed.drive_read_errors == drive
+
+
+def test_the_health_status_still_counts_the_skips() -> None:
+    """User-facing and unchanged: from `.20` a skipped-on rip reads N errors.
+
+    That is the purpose of the fork's change (their S12); only the ladder reads
+    the drive's part.
+    """
+    parsed = parse_cyanrip_log(
+        "Ripping errors: 2586 (including 2586 paranoia skips)\n"
+        "Encoder errors: none; 18 tracks encoded\n"
+    )
+    assert parsed.health_status == "2586 ripping errors"
+    assert parsed.encoder_failed_tracks == 0
+    assert parsed.drive_read_errors == 0
+
+
+def test_a_failed_encode_is_not_counted_as_a_failed_read() -> None:
+    """Since their round 21, N includes each failed encode (`:3054-3055`)."""
+    parsed = parse_cyanrip_log(
+        "Ripping errors: 4\nEncoder errors: 1 track failed (3); 17 tracks encoded\n"
+    )
+    assert (parsed.ripping_errors, parsed.encoder_failed_tracks) == (4, 1)
+    assert parsed.drive_read_errors == 3
+    assert parsed.health_status == "4 ripping errors; 1 encoder error"
+
+
+def test_no_ripping_errors_line_states_no_drive_count() -> None:
+    """Absent is not zero: a log cut off before its footer says nothing."""
+    parsed = parse_cyanrip_log("cyanrip 0.9.4\nTrack 1 read successfully!\n")
+    assert parsed.ripping_errors is None
+    assert parsed.drive_read_errors is None
+    assert parsed.encoder_failed_tracks is None
+
+
+def test_the_filed_full_run_parses_as_it_did_with_its_skips_left_uncounted() -> None:
+    """The real 2026-10-04 log (`.19`, 2,586 skips, `Ripping errors: 0`).
+
+    `.19` did not count skips, and the line has no suffix, so M is 0 and the
+    drive's count is the line's: what the fork's S11 says of every such line.
+    """
+    text = (
+        Path(__file__).resolve().parent.parent
+        / "docs/handshake/artifactsround30/round30oct04full.log"
+    ).read_text(encoding="utf-8")
+    parsed = parse_cyanrip_log(text)
+    assert parsed.paranoia_counts.get("SKIP") == 2586  # the skips are there…
+    assert (parsed.ripping_errors, parsed.ripping_errors_paranoia_skips) == (0, 0)
+    assert parsed.drive_read_errors == 0  # …and were never in the count
+    assert parsed.health_status == "No errors occurred"
+
+
 # --- `Tracks to rip:` and the `Interrupted at:` shapes (the 2026-09-28 Full run) --
 #
 # Both read so the EAC-compatible log and the rip audit can say what a cancelled rip
