@@ -1125,6 +1125,8 @@ each side's reading; and the closing releases named.
   is the one predicate: finished every requested track by the footer and our own track
   blocks, exit 0 or 1, the pass's own log, no failed encode, not stopped by us, and drive
   errors. **Our next lap says S28 was wrong** and points at the commit.
+  - *Done in `ff67e65e` (the parser reads `.20`'s skip suffix) and `a5e23bda` (the
+    ladder asks `judge_step_down`):* 14 reverts probed, all detected.
 - [ ] **Should the securing pass run after a finished pass the drive could not read
   cleanly?** (follow-up to the row above; round 30 lap 9 S13.) It is still keyed on exit 0,
   so after a ladder that ends on such a pass, or in fixed mode, the tracks AccurateRip did
