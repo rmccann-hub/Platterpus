@@ -73,7 +73,7 @@
       },
       {
         "name": "platterpus:count:host-tool",
-        "value": "28"
+        "value": "29"
       },
       {
         "name": "platterpus:count:desktop",
@@ -1684,6 +1684,32 @@
         {
           "name": "platterpus:used-in",
           "value": "src/platterpus/deps/host_setup.py"
+        },
+        {
+          "name": "platterpus:runs-in",
+          "value": "host"
+        },
+        {
+          "name": "platterpus:version-basis",
+          "value": "not checked; whatever the system provides"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "tool-host:pgrep",
+      "name": "pgrep",
+      "isExternal": true,
+      "description": "Lists the reader processes the host sees: the exit check, and the acceptance bundle's record of whether a ripper was still running as it was packed (host copy only; never signals anything).",
+      "scope": "optional",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "host-tool"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "src/platterpus/drive_control.py"
         },
         {
           "name": "platterpus:runs-in",
@@ -3511,6 +3537,7 @@
         "tool-host:kbuildsycoca5",
         "tool-host:kbuildsycoca6",
         "tool-host:pacman",
+        "tool-host:pgrep",
         "tool-host:pkexec",
         "tool-host:pkill",
         "tool-host:sh",
