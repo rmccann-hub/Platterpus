@@ -266,6 +266,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The operator's final round-30 acceptance run (2026-10-05) is filed and graded
+  `partial`.** 316 of 323 steps passed on cyanrip `.19` and Platterpus 0.6.65. The
+  seven failures are the same screenshot steps as the 2026-09-30 run, which a later
+  build already handles. Every rip's log verified, and the app logged no error during
+  the run. Track 3 of the test disc no longer reads the same way twice, and the logs
+  say so; that is the disc, not the software.
 - **A register of what Platterpus and the cyanrip fork each want from the other,
   and can give.** On the operator's instruction, `docs/cyanrip-handshake.md` §10
   lists each datum one side wants from the other: what it would improve, how
