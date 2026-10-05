@@ -69,8 +69,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   confirm. If you stopped the rip during that, every result it had already reached
   was thrown away, so the rip's EAC-style log said "Copy OK" over tracks that had
   been read five times without two reads agreeing. Those results are now kept and
-  shown: the log says the re-reads did not agree. Nothing from a stopped re-read is
-  swapped into your album.
+  shown: the log says the re-reads did not agree. They are kept even when cyanrip
+  never finished writing the end of its own log, which on a damaged disc it may not
+  manage in any reasonable wait. Nothing from a stopped re-read is swapped into
+  your album.
+- **Cancelling a rip on a slow or damaged disc now waits for cyanrip to finish
+  its log.** cyanrip stops only once the read in progress returns, and on the
+  2026-10-04 damaged disc one read took 54 seconds. Platterpus gave up waiting
+  after 20 seconds and recorded the log as unsigned. It now waits up to about two
+  minutes, and stops waiting as soon as the log is complete, which on a healthy
+  disc takes a few seconds. While it waits, the status line says so and says that
+  Force stop ends it at once, with an incomplete log. The acceptance test's cancel
+  sections now wait as long before they check the cancelled rip's log (135 s,
+  where they waited 30), and a test holds them to the app's own number.
 - **Changing discs no longer blanks the drive's read offset and cache-defeat rows.**
   Taking a disc out cleared them along with the disc's own details, and putting the
   next disc in did not bring them back until a Rescan. They describe the drive, which

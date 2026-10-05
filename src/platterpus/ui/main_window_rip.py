@@ -1121,6 +1121,16 @@ class RipMixin(MainWindowShared):
             "(no eject, no SIGKILL — the log's footer is written from atexit)",
             device,
         )
+        # The countdown the status promised has run out, and on a damaged disc the
+        # ripper can take a minute or two more to finish the read in hand and sign
+        # its log (2026-10-04: one read took 54 s). Only while the rip is still
+        # ours to report: once it has finished, its own final line stands.
+        if self._rip_worker is not None:
+            self._rip_progress.set_status(
+                "Stopping the ripper… on a slow or damaged disc it finishes the "
+                "read in progress first, which can take a minute or two. Force "
+                "stop ends it now, but the rip's log will then be incomplete."
+            )
         thread = threading.Thread(
             target=drive_control.free_device_holders,
             kwargs={"device": device, "signal": "TERM"},

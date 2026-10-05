@@ -628,6 +628,18 @@ runs, each with a regression test:
 - [x] **An exit check in the log** (`exit_work.audit`), the operator's request: as the
   process leaves, whether anything still holds the drive and whether a cyanrip process
   still runs, tri-state, as the host sees them.
+- [x] **The first of those fixes did not cover the run it came from, and now does.** Its
+  test's securing-pass log had a footer; the real one cannot have one, because a reader
+  in a 54 s read cannot sign its log inside the 20 s the cancel path waited. A stopped
+  pass now keeps every verdict its log wrote whole, footer or not (safe because a log
+  is only ever cut short at its end), and the cancel path waits for the read in hand
+  (`READER_TERM_GRACE_S`), about two minutes at most, saying so on the status line.
+- [x] **Why the rescue's SIGTERM is the reader's first is now stated correctly.** The
+  fork's tree (`cyanrip@64b3a623`) reads the 10-04 cancel as sending a second TERM 4.9 s
+  after the first. On our measurements the wrapper's SIGTERM does not cross into the
+  container (2026-09-07: the reader ripped on for 15.5 minutes; 2026-09-09: footer
+  1.7 s after the rescue), so the rescue's is the first. Our docstring had said a
+  signalled reader would have exited, which a 54 s read disproves.
 
 Open:
 
@@ -653,6 +665,12 @@ Open:
 - [ ] **The securing pass's own ripper log is always deleted with its temp folder.** On
   success the swap addendum carries what was swapped; the per-read record of a pass
   that swapped nothing is in no artifact.
+- [ ] **If a podman ever forwards the wrapper's SIGTERM into the container, the
+  post-cancel rescue becomes a second signal** on any read longer than its 5 s
+  countdown, and cyanrip `_exit(1)`s without its footer
+  (`cyanrip@174a134:src/cyanrip_main.c` `on_quit_signal`). Nothing measures which
+  world a rig is in. A kept securing-pass log (the row above) would show it: a
+  cancelled pass on a slow read whose log has no footer.
 
 ## Round 30 — OPEN on `174a134` (`+platterpus.19`): the Full run on 0.6.65 with `.19`, and the operator's release-cycle question
 

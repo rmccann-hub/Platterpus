@@ -297,7 +297,7 @@ A fuller one, kept current and runnable, is
 | re-rip only the tracks that failed | `select-tracks 3,7,11-13` |
 | prove a probe refuses on a disc image | `cyanrip -x -N` then `expect-cyanrip not run` |
 | check a setting without changing it | `expect <field> <value>` |
-| test the cancel path | `rip`, `wait 30`, `cancel-rip`, `wait-for-rip 120` |
+| test the cancel path | `rip`, `wait 30`, `cancel-rip`, `wait-for-rip 180` |
 | capture the whole window, dialogs included | `screenshot <name>` |
 | record visible state as text | `snapshot <name>` |
 | run any ripper invocation for real | `cyanrip <args…>` |

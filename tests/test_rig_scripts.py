@@ -833,6 +833,32 @@ def _section_bodies() -> dict[str, list[str]]:
     return bodies
 
 
+def test_the_cancel_section_waits_as_long_as_the_app_waits_for_the_log() -> None:
+    """Section I grades the log a cancel left, so it must wait for that log.
+
+    The app waits `cancelled_log_wait_s()` for a cancelled rip's log to be
+    signed: the rescue, the read in hand, the flush. The section used to wait
+    30 s, which on the 2026-10-04 damaged disc (a 54 s read) ends while the
+    ripper is still in that read, so `expect-log-well-formed` would grade a log
+    still being written. Held to the app's own number, so neither moves alone.
+    """
+    from platterpus.workers.rip_worker import cancelled_log_wait_s
+
+    body = _section_bodies()["I"]
+    assert "cancel-rip" in body, f"section I no longer cancels: {body}"
+    after = body[body.index("cancel-rip") + 1 :]
+    waits = [float(line.split()[1]) for line in after if line.startswith("wait ")]
+    assert waits, f"section I does not wait after its cancel: {after}"
+    graded = after.index("expect-log-well-formed")
+    waited = sum(
+        float(line.split()[1]) for line in after[:graded] if line.startswith("wait ")
+    )
+    assert waited >= cancelled_log_wait_s(), (
+        f"section I waits {waited:.0f}s before grading the cancelled rip's log, "
+        f"and the app waits up to {cancelled_log_wait_s():.0f}s for that log"
+    )
+
+
 def test_the_two_whole_disc_rips_each_pin_the_goal_that_makes_them_different() -> None:
     """F is the fast whole-disc rip and N is the uniform secure re-read. If either
     inherits its goal, the run can do one of them twice and report success.
