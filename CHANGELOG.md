@@ -121,6 +121,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   and a stopped re-read pass left no record of how far it got. It is now saved
   beside the album's log as `<album>.platterpus-securing-pass.txt`, complete or
   not. It is a `.txt` so that nothing mistakes it for the album's own log.
+- **The acceptance-test bundle now includes each rip's cyanrip record.** Every
+  rip asks cyanrip for a machine-readable record of how it ended (`-j`), which
+  cyanrip writes as it exits, but the session bundle never collected one: the
+  records sit in the rips folder, not in an album folder. The bundle now carries
+  every record written during the session, and if rips landed but no record did,
+  its facts say so instead of leaving the gap unmentioned. The cyanrip fork found
+  this in its reading of our 2026-10-04 runs.
 - **Starting Platterpus should no longer stall for a minute while the ripping
   container starts.** At launch, the dependency check and the first disc scan
   both started the stopped container in the same second, and both hung: the

@@ -1401,6 +1401,7 @@ class ProvisioningMixin(MainWindowShared):
             finish_session,
             ripper_processes_fact,
             session_album_dirs,
+            session_diagnostics_records,
             session_sources,
         )
 
@@ -1462,12 +1463,17 @@ class ProvisioningMixin(MainWindowShared):
                         exc,
                     )
                 albums = session_album_dirs(roots, since=since)
+                records, records_dropped = session_diagnostics_records(
+                    roots, since=since
+                )
                 result = finish_session(
                     layout,
                     sources=session_sources(layout, log_path=LOG_PATH, extra=extra),
                     outcome="acceptance test session",
                     facts={**facts, **ripper_processes_fact()},
                     album_dirs=albums,
+                    record_files=records,
+                    records_dropped=records_dropped,
                     embedded_text={
                         "DIAGNOSTICS.txt": diagnostics,
                         # Every user setting before and at the end of the run —

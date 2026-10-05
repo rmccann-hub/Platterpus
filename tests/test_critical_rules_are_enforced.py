@@ -1896,7 +1896,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # script `cyanrip` verb's folder — no app rip, so no `*.platterpus.json` — reaches
     # the bundle's strict album channel. It is the same scan's other half, not a job.
     # **932 -> 974** (2026-10-05, the 2026-10-04 run's bundle packed around a live rip): how long a finished session waits for its rip to stop (`rip_wait_s`, derived from the app's own wait for a cancelled rip's log) and the ripper processes the host sees as the bundle is packed (`ripper_processes_fact`), Qt-free here beside the facts they join.
-    "test_session.py": 974,
+    # **974 -> 1053** (2026-10-05, the same reading): `session_diagnostics_records` and `_record_facts`, so the session bundle carries every rip's `-j` record through the strict single-file route and names their absence when rips landed and none did. The album scan's sibling: the same "discovered, not remembered" job over the same roots, so it lives beside it.
+    "test_session.py": 1053,
     "ui/dialogs/pending_installs.py": 419,
     # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
     # channels (they live above the checks they steer), a Drive section holding
@@ -2072,7 +2073,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1627 -> 1690 (2026-09-30)**: the acceptance session holds the screen awake beside the sleep lock (`platterpus.screen_inhibit`), after round 29's three screenshot failures found every window unexposed; the wiring sits beside the sleep lock's because it shares its lifecycle: started with it, released on every path that releases it, and recorded in the same facts.
     # **1690 -> 1689** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the console is no longer handed `allow_unsafe`.
     # **1689 -> 1763** (2026-10-05, the same run): `_acceptance_rip_at_end` keeps the session armed until a rip still reading has stopped, bounded, and puts what it found in the bundle's facts, so settings are not restored under a rip and no bundle is packed around a log still being written.
-    "ui/main_window_provision.py": 1763,
+    # **1763 -> 1769** (2026-10-05, the fork's reading of our 2026-10-04 runs: no `-j` record in any bundle): the pack asks `session_diagnostics_records` for the rips' records and hands them to `finish_session`; the scan itself lives in `test_session`.
+    "ui/main_window_provision.py": 1769,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
