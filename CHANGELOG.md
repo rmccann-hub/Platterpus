@@ -144,6 +144,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   62-digit one; its own checker read that as no hash at all, which is only a
   warning. A misquote already sent is recorded, and honoured only while it is the
   real hash with a character or two dropped.
+- **The shared handshake protocol and seam rules are at version 7, landed byte for
+  byte as the cyanrip fork landed them** (their round 30 lap 7, released at
+  `cyanrip@4371a501`, filed here). Round 30 closes under version 6, and our gate
+  moves to 7 before round 31 begins, as the text says. `CLAUDE.md` rule #12's S-14
+  sentence now says a finding is fixed within the round from round 31, on the
+  maintainer's approval, since the rules section is locked.
 - For contributors: the acceptance script's `cancel-rip` now cancels only a rip
   started by the script's most recent `rip` step. On 2026-10-04 a refused `rip`
   was followed by a `cancel-rip` that stopped an earlier section's seven-hour rip.

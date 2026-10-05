@@ -11,6 +11,40 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-05 — Round 30 lap 8 (GO, held), v7 landed, and what the 2026-10-04 runs found
+
+**Asked:** *"our round 30 lap 7 is published at 4371a50"*; then three bundles of the
+2026-10-04 runs; *"platterpus and cyanrip were both closed before sending files… maybe
+include a check to make sure this is true on program close and in the logs"*; a relayed
+analysis and a handoff note on the same runs.
+
+**Done:**
+- *Their lap 7 checked* (`dc2029ba`): our checker now refuses A3's commit-only finding
+  (their S2); the quit grace follows the fork's filed 21 s read (S16); a test refuses a
+  declared shared hash that is not a sha256, after lap 7 went out with a 62-digit one.
+- *The 2026-10-04 runs* (`<C2>`): four runs, three stopped correctly on discs MusicBrainz
+  does not know, one on a damaged disc for seven hours. Filed, graded `partial`, and
+  six defects of ours fixed with tests: a stopped securing pass's verdicts kept; the
+  status line says cancelled, and names a track with unverified paranoia skips;
+  `cancel-rip` scoped to its own rip; `pick-release` keyed on the release id, as
+  `expect-identified` is; a disc swap keeps the drive's rows; the grace 108 s on a 54 s
+  read. And the operator's exit check, `exit_work.audit`, which logs at exit whether
+  anything still holds the drive or a cyanrip process still runs.
+- *v7 landed here*, byte-identical to the fork's, with `CLAUDE.md`'s S-14 sentence, and
+  their lap 7 filed; our lap 8 written `GO`, held for the operator's word.
+
+**Learned:**
+- *A guard that drops a result can drop the work beside it.* The securing pass dropped
+  the whole run's log on a cancel, and with it five finished tracks' verdicts. Recorded
+  in `docs/testing.md` §5.bi already as a rule; this was the rule's next instance, in a
+  worker it had not been applied to.
+- *A bundle cannot show its own app's exit*: it is written while the app runs. So the
+  exit is checked and logged at exit, and the next session's bundle carries it.
+- *Check a relayed analysis against the artifact, as any other claim.* The handoff's
+  guess about the drive rows was right in effect and wrong in mechanism: the values were
+  not reset by a disc change, they were cleared by the removal reset and nothing
+  refilled them.
+
 ## 2026-09-30 — Round 30 lap 6: the v7 texts amended, S17 fixed off the window, D3 and S24 built
 
 **Asked:** *"our round 30 lap 5 is published at a2bc156"*, then, on the three
