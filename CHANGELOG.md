@@ -300,6 +300,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   it is, with the condition that would make it wrong. It starts with six wants
   and six gives of ours. Our round 30 lap 8 asks the fork to rate its half and
   add its own.
+  Their round 30 lap 9 rated our six wants (two turned out already available:
+  which re-read is running, and how a rip ended), declined one of our gives as
+  ours to build, and added five wants and three gives of their own, now in the
+  register. Two of their wants, `cd-paranoia -A`'s output and the securing
+  pass's own log, were already in every acceptance bundle.
 - For contributors: the build under review is now derived from the cyanrip
   fork's newest release when its two channels disagree, by release number,
   because under our operator's O3 ruling a new build goes to beta alone until
