@@ -2650,12 +2650,14 @@ V7_FIELDS_FROM_PROTOCOL: Final[int] = 7
 #: The rest is prose for the reader and is not graded. ``none`` must be a whole
 #: word, so ``nonesuch`` and ``none-of-the-above`` are refused. The same pattern
 #: as the fork's ``NEXT_LAP_VALUE_RE``
-#: (``cyanrip@872b4156:tools/release-gate.py:173``), and the same cases are pinned
+#: (``cyanrip@872b4156:tools/release-gate.py:173``) except that the lap number is
+#: bounded to four digits (the regex-timing sweep measured the unbounded ``\d+``
+#: growing quadratically under ``.search``; R7 caps a round at lap 21), and the same cases are pinned
 #: in ``tests/test_handshake_conformance.py``. Two implementations agreeing is not
 #: either one being correct, so the test reads its cases from the spec's wording,
 #: not from their file.
 _NEXT_LAP_VALUE: Final[re.Pattern[str]] = re.compile(
-    r"(?:\d+ \((?:ours|yours)\):|none(?![\w-]))"
+    r"(?:\d{1,4} \((?:ours|yours)\):|none(?![\w-]))"
 )
 
 

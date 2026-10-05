@@ -3396,3 +3396,23 @@ def test_interruption_point_reads_only_the_two_published_shapes(
 def test_no_interruption_record_is_not_an_interruption_point(where: object) -> None:
     """No line at all is a different answer from a line we cannot read."""
     assert cyanrip_log.interruption_point(where) is None
+
+
+def test_an_implausible_ripping_errors_count_is_not_determined_and_not_no_errors() -> (
+    None
+):
+    """A 20-digit `Ripping errors:` count is no count of anything on a CD. It is
+    stored as not determined, and the health line says what the ripper printed,
+    never "No errors occurred". Found by the structure fuzz test, 2026-10-05, once
+    the ladder fix made the count a stored field."""
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    parsed = parse_cyanrip_log(
+        "cyanrip 0.9.4 (platterpus-fork-gdeadbee)\n"
+        "Ripping errors: 99999999999999999999 (including 5 paranoia skips)\n"
+    )
+    assert parsed.ripping_errors is None
+    assert parsed.ripping_errors_paranoia_skips is None
+    assert parsed.health_status is not None
+    assert "No errors" not in parsed.health_status
+    assert parsed.health_status.startswith("9999")

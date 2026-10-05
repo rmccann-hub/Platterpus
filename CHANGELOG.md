@@ -127,6 +127,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A nonsense "Ripping errors" count from cyanrip no longer reads as "No errors
+  occurred".** A count far beyond anything a CD could produce is now recorded as
+  "not determined", and the rip's health line repeats what cyanrip printed.
+- For contributors: the handshake gate's `HANDSHAKE-NEXT-LAP` check (protocol 7,
+  row C46) bounds the lap number it reads to four digits, after the regex-timing
+  sweep, now extended to `scripts/`, measured the unbounded pattern slowing down
+  quadratically on a long line.
 - For contributors: `scripts/check.py` now reports a gate that printed something
   and then hung as timed out, with what it printed. It used to crash with a
   `TypeError` instead, because Python hands back a timed-out child's output as

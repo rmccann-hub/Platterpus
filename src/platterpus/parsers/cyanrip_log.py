@@ -2071,11 +2071,40 @@ def interruption_point(where: object) -> InterruptionPoint | None:
     return InterruptionPoint(INTERRUPTED_NOT_DETERMINED, text)
 
 
+#: Above this, a `Ripping errors:` count (or its skips) is not a count of anything
+#: on a CD, which has about 360,000 sectors, and is stored as "not determined"
+#: rather than as a number. Kept far above any real value so it can only refuse
+#: garbage; the structure fuzz test found the unbounded `\d+` storing a 20-digit
+#: value once the count became a stored field (2026-10-05).
+_MAX_PLAUSIBLE_ERROR_COUNT: Final[int] = 10**9
+
+
+def _plausible_count(value: int | None) -> int | None:
+    """``value`` if it could be a count of read errors on a CD, else None."""
+    if value is None or not 0 <= value <= _MAX_PLAUSIBLE_ERROR_COUNT:
+        return None
+    return value
+
+
 def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
-    parsed = int_or_none(match.group("count"), field="cyanrip ripping-error count")
+    raw = int_or_none(match.group("count"), field="cyanrip ripping-error count")
+    parsed = _plausible_count(raw)
+    if raw is not None and parsed is None:
+        log.warning(
+            "cyanrip's Ripping errors count %r is not a plausible count; "
+            "stored as not determined",
+            match.group("count")[:40],
+        )
     disc.ripping_errors = parsed
-    disc.ripping_errors_paranoia_skips = _ripping_error_skips(match)
-    count = parsed or 0
+    skips = _ripping_error_skips(match)
+    disc.ripping_errors_paranoia_skips = (
+        None if parsed is None else _plausible_count(skips)
+    )
+    if parsed is None:
+        # An implausible count is not "no errors": say what the ripper printed.
+        disc.health_status = f"{match.group('count')[:40]} ripping errors"
+        return True
+    count = parsed
     # Same phrasing as the legacy format's healthy verdict so downstream string
     # checks treat both formats alike. N, skips included: from `.20` a rip that
     # skipped reads "N ripping errors" where `.19` read "No errors occurred", and

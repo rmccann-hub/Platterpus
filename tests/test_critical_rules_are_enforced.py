@@ -1732,7 +1732,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3189 -> 3233** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): `_SECURE_DONE_FAIL` reads it beside `no matches found`, before any build prints it (round 20's order). Nearly all of it is the reasoning: why "no matches found" never meant "no two reads agreed" (the round-28 artifact, lines 381-385), and why the new arm matches only the prefix — too strict a pattern fails toward a false "Test and Copy CRC identical".
     # **3233 -> 3345** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `secure_rerip_progress` and `secure_rerip_limit_agreement`. The `Repeating ripping` line graduates from the ignore list to a parsed rule, and the fork's `at most M reads agreed` is read as a fragment, so a limit-hit track carries how many of its reads agreed. They must live here: the completeness sweep walks this module's regex constants and the rule tables are what the consumer contract publishes. Most of the growth is the derivation from cyanrip's source of when a floor is exact.
     # **3345 -> 3399** (2026-10-05, the fork's round 30 lap 9 S11/S12): `.20`'s `Ripping errors: N (including M paranoia skips)`. `_RIP_ERRORS` gains the optional `skips` group and the handler keeps N, M and the `Encoder errors:` failed count as numbers, so the read-speed ladder can subtract the skips. The pattern must live here (the rule table is what the generated contract publishes); most of the growth is the citations saying what N counts and why a suffix we cannot read is not zero skips.
-    "parsers/cyanrip_log.py": 3399,
+    # **3399 -> 3428** (2026-10-05, found by the structure fuzz test): an
+    # implausible `Ripping errors:` count is stored as not determined and never
+    # reads as "No errors occurred" (`_plausible_count`, `_MAX_PLAUSIBLE_ERROR_COUNT`).
+    "parsers/cyanrip_log.py": 3428,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1866,7 +1869,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # contract (P5 120 -> 123 rows, each row six lines), plus two retained rows with
     # their reasons: the MusicBrainz message `.18` dropped, and `.19`'s reworded
     # repeat-limit line, which is in P5a beside the old one.
-    "ripper_message_inventory.py": 1137,
+    # **1137 -> 1172** (2026-10-05): regenerated from `.20`'s contract (their round
+    # 30 lap 9; P5 123 -> 126 rows, four `-Z` spool errors in, one out), and the
+    # retained `Error in encoding: %s` with its reason (`.19` and older print it).
+    "ripper_message_inventory.py": 1172,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
@@ -2531,7 +2537,11 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     "scripts/emit_script_language.py": 504,
     # **4365 -> 4368** (2026-10-05): `_WIRE_FIELD` rewritten greedy (linear in a
     # run of blanks, same matches), one line of it the formatter's wrap.
-    "scripts/handshake.py": 4368,
+    # **4368 -> 4453** (2026-10-05): protocol 7. `next_lap_problems` (row C46,
+    # `HANDSHAKE-NEXT-LAP` on every lap of a file declaring 7), its two call sites,
+    # the bounded value pattern, and `PROTOCOL_VERSION`'s history; one gate row
+    # with its reasons, and the module is the gate the row belongs to.
+    "scripts/handshake.py": 4453,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     "scripts/laplang/lsl3.py": 433,
     "scripts/laplang/refs.py": 324,
