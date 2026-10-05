@@ -28,6 +28,7 @@ from platterpus.drive_profiles import (
     OffsetRecord,
     OffsetSource,
 )
+from platterpus.rip_estimate import ReadRate
 
 log = logging.getLogger(__name__)
 
@@ -94,7 +95,36 @@ def _profile_to_dict(profile: DriveProfile) -> dict[str, object]:
         "cache_defeat_source": cache_source.value if cache_source else None,
         "last_seen_device": profile.last_seen_device,
         "last_seen_at": profile.last_seen_at,
+        "read_rate": _rate_to_dict(profile.read_rate),
     }
+
+
+def _rate_to_dict(rate: ReadRate | None) -> dict[str, object] | None:
+    if rate is None:
+        return None
+    return {
+        "audio_seconds": rate.audio_seconds,
+        "read_seconds": rate.read_seconds,
+        "rips": rate.rips,
+    }
+
+
+def _rate_from_dict(raw: object) -> ReadRate | None:
+    """Rebuild a read rate; None if absent or unusable (an older file has none)."""
+    if not isinstance(raw, dict):
+        return None
+    audio = raw.get("audio_seconds")
+    reading = raw.get("read_seconds")
+    rips = raw.get("rips")
+    if not isinstance(audio, int | float) or isinstance(audio, bool):
+        return None
+    if not isinstance(reading, int | float) or isinstance(reading, bool):
+        return None
+    if not isinstance(rips, int) or isinstance(rips, bool):
+        return None
+    if audio <= 0 or reading <= 0 or rips < 0:
+        return None
+    return ReadRate(float(audio), float(reading), rips)
 
 
 def _profile_from_dict(fingerprint: str, raw: object) -> DriveProfile | None:
@@ -117,6 +147,7 @@ def _profile_from_dict(fingerprint: str, raw: object) -> DriveProfile | None:
         ),
         last_seen_device=str(raw.get("last_seen_device", "")),
         last_seen_at=str(raw.get("last_seen_at", "")),
+        read_rate=_rate_from_dict(raw.get("read_rate")),
     )
 
 

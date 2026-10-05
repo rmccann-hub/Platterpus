@@ -37,6 +37,7 @@ from platterpus import (
     diagnostics_record,
     drive_control,
     inbound_text,
+    rip_estimate,
     ripper_exit,
 )
 from platterpus.adapters.rip_backend import (
@@ -65,6 +66,7 @@ from platterpus.rip_addendum import (
     securing_pass_log_path_for,
     write_addendum,
 )
+from platterpus.rip_estimate import ReadRate
 from platterpus.rip_plan import describe_rip_plan
 from platterpus.ripper_log_settle import (
     NOT_SETTLED,
@@ -144,6 +146,9 @@ class RipParameters:
     # agree. On by default: `Config`'s own named default, so a worker built from
     # defaults rips the way a user's does. False accepts the match on the fast read.
     rerip_offset_variant: bool = DEFAULT_RERIP_OFFSET_VARIANT
+    # The drive's measured reading speed (or the rig's for its model), for the
+    # up-front time estimate (`rip_estimate`). None: no estimate up front.
+    read_rate: ReadRate | None = None
 
 
 # Human-readable phase descriptions for the status line. Without these
@@ -948,6 +953,11 @@ class RipWorker(QObject):
         # every phase and is wildly wrong early (it printed "822h" at 0.01% on a
         # real disc). None until the loop starts.
         self._started_monotonic: float | None = None
+        # The up-front time estimate (`rip_estimate`), made when the plan is
+        # logged; None when there is none. `_estimate_known` is False when the
+        # reason is that a selected track's length is not known.
+        self._estimate: rip_estimate.RipEstimate | None = None
+        self._estimate_known: bool = True
         # Epoch wall-clock start of this rip (0.0 = unset → log discovery is
         # unfiltered). Set in start_rip; used to ignore a previous album's log.
         self._rip_started_at: float = 0.0
@@ -1078,6 +1088,55 @@ class RipWorker(QObject):
         self._disc_in_accuraterip: bool | None = None
         self._secure_rerip_skipped_reason: str | None = None
 
+    def _make_estimate(self) -> rip_estimate.RipEstimate | None:
+        """The up-front estimate for this rip, from its tracks' lengths. Never raises.
+
+        The lengths are MusicBrainz's, carried on ``params.metadata``; every
+        selected track must have one, or the figure would be for a different
+        rip. Sets ``_estimate_known`` to say which reason a None has.
+        """
+        try:
+            params = self._params
+            metadata = params.metadata
+            wanted = set(params.only_tracks)
+            lengths = [
+                t.length_ms
+                for t in (metadata.tracks if metadata is not None else ())
+                if not wanted or t.number in wanted
+            ]
+            if not lengths or any(not isinstance(ms, int) or ms <= 0 for ms in lengths):
+                self._estimate_known = False
+                return None
+            self._estimate_known = True
+            return rip_estimate.estimate_rip(
+                sum(ms for ms in lengths if isinstance(ms, int)) / 1000,
+                params.read_rate,
+                secure_rerip_matches=params.secure_rerip_matches,
+                dynamic=params.secure_rerip_dynamic,
+                max_retries=params.max_retries,
+            )
+        except Exception:  # noqa: BLE001 — an estimate must never stop a rip
+            log.exception("could not estimate the rip's time")
+            return None
+
+    @property
+    def estimate_seconds(self) -> float | None:
+        """The up-front estimate's main figure, for the finish line's comparison."""
+        return self._estimate.seconds if self._estimate is not None else None
+
+    def _early_estimate_text(self, elapsed: float) -> str:
+        """The up-front estimate as an ETA suffix, while the live one warms up.
+
+        The live estimate needs eight seconds and the first 5% of the album; for
+        that stretch the status said nothing about time at all. Album pass only.
+        """
+        if self._estimate is None or self._pass_kind == _PASS_REFIX:
+            return ""
+        left = self._estimate.seconds - elapsed
+        if left <= 0:
+            return ""
+        return f" · about {rip_estimate.rough(left)} left (estimated)"
+
     def _album_eta_text(self, overall_pct: float, task_pct: float | None = None) -> str:
         """A smoothed, self-correcting album ETA suffix (" · about 25m left").
 
@@ -1119,17 +1178,21 @@ class RipWorker(QObject):
         # pass — there the album bar is deliberately parked at the top of its
         # range (`_POST_RIP_BAND_START`), which would trip the "effectively done"
         # test on every single tick and silence the phase's own estimate.
-        if not securing and (frac <= 0.05 or frac >= 0.999):
+        if not securing and frac >= 0.999:
             return ""
         now = time.monotonic()
         elapsed = now - started
+        if not securing and frac <= 0.05:
+            return self._early_estimate_text(now - (self._started_monotonic or now))
         # A securing pass warms up faster because it is measuring a much shorter
         # thing: 8 seconds of silence out of a 30-second re-read is most of it.
         min_elapsed = (
             _REFIX_MIN_ELAPSED_FOR_ETA_S if securing else _MIN_ELAPSED_FOR_ETA_S
         )
         if elapsed < min_elapsed:
-            return ""
+            if securing:
+                return ""
+            return self._early_estimate_text(now - (self._started_monotonic or now))
         # Stall detection FIRST — before any projection. Track when the drive last
         # proved itself alive; if it hasn't for the threshold, it's stuck on a
         # hard-to-read spot (real hardware: a track that hung for hours while the
@@ -1700,6 +1763,11 @@ class RipWorker(QObject):
             # it while the disc is still spinning up).
             log.info("%s", planned)
             self.log_line.emit(planned)
+        # The time estimate, beside the plan and in the same two places.
+        self._estimate = self._make_estimate()
+        estimate_line = f"[plan]   {rip_estimate.describe(self._estimate, known=self._estimate_known)}"
+        log.info("%s", estimate_line)
+        self.log_line.emit(estimate_line)
 
         # Stamp the wall-clock start once (album-ETA baseline spans all passes).
         self._started_monotonic = time.monotonic()

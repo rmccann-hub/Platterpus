@@ -963,6 +963,79 @@ def _pin_pioneer(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+def test_the_rip_estimate_uses_the_drives_own_rate_else_the_rigs_for_its_model(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A drive with rips of its own is estimated from them; the rig's drive model
+    with none gets the rig's measurement; any other drive gets no estimate,
+    because drives differ several-fold and a wrong figure is worse than none."""
+    from dataclasses import replace
+
+    from platterpus.drive_profiles import DriveProfile
+    from platterpus.rip_estimate import ReadRate
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    seeded = window._read_rate_for_current_drive()
+    assert seeded is not None and seeded.rips == 0, "the rig's model got no seed"
+
+    own = ReadRate(1800.0, 900.0, 4)
+    window._drive_profiles.upsert(
+        replace(
+            DriveProfile(
+                fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D"
+            ),
+            read_rate=own,
+        )
+    )
+    assert window._read_rate_for_current_drive() == own
+
+    other = DriveDescriptor(device="", vendor="ACME", model="DVD-RW 9000", release="1")
+    monkeypatch.setattr(window._drive_picker, "current_drive", lambda: other)
+    assert window._read_rate_for_current_drive() is None
+
+
+def test_a_finished_rip_teaches_the_drive_its_speed_but_a_uniform_rip_does_not(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only a first pass that read each track once: a uniform `-Z` rip's
+    extraction times hold every read, and would make the drive look slower."""
+    from types import SimpleNamespace
+
+    from platterpus.drive_profiles import DriveProfile
+
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    window._drive_profiles.upsert(
+        DriveProfile(fingerprint=_PIONEER_FP, vendor="PIONEER", model="BD-RW  BDR-209D")
+    )
+    track = SimpleNamespace(
+        start_sector=0, end_sector=7499, extraction_elapsed_seconds=50.0
+    )
+    rip_log = SimpleNamespace(tracks=[track])  # 100 s of audio in 50 s
+
+    window._rip_cancelled = False
+    window._active_rip_params = SimpleNamespace(
+        secure_rerip_matches=2, secure_rerip_dynamic=False
+    )
+    window._learn_read_rate(rip_log, success=True)
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.read_rate is None, "a uniform rip taught"
+
+    window._active_rip_params = SimpleNamespace(
+        secure_rerip_matches=2, secure_rerip_dynamic=True
+    )
+    window._learn_read_rate(rip_log, success=False)
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.read_rate is None, "a failed rip taught"
+
+    window._learn_read_rate(rip_log, success=True)
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.read_rate is not None
+    assert profile.read_rate.rips == 1 and profile.read_rate.multiple == 0.5
+    window._active_rip_params = None
+
+
 def test_rip_lock_greys_conflicting_ui(teardown_threads) -> None:
     """During a rip the drive picker and conflicting menu actions grey out; Quit
     stays available (it force-stops on exit). Unlock restores.
@@ -1272,6 +1345,33 @@ def test_rip_self_heals_untrusted_wrong_offset(
     assert profile.offset.value == 667  # ledger updated → no stale disagreement
     _pump_until_rip_started(window, rip_kwargs)
     assert rip_kwargs and rip_kwargs[0].get("read_offset_override") == 667
+
+
+def test_starting_a_rip_hands_the_worker_the_drives_reading_speed(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The estimate is made in the worker, from the rate the start path gives
+    it; a rate that never reaches the worker makes no estimate at all."""
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _o: True
+    )
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    started: list[object] = []
+    monkeypatch.setattr(window, "_start_rip_worker", started.append)
+    monkeypatch.setattr(message_boxes, "information", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "platterpus.ui.message_boxes.warning",
+        lambda *a, **k: QMessageBox.StandardButton.No,
+    )
+
+    window._on_rip_requested(_params_unknown())
+
+    assert started, "floor: the rip never reached the worker"
+    rate = getattr(started[0], "read_rate", None)
+    assert rate is not None and rate.rips == 0, (
+        f"the Pioneer's rig seed did not reach the worker: {rate}"
+    )
 
 
 def test_rip_does_not_heal_a_deliberate_manual_offset(

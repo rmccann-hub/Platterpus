@@ -34,9 +34,13 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QMessageBox
+
+if TYPE_CHECKING:  # the type only; the module is imported where it is used
+    from platterpus.rip_estimate import ReadRate
 
 from platterpus import drive_media
 from platterpus.disc_probe_retry import (
@@ -301,6 +305,74 @@ class DriveMixin(MainWindowShared):
             wwn=wwn,
         )
         return fingerprint, serial, wwn
+
+    def _read_rate_for_current_drive(self) -> ReadRate | None:
+        """The selected drive's measured reading speed, else the rig's for its model.
+
+        ``None`` for a drive with no rip of its own and no measurement of its
+        model: drives differ several-fold, and no estimate beats a wrong one
+        (`rip_estimate`). Never raises.
+        """
+        from platterpus import rip_estimate
+        from platterpus.adapters.accuraterip_offsets import normalize_drive_name
+
+        try:
+            drive = self._drive_picker.current_drive()
+            if drive is None:
+                return None
+            fingerprint, _serial, _wwn = self._fingerprint_for(drive)
+            profile = self._drive_profiles.get(fingerprint)
+            if profile is not None and profile.read_rate is not None:
+                return profile.read_rate
+            return rip_estimate.seed_for(
+                normalize_drive_name(drive.vendor, drive.model)
+            )
+        except Exception:  # noqa: BLE001 — an estimate must never stop a rip
+            log.exception("could not read the drive's measured reading speed")
+            return None
+
+    def _learn_read_rate(self, rip_log: object, *, success: bool) -> None:
+        """Fold this rip's first reads into the drive's profile. Never raises.
+
+        Only a first pass that read each track once: a uniform ``-Z`` rip's
+        extraction times hold every read of a track, which would make the drive
+        look several times slower. A failed rip teaches nothing; a cancelled one
+        teaches the tracks it finished, as its log records them.
+        """
+        from dataclasses import replace
+
+        from platterpus import rip_estimate
+
+        try:
+            params = getattr(self, "_active_rip_params", None)
+            if params is None or not success and not self._rip_cancelled:
+                return
+            if params.secure_rerip_matches > 0 and not params.secure_rerip_dynamic:
+                return
+            sample = rip_estimate.first_pass_sample(
+                getattr(rip_log, "tracks", ()) or ()
+            )
+            drive = self._drive_picker.current_drive()
+            if sample is None or drive is None:
+                return
+            fingerprint, _serial, _wwn = self._fingerprint_for(drive)
+            profile = self._drive_profiles.get(fingerprint)
+            if profile is None:
+                return
+            rate = rip_estimate.fold(profile.read_rate, *sample)
+            self._drive_profiles.upsert(replace(profile, read_rate=rate))
+            self._drive_profiles.save()
+            multiple = rate.multiple
+            log.info(
+                "drive reading speed learned from this rip: %.0f s of audio in "
+                "%.0f s; folded over %d rip(s), %.2fx",
+                sample[0],
+                sample[1],
+                rate.rips,
+                1 / multiple if multiple else 0.0,
+            )
+        except Exception:  # noqa: BLE001 — learning must never break the finish
+            log.exception("could not record the drive's reading speed")
 
     def _record_drive_fact(
         self,

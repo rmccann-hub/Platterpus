@@ -40,6 +40,7 @@ from platterpus.adapters.accuraterip_offsets import (
     canonical_token,
     normalize_drive_name,
 )
+from platterpus.rip_estimate import ReadRate
 
 log = logging.getLogger(__name__)
 
@@ -254,6 +255,10 @@ class DriveProfile:
     # e.g. "/dev/sr0" — advisory display only, NEVER part of the key
     last_seen_device: str = ""
     last_seen_at: str = ""  # ISO-8601 UTC
+    # How fast this drive's first reads have been, folded over its own rips
+    # (`rip_estimate.fold`); the up-front time estimate rests on it. None until
+    # the drive finishes a rip in Platterpus.
+    read_rate: ReadRate | None = None
 
 
 # --- Stable fingerprint -----------------------------------------------------
