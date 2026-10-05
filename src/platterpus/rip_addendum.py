@@ -162,6 +162,25 @@ def addendum_path_for(log_path: str | Path) -> Path:
     return path.with_name(path.stem + ADDENDUM_SUFFIX)
 
 
+#: The securing pass's own ripper log, kept beside the album's (2026-10-05).
+#: It was deleted with the pass's temp folder, so the per-read record of a pass
+#: that swapped nothing, or that was stopped, was in no artifact (the 2026-10-04
+#: run's cancelled pass). ``.txt``, never ``.log``: the album's log is found by
+#: its suffix (``RipWorker._find_log_path``), and a second cyanrip ``.log`` in the
+#: folder is a second candidate for THE log, here and in every log checker.
+SECURING_PASS_LOG_SUFFIX: Final[str] = ".platterpus-securing-pass.txt"
+
+
+def securing_pass_log_path_for(log_path: str | Path) -> Path:
+    """Where the securing pass's log for the album log ``log_path`` is kept.
+
+    ``…/Album.log`` → ``…/Album.platterpus-securing-pass.txt``, the same shape as
+    :func:`addendum_path_for`.
+    """
+    path = Path(log_path)
+    return path.with_name(path.stem + SECURING_PASS_LOG_SUFFIX)
+
+
 def _row(label: str, value: str) -> str:
     # 24, not 22: the longest label, "AccurateRip frame 450:", is 22 characters,
     # and a label as wide as its column runs straight into its value.
@@ -500,12 +519,14 @@ def read_any_log(log_path: str | Path) -> str:
 __all__ = [
     "ADDENDUM_MARKER",
     "ADDENDUM_SUFFIX",
+    "SECURING_PASS_LOG_SUFFIX",
     "SupersededTrack",
     "addendum_path_for",
     "addendum_text",
     "read_any_log",
     "read_log_with_addendum",
     "render_addendum",
+    "securing_pass_log_path_for",
     "with_addendum",
     "write_addendum",
 ]

@@ -102,6 +102,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   section F's six-hour wait ran out, sections H and I then failed against F's rip,
   and I's cancel stopped it. Nothing after F was evidence. (Contributor-facing:
   the script verb's help says so.)
+- **The re-reads' own cyanrip log is kept.** When Platterpus re-reads tracks
+  after the main read, cyanrip writes a log of every re-read and its checksum.
+  That log was deleted afterwards, so unless a track was swapped, nothing kept it,
+  and a stopped re-read pass left no record of how far it got. It is now saved
+  beside the album's log as `<album>.platterpus-securing-pass.txt`, complete or
+  not. It is a `.txt` so that nothing mistakes it for the album's own log.
 - **Changing discs no longer blanks the drive's read offset and cache-defeat rows.**
   Taking a disc out cleared them along with the disc's own details, and putting the
   next disc in did not bring them back until a Rescan. They describe the drive, which

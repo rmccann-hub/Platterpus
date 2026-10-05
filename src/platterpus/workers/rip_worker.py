@@ -62,6 +62,7 @@ from platterpus.read_speed_ladder import (
 from platterpus.rip_addendum import (
     SupersededTrack,
     read_log_with_addendum,
+    securing_pass_log_path_for,
     write_addendum,
 )
 from platterpus.rip_plan import describe_rip_plan
@@ -2983,7 +2984,35 @@ class RipWorker(QObject):
             log.exception("auto-fix re-rip failed; originals kept")
         finally:
             if tmp_root is not None:
+                self._keep_securing_pass_log(tmp_root, album_log_path)
                 shutil.rmtree(tmp_root, ignore_errors=True)
+
+    def _keep_securing_pass_log(self, tmp_root: Path, album_log_path: str) -> None:
+        """Keep the securing pass's own ripper log beside the album's. Never raises.
+
+        Whatever the pass did: swapped, swapped nothing, or was stopped. Its log
+        is the per-read record (every re-read's checksum, the repeat counts), and
+        the album keeps only the verdicts. Copied as it stands, so a pass stopped
+        before its ripper signed the log keeps an unsigned one, which is itself a
+        fact (``TASKS.md``: whether a cancel's SIGTERM was the reader's first).
+        """
+        import shutil
+
+        if not album_log_path:
+            return
+        try:
+            logs = [p for p in tmp_root.rglob("*.log") if p.is_file()]
+            if not logs:
+                return
+            source = max(logs, key=lambda p: p.stat().st_mtime)
+            target = securing_pass_log_path_for(album_log_path)
+            shutil.copyfile(source, target)
+        except Exception:  # noqa: BLE001 — runs in a `finally`; must not abort the rip
+            log.exception("could not keep the securing pass's own log")
+            return
+        self.log_line.emit(
+            f"[auto-fix] the securing pass's own ripper log is kept as {target.name}"
+        )
 
     def _record_unfinished_refix(
         self, rerip_log_path: str, tracks: list[int], trigger: str, rerip_z: int

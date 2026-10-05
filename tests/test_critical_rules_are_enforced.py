@@ -1771,7 +1771,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
     # **506 -> 511** (2026-09-30): `with_addendum` takes the addendum a caller already holds (`extra`), so the self-audit joins a report's embedded addendum through the one join.
-    "rip_addendum.py": 511,
+    # **511 -> 532** (2026-10-05): `securing_pass_log_path_for`, the sidecar the securing pass's own ripper log is kept in, beside the addendum's, with why it is `.txt` and never `.log`.
+    "rip_addendum.py": 532,
     # **1216 -> 1287** (2026-09-25): `_grade_a_reported_completion`, round 21 §C. The
     # completion check graded OK off the boolean; it now reads the ripper's own
     # counts and error tally. It is a check of this registry, so it lives here.
@@ -2412,7 +2413,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # inventory now lists both refusals, and why the prefix stays.
     # **3632 -> 3694** (2026-10-05): `_record_unfinished_refix`: a securing pass that was stopped keeps the verdicts it reached, which a cancel used to discard with the temp folder (2026-10-04 rig run, tracks 12-17).
     # **3694 -> 3733** (2026-10-05): the cancel-path log wait covers the read in hand (`READER_TERM_GRACE_S`), in one function (`cancelled_log_wait_s`) the acceptance script's cancel sections are held to, and a stopped securing pass whose log never settles keeps the verdicts it wrote whole, with why that is safe; the real 2026-10-04 case never settles inside any wait.
-    "workers/rip_worker.py": 3733,
+    # **3733 -> 3762** (2026-10-05): `_keep_securing_pass_log`, which copies the securing pass's own ripper log beside the album's before its temp folder is deleted (the 2026-10-04 run's cancelled pass left no record).
+    "workers/rip_worker.py": 3762,
 }
 
 
