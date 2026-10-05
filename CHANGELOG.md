@@ -137,6 +137,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   as a cyanrip log, is still compared, but the output says the match is not
   parity with EAC. The rip self-audit's comparison of the EAC-style log with
   cyanrip's log gets the same guard.
+- **Status lines show a tool's words exactly as written.** Fourteen labels that
+  are filled in after they appear decided for themselves whether their text was
+  formatting, so a `<` in cyanrip's error, an installer's message, a setup step's
+  output or a typed filename template could turn into bold text or take the rest
+  of the line with it. They now always show the text as written: the rip
+  progress pane's status line, stall notice, verdict banner and the lines below
+  it; the setup, uninstall and drive wizards' status lines; each row of Pending
+  installs; and the validation banner and filename preview in Settings. A new
+  check traces every such label back to where it is built and holds it to the
+  same rule as the rest.
 - **The setup wizard's introduction shows its list as a list.** Its three
   bullet points, and the paragraphs of the "Updating cyanrip" wizard, ran
   together into one paragraph.
