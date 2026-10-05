@@ -30,10 +30,16 @@ wall-clock bound tipped over. Now every ``re.<function>(<literal>, ...)`` call i
 in the population, and each inline one is timed the way its call site uses it:
 ``re.match``/``re.fullmatch`` anchored, everything else by ``.search``. Timing a
 ``fullmatch`` on a filename by ``.search`` would report a quadratic pattern that
-cannot run quadratically. **Two calls remain outside it**, because their pattern
-is not a literal a sweep can read: ``adapters/cache_probe.py`` (a pattern passed
-in) and ``ripper_messages.py`` (built from the ripper's published format
-strings, bounded by ``_TAIL_LIMIT``).
+cannot run quadratically. **The calls whose pattern is not a literal** stay
+outside it, because a sweep cannot read them; they are counted per file in
+``_UNTIMED_CALLS``, with the reason each cannot stall, and a test holds that
+ledger to the tree in both directions.
+
+**And it read ``src/`` only until 2026-10-05.** ``scripts/`` and ``build/`` —
+the handshake tooling, the generators, the gate runner — are swept too now, by
+their own test over the population the size ratchet reads
+(``conftest.maintained_tooling_modules``). Their 88 literal patterns were all
+linear when they joined; thirteen computed ones went into the ledger.
 
 **What this test is not.** It is not a benchmark and must not fail because CI was
 busy. It compares each pattern against *itself* at two input sizes and only
@@ -52,8 +58,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from conftest import maintained_tooling_modules
 
-_SRC = Path(__file__).resolve().parent.parent / "src" / "platterpus"
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_SRC = _REPO_ROOT / "src" / "platterpus"
 
 # The two input sizes. A 4x jump in length should cost ~4x for a linear pattern;
 # a quadratic one costs ~16x, and the four real offenders were all far worse than
@@ -135,17 +143,15 @@ _HOW_EACH_CALL_RUNS: dict[str, str] = {
 }
 
 
-def _compiled_patterns() -> list[tuple[str, str, str]]:
-    """Every literal pattern handed to ``re`` in ``src/``: (location, pattern, how).
+def _re_calls(paths: list[Path]) -> list[tuple[str, ast.Call, str]]:
+    """Every ``re.<function>(...)`` call in ``paths``: (repo-relative file, call, how).
 
-    ``how`` is the method a measurement must use to time it the way it runs (see
-    ``_HOW_EACH_CALL_RUNS``). Read from the source with ``ast`` rather than by
-    importing, so a pattern is checked even if its module has import side
-    effects, and so the location in the failure message is a real file:line a
-    reader can open.
+    One walk for both halves of the population — the literal patterns the sweep
+    times, and the computed ones it cannot (``_untimed_calls``) — so the two can
+    never disagree about what counts as a call to ``re``.
     """
-    found: list[tuple[str, str, str]] = []
-    for path in sorted(_SRC.rglob("*.py")):
+    found: list[tuple[str, ast.Call, str]] = []
+    for path in paths:
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (
@@ -153,24 +159,48 @@ def _compiled_patterns() -> list[tuple[str, str, str]]:
             SyntaxError,
         ):  # pragma: no cover - a broken file fails elsewhere
             continue
+        rel = path.relative_to(_REPO_ROOT).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
             func = node.func
-            is_re_call = (
+            if (
                 isinstance(func, ast.Attribute)
                 and func.attr in _HOW_EACH_CALL_RUNS
                 and isinstance(func.value, ast.Name)
                 and func.value.id == "re"
-            )
-            if not is_re_call or not node.args:
-                continue
-            assert isinstance(func, ast.Attribute)  # narrowed by is_re_call
-            first = node.args[0]
-            if isinstance(first, ast.Constant) and isinstance(first.value, str):
-                rel = path.relative_to(_SRC.parent.parent)
-                how = _HOW_EACH_CALL_RUNS[func.attr]
-                found.append((f"{rel}:{node.lineno}", first.value, how))
+                and node.args
+            ):
+                found.append((rel, node, _HOW_EACH_CALL_RUNS[func.attr]))
+    return found
+
+
+def _is_literal_pattern(call: ast.Call) -> bool:
+    first = call.args[0]
+    return isinstance(first, ast.Constant) and isinstance(first.value, str)
+
+
+def _compiled_patterns(
+    paths: list[Path] | None = None,
+) -> list[tuple[str, str, str]]:
+    """Every literal pattern handed to ``re``: (location, pattern, how).
+
+    ``paths`` defaults to every module under ``src/platterpus``; the tooling sweep
+    passes ``conftest.maintained_tooling_modules`` instead.
+
+    ``how`` is the method a measurement must use to time it the way it runs (see
+    ``_HOW_EACH_CALL_RUNS``). Read from the source with ``ast`` rather than by
+    importing, so a pattern is checked even if its module has import side
+    effects, and so the location in the failure message is a real file:line a
+    reader can open.
+    """
+    if paths is None:
+        paths = sorted(_SRC.rglob("*.py"))
+    found: list[tuple[str, str, str]] = []
+    for rel, call, how in _re_calls(paths):
+        first = call.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str):
+            found.append((f"{rel}:{call.lineno}", first.value, how))
     return found
 
 
@@ -316,20 +346,32 @@ def _confirm_at_scale(
     return ratio > _MAX_GROWTH, ratio, bigger
 
 
-def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
-    """Sweep every pattern; re-measure anything that looks super-linear.
+def _assert_every_pattern_is_roughly_linear(
+    patterns: list[tuple[str, str, str]], *, floor: int, where: tuple[str, ...]
+) -> None:
+    """Time every pattern; re-measure anything that looks super-linear.
 
     The re-measurement is not politeness, it is what makes this usable in CI: a
     single timing can be wrecked by the scheduler, and a check that cries wolf
     gets deleted — which would be worse than not having it.
+
+    ``where`` is the repo-relative prefixes the patterns must come from. The floor
+    counts only patterns found there, and a pattern from anywhere else fails:
+    with two sweeps sharing this helper, a tooling sweep handed the package's
+    patterns would otherwise clear its floor on the wrong population and pass.
     """
-    patterns = _compiled_patterns()
-    # Floor: a sweep that finds nothing to examine is decoration. The codebase had
-    # 80 compiled patterns when this was written; 40 allows real deletion without
-    # letting the check quietly stop looking.
-    assert len(patterns) >= 40, (
-        f"only found {len(patterns)} compiled patterns in src/ — this sweep has "
-        "stopped finding them, which would make it pass by examining nothing"
+    elsewhere = sorted(
+        loc for loc, _pattern, _how in patterns if not loc.startswith(where)
+    )
+    assert not elsewhere, (
+        f"this sweep is for {where} and was handed patterns from elsewhere: "
+        f"{elsewhere[:5]}"
+    )
+    # Floor: a sweep that finds nothing to examine is decoration.
+    assert len(patterns) >= floor, (
+        f"only found {len(patterns)} compiled patterns in {where} (floor {floor}) "
+        "— this sweep has stopped finding them, which would make it pass by "
+        "examining nothing"
     )
 
     suspects: list[tuple[str, str, str, float, str, float]] = []
@@ -377,6 +419,132 @@ def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
         "Fix by bounding a quantifier (`\\d{1,4}` rather than `\\d+`) or by "
         "replacing the pattern with string operations — `rpartition` did it for "
         "the CSV row that prompted this test."
+    )
+
+
+def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
+    """The package: every literal pattern handed to ``re`` under ``src/platterpus``.
+
+    The codebase had 80 compiled patterns when this was written; a floor of 40
+    allows real deletion without letting the check quietly stop looking.
+    """
+    _assert_every_pattern_is_roughly_linear(
+        _compiled_patterns(), floor=40, where=("src/platterpus/",)
+    )
+
+
+#: Floor on the tooling's literal patterns: 88 on 2026-10-05, when the sweep was
+#: extended to them (TASKS `scripts-outside-gates`). Half, as for the package.
+_MIN_TOOLING_PATTERNS = 44
+
+
+def test_every_compiled_regex_in_the_tooling_is_roughly_linear() -> None:
+    """``scripts/`` and ``build/``: the same sweep over the maintainer tooling.
+
+    These parse handshake laps, workflow files and generated documents, some of
+    them written by the peer project, so a pattern that stalls on a long line
+    there stalls a release gate (`handshake.py --release-gate`) or a CI check.
+    The sweep read ``src/`` only until 2026-10-05; the population is the one the
+    size ratchet reads, ``conftest.maintained_tooling_modules``. A separate test
+    from the package sweep so ``pytest -n auto`` can run the two at once, and so
+    a failure says which half it is in.
+    """
+    _assert_every_pattern_is_roughly_linear(
+        _compiled_patterns(maintained_tooling_modules(_REPO_ROOT)),
+        floor=_MIN_TOOLING_PATTERNS,
+        where=("scripts/", "build/"),
+    )
+
+
+#: DEBT LEDGER — calls to ``re`` whose pattern is NOT a literal, so the sweep
+#: above cannot read it and does not time it, per file with the count and why.
+#: The sweep's docstring named the package's two in prose until 2026-10-05; prose
+#: is not a population check, and the tooling added thirteen more. **May shrink,
+#: never grow**: a new computed pattern must be entered here with its reason, so
+#: the sweep's blind spot is a number a reviewer sees rather than a silence.
+_UNTIMED_CALLS: dict[str, tuple[int, str]] = {
+    "src/platterpus/adapters/cache_probe.py": (
+        1,
+        "the pattern is a parameter; its callers pass module-level patterns "
+        "the sweep times where they are compiled",
+    ),
+    "src/platterpus/ripper_messages.py": (
+        1,
+        "built from the ripper's published format strings; each line is "
+        "bounded by `_TAIL_LIMIT`",
+    ),
+    "scripts/bommap/reading.py": (
+        1,
+        "an escaped literal between two fixed lookarounds; no quantifier",
+    ),
+    "scripts/emit_envelope.py": (
+        2,
+        "a header field name from a fixed table, escaped or a plain word, in "
+        "a fixed anchored shape",
+    ),
+    "scripts/handshake.py": (
+        6,
+        "escaped field names and version strings in fixed shapes, and the "
+        "GO-claim and heading patterns, whose repeats are bounded "
+        "(`{0,200}?`, `{0,3}`)",
+    ),
+    "scripts/laplang/context.py": (
+        2,
+        "an escaped section name in a fixed anchored heading shape",
+    ),
+    "scripts/round_digest.py": (
+        1,
+        "a header field name from a fixed table, anchored, with no quantifier",
+    ),
+    "scripts/verify_log_surface.py": (
+        1,
+        "the operator's own `--expect` patterns, which the tool exists to run",
+    ),
+}
+
+
+def _untimed_calls(paths: list[Path]) -> dict[str, int]:
+    """Per file, how many ``re`` calls carry a pattern that is not a literal."""
+    counts: dict[str, int] = {}
+    for rel, call, _how in _re_calls(paths):
+        if not _is_literal_pattern(call):
+            counts[rel] = counts.get(rel, 0) + 1
+    return counts
+
+
+def test_every_pattern_the_sweep_cannot_read_is_ledgered() -> None:
+    """The sweep's blind spot, measured both ways against ``_UNTIMED_CALLS``.
+
+    A new computed pattern (a file not in the ledger, or a count above its entry)
+    fails, because the sweep would report clean while never having timed it. A
+    count below its entry fails too, so the ledger cannot keep room that a new
+    untimed call could quietly fill.
+    """
+    population = sorted(_SRC.rglob("*.py")) + maintained_tooling_modules(_REPO_ROOT)
+    measured = _untimed_calls(population)
+    # Floor, in the shape of the stale check below: an empty ledger, or a walk
+    # that found nothing, must not compare equal and pass.
+    assert _UNTIMED_CALLS, "the ledger is empty, so this check cannot fail"
+    recorded = {name: count for name, (count, _why) in _UNTIMED_CALLS.items()}
+    grown = sorted(
+        f"{name}: {count} untimed call(s), ledger says {recorded.get(name, 0)}"
+        for name, count in measured.items()
+        if count > recorded.get(name, 0)
+    )
+    assert not grown, (
+        "these files hand `re` a pattern the sweep cannot read, so it is never "
+        "timed:\n  " + "\n  ".join(grown) + "\nPrefer a module-level literal the "
+        "sweep can time. If the pattern must be computed, bound every repeat and "
+        "enter the file in _UNTIMED_CALLS with the reason it cannot stall."
+    )
+    stale = sorted(
+        f"{name}: ledger says {count}, found {measured.get(name, 0)}"
+        for name, count in recorded.items()
+        if measured.get(name, 0) < count
+    )
+    assert not stale, (
+        "lower or remove these _UNTIMED_CALLS entries, so the room cannot be "
+        "refilled silently:\n  " + "\n  ".join(stale)
     )
 
 

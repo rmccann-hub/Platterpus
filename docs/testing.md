@@ -3531,8 +3531,13 @@ Three things to carry:
 - **A sweep's population is a claim, and needs a test of its own.** "Every
   compiled regex" was true of the collector's name and false of the codebase.
   `test_the_sweep_reads_inline_calls_and_times_each_as_it_runs` pins the pattern
-  that was missing, so the population cannot quietly narrow again. Two calls remain
-  outside it (their pattern is not a literal), and the docstring names them.
+  that was missing, so the population cannot quietly narrow again. The calls whose
+  pattern is not a literal stay outside it. The docstring named the two in `src/`
+  in prose until 2026-10-05, when the sweep was extended to `scripts/` and `build/`
+  (TASKS `scripts-outside-gates`) and the tooling brought thirteen more. Prose
+  cannot fail, so they are now counted per file in `_UNTIMED_CALLS`, with the reason
+  each cannot stall, and `test_every_pattern_the_sweep_cannot_read_is_ledgered` holds
+  that ledger to the tree in both directions.
 - **A second measurement under the same conditions is not a second witness**
   (added 2026-09-27). The sweep called a pattern super-linear only if it was slow
   twice, and it took the second timing immediately, at the same two sizes. On a
