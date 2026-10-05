@@ -2884,11 +2884,11 @@ class RipWorker(QObject):
         improved FLAC is copied into the album. Whatever couldn't be made to
         converge is left as ``unstable_tracks`` (flagged, never papered over).
 
-        **HARDWARE-GATED:** the re-rip-and-swap path has not been exercised on a
-        real drive yet. It's safe by construction (no swap unless the re-read is
-        the better read by the rule above and the file copies cleanly), but flag
-        it for validation on the Bazzite + BDR-209D rig. Best-effort: never raises
-        (would abort the rip).
+        **On the rig:** the 2026-10-04 Full run exercised this path on a damaged
+        disc (tracks 12 to 18), and no track converged, so nothing was swapped.
+        It is safe by construction (no swap unless
+        the re-read is the better read by the rule above and the file copies
+        cleanly). Best-effort: never raises (would abort the rip).
         """
         import shutil
         import tempfile
