@@ -1759,7 +1759,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **410 -> 414** (2026-09-28, the `-Z` wording): the ladder's reason strings name N+1 identical passes for `-Z N`, and two comments say so.
     # **414 -> 415** (2026-09-28, same): `unstable_tracks`' docstring stops saying a track that hit the limit had no two reads agree.
     # **418 -> 450** (2026-10-05, the fork's `+platterpus.20`): `_instability_explains_arm`, which keeps a paranoia skip and a `-Z` track at the repeat limit, both `with errors` from `.20`, out of the whole-disc step-down. It is the trigger's own exclusion, so it sits beside `read_errors_present`; most of the growth is the docstring saying why, and that the policy question is the maintainer's.
-    "read_speed_ladder.py": 450,
+    # **450 -> 465** (2026-10-05, the fork's round 30 lap 9 S12): `read_errors_present` reads `RipLog.drive_read_errors` first, so `.20`'s paranoia skips leave the whole-disc step-down, and the module docstring says a step also needs the pass to have finished. The decision itself went to a new focused module, `ladder_trigger.py`, rather than here.
+    "read_speed_ladder.py": 465,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
@@ -2456,7 +2457,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3762 -> 3830** (2026-10-05): the up-front time estimate in the plan and the log, and shown as the ETA until the live one has measured enough (`_make_estimate`, `_early_estimate_text`; operator, 2026-10-05).
     # **3830 -> 3853** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `reread_agreements`, the re-rip's own count of agreeing reads for every re-read track with a verdict, swapped in or not, recorded at both places a re-read verdict is recorded.
     # **3853 -> 3923** (2026-10-05, the fork's round 30 lap 9 S29): `_is_progress_redraw`, the one answer to "is this line a redraw?", beside the patterns it reads, so a track's outcome line is no longer left out of the capture; `_capture_line` routes a line by it for both the capture and the log pane's throttle. The run bookkeeping went to a NEW focused module, `redraw_run.py`; what is here is the predicate, the routing and their reasons. +70, the lines added.
-    "workers/rip_worker.py": 3923,
+    # **3923 -> 3990** (2026-10-05, the fork's round 30 lap 9 S27): the ladder asks `ladder_trigger.judge_step_down` instead of `success and had_read_errors`, and logs why a pass did or did not step; `_log_fingerprint` tells a log this pass wrote from one an earlier pass left, which only the worker can read; and the two `success`-keyed sites after the loop (the securing pass, `finished`) say why they stay keyed on exit 0. The predicate lives in `ladder_trigger.py`.
+    "workers/rip_worker.py": 3990,
 }
 
 

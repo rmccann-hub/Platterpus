@@ -11,6 +11,7 @@ cyanrip binary.
 
 from __future__ import annotations
 
+import logging
 import re
 import subprocess
 import time
@@ -327,17 +328,22 @@ def test_auto_ladder_clean_disc_is_a_single_pass(
 
 
 def test_auto_ladder_re_rips_slower_on_read_errors_then_stops_clean(
-    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     """A pass with unrecoverable read errors triggers a re-rip a rung slower;
-    once a pass reads clean, the ladder stops."""
-    import platterpus.workers.rip_worker as mod
+    once a pass reads clean, the ladder stops.
 
-    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
-    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
-    # Errors on the first pass, clean on the second.
-    verdicts = iter([True, False])
-    monkeypatch.setattr(mod, "read_errors_present", lambda _log: next(verdicts, False))
+    Stock cyanrip's shape: no completion footer, so the pass is judged finished by
+    its finish report and its track blocks against the disc total we asked for.
+    It exits 1 over its errors (`return !!err_cnt`), as the real one does; this
+    test once faked exit 0 there, and a ladder gated on exit 0 passed it.
+    """
+    backend = _per_pass_backend(
+        tmp_path, [(_stock_log(errors=3), 1), (_stock_log(errors=0), 0)]
+    )
+    worker = RipWorker(
+        backend, _params(tmp_path, read_speed_mode="auto_ladder", disc_track_total=1)
+    )
     sigs = _Signals()
     sigs.attach(worker)
 
@@ -348,7 +354,7 @@ def test_auto_ladder_re_rips_slower_on_read_errors_then_stops_clean(
     assert backend.rip_calls[1]["read_speed"] == 8  # stepped down to 8×
     attempts = worker.speed_attempts
     assert [a.clean for a in attempts] == [False, True]
-    assert sigs.finished == [(True, "")]
+    assert len(sigs.finished) == 1 and sigs.finished[0][0] is True
 
 
 def test_auto_ladder_hard_failure_is_not_marked_clean(
@@ -370,16 +376,16 @@ def test_auto_ladder_hard_failure_is_not_marked_clean(
 
 
 def test_auto_ladder_flags_unresolved_after_exhausting_the_ladder(
-    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     """A disc that never reads clean escalates down the whole ladder + -Z, then
     stops (bounded) and is left FLAGGED as unresolved — quality never went down."""
-    import platterpus.workers.rip_worker as mod
     from platterpus.read_speed_ladder import MAX_ATTEMPTS, attempts_to_report
 
-    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
-    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
-    monkeypatch.setattr(mod, "read_errors_present", lambda _log: True)
+    backend = _per_pass_backend(tmp_path, [(_stock_log(errors=3), 1)])
+    worker = RipWorker(
+        backend, _params(tmp_path, read_speed_mode="auto_ladder", disc_track_total=1)
+    )
 
     worker.start_rip()
 
@@ -433,19 +439,15 @@ def test_auto_ladder_speed_locked_drive_escalates_z_never_sends_S(
     log reveals that, the ladder must escalate via `-Z` ONLY and never send `-S`
     — otherwise a disc with read errors would turn every escalation into a crash.
     """
-    rip_log = tmp_path / "Album" / "rip.log"
-    rip_log.parent.mkdir(parents=True)
-    rip_log.write_text(
-        "cyanrip 0.9.3 (release)\n"
-        "Speed:          default (unchangeable)\n"  # the drive can't slow down
-        "Disc tracks:    1\n"
-        "Track 1 ripped and encoded successfully!\n"
-        "  EAC CRC32:     329DC760\n"
-        "Ripping errors: 3\n",  # real unrecoverable errors → the ladder escalates
-        encoding="utf-8",
+    # The drive can't slow down, and the pass has real unrecoverable errors, so
+    # the ladder escalates. cyanrip exits 1 over them and writes a new log each
+    # pass, as the real one does.
+    backend = _per_pass_backend(
+        tmp_path, [(_stock_log(errors=3, speed="default (unchangeable)"), 1)]
     )
-    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
-    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+    worker = RipWorker(
+        backend, _params(tmp_path, read_speed_mode="auto_ladder", disc_track_total=1)
+    )
 
     worker.start_rip()
 
@@ -455,6 +457,298 @@ def test_auto_ladder_speed_locked_drive_escalates_z_never_sends_S(
     # …and the escalation happened via -Z climbing instead (2, then 3).
     zs = [call["secure_rerip_matches"] for call in backend.rip_calls]
     assert zs == [0, 2, 3]
+
+
+# --- The ladder steps down on a pass the DRIVE could not read cleanly --------
+#
+# cyanrip exits 1 whenever its drive error count is non-zero
+# (`cyanrip@910dd99:src/cyanrip_main.c:3124`, `return (err_cnt || fatal_abort) ?
+# 1 : 0;`; upstream `return !!err_cnt;` at `cyanrip@f8ebf48:src/cyanrip_main.c:
+# 2128`). The ladder used to escalate only on `success and had_read_errors`, and
+# `success` was exit 0, so the one case the ladder exists for ended it at full
+# speed. The fork found it (round 30 lap 9 S27); our lap 8 S28 had said the
+# opposite. And from `.20` the count includes paranoia's skips, with a suffix
+# saying so, and a skip-only rip exits 0 (their S11-S13): that one stepped the
+# whole disc down, against our rule that instability is handled per track.
+#
+# These start from a REAL filed log, the 2026-10-04 Full run on `.19` (18 tracks,
+# 2,586 paranoia skips on track 18, `Ripping errors: 0`), rewritten line by line
+# into each case by the shape the fork's source prints, and every rewrite is
+# asserted to have landed. The fake writes a fresh log on every pass and sets the
+# exit code cyanrip would give, because the real ripper does both; a fake that
+# exits 0 over three read errors is the stand-in that hid this.
+
+_FILED_FULL_RUN = (
+    Path(__file__).resolve().parent.parent
+    / "docs"
+    / "handshake"
+    / "artifactsround30"
+    / "round30oct04full.log"
+)
+_FILED_CANCELLED = _FILED_FULL_RUN.with_name("round30fullcancelme.log")
+
+
+def _rewrite(text: str, old: str, new: str) -> str:
+    """Replace ``old`` exactly once — a rewrite that misses is a test of nothing."""
+    assert text.count(old) == 1, f"expected exactly one {old!r} in the filed log"
+    return text.replace(old, new)
+
+
+def _filed_full_run(
+    *,
+    track18: str = "read successfully!",
+    ripping_errors: str = "0",
+    encoder_errors: str = "none; 18 tracks encoded",
+    speed_changeable: bool = False,
+) -> str:
+    """The real `.19` log, with track 18's outcome and the footer rewritten."""
+    text = _FILED_FULL_RUN.read_text(encoding="utf-8")
+    text = _rewrite(text, "Track 18 read successfully!\n", f"Track 18 {track18}\n")
+    text = _rewrite(
+        text, "\nRipping errors: 0\n", f"\nRipping errors: {ripping_errors}\n"
+    )
+    text = _rewrite(
+        text,
+        "\nEncoder errors: none; 18 tracks encoded\n",
+        f"\nEncoder errors: {encoder_errors}\n",
+    )
+    if speed_changeable:
+        text = _rewrite(
+            text,
+            "Speed:          default (unchangeable)\n",
+            "Speed:          default (changeable)\n",
+        )
+    return text
+
+
+def _per_pass_backend(
+    tmp_path: Path, passes: list[tuple[str | None, int]]
+) -> _FakeBackend:
+    """A ripper that writes pass N's log and exits with pass N's code.
+
+    Each entry is ``(log text or None, exit code)``. ``None`` writes nothing,
+    which is a pass that failed before cyanrip opened its log. The last entry
+    repeats. Every written log carries its pass number in the finish line, as a
+    real one carries its own timestamps, so no two passes write the same bytes.
+    """
+    album = tmp_path / "Album"
+    album.mkdir(parents=True, exist_ok=True)
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+
+    def side_effect(_call: dict[str, object]) -> None:
+        n = len(backend.rip_calls)
+        text, code = passes[min(n, len(passes)) - 1]
+        if text is not None:
+            anchor = "Ripping finished at 2026-10-04T15:06:22-04:00"
+            stamped = (
+                text.replace(anchor, f"{anchor} (pass {n})")
+                if anchor in text
+                else f"{text}Ripping finished at pass {n}\n"
+            )
+            (album / "rip.log").write_text(stamped, encoding="utf-8")
+        backend.set_handle(_FakeHandle(lines=["ripping"], exit_code=code))
+
+    backend.rip_side_effect = side_effect
+    return backend
+
+
+def test_a_pass_the_drive_failed_steps_the_speed_down_although_cyanrip_exits_1(
+    qapp: QApplication, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """THE defect: a completed pass with drive read errors exits 1, and must step."""
+    failed = _filed_full_run(
+        track18="read with errors.", ripping_errors="3", speed_changeable=True
+    )
+    clean = _filed_full_run(speed_changeable=True)
+    backend = _per_pass_backend(tmp_path, [(failed, 1), (clean, 0)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    with caplog.at_level(logging.INFO, logger="platterpus.workers.rip_worker"):
+        worker.start_rip()
+
+    assert [call["read_speed"] for call in backend.rip_calls] == [0, 8]
+    assert [a.clean for a in worker.speed_attempts] == [False, True]
+    assert sigs.finished and sigs.finished[-1][0] is True
+    # The step is said on screen AND in the app log, which a returned report
+    # carries (the fork found no ladder step in any file our tree holds).
+    assert any("[read-speed ladder]" in line for line in sigs.log_lines)
+    stepped = [
+        r.getMessage()
+        for r in caplog.records
+        if "[read-speed ladder]" in r.getMessage()
+    ]
+    assert len(stepped) == 1
+    assert "the drive failed 3 read(s)" in stepped[0]
+
+
+def test_on_the_rigs_drive_the_same_pass_steps_up_the_secure_reread(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The BDR-209D reports its speed unchangeable, so the step is `-Z`, not `-S`."""
+    failed = _filed_full_run(track18="read with errors.", ripping_errors="3")
+    clean = _filed_full_run()
+    backend = _per_pass_backend(tmp_path, [(failed, 1), (clean, 0)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    assert [call["read_speed"] for call in backend.rip_calls] == [0, 0]
+    assert [call["secure_rerip_matches"] for call in backend.rip_calls] == [0, 2]
+
+
+def test_drive_errors_beside_20s_skip_suffix_still_step_the_disc_down(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """`.20`: N counts the drive's errors plus the skips, M of them; N - M is the drive's."""
+    failed = _filed_full_run(
+        track18="read with errors.",
+        ripping_errors="2589 (including 2586 paranoia skips)",
+        speed_changeable=True,
+    )
+    clean = _filed_full_run(speed_changeable=True)
+    backend = _per_pass_backend(tmp_path, [(failed, 1), (clean, 0)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    assert [call["read_speed"] for call in backend.rip_calls] == [0, 8]
+
+
+def test_a_skip_only_20_rip_does_not_step_the_whole_disc_down(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """`.20`'s skip-only rip exits 0 over a non-zero count; skips are per-track.
+
+    Asserted against the same disc as `.19` wrote it: the ladder must decide the
+    same way whichever build wrote the log, which is the policy of 4790a16a.
+    """
+    as_19 = _filed_full_run()
+    as_20 = _filed_full_run(
+        track18="read with errors.",
+        ripping_errors="2586 (including 2586 paranoia skips)",
+        speed_changeable=True,
+    )
+    decisions = []
+    for name, text in (("19", as_19), ("20", as_20)):
+        out = tmp_path / name
+        backend = _per_pass_backend(out, [(text, 0)])
+        worker = RipWorker(backend, _params(out, read_speed_mode="auto_ladder"))
+        worker.start_rip()
+        decisions.append(
+            (
+                [call["read_speed"] for call in backend.rip_calls],
+                [a.clean for a in worker.speed_attempts],
+            )
+        )
+    assert decisions[0] == ([0], [True])
+    assert decisions[1] == decisions[0]
+
+
+def test_a_pass_stopped_by_a_signal_does_not_step_the_disc_down(
+    qapp: QApplication, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Exit 1 for a reason that is not a read: the real filed SIGTERM'd rip.
+
+    Its footer reads `Rip completed:  no (interrupted by SIGTERM, 0 of 14 tracks)`
+    beside `Ripping errors: 1` (the interrupted track). Nothing here cancelled it,
+    so only the log can say the pass did not finish.
+    """
+    text = _FILED_CANCELLED.read_text(encoding="utf-8")
+    assert "Rip completed:  no (interrupted by SIGTERM" in text
+    assert "\nRipping errors: 1\n" in text
+    backend = _per_pass_backend(tmp_path, [(text, 1)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    with caplog.at_level(logging.INFO, logger="platterpus.workers.rip_worker"):
+        worker.start_rip()
+
+    assert len(backend.rip_calls) == 1
+    assert [a.clean for a in worker.speed_attempts] == [False]
+    # And the app log says why a pass with an error count did not step.
+    assert any(
+        "no step after pass 1: the pass did not finish" in r.getMessage()
+        and "interrupted by SIGTERM" in r.getMessage()
+        for r in caplog.records
+    )
+
+
+def test_a_pass_with_an_encoder_failure_does_not_step_the_disc_down(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Slowing the drive cannot mend an encoder, even beside real read errors."""
+    text = _filed_full_run(
+        track18="read with errors.",
+        ripping_errors="4",
+        encoder_errors="1 track failed (3); 17 tracks encoded",
+        speed_changeable=True,
+    )
+    backend = _per_pass_backend(tmp_path, [(text, 1)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 1
+
+
+def test_a_pass_killed_from_outside_does_not_step_the_disc_down(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """cyanrip's own exits are 0 and 1; 137 is a kill, whatever the log on disk says."""
+    text = _filed_full_run(
+        track18="read with errors.", ripping_errors="3", speed_changeable=True
+    )
+    backend = _per_pass_backend(tmp_path, [(text, 137)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 1
+
+
+def test_a_pass_that_wrote_no_log_of_its_own_does_not_step_again(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """New state the fix creates: a stale log must not keep the ladder stepping.
+
+    Exit 1 never escalated before, so a pass that failed before cyanrip opened
+    its log could not be judged by the previous pass's log. Now it could.
+    """
+    text = _filed_full_run(
+        track18="read with errors.", ripping_errors="3", speed_changeable=True
+    )
+    backend = _per_pass_backend(tmp_path, [(text, 1), (None, 1)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    # Pass 1 stepped down; pass 2 wrote nothing, so the ladder stops there.
+    assert [call["read_speed"] for call in backend.rip_calls] == [0, 8]
+
+
+def test_a_disc_the_drive_never_reads_cleanly_stops_at_the_ladder_floor(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Every pass fails the same way: down the rungs, then `-Z`, then FLAGGED."""
+    from platterpus.read_speed_ladder import MAX_ATTEMPTS, attempts_to_report
+
+    text = _filed_full_run(
+        track18="read with errors.", ripping_errors="3", speed_changeable=True
+    )
+    backend = _per_pass_backend(tmp_path, [(text, 1)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    sent = [
+        (call["read_speed"], call["secure_rerip_matches"]) for call in backend.rip_calls
+    ]
+    assert sent == [(0, 0), (8, 0), (4, 0), (2, 0), (2, 2), (2, 3)]
+    assert len(sent) <= MAX_ATTEMPTS
+    report = attempts_to_report(worker.speed_attempts)
+    assert report is not None
+    assert report["unresolved"] is True and report["escalated"] is True
 
 
 # --- The recovery re-read's own -Z stays inside the user's -r ---------------
@@ -467,14 +761,24 @@ def test_auto_ladder_speed_locked_drive_escalates_z_never_sends_S(
 # Max retries 3 it sent `-Z 3 -r 3`, reading every track three times and
 # verifying none. Found 2026-09-28 from the Full run's `-r 3` (section B).
 
-_SPEED_LOCKED_READ_ERRORS = (
-    "cyanrip 0.9.3 (release)\n"
-    "Speed:          default (unchangeable)\n"
-    "Disc tracks:    1\n"
-    "Track 1 ripped and encoded successfully!\n"
-    "  EAC CRC32:     329DC760\n"
-    "Ripping errors: 3\n"
-)
+
+def _stock_log(*, errors: int, speed: str = "default (changeable)") -> str:
+    """A one-track log in stock cyanrip 0.9.3's shape, which has no footer."""
+    status = (
+        "ripped and encoded with errors."
+        if errors
+        else "ripped and encoded successfully!"
+    )
+    return (
+        "cyanrip 0.9.3 (release)\n"
+        f"Speed:          {speed}\n"
+        "Disc tracks:    1\n"
+        f"Track 1 {status}\n"
+        "  EAC CRC32:     329DC760\n"
+        "  File(s):\n"
+        "    Artist/Album/01 - One.flac\n"
+        f"Ripping errors: {errors}\n"
+    )
 
 
 @pytest.mark.parametrize(
@@ -499,13 +803,17 @@ def test_the_ladders_fallback_z_never_outruns_the_retry_ceiling(
 ) -> None:
     from platterpus.cyanrip_cli import retries_flag_value, secure_reread_problem
 
-    rip_log = tmp_path / "Album" / "rip.log"
-    rip_log.parent.mkdir(parents=True)
-    rip_log.write_text(_SPEED_LOCKED_READ_ERRORS, encoding="utf-8")
-    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend = _per_pass_backend(
+        tmp_path, [(_stock_log(errors=3, speed="default (unchangeable)"), 1)]
+    )
     worker = RipWorker(
         backend,
-        _params(tmp_path, read_speed_mode="auto_ladder", max_retries=max_retries),
+        _params(
+            tmp_path,
+            read_speed_mode="auto_ladder",
+            max_retries=max_retries,
+            disc_track_total=1,
+        ),
     )
 
     worker.start_rip()

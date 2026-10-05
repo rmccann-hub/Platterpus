@@ -199,6 +199,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the dialog at the end printed it twice, the second copy as "Why it stopped"
   right under the first. The reason now names the check and the first line of
   its message, and says how many more lines are printed in full with the check.
+- **The read-speed ladder now slows down on a disc the drive could not read
+  cleanly; before, such a disc ended the ladder at full speed.** In the automatic
+  read-speed mode, Platterpus is meant to re-read a disc more slowly when the drive
+  fails to read it. cyanrip reports such a rip as failed (it exits 1), and the
+  ladder only stepped down after a rip cyanrip reported as successful, so it never
+  slowed down for the one case it exists for. It now steps down after any rip that
+  finished every track with read errors, whatever cyanrip's exit code, and still
+  stops for a cancelled, killed or aborted rip, a failed encode, or a rip that left
+  no log of its own. Paranoia's skips, which cyanrip `.20` adds to its error count,
+  do not slow the whole disc down: they are handled track by track, as before.
+  Each step, and why a rip did not step, is now written to the app's log. The
+  cyanrip fork found this (round 30 lap 9 S27); our round 30 lap 8 S28 had said
+  the opposite. A rip that ends with read errors is still reported as cyanrip
+  reports it.
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached

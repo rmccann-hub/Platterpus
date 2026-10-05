@@ -1112,6 +1112,26 @@ each side's reading; and the closing releases named.
   - *Done in 1e118482.* Re-rendering `round30oct04full.log` gives track 18 the new
     verdict; the committed export of that run is the before. Not done: the disc-level
     "No errors occurred" for such a disc, which S20 also names, is unchanged.
+- [x] **The read-speed ladder steps down on a pass the drive could not read cleanly**
+  (their lap 9 S27/S12, our lap 8 S28 corrected). The worker escalated on `success and
+  had_read_errors`, `success` being exit 0, and cyanrip exits 1 whenever the drive's count
+  is not zero (`cyanrip@910dd99:src/cyanrip_main.c:3124`; upstream
+  `cyanrip@f8ebf48:src/cyanrip_main.c:2128`), so the ladder never stepped on real read
+  errors and our S28 was wrong. From `.20` the count also includes paranoia's skips, which
+  would have stepped the whole disc down. Reproduced on the filed 2026-10-04 log rewritten
+  into each case: exit 1 with drive errors did not step (`[0]`), and `.20`'s skip-only rip
+  stepped six times (`[0, 8, 4, 2, 2, 2]`). The parser reads `.20`'s skip suffix
+  (`RipLog.drive_read_errors` = N - M - failed encodes) and `ladder_trigger.judge_step_down`
+  is the one predicate: finished every requested track by the footer and our own track
+  blocks, exit 0 or 1, the pass's own log, no failed encode, not stopped by us, and drive
+  errors. **Our next lap says S28 was wrong** and points at the commit.
+- [ ] **Should the securing pass run after a finished pass the drive could not read
+  cleanly?** (follow-up to the row above; round 30 lap 9 S13.) It is still keyed on exit 0,
+  so after a ladder that ends on such a pass, or in fixed mode, the tracks AccurateRip did
+  not confirm are not re-read. Running it there needs the report to keep the album pass's
+  exit code apart from the securing pass's (`_ripper_exit_code` holds the last one), and a
+  decision on whether exit 1 over a finished rip reads as "failed", which is the
+  maintainer's and depends on the fork's S13.
 
 ## Round 29 — CLOSED on both gates on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
