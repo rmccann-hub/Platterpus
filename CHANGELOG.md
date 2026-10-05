@@ -212,6 +212,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **A register of what Platterpus and the cyanrip fork each want from the other,
+  and can give.** On the operator's instruction, `docs/cyanrip-handshake.md` §10
+  lists each datum one side wants from the other: what it would improve, how
+  easy it is for the giver to provide (the giver rates that), and how accurate
+  it is, with the condition that would make it wrong. It starts with six wants
+  and six gives of ours. Our round 30 lap 8 asks the fork to rate its half and
+  add its own.
 - For contributors: the build under review is now derived from the cyanrip
   fork's newest release when its two channels disagree, by release number,
   because under our operator's O3 ruling a new build goes to beta alone until

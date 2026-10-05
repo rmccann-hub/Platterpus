@@ -968,6 +968,56 @@ a verdict:
   faster than either side's peer review. Row 8 is the strongest single entry in
   this table and the fork wrote it *against themselves*.
 
+
+## 10. Data exchange register — what each side wants from the other, and can give
+
+**Why this exists.** The operator, 2026-10-05: *"you and cyanrip should both be
+communicating what data you want or can give to the other for better experience.
+And saying if it's easy or hard to get, or accurate vs inaccurate. You may be able
+to figure it out between both."* Until then a datum crossed the seam only when one
+side happened to ask for it in a lap, and nobody said what it would cost the giver
+or how far it could be trusted. This table makes both explicit.
+
+**The rules of the table.**
+
+- **The giver rates.** *Ease* (easy / moderate / hard / not possible) and
+  *accuracy* are the giving side's to state, because only the giver can read its
+  own cost. Where we want something from the fork, the ease column holds **our
+  reading of their source, cited**, marked *theirs to rate*. It is a guess until
+  their lap rates it, and a mechanism in their code is never claimed without
+  `cyanrip@<sha>:<path>:<line>`.
+- **Accuracy is stated with what breaks it.** *exact* (a count or a clock),
+  *measured* (from real runs, with the population named), *estimate* (a model,
+  with its inputs), or *heuristic*. Each carries the condition that would make it
+  wrong (`CLAUDE.md`: *name the condition that would break a claim*).
+- **Already available counts as a row.** A datum the other side already gives and
+  we do not read is our gap, not theirs, and saying so is the point.
+- **Status:** proposed → agreed (both laps) → landed (with the commit) or
+  declined (with the reason). Rows arrive and change through laps; this file is
+  our copy, and the fork keeps its own.
+
+### What we want from the fork
+
+| # | datum | what it improves | ease for them | accuracy, and what breaks it | status |
+|---|---|---|---|---|---|
+| W1 | **Paranoia skips so far, live**, in the per-frame progress line beside its `errors - N` | A track like 2026-10-04's track 18 (2h16m, 2,586 skips) read with no live sign anything was wrong. With the count, the window can say a track is reading badly while it reads | Theirs to rate. Our reading: the counter is live (`cyanrip@1770d3c:src/cyanrip_main.c:1276`) and the line is printed per frame (`…:973`). A new field changes a stdout surface we parse (`platterpus@4790a16a:src/platterpus/workers/rip_worker.py:191`) | exact count; it is the current pass's, so it resets on a `-Z` re-read | proposed |
+| W2 | **Which read of the track is running** during `-Z`: read *k*, at most `-r` | We infer a re-read from the progress dropping from 100% to near 0 (`rip_worker.py:549`), so the window cannot say "read 3 of up to 5" | Theirs to rate | exact | proposed |
+| W3 | **Each `-Z` read's elapsed time and checksum** in the `-j` record's `track_state` | Our rip estimate can only give re-reads as a range, N+1 to `-r` times the track (`rip_estimate.py`). Per-read times would let a drive's own history narrow it, and would show which reads agreed | Theirs to rate. Today each track carries `repeats` and a total `rip_time_us` (`golden-reference.diagnostics.json` at `cyanrip@1922a2ec`) | exact clock; a read the stall watchdog interrupted is still one read | proposed |
+| W4 | **Per-track paranoia counts in the `-j` record** | We read them from the log's per-track block today; the record is the copy that survives a log that never reached its footer | Theirs to rate | exact, over the kept pass (the same baseline as the log's block) | proposed |
+| W5 | **The drive's reported maximum read speed** | A drive that has finished no rip gets no time estimate, because drives differ several-fold and a confident wrong figure is worse than none (`rip_estimate.py`). A reported maximum could seed one, labelled as such | Theirs to rate | heuristic: a drive's reported maximum is nominal and often not what it reads audio at | proposed |
+| W6 | **How a rip ended**: `exit_code`, `interrupted`, `interrupted_by` in the `-j` record | Our status line and report could say how the ripper ended from its own record, not from our side's view of it | **Already given** (`-j` schema 6). **Our gap**: bundled since `a7a631b9`, not yet read by the app | exact | available, ours to read |
+
+### What we can give the fork
+
+| # | datum | what it could improve for them | ease for us | accuracy, and what breaks it | status |
+|---|---|---|---|---|---|
+| G1 | **The drive's measured reading speed**: seconds of reading per second of audio over its last N first passes, recent rips weighted more (`drive_profiles.DriveProfile.read_rate`, `cd351a39`) | A stall threshold relative to what this drive normally takes, instead of one figure for every drive (`-k`, default 10 s, `cyanrip@1770d3c:src/cyanrip_main.c:1803`). It could reach them as a `-k` we compute | easy: stored per drive | measured, on this machine's own rips; one damaged batch moves it for a few rips, and a drive with no finished rip has none | proposed |
+| G2 | **The release's TOC and track lengths from MusicBrainz**, and the disc ID it matched | A cross-check of the TOC they read against the one the release lists, to flag a different pressing before ripping | easy: fetched before every rip | the disc-ID match is exact for the TOC it names; the release data is crowd-entered and can be wrong | proposed |
+| G3 | **The read offset's provenance**: AccurateRip's drive table, the user, or a measurement, beside the `-s` we pass (`drive_profile_store.OffsetSource`) | The log could say where its offset came from, which a logchecker reader and their `-f` search could both use | easy: stored per drive | exact as provenance; a value the user typed is only as good as its source | proposed |
+| G4 | **Our post-rip verdicts per track**: CTDB, the FLAC decode check, our own AccurateRip reading, in each `.platterpus.json` | Their rig readings already use our reports; named stable fields would let their tools read them without following our schema changes | easy: written every rip | exact for what each check tests; CTDB covers only discs in its database | proposed |
+| G5 | **The filed rig timings**: every report's per-track extraction time and span, already in our public tree (`docs/handshake/artifactsround*/*report.json`) | Data for their cache and stall calibration without a rig run | easy: already committed | measured on one rig, one drive model (Pioneer BDR-209D); not a population of drives | available |
+| G6 | **Why we sent SIGTERM**: the user cancelled, the app is quitting, or a script ran out of time | Their footer and `-j` record could say which. To them every one is the same signal | moderate: we know which, but a signal carries no payload, so it needs a channel such as a marker file or an argv flag at start | exact | proposed |
+
 ---
 
 *Last updated for Platterpus v0.6.65.*
