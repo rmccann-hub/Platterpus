@@ -477,6 +477,11 @@ def test_every_backend_s_crcs_survive_every_encoding_it_can_arrive_in(
 # Reproduced on the committed files before the fix (2026-10-05). Each pair below
 # is a REAL export of ours and the REAL ripper log of the same rip, one per
 # wording our banner has had; nothing here is a hand-made log.
+#
+# The tests below parametrize over a LITERAL list of the two keys, not over
+# `sorted(_OUR_EXPORTS)`: a computed population could empty and generate no cases
+# (`tests/test_dynamic_sweeps_declare_a_floor.py`). A key missing from the dict
+# fails loudly with a KeyError, and the floor test pins that the two agree.
 
 _OUR_EXPORTS: dict[str, tuple[Path, Path, str]] = {
     # Written by Platterpus 0.6.4b3 (2026-08-04): the OLD first line.
@@ -512,7 +517,7 @@ def _read(path: Path) -> str:
     return decode_log_bytes(path.read_bytes())
 
 
-@pytest.mark.parametrize("wording", sorted(_OUR_EXPORTS))
+@pytest.mark.parametrize("wording", ["new banner", "old banner"])
 def test_the_fixtures_are_ours_and_would_match_on_every_track(wording: str) -> None:
     """Floor, so the refusals below cannot pass for the wrong reason.
 
@@ -520,6 +525,9 @@ def test_the_fixtures_are_ours_and_would_match_on_every_track(wording: str) -> N
     test's), and its CRCs must match its own rip's on all 14 tracks: the
     comparison really is a pass waiting to happen, which is the whole defect.
     """
+    assert sorted(_OUR_EXPORTS) == ["new banner", "old banner"], (
+        "the parametrize lists and _OUR_EXPORTS must name the same pairs"
+    )
     export, ripper_log, banner = _OUR_EXPORTS[wording]
     text = _read(export)
     assert text.splitlines()[0] == banner, (
@@ -531,7 +539,7 @@ def test_the_fixtures_are_ours_and_would_match_on_every_track(wording: str) -> N
     assert report.matched == report.total, "the pair must match on every track"
 
 
-@pytest.mark.parametrize("wording", sorted(_OUR_EXPORTS))
+@pytest.mark.parametrize("wording", ["new banner", "old banner"])
 def test_a_report_against_our_own_export_is_never_parity(wording: str) -> None:
     """The library backstop: `ParityReport.ok` requires the baseline's PRODUCER as
     well as its CRCs, so no caller of `compare_logs` can be handed this pass, even
@@ -544,7 +552,7 @@ def test_a_report_against_our_own_export_is_never_parity(wording: str) -> None:
     assert report.ok is False
 
 
-@pytest.mark.parametrize("wording", sorted(_OUR_EXPORTS))
+@pytest.mark.parametrize("wording", ["new banner", "old banner"])
 def test_cli_refuses_our_own_export_as_the_baseline(
     wording: str, capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture
 ) -> None:
