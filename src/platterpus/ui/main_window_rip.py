@@ -1237,7 +1237,7 @@ class RipMixin(MainWindowShared):
         synchronously, as this file's one sanctioned block of the GUI thread. That
         was fine while the grace was short, and wrong once the fork found a single
         read of 11 s on the rig's drive (their round 30 lap 5 S17), and our own
-        filed log one of 20 s: a grace long enough to outlast that would freeze
+        filed logs one of 21 s: a grace long enough to outlast that would freeze
         the window for most of a minute at the moment the user asked it to go. Now the window closes at once, and the
         process lingers, windowless, while the reader writes its log.
 

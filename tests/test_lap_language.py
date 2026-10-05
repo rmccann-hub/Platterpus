@@ -854,6 +854,53 @@ def test_the_version_line_names_every_implemented_version(tmp_path: Path) -> Non
     assert opened.lsl_version == 3
 
 
+@pytest.mark.parametrize(
+    ("portable", "target", "refused"),
+    [
+        ("no", "NEXT-ROUND", True),
+        ("no", "FIXED", True),
+        ("no", "BLOCKING", False),
+        ("yes", "NEXT-ROUND", False),
+    ],
+)
+def test_a_finding_of_ours_that_neither_travels_nor_blocks_is_for_a_commit(
+    tmp_path: Path, portable: str, target: str, refused: bool
+) -> None:
+    """The fork's A3 amendment, accepted in our round 28 lap 2 S11 and not built
+    until their round 30 lap 7 S2 found our lap 6 S15 passing it."""
+    extra = {
+        "FIXED": "  landed: platterpus@da766ca:README.md\n",
+        "BLOCKING": "  breaks: platterpus:R28.L1.S1\n",
+    }.get(target, "")
+    text = (
+        _header(verdict="OPEN")
+        + "LSL: 3\n\n"
+        + GOOD_FACT
+        + "S2 FINDING ours: A check of ours read a skip as a stop.\n"
+        "  in: platterpus@da766ca:README.md\n  shape: a skip read as a stop\n"
+        f"  target: {target}\n{extra}  evidence: platterpus@da766ca:README.md\n"
+        f"  portable: {portable}\n"
+        "S3 VERDICT: OPEN\n  basis: S1\n"
+    )
+    lap = _check(tmp_path, text, amend=ALL)
+    hits = [p for p in lap.refused() if "for a commit, not a lap" in p.message]
+    assert bool(hits) is refused, [p.message for p in lap.refused()]
+
+
+def test_our_round_30_lap_6_S15_is_refused_as_the_forks_checker_refuses_it() -> None:
+    """Our sent lap 6 broke the rule; it is frozen, so the record says so.
+
+    Both checkers now read it the same way: one refusal, S15's, and nothing else.
+    """
+    path = REPO_ROOT / "docs/handshake/outbound/round-30-lap-06.md"
+    lap = check_path(path)
+    refusals = lap.refused()
+    assert [(p.rule, "for a commit, not a lap" in p.message) for p in refusals] == [
+        ("A3", True)
+    ], [p.message for p in refusals]
+    assert "S15" in refusals[0].message
+
+
 def test_the_help_names_every_implemented_version(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

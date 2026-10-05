@@ -4,10 +4,10 @@
 that its log keeps its footer: cyanrip is sent SIGTERM and given a grace to
 finish the read in hand and write the end of its log, and only then, if it still
 holds the drive, SIGKILL. cyanrip acts on SIGTERM only once that read returns,
-and the rig's drive has been measured taking 20 seconds over one read (our
-filed round 15 lap 13 log; the fork's round 30 lap 5 S17 found 11), so the grace
-is long. Waiting it out on the GUI thread froze
-the window for up to half a minute at the moment the user asked it to go away.
+and the rig's drive has been measured taking 21 seconds over one read (the
+fork's round 30 lap 7 S16), so the grace is long. Waiting it out on the GUI
+thread froze the window for up to half a minute at the moment the user asked it
+to go away.
 
 So the window closes at once, and the wait moves here: ``closeEvent`` hands the
 stop to :func:`start`, which runs it on a helper thread, and ``app.main`` calls

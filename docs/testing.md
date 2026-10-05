@@ -2183,8 +2183,9 @@ caught** — SIGTERM, then poll whether it still holds the drive
 (`drive_control.stop_reader_gracefully`, `READER_TERM_GRACE_S`), escalate only if
 it does or if that cannot be determined, and never a second SIGTERM. **And the grace
 is sized from the longest read on record, not from a guess** (2026-09-30): 8 s lost
-to a single 11 s read the fork found, and our own filed log has one of 20 s, so it
-is 40 s and a test derives that floor from the filed logs. A grace that long cannot
+to a single 11 s read the fork found; our own filed log has one of 20 s and theirs
+one of 21 s, so it is 42 s, and a test derives that floor from the logs filed in
+our tree, the fork's longest among them. A grace that long cannot
 be waited out on the GUI thread, so it is not: the stop is exit work
 (`exit_work`), joined by `app.main` after the window has gone. The
 undeterminable case escalates because the thing being protected on that path is
