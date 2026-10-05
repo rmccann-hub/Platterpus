@@ -1503,7 +1503,16 @@ _FENCE_BLOCK = re.compile(
 #: ``cyanrip@3ad160f:docs/handshake/PROTOCOL.md``), and the fork's gate implements 6
 #: from ``cyanrip@643631b``, which their round 25 lap 5 said in a lap. Implementing
 #: is not *declaring* — see :data:`DECLARED_PROTOCOL`.
-PROTOCOL_VERSION: int = 6
+#:
+#: **7 since 2026-10-05** (v7 §3's ``HANDSHAKE-NEXT-LAP`` and row C46, the one gate
+#: row v7 adds). v7 §15's condition for *implementing* it holds: the shared file is
+#: byte-identical in both trees (sha256 ``b9611d3b…``, compared against
+#: ``cyanrip@872b4156:docs/handshake/PROTOCOL.md``). The fork's gate carries C46
+#: inert at 6 (``cyanrip@872b4156:tools/release-gate.py:106`` and ``:177``). Our
+#: round 30 lap 8 S41 promised this before our round 31 lap 1. Round 30's laps
+#: declare 6 and C46 is keyed on the declared version, so nothing in round 30 is
+#: read differently.
+PROTOCOL_VERSION: int = 7
 
 #: The protocol version OUR laps declare, which may trail :data:`PROTOCOL_VERSION`.
 #:
@@ -2242,6 +2251,9 @@ def close_blockers(text: str, round_hint: int | None = None) -> list[str]:
     if not grandfathered:
         blockers.extend(inbound_field_problems(text, num))
     blockers.extend(agreed_changes_blockers(text))
+    # Row C46 (v7 §3): keyed on the declared version, so it is silent on every
+    # file declaring 6 or less, grandfathered rounds included.
+    blockers.extend(next_lap_problems(text))
     peer = fields.get("HANDSHAKE-PEER-VERDICT")
     if peer is not None and peer != AMBIGUOUS and peer.split()[:1] != [AFFIRMATIVE]:
         # "They did not object" is never "they agreed" — and the peer verdict is
@@ -2615,6 +2627,75 @@ def agreed_changes_blockers(text: str) -> list[str]:
     ]
 
 
+# --- Protocol v7: where the round is going ------------------------------------
+#
+# v7 §3 (D7, agreed in round 30): every lap of a file declaring 7 says, in its
+# header, which lap comes next and whose it is, so a reader learns where the round
+# is going without reading the body. Row C46 is the only gate row v7 adds; §6c's
+# status block and §6d's short reading lap are checked by each side's own suite,
+# not by the gate (v7 §15, "What v7 does not do").
+
+#: The header field v7 §3 adds.
+NEXT_LAP_FIELD: Final[str] = "HANDSHAKE-NEXT-LAP"
+
+#: The first protocol version whose files owe :data:`NEXT_LAP_FIELD`. Keyed on the
+#: file's DECLARED version, as the v5 and v6 fields are (the C29 reasoning): a file
+#: declaring 6 asked to be read by v6's rules, which do not have the field.
+V7_FIELDS_FROM_PROTOCOL: Final[int] = 7
+
+#: What the value must open with: ``<n> (ours):``, ``<n> (yours):`` or ``none``.
+#: The rest is prose for the reader and is not graded. ``none`` must be a whole
+#: word, so ``nonesuch`` and ``none-of-the-above`` are refused. The same pattern
+#: as the fork's ``NEXT_LAP_VALUE_RE``
+#: (``cyanrip@872b4156:tools/release-gate.py:173``), and the same cases are pinned
+#: in ``tests/test_handshake_conformance.py``. Two implementations agreeing is not
+#: either one being correct, so the test reads its cases from the spec's wording,
+#: not from their file.
+_NEXT_LAP_VALUE: Final[re.Pattern[str]] = re.compile(
+    r"(?:\d+ \((?:ours|yours)\):|none(?![\w-]))"
+)
+
+
+def next_lap_problems(text: str) -> list[str]:
+    """Row C46: a file declaring 7 or later must say where the round goes next.
+
+    Any verdict, like C41 and C23: §3 puts the field on *every* lap of a file
+    declaring 7, and the lap a v7 gate closes on by §5b step 3 is the peer's, so
+    this is called on both sides' files.
+
+    **Counted, not looked up, for the duplicate case.** :func:`wire_fields` reads
+    a field declared twice with the *same* value as one declaration, which is
+    looser than §2 rule 3 (*"A field appearing twice is ambiguous … refuse"*).
+    For this field we count the declarations instead, so two identical lines are
+    refused here as they are by the fork's gate, rather than carrying our looser
+    reading into a row that has only just been written.
+    """
+    version = declared_protocol(text)
+    if version is None or version < V7_FIELDS_FROM_PROTOCOL:
+        return []
+    values = [
+        match.group("value")
+        for match in _WIRE_FIELD.finditer(_strip_fences(text))
+        if match.group("key") == NEXT_LAP_FIELD
+    ]
+    if not values:
+        return [
+            f"{NEXT_LAP_FIELD} is absent on a file declaring HANDSHAKE-PROTOCOL: "
+            f"{version} (v7 §3, row C46) — every lap of a v7 file says which lap "
+            "comes next and whose, as `<n> (ours): …`, `<n> (yours): …` or "
+            "`none — <why>`"
+        ]
+    if len(values) > 1:
+        return [f"{NEXT_LAP_FIELD} declared more than once (§2 rule 3, row C46)"]
+    if not _NEXT_LAP_VALUE.match(values[0]):
+        return [
+            f"{NEXT_LAP_FIELD}: {values[0][:40]!r} opens with neither `<n> (ours):`, "
+            "`<n> (yours):` nor `none` (v7 §3, row C46) — `(ours)` and `(yours)` "
+            "are from the writer's side"
+        ]
+    return []
+
+
 _SOURCE_NAMED_LAP: Final[re.Pattern[str]] = re.compile(r"round-0*\d+-lap-0*(\d+)")
 _SOURCE_BARE_LAP: Final[re.Pattern[str]] = re.compile(r"\blap[\s-]*0*(\d+)", re.I)
 
@@ -2870,6 +2951,8 @@ def check_wire_header(path: Path, *, expect_from: str | None = None) -> list[str
     problems.extend(
         f"{path.name}: {p}" for p in inbound_field_problems(text, round_number(path))
     )
+    # Row C46, on any verdict: a file declaring 7 says where the round goes next.
+    problems.extend(f"{path.name}: {p}" for p in next_lap_problems(text))
 
     if expect_from and fields.get("HANDSHAKE-FROM") not in (None, expect_from):
         problems.append(

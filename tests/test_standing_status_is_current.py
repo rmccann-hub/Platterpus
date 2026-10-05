@@ -27,7 +27,10 @@ grade prose, because a check nobody can satisfy gets deleted rather than obeyed.
 
 from __future__ import annotations
 
+import datetime
+import functools
 import re
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -412,6 +415,61 @@ def _version_tuple(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in text.split("."))
 
 
+#: The order §6c (v7) gives the block's single-occurrence lines. `STATUS-RELEASED`
+#: *"appears once, in this position"*; the fork checks its block's order too
+#: (their `64922e8`), so ours is checked positionally, not merely for presence.
+_BLOCK_ORDER: tuple[str, ...] = (
+    "ROUND",
+    "LAPS",
+    "RELEASED",
+    "RELEASE-NEXT",
+    "RUN-NEXT",
+)
+
+#: Floor on the release tags found, so the `STATUS-RELEASED` check cannot pass by
+#: finding none. We had 100+ `v*` tags on 2026-10-05; a clone without tags (a
+#: depth-1 checkout, or `git clone --no-tags`) is the case this refuses.
+_MIN_RELEASE_TAGS: int = 50
+
+
+def _git(*args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(_REPO_ROOT), *args],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    ).stdout.strip()
+
+
+@functools.cache
+def _newest_release() -> tuple[str, str, datetime.date]:
+    """(version, full commit, commit's UTC date) of our newest release tag.
+
+    **Read from the tags reachable from HEAD, not from ``__version__``.** A release
+    PR bumps ``__version__`` before the tag exists, so ``__version__`` names the
+    release being cut, while §6c's `STATUS-RELEASED` names the newest one
+    *published*. ``--merged HEAD`` keeps a branch cut before a release reading the
+    release it was cut after. Ordered by
+    :func:`platterpus.update_check.release_sort_key`, the updater's own ordering,
+    so a beta (``v0.6.66b1``) ranks above the release before it and below its own
+    final release, as it does for a user.
+    """
+    from platterpus.update_check import release_sort_key
+
+    tags = _git("tag", "-l", "v*", "--merged", "HEAD").split()
+    keyed = [(release_sort_key(t[1:]), t) for t in tags]
+    found = [(key, tag) for key, tag in keyed if key is not None]
+    assert len(found) >= _MIN_RELEASE_TAGS, (
+        f"only {len(found)} release tag(s) reachable from HEAD; the STATUS-RELEASED "
+        "check needs the tags (CI's test job fetches them with fetch-depth: 0)"
+    )
+    tag = max(found)[1]
+    commit = _git("rev-parse", f"{tag}^{{commit}}")
+    stamp = datetime.datetime.fromisoformat(_git("log", "-1", "--format=%cI", commit))
+    return tag[1:], commit, stamp.astimezone(datetime.UTC).date()
+
+
 def _status_block_problems(text: str) -> list[str]:
     """Every way the block disagrees with the record, the code, or D6's shape.
 
@@ -425,13 +483,22 @@ def _status_block_problems(text: str) -> list[str]:
     for match in re.finditer(r"(?m)^STATUS-([A-Z-]+): (.+)$", text):
         lines.setdefault(match.group(1), []).append(match.group(2).strip())
     problems: list[str] = []
-    for key in ("ROUND", "LAPS", "RELEASE-NEXT", "RUN-NEXT"):
+    for key in _BLOCK_ORDER:
         if len(lines.get(key, [])) != 1:
             problems.append(f"STATUS-{key} appears {len(lines.get(key, []))} times")
     if not lines.get("OPEN"):
         problems.append("no STATUS-OPEN line: D6 repeats it once per open item")
     if problems:
         return problems
+    order = [
+        key
+        for key in re.findall(r"(?m)^STATUS-([A-Z-]+): ", text)
+        if key in _BLOCK_ORDER
+    ]
+    if order != list(_BLOCK_ORDER):
+        problems.append(
+            f"the block's lines are in the order {order}; §6c gives {list(_BLOCK_ORDER)}"
+        )
 
     newest = _newest_round_on_disk()
     got = re.match(r"(\d+), (OPEN|CLOSED)\b", lines["ROUND"][0])
@@ -494,6 +561,45 @@ def _status_block_problems(text: str) -> list[str]:
 
     def known_build(name: str) -> bool:
         return name in (fork_source.PIN_UNDER_REVIEW, next_build)
+
+    # v7 §6c: `<version> at <commit>, <UTC date>[, hotfix: <why>]`, naming our
+    # newest published release. The version and commit are read from git; the date
+    # is the release's publication, which git does not record, so it is bounded
+    # instead: not before the tagged commit, and not in the future.
+    newest_version, newest_commit, committed_on = _newest_release()
+    released = re.match(
+        r"(\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?) at ([0-9a-f]{7,40}), "
+        r"(\d{4}-\d{2}-\d{2})(?:, hotfix: \S.*)?$",
+        lines["RELEASED"][0],
+    )
+    if released is None:
+        problems.append(
+            f"STATUS-RELEASED is not in §6c's shape: {lines['RELEASED'][0]!r}"
+        )
+    else:
+        if released.group(1) != newest_version:
+            problems.append(
+                f"STATUS-RELEASED names {released.group(1)}; the newest release tag "
+                f"reachable from HEAD is v{newest_version}"
+            )
+        if not newest_commit.startswith(released.group(2)):
+            problems.append(
+                f"STATUS-RELEASED names commit {released.group(2)}; "
+                f"v{newest_version} is at {newest_commit[:12]}"
+            )
+        try:
+            on = datetime.date.fromisoformat(released.group(3))
+        except ValueError:
+            problems.append(
+                f"STATUS-RELEASED's date {released.group(3)!r} is not a date"
+            )
+        else:
+            today = datetime.datetime.now(datetime.UTC).date()
+            if not committed_on <= on <= today:
+                problems.append(
+                    f"STATUS-RELEASED says {on}; v{newest_version}'s commit is from "
+                    f"{committed_on} (UTC), and today is {today}"
+                )
 
     release = re.match(
         rf"(\d+\.\d+\.\d+), .+; pins ([0-9a-f]{{7,40}}), reviews {build}$",
@@ -586,6 +692,17 @@ def test_the_status_block_check_can_fail() -> None:
     assert reviewed is not None, fork_source.UNDER_REVIEW_TARGET.version
     next_build = f"+platterpus.{int(reviewed.group(1)) + 1}"
     far_build = f"+platterpus.{int(reviewed.group(1)) + 5}"
+    newest_version, newest_commit, _ = _newest_release()
+    older_version = "0.0.1"  # in the shape, and never our newest release
+    released_line = next(
+        ln for ln in text.splitlines() if ln.startswith("STATUS-RELEASED: ")
+    )
+    dated = re.search(r"\d{4}-\d{2}-\d{2}", released_line)
+    assert dated is not None, released_line
+    released_date = dated.group()
+    release_next_line = next(
+        ln for ln in text.splitlines() if ln.startswith("STATUS-RELEASE-NEXT: ")
+    )
     mutations = {
         "the round": (f"STATUS-ROUND: {newest},", f"STATUS-ROUND: {newest - 1},"),
         "our newest lap": (
@@ -606,8 +723,24 @@ def test_the_status_block_check_can_fail() -> None:
             "STATUS-OPEN: screenshot-unexposed us cannot, because",
             "STATUS-OPEN: screenshot-unexposed maybe later",
         ),
+        "the newest release": (
+            f"STATUS-RELEASED: {newest_version} at",
+            f"STATUS-RELEASED: {older_version} at",
+        ),
+        "the newest release's commit": (
+            f" at {newest_commit[:7]}, ",
+            " at 0000000, ",
+        ),
+        "the release date": (
+            f" at {newest_commit[:7]}, {released_date}",
+            f" at {newest_commit[:7]}, 2099-01-01",
+        ),
+        "the block's order": (
+            f"{released_line}\n{release_next_line}\n",
+            f"{release_next_line}\n{released_line}\n",
+        ),
     }
-    assert len(mutations) >= 7
+    assert len(mutations) >= 10
     for what, (needle, replacement) in mutations.items():
         assert needle in text, f"{what}: the needle {needle!r} is not in the block"
         assert _status_block_problems(text.replace(needle, replacement, 1)), (

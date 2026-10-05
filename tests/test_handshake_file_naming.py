@@ -849,6 +849,10 @@ def _closing(
         "HANDSHAKE-INBOUND-HELD": "none",
         "HANDSHAKE-INBOUND-OBSERVED": "none",
         "HANDSHAKE-AGREED-CHANGES": "none",
+        # PROTOCOL v7 (2026-10-05): every lap of a file declaring 7 says where the
+        # round goes next (row C46). This stand-in declares the gate's own version,
+        # so it owes the field the moment the gate implements 7.
+        "HANDSHAKE-NEXT-LAP": "none — this stand-in closes its round",
         "HANDSHAKE-OUR-VERSION": "platterpus 0.6.4",
         "HANDSHAKE-OUR-PIN": pin,
         "HANDSHAKE-PEER-VERSION": "cyanrip 0.9.4 (platterpus-fork-gabc1234)",
