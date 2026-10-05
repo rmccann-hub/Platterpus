@@ -40,6 +40,26 @@ def _audio_tracks(rip_log: object) -> list[object]:
     ]
 
 
+def track_has_unverified_skips(track: object) -> bool:
+    """True when paranoia gave up verifying a read and AccurateRip did not prove it.
+
+    A ``SKIP`` in a track's paranoia counts is libcdio-paranoia giving up on a
+    read it could not verify within its retries and keeping what it had
+    (cdparanoia shows it as an uncorrected error). cyanrip's ``Ripping errors:``
+    counts only reads that failed outright (``cyanrip@174a134:src/cyanrip_main.c:
+    537-553``), so a track can carry thousands of skips under "No errors
+    occurred": track 18 of the 2026-10-04 rig run had 2,586. An exact
+    AccurateRip match proves the audio however it was read, so only a track
+    without one counts. Any skip counts: unlike the other counters, a skip is
+    not routine work, so zero is the line, not a threshold. Never raises.
+    """
+    counts = getattr(track, "paranoia_counts", None) or {}
+    skips = counts.get("SKIP", 0) if isinstance(counts, dict) else 0
+    return (
+        isinstance(skips, int) and skips > 0 and not track_accuraterip_verified(track)
+    )
+
+
 def track_accuraterip_partial(track: object) -> bool:
     """True when only one frame of a track (cyanrip's ``Accurip 450``) matched.
 

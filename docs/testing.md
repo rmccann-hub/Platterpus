@@ -2184,7 +2184,7 @@ caught** — SIGTERM, then poll whether it still holds the drive
 it does or if that cannot be determined, and never a second SIGTERM. **And the grace
 is sized from the longest read on record, not from a guess** (2026-09-30): 8 s lost
 to a single 11 s read the fork found; our own filed log has one of 20 s and theirs
-one of 21 s, so it is 42 s, and a test derives that floor from the logs filed in
+one of 21 s, and a damaged disc on 2026-10-04 one of 54 s, so it is 108 s, and a test derives that floor from the logs filed in
 our tree, the fork's longest among them. A grace that long cannot
 be waited out on the GUI thread, so it is not: the stop is exit work
 (`exit_work`), joined by `app.main` after the window has gone. The
@@ -3906,6 +3906,7 @@ that is what the section costs, not what its title implies.
 | 2026-09-28 | 0.6.62 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-28 | 0.6.63 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-30 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
+| 2026-10-04 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -4077,6 +4078,26 @@ converged on every track; three of them needed a fourth read, which 0.6.62's ret
 limit of 3 did not allow and 0.6.63's 5 does. **It is not a second witness** either,
 for the reasons given for the row above
 (`docs/handshake/artifactsround29/README.md`).
+
+**The 2026-10-04 0.6.65 row is a Full-size run on `.19` over a damaged disc, stopped
+by the operator at 252 of 323, and is `partial`.** Three attempts before it that
+afternoon stopped in section E, correctly, on two discs MusicBrainz does not know.
+The third disc (*Roots Music: An American Journey*, disc 1 of 4) read track 18 with
+279 reads over 10 s, the longest 54 s, and 2,586 paranoia skips. The album pass took
+three hours; the securing pass then re-read the six tracks AccurateRip matched on
+one frame only, and on tracks 12 to 17 no two of five reads agreed. Section F's
+six-hour wait ran out with the securing pass still on track 18, so sections H and I
+failed against a rip that was still running, and I's `cancel-rip` stopped F's rip.
+**Ten failures, all in ARCHIVAL sections and all downstream of the disc**; nothing
+here re-grades them. Sections J to M passed, and section N was stopped from the
+console 87 minutes into its whole-disc secure re-read. What it showed of ours, each
+fixed after the run with a regression test: the stopped securing pass discarded the
+verdicts it had reached, so the EAC-layout log printed "Copy OK" over tracks 12 to
+17; the status line said "Done — all 18 tracks ripped cleanly, no read errors" after
+a cancel and over track 18's skips; `cancel-rip` stopped an earlier step's rip;
+`pick-release` called an unidentified disc identified; and the 42 s quit grace was
+shorter than the 54 s read. Nothing it showed of the ripper breaks the pin
+(`docs/handshake/artifactsround30/README.md` → *The 2026-10-04 runs*).
 
 Every row so far is `partial`, zero `full-green`. **No full-green pass has been
 achieved**, so 0.9.1 is not reachable and the count toward it is zero. Recording

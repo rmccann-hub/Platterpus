@@ -472,11 +472,48 @@ def test_cancel_rip_needs_a_rip_to_cancel(qapp, process_until) -> None:
     assert not win.cancelled
 
 
+def _run_lines(window: Any, *lines: str) -> tuple[list[Any], Any]:
+    """Execute several script lines on ONE runner; return every record."""
+    runner = ScriptRunner(window)
+    runner._report.steps.clear()
+    for line in lines:
+        (step,) = parse(line)
+        runner._execute(step)
+    return list(runner._report.steps), runner
+
+
 def test_cancel_rip_reaches_the_windows_cancel_handler(qapp, process_until) -> None:
+    win = _window()
+    runner = ScriptRunner(win)
+    (rip,) = parse("rip")
+    runner._execute(rip)
+    assert runner._report.steps[-1].outcome is Outcome.PASS, "floor: Start pressed"
+    win._rip_worker = object()  # the worker the pressed Start created
+    (cancel,) = parse("cancel-rip")
+    runner._execute(cancel)
+    assert runner._report.steps[-1].outcome is Outcome.PASS
+    assert process_until(lambda: win.cancelled), "the deferred call never landed"
+
+
+def test_cancel_rip_refuses_a_rip_its_last_rip_step_did_not_start(
+    qapp, process_until
+) -> None:
+    """The 2026-10-04 rig run: section I's `rip` was refused because section F's
+    seven-hour rip was still running, and its `cancel-rip` cancelled F's rip."""
+    win = _window(rip_worker=object())  # an earlier section's rip, still running
+    records, _ = _run_lines(win, "rip", "cancel-rip")
+    assert records[0].outcome is Outcome.FAIL, "floor: the rip step was refused"
+    assert records[1].outcome is Outcome.FAIL, records[1].detail
+    assert "earlier step" in records[1].detail
+    process_until(lambda: win.cancelled, timeout=0.5)
+    assert not win.cancelled, "an earlier step's rip was cancelled"
+
+
+def test_cancel_rip_with_no_rip_step_before_it_refuses(qapp, process_until) -> None:
     win = _window(rip_worker=object())
     record, _ = _run_one(win, "cancel-rip")
-    assert record.outcome is Outcome.PASS
-    assert process_until(lambda: win.cancelled), "the deferred call never landed"
+    assert record.outcome is Outcome.FAIL
+    assert not win.cancelled
 
 
 # --- wait-for-rip -----------------------------------------------------------
@@ -893,6 +930,7 @@ def test_no_picker_plus_loaded_tracks_is_a_pass_that_says_why(
     the 'satisfied by finding nothing' shape, so it is only accepted alongside
     positive evidence that the disc really did identify."""
     win = _window()  # the stub track table carries 14 tracks
+    win._current_release_id = "d14a7546-815b-43c6-8af6-35cff6cee1d0"
     runner = ScriptRunner(win)
     _with_picker(monkeypatch, None)
 
@@ -902,7 +940,61 @@ def test_no_picker_plus_loaded_tracks_is_a_pass_that_says_why(
     record = runner._report.steps[-1]
     assert record.outcome is Outcome.PASS
     assert "14 track(s) are loaded" in record.detail
+    assert "d14a7546-815b-43c6-8af6-35cff6cee1d0" in record.detail
     assert "nothing to pick" in record.detail
+
+
+def test_loaded_rows_under_the_unknown_album_dialog_are_not_an_identification(
+    qapp, process_until, monkeypatch
+) -> None:
+    """The 2026-10-04 rig runs 1 and 2: a disc MusicBrainz does not know loads
+    placeholder rows and opens "Rip as unknown album", and this verb said "the
+    disc identified unambiguously"."""
+    import platterpus.uiscript.runner as runner_mod
+
+    win = _window()  # 14 rows, and no release held
+    runner = ScriptRunner(win)
+    _with_picker(monkeypatch, None)
+    monkeypatch.setattr(runner_mod, "_unknown_album_dialog", lambda: object())
+
+    runner.start(parse("pick-release 1"))
+    assert process_until(lambda: bool(runner._report.steps))
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.FAIL, record.detail
+    assert "Rip as unknown album" in record.detail
+    assert "identified unambiguously" not in record.detail
+
+
+def test_a_malformed_release_id_is_not_an_identification(
+    qapp, process_until, monkeypatch
+) -> None:
+    """The fact `expect-identified` keys on is a WELL-FORMED id; so does this."""
+    win = _window()
+    win._current_release_id = "not-a-uuid"
+    runner = ScriptRunner(win)
+    _with_picker(monkeypatch, None)
+
+    runner.start(parse("pick-release 1 2"))
+    assert process_until(lambda: bool(runner._report.steps), timeout=8.0)
+
+    assert runner._report.steps[-1].outcome is Outcome.FAIL
+
+
+def test_loaded_rows_with_no_release_yet_keep_waiting(
+    qapp, process_until, monkeypatch
+) -> None:
+    """Rows from the disc scan arrive before the MusicBrainz answer: not yet a pass."""
+    win = _window()  # 14 rows, and no release held
+    runner = ScriptRunner(win)
+    _with_picker(monkeypatch, None)
+
+    runner.start(parse("pick-release 1 2"))
+    assert process_until(lambda: bool(runner._report.steps), timeout=8.0)
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.FAIL, "it passed before anything was identified"
+    assert "no release was identified" in record.detail, record.detail
 
 
 def test_no_picker_and_no_tracks_keeps_waiting_then_fails(

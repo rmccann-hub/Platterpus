@@ -14,6 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **Platterpus checks, as it exits, that it left nothing behind.** Once the window
+  has closed and any rip has been stopped, it asks whether anything still holds the
+  drive and whether a cyanrip process is still running, and writes the answer to
+  its log. The next session's log, and any evidence bundle made from it, then shows
+  whether the last close let go of the drive. It only reports; it does not kill
+  anything.
 - **The acceptance test now checks what each rip produced, not only that it
   finished.** Every rip already left a report with its own self-audit, the
   AccurateRip and CTDB verdicts, a cue sheet, an EAC-style log and tagged FLACs,
@@ -58,12 +64,32 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
+  After the main read, Platterpus re-reads any track AccurateRip did not fully
+  confirm. If you stopped the rip during that, every result it had already reached
+  was thrown away, so the rip's EAC-style log said "Copy OK" over tracks that had
+  been read five times without two reads agreeing. Those results are now kept and
+  shown: the log says the re-reads did not agree. Nothing from a stopped re-read is
+  swapped into your album.
+- **Changing discs no longer blanks the drive's read offset and cache-defeat rows.**
+  Taking a disc out cleared them along with the disc's own details, and putting the
+  next disc in did not bring them back until a Rescan. They describe the drive, which
+  had not changed; the offset in use was never affected, only its display.
+- **The status line says "cancelled" when you cancel after the main read.** It used
+  to say "Done — all tracks ripped cleanly" while the rip's report said cancelled.
+- **A track the ripper could not read reliably is no longer called clean.** When
+  the ripper gave up verifying some of a track's reads and AccurateRip did not
+  confirm the audio either, the status line still said "ripped cleanly, no read
+  errors", because cyanrip's own error count leaves those reads out. It now names
+  the track. A track AccurateRip confirms is still clean, however hard it was to
+  read.
 - **Quitting during a rip now closes the window at once, and gives cyanrip long
   enough to finish its log.** When you quit mid-rip, Platterpus asks cyanrip to
   stop and waits for it to write the end of its log before forcing it. cyanrip
-  can only stop between reads, and the rip drive has been recorded taking 21
-  seconds over a single read. The wait was 8 seconds, so a quit during a slow
-  read could still cut the log short. It is now 42 seconds. The window no longer
+  can only stop between reads, and the rip drive has been recorded taking 54
+  seconds over a single read of a damaged disc. The wait was 8 seconds, so a quit
+  during a slow read could still cut the log short. It is now 108 seconds, twice
+  the longest read on record. The window no longer
   waits with it: it closes straight away, and Platterpus finishes stopping
   cyanrip in the background before it exits. Usually that takes a second or
   two, because the wait ends as soon as cyanrip lets go of the drive.
@@ -118,6 +144,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   62-digit one; its own checker read that as no hash at all, which is only a
   warning. A misquote already sent is recorded, and honoured only while it is the
   real hash with a character or two dropped.
+- For contributors: the acceptance script's `cancel-rip` now cancels only a rip
+  started by the script's most recent `rip` step. On 2026-10-04 a refused `rip`
+  was followed by a `cancel-rip` that stopped an earlier section's seven-hour rip.
+- For contributors: `pick-release` no longer passes on a disc nobody identified. It
+  passed on loaded track rows, which a disc unknown to MusicBrainz also has; it now
+  needs a release to be held, and fails when "Rip as unknown album" is open.
+- **The 2026-10-04 acceptance runs are filed and graded `partial`.** Three stopped
+  correctly on discs MusicBrainz does not know; the fourth ran a damaged disc for
+  seven hours and was stopped from the console. Its text artifacts are in
+  `docs/handshake/artifactsround30/`, and the defects of ours it showed are fixed
+  above.
 - For contributors: our lap checker implements LSL 4, agreed with the cyanrip
   fork in round 30. A lap declaring `LSL: 4` must write a pre-commit's `when:`
   as exactly `our next lap`, the lap the pre-commit binds; LSL 3 laps are read

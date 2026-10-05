@@ -148,3 +148,116 @@ Each row's sha256 prefix and size are computed from the committed copy.
 | `round30fullrigcheckargvprobe.json` | `session/run/rig-check/argv-probe.json` | `0465a0f4c3252507` | 1,628 |
 | `round30fullrigcheckargvprobeoutput.txt` | `session/run/rig-check/argv-probe-output.txt` | `053dae5fd738e837` | 484 |
 | `round30fullrigcheckripperversion.txt` | `session/run/rig-check/ripper-version.txt` | `3dd6fb1ac56dbfad` | 58 |
+
+## The 2026-10-04 runs — a damaged disc, on the same `.19` and 0.6.65
+
+**Four acceptance runs, one afternoon, the same pair as above**: every rip log opens
+`cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)` and every report names
+Platterpus 0.6.65 (`0981c69`). A first run at 15:19:39 UTC was not uploaded; run 3's
+app log carries it (`round30oct04platterpusapplog2.txt:59929` to `:60048`). The
+operator's three bundles:
+
+| run | bundle | sha256 | bytes |
+|---|---|---|---|
+| run 1 | `platterpusbundle20261004t152045z.tar.gz` | `034682685559cfede1b68cd89fd32bd460f86340f587fd93f4b3a5eaa25f559d` | 3,139,178 |
+| run 2 | `platterpusbundle20261004t160027z.tar.gz` | `aeb66f4ed52c9d5bbc4fa22cb06c5bbaff50c935d0b4b4f6acb21ac4d6809bc9` | 3,119,311 |
+| run 3 | `platterpusbundle20261004t160255z.tar.gz` | `d7881c27575d42b835f27a0796f4713e9d0e42ddd05f4ea9a79ea14c2fded888` | 6,397,797 |
+
+The tarballs are not committed. Filed byte for byte with a `round30oct04` prefix: run
+3's 38 text members below, and each of runs 1 and 2's manifest, transcript and script
+report. **Not filed:** every screenshot; `session/transcript.txt`, identical to
+`session/run/transcript.txt`; run 3's app-log rotations `.3` to `.5`, which end before
+the run began; and runs 1 and 2's app logs, which run 3's `.2` rotation contains. **No
+audio is here**: each bundle's allowlist refused every audio file, and its manifest
+names each refusal.
+
+### What they show
+
+- **The 15:19 run and runs 1 and 2 stopped in section E, and were right to.** Two
+  discs MusicBrainz does not know (disc IDs `PKt4tUZ9zkm_5aEh6ButPQLlNs0-`, 16 tracks,
+  at 15:19 and 15:20, and `83jwDRaSUuT.GTqbBXMLHeQRAKw-`, 11 tracks, at 16:00; both
+  answer 404 from MusicBrainz): `expect-identified` failed and each run ended there,
+  107 of 323. The disc the earlier round-30 runs used, `pNtImOkdBm9RMBIalzx0w9cfsYY-`,
+  is in MusicBrainz. `pick-release` had passed just before it, saying the disc
+  "identified unambiguously" with "Rip as unknown album" on screen (fixed after these
+  runs: it now fails on that dialog and passes only on a held release).
+- **Run 3's disc is damaged.** *Roots Music: An American Journey*, disc 1 of 4
+  (`zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-`). Track 18 read with 279 reads over 10 s, the
+  longest 54 s, and 2,586 paranoia skips; its whole-track AccurateRip checksums were
+  not found and one frame matched (`round30oct04full.log`, and line 1501 for the stall
+  summary). The album pass took three hours. The securing pass then re-read tracks 12
+  to 15, 17 and 18, the six that matched AccurateRip on one frame only; on each of 12
+  to 17 the ripper reached its limit of five reads with no two agreeing (the app log's
+  `ripper.secure_rerip_verdict` warnings, `round30oct04platterpusapplog1.txt`).
+- **Section F's six-hour wait ran out with the securing pass on track 18**, so sections
+  H and I failed against a rip still running, and I's `cancel-rip` cancelled F's rip
+  at 19:07 local, 7h 3m in. Ten failures, all in ARCHIVAL sections and all downstream
+  of the disc. Sections J to M passed. Section N's whole-disc secure re-read was 87
+  minutes in, 10 tracks converged after three reads each, when the run was stopped from
+  the console; the bundle was written with that rip still running, so its log has no
+  footer (`round30oct04securereread.log`).
+- **Defects of ours, each fixed after the run with a regression test.** The stopped
+  securing pass discarded the verdicts it had reached for tracks 12 to 17, so
+  `round30oct04fulleac.log` prints "Copy OK" over them; the status line read "Done —
+  all 18 tracks ripped cleanly, no read errors" after the cancel and over track 18's
+  skips; `cancel-rip` stopped an earlier step's rip; `pick-release` called an
+  unidentified disc identified; and the 42 s quit grace was shorter than the 54 s read
+  (now 108 s, read by `tests/test_drive_control.py` from the log filed here).
+- **Two smaller things in the logs.** At launch, 11:18:30 local, two cyanrip calls
+  entered the cold container together: the dependency check's version probe printed
+  its 99-character banner and did not exit until our 60 s timeout, and the startup
+  disc scan never returned and was superseded 84 s later
+  (`round30oct04platterpusapplog2.txt:59910`, `:59918`). It cost a minute and no
+  run. And after each disc swap the disc panel showed "—" for the read offset and
+  cache defeat until the next rescan, because the disc-removal reset cleared those
+  drive rows too; fixed after these runs. The offset applied was +667 throughout.
+- **Of the ripper:** its `Ripping errors: 0` beside 2,586 skips is how cyanrip counts
+  (`cyanrip@174a134:src/cyanrip_main.c:537-553` counts only reads that failed
+  outright), not a fault in `.19`. Nothing here breaks the pin.
+
+| filed | run | bundle member | sha256/16 | bytes |
+|---|---|---|---|---|
+| `round30oct04aftercancel.cue` | run 3 | `album/after cancel 20261004t160255 platterpus-fork-g174a134/after cancel 20261004t160255 platterpus-fork-g174a134 CD1.cue` | `9be78ad6111471e4` | 788 |
+| `round30oct04aftercancel.log` | run 3 | `album/after cancel 20261004t160255 platterpus-fork-g174a134/after cancel 20261004t160255 platterpus-fork-g174a134 CD1.log` | `70d4bd39259ac0a4` | 9,954 |
+| `round30oct04aftercanceleac.log` | run 3 | `album/after cancel 20261004t160255 platterpus-fork-g174a134/after cancel 20261004t160255 platterpus-fork-g174a134 CD1 (EAC-compatible).log` | `3e8ebcad6219dd8c` | 3,381 |
+| `round30oct04aftercancelreport.json` | run 3 | `album/after cancel 20261004t160255 platterpus-fork-g174a134/after cancel 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json` | `785dbd300db548dc` | 505,136 |
+| `round30oct04components.json` | run 3 | `COMPONENTS.json` | `36750ddc3ef0a759` | 1,339 |
+| `round30oct04config.toml` | run 3 | `session/artifacts/08platterpus/config.toml` | `8d816eea558fa8c8` | 1,141 |
+| `round30oct04derivedmp3.cue` | run 3 | `album/derived mp3 20261004t160255 platterpus-fork-g174a134/derived mp3 20261004t160255 platterpus-fork-g174a134 CD1.cue` | `6b9bc9abd3b6130b` | 787 |
+| `round30oct04derivedmp3.log` | run 3 | `album/derived mp3 20261004t160255 platterpus-fork-g174a134/derived mp3 20261004t160255 platterpus-fork-g174a134 CD1.log` | `71fcc15f87260416` | 9,892 |
+| `round30oct04derivedmp3eac.log` | run 3 | `album/derived mp3 20261004t160255 platterpus-fork-g174a134/derived mp3 20261004t160255 platterpus-fork-g174a134 CD1 (EAC-compatible).log` | `790a75eb66024d8c` | 3,418 |
+| `round30oct04derivedmp3report.json` | run 3 | `album/derived mp3 20261004t160255 platterpus-fork-g174a134/derived mp3 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json` | `5e350794ce9cbb72` | 510,644 |
+| `round30oct04derivedwav.cue` | run 3 | `album/derived wav 20261004t160255 platterpus-fork-g174a134/derived wav 20261004t160255 platterpus-fork-g174a134 CD1.cue` | `46d4640d6876193f` | 787 |
+| `round30oct04derivedwav.log` | run 3 | `album/derived wav 20261004t160255 platterpus-fork-g174a134/derived wav 20261004t160255 platterpus-fork-g174a134 CD1.log` | `56f113e0569c763c` | 9,892 |
+| `round30oct04derivedwaveac.log` | run 3 | `album/derived wav 20261004t160255 platterpus-fork-g174a134/derived wav 20261004t160255 platterpus-fork-g174a134 CD1 (EAC-compatible).log` | `7549e1bdff008799` | 3,418 |
+| `round30oct04derivedwavpack.cue` | run 3 | `album/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.cue` | `c04ae2052f37b719` | 791 |
+| `round30oct04derivedwavpack.log` | run 3 | `album/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.log` | `e558d7634a56b42b` | 9,916 |
+| `round30oct04derivedwavpackeac.log` | run 3 | `album/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1 (EAC-compatible).log` | `bf27a3ca0229fbd7` | 3,430 |
+| `round30oct04derivedwavpackreport.json` | run 3 | `album/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json` | `82749de2935e453e` | 517,195 |
+| `round30oct04derivedwavreport.json` | run 3 | `album/derived wav 20261004t160255 platterpus-fork-g174a134/derived wav 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json` | `319d2843f6cb3f28` | 525,530 |
+| `round30oct04diagnostics.txt` | run 3 | `DIAGNOSTICS.txt` | `223b6d3ae4d67c0c` | 4,897 |
+| `round30oct04full.cue` | run 3 | `album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134 CD1.cue` | `b3d9c864e7c59141` | 3,519 |
+| `round30oct04full.log` | run 3 | `album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134 CD1.log` | `15372c9cc33f6fec` | 53,020 |
+| `round30oct04fulleac.log` | run 3 | `album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134 CD1 (EAC-compatible).log` | `f5b9acc4506e01b5` | 11,806 |
+| `round30oct04fullreport.json` | run 3 | `album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json` | `d658601b45b329e8` | 7,308,860 |
+| `round30oct04manifest.txt` | run 3 | `MANIFEST.txt` | `f848aee6ee765796` | 50,213 |
+| `round30oct04platterpusapplog.txt` | run 3 | `session/artifacts/02platterpus/log.txt` | `732f9e86403b7db6` | 4,857,449 |
+| `round30oct04platterpusapplog1.txt` | run 3 | `session/zz-applog-rotations/03platterpus/log.txt.1` | `102ca6638f2dccda` | 8,388,572 |
+| `round30oct04platterpusapplog2.txt` | run 3 | `session/zz-applog-rotations/04platterpus/log.txt.2` | `d81ebcfa49ecd224` | 8,388,557 |
+| `round30oct04rigcheckargvprobe.json` | run 3 | `session/run/rig-check/argv-probe.json` | `eefbfbe4c46b1327` | 1,628 |
+| `round30oct04rigcheckargvprobeoutput.txt` | run 3 | `session/run/rig-check/argv-probe-output.txt` | `03f6b131d7d2b2b9` | 484 |
+| `round30oct04rigcheckmanifest.txt` | run 3 | `session/run/rig-check/MANIFEST.txt` | `d5c892d3a3581b4c` | 13,884 |
+| `round30oct04rigcheckripperversion.txt` | run 3 | `session/run/rig-check/ripper-version.txt` | `3dd6fb1ac56dbfad` | 58 |
+| `round30oct04run1manifest.txt` | run 1 | `MANIFEST.txt` | `c0b77ae660271e3e` | 5,060 |
+| `round30oct04run1scriptreport.json` | run 1 | `session/run/report.json` | `b7d613c094f313d2` | 186,710 |
+| `round30oct04run1transcript.txt` | run 1 | `session/run/transcript.txt` | `b3b7406de057c059` | 32,156 |
+| `round30oct04run2manifest.txt` | run 2 | `MANIFEST.txt` | `746bd199285fccca` | 5,060 |
+| `round30oct04run2scriptreport.json` | run 2 | `session/run/report.json` | `eb3e1af32d362cce` | 186,752 |
+| `round30oct04run2transcript.txt` | run 2 | `session/run/transcript.txt` | `ac6e3e7e56529f68` | 32,246 |
+| `round30oct04scriptreport.json` | run 3 | `session/run/report.json` | `7c8b727a72a17ea9` | 225,948 |
+| `round30oct04securereread.cue` | run 3 | `album/secure reread 20261004t160255 platterpus-fork-g174a134/secure reread 20261004t160255 platterpus-fork-g174a134 CD1.cue` | `248d442185350150` | 2,133 |
+| `round30oct04securereread.log` | run 3 | `album/secure reread 20261004t160255 platterpus-fork-g174a134/secure reread 20261004t160255 platterpus-fork-g174a134 CD1.log` | `848fb243d2d5b285` | 32,719 |
+| `round30oct04securerereadreport.json` | run 3 | `album/secure reread 20261004t160255 platterpus-fork-g174a134/secure reread 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json` | `8f3c4dc29e96de07` | 225,045 |
+| `round30oct04settings.json` | run 3 | `SETTINGS.json` | `6d5726cad6e6cab6` | 2,623 |
+| `round30oct04sources.txt` | run 3 | `SOURCES.txt` | `1fbad15fdbe1b141` | 1,979 |
+| `round30oct04transcript.txt` | run 3 | `session/run/transcript.txt` | `005c73757af6a6c6` | 74,919 |

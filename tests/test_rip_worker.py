@@ -875,6 +875,110 @@ def test_auto_fix_keeps_original_when_rerip_still_unstable(
     assert not (tmp_path / "Artist" / "Album" / "03 - C.flac").exists()
 
 
+_PASS1_TWO_UNSTABLE = (
+    "cyanrip 0.9.3 (release)\n"
+    "Disc tracks:    3\n"
+    "Done; (no matches found, but hit repeat limit of 5)\n"
+    "Track 2 ripped and encoded successfully!\n"
+    "  EAC CRC32:     22222222 (after 5 rips)\n"
+    "  File(s):\n"
+    "    Artist/Album/02 - B.flac\n"
+    "Done; (no matches found, but hit repeat limit of 5)\n"
+    "Track 3 ripped and encoded successfully!\n"
+    "  EAC CRC32:     33333333 (after 5 rips)\n"
+    "  File(s):\n"
+    "    Artist/Album/03 - C.flac\n"
+    "Ripping errors: 0\n"
+    # A footer, as every finished album pass has: without it the cancel makes
+    # the worker wait out its whole settle deadline for this log too.
+    "Log FUN512: pass1\n"
+)
+
+# The securing pass, cancelled while track 3 was being read: track 2 finished
+# with a verdict, track 3 has none, and the ripper wrote its footer on the signal.
+_REFIX_STOPPED_DURING_TRACK_3 = (
+    "cyanrip 0.9.3 (release)\n"
+    "Disc tracks:    3\n"
+    "Done; (repeat limit of 5 reads reached; at most 1 read agreed)\n"
+    "Track 2 ripped and encoded successfully!\n"
+    "  EAC CRC32:     2222AAAA (after 5 rips)\n"
+    "  File(s):\n"
+    "    Artist/Album/02 - B.flac\n"
+    "Ripping errors: 0\n"
+    "Log FUN512: abc\n"
+)
+
+
+def test_a_stopped_securing_pass_keeps_the_verdicts_it_reached(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The 2026-10-04 rig run: a cancel during track 18 threw away tracks 12-17.
+
+    The securing pass re-reads every track it was given in ONE ripper run and
+    read its log only when that run succeeded, then deleted the temp folder
+    holding it. A cancel during the last track therefore discarded the verdicts
+    of every track already re-read (five reads each, no two agreeing), and the
+    EAC-layout log printed "Copy OK" over them. A finished verdict is kept;
+    nothing is swapped in; the track that was still being read gets no record.
+    """
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    write_logs = _fake_rip_writer(
+        _PASS1_TWO_UNSTABLE, _REFIX_STOPPED_DURING_TRACK_3, True
+    )
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        if call["only_tracks"]:
+            worker.cancel()  # the user stops the rip during the securing pass
+
+    backend.rip_side_effect = rip_side_effect
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 2, "floor: the securing pass never ran"
+    assert backend.rip_calls[1]["only_tracks"] == (2, 3)
+    assert worker.retried_tracks == [
+        {
+            "track": 2,
+            "trigger": "instability",
+            "reripped_z": 2,
+            "converged": False,
+            "replaced": False,
+            "replaced_because": None,
+        }
+    ]
+    # Nothing from the stopped pass reached the album folder.
+    assert not (tmp_path / "Artist" / "Album" / "02 - B.flac").exists()
+
+
+def test_a_stopped_securing_pass_whose_log_never_settles_records_nothing(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """No footer, no verdicts: a half-written log is not read for one."""
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    unsigned = _REFIX_STOPPED_DURING_TRACK_3.replace("Log FUN512: abc\n", "")
+    write_logs = _fake_rip_writer(_PASS1_TWO_UNSTABLE, unsigned, True)
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        if call["only_tracks"]:
+            worker.cancel()
+            worker.abandon_log_wait()  # do not sit out the real deadline
+
+    backend.rip_side_effect = rip_side_effect
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 2, "floor: the securing pass never ran"
+    assert worker.retried_tracks == []
+
+
 def test_auto_fix_keeps_a_re_read_that_matches_accuraterip_without_converging(
     qapp: QApplication, tmp_path: Path
 ) -> None:

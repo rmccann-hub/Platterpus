@@ -602,6 +602,58 @@ round 26 is open.
   up drive…* are also steps inside *Run setup…*; each is still one action with one button,
   and the wizard is a sequence of them rather than a second door.
 
+## 2026-10-04 hardware runs — two discs MusicBrainz does not know, then a damaged one
+
+Four acceptance runs on 0.6.65 + `.19`, graded `partial` (`docs/testing.md` §5B, and
+`docs/handshake/artifactsround30/README.md` → *The 2026-10-04 runs*). Fixed after the
+runs, each with a regression test:
+
+- [x] **A stopped securing pass keeps the verdicts it reached** (`rip_worker.
+  _record_unfinished_refix`). Tracks 12–17 were each re-read five times with no two
+  reads agreeing, then a cancel during track 18 discarded all six verdicts, so the
+  EAC-layout log printed "Copy OK" over them.
+- [x] **The status line says "cancelled" after a cancel that came after the read**
+  (`fidelity_summary(cancelled=)`), where it read "Done".
+- [x] **A track with paranoia skips and no exact AccurateRip match is not "clean"**
+  (`verdict.track_has_unverified_skips`; track 18: 2,586 skips under cyanrip's
+  "Ripping errors: 0"). The status line only; the EAC-layout log and the report are
+  the next row.
+- [x] **Quit grace 42 → 108 s**, twice the 54 s read the damaged disc took.
+- [x] **`cancel-rip` cancels only a rip the script's last `rip` step started**; a
+  refused `rip` in section I was followed by a cancel of section F's seven-hour rip.
+- [x] **`pick-release` passes only on a held release** and fails on "Rip as unknown
+  album"; it called an unidentified disc identified.
+- [x] **A disc swap no longer blanks the drive's offset and cache-defeat rows**
+  (`clear_disc_state(keep_drive_rows=True)` on removal).
+- [x] **An exit check in the log** (`exit_work.audit`), the operator's request: as the
+  process leaves, whether anything still holds the drive and whether a cyanrip process
+  still runs, tri-state, as the host sees them.
+
+Open:
+
+- [ ] **The EAC-layout log and the report for a track with unverified skips.** Track 18
+  still renders "Copy OK" and the status report "No errors occurred". The EAC-layout
+  log is a surface the fork diffs against, so its wording goes through the handshake:
+  proposed for round 31 in our round 30 lap 8. The report could carry an `issues` code
+  sooner; it changes the report's vocabulary, so it waits for the same round.
+- [ ] **Stopping a run from the console leaves the rip it started running.** Run 3's
+  section N rip was still reading when the session restored the settings and wrote its
+  bundle. Decide: cancel it, or ask.
+- [ ] **A section whose rip outlives its wait should end the run.** F's six-hour wait
+  ran out and H and I then failed against the still-running rip; nothing after F was
+  evidence. An `abort-if-failed` after F, or a wait that stops the run.
+- [ ] **The report says post-rip checks were "not run — the rip did not finish" when they
+  started and were superseded.** On the cancelled rip, CTDB and FLAC verify started at
+  19:07:11 and were abandoned 46 s later when section J's rip began; the report's reason
+  names the wrong one.
+- [ ] **Cold-container start: two container entries at launch.** The version probe
+  printed its banner and did not exit for 60 s, and the startup disc scan never
+  returned (`round30oct04platterpusapplog2.txt:59910`, `:59918`). Serialise the first
+  entry, or bound the scan the way the probe is.
+- [ ] **The securing pass's own ripper log is always deleted with its temp folder.** On
+  success the swap addendum carries what was swapped; the per-read record of a pass
+  that swapped nothing is in no artifact.
+
 ## Round 30 — OPEN on `174a134` (`+platterpus.19`): the Full run on 0.6.65 with `.19`, and the operator's release-cycle question
 
 Their lap 1 (`cyanrip@171bcf9`, platterpus-fork tip `0ae873c`, sha256 `6db0ed0d…`, 15,546
@@ -781,6 +833,9 @@ each side's reading; and the closing releases named.
     theirs, searched whole, has two reads of 21 s on the same drive. One is filed here
     (`docs/handshake/inbound/artifacts/round-30-lap-07-accurip-gddc1e8c.log`), and the floor
     follows it.
+  - *2026-10-05: 108 s.* The 2026-10-04 rig run's damaged disc took 54 s over one read
+    (`docs/handshake/artifactsround30/round30oct04full.log:1501`); filed, and the floor
+    follows it again.
 - [x] **The acceptance test grades what each rip left, not only that it finished**
   (2026-09-30, for the next release; asked for with the round-30 Full run: *"this
   test will do all reasonable permutations… if not we need to fix or update the

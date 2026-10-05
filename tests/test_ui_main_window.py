@@ -1372,6 +1372,42 @@ def test_rip_finished_shows_actionable_failure_hint(
     assert any("Track 3" in s for s in statuses)
 
 
+def test_a_rip_cancelled_after_its_read_finished_says_cancelled_not_done(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The window, not only the helper: a cancel during the securing pass.
+
+    The worker still reports the rip produced (the album pass finished), so the
+    finish handler composes the fidelity line. It must say the rip was cancelled,
+    as the report beside it does (the 2026-10-04 rig run read "Done").
+    """
+    from types import SimpleNamespace
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False, failure_hint=""
+    )
+    window._active_rip_params = None
+    window._rip_cancelled = True
+    window._auto_retry_done = True
+    statuses: list[str] = []
+    monkeypatch.setattr(window._rip_progress, "set_status", statuses.append)
+    log_file = tmp_path / "rip.log"
+    log_file.write_text(
+        _ROUND30_OCT04_FULL_LOG.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    window._on_rip_finished(True, str(log_file))
+    report_writer.writer().flush()  # the report write is off-thread now
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+
+    assert any(
+        s.startswith("Rip cancelled after the read finished") for s in statuses
+    ), statuses
+    assert not any(s.startswith("Done — ") for s in statuses), statuses
+
+
 def test_no_auto_heal_when_not_flagged(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1739,6 +1775,63 @@ def test_fidelity_summary_cyanrip_clean_rip() -> None:
     assert "all 2 tracks ripped cleanly" in summary
     assert "AccurateRip: 2/2" in summary
     assert "CRCs match" not in summary  # never claim a check that didn't run
+
+
+_ROUND30_OCT04_FULL_LOG = (
+    Path(__file__).resolve().parents[1]
+    / "docs"
+    / "handshake"
+    / "artifactsround30"
+    / "round30oct04full.log"
+)
+
+
+def test_fidelity_summary_does_not_call_a_track_with_unverified_skips_clean() -> None:
+    """The 2026-10-04 rig run, track 18: 2,586 paranoia skips, one frame matched.
+
+    cyanrip's own count read "Ripping errors: 0", and the status line said "all 18
+    tracks ripped cleanly, no read errors". Read off the filed log itself.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    rip_log = parse_cyanrip_log(_ROUND30_OCT04_FULL_LOG.read_text(encoding="utf-8"))
+    assert rip_log.tracks[17].paranoia_counts.get("SKIP") == 2586, "floor: the subject"
+    summary = _fidelity_summary(rip_log, expected_track_total=18)
+    assert "ripped cleanly, no read errors" not in summary
+    assert "17/18 tracks ripped cleanly" in summary
+    assert "on track(s) 18 the ripper could not verify every read" in summary
+
+
+def test_skips_on_a_track_accuraterip_verified_do_not_count_against_it() -> None:
+    """An exact AccurateRip match proves the audio however hard it was to read."""
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.4",
+        tracks=(
+            TrackResult(
+                number=1,
+                copy_crc="AAAA",
+                status="ripped successfully",
+                paranoia_counts={"SKIP": 40},
+                accuraterip_v2=AccurateRipResult(version=2, confidence=12),
+            ),
+        ),
+        health_status="No errors occurred",
+    )
+    assert "all 1 tracks ripped cleanly, no read errors" in _fidelity_summary(rip_log)
+
+
+def test_fidelity_summary_says_cancelled_when_the_cancel_came_after_the_read() -> None:
+    """The same run: cancelled during the securing pass, the line still read "Done"."""
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.4",
+        tracks=(TrackResult(number=1, copy_crc="AAAA", status="ripped successfully"),),
+        health_status="No errors occurred",
+    )
+    summary = _fidelity_summary(rip_log, cancelled=True)
+    assert summary.startswith("Rip cancelled after the read finished")
+    assert "Done" not in summary
+    assert "All 1 tracks ripped cleanly" in summary
+    assert _fidelity_summary(rip_log).startswith("Done — ")
 
 
 def test_fidelity_summary_notes_partial_offset_variant_tracks() -> None:
@@ -6602,6 +6695,26 @@ def test_reset_disc_view_clears_disc_state(teardown_threads) -> None:
     assert window._current_release_id == ""
     assert window._current_num_tracks == 0
     assert window._current_disc_id == ""
+
+
+def test_a_disc_leaving_the_drive_keeps_the_drives_own_rows(teardown_threads) -> None:
+    """The 2026-10-04 rig runs after a disc swap showed "—" for the read offset and
+    the cache defeat until a Rescan: the removal reset cleared rows that describe
+    the DRIVE, and inserting the next disc refilled nothing. A drive change still
+    clears them, then refills them from the new drive's profile."""
+    window = teardown_threads()
+    panel = window._disc_info_panel
+    panel.set_drive_offset_provenance("+667 — confirmed")
+    panel.set_drive_cache_defeat("Yes — measured")
+    panel._mb_id_value.setText("disc-abc")
+
+    window._reset_disc_view()
+
+    assert panel._offset_value.text() == "+667 — confirmed"
+    assert panel._cache_value.text() == "Yes — measured"
+    assert panel._mb_id_value.text() != "disc-abc", "floor: the disc rows did clear"
+    panel.clear_disc_state()
+    assert panel._offset_value.text() != "+667 — confirmed"
 
 
 @pytest.mark.parametrize(

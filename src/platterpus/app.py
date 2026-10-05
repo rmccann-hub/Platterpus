@@ -1547,6 +1547,14 @@ def main(argv: list[str] | None = None) -> int:
     # cyanrip its grace to write the end of its log (`exit_work`, the fork's
     # round 30 lap 5 S17). Bounded, and a no-op when nothing was handed over.
     exit_work.wait()
+    # Then say, in the log, whether anything was left behind: a bundle is written
+    # while the app runs, so this line, read in the next session's log, is the
+    # only record that a close let go of the drive (our operator, 2026-10-05).
+    try:
+        audit_device = window.exit_audit_device()
+    except RuntimeError:  # the window's Qt side is already gone: check no drive
+        audit_device = ""
+    exit_work.audit(audit_device)
     # If any worker thread had to be abandoned still-running, returning from here
     # would let interpreter shutdown clear `workers._abandoned_threads`, drop the
     # last reference to a live QThread, and abort with SIGABRT (the v0.5.8 crash —
