@@ -33,7 +33,7 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QMessageBox
 
 from platterpus.ui import message_boxes
@@ -103,6 +103,9 @@ class ProvisioningMixin(MainWindowShared):
     #: window disarms one — a run that finishes after it has been cleared builds
     #: no bundle (see :meth:`_end_acceptance_session`).
     _acceptance_layout: SessionLayout | None = None
+    #: When the session, its run over, began waiting for a rip still reading to
+    #: stop before packing (``time.monotonic()``), or None while not waiting.
+    _acceptance_rip_wait_since: float | None = None
     #: The sleep-inhibitor holding this session's lock. It owns a **child
     #: process**, so every exit path has to release it; see
     #: :meth:`_release_acceptance_inhibitor`.
@@ -1010,6 +1013,21 @@ class ProvisioningMixin(MainWindowShared):
         layout = self._acceptance_layout
         if layout is None:
             return  # not our run, or the session was already ended
+        from platterpus import test_session
+
+        rip_note = self._acceptance_rip_at_end()
+        if rip_note is None:
+            # A rip is still reading: come back once it has stopped, so the
+            # settings are not restored under it and the bundle is not packed
+            # around a log still being written.
+            # The window is the timer's context, so a window that closes while
+            # it waits takes the pending call with it.
+            QTimer.singleShot(
+                test_session.RIP_POLL_MS,
+                self,
+                lambda: self._on_acceptance_run_finished(report),
+            )
+            return
         # Clear FIRST: one bundle per session, whatever else happens below.
         self._acceptance_layout = None
 
@@ -1018,6 +1036,7 @@ class ProvisioningMixin(MainWindowShared):
         artifact_dir: Path | None = None
         settings_record = ""
         album_roots: list[Path] = []
+        facts["rip at the end of the run"] = rip_note
         try:
             facts["sleep lock"] = self._acceptance_inhibit_note or "not determined"
             facts["screen lock"] = self._acceptance_screen_note or "not determined"
@@ -1098,6 +1117,60 @@ class ProvisioningMixin(MainWindowShared):
             artifact_dir=artifact_dir,
             settings_record=settings_record,
             album_roots=album_roots,
+        )
+
+    def _acceptance_rip_at_end(self) -> str | None:
+        """What became of a rip still reading when the run ended, or None to wait.
+
+        **The session does not end around a running rip.** On 2026-10-04 the run
+        was stopped from the console while section N's rip was still reading,
+        and in the same second the session restored the user's settings and
+        packed its bundle, with that rip's log still being written and no footer
+        (the fork found it, `cyanrip@64b3a623`). The runner now cancels a rip it
+        started when it stops early (`ScriptRunner._cancel_own_rip`); this waits
+        for that cancel, or for a rip the script left running, to finish, up to
+        the app's own wait for a cancelled rip's log plus a margin. Past that it
+        packs anyway and the bundle says so: a run must not be held forever by a
+        rip that will not stop. The answer goes into the bundle's facts.
+        """
+        from platterpus import test_session
+
+        if getattr(self, "_rip_worker", None) is None:
+            since, self._acceptance_rip_wait_since = (
+                self._acceptance_rip_wait_since,
+                None,
+            )
+            if since is None:
+                return "no rip was reading when the run ended"
+            return (
+                "a rip was still reading when the run ended; the session waited "
+                f"{time.monotonic() - since:.0f}s for it to stop before packing"
+            )
+        now = time.monotonic()
+        if self._acceptance_rip_wait_since is None:
+            self._acceptance_rip_wait_since = now
+            log.info(
+                "the acceptance run ended with a rip still reading; waiting up to "
+                "%.0fs for it to stop before restoring settings and packing",
+                test_session.rip_wait_s(),
+            )
+            self._show_acceptance_notice(
+                "The run has ended, and a rip it started is still stopping. The "
+                "results are packed once it has stopped."
+            )
+            return None
+        waited = now - self._acceptance_rip_wait_since
+        if waited < test_session.rip_wait_s():
+            return None
+        self._acceptance_rip_wait_since = None
+        log.warning(
+            "a rip was STILL READING %.0fs after the acceptance run ended; packing "
+            "the bundle anyway, and its log may be incomplete",
+            waited,
+        )
+        return (
+            f"a rip was STILL READING when this bundle was packed, {waited:.0f}s "
+            "after the run ended; its log may be incomplete"
         )
 
     def _announce_run_with_nothing_to_send(
@@ -1326,7 +1399,9 @@ class ProvisioningMixin(MainWindowShared):
         from platterpus.paths import CONFIG_PATH, LOG_PATH
         from platterpus.test_session import (
             finish_session,
+            ripper_processes_fact,
             session_album_dirs,
+            session_diagnostics_records,
             session_sources,
         )
 
@@ -1388,12 +1463,17 @@ class ProvisioningMixin(MainWindowShared):
                         exc,
                     )
                 albums = session_album_dirs(roots, since=since)
+                records, records_dropped = session_diagnostics_records(
+                    roots, since=since
+                )
                 result = finish_session(
                     layout,
                     sources=session_sources(layout, log_path=LOG_PATH, extra=extra),
                     outcome="acceptance test session",
-                    facts=facts,
+                    facts={**facts, **ripper_processes_fact()},
                     album_dirs=albums,
+                    record_files=records,
+                    records_dropped=records_dropped,
                     embedded_text={
                         "DIAGNOSTICS.txt": diagnostics,
                         # Every user setting before and at the end of the run —

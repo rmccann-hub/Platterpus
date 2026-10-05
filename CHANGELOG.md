@@ -14,6 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **Platterpus checks, as it exits, that it left nothing behind.** Once the window
+  has closed and any rip has been stopped, it asks whether anything still holds the
+  drive and whether a cyanrip process is still running, and writes the answer to
+  its log. The next session's log, and any evidence bundle made from it, then shows
+  whether the last close let go of the drive. It only reports; it does not kill
+  anything.
 - **The acceptance test now checks what each rip produced, not only that it
   finished.** Every rip already left a report with its own self-audit, the
   AccurateRip and CTDB verdicts, a cue sheet, an EAC-style log and tagged FLACs,
@@ -55,15 +61,173 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `expect-ctdb`, `expect-tags`, `expect-cover-art` and `track-title`, and a
   FLAC tag reader (`flac_metadata.py`) that needs no external tool.
   `expect-verification` no longer accepts a report that is still being written.
+- A full map of everything Platterpus has or relies on, in a standard format other
+  tools can read: `bom.cdx.json`, a CycloneDX 1.7 bill of materials at the top of
+  the repository. It lists the Python versions it runs on, Qt, every Python
+  package and its pin, the cyanrip fork (the approved build and the one under
+  review) and upstream cyanrip, the `ripping` container, the libraries the fork is
+  built from, the external programs the app runs, the online services it uses,
+  and the CI actions and tools, each with where it is used and where its pin is
+  set. `DEPENDENCIES.md` carries the same map as tables. Both are generated from
+  the code by `scripts/emit_bom.py`, and a test fails when either is out of date.
+
+- **Every rip now says up front about how long it should take, and the log
+  records how close it came.** The estimate covers the tracks you ticked, at the
+  drive's own measured reading speed: Platterpus learns it from each rip the drive
+  finishes, recent rips counting most. Until a drive has finished a rip, only the
+  test rig's drive model gets an estimate, from the rig's measured speed; any
+  other drive gets none rather than a guess, because drives differ several-fold.
+  Re-reads of tracks AccurateRip does not confirm cannot be predicted, so the
+  estimate says what each one costs (3 to 5 times the track's length at the
+  default settings). The figure is in the rip's plan in the log and on screen,
+  shows as the time left until the live estimate takes over, and the log line
+  with the rip's actual time now gives the estimate beside it. Checked against
+  every filed rip from the test rig.
 
 ### Fixed
 
+- **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
+  After the main read, Platterpus re-reads any track AccurateRip did not fully
+  confirm. If you stopped the rip during that, every result it had already reached
+  was thrown away, so the rip's EAC-style log said "Copy OK" over tracks that had
+  been read five times without two reads agreeing. Those results are now kept and
+  shown: the log says the re-reads did not agree. They are kept even when cyanrip
+  never finished writing the end of its own log, which on a damaged disc it may not
+  manage in any reasonable wait. Nothing from a stopped re-read is swapped into
+  your album.
+- **Cancelling a rip on a slow or damaged disc now waits for cyanrip to finish
+  its log.** cyanrip stops only once the read in progress returns, and on the
+  2026-10-04 damaged disc one read took 54 seconds. Platterpus gave up waiting
+  after 20 seconds and recorded the log as unsigned. It now waits up to about two
+  minutes, and stops waiting as soon as the log is complete, which on a healthy
+  disc takes a few seconds. While it waits, the status line says so and says that
+  Force stop ends it at once, with an incomplete log. The acceptance test's cancel
+  sections now wait as long before they check the cancelled rip's log (135 s,
+  where they waited 30), and a test holds them to the app's own number.
+- **A rip's report no longer says its checks "did not run" when they did.** If you
+  cancel a rip while it is re-reading tracks, the main read is already finished,
+  so the CTDB and FLAC checks start. The report still said they were "not run —
+  the rip did not finish", and when the next rip cut them short it still said that,
+  not "superseded". It now records which checks actually started: one that started
+  and finished says it ran, one that a newer rip cut short says superseded, and
+  only a check that never started says not run.
+- **A test run no longer leaves its rip reading after the run has ended.** When a
+  run stops early (from the console's Stop, an `abort`, or a `wait-for-rip` whose
+  time runs out), it now cancels the rip it started. The session then waits for
+  that rip to stop, up to about two and a half minutes, before it puts your
+  settings back and packs the results, and the results say what it waited for.
+  The bundle also records which cyanrip processes were still running when it was
+  packed. On 2026-10-04 a stopped run packed its results while a rip was still
+  reading, so one of its logs had no ending, and nothing in the bundle said why.
+- **A `wait-for-rip` whose time runs out with the rip still reading now ends the
+  run.** Every later step would be graded against the wrong rip: on 2026-10-04
+  section F's six-hour wait ran out, sections H and I then failed against F's rip,
+  and I's cancel stopped it. Nothing after F was evidence. (Contributor-facing:
+  the script verb's help says so.)
+- **The re-reads' own cyanrip log is kept.** When Platterpus re-reads tracks
+  after the main read, cyanrip writes a log of every re-read and its checksum.
+  That log was deleted afterwards, so unless a track was swapped, nothing kept it,
+  and a stopped re-read pass left no record of how far it got. It is now saved
+  beside the album's log as `<album>.platterpus-securing-pass.txt`, complete or
+  not. It is a `.txt` so that nothing mistakes it for the album's own log.
+- **The acceptance-test bundle now includes each rip's cyanrip record.** Every
+  rip asks cyanrip for a machine-readable record of how it ended (`-j`), which
+  cyanrip writes as it exits, but the session bundle never collected one: the
+  records sit in the rips folder, not in an album folder. The bundle now carries
+  every record written during the session, and if rips landed but no record did,
+  its facts say so instead of leaving the gap unmentioned. The cyanrip fork found
+  this in its reading of our 2026-10-04 runs.
+- **The re-read path's description no longer says it has never run on a drive.**
+  The 2026-10-04 Full run exercised it on a damaged disc, and no track
+  converged, so nothing was swapped; the docstring now says that.
+- **The next cyanrip build will not make a damaged disc re-read whole at a
+  slower speed.** The fork's next build (`+platterpus.20`) marks a track "read
+  with errors" when the drive's error correction gave up on parts of it, or when
+  its re-reads never agreed. Until now only a read the drive failed outright
+  was marked that way. Platterpus's automatic speed ladder re-reads the whole
+  disc slower when a track is marked with errors, so with the new build one
+  unstable track would have cost a full extra pass, hours on a damaged disc.
+  Those two cases are already handled track by track and flagged, so the
+  ladder now leaves them out and steps down only for reads the drive failed,
+  as before.
+- **Starting Platterpus should no longer stall for a minute while the ripping
+  container starts.** At launch, the dependency check and the first disc scan
+  both started the stopped container in the same second, and both hung: the
+  version check until its 60-second limit, and the disc scan until a rescan
+  replaced it. The first container command of a session now runs on its own,
+  and the others wait for it (at most 75 seconds, and never past a cancel)
+  before starting. The cause is inferred from the 2026-10-04 log, not
+  reproduced, so the next launch on a cold machine is the test.
+- **A rip report's "realtime multiplier" means one thing.** It is how many times
+  the audio's running time the rip took. A rip that did not finish used to record
+  the inverse (how fast the drive read), under the same name. A rip of a few
+  chosen tracks was measured against the whole disc's length, so every two-track
+  rip in the acceptance runs reads 0.12 when the true figure is about 1.0. Both
+  now divide the time taken by the audio actually read.
+- **Changing discs no longer blanks the drive's read offset and cache-defeat rows.**
+  Taking a disc out cleared them along with the disc's own details, and putting the
+  next disc in did not bring them back until a Rescan. They describe the drive, which
+  had not changed; the offset in use was never affected, only its display.
+- **The status line says "cancelled" when you cancel after the main read.** It used
+  to say "Done — all tracks ripped cleanly" while the rip's report said cancelled.
+- **A track the ripper could not read reliably is no longer called clean.** When
+  the ripper gave up verifying some of a track's reads and AccurateRip did not
+  confirm the audio either, the status line still said "ripped cleanly, no read
+  errors", because cyanrip's own error count leaves those reads out. It now names
+  the track. A track AccurateRip confirms is still clean, however hard it was to
+  read.
+- **The MusicBrainz release picker shows each release's title and artist in
+  full.** With real releases, a label credit such as "Constellation / Daymare
+  Recordings" or a note such as "Japanese reissue, remastered, with obi" took the
+  table's width and squeezed Title and Artist, the two columns you choose by, to
+  three letters ("Lift Y…"). Long text now wraps inside its cell and the rows
+  grow to fit it, the columns share the width by how much each needs, and the
+  picker opens wider on a big screen. When even single words do not fit (large
+  text on a small screen), the table scrolls sideways instead of cutting a word
+  off.
+- For contributors: the conformance matrix has a `cut_off_cells` rule (a table
+  cell, in view, whose text does not fit it) and measures the release picker
+  with MusicBrainz-length releases as well as its stand-ins.
+- **Message boxes now fit on the screen, and open where all of them can be
+  seen.** Qt sizes its message boxes itself: no wider than half the screen, and
+  as tall as the text, with no limit. Nothing checked the result, so on a small
+  screen or with large text the longer boxes ran off the bottom of the screen
+  with their buttons: the cyanrip update and install offers (above all for a beta
+  or unapproved build), the dependency summary after a failed install, and the
+  test console's "Script commands" list, which was taller than a 1920 × 1080
+  screen. A box that is too tall is now made wider until it fits. If no width is
+  enough, its text scrolls inside it and the buttons stay on the screen.
+  Separately, every box was placed on the screen before Qt had sized it, so even
+  a box that fitted could open partly below the bottom edge: the update prompt
+  for a beta, at 150 % text on a 1080p screen at 200 % scaling, opened with Yes
+  and No out of view. Boxes are now sized first and placed after.
+- For contributors: `tests/test_ui_conformance.py` now measures every message
+  box and inline Qt dialog the app can show
+  (`tests/test_ui_message_box_conformance.py`): every `message_boxes.*` call found
+  in the source, every function that builds a `QMessageBox` (each needs a
+  scenario that drives the real code, or a test fails by name), the cyanrip offer
+  for every verdict, the app's beta update prompts, and the cyanrip upgrade
+  wizard and Setup & Updates with real pins. A new rule, `window_on_screen`,
+  catches a window that fits but is placed off the screen. The 24 px target-size
+  sweep now reads a minimum of 0 as clearing a size, not setting one.
+- **The "Install required" window no longer cuts off why a tool is needed.** Its
+  "Why manual:" line held the tool's whole description on one line, so the
+  descriptions of ffmpeg and cd-paranoia ran off the right edge of the window
+  mid-sentence on every screen, and the caption was squeezed to "Why manu". The
+  description now wraps, and on a short screen with large text it scrolls while
+  the search string and the buttons stay in view.
+- For contributors: the UI conformance matrix measures the install dialogs with
+  every real dependency in the registry. It used to measure them only with a test
+  stand-in whose description was one short line, which is why it passed this
+  window. Its cut-off-text rule now also catches text running past the edge of a
+  scroll area that cannot scroll sideways, which it could not see before.
 - **Quitting during a rip now closes the window at once, and gives cyanrip long
   enough to finish its log.** When you quit mid-rip, Platterpus asks cyanrip to
   stop and waits for it to write the end of its log before forcing it. cyanrip
-  can only stop between reads, and the rip drive has been recorded taking 20
-  seconds over a single read. The wait was 8 seconds, so a quit during a slow
-  read could still cut the log short. It is now 40 seconds. The window no longer
+  can only stop between reads, and the rip drive has been recorded taking 54
+  seconds over a single read of a damaged disc. The wait was 8 seconds, so a quit
+  during a slow read could still cut the log short. It is now 108 seconds, twice
+  the longest read on record. The window no longer
   waits with it: it closes straight away, and Platterpus finishes stopping
   cyanrip in the background before it exits. Usually that takes a second or
   two, because the wait ends as soon as cyanrip lets go of the drive.
@@ -102,11 +266,57 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- For contributors: a test that runs `app.main` in-process no longer leaves the
+  app-wide dialog filter installed for the tests after it. The filter now also
+  fits message boxes, so the leak made the message-box fit tests fail on whichever
+  CI leg ran them after the smoke test. A shared fixture removes it after every
+  test.
+- **The operator's final round-30 acceptance run (2026-10-05) is filed and graded
+  `partial`.** 316 of 323 steps passed on cyanrip `.19` and Platterpus 0.6.65. The
+  seven failures are the same screenshot steps as the 2026-09-30 run, which a later
+  build already handles. Every rip's log verified, and the app logged no error during
+  the run. Track 3 of the test disc no longer reads the same way twice, and the logs
+  say so; that is the disc, not the software.
+- **A register of what Platterpus and the cyanrip fork each want from the other,
+  and can give.** On the operator's instruction, `docs/cyanrip-handshake.md` §10
+  lists each datum one side wants from the other: what it would improve, how
+  easy it is for the giver to provide (the giver rates that), and how accurate
+  it is, with the condition that would make it wrong. It starts with six wants
+  and six gives of ours. Our round 30 lap 8 asks the fork to rate its half and
+  add its own.
 - For contributors: the build under review is now derived from the cyanrip
   fork's newest release when its two channels disagree, by release number,
   because under our operator's O3 ruling a new build goes to beta alone until
   its hardware run passes. It used to follow a published build only when both
   channels named it, which would have left the fork's `.20` unreviewed.
+- For contributors: our lap checker now refuses a `FINDING ours` that cannot
+  happen in the fork's code (`portable: no`) and blocks nothing. Both sides agreed
+  in round 28 that such a finding belongs in a commit, not a lap, and the fork's
+  checker refused it, but ours never did. The fork's round 30 lap 7 found this
+  when its checker refused a statement in our lap 6 that ours had passed.
+- For contributors: a test now refuses a shared-document hash in any fork lap we
+  hold that is not 64 hex digits, because such a value cannot be a sha256.
+  Nothing checked the form before, and the fork's round 30 lap 7 went out with a
+  62-digit one; its own checker read that as no hash at all, which is only a
+  warning. A misquote already sent is recorded, and honoured only while it is the
+  real hash with a character or two dropped.
+- **The shared handshake protocol and seam rules are at version 7, landed byte for
+  byte as the cyanrip fork landed them** (their round 30 lap 7, released at
+  `cyanrip@4371a501`, filed here). Round 30 closes under version 6, and our gate
+  moves to 7 before round 31 begins, as the text says. `CLAUDE.md` rule #12's S-14
+  sentence now says a finding is fixed within the round from round 31, on the
+  maintainer's approval, since the rules section is locked.
+- For contributors: the acceptance script's `cancel-rip` now cancels only a rip
+  started by the script's most recent `rip` step. On 2026-10-04 a refused `rip`
+  was followed by a `cancel-rip` that stopped an earlier section's seven-hour rip.
+- For contributors: `pick-release` no longer passes on a disc nobody identified. It
+  passed on loaded track rows, which a disc unknown to MusicBrainz also has; it now
+  needs a release to be held, and fails when "Rip as unknown album" is open.
+- **The 2026-10-04 acceptance runs are filed and graded `partial`.** Three stopped
+  correctly on discs MusicBrainz does not know; the fourth ran a damaged disc for
+  seven hours and was stopped from the console. Its text artifacts are in
+  `docs/handshake/artifactsround30/`, and the defects of ours it showed are fixed
+  above.
 - For contributors: our lap checker implements LSL 4, agreed with the cyanrip
   fork in round 30. A lap declaring `LSL: 4` must write a pre-commit's `when:`
   as exactly `our next lap`, the lap the pre-commit binds; LSL 3 laps are read

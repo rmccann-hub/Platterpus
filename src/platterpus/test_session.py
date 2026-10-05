@@ -66,7 +66,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Final
 
-from platterpus import __version__
+from platterpus import __version__, diagnostics_record
 from platterpus.evidence_bundle import BundleResult, build_bundle, bundle_filename
 from platterpus.uiscript.find_script import PACKAGED_SCRIPT_DIR_NAME
 
@@ -679,6 +679,8 @@ def finish_session(
     outcome: str = "acceptance test session",
     facts: Mapping[str, str] | None = None,
     album_dirs: Sequence[Path] = (),
+    record_files: Sequence[Path] | None = None,
+    records_dropped: int = 0,
 ) -> BundleResult:
     """Pack the session into **one file**. Never raises.
 
@@ -707,6 +709,11 @@ def finish_session(
     collector it replaces had always gathered — the rip logs, cue sheets, reports
     and checksums that are the actual evidence a session exists to produce.
 
+    ``record_files`` are the rips' `-j` records (:func:`session_diagnostics_records`),
+    sent through the bundle's strict single-file route; each one named and missing
+    gets a manifest row. ``None`` means the caller did not look, which the facts
+    say, and is different from an empty list, which says none was found.
+
     A failure comes back as :attr:`BundleResult.error`. An overnight session that
     has just finished six hours of ripping must not lose its evidence to a bug in
     the packaging step, and a crash at that moment would be indistinguishable
@@ -729,8 +736,16 @@ def finish_session(
                 "sources absent": str(staged.absent),
                 "sources failed": str(staged.failed),
                 **_album_scan_facts(album_dirs),
+                **(
+                    _record_facts(record_files, records_dropped, album_dirs)
+                    if record_files is not None
+                    else {
+                        "ripper -j records": "not determined: the caller did not look"
+                    }
+                ),
             },
             album_dirs=list(album_dirs),
+            files=diagnostics_record.bundle_members(record_files or ()),
             log_dir=_NO_LOG_SWEEP,
             extra_dirs=staged.extra_dirs,
             extra_text=text,
@@ -930,3 +945,109 @@ def session_album_dirs(
             dropped,
         )
     return AlbumScan(kept, examined=len(found), dropped=dropped)
+
+
+#: What marks a rip's `-j` record: the name this app gives every one
+#: (`cyanrip_backend.diagnostics_record_name`). cyanrip writes it in the folder it
+#: ran in, the rips ROOT, which the album scan above never takes as an album
+#: folder, so up to 0.6.65 no acceptance bundle carried one and none said so (the
+#: fork's reading of our 2026-10-04 runs,
+#: `cyanrip@6c19f8f:docs/rig-2026-10-04-174a134/README.md:274`). The record is
+#: written at the ripper's exit with its exit code and how the rip ended, so it is
+#: the evidence of whether each ripper exited.
+DIAGNOSTICS_RECORD_GLOB: Final[str] = "cyanrip-diagnostics-*.json"
+
+
+def session_diagnostics_records(
+    search_roots: Sequence[Path], *, since: float, limit: int = 80
+) -> tuple[list[Path], int]:
+    """The `-j` records written DURING this session, newest first, and how many
+    the cap dropped. Never raises.
+
+    Discovered on disk like the album folders, for the same reason: a run that
+    ended badly still leaves the records of the rips it made.
+    """
+    found: dict[Path, float] = {}
+    for root in search_roots:
+        try:
+            if not root.is_dir():
+                continue
+            for record in root.rglob(DIAGNOSTICS_RECORD_GLOB):
+                try:
+                    modified = record.stat().st_mtime
+                except OSError:
+                    continue
+                if modified >= since and record.is_file():
+                    found[record] = modified
+        except OSError as exc:
+            log.warning("could not scan %s for ripper -j records: %r", root, exc)
+    newest_first = sorted(found.items(), key=lambda item: item[1], reverse=True)
+    kept = [record for record, _ in newest_first[:limit]]
+    dropped = len(found) - len(kept)
+    if dropped:
+        log.warning(
+            "the -j record scan found %d and the cap of %d kept the newest; %d "
+            "are NOT in the bundle",
+            len(found),
+            limit,
+            dropped,
+        )
+    return kept, dropped
+
+
+def _record_facts(
+    records: Sequence[Path], dropped: int, album_dirs: Sequence[Path]
+) -> dict[str, str]:
+    """The record count, and a reading of it when rips landed and none came."""
+    said = f"{len(records)} found in the rips folders"
+    if dropped:
+        said += f", {dropped} more dropped by the cap"
+    if not records and album_dirs:
+        said += (
+            f" although {len(album_dirs)} album folder(s) did: every app rip asks "
+            "for one (-j), and cyanrip writes it as it exits, so each ripper "
+            "either exited before writing it or wrote it outside these folders"
+        )
+    return {"ripper -j records": said}
+
+
+# --- A run's rip does not outlive the session (2026-10-04) -----------------------
+
+#: How often a session whose run has ended looks again for its rip to stop.
+RIP_POLL_MS: Final[int] = 1000
+
+
+def rip_wait_s() -> float:
+    """How long a finished session waits for a rip still reading to stop.
+
+    The app's own wait for a cancelled rip's log, plus half a minute for the
+    finish handler and the post-rip work it starts; asked of the rip worker so
+    the two cannot drift apart.
+    """
+    from platterpus.workers.rip_worker import cancelled_log_wait_s
+
+    return cancelled_log_wait_s() + 30.0
+
+
+def ripper_processes_fact() -> dict[str, str]:
+    """The ripper processes the host sees as the bundle is packed. Never raises.
+
+    The session's facts say whether a rip was still reading when the run ended;
+    this is the host's own answer at the moment of packing, so a bundle packed
+    around a live reader says so even when the app did not know of one. Asked
+    off the GUI thread (``pgrep`` is a subprocess), with the exit check's probe.
+    """
+    from platterpus import drive_control
+
+    try:
+        readers = drive_control.running_readers()
+    except Exception:  # noqa: BLE001 — a fact must never stop the packing
+        log.exception("could not ask which ripper processes are running")
+        readers = None
+    if readers is None:
+        value = "not determined (pgrep gave no answer)"
+    elif not readers:
+        value = "none"
+    else:
+        value = "STILL RUNNING: " + ", ".join(readers)
+    return {"ripper processes when packed": value}

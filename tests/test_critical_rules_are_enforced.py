@@ -1200,7 +1200,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # closure->box reference (measured: one leaked hidden QMessageBox per
     # auto-close without it). A separate module would split one `finally` in two.
     # **1555 -> 1560** (2026-09-30): `app.main` joins `exit_work` after `app.exec()` returns and before `hard_exit` decides how to leave; the exit path is where that join belongs.
-    "app.py": 1560,
+    # **1560 -> 1568** (2026-10-05): `app.main` runs the exit check (`exit_work.audit`) after the exit work is joined, so the next session's log says whether a close let go of the drive (operator, 2026-10-05).
+    "app.py": 1568,
     # **326 -> 349 (2026-09-22)** (+23): `StartupWMClass` in the generated
     # entry, and the comment recording the measured WM_CLASS it has to match
     # (`"__main__.py", "platterpus"`) plus why the value is APP_NAME and not the
@@ -1482,9 +1483,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 405 -> 417 on 2026-09-28 (review R6): `_host_tool`, so pkill/fuser/eject skip the container exports on PATH as well as in their own lists; rule #3's exception says the host goes first, and this module is where that exception lives.
     # **417 -> 525** (2026-09-30): the shutdown path's graceful stop (`stop_reader_gracefully`, `device_is_held`): SIGTERM, a grace, then SIGKILL only if the drive is still held. It is the same kill sequence's first step, so it lives beside `free_drive` (the fork's round 30 S25).
     # **525 -> 538** (2026-09-30, the fork's round 30 lap 5 S17): `READER_TERM_GRACE_S` 8 -> 40 s, with the evidence (our filed log's 20 s read, the fork's 11 s) beside the number; `free_drive`'s docstring no longer claims a sanctioned GUI-thread caller.
-    "drive_control.py": 538,
+    # **538 -> 557** (2026-10-05): `running_readers()`, the reader probe the exit check asks, beside the reader names the kill path uses so the two cannot disagree (2026-10-05).
+    # **557 -> 565** (2026-10-05): `free_device_holders` says why the rescue's SIGTERM is the first the reader gets (the container boundary, measured 2026-09-07 and 2026-09-09), where it said a signalled reader would have exited, which a 54 s read disproves.
+    "drive_control.py": 565,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
-    "drive_profiles.py": 447,
+    # **447 -> 452** (2026-10-05): `DriveProfile.read_rate`, the drive's measured reading speed the up-front rip estimate rests on (operator, 2026-10-05).
+    "drive_profiles.py": 452,
     # Raised 1450 -> 1490 on 2026-09-04, deliberately. The addition is the
     # tri-state `_status_line` honesty fix: an EAC-format log must not print
     # "Copy OK" under a track whose own re-reads disagreed. The renderer is the
@@ -1639,6 +1643,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **735 -> 744 (2026-09-28, round 28 closed on our gate)**: the approval record moves to round 28 for 0.6.61, read off their closing lap as the rule requires.
     # **744 -> 754 (2026-09-29, round 29 closed on our gate)**: the approval record moves to round 29 for 0.6.63, read off their closing lap (round 29 lap 3) as the rule requires.
     "handshake_approval.py": 754,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
+    # gate. Kept as one module: it is one class, the killable child slot, and the
+    # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
+    # the gate itself lives in `container_gate.py`.
+    "killable.py": 323,
     # **561 -> 582 (2026-09-21).** The User Guide section for the consolidated
     # Setup & Updates window. The guide is prose by definition, and a menu item
     # a user cannot find described in the app is the defect
@@ -1738,7 +1747,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **370 -> 410** (2026-09-28, `-Z` that `-r` cannot satisfy): `recovery_secure_rerip_ceiling`, which caps the ladder's own fallback `-Z` (`MAX_SECURE_REREP`, defined here) at what the user's `-r` lets converge. Beside the bound it caps, and shared by the ladder and the auto-fix so they cannot disagree.
     # **410 -> 414** (2026-09-28, the `-Z` wording): the ladder's reason strings name N+1 identical passes for `-Z N`, and two comments say so.
     # **414 -> 415** (2026-09-28, same): `unstable_tracks`' docstring stops saying a track that hit the limit had no two reads agree.
-    "read_speed_ladder.py": 418,
+    # **418 -> 450** (2026-10-05, the fork's `+platterpus.20`): `_instability_explains_arm`, which keeps a paranoia skip and a `-Z` track at the repeat limit, both `with errors` from `.20`, out of the whole-disc step-down. It is the trigger's own exclusion, so it sits beside `read_errors_present`; most of the growth is the docstring saying why, and that the policy question is the maintainer's.
+    "read_speed_ladder.py": 450,
     # **667 -> 673 on 2026-09-15**: `ArtifactEntry.missing`, so "the file is not
     # there" stops being something a reader has to infer from errno text.
     # **673 -> 690** (2026-09-24): `AlbumLoudnessCoverage`, report schema v26, what the album loudness rows were measured over.
@@ -1746,7 +1756,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **712 -> 723** (2026-09-25, D14: control characters in the tag-only fields are replaced, and the report says so): `TagFixEntry` and `DiscBlock.tag_control_characters_replaced`.
     # **723 -> 727** (2026-09-25, D16, KDD-38: metadata may not forge a log signature): `DiscBlock.eac_log_signature_lines_defused`.
     # **727 -> 730** (2026-09-28, the Full run's track 3): `RetriedTrackBlock.replaced_because`, schema v30.
-    "report_types.py": 730,
+    # **730 -> 733** (2026-10-05): `realtime_multiplier_basis` says the multiplier is always elapsed over the audio read, and when the key is absent.
+    "report_types.py": 733,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1768,7 +1779,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
     # **506 -> 511** (2026-09-30): `with_addendum` takes the addendum a caller already holds (`extra`), so the self-audit joins a report's embedded addendum through the one join.
-    "rip_addendum.py": 511,
+    # **511 -> 532** (2026-10-05): `securing_pass_log_path_for`, the sidecar the securing pass's own ripper log is kept in, beside the addendum's, with why it is `.txt` and never `.log`.
+    "rip_addendum.py": 532,
     # **1216 -> 1287** (2026-09-25): `_grade_a_reported_completion`, round 21 §C. The
     # completion check graded OK off the boolean; it now reads the ripper's own
     # counts and error tally. It is a check of this registry, so it lives here.
@@ -1813,7 +1825,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2587 -> 2609** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `NOT_WHOLE_DISC_GATE` beside its sibling gate states, and the one place `_build` corrects `gates.ctdb` from the verdict, where the settings-derived gate and the result meet. The verdict's value is imported from `ctdb/coverage.py`, so the builder stays adapter-free.
     # **2609 -> 2667** (2026-09-28, the round-28 Full run: a debug block marked truncated, tail-only, uncounted, under a scope saying "since launch"): `_debug_scope`, the scope sentence built from what the lines ARE — the buffer's counted drop with its span, and this report's own elision — and `build_debug_log` taking the count. The sentence describes the report's block, so it lives with the block.
     # **2581 -> 2582** (2026-09-28, the `-Z` wording): the `secure_rerip_converged` comment says a hit repeat limit can follow two reads that agreed, which "without any two agreeing" denied.
-    "rip_report.py": 2668,
+    # **2668 -> 2683** (2026-10-05, the 2026-10-04 run's section I report): `build_gates` takes the launched-check ledger, so a cancelled rip whose checks began says "superseded" or "ran" rather than "not run", and applies "superseded" first; the docstring says why a cancel can start the chain.
+    "rip_report.py": 2683,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1883,7 +1896,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # marker, a log cyanrip itself wrote (`RIPPER_LOG_GLOB`, `_is_ripper_log`), so a
     # script `cyanrip` verb's folder — no app rip, so no `*.platterpus.json` — reaches
     # the bundle's strict album channel. It is the same scan's other half, not a job.
-    "test_session.py": 932,
+    # **932 -> 974** (2026-10-05, the 2026-10-04 run's bundle packed around a live rip): how long a finished session waits for its rip to stop (`rip_wait_s`, derived from the app's own wait for a cancelled rip's log) and the ripper processes the host sees as the bundle is packed (`ripper_processes_fact`), Qt-free here beside the facts they join.
+    # **974 -> 1053** (2026-10-05, the same reading): `session_diagnostics_records` and `_record_facts`, so the session bundle carries every rip's `-j` record through the strict single-file route and names their absence when rips landed and none did. The album scan's sibling: the same "discovered, not remembered" job over the same roots, so it lives beside it.
+    "test_session.py": 1053,
     "ui/dialogs/pending_installs.py": 419,
     # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
     # channels (they live above the checks they steer), a Drive section holding
@@ -1921,7 +1936,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **320 -> 366** (2026-09-27, cover art moves to the album): the panel owns its right-click menu's wiring — the album actions it is handed, the background and per-value connections, and why. Building the menu (Copy, Select All, the popup) is its own module, `ui/album_menu.py`, so what grew here is only what the panel must hold.
     # 366 -> 377 on 2026-09-28: `set_disc_info_retrying`, the panel's "trying again automatically" state beside the error state it precedes (a failed disc read is now retried; disc_probe_retry).
     # 377 -> 396 on 2026-09-28: `set_no_disc` (a removal said nothing but dashes) and every value label pinned to PlainText, since the error line carries the ripper's own words (TASKS' unswept QLabel row names `ui/disc_info_panel.py`).
-    "ui/disc_info_panel.py": 396,
+    # **396 -> 404** (2026-10-05): `clear_disc_state(keep_drive_rows=)`: a disc leaving the drive keeps the drive's own offset and cache rows, which nothing refilled (2026-10-04 rig runs).
+    "ui/disc_info_panel.py": 404,
     # **500 -> 577** (2026-09-24, #37 one home per setting): the read offset's ONE home now holds its Apply tick-box and the legacy ripper-config offset line, both moved from Settings, with the tooltip the offset's control had there.
     # **577 -> 583** (2026-09-24, #37, caught by `tests/test_ui_conformance.py`): the legacy ripper-config offset line shows only when a legacy offset exists; its "none set" was noise to most users and the line that clipped the intro on a short screen.
     # **583 -> 561** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
@@ -2006,7 +2022,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 655 -> 656 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
     # 656 -> 658 on 2026-09-28 (code review R0): the insertion comment says a scan that read the disc tells the watcher, so an eject after it is a removal.
     # 658 -> 668 on 2026-09-28 (code review R9): a disc removal ends the read a pending automatic retry was for, so its timer cannot replace the no-disc line with an error about the disc that left.
-    "ui/main_window_drive.py": 668,
+    # **668 -> 670** (2026-10-05): the disc-removal reset keeps the drive rows (2026-10-04 rig runs).
+    # **670 -> 742** (2026-10-05): `_read_rate_for_current_drive` and `_learn_read_rate`: the drive's own measured speed (else the rig's for its model) goes to the rip, and each finished first pass folds into the profile (operator's request for an overall rip estimate, 2026-10-05).
+    "ui/main_window_drive.py": 742,
     # **508 -> 512** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The status note's docstring said the audio was 'almost certainly correct'.
     # **512 -> 515** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **515 -> 521** (2026-09-25, the property-test batches): `safe_path_segment` refuses `.`/`..` after the byte cap, and survives a lone surrogate.
@@ -2016,7 +2034,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 574 -> 578 on 2026-09-28 (review R4, R5): `known_album_folders` and `free_album_folder_templates` take the track template and the rip's metadata and delegate the prediction to the backend; the docstring says why the disc template was the wrong key.
     # 578 -> 585 on 2026-09-28 (review R3): an existing literal folder no longer ends the resolver's search, so an empty `a"b` cannot hide a full `a“b`; the docstring records the case, beside the loop it changes.
     # 585 -> 587 on 2026-09-28: a folder-less template's numbered folder is cyanrip's default one, written out (review Q5).
-    "ui/main_window_helpers.py": 587,
+    # **587 -> 618** (2026-10-05): `fidelity_summary` says cancelled after a cancel that came after the read, and names a track with unverified paranoia skips (2026-10-04 rig run).
+    "ui/main_window_helpers.py": 618,
     # **1212 -> 1283 on 2026-09-08.** A precondition abort packed a
     # multi-hundred-megabyte archive and put up a folder prompt for a run that
     # touched no drive. The growth is the guard, the dialog that states the fix
@@ -2054,7 +2073,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 1626 -> 1627 on 2026-09-28 (+1, the import: every stock message box goes through `ui/message_boxes.py`, so its text is shown as written (PlainText) and never read as markup).
     # **1627 -> 1690 (2026-09-30)**: the acceptance session holds the screen awake beside the sleep lock (`platterpus.screen_inhibit`), after round 29's three screenshot failures found every window unexposed; the wiring sits beside the sleep lock's because it shares its lifecycle: started with it, released on every path that releases it, and recorded in the same facts.
     # **1690 -> 1689** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the console is no longer handed `allow_unsafe`.
-    "ui/main_window_provision.py": 1689,
+    # **1689 -> 1763** (2026-10-05, the same run): `_acceptance_rip_at_end` keeps the session armed until a rip still reading has stopped, bounded, and puts what it found in the bundle's facts, so settings are not restored under a rip and no bundle is packed around a log still being written.
+    # **1763 -> 1769** (2026-10-05, the fork's reading of our 2026-10-04 runs: no `-j` record in any bundle): the pack asks `session_diagnostics_records` for the rips' records and hands them to `finish_session`; the scan itself lives in `test_session`.
+    "ui/main_window_provision.py": 1769,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2122,7 +2143,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 4861 -> 4867 on 2026-09-28 (the round-28 Full run): the debug block is built from ONE buffer snapshot, so the count in its scope is the count in its marker.
     # **4867 -> 4868** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the `failure_hint` comment names both wordings.
     # **4867 -> 4882** (2026-09-30, the fork's round 30 lap 5 S17, our operator's option B): `_stop_rip_on_shutdown` hands the reader stop to `exit_work` instead of blocking the GUI thread for the grace, reading the two values the helper needs on the GUI thread first; the docstring says why the old sanctioned block ended. The job itself went to the new `exit_work.py`.
-    "ui/main_window_rip.py": 4882,
+    # **4882 -> 4893** (2026-10-05): the finish handler passes the cancel to `fidelity_summary`, and `exit_audit_device()` names the drive for the exit check (2026-10-04 rig run; operator, 2026-10-05).
+    # **4893 -> 4903** (2026-10-05): the post-cancel rescue says, while the rip is still running, that a slow disc can take a minute or two to stop, where the status kept promising a 5 s force-stop (the 2026-10-04 run's 54 s read).
+    # **4903 -> 4907** (2026-10-05): the launcher records each check in `PostRipRecord.launched`, and `_gates_for` hands that ledger to the report (the 2026-10-04 section I report).
+    # **4907 -> 4919** (2026-10-05): the start path hands the worker the drive's reading speed, and the elapsed line records the estimate beside the actual (2026-10-05).
+    "ui/main_window_rip.py": 4919,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2141,7 +2166,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `_setup_center`, because SettingsMixin now re-renders the console too.
     # 446 -> 452 on 2026-09-28: the disc-read retry state (`_disc_retries`, `_disc_retry_timer`) DriveMixin reads, and `_start_disc_info`'s `automatic_retry` keyword.
     # 452 -> 453 on 2026-09-28: `_show_dependency_check_in_setup_center`, which ProvisioningMixin calls when the window opens.
-    "ui/main_window_shared.py": 453,
+    # **453 -> 456** (2026-10-05): the two drive-rate methods declared for the mixins that call them (2026-10-05).
+    "ui/main_window_shared.py": 456,
     # **953 -> 989 on 2026-09-08**: `_on_pick_ripper_build`, a thin caller that
     # opens the picker and hands the commit to `_begin_ripper_install` — the
     # install path already here. It belongs in this file precisely BECAUSE it is
@@ -2324,7 +2350,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4604 -> 4636** (2026-09-30, the round 30 Full run): the screenshot step renders OPEN windows, labelled and as INFO, when the display shows none (all seven post-rip screenshots failed with every window visible and unexposed); it belongs beside the refusal it qualifies.
     # **4636 -> 4608** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the unsafe gate and `unsafe_allowed` went; dispatch is the handler lookup alone.
     # **4608 -> 4631** (2026-09-30, round 30's D3 and S24): `_deadline_cancel` and `_cancel_deadline_work`, so a waiting verb that started a child says how to stop it, and the runner calls it on stop, on timeout and on a faulted predicate (Critical rule #9: abandoning a helper is safe only once its child is dead). It is deadline machinery and lives with it. The three verb handlers went to a new mixin, `probe_verbs.py`, not here.
-    "uiscript/runner.py": 4631,
+    # **4631 -> 4703** (2026-10-05): `cancel-rip` stops only a rip the script's last `rip` started, and `pick-release` passes only on a held, well-formed release, read through one helper shared with `expect-identified` (2026-10-04 rig runs).
+    # **4703 -> 4782** (2026-10-05, the same run): a `wait-for-rip` that runs out with the rip still reading ends the run, and a run that stops early cancels the rip its last `rip` step started (`_own_rip_running`, the predicate `cancel-rip` now shares).
+    "uiscript/runner.py": 4782,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2349,7 +2377,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 811 was recorded with: "+46: the expect-verification declaration; verb help lives beside the verb so the console reference cannot drift from it,".
     # **862 -> 834** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `eval`, `call`, the `unsafe` field and `UNSAFE_VERBS`/`UNSAFE_VERBS_BUILT` went.
     # **834 -> 863** (2026-09-30, round 30): three verb declarations, `expect-newest-pair` (D3), `expect-found-offset` and `cache-probe` (the fork's lap 3 S24). The table is the vocabulary's security boundary, so a verb is an entry here by design.
-    "uiscript/verbs.py": 863,
+    # **863 -> 874** (2026-10-05): the `wait-for-rip` and `cancel-rip` help says a run that ends early cancels its rip, and `abort`'s no longer claims to be the only verb that ends one.
+    "uiscript/verbs.py": 874,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical
@@ -2366,7 +2395,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **521 -> 530** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The banner and the CTDB reconciliation say what matched.
     # **530 -> 531** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **531 -> 593** (2026-09-28, the Full run's track 3): `reread_supersedes`, which read of a track to keep, beside the AccurateRip predicate it is built on; most of it is the docstring giving the order and the run that set it.
-    "verdict.py": 593,
+    # **593 -> 613** (2026-10-05): `track_has_unverified_skips`, the shared rule for a track whose reads paranoia could not all verify and AccurateRip did not confirm (2026-10-04 rig run, track 18).
+    "verdict.py": 613,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.
@@ -2394,7 +2424,11 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `-Z`/`-r` refusals, with the measurement behind it (2 of the contract's 539 rows).
     # **3630 -> 3632 (2026-09-30, round 30 lap 1)**: the `-Z` prefix comment says the
     # inventory now lists both refusals, and why the prefix stays.
-    "workers/rip_worker.py": 3632,
+    # **3632 -> 3694** (2026-10-05): `_record_unfinished_refix`: a securing pass that was stopped keeps the verdicts it reached, which a cancel used to discard with the temp folder (2026-10-04 rig run, tracks 12-17).
+    # **3694 -> 3733** (2026-10-05): the cancel-path log wait covers the read in hand (`READER_TERM_GRACE_S`), in one function (`cancelled_log_wait_s`) the acceptance script's cancel sections are held to, and a stopped securing pass whose log never settles keeps the verdicts it wrote whole, with why that is safe; the real 2026-10-04 case never settles inside any wait.
+    # **3733 -> 3762** (2026-10-05): `_keep_securing_pass_log`, which copies the securing pass's own ripper log beside the album's before its temp folder is deleted (the 2026-10-04 run's cancelled pass left no record).
+    # **3762 -> 3830** (2026-10-05): the up-front time estimate in the plan and the log, and shown as the ETA until the live one has measured enough (`_make_estimate`, `_early_estimate_text`; operator, 2026-10-05).
+    "workers/rip_worker.py": 3830,
 }
 
 

@@ -755,7 +755,13 @@ wait 90
 snapshot beforecancel
 cancel-rip
 log cancel issued; giving the escalation its full window
-wait 30
+# The full window is the one the app itself waits for a cancelled rip's log:
+# the 5 s rescue, the read in hand when its SIGTERM lands (the grace, twice the
+# 54 s read the 2026-10-04 damaged disc took), and cyanrip's flush. 30 s ended
+# before a reader in such a read could sign its log, and the checks below would
+# then grade a log still being written. A healthy disc is done in seconds; the
+# wait is fixed so it never races the rip's own finish.
+wait 135
 # The cancelled line reads 'Rip cancelled by user. Partial files may remain.'
 expect-status cancelled
 # THE SECTION'S ACTUAL CLAIM, and until 2026-09-05 nothing asserted it.

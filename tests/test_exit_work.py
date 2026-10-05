@@ -88,3 +88,91 @@ def test_app_main_joins_exit_work_before_it_decides_how_to_exit() -> None:
     assert loop < join < exit_check, (
         "app.main must run the event loop, then join exit work, then decide how to exit"
     )
+
+
+# --- The exit check (`exit_work.audit`), asked for 2026-10-05 -----------------
+
+
+class _Proc:
+    """What `subprocess.run` returns, as far as `drive_control` reads it."""
+
+    def __init__(self, returncode: int | None, stdout: str = "") -> None:
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = ""
+
+
+def _host(fuser_rc: int | None, pgrep_rc: int | None, pgrep_out: str = ""):  # type: ignore[no-untyped-def]  # a runner stand-in
+    """A runner answering `fuser` and `pgrep` the way the host would."""
+    calls: list[list[str]] = []
+
+    def run(argv: list[str]) -> _Proc:
+        calls.append(argv)
+        tool = argv[0].rsplit("/", 1)[-1]
+        if tool == "fuser":
+            return _Proc(fuser_rc)
+        if tool == "pgrep":
+            return _Proc(pgrep_rc, pgrep_out)
+        raise AssertionError(f"the exit check ran something unexpected: {argv}")
+
+    run.calls = calls  # type: ignore[attr-defined]  # inspected by the tests
+    return run
+
+
+def test_the_exit_check_says_nothing_was_left_behind_only_when_both_probes_agree(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    run = _host(fuser_rc=1, pgrep_rc=1)
+    with caplog.at_level("INFO", logger="platterpus.exit_work"):
+        result = exit_work.audit("/dev/sr0", runner=run)
+    assert result.clean is True
+    assert [argv[0].rsplit("/", 1)[-1] for argv in run.calls] == ["fuser", "pgrep"]
+    assert "nothing holds /dev/sr0" in caplog.text
+    assert "no ripper process is running" in caplog.text
+    assert "left nothing behind" in caplog.text
+
+
+def test_the_exit_check_names_a_ripper_left_running_and_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    run = _host(fuser_rc=0, pgrep_rc=0, pgrep_out="4242 cyanrip\n")
+    with caplog.at_level("WARNING", logger="platterpus.exit_work"):
+        result = exit_work.audit("/dev/sr0", runner=run)
+    assert result.clean is False
+    assert result.readers == ("4242 cyanrip",)
+    assert "/dev/sr0 is STILL HELD" in caplog.text
+    assert "4242 cyanrip" in caplog.text
+    assert any(r.levelname == "WARNING" for r in caplog.records)
+
+
+def test_no_answer_is_never_read_as_all_clear(caplog: pytest.LogCaptureFixture) -> None:
+    """A probe that could not run is `None`, and the line says it does not know."""
+    run = _host(fuser_rc=None, pgrep_rc=None)
+    with caplog.at_level("WARNING", logger="platterpus.exit_work"):
+        result = exit_work.audit("/dev/sr0", runner=run)
+    assert result.clean is None
+    assert "not known" in caplog.text
+    assert "left nothing behind" not in caplog.text
+
+
+def test_with_no_drive_in_use_the_check_still_looks_for_a_ripper() -> None:
+    run = _host(fuser_rc=0, pgrep_rc=0, pgrep_out="77 cyanrip\n")
+    result = exit_work.audit("", runner=run)
+    assert result.device_held is None
+    assert result.clean is False, (
+        "a running ripper is left behind with or without a drive"
+    )
+    assert [argv[0].rsplit("/", 1)[-1] for argv in run.calls] == ["pgrep"]
+
+
+def test_app_main_runs_the_exit_check_after_the_exit_work() -> None:
+    """After the join, so it sees what the stop left; before `hard_exit`, which may
+    leave with `os._exit` and skip anything after it."""
+    from platterpus import app
+
+    source = inspect.getsource(app.main)
+    join = source.index("exit_work.wait()")
+    check = source.index("exit_work.audit(audit_device)")
+    assert source.index("window.exit_audit_device()") < check
+    leave = source.index("hard_exit.exit_now_if_threads_abandoned(status)")
+    assert join < check < leave

@@ -1890,6 +1890,70 @@ def test_a_rip_that_did_not_finish_claims_no_check_ran() -> None:
         assert gates["ctdb"] == "ran", status
 
 
+def test_a_cancelled_rip_whose_checks_began_and_were_superseded_says_superseded() -> (
+    None
+):
+    """The 2026-10-04 run, section I: a cancel during the securing pass.
+
+    The album pass had finished, so the post-rip chain began: CTDB and FLAC
+    verify started at 19:07:11, and section J's rip superseded them 46 s later
+    (`post-rip checks superseded by a new rip and recorded as such: ctdb,
+    flac_integrity`, `round30oct04platterpusapplog1.txt`). The report said
+    "not run — the rip did not finish" for both, because the unfinished-rip
+    replacement ran first and the superseded one then found no "ran" to replace.
+    """
+    gates = build_gates(
+        ctdb_enabled=True,
+        flac_verify_enabled=True,
+        backend_self_verifies=False,
+        recompress_enabled=False,
+        backend_maxes_compression=False,
+        transcode_requested=True,
+        superseded=("ctdb", "flac_integrity"),
+        rip_status="cancelled",
+        launched=("ctdb", "flac_integrity"),
+    )
+    assert gates["ctdb"] == rip_report.SUPERSEDED_GATE
+    assert gates["flac_integrity"] == rip_report.SUPERSEDED_GATE
+    # Requested and never launched: on this rip that one really did not run.
+    assert gates["derived"] == rip_report.RIP_DID_NOT_FINISH_GATE
+    assert gates["recompress"] == "disabled"
+    # A caller with no ledger still gets "superseded" for a check it says a
+    # newer rip cut short: being superseded is itself proof the check began.
+    no_ledger = build_gates(
+        ctdb_enabled=True,
+        flac_verify_enabled=False,
+        backend_self_verifies=False,
+        recompress_enabled=False,
+        backend_maxes_compression=False,
+        transcode_requested=False,
+        superseded=("ctdb",),
+        rip_status="cancelled",
+    )
+    assert no_ledger["ctdb"] == rip_report.SUPERSEDED_GATE
+
+
+def test_a_cancelled_rip_whose_checks_began_and_landed_says_they_ran() -> None:
+    """The same cancel with no newer rip: the checks finished, so they ran.
+
+    "Not run" beside a CTDB result in the same report is two artifacts of one
+    rip disagreeing. A failed rip, whose chain never starts, is unchanged.
+    """
+    common = {
+        "ctdb_enabled": True,
+        "flac_verify_enabled": True,
+        "backend_self_verifies": False,
+        "recompress_enabled": False,
+        "backend_maxes_compression": False,
+        "transcode_requested": False,
+    }
+    landed = build_gates(**common, rip_status="cancelled", launched=("ctdb",))
+    assert landed["ctdb"] == "ran"
+    assert landed["flac_integrity"] == rip_report.RIP_DID_NOT_FINISH_GATE
+    failed = build_gates(**common, rip_status="failed", launched=())
+    assert failed["ctdb"] == rip_report.RIP_DID_NOT_FINISH_GATE
+
+
 def test_a_gate_claiming_it_ran_beside_a_null_result_is_an_issue() -> None:
     """The backstop: no cooperation needed from whoever dropped the work."""
     gates = build_gates(

@@ -569,6 +569,8 @@ class RipMixin(MainWindowShared):
         params = replace(
             params, disc_track_total=getattr(self, "_current_num_tracks", 0) or None
         )
+        # The drive's measured reading speed, for the up-front time estimate.
+        params = replace(params, read_rate=self._read_rate_for_current_drive())
 
         # Only validate the track table for non-unknown rips — placeholder
         # tags will be applied after the fact in unknown mode.
@@ -1121,6 +1123,16 @@ class RipMixin(MainWindowShared):
             "(no eject, no SIGKILL — the log's footer is written from atexit)",
             device,
         )
+        # The countdown the status promised has run out, and on a damaged disc the
+        # ripper can take a minute or two more to finish the read in hand and sign
+        # its log (2026-10-04: one read took 54 s). Only while the rip is still
+        # ours to report: once it has finished, its own final line stands.
+        if self._rip_worker is not None:
+            self._rip_progress.set_status(
+                "Stopping the ripper… on a slow or damaged disc it finishes the "
+                "read in progress first, which can take a minute or two. Force "
+                "stop ends it now, but the rip's log will then be incomplete."
+            )
         thread = threading.Thread(
             target=drive_control.free_device_holders,
             kwargs={"device": device, "signal": "TERM"},
@@ -1236,10 +1248,11 @@ class RipMixin(MainWindowShared):
         returns and before the process exits. Until then it ran here,
         synchronously, as this file's one sanctioned block of the GUI thread. That
         was fine while the grace was short, and wrong once the fork found a single
-        read of 11 s on the rig's drive (their round 30 lap 5 S17), and our own
-        filed log one of 20 s: a grace long enough to outlast that would freeze
-        the window for most of a minute at the moment the user asked it to go. Now the window closes at once, and the
-        process lingers, windowless, while the reader writes its log.
+        read of 11 s on the rig's drive (their round 30 lap 5 S17); the filed
+        logs now hold one of 54 s, and a grace long enough to outlast that would
+        freeze the window for minutes at the moment the user asked it to go. Now
+        the window closes at once, and the process lingers, windowless, while the
+        reader writes its log.
 
         Best-effort and gated on a rip actually being in flight (``_rip_thread``
         set) so a normal close never touches the drive. Does NOT eject — closing
@@ -1309,6 +1322,14 @@ class RipMixin(MainWindowShared):
         exit_work.start(
             stop_the_reader, name="stop-reader", budget_s=_SHUTDOWN_DRIVE_FREE_BUDGET_S
         )
+
+    def exit_audit_device(self) -> str:
+        """The drive the exit check asks about (``exit_work.audit``).
+
+        The one a rip last armed for a force-stop, else the picker's. Read by
+        ``app.main`` on the GUI thread after the event loop has returned.
+        """
+        return self._force_stop_device or self._drive_picker.current_device() or ""
 
     def _on_eject_requested(self, device: str) -> None:
         """User clicked Eject — eject the selected disc."""
@@ -1888,7 +1909,9 @@ class RipMixin(MainWindowShared):
                 self._disc_info_panel.set_accuraterip_result(rip_log)
                 if success:
                     status = fidelity_summary(
-                        rip_log, expected_track_total=expected_total
+                        rip_log,
+                        expected_track_total=expected_total,
+                        cancelled=finished_status == "cancelled",
                     )
                     self._rip_progress.set_status(status)
                     # A rip that MATCHED AccurateRip confirms the applied read
@@ -1906,6 +1929,7 @@ class RipMixin(MainWindowShared):
                 # multiplier (elapsed ÷ the disc's audio length) — a meaningful
                 # metric that replaces cyanrip's bogus ETA. Best-effort.
                 self._enrich_timing_with_disc_duration(rip_log)
+                self._learn_read_rate(rip_log, success=success)
                 self._write_rip_report(self._capture_post_rip_record(rip_log, log_file))
                 # If a prior rip of THIS disc exists in the library, compare them
                 # and surface a banner — the "you've ripped this before" catch for
@@ -2679,6 +2703,7 @@ class RipMixin(MainWindowShared):
         record = self._post_rip_record()
         if gate is not None and record is not None:
             record.pending.add(gate)
+            record.launched.add(gate)
 
         def still_current() -> bool:
             """False once a newer rip has started. Read from the worker thread;
@@ -3485,7 +3510,16 @@ class RipMixin(MainWindowShared):
             started_at=self._rip_started_at,
             finished_at=finished_at,
         )
-        log.info("rip elapsed (actual): %s", format_duration(elapsed))
+        estimated = getattr(self._rip_worker, "estimate_seconds", None)
+        if isinstance(estimated, int | float) and estimated > 0:
+            # Beside the actual, so every rip records how far off it was.
+            log.info(
+                "rip elapsed (actual): %s; estimated before it began: %s",
+                format_duration(elapsed),
+                format_duration(estimated),
+            )
+        else:
+            log.info("rip elapsed (actual): %s", format_duration(elapsed))
         # Record this rip's epoch window for the debug-log filtering. It's kept
         # in `_rip_windows` (so a LATER album's report excludes these lines) AND
         # remembered as the current window (so THIS report never excludes its
@@ -3952,15 +3986,18 @@ class RipMixin(MainWindowShared):
             "backend_maxes_compression": self._backend.produces_max_compression_flac(),
             "transcode_requested": self._config.output_format in TRANSCODE_FORMATS,
         }
-        # The rip's own outcome decides whether any check was begun at all: on a
-        # failed or cancelled rip the post-rip chain never starts, so a gate that
-        # reads "ran" there is the settings talking (2026-09-24 section F).
+        # On a failed rip the post-rip chain never starts, so a gate that reads
+        # "ran" there is the settings talking (2026-09-24 section F). A cancelled
+        # one may have started it: a cancel during the securing pass leaves the
+        # album pass finished. So the record's own ledger of launched checks says
+        # which began, and the outcome only says the rip did not finish.
         outcome = record.outcome if isinstance(record.outcome, dict) else {}
         status = outcome.get("status")
         return rip_report.build_gates(
             **inputs,
             superseded=sorted(record.superseded),
             rip_status=status if isinstance(status, str) else None,
+            launched=sorted(record.launched),
         )
 
     def _record_post_rip_result(

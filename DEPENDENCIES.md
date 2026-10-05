@@ -2,6 +2,8 @@
 
 All dependencies, with last upstream release date and replacement plan. Reviewed on the cadence below.
 
+The tables below are hand-kept and carry what code cannot know: licences, upstream release dates, status and replacement plans. **The complete map of everything Platterpus has or relies on** — languages, packages, external programs, the ripper and its container, services, CI — is generated from the code: see [*The full map*](#the-full-map-machine-readable-bomcdxjson) below and its machine-readable copy, `bom.cdx.json`.
+
 ## Python packages (bundled in the AppImage)
 
 | Name | Pinned version | Last upstream release | License | Status | Planned replacement |
@@ -82,6 +84,259 @@ Whipper-on-newer-Python surfaced a `pkg_resources is deprecated` UserWarning on 
 **musicbrainzngs (0.7.1, 2020-01-11)** — Last PyPI release. The underlying MusicBrainz `ws/2` REST API is stable. Risk is library bitrot (e.g., dropped Python compatibility on a future interpreter, not a server-side break). Our `MusicBrainzClient` adapter (PLANNING.md §6) lets us replace with raw `requests` against the JSON endpoint. CLAUDE.md Critical Rule #1.
 
 **appimage-builder (Snyk-flagged inactive)** — Not used. Listed here so it's tracked: CLAUDE.md Critical Rule #2 forbids reaching for it without explicit user approval. `python-appimage` (above) is the active builder.
+
+## The full map (machine-readable: `bom.cdx.json`)
+
+`bom.cdx.json`, at the repository root, is a **CycloneDX 1.7** bill of materials: the standard JSON format that dependency-track, OSV-Scanner, grype and other supply-chain tools read. It lists **everything Platterpus has or relies on**: the Python it runs on (the supported range, the CI matrix, and the interpreter the AppImage bundles), Qt through PySide6, every Python package with its pin, the cyanrip fork (the approved pin, the build under review) and upstream cyanrip, the `ripping` container and its image, the libraries the fork is built against, every external program the app runs or offers, the desktop interface it uses, the bundled AccurateRip data, the external services it talks to, and the CI actions, tools and runners. Each entry says where it is used and where its pin is enforced, and a dependency graph records who needs what.
+
+**It is generated, not written.** `scripts/emit_bom.py` reads it out of the code that enforces each fact (`pyproject.toml`, the AppImage requirements, the dependency registry, the setup wizard's real plan, `deps/fork_source.py`, the URL constants in `src/`, and the workflow files), and writes both `bom.cdx.json` and the block below in the same run, so the two cannot disagree. Do not edit either by hand:
+
+- regenerate: `python3 scripts/emit_bom.py`
+- check: `python3 scripts/emit_bom.py --check` (exits 1 when either is stale; `tests/test_bom_emitted.py` runs the same comparison in CI)
+- re-run it **after a version bump**, because the BOM names the app version it describes.
+
+It is a *pre-build* BOM: the constraints the project declares, not what one install resolved. The CI `sbom` job's artifact is the resolved Python environment that ships, and Help → *About* (`build_info.component_inventory`) is what a user's machine actually has. Licences are not in it; they are in the tables above. It is not validated against the CycloneDX JSON schema, because no schema validator is a dependency here (adding one needs the maintainer's approval); `tests/test_bom_emitted.py` checks its structure instead.
+
+<!-- BEGIN GENERATED: emit_bom.py — do not hand-edit; regenerate with python3 scripts/emit_bom.py -->
+
+**91 components and 15 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
+
+| Category | Entries |
+|---|---|
+| Languages, runtimes and platforms | 4 |
+| Python packages the application imports | 5 |
+| The ripper (cyanrip) and its related projects | 3 |
+| The ripping container | 2 |
+| What the cyanrip fork is built from, inside the container | 13 |
+| External programs Platterpus runs or offers | 29 |
+| Desktop interfaces | 1 |
+| Bundled data | 1 |
+| Python packages for development and tests (the dev extra) | 6 |
+| Python packages for building, releasing and CI | 8 |
+| GitHub Actions | 6 |
+| CI and build programs | 11 |
+| CI runner images | 2 |
+| External services | 15 |
+
+### Languages, runtimes and platforms (4)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `Linux` | unconstrained | required | The only operating system Platterpus targets. | platterpus-x86_64.AppImage, pip / pipx installs | pyproject.toml [project].classifiers |
+| `python` | `>=3.11` | required | The interpreter a pipx or development install runs on. The AppImage brings its own (next row). | pip / pipx installs, development checkouts, CI | pyproject.toml [project].requires-python, .github/workflows/ci.yml (test matrix) |
+| `python (bundled in the AppImage)` | `3.12` | required | The interpreter python-appimage bundles into the AppImage; pinned so a new upstream beta cannot become the release's runtime. | platterpus-x86_64.AppImage | build/build_appimage.sh (PLATTERPUS_PYTHON_VERSION, overridable) |
+| `Qt` | `>=6.11.1,<6.12` | required | The GUI toolkit. It ships inside the PySide6 wheels, and PySide6 releases carry Qt's version number, so the PySide6 constraint is the Qt constraint. | every window and dialog (through PySide6) | pyproject.toml [project].dependencies (PySide6), build/python-appimage/requirements.txt (PySide6) |
+
+### Python packages the application imports (5)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `cryptography` | `>=50.0.0,<51` | required | Ed25519 verification for the minisign path of the updater. | src/platterpus/update_signing.py | pyproject.toml [project].dependencies, build/python-appimage/requirements.txt |
+| `musicbrainzngs` | `0.7.1` | required | MusicBrainz client, behind the MusicBrainzClient adapter (Critical rule #1; unmaintained upstream). | src/platterpus/adapters/musicbrainz_client.py | pyproject.toml [project].dependencies, build/python-appimage/requirements.txt, src/platterpus/deps/registry.py (checked at launch) |
+| `PySide6` | `>=6.11.1,<6.12` | required | Qt for Python: the whole GUI. | src/platterpus/, src/platterpus/ui/, src/platterpus/ui/dialogs/, src/platterpus/uiscript/, src/platterpus/workers/ (every importer is in these directories) | pyproject.toml [project].dependencies, build/python-appimage/requirements.txt |
+| `sigstore` | `>=4.5.0,<4.6` | required | Verifies each release's build-provenance attestation before an update installs. | src/platterpus/update_attestation.py | pyproject.toml [project].dependencies, build/python-appimage/requirements.txt |
+| `tomli-w` | `>=1.0,<2` | required | Writes config.toml (the standard library reads TOML but cannot write it). | src/platterpus/config.py | pyproject.toml [project].dependencies, build/python-appimage/requirements.txt |
+
+### The ripper (cyanrip) and its related projects (3)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `cyanrip` | `0.9.4-rc2+platterpus.18` | required | The ripping backend (KDD-18): the Platterpus fork of cyanrip, built from source at the handshake-approved pin by the setup wizard and by --install-ripper, then exported to the host. | src/platterpus/adapters/cyanrip_backend.py, src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/registry.py | src/platterpus/deps/fork_source.py (FORK_PIN, FORK_EXPECTED_VERSION), src/platterpus/handshake_approval.py (APPROVED_BY_ROUND), src/platterpus/deps/registry.py (min_version) |
+| `cyanrip (build under review)` | `0.9.4-rc2+platterpus.19` | optional | The build handshake round 30 is reviewing; installable on request, never the default. | src/platterpus/deps/fork_source.py (UNDER_REVIEW_TARGET) | src/platterpus/deps/fork_source.py (PIN_UNDER_REVIEW) |
+| `cyanrip (upstream)` | `>=0.9.0` | optional | Stock cyanrip. The wizard installs it first from the COPR so a failed fork build still leaves a working ripper; the fork is then exported over it. Also the project the fork tracks. | src/platterpus/deps/host_setup.py (the cyanrip step) | src/platterpus/deps/registry.py (min_version) |
+
+Details for `cyanrip`:
+
+- `pin`: 51cc789
+- `build-tag`: platterpus-fork-g51cc789
+- `banner`: cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-g51cc789)
+- `branch`: platterpus-fork
+- `release-seq`: 28
+- `approved-by-round`: 29
+- `approved-for-platterpus`: 0.6.63
+- `checked-minimum`: 0.9.0
+- `installed-at`: /usr/local/bin/cyanrip inside the ripping container
+- `host-export`: ~/.local/bin/cyanrip
+- `exported-from`: /usr/bin/cyanrip, /usr/local/bin/cyanrip (the last export wins)
+- `pin-under-review`: 174a134 (0.9.4-rc2+platterpus.19, round 30, published: yes)
+- `test-pin`: 3952c03 (0.9.4-rc2+platterpus.12, nominated by round 21)
+- `handshake`: bidirectional release handshake: docs/cyanrip-handshake.md
+
+Details for `cyanrip (build under review)`:
+
+- `pin`: 174a134
+- `round`: 30
+- `published`: yes
+
+### The ripping container (2)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `fedora-toolbox` | `latest` | required | The image the ripping container is created from. | src/platterpus/deps/host_setup.py | src/platterpus/deps/host_setup.py (DEFAULT_IMAGE) |
+| `ripping` | unconstrained | required | The Distrobox container the ripper runs in. The GUI never enters it to rip; it calls the host-exported wrapper (Critical rule #3). | src/platterpus/deps/host_setup.py (creates it), src/platterpus/drive_control.py (the scoped force-stop exception), src/platterpus/deps/host_teardown.py (removes it) | src/platterpus/deps/host_setup.py (DEFAULT_CONTAINER) |
+
+### What the cyanrip fork is built from, inside the container (13)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `gcc` | unconstrained | excluded | Toolchain for building the cyanrip fork; not needed to run it. | building the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `git` | unconstrained | excluded | Toolchain for building the cyanrip fork; not needed to run it. | building the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `libavcodec` | unconstrained | required | Linked by the cyanrip fork (its src/meson.build). | building and running the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `libavfilter` | unconstrained | required | Linked by the cyanrip fork (its src/meson.build). | building and running the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `libavformat` | unconstrained | required | Linked by the cyanrip fork (its src/meson.build). | building and running the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `libavutil` | unconstrained | required | Linked by the cyanrip fork (its src/meson.build). | building and running the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `libcdio` | unconstrained | required | Linked by the cyanrip fork (its src/meson.build). | building and running the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `libcdio_paranoia` | unconstrained | required | Linked by the cyanrip fork (its src/meson.build). | building and running the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `libcurl` | unconstrained | required | Linked by the cyanrip fork (its src/meson.build). | building and running the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `libmusicbrainz5` | unconstrained | required | Linked by the cyanrip fork (its src/meson.build). | building and running the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `libswresample` | unconstrained | required | Linked by the cyanrip fork (its src/meson.build). | building and running the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `meson` | unconstrained | excluded | Toolchain for building the cyanrip fork; not needed to run it. | building the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+| `ninja-build` | unconstrained | excluded | Toolchain for building the cyanrip fork; not needed to run it. | building the cyanrip fork, inside the container | src/platterpus/deps/fork_source.py (FORK_BUILD_PACKAGES) |
+
+### External programs Platterpus runs or offers (29)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `apt-get` | unconstrained | optional | Host installer for Distrobox / podman on Debian and Ubuntu. | src/platterpus/deps/host_setup.py | — |
+| `bash` | unconstrained | optional | Runs the packaged rig_session.sh for --rig-session. That script uses ordinary shell utilities, which are not listed one by one. | src/platterpus/app.py | — |
+| `cd-paranoia` | unconstrained | optional | Optional. libcdio's cd-paranoia — the same read engine cyanrip uses. Its `-A` self-test measures whether this drive defeats its audio cache, so the EAC-compatible log's 'Defeat audio cache' line can carry a measured Yes/No instead of '(unknown)' (KDD-29). Absent only means that verdict stays unmeasured; ripping is unaffected. Installed into the container + exported by the one-time setup wizard. | src/platterpus/adapters/cache_probe.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/deps/registry.py | src/platterpus/deps/registry.py (min_version, probed at launch) |
+| `curl` | unconstrained | optional | Fetches the upstream Distrobox installer on an unrecognised distro. | src/platterpus/deps/host_setup.py | — |
+| `distrobox` | unconstrained | required | Creates and enters the ripping container: setup, the fork build, the scoped force-stop exception, and teardown. | src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/drive_control.py | — |
+| `distrobox-enter` | unconstrained | required | What the exported ~/.local/bin wrappers run; the wrapper probe times it to diagnose a wrapper that hangs. | src/platterpus/deps/ripper_wrapper_probe.py | — |
+| `distrobox-export` | unconstrained | required | Exports cyanrip, flac, metaflac and cd-paranoia from the container to ~/.local/bin. | src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py | — |
+| `dnf` | unconstrained | required | Installs flac, cyanrip, cd-paranoia and the fork's build inputs inside the container; also the host installer on Fedora-family systems. | src/platterpus/deps/host_setup.py | — |
+| `docker` | unconstrained | optional | Accepted in place of podman as Distrobox's engine when present. | src/platterpus/deps/host_setup.py | — |
+| `eject` | unconstrained | optional | Opens the drive tray after a force-stop. | src/platterpus/drive_control.py | — |
+| `ffmpeg` | `>=4.0` | optional | Optional. The encoder for the Output-format feature (KDD-22): transcodes the FLAC master to WavPack, MP3, or WAV when a non-FLAC output is selected, AND verifies those derived files afterward (decode-to-PCM bit-compare for lossless, decode-clean for MP3). Absent only disables non-FLAC output (FLAC ripping is unaffected, and the FLAC master is always kept). Already present wherever cyanrip is installed (cyanrip is built on FFmpeg). | src/platterpus/adapters/derived_verify.py, src/platterpus/adapters/transcode.py, src/platterpus/deps/checks.py, src/platterpus/deps/registry.py | src/platterpus/deps/registry.py (min_version, probed at launch) |
+| `flac` | `>=1.3.0` | optional | Optional. Only needed for the 'Verify with CTDB after a rip' setting: the CTDB audio check decodes the FLACs back to PCM on the host. The setup wizard installs it into the container alongside cyanrip and metaflac; re-run the wizard if it's missing. | src/platterpus/adapters/flac_recompress.py, src/platterpus/adapters/flac_verify.py, src/platterpus/ctdb/decode.py, src/platterpus/deps/checks.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/deps/registry.py | src/platterpus/deps/registry.py (min_version, probed at launch) |
+| `flatpak` | unconstrained | optional | Installs MusicBrainz Picard from Flathub and launches it for an unknown disc. | src/platterpus/deps/registry.py, src/platterpus/ui/unknown_album.py | — |
+| `fuser` | unconstrained | optional | Device-scoped force-stop of whatever holds the drive on cancel (host copy only). | src/platterpus/drive_control.py | — |
+| `gio` | unconstrained | optional | Marks the desktop shortcut trusted after AppImage integration. | src/platterpus/appimage_integration.py | — |
+| `kbuildsycoca5` | unconstrained | optional | The same refresh for KDE Plasma 5 (fire-and-forget). | src/platterpus/appimage_integration.py | — |
+| `kbuildsycoca6` | unconstrained | optional | Refreshes KDE Plasma 6's menu cache after AppImage integration (fire-and-forget). | src/platterpus/appimage_integration.py | — |
+| `metaflac` | `>=1.3.0` | required | Part of the FLAC reference encoder package. Used to apply tags after a rip and to add placeholders for unknown discs. Installed + exported by the one-time setup wizard. | src/platterpus/adapters/metaflac.py, src/platterpus/ctdb/decode.py, src/platterpus/deps/checks.py, src/platterpus/deps/registry.py | src/platterpus/deps/registry.py (min_version, probed at launch) |
+| `MusicBrainz Picard` | unconstrained | optional | Optional. Auto-launched on unknown discs when the 'Auto-launch Picard' setting is enabled. | src/platterpus/deps/checks.py, src/platterpus/deps/registry.py, src/platterpus/ui/unknown_album.py | src/platterpus/deps/registry.py (min_version, probed at launch) |
+| `pacman` | unconstrained | optional | Host installer for Distrobox / podman on Arch. | src/platterpus/deps/host_setup.py | — |
+| `pgrep` | unconstrained | optional | Lists the reader processes the host sees: the exit check, and the acceptance bundle's record of whether a ripper was still running as it was packed (host copy only; never signals anything). | src/platterpus/drive_control.py | — |
+| `pkexec` | unconstrained | optional | Graphical privilege prompt for installing Distrobox or podman on the host (a GUI has no terminal for sudo). | src/platterpus/deps/host_setup.py | — |
+| `pkill` | unconstrained | optional | Name-matched force-stop of the reader on cancel (host first, then the container — Critical rule #3's scoped exception). | src/platterpus/drive_control.py | — |
+| `podman` | unconstrained | required | Distrobox's container engine; the wizard installs it when no engine is present. Docker is accepted instead when it is already there. | src/platterpus/deps/host_setup.py | — |
+| `sh` | unconstrained | required | Runs the fork's build, install and verify scripts in the container, and the upstream Distrobox installer on an unrecognised distro. | src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py | — |
+| `sudo` | unconstrained | required | Root inside the container for dnf and the fork install. | src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py | — |
+| `systemd-inhibit` | unconstrained | optional | Holds idle sleep, suspend and the lid switch off during a long unattended run. | src/platterpus/sleep_inhibit.py | — |
+| `update-desktop-database` | unconstrained | optional | Refreshes the menu after AppImage integration (fire-and-forget). | src/platterpus/appimage_integration.py | — |
+| `zypper` | unconstrained | optional | Host installer for Distrobox / podman on openSUSE. | src/platterpus/deps/host_setup.py | — |
+
+### Desktop interfaces (1)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `org.freedesktop.ScreenSaver` | unconstrained | optional | The freedesktop screensaver D-Bus interface, used to keep the screen from blanking during a run that takes screenshots. | src/platterpus/screen_inhibit.py | — |
+
+### Bundled data (1)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `AccurateRip drive offsets` | `2026-06-05` | required | A snapshot of AccurateRip's drive read-offset table, shipped in the package so offset lookup works offline. | src/platterpus/adapters/accuraterip_offsets.py | scripts/update_drive_offsets.py (regenerates it) |
+
+### Python packages for development and tests (the dev extra) (6)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `hypothesis` | `>=6` | excluded | Property-based tests, including the parsers' never-raises properties. | tests/ (every importer is in these directories) | pyproject.toml [project.optional-dependencies].dev |
+| `mypy` | `>=2.3,<2.4` | excluded | Strict type checking; gates CI. | .github/workflows/ci.yml, scripts/check.py | pyproject.toml [project.optional-dependencies].dev |
+| `pytest` | `>=8,<10` | excluded | The test runner. | tests/ (every importer is in these directories), .github/workflows/ci.yml, scripts/check.py | pyproject.toml [project.optional-dependencies].dev |
+| `pytest-cov` | `>=5` | excluded | Branch coverage and the CI coverage floor. | loaded by pytest as a plugin | pyproject.toml [project.optional-dependencies].dev |
+| `pytest-xdist` | `>=3.6,<4` | excluded | Parallel test runs (CI and scripts/check.py pass -n auto). | loaded by pytest as a plugin | pyproject.toml [project.optional-dependencies].dev |
+| `ruff` | `>=0.15.22,<0.16` | excluded | Lint and format; gates CI. | .github/workflows/ci.yml, scripts/check.py | pyproject.toml [project.optional-dependencies].dev |
+
+### Python packages for building, releasing and CI (8)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `build` | `>=1,<2 in .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh; unpinned in .github/workflows/publish-pypi.yml (publish)` | excluded | PEP 517 frontend: builds the wheel and sdist. | .github/workflows/appimage.yml (build), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release), build/build_appimage.sh | .github/workflows/appimage.yml (build), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release), build/build_appimage.sh |
+| `cyclonedx-bom` | `>=7,<8` | excluded | Writes the CI sbom job's resolved-environment SBOM. | .github/workflows/ci.yml (sbom) | .github/workflows/ci.yml (sbom) |
+| `pip` | `unpinned` | excluded | Installs everything else. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) |
+| `pip-audit` | `unpinned` | excluded | The gating vulnerability audit of the resolved runtime graph. | .github/workflows/ci.yml (pip-audit) | .github/workflows/ci.yml (pip-audit) |
+| `python-appimage` | `>=1.4,<2` | excluded | Builds the AppImage (Critical rule #2). | .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh | .github/workflows/appimage.yml (build), .github/workflows/release.yml (build-and-release), build/build_appimage.sh |
+| `setuptools` | `>=77 in pyproject.toml [build-system].requires; unpinned in .github/workflows/ci.yml (pip-audit)` | excluded | The build backend. | .github/workflows/ci.yml (pip-audit), pyproject.toml [build-system].requires | .github/workflows/ci.yml (pip-audit), pyproject.toml [build-system].requires |
+| `twine` | `unpinned` | excluded | Checks the wheel and sdist before the PyPI upload. | .github/workflows/publish-pypi.yml (publish) | .github/workflows/publish-pypi.yml (publish) |
+| `wheel` | `unpinned` | excluded | Wheel support for the build backend. | pyproject.toml [build-system].requires | pyproject.toml [build-system].requires |
+
+### GitHub Actions (6)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `actions/attest-build-provenance` | `v4` | excluded | Signs the release AppImage's build-provenance attestation. | .github/workflows/release.yml (build-and-release) | .github/workflows/release.yml |
+| `actions/checkout` | `v7.0.1` | excluded | Checks out the repository. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml |
+| `pypa/gh-action-pypi-publish` | `release/v1` | excluded | Publishes the wheel and sdist to PyPI. | .github/workflows/publish-pypi.yml (publish) | .github/workflows/publish-pypi.yml |
+| `gitleaks/gitleaks-action` | `v3.0.0` | excluded | Runs the gitleaks secret scan. | .github/workflows/ci.yml (gitleaks) | .github/workflows/ci.yml |
+| `actions/setup-python` | `v7.0.0` | excluded | Installs the job's Python. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml |
+| `actions/upload-artifact` | `v7.0.1` | excluded | Keeps a job's output (the SBOM, the AppImage, mutation reports). | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml |
+
+### CI and build programs (11)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `appimagetool` | unconstrained | excluded | Re-packs the AppImage to embed the zsync update information (the copy python-appimage caches, or the system's). | build/build_appimage.sh | — |
+| `gh` | unconstrained | excluded | GitHub CLI on the runner: creates the release and uploads its assets. | .github/workflows/release.yml | — |
+| `gitleaks` | unconstrained | excluded | The secret scanner the gitleaks job runs. | .github/workflows/ci.yml (gitleaks) | — |
+| `libdbus-1-3` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
+| `libegl1` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
+| `libfontconfig1` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
+| `libfreetype6` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
+| `libgl1` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
+| `libglib2.0-0` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
+| `libxkbcommon0` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
+| `zsync` | unconstrained | excluded | zsyncmake, which writes the AppImage's .zsync delta-update file. | .github/workflows/release.yml (build-and-release) | — |
+
+### CI runner images (2)
+
+| Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
+|---|---|---|---|---|---|
+| `ubuntu-22.04` | unconstrained | excluded | GitHub-hosted runner image. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/release.yml (build-and-release) | — |
+| `ubuntu-latest` | unconstrained | excluded | GitHub-hosted runner image. | .github/workflows/publish-pypi.yml (publish) | — |
+
+### External services (15)
+
+| Service | Endpoints | When | Used in |
+|---|---|---|---|
+| `AccurateRip` | `http://www.accuraterip.com/accuraterip/DriveOffsets.bin`, `https://www.accuraterip.com/driveoffsets.htm` | maintenance (the offset snapshot); a link in the drive setup dialog | scripts/update_drive_offsets.py, src/platterpus/ui/drive_setup_dialog.py |
+| `Cover Art Archive` | `https://coverartarchive.org/`, `https://coverartarchive.org/release/` | runtime (cover art after a rip; a reachability check in --doctor) | src/platterpus/adapters/cover_art.py, src/platterpus/preflight.py |
+| `CUETools Database (CTDB)` | `http://db.cuetools.net/lookup2.php` | runtime (optional verify after a rip) | src/platterpus/adapters/ctdb_client.py |
+| `cyanrip fork release manifest` | `https://raw.githubusercontent.com/rmccann-hub/cyanrip/platterpus-fork/release-manifest.json` | runtime (ripper update offers) | src/platterpus/deps/ripper_manifest.py |
+| `cyanrip fork source (git clone)` | `https://github.com/rmccann-hub/cyanrip.git` | setup (the wizard and --install-ripper, inside the container) | src/platterpus/deps/fork_source.py |
+| `Distrobox upstream installer` | `https://raw.githubusercontent.com/89luca89/distrobox/main/install` | setup (only on an unrecognised distro) | src/platterpus/deps/host_setup.py |
+| `Fedora container registry` | `https://registry.fedoraproject.org/` | setup (creating the container) | src/platterpus/deps/host_setup.py |
+| `Fedora COPR barsnick/non-fed` | `https://download.copr.fedorainfracloud.org/results/barsnick/non-fed/`, `https://download.copr.fedorainfracloud.org/results/barsnick/non-fed/pubkey.gpg` | setup (the stock cyanrip package) | src/platterpus/deps/host_setup.py |
+| `Fedora package repositories` | not named in Platterpus | setup (dnf inside the container) | src/platterpus/deps/host_setup.py, src/platterpus/deps/fork_source.py |
+| `Flathub` | `https://dl.flathub.org/repo/appstream/org.musicbrainz.Picard.flatpakref` | on request (installing Picard) | src/platterpus/deps/registry.py |
+| `GitHub release downloads (update install)` | `https://github.com/rmccann-hub/Platterpus/releases/download/` | runtime (installing an update) | src/platterpus/update_install.py |
+| `GitHub Releases API (update check)` | `https://api.github.com/repos/rmccann-hub/Platterpus/releases?per_page=5` | runtime (update check) | src/platterpus/update_check.py |
+| `MusicBrainz web service` | `https://musicbrainz.org/ws/2/` | runtime (every disc lookup) | src/platterpus/adapters/musicbrainz_client.py |
+| `PyPI` | not named in Platterpus | release (publishing) and development (installing) | .github/workflows/publish-pypi.yml |
+| `Sigstore public-good instance` | not named in Platterpus | runtime (installing an update) and release (attesting the build) | src/platterpus/update_attestation.py, .github/workflows/release.yml |
+
+### Dependency graph
+
+Who needs what, as the BOM's `dependencies` section records it. An entry
+absent from the left column has dependencies Platterpus does not record.
+
+- `container:fedora-toolbox` → `svc:fedora-registry`
+- `container:ripping` → `container:fedora-toolbox`, `svc:fedora-repositories`, `tool-host:distrobox-export`, `tool-host:sudo`
+- `data:accuraterip-drive-offsets` → `svc:accuraterip`
+- `gha:gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e` → `ci:gitleaks`
+- `platterpus` → `data:accuraterip-drive-offsets`, `desktop:org.freedesktop.ScreenSaver`, `pypi:cryptography`, `pypi:musicbrainzngs`, `pypi:pyside6`, `pypi:sigstore`, `pypi:tomli-w`, `ripper:cyanrip-fork`, `ripper:cyanrip-fork-under-review`, `ripper:cyanrip-upstream`, `runtime:linux`, `runtime:python`, `runtime:python-appimage-bundled`, `svc:cover-art-archive`, `svc:ctdb`, `svc:fork-release-manifest`, `svc:github-release-downloads`, `svc:github-releases-api`, `tool-host:apt-get`, `tool-host:bash`, `tool-host:curl`, `tool-host:distrobox`, `tool-host:distrobox-enter`, `tool-host:dnf`, `tool-host:eject`, `tool-host:flatpak`, `tool-host:fuser`, `tool-host:gio`, `tool-host:kbuildsycoca5`, `tool-host:kbuildsycoca6`, `tool-host:pacman`, `tool-host:pgrep`, `tool-host:pkexec`, `tool-host:pkill`, `tool-host:sh`, `tool-host:systemd-inhibit`, `tool-host:update-desktop-database`, `tool-host:zypper`, `tool:cdparanoia`, `tool:ffmpeg`, `tool:flac`, `tool:metaflac`, `tool:picard`
+- `pypi:musicbrainzngs` → `svc:musicbrainz`
+- `pypi:pyside6` → `runtime:qt`
+- `pypi:sigstore` → `svc:sigstore`
+- `ripper:cyanrip-fork` → `container:ripping`, `lib:libavcodec`, `lib:libavfilter`, `lib:libavformat`, `lib:libavutil`, `lib:libcdio`, `lib:libcdio_paranoia`, `lib:libcurl`, `lib:libmusicbrainz5`, `lib:libswresample`, `svc:fork-source`
+- `ripper:cyanrip-fork-under-review` → `container:ripping`, `lib:libavcodec`, `lib:libavfilter`, `lib:libavformat`, `lib:libavutil`, `lib:libcdio`, `lib:libcdio_paranoia`, `lib:libcurl`, `lib:libmusicbrainz5`, `lib:libswresample`
+- `ripper:cyanrip-upstream` → `container:ripping`, `svc:copr-barsnick-non-fed`
+- `tool-host:distrobox` → `svc:distrobox-installer`, `tool-host:docker`, `tool-host:podman`
+- `tool:picard` → `svc:flathub`, `tool-host:flatpak`
+
+<!-- END GENERATED: emit_bom.py -->
 
 ## Review cadence
 

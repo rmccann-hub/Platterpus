@@ -274,6 +274,38 @@ def test_store_round_trips_through_disk(tmp_path: Path) -> None:
     assert got == profile  # enums + nested OffsetRecord survive byte-for-byte
 
 
+def test_a_drives_read_rate_survives_the_store_and_an_old_file_has_none(
+    tmp_path: Path,
+) -> None:
+    """The up-front time estimate rests on it, so it must round-trip; a file
+    written before the field existed, or one with a mangled value, loads as
+    "not measured" rather than failing or inventing a rate."""
+    from dataclasses import replace
+
+    from platterpus.rip_estimate import ReadRate
+
+    path = tmp_path / "drive_profiles.json"
+    store = DriveProfileStore()
+    profile = replace(_sample_profile(), read_rate=ReadRate(3583.0, 3511.0, 3))
+    store.upsert(profile)
+    store.save(path)
+    assert DriveProfileStore.load(path).get(profile.fingerprint) == profile
+
+    path.write_text(
+        '{"schema_version": 1, "profiles": {'
+        '"vm:OLD": {"vendor": "V", "model": "M"}, '
+        '"vm:BAD": {"vendor": "V", "model": "M", "read_rate": '
+        '{"audio_seconds": "lots", "read_seconds": 10, "rips": 1}}, '
+        '"vm:NEG": {"vendor": "V", "model": "M", "read_rate": '
+        '{"audio_seconds": -5, "read_seconds": 10, "rips": 1}}}}'
+    )
+    loaded = DriveProfileStore.load(path)
+    for key in ("vm:OLD", "vm:BAD", "vm:NEG"):
+        got = loaded.get(key)
+        assert got is not None, key
+        assert got.read_rate is None, key
+
+
 def test_store_missing_file_is_empty(tmp_path: Path) -> None:
     store = DriveProfileStore.load(tmp_path / "nope.json")
     assert store.all() == []

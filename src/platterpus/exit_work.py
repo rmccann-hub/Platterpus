@@ -4,10 +4,10 @@
 that its log keeps its footer: cyanrip is sent SIGTERM and given a grace to
 finish the read in hand and write the end of its log, and only then, if it still
 holds the drive, SIGKILL. cyanrip acts on SIGTERM only once that read returns,
-and the rig's drive has been measured taking 20 seconds over one read (our
-filed round 15 lap 13 log; the fork's round 30 lap 5 S17 found 11), so the grace
-is long. Waiting it out on the GUI thread froze
-the window for up to half a minute at the moment the user asked it to go away.
+and the rig's drive has been measured taking 54 seconds over one read of a
+damaged disc (the 2026-10-04 run), so the grace is long. Waiting it out on the GUI
+thread froze the window for up to half a minute at the moment the user asked it
+to go away.
 
 So the window closes at once, and the wait moves here: ``closeEvent`` hands the
 stop to :func:`start`, which runs it on a helper thread, and ``app.main`` calls
@@ -35,6 +35,8 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Final
+
+from platterpus import drive_control
 
 log = logging.getLogger(__name__)
 
@@ -123,3 +125,85 @@ def wait(
     with _LOCK:
         _JOBS[:] = [job for job in _JOBS if job.thread.is_alive()]
     return finished
+
+
+#: The exit audit's whole budget: two quick host probes, run when the window has
+#: gone and nothing waits on the process but its own exit.
+AUDIT_BUDGET_S: Final[float] = 4.0
+
+
+@dataclass(frozen=True)
+class ExitAudit:
+    """What the host saw of the drive and the ripper as Platterpus left.
+
+    Both fields are tri-state: ``None`` is "no answer", never "all clear".
+    """
+
+    device: str
+    #: Whether anything still holds ``device`` (``fuser``).
+    device_held: bool | None
+    #: The reader processes still running, as ``"<pid> <name>"`` (``pgrep``).
+    readers: tuple[str, ...] | None
+
+    @property
+    def clean(self) -> bool | None:
+        """True when the drive is free and no reader runs; None when unknown."""
+        if self.device_held is True or self.readers:
+            return False
+        if self.device_held is False and self.readers == ():
+            return True
+        return None
+
+    def sentence(self) -> str:
+        """One line for the log, naming what was seen and what could not be."""
+        drive = self.device or "the drive"
+        if self.device_held is True:
+            held = f"{drive} is STILL HELD"
+        elif self.device_held is False:
+            held = f"nothing holds {drive}"
+        elif self.device:
+            held = f"whether {drive} is held is not known (fuser gave no answer)"
+        else:
+            held = "no drive was in use, so none was checked"
+        if self.readers:
+            procs = "a ripper is STILL RUNNING (" + ", ".join(self.readers) + ")"
+        elif self.readers == ():
+            procs = "no ripper process is running"
+        else:
+            procs = "whether a ripper is running is not known (pgrep gave no answer)"
+        verdict = {
+            True: "Platterpus left nothing behind",
+            False: "Platterpus has closed but left this behind",
+            None: "so it is not known whether Platterpus left anything behind",
+        }[self.clean]
+        return f"exit check: {held}; {procs}, as the host sees them — {verdict}"
+
+
+def audit(device: str, *, runner: drive_control.Runner | None = None) -> ExitAudit:
+    """Check, once the exit work is done, that the drive and the ripper are free.
+
+    Asked for by our operator (2026-10-05): a bundle is written while Platterpus
+    runs, so nothing in it can show that a close let go of the drive. This line
+    goes to the log at the moment of exit, where the next session's log, and its
+    bundle, carry it. It reports; it does not kill: stopping the ripper is the
+    exit work above, and a straggler it shows is a fact to read, not to act on
+    silently. Bounded by :data:`AUDIT_BUDGET_S`. Never raises.
+
+    "As the host sees them": a reader in the ripping container is normally
+    visible on the host, which is why the force-stop asks the host first. If a
+    host ever cannot see it, this reads "nothing", and the sentence says whose
+    view it is so that reading is not taken for more than it is.
+    """
+    run = runner or drive_control.budgeted_runner(AUDIT_BUDGET_S)
+    try:
+        held = drive_control.device_is_held(device, run) if device else None
+        readers = drive_control.running_readers(run)
+    except Exception:  # noqa: BLE001 — an audit must never stop the exit
+        log.exception("exit check could not run")
+        held, readers = None, None
+    result = ExitAudit(device=device, device_held=held, readers=readers)
+    if result.clean is True:
+        log.info(result.sentence())
+    else:
+        log.warning(result.sentence())
+    return result

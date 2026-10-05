@@ -472,11 +472,48 @@ def test_cancel_rip_needs_a_rip_to_cancel(qapp, process_until) -> None:
     assert not win.cancelled
 
 
+def _run_lines(window: Any, *lines: str) -> tuple[list[Any], Any]:
+    """Execute several script lines on ONE runner; return every record."""
+    runner = ScriptRunner(window)
+    runner._report.steps.clear()
+    for line in lines:
+        (step,) = parse(line)
+        runner._execute(step)
+    return list(runner._report.steps), runner
+
+
 def test_cancel_rip_reaches_the_windows_cancel_handler(qapp, process_until) -> None:
+    win = _window()
+    runner = ScriptRunner(win)
+    (rip,) = parse("rip")
+    runner._execute(rip)
+    assert runner._report.steps[-1].outcome is Outcome.PASS, "floor: Start pressed"
+    win._rip_worker = object()  # the worker the pressed Start created
+    (cancel,) = parse("cancel-rip")
+    runner._execute(cancel)
+    assert runner._report.steps[-1].outcome is Outcome.PASS
+    assert process_until(lambda: win.cancelled), "the deferred call never landed"
+
+
+def test_cancel_rip_refuses_a_rip_its_last_rip_step_did_not_start(
+    qapp, process_until
+) -> None:
+    """The 2026-10-04 rig run: section I's `rip` was refused because section F's
+    seven-hour rip was still running, and its `cancel-rip` cancelled F's rip."""
+    win = _window(rip_worker=object())  # an earlier section's rip, still running
+    records, _ = _run_lines(win, "rip", "cancel-rip")
+    assert records[0].outcome is Outcome.FAIL, "floor: the rip step was refused"
+    assert records[1].outcome is Outcome.FAIL, records[1].detail
+    assert "earlier step" in records[1].detail
+    process_until(lambda: win.cancelled, timeout=0.5)
+    assert not win.cancelled, "an earlier step's rip was cancelled"
+
+
+def test_cancel_rip_with_no_rip_step_before_it_refuses(qapp, process_until) -> None:
     win = _window(rip_worker=object())
     record, _ = _run_one(win, "cancel-rip")
-    assert record.outcome is Outcome.PASS
-    assert process_until(lambda: win.cancelled), "the deferred call never landed"
+    assert record.outcome is Outcome.FAIL
+    assert not win.cancelled
 
 
 # --- wait-for-rip -----------------------------------------------------------
@@ -533,6 +570,106 @@ def test_wait_for_rip_caps_an_absurd_timeout_loudly(qapp, process_until) -> None
     assert "CLAMPED" in record.detail or "no rip is running" in record.detail, (
         record.detail
     )
+
+
+def test_a_wait_for_rip_that_runs_out_ends_the_run_and_cancels_its_rip(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """The 2026-10-04 run: section F's wait ran out with its rip still reading.
+
+    H and I then failed against F's rip, and I's `cancel-rip` stopped it, so
+    nothing after F was evidence. A wait that runs out with the rip still
+    reading now ends the run, every later step is recorded as never reached,
+    and the run's own rip is cancelled rather than left to outlive it.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    win = _window()
+    runner = ScriptRunner(win)
+    emitted: list[Any] = []
+    runner.finished.connect(emitted.append)
+    runner.start(parse("rip\nwait-for-rip 1\nlog after the wait"))
+    assert process_until(lambda: win._rip_controls.started), "floor: Start pressed"
+    win._rip_worker = object()  # the rip Start created, still reading
+
+    assert process_until(lambda: bool(emitted), timeout=10), "the run never ended"
+    report = emitted[0]
+    by_source = {r.source: r for r in report.steps}
+    assert by_source["wait-for-rip 1"].outcome is Outcome.FAIL
+    assert by_source["log after the wait"].outcome is Outcome.BLOCKED, (
+        "a step after a wait that ran out still ran against the live rip"
+    )
+    assert "still reading" in report.ended_reason, report.ended_reason
+    assert win.cancelled, "the run ended and left its rip reading"
+    assert any(
+        r.outcome is Outcome.INFO and "cancelled" in r.detail for r in report.steps
+    ), "the cancel is not in the transcript"
+
+
+def test_stopping_a_run_cancels_only_its_own_rip(qapp, process_until) -> None:
+    """The console's Stop, and `abort`: the run's rip stops with the run.
+
+    Only a rip this script's last `rip` step started, which is the predicate
+    `cancel-rip` uses; a rip already being cancelled is not cancelled again.
+    """
+    own = _window()
+    records, runner = _run_lines(own, "rip")
+    assert records[0].outcome is Outcome.PASS, "floor: Start pressed"
+    own._rip_worker = object()
+    runner._timer.start()  # what `start()` does, so `stop()` sees a live run
+    runner.stop("stopped by the user")
+    assert own.cancelled, "Stop left the run's own rip reading"
+
+    # The 2026-10-04 shape: an earlier `rip` step started a rip (F), and the
+    # last one was refused because that rip was still reading (I). The rip
+    # running now is not the last `rip` step's, so Stop must leave it to the
+    # predicate `cancel-rip` uses rather than to "some rip is running".
+    foreign = _window()
+    records, runner = _run_lines(foreign, "rip")
+    assert records[0].outcome is Outcome.PASS, "floor: the earlier rip started"
+    foreign._rip_worker = object()  # F's rip, still reading
+    (refused,) = parse("rip")
+    runner._execute(refused)
+    assert runner._report.steps[-1].outcome is Outcome.FAIL, "floor: I was refused"
+    runner._timer.start()
+    runner.stop("stopped by the user")
+    assert not foreign.cancelled, "Stop cancelled a rip the last rip step did not start"
+
+    cancelling = _window()
+    records, runner = _run_lines(cancelling, "rip")
+    cancelling._rip_worker = object()
+    cancelling._rip_cancelled = True  # the window is already cancelling it
+    runner._timer.start()
+    runner.stop("stopped by the user")
+    assert not cancelling.cancelled, "a second Cancel was sent to a rip stopping"
+
+
+def test_a_run_that_reaches_its_end_leaves_a_rip_it_did_not_wait_for(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """Only an early stop cancels. A script that starts a rip and ends without
+    waiting has said what it wants; the session then waits for the rip before
+    it packs (`_acceptance_rip_at_end`)."""
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    win = _window()
+    controls = win._rip_controls
+
+    def press_start() -> None:
+        controls.started = True
+        win._rip_worker = object()  # the rip Start creates, still reading
+
+    controls._on_start = press_start
+    runner = ScriptRunner(win)
+    emitted: list[Any] = []
+    runner.finished.connect(emitted.append)
+    runner.start(parse("rip\nwait 1\nlog done"))
+    assert process_until(lambda: bool(emitted), timeout=10)
+    assert win._rip_worker is not None, "floor: the rip was not running at the end"
+    assert emitted[0].steps[-1].source == "log done", "floor: the run reached its end"
+    assert not win.cancelled
 
 
 # --- expect-tracks ----------------------------------------------------------
@@ -893,6 +1030,7 @@ def test_no_picker_plus_loaded_tracks_is_a_pass_that_says_why(
     the 'satisfied by finding nothing' shape, so it is only accepted alongside
     positive evidence that the disc really did identify."""
     win = _window()  # the stub track table carries 14 tracks
+    win._current_release_id = "d14a7546-815b-43c6-8af6-35cff6cee1d0"
     runner = ScriptRunner(win)
     _with_picker(monkeypatch, None)
 
@@ -902,7 +1040,61 @@ def test_no_picker_plus_loaded_tracks_is_a_pass_that_says_why(
     record = runner._report.steps[-1]
     assert record.outcome is Outcome.PASS
     assert "14 track(s) are loaded" in record.detail
+    assert "d14a7546-815b-43c6-8af6-35cff6cee1d0" in record.detail
     assert "nothing to pick" in record.detail
+
+
+def test_loaded_rows_under_the_unknown_album_dialog_are_not_an_identification(
+    qapp, process_until, monkeypatch
+) -> None:
+    """The 2026-10-04 rig runs 1 and 2: a disc MusicBrainz does not know loads
+    placeholder rows and opens "Rip as unknown album", and this verb said "the
+    disc identified unambiguously"."""
+    import platterpus.uiscript.runner as runner_mod
+
+    win = _window()  # 14 rows, and no release held
+    runner = ScriptRunner(win)
+    _with_picker(monkeypatch, None)
+    monkeypatch.setattr(runner_mod, "_unknown_album_dialog", lambda: object())
+
+    runner.start(parse("pick-release 1"))
+    assert process_until(lambda: bool(runner._report.steps))
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.FAIL, record.detail
+    assert "Rip as unknown album" in record.detail
+    assert "identified unambiguously" not in record.detail
+
+
+def test_a_malformed_release_id_is_not_an_identification(
+    qapp, process_until, monkeypatch
+) -> None:
+    """The fact `expect-identified` keys on is a WELL-FORMED id; so does this."""
+    win = _window()
+    win._current_release_id = "not-a-uuid"
+    runner = ScriptRunner(win)
+    _with_picker(monkeypatch, None)
+
+    runner.start(parse("pick-release 1 2"))
+    assert process_until(lambda: bool(runner._report.steps), timeout=8.0)
+
+    assert runner._report.steps[-1].outcome is Outcome.FAIL
+
+
+def test_loaded_rows_with_no_release_yet_keep_waiting(
+    qapp, process_until, monkeypatch
+) -> None:
+    """Rows from the disc scan arrive before the MusicBrainz answer: not yet a pass."""
+    win = _window()  # 14 rows, and no release held
+    runner = ScriptRunner(win)
+    _with_picker(monkeypatch, None)
+
+    runner.start(parse("pick-release 1 2"))
+    assert process_until(lambda: bool(runner._report.steps), timeout=8.0)
+
+    record = runner._report.steps[-1]
+    assert record.outcome is Outcome.FAIL, "it passed before anything was identified"
+    assert "no release was identified" in record.detail, record.detail
 
 
 def test_no_picker_and_no_tracks_keeps_waiting_then_fails(
