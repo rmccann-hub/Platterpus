@@ -3907,6 +3907,7 @@ that is what the section costs, not what its title implies.
 | 2026-09-28 | 0.6.63 | maintainer | bdr209d | bazzite | partial |
 | 2026-09-30 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
 | 2026-10-04 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
+| 2026-10-05 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -4098,6 +4099,19 @@ a cancel and over track 18's skips; `cancel-rip` stopped an earlier step's rip;
 `pick-release` called an unidentified disc identified; and the 42 s quit grace was
 shorter than the 54 s read. Nothing it showed of the ripper breaks the pin
 (`docs/handshake/artifactsround30/README.md` → *The 2026-10-04 runs*).
+
+**The 2026-10-05 0.6.65 row is the operator's final Full run on `.19`: 316 of 323,
+and `partial`, the same count as 2026-09-30.** The seven failures are the same seven
+screenshot steps, every window unexposed with the screen lock held, in sections graded
+ARCHIVAL before the run; the fix that renders the windows (`5fe413a5`) postdates 0.6.65,
+and nothing here re-grades them. Every rip's log verified, the cancelled one with its
+footer, and the app log holds no error from the run's start to its end. On the audio,
+track 3 no longer reads the same way twice: neither the whole-disc rip's securing pass
+nor the whole-disc secure re-read converged on it (five reads, five checksums), and
+track 5's re-reads in the whole-disc rip did not agree either; every other track
+matches EAC in both rips. That is the disc, not a defect in either build. **It is not a
+second witness** either: one machine, one distro, one person, and failures in ARCHIVAL
+sections (`docs/handshake/artifactsround30/README.md` → *The 2026-10-05 run*).
 
 Every row so far is `partial`, zero `full-green`. **No full-green pass has been
 achieved**, so 0.9.1 is not reachable and the count toward it is zero. Recording
