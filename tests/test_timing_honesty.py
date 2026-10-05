@@ -41,19 +41,45 @@ def test_a_cancelled_rip_uses_the_audio_it_actually_extracted() -> None:
     """When we know how much audio came off the disc, that IS a real rate.
 
     Tracks 1–3 of the rig's disc are 49,920 sectors ≈ 666 s, plus part of track
-    4 — about 700 s in 755 s of wall clock, so ~0.93x. That is a defensible
-    number; 0.21 never was.
+    4 — about 700 s in 755 s of wall clock, so the rip took 1.08 times that
+    audio's running time. That is a defensible number; 0.21 never was.
+
+    **Corrected 2026-10-05: this asserted 0.93,** which is 700 ÷ 755, the
+    drive's throughput, the inverse of what the same key holds for a finished
+    rip (elapsed ÷ audio, the test below). One key held two opposite
+    quantities, and the test pinned the inversion.
     """
     timing = build_timing(
         755, disc_seconds=3582, audio_seconds_ripped=700, completed=False
     )
-    assert timing["realtime_multiplier"] == 0.93
+    assert timing["realtime_multiplier"] == 1.08
     assert timing["realtime_multiplier_basis"] == "audio actually extracted"
 
 
 def test_a_completed_rip_reports_the_true_rate() -> None:
     timing = build_timing(3600, disc_seconds=3582, completed=True)
     assert timing["realtime_multiplier"] == 1.01
+
+
+def test_finished_and_unfinished_rips_divide_the_same_way() -> None:
+    """The relation, which neither test above can state alone: the same elapsed
+    over the same audio is the same number whether or not the rip finished."""
+    for completed in (True, False, None):
+        timing = build_timing(
+            1200, disc_seconds=3582, audio_seconds_ripped=600, completed=completed
+        )
+        assert timing["realtime_multiplier"] == 2.0, completed
+
+
+def test_a_finished_partial_rip_is_measured_against_its_own_tracks() -> None:
+    """Every 2-of-14 rip filed since round 26 says 0.12: 413 s over the whole
+    3583 s disc. Over the two tracks it read (about 407 s), it is about 1.0.
+    The values are round 30's `round30fullaftercancelreport.json`."""
+    timing = build_timing(
+        413, disc_seconds=3583, audio_seconds_ripped=406.6, completed=True
+    )
+    assert timing["realtime_multiplier"] == 1.02
+    assert timing["realtime_multiplier_basis"] == "audio actually extracted"
 
 
 def test_an_unknown_outcome_keeps_the_old_behaviour() -> None:

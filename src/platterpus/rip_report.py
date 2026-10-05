@@ -424,35 +424,35 @@ def build_timing(
         and disc_seconds > 0
     ):
         timing["disc_seconds"] = round(disc_seconds)
-    # `elapsed / disc_seconds` is only a RATE if the whole disc was ripped. On a
-    # cancelled rip it silently reports the fraction of the disc covered, which
-    # reads as an implausibly fast rip: the rig's 2-of-14 cancel logged
-    # `realtime_multiplier: 0.21` (755 s of a 3582 s disc) when actual throughput
-    # was about 0.93x. A plausible wrong number is worse than none, because
-    # nothing about it invites checking.
+    # ONE QUANTITY UNDER ONE NAME: elapsed ÷ the audio the rip read, "this rip
+    # took N times that audio's running time". Two mistakes lived here, both in
+    # the denominator's reach (2026-10-05, from the filed reports):
     #
-    # Three outcomes, in order of how much we know:
-    #   * a completed rip           -> elapsed / disc audio, the real rate
-    #   * a partial rip that told us how much audio it DID extract
-    #                               -> elapsed / that, still a real rate
-    #   * anything else             -> null, and null means "we cannot say"
+    #   * a rip that did not finish divided the other way, audio ÷ elapsed (the
+    #     drive's throughput), so `0.93` meant "faster than real time" in one
+    #     report and `1.01` meant "slower" in the next, under the same key;
+    #   * a rip that finished on purpose with 2 of 14 tracks divided by the
+    #     WHOLE disc: every 2-track rip filed since round 26 reads `0.12`, when
+    #     413 s over its two tracks is about 1.0.
     #
-    # `completed=None` keeps every existing caller on the old behaviour: a caller
-    # that does not know whether the rip finished has not asserted that it didn't.
+    # So the audio actually extracted is the denominator whenever it is known,
+    # finished or not. Without it, the disc's length is used only for a rip not
+    # known to have stopped early, which is the old behaviour for a caller with no
+    # geometry; a rip known to have stopped early gets null, because elapsed over
+    # the disc is then the fraction covered, not a rate (the rig's 2-of-14 cancel
+    # logged `0.21` that way, 2026-08-01).
     if not isinstance(elapsed_seconds, int | float) or elapsed_seconds <= 0:
         return timing
+    if isinstance(audio_seconds_ripped, int | float) and audio_seconds_ripped > 0:
+        timing["realtime_multiplier"] = round(elapsed_seconds / audio_seconds_ripped, 2)
+        timing["realtime_multiplier_basis"] = "audio actually extracted"
+        return timing
     if completed is False:
-        if isinstance(audio_seconds_ripped, int | float) and audio_seconds_ripped > 0:
-            timing["realtime_multiplier"] = round(
-                audio_seconds_ripped / elapsed_seconds, 2
-            )
-            timing["realtime_multiplier_basis"] = "audio actually extracted"
-        else:
-            timing["realtime_multiplier"] = None
-            timing["realtime_multiplier_basis"] = (
-                "not computed — the rip did not finish, so elapsed over the "
-                "disc's length would be the fraction covered, not a rate"
-            )
+        timing["realtime_multiplier"] = None
+        timing["realtime_multiplier_basis"] = (
+            "not computed — the rip did not finish, so elapsed over the "
+            "disc's length would be the fraction covered, not a rate"
+        )
         return timing
     if isinstance(disc_seconds, int | float) and disc_seconds > 0:
         timing["realtime_multiplier"] = round(elapsed_seconds / disc_seconds, 2)

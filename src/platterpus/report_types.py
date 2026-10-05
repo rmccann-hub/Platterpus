@@ -103,7 +103,10 @@ class TimingBlock(TypedDict):
     #: module's opt-out was retired (2026-08-20).
     realtime_multiplier: NotRequired[float | None]
     #: WHICH duration the multiplier is measured against — "audio actually
-    #: extracted" for a partial/cancelled rip, the whole disc otherwise. Written by
+    #: extracted" whenever the log's track geometry gives it, finished or not; the
+    #: whole disc otherwise, and then the key is absent. Always elapsed ÷ that
+    #: duration (until 2026-10-05 a rip that did not finish divided the other
+    #: way, and a finished 2-track rip divided by the whole disc). Written by
     #: `rip_report._enrich_timing` and undeclared here until 2026-08-04, so a
     #: consumer reading this type had no idea the ratio's denominator could change
     #: meaning between two reports. `NotRequired` because it only appears alongside
