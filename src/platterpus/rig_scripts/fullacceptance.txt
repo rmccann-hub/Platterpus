@@ -13,9 +13,10 @@
 #                               measured: 4h14m (2026-09-22, 247 steps) and
 #                               5h33m (2026-09-26, 320 steps, the sum of its
 #                               report's step times), both on the Pioneer rig;
-#                               the script is 371 steps now
+#                               the script is 415 steps now
 #                   Full rips the whole disc TWICE (once fast, once with every
-#                   track read at least three times) plus six short partial rips.
+#                   track read at least three times) plus seven short partial
+#                   rips.
 #                   ONLY FULL counts toward a version or a handshake close.
 #
 # RUN SIZES are cut from THIS ONE FILE. Each section's first line is
@@ -386,8 +387,26 @@ set output_format flac
 expect output_format flac
 set force_overread off
 expect force_overread off
+# THREE SETTINGS NO RIP HERE CAN USE, so each is only round-tripped through the
+# validator and goes straight back (TASKS "Permutations the acceptance test
+# still does not run"). That proves the value is accepted and stored, and
+# nothing about what the setting does: `update_channel` decides only which
+# releases Check for updates offers, and no step runs that check (section A's
+# `expect-newest-pair` reads the beta channel itself); auto-eject would eject
+# the disc every later section needs; and Picard is offered only on the
+# unknown-album path, which section E stops the run rather than reach.
+set auto_eject_after_rip on
+expect auto_eject_after_rip on
 set auto_eject_after_rip off
 expect auto_eject_after_rip off
+set auto_launch_picard on
+expect auto_launch_picard on
+set auto_launch_picard off
+expect auto_launch_picard off
+set update_channel beta
+expect update_channel beta
+set update_channel stable
+expect update_channel stable
 set ripper_channel beta
 expect ripper_channel beta
 snapshot settingsafter
@@ -816,6 +835,77 @@ expect-ctdb partial
 expect-tags
 expect-cover-art
 rig-check
+
+# --- J2. PERMUTATIONS: settings no other rip here uses, and a library move -
+# Every other rip in this file runs on the shipped retry ceiling and secure
+# re-read, and none is filed into a library, so three real paths had no
+# hardware evidence (TASKS "Permutations the acceptance test still does not
+# run", 2026-09-30). This one short rip takes them all, then puts every setting
+# back before K1, because the rips after it test what a user gets:
+#
+#   * NO `-r`. Max retries 0 sends no `-r`, and cyanrip then uses its own
+#     default of 10 (`cyanrip_cli.retries_flag_value`). Every other rip here
+#     sends `-r 5`.
+#   * NO `-Z`, the secure re-read off. UNIFORM mode first, and that is the
+#     point: in the default dynamic mode the first pass never carries `-Z`, so
+#     "no `-Z`" would hold whatever the setting said. In uniform mode a setting
+#     of 2 sends `-Z 2` on that pass (section N's rip does), so a builder that
+#     ignored the 0 is caught here.
+#   * A FIXED READ SPEED of 0, the drive's own maximum: no `-S`. This one cannot
+#     tell fixed from the ladder on a healthy disc, whose first rung sends no
+#     `-S` either. What fixed changes is that a read error is not stepped down,
+#     and only a disc with read errors shows that. A NON-ZERO fixed speed is not
+#     run: it sends `-S`, and a drive that reports its speed unchangeable makes
+#     cyanrip abort the rip on it (the BDR-209D, 2026-07-01), so it cannot be one
+#     line that holds on every drive.
+#   * A LIBRARY MOVE. `set-library-scratch` points "Move finished rips to" at a
+#     folder inside this run's rips folder, so the album never reaches your
+#     library and the session still puts it in the bundle. The window files a
+#     rip only once every post-rip check has finished; `expect-library-move`
+#     waits for that and reads the folder on disk.
+#
+# The argv is read from both ends: `expect-rip-argv` reads what we spawned (the
+# report), and `expect-album-audit argv_agreement` checks that cyanrip's own
+# `Invoked as:` line carries the same flags.
+#
+# One track, so a minute or two of drive time. Every grading step comes AFTER
+# `expect-library-move`, so each reads the album where it ended up; a step
+# before it could race the move.
+log --- J2. permutations: no -r, no -Z, a fixed speed, filed into a library ---
+run-size standard
+set secure_rerip_dynamic off
+expect secure_rerip_dynamic off
+set secure_rerip_matches 0
+expect secure_rerip_matches 0
+set max_retries 0
+expect max_retries 0
+set read_speed_mode fixed
+expect read_speed_mode fixed
+expect read_speed 0
+set-library-scratch
+expect-contains library_dir libraryscratch
+select-tracks 1
+album permutations (run) (ripper)
+rip
+wait-for-rip 3600
+expect-library-move
+expect-rip-complete
+expect-verification
+expect-rip-argv without -r
+expect-rip-argv without -Z
+expect-rip-argv without -S
+expect-album-audit argv_agreement
+# AND EVERY ONE GOES BACK, the library first: K1's rip must not be filed.
+set library_dir ""
+expect library_dir ""
+set read_speed_mode auto_ladder
+expect read_speed_mode auto_ladder
+set max_retries 5
+expect max_retries 5
+set secure_rerip_matches 2
+expect secure_rerip_matches 2
+set secure_rerip_dynamic on
+expect secure_rerip_dynamic on
 
 # --- K. THE DERIVED FORMATS — the whole of Critical rule #4 ----------------
 # **Nothing has ever tested this on hardware.** FLAC is the archival master and

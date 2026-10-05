@@ -3825,6 +3825,7 @@ defect, and two of those sections are archival.
 | H | ARCHIVAL | the overwrite prompt; missing the collision destroys a finished master |
 | I | ARCHIVAL | cancel; the defect this exists for destroyed the log's completion footer |
 | J | ARCHIVAL | identify and rip again after a cancel — a rip, and a drive-state proof |
+| J2 | ARCHIVAL | the permutations no other rip uses (2026-10-05): no `-r`, no `-Z` in uniform mode, a fixed read speed, and a finished rip filed into a library folder. Archival on B's reasoning: each setting reaches cyanrip's argv, and the argv is read as sent and as received. And a library move that leaves a copy, or files a folder without its log and report, damages a finished master's record |
 | K1 | ARCHIVAL | when a user selects MP3 the MP3 *is* their library entry — the thing they play, with its tags and art. "Lossy by design" describes the codec, not the importance of deriving it correctly. **Asserts `expect-derived-output mp3` since 2026-09-15**: until then this section asserted only that the setting round-tripped and that *cyanrip's* log showed a completed rip, and cyanrip is always invoked `-o flac` — so it passed on 2026-09-15 with no `.mp3` file written at all (§5.bi) |
 | K2 | ARCHIVAL | WavPack is lossless — a second archival-grade output. **Asserts `expect-derived-output wavpack` since 2026-09-15**, for the reason in K1's row — it too passed over a folder holding no `.wv` |
 | K3 | ARCHIVAL | **WAV is raw PCM, i.e. lossless** — those bytes *are* the audio. Classified UX in the first draft, which contradicted K2: "lossless → archival" was applied to WavPack and not to WAV. The maintainer caught it. **Asserts `expect-derived-output wav` since 2026-09-15**; this is the one derived section whose files the 2026-09-15 run did produce, and only because nothing started after it for six minutes |
@@ -3840,7 +3841,7 @@ defect, and two of those sections are archival.
 
 <!-- END-ACCEPTANCE-SEVERITY-TABLE -->
 
-**18 ARCHIVAL, 4 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The four that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
+**19 ARCHIVAL, 4 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The four that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
 `fullacceptance.txt` must appear, so a **new** section has to be classified
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
@@ -3859,11 +3860,17 @@ per-track escaping permutation (`track-title` with `\ = ' :`); K2 and K3 run the
 `file` and `complete` cover-art modes. §I asks only the two audit questions a
 cancel leaves standing. The graders delegate to the product's own predicates
 (`uiscript/artifact_grading.py`, `uiscript/tag_grading.py`); the reasons are in
-their docstrings. **Not added, and why:** the offset-override-off path cannot be
-one script line on every drive — a drive in AccurateRip's list auto-applies the
-list offset and rips, an unknown one is refused with a dialog — so a line that
-passes on one rig fails on the other, and on the rig it could move the offset
-mid-run. It is a TASKS row until the language can branch on the drive.
+their docstrings. **J2 (2026-10-05)** rips one track with the settings no
+other rip uses: no `-r`, no `-Z` (in uniform mode, where a setting of 2 would
+send one), a fixed read speed of 0, and a scratch library folder inside the rips
+folder; `expect-library-move` grades the move and `expect-rip-argv` the argv as
+sent (`uiscript/permutation_grading.py`). **Not added, and why:** the
+offset-override-off path cannot be one script line on every drive — a drive in
+AccurateRip's list auto-applies the list offset and rips, an unknown one is
+refused with a dialog — so a line that passes on one rig fails on the other, and
+on the rig it could move the offset mid-run. A non-zero fixed read speed is the
+same shape: a drive that reports its speed unchangeable aborts the rip on `-S`.
+Both are TASKS rows until the language can branch on the drive.
 
 ### Acceptance tiers — what each section costs, and what it rests on
 
@@ -3907,6 +3914,7 @@ assigns to us, and it changes nothing on their side.
 | H | 2 | h-overwrite | e-identify | `rip` scoped by `select-tracks 1-2` |
 | I | 2 | i-cancel | e-identify | `rip` scoped by `1-3`, then `cancel-rip` |
 | J | 2 | j-reopen | i-cancel | `rescan` + `pick-release` + `rip` over `1-2` — **it proves the drive reopened after I's cancel, so it rests on I and not merely on its tier** |
+| J2 | 2 | j2-permutations | e-identify | `rip` scoped by `select-tracks 1`, with no `-r`, no `-Z`, a fixed speed and the library move; it rests on the disc being identified, not on I's cancel |
 | K1 | 2 | k1-mp3 | e-identify | `rip` scoped by `select-tracks 1-2` |
 | K2 | 2 | k2-wavpack | e-identify | `rip` scoped by `select-tracks 1-2` |
 | K3 | 2 | k3-wav | e-identify | `rip` scoped by `select-tracks 1-2` |

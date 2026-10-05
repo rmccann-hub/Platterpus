@@ -46,6 +46,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   partial one, and opens the FLACs to check their tags and cover art. The run
   also tries a track title containing `= ' : \`, and the two cover-art settings
   it had never used ("Save as file" and "Both").
+- **The acceptance test now tries settings no other rip in it uses, and a
+  library move.** A new short section rips one track with Max retries at 0, the
+  secure re-read off and a fixed read speed, and checks from the rip's own record
+  that cyanrip was sent no retry limit, no secure re-read and no read speed. The
+  same rip is moved into a scratch library folder inside the test's own folder,
+  never your library, and the test checks that the album arrived with its log and
+  report and that nothing was left behind. Every setting goes back before the
+  next rip. The update channel, auto-eject and Picard are only checked to save
+  and go back: using them would eject the disc the rest of the test needs, or
+  needs a disc MusicBrainz does not know.
 - **Each rip's self-audit now checks the EAC-style log against cyanrip's own.**
   It used to check only that the EAC-style log matched the checksum printed
   under it, which any log Platterpus writes does. It now also checks that the

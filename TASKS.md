@@ -975,7 +975,7 @@ each side's reading; and the closing releases named.
   `eac_log_agreement`. Every grader is tested against the committed round-29
   reports, and 9 reverts were each caught (`scripts/revert_probe.py`). The next
   Full run is the first to exercise them on hardware.
-- [ ] **Permutations the acceptance test still does not run** (found 2026-09-30,
+- [~] **Permutations the acceptance test still does not run** (found 2026-09-30,
   with the row above). (a) **Offset override off**: a drive in AccurateRip's list
   auto-applies the list offset and rips, an unknown drive is refused with a
   dialog, so no one script line holds on every drive, and on the rig the
@@ -985,6 +985,51 @@ each side's reading; and the closing releases named.
   (`library_dir` is kept, never set). (d) **`max_retries 0`** (no `-r` sent) and
   **`-Z 0`**. (e) `read_speed_mode fixed`, `update_channel beta`, auto-eject and
   Picard on. Each is a real path with no hardware evidence.
+  - *2026-10-05: (c) and (d) DONE in script lines, (e) in part; no hardware
+    evidence yet.* New section **J2** (Standard size, one track) rips with
+    `max_retries 0`, `secure_rerip_matches 0` in UNIFORM mode, `read_speed_mode
+    fixed` at speed 0, and `library_dir` set by the new verb `set-library-scratch`
+    to `<rips folder>/libraryscratch` (inside the session folder, so the bundle
+    still collects the album). Uniform, because dynamic mode's first pass never
+    sends `-Z`, so "no `-Z`" there would hold whatever the setting said. It then
+    grades `expect-library-move` (the window's own pointer moved into the library,
+    log and report with it, nothing left behind), `expect-rip-argv without
+    -r|-Z|-S` (the argv as spawned) and `expect-album-audit argv_agreement` (as
+    received), and puts every setting back before K1 (`set library_dir ""` turns
+    the move off). Section B round-trips `update_channel beta`, auto-eject on and
+    Picard on, each straight back. Tested against the stand-in window and round
+    29's committed reports, with J2's own lines run from the shipped file; 14
+    reverts were each caught (`scripts/revert_probe.py`). The next Standard or
+    Full run is the first on hardware.
+  - *(a) still needs a design decision.* A drive in AccurateRip's list
+    auto-applies the list offset (`_auto_apply_known_offset`, behind an
+    information modal) and rips; a drive not in it is refused with a dialog. So
+    one line passes on one rig and fails on another, and on the rig the
+    auto-apply rewrites the offset `set-drive-offset` set, for every later
+    section. It needs a verb that branches on whether the drive is in the list,
+    or a way to exercise the path that does not depend on the drive. Which one is
+    the maintainer's call.
+  - *(b) still needs a design decision.* Section E stops the run when the disc is
+    not identified, because every later rip would be evidence about a release
+    nobody chose, so no unidentified rip is reached by design. Exercising the path
+    needs either a disc MusicBrainz does not know (the run promises "any ordinary
+    audio CD", so that is media-dependent), or ripping a known disc as unknown
+    (File → Rip as Unknown Album), which the script cannot drive yet: that dialog
+    is not in `open`'s table, and accepting it puts the rip controls in unknown
+    mode for every rip after it. Which route, and where it can sit without
+    affecting the rips after it, is a design decision.
+  - *(e), what stays open and why.* A NON-ZERO fixed read speed sends `-S`, and a
+    drive that reports its speed unchangeable makes cyanrip abort the rip on it
+    (the BDR-209D, 2026-07-01): the same shape as (a). Fixed at 0 cannot tell
+    fixed from the ladder on a healthy disc, whose first rung sends no `-S` either;
+    only read errors show the difference. `update_channel` acts only on Check for
+    updates, which no verb runs and whose answer is a modal (section A's
+    `expect-newest-pair` reads the beta channel itself on every run). Auto-eject
+    would eject the disc every later section needs, nothing records whether the
+    tray opened, and the vocabulary excludes ejecting (`uiscript/verbs.py`).
+    Picard on acts only on the unknown-album path, which is (b), and launching
+    Picard is an external program the vocabulary excludes. So B's round-trips
+    prove each value is accepted and stored, and nothing about what it does.
 - [x] **`-U`, not `-G`: every archival log still says "No MusicBrainz release ID at cover
   art lookup, cannot search Cover Art DB!"** (found 2026-09-30, NEXT-ROUND). Our
   `_build_rip_argv` comment implied `-G` removes that line; it does not. `-G` is
