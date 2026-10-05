@@ -4512,15 +4512,18 @@ def _join_force_stop(window) -> None:
 def _patch_free_device_holders(monkeypatch) -> list[dict]:
     """Record the POST-CANCEL rescue's calls instead of touching a real drive.
 
-    The rescue targets `free_device_holders` — device-scoped `fuser -k`, no
-    eject — rather than `force_stop_drive`. Patching the wrong one is not a
-    silent no-op: the real function runs, so the test both fails and shells out.
+    The rescue targets `term_unsignalled_holders` — a device-scoped SIGTERM, no
+    eject, that skips a ripper our own cancel already reached — rather than
+    `force_stop_drive`. Patching the wrong one is not a silent no-op: the real
+    function runs, so the test both fails and shells out. What it sends (SIGTERM,
+    to whom) is asserted on its argv and `kill` calls in
+    `tests/test_drive_control.py`.
     """
     from platterpus import drive_control
 
     calls: list[dict] = []
     monkeypatch.setattr(
-        drive_control, "free_device_holders", lambda **kw: calls.append(kw)
+        drive_control, "term_unsignalled_holders", lambda **kw: calls.append(kw)
     )
     return calls
 
@@ -4814,7 +4817,9 @@ def test_repaint_belt_timer_idle_until_rip(teardown_threads) -> None:
 def test_cancel_arms_force_stop_timer(teardown_threads) -> None:
     window = teardown_threads()
     window._rip_worker = SimpleNamespace(
-        cancel=lambda: None, abandon_log_wait=lambda: None
+        cancel=lambda: None,
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
     )
     window._on_rip_cancel()
     try:
@@ -4854,18 +4859,15 @@ def test_auto_force_stop_frees_the_DEVICE_and_never_ejects(
     _join_force_stop(window)
     assert len(calls) == 1, f"expected one device-scoped free, got {calls}"
     assert calls[0]["device"] == "/dev/sr0"
-    # SIGTERM, NOT SIGKILL, and this assertion is the archival one. `fuser -k`
+    # SIGTERM, NOT SIGKILL, and that is the archival property: `fuser -k`
     # defaults to SIGKILL, which cannot be caught, so cyanrip would run no
     # `atexit` — and that is where the log's completion footer and `Log FUN512:`
-    # signature are written. A rescue that stops the drive by destroying the
-    # record has traded §I's failure for a strictly worse one, and it would do it
-    # while every other assertion here still passed.
-    assert calls[0].get("signal") == "TERM", (
-        "the post-cancel rescue is sending fuser's default SIGKILL. cyanrip "
-        "writes its footer and FUN512 signature from atexit, which SIGKILL "
-        f"skips, so this would turn every cancelled rip's log into an "
-        f"unverifiable fragment: {calls[0]}"
-    )
+    # signature are written. `term_unsignalled_holders` has no signal parameter:
+    # it sends SIGTERM or nothing, and `tests/test_drive_control.py` holds its
+    # argv and `kill` calls to that. With no rip worker, nothing our cancel
+    # signalled is running, so no holder is excluded.
+    assert set(calls[0]) == {"device", "reached"}, calls[0]
+    assert calls[0]["reached"] is None, calls[0]
     assert window._force_stop_done is True
     assert eject_calls == [], (
         "the post-cancel rescue ejected the disc. That is what made §J's "
@@ -4900,7 +4902,9 @@ def test_the_rescue_says_the_ripper_may_take_minutes_while_the_rip_is_running(
     )
 
     window._force_stop_done = False
-    window._rip_worker = object()  # type: ignore[assignment]  # a rip in flight
+    # A rip in flight, whose cancel's signal reached nothing still running (the
+    # Distrobox wrapper, reaped well inside the countdown).
+    window._rip_worker = SimpleNamespace(stop_signal_reach=lambda: None)  # type: ignore[assignment]  # stand-in worker
     try:
         window._auto_force_stop()
         _join_force_stop(window)
@@ -4908,6 +4912,72 @@ def test_the_rescue_says_the_ripper_may_take_minutes_while_the_rip_is_running(
         assert "Force stop" in label.text(), label.text()
     finally:
         window._rip_worker = None
+
+
+def test_the_rescue_asks_what_the_cancel_reached_when_it_FIRES_not_when_armed(
+    teardown_threads, monkeypatch
+) -> None:
+    """The fork's round 30 lap 9 S28: which process the cancel's SIGTERM reached
+    decides whether the rescue may signal the drive's holder (a native cyanrip is
+    that process; the reader behind the Distrobox wrapper is not). It is read where
+    the rescue fires: in the five seconds between, the wrapper is reaped, and the
+    worker's answer changes from "the wrapper" to "nothing still running".
+    """
+    from platterpus import drive_control
+
+    calls = _patch_free_device_holders(monkeypatch)
+    answers: list[drive_control.SignalledRipper | None] = [
+        drive_control.SignalledRipper(pid=500, pgid=500, sent_at=0.0)
+    ]
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: None,
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: answers[-1],
+    )
+    window._active_rip_params = SimpleNamespace(drive="/dev/sr0")
+    window._on_rip_cancel()
+    try:
+        native = drive_control.SignalledRipper(pid=700, pgid=700, sent_at=1.0)
+        answers.append(native)  # what is true when the countdown runs out
+        window._auto_force_stop()
+        _join_force_stop(window)
+    finally:
+        window._force_stop_timer.stop()
+        window._rip_worker = None
+    assert len(calls) == 1, calls
+    assert calls[0]["reached"] is native, (
+        f"the rescue used a stale answer about what the cancel reached: {calls[0]}"
+    )
+
+
+def test_the_shutdown_stop_is_told_what_ITS_OWN_cancel_reached(
+    teardown_threads, monkeypatch
+) -> None:
+    """Closing mid-rip cancels, then starts the graceful stop. On a native install
+    that cancel's SIGTERM reached cyanrip, and the stop's own SIGTERM, milliseconds
+    later, was its second. So the reach is read AFTER the close's own cancel, and
+    handed over; `tests/test_drive_control.py` holds what the stop does with it."""
+    from platterpus import drive_control
+
+    graceful = _patch_graceful_stop(monkeypatch)
+    native = drive_control.SignalledRipper(pid=700, pgid=700, sent_at=0.0)
+    reach: list[drive_control.SignalledRipper | None] = [None]
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        cancel=lambda: reach.append(native),  # the SIGTERM leaves at the cancel
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: reach[-1],
+    )
+    window._rip_thread = SimpleNamespace()
+    window._force_stop_done = False
+
+    window._stop_rip_on_shutdown()
+    _join_exit_work()
+
+    assert len(graceful) == 1, graceful
+    assert graceful[0]["reached"] is native, graceful[0]
+    assert graceful[0]["already_signalled"] is False
 
 
 def test_a_rescue_with_no_device_says_NOT_DETERMINED_rather_than_nothing(
@@ -4954,6 +5024,7 @@ def test_shutdown_stops_in_container_reader_during_rip(
         # a stand-in that only stops the AttributeError would let the release be
         # deleted silently.
         abandon_log_wait=lambda: order.append("release log wait"),
+        stop_signal_reach=lambda: None,
     )
     window._rip_thread = SimpleNamespace()  # a rip is in flight
     window._force_stop_done = False
@@ -4998,6 +5069,7 @@ def test_a_quit_mid_rip_closes_the_window_without_waiting_out_the_grace(
     window._rip_worker = SimpleNamespace(
         cancel=lambda: order.append("cancel"),
         abandon_log_wait=lambda: order.append("release log wait"),
+        stop_signal_reach=lambda: None,
     )
     window._rip_thread = SimpleNamespace()
 
@@ -5029,7 +5101,9 @@ def test_shutdown_never_sends_a_second_SIGTERM_after_the_rescue(
     free_calls = _patch_graceful_stop(monkeypatch)
     window = teardown_threads()
     window._rip_worker = SimpleNamespace(
-        cancel=lambda: None, abandon_log_wait=lambda: None
+        cancel=lambda: None,
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
     )
     window._rip_thread = SimpleNamespace()
     window._force_stop_done = True
@@ -5062,7 +5136,9 @@ def test_close_event_stops_in_flight_rip_in_container(
     free_calls = _patch_graceful_stop(monkeypatch)
     window = teardown_threads()
     window._rip_worker = SimpleNamespace(
-        cancel=lambda: None, abandon_log_wait=lambda: None
+        cancel=lambda: None,
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
     )
     window._rip_thread = SimpleNamespace()  # a rip is in flight
 
@@ -8176,7 +8252,9 @@ def test_cancel_captures_the_rip_device_so_a_later_picker_change_is_ignored(
     window = teardown_threads()
     # A rip is running on sr0.
     window._rip_worker = SimpleNamespace(
-        cancel=lambda: None, abandon_log_wait=lambda: None
+        cancel=lambda: None,
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
     )
     window._active_rip_params = SimpleNamespace(drive="/dev/sr0")
     window._on_rip_cancel()
@@ -8215,7 +8293,9 @@ def test_shutdown_drive_free_targets_the_armed_device_and_is_bounded(
     free_calls = _patch_free_drive(monkeypatch)
     window = teardown_threads()
     window._rip_worker = SimpleNamespace(
-        cancel=lambda: None, abandon_log_wait=lambda: None
+        cancel=lambda: None,
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
     )
     window._rip_thread = SimpleNamespace()
     window._force_stop_device = "/dev/sr0"
@@ -8893,7 +8973,9 @@ def test_cancel_arms_the_rescue_and_records_the_cancellation(
     window = teardown_threads()
     cancelled: list[bool] = []
     window._rip_worker = SimpleNamespace(
-        cancel=lambda: cancelled.append(True), abandon_log_wait=lambda: None
+        cancel=lambda: cancelled.append(True),
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
     )
     window._active_rip_params = SimpleNamespace(drive="/dev/sr0")
     window._force_stop_done = True  # a previous rip's stale flag must be cleared
@@ -13676,7 +13758,9 @@ def test_a_close_from_outside_mid_rip_asks_and_no_keeps_the_rip(
     asked = _answer(monkeypatch, "No")
     window = teardown_threads()
     window._rip_worker = SimpleNamespace(
-        cancel=lambda: None, abandon_log_wait=lambda: None
+        cancel=lambda: None,
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
     )
     window._rip_thread = SimpleNamespace()
     event = _spontaneous_close()
@@ -13694,7 +13778,9 @@ def test_quit_mid_rip_asks_and_yes_closes(teardown_threads, monkeypatch) -> None
     asked = _answer(monkeypatch, "Yes")
     window = teardown_threads()
     window._rip_worker = SimpleNamespace(
-        cancel=lambda: None, abandon_log_wait=lambda: None
+        cancel=lambda: None,
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
     )
     window._rip_thread = SimpleNamespace()
 
@@ -13716,7 +13802,9 @@ def test_our_own_closes_and_idle_closes_never_ask(
     window._rip_thread = None
     assert window._confirm_close_mid_work() is True
     window._rip_worker = SimpleNamespace(
-        cancel=lambda: None, abandon_log_wait=lambda: None
+        cancel=lambda: None,
+        abandon_log_wait=lambda: None,
+        stop_signal_reach=lambda: None,
     )
     window._rip_thread = SimpleNamespace()
     window._unattended = True

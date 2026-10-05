@@ -213,6 +213,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   cyanrip fork found this (round 30 lap 9 S27); our round 30 lap 8 S28 had said
   the opposite. A rip that ends with read errors is still reported as cyanrip
   reports it.
+- **Cancelling a rip no longer risks the log's signature when cyanrip is installed
+  directly on the computer rather than in the `ripping` container.** Five seconds
+  after a cancel, Platterpus stops whatever still holds the drive. Behind the usual
+  container that is the first stop signal cyanrip gets, because the cancel itself
+  does not reach inside the container. But when there is no container wrapper and
+  Platterpus runs a cyanrip it finds on your `PATH`, the cancel has already reached
+  it, and during a slow read it can still hold the drive at five seconds: the
+  second signal made it quit at once, without writing the end of its log or its
+  signature. Platterpus now asks which processes hold the drive and leaves alone
+  the one its cancel already reached, for the same two minutes the rest of the
+  cancel allows. Closing the window during a rip had the same problem and is fixed
+  the same way. Nothing changes behind the container. Found by the cyanrip fork's
+  review (their round 30 lap 9 S28); a direct install has not yet been tried on
+  real hardware.
 - **A rip you stop while it is re-reading tracks keeps what those re-reads found.**
   After the main read, Platterpus re-reads any track AccurateRip did not fully
   confirm. If you stopped the rip during that, every result it had already reached

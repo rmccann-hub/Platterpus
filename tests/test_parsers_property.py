@@ -400,6 +400,22 @@ def test_parse_drive_list_never_raises(text: str) -> None:
 
 
 @_SETTINGS
+@given(_any_text, st.sampled_from(["/dev/sr0", "/dev/cdrom", ""]))
+def test_parse_fuser_pids_never_raises(text: str, device: str) -> None:
+    """`fuser`'s output decides which processes the post-cancel rescue may signal
+    (`drive_control.term_unsignalled_holders`), so what it returns is held too:
+    positive PIDs, each once, and nothing the device's own name could supply."""
+    from platterpus.drive_control import parse_fuser_pids
+
+    pids = parse_fuser_pids(text, device)
+    assert isinstance(pids, tuple)
+    assert all(isinstance(p, int) and p > 0 for p in pids)
+    assert len(pids) == len(set(pids))
+    if device:
+        assert parse_fuser_pids(f"{device}:\n", device) == ()
+
+
+@_SETTINGS
 @given(_any_text)
 def test_parse_cd_info_never_raises(text: str) -> None:
     result = parse_cd_info(text)
