@@ -26,7 +26,8 @@ So this module is the missing subject for six of them:
 * **The population comes off disk, never from a list.** A hand-maintained
   inventory of "the places this could go wrong" decays invisibly
   (`docs/testing.md` §5.af). Every sweep below walks `src/platterpus` with
-  `rglob` and parses with `ast`.
+  `rglob` and parses with `ast`; §6's size ratchet walks `scripts/` and `build/`
+  as well, with a floor of its own (2026-10-05, TASKS `scripts-outside-gates`).
 * **Every sweep asserts a floor on that population.** *"Can this check be
   satisfied by finding nothing?"* is the most-cited question in `CLAUDE.md`, and
   a sweep whose glob silently returns nothing passes having examined nothing.
@@ -62,8 +63,11 @@ from __future__ import annotations
 
 import ast
 import re
+import subprocess
 from pathlib import Path
-from typing import Final
+from typing import Final, NamedTuple
+
+from conftest import maintained_tooling_modules
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 SRC_ROOT: Final[Path] = REPO_ROOT / "src" / "platterpus"
@@ -2440,17 +2444,145 @@ def _module_line_counts() -> dict[str, int]:
     }
 
 
+# --- §6, second population: the maintainer tooling (2026-10-05) --------------
+#
+# The convention says "Modules: small and focused", not "modules under
+# `src/platterpus`", and the ratchet above read only the package. TASKS'
+# `scripts-outside-gates` recorded the gap: `scripts/laplang/lsl3.py` had grown
+# to 428 lines with nothing noticing. `scripts/` is where the handshake tooling,
+# the generators and the gate runner live, and they are maintained by the same
+# people under the same convention, so they are held to the same ratchet.
+#
+# `build/` is in the population too, for the same reason: `build/make_icon.py` is
+# Python we maintain, and the only reason it was outside is that the glob was
+# rooted at the package. It is one file under the line today, which costs nothing
+# to watch. The population is `conftest.maintained_tooling_modules`, the one
+# definition every gate extended past the package reads, so they cannot disagree
+# about what "the tooling" is; its comment says why `build/` is not walked
+# recursively. `tests/` is deliberately NOT: 139 of its 280 modules are over 300
+# lines (measured 2026-10-05), because a test module holds one subject's
+# evidence and its length tracks the cases, not the jobs. Whether a test module
+# should be split is a different question from whether a product module should,
+# and answering it belongs in its own change rather than as 139 entries here.
+#
+# Keyed by REPO-relative path ("scripts/handshake.py"), unlike the package
+# ledger above, so the two populations cannot share a key by accident: a
+# `scripts/check.py` and a package `check.py` would otherwise collide.
+
+#: Floor on the tooling population: 51 modules on 2026-10-05 (50 under
+#: `scripts/`, 1 under `build/`). A bar well under that catches a broken glob
+#: without tripping on ordinary consolidation.
+_MIN_TOOLING_MODULES: Final[int] = 40
+
+#: Floor on the part of that population under `scripts/` alone. The combined
+#: floor above could be met by `build/` and a handful of scripts if a subpackage
+#: moved, so the directory the gap was found in carries its own.
+_MIN_SCRIPTS_MODULES: Final[int] = 35
+
+#: RATCHET — every tooling module over the threshold, at its count on 2026-10-05
+#: when this population was added. Same rules as `_OVERSIZE_MODULES`: an entry may
+#: shrink or leave, never grow, and no new module may join without a commit that
+#: says why. These are recorded, not blessed: `scripts/handshake.py` at 4,365
+#: lines is larger than every package module but two (`ui/main_window_rip.py`
+#: and `uiscript/runner.py`, measured the same day).
+_OVERSIZE_TOOLING: Final[dict[str, int]] = {
+    "scripts/bommap/reading.py": 320,
+    "scripts/bommap/render.py": 359,
+    "scripts/bommap/ripper_entries.py": 340,
+    "scripts/bommap/tool_entries.py": 385,
+    "scripts/check.py": 498,
+    "scripts/emit_dependency_contract.py": 534,
+    "scripts/emit_envelope.py": 849,
+    "scripts/emit_ripper_inventory.py": 316,
+    "scripts/emit_script_language.py": 504,
+    "scripts/handshake.py": 4365,
+    # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
+    "scripts/laplang/lsl3.py": 433,
+    "scripts/laplang/refs.py": 324,
+    "scripts/laplang/rerun.py": 361,
+    "scripts/laplang/scratch.py": 345,
+    "scripts/mutation_sweep.py": 502,
+    "scripts/probe_argv_surface.py": 423,
+    "scripts/revert_probe.py": 546,
+    "scripts/round_digest.py": 544,
+    "scripts/verify_log_surface.py": 362,
+}
+
+
+def _tooling_line_counts() -> dict[str, int]:
+    """Every tooling module's line count, repo-relative."""
+    return {
+        path.relative_to(REPO_ROOT).as_posix(): len(
+            path.read_text(encoding="utf-8").splitlines()
+        )
+        for path in maintained_tooling_modules(REPO_ROOT)
+    }
+
+
+class _SizePopulation(NamedTuple):
+    """One population the size ratchet walks, with the ledger that records it."""
+
+    #: What the failure messages call it.
+    label: str
+    #: Prepended to a key to make it repo-relative (the package ledger is keyed
+    #: package-relative, the tooling one repo-relative already).
+    repo_prefix: str
+    #: Every module's line count, keyed as the ledger is.
+    counts: dict[str, int]
+    #: The ratchet for this population.
+    ledger: dict[str, int]
+    #: The ledger's name, so a message says which dict to edit.
+    ledger_name: str
+
+
+def _size_populations() -> list[_SizePopulation]:
+    """Both populations, each with its floor asserted before anything reads it.
+
+    The floors are asserted here, once, so no test can read a population that has
+    not been shown to be non-empty — the shape that let the package-only sweep
+    report on the package while saying nothing about `scripts/`.
+    """
+    package = _module_line_counts()
+    assert len(package) >= _MIN_SOURCE_MODULES, (
+        f"only {len(package)} package modules measured (floor "
+        f"{_MIN_SOURCE_MODULES}) — the population is broken and this ratchet is "
+        "measuring nothing"
+    )
+    tooling = _tooling_line_counts()
+    assert len(tooling) >= _MIN_TOOLING_MODULES, (
+        f"only {len(tooling)} tooling modules measured (floor "
+        f"{_MIN_TOOLING_MODULES}) — the scripts/ and build/ population is broken"
+    )
+    scripts = sum(1 for name in tooling if name.startswith("scripts/"))
+    assert scripts >= _MIN_SCRIPTS_MODULES, (
+        f"only {scripts} modules under scripts/ (floor {_MIN_SCRIPTS_MODULES}) — "
+        "the ratchet has stopped seeing the directory it was extended to"
+    )
+    return [
+        _SizePopulation(
+            "src/platterpus",
+            "src/platterpus/",
+            package,
+            _OVERSIZE_MODULES,
+            "_OVERSIZE_MODULES",
+        ),
+        _SizePopulation(
+            "scripts/ and build/",
+            "",
+            tooling,
+            _OVERSIZE_TOOLING,
+            "_OVERSIZE_TOOLING",
+        ),
+    ]
+
+
 def test_no_new_module_crosses_the_size_threshold() -> None:
     """A file crossing ~300 lines is a prompt to ask whether it does one job."""
-    counts = _module_line_counts()
-    assert len(counts) >= _MIN_SOURCE_MODULES, (
-        f"only {len(counts)} modules measured (floor {_MIN_SOURCE_MODULES}) — the "
-        "population is broken and this ratchet is measuring nothing"
-    )
     newly_over = sorted(
-        f"{name} ({count} lines)"
-        for name, count in counts.items()
-        if count > _MODULE_LINE_THRESHOLD and name not in _OVERSIZE_MODULES
+        f"{name} ({count} lines) -> {pop.ledger_name}"
+        for pop in _size_populations()
+        for name, count in pop.counts.items()
+        if count > _MODULE_LINE_THRESHOLD and name not in pop.ledger
     )
     assert not newly_over, (
         "CLAUDE.md: 'Split when a file exceeds ~300 lines. One responsibility "
@@ -2458,8 +2590,8 @@ def test_no_new_module_crosses_the_size_threshold() -> None:
         + "\n  ".join(newly_over)
         + "\nThe count is a heuristic for cohesion, not a cap — so the question "
         "is whether the module is doing more than one job, and the answer may "
-        "legitimately be no. If it is genuinely cohesive, add it to "
-        "_OVERSIZE_MODULES with its count in a commit that says why."
+        "legitimately be no. If it is genuinely cohesive, add it to the ledger "
+        "named after the arrow with its count in a commit that says why."
     )
 
 
@@ -2470,14 +2602,12 @@ def test_no_oversize_module_grows() -> None:
     becoming 4,300 — which is the difference between a known debt and a
     spreading one.
     """
-    counts = _module_line_counts()
-    assert len(counts) >= _MIN_SOURCE_MODULES, (
-        f"only {len(counts)} modules measured (floor {_MIN_SOURCE_MODULES})"
-    )
     grown = sorted(
-        f"{name}: {counts[name]} lines, was {recorded} (+{counts[name] - recorded})"
-        for name, recorded in _OVERSIZE_MODULES.items()
-        if name in counts and counts[name] > recorded
+        f"{name}: {pop.counts[name]} lines, was {recorded} "
+        f"(+{pop.counts[name] - recorded})"
+        for pop in _size_populations()
+        for name, recorded in pop.ledger.items()
+        if name in pop.counts and pop.counts[name] > recorded
     )
     assert not grown, (
         "these modules are already past the ~300-line cohesion heuristic and "
@@ -2498,48 +2628,97 @@ def test_the_oversize_ratchet_is_not_stale() -> None:
     `CLAUDE.md` records for the doc-index check that filtered its own candidates
     to files that still exist.
     """
-    counts = _module_line_counts()
-    assert _OVERSIZE_MODULES, "the ratchet is empty, so it cannot fail"
-    gone = sorted(name for name in _OVERSIZE_MODULES if name not in counts)
-    assert not gone, (
-        f"these ratchet entries name modules that no longer exist: {gone}. "
-        "Remove them — an entry with no subject is a check that quietly stopped."
-    )
-    shrunk = sorted(
-        f"{name}: now {counts[name]}, recorded {recorded}"
-        for name, recorded in _OVERSIZE_MODULES.items()
-        if name in counts and counts[name] <= _MODULE_LINE_THRESHOLD
-    )
-    assert not shrunk, (
-        "these modules are no longer oversize — delete their ratchet entries so "
-        f"they cannot silently grow back:\n  {chr(10).join(shrunk)}"
-    )
+    for label, _prefix, counts, ledger, ledger_name in _size_populations():
+        assert ledger, f"{ledger_name} ({label}) is empty, so it cannot fail"
+        gone = sorted(name for name in ledger if name not in counts)
+        assert not gone, (
+            f"these {ledger_name} entries name modules that no longer exist: "
+            f"{gone}. Remove them — an entry with no subject is a check that "
+            "quietly stopped."
+        )
+        shrunk = sorted(
+            f"{name}: now {counts[name]}, recorded {recorded}"
+            for name, recorded in ledger.items()
+            if name in counts and counts[name] <= _MODULE_LINE_THRESHOLD
+        )
+        assert not shrunk, (
+            f"these modules are no longer oversize — delete their {ledger_name} "
+            f"entries so they cannot silently grow back:\n  {chr(10).join(shrunk)}"
+        )
 
 
 def test_the_size_ratchet_can_fail() -> None:
-    """Non-triviality twin for §6.
+    """Non-triviality twin for §6, asserted for EACH population.
 
     The two ways this could be decoration: the threshold could be so high that
     nothing reaches it, or the recorded counts could be padded so far above
     reality that no realistic growth trips them. Both are asserted against —
-    the recorded numbers must be the REAL ones, not headroom.
+    the recorded numbers must be the REAL ones, not headroom. Per population,
+    because a second population is the place a padded ledger hides: the package
+    entries being exact says nothing about the tooling ones.
     """
-    counts = _module_line_counts()
-    over = {n: c for n, c in counts.items() if c > _MODULE_LINE_THRESHOLD}
-    assert over, (
-        "no module exceeds the threshold, so `test_no_oversize_module_grows` "
-        "has an empty population — either the threshold or the measurement is "
-        "wrong"
+    for label, _prefix, counts, ledger, ledger_name in _size_populations():
+        over = {n: c for n, c in counts.items() if c > _MODULE_LINE_THRESHOLD}
+        assert over, (
+            f"no module in {label} exceeds the threshold, so "
+            "`test_no_oversize_module_grows` has an empty population there — "
+            "either the threshold or the measurement is wrong"
+        )
+        padded = sorted(
+            f"{name}: recorded {recorded}, actually {counts[name]}"
+            for name, recorded in ledger.items()
+            if name in counts and recorded > counts[name]
+        )
+        assert not padded, (
+            f"these {ledger_name} counts are ABOVE the file's real length, so the "
+            "module has that much room to grow before the ratchet notices. Record "
+            f"the real count:\n  {chr(10).join(padded)}"
+        )
+
+
+def test_the_size_ratchet_measures_every_committed_module_outside_tests() -> None:
+    """The population is closed: nothing we commit outside `tests/` goes unmeasured.
+
+    The ratchet read `src/platterpus` for five weeks while `scripts/` grew a
+    428-line module beside it, and nothing could notice, because a sweep only
+    reports on what its glob returns. So the population is checked against a
+    witness that does not share the glob: git's own list of committed `.py`
+    files. A new top-level directory of Python, or a tooling root dropped from
+    `conftest.TOOLING_GLOBS`, fails here by name rather than leaving the ratchet
+    green over a population that quietly stopped including it.
+    """
+    listing = subprocess.run(  # noqa: S603 — fixed argv, no shell
+        ["git", "-C", str(REPO_ROOT), "ls-files", "-z", "--", "*.py"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
     )
-    padded = sorted(
-        f"{name}: recorded {recorded}, actually {counts[name]}"
-        for name, recorded in _OVERSIZE_MODULES.items()
-        if name in counts and recorded > counts[name]
+    assert listing.returncode == 0, (
+        f"`git ls-files` failed (exit {listing.returncode}): {listing.stderr!r}"
     )
-    assert not padded, (
-        "these recorded counts are ABOVE the file's real length, so the module "
-        "has that much room to grow before the ratchet notices. Record the real "
-        f"count:\n  {chr(10).join(padded)}"
+    committed = {
+        name
+        for name in listing.stdout.split("\0")
+        if name and not name.startswith("tests/")
+    }
+    # Floor: an empty listing would make the comparison below vacuously true.
+    assert len(committed) >= _MIN_SOURCE_MODULES + _MIN_TOOLING_MODULES, (
+        f"git listed only {len(committed)} committed modules outside tests/ — the "
+        "witness is broken, so it cannot vouch for the population"
+    )
+    # Read from `_size_populations()`, the function every ratchet test reads, so
+    # a population that is measured but not handed to the ratchet counts as
+    # unmeasured here too.
+    measured = {
+        pop.repo_prefix + name for pop in _size_populations() for name in pop.counts
+    }
+    unmeasured = sorted(committed - measured)
+    assert not unmeasured, (
+        "these committed modules are in no size population, so no ratchet can "
+        "see them grow:\n  " + "\n  ".join(unmeasured) + "\nAdd their directory "
+        "to TOOLING_GLOBS in tests/conftest.py (which also puts it under every "
+        "gate that reads it), or say here why it is out."
     )
 
 
