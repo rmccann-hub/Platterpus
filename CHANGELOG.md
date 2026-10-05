@@ -266,6 +266,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- For contributors: a test that runs `app.main` in-process no longer leaves the
+  app-wide dialog filter installed for the tests after it. The filter now also
+  fits message boxes, so the leak made the message-box fit tests fail on whichever
+  CI leg ran them after the smoke test. A shared fixture removes it after every
+  test.
 - **The operator's final round-30 acceptance run (2026-10-05) is filed and graded
   `partial`.** 316 of 323 steps passed on cyanrip `.19` and Platterpus 0.6.65. The
   seven failures are the same screenshot steps as the 2026-09-30 run, which a later
