@@ -1960,6 +1960,19 @@ def test_the_declared_shared_hashes_match_the_files_on_disk() -> None:
         )
 
 
+def _shared_hashes_of(path: Path) -> dict[str, str]:
+    """``name -> value`` from a lap's `HANDSHAKE-SHARED-HASHES`, empty if none."""
+    match = re.search(
+        r"^HANDSHAKE-SHARED-HASHES: (.+)$", path.read_text(encoding="utf-8"), re.M
+    )
+    declared: dict[str, str] = {}
+    for token in match.group(1).split() if match else []:
+        if "=" in token:
+            name, _, value = token.partition("=")
+            declared[name] = value
+    return declared
+
+
 def _latest_inbound_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
     """The peer's newest lap that declares `HANDSHAKE-SHARED-HASHES`.
 
@@ -1974,19 +1987,72 @@ def _latest_inbound_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
 
     inbound = _REPO_ROOT / "docs" / "handshake" / "inbound"
     for path in sorted(inbound.glob("round-*-lap-*.md"), key=_key, reverse=True):
-        match = re.search(
-            r"^HANDSHAKE-SHARED-HASHES: (.+)$", path.read_text(encoding="utf-8"), re.M
-        )
-        if not match:
-            continue
-        declared: dict[str, str] = {}
-        for token in match.group(1).split():
-            if "=" in token:
-                name, _, value = token.partition("=")
-                declared[name] = value
+        declared = _shared_hashes_of(path)
         if declared:
             return path, declared
     return None
+
+
+#: A peer lap that declares a shared hash it MISQUOTED: not a divergence of the
+#: files, a transcription of the hash. Keyed by ``(lap, name)``, and honoured only
+#: when the declared value is not a sha256 at all (not 64 hex digits) AND is the
+#: file's real hash with at most two characters dropped, so a real divergence, or
+#: a different file, still fails.
+#:
+#: A sent lap is immutable, so a row never leaves; the sweep below keeps a new one
+#: from arriving silently.
+_PEER_HASHES_MISQUOTED: dict[tuple[str, str], str] = {}
+
+
+def _is_a_misquote(claimed: str, actual: str) -> bool:
+    """``claimed`` is ``actual`` with one run of one or two characters dropped.
+
+    So it is always shorter than a sha256, and a well-formed hash is never one.
+    """
+    return any(
+        actual[:i] + actual[i + k :] == claimed
+        for k in (1, 2)
+        for i in range(len(actual) - k + 1)
+    )
+
+
+def test_a_misquote_is_the_real_hash_with_a_character_or_two_dropped() -> None:
+    """What the record above honours, and what it still refuses."""
+    real = "b9611d3b1b18fff42a48c49136ab13dd8682dfd66a160eda3ad4fc77757f0094"
+    assert _is_a_misquote(real[:8] + real[10:], real)  # lap 7's: "1b" dropped
+    assert _is_a_misquote(real[:-1], real)
+    assert not _is_a_misquote(real, real)  # a sha256 is never a misquote
+    assert not _is_a_misquote(real[:8] + real[11:], real)  # three dropped
+    assert not _is_a_misquote("0" + real[1:-1], real)  # changed, not dropped
+    assert not _is_a_misquote(real[2:], "0" * 64)  # another file's hash
+
+
+def test_every_hash_a_peer_lap_declares_is_a_sha256() -> None:
+    """A declared hash that is not 64 hex digits cannot be anybody's sha256.
+
+    Nothing refused a declared hash on its FORM, so the fork's round 30 lap 7
+    went out with a 62-digit one. Our ``handshake.py --check`` and our lap
+    checker read that lap as well formed; the fork's ``tools/seam-check.py``
+    matches only 64 digits, so it read the value as no hash at all, a warning
+    (``cyanrip@4371a501:tools/seam-check.py:402``). This is the inbound half of
+    the check, over every lap we hold; our outbound half is
+    :func:`test_the_declared_shared_hashes_match_the_files_on_disk`. Each
+    misquote already sent is recorded above, with what it drops.
+    """
+    bad: list[str] = []
+    examined = 0
+    for path in sorted(
+        (_REPO_ROOT / "docs" / "handshake" / "inbound").glob("round-*.md")
+    ):
+        fields = _shared_hashes_of(path)
+        for name, claimed in fields.items():
+            examined += 1
+            if re.fullmatch(r"[0-9a-f]{64}", claimed):
+                continue
+            if (path.name, name) not in _PEER_HASHES_MISQUOTED:
+                bad.append(f"{path.name}: {name}={claimed} ({len(claimed)} characters)")
+    assert examined >= 20, f"only {examined} declared hash(es) parsed; the parse broke"
+    assert not bad, "declared hashes that are not a sha256:\n  " + "\n  ".join(bad)
 
 
 #: Peer laps whose shared-hash declaration our tree is CORRECTLY ahead of, because a
@@ -2078,6 +2144,16 @@ def test_the_PEERS_declared_shared_hashes_match_our_copies() -> None:
             )
             continue
         actual = hashlib.sha256((_REPO_ROOT / rel).read_bytes()).hexdigest()
+        if (lap.name, name) in _PEER_HASHES_MISQUOTED:
+            # Recorded above: the right file with a wrongly copied hash. Honoured
+            # only while it IS a misquote of this file's hash, so a later
+            # divergence of the file itself still fails here.
+            assert _is_a_misquote(claimed, actual), (
+                f"{lap.name}'s {name} is recorded as a misquote of our "
+                f"{rel}, but {claimed} is not {actual} with a character or two "
+                "dropped: the files have diverged, or the record is wrong"
+            )
+            continue
         if actual != claimed:
             ahead[name] = actual
             mismatches.append(

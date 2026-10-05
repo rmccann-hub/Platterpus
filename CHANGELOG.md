@@ -61,9 +61,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **Quitting during a rip now closes the window at once, and gives cyanrip long
   enough to finish its log.** When you quit mid-rip, Platterpus asks cyanrip to
   stop and waits for it to write the end of its log before forcing it. cyanrip
-  can only stop between reads, and the rip drive has been recorded taking 20
+  can only stop between reads, and the rip drive has been recorded taking 21
   seconds over a single read. The wait was 8 seconds, so a quit during a slow
-  read could still cut the log short. It is now 40 seconds. The window no longer
+  read could still cut the log short. It is now 42 seconds. The window no longer
   waits with it: it closes straight away, and Platterpus finishes stopping
   cyanrip in the background before it exits. Usually that takes a second or
   two, because the wait ends as soon as cyanrip lets go of the drive.
@@ -107,6 +107,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   because under our operator's O3 ruling a new build goes to beta alone until
   its hardware run passes. It used to follow a published build only when both
   channels named it, which would have left the fork's `.20` unreviewed.
+- For contributors: our lap checker now refuses a `FINDING ours` that cannot
+  happen in the fork's code (`portable: no`) and blocks nothing. Both sides agreed
+  in round 28 that such a finding belongs in a commit, not a lap, and the fork's
+  checker refused it, but ours never did. The fork's round 30 lap 7 found this
+  when its checker refused a statement in our lap 6 that ours had passed.
+- For contributors: a test now refuses a shared-document hash in any fork lap we
+  hold that is not 64 hex digits, because such a value cannot be a sha256.
+  Nothing checked the form before, and the fork's round 30 lap 7 went out with a
+  62-digit one; its own checker read that as no hash at all, which is only a
+  warning. A misquote already sent is recorded, and honoured only while it is the
+  real hash with a character or two dropped.
 - For contributors: our lap checker implements LSL 4, agreed with the cyanrip
   fork in round 30. A lap declaring `LSL: 4` must write a pre-commit's `when:`
   as exactly `our next lap`, the lap the pre-commit binds; LSL 3 laps are read

@@ -394,19 +394,19 @@ def force_stop_drive(
 #: read in hand returns. The old shutdown path allowed 191 ms, then SIGKILLed, and
 #: the log was left without its footer or `Log FUN512:` (the fork's round 30 S25).
 #:
-#: **8 s was shorter than one read, so it is 40 s** (2026-09-30, the fork's round
-#: 30 lap 5 S17). A SIGTERM that arrives during a read is acted on only when the
-#: read returns. The fork cited two of their filed logs from this rig's drive, each
-#: with a longest read of 11 s. Our own filed log from the same drive records one
-#: of **20 s**, among fifteen reads over 10 s in a three-track rip
+#: **8 s was shorter than one read, so it is 42 s** (2026-09-30, the fork's round
+#: 30 lap 5 S17, then lap 7 S16). A SIGTERM that arrives during a read is acted on
+#: only when the read returns. The fork first cited reads of 11 s. Our own filed log
+#: from this rig's drive records one of 20 s
 #: (`docs/handshake/outbound/artifacts/round-15-lap-13-cancelled-rip-g978f9b0.log:311`),
-#: so 11 s is not the ceiling. The grace is TWICE the longest read on record in
-#: this tree, and `tests/test_drive_control.py` derives that floor from the filed
-#: logs rather than from this comment. It costs nothing in the ordinary case,
-#: where the wait ends the moment the reader lets go, and it could only become
-#: this long because the wait no longer holds the window: the window closes at
-#: once and the wait runs as exit work (`exit_work`), joined before exit.
-READER_TERM_GRACE_S: Final[float] = 40.0
+#: and the fork's tree has two of **21 s**, one filed here as
+#: `docs/handshake/inbound/artifacts/round-30-lap-07-accurip-gddc1e8c.log:282`.
+#: The grace is TWICE the longest read filed in this tree, and
+#: `tests/test_drive_control.py` derives that floor from the filed logs rather than
+#: from this comment. It costs nothing in the ordinary case, where the wait ends
+#: the moment the reader lets go, and it could only become this long because the
+#: window no longer waits: it closes, and the wait runs as exit work (`exit_work`).
+READER_TERM_GRACE_S: Final[float] = 42.0
 
 #: How often the grace loop asks whether the device is still held.
 _HELD_POLL_S: Final[float] = 0.25

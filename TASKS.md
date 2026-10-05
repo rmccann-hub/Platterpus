@@ -777,6 +777,10 @@ each side's reading; and the closing releases named.
     so the grace is twice that, derived by a test from the filed logs. It no longer holds
     the window: the stop runs as exit work (`exit_work`), joined by `app.main` before the
     process exits. The hardware half stays open.
+  - *2026-09-30: 42 s.* The fork's round 30 lap 7 S16 found this test read only our tree;
+    theirs, searched whole, has two reads of 21 s on the same drive. One is filed here
+    (`docs/handshake/inbound/artifacts/round-30-lap-07-accurip-gddc1e8c.log`), and the floor
+    follows it.
 - [x] **The acceptance test grades what each rip left, not only that it finished**
   (2026-09-30, for the next release; asked for with the round-30 Full run: *"this
   test will do all reasonable permutations… if not we need to fix or update the

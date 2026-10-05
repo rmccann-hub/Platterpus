@@ -30,7 +30,7 @@ STATUS-LAPS: newest sent round-30-lap-06.md (ours), round-30-lap-05.md (theirs);
 STATUS-RELEASE-NEXT: 0.6.66, round 30's closing release under option A (our operator's O1), carrying the acceptance run that grades what each rip left, the shutdown fix for a rip closed mid-read, and the screenshot fallback; pins 174a134, reviews +platterpus.20
 STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on round 30's close, then your `.20` on beta (O3), then 0.6.66 naming it; our operator runs it the first night the pair exists (O4)
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
-STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (40 s since your lap 5 S17) on the container path
+STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (42 s since your lap 7 S16) on the container path
 STATUS-OPEN: stop-summary-repeats-detail us fixing at round 30, before our closing lap
 STATUS-OPEN: components-json-build-text us fixing at round 30, declared to you in our lap 4 first because the file crosses the seam
 STATUS-OPEN: eac-log-reread-wording us fixing at round 30, with an EAC-parity check of the new sentence
