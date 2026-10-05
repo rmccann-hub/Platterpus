@@ -33,6 +33,14 @@ at 100 % and 150 % text, and the screenshots were looked at.
   caption read "Why manu". Wrapped, with the prose in a `FitScrollArea`; the
   matrix measures every real registry spec, and its cut-off rule now sees text
   running past a scroll area that cannot scroll sideways.
+- [x] **Message boxes ran off small screens, and opened partly below them.** Qt
+  sizes a `QMessageBox` with no height limit: the cyanrip offers (beta,
+  unapproved), the dependency summary after a failed install and the *Script
+  commands* reference were taller than common screens; and every box was centred
+  before Qt had sized it, so the beta update prompt opened with Yes and No below
+  the edge. `ui/dialogs/message_box_fit.py`, run by `DialogCenterFilter` before it
+  centres; every message box and inline Qt dialog is in the matrix
+  (`tests/test_ui_message_box_conformance.py`), with a `window_on_screen` rule.
 
 ## Faster CI and dev loop — measured, and planned in phases (maintainer, 2026-09-26)
 

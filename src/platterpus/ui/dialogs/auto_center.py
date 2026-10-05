@@ -24,10 +24,15 @@ full reasoning and the two earlier designs it replaces.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QObject
-from PySide6.QtWidgets import QDialog, QWidget
+import logging
+
+from PySide6.QtCore import QEvent, QObject, QSize
+from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
 
 from platterpus.ui.dialogs.centering import CenteredDialog, center_on_anchor
+from platterpus.ui.dialogs.message_box_fit import fit_message_box
+
+log = logging.getLogger(__name__)
 
 #: Name of the Qt *dynamic property* we stamp on a dialog once we have placed it.
 #:
@@ -123,6 +128,59 @@ def mark_as_centered(dialog: QWidget) -> None:
         pass
 
 
+def fit_plain_dialog(dialog: QDialog, avail: QSize, margin: int) -> None:
+    """Fit a dialog that is not a `CenteredDialog` — every one Qt builds for us.
+
+    A `QMessageBox` gets `message_box_fit.fit_message_box`. Anything else (the
+    update's `QProgressDialog`, Qt's own file dialog) is only ever made SMALLER,
+    and only when it is bigger than the screen: these dialogs size themselves
+    well, and the one failure worth correcting is a window whose buttons are off
+    the screen.
+    """
+    if isinstance(dialog, QMessageBox):
+        fit_message_box(dialog, avail, margin)
+        return
+    width = min(dialog.width(), avail.width())
+    height = min(dialog.height(), max(avail.height() - margin, 120))
+    if (width, height) != (dialog.width(), dialog.height()):
+        dialog.resize(width, height)
+
+
+def fit_before_centring(dialog: QDialog) -> None:
+    """Fit a dialog Qt built for us to its screen, BEFORE it is centred.
+
+    The order is the fix. Qt delivers a dialog's Show event before a
+    ``QMessageBox`` has sized itself, so centring first placed every box as Qt's
+    640-wide placeholder and let it grow downward off the screen (measured:
+    640 × 70 at the Show event, 480 × 392 a moment later). Fitting first runs Qt's
+    sizing and caps it at the screen, so the centring that follows places the box
+    the user will actually see. Details: `message_box_fit.py`.
+
+    The screen is the one :func:`center_on_anchor` will centre on — the anchor
+    window's — so the size and the place are decided against the same screen.
+    Never raises: sizing is cosmetic, like placement, and an exception escaping a
+    Qt event filter would reach the crash dialog for every box the app opens.
+    """
+    try:
+        parent = dialog.parentWidget()
+        anchor = parent.window() if parent is not None else QApplication.activeWindow()
+        screen = (
+            (anchor.screen() if anchor is not None else None)
+            or dialog.screen()
+            or QApplication.primaryScreen()
+        )
+        if screen is None:
+            return
+        fit_plain_dialog(
+            dialog, screen.availableGeometry().size(), CenteredDialog.SCREEN_MARGIN_PX
+        )
+    except Exception:  # noqa: BLE001 — sizing is cosmetic, never fatal
+        log.exception(
+            "could not fit %s to its screen; it opens at Qt's own size",
+            type(dialog).__name__,
+        )
+
+
 class DialogCenterFilter(QObject):
     """Centres each top-level dialog over the active window on its first show.
 
@@ -141,6 +199,9 @@ class DialogCenterFilter(QObject):
             # don't mark it either, since the mark means "*we* placed this".
             if not isinstance(obj, CenteredDialog) and not has_been_centered(obj):
                 mark_as_centered(obj)
+                # Size first, THEN place: see `fit_before_centring` for the
+                # measured case that put a box's buttons below the screen.
+                fit_before_centring(obj)
                 center_on_anchor(obj)
         # Never consume the event — we only observe it.
         return False

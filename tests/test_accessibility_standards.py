@@ -417,6 +417,12 @@ class TestTargetSize:
                     args = list(args[0].args)
                 for arg in args:
                     value, name = self._resolve(arg, constants)
+                    if value == 0 and node.func.attr.startswith("setMinimum"):
+                        # A minimum of 0 is Qt's own default: CLEARING a size we
+                        # set, which constrains nothing (`message_box_fit` moves a
+                        # label into a scroll area and hands its width to the
+                        # area). A fixed or maximum 0 still counts — it squeezes.
+                        continue
                     if value is not None:
                         where = f"{path.relative_to(SRC.parent)}:{node.lineno}"
                         sizes.append((where, value, name))

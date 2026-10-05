@@ -249,21 +249,35 @@ Worker mechanics, all demonstrated in `workers/`:
   mid-sentence. The base class also refuses to be narrower than its content (a
   checkbox or button cannot wrap), and grows once more by whatever a
   `FitScrollArea` still cannot show at the real width.
+- **A dialog Qt sizes for us is still ours to fit** (audit, 2026-10-05). Qt
+  sizes a `QMessageBox` itself: no wider than half the screen, as tall as its
+  text, no ceiling, then fixed. Nothing checked it, and the long ones (the
+  cyanrip offers, the dependency summary, the script reference) ran their
+  buttons off small screens. `ui/dialogs/message_box_fit.py` widens a box that
+  is too tall and, when no width is enough, scrolls its text with the buttons
+  kept on screen. It runs from the app-wide `DialogCenterFilter`, so every box
+  gets it without its call site doing anything — and it runs BEFORE the box is
+  centred, because Qt delivers the Show event before it has sized the box, and
+  centring the 640-px placeholder put a box that fitted half below the screen.
 - **Measure the real content, not a stand-in.** The matrix built the install
   dialog from a test spec with a one-line description and passed it while the
   real ffmpeg description ran 2,656 px off its edge. A window whose text comes
-  from data is measured with the real data (every spec in the registry, so a
-  new one is measured the day it lands).
+  from data is measured with the real data (every registry spec, every
+  ripper-offer verdict, the real pins and versions), and the populations are
+  derived from the source so a new window or box cannot be skipped.
 - **A UI rule is written ONCE and applied to every window, in every condition.**
   Every defect in the 2026-09-23 report had the same root: a rule solved in one
   window and never applied to the rest. `tests/test_ui_conformance.py` is the
-  matrix — every `CenteredDialog` (derived from the source), the main window, and
-  the states that show coloured status lines, under 22 conditions (14 standard
+  matrix — every `CenteredDialog` (derived from the source), the main window, the
+  states that show coloured status lines, and since 2026-10-05 every message box
+  and inline Qt dialog with its real worst-case text
+  (`tests/test_ui_message_box_conformance.py`), under 22 conditions (14 standard
   screen shapes, Breeze Dark, 150% text), against every rule: no clipped wrapped
-  text, fits the screen, scrolls only when capped, text contrast ≥ 4.5:1 measured
-  from the colours actually applied, no button smaller than we set or the style
-  asked for, no cut-off one-line text or text running past a scroll area that
-  cannot scroll sideways, no two controls sharing an Alt-key (per
+  text, fits the screen, placed on the screen, scrolls only when capped, text
+  contrast ≥ 4.5:1 measured from the colours actually applied, no button smaller
+  than we set or the style asked for, no cut-off one-line text or text running
+  past a scroll area that cannot scroll sideways, no two controls sharing an
+  Alt-key (per
   window and per menu), and no nameless input. A new window is measured the day
   it lands; a new rule reaches every window the day it is added; each rule has a
   floor on what it examined and was revert-probed. Its first run found four real
