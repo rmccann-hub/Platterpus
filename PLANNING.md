@@ -426,7 +426,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`update_install.py`** — download → checksum-verify → atomic self-install of an AppImage update (KDD-17b amendment), off-thread via `workers/update_worker.py`.
 - **`drive_access.py`** — pure-stdlib `diagnose_drive_access()` classifying the no-drive case as `no_device` / `permission` (gives the `usermod -aG` fix) / `ok`. Probes are injectable for testing.
 - **`drive_control.py`** — host-first best-effort `eject_drive()` and `force_stop_drive()` for a runaway drive on cancel. This is the one approved exception to Critical Rule #3 (force-stop only; see CLAUDE.md).
-- **`exit_work.py`** — work the process must finish after the window has gone. Today that is one job: stopping the ripper after a quit mid-rip, so cyanrip gets its SIGTERM grace (42 s, twice the longest single read filed from the rig's drive) to write the end of its log. `closeEvent` hands the stop to `start`, the window closes at once, and `app.main` calls `wait` after `app.exec()` returns and before `hard_exit`. The join is bounded by each job's budget. It exists because a daemon thread the interpreter kills part-way leaves the reader holding the drive, and waiting on the GUI thread froze the window (the fork's round 30 lap 5 S17, 2026-09-30).
+- **`exit_work.py`** — work the process must finish after the window has gone. Today that is one job: stopping the ripper after a quit mid-rip, so cyanrip gets its SIGTERM grace (108 s, twice the longest single read filed from the rig's drive) to write the end of its log. `closeEvent` hands the stop to `start`, the window closes at once, and `app.main` calls `wait` after `app.exec()` returns and before `hard_exit`. The join is bounded by each job's budget. It exists because a daemon thread the interpreter kills part-way leaves the reader holding the drive, and waiting on the GUI thread froze the window (the fork's round 30 lap 5 S17, 2026-09-30).
 - **`help_content.py`** — the User Guide Markdown kept *in code* (not packaged data, to dodge AppImage package-data pitfalls); rendered by the Help dialogs.
 - **`appimage_integration.py`** — first-AppImage-run self-integration (KDD-17a): one-time, dismissible offer to write the app's own `.desktop` + icon into the user's menu and set the AppImage executable. No-op for source/pipx installs (detected via `$APPIMAGE`).
 - **`app_icon.py`** — locates the packaged SVG logo for the in-app window icon; best-effort, returns `None` (caller skips the icon) if the resource or the Qt SVG plugin is missing.
@@ -1351,9 +1351,10 @@ is the decision log failing at the one thing it is for. All three were live in
   should not allow a 0.9.1."* Two passes on one rig answer *was it luck* and say
   nothing about *is it green only because of this machine*.
 
-**Status, 2026-09-30:** the ledger carries thirteen rows, every one `partial`, and
-no `full-green` row. The newest, 2026-09-30 on app 0.6.65 against `174a134` (`.19`),
-is round 30's Full run: 316 of 323, `partial` because seven screenshot steps in
+**Status, 2026-10-05:** the ledger carries fourteen rows, every one `partial`, and
+no `full-green` row. The newest, 2026-10-04 on app 0.6.65 against `174a134` (`.19`),
+ran a damaged disc for seven hours and was stopped at 252 of 323 (`docs/testing.md`
+§5B). Before it, 2026-09-30 on the same pair, is round 30's Full run: 316 of 323, `partial` because seven screenshot steps in
 ARCHIVAL sections failed, every one after the first long rip, with the app's windows
 open and the display not showing them (`docs/testing.md` §5B, the 0.6.65 row;
 `docs/handshake/artifactsround30/`). Round 29's, 2026-09-28 on app 0.6.63 against

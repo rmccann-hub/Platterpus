@@ -499,6 +499,9 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
         self._picked_release: tuple[str, str, int, int] | None = None
         #: The last `cyanrip` invocation, so `expect-cyanrip` / `expect-exit`
         #: assert against what actually ran rather than re-running it.
+        # Whether the most recent `rip` step pressed Start; `cancel-rip` stops
+        # only such a rip (see `_do_rip`).
+        self._last_rip_step_started: bool = False
         self._last_cyanrip_exit: int | None = None
         self._last_cyanrip_output: str = ""
         self._last_cyanrip_argv: list[str] = []
@@ -2328,7 +2331,7 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
         format at its boundary. A malformed id and an absent one are reported as
         the different findings they are.
         """
-        release_id = str(getattr(self._window, "_current_release_id", "") or "").strip()
+        release_id = _held_release_id(self._window)
         table = getattr(self._window, "_track_table", None)
         rows = len(table.tracks()) if table is not None else 0
 
@@ -3151,6 +3154,12 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
         # `_signalled` defect `CLAUDE.md` records under *when a flag needs a
         # reset, ask whether it wanted to be an identity comparison*.
         self._rip_log_when_requested = getattr(self._window, "_last_rip_log", None)
+        # Which rip `cancel-rip` may stop: only one this step started. Set here,
+        # ahead of every refusal, and made True only on the path that presses
+        # Start. On the 2026-10-04 rig run section I's `rip` was refused because
+        # section F's seven-hour rip was still running, and its `cancel-rip` then
+        # cancelled F's rip.
+        self._last_rip_step_started = False
         controls = getattr(self._window, "_rip_controls", None)
         if controls is None:
             self._record(step, Outcome.ERROR, "no rip controls on the window")
@@ -3199,6 +3208,7 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
             self._record(step, Outcome.ERROR, "the rip controls have no _on_start()")
             return
         self._record(step, Outcome.PASS, "start requested")
+        self._last_rip_step_started = True
         QTimer.singleShot(0, start)
 
     def _do_pick_release(self, step: Step) -> None:
@@ -3329,13 +3339,41 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
         dialog = _release_picker()
         if dialog is None:
             loaded = self._loaded_track_count()
-            if loaded > 0:
+            # Loaded rows alone do not mean identified: a disc MusicBrainz does
+            # not know loads placeholder rows and opens "Rip as unknown album".
+            # On the 2026-10-04 rig runs this arm said "the disc identified
+            # unambiguously" with that dialog on screen and no release held,
+            # and only `expect-identified` caught it. So it passes on a held
+            # release, fails on the unknown-album dialog, and otherwise waits:
+            # the lookup may still be running.
+            if _unknown_album_dialog() is not None:
+                self._deadline_outcome = Outcome.FAIL
                 self._deadline_detail = (
-                    f"no picker appeared and {loaded} track(s) are loaded — the "
-                    "disc identified unambiguously, so there was nothing to pick"
+                    f"no picker appeared: MusicBrainz does not know this disc, and "
+                    f"'Rip as unknown album' is open over {loaded} placeholder "
+                    "row(s). Nothing to pick, and nothing identified: put in a disc "
+                    "MusicBrainz knows."
                 )
                 return True
-            return False  # scan still running; keep waiting
+            # The same fact `expect-identified` keys on, read the same way: a
+            # well-formed release id, not the rows it would explain.
+            release_id = _held_release_id(self._window)
+            if loaded > 0 and _MBID_RE.match(release_id):
+                self._deadline_detail = (
+                    f"no picker appeared and {loaded} track(s) are loaded for "
+                    f"release {release_id} — the disc identified "
+                    "unambiguously, so there was nothing to pick"
+                )
+                return True
+            if loaded > 0:
+                # Rows, but no release: the arming message ("no tracks loaded")
+                # would now be false if the wait runs out here.
+                self._deadline_timeout_detail = (
+                    f"no release picker appeared, and {loaded} row(s) loaded but no "
+                    "release was identified before the wait ran out: the "
+                    "MusicBrainz lookup did not finish, so nothing was chosen"
+                )
+            return False  # scan or lookup still running; keep waiting
 
         releases = list(getattr(dialog, "_releases", []))
         index = _match_release(releases, wanted)
@@ -3511,9 +3549,23 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
             )
 
     def _do_cancel_rip(self, step: Step) -> None:
-        """Cancel a rip in progress, through the window's own Cancel handler."""
+        """Cancel a rip in progress, through the window's own Cancel handler.
+
+        Only a rip this script's most recent `rip` step started. A rip still
+        running from an earlier step is another section's evidence, and stopping
+        it fails that section after the fact, in a transcript that cannot show it.
+        """
         if getattr(self._window, "_rip_worker", None) is None:
             self._record(step, Outcome.FAIL, "no rip is running")
+            return
+        if not self._last_rip_step_started:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "the rip running now was not started by this script's last `rip` "
+                "step (that step was refused, or none ran), so it belongs to an "
+                "earlier step; refusing to cancel it",
+            )
             return
         handler = getattr(self._window, "_on_rip_cancel", None)
         if handler is None:
@@ -4355,6 +4407,26 @@ def _release_picker() -> QDialog | None:
     """
     for widget in QApplication.topLevelWidgets():
         if type(widget).__name__ == "ReleasePickerDialog" and widget.isVisible():
+            return widget if isinstance(widget, QDialog) else None
+    return None
+
+
+def _held_release_id(window: object) -> str:
+    """The MusicBrainz release id the window holds, stripped; ``""`` when none.
+
+    One reader for the two steps that ask whether the disc was identified
+    (`pick-release`, `expect-identified`), so they cannot answer it two ways.
+    """
+    return str(getattr(window, "_current_release_id", "") or "").strip()
+
+
+def _unknown_album_dialog() -> QDialog | None:
+    """The "Rip as unknown album" confirmation, if it is on screen.
+
+    Matched by class name, as `_release_picker` is, and for the same reason.
+    """
+    for widget in QApplication.topLevelWidgets():
+        if type(widget).__name__ == "UnknownAlbumDialog" and widget.isVisible():
             return widget if isinstance(widget, QDialog) else None
     return None
 

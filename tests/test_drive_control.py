@@ -420,7 +420,9 @@ def test_the_shutdown_grace_is_twice_the_longest_read_on_record() -> None:
     IN THIS TREE (cyanrip's own `Read stalls:` summary line), not from a number in
     a comment, and the fork's longest is filed here too
     (`docs/handshake/inbound/artifacts/round-30-lap-07-accurip-gddc1e8c.log`), so
-    the population is both trees'. The next longer read filed raises it.
+    the population is both trees'. The next longer read filed raises it, and one
+    did: the 2026-10-04 rig run's damaged disc, a read of 54 s on track 18
+    (`docs/handshake/artifactsround30/round30oct04full.log`).
 
     Only `.log` files count: the `.md` laps quote the line's FORMAT with
     invented values (`longest 187s`) taken from the fork's tests.
@@ -439,8 +441,8 @@ def test_the_shutdown_grace_is_twice_the_longest_read_on_record() -> None:
         "floor is checking nothing; if the line's wording moved, follow it"
     )
     worst, where = max(longest)
-    assert worst >= 21, (
-        f"the 21 s read in the fork's filed round 30 lap 7 artifact is gone: {longest}"
+    assert worst >= 54, (
+        f"the 54 s read in the filed 2026-10-04 rig log is gone: {longest}"
     )
     assert drive_control.READER_TERM_GRACE_S >= 2 * worst, (
         f"the SIGTERM grace is {drive_control.READER_TERM_GRACE_S:.0f}s and {where} "

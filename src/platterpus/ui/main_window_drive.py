@@ -450,7 +450,9 @@ class DriveMixin(MainWindowShared):
         answers "what disc is in the drive now", so with no disc it goes empty,
         while the last rip's outcome stays where the user can still see it.
         """
-        self._disc_info_panel.clear_disc_state()
+        # The drive rows stay: the same drive is still selected, and nothing
+        # refills them on the next disc's insert.
+        self._disc_info_panel.clear_disc_state(keep_drive_rows=True)
         self._track_table.clear()
         self._current_release_id = ""
         self._current_release_detail = None

@@ -23,6 +23,7 @@ from platterpus import diagnostics, naming
 from platterpus.adapters import cyanrip_backend
 from platterpus.adapters.rip_backend import RipMetadata
 from platterpus.parsers.rip_log import track_accuraterip_verified
+from platterpus.verdict import track_has_unverified_skips
 
 log = logging.getLogger(__name__)
 
@@ -442,7 +443,10 @@ def friendly_disc_scan_error(error_text: str) -> str:
 
 
 def fidelity_summary(
-    rip_log: object, *, expected_track_total: int | None = None
+    rip_log: object,
+    *,
+    expected_track_total: int | None = None,
+    cancelled: bool = False,
 ) -> str:
     """One-line rip-quality verdict for the status label.
 
@@ -451,6 +455,12 @@ def fidelity_summary(
     user's Rip? selection when they chose a subset). Keyword-only and defaulted so
     every existing caller and test keeps working; supplying it is what stops this
     line disagreeing with the trust banner beside it about how complete the rip is.
+
+    ``cancelled`` is set when the user cancelled after the album pass finished
+    (the rip still counts as produced, so this runs): the line then says so
+    instead of opening with "Done". On the 2026-10-04 rig run a cancel during
+    the securing pass read "Done — all 18 tracks ripped cleanly" while the
+    report beside it said ``cancelled``.
 
     A legacy-format log records a Test CRC and a Copy CRC per track (the
     ripper that wrote it read each track twice); a match means the two
@@ -479,24 +489,46 @@ def fidelity_summary(
     # four (audit finding, 2026-07-30).
     total = expected_track_total if expected_track_total else len(tracks)
     if not tracks:
-        return "Done."
+        return "Rip cancelled." if cancelled else "Done."
+
+    def lead(body: str) -> str:
+        if cancelled:
+            return (
+                "Rip cancelled after the read finished; what runs after it was "
+                f"stopped. {body[:1].upper()}{body[1:]}"
+            )
+        return f"Done — {body}"
+
     # cyanrip's verification model differs from the legacy format's: one EAC
     # CRC per track plus a paranoia error count, not a test+copy dual read.
     # Word the verdict to match what was actually checked.
     if str(getattr(rip_log, "log_creator", "")).startswith("cyanrip"):
+        # A track whose reads paranoia could not all verify, and that AccurateRip
+        # did not confirm, is not "clean" whatever the ripper's error count says
+        # (`track_has_unverified_skips`; track 18 of the 2026-10-04 rig run).
+        skipped = [t for t in tracks if track_has_unverified_skips(t)]
         clean = sum(
-            1 for t in tracks if getattr(t, "status", "") == "ripped successfully"
+            1
+            for t in tracks
+            if getattr(t, "status", "") == "ripped successfully" and t not in skipped
         )
         no_errors = getattr(rip_log, "health_status", "") == "No errors occurred"
         if clean == total and no_errors:
-            summary = f"Done — all {total} tracks ripped cleanly, no read errors."
+            summary = lead(f"all {total} tracks ripped cleanly, no read errors.")
+        elif skipped:
+            listed = ", ".join(str(getattr(t, "number", "?")) for t in skipped)
+            summary = lead(
+                f"{clean}/{total} tracks ripped cleanly; on track(s) {listed} the "
+                "ripper could not verify every read and AccurateRip did not confirm "
+                "the audio. See the Rip log tab."
+            )
         else:
-            summary = (
-                f"Done — {clean}/{total} tracks ripped cleanly; "
+            summary = lead(
+                f"{clean}/{total} tracks ripped cleanly; "
                 # Name the TAB, not "the log". This means the rip's own log, which is
                 # on screen right now behind a button — naming the place beats naming
                 # a file the user would have to go find.
-                f"see the Rip log tab for the rest."
+                "see the Rip log tab for the rest."
             )
         clause = _accuraterip_clause(rip_log)
         if clause is None:  # no per-track AR data → legacy summary-string fallback
@@ -510,11 +542,10 @@ def fidelity_summary(
         and getattr(t, "test_crc", "") == getattr(t, "copy_crc", "")
     )
     if verified == total:
-        summary = f"Done — all {total} tracks read consistently, Test/Copy CRCs match."
+        summary = lead(f"all {total} tracks read consistently, Test/Copy CRCs match.")
     else:
-        summary = (
-            f"Done — {verified}/{total} tracks CRC-verified; "
-            f"see the Rip log tab for the rest."
+        summary = lead(
+            f"{verified}/{total} tracks CRC-verified; see the Rip log tab for the rest."
         )
     clause = _accuraterip_clause(rip_log)
     if clause is None:  # no per-track AR data → legacy summary-string fallback

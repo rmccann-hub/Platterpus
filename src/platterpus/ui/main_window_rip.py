@@ -1236,10 +1236,11 @@ class RipMixin(MainWindowShared):
         returns and before the process exits. Until then it ran here,
         synchronously, as this file's one sanctioned block of the GUI thread. That
         was fine while the grace was short, and wrong once the fork found a single
-        read of 11 s on the rig's drive (their round 30 lap 5 S17), and our own
-        filed logs one of 21 s: a grace long enough to outlast that would freeze
-        the window for most of a minute at the moment the user asked it to go. Now the window closes at once, and the
-        process lingers, windowless, while the reader writes its log.
+        read of 11 s on the rig's drive (their round 30 lap 5 S17); the filed
+        logs now hold one of 54 s, and a grace long enough to outlast that would
+        freeze the window for minutes at the moment the user asked it to go. Now
+        the window closes at once, and the process lingers, windowless, while the
+        reader writes its log.
 
         Best-effort and gated on a rip actually being in flight (``_rip_thread``
         set) so a normal close never touches the drive. Does NOT eject — closing
@@ -1309,6 +1310,14 @@ class RipMixin(MainWindowShared):
         exit_work.start(
             stop_the_reader, name="stop-reader", budget_s=_SHUTDOWN_DRIVE_FREE_BUDGET_S
         )
+
+    def exit_audit_device(self) -> str:
+        """The drive the exit check asks about (``exit_work.audit``).
+
+        The one a rip last armed for a force-stop, else the picker's. Read by
+        ``app.main`` on the GUI thread after the event loop has returned.
+        """
+        return self._force_stop_device or self._drive_picker.current_device() or ""
 
     def _on_eject_requested(self, device: str) -> None:
         """User clicked Eject — eject the selected disc."""
@@ -1888,7 +1897,9 @@ class RipMixin(MainWindowShared):
                 self._disc_info_panel.set_accuraterip_result(rip_log)
                 if success:
                     status = fidelity_summary(
-                        rip_log, expected_track_total=expected_total
+                        rip_log,
+                        expected_track_total=expected_total,
+                        cancelled=finished_status == "cancelled",
                     )
                     self._rip_progress.set_status(status)
                     # A rip that MATCHED AccurateRip confirms the applied read

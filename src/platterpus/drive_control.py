@@ -394,19 +394,19 @@ def force_stop_drive(
 #: read in hand returns. The old shutdown path allowed 191 ms, then SIGKILLed, and
 #: the log was left without its footer or `Log FUN512:` (the fork's round 30 S25).
 #:
-#: **8 s was shorter than one read, so it is 42 s** (2026-09-30, the fork's round
-#: 30 lap 5 S17, then lap 7 S16). A SIGTERM that arrives during a read is acted on
-#: only when the read returns. The fork first cited reads of 11 s. Our own filed log
-#: from this rig's drive records one of 20 s
-#: (`docs/handshake/outbound/artifacts/round-15-lap-13-cancelled-rip-g978f9b0.log:311`),
-#: and the fork's tree has two of **21 s**, one filed here as
-#: `docs/handshake/inbound/artifacts/round-30-lap-07-accurip-gddc1e8c.log:282`.
+#: **8 s was shorter than one read, so it is 108 s** (2026-09-30, the fork's round
+#: 30 lap 5 S17 and lap 7 S16; then the 2026-10-04 rig run). A SIGTERM that arrives
+#: during a read is acted on only when the read returns. The fork first cited reads
+#: of 11 s; our filed logs from this rig's drive hold one of 20 s, the fork's one of
+#: 21 s (`docs/handshake/inbound/artifacts/round-30-lap-07-accurip-gddc1e8c.log:282`),
+#: and a damaged disc one of **54 s**
+#: (`docs/handshake/artifactsround30/round30oct04full.log:1501`).
 #: The grace is TWICE the longest read filed in this tree, and
 #: `tests/test_drive_control.py` derives that floor from the filed logs rather than
 #: from this comment. It costs nothing in the ordinary case, where the wait ends
 #: the moment the reader lets go, and it could only become this long because the
 #: window no longer waits: it closes, and the wait runs as exit work (`exit_work`).
-READER_TERM_GRACE_S: Final[float] = 42.0
+READER_TERM_GRACE_S: Final[float] = 108.0
 
 #: How often the grace loop asks whether the device is still held.
 _HELD_POLL_S: Final[float] = 0.25
@@ -429,6 +429,25 @@ def device_is_held(device: str, runner: Runner | None = None) -> bool | None:
         return True
     if rc == 1:
         return False
+    return None
+
+
+def running_readers(runner: Runner | None = None) -> tuple[str, ...] | None:
+    """`pgrep -l` for the reader names: which readers does the HOST see running?
+
+    Each entry is pgrep's own ``"<pid> <name>"`` line. ``()`` means pgrep looked
+    and found none; ``None`` means it gave no answer (could not run, timed out),
+    which a caller must not read as "none". The names are the ones the kill path
+    uses (`_READER_NAMES`), so the two cannot disagree about what a reader is.
+    """
+    rc, out = _run_capture(
+        [_host_tool("pgrep", _HOST_TOOL_DIRS_PKILL), "-l", _READER_NAMES],
+        runner or _default_runner,
+    )
+    if rc == 0:
+        return tuple(line.strip() for line in out.splitlines() if line.strip())
+    if rc == 1:
+        return ()
     return None
 
 

@@ -2837,6 +2837,17 @@ class RipWorker(QObject):
                 return  # re-rip failed to start/stream — originals untouched
             success, rerip_log_path = outcome
             if not success or not rerip_log_path:
+                # Nothing is swapped from a pass that did not finish. But the
+                # tracks it DID finish re-reading carry a verdict, and that verdict
+                # is the work: on the 2026-10-04 rig run a cancel during track 18
+                # discarded 90 minutes of re-reads of tracks 12 to 17, each read
+                # five times without two reads agreeing, so their EAC-layout log
+                # said "Copy OK" with no caveat. The guard drops the swap, never
+                # the record.
+                if rerip_log_path:
+                    self._record_unfinished_refix(
+                        rerip_log_path, tracks, trigger, rerip_z
+                    )
                 return
             rerip_log = self._parse_log(rerip_log_path)
             fixed: list[int] = []
@@ -2950,6 +2961,57 @@ class RipWorker(QObject):
         finally:
             if tmp_root is not None:
                 shutil.rmtree(tmp_root, ignore_errors=True)
+
+    def _record_unfinished_refix(
+        self, rerip_log_path: str, tracks: list[int], trigger: str, rerip_z: int
+    ) -> None:
+        """Record the verdicts a securing pass reached before it stopped.
+
+        Called when the re-rip was cancelled or failed. Each track the ripper
+        finished re-reading has its verdict line in the log; those are recorded
+        as ``replaced: False``, because nothing is swapped in from a pass that
+        did not finish. A track with no verdict (the one being read when the pass
+        stopped) is left out, so the report keeps saying the pass was interrupted
+        for it. The securing pass stays marked interrupted.
+
+        On a cancel the in-container reader writes its log after we stop reading
+        it, so the log is read only once its footer is on disk; a log that never
+        settles records nothing, rather than a verdict read off a half-written
+        file. Never raises.
+        """
+        try:
+            if (
+                self._cancelled
+                and not self._await_ripper_log(rerip_log_path).is_settled
+            ):
+                return
+            rerip_log = self._parse_log(rerip_log_path)
+            recorded: list[int] = []
+            for track in getattr(rerip_log, "tracks", ()) or ():
+                number = getattr(track, "number", None)
+                verdict = getattr(track, "secure_rerip_converged", None)
+                if number not in tracks or verdict is None:
+                    continue
+                recorded.append(number)
+                self._retried_tracks.append(
+                    {
+                        "track": number,
+                        "trigger": trigger,
+                        "reripped_z": rerip_z,
+                        "converged": verdict is True,
+                        "replaced": False,
+                        "replaced_because": None,
+                    }
+                )
+            if recorded:
+                listed = ", ".join(str(n) for n in recorded)
+                self.log_line.emit(
+                    f"[auto-fix] the securing pass stopped before it finished; "
+                    f"track(s) {listed} had been re-read and their verdicts are "
+                    "kept. Their first reads stay in the album."
+                )
+        except Exception:  # noqa: BLE001 — a record must never crash the rip
+            log.exception("could not record the stopped securing pass's verdicts")
 
     def _append_swap_addendum(
         self,
