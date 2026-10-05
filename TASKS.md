@@ -1246,7 +1246,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   summary's *"Why it stopped"* sentence quotes the failed step's entire detail, fix
   and banner included, directly under the same detail. The fix: the summary names
   the step and its first line, and points up to the detail. UX, not archival.
-- [ ] **`COMPONENTS.json` names the ripper as `0.9.4`.** The acceptance bundle's
+- [x] **`COMPONENTS.json` names the ripper as `0.9.4`.** The acceptance bundle's
   component inventory carries each tool's parsed version, so the 14:42Z Full run's
   bundle says `"cyanrip": {"version": "0.9.4"}` and cannot tell the fork from upstream,
   or `.17` from `.18`. The rip logs and reports in the same bundle do name the build,
@@ -1254,6 +1254,10 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
   `version`, the tool's own version text (the `BuildNote.version_text` Help → About
   now shows). The inventory is the bundle's `components` file, which crosses the
   seam, so the key is declared in a lap before it ships (NEXT-ROUND).
+  - *Done:* each tool's entry gains `version_text` beside an unchanged `version`
+    (`null` when not determined, never omitted or `""`), as declared in our round 30
+    lap 4 S43; About reads the same key. The fork/stock verdict was not added beside
+    it: S43 declared one key, so a second needs a lap first.
 - [x] **Both readings (S7).** Their pre-commit (S43): their first lap after the bundle is
   in their tree is `GO` unless the run shows a defect in `.18` that breaks the pin, or
   does not complete. **Ours is our lap 3**, `GO` by our lap 2's S29: the run completed,

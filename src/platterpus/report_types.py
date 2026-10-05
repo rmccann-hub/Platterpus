@@ -224,12 +224,42 @@ class EnvironmentBlock(TypedDict):
     dependencies_measured_at: NotRequired[str | None]
 
 
+class ComponentEntry(DependencyEntry):
+    """One tool's row in the component inventory: a `DependencyEntry` plus the
+    tool's own version text.
+
+    ``version`` is the parsed number the minimum-version check compares
+    (``"0.9.4"``), and it stays exactly as it was so every existing reader keeps
+    working. It cannot tell the Platterpus fork of cyanrip from upstream, or
+    ``+platterpus.17`` from ``.18``, because the fork keeps upstream's version on
+    purpose. ``version_text`` is what the tool printed about itself
+    (``"0.9.4-rc2+platterpus.18"``), the same text Help → About shows
+    (`deps.build_notes.BuildNote.version_text`).
+
+    **Tri-state, the way the rest of the inventory says "unknown":** a string is
+    the tool's own text; ``None`` (JSON ``null``) is *not determined*: the check
+    captured no banner, or this tool's check has no build note that reads one.
+    It is never omitted and never ``""``, so a reader can tell "we do not know"
+    from "this file predates the key". Whether the tool is there at all is
+    ``present``, as before.
+
+    A separate type rather than a new key on `DependencyEntry`: that one is also
+    the rip report's ``environment.dependencies`` row, whose shape is versioned by
+    `rip_report.REPORT_SCHEMA_VERSION`. This key was declared to the cyanrip fork
+    for the acceptance bundle's ``COMPONENTS.json`` (round 30 lap 4, S43), and for
+    nothing else.
+    """
+
+    version_text: str | None
+
+
 class ComponentInventory(TypedDict):
     """Every component a rip depends on, with its version and when it was measured.
 
-    One shape for Help → About, Diagnostics, the rip report and the acceptance
-    bundle (`build_info.component_inventory`), so they cannot describe one
-    machine four ways.
+    One shape for Help → About and the acceptance bundle's ``COMPONENTS.json``
+    (`build_info.component_inventory`), so they cannot describe one machine two
+    ways. Diagnostics and the rip report read the same summariser underneath
+    (`build_info.dependency_summary`).
     """
 
     app: str
@@ -238,7 +268,7 @@ class ComponentInventory(TypedDict):
     qt: str | None
     pyside6: str | None
     platform: str | None
-    dependencies: dict[str, DependencyEntry] | None
+    dependencies: dict[str, ComponentEntry] | None
     dependencies_measured_at: str | None
 
 

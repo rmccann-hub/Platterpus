@@ -16,16 +16,20 @@ debugging aid only — NOT part of the EAC-parity log or any bit-perfection clai
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from collections.abc import Iterable
 from pathlib import Path
 
 from platterpus.report_types import (
+    ComponentEntry,
     ComponentInventory,
     DependencyEntry,
     EnvironmentBlock,
 )
+
+log = logging.getLogger(__name__)
 
 # The sentinel used when no build stamp is present (source/editable installs).
 # A report always carries a fingerprint string — a real one or this — so a
@@ -181,15 +185,65 @@ def dependency_summary(report: object) -> dict[str, DependencyEntry]:
     return summary
 
 
+def _own_version_texts(report: object) -> dict[str, str]:
+    """dep id → the tool's own version text, read from ``report``'s build notes.
+
+    Delegates to `deps.build_notes.own_versions`, the reader Help → About used
+    before the inventory carried this, so the two cannot word one binary two
+    ways, and so no tool name is spelled outside the dependency subsystem
+    (Critical rule #6).
+
+    Imported here rather than at the top: this module is imported by the pure
+    `rip_report`, and the build-notes module pulls in the dependency checks.
+
+    Never raises. Any trouble is logged and reads as "no text captured", which
+    the inventory reports as *not determined* (``None``), never as a value.
+    """
+    try:
+        from platterpus.deps.build_notes import own_versions
+
+        return own_versions(report)
+    except Exception:  # noqa: BLE001 — an inventory field is best effort; the inventory must still build
+        log.exception("could not read the tools' own version text for the inventory")
+        return {}
+
+
+def _component_entries(report: object) -> dict[str, ComponentEntry]:
+    """Each tool's `DependencyEntry`, plus ``version_text`` beside its ``version``.
+
+    ``version_text`` is ``None`` wherever no text was captured: *not
+    determined*, stated, never omitted and never ``""`` (`ComponentEntry`).
+    Written out key by key so the JSON reads ``version`` then ``version_text``.
+    """
+    own = _own_version_texts(report)
+    return {
+        dep_id: {
+            "present": entry["present"],
+            "version": entry["version"],
+            "version_text": own.get(dep_id) or None,
+            "location": entry["location"],
+            "min_version_met": entry["min_version_met"],
+        }
+        for dep_id, entry in dependency_summary(report).items()
+    }
+
+
 def component_inventory(report: object) -> ComponentInventory:
     """Every component, its version, and when the dependency versions were measured.
 
-    THE one function Help → About, Diagnostics and the acceptance bundle read, so
-    they cannot disagree about a machine. ``report`` is the newest dependency
-    probe (``deps.manager.latest_report()``), or ``None`` when none has finished:
-    then ``dependencies`` is ``None``, which means *not measured yet*, never *no
-    dependencies*. Reads only what is already known: it never probes, because a
-    probe enters the ripper's container. Never raises.
+    THE one function Help → About and the acceptance bundle's ``COMPONENTS.json``
+    read, so they cannot disagree about a machine. ``report`` is the newest
+    dependency probe (``deps.manager.latest_report()``), or ``None`` when none has
+    finished: then ``dependencies`` is ``None``, which means *not measured yet*,
+    never *no dependencies*. Reads only what is already known: it never probes,
+    because a probe enters the ripper's container. Never raises.
+
+    Each tool's row carries ``version`` (the parsed number, unchanged) and
+    ``version_text`` (what the tool said about itself, or ``None`` when not
+    determined). The second exists because the bundle said
+    ``"cyanrip": {"version": "0.9.4"}`` and could not tell the fork from
+    upstream, or one fork release from the next (TASKS.md; declared to the fork
+    in round 30 lap 4, S43).
     """
     env = environment_report()
     qt: str | None = None
@@ -209,7 +263,7 @@ def component_inventory(report: object) -> ComponentInventory:
         "qt": qt,
         "pyside6": env["pyside6"],
         "platform": env["platform"],
-        "dependencies": dependency_summary(report) if report is not None else None,
+        "dependencies": _component_entries(report) if report is not None else None,
         "dependencies_measured_at": measured or None,
     }
 
