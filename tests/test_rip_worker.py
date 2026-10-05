@@ -1007,6 +1007,42 @@ def test_a_stopped_securing_pass_whose_log_never_settles_keeps_its_whole_verdict
     assert "never reached its footer" in joined, joined
 
 
+def test_the_securing_pass_keeps_its_own_ripper_log_beside_the_albums(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The per-read record of a securing pass was deleted with its temp folder.
+
+    On the 2026-10-04 run the cancelled pass's log is in no artifact, so
+    whether its ripper signed it is not known. It is now kept as a ``.txt``
+    sidecar, whatever the pass did, footer or not; never as a ``.log``, which
+    would be a second candidate for the album's log.
+    """
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    unsigned = _REFIX_STOPPED_DURING_TRACK_3.replace("Log FUN512: abc\n", "")
+    write_logs = _fake_rip_writer(_PASS1_TWO_UNSTABLE, unsigned, True)
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        if call["only_tracks"]:
+            worker.cancel()
+            worker.abandon_log_wait()
+
+    backend.rip_side_effect = rip_side_effect
+    worker.start_rip()
+
+    album = tmp_path / "Artist" / "Album"
+    kept = album / "rip.platterpus-securing-pass.txt"
+    assert len(backend.rip_calls) == 2, "floor: the securing pass never ran"
+    assert kept.read_text(encoding="utf-8") == unsigned
+    assert sorted(p.name for p in album.glob("*.log")) == ["rip.log"], (
+        "the kept log is a second .log in the album folder"
+    )
+
+
 def test_auto_fix_keeps_a_re_read_that_matches_accuraterip_without_converging(
     qapp: QApplication, tmp_path: Path
 ) -> None:

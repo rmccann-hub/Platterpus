@@ -670,9 +670,12 @@ Open:
   printed its banner and did not exit for 60 s, and the startup disc scan never
   returned (`round30oct04platterpusapplog2.txt:59910`, `:59918`). Serialise the first
   entry, or bound the scan the way the probe is.
-- [ ] **The securing pass's own ripper log is always deleted with its temp folder.** On
+- [x] **The securing pass's own ripper log is always deleted with its temp folder.** On
   success the swap addendum carries what was swapped; the per-read record of a pass
-  that swapped nothing is in no artifact.
+  that swapped nothing was in no artifact. It is now copied beside the album's log as
+  `<album>.platterpus-securing-pass.txt` (`rip_addendum.securing_pass_log_path_for`),
+  whatever the pass did, footer or not; `.txt` so it is never a second candidate for
+  the album's `.log`.
 - [ ] **If a podman ever forwards the wrapper's SIGTERM into the container, the
   post-cancel rescue becomes a second signal** on any read longer than its 5 s
   countdown, and cyanrip `_exit(1)`s without its footer
