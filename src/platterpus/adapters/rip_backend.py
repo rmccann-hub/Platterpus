@@ -37,7 +37,7 @@ from platterpus.parsers.drive_list import DriveDescriptor
 log = logging.getLogger(__name__)
 
 
-def _kill_group(proc: subprocess.Popen[str], sig: int) -> None:
+def _kill_group(proc: subprocess.Popen[str], sig: int) -> int | None:
     """Send `sig` to the subprocess's whole process group.
 
     A ripper spawns children (the `~/.local/bin/<tool>` wrapper →
@@ -52,16 +52,24 @@ def _kill_group(proc: subprocess.Popen[str], sig: int) -> None:
     podman doesn't always forward the signal instantly, so the drive can take
     a moment to spin down even after this. It does stop — just not always
     immediately.
+
+    Returns the process group it signalled, or ``None`` when it signalled only the
+    single process (the fallback) or nothing (the process had already exited). The
+    caller records what a SIGTERM reached, because a second signal to the same
+    cyanrip is not a repeat of the first (``drive_control.second_signal_refusal``).
     """
     if proc.poll() is not None:
-        return
+        return None
     try:
-        os.killpg(os.getpgid(proc.pid), sig)
+        pgid = os.getpgid(proc.pid)
+        os.killpg(pgid, sig)
+        return pgid
     except (ProcessLookupError, PermissionError, OSError):
         try:
             proc.send_signal(sig)
         except (ProcessLookupError, OSError):
             pass
+    return None
 
 
 class RipError(Exception):
@@ -371,19 +379,52 @@ class RipHandle:
         """Block until the ripper exits; return its exit code."""
         return self._process.wait(timeout=timeout)
 
-    def terminate(self) -> None:
+    @property
+    def pid(self) -> int:
+        """The spawned process's PID: the ripper itself on a native install, the
+        host wrapper behind Distrobox. Read by the rip worker to record which
+        process its SIGTERM reached."""
+        return self._process.pid
+
+    def terminate(self) -> int | None:
         """Request cancellation WITHOUT blocking — SIGTERM the group and return.
 
         This is what a GUI-thread cancel calls: it must never wait (a wedged
         drive ioctl leaves the ripper in an uninterruptible sleep, and blocking
         on it would freeze the window — CLAUDE.md never-block rule). The caller's
-        own off-GUI-thread ``wait()`` reaps the terminated process; if it ignores
-        SIGTERM, the GUI's force-stop escalation (``drive_control``) SIGKILLs the
-        group. Safe to call multiple times / after exit.
+        own off-GUI-thread ``wait()`` reaps the terminated process, escalating to
+        SIGKILL if it outlives the grace (``RipWorker._reap_ripper``). Safe to
+        call after exit. Returns the process group signalled (see
+        :func:`_kill_group`).
         """
         if self._process.returncode is not None:
-            return
-        _kill_group(self._process, signal.SIGTERM)
+            return None
+        return _kill_group(self._process, signal.SIGTERM)
+
+    def kill(self, timeout: float = 5.0) -> int | None:
+        """SIGKILL the group and wait, bounded: the escalation for a ripper that
+        has ALREADY had its one SIGTERM.
+
+        :meth:`cancel` starts with a SIGTERM, which for a cyanrip our cancel
+        already signalled is its second signal: it `_exit()`s with no log footer,
+        the same loss a SIGKILL causes. So once the grace is spent the escalation
+        is this alone (``RipWorker._reap_ripper``). Blocks for up to ``timeout``,
+        so never on the GUI thread. Returns the exit code, or ``None`` if even
+        SIGKILL could not reap it (a reader in D state).
+        """
+        if self._process.returncode is not None:
+            return self._process.returncode
+        _kill_group(self._process, signal.SIGKILL)
+        try:
+            return self._process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            log.error(
+                "ripper survived SIGKILL for %.1fs — it is almost certainly "
+                "blocked in an uninterruptible drive ioctl (D state). Abandoning "
+                "the reap.",
+                timeout,
+            )
+            return None
 
     def cancel(
         self, term_timeout: float = 5.0, kill_timeout: float = 5.0

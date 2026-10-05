@@ -338,6 +338,11 @@ class RipProgress(QWidget):
         # The status label names the current operation; the task bar
         # tracks that one operation's 0-100% (it resets read→verify→encode).
         self._status_label: QLabel = QLabel("Idle.", self)
+        # PlainText, like every label in this pane that is given a value later:
+        # this one shows cyanrip's own fatal sentence, and Qt's default AutoText
+        # would read a `<` in it as markup and could drop the rest of the line
+        # (CLAUDE.md Critical rule #12).
+        self._status_label.setTextFormat(Qt.TextFormat.PlainText)
         # Word-wrapped, like every other label in this pane — and this one is the
         # reason the rule matters. An un-wrapped QLabel's minimum width is the
         # width of its whole single line, and that minimum propagates up: a real
@@ -377,6 +382,7 @@ class RipProgress(QWidget):
         # banner is how "it might be frozen" becomes visible instead of a silent
         # hang. Hidden whenever the rip is making progress.
         self._stall_label: QLabel = QLabel("", self)
+        self._stall_label.setTextFormat(Qt.TextFormat.PlainText)
         self._stall_label.setWordWrap(True)
         self._stall_label.setVisible(False)
         self._stall_label.setStyleSheet(status_style("warn", self._stall_label))
@@ -397,6 +403,9 @@ class RipProgress(QWidget):
         # parsed log by set_rip_log; hidden until then. The wording NEVER over-
         # claims — it mirrors what AccurateRip actually returned.
         self._verdict_banner: QLabel = QLabel("", self)
+        # PlainText: the bold comes from the style sheet, not from markup, and the
+        # downgrade reasons appended to it can quote a tool's message.
+        self._verdict_banner.setTextFormat(Qt.TextFormat.PlainText)
         self._verdict_banner.setWordWrap(True)
         self._verdict_banner.setVisible(False)
         root.addWidget(self._verdict_banner)
@@ -406,6 +415,7 @@ class RipProgress(QWidget):
         # a -Z that never converged) even if they matched AccurateRip — the
         # earliest hint a track may not be reproducible. Hidden on a clean rip.
         self._read_effort_label: QLabel = QLabel("", self)
+        self._read_effort_label.setTextFormat(Qt.TextFormat.PlainText)
         self._read_effort_label.setWordWrap(True)
         self._read_effort_label.setVisible(False)
         self._read_effort_label.setStyleSheet(
@@ -419,6 +429,7 @@ class RipProgress(QWidget):
         # which differ, and which rip is the better master. Populated off-thread
         # after the rip (set_comparison); hidden when there's no prior rip.
         self._comparison_label: QLabel = QLabel("", self)
+        self._comparison_label.setTextFormat(Qt.TextFormat.PlainText)
         self._comparison_label.setWordWrap(True)
         self._comparison_label.setVisible(False)
         root.addWidget(self._comparison_label)
@@ -496,6 +507,7 @@ class RipProgress(QWidget):
         # fallback should the gate ever be re-opened (set_ctdb_result reads the
         # flag live).
         self._ctdb_label: QLabel = QLabel("", self)
+        self._ctdb_label.setTextFormat(Qt.TextFormat.PlainText)
         self._ctdb_label.setWordWrap(True)
         self._ctdb_label.setVisible(False)
         details.addWidget(self._ctdb_label)
@@ -507,6 +519,7 @@ class RipProgress(QWidget):
         # when the two would otherwise look like they disagree (see
         # verdict.reconcile_ar_ctdb); hidden the rest of the time.
         self._ctdb_reconcile_label: QLabel = QLabel("", self)
+        self._ctdb_reconcile_label.setTextFormat(Qt.TextFormat.PlainText)
         self._ctdb_reconcile_label.setWordWrap(True)
         self._ctdb_reconcile_label.setVisible(False)
         # Quieter than the main lines, but in the TEXT colour: `palette(mid)`
@@ -522,6 +535,7 @@ class RipProgress(QWidget):
         # set_rip_log; hidden when there's nothing to show (e.g. a legacy-format log
         # carries no loudness and the disc had no partial matches).
         self._loudness_label: QLabel = QLabel("", self)
+        self._loudness_label.setTextFormat(Qt.TextFormat.PlainText)
         self._loudness_label.setWordWrap(True)
         self._loudness_label.setVisible(False)
         self._loudness_label.setStyleSheet(SECONDARY_STYLE)

@@ -54,7 +54,14 @@ def fetch(arg: str | None) -> bytes:
         return Path(arg).read_bytes()
     print(f"downloading {SOURCE_URL} …")
     with urllib.request.urlopen(SOURCE_URL, timeout=60) as resp:  # noqa: S310
-        return resp.read()
+        # typeshed types `urlopen`'s result as `Any`, because it can be several
+        # response classes; for an http:// URL it is `http.client.HTTPResponse`,
+        # whose `read()` returns bytes. Checked rather than annotated, so the
+        # declared return type is a fact about this value and not an Any passed on.
+        body = resp.read()
+    if not isinstance(body, bytes):
+        raise TypeError(f"{SOURCE_URL} read back {type(body).__name__}, not bytes")
+    return body
 
 
 def parse(data: bytes) -> dict[str, int]:

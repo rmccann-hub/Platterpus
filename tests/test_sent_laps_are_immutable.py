@@ -149,6 +149,14 @@ SENT_LAPS: dict[str, str] = {
     # blocking), our answers to their lap 5's S17 and S24, and the pre-commit of
     # GO for our lap 8; released on the maintainer's word 2026-09-30 ("announce").
     "outbound/round-30-lap-06.md": "c5669248128ba75d24d9853cafa062bdc7015e09e93cc781dbb86df99869983d",
+    # Round 30 lap 8 — our `OPEN` lap under the operator's override of R1, eight
+    # fixes since lap 6, `.20` read and the data register; released on the
+    # maintainer's word 2026-10-05 ("Release"). Their lap 9 holds it, at these bytes.
+    "outbound/round-30-lap-08.md": "ef9b1dbbb80d366e3e93e395c26c9db3948e650c7866d7292b6b41a1b1ee1946",
+    # Round 30 lap 10 — our `OPEN` answer to their lap 9: S13/S16/S39/S3 answered,
+    # our lap 8 S28 withdrawn, fourteen fixes, and their lap 9's R6 miss; released on
+    # the maintainer's word 2026-10-05 ("Fix what you can then release the next lap").
+    "outbound/round-30-lap-10.md": "20e17e55a37c3691a8d367dc7154fac189fabf11e0e310ecca6b14793f91b20a",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at

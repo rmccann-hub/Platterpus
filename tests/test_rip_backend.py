@@ -80,6 +80,76 @@ def test_rip_handle_cancel_signals_group_terminate_then_kill(
     assert code == -9
 
 
+def test_terminate_says_which_process_group_its_SIGTERM_reached() -> None:
+    """The window's rescue spares the process our cancel already signalled (the
+    fork's round 30 lap 9 S28), so the handle must say which group that was. A
+    real child in a session of its own, as the cyanrip backend starts it: the
+    group is its own PID."""
+    proc = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        start_new_session=True,
+    )
+    try:
+        handle = RipHandle(process=proc)  # type: ignore[arg-type]
+        assert handle.pid == proc.pid
+        assert handle.terminate() == proc.pid
+        assert proc.wait(timeout=10) == -signal.SIGTERM
+        assert handle.terminate() is None, "an exited process was signalled again"
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=10)
+
+
+def test_terminate_reports_no_group_when_only_the_process_was_signalled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The fallback signals the single process: its group mates had no signal,
+    so `None` keeps the rescue from sparing them."""
+
+    def _no_group(pid: int) -> int:
+        raise PermissionError("no group")
+
+    monkeypatch.setattr(rip_backend.os, "getpgid", _no_group)
+    sent: list[int] = []
+
+    class _Recording(_FakePopen):
+        def send_signal(self, sig: int) -> None:
+            sent.append(sig)
+
+    handle = RipHandle(process=_Recording(argv=[]))  # type: ignore[arg-type]
+    assert handle.terminate() is None
+    assert sent == [signal.SIGTERM]
+
+
+def test_kill_sends_SIGKILL_alone_and_bounds_its_wait(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The escalation for a ripper that already had our SIGTERM: no second TERM
+    (cyanrip's second signal skips its footer), and a D-state process is reported
+    as unreapable rather than waited on forever."""
+    sent: list[int] = []
+    monkeypatch.setattr(rip_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(rip_backend.os, "killpg", lambda pgid, sig: sent.append(sig))
+
+    class _Unreapable(_FakePopen):
+        def wait(self, timeout: float | None = None) -> int:
+            assert timeout is not None, "kill() waited with no timeout"
+            raise subprocess.TimeoutExpired(cmd="cyanrip", timeout=timeout)
+
+    with caplog.at_level("ERROR"):
+        code = RipHandle(process=_Unreapable(argv=[])).kill(timeout=0.01)  # type: ignore[arg-type]
+    assert sent == [signal.SIGKILL]
+    assert code is None
+    assert any("survived SIGKILL" in r.message for r in caplog.records)
+
+    exited = _FakePopen(argv=[])
+    exited.returncode = 0
+    sent.clear()
+    assert RipHandle(process=exited).kill() == 0  # type: ignore[arg-type]
+    assert sent == [], "an exited process was signalled"
+
+
 def test_rip_handle_cancel_on_already_exited_process_is_safe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

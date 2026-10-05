@@ -14,6 +14,7 @@ from platterpus.parity import decode_log_bytes
 from platterpus.parsers.eac_log import (
     PLATTERPUS_EAC_BANNERS,
     eac_log_producer,
+    eac_log_producer_line,
     looks_like_eac_log,
     parse_eac_copy_crcs,
 )
@@ -142,6 +143,31 @@ def test_the_producer_is_read_from_the_first_non_blank_line_only() -> None:
     assert eac_log_producer("Exact Audio Copy\n     Copy CRC B0D122E7\n") == (
         "exact_audio_copy"
     )
+
+
+def test_the_producer_line_is_the_line_the_producer_is_read_from() -> None:
+    """`eac_log_producer_line` names the line a caller quotes when it reports WHY
+    a log was classified (the EAC-parity tool refusing our export as a baseline).
+
+    The relation is the point: classifying the line alone must give the same
+    answer as classifying the whole text, or a refusal could quote a line that
+    did not decide it. Checked on the real committed files, one per producer.
+    """
+    eac = _baseline_text()
+    ours = _OLD_BANNER_EXPORT.read_text(encoding="utf-8")
+    assert eac_log_producer_line(eac) == "Exact Audio Copy V1.8 from 15. July 2024"
+    assert eac_log_producer_line(ours) == _OLD_BANNER
+    for text in (eac, ours):
+        line = eac_log_producer_line(text)
+        assert line is not None
+        assert eac_log_producer(line) == eac_log_producer(text)
+    # Blank lines and a BOM are skipped, exactly as the classifier skips them.
+    assert eac_log_producer_line(f"\n  \n\ufeff{_NEW_BANNER}\nTrack  1\n") == (
+        _NEW_BANNER
+    )
+    # Nothing to read is "no line", never an empty string that looks like one.
+    assert eac_log_producer_line("") is None
+    assert eac_log_producer_line("\n \t\n") is None
 
 
 def test_the_writers_first_line_is_the_newest_recognised_banner() -> None:

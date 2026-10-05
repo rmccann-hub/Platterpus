@@ -201,7 +201,10 @@ ripped and encoded …`, `EAC CRC32:`, `Accurip v1/v2: … (accurately ripped,
 confidence N)`, `Accurip 450:` → the offset-variant match, `(after N rips)` →
 `rip_count`, extraction speed/quality,
 `Done; (M out of N matches …)` / `(no matches found, but hit repeat limit of N)`
-→ `secure_rerip_converged`), the AccurateRip summary, album loudness, and the
+→ `secure_rerip_converged`; for a limit hit, the fork's `at most M reads agreed`
+or, under the old wording, the counts on the `Repeating ripping (k out of N
+matches …)` lines before it → `secure_rerip_agreement`, a count that is exact or a
+floor, never read for its checksum), the AccurateRip summary, album loudness, and the
 `Log FUN512:` signature. cyanrip writes its own `.log` + `.cue` at the end; a
 **cancelled** rip writes neither. **Note:** the banner block yields `drive`,
 `read_offset`, `disc_id`, `cddb_id`, `speed_changeable`, the disc duration,
@@ -243,7 +246,7 @@ per row: [`cyanrip-upstream.md`](cyanrip-upstream.md).
 | `Sample peak:  -0.5 dBFS` — or a `Sample peak:` sub-header followed by `Peak:  -0.5 dBFS`, cyanrip's existing style for `True peak:`. Unit (`dBFS` or `%`) **required**; a value above full scale is refused and logged | `peak_level` (linear fraction) | `Peak level` | §2.1 |
 | `Speed:  1.6x` / `Extraction speed: 1.6 X` (indented — the column-0 `Speed:` row is the drive's speed-changeability and is unaffected) | `extraction_speed` | `Extraction speed` | §2.3 |
 | `Elapsed:  161.00 s` (also `Elapsed time:`, `Rip time:`, `Extraction time:`, `Time taken:`; unit `s`/`sec`/`secs`/`seconds`) — **a scalar with a unit, not a clock.** The `(HH:)MM:SS` sibling rule was retired 2026-08-21: it matched 0 of 19 committed fork logs and 0 of 11 stock logs, and the fork's pre-split combined line `Elapsed:  %s (%.1fx)` was refused by its end-of-line anchor anyway. The shipped build emits `Elapsed:  %.2f s`, split from that combined form at their `89eb849` | `extraction_elapsed_seconds` | *none* — rendered as an extra `Extraction time` row, never converted into a speed | §2.3 |
-| `Secure re-read: converged (2 out of 2 matches)` / `did NOT converge (…)` / `not attempted`; or the existing `Done; (…)` text routed through the log so it arrives **indented** | `secure_rerip_converged` (True / False / left alone) | drives the `Test CRC`/`Copy CRC` pair vs the "re-reads did NOT agree" caveat | §2.4 |
+| `Secure re-read: converged (2 out of 2 matches)` / `did NOT converge (…)` / `not attempted`; or the existing `Done; (…)` text routed through the log so it arrives **indented** | `secure_rerip_converged` (True / False / left alone) | drives the `Test CRC`/`Copy CRC` pair vs the "not confirmed reproducible" caveat (worded by `secure_rerip_agreement` since 2026-10-05) | §2.4 |
 | `C2 errors:  supported by drive, not used` (column 0) | `c2_pointers` = `False` | `Make use of C2 pointers` | §2.5 |
 
 Three properties of that table are load-bearing, not incidental:
@@ -721,9 +724,33 @@ never have a rip on another drive killed by a broad name match, #23):
 4. **`eject [<device>]`** — only *after* the holder is killed (a busy device
    ignores eject).
 
-**Shutdown contract (0.4.9):** closing the app during a rip runs `free_drive`
-(kill the reader, no eject) **synchronously** so the in-container reader can't
-outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
+**Post-cancel rescue (`term_unsignalled_holders`):** 5 s after a Cancel, the
+holder of the rip's drive gets **SIGTERM**, never SIGKILL (cyanrip writes its
+log's footer and `Log FUN512:` from `atexit`), and never eject. It must be the
+ripper's **first** signal: cyanrip `_exit(1)`s on a second with no footer
+(`cyanrip@174a134:src/cyanrip_main.c:1216-1221`). Behind the Distrobox wrapper
+the cancel's SIGTERM ends the wrapper and does not cross into the container, so
+when nothing the cancel signalled is still running this is the plain
+**`fuser -s -k -TERM <device>`**. A native cyanrip on `PATH` (the
+`composition.build_backend` fallback) *is* what the cancel signalled, so while
+that process is unreaped the rescue lists the holders first, with
+**`fuser <device>`** (exit 0 held, 1 not held; PIDs on stdout, the name and
+access letters on stderr, merged here as `/dev/sr0:   4321`, psmisc 23.7) and
+`kill(2)`s with SIGTERM only the holders `second_signal_refusal` allows: not
+the process or process group the cancel reached, until `READER_TERM_GRACE_S`
+(108 s) after it. If fuser names no PID it can read, nothing is signalled and
+the log says NOT DETERMINED. (The fork's round 30 lap 9 S28; a native install
+has not been run on hardware.)
+
+**Shutdown contract:** closing the app during a rip stops the reader
+(`stop_reader_gracefully`, no eject) as exit work that `app.main` joins
+before the process exits, so the window closes at once and the in-container
+reader can't outlive the process: SIGTERM through the same
+`term_unsignalled_holders` (skipped if the rescue already signalled, and
+refusing a native cyanrip the close's own cancel reached), then up to
+`READER_TERM_GRACE_S` polling **`fuser -s <device>`**, then `free_drive`'s
+SIGKILL only if the drive is still held or fuser cannot say — see
+`ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 

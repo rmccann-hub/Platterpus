@@ -19,6 +19,11 @@ under all three.
    whole rip — `-t 17=` against a 16-track disc — was diagnosed from files the
    maintainer uploaded by hand, because our own report did not carry the
    command line.
+4. **Every track's outcome line was left out** (found later, 2026-10-05, by the
+   cyanrip fork: round 30 lap 9 S29). The test for "is this a redraw?" was "does
+   this line move the bar?", and `Track N read successfully!` moves the bar.
+   Redraws are now thinned per run, first and last kept and the rest counted,
+   and the report's label says exactly that.
 
 The through-line: each was a fact we *had* and threw away, which is worse than
 one we never obtained, because the report looked complete either way.
@@ -26,11 +31,17 @@ one we never obtained, because the report looked complete either way.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 
-from platterpus import inbound_text
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
+from platterpus import inbound_text, report_artifacts
 from platterpus.adapters.rip_backend import RipHandle
+from platterpus.parsers.cyanrip_log import finished_track
+from platterpus.redraw_run import REDRAW_ELISION_PHRASE, RedrawRun
 from platterpus.rip_report import build_outcome
 from platterpus.workers import rip_worker as rw
 
@@ -38,11 +49,13 @@ from platterpus.workers import rip_worker as rw
 class _Sink:
     """The retention half of ``RipWorker`` with none of the Qt.
 
-    Deliberately mirrors the worker's real loop body rather than calling it: the
-    loop needs a live subprocess, a thread and a signal target, and a fixture
-    that supplied all three would be testing the fixture. The mirrored lines are
-    pinned by :func:`test_the_worker_still_uses_the_constants_this_mirrors`, so
-    the stand-in cannot drift away from the product without failing — the
+    The loop needs a live subprocess, a thread and a signal target, and a fixture
+    that supplied all three would be testing the fixture, so this holds only the
+    worker's retention STATE and borrows the worker's own retention METHODS. It
+    used to re-implement the head/tail trim in ``feed``; since 2026-10-05 (round
+    30 lap 9 S29, the redraw runs) it calls the product's method instead, so there
+    is no mirrored body left to drift. The fields are still pinned by
+    :func:`test_the_worker_still_uses_the_constants_this_mirrors` — the
     harness-fidelity rule (``docs/testing.md`` §5.t).
     """
 
@@ -50,21 +63,22 @@ class _Sink:
         self._stdout_lines: list[str] = []
         self._stdout_tail: list[str] = []
         self._stdout_elided: int = 0
+        # The open run of progress redraws (`redraw_run`).
+        self._redraw_run: RedrawRun = RedrawRun()
         # The worker's screening tally (`inbound_text`), which `captured_stdout`
         # reads to decide whether to add its note. Mirrored, like the fields
         # above, so the borrowed method runs against the worker's real state.
         self._inbound: inbound_text.Tally = inbound_text.Tally()
 
-    def feed(self, line: str) -> None:
-        if len(self._stdout_lines) < rw._MAX_STDOUT_LINES:
-            self._stdout_lines.append(line)
-        else:
-            self._stdout_tail.append(line)
-            if len(self._stdout_tail) > rw._STDOUT_TAIL_LINES:
-                self._stdout_tail.pop(0)
-                self._stdout_elided += 1
-
+    _capture_line = rw.RipWorker._capture_line
+    _retain_stdout_line = rw.RipWorker._retain_stdout_line
+    _store_line = rw.RipWorker._store_line
+    _flush_redraw_run = rw.RipWorker._flush_redraw_run
     captured_stdout = rw.RipWorker.captured_stdout
+
+    def feed(self, line: str) -> bool:
+        """One line, through the worker's own routing; True when it was a redraw."""
+        return self._capture_line(line, line)
 
 
 # --- 1. the tail, where the error is -----------------------------------------
@@ -125,7 +139,8 @@ def test_the_retained_size_stays_bounded() -> None:
 
 
 def test_the_worker_still_uses_the_constants_this_mirrors() -> None:
-    """Harness fidelity. `_Sink` reimplements the worker's retention, so if the
+    """Harness fidelity. `_Sink` supplies the worker's retention fields to the
+    worker's own methods (until 2026-10-05 it reimplemented the trim), so if the
     worker stops using these names the stand-in is silently testing nothing."""
     source = rw.__file__
     with open(source, encoding="utf-8") as handle:
@@ -215,3 +230,202 @@ def test_the_handle_argv_survives_a_string_command() -> None:
     handle = RipHandle.__new__(RipHandle)
     handle._process = _FakeProcess()  # type: ignore[assignment]  # duck-typed args only
     assert handle.argv == ("cyanrip -N",)
+
+
+# --- 4. a track's outcome line, and the redraws around it ---------------------
+#
+# Round 30 lap 9 S29 (the cyanrip fork, reading the 2026-10-05 Full run): the
+# capture never carried `Track N read successfully!` or `read with errors.`. The
+# worker asked `_progress_for(line) is not None` to decide what to leave out, and an
+# outcome line moves the bar, so it was left out with the redraws, while the report
+# called the capture "complete even when the ripper was killed".
+
+_PHRASE = re.escape(REDRAW_ELISION_PHRASE)
+_REDRAW_MARKER = re.compile(rf"^\[platterpus\] … (?P<count>\d+) {_PHRASE} …$")
+
+#: Every shape `_progress_for` gives a bar value for, and what the capture does with
+#: it: True for a redraw (thinned), False for a line kept as it is. The previous
+#: backend's three shapes are redraws in the format they were written for.
+_DECISIONS: tuple[tuple[str, bool], ...] = (
+    ("Ripping track 5, progress - 42.37%, ETA - 3m, errors - 0", True),
+    ("Ripping and encoding track 5, progress - 100.00%", True),
+    ("Reading TOC  50 %", True),
+    ("Reading track 3 of 16 (1 of 9) ...  42 %", True),
+    ("Getting length of audio track (1 of 16) ... 100 %", True),
+    ("Track 5 read successfully!", False),
+    ("Track 5 read with errors.", False),
+    ("Track 5 ripped and encoded successfully!", False),
+    ("Track 5 ripped and encoded with errors.", False),
+    # An outcome line that also contains a redraw's words is an outcome: the safe
+    # direction, since calling a line a redraw can cost a verdict.
+    ("Track 5 read with errors. Ripping track 5, progress - 1.00%", False),
+    # Lines `_progress_for` gives no value for, which were always kept.
+    ("Disc tracks:    14", False),
+    ("Flushing encoders...", False),
+    ("Done; (2 out of 2 matches for current checksum ABCD1234)", False),
+    ("Repeating ripping (1 out of 3 matches for current checksum ABCD1234)", False),
+    ("Trying to quit", False),
+)
+
+
+def test_each_shape_the_bar_reads_is_decided() -> None:
+    """The enumeration the fix was asked for, as a table the predicate is held to."""
+    for line, redraw in _DECISIONS:
+        assert rw._is_progress_redraw(line) is redraw, line
+    # Both sides populated, so the table cannot pass by finding nothing.
+    assert sum(r for _, r in _DECISIONS) == 5
+    assert sum(not r for _, r in _DECISIONS) >= 5
+
+
+def test_a_run_keeps_its_first_and_last_and_counts_the_middle() -> None:
+    """Five redraws: the first, a marker counting three, the last, then the outcome."""
+    sink = _Sink()
+    redraws = [f"Ripping track 2, progress - {p}.00%" for p in range(1, 6)]
+    for line in redraws:
+        sink.feed(line)
+    sink.feed("Track 2 read with errors.")
+    assert sink.captured_stdout.splitlines() == [
+        redraws[0],
+        f"[platterpus] … 3 {REDRAW_ELISION_PHRASE} …",
+        redraws[-1],
+        "Track 2 read with errors.",
+    ]
+
+
+def test_runs_of_one_and_two_carry_no_marker() -> None:
+    """A marker counting zero would claim an elision that did not happen."""
+    sink = _Sink()
+    sink.feed("Ripping track 1, progress - 100.00%")
+    sink.feed("Track 1 read successfully!")
+    sink.feed("Ripping track 2, progress - 1.00%")
+    sink.feed("Ripping track 2, progress - 100.00%")
+    sink.feed("Track 2 read successfully!")
+    text = sink.captured_stdout
+    assert REDRAW_ELISION_PHRASE not in text
+    assert len(text.splitlines()) == 5
+
+
+def test_an_open_run_is_shown_and_reading_the_capture_does_not_close_it() -> None:
+    """The ripper's last output can be redraws (killed mid-read). The capture shows
+    them, and reading it twice, as the report's re-writes do, changes nothing."""
+    sink = _Sink()
+    sink.feed("Summary:")
+    for p in (1, 2, 3, 4):
+        sink.feed(f"Ripping track 7, progress - {p}.00%, errors - 2")
+    first_read = sink.captured_stdout
+    assert first_read == sink.captured_stdout
+    assert first_read.splitlines() == [
+        "Summary:",
+        "Ripping track 7, progress - 1.00%, errors - 2",
+        f"[platterpus] … 2 {REDRAW_ELISION_PHRASE} …",
+        "Ripping track 7, progress - 4.00%, errors - 2",
+    ]
+    # The run is still open: one more redraw joins it rather than starting another.
+    sink.feed("Ripping track 7, progress - 5.00%, errors - 3")
+    assert f"… 3 {REDRAW_ELISION_PHRASE} …" in sink.captured_stdout
+    assert sink.captured_stdout.splitlines()[-1].endswith("5.00%, errors - 3")
+
+
+def test_the_reports_label_says_what_the_worker_keeps() -> None:
+    """Two surfaces, one fact. The label quotes the marker the worker writes, and no
+    longer claims a completeness the capture never had."""
+    label = report_artifacts.RIPPER_STDOUT_LABEL
+    assert REDRAW_ELISION_PHRASE in label
+    assert "complete" not in label.lower()
+    assert "every line in order" in label
+    block = report_artifacts.build_artifacts(ripper_stdout="Summary:\n")
+    assert block["ripper_stdout"]["source"] == label
+
+
+# Lines that cannot match a redraw shape (no `%`, no `(`) and are not outcomes.
+_plain = st.text(
+    alphabet=st.characters(blacklist_characters="%(\n\r", blacklist_categories=("Cs",)),
+    max_size=40,
+).filter(lambda s: finished_track(s) is None)
+_redraw = st.builds(
+    "Ripping{} track {}, progress - {:.2f}%{}".format,
+    st.sampled_from(["", " and encoding"]),
+    st.integers(min_value=1, max_value=99),
+    st.floats(min_value=0, max_value=100),
+    st.sampled_from(["", ", ETA - 3m", ", ETA - 0s, errors - 7"]),
+)
+_outcome = st.builds(
+    "Track {} {}".format,
+    st.integers(min_value=1, max_value=99),
+    st.sampled_from(["read successfully!", "read with errors."]),
+)
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    st.lists(
+        st.one_of(
+            st.tuples(st.just(True), _redraw),
+            st.tuples(st.just(False), _plain),
+            st.tuples(st.just(False), _outcome),
+        ),
+        max_size=120,
+    )
+)
+def test_the_capture_is_the_stream_with_each_run_thinned(
+    stream: list[tuple[bool, str]],
+) -> None:
+    """The completeness claim as a property, against an oracle that knows each line's
+    kind from how it was MADE, not from the predicate.
+
+    Every non-redraw line is kept, in order; each run of redraws is its first line,
+    a marker counting the middle when there is one, and its last; and every redraw
+    fed is either shown or counted.
+    """
+    sink = _Sink()
+    expected: list[str] = []
+    run: list[str] = []
+
+    def close() -> None:
+        if run:
+            middle = len(run) - 2
+            expected.append(run[0])
+            if middle > 0:
+                expected.append(f"[platterpus] … {middle} {REDRAW_ELISION_PHRASE} …")
+            if len(run) > 1:
+                expected.append(run[-1])
+            run.clear()
+
+    for is_redraw, line in stream:
+        assert sink.feed(line) is is_redraw, line
+        if is_redraw:
+            run.append(line)
+        else:
+            close()
+            expected.append(line)
+    close()
+
+    kept = sink.captured_stdout.split("\n")
+    assert kept == (expected or [""])
+    # Read off the CAPTURE: every redraw fed is a kept line or in a marker's count.
+    counted = sum(
+        int(m.group("count"))
+        for m in (_REDRAW_MARKER.match(ln) for ln in kept)
+        if m is not None
+    )
+    shown = sum(rw._is_progress_redraw(ln) for ln in kept)
+    assert shown + counted == sum(r for r, _ in stream)
+
+
+@settings(max_examples=300, deadline=None)
+@given(
+    st.one_of(
+        st.text(max_size=2000),
+        st.builds(
+            "Ripping{} track {}, progress - {}%{}".format,
+            st.sampled_from(["", " and encoding"]),
+            st.text(alphabet="0123456789", max_size=5000),
+            st.text(alphabet="0123456789.", max_size=5000),
+            st.text(max_size=200),
+        ),
+        st.builds("Track {} {}".format, st.text(max_size=5000), st.text(max_size=50)),
+    )
+)
+def test_the_redraw_predicate_never_raises(line: str) -> None:
+    """It reads every line the ripper prints, live; a raise ends the read loop."""
+    assert isinstance(rw._is_progress_redraw(line), bool)

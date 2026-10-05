@@ -46,6 +46,7 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 from platterpus import __version__, build_info, inbound_text
 from platterpus.uiscript import run_sizes
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
+from platterpus.uiscript.permutation_verbs import PermutationVerbsMixin
 from platterpus.uiscript.probe_verbs import ProbeVerbsMixin
 from platterpus.uiscript.report import (
     CONCEPT,
@@ -416,7 +417,7 @@ def _preflight(steps: list[Step]) -> list[str]:
     return problems
 
 
-class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
+class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, PermutationVerbsMixin, QObject):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
 
     The window is passed in rather than discovered, so tests can drive a real
@@ -1262,9 +1263,13 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, QObject):
             )
             return
         first = failed[0]
+        # The failed step's FIRST line only (`StepRecord.headline`): this sentence
+        # becomes the run's `ended_reason`, which the transcript's ENDED EARLY line
+        # and the closing dialog's "Why it stopped" both print under the step's
+        # own full text (0.6.63's quick run printed a section-A failure 3 times).
         detail = (
             f"{len(failed)} step(s) have failed in {where!r}; the first was "
-            f"L{first.line_no} ({first.source!r}: {first.detail}). "
+            f"L{first.line_no} ({first.source!r}: {first.headline()}). "
             + (step.joined() or "stopping rather than spending the run on it")
             + earlier_note
         )

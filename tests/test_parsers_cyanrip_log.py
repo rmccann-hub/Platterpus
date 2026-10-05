@@ -560,6 +560,149 @@ def test_the_old_wording_is_printed_even_when_reads_agreed() -> None:
     assert log.tracks[0].secure_rerip_converged is False
 
 
+# --- How many reads agreed, when the limit was hit (2026-10-05) ------------------
+#
+# TASKS.md, *Found while integrating*, item 1: the EAC-layout log said "re-reads
+# did NOT agree" of every limit-hit track. `TrackResult.secure_rerip_agreement`
+# is what it reads now. Its rules come from cyanrip's source: a read's count is
+# matched against EVERY earlier read (cyanrip@e5a4ddf:src/cyanrip_main.c:999-1001),
+# and the fork's limit line states the largest group, the last read included
+# (cyanrip@8b1581a:src/cyanrip_main.c:1020-1037).
+
+_ROUND15_ARTIFACT = (
+    "docs/handshake/outbound/artifacts/round-15-lap-13-secure-reread-g978f9b0.log"
+)
+
+#: Every limit-hit track in the committed secure re-read logs, and what its log
+#: proves, worked out by hand from the lines cited. (count, exact).
+_LIMIT_HIT_TRACKS: dict[tuple[str, int], tuple[int, bool]] = {
+    # -Z 2 -r 3, old wording. Read 2 printed `1 out of 2 matches` (round 28: lines
+    # 381-385): two agreed, and the third cannot have joined them without
+    # converging.
+    ("docs/handshake/artifactsround26/round26securereread.log", 5): (2, True),
+    ("docs/handshake/artifactsround28/round28fullsecurereread.log", 5): (2, True),
+    (_ROUND15_ARTIFACT, 4): (2, True),
+    # -Z 2 -r 3, old wording. Reads 1 and 2 differed (`0 out of 2` twice), and
+    # read 3's count was never printed: a floor of 1, which says nothing.
+    ("docs/handshake/artifactsround27/round27fullsecurereread.log", 3): (1, False),
+    (_ROUND15_ARTIFACT, 3): (1, False),
+    # -Z 2 -r 5, the fork's wording: `at most 1 read agreed` (line 228). Exact.
+    ("docs/handshake/artifactsround30/round30oct05fullsecurereread.log", 3): (1, True),
+}
+
+
+def test_each_committed_limit_hit_track_carries_what_its_log_proves() -> None:
+    """Against the hand-worked table, over every track of each log in it.
+
+    Closed per file: every OTHER track of those logs converged and carries no
+    count, so a count leaking onto the next track (the buffer not reset at the
+    track opener) fails here as well as a wrong number.
+    """
+    examined = 0
+    for path in sorted({name for name, _number in _LIMIT_HIT_TRACKS}):
+        log = parse_cyanrip_log((_REPO / path).read_text(encoding="utf-8"))
+        assert len(log.tracks) == 14, (path, len(log.tracks))
+        for track in log.tracks:
+            expected = _LIMIT_HIT_TRACKS.get((path, track.number))
+            if expected is None:
+                assert track.secure_rerip_converged is True, (path, track.number)
+                assert track.secure_rerip_agreement is None, (path, track.number)
+                continue
+            examined += 1
+            assert track.secure_rerip_converged is False, (path, track.number)
+            got = track.secure_rerip_agreement
+            assert got is not None, (path, track.number)
+            assert (got.most_reads_agreed, got.exact) == expected, (path, track, got)
+    # Floor: all six limit-hit tracks were reached.
+    assert examined == len(_LIMIT_HIT_TRACKS) == 6, examined
+
+
+def test_a_floor_of_one_is_not_no_two_reads_agreed() -> None:
+    """Why round 27's track 3 gets a floor and not "no two reads agreed".
+
+    Its last read DID match its second. The second read printed `A62CAD22`, which
+    on that build (before cyanrip 9669d84, round 29 lap 1 S34) is the complement
+    of the EAC CRC32, and the kept read, the last one, has EAC CRC32 `59D352DD`.
+    Had the parser called this "no two reads agreed", the log would have said
+    something the artifact disproves.
+    """
+    path = _REPO / "docs/handshake/artifactsround27/round27fullsecurereread.log"
+    text = path.read_text(encoding="utf-8")
+    assert (
+        "Repeating ripping (0 out of 2 matches for current checksum A62CAD22)" in text
+    )
+    assert "EAC CRC32:     59D352DD (after 3 rips)" in text
+    assert 0xA62CAD22 ^ 0xFFFFFFFF == 0x59D352DD
+    track = {t.number: t for t in parse_cyanrip_log(text).tracks}[3]
+    assert track.secure_rerip_agreement is not None
+    assert track.secure_rerip_agreement.exact is False
+
+
+def test_the_limit_agreement_rules_case_by_case() -> None:
+    """`secure_rerip_limit_agreement` on the shapes the table above does not reach."""
+    from platterpus.parsers.cyanrip_log import secure_rerip_limit_agreement
+    from platterpus.parsers.rip_log import RereadAgreement
+
+    old = "Done; (no matches found, but hit repeat limit of 4)"
+    cases: list[tuple[str, list[tuple[int, int]], RereadAgreement | None]] = [
+        # -Z 1: any two equal reads converge, so a limit hit means none matched.
+        (old, [(0, 1), (0, 1), (0, 1)], RereadAgreement(1, True)),
+        # -Z 3: a pair agreed, and the last read may have made it three.
+        (old, [(0, 3), (1, 3), (0, 3)], RereadAgreement(2, False)),
+        # -Z 3: three agreed, the most the last read can be part of without
+        # converging, so exact.
+        (old, [(0, 3), (1, 3), (2, 3)], RereadAgreement(3, True)),
+        # Targets that disagree are not a log we can reason about: floor only.
+        (old, [(0, 2), (1, 3)], RereadAgreement(2, False)),
+        # Old wording with no progress lines: nothing to count.
+        (old, [], None),
+        # The fork's count wins over the progress lines, in either number.
+        (
+            "Done; (repeat limit of 5 reads reached; at most 3 reads agreed)",
+            [(0, 2)],
+            RereadAgreement(3, True),
+        ),
+        (
+            "  Done; (repeat limit of 1 read reached; at most 1 read agreed)",
+            [],
+            RereadAgreement(1, True),
+        ),
+        # A count of 0 is not a count: fall back to the progress lines.
+        (
+            "Done; (repeat limit of 3 reads reached; at most 0 reads agreed)",
+            [(0, 2), (1, 2)],
+            RereadAgreement(2, True),
+        ),
+        # Not a limit hit: no count, whatever the progress lines say.
+        ("Done; (2 out of 2 matches for current checksum AAAA1111)", [(1, 2)], None),
+        ("Done; (0 out of 5 matches for current checksum AAAA1111)", [(1, 5)], None),
+        ("Track 1 read successfully!", [(1, 2)], None),
+    ]
+    for line, progress, expected in cases:
+        got = secure_rerip_limit_agreement(line, progress)
+        assert got == expected, (line, progress, got)
+
+
+def test_progress_lines_without_a_verdict_do_not_reach_the_next_track() -> None:
+    """A cancelled re-read stops with no `Done;` line. Its progress lines must not
+    become the count of the next track's limit hit, which printed none of its own."""
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\n"
+        "Repeating ripping (0 out of 2 matches for current checksum AAAA1111)\n"
+        "Repeating ripping (1 out of 2 matches for current checksum AAAA1111)\n"
+        "Track 1 read successfully!\n"
+        "  EAC CRC32:     AAAA1111 (after 2 rips)\n"
+        "Done; (no matches found, but hit repeat limit of 3)\n"
+        "Track 2 read successfully!\n"
+        "  EAC CRC32:     BBBB2222 (after 3 rips)\n"
+    )
+    by_number = {t.number: t for t in log.tracks}
+    assert sorted(by_number) == [1, 2], by_number
+    assert by_number[1].secure_rerip_agreement is None
+    assert by_number[2].secure_rerip_converged is False
+    assert by_number[2].secure_rerip_agreement is None
+
+
 def test_unstable_tracks_picks_only_the_non_converged_track() -> None:
     # The read-speed ladder's unstable_tracks() must flag track 2 only — not the
     # offset-variant-but-converged track 3 (the real-disc track-3-vs-5 lesson).
@@ -3069,6 +3212,90 @@ def test_a_build_that_prints_no_encoder_line_is_unchanged() -> None:
     assert parse_cyanrip_log("Ripping errors: 2\n").health_status == "2 ripping errors"
 
 
+# --- `.20`'s `Ripping errors: N (including M paranoia skips)` (round 30 lap 9 S11) --
+#
+# From `+platterpus.20` the count includes paranoia's skips and says so in a
+# suffix whenever there are any (`cyanrip@0c692ed:src/cyanrip_log.c:1048-1053`, P2
+# `Ripping errors: %llu (including %llu paranoia skip%s)`). N keeps parsing as it
+# did; M is read beside it so the read-speed ladder can tell the drive's failures
+# from paranoia's skips (their S12).
+
+
+@pytest.mark.parametrize(
+    ("line", "n", "m", "drive"),
+    [
+        # Every line written before `.20`, and `.20` on a rip that skipped nowhere.
+        ("Ripping errors: 0", 0, 0, 0),
+        ("Ripping errors: 3", 3, 0, 3),
+        # `.20`'s suffix, plural and singular (`skip%s`).
+        ("Ripping errors: 2586 (including 2586 paranoia skips)", 2586, 2586, 0),
+        ("Ripping errors: 2589 (including 2586 paranoia skips)", 2589, 2586, 3),
+        ("Ripping errors: 1 (including 1 paranoia skip)", 1, 1, 0),
+        # More skips than errors cannot happen (N = drive + M); floored, not negative.
+        ("Ripping errors: 2 (including 5 paranoia skips)", 2, 5, 0),
+        # A suffix we do not recognise is not evidence of no skips.
+        ("Ripping errors: 7 (including 7 skips)", 7, None, None),
+    ],
+)
+def test_the_ripping_errors_line_separates_the_drive_from_the_skips(
+    line: str, n: int, m: int | None, drive: int | None
+) -> None:
+    parsed = parse_cyanrip_log(f"cyanrip 0.9.4\n{line}\n")
+    assert parsed.ripping_errors == n
+    assert parsed.ripping_errors_paranoia_skips == m
+    assert parsed.drive_read_errors == drive
+
+
+def test_the_health_status_still_counts_the_skips() -> None:
+    """User-facing and unchanged: from `.20` a skipped-on rip reads N errors.
+
+    That is the purpose of the fork's change (their S12); only the ladder reads
+    the drive's part.
+    """
+    parsed = parse_cyanrip_log(
+        "Ripping errors: 2586 (including 2586 paranoia skips)\n"
+        "Encoder errors: none; 18 tracks encoded\n"
+    )
+    assert parsed.health_status == "2586 ripping errors"
+    assert parsed.encoder_failed_tracks == 0
+    assert parsed.drive_read_errors == 0
+
+
+def test_a_failed_encode_is_not_counted_as_a_failed_read() -> None:
+    """Since their round 21, N includes each failed encode (`:3054-3055`)."""
+    parsed = parse_cyanrip_log(
+        "Ripping errors: 4\nEncoder errors: 1 track failed (3); 17 tracks encoded\n"
+    )
+    assert (parsed.ripping_errors, parsed.encoder_failed_tracks) == (4, 1)
+    assert parsed.drive_read_errors == 3
+    assert parsed.health_status == "4 ripping errors; 1 encoder error"
+
+
+def test_no_ripping_errors_line_states_no_drive_count() -> None:
+    """Absent is not zero: a log cut off before its footer says nothing."""
+    parsed = parse_cyanrip_log("cyanrip 0.9.4\nTrack 1 read successfully!\n")
+    assert parsed.ripping_errors is None
+    assert parsed.drive_read_errors is None
+    assert parsed.encoder_failed_tracks is None
+
+
+def test_the_filed_full_run_parses_as_it_did_with_its_skips_left_uncounted() -> None:
+    """The real 2026-10-04 log (`.19`, 2,586 skips, `Ripping errors: 0`).
+
+    `.19` did not count skips, and the line has no suffix, so M is 0 and the
+    drive's count is the line's: what the fork's S11 says of every such line.
+    """
+    text = (
+        Path(__file__).resolve().parent.parent
+        / "docs/handshake/artifactsround30/round30oct04full.log"
+    ).read_text(encoding="utf-8")
+    parsed = parse_cyanrip_log(text)
+    assert parsed.paranoia_counts.get("SKIP") == 2586  # the skips are there…
+    assert (parsed.ripping_errors, parsed.ripping_errors_paranoia_skips) == (0, 0)
+    assert parsed.drive_read_errors == 0  # …and were never in the count
+    assert parsed.health_status == "No errors occurred"
+
+
 # --- `Tracks to rip:` and the `Interrupted at:` shapes (the 2026-09-28 Full run) --
 #
 # Both read so the EAC-compatible log and the rip audit can say what a cancelled rip
@@ -3169,3 +3396,23 @@ def test_interruption_point_reads_only_the_two_published_shapes(
 def test_no_interruption_record_is_not_an_interruption_point(where: object) -> None:
     """No line at all is a different answer from a line we cannot read."""
     assert cyanrip_log.interruption_point(where) is None
+
+
+def test_an_implausible_ripping_errors_count_is_not_determined_and_not_no_errors() -> (
+    None
+):
+    """A 20-digit `Ripping errors:` count is no count of anything on a CD. It is
+    stored as not determined, and the health line says what the ripper printed,
+    never "No errors occurred". Found by the structure fuzz test, 2026-10-05, once
+    the ladder fix made the count a stored field."""
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    parsed = parse_cyanrip_log(
+        "cyanrip 0.9.4 (platterpus-fork-gdeadbee)\n"
+        "Ripping errors: 99999999999999999999 (including 5 paranoia skips)\n"
+    )
+    assert parsed.ripping_errors is None
+    assert parsed.ripping_errors_paranoia_skips is None
+    assert parsed.health_status is not None
+    assert "No errors" not in parsed.health_status
+    assert parsed.health_status.startswith("9999")

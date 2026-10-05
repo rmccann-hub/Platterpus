@@ -107,6 +107,38 @@ def repo_markdown_files(root: Path) -> list[Path]:
     )
 
 
+#: The maintained Python OUTSIDE the package and the tests, as (root, glob) pairs.
+#: Every gate extended past `src/platterpus` reads this one definition, so no two
+#: of them can disagree about what "the tooling" is (TASKS `scripts-outside-gates`,
+#: 2026-10-05). Readers: the size ratchet
+#: (`test_critical_rules_are_enforced.py` §6), the regex-time sweep
+#: (`test_regex_bounded_time.py`), and the check that `[tool.mypy] files` covers
+#: it (`test_audit_regressions.py`). `build/` is NOT recursive, and on
+#: purpose: `python -m build` leaves a full copy of the package in `build/lib/`
+#: (git-ignored), so a recursive walk would measure 195 package modules a second
+#: time on any machine that has built a wheel, and every gate would fail there and
+#: nowhere else.
+TOOLING_GLOBS: tuple[tuple[str, str], ...] = (("scripts", "**/*.py"), ("build", "*.py"))
+
+
+def maintained_tooling_modules(root: Path) -> list[Path]:
+    """Every module under :data:`TOOLING_GLOBS`, sorted.
+
+    Each root must exist: a renamed directory would otherwise leave every gate
+    that reads this population passing over nothing, so it fails here instead.
+    """
+    modules: list[Path] = []
+    for directory, pattern in TOOLING_GLOBS:
+        base = root / directory
+        assert base.is_dir(), (
+            f"the tooling root {directory}/ is gone, so every gate reading "
+            "`maintained_tooling_modules` would drop it silently; repoint "
+            "TOOLING_GLOBS in tests/conftest.py"
+        )
+        modules.extend(path for path in base.glob(pattern) if path.is_file())
+    return sorted(modules)
+
+
 # The file the session-completion guard writes. Absent ⇒ this run never reached
 # session finish, so its exit status means nothing. See `pytest_sessionstart`.
 SESSION_COMPLETE_SENTINEL: Path = (

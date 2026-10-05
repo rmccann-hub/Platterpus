@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Iterable
 
-from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -176,6 +176,9 @@ class PendingInstallsDialog(CenteredDialog):
             row.addWidget(checkbox, stretch=1)
 
             status_label = QLabel("", row_widget)
+            # PlainText: `mark_result` puts the installer's own error message
+            # here, and Qt's default AutoText would read a `<` in it as markup.
+            status_label.setTextFormat(Qt.TextFormat.PlainText)
             self._status_labels[item.spec.dep_id] = status_label
             row.addWidget(status_label)
 

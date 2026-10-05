@@ -30,10 +30,16 @@ wall-clock bound tipped over. Now every ``re.<function>(<literal>, ...)`` call i
 in the population, and each inline one is timed the way its call site uses it:
 ``re.match``/``re.fullmatch`` anchored, everything else by ``.search``. Timing a
 ``fullmatch`` on a filename by ``.search`` would report a quadratic pattern that
-cannot run quadratically. **Two calls remain outside it**, because their pattern
-is not a literal a sweep can read: ``adapters/cache_probe.py`` (a pattern passed
-in) and ``ripper_messages.py`` (built from the ripper's published format
-strings, bounded by ``_TAIL_LIMIT``).
+cannot run quadratically. **The calls whose pattern is not a literal** stay
+outside it, because a sweep cannot read them; they are counted per file in
+``_UNTIMED_CALLS``, with the reason each cannot stall, and a test holds that
+ledger to the tree in both directions.
+
+**And it read ``src/`` only until 2026-10-05.** ``scripts/`` and ``build/`` —
+the handshake tooling, the generators, the gate runner — are swept too now, by
+their own test over the population the size ratchet reads
+(``conftest.maintained_tooling_modules``). Their 88 literal patterns were all
+linear when they joined; thirteen computed ones went into the ledger.
 
 **What this test is not.** It is not a benchmark and must not fail because CI was
 busy. It compares each pattern against *itself* at two input sizes and only
@@ -52,8 +58,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from conftest import maintained_tooling_modules
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
-_SRC = Path(__file__).resolve().parent.parent / "src" / "platterpus"
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_SRC = _REPO_ROOT / "src" / "platterpus"
 
 # The two input sizes. A 4x jump in length should cost ~4x for a linear pattern;
 # a quadratic one costs ~16x, and the four real offenders were all far worse than
@@ -135,17 +145,15 @@ _HOW_EACH_CALL_RUNS: dict[str, str] = {
 }
 
 
-def _compiled_patterns() -> list[tuple[str, str, str]]:
-    """Every literal pattern handed to ``re`` in ``src/``: (location, pattern, how).
+def _re_calls(paths: list[Path]) -> list[tuple[str, ast.Call, str]]:
+    """Every ``re.<function>(...)`` call in ``paths``: (repo-relative file, call, how).
 
-    ``how`` is the method a measurement must use to time it the way it runs (see
-    ``_HOW_EACH_CALL_RUNS``). Read from the source with ``ast`` rather than by
-    importing, so a pattern is checked even if its module has import side
-    effects, and so the location in the failure message is a real file:line a
-    reader can open.
+    One walk for both halves of the population — the literal patterns the sweep
+    times, and the computed ones it cannot (``_untimed_calls``) — so the two can
+    never disagree about what counts as a call to ``re``.
     """
-    found: list[tuple[str, str, str]] = []
-    for path in sorted(_SRC.rglob("*.py")):
+    found: list[tuple[str, ast.Call, str]] = []
+    for path in paths:
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (
@@ -153,24 +161,48 @@ def _compiled_patterns() -> list[tuple[str, str, str]]:
             SyntaxError,
         ):  # pragma: no cover - a broken file fails elsewhere
             continue
+        rel = path.relative_to(_REPO_ROOT).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
             func = node.func
-            is_re_call = (
+            if (
                 isinstance(func, ast.Attribute)
                 and func.attr in _HOW_EACH_CALL_RUNS
                 and isinstance(func.value, ast.Name)
                 and func.value.id == "re"
-            )
-            if not is_re_call or not node.args:
-                continue
-            assert isinstance(func, ast.Attribute)  # narrowed by is_re_call
-            first = node.args[0]
-            if isinstance(first, ast.Constant) and isinstance(first.value, str):
-                rel = path.relative_to(_SRC.parent.parent)
-                how = _HOW_EACH_CALL_RUNS[func.attr]
-                found.append((f"{rel}:{node.lineno}", first.value, how))
+                and node.args
+            ):
+                found.append((rel, node, _HOW_EACH_CALL_RUNS[func.attr]))
+    return found
+
+
+def _is_literal_pattern(call: ast.Call) -> bool:
+    first = call.args[0]
+    return isinstance(first, ast.Constant) and isinstance(first.value, str)
+
+
+def _compiled_patterns(
+    paths: list[Path] | None = None,
+) -> list[tuple[str, str, str]]:
+    """Every literal pattern handed to ``re``: (location, pattern, how).
+
+    ``paths`` defaults to every module under ``src/platterpus``; the tooling sweep
+    passes ``conftest.maintained_tooling_modules`` instead.
+
+    ``how`` is the method a measurement must use to time it the way it runs (see
+    ``_HOW_EACH_CALL_RUNS``). Read from the source with ``ast`` rather than by
+    importing, so a pattern is checked even if its module has import side
+    effects, and so the location in the failure message is a real file:line a
+    reader can open.
+    """
+    if paths is None:
+        paths = sorted(_SRC.rglob("*.py"))
+    found: list[tuple[str, str, str]] = []
+    for rel, call, how in _re_calls(paths):
+        first = call.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str):
+            found.append((f"{rel}:{call.lineno}", first.value, how))
     return found
 
 
@@ -316,20 +348,32 @@ def _confirm_at_scale(
     return ratio > _MAX_GROWTH, ratio, bigger
 
 
-def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
-    """Sweep every pattern; re-measure anything that looks super-linear.
+def _assert_every_pattern_is_roughly_linear(
+    patterns: list[tuple[str, str, str]], *, floor: int, where: tuple[str, ...]
+) -> None:
+    """Time every pattern; re-measure anything that looks super-linear.
 
     The re-measurement is not politeness, it is what makes this usable in CI: a
     single timing can be wrecked by the scheduler, and a check that cries wolf
     gets deleted — which would be worse than not having it.
+
+    ``where`` is the repo-relative prefixes the patterns must come from. The floor
+    counts only patterns found there, and a pattern from anywhere else fails:
+    with two sweeps sharing this helper, a tooling sweep handed the package's
+    patterns would otherwise clear its floor on the wrong population and pass.
     """
-    patterns = _compiled_patterns()
-    # Floor: a sweep that finds nothing to examine is decoration. The codebase had
-    # 80 compiled patterns when this was written; 40 allows real deletion without
-    # letting the check quietly stop looking.
-    assert len(patterns) >= 40, (
-        f"only found {len(patterns)} compiled patterns in src/ — this sweep has "
-        "stopped finding them, which would make it pass by examining nothing"
+    elsewhere = sorted(
+        loc for loc, _pattern, _how in patterns if not loc.startswith(where)
+    )
+    assert not elsewhere, (
+        f"this sweep is for {where} and was handed patterns from elsewhere: "
+        f"{elsewhere[:5]}"
+    )
+    # Floor: a sweep that finds nothing to examine is decoration.
+    assert len(patterns) >= floor, (
+        f"only found {len(patterns)} compiled patterns in {where} (floor {floor}) "
+        "— this sweep has stopped finding them, which would make it pass by "
+        "examining nothing"
     )
 
     suspects: list[tuple[str, str, str, float, str, float]] = []
@@ -377,6 +421,132 @@ def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
         "Fix by bounding a quantifier (`\\d{1,4}` rather than `\\d+`) or by "
         "replacing the pattern with string operations — `rpartition` did it for "
         "the CSV row that prompted this test."
+    )
+
+
+def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
+    """The package: every literal pattern handed to ``re`` under ``src/platterpus``.
+
+    The codebase had 80 compiled patterns when this was written; a floor of 40
+    allows real deletion without letting the check quietly stop looking.
+    """
+    _assert_every_pattern_is_roughly_linear(
+        _compiled_patterns(), floor=40, where=("src/platterpus/",)
+    )
+
+
+#: Floor on the tooling's literal patterns: 88 on 2026-10-05, when the sweep was
+#: extended to them (TASKS `scripts-outside-gates`). Half, as for the package.
+_MIN_TOOLING_PATTERNS = 44
+
+
+def test_every_compiled_regex_in_the_tooling_is_roughly_linear() -> None:
+    """``scripts/`` and ``build/``: the same sweep over the maintainer tooling.
+
+    These parse handshake laps, workflow files and generated documents, some of
+    them written by the peer project, so a pattern that stalls on a long line
+    there stalls a release gate (`handshake.py --release-gate`) or a CI check.
+    The sweep read ``src/`` only until 2026-10-05; the population is the one the
+    size ratchet reads, ``conftest.maintained_tooling_modules``. A separate test
+    from the package sweep so ``pytest -n auto`` can run the two at once, and so
+    a failure says which half it is in.
+    """
+    _assert_every_pattern_is_roughly_linear(
+        _compiled_patterns(maintained_tooling_modules(_REPO_ROOT)),
+        floor=_MIN_TOOLING_PATTERNS,
+        where=("scripts/", "build/"),
+    )
+
+
+#: DEBT LEDGER — calls to ``re`` whose pattern is NOT a literal, so the sweep
+#: above cannot read it and does not time it, per file with the count and why.
+#: The sweep's docstring named the package's two in prose until 2026-10-05; prose
+#: is not a population check, and the tooling added thirteen more. **May shrink,
+#: never grow**: a new computed pattern must be entered here with its reason, so
+#: the sweep's blind spot is a number a reviewer sees rather than a silence.
+_UNTIMED_CALLS: dict[str, tuple[int, str]] = {
+    "src/platterpus/adapters/cache_probe.py": (
+        1,
+        "the pattern is a parameter; its callers pass module-level patterns "
+        "the sweep times where they are compiled",
+    ),
+    "src/platterpus/ripper_messages.py": (
+        1,
+        "built from the ripper's published format strings; each line is "
+        "bounded by `_TAIL_LIMIT`",
+    ),
+    "scripts/bommap/reading.py": (
+        1,
+        "an escaped literal between two fixed lookarounds; no quantifier",
+    ),
+    "scripts/emit_envelope.py": (
+        2,
+        "a header field name from a fixed table, escaped or a plain word, in "
+        "a fixed anchored shape",
+    ),
+    "scripts/handshake.py": (
+        6,
+        "escaped field names and version strings in fixed shapes, and the "
+        "GO-claim and heading patterns, whose repeats are bounded "
+        "(`{0,200}?`, `{0,3}`)",
+    ),
+    "scripts/laplang/context.py": (
+        2,
+        "an escaped section name in a fixed anchored heading shape",
+    ),
+    "scripts/round_digest.py": (
+        1,
+        "a header field name from a fixed table, anchored, with no quantifier",
+    ),
+    "scripts/verify_log_surface.py": (
+        1,
+        "the operator's own `--expect` patterns, which the tool exists to run",
+    ),
+}
+
+
+def _untimed_calls(paths: list[Path]) -> dict[str, int]:
+    """Per file, how many ``re`` calls carry a pattern that is not a literal."""
+    counts: dict[str, int] = {}
+    for rel, call, _how in _re_calls(paths):
+        if not _is_literal_pattern(call):
+            counts[rel] = counts.get(rel, 0) + 1
+    return counts
+
+
+def test_every_pattern_the_sweep_cannot_read_is_ledgered() -> None:
+    """The sweep's blind spot, measured both ways against ``_UNTIMED_CALLS``.
+
+    A new computed pattern (a file not in the ledger, or a count above its entry)
+    fails, because the sweep would report clean while never having timed it. A
+    count below its entry fails too, so the ledger cannot keep room that a new
+    untimed call could quietly fill.
+    """
+    population = sorted(_SRC.rglob("*.py")) + maintained_tooling_modules(_REPO_ROOT)
+    measured = _untimed_calls(population)
+    # Floor, in the shape of the stale check below: an empty ledger, or a walk
+    # that found nothing, must not compare equal and pass.
+    assert _UNTIMED_CALLS, "the ledger is empty, so this check cannot fail"
+    recorded = {name: count for name, (count, _why) in _UNTIMED_CALLS.items()}
+    grown = sorted(
+        f"{name}: {count} untimed call(s), ledger says {recorded.get(name, 0)}"
+        for name, count in measured.items()
+        if count > recorded.get(name, 0)
+    )
+    assert not grown, (
+        "these files hand `re` a pattern the sweep cannot read, so it is never "
+        "timed:\n  " + "\n  ".join(grown) + "\nPrefer a module-level literal the "
+        "sweep can time. If the pattern must be computed, bound every repeat and "
+        "enter the file in _UNTIMED_CALLS with the reason it cannot stall."
+    )
+    stale = sorted(
+        f"{name}: ledger says {count}, found {measured.get(name, 0)}"
+        for name, count in recorded.items()
+        if measured.get(name, 0) < count
+    )
+    assert not stale, (
+        "lower or remove these _UNTIMED_CALLS entries, so the room cannot be "
+        "refilled silently:\n  " + "\n  ".join(stale)
     )
 
 
@@ -532,6 +702,233 @@ def test_the_known_offenders_stay_bounded(module: str, attribute: str) -> None:
         f"{module}.{attribute} took {elapsed * 1000:.1f} ms on 4000 digits — an "
         "unbounded quantifier has come back"
     )
+
+
+# --- Offenders behind a literal prefix (2026-10-05) ----------------------------
+#
+# The sweep feeds each pattern runs of ONE character. A pattern that only
+# backtracks once a literal prefix has matched (`Read stalls: x`, `KEY: x`) never
+# reaches its slow region on such input, so the sweep reports it linear. That is
+# how `_REQUIREMENT` and `_WIRE_FIELD` passed it when it was extended to the
+# tooling, though each took about a third of a second on one 8,000-character line.
+# Both had the same shape: a lazy capture followed by trailing whitespace before
+# `$`, which retries the whitespace run at every step of the lazy capture. They
+# are fixed and pinned by name below; the sweep's blind spot, and the same shape
+# in `src/` (`parsers/cyanrip_log.py`), are recorded in TASKS.
+
+
+def _pattern_assigned_to(rel: str, name: str) -> re.Pattern[str]:
+    """The pattern a module assigns to ``name``, read from source, flags included.
+
+    Read with ``ast`` rather than by importing, as the sweep reads, so the pin
+    holds the text in the file and needs none of the script's import-time path
+    setup. Flags are evaluated from ``re.<FLAG>`` names joined by ``|``.
+    """
+    tree = ast.parse((_REPO_ROOT / rel).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        value: ast.expr | None = None
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == name
+            for target in node.targets
+        ):
+            value = node.value
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == name
+        ):
+            value = node.value
+        if not (isinstance(value, ast.Call) and value.args):
+            continue
+        pattern = value.args[0]
+        assert isinstance(pattern, ast.Constant) and isinstance(pattern.value, str)
+        flags = 0
+        for flag_node in [*value.args[1:], *(k.value for k in value.keywords)]:
+            for part in ast.walk(flag_node):
+                if isinstance(part, ast.Attribute):
+                    flags |= int(getattr(re, part.attr))
+        return re.compile(pattern.value, flags)
+    raise AssertionError(f"{rel} assigns no pattern to {name}")
+
+
+#: (module, name, a line that drives the old pattern into its quadratic region).
+_PREFIXED_OFFENDERS: list[tuple[str, str, str]] = [
+    ("scripts/bommap/reading.py", "_REQUIREMENT", "a b" + " " * 20_000 + "c"),
+    ("scripts/handshake.py", "_WIRE_FIELD", "KEY: x" + " " * 20_000 + "y"),
+]
+
+
+@pytest.mark.parametrize(
+    ("rel", "name", "line"),
+    _PREFIXED_OFFENDERS,
+    ids=[f"{rel}:{name}" for rel, name, _line in _PREFIXED_OFFENDERS],
+)
+def test_the_prefixed_offenders_stay_fast_on_the_line_that_found_them(
+    rel: str, name: str, line: str
+) -> None:
+    """Each fixed pattern, on the line that showed it quadratic, by name.
+
+    20,000 spaces cost the old patterns about 2 s (0.36 s at 8,000, growing 4x
+    per doubling); the greedy forms take microseconds. 50 ms is far from both.
+    """
+    pattern = _pattern_assigned_to(rel, name)
+    start = _clock()
+    pattern.search(line)
+    elapsed = _clock() - start
+    assert elapsed < 0.050, (
+        f"{rel}:{name} took {elapsed * 1000:.1f} ms on a {len(line)}-character "
+        "line: a lazy capture before trailing whitespace has come back"
+    )
+
+
+#: The pattern `_REQUIREMENT` replaced, kept as the reference its rewrite must
+#: agree with on every input.
+_OLD_REQUIREMENT = (
+    r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(?P<extras>\[[^\]]*\])?\s*"
+    r"(?P<spec>.*?)\s*$"
+)
+
+
+def _match_shape(match: re.Match[str] | None) -> tuple[object, ...] | None:
+    return None if match is None else (match.span(), match.groupdict())
+
+
+#: Requirement-shaped lines, built from the parts the pattern branches on, mixed
+#: with free text over the same characters. Free text alone almost never forms a
+#: name, a spec and a trailing blank in one line, so a strategy of only that
+#: compared two misses most of the time and proved little.
+_REQUIREMENT_LINES = st.one_of(
+    st.builds(
+        lambda lead, name, extras, gap, spec, tail: (
+            f"{lead}{name}{extras}{gap}{spec}{tail}"
+        ),
+        st.text(alphabet=" \t", max_size=2),
+        st.from_regex(r"[A-Za-z0-9][A-Za-z0-9._-]{0,5}", fullmatch=True),
+        st.sampled_from(["", "[x]", "[a,b]", "[", "]"]),
+        st.text(alphabet=" \t", max_size=3),
+        st.text(alphabet="=<>,.0 \t\r\x0ca", max_size=12),
+        st.text(alphabet=" \t\r\n\x0c", max_size=3),
+    ),
+    st.text(alphabet="aZ0._-[]= <,\t\n\r", max_size=40),
+)
+
+
+@settings(max_examples=400)
+@given(_REQUIREMENT_LINES)
+def test_the_rewritten_requirement_pattern_reads_what_the_old_one_read(
+    text: str,
+) -> None:
+    """Same match, same span, same groups, on every input — or it is not a fix.
+
+    The rewrite exists to change the TIME and nothing else. The alphabet is the
+    characters each part of the pattern branches on: name characters, the extras
+    brackets, the separators of a version spec, and every kind of whitespace,
+    including the newline that `.` refuses and whitespace classes accept.
+    """
+    old = re.compile(_OLD_REQUIREMENT)
+    new = _pattern_assigned_to("scripts/bommap/reading.py", "_REQUIREMENT")
+    assert _match_shape(new.match(text)) == _match_shape(old.match(text))
+
+
+def test_the_requirement_rewrite_agrees_on_the_lines_the_tool_reads() -> None:
+    """The equivalence above, on real shapes, with a floor on matches compared."""
+    old = re.compile(_OLD_REQUIREMENT)
+    new = _pattern_assigned_to("scripts/bommap/reading.py", "_REQUIREMENT")
+    lines = [
+        "PySide6>=6.11.1,<6.12",
+        "  ruff >=0.15.22,<0.16  ",
+        "sigstore[extra]>=4.5.0,<4.6",
+        "pkg",
+        "pkg   ",
+        "a b" + " " * 50 + "c",
+        "name x\n",
+        "name x\n y",
+    ]
+    shapes = [(_match_shape(old.match(s)), _match_shape(new.match(s))) for s in lines]
+    assert all(o == n for o, n in shapes), shapes
+    assert sum(o is not None for o, _ in shapes) >= 6, "too few lines matched"
+
+
+#: The pattern `handshake._WIRE_FIELD` replaced: the wire-header parser every
+#: lap, ours and the fork's, goes through. Kept as the reference its rewrite must
+#: agree with on every input, because a parser of the shared protocol may change
+#: its speed and nothing else.
+_OLD_WIRE_FIELD = r"^(?P<key>[A-Z][A-Z0-9-]*):[ \t]*(?P<value>\S.*?)[ \t]*$"
+
+
+def _finditer_shape(pattern: re.Pattern[str], text: str) -> list[tuple[object, ...]]:
+    return [(m.span(), m.groupdict()) for m in pattern.finditer(text)]
+
+
+#: Lap-shaped text: header-field lines built from the parts the pattern branches
+#: on (a key, blanks, a value with blanks and kept whitespace inside and after
+#: it), mixed with free lines, joined by newlines. Free text alone rarely puts a
+#: key, a colon and a value at the start of a line, so it cannot carry the proof.
+_WIRE_LINES = st.lists(
+    st.one_of(
+        st.builds(
+            lambda key, gap, value, tail: f"{key}:{gap}{value}{tail}",
+            st.from_regex(r"[A-Z][A-Z0-9-]{0,6}", fullmatch=True),
+            st.text(alphabet=" \t", max_size=3),
+            st.text(alphabet="x \t\r\x0c`*:-", max_size=12),
+            st.text(alphabet=" \t\r\x0c", max_size=3),
+        ),
+        st.text(alphabet="KEY-0:x \t\r\x0c`*", max_size=20),
+    ),
+    max_size=6,
+).map("\n".join)
+
+
+@settings(max_examples=400)
+@given(_WIRE_LINES)
+def test_the_rewritten_wire_field_pattern_reads_what_the_old_one_read(
+    text: str,
+) -> None:
+    """Every match, span and group identical, as `_parse_wire_fields` iterates them.
+
+    The alphabet holds a key's characters, the colon, a value character, every
+    blank the two patterns treat differently (space and tab are stripped; carriage
+    return and form feed are kept as part of the value), the newline that ends a
+    field, and two markdown characters a lap puts around a value.
+    """
+    old = re.compile(_OLD_WIRE_FIELD, re.MULTILINE)
+    new = _pattern_assigned_to("scripts/handshake.py", "_WIRE_FIELD")
+    assert _finditer_shape(new, text) == _finditer_shape(old, text)
+
+
+def test_the_wire_field_rewrite_agrees_on_the_lines_laps_carry() -> None:
+    """The equivalence above, on real header shapes, with a floor on fields read."""
+    old = re.compile(_OLD_WIRE_FIELD, re.MULTILINE)
+    new = _pattern_assigned_to("scripts/handshake.py", "_WIRE_FIELD")
+    text = (
+        "HANDSHAKE-PROTOCOL: 6\n"
+        "HANDSHAKE-VERDICT:   GO  \n"
+        "HANDSHAKE-FROM: platterpus@abc123\t\n"
+        "HANDSHAKE-READY-TO-READ: no\r\n"
+        "NOTE: two  spaces inside   stay\n"
+        "EMPTY:   \n"
+        "lowercase: not a field\n"
+        "> QUOTED: not at column 0\n"
+        "KEY: x" + " " * 50 + "y\n"
+    )
+    old_fields = _finditer_shape(old, text)
+    assert _finditer_shape(new, text) == old_fields
+    assert len(old_fields) >= 6, f"too few fields read: {old_fields}"
+
+    # And on the whole committed record: every lap either side has filed. 330
+    # files and 7,720 fields on 2026-10-05, every one identical; the floors are
+    # well under that so the record can be reorganised without failing this.
+    files = sorted((_REPO_ROOT / "docs" / "handshake").rglob("*.md"))
+    differing: list[str] = []
+    fields = 0
+    for path in files:
+        lap = path.read_text(encoding="utf-8")
+        before = _finditer_shape(old, lap)
+        fields += len(before)
+        if _finditer_shape(new, lap) != before:
+            differing.append(path.relative_to(_REPO_ROOT).as_posix())
+    assert len(files) >= 100 and fields >= 2000, (len(files), fields)
+    assert not differing, f"the rewrite reads these laps differently: {differing}"
 
 
 def test_the_sweep_reads_inline_calls_and_times_each_as_it_runs() -> None:

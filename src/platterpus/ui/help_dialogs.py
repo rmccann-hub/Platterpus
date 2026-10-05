@@ -176,7 +176,6 @@ class AboutDialog(CenteredDialog):
     def _components_markdown(
         inventory: ComponentInventory,
         unchecked_note: str = "",
-        full_versions: dict[str, str] | None = None,
     ) -> str:
         """The dependency rows, each with a text marker, never colour alone.
 
@@ -188,12 +187,15 @@ class AboutDialog(CenteredDialog):
         acceptance bundle's ``components`` file, which crosses the handshake seam:
         a new key there is a shape change that has to be declared in a lap first.
 
-        ``full_versions`` sits beside the inventory for the same reason: each tool's
-        own version text (`deps.build_notes.own_versions`), where the inventory keeps
-        the parsed ``0.9.4``.
+        Each row shows the tool's own version text where the inventory has it
+        (``version_text``, e.g. ``0.9.4-rc2+platterpus.18``) and the parsed
+        ``version`` otherwise. It is read from the inventory, the same key the
+        bundle's ``COMPONENTS.json`` carries, so this view and that file cannot
+        name one binary two ways. (It used to arrive here beside the inventory as
+        ``full_versions``, until the key was declared to the fork in round 30 lap 4,
+        S43.)
         """
         deps = inventory["dependencies"]
-        full = full_versions or {}
         age = build_info.describe_measured_at(inventory["dependencies_measured_at"])
         note = f"- ⚠ {unchecked_note}\n" if unchecked_note else ""
         if deps is None:
@@ -210,7 +212,7 @@ class AboutDialog(CenteredDialog):
                 mark = "⚠ below the minimum version"
             else:
                 mark = "⚠ missing"
-            own = full.get(name, "")
+            own = entry["version_text"] or ""
             version = (
                 f"`{own.replace('`', '')}`"
                 if own
@@ -225,7 +227,6 @@ class AboutDialog(CenteredDialog):
     def _build_markdown(
         inventory: ComponentInventory | None = None,
         unchecked_note: str = "",
-        full_versions: dict[str, str] | None = None,
         ripper_banner: str | None = None,
     ) -> str:
         if inventory is None:
@@ -234,7 +235,6 @@ class AboutDialog(CenteredDialog):
             report = dep_manager.latest_report()
             inventory = build_info.component_inventory(report)
             unchecked_note = dep_manager.describe_unchecked(report)
-            full_versions = build_notes.own_versions(report)
             ripper_banner = build_notes.ripper_banner(report)
         py = inventory["python"] or "{}.{}.{}".format(*sys.version_info[:3])
         return (
@@ -247,7 +247,7 @@ class AboutDialog(CenteredDialog):
             f"- Qt: {inventory['qt'] or qVersion()}\n"
             f"- PySide6: {inventory['pyside6'] or PYSIDE_VERSION}\n"
             f"- Platform: {inventory['platform'] or platform.platform()}\n\n"
-            + AboutDialog._components_markdown(inventory, unchecked_note, full_versions)
+            + AboutDialog._components_markdown(inventory, unchecked_note)
             + AboutDialog._ripper_markdown(ripper_banner)
             + f"### Paths\n"
             f"- Config: `{CONFIG_PATH}`\n"

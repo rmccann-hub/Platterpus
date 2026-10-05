@@ -303,6 +303,27 @@ def _excerpt(text: str) -> str:
     )
 
 
+def _captured_text(captured: bytes | str | None) -> str:
+    """What a timed-out child printed before it was killed, as text.
+
+    `subprocess.TimeoutExpired` carries the output as BYTES even when the call
+    asked for `text=True` (the Python documentation says so, and CPython's POSIX
+    `_communicate` builds it with `b"".join`), and as None when nothing arrived.
+    This used to be `(exc.stdout or "") + (exc.stderr or "")`, which raised
+    `TypeError: can't concat str to bytes` the moment a gate printed anything and
+    then hung: the runner whose job is to report a timeout crashed instead, and the
+    partial output that would explain the hang was lost with it. Found when
+    `mypy` was first run over `scripts/` (2026-10-05).
+    """
+    if captured is None:
+        return ""
+    if isinstance(captured, bytes):
+        # `replace`, not `strict`: a gate's output is diagnostic text, and a
+        # malformed byte must not cost the rest of it.
+        return captured.decode("utf-8", errors="replace")
+    return captured
+
+
 def _run(gate: Gate) -> None:
     """Run one gate. Records the real exit code, or None if it could not run."""
     try:
@@ -316,7 +337,7 @@ def _run(gate: Gate) -> None:
         )
     except subprocess.TimeoutExpired as exc:
         gate.code = None
-        gate.output = (exc.stdout or "") + (exc.stderr or "")
+        gate.output = _captured_text(exc.stdout) + _captured_text(exc.stderr)
         gate.notes.append(
             f"TIMED OUT after {_GATE_TIMEOUT_S:.0f}s — no verdict, which is not a pass"
         )

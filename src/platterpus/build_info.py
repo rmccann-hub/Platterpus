@@ -16,16 +16,20 @@ debugging aid only — NOT part of the EAC-parity log or any bit-perfection clai
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from collections.abc import Iterable
 from pathlib import Path
 
 from platterpus.report_types import (
+    ComponentEntry,
     ComponentInventory,
     DependencyEntry,
     EnvironmentBlock,
 )
+
+log = logging.getLogger(__name__)
 
 # The sentinel used when no build stamp is present (source/editable installs).
 # A report always carries a fingerprint string — a real one or this — so a
@@ -181,15 +185,45 @@ def dependency_summary(report: object) -> dict[str, DependencyEntry]:
     return summary
 
 
+def _component_entries(report: object) -> dict[str, ComponentEntry]:
+    """Each tool's `DependencyEntry`, with ``version_text`` beside ``version``.
+
+    The text is `deps.build_notes.own_versions`, the reader About used, so no
+    tool name is spelled outside the dependency subsystem (rule #6); imported
+    here because the pure `rip_report` imports this module. ``None`` where no
+    text was captured or reading it failed: *not determined*, never ``""``.
+    """
+    try:
+        from platterpus.deps.build_notes import own_versions
+
+        own = own_versions(report)
+    except Exception:  # noqa: BLE001 — an inventory field is best effort; the inventory must still build
+        log.exception("could not read the tools' own version text for the inventory")
+        own = {}
+    return {
+        dep_id: {
+            "present": entry["present"],
+            "version": entry["version"],
+            "version_text": own.get(dep_id) or None,
+            "location": entry["location"],
+            "min_version_met": entry["min_version_met"],
+        }
+        for dep_id, entry in dependency_summary(report).items()
+    }
+
+
 def component_inventory(report: object) -> ComponentInventory:
     """Every component, its version, and when the dependency versions were measured.
 
-    THE one function Help → About, Diagnostics and the acceptance bundle read, so
-    they cannot disagree about a machine. ``report`` is the newest dependency
-    probe (``deps.manager.latest_report()``), or ``None`` when none has finished:
-    then ``dependencies`` is ``None``, which means *not measured yet*, never *no
-    dependencies*. Reads only what is already known: it never probes, because a
-    probe enters the ripper's container. Never raises.
+    THE one function Help → About and the acceptance bundle's ``COMPONENTS.json``
+    read, so they cannot disagree about a machine. ``report`` is the newest
+    dependency probe (``deps.manager.latest_report()``), or ``None`` when none has
+    finished: then ``dependencies`` is ``None``, which means *not measured yet*,
+    never *no dependencies*. Reads only what is already known: it never probes,
+    because a probe enters the ripper's container. Never raises.
+
+    Each row carries ``version_text`` beside the unchanged ``version``, so the
+    bundle names the build that ``0.9.4`` cannot (round 30 lap 4, S43).
     """
     env = environment_report()
     qt: str | None = None
@@ -209,7 +243,7 @@ def component_inventory(report: object) -> ComponentInventory:
         "qt": qt,
         "pyside6": env["pyside6"],
         "platform": env["platform"],
-        "dependencies": dependency_summary(report) if report is not None else None,
+        "dependencies": _component_entries(report) if report is not None else None,
         "dependencies_measured_at": measured or None,
     }
 

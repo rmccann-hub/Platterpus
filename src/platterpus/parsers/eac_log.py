@@ -74,6 +74,23 @@ _TRACK_HEADER = re.compile(r"^Track\s+(?P<number>\d+)\s*$")
 _COPY_CRC = re.compile(r"^\s*Copy CRC\s+(?P<crc>[0-9A-Fa-f]{8})\b")
 
 
+def eac_log_producer_line(text: str) -> str | None:
+    """The one line :func:`eac_log_producer` reads its answer from, or ``None``.
+
+    That is the first non-blank line, with any leading UTF-8 BOM removed. It is a
+    function of its own so that a caller which has to SAY why a log was classified
+    the way it was (the EAC-parity tool refusing one of our exports as its
+    baseline) quotes the very line the classification read, rather than finding
+    "the first line" again by a rule of its own that could drift from this one.
+    ``None`` when `text` has no non-blank line. Never raises.
+    """
+    for line in text.splitlines():
+        if not line.strip():
+            continue  # EAC-layout logs may open with blank lines
+        return line.lstrip("\ufeff")
+    return None
+
+
 def eac_log_producer(text: str) -> EacLogProducer | None:
     """Which program's EAC-layout log `text` is, read from its first non-blank line.
 
@@ -83,18 +100,16 @@ def eac_log_producer(text: str) -> EacLogProducer | None:
     earlier wrote also begins "Exact Audio Copy". A leading UTF-8 BOM is ignored,
     as EAC's UTF-16 logs often carry one. Never raises.
     """
-    for line in text.splitlines():
-        if not line.strip():
-            continue  # EAC-layout logs may open with blank lines
-        first = line.lstrip("\ufeff")
-        folded = first.casefold()
-        if any(
-            folded.startswith(banner.casefold()) for banner in PLATTERPUS_EAC_BANNERS
-        ):
-            return "platterpus"
-        if _EAC_BANNER.match(first):
-            return "exact_audio_copy"
-        return None  # only the first non-blank line names the producer
+    # Only the first non-blank line names the producer, and
+    # `eac_log_producer_line` is the one place that decides which line that is.
+    first = eac_log_producer_line(text)
+    if first is None:
+        return None
+    folded = first.casefold()
+    if any(folded.startswith(banner.casefold()) for banner in PLATTERPUS_EAC_BANNERS):
+        return "platterpus"
+    if _EAC_BANNER.match(first):
+        return "exact_audio_copy"
     return None
 
 

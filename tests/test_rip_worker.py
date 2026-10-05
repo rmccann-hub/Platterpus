@@ -11,6 +11,7 @@ cyanrip binary.
 
 from __future__ import annotations
 
+import logging
 import re
 import subprocess
 import time
@@ -29,6 +30,7 @@ from platterpus.adapters.rip_backend import (
     RipMetadata,
     TrackTag,
 )
+from platterpus.redraw_run import REDRAW_ELISION_PHRASE
 from platterpus.rip_plan import PLAN_PREFIX
 from platterpus.workers import rip_worker as rip_worker_module
 from platterpus.workers.rip_worker import (
@@ -71,9 +73,19 @@ class _FakeHandle:
         self._cancel_returns: int | None = cancel_returns
         self.cancel_calls: int = 0
         self.terminate_calls: int = 0
+        self.kill_calls: int = 0
+        # Every signal this handle's process was sent, in order. The REAL
+        # `cancel()` sends a SIGTERM before its SIGKILL, and to a cyanrip that
+        # already had our SIGTERM that is its second signal: `_exit(1)`, no
+        # footer. A fake whose `cancel()` only counted calls could not show that
+        # (the round 30 lap 9 S28 review), so it records what the real one sends.
+        self.signals: list[str] = []
         # Every timeout the worker asked us to wait for, so a test can assert the
         # wait was *bounded* rather than merely that it returned.
         self.wait_timeouts: list[float | None] = []
+        # The real handle's process: a PID, and `returncode` set once reaped.
+        self.pid: int = 424242
+        self.returncode: int | None = None
 
     def log_lines(self) -> Iterable[str]:
         yield from self._lines
@@ -91,17 +103,28 @@ class _FakeHandle:
                     "Use RipWorker._reap_ripper, which bounds the wait."
                 )
             raise subprocess.TimeoutExpired(cmd="cyanrip", timeout=timeout)
+        self.returncode = self._exit_code
         return self._exit_code
 
-    def terminate(self) -> None:
+    def terminate(self) -> int | None:
         # Non-blocking cancel path used from the GUI thread — the worker forwards
-        # here so a wedged drive can't freeze the window.
+        # here so a wedged drive can't freeze the window. Returns the process
+        # group signalled, as the real one does: the PID, since the ripper is
+        # started in a session of its own.
         self.terminate_calls += 1
+        self.signals.append("TERM")
+        return self.pid
 
     def cancel(
         self, term_timeout: float = 5.0, kill_timeout: float = 5.0
     ) -> int | None:
         self.cancel_calls += 1
+        self.signals.extend(["TERM", "KILL"])
+        return self._cancel_returns
+
+    def kill(self, timeout: float = 5.0) -> int | None:
+        self.kill_calls += 1
+        self.signals.append("KILL")
         return self._cancel_returns
 
 
@@ -326,17 +349,22 @@ def test_auto_ladder_clean_disc_is_a_single_pass(
 
 
 def test_auto_ladder_re_rips_slower_on_read_errors_then_stops_clean(
-    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     """A pass with unrecoverable read errors triggers a re-rip a rung slower;
-    once a pass reads clean, the ladder stops."""
-    import platterpus.workers.rip_worker as mod
+    once a pass reads clean, the ladder stops.
 
-    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
-    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
-    # Errors on the first pass, clean on the second.
-    verdicts = iter([True, False])
-    monkeypatch.setattr(mod, "read_errors_present", lambda _log: next(verdicts, False))
+    Stock cyanrip's shape: no completion footer, so the pass is judged finished by
+    its finish report and its track blocks against the disc total we asked for.
+    It exits 1 over its errors (`return !!err_cnt`), as the real one does; this
+    test once faked exit 0 there, and a ladder gated on exit 0 passed it.
+    """
+    backend = _per_pass_backend(
+        tmp_path, [(_stock_log(errors=3), 1), (_stock_log(errors=0), 0)]
+    )
+    worker = RipWorker(
+        backend, _params(tmp_path, read_speed_mode="auto_ladder", disc_track_total=1)
+    )
     sigs = _Signals()
     sigs.attach(worker)
 
@@ -347,7 +375,7 @@ def test_auto_ladder_re_rips_slower_on_read_errors_then_stops_clean(
     assert backend.rip_calls[1]["read_speed"] == 8  # stepped down to 8×
     attempts = worker.speed_attempts
     assert [a.clean for a in attempts] == [False, True]
-    assert sigs.finished == [(True, "")]
+    assert len(sigs.finished) == 1 and sigs.finished[0][0] is True
 
 
 def test_auto_ladder_hard_failure_is_not_marked_clean(
@@ -369,16 +397,16 @@ def test_auto_ladder_hard_failure_is_not_marked_clean(
 
 
 def test_auto_ladder_flags_unresolved_after_exhausting_the_ladder(
-    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     """A disc that never reads clean escalates down the whole ladder + -Z, then
     stops (bounded) and is left FLAGGED as unresolved — quality never went down."""
-    import platterpus.workers.rip_worker as mod
     from platterpus.read_speed_ladder import MAX_ATTEMPTS, attempts_to_report
 
-    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
-    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
-    monkeypatch.setattr(mod, "read_errors_present", lambda _log: True)
+    backend = _per_pass_backend(tmp_path, [(_stock_log(errors=3), 1)])
+    worker = RipWorker(
+        backend, _params(tmp_path, read_speed_mode="auto_ladder", disc_track_total=1)
+    )
 
     worker.start_rip()
 
@@ -432,19 +460,15 @@ def test_auto_ladder_speed_locked_drive_escalates_z_never_sends_S(
     log reveals that, the ladder must escalate via `-Z` ONLY and never send `-S`
     — otherwise a disc with read errors would turn every escalation into a crash.
     """
-    rip_log = tmp_path / "Album" / "rip.log"
-    rip_log.parent.mkdir(parents=True)
-    rip_log.write_text(
-        "cyanrip 0.9.3 (release)\n"
-        "Speed:          default (unchangeable)\n"  # the drive can't slow down
-        "Disc tracks:    1\n"
-        "Track 1 ripped and encoded successfully!\n"
-        "  EAC CRC32:     329DC760\n"
-        "Ripping errors: 3\n",  # real unrecoverable errors → the ladder escalates
-        encoding="utf-8",
+    # The drive can't slow down, and the pass has real unrecoverable errors, so
+    # the ladder escalates. cyanrip exits 1 over them and writes a new log each
+    # pass, as the real one does.
+    backend = _per_pass_backend(
+        tmp_path, [(_stock_log(errors=3, speed="default (unchangeable)"), 1)]
     )
-    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
-    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+    worker = RipWorker(
+        backend, _params(tmp_path, read_speed_mode="auto_ladder", disc_track_total=1)
+    )
 
     worker.start_rip()
 
@@ -454,6 +478,298 @@ def test_auto_ladder_speed_locked_drive_escalates_z_never_sends_S(
     # …and the escalation happened via -Z climbing instead (2, then 3).
     zs = [call["secure_rerip_matches"] for call in backend.rip_calls]
     assert zs == [0, 2, 3]
+
+
+# --- The ladder steps down on a pass the DRIVE could not read cleanly --------
+#
+# cyanrip exits 1 whenever its drive error count is non-zero
+# (`cyanrip@910dd99:src/cyanrip_main.c:3124`, `return (err_cnt || fatal_abort) ?
+# 1 : 0;`; upstream `return !!err_cnt;` at `cyanrip@f8ebf48:src/cyanrip_main.c:
+# 2128`). The ladder used to escalate only on `success and had_read_errors`, and
+# `success` was exit 0, so the one case the ladder exists for ended it at full
+# speed. The fork found it (round 30 lap 9 S27); our lap 8 S28 had said the
+# opposite. And from `.20` the count includes paranoia's skips, with a suffix
+# saying so, and a skip-only rip exits 0 (their S11-S13): that one stepped the
+# whole disc down, against our rule that instability is handled per track.
+#
+# These start from a REAL filed log, the 2026-10-04 Full run on `.19` (18 tracks,
+# 2,586 paranoia skips on track 18, `Ripping errors: 0`), rewritten line by line
+# into each case by the shape the fork's source prints, and every rewrite is
+# asserted to have landed. The fake writes a fresh log on every pass and sets the
+# exit code cyanrip would give, because the real ripper does both; a fake that
+# exits 0 over three read errors is the stand-in that hid this.
+
+_FILED_FULL_RUN = (
+    Path(__file__).resolve().parent.parent
+    / "docs"
+    / "handshake"
+    / "artifactsround30"
+    / "round30oct04full.log"
+)
+_FILED_CANCELLED = _FILED_FULL_RUN.with_name("round30fullcancelme.log")
+
+
+def _rewrite(text: str, old: str, new: str) -> str:
+    """Replace ``old`` exactly once — a rewrite that misses is a test of nothing."""
+    assert text.count(old) == 1, f"expected exactly one {old!r} in the filed log"
+    return text.replace(old, new)
+
+
+def _filed_full_run(
+    *,
+    track18: str = "read successfully!",
+    ripping_errors: str = "0",
+    encoder_errors: str = "none; 18 tracks encoded",
+    speed_changeable: bool = False,
+) -> str:
+    """The real `.19` log, with track 18's outcome and the footer rewritten."""
+    text = _FILED_FULL_RUN.read_text(encoding="utf-8")
+    text = _rewrite(text, "Track 18 read successfully!\n", f"Track 18 {track18}\n")
+    text = _rewrite(
+        text, "\nRipping errors: 0\n", f"\nRipping errors: {ripping_errors}\n"
+    )
+    text = _rewrite(
+        text,
+        "\nEncoder errors: none; 18 tracks encoded\n",
+        f"\nEncoder errors: {encoder_errors}\n",
+    )
+    if speed_changeable:
+        text = _rewrite(
+            text,
+            "Speed:          default (unchangeable)\n",
+            "Speed:          default (changeable)\n",
+        )
+    return text
+
+
+def _per_pass_backend(
+    tmp_path: Path, passes: list[tuple[str | None, int]]
+) -> _FakeBackend:
+    """A ripper that writes pass N's log and exits with pass N's code.
+
+    Each entry is ``(log text or None, exit code)``. ``None`` writes nothing,
+    which is a pass that failed before cyanrip opened its log. The last entry
+    repeats. Every written log carries its pass number in the finish line, as a
+    real one carries its own timestamps, so no two passes write the same bytes.
+    """
+    album = tmp_path / "Album"
+    album.mkdir(parents=True, exist_ok=True)
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+
+    def side_effect(_call: dict[str, object]) -> None:
+        n = len(backend.rip_calls)
+        text, code = passes[min(n, len(passes)) - 1]
+        if text is not None:
+            anchor = "Ripping finished at 2026-10-04T15:06:22-04:00"
+            stamped = (
+                text.replace(anchor, f"{anchor} (pass {n})")
+                if anchor in text
+                else f"{text}Ripping finished at pass {n}\n"
+            )
+            (album / "rip.log").write_text(stamped, encoding="utf-8")
+        backend.set_handle(_FakeHandle(lines=["ripping"], exit_code=code))
+
+    backend.rip_side_effect = side_effect
+    return backend
+
+
+def test_a_pass_the_drive_failed_steps_the_speed_down_although_cyanrip_exits_1(
+    qapp: QApplication, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """THE defect: a completed pass with drive read errors exits 1, and must step."""
+    failed = _filed_full_run(
+        track18="read with errors.", ripping_errors="3", speed_changeable=True
+    )
+    clean = _filed_full_run(speed_changeable=True)
+    backend = _per_pass_backend(tmp_path, [(failed, 1), (clean, 0)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    with caplog.at_level(logging.INFO, logger="platterpus.workers.rip_worker"):
+        worker.start_rip()
+
+    assert [call["read_speed"] for call in backend.rip_calls] == [0, 8]
+    assert [a.clean for a in worker.speed_attempts] == [False, True]
+    assert sigs.finished and sigs.finished[-1][0] is True
+    # The step is said on screen AND in the app log, which a returned report
+    # carries (the fork found no ladder step in any file our tree holds).
+    assert any("[read-speed ladder]" in line for line in sigs.log_lines)
+    stepped = [
+        r.getMessage()
+        for r in caplog.records
+        if "[read-speed ladder]" in r.getMessage()
+    ]
+    assert len(stepped) == 1
+    assert "the drive failed 3 read(s)" in stepped[0]
+
+
+def test_on_the_rigs_drive_the_same_pass_steps_up_the_secure_reread(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The BDR-209D reports its speed unchangeable, so the step is `-Z`, not `-S`."""
+    failed = _filed_full_run(track18="read with errors.", ripping_errors="3")
+    clean = _filed_full_run()
+    backend = _per_pass_backend(tmp_path, [(failed, 1), (clean, 0)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    assert [call["read_speed"] for call in backend.rip_calls] == [0, 0]
+    assert [call["secure_rerip_matches"] for call in backend.rip_calls] == [0, 2]
+
+
+def test_drive_errors_beside_20s_skip_suffix_still_step_the_disc_down(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """`.20`: N counts the drive's errors plus the skips, M of them; N - M is the drive's."""
+    failed = _filed_full_run(
+        track18="read with errors.",
+        ripping_errors="2589 (including 2586 paranoia skips)",
+        speed_changeable=True,
+    )
+    clean = _filed_full_run(speed_changeable=True)
+    backend = _per_pass_backend(tmp_path, [(failed, 1), (clean, 0)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    assert [call["read_speed"] for call in backend.rip_calls] == [0, 8]
+
+
+def test_a_skip_only_20_rip_does_not_step_the_whole_disc_down(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """`.20`'s skip-only rip exits 0 over a non-zero count; skips are per-track.
+
+    Asserted against the same disc as `.19` wrote it: the ladder must decide the
+    same way whichever build wrote the log, which is the policy of 4790a16a.
+    """
+    as_19 = _filed_full_run()
+    as_20 = _filed_full_run(
+        track18="read with errors.",
+        ripping_errors="2586 (including 2586 paranoia skips)",
+        speed_changeable=True,
+    )
+    decisions = []
+    for name, text in (("19", as_19), ("20", as_20)):
+        out = tmp_path / name
+        backend = _per_pass_backend(out, [(text, 0)])
+        worker = RipWorker(backend, _params(out, read_speed_mode="auto_ladder"))
+        worker.start_rip()
+        decisions.append(
+            (
+                [call["read_speed"] for call in backend.rip_calls],
+                [a.clean for a in worker.speed_attempts],
+            )
+        )
+    assert decisions[0] == ([0], [True])
+    assert decisions[1] == decisions[0]
+
+
+def test_a_pass_stopped_by_a_signal_does_not_step_the_disc_down(
+    qapp: QApplication, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Exit 1 for a reason that is not a read: the real filed SIGTERM'd rip.
+
+    Its footer reads `Rip completed:  no (interrupted by SIGTERM, 0 of 14 tracks)`
+    beside `Ripping errors: 1` (the interrupted track). Nothing here cancelled it,
+    so only the log can say the pass did not finish.
+    """
+    text = _FILED_CANCELLED.read_text(encoding="utf-8")
+    assert "Rip completed:  no (interrupted by SIGTERM" in text
+    assert "\nRipping errors: 1\n" in text
+    backend = _per_pass_backend(tmp_path, [(text, 1)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    with caplog.at_level(logging.INFO, logger="platterpus.workers.rip_worker"):
+        worker.start_rip()
+
+    assert len(backend.rip_calls) == 1
+    assert [a.clean for a in worker.speed_attempts] == [False]
+    # And the app log says why a pass with an error count did not step.
+    assert any(
+        "no step after pass 1: the pass did not finish" in r.getMessage()
+        and "interrupted by SIGTERM" in r.getMessage()
+        for r in caplog.records
+    )
+
+
+def test_a_pass_with_an_encoder_failure_does_not_step_the_disc_down(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Slowing the drive cannot mend an encoder, even beside real read errors."""
+    text = _filed_full_run(
+        track18="read with errors.",
+        ripping_errors="4",
+        encoder_errors="1 track failed (3); 17 tracks encoded",
+        speed_changeable=True,
+    )
+    backend = _per_pass_backend(tmp_path, [(text, 1)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 1
+
+
+def test_a_pass_killed_from_outside_does_not_step_the_disc_down(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """cyanrip's own exits are 0 and 1; 137 is a kill, whatever the log on disk says."""
+    text = _filed_full_run(
+        track18="read with errors.", ripping_errors="3", speed_changeable=True
+    )
+    backend = _per_pass_backend(tmp_path, [(text, 137)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 1
+
+
+def test_a_pass_that_wrote_no_log_of_its_own_does_not_step_again(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """New state the fix creates: a stale log must not keep the ladder stepping.
+
+    Exit 1 never escalated before, so a pass that failed before cyanrip opened
+    its log could not be judged by the previous pass's log. Now it could.
+    """
+    text = _filed_full_run(
+        track18="read with errors.", ripping_errors="3", speed_changeable=True
+    )
+    backend = _per_pass_backend(tmp_path, [(text, 1), (None, 1)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    # Pass 1 stepped down; pass 2 wrote nothing, so the ladder stops there.
+    assert [call["read_speed"] for call in backend.rip_calls] == [0, 8]
+
+
+def test_a_disc_the_drive_never_reads_cleanly_stops_at_the_ladder_floor(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Every pass fails the same way: down the rungs, then `-Z`, then FLAGGED."""
+    from platterpus.read_speed_ladder import MAX_ATTEMPTS, attempts_to_report
+
+    text = _filed_full_run(
+        track18="read with errors.", ripping_errors="3", speed_changeable=True
+    )
+    backend = _per_pass_backend(tmp_path, [(text, 1)])
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    sent = [
+        (call["read_speed"], call["secure_rerip_matches"]) for call in backend.rip_calls
+    ]
+    assert sent == [(0, 0), (8, 0), (4, 0), (2, 0), (2, 2), (2, 3)]
+    assert len(sent) <= MAX_ATTEMPTS
+    report = attempts_to_report(worker.speed_attempts)
+    assert report is not None
+    assert report["unresolved"] is True and report["escalated"] is True
 
 
 # --- The recovery re-read's own -Z stays inside the user's -r ---------------
@@ -466,14 +782,24 @@ def test_auto_ladder_speed_locked_drive_escalates_z_never_sends_S(
 # Max retries 3 it sent `-Z 3 -r 3`, reading every track three times and
 # verifying none. Found 2026-09-28 from the Full run's `-r 3` (section B).
 
-_SPEED_LOCKED_READ_ERRORS = (
-    "cyanrip 0.9.3 (release)\n"
-    "Speed:          default (unchangeable)\n"
-    "Disc tracks:    1\n"
-    "Track 1 ripped and encoded successfully!\n"
-    "  EAC CRC32:     329DC760\n"
-    "Ripping errors: 3\n"
-)
+
+def _stock_log(*, errors: int, speed: str = "default (changeable)") -> str:
+    """A one-track log in stock cyanrip 0.9.3's shape, which has no footer."""
+    status = (
+        "ripped and encoded with errors."
+        if errors
+        else "ripped and encoded successfully!"
+    )
+    return (
+        "cyanrip 0.9.3 (release)\n"
+        f"Speed:          {speed}\n"
+        "Disc tracks:    1\n"
+        f"Track 1 {status}\n"
+        "  EAC CRC32:     329DC760\n"
+        "  File(s):\n"
+        "    Artist/Album/01 - One.flac\n"
+        f"Ripping errors: {errors}\n"
+    )
 
 
 @pytest.mark.parametrize(
@@ -498,13 +824,17 @@ def test_the_ladders_fallback_z_never_outruns_the_retry_ceiling(
 ) -> None:
     from platterpus.cyanrip_cli import retries_flag_value, secure_reread_problem
 
-    rip_log = tmp_path / "Album" / "rip.log"
-    rip_log.parent.mkdir(parents=True)
-    rip_log.write_text(_SPEED_LOCKED_READ_ERRORS, encoding="utf-8")
-    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend = _per_pass_backend(
+        tmp_path, [(_stock_log(errors=3, speed="default (unchangeable)"), 1)]
+    )
     worker = RipWorker(
         backend,
-        _params(tmp_path, read_speed_mode="auto_ladder", max_retries=max_retries),
+        _params(
+            tmp_path,
+            read_speed_mode="auto_ladder",
+            max_retries=max_retries,
+            disc_track_total=1,
+        ),
     )
 
     worker.start_rip()
@@ -953,6 +1283,12 @@ def test_a_stopped_securing_pass_keeps_the_verdicts_it_reached(
     ]
     # Nothing from the stopped pass reached the album folder.
     assert not (tmp_path / "Artist" / "Album" / "02 - B.flac").exists()
+    # And its count is kept beside its verdict, so the EAC-layout log can say "re-
+    # reads did NOT agree", which the ripper's `at most 1 read agreed` proves
+    # (2026-10-05), rather than only that they did not converge.
+    from platterpus.parsers.rip_log import RereadAgreement
+
+    assert worker.reread_agreements == {2: RereadAgreement(1, True)}
 
 
 def test_a_stopped_securing_pass_whose_log_never_settles_keeps_its_whole_verdicts(
@@ -1101,6 +1437,47 @@ def test_auto_fix_keeps_a_re_read_that_matches_accuraterip_without_converging(
     text = addenda[0].read_text(encoding="utf-8")
     assert "did not converge; kept because it matches AccurateRip" in text
     assert "kept anyway only if it read cleanly" not in text
+
+
+def test_auto_fix_records_how_many_reads_agreed_even_when_nothing_is_swapped(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The GUI gives a re-read track the RE-READ's verdict whether or not its file
+    was swapped in, so it needs the re-read's agreement count in both cases too
+    (2026-10-05). Swapped records alone would leave the 2026-10-04 shape, five
+    reads and no two agreeing, unswapped and uncounted, and the EAC-layout log
+    would say less than the re-rip's own log did.
+    """
+    from platterpus.parsers.rip_log import RereadAgreement
+
+    rerip_no_two_agreed = (
+        "cyanrip 0.9.4+platterpus.19 (platterpus-fork-g174a134)\n"
+        "Disc tracks:    3\n"
+        "Repeating ripping (0 out of 2 matches for current checksum D7C5EF7C)\n"
+        "Repeating ripping (0 out of 2 matches for current checksum 1AC787A1)\n"
+        "Done; (repeat limit of 3 reads reached; at most 1 read agreed)\n"
+        "Track 3 read successfully!\n"
+        "  EAC CRC32:     44444444 (after 3 rips)\n"
+        "  File(s):\n"
+        "    Artist/Album/03 - C.flac\n"
+        "Ripping errors: 0\n"
+    )
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend.rip_side_effect = _fake_rip_writer(
+        _PASS1_UNSTABLE, rerip_no_two_agreed, True
+    )
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+
+    worker.start_rip()
+
+    # Floor: the re-read ran and was refused, the case this record exists for.
+    assert len(backend.rip_calls) == 2
+    assert [(e["track"], e["replaced"]) for e in worker.retried_tracks] == [(3, False)]
+    assert worker.swapped_track_records == {}
+    assert worker.reread_agreements == {3: RereadAgreement(1, True)}
 
 
 def test_dynamic_mode_ripps_fast_then_secures_only_unverified_track(
@@ -2410,6 +2787,98 @@ def test_a_ripper_that_survives_sigkill_is_reported_not_hung(
         "must never compare equal to 0."
     )
     assert any("even after SIGKILL" in r.message for r in caplog.records)
+
+
+class _NativeCyanripHandle(_FakeHandle):
+    """A native cyanrip cancelled in the middle of a long read.
+
+    No Distrobox wrapper: the process the worker spawned and signals IS cyanrip.
+    Its handler prints the stop notice at once, so the read loop breaks, but it
+    stops only when the read in hand returns (54 s on 2026-10-04), so ``wait()``
+    times out (``never_exits``). Records what the worker says its signal reached,
+    from inside the rip, where the window's rescue would read it.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(lines=(), never_exits=True, cancel_returns=-9)
+        self.worker: RipWorker | None = None
+        self.reach_mid_rip: object = "never read"
+
+    def log_lines(self):  # type: ignore[no-untyped-def]
+        yield "Ripping and encoding track 18, progress - 61.20%"
+        assert self.worker is not None
+        self.worker.cancel()
+        self.reach_mid_rip = self.worker.stop_signal_reach()
+        yield "\r"
+        yield "Trying to quit"
+
+
+def test_a_native_cyanrip_gets_SIGKILL_after_the_grace_and_never_a_second_SIGTERM(
+    qapp: QApplication, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The fork's round 30 lap 9 S28, at the door it did not name.
+
+    The reap's escalation is ``RipHandle.cancel()``: SIGTERM, then SIGKILL. On a
+    native install the process we signalled at the cancel is cyanrip itself, so
+    that SIGTERM was its SECOND, and cyanrip ``_exit()``s on a second signal with
+    no footer (``cyanrip@174a134:src/cyanrip_main.c:1216-1221``). It was sent 15 s
+    after the read loop broke, well inside a 54 s read. Now the reap waits until
+    ``READER_TERM_GRACE_S`` after our signal, then SIGKILLs alone.
+    """
+    from platterpus import drive_control
+
+    handle = _NativeCyanripHandle()
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    handle.worker = worker
+    before = time.monotonic()
+    with caplog.at_level("WARNING"):
+        worker.start_rip()
+
+    assert handle.signals.count("TERM") == 1, (
+        f"the native cyanrip was sent {handle.signals}: a second SIGTERM makes it "
+        "exit at once with no log footer"
+    )
+    assert handle.signals == ["TERM", "KILL"], handle.signals
+    assert handle.cancel_calls == 0 and handle.kill_calls == 1
+    # The wait before the SIGKILL ran to the grace, measured from our signal.
+    longest = max(t for t in handle.wait_timeouts if t is not None)
+    assert longest >= drive_control.READER_TERM_GRACE_S - (time.monotonic() - before), (
+        f"the reap gave a signalled cyanrip {longest:.1f}s, not the "
+        f"{drive_control.READER_TERM_GRACE_S:.0f}s grace: {handle.wait_timeouts}"
+    )
+    assert any("no second SIGTERM" in r.message for r in caplog.records), [
+        r.message for r in caplog.records
+    ]
+
+
+def test_stop_signal_reach_names_the_signalled_process_only_while_it_runs(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """What the window's rescue and shutdown stop read to spare a native cyanrip.
+
+    Mid-rip, after the cancel: the PID and process group the SIGTERM went to, and
+    when. Before any signal, and once the process is reaped (its PID could then be
+    reused), nothing.
+    """
+    from platterpus import drive_control
+
+    handle = _NativeCyanripHandle()
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    handle.worker = worker
+    assert worker.stop_signal_reach() is None, "nothing has been signalled yet"
+    worker.start_rip()
+
+    reach = handle.reach_mid_rip
+    assert isinstance(reach, drive_control.SignalledRipper), reach
+    assert reach.pid == handle.pid and reach.pgid == handle.pid, reach
+
+    handle.returncode = -9  # what the real handle reports once SIGKILL reaped it
+    assert worker.stop_signal_reach() is None, (
+        "a reaped process's PID can be reused, so it must not be named"
+    )
+    # A later pass is a new handle that has had no signal of ours.
+    worker._handle = _FakeHandle()  # type: ignore[assignment]  # the next pass
+    assert worker.stop_signal_reach() is None
 
 
 class _CancellingHandle(_FakeHandle):
@@ -4282,6 +4751,226 @@ def test_clean_ripper_output_carries_no_screening_note(
     worker.start_rip()
     assert "Track 1 title: Café" in worker.captured_stdout
     assert "were screened" not in worker.captured_stdout
+
+
+# --- A track's outcome line is kept in the capture (round 30 lap 9 S29) -----------
+#
+# The fork read the 2026-10-05 Full run's capture
+# (cyanrip@89e9b4d:docs/rig-2026-10-05-174a134/rips/
+# full-acceptance-angle-bracket.ripper-stdout.txt) and found no `Track N read
+# successfully!` in it. Counted there: 16 `Flushing encoders...` lines (the album
+# pass's 14 tracks and the securing pass's 2), every one followed directly by
+# `Summary:`, where the outcome line belongs. The worker classed it as a redraw
+# (`_progress_for` returns a value for it, to peg the bar) and kept only lines that
+# were not progress. From cyanrip `.20` that line is the one that says a track read
+# with errors (their lap 9 S9/S10), so the drop lost a verdict.
+
+#: cyanrip's stdout around two tracks, in the order `cyanrip_main.c` prints it:
+#: the redraws (each a `\r` turned into its own line by universal newlines), then
+#: `\nFlushing encoders...\n` (stdout only), then the outcome line.
+#: (cyanrip@f6d72c0:src/cyanrip_main.c:1031-1037 for the redraw, :1282 for the
+#: flush notice, :1352-1354 for the outcome.)
+_TWO_TRACK_STDOUT: tuple[str, ...] = (
+    "Disc tracks:    4",
+    "Ripping and encoding track 3, progress - 0.01%, ETA - 3m, errors - 0",
+    "Ripping and encoding track 3, progress - 50.00%, ETA - 1m, errors - 0",
+    "Ripping and encoding track 3, progress - 99.99%, ETA - 0s, errors - 0",
+    "Ripping and encoding track 3, progress - 100.00%, ETA - 0s, errors - 0",
+    "Flushing encoders...",
+    "Track 3 read successfully!",
+    "Summary:",
+    "Ripping and encoding track 4, progress - 0.01%, ETA - 3m, errors - 0",
+    "Ripping and encoding track 4, progress - 100.00%, ETA - 0s, errors - 7",
+    "Flushing encoders...",
+    "Track 4 read with errors.",
+    "Summary:",
+)
+
+
+def test_a_tracks_outcome_line_is_kept_in_the_capture_in_order(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Both outcome lines are in the capture the report embeds, where cyanrip put them."""
+    handle = _FakeHandle(lines=_TWO_TRACK_STDOUT, exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+
+    kept = worker.captured_stdout.splitlines()
+    for outcome in ("Track 3 read successfully!", "Track 4 read with errors."):
+        assert outcome in kept, (
+            f"{outcome!r} was dropped from the capture, which the report calls the "
+            f"record of what the ripper said; kept: {kept!r}"
+        )
+    # In stream order: each outcome after its track's flush notice, before its block.
+    i3 = kept.index("Track 3 read successfully!")
+    i4 = kept.index("Track 4 read with errors.")
+    assert kept[i3 - 1] == "Flushing encoders..." and kept[i3 + 1] == "Summary:"
+    assert kept[i4 - 1] == "Flushing encoders..." and kept[i4 + 1] == "Summary:"
+    assert i3 < i4
+
+
+def test_redraw_runs_keep_first_and_last_and_count_the_rest(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Redraws are thinned, not dropped unmarked: what the capture leaves out, it counts.
+
+    Track 3's run has four redraws (two kept, two counted), track 4's has two (both
+    kept, nothing to count). Every redraw the ripper printed is either in the
+    capture or in a marker's count, which is the claim the report's label makes.
+    """
+    handle = _FakeHandle(lines=_TWO_TRACK_STDOUT, exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+
+    kept = worker.captured_stdout.splitlines()
+    marker = f"[platterpus] … 2 {REDRAW_ELISION_PHRASE} …"
+    assert kept == [
+        "Disc tracks:    4",
+        "Ripping and encoding track 3, progress - 0.01%, ETA - 3m, errors - 0",
+        marker,
+        "Ripping and encoding track 3, progress - 100.00%, ETA - 0s, errors - 0",
+        "Flushing encoders...",
+        "Track 3 read successfully!",
+        "Summary:",
+        "Ripping and encoding track 4, progress - 0.01%, ETA - 3m, errors - 0",
+        "Ripping and encoding track 4, progress - 100.00%, ETA - 0s, errors - 7",
+        "Flushing encoders...",
+        "Track 4 read with errors.",
+        "Summary:",
+    ], kept
+    fed = sum("progress - " in line for line in _TWO_TRACK_STDOUT)
+    shown = sum("progress - " in line for line in kept)
+    counted = sum(
+        int(m.group(1))
+        for m in (re.match(r"\[platterpus\] … (\d+) progress", ln) for ln in kept)
+        if m
+    )
+    assert fed == 6 and shown + counted == fed, (fed, shown, counted)
+
+
+def test_outcome_lines_reach_the_pane_and_app_log_while_redraws_stay_throttled(
+    qapp: QApplication,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The throttle still applies to redraws, and only to redraws.
+
+    The clock is frozen, so every redraw after the first falls inside the 0.1 s
+    window whatever the machine's load: exactly one reaches the pane. Each outcome
+    line used to go through that same throttle, which is how one of six app logs
+    on 2026-10-04 carried one (the fork's lap 9 S29).
+    """
+    import logging
+
+    monkeypatch.setattr(rip_worker_module.time, "monotonic", lambda: 1_000.0)
+    handle = _FakeHandle(lines=_TWO_TRACK_STDOUT, exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+    with caplog.at_level(logging.DEBUG, logger="platterpus.workers.rip_worker"):
+        worker.start_rip()
+
+    pane = _ripper_lines(sigs.log_lines)
+    assert sum("progress - " in line for line in pane) == 1, pane
+    for outcome in ("Track 3 read successfully!", "Track 4 read with errors."):
+        assert outcome in pane, pane
+        assert any(r.getMessage() == f"cyanrip │ {outcome}" for r in caplog.records)
+
+
+def test_outcome_lines_still_drive_the_live_display(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The bar, the status line and the row's Done mark still follow outcome lines.
+
+    The capture's decision changed; `_progress_for` did not. Each outcome line
+    still pegs its track's slice (task 100), names the track in the status, and
+    marks the row done.
+    """
+    handle = _FakeHandle(lines=_TWO_TRACK_STDOUT, exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+    worker.start_rip()
+
+    assert sigs.completed_tracks == [3, 4]
+    assert any(s.startswith("Track 3 done ✓") for s in sigs.statuses), sigs.statuses
+    assert any(s.startswith("Track 4 done with errors") for s in sigs.statuses)
+    # Six redraws and two outcomes each emitted progress; the outcomes peg 100.
+    tasks = [task for _, task in sigs.progress]
+    assert tasks[:8] == [0.01, 50.0, 99.99, 100.0, 100.0, 0.01, 100.0, 100.0], tasks
+
+
+def test_a_run_of_redraws_never_spans_two_passes(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """A pass that ends mid-run and a pass that opens on redraws stay two runs.
+
+    Without the close at the start of each pass, the second pass's first redraw
+    would be counted into the first pass's run, and the capture would show the
+    second pass's line as where the first pass's read ended.
+    """
+    backend = _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0))
+    worker = RipWorker(backend, _params(tmp_path))
+    first = [f"Ripping track 5, progress - {p}.00%, errors - 0" for p in (1, 2, 3)]
+    second = [f"Ripping track 9, progress - {p}.00%, errors - 0" for p in (7, 8, 9)]
+    for lines in (first, second):
+        backend.set_handle(_FakeHandle(lines=lines, exit_code=0))
+        worker._rip_once(read_speed=0, secure_rerip_matches=0)
+
+    marker = f"[platterpus] … 1 {REDRAW_ELISION_PHRASE} …"
+    assert worker.captured_stdout.splitlines() == [
+        first[0],
+        marker,
+        first[-1],
+        second[0],
+        marker,
+        second[-1],
+    ]
+
+
+def test_the_bar_moves_on_exactly_the_redraws_and_the_outcomes(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Two surfaces, one split: `_progress_for` answers for a line exactly when the
+    redraw predicate or the outcome predicate does, and never both.
+
+    `_progress_for` used to BE the redraw test. Now it gives the bar's values and
+    the two predicates decide what the capture keeps, so this relation is what says
+    the split lost no line the bar used and invented none.
+    """
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle()), _params(tmp_path))
+    lines = [
+        "Disc tracks:    14",
+        "Ripping track 5, progress - 42.37%, ETA - 3m, errors - 0",
+        "Ripping and encoding track 5, progress - 100.00%",
+        "Track 5 read successfully!",
+        "Track 5 read with errors.",
+        "Track 5 ripped and encoded successfully!",
+        "Track 5 ripped and encoded with errors.",
+        "Track 6 is data:",
+        "Flushing encoders...",
+        "Done; (2 out of 2 matches for current checksum ABCD1234)",
+        "Repeating ripping (1 out of 3 matches for current checksum ABCD1234)",
+        "Summary:",
+        # The previous backend's shapes (inert under cyanrip, KDD-18).
+        "Reading TOC  50 %",
+        "Reading track 3 of 16 (1 of 9) ...  42 %",
+        "Getting length of audio track (1 of 16) ... 100 %",
+        "Encoding track to FLAC (5 of 9) ...   0 %",
+    ]
+    redraws = 0
+    outcomes = 0
+    for line in lines:
+        is_redraw = rip_worker_module._is_progress_redraw(line)
+        is_outcome = rip_worker_module.cyanrip_log.finished_track(line) is not None
+        assert not (is_redraw and is_outcome), line
+        moves_bar = worker._progress_for(line) is not None
+        assert moves_bar == (is_redraw or is_outcome), (line, moves_bar)
+        redraws += is_redraw
+        outcomes += is_outcome
+    # Floors, so the relation cannot hold by finding nothing on either side.
+    assert redraws == 5 and outcomes == 4, (redraws, outcomes)
 
 
 # --- The secure re-read verdict is graded by its direction, and names its track --

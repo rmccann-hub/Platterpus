@@ -71,7 +71,12 @@ from platterpus.adapters.transcode import (
 from platterpus.drive_profiles import OffsetSource
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
-from platterpus.parsers.rip_log import RipLog, TrackResult, parse_rip_log
+from platterpus.parsers.rip_log import (
+    RereadAgreement,
+    RipLog,
+    TrackResult,
+    parse_rip_log,
+)
 from platterpus.paths import LOG_PATH
 from platterpus.report_types import ArtifactsBlock, DebugBlock, TimingBlock
 from platterpus.rip_addendum import read_log_with_addendum
@@ -307,7 +312,10 @@ def _verified_by_this_read(new: _T, current: _T, *, track: int, field: str) -> _
 
 
 def _merge_shipped_track(
-    track: TrackResult, shipped: TrackResult | None, verdicts: dict[int, bool]
+    track: TrackResult,
+    shipped: TrackResult | None,
+    verdicts: dict[int, bool],
+    agreements: dict[int, RereadAgreement] | None = None,
 ) -> TrackResult:
     """One track's first-pass record, corrected to describe the shipped file.
 
@@ -321,6 +329,10 @@ def _merge_shipped_track(
     which a ``**dict`` splat cannot. ``number`` and ``filename`` are deliberately
     absent: the re-rip ran in a throwaway directory under the same track number,
     so its identity fields are either irrelevant or wrong.
+
+    ``agreements`` is the worker's ``reread_agreements``: how many reads agreed in
+    each re-read, from the re-rip's own log, swapped in or not. It is applied
+    with the verdict, never without it.
     """
     from dataclasses import replace
 
@@ -373,7 +385,18 @@ def _merge_shipped_track(
     if verdict is not None:
         # The convergence verdict is ours, from the auto-fix history — it wins
         # over whatever the re-rip's own log did or didn't say.
-        track = replace(track, secure_rerip_converged=verdict)
+        #
+        # The agreement count travels WITH it, because it describes the same
+        # reads: the re-rip's, from the worker's record or the swapped-in read's
+        # own, else nothing. Keeping the first pass's count under the re-rip's
+        # verdict would let the EAC-layout log say "at most 2 of 3 reads agreed"
+        # about reads the re-rip never made.
+        reread = (agreements or {}).get(track.number)
+        if reread is None and shipped is not None:
+            reread = shipped.secure_rerip_agreement
+        track = replace(
+            track, secure_rerip_converged=verdict, secure_rerip_agreement=reread
+        )
     return track
 
 
@@ -1098,6 +1121,17 @@ class RipMixin(MainWindowShared):
         host `pkill` and then into the container: those are not device-scoped, so
         on a machine with two drives they could kill a healthy rip on the other
         one. The narrow step is the one that is safe to run unattended.
+
+        **And never a ripper's second signal (the fork's round 30 lap 9 S28).**
+        Behind the Distrobox wrapper the cancel's SIGTERM ends the wrapper, so the
+        reader this finds has had no signal. A native cyanrip (`composition` falls
+        back to one on `PATH`) IS what the cancel signalled, and it can still hold
+        the drive at +5 s, mid-read; a second SIGTERM `_exit()`s it with no
+        footer. Which world this is gets decided HERE, where the rescue fires, not
+        when the cancel armed it: the worker says which process its signal
+        reached (`stop_signal_reach`, ``None`` once that process is reaped), and
+        `drive_control.second_signal_refusal` refuses that process, for the grace,
+        at the moment each holder would be signalled.
         """
         if self._force_stop_done:
             return
@@ -1133,9 +1167,17 @@ class RipMixin(MainWindowShared):
                 "read in progress first, which can take a minute or two. Force "
                 "stop ends it now, but the rip's log will then be incomplete."
             )
+        # Read where the rescue fires and handed over as a value: the thread must
+        # touch no attribute a slot might change. The predicate itself runs on the
+        # thread, per holder, at the moment it would signal.
+        reached = (
+            self._rip_worker.stop_signal_reach()
+            if self._rip_worker is not None
+            else None
+        )
         thread = threading.Thread(
-            target=drive_control.free_device_holders,
-            kwargs={"device": device, "signal": "TERM"},
+            target=drive_control.term_unsignalled_holders,
+            kwargs={"device": device, "reached": reached},
             daemon=True,
         )
         self._force_stop_thread = thread
@@ -1291,6 +1333,10 @@ class RipMixin(MainWindowShared):
         # below must touch no widget and no attribute a slot might change.
         already_signalled = self._force_stop_done
         worker = self._rip_worker
+        # Which process the `cancel()` above (or the user's earlier Cancel) reached.
+        # A native cyanrip is that process, and the graceful stop must only wait
+        # for it; the reader behind the Distrobox wrapper is not, and is signalled.
+        reached = worker.stop_signal_reach() if worker is not None else None
 
         def stop_the_reader() -> None:
             # SIGTERM the reader, give it a grace to write its log's footer, and
@@ -1298,7 +1344,8 @@ class RipMixin(MainWindowShared):
             # 30 S25: this used to SIGKILL 191 ms after the wrapper's SIGTERM, and a
             # round-29 rip was left with no footer and no `Log FUN512:`). No eject.
             # A reader the post-cancel rescue already signalled is not signalled
-            # again: cyanrip's second SIGTERM force-exits without the footer.
+            # again, nor is a native cyanrip our cancel reached: cyanrip's second
+            # SIGTERM force-exits without the footer.
             #
             # BOUNDED: one budget covers the grace and the escalation, and a spent
             # budget skips the remaining steps and says so in the log.
@@ -1306,6 +1353,7 @@ class RipMixin(MainWindowShared):
                 drive_control.stop_reader_gracefully(
                     device=device,
                     already_signalled=already_signalled,
+                    reached=reached,
                     runner=drive_control.budgeted_runner(_SHUTDOWN_DRIVE_FREE_BUDGET_S),
                 )
             finally:
@@ -1663,6 +1711,11 @@ class RipMixin(MainWindowShared):
         # whole-disc log only knows the first pass.
         self._last_swapped_tracks = getattr(
             self._rip_worker, "swapped_track_records", {}
+        )
+        # How many reads agreed in each re-read, swapped in or not: the count that
+        # belongs beside the re-read's verdict in the EAC-layout log.
+        self._last_reread_agreements = getattr(
+            self._rip_worker, "reread_agreements", {}
         )
         # The "for posterity" ETA trace (PC clock + cyanrip's ETA + our ETA),
         # captured while the worker is alive; folded into the report below.
@@ -3800,8 +3853,13 @@ class RipMixin(MainWindowShared):
             )
             if not verdicts and not shipped:
                 return rip_log
+            agreements: dict[int, RereadAgreement] = (
+                getattr(self, "_last_reread_agreements", {}) or {}
+            )
             tracks = tuple(
-                _merge_shipped_track(track, shipped.get(track.number), verdicts)
+                _merge_shipped_track(
+                    track, shipped.get(track.number), verdicts, agreements
+                )
                 for track in rip_log.tracks
             )
             return replace(rip_log, tracks=tracks)

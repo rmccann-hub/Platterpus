@@ -83,6 +83,9 @@ text is taken verbatim as one value.
 | `expect-tags` | 0 | ready | expect-tags — every ripped FLAC's album, album artist, title, artist and track number are exactly what the track table shows, read from the file |
 | `expect-cover-art` | 0 | ready | expect-cover-art — the FLACs hold the cover art the cover_art setting asks for (embedded in every one, or none), matching the report's count |
 | `track-title` | 2+ (rest of line) | ready | track-title <n> <title…> — set track n's title as a typed edit would (refused while a rip runs) |
+| `set-library-scratch` | 0 | ready | set-library-scratch — point library_dir at a scratch folder inside the rips folder (the output directory), so a finished rip is filed there and never in your library; `set library_dir ""` turns the move off again |
+| `expect-library-move` | 0 | ready | expect-library-move — the last rip's album folder was filed in the library folder, with its log and report, and nothing left behind; waits (600s), because a rip is filed only after its post-rip checks finish |
+| `expect-rip-argv` | 2 | ready | expect-rip-argv <with|without> <flag> — the last rip's whole-disc pass sent this cyanrip flag, or left it out, read from the argv as spawned |
 | `expect-newest-pair` | 0 | ready | expect-newest-pair — the build this app reviews is the fork's newest release and this app is our newest release; a pair that cannot be shown newest fails too (D3; `expect-ripper-under-review` checks the installed ripper is that build) |
 | `expect-found-offset` | 0 | ready | expect-found-offset — the previous `cyanrip -f` found the offset set-drive-offset set for this drive |
 | `cache-probe` | 0 | ready | cache-probe — run cd-paranoia -A on the selected drive and record what it measures (info; its output is saved beside the transcript) |
@@ -649,6 +652,30 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "track-title <n> <title\u2026> \u2014 set track n's title as a typed edit would (refused while a rip runs)"
+    },
+    {
+      "name": "set-library-scratch",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "set-library-scratch \u2014 point library_dir at a scratch folder inside the rips folder (the output directory), so a finished rip is filed there and never in your library; `set library_dir \"\"` turns the move off again"
+    },
+    {
+      "name": "expect-library-move",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-library-move \u2014 the last rip's album folder was filed in the library folder, with its log and report, and nothing left behind; waits (600s), because a rip is filed only after its post-rip checks finish"
+    },
+    {
+      "name": "expect-rip-argv",
+      "min_args": 2,
+      "max_args": 2,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-rip-argv <with|without> <flag> \u2014 the last rip's whole-disc pass sent this cyanrip flag, or left it out, read from the argv as spawned"
     },
     {
       "name": "expect-newest-pair",

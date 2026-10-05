@@ -11,6 +11,44 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-05 (evening) — protocol 7, the fork's lap 9 answered, fourteen fixes, lap 10
+
+**What was built.** Our handshake gate implements protocol 7 (`1dbf9ac0`): row C46,
+`HANDSHAKE-NEXT-LAP` on every lap of a file declaring 7, and `STATUS-RELEASED` in the
+standing status block, checked against the newest release tag. The fork's round 30
+lap 9 (`cyanrip@f6d72c0`) was filed with `.20`'s contract (`4a04d026`), and our lap 10
+answers it. Nine agents in worktrees fixed our seven open round-30 items and their lap
+9 S27 to S29; all of it was cherry-picked onto the session branch, with every SHA the
+agents' TASKS notes cited rewritten to its integrated equivalent.
+
+**What was decided.** Their S13: keep exit 0 for a skip-only rip, because exit 1 would
+skip the securing pass that re-reads exactly those tracks. Their S16: take the joint
+`seam-commands.md` text (`-f` exits 1 on no offset; three wrong statements corrected).
+Their S39: accept their items not fixable this round. Our lap 8 S28 withdrawn: the
+read-speed ladder never stepped down on a drive-failed read, because it keyed on exit 0
+and cyanrip exits 1 on any drive error.
+
+**What was learned.**
+- **A new gate catches the work merged beside it.** Extending the size ratchet, the
+  regex-timing sweep and strict typing to `scripts/` found my own C46 pattern growing
+  quadratically under `.search`, and the structure fuzz test found the ladder agent's
+  new stored count accepting a 20-digit value. Neither change alone would have failed:
+  only the integrated tree did. The full suite over the merged tree is the test, not
+  the sum of each agent's targeted runs.
+- **Cherry-picks change SHAs, and records cite SHAs.** Agents wrote "Done in <sha>"
+  with their worktree SHAs, which no clone of `main` can resolve. The rewrite reads the
+  `cherry picked from commit` trailer, so it is derived, not hand-mapped.
+- **A peer lap can fail our `--check` after release.** Their lap 9 has no R6
+  pre-commit. A sent lap is never edited, so the miss is pinned by hash in the inbound
+  sweep, excused only for those bytes, only while R6 is its sole problem, and only if
+  our next lap raises it; our lap 10 S14 does.
+- **An account rate limit stopped all nine agents at once.** Their worktrees kept the
+  work, and resuming the three with uncommitted changes, told to run targeted tests and
+  leave the full suite to the integrator, finished them in minutes.
+- **Four full suites at once on a 4-CPU machine put the load average near 25** and
+  turned 7-minute runs into 30-minute ones that timed out; one check per tree, run by
+  the integrator, is the rule for parallel agents.
+
 ## 2026-10-05 (later) — lap 8 redrafted OPEN, eight fixes, `.20` read, a data register, a dependency map
 
 **Asked:** *"i will send 1 final acceptance run file in the morning, same version… want

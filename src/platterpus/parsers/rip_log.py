@@ -146,6 +146,38 @@ class AccurateRipResult:
 
 
 @dataclass(frozen=True)
+class RereadAgreement:
+    """How far a secure re-read (``-Z N``) got when it hit the repeat limit.
+
+    ``most_reads_agreed`` is the size of the largest group of this track's reads
+    that produced one checksum. cyanrip counts a read's matches against EVERY
+    earlier read, not only the previous one (``cyanrip@e5a4ddf:src/cyanrip_main.c:999-1001``),
+    so this is "how many reads were identical", whatever order they came in.
+
+    ``exact`` says whether the log PROVES that number or only a floor under it:
+
+    * the fork's own wording, ``Done; (repeat limit of 3 reads reached; at most
+      2 reads agreed)``, states it outright (``cyanrip@8b1581a:src/cyanrip_main.c:1020-1037``),
+      so it is exact;
+    * the older wording, ``Done; (no matches found, but hit repeat limit of 3)``,
+      states nothing, and the count comes from the ``Repeating ripping (k out
+      of N matches …)`` line printed after every read but the last. The last
+      read's own count is never printed, so the number is a floor — exact only
+      when the floor already equals N, because the last read cannot have joined
+      a group that size without converging (see
+      ``cyanrip_log.secure_rerip_limit_agreement``).
+
+    Why it exists: the EAC-layout log used to say "re-reads did NOT agree" for
+    every track that hit the limit, which was false of the round-28 Full run's
+    track 5, where two of three reads agreed (``TASKS.md``, *Found while
+    integrating*, item 1).
+    """
+
+    most_reads_agreed: int
+    exact: bool
+
+
+@dataclass(frozen=True)
 class TrackResult:
     """One track's results from the rip log."""
 
@@ -199,6 +231,14 @@ class TrackResult:
     # the offset-variant pressing — that's a pressing difference, NOT instability
     # — so the two are recorded separately and never conflated.
     secure_rerip_converged: bool | None = None
+    # For a track whose secure re-read hit the repeat limit
+    # (`secure_rerip_converged is False`): how many of its reads agreed, and
+    # whether the log proves that number or only a floor under it. None when the
+    # log does not say, which is the honest reading of an old-wording log whose
+    # reads never matched before the last one. Describes the SAME reads as
+    # `secure_rerip_converged`, so anything that replaces that verdict must
+    # replace this too (`ui/main_window_rip._merge_shipped_track`).
+    secure_rerip_agreement: RereadAgreement | None = None
     # ReplayGain / loudness tags cyanrip computed and wrote into the FLAC (a
     # dict of the raw "REPLAYGAIN_*"/"R128_TRACK_GAIN" values, as strings). The
     # JSON report is the only machine-readable record of what was tagged without
@@ -294,6 +334,17 @@ class RipLog:
     tracks: tuple[TrackResult, ...] = ()
     accuraterip_summary: str = ""
     health_status: str = ""
+    #: cyanrip's `Ripping errors:` count as printed (N), or None when the line
+    #: was absent or its number unreadable. From the fork's `+platterpus.20` N
+    #: includes paranoia's skips; see :attr:`drive_read_errors`.
+    ripping_errors: int | None = None
+    #: How many of N are paranoia's skips: the `(including M paranoia skips)`
+    #: suffix `.20` prints, 0 for a line with no suffix (no earlier build counted
+    #: skips), None for a suffix we do not recognise or no line at all.
+    ripping_errors_paranoia_skips: int | None = None
+    #: The failed-track count of cyanrip's `Encoder errors:` line (`.14`+): 0 for
+    #: its `none` and `not applicable` arms, None when absent or unrecognised.
+    encoder_failed_tracks: int | None = None
     sha256_hash: str = ""
     # cyanrip-only finish-report extras (empty/absent for legacy-format logs):
     # "Tracks ripped partially accurately: X/Y" — tracks that matched only the
@@ -434,6 +485,32 @@ class RipLog:
     # is present but incomplete, which is a different problem from a track that
     # is missing outright, and a consumer counting "verified" tracks should know.
     last_track_incomplete: bool = False
+
+    @property
+    def drive_read_errors(self) -> int | None:
+        """The reads the DRIVE failed, as far as the log can say. None = not stated.
+
+        cyanrip's `Ripping errors:` count is not only the drive's. On the fork it is
+        ``total_error_count`` plus paranoia's skips (`crip_ripping_errors()`,
+        ``cyanrip@0c692ed:src/cyanrip_main.h:530-547``), and ``total_error_count``
+        holds reads the drive failed or returned nothing for
+        (``cyanrip@0c692ed:src/cyanrip_main.c:600-617``), each failed encoder
+        (``:3054-3055``, since their round 21), and, only on a run that aborted,
+        the operational error that aborted it. So this is N minus the skips minus
+        the failed encodes, floored at 0: on a completed rip, exactly the drive's.
+
+        None when the log has no `Ripping errors:` line, or a skip suffix we cannot
+        read, because subtracting an unknown would state a number we do not have.
+        An unrecognised `Encoder errors:` arm counts as no failed encodes; the
+        read-speed ladder refuses a pass with a failed encode on its own account.
+        One output per rip (`-o flac`), so one failed encode per failed track.
+        """
+        if self.ripping_errors is None or self.ripping_errors_paranoia_skips is None:
+            return None
+        encoder = self.encoder_failed_tracks or 0
+        return max(
+            0, self.ripping_errors - self.ripping_errors_paranoia_skips - encoder
+        )
 
 
 # --- AccurateRip "is this track verified?" — the ONE shared definition -------
