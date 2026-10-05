@@ -142,6 +142,14 @@ _FRAGMENTS = st.sampled_from(
         "Offset:         +667 samples",
         "Tracks ripped accurately: 1/2",
         "Ripping errors: many",  # bad int
+        # `.20`'s skip suffix (round 30 lap 9 S11), and near misses of it: a new
+        # optional group is a new never-raises surface.
+        "Ripping errors: 2589 (including 2586 paranoia skips)",
+        "Ripping errors: 1 (including 1 paranoia skip)",
+        "Ripping errors: 3 (including many paranoia skips)",  # bad int
+        "Ripping errors: 3 (including " + "9" * 30 + " paranoia skips)",  # > uint64
+        "Ripping errors: 3 (including",  # cut off mid-suffix
+        "Encoder errors: 1 track failed (3); 17 tracks encoded",
         # The album loudness/peak rows cyanrip OWNS (their P2, fork round 8+).
         # Both the well-formed shape and the ways a reworded or corrupted line
         # can arrive, because these are what the parser now PREFERS over
@@ -302,6 +310,32 @@ def test_secure_rerip_verdict_converged_never_raises(text: str) -> None:
     # track that hit the repeat limit reported as verified.
     if re.match(r"\s*Done; \((?:no matches found|repeat limit)\b", text):
         assert result is False, text
+
+
+@_SETTINGS
+@given(
+    n=st.text(alphabet="0123456789", min_size=1, max_size=30),
+    m=st.text(alphabet="0123456789", max_size=30),
+    noun=st.sampled_from(["skip", "skips", "skipz", ""]),
+    tail=st.text(max_size=80),
+)
+def test_the_ripping_errors_skip_suffix_never_raises(
+    n: str, m: str, noun: str, tail: str
+) -> None:
+    """`.20`'s `Ripping errors: N (including M paranoia skips)`, with any numbers.
+
+    Added with the suffix's parse (round 30 lap 9 S11/S12). Stronger than "never
+    raises": the drive's part is either not stated or a count between 0 and N,
+    because the read-speed ladder steps the disc down on it.
+    """
+    line = f"Ripping errors: {n} (including {m} paranoia {noun}){tail}"
+    parsed = parse_cyanrip_log(f"cyanrip 0.9.4\n{line}\n")
+    skips = parsed.ripping_errors_paranoia_skips
+    assert skips is None or (isinstance(skips, int) and skips >= 0)
+    drive = parsed.drive_read_errors
+    if drive is not None:
+        assert isinstance(drive, int)
+        assert 0 <= drive <= (parsed.ripping_errors or 0)
 
 
 @_SETTINGS
@@ -535,6 +569,7 @@ _OVER_THE_DIGIT_LIMIT = "9" * 4301
         f"Offset:         +{_OVER_THE_DIGIT_LIMIT} samples",
         f"Track {_OVER_THE_DIGIT_LIMIT} ripped and encoded successfully!",
         f"Ripping errors: {_OVER_THE_DIGIT_LIMIT}",
+        f"Ripping errors: 1 (including {_OVER_THE_DIGIT_LIMIT} paranoia skips)",
         f"    READ:          {_OVER_THE_DIGIT_LIMIT}",
         f"    Start LSN:   {_OVER_THE_DIGIT_LIMIT}",
         f"    End LSN:     {_OVER_THE_DIGIT_LIMIT}",

@@ -631,7 +631,24 @@ _ACCURATE_TOTAL = re.compile(
 _PARTIAL_TOTAL = re.compile(
     r"^Tracks ripped partially accurately:\s+(?P<hit>\d+)/(?P<total>\d+)"
 )
-_RIP_ERRORS = re.compile(r"^Ripping errors:\s+(?P<count>\d+)")
+# "Ripping errors: 3", and from the fork's `+platterpus.20`, whenever paranoia
+# skipped anywhere on the disc, "Ripping errors: 2589 (including 2586 paranoia
+# skips)". The fork prints the suffix with `%llu (including %llu paranoia skip%s)`
+# (`cyanrip@0c692ed:src/cyanrip_log.c:1048-1053`), and N there is the drive's and
+# encoders' count PLUS the skips (`crip_ripping_errors()`,
+# `cyanrip@0c692ed:src/cyanrip_main.h:530-547`). A line with no suffix counts no
+# skips, whichever build wrote it, because no earlier build counted them (their
+# round 30 lap 9 S11). `count` is unchanged, so every older line parses exactly as
+# it did; `skips` is new and optional, bounded at a uint64's twenty digits.
+#
+# Why we need M at all: the read-speed ladder steps the disc down on what the
+# DRIVE failed, and a skip is paranoia giving up on verifying a stretch, which our
+# rule handles per track (`read_speed_ladder._instability_explains_arm`). Without
+# M, `.20`'s count carries the skips into the ladder (their S12).
+_RIP_ERRORS = re.compile(
+    r"^Ripping errors:\s+(?P<count>\d+)"
+    r"(?:\s{1,4}\(including\s{1,4}(?P<skips>\d{1,20})\s{1,4}paranoia\s{1,4}skips?\))?"
+)
 # "Encoder errors: none; 3 tracks encoded" — NEW in +platterpus.14, their §0.3,
 # printed directly below `Ripping errors:` at the same value column.
 #
@@ -1440,6 +1457,14 @@ class _Disc:
     # (no --consumer given)` until we ship the flag — which is itself the fact worth
     # carrying, because a log with no consumer cannot be attributed to us at all.
     consumer: str = ""
+    # The `Ripping errors:` line as numbers, beside the `health_status` sentence it
+    # also sets. N as printed; M, paranoia's skips inside N (0 when the line has no
+    # suffix, None when a suffix is there that we do not recognise); and the
+    # failed-track count of `Encoder errors:`, which N also includes. None = the
+    # line was absent or its number unreadable. See `RipLog.drive_read_errors`.
+    ripping_errors: int | None = None
+    ripping_errors_paranoia_skips: int | None = None
+    encoder_failed_tracks: int | None = None
     # Track number → CRC of the file that actually shipped, from Platterpus's own
     # swap addendum. Applied over the finished track list at the very end.
     shipped_crcs: dict[int, str] = field(default_factory=dict)
@@ -2047,13 +2072,34 @@ def interruption_point(where: object) -> InterruptionPoint | None:
 
 
 def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
-    count = int_or_none(match.group("count"), field="cyanrip ripping-error count") or 0
+    parsed = int_or_none(match.group("count"), field="cyanrip ripping-error count")
+    disc.ripping_errors = parsed
+    disc.ripping_errors_paranoia_skips = _ripping_error_skips(match)
+    count = parsed or 0
     # Same phrasing as the legacy format's healthy verdict so downstream string
-    # checks treat both formats alike.
+    # checks treat both formats alike. N, skips included: from `.20` a rip that
+    # skipped reads "N ripping errors" where `.19` read "No errors occurred", and
+    # that is the purpose of the fork's change (their round 30 lap 9 S12). Only
+    # the ladder subtracts the skips, through `RipLog.drive_read_errors`.
     disc.health_status = (
         "No errors occurred" if count == 0 else f"{count} ripping errors"
     )
     return True
+
+
+def _ripping_error_skips(match: re.Match[str]) -> int | None:
+    """How many of the `Ripping errors:` count are paranoia's skips.
+
+    The suffix's number when it is there; 0 when the line ends at the count, which
+    is every build before `.20` and `.20` on a rip that skipped nowhere; and None
+    when something else follows the count, because a suffix we cannot read is not
+    evidence that there were no skips. Never raises.
+    """
+    raw = match.group("skips")
+    if raw is not None:
+        return int_or_none(raw, field="cyanrip paranoia skips in Ripping errors")
+    rest = match.string[match.end() :].strip()
+    return 0 if not rest else None
 
 
 def _take_encoder_errors(disc: _Disc, match: re.Match[str]) -> bool:
@@ -2083,8 +2129,13 @@ def _take_encoder_errors(disc: _Disc, match: re.Match[str]) -> bool:
     if failed is None:
         # `none`, `not applicable`, or an arm we do not recognise. In all three the
         # honest move is to leave the rip verdict alone rather than invent one.
+        # The count is 0 for the two arms that say no encode failed, and stays
+        # None ("not determined") for an arm we do not recognise.
+        if value.startswith(("none", "not applicable")):
+            disc.encoder_failed_tracks = 0
         return True
     count = int_or_none(failed.group("failed"), field="cyanrip encoder-error count")
+    disc.encoder_failed_tracks = count
     if not count:
         return True
     note = f"{count} encoder error{'s' if count != 1 else ''}"
@@ -3315,6 +3366,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
         tracks=tuple(tracks),
         accuraterip_summary=disc.accuraterip_summary,
         health_status=disc.health_status,
+        ripping_errors=disc.ripping_errors,
+        ripping_errors_paranoia_skips=disc.ripping_errors_paranoia_skips,
+        encoder_failed_tracks=disc.encoder_failed_tracks,
         partially_accurate_summary=partially_accurate_summary,
         partially_accurate_reported=disc.partially_accurate_reported,
         # Only meaningful beside the ripper's tally, which counts the same population.
