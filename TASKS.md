@@ -87,6 +87,9 @@ their beta.
 
 ### C. The maintainer's decisions (each unblocks a row)
 
+**Ruled 2026-10-05: every recommendation below, as written** (*"Do all recommendations"*;
+`PLANNING.md` KDD-41). C2 and C3 close as "no change"; the others are in progress.
+
 | # | Question | Recommended | Then | Row |
 |---|---|---|---|---|
 | C1 | Run the securing pass after a finished pass with drive errors? | Yes: re-reading those tracks is what the pass is for | A2 | *Should the securing pass run after…* |
@@ -121,9 +124,9 @@ their beta.
 
 ### New rows
 
-- [?] **CI scans the full history for secrets on every run** (C8; `SECURITY.md`, *Secret
-  scanning*). **Blocked on C3**, the seam-automation proposal's freeze on CI changes: this is
-  amendment A12, approved 2026-09-28 and held (`PLANNING.md` KDD-39, KDD-40). `gitleaks/gitleaks-action` scans a range it builds itself with
+- [~] **CI scans the full history for secrets on every run** (C8; `SECURITY.md`, *Secret
+  scanning*). Amendment A12, approved 2026-09-28 and held under C3 (`PLANNING.md` KDD-39,
+  KDD-40); **C3 lifted for it 2026-10-05** (KDD-41). In progress. `gitleaks/gitleaks-action` scans a range it builds itself with
   `--no-merges --first-parent`, so a session-branch PR merged with a merge commit gives
   `main`'s push run *"0 commits scanned"*, and no run reads a merge commit's own change.
   Until it is applied, the scan is by hand (gitleaks 8.24.3,
@@ -179,25 +182,28 @@ at 100 % and 150 % text, and the screenshots were looked at.
   Wayland, where a client cannot place its own window. At 150 % text, open Help →
   Check for cyanrip updates and the test console's script reference, and confirm
   the buttons are on screen.
-- [ ] **A window exactly as wide as the screen has its frame's side border off
+- [~] **A window exactly as wide as the screen has its frame's side border off
   it** (the release picker on a 1280 × 800 panel at 150 %; a message box carrying
   a long path on a screen up to 1024 px wide). No content is lost, only the border
   and part of the layout margin. `fit_dialog_to_screen` keeps a chosen width up
   to the full screen on purpose, so whether to leave a side margin is the
   maintainer's call, not a fix taken here.
-- [ ] **The track table is not measured with a disc loaded.** The matrix's main
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** a small side margin. In progress.
+- [~] **The track table is not measured with a disc loaded.** The matrix's main
   window has no disc, so `cut_off_cells` examines none of its cells; a disc with
   long track titles is the next population to add. Not done here because the
   track table's column widths are a deliberate design (measured once per disc,
   2026-08-05) and the rule's verdict on it needs the maintainer's view first.
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** with a long-title disc. In progress.
 - [ ] **Qt's own file dialog and tooltips are not measured.** On the desktop the
   file dialog is usually the desktop's own, not ours to size.
-- [ ] **The conformance matrix is built once per xdist worker that runs one of
+- [~] **The conformance matrix is built once per xdist worker that runs one of
   its tests**, so under `-n 4` the same 22 conditions can be measured four
   times. Its processes are now bounded (one per CPU per worker), which stopped
   the memory exhaustion; sharing one matrix across workers, or `--dist
   loadgroup` for it, would also cut the duplicated time. Not done here: it
   changes how CI distributes the suite.
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* C3 is lifted for this change (C8). In progress.
 
 ## Faster CI and dev loop — measured, and planned in phases (maintainer, 2026-09-26)
 
@@ -894,12 +900,14 @@ Open:
 - [ ] **W6, ours to close: read the `-j` record's `interrupted` / `interrupted_by` /
   `exit_code`** for the status line and the report. The records reach the bundle since
   `a7a631b9`; the app does not read them yet.
-- [ ] **Ask the maintainer: should paranoia skips step the read speed down?** From `.20`
+- [x] **Ask the maintainer: should paranoia skips step the read speed down?** From `.20`
   a skipped-on track reads `with errors`. `4790a16a` keeps the ladder keyed on what it
   was keyed on under `.19` (drive-failed reads only), because a ripper upgrade must not
   change our ripping policy unasked. Whether skips SHOULD trigger a slower whole-disc
   re-read is the maintainer's call; the module's own policy says instability is flagged,
   not re-ripped.
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **no.** The ladder stays keyed on drive-failed reads; skips are flagged per
+    track. Nothing to build.
 - [x] **The beta path exists**: a `v0.6.66b1`-shaped tag is a PEP 440 pre-release, which
   `update_check.is_prerelease_version` keeps off the stable channel and `release.yml`
   sends through the relaxed handshake gate. Nothing to build before the cut; at the cut,
@@ -918,6 +926,8 @@ Open:
   the code uses with no note stops the run (it caught `pgrep` on integration). Not
   validated against the CycloneDX JSON schema: no validator is installed, and adding one
   is a new dependency for the maintainer to approve.
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* the schema validator is approved as a dev-only dependency (C7); it lands with
+    its `DEPENDENCIES.md` row.
 
 ## Round 30 — OPEN on `174a134` (`+platterpus.19`): the Full run on 0.6.65 with `.19`, and the operator's release-cycle question
 
@@ -1175,6 +1185,9 @@ each side's reading; and the closing releases named.
     Picard on acts only on the unknown-album path, which is (b), and launching
     Picard is an external program the vocabulary excludes. So B's round-trips
     prove each value is accepted and stored, and nothing about what it does.
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* (a) a verb that turns the offset override off and skips, saying why, on a
+    drive AccurateRip lists; (b) a second acceptance script for a disc MusicBrainz does not
+    know. In progress.
 - [x] **`-U`, not `-G`: every archival log still says "No MusicBrainz release ID at cover
   art lookup, cannot search Cover Art DB!"** (found 2026-09-30, NEXT-ROUND). Our
   `_build_rip_argv` comment implied `-G` removes that line; it does not. `-G` is
@@ -1280,13 +1293,16 @@ each side's reading; and the closing releases named.
   errors. **Our next lap says S28 was wrong** and points at the commit.
   - *Done in `4b657700` (the parser reads `.20`'s skip suffix) and `4aac4212` (the
     ladder asks `judge_step_down`):* 14 reverts probed, all detected.
-- [ ] **Should the securing pass run after a finished pass the drive could not read
+- [~] **Should the securing pass run after a finished pass the drive could not read
   cleanly?** (follow-up to the row above; round 30 lap 9 S13.) It is still keyed on exit 0,
   so after a ladder that ends on such a pass, or in fixed mode, the tracks AccurateRip did
   not confirm are not re-read. Running it there needs the report to keep the album pass's
   exit code apart from the securing pass's (`_ripper_exit_code` holds the last one), and a
   decision on whether exit 1 over a finished rip reads as "failed", which is the
   maintainer's and depends on the fork's S13.
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes.** The pass runs after a finished pass with drive errors; "finished" is
+    `ladder_trigger.why_pass_incomplete`, and the report keeps the album pass's exit code
+    apart from the securing pass's. In progress.
 - [x] **Their lap 9 S28: on a native install the rescue's SIGTERM was cyanrip's second.**
   Held, read from both trees: `composition.build_backend` falls back to a `cyanrip` on
   `PATH`; the cancel killpg()s the child's group, which there is cyanrip itself; the rescue
@@ -1490,12 +1506,14 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     bundle's `screen lock` line now calls it the desktop's promise, not a
     measurement. Open for one thing only: a Full run on this build to show the
     steps record INFO where they failed.
-- [ ] **For the maintainer, and only for runs after the decision: should a screenshot step
+- [x] **For the maintainer, and only for runs after the decision: should a screenshot step
   be able to fail an ARCHIVAL section?** H, J and K3 each contain one, so a blank screen
   makes the run `partial` whatever the rips did. Grading is fixed in advance and never
   after a failure (`docs/testing.md` → *Acceptance severity*), and this run stays
   `partial` either way. A change that makes a future version easier to reach is the
   direction that rule tells us to be suspicious of, so this is a question, not a change.
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **keep today's grading.** A step still fails when no window is open at all;
+    open-but-unexposed windows already record INFO. Nothing to build.
 - [x] **The rig check's pin line named a test pin that round 29 does not have** (*"A test
   pin is expected to differ during an open round"*, `round29fullrigcheckmanifest.txt:5`).
   - *Done in 702a707e:* `rig_check.pin_line` names the pin, the build under review and its
