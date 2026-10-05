@@ -50,6 +50,14 @@ inaccurate"*.
   it is centred, scrolling its text when no width fits. The manual-install reason wraps,
   and the release picker shows titles and artists in full. The conformance matrix now
   measures all 40 routed message boxes and the 9 hand-built ones, with real content.
+- *The operator's final round-30 run* (`ce081490`, `c38e965e`): 316 of 323 on `.19` and
+  0.6.65, the same seven screenshot steps as 2026-09-30 (fix `5fe413a5` postdates
+  0.6.65), every rip's log verified, no error during the run. Track 3 of the rig disc no
+  longer reads the same way twice, which the logs say honestly. A third measurement
+  confirms the rescue's SIGTERM is the reader's first signal. The estimate checked out
+  of sample at 3% high. Filed, graded `partial`, and read into lap 8. **Marking lap 8
+  released (`handshake.py --announce`) was refused by the session's permission check as
+  an external write, so it waits for the operator.**
 - *The dependency map* (`dba00711`, agent): `bom.cdx.json` (CycloneDX 1.7) and a generated
   block in `DEPENDENCIES.md`; its two-way tool check caught `pgrep` on integration
   (`575eda61`).
