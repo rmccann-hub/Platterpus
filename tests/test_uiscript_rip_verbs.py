@@ -2706,6 +2706,85 @@ def test_abort_if_failed_still_stops_on_a_failure_in_its_OWN_section(
     )
 
 
+def test_a_stop_quotes_the_failed_steps_first_line_not_its_whole_text(
+    qapp, process_until, tmp_path, monkeypatch
+) -> None:
+    """A run stopped by one step prints that step's text ONCE (TASKS, 0.6.63 quick run).
+
+    The 22:13Z quick run on 0.6.63 stopped at section A, on a ripper that was
+    not the reviewed build. `expect-ripper-under-review`'s failure is several
+    lines long — the sentence, the one command that fixes it, and the banner it
+    read — and `abort-if-failed` quoted ALL of it inside its own reason. So the
+    transcript printed the whole text three times (the failed step, the guard
+    under it, and ENDED EARLY), and the closing dialog printed it twice, the
+    second copy as "Why it stopped" directly under the first.
+
+    The real verb is driven, not a hand-made record, so the failure text is the
+    one an operator actually gets. The stop names the step and its FIRST line,
+    and points up at the rest, saying how many lines it left there.
+    """
+    from platterpus.uiscript.report import render
+
+    monkeypatch.setattr(
+        "platterpus.paths.LOG_PATH", tmp_path / "share" / "log.txt", raising=False
+    )
+    runner = ScriptRunner(_window())
+    # The state a `cyanrip --version` step leaves: an upstream banner, which no
+    # handshake record names, so the verb below fails as it did on the rig.
+    runner._last_cyanrip_argv = ["cyanrip", "--version"]
+    runner._last_cyanrip_output = "cyanrip 0.9.4 (upstream build, no fork tag)"
+    report = _run_to_end(
+        runner,
+        "log --- A. identity: which ripper is installed ---\n"
+        "expect-ripper-under-review\n"
+        "abort-if-failed the installed ripper is not the build the record names\n"
+        "log the night that must not be spent",
+        process_until,
+    )
+    failed = [s for s in report.steps if s.source == "expect-ripper-under-review"]
+    assert failed and failed[0].outcome is Outcome.FAIL, (
+        f"the fixture did not fail the identity step: {report.steps}"
+    )
+    lines = [line for line in failed[0].detail.splitlines() if line.strip()]
+    # Non-triviality: a one-line detail cannot show the duplication at all.
+    assert len(lines) >= 3, f"the failure detail is not multi-line: {lines!r}"
+
+    transcript = render(report)
+    for line in lines[1:]:
+        # Each line after the first belongs to the failed step and nowhere else.
+        assert transcript.count(line.strip()) == 1, (
+            f"{line.strip()!r} is printed {transcript.count(line.strip())} times — "
+            f"the stop repeats the failed step's whole text:\n{transcript}"
+        )
+    reason = report.ended_reason
+    assert "\n" not in reason, f"the stop reason is several lines long: {reason!r}"
+    assert lines[0].strip() in reason and "L2" in reason, (
+        f"the stop must name the step and quote its first line: {reason!r}"
+    )
+    # The elision is COUNTED and points at where the rest is (CLAUDE.md: a silent
+    # truncation reads as completeness).
+    more = len(failed[0].detail.strip().splitlines()) - 1
+    assert f"{more} more line(s), printed in full with L2" in reason, (
+        f"the stop dropped the rest of the detail without saying so: {reason!r}"
+    )
+
+
+def test_a_headline_is_the_whole_detail_when_there_is_only_one_line() -> None:
+    """The cut marks an elision only when something was elided.
+
+    A one-line detail quoted with "0 more line(s)" would be noise, and an empty
+    one quoted as `''` would read as a step that said nothing on purpose.
+    """
+    from platterpus.uiscript.report import StepRecord
+
+    one = StepRecord(4, "expect x y", Outcome.FAIL, "  expected x, got y  \n")
+    assert one.headline() == "expected x, got y"
+    empty = StepRecord(5, "expect x y", Outcome.FAIL, "")
+    assert empty.headline() == "no detail was recorded"
+    three = StepRecord(6, "s", Outcome.FAIL, "first\nsecond\n\nfourth")
+    assert three.headline() == "first [3 more line(s), printed in full with L6]"
+
+
 # --- The four checks that passed without testing anything (2026-09-05) --------
 #
 # All four were ARCHIVAL-section steps that could be satisfied by finding
