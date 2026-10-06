@@ -603,6 +603,24 @@ _VERB_LIST: tuple[Verb, ...] = (
         "(a well-formed release MBID is held), not merely that the track table "
         "has rows, which placeholder rows also satisfy",
     ),
+    # The UNKNOWN-DISC path (C4 (b), KDD-41): the mirror of `expect-identified`,
+    # and the rip's own record of the path, for `unknowndiscacceptance.txt`
+    # (`unknown_disc_verbs.py`). The full script stops before this path on purpose.
+    Verb(
+        "expect-unidentified",
+        0,
+        0,
+        "expect-unidentified — assert the disc was NOT identified and will rip as "
+        "an unknown album: no release id, placeholder rows loaded, the 'Rip as "
+        "unknown album' confirmation accepted, Picard not set to launch",
+    ),
+    Verb(
+        "expect-unknown-record",
+        0,
+        0,
+        "expect-unknown-record — the last rip's report records an unknown-album "
+        "rip with no release id and no failed tagging pass (waits for it to settle)",
+    ),
     Verb(
         # `expect-refused` — the ONLY way a script can assert that validation
         # WORKED. `set` reports FAIL when the pure validator refuses a value, and

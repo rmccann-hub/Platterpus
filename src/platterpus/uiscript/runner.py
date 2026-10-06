@@ -66,6 +66,7 @@ from platterpus.uiscript.script import (
     sanitise_cyanrip_args,
 )
 from platterpus.uiscript.tiers import PruneLedger, is_sweep, parse_tier
+from platterpus.uiscript.unknown_disc_verbs import UnknownDiscVerbsMixin
 from platterpus.uiscript.verbs import OPENABLE, VERBS
 
 if TYPE_CHECKING:  # pragma: no cover — types only
@@ -424,6 +425,7 @@ class ScriptRunner(
     ProbeVerbsMixin,
     PermutationVerbsMixin,
     OffsetVerbsMixin,
+    UnknownDiscVerbsMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.

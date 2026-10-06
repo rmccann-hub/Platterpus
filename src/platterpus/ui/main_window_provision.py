@@ -622,7 +622,9 @@ class ProvisioningMixin(MainWindowShared):
     # pane's live log view, and into the end-of-session dialog and the bundle's
     # own facts. Three surfaces, none of them a dialog racing the script.
 
-    def run_acceptance_session(self, size: str | None = None) -> bool:
+    def run_acceptance_session(
+        self, size: str | None = None, *, script_name: str = ""
+    ) -> bool:
         """Run the whole overnight acceptance session. Returns whether it started.
 
         The first half runs here, on the GUI thread, because it is a handful of
@@ -651,6 +653,12 @@ class ProvisioningMixin(MainWindowShared):
         ``size`` is the run size (`uiscript/run_sizes.py`). ``None`` asks, in the
         one question this session puts BEFORE anything starts: once the batch is
         going, no modal may appear. Tests pass it explicitly.
+
+        ``script_name`` picks which packaged script runs: empty for the full
+        acceptance run, or `test_session.UNKNOWN_DISC_SCRIPT_NAME` for the run
+        that needs a disc MusicBrainz does not know. Everything else about the
+        session (the folder, the sleep lock, the settings restore, the one file)
+        is the same for both, because it is the same job.
         """
         from datetime import UTC, datetime
         from pathlib import Path
@@ -692,7 +700,11 @@ class ProvisioningMixin(MainWindowShared):
                 )
                 return False
 
-        script, explanation = builtin_acceptance_script()
+        script, explanation = (
+            builtin_acceptance_script(script_name)
+            if script_name
+            else builtin_acceptance_script()
+        )
         if script is None:
             log.error("acceptance session refused: %s", explanation)
             self._acceptance_message(
@@ -1664,6 +1676,20 @@ class ProvisioningMixin(MainWindowShared):
     def _on_run_acceptance_action(self) -> None:
         """Tools → Advanced → Run acceptance test…: ask the size, then run it."""
         self.run_acceptance_session()
+
+    def _on_run_unknown_disc_acceptance_action(self) -> None:
+        """Tools → Advanced → Run acceptance test with an unknown disc….
+
+        No size question: the script is one short section set, so every size
+        would run the same steps, and asking would offer a choice that changes
+        nothing. It runs as Full, which declines nothing.
+        """
+        from platterpus.test_session import UNKNOWN_DISC_SCRIPT_NAME
+        from platterpus.uiscript import run_sizes
+
+        self.run_acceptance_session(
+            size=run_sizes.FULL, script_name=UNKNOWN_DISC_SCRIPT_NAME
+        )
 
     def _ask_acceptance_run_size(self) -> str | None:
         """Which run size? ``None`` when the operator cancels. PlainText.

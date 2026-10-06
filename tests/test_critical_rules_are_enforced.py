@@ -1686,7 +1686,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **631 -> 637** (2026-09-28, the `-Z` wording): the User Guide's Max retries, secure re-read and Test & Copy bullets say what `-r` limits and that `-Z N` is N+1 identical reads, under the renamed label.
     # **639 -> 637 (2026-09-28, 0.6.63)**: the transitional Tools entry for Set cover art from file… left, with the Guide sentence that named it.
     # **637 -> 632** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the Guide paragraph on the unsafe opt-in became one sentence saying no verb runs arbitrary code.
-    "help_content.py": 632,
+    # **632 -> 642** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the Guide names Tools → Advanced → Run acceptance test with an unknown disc…, which `tests/test_help_documents_the_menu.py` requires of every Tools action; it is the Guide's acceptance section, so it lives there.
+    "help_content.py": 642,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1943,7 +1944,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the bundle's strict album channel. It is the same scan's other half, not a job.
     # **932 -> 974** (2026-10-05, the 2026-10-04 run's bundle packed around a live rip): how long a finished session waits for its rip to stop (`rip_wait_s`, derived from the app's own wait for a cancelled rip's log) and the ripper processes the host sees as the bundle is packed (`ripper_processes_fact`), Qt-free here beside the facts they join.
     # **974 -> 1053** (2026-10-05, the same reading): `session_diagnostics_records` and `_record_facts`, so the session bundle carries every rip's `-j` record through the strict single-file route and names their absence when rips landed and none did. The album scan's sibling: the same "discovered, not remembered" job over the same roots, so it lives beside it.
-    "test_session.py": 1053,
+    # **1053 -> 1069** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): `UNKNOWN_DISC_SCRIPT_NAME`, `ACCEPTANCE_SCRIPT_NAMES` and a `name` on the two packaged-script lookups, so both scripts have their one name in the one place the session reads it.
+    "test_session.py": 1069,
     # **419 -> 422** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the per-row status label, which shows the installer's own error, states PlainText, with the comment saying why.
     "ui/dialogs/pending_installs.py": 422,
     # **new at 372** (2026-10-05, KDD-41, the side margin): crossed ~300 with the
@@ -2052,7 +2054,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1749 -> 1748 (2026-09-28, 0.6.63)**: the transitional Tools entry for Set cover art from file… left, with the Guide sentence that named it.
     # **1748 -> 1797** (2026-09-30): the confirmation before a close from outside or File -> Quit ends a rip or the acceptance test, beside the `closeEvent` it guards (the fork's round 30 S25).
     # **1797 -> 1800** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` initialised beside `_last_swapped_tracks`.
-    "ui/main_window.py": 1800,
+    # **1800 -> 1810** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the menu action, beside the full run's, and in the rip lock with it.
+    "ui/main_window.py": 1810,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2140,7 +2143,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1689 -> 1763** (2026-10-05, the same run): `_acceptance_rip_at_end` keeps the session armed until a rip still reading has stopped, bounded, and puts what it found in the bundle's facts, so settings are not restored under a rip and no bundle is packed around a log still being written.
     # **1763 -> 1769** (2026-10-05, the fork's reading of our 2026-10-04 runs: no `-j` record in any bundle): the pack asks `session_diagnostics_records` for the rips' records and hands them to `finish_session`; the scan itself lives in `test_session`.
     # **1769 -> 1788** (2026-10-06, KDD-41 C4): the closing dialog counts steps this equipment cannot run, so "PASSED — all N" can no longer stand over an `unreachable` step; one branch beside the run headline's others.
-    "ui/main_window_provision.py": 1788,
+    # **1788 -> 1814** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): `run_acceptance_session` takes the script to run, and the new action's slot runs the unknown-disc script with no size question; the session is the same job for both.
+    "ui/main_window_provision.py": 1814,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2430,7 +2434,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4786 -> 4787** (2026-10-05, TASKS "Permutations the acceptance test still does not run"): the import of `PermutationVerbsMixin`. Its three handlers (section J2) went to their own mixin, `permutation_verbs.py`, and their graders to `permutation_grading.py`, not here.
     # **4787 -> 4785** (2026-10-06, ruling C1): `expect-verification`'s did-not-finish detail phrases each pass's exit through `rip_pass_exit`, two lines shorter than reading the code inline.
     # **4785 -> 4778** (2026-10-06, KDD-41 C4): lowered: `_drive_in_offset_list` moved to `offset_grading.py`, shared by `set-drive-offset` and the new `expect-offset-refusal`, whose handler is its own mixin (`offset_verbs.py`), not here.
-    "uiscript/runner.py": 4778,
+    # **4778 -> 4780** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the import and base class of `UnknownDiscVerbsMixin`; its two handlers went to their own mixin, not here.
+    "uiscript/runner.py": 4780,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2458,7 +2463,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **863 -> 874** (2026-10-05): the `wait-for-rip` and `cancel-rip` help says a run that ends early cancels its rip, and `abort`'s no longer claims to be the only verb that ends one.
     # **874 -> 901** (2026-10-05, section J2): three verb declarations, `set-library-scratch`, `expect-library-move` and `expect-rip-argv`, with the comment saying why the first must be a verb. The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **901 -> 915** (2026-10-06, KDD-41 C4): the `expect-offset-refusal` declaration. The table is the vocabulary's security boundary, so a verb is an entry here by design; its handler is a new mixin, `offset_verbs.py`.
-    "uiscript/verbs.py": 915,
+    # **915 -> 933** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the `expect-unidentified` and `expect-unknown-record` declarations; the handlers are a new mixin, `unknown_disc_verbs.py`.
+    "uiscript/verbs.py": 933,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical

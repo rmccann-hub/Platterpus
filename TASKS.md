@@ -1279,6 +1279,22 @@ each side's reading; and the closing releases named.
     run nor reads as a pass. Tested against the real gate
     (`RipMixin._on_rip_requested` with its real blocking box); 6 reverts each
     caught (`scripts/revert_probe.py`).
+  - *2026-10-06: (b) DONE as a second script, as ruled (KDD-41 C4); no hardware
+    evidence yet.* `rig_scripts/unknowndiscacceptance.txt`, run by the new menu
+    item **Tools → Advanced → Run acceptance test with an unknown disc…** through
+    the same session as the full run (no size question), and by `--run-script
+    unknowndiscacceptance`. Its header says which disc it needs: one MusicBrainz
+    does not know, with at least two tracks (a CD-R of your own recordings). It
+    starts from the full run's baseline line for line (a test holds the two
+    equal), checks the ripper and the offset, rescans, accepts *Rip as unknown
+    album* with Picard unticked, asserts **`expect-unidentified`** (no release id,
+    placeholder rows, unknown mode on, Picard not set to launch, no picker open),
+    aborts on a disc MusicBrainz knows, rips tracks 1-2 and grades them with the
+    full run's verbs plus **`expect-unknown-record`** (the report's `disc` block
+    says `unknown: true` with no release id, and no `tagging_failed`). Its five
+    sections are classified in advance in `docs/testing.md` (a second severity
+    table, swept). 5 reverts each caught. **Needs a run with such a disc**, which
+    the rig's usual disc is not.
   - *(e), what stays open and why.* A NON-ZERO fixed read speed sends `-S`, and a
     drive that reports its speed unchangeable makes cyanrip abort the rip on it
     (the BDR-209D, 2026-07-01): the same shape as (a). Fixed at 0 cannot tell

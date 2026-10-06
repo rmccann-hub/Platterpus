@@ -91,6 +91,8 @@ text is taken verbatim as one value.
 | `cache-probe` | 0 | ready | cache-probe — run cd-paranoia -A on the selected drive and record what it measures (info; its output is saved beside the transcript) |
 | `expect-secure-rerip` | 0 | ready | expect-secure-rerip — assert the secure re-read actually RAN on this rip (at least one track block carries cyanrip's Scope: line), the graded form of rig-check's 'genuinely exercised' row |
 | `expect-identified` | 0 | ready | expect-identified — assert the disc was identified against MusicBrainz (a well-formed release MBID is held), not merely that the track table has rows, which placeholder rows also satisfy |
+| `expect-unidentified` | 0 | ready | expect-unidentified — assert the disc was NOT identified and will rip as an unknown album: no release id, placeholder rows loaded, the 'Rip as unknown album' confirmation accepted, Picard not set to launch |
+| `expect-unknown-record` | 0 | ready | expect-unknown-record — the last rip's report records an unknown-album rip with no release id and no failed tagging pass (waits for it to settle) |
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
 | `keep` | 1 | ready | keep <config-field> — leave this setting as it is for the run, on purpose, and record its value (the baseline sets or keeps every setting) |
 | `set-drive-offset` | 0 | ready | set-drive-offset — set the read offset for the drive in THIS machine: the one it is already set to, or else the AccurateRip drive list's (fails if neither is known) |
@@ -717,6 +719,22 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-identified \u2014 assert the disc was identified against MusicBrainz (a well-formed release MBID is held), not merely that the track table has rows, which placeholder rows also satisfy"
+    },
+    {
+      "name": "expect-unidentified",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-unidentified \u2014 assert the disc was NOT identified and will rip as an unknown album: no release id, placeholder rows loaded, the 'Rip as unknown album' confirmation accepted, Picard not set to launch"
+    },
+    {
+      "name": "expect-unknown-record",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-unknown-record \u2014 the last rip's report records an unknown-album rip with no release id and no failed tagging pass (waits for it to settle)"
     },
     {
       "name": "expect-refused",

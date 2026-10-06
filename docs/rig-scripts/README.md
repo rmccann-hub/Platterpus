@@ -49,6 +49,27 @@ product's gap invisible.
 > build older than v0.6.32 has no menu item; both files are still in the source
 > tree of every release up to v0.6.61.
 
+## A disc MusicBrainz does not know: `unknowndiscacceptance.txt`
+
+**About 15 minutes, and it needs a different disc.** `fullacceptance.txt` stops
+at its section E when the disc is not identified, on purpose, so the
+unknown-album path never ran in an acceptance run. This second script takes it
+(ruled 2026-10-05, `PLANNING.md` KDD-41 C4). Use a disc MusicBrainz does not
+know with at least two tracks: a CD-R you burned from your own recordings is the
+reliable choice. **Tools → Advanced → Run acceptance test with an unknown disc…**
+runs it with the same session folder, sleep lock, settings restore and one file
+to send as the full run; `--run-script unknowndiscacceptance` reaches the same
+file.
+
+It starts from the full run's baseline (held identical by
+`tests/test_unknown_disc_acceptance.py`), checks the ripper and the offset,
+rescans and accepts *Rip as unknown album* with Picard unticked, asserts the
+disc was **not** identified (`expect-unidentified`), rips two tracks, and grades
+them: completion, the post-rip checks, the self-audit, AccurateRip, CTDB, the
+placeholder tags, no cover art (there is no release to fetch it from), and the
+report recording the unknown-album path (`expect-unknown-record`). On a disc
+MusicBrainz knows, section E stops the run in its first minutes and says why.
+
 ## The T1-only path: `securereread.txt`
 
 **T1 alone, about 3 to 3½ hours — measured, not estimated.** This said *"about 2–2.5 hours"* until v0.6.37, and the script under it budgeted three hours for the wait. Both came from the same wrong model: a whole-disc pass on this rig is 50–70 minutes *without* the secure re-read, and uniform `-Z 2` reads every track at least twice. The 2026-09-03 run measured **3h05m** and **3h07m** for the two whole-disc uniform re-reads it did, and the section that allowed 10800s timed out at 10800.1s with a track still re-reading. Budget the afternoon, not the lunch break. Use this rather than the full file when the only

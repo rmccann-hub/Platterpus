@@ -87,20 +87,36 @@ BUILTIN_SCRIPT_DIR_NAME: Final[str] = PACKAGED_SCRIPT_DIR_NAME
 #: each call site so the name has exactly one home.
 ACCEPTANCE_SCRIPT_NAME: Final[str] = "fullacceptance.txt"
 
+#: The second acceptance run, for a disc MusicBrainz does not know (TASKS
+#: "Permutations the acceptance test still does not run", (b); KDD-41 C4). The
+#: full run stops at its section E on such a disc, so the unknown-album path has
+#: a script of its own, reached by Tools → Advanced → Run acceptance test with an
+#: unknown disc…. ASCII letters only, like every name an operator may type
+#: (`CLAUDE.md`, artifact filenames).
+UNKNOWN_DISC_SCRIPT_NAME: Final[str] = "unknowndiscacceptance.txt"
 
-def builtin_acceptance_script_path() -> Path:
-    """Where the packaged acceptance script *would* live. PURE — no disk access.
+#: Every acceptance script the session can run, the full one first.
+ACCEPTANCE_SCRIPT_NAMES: Final[tuple[str, ...]] = (
+    ACCEPTANCE_SCRIPT_NAME,
+    UNKNOWN_DISC_SCRIPT_NAME,
+)
+
+
+def builtin_acceptance_script_path(name: str = ACCEPTANCE_SCRIPT_NAME) -> Path:
+    """Where a packaged acceptance script *would* live. PURE — no disk access.
 
     Answers even when the file is missing, which is the point: an error message
     that cannot name the path it looked for is not a diagnosis. Use
     :func:`builtin_acceptance_script` when you need to know whether it is really
-    there.
+    there. ``name`` is one of :data:`ACCEPTANCE_SCRIPT_NAMES`.
     """
     package_root = Path(__file__).resolve().parent
-    return package_root / BUILTIN_SCRIPT_DIR_NAME / ACCEPTANCE_SCRIPT_NAME
+    return package_root / BUILTIN_SCRIPT_DIR_NAME / name
 
 
-def builtin_acceptance_script() -> tuple[Path | None, str]:
+def builtin_acceptance_script(
+    name: str = ACCEPTANCE_SCRIPT_NAME,
+) -> tuple[Path | None, str]:
     """The packaged acceptance script, or ``None`` plus why not. Never raises.
 
     Returns ``(path, explanation)``. ``explanation`` is always populated and
@@ -114,7 +130,7 @@ def builtin_acceptance_script() -> tuple[Path | None, str]:
     right response is a sentence on screen naming the path, not a traceback on
     top of whatever the user was doing.
     """
-    path = builtin_acceptance_script_path()
+    path = builtin_acceptance_script_path(name)
     try:
         if path.is_file():
             return path, f"using the acceptance script shipped in the app: {path}"
