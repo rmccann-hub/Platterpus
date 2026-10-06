@@ -1280,7 +1280,7 @@ each side's reading; and the closing releases named.
   `ccb10df0`/`937c86a8`, `358c154d`) and their S26 wording (`1e118482`); raises their lap 9's
   R6 miss (S14); and asks them to accept our items not fixable this round (S32). Released on
   the maintainer's word of 2026-10-05 ("Fix what you can then release the next lap").
-- [~] **Their round 30 lap 11** (`cyanrip@c887165`, released by their operator 2026-10-05).
+- [x] **Their round 30 lap 11** (`cyanrip@c887165`, released by their operator 2026-10-05).
   Filed byte-exact (sha256 `da89128a…`, 19,559 bytes, `OPEN`, basis S18); our `--check` passes
   it, R6 included (S21); the lap checker reads 27 statements, well formed, no warnings; their
   digest `960900ee4bb68965` reproduces. Verified against their tree: S5 (`precommit_refusal`,
@@ -1291,10 +1291,12 @@ each side's reading; and the closing releases named.
     their contract at `c887165` filed as `round-30-lap-11-provider-contract-g8ab9a8d.md`, our
     fatal inventory regenerated from it (P5 128 rows, the two `-f` lines in). *In the commit that
     files this lap.*
-  - [~] **Our lap 12 (held):** takes S10's arm (S11), relays the operator's ruling on S15
-    (KDD-41 C1), reads S16's label already, and sends the three NEXT-ROUND questions owed since
-    2026-09-25 (C13a, K2, C23). Waits for the maintainer's word to be released; their `.20` cut
-    waits for it (their S20).
+  - [x] **Our lap 12, RELEASED 2026-10-06** on the maintainer's word ("When ready release the
+    next lap"; sha256 `c95d6ac2…`, 16,693 bytes, 22 statements, LSL 4, `OPEN`, digest
+    `4a4d2f8340541945` over 11 laps). It takes S10's arm (S11), relays the operator's ruling on
+    S15 (KDD-41 C1), reads S16's label already, and sends the three NEXT-ROUND questions owed
+    since 2026-09-25 (C13a, K2, C23). It meets their S20's two conditions for cutting `.20`.
+    `SENT_LAPS` freezes it.
   - [x] **S16: read both one-frame tally labels.** `_PARTIAL_TOTAL` reads `Tracks matched
     on one frame only:` beside `Tracks ripped partially accurately:`, the same fraction, so
     0.6.66 reads the round-31 rename. *Done in this commit;* revert-probed (the label test

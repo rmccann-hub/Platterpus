@@ -157,6 +157,8 @@ SENT_LAPS: dict[str, str] = {
     # our lap 8 S28 withdrawn, fourteen fixes, and their lap 9's R6 miss; released on
     # the maintainer's word 2026-10-05 ("Fix what you can then release the next lap").
     "outbound/round-30-lap-10.md": "20e17e55a37c3691a8d367dc7154fac189fabf11e0e310ecca6b14793f91b20a",
+
+    "outbound/round-30-lap-12.md": "c95d6ac212cd789d1237f225c92f51bcb56abb1c756ceffd501d2a9473b8ac0e",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
