@@ -276,10 +276,17 @@ def test_summarize_output_flattens_and_bounds_what_reaches_the_log() -> None:
     assert checks._summarize_output("   \n\n ") == "(none)"
     assert checks._summarize_output("first\nsecond\n") == "first | second"
 
-    summary = checks._summarize_output("x" * (checks._MAX_LOGGED_OUTPUT_CHARS + 50))
-    assert summary.endswith("(truncated)")
-    # Bounded: the payload is capped, plus the short truncation marker.
-    assert len(summary) < checks._MAX_LOGGED_OUTPUT_CHARS + 30
+    # Head AND tail, the gap counted: a failing tool's reason is the last thing
+    # it prints, and this used to keep only the head with "… (truncated)",
+    # dropping exactly that line (round 30 closing run, the same defect class).
+    spew = "START " + "x" * (checks._MAX_LOGGED_OUTPUT_CHARS + 50) + " the reason"
+    summary = checks._summarize_output(spew)
+    assert summary.startswith("START ")
+    assert summary.endswith(" the reason")
+    kept = checks._MAX_LOGGED_OUTPUT_CHARS
+    assert f"[{len(spew) - kept} character(s) omitted]" in summary
+    # Bounded: the payload is capped, plus the short counted marker.
+    assert len(summary) < kept + 40
 
 
 # --- check_cdparanoia (KDD-29) ---

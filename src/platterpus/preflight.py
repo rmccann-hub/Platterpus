@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from platterpus import composition
+from platterpus import composition, diagnostics
 from platterpus import config as config_module
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbHttpImpl, CtdbLookupError
 from platterpus.adapters.musicbrainz_client import (
@@ -475,7 +475,11 @@ def check_backend_routing(
         # tool that prints an error on a zero exit) looks exactly like this.
         # "Proof" that admits any string is not proof. The raw output is quoted
         # so the user can see what did answer — never hide the evidence.
-        snippet = raw.strip()[:300] or "(no output at all)"
+        # Head and tail, the gap counted: a wrapper's error is its LAST line.
+        snippet = (
+            diagnostics.bounded_chars(raw.strip(), head=150, tail=150)
+            or "(no output at all)"
+        )
         detail, hint = _routing_failure_diagnosis(
             backend_name,
             host,
