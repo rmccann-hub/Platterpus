@@ -196,7 +196,7 @@ at 100 % and 150 % text, and the screenshots were looked at.
   and part of the layout margin. `fit_dialog_to_screen` keeps a chosen width up
   to the full screen on purpose, so whether to leave a side margin is the
   maintainer's call, not a fix taken here.
-  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** a small side margin. In progress.
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** a small side margin.
   - *Done 2026-10-05 (ruled yes, KDD-41):* one constant,
     `fit_scroll_area.SIDE_MARGIN_PX` = 16, used by `fit_dialog_to_screen`,
     `fit_message_box`, `fit_plain_dialog` and the placement clamp
@@ -212,12 +212,41 @@ at 100 % and 150 % text, and the screenshots were looked at.
     `window_on_screen` now checks the FRAME against both side edges and fails a
     window wider than the screen less the two margins; it no longer tolerates
     the border.
-- [~] **The track table is not measured with a disc loaded.** The matrix's main
+- [x] **The track table is not measured with a disc loaded.** The matrix's main
   window has no disc, so `cut_off_cells` examines none of its cells; a disc with
   long track titles is the next population to add. Not done here because the
   track table's column widths are a deliberate design (measured once per disc,
   2026-08-05) and the rule's verdict on it needs the maintainer's view first.
-  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** with a long-title disc. In progress.
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** with a long-title disc.
+  - *Done 2026-10-05 (ruled yes, KDD-41):* two populations,
+    `MainWindow[disc: long titles]` (Sufjan Stevens, *Illinois*: a 288-character
+    title) and `MainWindow[disc: long artist credits]` (a classical compilation's
+    composer-and-performer credits), loaded through `set_release` into a window
+    already shown, with two statuses on screen. **The rule and the design
+    disagreed, and the design's intent was kept.** Measured in five conditions,
+    each cut long titles short and, at 150 % text or on narrow screens, long credits
+    too: rows are one line and the widths do not move, so a title longer than
+    the window is elided, and Artist's cap ("so a compilation with long artist
+    credits cannot squeeze Title out") elides a credit longer than its share.
+    The rule now allows exactly those two cuts — Artist while it is at its cap,
+    Title while every other column is at its designed width and the table does
+    not scroll sideways — and refuses every other: `#`, Length and Status (sized
+    to the widest text they can ever hold) must fit, Artist must fit when the cap
+    did not bind, and a Title squeezed by a column past its design is a fault.
+    Judged against `track_table.designed_column_widths`, the composition the
+    table itself now applies (one calculation, two readers), allowing for the
+    vertical scroll bar arriving after the disc was measured. The allowed cuts
+    are recorded in each report, and a test requires both kinds to occur and at
+    least 200 fixed-column cells to be examined; a pure test pins the allowance,
+    including the case that motivated the Title condition. **Found on the way:**
+    a disc loaded into a table with no width yet gets no Artist cap (a credit took
+    761 px of an 805-px window, Title 100 px, the table scrolling sideways). The
+    app does not do that (a release arrives in a window on screen), so the
+    population loads after showing, and the pure test holds the rule to refusing
+    it. **Left for the maintainer:** whether a title longer than the window
+    should wrap with taller rows, as the release picker's do, or show the whole
+    text another way (it is reachable now by widening the window or editing the
+    cell, but not while a rip locks the table).
 - [ ] **Qt's own file dialog and tooltips are not measured.** On the desktop the
   file dialog is usually the desktop's own, not ours to size.
 - [~] **The conformance matrix is built once per xdist worker that runs one of

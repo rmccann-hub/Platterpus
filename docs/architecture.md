@@ -854,6 +854,15 @@ The pattern that replaced it, and the one to follow for any new grid:
 - **The pure width functions take a `measure` callable** so they are testable without
   a laid-out widget, and the widget wrapper is a thin `resizeSection` loop that never
   raises — geometry polish must not be able to take a rip down.
+- **A design that cuts text says which text, and the gate holds it to exactly that**
+  (2026-10-05, C6). This grid's rows are one line and its widths do not move, so a
+  title longer than the window, or a credit longer than Artist's share, is elided by
+  design. The conformance matrix measures the grid with a disc of real-length titles
+  and credits and allows exactly those two cuts, judged against
+  `track_table.designed_column_widths` (the composition the table itself applies),
+  and refuses every other: a fixed column too narrow for its own text, or a Title
+  squeezed because another column took more than its design gives it
+  (`tests/test_ui_conformance.py::track_table_cut_by_design`).
 
 And one Qt fact worth knowing before you tune anything: **`QSplitter.setStretchFactor`
 distributes only the space left after each pane's `sizeHint`.** When the hints already

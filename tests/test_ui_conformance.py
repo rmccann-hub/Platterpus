@@ -14,7 +14,8 @@ list is derived from the source, so a new window is measured the day it lands.
 **The three axes.**
 
 * WINDOWS — every `CenteredDialog` subclass in `src/` (completeness is asserted
-  against the source), the main window, and — since the 2026-10-05 audit —
+  against the source), the main window empty and with a disc loaded (long
+  titles, long credits; :data:`DISC_LOADED`), and — since the 2026-10-05 audit —
   every message box and inline Qt dialog the app can show, built with its real
   worst-case text (`tests/test_ui_message_box_conformance.py`, whose populations
   are derived from the source the same way).
@@ -53,6 +54,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -327,6 +329,94 @@ def _duplicate_mnemonics(
     return violations, examined
 
 
+#: The two track-table columns whose 2026-08-05 design accepts a cut-off cell,
+#: by index, with the name a report uses. Indices from `ui/track_table.py`.
+TRACK_TABLE_DESIGNED_CUTS: dict[int, str] = {2: "Title", 3: "Artist"}
+
+
+@dataclass(frozen=True)
+class TrackTableDesign:
+    """What `track_table_cut_by_design` compares: the table as shown, and the
+    widths its own design (`track_table.designed_column_widths`) gives it."""
+
+    sections: dict[int, int]  # every column's width as shown
+    # Every column but Title as the design sizes it, for each width the table
+    # may have had when the disc was loaded (see `_track_table_design`).
+    designed: tuple[dict[int, int], ...]
+    uncapped_artist: int  # what Artist would take with no ceiling
+    viewport_width: int
+    scrolls_sideways: bool
+
+
+def track_table_cut_by_design(column: int, design: TrackTableDesign) -> bool:
+    """Whether a cut-off cell in ``column`` is one the track table's design cuts.
+
+    **What the design is** (`ui/track_table.py`, measured once per disc,
+    2026-08-05): every column but Title and Artist is as wide as the widest text
+    it can EVER hold, so nothing in it may be cut; Artist is as wide as its
+    longest credit but never more than a share of what the fixed columns leave,
+    "so a compilation with long artist credits cannot squeeze Title out", and
+    the user can drag it wider; Title takes everything left. Rows are one line
+    high and the widths do not move during a rip, which is the point of the
+    design.
+
+    **So two cuts are the design's, and only two:** an Artist credit longer
+    than the share, while the column is at that share; and a Title longer than
+    all the width left, while every other column is at its designed width and
+    the table does not scroll sideways. Every other cut is a fault — a fixed
+    column too narrow for its own text, Artist cut below its share, or a Title
+    squeezed because another column took more than its design gives it (what
+    happens when a disc is loaded before the table has a width: Artist took 761
+    px of an 805-px window, measured 2026-10-05).
+    """
+    sections = design.sections
+    matched = next(
+        (
+            widths
+            for widths in design.designed
+            if all(abs(sections.get(c, -1) - w) <= 1 for c, w in widths.items())
+        ),
+        None,
+    )
+    if matched is None:
+        return False  # some column is not at its designed width
+    if column == 3:  # Artist
+        return design.uncapped_artist > matched[3]
+    if column == 2:  # Title
+        others = sum(width for c, width in sections.items() if c != 2)
+        has_the_rest = sections[2] >= design.viewport_width - others - 1
+        return has_the_rest and not design.scrolls_sideways
+    return False
+
+
+def _track_table_design(view: object) -> TrackTableDesign:
+    """Read a shown track table, and its own design for the width it had.
+
+    The design measures once, when the disc is loaded, and the vertical scroll
+    bar can appear after that as the rows fill the table, taking its width from
+    the viewport. So the design is computed for both widths the viewport can
+    have had then: as it is, and, while the bar shows, as wide again as the bar.
+    """
+    from PySide6.QtGui import QFontMetrics
+
+    from platterpus.ui.track_table import artist_column_width, designed_column_widths
+
+    header = view.horizontalHeader()  # type: ignore[attr-defined]  # a QTableView
+    model = view.model()  # type: ignore[attr-defined]  # a QTableView
+    measure = QFontMetrics(view.font()).horizontalAdvance  # type: ignore[attr-defined]  # a QTableView
+    viewport = view.viewport().width()  # type: ignore[attr-defined]  # a QTableView
+    bar = view.verticalScrollBar()  # type: ignore[attr-defined]  # a QTableView
+    widths = [viewport, viewport + bar.width()] if bar.isVisible() else [viewport]
+    credits = model.artist_credits()
+    return TrackTableDesign(
+        sections={c: header.sectionSize(c) for c in range(header.count())},
+        designed=tuple(designed_column_widths(measure, credits, w) for w in widths),
+        uncapped_artist=artist_column_width(measure, credits, 0),
+        viewport_width=viewport,
+        scrolls_sideways=view.horizontalScrollBar().maximum() > 0,  # type: ignore[attr-defined]  # a QTableView
+    )
+
+
 def _measure_one(window: object) -> dict[str, object]:
     """Show one window and apply every rule to what was rendered."""
     from PySide6.QtCore import QPoint, QRect, Qt
@@ -354,6 +444,7 @@ def _measure_one(window: object) -> dict[str, object]:
     from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX, FitScrollArea
     from platterpus.ui.dialogs.message_box_fit import SCROLL_AREA_NAME
     from platterpus.ui.status_colours import contrast_ratio
+    from platterpus.ui.track_table import TrackTableModel
 
     app = QApplication.instance()
     assert app is not None
@@ -530,10 +621,22 @@ def _measure_one(window: object) -> dict[str, object]:
     # Measured with the view's own font and wrap setting against the cell's
     # rectangle less the style's text margin; a cell with a check box or an icon
     # is skipped, because part of its width is not text.
+    #
+    # THE TRACK TABLE is held to its own design, not exempted from the rule
+    # (2026-10-05, C6): see `track_table_cut_by_design`. A cut it allows is not
+    # dropped silently; it is recorded in the report as `track_cuts_by_design`,
+    # and a test requires the population to produce them and every other
+    # track-table cell — the columns sized to the widest text they can hold —
+    # to be examined and to fit (`track_strict_cells`).
+    track_cuts_by_design: list[str] = []
+    track_strict_cells = 0
     for view in w.findChildren(QTableView):  # type: ignore[attr-defined]  # a QWidget
         model = view.model()
         if not shown(view) or model is None:
             continue
+        design = (
+            _track_table_design(view) if isinstance(model, TrackTableModel) else None
+        )
         metrics = view.fontMetrics()
         margin = 2 * (
             view.style().pixelMetric(
@@ -556,15 +659,24 @@ def _measure_one(window: object) -> dict[str, object]:
                 ):
                     continue
                 examined["cut_off_cells"] += 1
+                if design is not None and column not in TRACK_TABLE_DESIGNED_CUTS:
+                    track_strict_cells += 1
                 room = rect.width() - margin
                 need = metrics.boundingRect(
                     QRect(0, 0, max(room, 1), 100_000), int(wrap), str(text)
                 )
-                if need.width() > room + 1 or need.height() > rect.height():
-                    violations["cut_off_cells"].append(
-                        f"{room}x{rect.height()}px cell needs "
-                        f"{need.width()}x{need.height()}px: {str(text)[:40]!r}"
+                if need.width() <= room + 1 and need.height() <= rect.height():
+                    continue
+                if design is not None and track_table_cut_by_design(column, design):
+                    track_cuts_by_design.append(
+                        f"{TRACK_TABLE_DESIGNED_CUTS[column]} {room}px: "
+                        f"{str(text)[:40]!r}"
                     )
+                    continue
+                violations["cut_off_cells"].append(
+                    f"{room}x{rect.height()}px cell needs "
+                    f"{need.width()}x{need.height()}px: {str(text)[:40]!r}"
+                )
 
     # duplicate_shortcuts — two controls in one window claiming the same Alt-key.
     sources: list[str] = [
@@ -623,6 +735,8 @@ def _measure_one(window: object) -> dict[str, object]:
         "avail": [avail.width(), avail.height()],
         "violations": violations,
         "examined": examined,
+        "track_cuts_by_design": track_cuts_by_design,
+        "track_strict_cells": track_strict_cells,
     }
     w.close()  # type: ignore[attr-defined]  # a QWidget
     return report
@@ -701,6 +815,7 @@ def _measure_all() -> dict[str, object]:
     results.update(_measure_every_real_spec())
     results.update(_measure_real_cyanrip_windows())
     results.update(_measure_real_releases())
+    results.update(_measure_disc_loaded())
     results.update(measure_message_boxes(_measure_one, _main_window))
     return results
 
@@ -762,6 +877,123 @@ def _measure_real_releases() -> dict[str, object]:
             ReleasePickerDialog(releases)
         )
     }
+
+
+#: The main window with a disc loaded, by key: one disc whose TITLES are as long
+#: as real ones get, one whose ARTIST credits are. Track titles and credits are
+#: facts, not creative text; no other text from either release is used.
+DISC_LOADED: tuple[str, ...] = (
+    "MainWindow[disc: long titles]",
+    "MainWindow[disc: long artist credits]",
+)
+
+#: Sufjan Stevens, *Illinois* (2005): among the longest track titles on a
+#: commercial CD; the second is 288 characters, longer than any track table
+#: row is wide on any screen the matrix measures.
+_LONG_TITLES: tuple[str, ...] = (
+    "Concerning the UFO Sighting Near Highland, Illinois",
+    "The Black Hawk War, or, How to Demolish an Entire Civilization and Still "
+    "Feel Good About Yourself in the Morning, or, We Apologize for the "
+    "Inconvenience but You're Going to Have to Leave Now, or, \"I Have Fought "
+    'the Big Knives and Will Continue to Fight Them Until They Are Off Our Lands!"',
+    "Come On! Feel the Illinoise! Part I: The World's Columbian Exposition – "
+    "Part II: Carl Sandburg Visits Me in a Dream",
+    "John Wayne Gacy, Jr.",
+    "A Short Reprise for Mary Todd, Who Went Insane, but for Very Good Reasons",
+    "To the Workers of the Rock River Valley Region, I Have an Idea Concerning "
+    "Your Predicament",
+    "They Are Night Zombies!! They Are Neighbors!! They Have Come Back from the "
+    "Dead!! Ahhhh!",
+    "Chicago",
+)
+
+#: A classical compilation's per-track credits, composer then performers, the
+#: shape MusicBrainz gives them: the longest artist credits a CD commonly has.
+_LONG_CREDITS: tuple[tuple[str, str], ...] = (
+    (
+        "Symphony No. 5 in C minor, Op. 67: I. Allegro con brio",
+        "Ludwig van Beethoven; Wiener Philharmoniker, Carlos Kleiber",
+    ),
+    (
+        "Serenade No. 13 in G major, K. 525 “Eine kleine Nachtmusik”: I. Allegro",
+        "Wolfgang Amadeus Mozart; Academy of St Martin in the Fields, "
+        "Sir Neville Marriner",
+    ),
+    (
+        "Symphony No. 9 in E minor, Op. 95 “From the New World”: IV. Allegro con fuoco",
+        "Antonín Dvořák; New York Philharmonic, Leonard Bernstein",
+    ),
+    (
+        "Brandenburg Concerto No. 3 in G major, BWV 1048: I. Allegro",
+        "Johann Sebastian Bach; Berliner Philharmoniker, Herbert von Karajan",
+    ),
+)
+
+
+def _measure_disc_loaded() -> dict[str, object]:
+    """The main window's track table with a disc in it.
+
+    Every other main window the matrix measures has no disc, so `cut_off_cells`
+    examined none of the track table's cells (audit, 2026-10-05). The release
+    goes in through `TrackTable.set_release`, the path a MusicBrainz answer
+    takes, so the column widths are the ones that path measures.
+    """
+    from conftest import stop_window_threads
+    from PySide6.QtWidgets import QApplication
+
+    from platterpus.adapters.musicbrainz_client import (
+        ReleaseDetail,
+        ReleaseSummary,
+        TrackSummary,
+    )
+
+    discs: dict[str, tuple[str, str, tuple[TrackSummary, ...]]] = {
+        DISC_LOADED[0]: (
+            "Illinois",
+            "Sufjan Stevens",
+            tuple(
+                TrackSummary(n, title, "Sufjan Stevens", 245_000 + n * 1_000)
+                for n, title in enumerate(_LONG_TITLES, start=1)
+            ),
+        ),
+        DISC_LOADED[1]: (
+            "Classical Favourites",
+            "Various Artists",
+            tuple(
+                TrackSummary(n, title, credit, 480_000 + n * 1_000)
+                for n, (title, credit) in enumerate(_LONG_CREDITS, start=1)
+            ),
+        ),
+    }
+    app = QApplication.instance()
+    assert app is not None
+    measured: dict[str, object] = {}
+    for key, (album, artist, tracks) in discs.items():
+        window = _main_window()
+        # Shown and laid out FIRST, as in the app, where a release arrives in a
+        # window already on screen. Loaded into a window not yet shown, the
+        # table measures its columns against a viewport with no width yet, finds
+        # no ceiling for Artist (`artist_column_width`'s "not laid out" case)
+        # and gave a credit 761 px of an 805-px window — a state the app does not
+        # reach, measured once and then avoided here.
+        window.show()  # type: ignore[attr-defined]  # a MainWindow
+        for _ in range(5):
+            app.processEvents()
+        summary = ReleaseSummary(
+            mbid=f"disc-{len(measured)}",
+            title=album,
+            artist_credit=artist,
+            track_count=len(tracks),
+        )
+        table = window._track_table  # type: ignore[attr-defined]  # a MainWindow
+        table.set_release(ReleaseDetail(summary, tracks))
+        # Two statuses on screen, so the Status column — sized to the widest
+        # status it can show — is measured holding text, not empty.
+        table.mark_track_done(1)
+        table.mark_track_ripping(2)
+        measured[key] = _measure_one(window)
+        stop_window_threads(window)
+    return measured
 
 
 #: Two cyanrip windows measured with what they really say, by key.
@@ -1079,7 +1311,8 @@ FLOORS: dict[str, int] = {
     "duplicate_shortcuts": 200,
     "unnamed_inputs": 200,
     # The release picker's cells: 18 stand-in and 36 real-length cells per
-    # condition when this was written (2026-10-05).
+    # condition when this was written (2026-10-05); since C6 the same day, the
+    # track table's with a disc loaded too (20 to 52 a condition).
     "cut_off_cells": 500,
 }
 
@@ -1104,13 +1337,93 @@ def test_every_rule_examined_real_subjects(
     expected = (
         MEASURED
         | {"MainWindow", *STATES, *REAL_CYANRIP_WINDOWS}
-        | {"ReleasePickerDialog[real-length releases]"}
+        | {"ReleasePickerDialog[real-length releases]", *DISC_LOADED}
         | _real_spec_keys()
         | expected_keys()
     )
     for cond_id, windows in matrix.items():
         missing = expected - set(windows)
         assert not missing, f"{cond_id}: windows not measured: {sorted(missing)}"
+
+
+#: The least number of track-table cells, across the whole matrix, that the
+#: strict half of `cut_off_cells` must examine: `#`, Length and Status, the
+#: columns sized to the widest text they can ever hold. 22 conditions x 2 discs
+#: x at least 2 rows in view x 3 columns is 264 (2026-10-05); set under it.
+MIN_TRACK_STRICT_CELLS: int = 200
+
+
+def test_the_track_table_is_measured_with_a_disc_loaded(
+    matrix: dict[str, dict[str, dict[str, object]]],
+) -> None:
+    """C6: the track table's cells are examined, held to its design, and the
+    two cuts the design allows really occur in the population — so the
+    allowance is exercised, not merely written."""
+    strict = 0
+    cuts: list[str] = []
+    for cond_id, windows in matrix.items():
+        for key in DISC_LOADED:
+            report = windows[key]
+            strict += int(report["track_strict_cells"])  # type: ignore[call-overload]  # JSON int
+            cuts += report["track_cuts_by_design"]  # type: ignore[arg-type]  # JSON list
+        for key, report in windows.items():
+            if key not in DISC_LOADED:
+                assert not report["track_cuts_by_design"], (cond_id, key)
+    assert strict >= MIN_TRACK_STRICT_CELLS, (
+        f"only {strict} fixed-column track cells were examined"
+    )
+    assert any(cut.startswith("Title ") for cut in cuts), cuts
+    assert any(cut.startswith("Artist ") for cut in cuts), cuts
+
+
+def test_the_track_table_allowance_is_the_design_and_no_wider() -> None:
+    """Non-triviality for the allowance, without a display: every cut the design
+    does not make is refused, including the one measured on 2026-10-05 — a disc
+    loaded before the table had a width, where Artist took 761 px of an 805-px
+    window and squeezed Title to 100."""
+    from platterpus.ui import track_table
+
+    assert {
+        track_table._COL_TITLE: "Title",
+        track_table._COL_ARTIST: "Artist",
+    } == TRACK_TABLE_DESIGNED_CUTS
+    assert all(
+        track_table._COLUMNS[c] == name for c, name in TRACK_TABLE_DESIGNED_CUTS.items()
+    )
+    designed = {0: 42, 1: 31, 3: 248, 4: 57, 5: 75}
+    shown = {0: 42, 1: 31, 2: 529, 3: 248, 4: 57, 5: 75}
+
+    def design(**changes: object) -> TrackTableDesign:
+        base: dict[str, object] = {
+            "sections": shown,
+            "designed": (designed,),
+            "uncapped_artist": 300,  # the credit is wider than its share
+            "viewport_width": 982,
+            "scrolls_sideways": False,
+        }
+        return TrackTableDesign(**{**base, **changes})  # type: ignore[arg-type]  # test values
+
+    # The two cuts the design makes.
+    assert track_table_cut_by_design(3, design())
+    assert track_table_cut_by_design(2, design())
+    # Artist not held by its share: its own text must fit.
+    assert not track_table_cut_by_design(3, design(uncapped_artist=248))
+    # A fixed column never.
+    for column in (1, 4, 5):
+        assert not track_table_cut_by_design(column, design())
+    # Title squeezed by an Artist past its design (the measured case).
+    squeezed = {**shown, 2: 100, 3: 761}
+    assert not track_table_cut_by_design(2, design(sections=squeezed))
+    assert not track_table_cut_by_design(3, design(sections=squeezed))
+    # Title without all the width that is left, or in a table scrolling sideways.
+    assert not track_table_cut_by_design(2, design(sections={**shown, 2: 300}))
+    assert not track_table_cut_by_design(2, design(scrolls_sideways=True))
+    # The design as it was before the scroll bar appeared is also the design.
+    earlier = {**designed, 3: 253}
+    moved = {**shown, 3: 253, 2: 524}
+    assert track_table_cut_by_design(
+        2, design(sections=moved, designed=(designed, earlier))
+    )
 
 
 def test_a_long_picker_scrolls_instead_of_clipping(

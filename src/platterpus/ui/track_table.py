@@ -190,6 +190,25 @@ def artist_column_width(
     return needed
 
 
+def designed_column_widths(
+    measure: Callable[[str], int], artists: Iterable[str], viewport_px: int
+) -> dict[int, int]:
+    """Every column's width as this design sets it, keyed by index; Title absent.
+
+    The one place the parts above are put together: the fixed columns first,
+    then Artist, capped at its share of what the fixed columns leave of a
+    ``viewport_px``-wide table. :meth:`TrackTable._apply_column_widths` applies
+    it, and the conformance matrix reads it to tell a cell the design chose to
+    cut (Artist at its cap) from one a layout fault cut, so the two cannot
+    disagree about what the design is. Title is absent because it stretches
+    over whatever is left. Pure; never raises.
+    """
+    widths = fixed_column_widths(measure)
+    remaining = max(0, viewport_px - sum(widths.values()))
+    widths[_COL_ARTIST] = artist_column_width(measure, artists, remaining)
+    return widths
+
+
 def _format_length(ms: int | None) -> str:
     """Render a track length in milliseconds as MM:SS."""
     if ms is None or ms < 0:
@@ -559,18 +578,14 @@ class TrackTable(QWidget):
 
             header = self._view.horizontalHeader()
             measure = QFontMetrics(self._view.font()).horizontalAdvance
-            widths = fixed_column_widths(measure)
+            # Artist's ceiling is a share of what is left after the fixed
+            # columns, not of the whole table, or a narrow window would let it
+            # take a third of the space Title needs.
+            widths = designed_column_widths(
+                measure, self._model.artist_credits(), self._view.viewport().width()
+            )
             for col, width in widths.items():
                 header.resizeSection(col, width)
-            # Artist last: its ceiling is a share of what is left after the fixed
-            # columns, not of the whole table, or a narrow window would let it take
-            # a third of the space Title needs.
-            viewport = self._view.viewport().width()
-            remaining = max(0, viewport - sum(widths.values()))
-            header.resizeSection(
-                _COL_ARTIST,
-                artist_column_width(measure, self._model.artist_credits(), remaining),
-            )
         except Exception:  # noqa: BLE001 — layout polish must never break a rip
             log.exception("column-width sizing failed; leaving Qt's defaults")
 

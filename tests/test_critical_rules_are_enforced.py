@@ -2284,7 +2284,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "ui/settings_dialog.py": 1388,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
-    "ui/track_table.py": 852,
+    # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.
+    "ui/track_table.py": 867,
     # +184 on 2026-09-04: `_do_expect_rip_complete`, plus the freshness marker
     # in `_do_rip` and the sentinel beside `MAX_RIP_WAIT_S`. Mostly comment, and
     # the comment is the load-bearing part twice over: the verb replaces
