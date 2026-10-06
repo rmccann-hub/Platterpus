@@ -421,6 +421,48 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Two more of cyanrip `.20`'s error messages are recognised.** When the drive-offset
+  search (`-f`) cannot find an offset, `.20` now says why, for example *"No track was long
+  enough, unable to find drive offset!"*, and Platterpus shows that sentence instead of a
+  bare failure. The fork's command reference (`docs/seam-commands.md`) is updated to the
+  text both projects agreed.
+
+- **Ready for the ripper's renamed one-frame tally line.** cyanrip's fork will print
+  `Tracks matched on one frame only: N/M` in place of `Tracks ripped partially
+  accurately: N/M` from round 31, after a Platterpus release that reads both, so this
+  one does. And `.20`'s new wording for a one-frame entry found under the match
+  threshold is read as no match everywhere, as before, without our log saying the track
+  is absent from AccurateRip.
+
+- **The dependency map is checked against the CycloneDX 1.7 schema** (contributor-facing).
+  `bom.cdx.json` is validated in strict mode, offline, by a new dev-only dependency,
+  `cyclonedx-python-lib`, which the maintainer approved on 2026-10-05; a field the
+  generator invents now fails a test instead of a consumer's tool.
+
+- **CI scans the whole history for leaked secrets on every run** (contributor-facing).
+  The secret-scan job installs a pinned, checksum-verified gitleaks and reads every
+  commit, merge commits included. Before, a pull request merged into `main` was
+  scanned as "0 commits" and passed. The job now refuses a scan that read too little:
+  a shallow clone, fewer than 1,500 commits, or under 90 % of the history. The lint
+  jobs, locally and in CI, also check `scripts/` and `build/`.
+
+- **The maintainer's eight rulings on the ranked open list are recorded**
+  (contributor-facing; `PLANNING.md` KDD-41). The securing pass will also run after a
+  finished pass the drive could not read cleanly; paranoia skips keep not slowing the
+  drive; screenshot grading is unchanged; the acceptance run gains two paths; windows
+  keep a side margin; the track table is measured with a disc loaded; a CycloneDX
+  schema validator is approved for the dev extra; and the freeze on CI changes is
+  lifted for three of them only: the full-history secret scan, `ruff` over
+  `scripts/` and `build/`, and grouping the conformance matrix under xdist.
+
+- **`TASKS.md` ranks what is open for the 0.6.66 beta, the cyanrip fork and quick
+  wins** (contributor-facing). A new section at the top orders the open rows, each
+  with its fix and a time, and names the maintainer's decisions they wait on. Seven
+  rows that said open were done or answered and now say so, one duplicated row was
+  removed, and the open count is measured in every checkbox form: 178 before, 173
+  after. `SECURITY.md` now says the full-history secret scan is approved but held
+  under the freeze on CI changes, rather than only "not yet applied".
+
 - For contributors: the module-size ratchet now covers `scripts/` and `build/`,
   not only `src/platterpus`. The 19 tooling modules already over 300 lines are
   recorded at their current length and may not grow, and a module that crosses

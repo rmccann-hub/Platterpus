@@ -1735,7 +1735,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3399 -> 3428** (2026-10-05, found by the structure fuzz test): an
     # implausible `Ripping errors:` count is stored as not determined and never
     # reads as "No errors occurred" (`_plausible_count`, `_MAX_PLAUSIBLE_ERROR_COUNT`).
-    "parsers/cyanrip_log.py": 3428,
+    # **3428 -> 3431** (2026-10-06): the one-frame tally reads its round-31 label
+    # beside the current one (the fork's round 30 lap 11 S16).
+    "parsers/cyanrip_log.py": 3431,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1872,7 +1874,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1137 -> 1172** (2026-10-05): regenerated from `.20`'s contract (their round
     # 30 lap 9; P5 123 -> 126 rows, four `-Z` spool errors in, one out), and the
     # retained `Error in encoding: %s` with its reason (`.19` and older print it).
-    "ripper_message_inventory.py": 1172,
+    # **1172 -> 1184** (2026-10-06): regenerated from `.20`'s contract as of their
+    # round 30 lap 11 (P5 126 -> 128: the two lines that end a failed `-f` search).
+    "ripper_message_inventory.py": 1184,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
@@ -2530,7 +2534,9 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     "scripts/bommap/render.py": 359,
     "scripts/bommap/ripper_entries.py": 340,
     "scripts/bommap/tool_entries.py": 385,
-    "scripts/check.py": 498,
+    # **498 -> 499** (2026-10-05): lint and format-check read `scripts/` and `build/`
+    # too (KDD-41, C8), from one `ruff_paths` tuple both gates share.
+    "scripts/check.py": 499,
     "scripts/emit_dependency_contract.py": 534,
     "scripts/emit_envelope.py": 849,
     "scripts/emit_ripper_inventory.py": 316,

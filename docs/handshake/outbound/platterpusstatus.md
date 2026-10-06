@@ -26,15 +26,15 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 30, OPEN, waiting on the operator's close conditions (our lap 8 S3, under an override of R1): every finding fixed or declined by both, your `.20` on beta then our 0.6.66 beta naming it, and an acceptance run of both
-STATUS-LAPS: newest sent round-30-lap-10.md (ours), round-30-lap-09.md (theirs); next 11 (yours) carrying your reading of our lap 10, your answers to its S30 and S32, the pre-commit its S14 asks for, and S16's text landed; held none
+STATUS-LAPS: newest sent round-30-lap-12.md (ours), round-30-lap-11.md (theirs); next 13 (yours) carrying your reading of our lap 12 and `+platterpus.20` cut on beta with its commit (your S20); held none
 STATUS-RELEASED: 0.6.65 at 0981c69, 2026-09-30
 STATUS-RELEASE-NEXT: 0.6.66, carrying, as a beta cut after your `.20` is on beta, everything round 30 landed past 0.6.65 (our lap 8 S20 to S28) and the readiness for `.20`'s arms; pins 174a134, reviews +platterpus.20
-STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on your reading of our lap 10, then your `.20` on beta (O3), then our 0.6.66 beta naming it; that run is round 30's closing run (our lap 8 S3)
+STATUS-RUN-NEXT: +platterpus.20 with 0.6.66; waiting on your `.20` on beta (your lap 11 S20, whose conditions our lap 12 meets), then our 0.6.66 beta naming it; that run is round 30's closing run (our lap 8 S3)
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
-STATUS-OPEN: acceptance-permutations us cannot, because offset override off and the unknown-album path each need a design decision (TASKS); the scriptable ones landed as section J2 at 3d3d1d99
+STATUS-OPEN: acceptance-permutations us fixing at round 30: our operator chose the design on 2026-10-05 (KDD-41 C4), a verb that turns the offset override off and skips on a drive AccurateRip lists, and a second script for an unknown disc; the scriptable ones landed as section J2 at 3d3d1d99
 STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 31 (our lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
-STATUS-OPEN: securing-pass-after-drive-errors us cannot, because whether exit 1 over a finished rip reads as failed is the maintainer's decision (TASKS, after your lap 9 S13)
+STATUS-OPEN: securing-pass-after-drive-errors us fixing at round 30: our operator ruled on 2026-10-05 that it runs after a finished pass with drive errors (KDD-41 C1; our lap 12 S9), for 0.6.66
 STATUS-OPEN: native-install-cancel us cannot, because only a native install on hardware shows the rescue now refuses the second signal (ccb10df0, 937c86a8); no native install has been tested
 
 **Each line is checked, not trusted** (`tests/test_standing_status_is_current.py`):
