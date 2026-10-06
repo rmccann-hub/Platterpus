@@ -1157,3 +1157,71 @@ def test_a_rig_still_on_an_earlier_rounds_test_pin_is_told_it_is_retired(
     assert "earlier round" in offer.detail and "retired" in offer.detail, offer.detail
     assert "expected" not in offer.detail.lower(), offer.detail
     assert offer.auto_installable is False
+
+
+# --- The build under review on the other channel (2026-10-06) -------------------
+
+#: The fork's manifest as it stood for round 30's closing run: `stable` at `.19`
+#: (`174a134`), `beta` at `.20` (`5704062`), round 30 open. Their file, filed
+#: byte for byte (tests/fixtures/README.md).
+_MANIFEST_B62650D = (
+    Path(__file__).parent / "fixtures" / "fork_release_manifest_b62650d.json"
+)
+
+
+@pytest.fixture
+def round30_reviewing_20(monkeypatch: pytest.MonkeyPatch) -> RipperManifest:
+    """The state the gap was found in, pinned so the test keeps its meaning after
+    round 30 closes: round 30 reviewing `5704062`, `51cc789` approved."""
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", "5704062")
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW_ROUND", 30)
+    monkeypatch.setattr(fork_source, "FORK_PIN", "51cc789")
+    manifest = parse_manifest(_MANIFEST_B62650D.read_text(encoding="utf-8"))
+    assert manifest is not None
+    stable, beta = manifest.channel(CHANNEL_STABLE), manifest.channel(CHANNEL_BETA)
+    assert stable is not None and fork_source.same_commit(stable.commit, "174a134")
+    assert beta is not None and fork_source.same_commit(beta.commit, "5704062")
+    return manifest
+
+
+def test_stable_up_to_date_names_the_build_under_review_on_beta(
+    round30_reviewing_20: RipperManifest,
+) -> None:
+    """Regression (2026-10-06): on stable, `.19` read as up to date and nothing
+    said that the round was reviewing `.20` on beta, the build the acceptance run
+    refuses to start without. It now names it, where it is, and how to get it."""
+    offer = evaluate_offer(
+        round30_reviewing_20, CHANNEL_STABLE, installed_commit="174a134"
+    )
+    assert offer.verdict == OFFER_UP_TO_DATE
+    assert "Handshake round 30 is reviewing" in offer.detail
+    assert "5704062" in offer.detail
+    assert "published on the fork's beta channel" in offer.detail
+    assert "Choose a build" in offer.detail
+    assert "turn on beta cyanrip builds" in offer.detail
+    # The in-app routes only: no command line for a person to type.
+    assert "--install-ripper" not in offer.detail
+    # What it offers to INSTALL is unchanged: the note informs, it does not act.
+    assert offer.install_commit == fork_source.FORK_PIN
+
+
+def test_the_note_is_absent_when_the_build_under_review_is_installed(
+    round30_reviewing_20: RipperManifest,
+) -> None:
+    offer = evaluate_offer(
+        round30_reviewing_20, CHANNEL_BETA, installed_commit="5704062"
+    )
+    assert "the acceptance test needs, so keep it" in offer.detail  # existing answer
+    assert "Choose a build" not in offer.detail
+
+
+def test_the_note_is_absent_once_no_round_is_reviewing_a_build(
+    round30_reviewing_20: RipperManifest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """After round 30 closes, `5704062` is the approved pin; the stable check must
+    not go on calling it a build under review."""
+    monkeypatch.setattr(fork_source, "FORK_PIN", "5704062")
+    offer = evaluate_offer(
+        round30_reviewing_20, CHANNEL_STABLE, installed_commit="174a134"
+    )
+    assert "is reviewing" not in offer.detail
