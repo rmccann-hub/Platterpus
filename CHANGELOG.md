@@ -14,6 +14,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- `.gitignore` covers the per-process `.coverage.*` files a parallel coverage run
+  writes while it is in flight, so a running `scripts/check.py` no longer shows
+  them as untracked files.
 - **The cache probe's saved output now reaches the figure it is evidence for.**
   `cd-paranoia -A` prints its seek timings first and its cache verdict last, and
   we kept only the first 2,000 characters, with no marker. Round 30's closing run
