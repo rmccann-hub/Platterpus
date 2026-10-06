@@ -1577,6 +1577,25 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     `\S(?:.*\S)?`, with an equivalence test against the old form (they are published
     in `docs/cyanrip-consumer-contract.md`, so this regenerates it); and give the
     sweep inputs that pass a pattern's literal prefix, so it can find the next one.
+    - [x] *Part one done 2026-10-06 in this commit (`fix(parser): read cyanrip log
+      values greedily, not lazily`):* the eight, and thirteen more of the same
+      shape in the same file, rewritten greedily. The thirteen are eleven
+      `(?P<v>.+?)\s*$` (`_DRIVE`, `_OVERREAD_MODE`, `_ALBUM`, `_ALBUM_ARTIST`, `_C2`,
+      `_PARANOIA_LEVEL`, `_OUTPUTS`, `_SPEED_CAP`, `_PREEMPHASIS`, `_FINISHED_AT`,
+      `_REPLAYGAIN`), which the lead-in inputs of part two measured equally
+      quadratic, and the two bounded ones, `_INVOKED_AS` (`\S.{0,4000}?`, quadratic
+      up to its bound) and `_PREGAP_SOURCE` (`\S.{0,63}?`, linear, rewritten so the
+      file has one shape). `\S.*?` became `\S(?:.*\S)?`; `.+?` became
+      `\S(?:.*\S)?|[^\S\n]`, whose second branch keeps `.+?`'s answer for a value
+      that is all blanks (one blank); a bound `{0,N}?` became `{0,N-1}` between two
+      `\S`. `tests/test_cyanrip_log_reads_values_greedily.py` keeps the 21 old
+      forms and holds each rewrite to them with Hypothesis over generated lines
+      (blank runs inside and after the value, every Unicode blank class, and a
+      newline): same match, span and groups by `match`, `search` and `fullmatch`.
+      Also hand-written lines with a match floor, the two bounds at N-1..N+2, and a
+      timing pin per pattern on a 20,000-space line (not `_PREGAP_SOURCE`, whose
+      old form was linear). The property was shown to catch four wrong rewrites
+      (`|\s`, no blank branch, `.*\S`, `\S.*`). Contract regenerated.
   - (5) ~~`lint` (`ruff check`, `ruff format --check`) still reads `src tests` only.
     `scripts/` and `build/` were clean under both on 2026-10-05 (0 findings, 51 files
     formatted), so adding them is a CI and `scripts/check.py` change with no fixes.~~
