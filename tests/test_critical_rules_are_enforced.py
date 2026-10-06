@@ -1229,7 +1229,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **851 -> 853** (2026-09-28, the `-Z` wording): the `max_retries` and `secure_rerip_matches` comments say `-r` is also the whole-track read ceiling and `-Z N` is N+1 identical reads, not "the CEILING of effort" the 2026-09-21 correction missed here.
     # **853 -> 854** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): `test_script_allow_unsafe` left the dataclass and joined `RETIRED_CONFIG_KEYS` with the reason, so an old config loads without a warning; the entry's comment is one line longer than the field was.
     "config.py": 854,
-    "cue_validate.py": 1257,
+    # **1257 -> 1264** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): the REM, TITLE and
+    # PERFORMER values read greedily (`\S(?:.*\S)?`), with the note saying why;
+    # one pattern wrapped by the formatter.
+    "cue_validate.py": 1264,
     # **327 -> 426** (2026-09-28, `-Z` that `-r` cannot satisfy): `DEFAULT_MAX_RETRIES`, `retries_flag_value` and `secure_reread_problem`, the convergence rule read from the fork's source. It is a fact about cyanrip's command line that three layers need (the argv chokepoint, the settings validator, the rip worker), which is what this module is for; most of the growth is the mechanism and its citation.
     # **426 -> 429** (2026-09-28, the argv chokepoint half): the mechanism's hardware citation names the committed round-27 log the new test reads, instead of an uncommitted bundle.
     "cyanrip_cli.py": 429,
@@ -1757,7 +1760,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **904 -> 905** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the `secure_rerip_converged` comment names both wordings and no longer says a hit limit means no two reads agreed.
     # **905 -> 945** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `RereadAgreement` and `TrackResult.secure_rerip_agreement`, the count of agreeing reads beside the verdict it belongs to, with what makes it exact or a floor. It belongs beside the dataclass it extends.
     # **945 -> 982** (2026-10-05, the fork's round 30 lap 9 S11/S12): `ripping_errors`, `ripping_errors_paranoia_skips`, `encoder_failed_tracks` and the `drive_read_errors` property, beside the dataclass's other footer fields, with the citations for what cyanrip's count holds.
-    "parsers/rip_log.py": 982,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **982 -> 987** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): `_FIELD`'s value read
+    # greedily, `(?:\S(?:.*\S)?)?` for a lazy `.*?`, with the note saying why.
+    "parsers/rip_log.py": 987,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the
@@ -2506,7 +2511,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4031 -> 4066** (2026-10-05, the fork's round 30 lap 9 S28, the reap's door): `_reap_ripper` waits out `READER_TERM_GRACE_S` after our own SIGTERM and then SIGKILLs alone, instead of sending a native cyanrip its second SIGTERM 15 s after the read loop broke; the docstring says why and what it costs behind the wrapper.
     # **4066 -> 4101** (2026-10-06, ruling C1, KDD-41): the securing pass runs after an exit-1 pass that finished. The gate and the plan went to a NEW focused module, `securing_pass.py` (the old inline block, -79 lines, left); what is here is `_run_securing_pass` (records the plan, says a refusal, keeps the album pass's failure hint), one exit-code field per pass with `securing_pass_started` / `securing_pass_exit_code`, the securing pass's labelled errors, and the per-pass reset of `log_is_this_passes`.
     # **4101 -> 4125** (2026-10-06, W6): the worker keeps the last album pass's `-j` record path and reads it, on its own thread, after the log wait and on the start-failure exit, exposing `ripper_ending`. The reading itself is the new focused module `ripper_ending.py`; the worker is the only place that knows which record is the last album pass's and when it is safe to read.
-    "workers/rip_worker.py": 4125,
+    # **4125 -> 4128** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): `_CYANRIP_ETA_VALUE`'s blanks
+    # after `m` moved inside its group (no two `\s*` side by side), and why.
+    "workers/rip_worker.py": 4128,
 }
 
 
@@ -2579,7 +2586,9 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # `HANDSHAKE-NEXT-LAP` on every lap of a file declaring 7), its two call sites,
     # the bounded value pattern, and `PROTOCOL_VERSION`'s history; one gate row
     # with its reasons, and the module is the gate the row belongs to.
-    "scripts/handshake.py": 4453,
+    # **4453 -> 4455** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): `_SOURCE_NAMED_LAP` reads
+    # `round-\d+-` instead of `round-0*\d+-` (same text, linear), and why.
+    "scripts/handshake.py": 4455,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     "scripts/laplang/lsl3.py": 433,
     "scripts/laplang/refs.py": 324,

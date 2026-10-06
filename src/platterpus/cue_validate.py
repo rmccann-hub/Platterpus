@@ -231,9 +231,16 @@ class ExpectedCue:
 # parsing*): a cue writer that adds a field or changes its spacing must not
 # silently shift what we read.
 
-_RE_REM = re.compile(r"^\s*REM\s+(?P<key>[A-Za-z0-9_]{1,64})\s+(?P<value>.*\S)\s*$")
-_RE_TITLE = re.compile(r"^\s*TITLE\s+(?P<value>.*\S)\s*$")
-_RE_PERFORMER = re.compile(r"^\s*PERFORMER\s+(?P<value>.*\S)\s*$")
+#
+# A value is `\S(?:.*\S)?`, never `.*\S` (2026-10-06): behind `\s+`, `.*\S`
+# re-scanned the rest of the line once per blank when no value followed, which is
+# quadratic on "TITLE" and a long run of spaces. Both read every line the same
+# way (`tests/test_regex_rewrites_read_the_same.py` keeps the old forms).
+_RE_REM = re.compile(
+    r"^\s*REM\s+(?P<key>[A-Za-z0-9_]{1,64})\s+(?P<value>\S(?:.*\S)?)\s*$"
+)
+_RE_TITLE = re.compile(r"^\s*TITLE\s+(?P<value>\S(?:.*\S)?)\s*$")
+_RE_PERFORMER = re.compile(r"^\s*PERFORMER\s+(?P<value>\S(?:.*\S)?)\s*$")
 # A FILE value is quoted when it contains spaces, which for a track-per-file rip
 # is almost always. The optional trailing word is the format (WAVE/MP3/BINARY).
 _RE_FILE = re.compile(

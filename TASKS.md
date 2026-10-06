@@ -1596,6 +1596,34 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
       timing pin per pattern on a 20,000-space line (not `_PREGAP_SOURCE`, whose
       old form was linear). The property was shown to catch four wrong rewrites
       (`|\s`, no blank branch, `.*\S`, `\S.*`). Contract regenerated.
+    - [x] *Part two done 2026-10-06 in this commit (`fix(regex): time each pattern
+      behind its own lead-in`):* `tests/test_regex_bounded_time.py` also times every
+      literal pattern on runs that start INSIDE it. For each repeat that can hold a
+      run (count varies, maximum at least 500), the shortest text in front of it,
+      alone and plus one character the repeat accepts, then a run of each fill the
+      repeat accepts, then no tail or `x`; derived by `re._parser` from the pattern,
+      with every group opened and every alternative laid out. Two new sweeps (3,248
+      inputs over 133 package patterns, 2,174 over 67 tooling ones; floors 66 and
+      33), one timing round in the screen and the full three to confirm. A proof
+      test pins the blind spot both ways (the old `_READ_STALLS` linear to the old
+      inputs, quadratic to the new). Besides the cyanrip_log patterns (part one)
+      it found nine more; six are fixed, each held to its old form by Hypothesis in
+      `tests/test_regex_rewrites_read_the_same.py` and pinned by name:
+      `cue_validate._RE_REM`, `_RE_TITLE`, `_RE_PERFORMER` (`.*\S` → `\S(?:.*\S)?`),
+      `rip_log._FIELD` (lazy value → `(?:\S(?:.*\S)?)?`),
+      `rip_worker._CYANRIP_ETA_VALUE` (the blanks after `m` inside its group), and
+      `handshake._SOURCE_NAMED_LAP` (`round-0*\d+-` → `round-\d+-`). Three are
+      ledgered in `_LEAD_IN_DEBT`, item (4a). revert_probe: 9 of 9 as expected,
+      including reverting `_READ_STALLS` to its lazy form (the lead-in sweep fails;
+      the old sweep passes, which is the blind spot, now asserted).
+  - (4a) **The lead-in debt** (`tests/test_regex_bounded_time.py::_LEAD_IN_DEBT`, may
+    shrink, never grow): three patterns the lead-in sweep finds super-linear and
+    that are not fixed. `drive_list._DRIVE_LINE` (the legacy drive list; no caller
+    outside tests; 320 ms on 2,000 spaces), `emit_ripper_inventory._ROW` (hand-run
+    over the fork's provider-contract rows; cubic, 3.7 s on one 2,000-character
+    row), and `round_digest._LAP_NAME` (file names only, NAME_MAX-bounded: 0.3 ms
+    at 255). Each needs its own equivalence proof; a fixed one's entry goes stale
+    and `test_every_lead_in_debt_entry_still_names_a_real_pattern` asks for it.
   - (5) ~~`lint` (`ruff check`, `ruff format --check`) still reads `src tests` only.
     `scripts/` and `build/` were clean under both on 2026-10-05 (0 findings, 51 files
     formatted), so adding them is a CI and `scripts/check.py` change with no fixes.~~
