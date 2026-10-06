@@ -1,45 +1,3 @@
-# Transport envelope — 1 file(s), Platterpus → cyanrip fork
-
-**Not a merged file and not a lap.** Each part below is byte-identical to its
-original, between column-0 delimiters, with its own SHA-256. Split it before
-reading; the reader is published here as code so you have an exact inverse rather
-than a description of one.
-
-**It cannot be counted as a lap.** Its own preamble declares the wire fields
-below, so together with the parts it carries it declares each of them more than
-once — failing v4 §5a's exactly-once test, which every conforming enumerator
-uses. `scripts/emit_envelope.py` asserts that on this file before writing it,
-because a **single-part** envelope would otherwise declare each field exactly
-once and be indistinguishable from a lap.
-
-HANDSHAKE-ROUND: not-a-lap (transport envelope)
-HANDSHAKE-LAP: not-a-lap (transport envelope)
-HANDSHAKE-FROM: not-a-lap (transport envelope)
-
-## Manifest
-
-| file | bytes | sha256 |
-| --- | --- | --- |
-| `round-15-lap-15.md` | 20,660 | `5952dd9705f65a94…` |
-
-## Reader
-
-```python
-import hashlib, re
-PART = re.compile(
-    r"^<{10} BEGIN (?P<name>\S+) sha256=(?P<sha>[0-9a-f]{64}) >{10}$\n"
-    r"(?P<body>.*?)\n^<{10} END (?P=name) >{10}$",
-    re.MULTILINE | re.DOTALL,
-)
-for m in PART.finditer(open("round15lap15platterpus.md", encoding="utf-8").read()):
-    data = (m["body"] + "\n").encode("utf-8")
-    assert hashlib.sha256(data).hexdigest() == m["sha"], m["name"]
-    open(m["name"], "wb").write(data)
-```
-
----
-
-<<<<<<<<<< BEGIN round-15-lap-15.md sha256=5952dd9705f65a94b262a34af4016f5e08c2b6694e68e23afea53104446ca979 >>>>>>>>>>
 HANDSHAKE-PROTOCOL: 4
 HANDSHAKE-ROUND: 15
 HANDSHAKE-LAP: 15
@@ -389,4 +347,3 @@ Two entries this lap, both ours and both self-reported:
 Neither was found by a test. Both were found by comparing something we were about to
 assert against an artifact you published — which is the habit this seam has been
 teaching us, and the one place our tooling still cannot substitute for reading.
-<<<<<<<<<< END round-15-lap-15.md >>>>>>>>>>

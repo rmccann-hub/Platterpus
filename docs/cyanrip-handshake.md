@@ -779,6 +779,13 @@ rather than obeyed selectively. The envelope that *does* cross by hand
 (`round14lap16platterpus.md`) follows the rule, and
 `tests/test_handshake_file_naming.py` enforces both shapes separately.
 
+*Editorial note, 2026-10-06, not part of the moved text:* no envelope is committed
+under `docs/handshake/` any more. The one named above is now
+`tests/fixtures/round14lap16platterpus.md`, byte-exact, and the record of all 44
+retired envelopes is `docs/handshake/README.md` → *Retired transport envelopes*. The
+envelope name rule still binds, because `scripts/emit_envelope.py --out DIR` still
+writes one for a hand-carry, outside the repository.
+
 Added 2026-08-13, on the maintainer's instruction, after a rig run was lost to
 it. The same artifact was `round08joint.txt` on their disk and
 `round-08-joint.txt` in the instructions written for them. A path is an

@@ -110,7 +110,8 @@ Platterpus/
 │   ├── handshake.py                     # the bidirectional handshake gate: --emit / --check / --status /
 │   │                                    #   --release-gate. What decides whether a release may proceed.
 │   ├── round_digest.py                  # HANDSHAKE-ROUND-DIGEST, using the fork's method (round 15 lap 4)
-│   ├── emit_envelope.py                 # transport envelope — HISTORY since 2026-09-13, laps travel by git
+│   ├── emit_envelope.py                 # transport envelope — HISTORY since 2026-09-13, laps travel by git;
+│   │                                    #   writes only with --out outside the repo (2026-10-06)
 │   ├── emit_dependency_contract.py      # generates docs/cyanrip-consumer-contract.md (has --check)
 │   ├── emit_script_language.py          # generates docs/script-language.md (has --check)
 │   ├── emit_ripper_inventory.py         # regenerates the fatal-message inventory + fixture from the newest
