@@ -1175,3 +1175,32 @@ def test_the_shared_version_probe_is_not_left_cancelled_by_a_teardown() -> None:
     finally:
         with probe._lock:
             probe._issued, probe._cancel_through = was_issued, was_through
+
+
+def test_the_installed_commit_is_read_from_the_banner_line_only(qapp, monkeypatch):
+    """The version probe now keeps its tail too (2026-10-06), so a parenthesis in a
+    later line must not be read as the installed fork commit."""
+    from platterpus.deps import checks
+    from platterpus.workers.ripper_update_worker import RipperUpdateWorker
+
+    def stock_with_noise(_binary: object) -> checks.ProbeResult:
+        return checks.ProbeResult(
+            present=True,
+            version=(0, 9, 3),
+            location="/x/cyanrip",
+            raw_output="cyanrip 0.9.3\nbuilt with (platterpus-fork-gdeadbee) headers",
+        )
+
+    monkeypatch.setattr(checks, "check_cyanrip", stock_with_noise)
+    assert RipperUpdateWorker()._probe_installed_commit() is None
+
+    def fork(_binary: object) -> checks.ProbeResult:
+        return checks.ProbeResult(
+            present=True,
+            version=(0, 9, 4),
+            location="/x/cyanrip",
+            raw_output="cyanrip 0.9.4-rc2+platterpus.20 (platterpus-fork-g5704062)\nx (y)",
+        )
+
+    monkeypatch.setattr(checks, "check_cyanrip", fork)
+    assert RipperUpdateWorker()._probe_installed_commit() == "5704062"

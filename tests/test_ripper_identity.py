@@ -401,3 +401,31 @@ def test_the_timing_guard_would_have_caught_the_original() -> None:
         f"the rewrite ({new_cost:.4f}s) on 400 parts — either the oracle has "
         f"been changed, or this guard is measuring nothing"
     )
+
+
+# --- banner_line: the readers name the line they mean (2026-10-06) --------------
+
+
+def test_banner_line_is_the_first_non_empty_line() -> None:
+    from platterpus.ripper_identity import banner_line
+
+    assert banner_line("") == ""
+    assert banner_line("\n\n  cyanrip 0.9.3  \nlibav 61\n") == "cyanrip 0.9.3"
+    assert banner_line("cyanrip 0.9.4 (platterpus-fork-g5704062)") == (
+        "cyanrip 0.9.4 (platterpus-fork-g5704062)"
+    )
+
+
+def test_a_parenthesis_in_a_later_line_is_never_read_as_the_build_tag() -> None:
+    """The new state the head-and-tail capture creates: more lines reach the
+    readers. A stock banner (no parenthetical) followed by a line with one must
+    still be stock-or-unknown, never "fork"; and a fork banner keeps its tag."""
+    from platterpus.ripper_identity import banner_line, fork_commit_from_banner
+
+    capture = "cyanrip 0.9.3\nbuilt with (platterpus-fork-gdeadbee) headers\n"
+    assert identify_from_banner(banner_line(capture)).kind != "fork"
+    assert fork_commit_from_banner(banner_line(capture)) is None
+    # Without the line, the whole capture IS misread: the reason banner_line exists.
+    assert fork_commit_from_banner(capture) == "deadbee"
+    fork = "cyanrip 0.9.4-rc2+platterpus.20 (platterpus-fork-g5704062)\nlibav (x)\n"
+    assert fork_commit_from_banner(banner_line(fork)) == "5704062"
