@@ -25,6 +25,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   reading disagree, for example a rip Platterpus thinks finished that cyanrip
   records as interrupted, both answers are shown, marked ⚠, and the report adds
   a `ripper_record_disagrees` warning.
+- **The acceptance run says how long it should take.** When a run starts, the
+  transcript, the script console and the app log state an estimate for the size
+  chosen: each rip from this drive's own measured reading speed and the tracks it
+  rips, at the settings the script uses for it, and the other steps as measured on
+  the filed 2026-10-05 Full run. A new script verb, `run-estimate`, says it again
+  for the rest of the run; the full script runs it after the disc is identified,
+  because before that no track has a length. Whatever cannot be counted yet (the
+  rips before the disc is identified, a drive that has finished no rip, a section
+  no filed run had) is named and makes the figure "at least", never counted as
+  zero. Against both filed round-30 Full runs, the estimate of each run's own script
+  came within 10 % of what the run took.
 - **The closing acceptance run settles or records the hardware-only checks itself.**
   Five open checks needed a drive and had no run of their own. Four are now steps in
   the Full run, each beside a line naming the TASKS row it closes: the cancelled

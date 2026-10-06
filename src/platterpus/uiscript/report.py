@@ -233,6 +233,10 @@ class RunReport:
     #: failure in its own place, and stopping early would hide every finding
     #: behind it.
     preflight: list[str] = field(default_factory=list)
+    #: How long the run should take, said when it started (TASKS D6,
+    #: ``uiscript/run_estimate.py``). A sentence, not a number: what it could not
+    #: count is part of it, and a bare figure would drop that.
+    estimate: str = ""
 
     #: Verbs whose EXECUTION can leave a file outside the transcript. A run that
     #: reached none of them has produced nothing the archive exists to carry:
@@ -388,6 +392,7 @@ class RunReport:
             "counts_as_evidence": counts_as_evidence(self.run_size),
             "artifact_dir": self.artifact_dir or None,
             "preflight": list(self.preflight),
+            "estimate": self.estimate or None,
             "counts": self.counts(),
             "ok": self.ok,
             # Beside `ok`, because `ok` forgives a step this equipment cannot run,
@@ -441,6 +446,8 @@ def render(report: RunReport) -> str:
         f"app: {report.app_version}",
     ]
     head.append(f"run size: {report.run_size}")
+    if report.estimate:
+        head.append(report.estimate)
     if not counts_as_evidence(report.run_size):
         # At the top, where a reader starts: a smaller run declined sections on
         # purpose, and a reader who counts its green result

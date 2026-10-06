@@ -977,9 +977,24 @@ Open:
   from the drive's own measured first reads (`DriveProfile.read_rate`), else the rig's for
   its model, else none. In the plan, as the early ETA, and beside the actual in the
   elapsed line. Held against every filed rig rip.
-- [ ] **The acceptance run's overall estimate** (the operator's first wording of the same
+- [x] **The acceptance run's overall estimate** (the operator's first wording of the same
   request): sum the estimate over the script's rip steps plus the measured non-rip
   sections. Not built; the per-rip estimate is its main input.
+  - *2026-10-06: DONE (D6).* `uiscript/run_estimate.py`: each rip the size runs from
+    `rip_estimate` (the drive's measured speed, the tracks selected, the settings the
+    script has set by then), each `wait` from the script, every other step from what
+    its section took on the filed 2026-10-05 Full run (a table a test re-derives from
+    the committed report), plus the runner's pause between steps. Stated when a run
+    starts, in the transcript head, the JSON (`estimate`), the console and the app
+    log; and again by the new verb `run-estimate`, which the full script runs after
+    section E, because a run usually starts before the disc is identified and no
+    track has a length until then. **Tri-state:** a rip with no figure and a section
+    no filed run had are named and make the figure "at least". **Held against both
+    filed round-30 Full runs** (2026-09-30 and 2026-10-05): the estimate of each
+    run's own script, from its whole-disc rip's sector spans and the rig's speed,
+    contains the time the run took and is within 10 % of it (2026-10-05: 18,436 s
+    estimated, 18,561 s taken). Sections E2, J2 and O were never on a filed run, so
+    today's script estimates as a floor until a Full run on it is filed.
 - [x] **The realtime multiplier means one thing** (found while reading the filed timing
   data): elapsed over the audio read, finished or not.
 

@@ -776,6 +776,17 @@ _VERB_LIST: tuple[Verb, ...] = (
         "rescue's outcome in this launch's log and the cancelled rip's log footer "
         "(info; never fails)",
     ),
+    # The run's own estimate (D6, `estimate_verbs.py`): said when a run starts
+    # and logged; this verb says it again once the disc's track lengths are known.
+    Verb(
+        "run-estimate",
+        0,
+        0,
+        "run-estimate — record how long the rest of this run should take: each rip "
+        "from this drive's measured speed and the disc's track lengths, the other "
+        "steps as measured on a filed Full run; anything unknown is named, never "
+        "counted as zero (info)",
+    ),
     # --- Tiers and dependency pruning (round 18's procedure, scaffolding only) --
     #
     # A SCRIPT VERB rather than a CLI flag, per `CLAUDE.md`: the script language is
