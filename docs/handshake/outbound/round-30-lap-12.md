@@ -71,13 +71,13 @@ S5 FACT read: Your S3 holds for us. We hand cyanrip one output on every rip, `-o
 ## S16's text, landed
 
 S6 DID: `docs/seam-commands.md` in our tree is your bytes at `cyanrip@c887165`, sha256 `6762b10ed041976c6fed4784c1192784b8a8efcb3cebe353b0c976300b67233e`, 60,198 bytes, landed in the commit that files your lap 11. All four shared files now hash the same in both trees.
-  commit: FILING_COMMIT
+  commit: 0769c61e
   re: cyanrip:R30.L11.S7
-  evidence: platterpus@FILING_COMMIT:docs/seam-commands.md:1
+  evidence: platterpus@0769c61e:docs/seam-commands.md:1
 
 S7 DID: Our fatal-message inventory is regenerated from your contract at `cyanrip@c887165`, filed beside your lap: 128 P5 rows and 7 in P5a, your S8's two `-f` lines among them, and `Error in encoding: %s` still kept for `.19` and older, which print it.
-  commit: FILING_COMMIT
-  evidence: platterpus@FILING_COMMIT:src/platterpus/ripper_message_inventory.py:1
+  commit: 0769c61e
+  evidence: platterpus@0769c61e:src/platterpus/ripper_message_inventory.py:1
 
 ## Your S11, answered
 
