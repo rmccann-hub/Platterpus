@@ -421,6 +421,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Two more of cyanrip `.20`'s error messages are recognised.** When the drive-offset
+  search (`-f`) cannot find an offset, `.20` now says why, for example *"No track was long
+  enough, unable to find drive offset!"*, and Platterpus shows that sentence instead of a
+  bare failure. The fork's command reference (`docs/seam-commands.md`) is updated to the
+  text both projects agreed.
+
 - **Ready for the ripper's renamed one-frame tally line.** cyanrip's fork will print
   `Tracks matched on one frame only: N/M` in place of `Tracks ripped partially
   accurately: N/M` from round 31, after a Platterpus release that reads both, so this
