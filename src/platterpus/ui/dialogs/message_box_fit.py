@@ -17,11 +17,15 @@ boxes were centred before Qt had sized them.
 the box is centred:
 
 1. asks Qt to size the box now (:func:`_let_qt_size`);
-2. if it is taller than the screen allows, WIDENS it, to the narrowest width at
+2. if a long TITLE made Qt size it wider than the screen less
+   `SIDE_MARGIN_PX` on each side, shortens the title its title bar shows
+   (:func:`_shorten_a_title_too_wide`; KDD-41, 2026-10-05);
+3. if it is taller than the screen allows, WIDENS it, to the narrowest width at
    which it fits, by setting a minimum width on Qt's text label — the one input
    Qt's own sizing reads — and never past Qt's own width ceiling
-   (:func:`qt_width_ceiling`), beyond which Qt would squeeze the label;
-3. if no width is enough (long text, a small screen, a large font), the message
+   (:func:`qt_width_ceiling`), beyond which Qt would squeeze the label, nor
+   into the side margin;
+4. if no width is enough (long text, a small screen, a large font), the message
    text SCROLLS inside the box and the buttons stay on screen
    (:func:`_scroll_the_text`).
 
@@ -40,13 +44,18 @@ import logging
 from typing import Final
 
 from PySide6.QtCore import QCoreApplication, QEvent, QObject, QSize, Qt, QTimer
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QGridLayout,
     QLabel,
     QMessageBox,
     QScrollArea,
 )
+
+# Re-exported: one side margin for every fitted window, a message box included.
+from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX
 
 log = logging.getLogger(__name__)
 
@@ -57,9 +66,21 @@ QT_TEXT_LABEL_NAME: Final[str] = "qt_msgbox_label"
 #: A test, and anyone reading a widget dump, can find it by this.
 SCROLL_AREA_NAME: Final[str] = "platterpus_message_text_scroll"
 
-#: Kept clear on each side, so the window frame lands on the screen too. Qt's own
-#: ceiling for a screen up to 1024 px wide is the whole width, frame excluded.
-SIDE_MARGIN_PX: Final[int] = 16
+#: Qt widens a box to its title's width PLUS this, in its own sizing pass
+#: (``QMessageBoxPrivate::updateSize``: ``horizontalAdvance(title) + 50``), to
+#: leave room for the title bar's buttons. Mirrored here so a shortened title
+#: makes Qt choose the width we need, no more.
+_QT_TITLE_ALLOWANCE_PX: Final[int] = 50
+
+#: The font Qt measures a message box's title in (the same ``updateSize``).
+_QT_TITLE_FONT_CLASS: Final[str] = "QMdiSubWindowTitleBar"
+
+#: A Qt dynamic property holding a box's full title while its title bar shows a
+#: shortened one (:func:`_shorten_a_title_too_wide`), so a later fit — the box
+#: shown again, perhaps on a wider screen — starts from the whole title. Stored on
+#: the box for the reason `auto_center.CENTERED_PROPERTY` gives: it lives and
+#: dies with the box.
+FULL_TITLE_PROPERTY: Final[str] = "_platterpus_full_title"
 
 #: The shortest a scrolling text area may be: three lines of default text, so a
 #: box on an absurdly short screen still shows something to scroll.
@@ -99,6 +120,8 @@ def fit_message_box(box: QMessageBox, avail: QSize, margin: int) -> None:
 
     ``margin`` is kept clear vertically, for the taskbar and the title bar: the
     same `CenteredDialog.SCREEN_MARGIN_PX` every other dialog is held to.
+    Sideways, `SIDE_MARGIN_PX` is kept clear on each side, as for every fitted
+    window.
     """
     label = box.findChild(QLabel, QT_TEXT_LABEL_NAME)
     if label is None:
@@ -108,7 +131,10 @@ def fit_message_box(box: QMessageBox, avail: QSize, margin: int) -> None:
             QT_TEXT_LABEL_NAME,
         )
         return
+    _restore_the_full_title(box)
     _let_qt_size(box)
+    if _shorten_a_title_too_wide(box, avail.width() - 2 * SIDE_MARGIN_PX):
+        _let_qt_size(box)
     max_h = max(avail.height() - margin, 120)
     if box.height() <= max_h:
         return  # the common case: a short message, untouched
@@ -130,6 +156,54 @@ def fit_message_box(box: QMessageBox, avail: QSize, margin: int) -> None:
         )
         return
     _scroll_the_text(box, label, max(widest, qt_width), avail, margin)
+
+
+def _shorten_a_title_too_wide(box: QMessageBox, widest: int) -> bool:
+    """Shorten a title so wide that Qt would make the box wider than ``widest``.
+
+    Returns whether the title changed. **Why the title, and not the box.** Qt
+    widens a box to fit its title (its width plus :data:`_QT_TITLE_ALLOWANCE_PX`,
+    up to :func:`qt_width_ceiling` — the WHOLE screen on one up to 1024 px wide),
+    and it applies that rule last, every time it sizes the box, including on the
+    box's own Show, which runs AFTER this fit. A width we set is therefore
+    undone (measured: a box resized from inside the Show filter came back at
+    Qt's width), and the one input the rule reads is the title. A box sized
+    for a long title (the matrix measures ``Open <a long path>``) touched both
+    edges of every small screen.
+
+    The title is shortened in the middle, which keeps a path's start and its
+    last folder, to what the title bar of a box ``widest`` px wide can show; the
+    window manager would cut it in that box anyway. Nothing is lost: the whole
+    title stays the box's accessible name, which is what a screen reader reads
+    for a window, and :data:`FULL_TITLE_PROPERTY` keeps it for a later fit.
+    """
+    title = box.windowTitle()
+    # PySide6 6.11's stub types the class name as bytes, but only a str is
+    # accepted at runtime (measured: bytes raises ValueError).
+    font = QApplication.font(_QT_TITLE_FONT_CLASS)  # type: ignore[call-overload]  # stub says bytes; runtime takes str
+    metrics = QFontMetrics(font)
+    room = widest - _QT_TITLE_ALLOWANCE_PX
+    if metrics.horizontalAdvance(title) <= room:
+        return False
+    box.setProperty(FULL_TITLE_PROPERTY, title)
+    if not box.accessibleName():
+        box.setAccessibleName(title)
+    box.setWindowTitle(metrics.elidedText(title, Qt.TextElideMode.ElideMiddle, room))
+    log.info(
+        "message box title %r is wider than a %dpx box can show; its title bar "
+        "shows it shortened",
+        title,
+        widest,
+    )
+    return True
+
+
+def _restore_the_full_title(box: QMessageBox) -> None:
+    """Undo :func:`_shorten_a_title_too_wide` before a fit measures the box again."""
+    full = box.property(FULL_TITLE_PROPERTY)
+    if isinstance(full, str) and full:
+        box.setWindowTitle(full)
+        box.setProperty(FULL_TITLE_PROPERTY, None)
 
 
 def _fits_at(box: QMessageBox, label: QLabel, width: int, max_h: int) -> bool:

@@ -180,6 +180,34 @@ def test_clamp_pins_an_oversized_rect_to_the_top_left() -> None:
     # Bigger than the screen → pin top-left so the title bar/buttons stay reachable.
     clamped = _clamp_to(QRect(-50, -50, 3000, 2000), _AVAIL)
     assert clamped.topLeft().x() == 0 and clamped.topLeft().y() == 0
+    # And a side margin cannot change that: there is no room for one.
+    clamped = _clamp_to(QRect(-50, -50, 3000, 2000), _AVAIL, 16)
+    assert clamped.topLeft().x() == 0 and clamped.topLeft().y() == 0
+
+
+def test_clamp_keeps_a_side_margin_at_either_edge() -> None:
+    """KDD-41: a window placed near an edge keeps the side margin the fit left it.
+
+    Placed before the window manager has decorated it, a window slid flush
+    against the edge has its frame's border off the screen.
+    """
+    right = _clamp_to(QRect(1800, 400, 400, 300), _AVAIL, 16)
+    assert right.right() == _AVAIL.right() - 16
+    left = _clamp_to(QRect(-120, 400, 400, 300), _AVAIL, 16)
+    assert left.left() == 16
+    # Vertically nothing changes: the margin is a side margin.
+    assert right.top() == 400 and left.top() == 400
+    # Inside the margin already: untouched.
+    inside = QRect(600, 400, 400, 300)
+    assert _clamp_to(inside, _AVAIL, 16) == inside
+
+
+def test_clamp_shares_out_a_margin_it_has_no_full_room_for() -> None:
+    # 1900 px wide on 1920: 20 px spare, so 10 on each side rather than 16 on
+    # one and 4 on the other.
+    clamped = _clamp_to(QRect(500, 0, 1900, 300), _AVAIL, 16)
+    assert clamped.left() == 10
+    assert _AVAIL.right() - clamped.right() == 10
 
 
 def test_center_on_anchor_raises_and_activates(qapp: QApplication) -> None:

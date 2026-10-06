@@ -246,9 +246,44 @@ def test_a_plain_dialog_is_only_ever_made_smaller(qapp) -> None:
         assert dialog.size() == QSize(300, 80)
         dialog.resize(1200, 900)
         fit_plain_dialog(dialog, QSize(800, 600), MARGIN)
-        assert dialog.width() <= 800 and dialog.height() <= 600 - MARGIN
+        assert dialog.width() <= 800 - 2 * fit.SIDE_MARGIN_PX
+        assert dialog.height() <= 600 - MARGIN
     finally:
         dialog.deleteLater()
+
+
+def test_a_box_sized_for_a_long_title_keeps_a_side_margin(qapp, shown) -> None:
+    """Qt widens a box to fit its title, up to the whole screen on one up to
+    1024 px wide, so a box titled with a long path touched both edges of every
+    small screen (KDD-41). Its title bar shows the title shortened instead; the
+    whole title stays the box's accessible name, and a fit on a wider screen
+    starts from the whole title again.
+    """
+    title = "Open " + "/home/maximilian-schwarzenegger-lindqvist/Music" * 4
+    box = message_boxes.build(QMessageBox.Icon.Information, None, title, "Short.")
+    box.show()
+    _settle(qapp)
+    shown.append(box)
+    screen = box.screen().availableGeometry().size()
+    assert screen.width() <= 1024, "premise: Qt's ceiling is the whole screen here"
+    assert box.width() > screen.width() - 2 * fit.SIDE_MARGIN_PX, (
+        "premise: Qt sized the box for its title, to the screen's edges"
+    )
+
+    fit.fit_message_box(box, screen, MARGIN)
+
+    assert box.width() <= screen.width() - 2 * fit.SIDE_MARGIN_PX
+    assert box.windowTitle() != title and "…" in box.windowTitle()
+    assert box.windowTitle().startswith("Open /home/")
+    assert box.accessibleName() == title
+    # Qt sizes the box again on every Show and layout change; the shortened
+    # title is an input to that, so the margin survives it.
+    fit._let_qt_size(box)
+    assert box.width() <= screen.width() - 2 * fit.SIDE_MARGIN_PX
+
+    # A later fit for a screen with room for the whole title gives it back.
+    fit.fit_message_box(box, QSize(4000, screen.height()), MARGIN)
+    assert box.windowTitle() == title
 
 
 def test_a_box_without_qts_label_is_left_alone(qapp, shown, caplog) -> None:

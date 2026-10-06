@@ -1934,6 +1934,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "test_session.py": 1053,
     # **419 -> 422** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the per-row status label, which shows the installer's own error, states PlainText, with the comment saying why.
     "ui/dialogs/pending_installs.py": 422,
+    # **new at 372** (2026-10-05, KDD-41, the side margin): crossed ~300 with the
+    # step that shortens a title too wide for it. Kept as one module: it has one
+    # job, fitting a `QMessageBox` to its screen, done through the inputs Qt's own
+    # sizing pass reads (title, label width, scroll area). Each step depends on the
+    # previous one's measurement of the same box, and on the two Qt internals the
+    # module docstring names, so splitting the steps would put one sizing pass in
+    # several files.
+    "ui/dialogs/message_box_fit.py": 372,
     # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
     # channels (they live above the checks they steer), a Drive section holding
     # the read offset's status, Set up drive… and Diagnose drive access…, and

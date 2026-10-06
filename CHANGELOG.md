@@ -157,6 +157,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **A failed rip's reason stays the album pass's.** A message from the secure
   re-read that followed it is shown in the live log, labelled, instead of being
   added to the reason the rip failed.
+- **Windows keep a small gap at the sides of a small screen.** A dialog or
+  message box could be made exactly as wide as the screen, which put the
+  window's side borders off it: the release picker on a 1280 × 800 screen at
+  150 % scaling, and message boxes on screens up to 1024 pixels wide. Every
+  window Platterpus fits to the screen now leaves 16 pixels on each side, and is
+  placed so it keeps them even when it opens over a window near the edge. A
+  message box with a title too long for that width shows the title shortened in
+  its title bar (the window manager would have cut it anyway); a screen reader
+  still reads the whole title.
+- For contributors: the conformance matrix's `window_on_screen` rule now checks
+  the window's frame against both side edges and fails a window wider than the
+  screen less that 16-pixel margin on each side (`fit_scroll_area.SIDE_MARGIN_PX`,
+  the one value every fit uses).
 - **A nonsense "Ripping errors" count from cyanrip no longer reads as "No errors
   occurred".** A count far beyond anything a CD could produce is now recorded as
   "not determined", and the rip's health line repeats what cyanrip printed.
