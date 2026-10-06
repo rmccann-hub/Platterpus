@@ -151,7 +151,8 @@ their beta.
   forwards the wrapper's SIGTERM*), and the 150 % text windows on KWin (*Confirm on the
   rig what headless cannot show*). Each step names its row, so the bundle closes rows
   rather than a person.
-  - *2026-10-06: DONE in script lines, four of five; the fifth cannot be a step.*
+  - *2026-10-06: DONE in script lines, four of five; the fifth cannot be a step.
+    Done in cec0a55b.*
     Each step sits beside a `log A4 (TASKS "<row>")` line naming its row, and
     `tests/test_uiscript_applog_verbs.py` holds each in place. (1) *S25*: section I's
     `expect-log-well-formed` and `expect-album-audit ripper_log_integrity` (cyanrip
@@ -204,7 +205,7 @@ at 100 % and 150 % text, and the screenshots were looked at.
   Wayland, where a client cannot place its own window. At 150 % text, open Help →
   Check for cyanrip updates and the test console's script reference, and confirm
   the buttons are on screen.
-  - *2026-10-06 (A4): not a step, and why.* The text scale is a desktop setting a
+  - *2026-10-06 (A4, cec0a55b): not a step, and why.* The text scale is a desktop setting a
     script can neither set nor put the run into, so a run cannot place itself at
     150 %. The two windows the row names are outside the script surface: *Check for
     cyanrip updates* reads the fork's manifest and can offer an install, which no
@@ -939,7 +940,7 @@ Open:
   (`container_gate.FIRST_ENTRY`, claimed in `KillableCommand.run`). **Inferred, not
   reproduced:** the next cold launch on the rig is the test, and the app log says
   when a probe waited.
-  - *2026-10-06 (A4): read by the closing run.* Section A's new step `app-log for
+  - *2026-10-06 (A4, cec0a55b): read by the closing run.* Section A's new step `app-log for
     the first container command` copies every such line from this launch's log
     into the transcript (info, never a failure), with how much of the launch the
     log kept. No line means no probe waited: a warm container, or one command at a
@@ -956,7 +957,8 @@ Open:
   (`cyanrip@174a134:src/cyanrip_main.c` `on_quit_signal`). Nothing measures which
   world a rig is in. A kept securing-pass log (the row above) would show it: a
   cancelled pass on a slow read whose log has no footer.
-  - *2026-10-06 (A4): measured on every cancel now, not only on a slow read.*
+  - *2026-10-06 (A4, cec0a55b): measured on every cancel now, not only on a slow
+    read.*
     Section I's new step `sigterm-world` reads the rescue's outcome out of this
     launch's log and the cancelled rip's footer: the rescue finding the ripper still
     holding the drive 5 s after Cancel, with the log signed afterwards, means the
@@ -980,7 +982,7 @@ Open:
 - [x] **The acceptance run's overall estimate** (the operator's first wording of the same
   request): sum the estimate over the script's rip steps plus the measured non-rip
   sections. Not built; the per-rip estimate is its main input.
-  - *2026-10-06: DONE (D6).* `uiscript/run_estimate.py`: each rip the size runs from
+  - *2026-10-06: DONE (D6); Done in e2c021ed.* `uiscript/run_estimate.py`: each rip the size runs from
     `rip_estimate` (the drive's measured speed, the tracks selected, the settings the
     script has set by then), each `wait` from the script, every other step from what
     its section took on the filed 2026-10-05 Full run (a table a test re-derives from
@@ -1266,8 +1268,8 @@ each side's reading; and the closing releases named.
   - *2026-10-05: 108 s.* The 2026-10-04 rig run's damaged disc took 54 s over one read
     (`docs/handshake/artifactsround30/round30oct04full.log:1501`); filed, and the floor
     follows it again.
-  - *2026-10-06 (A4): the cancel half is in the closing run; the close trigger
-    cannot be a step.* Section I now names this row beside its
+  - *2026-10-06 (A4, cec0a55b): the cancel half is in the closing run; the close
+    trigger cannot be a step.* Section I now names this row beside its
     `expect-log-well-formed` and `expect-album-audit ripper_log_integrity` (cyanrip
     `-Y` on the kept log), which grade a cancelled rip's footer on the container
     path. The post-cancel rescue and the window-close stop both reach the ripper
@@ -1329,8 +1331,8 @@ each side's reading; and the closing releases named.
     is not in `open`'s table, and accepting it puts the rip controls in unknown
     mode for every rip after it. Which route, and where it can sit without
     affecting the rips after it, is a design decision.
-  - *2026-10-06: (a) DONE in script lines, as ruled (KDD-41 C4); no hardware
-    evidence yet.* New section **E2** (Quick size, after E, before F) runs the
+  - *2026-10-06: (a) DONE in script lines, as ruled (KDD-41 C4); Done in
+    688f0cee; no hardware evidence yet.* New section **E2** (Quick size, after E, before F) runs the
     new verb `expect-offset-refusal`: on a drive the AccurateRip list carries it
     records **`unreachable`** (N/A) and changes nothing; on any other it turns the
     override off, presses Start, answers the real *"Set up your drive first"*
@@ -1344,8 +1346,8 @@ each side's reading; and the closing releases named.
     run nor reads as a pass. Tested against the real gate
     (`RipMixin._on_rip_requested` with its real blocking box); 6 reverts each
     caught (`scripts/revert_probe.py`).
-  - *2026-10-06: (b) DONE as a second script, as ruled (KDD-41 C4); no hardware
-    evidence yet.* `rig_scripts/unknowndiscacceptance.txt`, run by the new menu
+  - *2026-10-06: (b) DONE as a second script, as ruled (KDD-41 C4); Done in
+    61f92ef8; no hardware evidence yet.* `rig_scripts/unknowndiscacceptance.txt`, run by the new menu
     item **Tools → Advanced → Run acceptance test with an unknown disc…** through
     the same session as the full run (no size question), and by `--run-script
     unknowndiscacceptance`. Its header says which disc it needs: one MusicBrainz
@@ -1785,7 +1787,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     bundle's `screen lock` line now calls it the desktop's promise, not a
     measurement. Open for one thing only: a Full run on this build to show the
     steps record INFO where they failed.
-  - *2026-10-06 (A4): confirmed covered, and named in the closing run.* The
+  - *2026-10-06 (A4, cec0a55b): confirmed covered, and named in the closing run.* The
     INFO branch is built and tested
     (`tests/test_uiscript_rip_verbs.py::test_screenshot_renders_open_windows_when_the_display_shows_none`);
     the five screenshots after a long or post-cancel rip (F, H, J, K3, N) each now
