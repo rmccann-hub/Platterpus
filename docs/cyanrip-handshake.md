@@ -352,6 +352,22 @@ same duty that has us re-deriving their numbers. A wrong shared model is worse
 than no shared model: under theirs, either side would mispredict every one of the
 five rounds above.
 
+**Round 30 added a third way to mispredict a close: a field, not a turn.** The fork's
+lap 15 declared `GO` and said *"our gate closes round 30 on [your lap 16] … with no
+lap 17 of ours"*. Neither gate would have: it carried no `HANDSHAKE-AGREED-CHANGES`,
+which C44 requires of every v6 `GO`, and **both gates read it off that lap** — ours
+because `close_blockers` runs on each side's newest file, theirs because a round's
+state is read off their own newest lap, whose `missing_for_close()` needs the field
+from protocol 6 (`cyanrip@bee49eb:tools/release-gate.py:638`, `:751`). Our `--status`
+then said `GO`/`GO -> OPEN` with no reason, because it never printed those blockers;
+it does now (`88d5f07a`). **So a lap that predicts a close must have run both gates
+on the record as it would stand**: copy `docs/handshake/` to a scratch directory,
+file the lap the prediction rests on with `HANDSHAKE-READY-TO-READ: yes`, and call
+`round_status(root=...)`; for theirs, add the same file to a scratch worktree of
+their tip and run `tools/release-gate.py`. Our lap 16 did both, and the same run
+with a simulated lap 17 carrying the ledger is what showed that lap 17 closes it on
+both.
+
 ### 7.5c A lap is not live because it is committed
 
 **Operator directive, 2026-09-14:** *"a lap should not be seen as ready to read and
