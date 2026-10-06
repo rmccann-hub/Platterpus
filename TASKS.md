@@ -178,7 +178,7 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   `fork_commit_from_banner`, which reads to the last `)`). A tail added to the capture
   could reach either parenthesis. Fix: hold those readers to the banner line first, then
   capture head and tail, then shrink the allowance to nothing.
-- [ ] **On the stable cyanrip channel, `.19` reads as up to date while the acceptance
+- [x] **On the stable cyanrip channel, `.19` reads as up to date while the acceptance
   run needs `.20`** (found 2026-10-06, moving the build under review). `.20` is on the
   fork's beta channel alone, so `evaluate_offer(stable, installed=174a134)` answers
   `up_to_date` and never names the build the run will refuse to start without. The
@@ -186,6 +186,9 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   cyanrip tick-box, and the command the run's refusal names. The rig sheet says so.
   Fix: when the build under review is published on the other channel and is not
   installed, the up-to-date offer says so and names the route. UX; not for the cut.
+  - *Done 2026-10-06:* `ripper_offer._build_under_review_note`, asked of
+    `a_round_is_reviewing_a_build`; the in-app routes only (no typed command, the run's
+    refusal names that). Pinned on the fork's filed `b62650d` manifest, revert-probed.
 - [x] **CI scans the full history for secrets on every run** (C8; `SECURITY.md`, *Secret
   scanning*). Amendment A12, approved 2026-09-28 and held under C3 (`PLANNING.md` KDD-39,
   KDD-40); **C3 lifted for it 2026-10-05** (KDD-41). `gitleaks/gitleaks-action` scans a range it builds itself with

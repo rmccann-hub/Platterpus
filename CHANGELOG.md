@@ -26,6 +26,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Check for cyanrip updates names the build under review when your channel
+  doesn't offer it.** With cyanrip updates on stable, a machine on `.19` was told it
+  had the newest stable build, which was true. Nothing said that round 30 was
+  reviewing `.20` on the beta channel, the build the acceptance run will not start
+  without. The answer now says which build the round is reviewing and where it is
+  published. It also gives the route to it: *Choose a build…*, or turning on beta
+  cyanrip builds. What it offers to install is unchanged.
 - **The rip's headline names a track whose re-reads did not converge.** Round 30's
   closing run headlined *12 of 14 verified exactly; on the other 2, only one frame
   matched*, grouping track 3 (re-reads did not agree) with track 5 (they converged on
