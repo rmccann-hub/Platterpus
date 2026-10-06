@@ -13,7 +13,9 @@
 #                               measured: 4h14m (2026-09-22, 247 steps) and
 #                               5h33m (2026-09-26, 320 steps, the sum of its
 #                               report's step times), both on the Pioneer rig;
-#                               the script is 430 steps now
+#                               the script is 431 steps now. The run
+#                               states its own estimate when it starts
+#                               and again after section E (run-estimate)
 #                   Full rips the whole disc TWICE (once fast, once with every
 #                   track read at least three times) plus seven short partial
 #                   rips.
@@ -531,6 +533,14 @@ snapshot discidentified
 # already lost — five minutes in, which is the whole point of putting the cheap
 # sections first.
 abort-if-failed the disc was never identified — the picker did not resolve or no tracks loaded, so every rip after this would be about an unknown release
+
+# HOW LONG THE REST WILL TAKE (TASKS "The acceptance run's overall estimate").
+# The run states its estimate when it starts, but it usually starts before the
+# disc is identified, so no track had a length and the rips had no figure. Now
+# they do: each rip from this drive's measured reading speed and the tracks it
+# selects, the other steps as measured on a filed Full run. Anything it cannot
+# count is named, never added in as zero. Info, never a failure.
+run-estimate
 
 # --- E2. THE OFFSET OVERRIDE OFF: a drive nobody knows must be refused ------
 # TASKS "Permutations the acceptance test still does not run", (a); ruled

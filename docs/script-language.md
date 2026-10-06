@@ -103,6 +103,7 @@ text is taken verbatim as one value.
 | `expect-tracks` | 1 | ready | expect-tracks <count|count+> — assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants |
 | `app-log` | 1+ (rest of line) | ready | app-log <text> — record every line this launch's log holds containing <text> (case-insensitive), as info; never fails, and says how much of the launch the log kept |
 | `sigterm-world` | 0 | ready | sigterm-world — after a cancel-rip: record whether the cancel's own SIGTERM reached the ripper in the container, from the post-cancel rescue's outcome in this launch's log and the cancelled rip's log footer (info; never fails) |
+| `run-estimate` | 0 | ready | run-estimate — record how long the rest of this run should take: each rip from this drive's measured speed and the disc's track lengths, the other steps as measured on a filed Full run; anything unknown is named, never counted as zero (info) |
 | `tier` | 2+ (rest of line) | ready | tier <0-4> <label> — the steps after this belong to tier N, in a block named <label> that later steps can declare a dependency on |
 | `needs` | 1+ (rest of line) | ready | needs <label…> — the steps after this are PREVENTED (not skipped) if any named block already failed; the record names the prerequisite |
 | `run-size` | 1 | ready | run-size <quick|standard|full> — the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped) |
@@ -818,6 +819,14 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "sigterm-world \u2014 after a cancel-rip: record whether the cancel's own SIGTERM reached the ripper in the container, from the post-cancel rescue's outcome in this launch's log and the cancelled rip's log footer (info; never fails)"
+    },
+    {
+      "name": "run-estimate",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "run-estimate \u2014 record how long the rest of this run should take: each rip from this drive's measured speed and the disc's track lengths, the other steps as measured on a filed Full run; anything unknown is named, never counted as zero (info)"
     },
     {
       "name": "tier",
