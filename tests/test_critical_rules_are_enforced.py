@@ -1874,7 +1874,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1137 -> 1172** (2026-10-05): regenerated from `.20`'s contract (their round
     # 30 lap 9; P5 123 -> 126 rows, four `-Z` spool errors in, one out), and the
     # retained `Error in encoding: %s` with its reason (`.19` and older print it).
-    "ripper_message_inventory.py": 1172,
+    # **1172 -> 1184** (2026-10-06): regenerated from `.20`'s contract as of their
+    # round 30 lap 11 (P5 126 -> 128: the two lines that end a failed `-f` search).
+    "ripper_message_inventory.py": 1184,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
