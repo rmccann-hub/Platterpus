@@ -197,7 +197,7 @@ at 100 % and 150 % text, and the screenshots were looked at.
   to the full screen on purpose, so whether to leave a side margin is the
   maintainer's call, not a fix taken here.
   - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** a small side margin.
-  - *Done 2026-10-05 (ruled yes, KDD-41):* one constant,
+  - *Done 2026-10-05 in `92ef2fee` (ruled yes, KDD-41):* one constant,
     `fit_scroll_area.SIDE_MARGIN_PX` = 16, used by `fit_dialog_to_screen`,
     `fit_message_box`, `fit_plain_dialog` and the placement clamp
     (`centering._clamp_to`, which keeps up to that margin when a window opens
@@ -211,14 +211,15 @@ at 100 % and 150 % text, and the screenshots were looked at.
     as the accessible name, and restores it before a later fit. The matrix's
     `window_on_screen` now checks the FRAME against both side edges and fails a
     window wider than the screen less the two margins; it no longer tolerates
-    the border.
+    the border. Revert-probed with the full matrix: the fit's full-width cap and
+    the title never shortened each turn `window_on_screen` red.
 - [x] **The track table is not measured with a disc loaded.** The matrix's main
   window has no disc, so `cut_off_cells` examines none of its cells; a disc with
   long track titles is the next population to add. Not done here because the
   track table's column widths are a deliberate design (measured once per disc,
   2026-08-05) and the rule's verdict on it needs the maintainer's view first.
   - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** with a long-title disc.
-  - *Done 2026-10-05 (ruled yes, KDD-41):* two populations,
+  - *Done 2026-10-05 in `5fc9c3ac` (ruled yes, KDD-41):* two populations,
     `MainWindow[disc: long titles]` (Sufjan Stevens, *Illinois*: a 288-character
     title) and `MainWindow[disc: long artist credits]` (a classical compilation's
     composer-and-performer credits), loaded through `set_release` into a window
@@ -246,7 +247,10 @@ at 100 % and 150 % text, and the screenshots were looked at.
     it. **Left for the maintainer:** whether a title longer than the window
     should wrap with taller rows, as the release picker's do, or show the whole
     text another way (it is reachable now by widening the window or editing the
-    cell, but not while a rip locks the table).
+    cell, but not while a rip locks the table). Revert-probed with the full
+    matrix: dropping the population fails the population and floor tests, and
+    dropping the allowance turns `cut_off_cells` red, so the allowance is
+    load-bearing; the pure test detects each loosened condition.
 - [ ] **Qt's own file dialog and tooltips are not measured.** On the desktop the
   file dialog is usually the desktop's own, not ours to size.
 - [~] **The conformance matrix is built once per xdist worker that runs one of
@@ -986,7 +990,7 @@ Open:
   (PR #286, Python 3.13 leg); the harness half is fixed in `tests/conftest.py`. The
   product half needs a refit that resizes the existing area. Rare (a box re-shown on
   another screen), and it fails safe: the box is left as it was.
-  - *Done 2026-10-05:* each fit first undoes the one before it
+  - *Done 2026-10-05 in `6c42338c`:* each fit first undoes the one before it
     (`message_box_fit._undo_an_earlier_fit`: the shortened title, the label's
     minimum width, and the label put back in its grid cell), then fits for the
     screen it has now; when the text still scrolls it goes back into the SAME
