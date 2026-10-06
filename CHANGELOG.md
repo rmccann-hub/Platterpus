@@ -421,6 +421,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Ready for the ripper's renamed one-frame tally line.** cyanrip's fork will print
+  `Tracks matched on one frame only: N/M` in place of `Tracks ripped partially
+  accurately: N/M` from round 31, after a Platterpus release that reads both, so this
+  one does. And `.20`'s new wording for a one-frame entry found under the match
+  threshold is read as no match everywhere, as before, without our log saying the track
+  is absent from AccurateRip.
+
 - **The dependency map is checked against the CycloneDX 1.7 schema** (contributor-facing).
   `bom.cdx.json` is validated in strict mode, offline, by a new dev-only dependency,
   `cyclonedx-python-lib`, which the maintainer approved on 2026-10-05; a field the

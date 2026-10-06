@@ -627,9 +627,12 @@ _TRACK_ACCURIP_STATUS = re.compile(r"^\s+Accurip:\s+(?P<status>\S.*?)\s*$")
 _ACCURATE_TOTAL = re.compile(
     r"^Tracks ripped accurately:\s+(?P<hit>\d+)/(?P<total>\d+)"
 )
-# "Tracks ripped partially accurately: 2/2" — offset-variant matches.
+# "Tracks ripped partially accurately: 2/2" — offset-variant matches; from round 31
+# "Tracks matched on one frame only: 2/2", the same fraction (the fork's round 30
+# lap 11 S16, `cyanrip@a081fcf:src/cyanrip_log.c:1047`). Both read, one meaning.
 _PARTIAL_TOTAL = re.compile(
-    r"^Tracks ripped partially accurately:\s+(?P<hit>\d+)/(?P<total>\d+)"
+    r"^(?:Tracks ripped partially accurately|Tracks matched on one frame only):"
+    r"\s+(?P<hit>\d+)/(?P<total>\d+)"
 )
 # "Ripping errors: 3", and from the fork's `+platterpus.20`, whenever paranoia
 # skipped anywhere on the disc, "Ripping errors: 2589 (including 2586 paranoia

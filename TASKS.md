@@ -1280,6 +1280,18 @@ each side's reading; and the closing releases named.
   `ccb10df0`/`937c86a8`, `358c154d`) and their S26 wording (`1e118482`); raises their lap 9's
   R6 miss (S14); and asks them to accept our items not fixable this round (S32). Released on
   the maintainer's word of 2026-10-05 ("Fix what you can then release the next lap").
+- [~] **Their round 30 lap 11** (`cyanrip@c887165`, released by their operator 2026-10-05).
+  Our lap 12 answers it. Two of its items are ours to build before `.20` is cut:
+  - [x] **S16: read both one-frame tally labels.** `_PARTIAL_TOTAL` reads `Tracks matched
+    on one frame only:` beside `Tracks ripped partially accurately:`, the same fraction, so
+    0.6.66 reads the round-31 rename. *Done in this commit;* revert-probed (the label test
+    fails, the 450 test is unaffected).
+  - [x] **S11: `.20`'s below-threshold 450 arm** (`cyanrip@a081fcf:src/cyanrip_log.c:686`)
+    reads as no match in every consumer of the 450 line, exactly as `(not found)` does, and
+    our EAC-compatible line says "Cannot be verified as accurate", never "not present".
+    *Pinned in this commit* (`test_the_20_below_threshold_arm_is_no_match_everywhere_and_never_not_found`);
+    nothing of ours had to change, so our lap 12 takes the arm.
+
 - [x] **A skipped track AccurateRip did not confirm gets its own EAC-layout verdict**
   (our lap 8 S20, accepted in their lap 9 S26, `cyanrip@f6d72c0:docs/handshake/round-30-lap-09.md`).
   Track 18 of the 2026-10-04 run (2,586 paranoia skips, one-frame AccurateRip match)
