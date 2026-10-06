@@ -300,7 +300,18 @@ class RunReport:
 
     @property
     def ok(self) -> bool:
-        """True only when every step that ran passed and nothing was skipped.
+        """True when nothing went wrong: every step passed or gathered, or was
+        left out for a stated reason that is not a fault.
+
+        Two reasons are forgiven, and only two: a step the chosen run SIZE
+        declined, and a step this EQUIPMENT cannot run (``UNREACHABLE``: the
+        offset refusal on a drive the AccurateRip list carries). Neither is a
+        failure, and neither is a pass: ``UNREACHABLE`` stays out of
+        :data:`GOOD`, so nothing counts it as one, and every sentence that states
+        the verdict names the steps that did not run (:attr:`unreachable`,
+        :func:`render`, the session's closing dialog). ``ok`` answers *did
+        anything go wrong*; whether everything was CHECKED is a second question,
+        asked separately, as :attr:`sweep_only` asks it for a sweep.
 
         **A sweep cannot rescue a failure, and the shape of this expression is why.**
         Round 19 lap 1 §5.1: *"a run whose tier 4 emits two hundred INFO rows and
@@ -312,11 +323,23 @@ class RunReport:
         return (
             all(
                 step.outcome in GOOD
+                or step.outcome is Outcome.UNREACHABLE
                 or (step.declined_by_size and step.outcome is Outcome.SKIPPED)
                 for step in self.steps
             )
             and not self.ended_reason
         )
+
+    @property
+    def unreachable(self) -> int:
+        """How many steps could not run on this equipment at all.
+
+        Emitted first by ``expect-offset-refusal`` (2026-10-06) on a drive the
+        AccurateRip list carries, where the refusal it grades cannot happen.
+        :attr:`ok` forgives them; this count is what keeps a forgiven step from
+        reading as a checked one, in the RESULT line, the JSON and the dialog.
+        """
+        return sum(step.outcome is Outcome.UNREACHABLE for step in self.steps)
 
     @property
     def sweep_only(self) -> bool:
@@ -367,6 +390,13 @@ class RunReport:
             "preflight": list(self.preflight),
             "counts": self.counts(),
             "ok": self.ok,
+            # Beside `ok`, because `ok` forgives a step this equipment cannot run,
+            # and a reader of `ok` alone would take that step for a checked one.
+            "unreachable_lines": [
+                step.line_no
+                for step in self.steps
+                if step.outcome is Outcome.UNREACHABLE
+            ],
             "steps": [step.as_dict() for step in self.steps],
         }
 
@@ -473,6 +503,23 @@ def render(report: RunReport) -> str:
         tail.append(
             "RESULT: gathered only — tier 4 asserts nothing, so this run is DATA "
             "for the next round, not evidence about this one"
+        )
+    elif report.ok and report.unreachable:
+        # `ok`, because nothing went wrong, and NOT "all checks passed", because
+        # a step this machine cannot run (an offset refusal on a drive the
+        # AccurateRip list carries) was not checked. The same shape as a smaller
+        # run's line below, which says the same thing about its declines.
+        declined = (
+            ""
+            if counts_as_evidence(report.run_size)
+            else (
+                f"; this {report.run_size} run also declined the sections marked skip"
+            )
+        )
+        tail.append(
+            "RESULT: every step this equipment can run passed; "
+            f"{report.unreachable} step(s) cannot run on it (marked N/A above), "
+            f"so they are not passes and this run does not cover them{declined}"
         )
     elif report.ok and not counts_as_evidence(report.run_size):
         # `ok` is True when nothing failed; a smaller run is ok with sections

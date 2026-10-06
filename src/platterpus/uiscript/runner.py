@@ -46,6 +46,8 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 from platterpus import __version__, build_info, inbound_text, rip_pass_exit
 from platterpus.uiscript import run_sizes
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
+from platterpus.uiscript.offset_grading import drive_in_offset_list
+from platterpus.uiscript.offset_verbs import OffsetVerbsMixin
 from platterpus.uiscript.permutation_verbs import PermutationVerbsMixin
 from platterpus.uiscript.probe_verbs import ProbeVerbsMixin
 from platterpus.uiscript.report import (
@@ -417,7 +419,13 @@ def _preflight(steps: list[Step]) -> list[str]:
     return problems
 
 
-class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, PermutationVerbsMixin, QObject):
+class ScriptRunner(
+    ArtifactVerbsMixin,
+    ProbeVerbsMixin,
+    PermutationVerbsMixin,
+    OffsetVerbsMixin,
+    QObject,
+):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
 
     The window is passed in rather than discovered, so tests can drive a real
@@ -1106,7 +1114,7 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, PermutationVerbsMixin, Q
         if config is None or not callable(setter):
             self._record(step, Outcome.ERROR, "no application window to set it on")
             return
-        label, listed = _drive_in_offset_list(window)
+        label, listed = drive_in_offset_list(window)
         if getattr(config, "override_read_offset", False):
             value = int(config.read_offset)
             source = "the offset this machine is already set to"
@@ -4312,21 +4320,6 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, PermutationVerbsMixin, Q
 
 
 # --- Small helpers, kept module-level so they are testable without a runner ---
-
-
-def _drive_in_offset_list(window: object) -> tuple[str, int | None]:
-    """``(label, offset)`` of the selected drive in the AccurateRip drive list.
-
-    The same lookup the app's first-rip auto-apply uses. ``("", None)`` with no
-    drive selected; ``(label, None)`` for a drive the list does not carry.
-    """
-    picker = getattr(window, "_drive_picker", None)
-    database = getattr(window, "_offset_db", None)
-    drive = picker.current_drive() if picker is not None else None
-    if drive is None or database is None:
-        return "", None
-    label = f"{drive.vendor.strip()} {drive.model.strip()}".strip()
-    return label, database.lookup(drive.vendor, drive.model)
 
 
 def _ripper_workdir(window: object) -> tuple[Path | None, str]:

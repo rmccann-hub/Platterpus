@@ -1021,6 +1021,34 @@ def test_a_QUICK_run_whose_declined_sections_were_skipped_is_not_incomplete(
     assert "not evidence" in text, "a quick run must not read as evidence"
 
 
+def test_a_step_this_equipment_cannot_run_is_counted_and_is_not_a_tick(
+    window, session, process_until, shown_boxes, quick_bundle
+) -> None:
+    """`expect-offset-refusal` on a listed drive records `unreachable` (KDD-41 C4).
+
+    This dialog counted pass, fail, error, blocked and skipped and nothing else,
+    so an unreachable step vanished from the total and the run read "✓ The run
+    PASSED — all 2 step(s) passed". It is neither a failure nor a pass, and the
+    dialog now says which, with the count.
+    """
+    win = _start(window, session, process_until)
+    _finish(
+        win,
+        process_until,
+        RunReport(
+            started_at="t",
+            app_version="v",
+            steps=_steps(Outcome.PASS, Outcome.PASS, Outcome.UNREACHABLE),
+        ),
+    )
+    text = shown_boxes[-1].text()
+    assert not text.startswith("✓"), (
+        f"an unchecked step was stamped with a tick:\n{text}"
+    )
+    assert "FAILURE" not in text and "DID NOT COMPLETE" not in text, text
+    assert "2 of 3" in text and "1 step(s) cannot run on this equipment" in text, text
+
+
 def test_a_skip_that_was_NOT_declined_by_size_still_reads_as_incomplete(
     window, session, process_until, shown_boxes, quick_bundle
 ) -> None:

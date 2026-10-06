@@ -1295,7 +1295,11 @@ class ProvisioningMixin(MainWindowShared):
         passed = _n("pass")
         failures = _n("fail") + _n("error") + _n("blocked")
         skipped = _n("skipped")
-        total = passed + failures + skipped
+        # Steps this equipment cannot run (`expect-offset-refusal` on a drive the
+        # AccurateRip list carries). Counted, so they can never vanish from the
+        # total and leave "all N passed" standing over a step nobody checked.
+        unreachable = _n("unreachable")
+        total = passed + failures + skipped + unreachable
         ended = str(getattr(report, "ended_reason", "") or "")
 
         if total == 0:
@@ -1326,6 +1330,21 @@ class ProvisioningMixin(MainWindowShared):
                 f"⚠ The run finished with {failures} FAILURE(S) — {passed} of "
                 f"{total} step(s) passed. Send the file anyway: the failures are "
                 "the point."
+            )
+        if unreachable:
+            # `ok`, so not a failure, and not a ✓ either: these steps were not
+            # checked, and a tick would say they were (`RunReport.ok`).
+            declined = (
+                f" The other {skipped} belong to larger run sizes and were left "
+                "out on purpose."
+                if skipped
+                else ""
+            )
+            return (
+                f"ⓘ Every step this equipment can run PASSED — {passed} of "
+                f"{total}. {unreachable} step(s) cannot run on this equipment "
+                "(N/A in the transcript), so they are not passes and this run "
+                f"does not cover them.{declined}"
             )
         if skipped:
             # `ok` is True, so every skip here is a section this size declines.

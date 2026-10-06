@@ -95,6 +95,7 @@ text is taken verbatim as one value.
 | `keep` | 1 | ready | keep <config-field> — leave this setting as it is for the run, on purpose, and record its value (the baseline sets or keeps every setting) |
 | `set-drive-offset` | 0 | ready | set-drive-offset — set the read offset for the drive in THIS machine: the one it is already set to, or else the AccurateRip drive list's (fails if neither is known) |
 | `expect-drive-offset` | 0 | ready | expect-drive-offset — assert the read offset is still the one set-drive-offset set, with the override on |
+| `expect-offset-refusal` | 0 | ready | expect-offset-refusal — turn the read-offset override off and press Start: a drive the AccurateRip list does not carry must be refused ('Set up your drive first') with no rip; the wizard is declined and the override put back. On a listed drive the app would apply the list's offset and rip, so the step records unreachable and changes nothing |
 | `expect-ripper-under-review` | 0 | ready | expect-ripper-under-review — assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first) |
 | `probe-ripper-wrapper` | 0 | ready | probe-ripper-wrapper — time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run |
 | `expect-tracks` | 1 | ready | expect-tracks <count|count+> — assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants |
@@ -748,6 +749,14 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-drive-offset \u2014 assert the read offset is still the one set-drive-offset set, with the override on"
+    },
+    {
+      "name": "expect-offset-refusal",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-offset-refusal \u2014 turn the read-offset override off and press Start: a drive the AccurateRip list does not carry must be refused ('Set up your drive first') with no rip; the wizard is declined and the override put back. On a listed drive the app would apply the list's offset and rip, so the step records unreachable and changes nothing"
     },
     {
       "name": "expect-ripper-under-review",

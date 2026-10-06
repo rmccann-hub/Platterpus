@@ -1264,6 +1264,21 @@ each side's reading; and the closing releases named.
     is not in `open`'s table, and accepting it puts the rip controls in unknown
     mode for every rip after it. Which route, and where it can sit without
     affecting the rips after it, is a design decision.
+  - *2026-10-06: (a) DONE in script lines, as ruled (KDD-41 C4); no hardware
+    evidence yet.* New section **E2** (Quick size, after E, before F) runs the
+    new verb `expect-offset-refusal`: on a drive the AccurateRip list carries it
+    records **`unreachable`** (N/A) and changes nothing; on any other it turns the
+    override off, presses Start, answers the real *"Set up your drive first"*
+    refusal with No, checks no rip started and puts the override back on every
+    path (answered, a rip that started, the wait running out, the run stopped).
+    `expect-drive-offset` and `expect override_read_offset on` follow it. The
+    rig's BDR-209D is listed, so **on the rig this step records N/A**: only a run
+    on a drive the list does not carry can grade the refusal. `RunReport.ok`
+    forgives `unreachable` as it forgives a size's declines, and the RESULT line,
+    `unreachable_lines` and the closing dialog name it, so it neither fails the
+    run nor reads as a pass. Tested against the real gate
+    (`RipMixin._on_rip_requested` with its real blocking box); 6 reverts each
+    caught (`scripts/revert_probe.py`).
   - *(e), what stays open and why.* A NON-ZERO fixed read speed sends `-S`, and a
     drive that reports its speed unchangeable makes cyanrip abort the rip on it
     (the BDR-209D, 2026-07-01): the same shape as (a). Fixed at 0 cannot tell
