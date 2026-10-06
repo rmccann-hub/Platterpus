@@ -57,8 +57,12 @@ USER_FACING_DOCS: tuple[str, ...] = ("README.md", "SECURITY.md")
 #: non-triviality test each carried their own literal copy, so the floor
 #: (`test_the_patterns_actually_match_something`) certified a regex the exact
 #: sweep did not use — a floor under a different building.
+#: A pre-release suffix (`0.6.66b1`) is part of the version: without it, a beta's
+#: banner read as the final release it precedes (2026-10-06, the first beta since
+#: 0.6.12), so the exact-version sweep compared `0.6.66` with `0.6.66b1`.
 _STATUS_BANNER: re.Pattern[str] = re.compile(
-    r"\*\*Status:\s*v(?P<ver>\d{1,3}(?:\.\d{1,3}){0,2})", re.IGNORECASE
+    r"\*\*Status:\s*v(?P<ver>\d{1,3}(?:\.\d{1,3}){0,2}(?:(?:a|b|rc)\d+)?)",
+    re.IGNORECASE,
 )
 
 #: Patterns that assert something about the CURRENT release. Each captures the

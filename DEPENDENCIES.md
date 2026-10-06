@@ -41,7 +41,7 @@ The tables below are hand-kept and carry what code cannot know: licences, upstre
 
 | Name | Where it comes from | Version constraint | Status | Replacement plan |
 |---|---|---|---|---|
-| cyanrip (**the** ripping backend, KDD-18) | Distrobox container `ripping`, host-exported to `~/.local/bin/cyanrip`. **The shipped backend is the PINNED FORK, built from source by the wizard and by `--install-ripper` (KDD-33/34): `51cc789`, `cyanrip 0.9.4-rc2+platterpus.18` — approved by round 29 on 2026-09-29 (`handshake_approval.APPROVED_BY_ROUND` is the authority) and installed by default since 0.6.64. 0.6.65 also accepts `174a134` (`+platterpus.19`), under review in round 30.** A rip made with any other build is stamped `unapproved` in its report, log and EAC export. **Fallback package source only: COPR `barsnick/non-fed`** (GPG-checked; cyanrip 0.9.3.1 built for Fedora 42–44 + rawhide) — verified 2026-06-09 that neither Fedora nor RPM Fusion packages cyanrip. The wizard writes the standard COPR `.repo` stanza itself (version-generic `$releasever/$basearch`), so no `dnf copr` plugin is needed. | `>=0.9.0` for a stock build; the approved build is a **pin, not a range** (`deps/fork_source.FORK_PIN`) | Active — fork at `51cc789` (`FORK_PIN`); `174a134` (`.19`) under review in round 30; the COPR carries stock 0.9.3.1 (2024-06-05). LGPL-2.1 — fine: subprocess, no linking. | If the COPR disappears: meson source build inside the container — all build deps are in Fedora proper (`ffmpeg-free-devel`, `libcdio-paranoia-devel`, `libmusicbrainz5-devel`, `libcurl-devel`). See [docs/archive/ecosystem-audit-2026-06.md](docs/archive/ecosystem-audit-2026-06.md). |
+| cyanrip (**the** ripping backend, KDD-18) | Distrobox container `ripping`, host-exported to `~/.local/bin/cyanrip`. **The shipped backend is the PINNED FORK, built from source by the wizard and by `--install-ripper` (KDD-33/34): `51cc789`, `cyanrip 0.9.4-rc2+platterpus.18` — approved by round 29 on 2026-09-29 (`handshake_approval.APPROVED_BY_ROUND` is the authority) and installed by default since 0.6.64. 0.6.66b1 also accepts `5704062` (`+platterpus.20`, the fork's beta), under review in round 30's closing run.** A rip made with any other build is stamped `unapproved` in its report, log and EAC export. **Fallback package source only: COPR `barsnick/non-fed`** (GPG-checked; cyanrip 0.9.3.1 built for Fedora 42–44 + rawhide) — verified 2026-06-09 that neither Fedora nor RPM Fusion packages cyanrip. The wizard writes the standard COPR `.repo` stanza itself (version-generic `$releasever/$basearch`), so no `dnf copr` plugin is needed. | `>=0.9.0` for a stock build; the approved build is a **pin, not a range** (`deps/fork_source.FORK_PIN`) | Active — fork at `51cc789` (`FORK_PIN`); `5704062` (`.20`, on the fork's beta) under review in round 30's closing run; the COPR carries stock 0.9.3.1 (2024-06-05). LGPL-2.1 — fine: subprocess, no linking. | If the COPR disappears: meson source build inside the container — all build deps are in Fedora proper (`ffmpeg-free-devel`, `libcdio-paranoia-devel`, `libmusicbrainz5-devel`, `libcurl-devel`). See [docs/archive/ecosystem-audit-2026-06.md](docs/archive/ecosystem-audit-2026-06.md). |
 | ~~whipper~~ (**removed 2026-06-30**) | ~~Distrobox container, host-exported to `~/.local/bin/whipper`~~ | — | **Removed.** Stalled since v0.10.0 (2021), `pkg_resources` cliff, and the >587 read-offset bug that failed tracks on the BDR-209D. cyanrip replaced it with no functional loss (KDD-18 amendment). | — |
 | metaflac | Distrobox container `ripping` (same export route) | (whatever ships with the container's `flac` package) | Active (FLAC project) | — |
 | flac (decoder) | Host, **optional** — used by CTDB verify to decode FLAC→PCM if present; the feature degrades with a clear message if absent (decision 2026-06-03). No required dependency added. | any | Active (FLAC project) | — |
@@ -143,7 +143,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
 | `cyanrip` | `0.9.4-rc2+platterpus.18` | required | The ripping backend (KDD-18): the Platterpus fork of cyanrip, built from source at the handshake-approved pin by the setup wizard and by --install-ripper, then exported to the host. | src/platterpus/adapters/cyanrip_backend.py, src/platterpus/deps/fork_source.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/registry.py | src/platterpus/deps/fork_source.py (FORK_PIN, FORK_EXPECTED_VERSION), src/platterpus/handshake_approval.py (APPROVED_BY_ROUND), src/platterpus/deps/registry.py (min_version) |
-| `cyanrip (build under review)` | `0.9.4-rc2+platterpus.19` | optional | The build handshake round 30 is reviewing; installable on request, never the default. | src/platterpus/deps/fork_source.py (UNDER_REVIEW_TARGET) | src/platterpus/deps/fork_source.py (PIN_UNDER_REVIEW) |
+| `cyanrip (build under review)` | `0.9.4-rc2+platterpus.20` | optional | The build handshake round 30 is reviewing; installable on request, never the default. | src/platterpus/deps/fork_source.py (UNDER_REVIEW_TARGET) | src/platterpus/deps/fork_source.py (PIN_UNDER_REVIEW) |
 | `cyanrip (upstream)` | `>=0.9.0` | optional | Stock cyanrip. The wizard installs it first from the COPR so a failed fork build still leaves a working ripper; the fork is then exported over it. Also the project the fork tracks. | src/platterpus/deps/host_setup.py (the cyanrip step) | src/platterpus/deps/registry.py (min_version) |
 
 Details for `cyanrip`:
@@ -159,13 +159,13 @@ Details for `cyanrip`:
 - `installed-at`: /usr/local/bin/cyanrip inside the ripping container
 - `host-export`: ~/.local/bin/cyanrip
 - `exported-from`: /usr/bin/cyanrip, /usr/local/bin/cyanrip (the last export wins)
-- `pin-under-review`: 174a134 (0.9.4-rc2+platterpus.19, round 30, published: yes)
+- `pin-under-review`: 5704062 (0.9.4-rc2+platterpus.20, round 30, published: yes)
 - `test-pin`: 3952c03 (0.9.4-rc2+platterpus.12, nominated by round 21)
 - `handshake`: bidirectional release handshake: docs/cyanrip-handshake.md
 
 Details for `cyanrip (build under review)`:
 
-- `pin`: 174a134
+- `pin`: 5704062
 - `round`: 30
 - `published`: yes
 
@@ -426,4 +426,4 @@ A retirement review is recorded inline below as a dated bullet so future-you can
 
 ---
 
-*Last updated for Platterpus v0.6.65.*
+*Last updated for Platterpus v0.6.66b1.*

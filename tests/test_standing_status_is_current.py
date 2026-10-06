@@ -412,7 +412,16 @@ def _laps(direction: str) -> list[tuple[int, int, str, bool]]:
 
 
 def _version_tuple(text: str) -> tuple[int, ...]:
-    return tuple(int(part) for part in text.split("."))
+    """PEP 440 order for our versions, so ``0.6.66b1 < 0.6.66 < 0.6.67``.
+
+    Through the updater's own key (`update_check.release_sort_key`), not a split on
+    dots: that raised on `0.6.66b1`, so the first beta in a round made this check
+    crash rather than read the block (2026-10-06). An unparseable version sorts
+    first, which reads as "not after", the safe direction.
+    """
+    from platterpus.update_check import release_sort_key
+
+    return release_sort_key(text) or (-1,)
 
 
 #: The order §6c (v7) gives the block's single-occurrence lines. `STATUS-RELEASED`
@@ -602,7 +611,8 @@ def _status_block_problems(text: str) -> list[str]:
                 )
 
     release = re.match(
-        rf"(\d+\.\d+\.\d+), .+; pins ([0-9a-f]{{7,40}}), reviews {build}$",
+        rf"(\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?), .+; pins ([0-9a-f]{{7,40}}), "
+        rf"reviews {build}$",
         lines["RELEASE-NEXT"][0],
     )
     if release is None:
@@ -629,7 +639,7 @@ def _status_block_problems(text: str) -> list[str]:
             problems.append("STATUS-RELEASE-NEXT pins and reviews the same build")
 
     run = re.match(
-        rf"{build} with (\d+\.\d+\.\d+); (waiting on .+|ready)$",
+        rf"{build} with (\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?); (waiting on .+|ready)$",
         lines["RUN-NEXT"][0],
     )
     if run is None:
@@ -690,7 +700,6 @@ def test_the_status_block_check_can_fail() -> None:
         r"\+platterpus\.(\d+)$", fork_source.UNDER_REVIEW_TARGET.version
     )
     assert reviewed is not None, fork_source.UNDER_REVIEW_TARGET.version
-    next_build = f"+platterpus.{int(reviewed.group(1)) + 1}"
     far_build = f"+platterpus.{int(reviewed.group(1)) + 5}"
     newest_version, newest_commit, _ = _newest_release()
     older_version = "0.0.1"  # in the shape, and never our newest release
@@ -703,20 +712,34 @@ def test_the_status_block_check_can_fail() -> None:
     release_next_line = next(
         ln for ln in text.splitlines() if ln.startswith("STATUS-RELEASE-NEXT: ")
     )
+    # **The needles are read from the block, not assumed** (2026-10-06). This table
+    # hard-coded one point in the cycle: the next release pins the build under
+    # review and reviews `+platterpus.N+1`, which the next run tests. Between a
+    # fork beta and its closing run the next run tests the build under review
+    # itself (`.20` with 0.6.66b1), which the check above accepts and this table
+    # could not express, so it failed a block the check had passed. What each
+    # mutation breaks is the same; only where it finds its needle changed.
+    pinned_reviewed = re.search(r"; pins (\S+), reviews (\S+)$", release_next_line)
+    assert pinned_reviewed is not None, release_next_line
+    pinned, reviewing = pinned_reviewed.groups()
+    run_next_line = next(
+        ln for ln in text.splitlines() if ln.startswith("STATUS-RUN-NEXT: ")
+    )
+    provider = run_next_line.removeprefix("STATUS-RUN-NEXT: ").split(" with ", 1)[0]
     mutations = {
         "the round": (f"STATUS-ROUND: {newest},", f"STATUS-ROUND: {newest - 1},"),
         "our newest lap": (
             f"newest sent {released_ours[-1]}",
             "newest sent round-01-lap-01.md",
         ),
-        "the pin": (f"pins {fork_source.PIN_UNDER_REVIEW}", "pins 0000000"),
-        "the build to review": (f"reviews {next_build}", f"reviews {far_build}"),
+        "the pin": (f"pins {pinned}", "pins 0000000"),
+        "the build to review": (f"reviews {reviewing}", f"reviews {far_build}"),
         "a build both pinned and reviewed": (
-            f"reviews {next_build}",
-            f"reviews {fork_source.PIN_UNDER_REVIEW}",
+            f"reviews {reviewing}",
+            f"reviews {pinned}",
         ),
         "the run's provider": (
-            f"STATUS-RUN-NEXT: {next_build}",
+            f"STATUS-RUN-NEXT: {provider}",
             f"STATUS-RUN-NEXT: {far_build}",
         ),
         "an open item's shape": (
