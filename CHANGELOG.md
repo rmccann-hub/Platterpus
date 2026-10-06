@@ -26,6 +26,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The rip's headline names a track whose re-reads did not converge.** Round 30's
+  closing run headlined *12 of 14 verified exactly; on the other 2, only one frame
+  matched*, grouping track 3 (re-reads did not agree) with track 5 (they converged on
+  EAC's value). The table and the logs each said track 3's copy was not confirmed;
+  the headline did not. It now adds *and on track 3 the re-reads did not converge, so
+  its copy is not confirmed either*, only for tracks AccurateRip did not verify
+  exactly.
 - `.gitignore` covers the per-process `.coverage.*` files a parallel coverage run
   writes while it is in flight, so a running `scripts/check.py` no longer shows
   them as untracked files.

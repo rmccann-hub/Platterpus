@@ -147,12 +147,15 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
     closing run's eight finished reports and on each condition broken alone, with
     the round state pinned so the tests do not change meaning when round 30 closes;
     each condition revert-probed.
-- [ ] **A rip's headline verdict groups an unconverged track with a converged one**
+- [x] **A rip's headline verdict groups an unconverged track with a converged one**
   (found 2026-10-06, section F). *"12 of 14 verified; on the other 2, only one frame
   matched"* covers track 5 (re-reads converged on EAC's value) and track 3 (re-reads did
   not agree, CTDB found no match), while the table, the issues list and the EAC-layout
   log each say track 3's copy is not confirmed. The headline should name a track whose
   re-reads did not converge. UX; the record itself is honest.
+  - *Done 2026-10-06:* `verdict._unconverged_clause` names it, only for tracks
+    AccurateRip did not verify exactly; pinned on section F's own log and report,
+    revert-probed three ways.
 - [ ] **Track 3 of the reference disc has converged on two different values on this
   drive**: `59D352DD` (EAC's, the 2026-09-30 run) and `2AC1F945` (the 2026-10-06 secure
   re-read, which matches one CTDB entry of confidence 1). AccurateRip holds no
