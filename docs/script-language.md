@@ -56,6 +56,8 @@ text is taken verbatim as one value.
 | `abort-if-failed` | 0+ (rest of line) | ready | abort-if-failed [reason] — stop ONLY if a step has already failed. For a PRECONDITION (am I on the right build?), where continuing gathers hours of evidence about the wrong subject. A finding must never use this. |
 | `screenshot` | 1 | ready | screenshot <name> — save a PNG of the whole app, dialogs included |
 | `snapshot` | 1 | ready | snapshot <name> — record the visible state as text in the transcript |
+| `callout` | 2+ (rest of line) | ready | callout <n> <label…> — mark the one visible button or label reading <label> with the number <n> on the next screenshot (a trailing * matches a prefix); fails unless exactly one widget reads it |
+| `record` | 3 | ready | record <name> <seconds> <fps> — a burst of main-window frames, <name>-0001.png onward, with a manifest; 0.5 to 20 s at 1 to 15 fps, and a lost frame fails the step |
 | `open` | 1 | ready | open <settings|dependencies|about|diagnostics|guide|setup|drive> — open a dialog |
 | `ok` | 0 | ready | ok — accept the dialog on top |
 | `cancel` | 0 | ready | cancel — dismiss the dialog on top |
@@ -377,6 +379,7 @@ found nothing wrong*.
       "log",
       "abort",
       "abort-if-failed",
+      "callout",
       "answer-dialog",
       "set",
       "expect",
@@ -443,6 +446,22 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "snapshot <name> \u2014 record the visible state as text in the transcript"
+    },
+    {
+      "name": "callout",
+      "min_args": 2,
+      "max_args": null,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "callout <n> <label\u2026> \u2014 mark the one visible button or label reading <label> with the number <n> on the next screenshot (a trailing * matches a prefix); fails unless exactly one widget reads it"
+    },
+    {
+      "name": "record",
+      "min_args": 3,
+      "max_args": 3,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "record <name> <seconds> <fps> \u2014 a burst of main-window frames, <name>-0001.png onward, with a manifest; 0.5 to 20 s at 1 to 15 fps, and a lost frame fails the step"
     },
     {
       "name": "open",

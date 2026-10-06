@@ -2463,7 +2463,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4778 -> 4780** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the import and base class of `UnknownDiscVerbsMixin`; its two handlers went to their own mixin, not here.
     # **4780 -> 4782** (2026-10-06, TASKS A4 "Fold the hardware-only checks into the closing run"): the import and base class of `AppLogVerbsMixin`; its handlers went to their own mixin, not here.
     # **4782 -> 4734** (2026-10-06, TASKS D6 "The acceptance run's overall estimate"): lowered: `_coerce_setting` and `_parse_track_spec` moved to `script_values.py`, because the estimate must read a script's settings and selections as the runner does (one reader, two callers); the start-of-run estimate call and the `estimate` property stay here, beside `start`.
-    "uiscript/runner.py": 4734,
+    # **4734 -> 4757** (2026-10-06, KDD-42 W3): two more verb mixins in the class list, and `screenshot` drawing the walkthrough's `callout` marks (and failing a picture that misses one); the verbs themselves live in `walkthrough_verbs.py` and `burst_verbs.py`.
+    "uiscript/runner.py": 4757,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2495,7 +2496,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **933 -> 953** (2026-10-06, TASKS A4 "Fold the hardware-only checks into the closing run"): the `app-log` and `sigterm-world` declarations; the handlers are a new mixin, `applog_verbs.py`.
     # **953 -> 964** (2026-10-06, TASKS D6 "The acceptance run's overall estimate"): the `run-estimate` declaration; the handler is a new mixin, `estimate_verbs.py`.
     # **964 -> 966** (2026-10-06, the maintainer's narrowing of the acceptance grader): `expect-album-audit`'s help says which one warning it expects, and on which build.
-    "uiscript/verbs.py": 966,
+    # **966 -> 983** (2026-10-06, KDD-42 W3): the `callout` and `record` rows, the vocabulary's one home.
+    "uiscript/verbs.py": 983,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical

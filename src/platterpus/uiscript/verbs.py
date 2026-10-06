@@ -123,6 +123,23 @@ _VERB_LIST: tuple[Verb, ...] = (
         1,
         "snapshot <name> — record the visible state as text in the transcript",
     ),
+    # --- The walkthrough (PLANNING.md KDD-42) -------------------------------------
+    Verb(
+        "callout",
+        2,
+        None,
+        "callout <n> <label…> — mark the one visible button or label reading "
+        "<label> with the number <n> on the next screenshot (a trailing * matches "
+        "a prefix); fails unless exactly one widget reads it",
+    ),
+    Verb(
+        "record",
+        3,
+        3,
+        "record <name> <seconds> <fps> — a burst of main-window frames, "
+        "<name>-0001.png onward, with a manifest; 0.5 to 20 s at 1 to 15 fps, "
+        "and a lost frame fails the step",
+    ),
     # --- Dialogs -------------------------------------------------------------
     Verb(
         "open",
