@@ -2638,10 +2638,16 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # closers at least as long, an unterminated block running to the end), replacing
     # the `_FENCE_BLOCK` regex and `_unfenced_body`'s own toggle. Most of the growth
     # is the docstring: where it departs from CommonMark and in which direction.
-    "scripts/handshake.py": 4531,
+    # **4531 -> 4555** (2026-10-06): `_grade_round` prints each close blocker as a
+    # `blocks the close:` line (round 30 read `GO`/`GO -> OPEN` with no reason), and
+    # `BLOCKS_CLOSE_PREFIX`. The lines report the state `_grade_round` computes, so
+    # they belong beside it, not in a module of their own.
+    "scripts/handshake.py": 4555,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     "scripts/laplang/lsl3.py": 433,
-    "scripts/laplang/refs.py": 324,
+    # **324 -> 312** (2026-10-06): git calls and decoding a cited file moved to
+    # `scripts/laplang/gitio.py` when the decoder learned UTF-16.
+    "scripts/laplang/refs.py": 312,
     "scripts/laplang/rerun.py": 361,
     "scripts/laplang/scratch.py": 345,
     "scripts/mutation_sweep.py": 502,
