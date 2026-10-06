@@ -127,6 +127,25 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **Tracks the drive could not read cleanly are now re-read.** The secure re-read
+  after a rip (the pass that re-reads the tracks AccurateRip did not confirm) only
+  ran when cyanrip exited 0, and cyanrip exits 1 whenever the drive failed a read.
+  So in fixed read-speed mode, or when the read-speed ladder ended on such a pass,
+  the tracks that most needed a second read never got one. It now also runs after
+  an exit-1 rip whose log shows every track was read. It still does not run after
+  a cancel, a rip killed from outside, or one whose log does not show it finished,
+  and the log says which of those stopped it. The rip's own result is unchanged:
+  a rip cyanrip exited 1 on is still reported as failed.
+- **The rip report keeps the album pass's exit code apart from the secure
+  re-read's.** `ripper_exit_code` held whichever ran last, so a re-read that
+  exited 1 made a successful rip's report say the ripper had exited 1. It is now
+  the album pass's, and `securing_pass_started` / `securing_pass_exit_code` record
+  the re-read's (report schema 31). The status line of a failed rip, the
+  `--audit-rips` notes, the rig check, the acceptance script and the report bundle
+  name which pass each exit code came from.
+- **A failed rip's reason stays the album pass's.** A message from the secure
+  re-read that followed it is shown in the live log, labelled, instead of being
+  added to the reason the rip failed.
 - **A nonsense "Ripping errors" count from cyanrip no longer reads as "No errors
   occurred".** A count far beyond anything a CD could produce is now recorded as
   "not determined", and the rip's health line repeats what cyanrip printed.

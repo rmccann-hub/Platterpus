@@ -65,7 +65,7 @@ artifact?* was the question to ask before answering, not after.
 | # | What | Why it matters for the beta | Fix | Time | Row |
 |---|---|---|---|---|---|
 | A1 | Eight parser patterns go quadratic on a long line | The parser grades every rip, and a line may reach 65,536 characters: tens of seconds a line | Rewrite as `\S(?:.*\S)?` with an equivalence property test; give the regex sweep inputs past a literal prefix; regenerate the consumer contract; a DID in our next lap | 2–3 h | *Found while integrating* (4) |
-| A2 | No securing pass after a finished pass the drive could not read cleanly | The tracks AccurateRip did not confirm are not re-read when the ladder ends on such a pass, or in fixed mode | The maintainer's decision (C1); then keep the album pass's exit code apart from the securing pass's, and key the pass on `ladder_trigger.why_pass_incomplete` (the pass finished) instead of exit 0 | 4–6 h after C1 | *Should the securing pass run after a finished pass…* |
+| A2 | **Done 2026-10-06.** No securing pass after a finished pass the drive could not read cleanly | The tracks AccurateRip did not confirm are not re-read when the ladder ends on such a pass, or in fixed mode | The maintainer's decision (C1); then keep the album pass's exit code apart from the securing pass's, and key the pass on `ladder_trigger.why_pass_incomplete` (the pass finished) instead of exit 0 | 4–6 h after C1 | *Should the securing pass run after a finished pass…* |
 | A3 | W6: the `-j` record's `interrupted`, `interrupted_by` and `exit_code` are unread | The 2026-10-04 runs showed our status line inferring a cancel the ripper had recorded | Read them into the status line and the report, tri-state | 3–4 h | *W6, ours to close* |
 | A4 | The hardware-only checks have no drive run of their own | The closing Full run is the only drive run before round 30 closes | Steps in the closing run's script for each; no extra rig time | 3 h | *Fold the hardware-only checks into the closing run* (new) |
 | A5 | The cut | O3: our beta follows `.20` on their beta | `PIN_UNDER_REVIEW` to `.20`, `__version__` 0.6.66b1, CHANGELOG, a lap and the status block; dispatched only on the maintainer's word, since a round is open | 2 h, after `.20` | Lap 10 S35; *The beta path exists* |
@@ -1333,7 +1333,7 @@ each side's reading; and the closing releases named.
   errors. **Our next lap says S28 was wrong** and points at the commit.
   - *Done in `4b657700` (the parser reads `.20`'s skip suffix) and `4aac4212` (the
     ladder asks `judge_step_down`):* 14 reverts probed, all detected.
-- [~] **Should the securing pass run after a finished pass the drive could not read
+- [x] **Should the securing pass run after a finished pass the drive could not read
   cleanly?** (follow-up to the row above; round 30 lap 9 S13.) It is still keyed on exit 0,
   so after a ladder that ends on such a pass, or in fixed mode, the tracks AccurateRip did
   not confirm are not re-read. Running it there needs the report to keep the album pass's
@@ -1342,7 +1342,23 @@ each side's reading; and the closing releases named.
   maintainer's and depends on the fork's S13.
   - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes.** The pass runs after a finished pass with drive errors; "finished" is
     `ladder_trigger.why_pass_incomplete`, and the report keeps the album pass's exit code
-    apart from the securing pass's. In progress.
+    apart from the securing pass's.
+  - *Done 2026-10-06, in the commit that adds this note (a commit cannot name its own
+    sha):* the gate is `securing_pass.why_no_securing_pass`. A clean exit 0 Platterpus
+    did not stop is secured as before (the coordinator's ruling on the brief: the
+    exit-0 path keeps its rule, since no test showed it relying on anything wrong;
+    18 existing exit-0 fixtures have neither a footer nor a disc total and are
+    secured as they were). Exit 1 is secured only when
+    `ladder_trigger.why_pass_unfinished` says the pass finished; a cancel, a signal
+    or crash exit, an unreaped exit and a stale log refuse, and the refusal is logged
+    and recorded (`skipped_reason: album_pass_unfinished`). The album pass's exit
+    code stays `ripper_exit_code`; the securing pass's is `securing_pass_exit_code`
+    beside `securing_pass_started` (schema v31), and every reader names the pass
+    (`rip_pass_exit`). Exit 1 over a finished rip still reads as failed: that is
+    S13, still open. 14 reverts probed: 13 as expected first time; the cancel gate
+    came back VACUOUS against a cancel on pass 1 (no log read yet, so nothing to
+    secure either way), so its test now cancels a ladder retry, whose stale pass-1
+    log only the gate refuses, and re-probed detected. Not on hardware.
 - [x] **Their lap 9 S28: on a native install the rescue's SIGTERM was cyanrip's second.**
   Held, read from both trees: `composition.build_backend` falls back to a `cyanrip` on
   `PATH`; the cancel killpg()s the child's group, which there is cyanrip itself; the rescue

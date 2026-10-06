@@ -80,6 +80,7 @@ from platterpus.parsers.rip_log import (
 from platterpus.paths import LOG_PATH
 from platterpus.report_types import ArtifactsBlock, DebugBlock, TimingBlock
 from platterpus.rip_addendum import read_log_with_addendum
+from platterpus.rip_pass_exit import PassExits, securing_fact
 from platterpus.ui import message_boxes
 from platterpus.ui.main_window_helpers import (
     _dir_has_audio,
@@ -1736,7 +1737,8 @@ class RipMixin(MainWindowShared):
         # runs afterwards. Both were true, `success` won, and the report said
         #
         #     outcome.status = "success"        (the user had cancelled it)
-        #     ripper_exit_code = 1              (non-zero, because it was killed)
+        #     ripper_exit_code = 1              (the SECURING pass, killed; schema
+        #                                        v31 keeps it apart from the album's)
         #     failure_hint = None
         #
         # — three statements that contradict each other inside one block, and the
@@ -1801,6 +1803,13 @@ class RipMixin(MainWindowShared):
             )
             if self._rip_worker
             else (),
+            # The securing pass's own exit, apart from the album pass's above (v31).
+            securing_pass_started=bool(
+                getattr(self._rip_worker, "securing_pass_started", False)
+            ),
+            securing_pass_exit_code=getattr(
+                self._rip_worker, "securing_pass_exit_code", None
+            ),
         )
         _meta = params.metadata if params is not None else None
         # The release summary this rip's tags came from, for the medium
@@ -1913,6 +1922,12 @@ class RipMixin(MainWindowShared):
                 or (getattr(self, "_last_rip_error", "") or "").strip()
                 or f"Rip failed — no diagnosis was captured. See {LOG_PATH}"
             )
+            # Since ruling C1 a securing pass can follow a failed album pass: say
+            # which pass exited how, so the securing pass's code is not read as
+            # the reason the album pass failed (`rip_pass_exit`).
+            exits = PassExits.from_outcome(self._last_outcome)
+            if exits.securing_started:
+                status = f"{status} ({exits.phrase()})"
         self._rip_progress.set_status(status)
 
         if log_path:
@@ -2964,7 +2979,13 @@ class RipMixin(MainWindowShared):
                 getattr(self._rip_worker, "diagnostics_records", ())
             ),
             facts={
-                "ripper exit ok": str(success),
+                # The ALBUM pass's, which `success` describes; the securing
+                # pass's beside it (schema v31, `rip_pass_exit`).
+                "album pass exit ok": str(success),
+                "securing pass exit": securing_fact(
+                    bool(getattr(self._rip_worker, "securing_pass_started", False)),
+                    getattr(self._rip_worker, "securing_pass_exit_code", None),
+                ),
                 "cancel requested": str(cancelled),
                 "ripper log parsed": str(parsed_a_log),
                 "tracks in log": str(tracks_done),

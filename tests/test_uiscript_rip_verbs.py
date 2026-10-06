@@ -3361,6 +3361,29 @@ def test_expect_verification_fails_at_once_over_a_rip_that_did_not_finish(
     )
 
 
+def test_expect_verification_says_which_pass_each_exit_came_from(
+    qapp, process_until, tmp_path
+) -> None:
+    """Schema v31 (ruling C1): a failed album pass can be followed by a securing
+    pass, so the FAIL names each pass's exit in `rip_pass_exit`'s one phrasing."""
+    report = _report(
+        {"ctdb": "ran", "flac_integrity": "ran"},
+        issues=[{"severity": "error", "code": "rip_failed", "message": "x"}],
+    )
+    report["outcome"] = {
+        "status": "failed",
+        "ripper_exit_code": 1,
+        "securing_pass_started": True,
+        "securing_pass_exit_code": 0,
+    }
+    win = _window_after_a_rip_into(_album_with_report(tmp_path, report))
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 30"
+    )
+    assert step.outcome is Outcome.FAIL, step.detail
+    assert "album pass exit 1; securing pass exit 0" in step.detail, step.detail
+
+
 def test_expect_verification_cannot_pass_over_a_rip_that_checked_nothing(
     qapp, process_until, tmp_path
 ) -> None:

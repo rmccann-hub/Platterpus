@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING, Any, Final
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
-from platterpus import __version__, build_info, inbound_text
+from platterpus import __version__, build_info, inbound_text, rip_pass_exit
 from platterpus.uiscript import run_sizes
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
 from platterpus.uiscript.permutation_verbs import PermutationVerbsMixin
@@ -2871,15 +2871,13 @@ class ScriptRunner(ArtifactVerbsMixin, ProbeVerbsMixin, PermutationVerbsMixin, Q
             if state == artifact_grading.SETTLE_UNFINISHED:
                 outcome = report.get("outcome") if report is not None else None
                 status = outcome.get("status") if isinstance(outcome, dict) else None
-                exit_code = (
-                    outcome.get("ripper_exit_code")
-                    if isinstance(outcome, dict)
-                    else None
-                )
+                # Which pass each exit is (schema v31), phrased once for every
+                # reader; an older report keeps "ripper exit N".
+                exits = rip_pass_exit.PassExits.from_outcome(outcome).phrase()
                 self._deadline_outcome = Outcome.FAIL
                 self._deadline_detail = (
                     f"the rip for {folder.name} did not finish (outcome "
-                    f"{status!r}, ripper exit {exit_code}), so no post-rip check "
+                    f"{status!r}, {exits}), so no post-rip check "
                     f"ran — there was nothing to wait for. This section's checks "
                     f"are UNTESTED by this run; the rip's own failure is the "
                     f"finding, and the report's `outcome.failure_hint` says why."

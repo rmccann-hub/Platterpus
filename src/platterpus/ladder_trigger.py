@@ -30,6 +30,17 @@ one did not:
    instability and instability is handled per track, never by re-reading the
    whole disc (the policy of 4790a16a; the fork's S12).
 
+**A finished pass is four of those, 1, 2, 3 and 5** (:func:`why_pass_unfinished`).
+The securing pass asks it of an album pass that exited 1 (the maintainer's ruling
+C1, ``PLANNING.md`` KDD-41; the gate is ``securing_pass.why_no_securing_pass``).
+It re-reads the tracks AccurateRip did not confirm, and it was keyed on exit 0, so
+a pass the drive could not read cleanly, the one whose tracks most need it, never
+got one. It does not ask for read errors (a clean exit-0 pass is where it always
+ran) or refuse a failed encode (its re-read goes to a temporary folder and is kept
+only when it is the better read, so it cannot make a track worse). Both questions
+share :func:`_why_process_did_not_finish`, so they cannot disagree about what
+"Platterpus stopped it" or "a signal ended it" means.
+
 Pure, no Qt, no I/O, and never raises: an escalation decision made from a
 best-effort parse must not crash the rip, and a refusal is the safe answer when
 the evidence cannot be read (a wrong step costs a whole slower re-read; a missed
@@ -77,18 +88,13 @@ def judge_step_down(
     the rip's log can say why a pass with read errors did not step. Never raises.
     """
     try:
-        if stopped_by_us:
-            return StepDown(False, "Platterpus stopped this pass")
-        if exit_code is None:
-            return StepDown(False, "cyanrip's exit status was never collected")
-        if exit_code not in CYANRIP_OWN_EXITS:
-            return StepDown(
-                False,
-                f"cyanrip exited {exit_code}, which its own main() never returns "
-                "(a signal, a crash or the container), so the pass did not finish",
-            )
-        if not log_is_this_passes:
-            return StepDown(False, "this pass wrote no log of its own")
+        process = _why_process_did_not_finish(
+            exit_code=exit_code,
+            stopped_by_us=stopped_by_us,
+            log_is_this_passes=log_is_this_passes,
+        )
+        if process:
+            return StepDown(False, process)
         if not read_errors_present(rip_log):
             return StepDown(False, "the drive reported no read errors")
         encoder = getattr(rip_log, "encoder_failed_tracks", None)
@@ -112,6 +118,67 @@ def judge_step_down(
     except Exception:  # noqa: BLE001 — an escalation decision must not crash the rip
         log.exception("judge_step_down failed; not stepping the ladder down")
         return StepDown(False, "the step-down check failed (see the app log)")
+
+
+def why_pass_unfinished(
+    rip_log: object,
+    *,
+    exit_code: int | None,
+    stopped_by_us: bool,
+    log_is_this_passes: bool,
+    only_tracks: Sequence[int] = (),
+    disc_track_total: int | None = None,
+) -> str:
+    """``""`` when the pass FINISHED; otherwise which condition refused.
+
+    Conditions 1 to 3 and 5 of the module docstring, in that order. Exit 0 and
+    exit 1 are judged alike, because cyanrip exits 1 for a finished pass whose
+    drive failed a read, as well as for one it did not finish. A cancel, a stop we
+    sent, a signal or crash exit, an exit status never collected, a log an earlier
+    pass left behind, and a pass that did not finish every requested track all
+    refuse. The securing pass's gate delegates to this for every case but a clean
+    exit 0 (``securing_pass.why_no_securing_pass``, ruling C1, KDD-41).
+
+    Takes :func:`judge_step_down`'s arguments, for the same pass and the same
+    evidence. Never raises; a check that fails refuses.
+    """
+    try:
+        process = _why_process_did_not_finish(
+            exit_code=exit_code,
+            stopped_by_us=stopped_by_us,
+            log_is_this_passes=log_is_this_passes,
+        )
+        if process:
+            return process
+        incomplete = why_pass_incomplete(
+            rip_log, only_tracks=only_tracks, disc_track_total=disc_track_total
+        )
+        return f"the pass did not finish: {incomplete}" if incomplete else ""
+    except Exception:  # noqa: BLE001 — a gate must not crash the rip
+        log.exception("why_pass_unfinished failed; treating the pass as unfinished")
+        return "the finished-pass check failed (see the app log)"
+
+
+def _why_process_did_not_finish(
+    *, exit_code: int | None, stopped_by_us: bool, log_is_this_passes: bool
+) -> str:
+    """Conditions 1 to 3: ``""`` when the PROCESS ended on its own with its own log.
+
+    Shared by :func:`judge_step_down` and :func:`why_pass_unfinished`, so the two
+    say the same sentence for the same case. Pure; cannot raise.
+    """
+    if stopped_by_us:
+        return "Platterpus stopped this pass"
+    if exit_code is None:
+        return "cyanrip's exit status was never collected"
+    if exit_code not in CYANRIP_OWN_EXITS:
+        return (
+            f"cyanrip exited {exit_code}, which its own main() never returns "
+            "(a signal, a crash or the container), so the pass did not finish"
+        )
+    if not log_is_this_passes:
+        return "this pass wrote no log of its own"
+    return ""
 
 
 def why_pass_incomplete(

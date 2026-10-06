@@ -127,7 +127,14 @@ class OutcomeBlock(TypedDict):
     # computed and discarded before it. `ripper_exit_code` is tri-state — `None`
     # means the child was never reaped (wedged in a drive ioctl where even
     # SIGKILL does not land) and must never be written as `0`.
+    #: v31: the ALBUM pass's exit status (the pass `status` describes). Until then
+    #: it was whichever pass ran last, so a securing pass overwrote it.
     ripper_exit_code: int | None
+    #: v31: whether a securing pass's ripper was spawned, and its own exit status
+    #: (`None` = never reaped when started, did not run otherwise). Kept apart from
+    #: the album pass's, which ruling C1 (KDD-41) made necessary.
+    securing_pass_started: bool
+    securing_pass_exit_code: int | None
     ripper_argv: list[str] | None
     # The FIRST invocation's argv when the rip took more than one pass, `None`
     # when it took one. The distinction is load-bearing: the archival log's

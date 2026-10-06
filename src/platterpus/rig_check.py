@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from platterpus import rip_pass_exit
 from platterpus.parsers.rip_log import RipLog, secure_rerip_tracks_scoped
 from platterpus.rip_addendum import read_log_with_addendum
 
@@ -194,9 +195,11 @@ def _rip_failure(album_dir: Path) -> str:
             continue
         outcome = data.get("outcome") if isinstance(data, dict) else None
         if isinstance(outcome, dict) and outcome.get("status") == "failed":
-            code = outcome.get("ripper_exit_code")
+            # Which pass each code is (schema v31), in the one phrasing every
+            # reader uses; an older report keeps "ripper exit N".
+            exits = rip_pass_exit.PassExits.from_outcome(outcome)
             hint = outcome.get("failure_hint")
-            phrase = f"FAILED (ripper exit {code})"
+            phrase = f"FAILED ({exits.phrase()})"
             return f"{phrase}: {hint}" if isinstance(hint, str) and hint else phrase
     return ""
 
