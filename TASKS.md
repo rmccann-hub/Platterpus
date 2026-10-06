@@ -192,6 +192,15 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   - *Done 2026-10-06:* `ripper_offer._build_under_review_note`, asked of
     `a_round_is_reviewing_a_build`; the in-app routes only (no typed command, the run's
     refusal names that). Pinned on the fork's filed `b62650d` manifest, revert-probed.
+- [ ] **`--announce` scans a lap's own `HANDSHAKE-READY-TO-READ` line when the lap has
+  no `---` separator** (found 2026-10-06, releasing round 30 lap 14). `announce_lap`
+  treats everything after the first `---` line as body; lap 14 has none, so the whole
+  file was body and line 8, the declaration `--announce` exists to rewrite, matched
+  `_BODY_CLAIMS_HELD`. The pattern's lookahead excuses only the emitted wording
+  (`no — not announced`), so a hand-reworded declaration refuses every announce: the
+  defect the comment above the scan says was fixed. Released by restoring the emitted
+  wording. Fix: skip the column-0 `HANDSHAKE-READY-TO-READ:` declaration itself
+  wherever the body starts, and pin a lap with no separator and reworded prose.
 - [x] **CI scans the full history for secrets on every run** (C8; `SECURITY.md`, *Secret
   scanning*). Amendment A12, approved 2026-09-28 and held under C3 (`PLANNING.md` KDD-39,
   KDD-40); **C3 lifted for it 2026-10-05** (KDD-41). `gitleaks/gitleaks-action` scans a range it builds itself with
