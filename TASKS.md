@@ -260,12 +260,12 @@ run) **and on GitHub** (the README's *Getting started* section, generated from t
 source). Every ruling is KDD-42 (W1 to W7); this is the work.
 
 **Build now:**
-- [ ] **`callout <target> <n>` verb.** The next `screenshot` draws a numbered highlight
+- [x] **`callout <n> <label…>` verb** (done 2026-10-06, `uiscript/walkthrough_verbs.py`, `uiscript/callout.py`). The next `screenshot` draws a numbered highlight
   around the named widget (the one the following step presses), from the widget's real
   geometry. Pure overlay function, tested on a rendered fixture; the target must resolve
   to exactly one visible widget or the step fails, so a renamed button cannot shoot a
   picture of nothing.
-- [ ] **`record <name> <seconds> <fps>` verb.** A burst of main-window frames into the run
+- [x] **`record <name> <seconds> <fps>` verb** (done 2026-10-06, `uiscript/burst_verbs.py`). A burst of main-window frames into the run
   folder, numbered, with a manifest (frame count, interval, window size). Bounded (a cap
   on seconds and fps), and a frame that fails to render is counted, not skipped silently.
 - [ ] **A placeholder for the cover art in captures** (W5): while the walkthrough runs,

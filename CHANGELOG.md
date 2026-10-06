@@ -12,6 +12,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **Two script verbs for shooting the getting-started guide** (`PLANNING.md` KDD-42).
+  `callout <n> <label…>` marks the one visible button reading `<label>` with a
+  number, and the next `screenshot` draws the mark onto its picture. `record <name>
+  <seconds> <fps>` takes a short burst of frames for the guide's GIFs. A callout
+  that matches no widget, or more than one, fails the step and names the labels it
+  can see. A screenshot that could not draw a callout fails too. A lost frame is
+  counted and fails the burst.
+
 ### Changed
 
 - **The acceptance run expects the build under review to say it is unreleased.**
