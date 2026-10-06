@@ -421,6 +421,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The dependency map is checked against the CycloneDX 1.7 schema** (contributor-facing).
+  `bom.cdx.json` is validated in strict mode, offline, by a new dev-only dependency,
+  `cyclonedx-python-lib`, which the maintainer approved on 2026-10-05; a field the
+  generator invents now fails a test instead of a consumer's tool.
+
 - **CI scans the whole history for leaked secrets on every run** (contributor-facing).
   The secret-scan job installs a pinned, checksum-verified gitleaks and reads every
   commit, merge commits included. Before, a pull request merged into `main` was

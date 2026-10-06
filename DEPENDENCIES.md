@@ -24,6 +24,7 @@ The tables below are hand-kept and carry what code cannot know: licences, upstre
 | twine | **unpinned** — `pip install build twine` in `publish-pypi.yml`, where `build` is unpinned too | 7.0.0 (2026-07-27) | Apache-2.0 | Active | — (Runs `twine check` on every wheel and sdist before the PyPI upload, so a release depends on it. The upload itself goes through `pypa/gh-action-pypi-publish`. Pinning it with `build` is the configuration audit's amendment A2 (2026-09-28), approved and held under the seam-automation proposal's C3. Row added 2026-09-28: until then this file did not name it.) |
 | pip-audit | **unpinned** — `pip install -e . pip-audit` in `ci.yml`, so every run takes the newest release; `release.yml` requires the job to have passed on the commit it releases | 2.10.1 (2026-06-10) | Apache-2.0 | Active (PyPA) | — (The gating `pip-audit` job: it audits the resolved runtime graph and fails on a known vulnerability. A tool that gates CI, so Critical rule #11 applies to it, and today nothing pins it; making the rule and CI agree is amendment A5 (2026-09-28), approved and held under C3. Row added 2026-09-28.) |
 | cyclonedx-bom | `>=7,<8` (in `ci.yml`, not in `pyproject.toml`) | 7.4.0 (2026-09-15) | Apache-2.0 | Active (CycloneDX) | — (Generates the `sbom` job's CycloneDX file with `cyclonedx-py environment`. It inventories the environment it runs in, so the SBOM lists the generator's own packages too; building it from only what ships is amendment A14 (2026-09-28), approved and held under C3. Row added 2026-09-28.) |
+| cyclonedx-python-lib (`[json-validation]` extra) | `>=11.12,<12` (dev extra in `pyproject.toml`) | 11.12.0 | Apache-2.0 | Active (CycloneDX) | — (dev/test only. Validates `bom.cdx.json` against the CycloneDX 1.7 JSON schema in strict mode, offline: the library bundles the schema and the SPDX and JSF schemas it references. Its `json-validation` extra brings `jsonschema` and `referencing`. Approved by the maintainer 2026-10-05, `PLANNING.md` KDD-41, C7. Row added 2026-10-05.) |
 | gitleaks | **8.24.3**, pinned in `ci.yml` (`GITLEAKS_VERSION`) with the release tarball's sha256 (`GITLEAKS_SHA256`), checked before it runs; the same binary the action ran, read from `main`'s CI log on 2026-09-28 | (not checked from here) | MIT (the binary; the licence ships in its release tarball) | Active | — (Not a Python package: a Go binary the `gitleaks` CI job installs and runs. Since 2026-10-05 the job pins it itself instead of using `gitleaks/gitleaks-action`, so a bump is a deliberate change to the two env values, and a substituted download fails the checksum. What the job scans is recorded in `SECURITY.md`: the full history, merges included, with floors; that was amendment A12, released from C3 on 2026-10-05, `PLANNING.md` KDD-41. Row added 2026-09-28.) |
 | ruff | **`>=0.15.22,<0.16`** — pinned to the minor, deliberately | (per PyPI at first install) | MIT | Active | **A tool that gates CI must not float** (CLAUDE.md Critical rule #11): `ruff format` changes what it accepts between minors, so a routine upstream release turns CI red with no change to our code and reads as a code problem. Bumping is a deliberate commit that re-runs the gate. CI derives this spec from `pyproject.toml` rather than restating it (`ci.yml` "Install ruff (pin read from pyproject…)"), and `.github/dependabot.yml` ignores version-updates for it — a pin has to bind against whatever is allowed to change it. |
 | pytest-cov | `>=5` | (per PyPI at first install) | MIT | Active | — (dev/test only; CI runs branch coverage with `--cov-fail-under=91` (ratchets up). See [docs/testing.md](docs/testing.md).) |
@@ -99,7 +100,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 
 <!-- BEGIN GENERATED: emit_bom.py — do not hand-edit; regenerate with python3 scripts/emit_bom.py -->
 
-**90 components and 15 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
+**91 components and 15 services**, the same entries as `bom.cdx.json` (CycloneDX 1.7), from the same run of `scripts/emit_bom.py`.
 
 | Category | Entries |
 |---|---|
@@ -111,7 +112,7 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 | External programs Platterpus runs or offers | 29 |
 | Desktop interfaces | 1 |
 | Bundled data | 1 |
-| Python packages for development and tests (the dev extra) | 6 |
+| Python packages for development and tests (the dev extra) | 7 |
 | Python packages for building, releasing and CI | 8 |
 | GitHub Actions | 5 |
 | CI and build programs | 11 |
@@ -239,10 +240,11 @@ Details for `cyanrip (build under review)`:
 |---|---|---|---|---|---|
 | `AccurateRip drive offsets` | `2026-06-05` | required | A snapshot of AccurateRip's drive read-offset table, shipped in the package so offset lookup works offline. | src/platterpus/adapters/accuraterip_offsets.py | scripts/update_drive_offsets.py (regenerates it) |
 
-### Python packages for development and tests (the dev extra) (6)
+### Python packages for development and tests (the dev extra) (7)
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
+| `cyclonedx-python-lib` | `>=11.12,<12` | excluded | — | loaded by pytest as a plugin | pyproject.toml [project.optional-dependencies].dev |
 | `hypothesis` | `>=6` | excluded | Property-based tests, including the parsers' never-raises properties. | tests/ (every importer is in these directories) | pyproject.toml [project.optional-dependencies].dev |
 | `mypy` | `>=2.3,<2.4` | excluded | Strict type checking; gates CI. | .github/workflows/ci.yml, scripts/check.py | pyproject.toml [project.optional-dependencies].dev |
 | `pytest` | `>=8,<10` | excluded | The test runner. | tests/ (every importer is in these directories), .github/workflows/ci.yml, scripts/check.py | pyproject.toml [project.optional-dependencies].dev |

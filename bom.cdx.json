@@ -85,7 +85,7 @@
       },
       {
         "name": "platterpus:count:python-dev",
-        "value": "6"
+        "value": "7"
       },
       {
         "name": "platterpus:count:python-build",
@@ -1985,6 +1985,39 @@
         {
           "name": "platterpus:stored-in",
           "value": "src/platterpus/adapters/accuraterip_offsets_data.py"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pypi:cyclonedx-python-lib",
+      "name": "cyclonedx-python-lib",
+      "scope": "excluded",
+      "purl": "pkg:pypi/cyclonedx-python-lib",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-dev"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "loaded by pytest as a plugin"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].dev"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=11.12,<12"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "not imported directly"
+        },
+        {
+          "name": "platterpus:gates-ci",
+          "value": "no"
         }
       ]
     },
