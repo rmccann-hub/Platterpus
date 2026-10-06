@@ -192,6 +192,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   are kept in a test as the reference, and every rewrite is checked against its
   old form on generated lines. The patterns are published in
   `docs/cyanrip-consumer-contract.md`, which is regenerated.
+- **Four more patterns that slowed down with the square of a long run of spaces
+  or zeros now read in linear time, with the same results:** the cue sheet
+  checker's `TITLE`, `PERFORMER` and `REM` lines, the older log format's
+  "Key: value" lines, cyanrip's ETA on a progress line, and (for contributors)
+  the handshake gate's reading of a peer-verdict source. Each is checked against
+  its old pattern in a test.
+- For contributors: the regex-timing sweep now also times every pattern on runs
+  that start inside it, past its literal label, and not only on runs of one
+  character, which never get past `Read stalls:`. That blind spot is how the
+  patterns above went unseen. Three patterns it finds slow are recorded with the
+  reason each can wait (`_LEAD_IN_DEBT`), and an entry goes stale when its
+  pattern is fixed.
 - **A nonsense "Ripping errors" count from cyanrip no longer reads as "No errors
   occurred".** A count far beyond anything a CD could produce is now recorded as
   "not determined", and the rip's health line repeats what cyanrip printed.

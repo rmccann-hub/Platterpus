@@ -2701,7 +2701,9 @@ def next_lap_problems(text: str) -> list[str]:
     return []
 
 
-_SOURCE_NAMED_LAP: Final[re.Pattern[str]] = re.compile(r"round-0*\d+-lap-0*(\d+)")
+#: `round-\d+-` reads the same text `round-0*\d+-` did (any run of digits) without
+#: splitting a run of zeros every way first, which was quadratic (2026-10-06).
+_SOURCE_NAMED_LAP: Final[re.Pattern[str]] = re.compile(r"round-\d+-lap-0*(\d+)")
 _SOURCE_BARE_LAP: Final[re.Pattern[str]] = re.compile(r"\blap[\s-]*0*(\d+)", re.I)
 
 

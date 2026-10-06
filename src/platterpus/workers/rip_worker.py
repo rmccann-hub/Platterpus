@@ -680,9 +680,12 @@ _REFIX_ETA_MAX_S: float = 6 * 60 * 60
 #
 # Bounded quantifiers throughout (never-unbounded rule), and every group is
 # optional so a shape we have not seen degrades to "unparseable" rather than to
-# a wrong number.
+# a wrong number. The blanks after `m` sit INSIDE its group (2026-10-06): with
+# the minutes absent, two `\s*` side by side split one run of blanks every
+# possible way, which was quadratic in a run between `h` and a stray character.
+# Same lines, same groups (`tests/test_regex_rewrites_read_the_same.py`).
 _CYANRIP_ETA_VALUE = re.compile(
-    r"^(?:(?P<h>\d{1,4})\s*h)?\s*(?:(?P<m>\d{1,4})\s*m)?\s*(?:(?P<s>\d{1,7})\s*s)?$"
+    r"^(?:(?P<h>\d{1,4})\s*h)?\s*(?:(?P<m>\d{1,4})\s*m\s*)?(?:(?P<s>\d{1,7})\s*s)?$"
 )
 
 # cyanrip appends its OWN per-op ETA to each progress redraw

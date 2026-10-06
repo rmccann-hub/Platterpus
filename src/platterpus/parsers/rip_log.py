@@ -713,8 +713,13 @@ _TRACK_HEADER = re.compile(r"^\s+(?P<number>\d+):\s*$")
 _AR_HEADER = re.compile(r"^\s+AccurateRip v(?P<version>\d+):\s*$")
 
 # A general "Key: value" line. `value` may be empty (some fields like
-# Pre-emphasis are emitted with an empty value).
-_FIELD = re.compile(r"^(?P<indent>\s+)(?P<key>[\w][\w\s\-]*?):\s*(?P<value>.*?)\s*$")
+# Pre-emphasis are emitted with an empty value). Captured greedily, as
+# `(?:\S(?:.*\S)?)?`, not as a lazy `.*?` before `\s*$`, which re-scanned a blank
+# run once per character and was quadratic in it (2026-10-06); both read every
+# line the same way (`tests/test_regex_rewrites_read_the_same.py`).
+_FIELD = re.compile(
+    r"^(?P<indent>\s+)(?P<key>[\w][\w\s\-]*?):\s*(?P<value>(?:\S(?:.*\S)?)?)\s*$"
+)
 
 _SPEED = re.compile(r"^(?P<value>-?\d+(?:\.\d+)?)\s*X\s*$")
 _QUALITY = re.compile(r"^(?P<value>-?\d+(?:\.\d+)?)\s*%\s*$")
