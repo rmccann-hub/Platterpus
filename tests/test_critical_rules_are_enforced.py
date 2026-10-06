@@ -1778,7 +1778,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **727 -> 730** (2026-09-28, the Full run's track 3): `RetriedTrackBlock.replaced_because`, schema v30.
     # **730 -> 733** (2026-10-05): `realtime_multiplier_basis` says the multiplier is always elapsed over the audio read, and when the key is absent.
     # **733 -> 747** (2026-10-05, round 30 lap 4 S43): `ComponentEntry`, `COMPONENTS.json`'s row with `version_text` beside `version`. A type beside `ComponentInventory`, the type it is a field of; its own type so the rip report's `DependencyEntry` does not change.
-    "report_types.py": 747,
+    # **747 -> 754** (2026-10-06, ruling C1, KDD-41): `OutcomeBlock` names `securing_pass_started` / `securing_pass_exit_code` and says `ripper_exit_code` is the album pass's (schema v31), beside the field it splits.
+    "report_types.py": 754,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1796,7 +1797,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **979 -> 998** (2026-09-29, the round-29 Full run): `pin_line` names the build under
     # review and its round, where a fixed sentence said a test pin was expected.
     # **998 -> 1009** (landed 2026-09-29, written 2026-09-28 as `167e0d4c`): the reference argv's `-r`/`-Z` come from `Config()` instead of a hand-typed `-r 3 -Z 3`, a pair that can never converge and that the argv chokepoint now refuses; the comment says so.
-    "rig_check.py": 1009,
+    # **1009 -> 1012** (2026-10-06, ruling C1): `_rip_failure` phrases each pass's exit through `rip_pass_exit.PassExits`, the one phrasing every reader shares; the phrasing itself lives there.
+    "rig_check.py": 1012,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
     # **506 -> 511** (2026-09-30): `with_addendum` takes the addendum a caller already holds (`extra`), so the self-audit joins a report's embedded addendum through the one join.
@@ -1812,7 +1814,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1464 -> 1542** (2026-09-30): the `eac_log_agreement` check (the EAC-style log's CRCs against the ripper's own log, a second caller of `parity.compare_logs`) and `run_checks` recording which findings each check produced, so the acceptance grader reads the audit's attribution instead of re-running it.
     # **1542 -> 1550** (2026-09-30): `eac_log_agreement` applies the auto-fix addendum before comparing (round 27's re-read track 3 read as a disagreement without it).
     # **1550 -> 1562** (2026-10-05, `parity-baseline-is-ours`): `parity.ParityReport.ok` now refuses a baseline that is one of our own EAC-layout exports, and `eac_log_agreement` says so, naming the line, instead of falling through to a "DISAGREE" no track showed. It is a branch of the check it serves.
-    "rip_audit.py": 1562,
+    # **1562 -> 1577** (2026-10-06, ruling C1): a failed rip's notes say which pass each exit code describes, add the securing pass's when it ran, and label the command as the securing pass's when it was the last run. The phrasing lives in `rip_pass_exit.py`.
+    "rip_audit.py": 1577,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.
@@ -1848,7 +1851,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2609 -> 2667** (2026-09-28, the round-28 Full run: a debug block marked truncated, tail-only, uncounted, under a scope saying "since launch"): `_debug_scope`, the scope sentence built from what the lines ARE — the buffer's counted drop with its span, and this report's own elision — and `build_debug_log` taking the count. The sentence describes the report's block, so it lives with the block.
     # **2581 -> 2582** (2026-09-28, the `-Z` wording): the `secure_rerip_converged` comment says a hit repeat limit can follow two reads that agreed, which "without any two agreeing" denied.
     # **2668 -> 2683** (2026-10-05, the 2026-10-04 run's section I report): `build_gates` takes the launched-check ledger, so a cancelled rip whose checks began says "superseded" or "ran" rather than "not run", and applies "superseded" first; the docstring says why a cancel can start the chain.
-    "rip_report.py": 2683,
+    # **2683 -> 2705** (2026-10-06, ruling C1, KDD-41): schema v31 — `build_outcome` writes the securing pass's exit apart from the album pass's, the issue wording names the album pass, and the v31 history note sits beside the version. The keys are `rip_pass_exit.py`'s.
+    "rip_report.py": 2705,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -2181,7 +2185,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4907 -> 4919** (2026-10-05): the start path hands the worker the drive's reading speed, and the elapsed line records the estimate beside the actual (2026-10-05).
     # **4919 -> 4952** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_merge_shipped_track` moves the agreement count with the verdict it describes (the re-rip's, or nothing, never the first pass's under the re-rip's verdict), and the finish handler captures the worker's `reread_agreements`. The merge rule lives here.
     # **4952 -> 4977** (2026-10-05, the fork's round 30 lap 9 S28): the rescue and the shutdown stop read the worker's `stop_signal_reach()` where they fire and hand it over, and the rescue's docstring says why (a native cyanrip IS what the cancel signalled).
-    "ui/main_window_rip.py": 4977,
+    # **4977 -> 4998** (2026-10-06, ruling C1, KDD-41): the outcome snapshot carries the securing pass's exit, a failed rip's status line names each pass's exit when a securing pass followed it, and the bundle facts say `album pass exit ok` / `securing pass exit`. The phrasing is `rip_pass_exit.py`'s.
+    "ui/main_window_rip.py": 4998,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2392,7 +2397,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4703 -> 4782** (2026-10-05, the same run): a `wait-for-rip` that runs out with the rip still reading ends the run, and a run that stops early cancels the rip its last `rip` step started (`_own_rip_running`, the predicate `cancel-rip` now shares).
     # **4782 -> 4786** (2026-10-05, the same TASKS row): `abort-if-failed` quotes the failed step's `headline()`, not its whole detail, with the comment saying why; the cut itself lives on `StepRecord`.
     # **4786 -> 4787** (2026-10-05, TASKS "Permutations the acceptance test still does not run"): the import of `PermutationVerbsMixin`. Its three handlers (section J2) went to their own mixin, `permutation_verbs.py`, and their graders to `permutation_grading.py`, not here.
-    "uiscript/runner.py": 4787,
+    # **4787 -> 4785** (2026-10-06, ruling C1): `expect-verification`'s did-not-finish detail phrases each pass's exit through `rip_pass_exit`, two lines shorter than reading the code inline.
+    "uiscript/runner.py": 4785,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2474,7 +2480,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3923 -> 3990** (2026-10-05, the fork's round 30 lap 9 S27): the ladder asks `ladder_trigger.judge_step_down` instead of `success and had_read_errors`, and logs why a pass did or did not step; `_log_fingerprint` tells a log this pass wrote from one an earlier pass left, which only the worker can read; and the two `success`-keyed sites after the loop (the securing pass, `finished`) say why they stay keyed on exit 0. The predicate lives in `ladder_trigger.py`.
     # **3990 -> 4031** (2026-10-05, the fork's round 30 lap 9 S28): `_signal_stop` records what its one SIGTERM reached, and `stop_signal_reach()` hands it to the window while that process is unreaped. The worker is the only place that knows which process it signalled.
     # **4031 -> 4066** (2026-10-05, the fork's round 30 lap 9 S28, the reap's door): `_reap_ripper` waits out `READER_TERM_GRACE_S` after our own SIGTERM and then SIGKILLs alone, instead of sending a native cyanrip its second SIGTERM 15 s after the read loop broke; the docstring says why and what it costs behind the wrapper.
-    "workers/rip_worker.py": 4066,
+    # **4066 -> 4101** (2026-10-06, ruling C1, KDD-41): the securing pass runs after an exit-1 pass that finished. The gate and the plan went to a NEW focused module, `securing_pass.py` (the old inline block, -79 lines, left); what is here is `_run_securing_pass` (records the plan, says a refusal, keeps the album pass's failure hint), one exit-code field per pass with `securing_pass_started` / `securing_pass_exit_code`, the securing pass's labelled errors, and the per-pass reset of `log_is_this_passes`.
+    "workers/rip_worker.py": 4101,
 }
 
 

@@ -9155,6 +9155,46 @@ def test_a_failure_with_no_diagnosis_at_least_names_the_log(teardown_threads) ->
     assert str(LOG_PATH) in status
 
 
+def test_a_failed_rip_followed_by_a_securing_pass_says_which_pass_exited_how(
+    teardown_threads,
+) -> None:
+    """Ruling C1: a securing pass can now follow an album pass that exited 1.
+
+    The status line names the album pass's exit and the securing pass's, so the
+    securing pass's code is not read as the reason the rip failed, and the outcome
+    snapshot carries both codes apart (schema v31). The twin below shows the suffix
+    is not said when no securing pass ran.
+    """
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        failure_hint="",
+        ripper_exit_code=1,
+        securing_pass_started=True,
+        securing_pass_exit_code=0,
+    )
+    window._last_rip_error = None
+
+    window._finish_rip(success=False, log_path="")
+
+    status = window._rip_progress.current_status()
+    assert status.endswith("(album pass exit 1; securing pass exit 0)"), status
+    assert window._last_outcome["ripper_exit_code"] == 1
+    assert window._last_outcome["securing_pass_started"] is True
+    assert window._last_outcome["securing_pass_exit_code"] == 0
+
+
+def test_a_failed_rip_with_no_securing_pass_names_no_pass(teardown_threads) -> None:
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(failure_hint="", ripper_exit_code=1)
+    window._last_rip_error = None
+
+    window._finish_rip(success=False, log_path="")
+
+    assert "pass exit" not in window._rip_progress.current_status()
+    assert window._last_outcome["securing_pass_started"] is False
+    assert window._last_outcome["securing_pass_exit_code"] is None
+
+
 def test_the_workers_hint_still_wins_when_it_has_one(teardown_threads) -> None:
     """Ordering is unchanged: a tailored hint scraped from the ripper's output
     still outranks the raw error line. This is the *fallback* that was missing, not
@@ -11729,6 +11769,26 @@ def _armed_bundle(window: MainWindow, tmp_path: Path, **kwargs: Any):
     window._arm_evidence_bundle(kwargs.get("_success", True), str(log_file))
     window._evidence_bundle_timer.stop()  # no event loop in this test
     return window._pending_evidence_bundle
+
+
+def test_the_bundle_facts_say_which_pass_each_exit_describes(
+    qapp: QApplication, teardown_threads: Any, tmp_path: Path
+) -> None:
+    """Schema v31's split, in the one-file bundle: the album pass's verdict and
+    the securing pass's exit, each under its own name."""
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        securing_pass_started=True, securing_pass_exit_code=1
+    )
+    ran = _armed_bundle(window, tmp_path, _success=False)
+    window._rip_worker = SimpleNamespace(securing_pass_started=False)
+    skipped = _armed_bundle(window, tmp_path / "second", _success=True)
+
+    assert ran.facts["album pass exit ok"] == "False"
+    assert ran.facts["securing pass exit"] == "1"
+    assert skipped.facts["album pass exit ok"] == "True"
+    assert skipped.facts["securing pass exit"] == "did not run"
+    assert "ripper exit ok" not in ran.facts  # one name per fact, not two
 
 
 def test_the_rips_diagnostics_records_reach_its_report_bundle(

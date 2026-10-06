@@ -772,6 +772,343 @@ def test_a_disc_the_drive_never_reads_cleanly_stops_at_the_ladder_floor(
     assert report["unresolved"] is True and report["escalated"] is True
 
 
+# --- The securing pass after a pass the drive could not read cleanly ---------
+#
+# Ruling C1 (PLANNING.md KDD-41): the securing pass, which re-reads the tracks
+# AccurateRip did not confirm, was keyed on exit 0, and cyanrip exits 1 whenever
+# the drive failed a read. So in fixed mode, or after a ladder that ended on such
+# a pass, those tracks were never re-read. It now runs after an exit-1 pass whose
+# log shows it FINISHED (`securing_pass.why_no_securing_pass`); every case below
+# that does not finish must still refuse. The filed `.19` full run is the subject:
+# tracks 12-15, 17 and 18 did not match AccurateRip on that disc.
+
+#: The tracks the filed full run's AccurateRip lines leave unconfirmed.
+_FULL_RUN_UNCONFIRMED: tuple[int, ...] = (12, 13, 14, 15, 17, 18)
+
+
+def _album_then_securing_backend(
+    tmp_path: Path,
+    album_passes: list[tuple[str | None, int]],
+    *,
+    securing_exit: int = 0,
+    securing_lines: tuple[str, ...] = ("ripping",),
+    on_album_pass: object = None,
+) -> _FakeBackend:
+    """Album passes as `_per_pass_backend` writes them, then a securing pass.
+
+    The securing pass is the call into a folder other than the album's (the
+    worker's temp dir). It writes nothing, so nothing is swapped, and exits
+    ``securing_exit``: these tests are about WHETHER it runs and what is
+    recorded about it, not about what it keeps. ``on_album_pass`` is called with
+    the album pass's number before it returns, for a test that cancels there.
+    """
+    album = tmp_path / "Album"
+    album.mkdir(parents=True, exist_ok=True)
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    album_calls: list[int] = []
+
+    def side_effect(call: dict[str, object]) -> None:
+        if call["output_dir"] != tmp_path:
+            backend.set_handle(
+                _FakeHandle(lines=list(securing_lines), exit_code=securing_exit)
+            )
+            return
+        album_calls.append(1)
+        n = len(album_calls)
+        text, code = album_passes[min(n, len(album_passes)) - 1]
+        if text is not None:
+            # Each pass's own bytes, as `_per_pass_backend` stamps them.
+            anchor = "Ripping finished at 2026-10-04T15:06:22-04:00"
+            stamped = (
+                text.replace(anchor, f"{anchor} (pass {n})")
+                if anchor in text
+                else f"{text}Ripping finished at pass {n}\n"
+            )
+            (album / "rip.log").write_text(stamped, encoding="utf-8")
+        backend.set_handle(_FakeHandle(lines=["ripping"], exit_code=code))
+        if callable(on_album_pass):
+            on_album_pass(n)
+
+    backend.rip_side_effect = side_effect
+    return backend
+
+
+def _securing_calls(backend: _FakeBackend, tmp_path: Path) -> list[dict[str, object]]:
+    return [call for call in backend.rip_calls if call["output_dir"] != tmp_path]
+
+
+def _dynamic(tmp_path: Path, **overrides: object) -> RipParameters:
+    """Fixed mode, dynamic secure re-rip at -Z 2: the securing pass's own trigger."""
+    settings: dict[str, object] = {
+        "secure_rerip_matches": 2,
+        "secure_rerip_dynamic": True,
+        "disc_track_total": 18,
+    }
+    settings.update(overrides)
+    return _params(tmp_path, **settings)
+
+
+def _drive_failed_full_run() -> str:
+    """The filed full run with track 18 read with errors: a FINISHED exit-1 pass."""
+    return _filed_full_run(track18="read with errors.", ripping_errors="3")
+
+
+def test_a_finished_pass_the_drive_could_not_read_cleanly_is_secured(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """THE ruling: exit 1 over a finished pass now gets its securing pass.
+
+    And the two passes' exit codes are kept apart: the album pass's stays the
+    rip's (`success` is still False, the window's "failed" unchanged), and the
+    securing pass's has its own field.
+    """
+    backend = _album_then_securing_backend(
+        tmp_path, [(_drive_failed_full_run(), 1)], securing_exit=0
+    )
+    worker = RipWorker(backend, _dynamic(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    worker.start_rip()
+
+    securing = _securing_calls(backend, tmp_path)
+    assert len(securing) == 1, backend.rip_calls
+    assert securing[0]["only_tracks"] == _FULL_RUN_UNCONFIRMED
+    assert securing[0]["secure_rerip_matches"] == 2
+    # One field per pass: the album's 1, the securing pass's 0.
+    assert worker.ripper_exit_code == 1
+    assert worker.securing_pass_started is True
+    assert worker.securing_pass_exit_code == 0
+    # The album pass's verdict is unchanged by the securing pass (S13 is open).
+    assert sigs.finished == [(False, str(tmp_path / "Album" / "rip.log"))]
+    report = worker.secure_rerip_report
+    assert report is not None
+    assert report["engaged"] is True and report["skipped_reason"] is None
+
+
+def test_a_ladder_that_ends_on_a_pass_the_drive_could_not_read_is_secured(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The other half of the row: every rung exits 1, the ladder exhausts, and the
+    tracks AccurateRip did not confirm are then re-read on their own."""
+    failed = _filed_full_run(
+        track18="read with errors.", ripping_errors="3", speed_changeable=True
+    )
+    backend = _album_then_securing_backend(tmp_path, [(failed, 1)])
+    worker = RipWorker(backend, _dynamic(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    album = [c for c in backend.rip_calls if c["output_dir"] == tmp_path]
+    securing = _securing_calls(backend, tmp_path)
+    # Floor: the ladder really ran to its end — every rung, then the user's -Z 2,
+    # which is the ceiling a dynamic rip's ladder may not pass.
+    sent = [(c["read_speed"], c["secure_rerip_matches"]) for c in album]
+    assert sent == [(0, 0), (8, 0), (4, 0), (2, 0), (2, 2)]
+    assert [c["only_tracks"] for c in securing] == [_FULL_RUN_UNCONFIRMED]
+    assert backend.rip_calls[-1] is securing[0]  # after the ladder, never during
+    assert worker.ripper_exit_code == 1
+
+
+@pytest.mark.parametrize(
+    ("case", "passes", "reason"),
+    [
+        # The filed SIGTERM'd rip: exit 1, footer `no (interrupted by SIGTERM …)`.
+        (
+            "interrupted",
+            [(_FILED_CANCELLED.read_text(encoding="utf-8"), 1)],
+            "interrupted by SIGTERM",
+        ),
+        # A signal or crash exit, whatever the log on disk says.
+        ("killed", [(_drive_failed_full_run(), 137)], "cyanrip exited 137"),
+        # An exit-1 pass whose own footer says it did not finish.
+        (
+            "unfinished",
+            [
+                (
+                    _rewrite(
+                        _drive_failed_full_run(),
+                        "Rip completed:  yes (18 of 18 tracks)",
+                        "Rip completed:  no (aborted, 17 of 18 tracks)",
+                    ),
+                    1,
+                )
+            ],
+            "did not complete (aborted)",
+        ),
+    ],
+)
+def test_an_album_pass_that_did_not_finish_is_not_secured(
+    qapp: QApplication,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    case: str,
+    passes: list[tuple[str | None, int]],
+    reason: str,
+) -> None:
+    """Exit 1 covers an interrupted or aborted run too, so the log decides."""
+    backend = _album_then_securing_backend(tmp_path, passes)
+    worker = RipWorker(backend, _dynamic(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    with caplog.at_level(logging.INFO, logger="platterpus.workers.rip_worker"):
+        worker.start_rip()
+
+    assert len(backend.rip_calls) == 1, case  # the album pass, and nothing after it
+    assert _securing_calls(backend, tmp_path) == [], case
+    assert worker.securing_pass_started is False
+    assert worker.securing_pass_exit_code is None
+    report = worker.secure_rerip_report
+    assert report is not None and report["skipped_reason"] == "album_pass_unfinished"
+    # The refusal is said in both logs, naming the condition that refused.
+    said = [
+        r.getMessage()
+        for r in caplog.records
+        if "securing pass not run" in r.getMessage()
+    ]
+    assert len(said) == 1 and reason in said[0], (case, said)
+    assert any(line.startswith("[secure re-rip] not run: ") for line in sigs.log_lines)
+
+
+def test_a_cancel_during_a_ladder_retry_is_not_secured(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """A cancel lands on pass 2 of the ladder. The loop leaves before reading
+    pass 2's log, so the log in hand is pass 1's, which finished and has tracks
+    AccurateRip did not confirm. Only the gate's "Platterpus stopped this pass"
+    stands between that stale log and a securing pass the user cancelled.
+
+    A cancel on pass 1 would not test the gate: no log has been read yet, so
+    there would be nothing to secure whatever the gate said.
+    """
+    failed = _filed_full_run(
+        track18="read with errors.", ripping_errors="3", speed_changeable=True
+    )
+    worker_box: list[RipWorker] = []
+
+    def cancel_on_pass_2(n: int) -> None:
+        if n == 2:
+            worker_box[0].cancel()
+
+    backend = _album_then_securing_backend(
+        tmp_path, [(failed, 1)], on_album_pass=cancel_on_pass_2
+    )
+    worker = RipWorker(backend, _dynamic(tmp_path, read_speed_mode="auto_ladder"))
+    worker_box.append(worker)
+
+    worker.start_rip()
+
+    album = [c for c in backend.rip_calls if c["output_dir"] == tmp_path]
+    assert len(album) == 2  # floor: pass 1 finished and stepped; pass 2 was cancelled
+    assert _securing_calls(backend, tmp_path) == []
+    assert worker.securing_pass_started is False
+    report = worker.secure_rerip_report
+    assert report is not None and report["skipped_reason"] == "album_pass_unfinished"
+
+
+def test_a_ladder_pass_that_wrote_no_log_of_its_own_is_not_secured(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The stale-log case: pass 2 failed before cyanrip opened its log, so the log
+    on disk is pass 1's and says nothing about how pass 2 ended."""
+    failed = _filed_full_run(
+        track18="read with errors.", ripping_errors="3", speed_changeable=True
+    )
+    backend = _album_then_securing_backend(tmp_path, [(failed, 1), (None, 1)])
+    worker = RipWorker(backend, _dynamic(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    album = [c for c in backend.rip_calls if c["output_dir"] == tmp_path]
+    assert len(album) == 2  # floor: pass 2 really ran and wrote nothing
+    assert _securing_calls(backend, tmp_path) == []
+
+
+def test_the_securing_pass_does_not_overwrite_the_album_pass_exit_code(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The latent half, from before C1: an exit-0 album pass, a securing pass that
+    exits 1 (its re-read hit drive errors). The album's 0 stayed the rip's status
+    while `ripper_exit_code` became 1, and the report warned that a successful rip
+    had exited 1. Each code now has its own field, and the report has no such
+    warning."""
+    from platterpus.rip_report import build_outcome, build_report
+
+    backend = _album_then_securing_backend(
+        tmp_path, [(_filed_full_run(), 0)], securing_exit=1
+    )
+    worker = RipWorker(backend, _dynamic(tmp_path))
+
+    worker.start_rip()
+
+    assert len(_securing_calls(backend, tmp_path)) == 1  # floor: it ran
+    assert (worker.ripper_exit_code, worker.securing_pass_exit_code) == (0, 1)
+    outcome = build_outcome(
+        status="success",
+        ripper_exit_code=worker.ripper_exit_code,
+        securing_pass_started=worker.securing_pass_started,
+        securing_pass_exit_code=worker.securing_pass_exit_code,
+    )
+    assert outcome["ripper_exit_code"] == 0
+    assert outcome["securing_pass_started"] is True
+    assert outcome["securing_pass_exit_code"] == 1
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    report = build_report(parse_cyanrip_log(_filed_full_run()), outcome=outcome)
+    codes = {issue["code"] for issue in report["issues"]}
+    assert "ripper_nonzero_exit_on_success" not in codes
+
+
+def test_the_failure_hint_stays_the_album_passs_after_a_securing_pass(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """New state C1 creates: a FAILED album pass followed by a securing pass. The
+    hint is shown as why the rip failed, so the securing pass's give-up line must
+    not join it; it is said in the live log instead, labelled."""
+    backend = _album_then_securing_backend(
+        tmp_path,
+        [(_drive_failed_full_run(), 1)],
+        securing_exit=1,
+        securing_lines=("ripping", "giving up on track 18"),
+    )
+    worker = RipWorker(backend, _dynamic(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    worker.start_rip()
+
+    assert len(_securing_calls(backend, tmp_path)) == 1  # floor: it ran
+    assert worker.failure_hint == ""
+    assert any(
+        line.startswith("[auto-fix] the securing pass said: Track 18 couldn't be read")
+        for line in sigs.log_lines
+    ), sigs.log_lines
+
+
+def test_an_error_the_securing_pass_hits_says_it_was_the_securing_pass(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The window keeps the last error as the reason a failed rip failed."""
+    backend = _album_then_securing_backend(tmp_path, [(_drive_failed_full_run(), 1)])
+    album_effect = backend.rip_side_effect
+
+    def side_effect(call: dict[str, object]) -> None:
+        if call["output_dir"] != tmp_path:
+            raise RipError("the drive is busy")
+        album_effect(call)  # type: ignore[misc]  # the helper's own side effect
+
+    backend.rip_side_effect = side_effect
+    worker = RipWorker(backend, _dynamic(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    worker.start_rip()
+
+    assert sigs.errors == ["the securing pass: the drive is busy"]
+    assert worker.securing_pass_started is False  # it never spawned
+
+
 # --- The recovery re-read's own -Z stays inside the user's -r ---------------
 #
 # cyanrip's secure re-read converges only when N+1 whole-track reads are

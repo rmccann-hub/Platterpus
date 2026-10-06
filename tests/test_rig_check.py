@@ -921,6 +921,31 @@ def test_zero_track_parse_of_a_failed_rip_fails_and_says_why(tmp_path: Path) -> 
     assert "unexplained" not in parser[0].detail, parser[0].detail
 
 
+def test_a_failed_rip_names_the_pass_each_exit_came_from(tmp_path: Path) -> None:
+    """Schema v31: the FAIL says the album pass's exit, and the securing pass's
+    when one ran after it (ruling C1), in `rip_pass_exit`'s one phrasing."""
+    import json
+
+    album = _album_with_empty_log(tmp_path, cancelled=False)
+    report = {
+        "outcome": {
+            "status": "failed",
+            "ripper_exit_code": 1,
+            "securing_pass_started": True,
+            "securing_pass_exit_code": 0,
+            "failure_hint": None,
+        },
+        "issues": [],
+    }
+    (album / "rip.platterpus.json").write_text(json.dumps(report), encoding="utf-8")
+    manifest = rig_check.Manifest(tmp_path / "m", sink=lambda _line: None)
+    rig_check.check_parsers_against_the_log(manifest, album)
+
+    parser = [r for r in manifest.results if r.name == "parser/log"]
+    assert len(parser) == 1, parser
+    assert "FAILED (album pass exit 1; securing pass exit 0)" in parser[0].detail
+
+
 def test_cancellation_evidence_survives_a_missing_or_broken_report(
     tmp_path: Path,
 ) -> None:
