@@ -84,10 +84,11 @@ artifact?* was the question to ask before answering, not after.
 | B8 | Two regex shapes, under the *could in any possible way* bar: a lazy capture before trailing blanks (`\S.*?\s*$`, `.+?\s*$`) is quadratic in a blank run, and so are adjacent repeats over the same characters (`0*\d+`, `\s*` then an optional group then `\s*`) | Their tooling reads text of the same kind; a NEXT-ROUND item with our citations | In the lap | `5b32edfd`, `a408ca79` |
 | B9 | Propose the shared protocol say what a fence is (§2 rule 2), and note both digest implementations toggle on any fence line, so a ``` line inside a ~~~ block mis-pairs; aligning the digest is a joint change | Our fence reader moved to CommonMark (D3) and theirs is unread by us; ask, do not assert | In the lap | `43a7d76d` |
 
-**Waiting on the fork, asked in our lap 12 (on `main` at `e174f5fc`):** their lap 13,
-their reading of lap 12, and `+platterpus.20` cut on beta with its commit (their S20).
-Their lap 11 arrived and was answered (2026-10-06). B7 to B9 and the open B rows go in
-our lap 14, before the 0.6.66 cut.
+**Their lap 13 arrived 2026-10-06** (`cyanrip@476b316`, released by the operator; filed
+byte-exact, sha256 `ffe6ac1b…`): `+platterpus.20` on their beta at `5704062`, and our
+lap 12 S14 to S16 answered now (C13a: their gate neither blocks nor warns; K2: their gate
+never reads `HANDSHAKE-INBOUND-OBSERVED`, a silent divergence; C23: yes). B1 is answered
+by it. B5 to B9 go in our lap 14, which announces 0.6.66b1.
 
 ### C. The maintainer's decisions (each unblocks a row)
 
