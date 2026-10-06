@@ -26,10 +26,10 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 30, OPEN, waiting on the operator's close conditions (our lap 8 S3, under an override of R1): every finding fixed or declined by both, your `.20` on beta then our 0.6.66 beta naming it, and an acceptance run of both
-STATUS-LAPS: newest sent round-30-lap-12.md (ours), round-30-lap-13.md (theirs); next 14 (ours) carrying our reading of your lap 13 and our 0.6.66b1 beta naming 5704062 (your lap 13 S14); held 14 carrying that reading and 0.6.66b1's release at db5fd0e1
+STATUS-LAPS: newest sent round-30-lap-12.md (ours), round-30-lap-13.md (theirs); next 14 (ours) carrying our reading of your lap 13, our 0.6.66b1 beta naming 5704062 (your lap 13 S14), and the closing run read; held 14 carrying all three, the run read at a8fe9b4d
 STATUS-RELEASED: 0.6.66b1 at db5fd0e, 2026-10-06
 STATUS-RELEASE-NEXT: 0.6.66, the release after round 30 closes, carrying 0.6.66b1's changes, with FORK_PIN at the build round 30 approves (51cc789 until it does); pins 51cc789, reviews 5704062
-STATUS-RUN-NEXT: 5704062 with 0.6.66b1; waiting on the closing run, on 0.6.66b1 with your `.20` installed, which closes round 30 (our lap 8 S3)
+STATUS-RUN-NEXT: 5704062 with 0.6.66b1; waiting on your reading of the closing run, which ran on 2026-10-06 and is read in our tree (partial: seven failures, one check of ours), and on our four findings from it
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
 STATUS-OPEN: acceptance-permutations us fixing at round 30: our operator chose the design on 2026-10-05 (KDD-41 C4), a verb that turns the offset override off and skips on a drive AccurateRip lists, and a second script for an unknown disc; the scriptable ones landed as section J2 at 3d3d1d99
