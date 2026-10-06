@@ -2233,6 +2233,22 @@ Three lessons, in increasing order of how much they generalise:
   it, and it pointed away from the real cause — costing a round. The rule is not
   "log more"; it is that any deliberate drop is **counted and marked**.
 
+**The fourth violation, 2026-10-06, found by reading our own filing.** Round 30's
+closing run saved `cd-paranoia -A`'s output so the transcript's *"cache 137
+sectors"* could be checked against it. The filed file is exactly 2,000 bytes and
+has no 137 in it: the adapter kept `text.strip()[:2000]`, cd-paranoia prints its
+seek timings first and its verdict last, and the cut fell inside the timings. Our
+own README then cited that file as the source of the figure, which is this
+section's lesson from the inside: the absence was a fact about the capture. Two
+things let it ship. The real-output fixture (`cdparanoia_A_bdr209d.txt`) carries
+no seek timings, so it was shorter than the cut and no test could see it: *what
+does my stand-in do that the real thing does not?* And the rule had been applied
+where it was learned, not swept. It is now swept:
+`tests/test_dependency_output_is_never_cut_at_the_head.py` refuses a head-only
+slice as a `raw_output=` value or inside any `log.<level>()` call; fourteen more
+sites were fixed with it, and it holds the version-probe captures it could not yet fix
+in a shrink-only allowance with the reason (seven sites, one population).
+
 #### Moved from `CLAUDE.md` (2026-09-26): An ABSENCE in a log is a fact about the logger before it is a fact about the subject
 
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*

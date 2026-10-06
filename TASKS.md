@@ -152,6 +152,23 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   re-read, which matches one CTDB entry of confidence 1). AccurateRip holds no
   whole-track checksum for it. The disc, not a defect; recorded so the next run on it is
   read against both.
+- [x] **The cache probe's saved output stopped before its figure** (found 2026-10-06,
+  filing the closing run). `round30oct06fullcacheprobe.txt` is exactly 2,000 bytes and
+  holds no 137: `cache_probe.parse_cache_analysis` kept `text.strip()[:2000]` and
+  cd-paranoia prints its verdict last. *Done (this commit):* head and tail via
+  `diagnostics.bounded_output`, pinned on the closing run's real head plus the fixture's
+  verdict (revert-probed: both new tests fail on the old cut, the old fixture test does
+  not, which is why it shipped). Swept by
+  `tests/test_dependency_output_is_never_cut_at_the_head.py`; fourteen more sites fixed
+  with it.
+- [ ] **The version probes' `raw_output` is still cut at the head** (the sweep's
+  allowance, 2026-10-06). Seven sites in `deps/checks.py` keep `output.strip()[:200]`.
+  They are not widened yet because three readers take the WHOLE text for the banner
+  (`build_notes.cyanrip_build_note` and `ripper_update_worker` call
+  `identify_from_banner`, which partitions at the first `(`, and
+  `fork_commit_from_banner`, which reads to the last `)`). A tail added to the capture
+  could reach either parenthesis. Fix: hold those readers to the banner line first, then
+  capture head and tail, then shrink the allowance to nothing.
 - [ ] **On the stable cyanrip channel, `.19` reads as up to date while the acceptance
   run needs `.20`** (found 2026-10-06, moving the build under review). `.20` is on the
   fork's beta channel alone, so `evaluate_offer(stable, installed=174a134)` answers

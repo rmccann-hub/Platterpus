@@ -437,9 +437,13 @@ audio file, and its manifest names each refusal.
 - **The cache probe, measured both ways** (section P): `.20`'s `-x -I` reports
   `128 to 255 sectors (… uncached read 251.0 ms, cached read 1.7 ms, 3 re-reads after a
   256-sector run took 32.6 ms or more)` (`round30oct06fulltranscript.txt:1230`), and
-  `cd-paranoia -A` reports a 137-sector cache, defeated (`round30oct06fullcacheprobe.txt`).
+  `cd-paranoia -A` reports a 137-sector cache, defeated (`round30oct06fulltranscript.txt:1461`).
   137 is inside `.20`'s bracket: the measurement the fork's open `cache-probe-calibration`
-  item waited for.
+  item waited for. **The figure is NOT in `round30oct06fullcacheprobe.txt`**, which was
+  meant to carry it: that file is exactly 2,000 bytes because 0.6.66b1 kept only the
+  first 2,000 characters of cd-paranoia's output, and the verdict is the last thing it
+  prints. Our defect, fixed after the run (`CHANGELOG.md` `[Unreleased]`). The 137 rests
+  on the transcript line, which our parser read from the whole output before the cut.
 - **Nine rips with a report, and cyanrip verified its own log for all nine**, the
   cancelled one included: its log ends `Rip completed:  no (interrupted by SIGTERM, 0 of
   14 tracks)` with its footer (`round30oct06fullcancelme.log:88`). **No `ERROR`,

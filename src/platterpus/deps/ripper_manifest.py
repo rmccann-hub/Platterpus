@@ -58,6 +58,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Final
 
+from platterpus import diagnostics
+
 log = logging.getLogger(__name__)
 
 #: Where the manifest lives. The fork's branch tip rather than a release asset:
@@ -279,7 +281,10 @@ def _clean_install_url(value: Any) -> str | None:
         return None
     url = value.strip()
     if not url.startswith("https://"):
-        log.warning("ripper manifest: install URL is not https (%r)", url[:120])
+        log.warning(
+            "ripper manifest: install URL is not https (%r)",
+            diagnostics.bounded_chars(url, head=60, tail=60),
+        )
         return None
     host = url[len("https://") :].split("/", 1)[0].split("@")[-1].lower()
     # Strip an explicit port before matching, so `github.com:443` is still github.
@@ -369,7 +374,7 @@ def _clean_build_options(value: Any, *, field: str) -> tuple[str, ...]:
                     "ripper manifest: %s carries an option we do not accept (%r) — "
                     "refusing the whole field and building with no options",
                     field,
-                    word[:80],
+                    diagnostics.bounded_chars(word, head=40, tail=40),
                 )
                 return ()
             options.append(word)
@@ -378,7 +383,7 @@ def _clean_build_options(value: Any, *, field: str) -> tuple[str, ...]:
                 "ripper manifest: %s carries an unexpected word (%r) — refusing the "
                 "whole field and building with no options",
                 field,
-                word[:80],
+                diagnostics.bounded_chars(word, head=40, tail=40),
             )
             return ()
     return tuple(options)
