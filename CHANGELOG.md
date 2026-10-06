@@ -12,6 +12,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- The rig sheet (`docs/rig-session.md`) said the acceptance run does not run
+  cyanrip's own offset finder, `-f`. It does: section O runs it against the known
+  offset and grades what it finds. The run on 0.6.66b1 is its first on a drive.
+
 ## [0.6.66b1] — 2026-10-06
 
 ### Added
