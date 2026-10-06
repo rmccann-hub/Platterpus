@@ -27,10 +27,19 @@ Built from cyanrip's published description rather than their `tools/make-envelop
 and the two are mutually splittable: we split their round-9 envelope with the
 reader they published and all ten parts verified.
 
+**It never writes into this repository** (2026-10-06). Laps travel by git since
+2026-09-13 (`CLAUDE.md` Critical rule #12), so an envelope is only a hand-carry copy
+of files `main` already holds. Written into `docs/handshake/outbound/`, 44 piled up
+beside the laps they carried, each reading as one lap under two names; they were
+retired, with their provenance in `docs/handshake/README.md` → *Retired transport
+envelopes*. Writing now needs `--out DIR` outside the working tree, and
+`tests/test_handshake_file_naming.py` refuses a committed one by its content.
+
 Usage::
 
-    python scripts/emit_envelope.py --check    # exit 1 if the envelope is stale
-    python scripts/emit_envelope.py            # write it
+    python scripts/emit_envelope.py --check                # build + verify, write nothing
+    python scripts/emit_envelope.py --out DIR              # write it into DIR
+    python scripts/emit_envelope.py --split FILE --into DIR  # unpack a received one
 """
 
 from __future__ import annotations
@@ -491,7 +500,9 @@ PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-30-lap-06.md",)
 # The consequence to keep in view: the published `round14lap06platterpus.md` on
 # disk is now HISTORY, not the current envelope. That is correct — it is the record
 # of what lap 6 sent, and lap 6 sent the file as it then stood. Regenerating it
-# against today's script would falsify what we sent.
+# against today's script would falsify what we sent. (Retired from the tree on
+# 2026-10-06 with every other committed envelope; `git show 37b07893:` + its old
+# path still recovers it, as `docs/handshake/README.md` records.)
 
 #: The envelope's name, as a template. **Two properties, and both are checked by
 #: `tests/test_handshake_file_naming.py` rather than asserted in this comment.**
@@ -593,9 +604,32 @@ _LAP_FIELDS: tuple[str, ...] = (
     "HANDSHAKE-FROM",
 )
 
-#: Where the envelope is written. Defined here rather than beside `NAME_TEMPLATE`
-#: only because it calls `lead_identity()`, which needs `_FENCE_RE` to exist.
-OUT: Path = HANDSHAKE_DIR / "outbound" / envelope_filename(*lead_identity())
+#: The envelope's FILENAME — a name, deliberately not a path. Defined here rather
+#: than beside `NAME_TEMPLATE` only because it calls `lead_identity()`, which needs
+#: `_FENCE_RE` to exist. It was `OUT`, a path into `docs/handshake/outbound/`, until
+#: 2026-10-06: that default is how 44 envelopes came to be committed beside the laps.
+OUT_NAME: str = envelope_filename(*lead_identity())
+
+
+def refusal_for_destination(directory: Path) -> str | None:
+    """Why ``directory`` may not receive an envelope, or ``None`` if it may.
+
+    **Anywhere inside this working tree is refused**, not only `docs/handshake/`:
+    a file written anywhere in the tree is one `git add` from a commit. Laps travel
+    by git, so the repository already holds every byte an envelope would carry, and
+    a committed copy is a second record of one lap, under a second name. Resolved
+    first, so a `..` or a symlink cannot walk a path back in. Pure: no I/O beyond
+    path resolution, so a test can drive it with any path.
+    """
+    target = directory.resolve()
+    if target == REPO_ROOT or target.is_relative_to(REPO_ROOT):
+        return (
+            f"{directory} is inside this repository ({REPO_ROOT}). An envelope is a "
+            "hand-carry copy of laps `main` already holds, and committed it becomes "
+            "a second record of the same lap. Write it outside the working tree, "
+            "e.g. a scratch directory or /tmp."
+        )
+    return None
 
 
 @dataclass(frozen=True)
@@ -625,7 +659,7 @@ def assert_not_a_lap(envelope: str) -> None:
         count = len(re.findall(rf"^{re.escape(field)}:", stripped, re.MULTILINE))
         if count == 1:
             raise SystemExit(
-                f"refusing to write {OUT.name}: it declares {field} exactly once, "
+                f"refusing to write {OUT_NAME}: it declares {field} exactly once, "
                 "so a conforming enumerator (v4 §5a) would read this envelope as a "
                 "lap. Add the envelope's own declaration to the preamble."
             )
@@ -774,7 +808,7 @@ PART = re.compile(
     r"(?P<body>.*?)\\n^<{{10}} END (?P=name) >{{10}}$",
     re.MULTILINE | re.DOTALL,
 )
-for m in PART.finditer(open("{OUT.name}", encoding="utf-8").read()):
+for m in PART.finditer(open("{OUT_NAME}", encoding="utf-8").read()):
     data = (m["body"] + "\\n").encode("utf-8")
     assert hashlib.sha256(data).hexdigest() == m["sha"], m["name"]
     open(m["name"], "wb").write(data)
@@ -796,7 +830,17 @@ for m in PART.finditer(open("{OUT.name}", encoding="utf-8").read()):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="exit 1 if stale")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="build and verify in memory, write nothing; exit 1 if it fails",
+    )
+    parser.add_argument(
+        "--out",
+        metavar="DIR",
+        type=Path,
+        help="where to write the envelope: required, and never inside this repo",
+    )
     parser.add_argument(
         "--split",
         metavar="ENVELOPE",
@@ -826,20 +870,35 @@ def main(argv: list[str] | None = None) -> int:
     wanted = render(read_parts())
     assert_not_a_lap(wanted)
 
+    # --check no longer compares against a committed copy, because there is none
+    # to compare against (2026-10-06). It checks the property a copy exists to
+    # have: every part splits back out byte-identical to the file it came from.
     if args.check:
-        current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
-        if current == wanted:
-            print(f"{OUT.name}: up to date")
-            return 0
-        print(
-            f"{OUT.name} is STALE — a part changed since it was packed.\n"
-            "Regenerate with: python scripts/emit_envelope.py",
-            file=sys.stderr,
-        )
-        return 1
+        recovered = split(wanted)
+        stale = [p.name for p in PARTS if recovered.get(p.name) != p.read_bytes()]
+        if stale or len(recovered) != len(PARTS):
+            print(f"{OUT_NAME} does not round-trip: {stale}", file=sys.stderr)
+            return 1
+        print(f"{OUT_NAME}: {len(PARTS)} part(s) round-trip; nothing written")
+        return 0
 
-    OUT.write_text(wanted, encoding="utf-8")
-    print(f"wrote {OUT} ({len(wanted.encode('utf-8')):,} bytes)")
+    # Writing needs a destination OUTSIDE the working tree. There is no default,
+    # because the old default (`docs/handshake/outbound/`) is the defect.
+    if args.out is None:
+        print("pass --out DIR (outside this repository) to write it", file=sys.stderr)
+        return 2
+    refusal = refusal_for_destination(args.out)
+    if refusal is not None:
+        print(f"refusing to write {OUT_NAME}: {refusal}", file=sys.stderr)
+        return 2
+    target = args.out / OUT_NAME
+    try:
+        args.out.mkdir(parents=True, exist_ok=True)
+        target.write_text(wanted, encoding="utf-8")
+    except OSError as exc:
+        print(f"cannot write {target}: {exc}", file=sys.stderr)
+        return 1
+    print(f"wrote {target} ({len(wanted.encode('utf-8')):,} bytes)")
     for part in read_parts():
         print(f"  {part.name:28} {part.size:>8,}  {part.sha256[:16]}")
     return 0

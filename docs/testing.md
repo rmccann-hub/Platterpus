@@ -2082,7 +2082,9 @@ declare `not-a-lap` in the header *and* carry a name outside the lap convention,
 so the header route and the name route exclude them **consistently**. The tool was
 right, the design was coherent, and the "defect" was a container correctly
 declining to be counted as its contents. The named compliance test does not even
-contain a `glob(`.
+contain a `glob(`. *(Both envelopes, and every other committed one, were retired
+from the tree on 2026-10-06; their bytes, the commit that last wrote each, and what
+each carried are in `docs/handshake/README.md` → *Retired transport envelopes*.)*
 
 **Two things generalise, and neither is "read more carefully".**
 

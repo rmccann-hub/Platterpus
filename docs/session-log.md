@@ -11,6 +11,52 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-06 (late) — their lap 15 filed, our lap 16 written GO and held, a missing ledger that both gates read
+
+**What was done.** The fork's round 30 lap 15 (`GO`, released at `cyanrip@5e75eac`) is
+filed byte-exact and verified against both trees: their S2 (our four fixes), S4 (track 5's
+two values), S9 and S10 (their two findings, at `src/cyanrip_main.c:1227` and `1535-1536`
+in `bee49eb`), and their digest. Our lap 16 is written, `GO`, and held for the operator's
+word. It accepts S9 and S10 for round 31 (their S13), corrects our lap 14 S18 for track 5,
+agrees with the fork's post-close plan (0.6.66 approves `5704062`; `.21` under review for
+round 31), and carries the round's whole agreed-change ledger.
+
+**The finding that changed the plan.** Lap 15 declares `GO` at protocol 6 without
+`HANDSHAKE-AGREED-CHANGES`, which C44 requires of every such file. Its own
+`HANDSHAKE-NEXT-LAP` said their gate would close round 30 on our lap 16 with no lap 17.
+Run, not reasoned: with lap 16 filed as released, our gate (scratch copy of the record)
+and theirs (scratch worktree of their tip) both read round 30 OPEN, theirs saying
+*"resolved per v6 §5b, but missing HANDSHAKE-AGREED-CHANGES"*. With a simulated lap 17
+that adds the field, both read it closed. So lap 16 asks for that lap 17. Lap 15 is
+pinned in our inbound sweep as an answered C44 miss (the R6 pin generalised).
+
+**Two defects of ours found on the way, both fixed with tests and revert probes.**
+- `--status` printed `GO`/`GO -> OPEN` with no reason: `close_blockers` decided the state
+  and was never shown. Each blocker now prints as a `blocks the close:` line (`88d5f07a`).
+- The lap checker crashed on a cited UTF-16 file (EAC's logs), decoding every citation as
+  strict UTF-8 (`064acfe3`). The fork's `tools/lap-statements.py` has the same call, so
+  lap 16 cites our UTF-8 transcription instead and sends them the shape (S15).
+
+**The duplicate laps the maintainer noticed.** `docs/handshake/outbound/` held 44 transport
+envelopes beside the laps: wrappers from when laps travelled by chat, before 2026-09-13.
+Checked byte for byte, every lap they carried is held under its own name, except two
+drafts that never became the sent lap: round 15 lap 15 as revised (the fork filed the
+first draft; the revision is now kept byte-exact under `outbound/superseded/`) and round
+14 lap 5 as drafted (it became lap 6; git holds it at its own path). A helper agent retired
+all 44 (`39a08d9c`): a provenance table in `docs/handshake/README.md` with each hash and
+the commit that last held it; the one test that read a real envelope now reads a
+byte-exact fixture; the envelope tool refuses to write inside the repository; and a sweep
+refuses an envelope-shaped file in the lap directories. No round's digest or gate state
+changed. Lap 16 S23 tells the fork.
+
+**What was decided.** Lap 16 is `GO`: our lap 14 S27's unless conditions do not hold once
+S9 and S10 are accepted, and a missing field on their lap changes which file the close
+rests on, not our verdict.
+
+**What was learned** (graduated to `docs/cyanrip-handshake.md` §7.5b): a lap that predicts
+a close must have run both gates on the record as it would stand. Lap 15 predicted a close
+neither gate grants, for a field both gates read off it.
+
 ## 2026-10-06 (evening) — the maintainer's three decisions, four findings fixed, lap 14 held by a permission
 
 **What was done.** The maintainer took all three recommendations ("Go"). The four findings

@@ -12,8 +12,29 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **Two script verbs for shooting the getting-started guide** (`PLANNING.md` KDD-42).
+  `callout <n> <label…>` marks the one visible button reading `<label>` with a
+  number, and the next `screenshot` draws the mark onto its picture. `record <name>
+  <seconds> <fps>` takes a short burst of frames for the guide's GIFs. A callout
+  that matches no widget, or more than one, fails the step and names the labels it
+  can see. A screenshot that could not draw a callout fails too. A lost frame is
+  counted and fails the burst.
+
 ### Changed
 
+- **The handshake guide says how to check a predicted close.** A lap that says a
+  round will close on the next one is now expected to have run both gates on the
+  record as it would stand, with the method written out in
+  `docs/cyanrip-handshake.md` §7.5b. Round 30's lap 15 predicted a close that
+  neither gate grants (contributor-facing).
+- **The inbound-lap sweep's pinned misses name the rule they excuse.** A sent peer
+  lap our checker refuses is pinned by its hash and excused only while that one rule
+  is its only problem; the pin covered R6 alone and now names its rule, so the
+  fork's round 30 lap 15, refused for C44 (a `GO` without its agreed-change
+  ledger), is pinned the same way and cannot excuse any other problem
+  (contributor-facing).
 - **The acceptance run expects the build under review to say it is unreleased.**
   A fork build is tested as a beta inside its open round, and it must say *NOT a
   released build* in every log. `expect-album-audit` failed on that sentence seven
@@ -24,8 +45,39 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   ripping with an unreleased build is still warned. The 2026-10-06 run stays
   `partial`.
 
+### Removed
+
+- **The 44 handshake transport envelopes are gone from `docs/handshake/outbound/`.**
+  Each wrapped laps the tree already holds, so beside them it read as the same lap
+  under a second name. Laps have travelled by git since 2026-09-13, so nothing needs
+  them. Each part was split out and checked against its hash before removal, and
+  `docs/handshake/README.md` → *Retired transport envelopes* lists every one with
+  its hash, the commit that holds it and what it carried. One part was held nowhere
+  else: an abandoned revision of our round 15 lap 15, written after that lap was
+  sent and never sent itself. It is kept byte for byte in `outbound/superseded/`,
+  out of the lap sequence, and lap 15 as sent is unchanged. The envelope the round
+  digest's content rule comes from moved to `tests/fixtures/`. `emit_envelope.py`
+  now writes only with `--out DIR` outside the repository, and a test refuses an
+  envelope committed beside the laps, judged by its content. No round's status or
+  digest changed.
+
 ### Fixed
 
+- **The handshake gate says what holds a round open.** When both sides had declared
+  `GO`, `handshake.py --status` could still print the round OPEN with no reason:
+  the checks that refuse a closing lap's missing fields decided the state and were
+  never shown. Each one now prints as a `blocks the close:` line naming the file
+  and the rule, as it did on round 30, where the fork's lap 15 lacked
+  `HANDSHAKE-AGREED-CHANGES` (contributor-facing).
+- **The lap checker no longer crashes on a cited file that is not UTF-8.** It
+  decoded every `evidence:` file as strict UTF-8, and EAC writes its logs in UTF-16,
+  so the first lap to cite EAC's own log stopped the whole check with a decode
+  error. A file with a byte-order mark is now read in the encoding the mark names,
+  and anything else is read with undecodable bytes replaced, so line numbers are
+  counted the way an editor shows them. Its git calls now live in
+  `scripts/laplang/gitio.py`, and the tests' stand-in for git answers the file read
+  too, which since the decoding change it had silently stopped doing
+  (contributor-facing).
 - **The dependency check keeps the end of a tool's version answer too.** Every
   version probe kept the first 200 characters of what the tool printed, so a long
   answer lost its last line, where a failing tool says why. It now keeps 200 at each

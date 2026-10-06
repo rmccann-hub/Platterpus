@@ -2696,6 +2696,9 @@ def _history_is_available() -> bool:
 #: `round09lap08platterpus.md` (`a26d381`) and `round11lap04platterpus.md`
 #: (`e0bd975`) are *envelopes*, not laps, so the `round-*.md` glob does not reach
 #: them; they are named here so the record is not silently narrower than the defect.
+#: Both envelopes were retired from the tree on 2026-10-06; `52dfe0a2` is the commit
+#: that last wrote them, and `docs/handshake/README.md` → *Retired transport
+#: envelopes* records them. The laps they carried are still in `verified/`.
 _PIN_FIELD_SENT_WRONG: frozenset[tuple[str, str]] = frozenset(
     (name, "HANDSHAKE-OUR-PIN")
     for name in (
@@ -4996,3 +4999,45 @@ def test_the_skeleton_states_the_maintainers_objective_in_their_words() -> None:
     for words in hs.LEAVING_BETA_WORDS:
         assert words in hs.LEAVING_BETA_OBJECTIVE
         assert " ".join(words.split()) in source, words
+
+
+def test_status_names_the_blocker_that_holds_a_GO_GO_round_open(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """REGRESSION (round 30, 2026-10-06): `GO`/`GO -> OPEN`, with no reason.
+
+    The fork's lap 15 declared GO at protocol 6 without
+    HANDSHAKE-AGREED-CHANGES (row C44). `close_blockers` refused it, `both_go`
+    went false, and `--status` printed the round OPEN with nothing saying why:
+    `our_blockers` and `their_blockers` decided the state and were never shown.
+
+    Driven on round 29's real closing pair (their lap 3, our lap 4, both GO),
+    copied into a constructed record so the test does not depend on today's
+    round. Unchanged, the pair closes and names no blocker; with the ledger
+    struck from their lap, the round is OPEN and the line names that file and
+    row C44, and ends in ")" so the gate never reads it as a round.
+    """
+    real = _REPO_ROOT / "docs" / "handshake"
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+    theirs = (real / "inbound" / "round-29-lap-03.md").read_text(encoding="utf-8")
+    ours = (real / "outbound" / "round-29-lap-04.md").read_text(encoding="utf-8")
+    (tmp_path / "outbound" / "round-29-lap-04.md").write_text(ours, encoding="utf-8")
+    (tmp_path / "inbound" / "round-29-lap-03.md").write_text(theirs, encoding="utf-8")
+
+    closed = hs.round_status(tmp_path, floor=29)
+    head = next(ln for ln in closed if ln.startswith("round-29"))
+    assert head.endswith("CLOSED"), closed
+    assert not any(hs.BLOCKS_CLOSE_PREFIX in ln for ln in closed), closed
+
+    struck = re.sub(r"^HANDSHAKE-AGREED-CHANGES:.*\n", "", theirs, flags=re.M)
+    assert struck != theirs, "round 29 lap 3 no longer carries the ledger"
+    (tmp_path / "inbound" / "round-29-lap-03.md").write_text(struck, encoding="utf-8")
+
+    held = hs.round_status(tmp_path, floor=29)
+    head = next(ln for ln in held if ln.startswith("round-29"))
+    assert head.endswith("OPEN"), held
+    named = [ln for ln in held if hs.BLOCKS_CLOSE_PREFIX in ln]
+    assert len(named) == 1, held
+    assert "inbound/round-29-lap-03.md" in named[0] and "row C44" in named[0]
+    assert named[0].endswith(")") and not named[0].endswith("OPEN")

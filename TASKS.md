@@ -156,11 +156,15 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   - *Done 2026-10-06:* `verdict._unconverged_clause` names it, only for tracks
     AccurateRip did not verify exactly; pinned on section F's own log and report,
     revert-probed three ways.
-- [ ] **Track 3 of the reference disc has converged on two different values on this
-  drive**: `59D352DD` (EAC's, the 2026-09-30 run) and `2AC1F945` (the 2026-10-06 secure
-  re-read, which matches one CTDB entry of confidence 1). AccurateRip holds no
-  whole-track checksum for it. The disc, not a defect; recorded so the next run on it is
-  read against both.
+- [ ] **Tracks 3 and 5 of the reference disc have each converged on two different
+  values on this drive.** Track 3: `59D352DD` (EAC's, the 2026-09-30 run) and `2AC1F945`
+  (the 2026-10-06 secure re-read, which matches one CTDB entry of confidence 1).
+  Track 5: `6902BCF0` (the 2026-09-30 securing pass) and `E0036697` (2026-10-06, EAC's
+  value), and EAC itself reports `E0036697` *Cannot be verified as accurate*
+  (`output_reference/README.md:149-152`), so no ripper has a verified value for track 5.
+  Our round 30 lap 14 S18 named track 3 alone; the fork's lap 15 S4 found track 5, and
+  our lap 16 S1 corrects it. The disc, not a defect; recorded so the next run on it is
+  read against both values of each.
 - [x] **The cache probe's saved output stopped before its figure** (found 2026-10-06,
   filing the closing run). `round30oct06fullcacheprobe.txt` is exactly 2,000 bytes and
   holds no 137: `cache_probe.parse_cache_analysis` kept `text.strip()[:2000]` and
@@ -250,6 +254,65 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   a typed `.platterpus.json` and is a day of its own.
 
 ---
+
+## The 0.7.100 getting-started walkthrough (planned 2026-10-06, `PLANNING.md` KDD-42)
+
+An archival (EAC-parity) rip of an average disc, step by step, for a first-time user: a
+written step list with still screenshots and three or four short GIFs, shot by a script
+on the rig. **In the app by default** (Help → Getting started, offline, offered on first
+run) **and on GitHub** (the README's *Getting started* section, generated from the same
+source). Every ruling is KDD-42 (W1 to W7); this is the work.
+
+**Build now:**
+- [x] **`callout <n> <label…>` verb** (done 2026-10-06, `uiscript/walkthrough_verbs.py`, `uiscript/callout.py`). The next `screenshot` draws a numbered highlight
+  around the named widget (the one the following step presses), from the widget's real
+  geometry. Pure overlay function, tested on a rendered fixture; the target must resolve
+  to exactly one visible widget or the step fails, so a renamed button cannot shoot a
+  picture of nothing.
+- [x] **`record <name> <seconds> <fps>` verb** (done 2026-10-06, `uiscript/burst_verbs.py`). A burst of main-window frames into the run
+  folder, numbered, with a manifest (frame count, interval, window size). Bounded (a cap
+  on seconds and fps), and a frame that fails to render is counted, not skipped silently.
+- [ ] **A placeholder for the cover art in captures** (W5): while the walkthrough runs,
+  the cover shown in the window is replaced by a neutral placeholder, so no label artwork
+  enters the repository. A verb or a run setting, decided with the verb.
+- [ ] **A `walkthrough.txt` rig script, to be written** (beside the acceptance scripts): the steps below, driving the app with existing
+  verbs (`set-drive-offset`, `pick-release`, `rip`, `wait-for-rip`, `open`) and shooting
+  with `screenshot`, `callout` and `record`. Its own run size; never counted as acceptance
+  evidence.
+- [ ] **`scripts/build_walkthrough_media.py`**: from a run folder, the stills copied under
+  their final names and each frame burst assembled into a GIF with ffmpeg (palette
+  generated, looped, size-checked). Thin over one function, per the script-verb rule.
+- [ ] **The guide's source, shipped in the package** (W6): its Markdown and images beside
+  `help_content.py`, declared as package data so the AppImage and the wheel carry them.
+- [ ] **The in-app viewer** (W6): Help → *Getting started* opens the guide in a pane,
+  offline, stills shown and GIFs animated (`QTextBrowser` for the text, `QMovie` for the
+  loops), every image with its alt text, keyboard reachable, readable in both themes; the
+  first run offers to open it. Help → User guide points to it first.
+- [ ] **`scripts/emit_getting_started.py`** (W6): writes the README's *Getting started*
+  section from the same source, with `--check`, like `emit_script_language.py`; a test
+  fails when the README and the source disagree.
+- [ ] **A test that the guide's images are present and described**: every image the source
+  references exists, has alt text, and the set stays under its size budget (counting
+  what the AppImage carries); a floor on the number of images so an empty guide cannot
+  pass.
+
+**The steps the walkthrough covers** (W1):
+1. Download the AppImage, allow it to run, open it *(Spectacle)*.
+2. First-run setup: the ripping container and the approved cyanrip build (minutes).
+3. Set up drive: the read offset from AccurateRip's drive list, or found by cyanrip.
+4. Settings: the archival defaults already on (FLAC, secure re-reads, CTDB, the
+   EAC-compatible log), shown in place, nothing to change.
+5. Insert the disc; the MusicBrainz match and the tags *(GIF)*.
+6. Rip: progress and the time estimate *(GIF)*.
+7. The verdict: AccurateRip ✓ and CTDB, each line called out *(GIF)*.
+8. What you get: FLAC, cover, cue, the EAC-compatible log, the report; what to keep.
+9. If a track shows only a one-frame match or did not converge: what it means, what to do.
+
+**Shoot before 0.7.100** (W7):
+- [ ] On the rig, in a fresh `demo` account: run the walkthrough script, take the
+  Spectacle shots, build the media, write the guide's text, regenerate the README section.
+- [ ] Decide on the day: the disc, the window size, the size budget (KDD-42, *not decided
+  here*).
 
 ## 2026-10-05 window size and readability audit
 
@@ -1633,6 +1696,42 @@ each side's reading; and the closing releases named.
     proved on stand-ins that deliver signals and apply cyanrip's one-signal rule, not on a
     drive. The open row *"If a podman ever forwards the wrapper's SIGTERM"* is not
     covered by it: that reader is not in our process group, so it would still be signalled.
+
+- [x] **File their lap 15 and verify it** (released at `cyanrip@5e75eac`, sha256
+  `b3e91172…`, 15,469 bytes, `GO`). S2, S4, S9 and S10 checked against both trees; its
+  digest `6d9d1f55b5abe803` reproduces. Our `--check` refuses it for C44 alone (no
+  `HANDSHAKE-AGREED-CHANGES` on a v6 `GO`), so `tests/test_every_inbound_lap_passes_check.py`
+  pins it as an answered miss (the R6 pin generalised to name its rule).
+- [~] **Our lap 16: `GO`, held for the operator's word.** Accepts their S9 and S10 for
+  round 31 (S6), corrects our lap 14 S18 (S1), raises lap 15's C44 miss (S11) and asks
+  for their lap 17 restating `GO` with the ledger (S13): both gates read round 30 `OPEN`
+  on lap 15 and lap 16, measured by running each with lap 16 filed as released, and
+  both read it closed with a lap 17 that adds the field.
+- [ ] **When our gate reads round 30 CLOSED:** roll `FORK_PIN` to `5704062` with round
+  30's approval record; cut 0.6.66 from `main` after `main`'s own CI; move
+  `PIN_UNDER_REVIEW` to `.21` when the fork's manifest names it (round 31 reviews it).
+  This is the fork's recommendation (their lap 15 S15), which our lap 16 S16 agrees
+  with: 0.6.66 approves `.20`, and `.21` is under review until round 31 checks it.
+- [ ] **Round 31: our EAC log's `Gap handling` row reads the fork's S10 fix.** The row is
+  decided from cyanrip's `Gaps:` list, which leaves out a pregap its search could not
+  determine (`cyanrip@bee49eb:src/cyanrip_main.c:1535-1536`). When round 31 adds a line
+  for one, read it, and say *undetermined* rather than *not detected* when it is the only
+  gap a rip could have appended (`eac_log_export.py:743`).
+- [ ] **Round 31: a lap writer that refuses a v6 `GO` without the ledger, on both
+  sides** (our lap 16 S14). Both gates refuse it once sent; neither side's writer stops
+  it being sent.
+- [x] **Our lap checker crashed on a UTF-16 citation** (found writing lap 16): fixed at
+  `064acfe3`, sent to the fork as lap 16 S15, since their `tools/lap-statements.py`
+  decodes the same way (`cyanrip@7ef9223f:tools/lap-statements.py:330-331`).
+- [x] **Our `outbound/` held 44 transport envelopes duplicating our laps** (the
+  maintainer noticed, 2026-10-06). Retired at `39a08d9c` with a provenance table in
+  `docs/handshake/README.md`; round 15 lap 15's unfiled revision kept under
+  `outbound/superseded/`; the envelope tool no longer writes in the repository; a sweep
+  refuses an envelope in the lap directories. Told to the fork in lap 16 S23.
+- [ ] **`inbound/superseded/README.md` has no row for `round-07-lap-25-as-second-sent.md`**
+  (noticed by the envelope helper, 2026-10-06).
+- [x] **`--status` printed `GO`/`GO -> OPEN` with no reason** (found on lap 15): each
+  close blocker now prints as a `blocks the close:` line (`88d5f07a`).
 
 ## Round 29 — CLOSED on both gates on `51cc789` (`+platterpus.18`), 2026-09-29: the Full run on 0.6.63 + `.18`, and the tag change
 
