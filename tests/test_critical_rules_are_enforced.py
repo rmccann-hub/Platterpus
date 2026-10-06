@@ -2588,7 +2588,12 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # with its reasons, and the module is the gate the row belongs to.
     # **4453 -> 4455** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): `_SOURCE_NAMED_LAP` reads
     # `round-\d+-` instead of `round-0*\d+-` (same text, linear), and why.
-    "scripts/handshake.py": 4455,
+    # **4455 -> 4531** (2026-10-06, TASKS C6): `_fenced_lines`, the one rule for
+    # "is this line quoted?", CommonMark's (indented openers, same-character
+    # closers at least as long, an unterminated block running to the end), replacing
+    # the `_FENCE_BLOCK` regex and `_unfenced_body`'s own toggle. Most of the growth
+    # is the docstring: where it departs from CommonMark and in which direction.
+    "scripts/handshake.py": 4531,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     "scripts/laplang/lsl3.py": 433,
     "scripts/laplang/refs.py": 324,

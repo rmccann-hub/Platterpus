@@ -2629,10 +2629,36 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     own verdict is `GO` is exempt, our reading, to be put to the fork). The record's
     `--check` output is byte-identical before and after. Tests:
     `tests/test_handshake_tooling.py::test_r6_*`, revert-probed 4 of 4.
-- [ ] **C6. `_strip_fences` misses unterminated and indented fences**
+- [x] **C6. `_strip_fences` misses unterminated and indented fences**
   (`handshake.py`, the fence regex needs a closing column-0 fence), so a field inside
   one counts as a declaration. Portable shape — tell the fork. TASKS@b8f89a2:2014.
   - *Merged 2026-09-30, verbatim, from the duplicate row `fuzz:scripts.handshake._strip_fences` (the property-test backlog) (it was `[ ]`):* **`fuzz:scripts.handshake._strip_fences`** (ungated, medium) — An illustrated close inside an UNTERMINATED or INDENTED fence is adopted as a real declaration — a round closes on a fabricated…
+  - [x] *Done 2026-10-06 in this commit (`fix(handshake): read fences as
+    CommonMark does`), the property-test row with it:* `handshake-protocol.md` §2
+    rule 2 says to strip fences and not what a fence is, so the gate follows
+    CommonMark §4.5: an opener indented up to three spaces (a tab is four
+    columns, so not a fence), closed only by the same character at least as long
+    with nothing after it but blanks, an unterminated block running to the end of
+    the file, CRLF read as a line ending. One function, `_fenced_lines`, answers
+    for both `_strip_fences` (every wire field, so C46's count) and
+    `_unfenced_body` (the R6 search), which had a second, toggling rule. Not
+    tracked: block quotes and list items; the one shape where it strips less than
+    CommonMark (a list item's indented fence, then a column-0 fence line) is
+    written in the docstring. Checked against markdown-it-py once (not a
+    dependency): 0 differences on 20,000 generated flat documents; 11 of the 333
+    filed files differ, all on fences inside block quotes, none on a field. On
+    the record: every filed file's fields, C46 result, `--check` result and
+    `--status` are unchanged; three files strip more lines (indented fences in
+    `inbound/round-08-lap-07.md`, `outbound/round-2.md`,
+    `verified/round-11-lap-02.md`), none a field. Tests:
+    `tests/test_handshake_fences.py` (never raises, line count kept, idempotent,
+    the two readers agree; one case per rule; C46 both ways). revert_probe: 6 of 6.
+    **Still owed:** the NEXT-ROUND note to the fork (the shape is portable to
+    their gate; whether theirs has it was not read in their tree for this
+    change, so the note asks rather than asserts), and
+    round_digest's `_unfenced` and laplang's `_read_headers` keep toggles of their
+    own: the digest is computed by the fork's published method, so changing ours
+    alone would break agreement.
 - [~] **C7. The receiving half of the omission gate** — nothing checks that every
   artifact a lap names was filed; answering 5b.3 honestly needs it.
   - *Audit 2026-09-25: partly done.* tests/test_named_artifacts_are_filed.py (7fc3946) checks inbound|outbound/artifacts/ only. It is not in the gate, and misses docs/handshake/artifactsround26/, which laps cite.
