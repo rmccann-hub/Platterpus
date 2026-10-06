@@ -1737,7 +1737,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # reads as "No errors occurred" (`_plausible_count`, `_MAX_PLAUSIBLE_ERROR_COUNT`).
     # **3428 -> 3431** (2026-10-06): the one-frame tally reads its round-31 label
     # beside the current one (the fork's round 30 lap 11 S16).
-    "parsers/cyanrip_log.py": 3431,
+    # **3431 -> 3467** (2026-10-06, TASKS *Found while integrating* item 4): twenty-one
+    # value patterns rewritten from a lazy capture before `\s*$` (quadratic in a
+    # blank run) to a greedy one. The growth is the note above `_DRIVE` saying
+    # which two shapes, why, and where the equivalence proof lives, plus ruff
+    # wrapping five patterns that grew past 88 columns. The patterns must stay
+    # here: the rule tables are what the generated consumer contract publishes.
+    "parsers/cyanrip_log.py": 3467,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one

@@ -183,6 +183,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the window's frame against both side edges and fails a window wider than the
   screen less that 16-pixel margin on each side (`fit_scroll_area.SIDE_MARGIN_PX`,
   the one value every fit uses).
+- **A cyanrip log line with a long run of spaces inside a value no longer freezes
+  the window while the log is read.** Twenty-one of the log parser's "Label:
+  value" patterns slowed down with the square of such a run (one line with 8,000
+  spaces took a third of a second, and a line may be 65,536 characters long), and
+  the saved log is parsed on the GUI thread. They now read the same text in
+  linear time, and capture exactly what they captured before: the old patterns
+  are kept in a test as the reference, and every rewrite is checked against its
+  old form on generated lines. The patterns are published in
+  `docs/cyanrip-consumer-contract.md`, which is regenerated.
 - **A nonsense "Ripping errors" count from cyanrip no longer reads as "No errors
   occurred".** A count far beyond anything a CD could produce is now recorded as
   "not determined", and the rip's health line repeats what cyanrip printed.
