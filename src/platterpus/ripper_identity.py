@@ -207,6 +207,24 @@ def identify_ripper(log_creator: str, build_tag: str) -> RipperIdentity:
     )
 
 
+def banner_line(text: str) -> str:
+    """The banner line of a ``cyanrip -V`` capture: its first non-empty line.
+
+    **Why the readers ask for it rather than taking the whole capture**
+    (2026-10-06). :func:`identify_from_banner` partitions at the first ``(`` and
+    :func:`fork_commit_from_banner` reads to the last ``)``. Both describe ONE
+    line. The version probe used to keep only the first 200 characters of its
+    capture, which happened to keep these readers on the banner. Once the capture
+    keeps its tail too (so a failing probe's own last words survive), any
+    parenthesis in a later line could be read as a build tag. So the readers say
+    which line they mean, and the capture is free to be complete.
+    """
+    for line in (text or "").splitlines():
+        if line.strip():
+            return line.strip()
+    return ""
+
+
 def identify_from_banner(banner: str) -> RipperIdentity:
     """Classify from a whole ``cyanrip -V`` line, e.g. before a rip starts.
 

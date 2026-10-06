@@ -2246,8 +2246,10 @@ does my stand-in do that the real thing does not?* And the rule had been applied
 where it was learned, not swept. It is now swept:
 `tests/test_dependency_output_is_never_cut_at_the_head.py` refuses a head-only
 slice as a `raw_output=` value or inside any `log.<level>()` call; fourteen more
-sites were fixed with it, and it holds the version-probe captures it could not yet fix
-in a shrink-only allowance with the reason (seven sites, one population).
+sites were fixed with it. The seven version-probe captures waited one commit in a
+shrink-only allowance, because three readers parsed the whole capture for the banner;
+once those readers were held to the banner line (`ripper_identity.banner_line`), the
+captures kept head and tail too and the allowance holds no capture at all.
 
 #### Moved from `CLAUDE.md` (2026-09-26): An ABSENCE in a log is a fact about the logger before it is a fact about the subject
 
@@ -4218,6 +4220,14 @@ for the whole run, and cyanrip's `-f` found `+667` on its first run on a drive.
 Track 3 converged on a value that is not EAC's, the disc as before
 (`docs/handshake/artifactsround30/README.md` → *The 2026-10-06 run*). **It is not a
 second witness** either: one machine, one distro, one person.
+**The grader changed after this run, and the row did not.** On 2026-10-06, after
+reading it, the maintainer chose to narrow `expect-album-audit`: the open-round warning
+is expected, not failed, when the report shows the binary IS the build under review
+(clean fork tag naming `PIN_UNDER_REVIEW`, our verdict `unapproved`, the note naming
+the reviewing round). Any other build, round or verdict still fails, and the product's
+own audit still warns the user (`uiscript/artifact_grading.expected_open_round_warning`).
+It makes a pass easier, which is why it was the maintainer's call. It applies to runs
+graded after it; this row stays `partial`, and no earlier row is re-graded.
 
 **The 2026-10-05 0.6.65 row is the operator's final Full run on `.19`: 316 of 323,
 and `partial`, the same count as 2026-09-30.** The seven failures are the same seven

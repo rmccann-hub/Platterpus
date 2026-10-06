@@ -130,7 +130,7 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
 
 ### New rows
 
-- [ ] **The album audit's `handshake_note` check cannot pass on a beta-in-round build
+- [x] **The album audit's `handshake_note` check cannot pass on a beta-in-round build
   under review** (found 2026-10-06, round 30's closing run: seven ARCHIVAL-section
   failures, all this one check). It WARNs whenever the binary says it was built from an
   open round, and `expect-album-audit` with no arguments needs every check at OK. Since
@@ -141,12 +141,21 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   review and a WARN otherwise, the cross-check unchanged; pinned both ways. **A re-grade
   that makes a pass easier, so the maintainer's call** (CLAUDE.md, *a version number is a
   claim about the field*); the 2026-10-06 run stays `partial` whatever is decided.
-- [ ] **A rip's headline verdict groups an unconverged track with a converged one**
+  - *Done 2026-10-06, on the maintainer's word ("Go" on the recommendation):* the
+    ACCEPTANCE grader expects the warning on the build under review only, all four
+    conditions read from the report; the product audit is unchanged. Pinned on the
+    closing run's eight finished reports and on each condition broken alone, with
+    the round state pinned so the tests do not change meaning when round 30 closes;
+    each condition revert-probed.
+- [x] **A rip's headline verdict groups an unconverged track with a converged one**
   (found 2026-10-06, section F). *"12 of 14 verified; on the other 2, only one frame
   matched"* covers track 5 (re-reads converged on EAC's value) and track 3 (re-reads did
   not agree, CTDB found no match), while the table, the issues list and the EAC-layout
   log each say track 3's copy is not confirmed. The headline should name a track whose
   re-reads did not converge. UX; the record itself is honest.
+  - *Done 2026-10-06:* `verdict._unconverged_clause` names it, only for tracks
+    AccurateRip did not verify exactly; pinned on section F's own log and report,
+    revert-probed three ways.
 - [ ] **Track 3 of the reference disc has converged on two different values on this
   drive**: `59D352DD` (EAC's, the 2026-09-30 run) and `2AC1F945` (the 2026-10-06 secure
   re-read, which matches one CTDB entry of confidence 1). AccurateRip holds no
@@ -161,7 +170,7 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   not, which is why it shipped). Swept by
   `tests/test_dependency_output_is_never_cut_at_the_head.py`; fourteen more sites fixed
   with it.
-- [ ] **The version probes' `raw_output` is still cut at the head** (the sweep's
+- [x] **The version probes' `raw_output` is still cut at the head** (the sweep's
   allowance, 2026-10-06). Seven sites in `deps/checks.py` keep `output.strip()[:200]`.
   They are not widened yet because three readers take the WHOLE text for the banner
   (`build_notes.cyanrip_build_note` and `ripper_update_worker` call
@@ -169,7 +178,10 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   `fork_commit_from_banner`, which reads to the last `)`). A tail added to the capture
   could reach either parenthesis. Fix: hold those readers to the banner line first, then
   capture head and tail, then shrink the allowance to nothing.
-- [ ] **On the stable cyanrip channel, `.19` reads as up to date while the acceptance
+  - *Done 2026-10-06, in that order:* `ripper_identity.banner_line`; the build note and
+    the update worker read through it; `checks._capture` keeps 200 characters at each
+    end; the allowance's two `deps/checks.py` entries are gone. Revert-probed three ways.
+- [x] **On the stable cyanrip channel, `.19` reads as up to date while the acceptance
   run needs `.20`** (found 2026-10-06, moving the build under review). `.20` is on the
   fork's beta channel alone, so `evaluate_offer(stable, installed=174a134)` answers
   `up_to_date` and never names the build the run will refuse to start without. The
@@ -177,6 +189,9 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   cyanrip tick-box, and the command the run's refusal names. The rig sheet says so.
   Fix: when the build under review is published on the other channel and is not
   installed, the up-to-date offer says so and names the route. UX; not for the cut.
+  - *Done 2026-10-06:* `ripper_offer._build_under_review_note`, asked of
+    `a_round_is_reviewing_a_build`; the in-app routes only (no typed command, the run's
+    refusal names that). Pinned on the fork's filed `b62650d` manifest, revert-probed.
 - [x] **CI scans the full history for secrets on every run** (C8; `SECURITY.md`, *Secret
   scanning*). Amendment A12, approved 2026-09-28 and held under C3 (`PLANNING.md` KDD-39,
   KDD-40); **C3 lifted for it 2026-10-05** (KDD-41). `gitleaks/gitleaks-action` scans a range it builds itself with

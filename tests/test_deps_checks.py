@@ -558,3 +558,22 @@ def test_check_libdiscid_present_but_version_call_fails(
     result = checks.check_libdiscid()
     assert result.present is True
     assert result.raw_output == ""
+
+
+def test_a_version_probe_keeps_the_last_words_of_a_long_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression (2026-10-06 sweep): `raw_output` kept `output.strip()[:200]`,
+    so a long answer lost its end, where a tool says what went wrong. It keeps
+    the head (the banner, unchanged) and the tail, with the gap counted."""
+    binary = tmp_path / "cyanrip"
+    binary.write_text("#!/bin/sh\n")
+    binary.chmod(0o755)
+    spew = "cyanrip 0.9.3\n" + "x" * 600 + "\nthe last line says why"
+    monkeypatch.setattr(
+        checks.VERSION_PROBE, "run", lambda *a, **kw: _fake_run(stdout=spew)
+    )
+    probe = check_cyanrip(binary)
+    assert probe.raw_output.startswith("cyanrip 0.9.3\n")
+    assert probe.raw_output.endswith("the last line says why")
+    assert "character(s) omitted]" in probe.raw_output

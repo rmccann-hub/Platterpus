@@ -19,6 +19,7 @@ from platterpus.verdict import (
     REREAD_KEPT_FOR_ACCURATERIP,
     REREAD_KEPT_FOR_CONVERGENCE,
     accuraterip_counts,
+    accuraterip_verdict,
     reconcile_ar_ctdb,
     reread_supersedes,
 )
@@ -838,3 +839,78 @@ def test_the_full_runs_track_3_re_read_is_now_kept() -> None:
         )
         is None
     )
+
+
+# --- the headline names a track whose re-reads did not converge (2026-10-06) ---
+
+_ROUND30_F = Path(__file__).resolve().parent.parent / "docs/handshake/artifactsround30"
+
+
+def _section_f_as_reported() -> RipLog:
+    """Round 30's closing-run section F: its album log, with each track's
+    convergence verdict as its own committed report recorded it (the securing
+    pass re-read tracks 3 and 5; 5 converged on EAC's value, 3 did not)."""
+    from dataclasses import replace
+
+    log = parse_cyanrip_log(
+        (_ROUND30_F / "round30oct06fullwholedisc.log").read_text(encoding="utf-8")
+    )
+    report = json.loads(
+        (_ROUND30_F / "round30oct06fullwholediscreport.json").read_text("utf-8")
+    )
+    converged = {
+        t["number"]: t["secure_rerip_converged"]
+        for t in report["tracks"]
+        if t.get("secure_rerip_converged") is not None
+    }
+    assert converged == {3: False, 5: True}  # what the report says, read not assumed
+    return replace(
+        log,
+        tracks=[
+            replace(t, secure_rerip_converged=converged.get(t.number))
+            for t in log.tracks
+        ],
+    )
+
+
+def test_the_headline_names_the_track_whose_re_reads_did_not_converge() -> None:
+    """Regression (round 30's closing run, section F): the headline grouped track 3
+    (re-reads did not converge) with track 5 (converged) as "only one frame
+    matched". It now names track 3, and only track 3."""
+    message, level = accuraterip_verdict(_section_f_as_reported(), disc_track_total=14)
+    assert level == "warn"
+    assert message.startswith("⚠ 12 of 14 tracks verified exactly")
+    assert "on track 3 the re-reads did not converge" in message
+    assert "track 5" not in message
+
+
+def test_a_converged_or_never_re_read_track_adds_nothing() -> None:
+    """`None` (never re-read) is no evidence either way, and `True` is the good
+    case: neither changes the sentence."""
+    log = _section_f_as_reported()
+    from dataclasses import replace
+
+    quiet = replace(
+        log, tracks=[replace(t, secure_rerip_converged=None) for t in log.tracks]
+    )
+    message, _ = accuraterip_verdict(quiet, disc_track_total=14)
+    assert "converge" not in message
+    assert message.endswith("the rest of each is unverified (see the table)")
+
+
+def test_an_exactly_verified_track_is_never_named_for_its_re_reads() -> None:
+    """An exact AccurateRip match proves the bytes, whatever the re-reads did."""
+    from dataclasses import replace
+
+    log = _section_f_as_reported()
+    verified_one = next(t for t in log.tracks if t.number == 1)
+    log = replace(
+        log,
+        tracks=[
+            replace(t, secure_rerip_converged=False) if t is verified_one else t
+            for t in log.tracks
+        ],
+    )
+    message, _ = accuraterip_verdict(log, disc_track_total=14)
+    assert "track 1" not in message and "tracks 1" not in message
+    assert "on track 3 the re-reads did not converge" in message

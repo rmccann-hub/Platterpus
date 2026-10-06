@@ -1061,6 +1061,13 @@ _MODULE_LINE_THRESHOLD: Final[int] = 300
 #: this was written. A file may shrink or leave; it may not grow, and no new file
 #: may join.
 _OVERSIZE_MODULES: Final[dict[str, int]] = {
+    # 299 -> 331 on 2026-10-06, crossing the heuristic with the maintainer's
+    # narrowing of `expect-album-audit`. **Kept as one module deliberately**: it is
+    # one pure grader per artifact verb (album audit, AccurateRip, CTDB, settling),
+    # and the growth is the album-audit grader learning to name the one warning it
+    # expects. The rule deciding WHEN that warning is expected is a separate
+    # concern and went to its own module (`uiscript/expected_warnings.py`) instead.
+    "uiscript/artifact_grading.py": 331,
     # 356 lines on 2026-09-14, crossing the ~300 heuristic with round 18's rename.
     # **Kept as one module deliberately.** The heuristic asks whether a file is
     # doing more than one job, and this one is not: it is the script run report —
@@ -1249,7 +1256,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **522 -> 527** (2026-09-29): a version probe our cancel ended is logged as stopped,
     # not as a tool that is unavailable (`killable.was_cancelled`).
     # **527 -> 529** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): the failed-probe log line keeps head and tail with the gap counted.
-    "deps/checks.py": 529,
+    # **529 -> 552** (2026-10-06): `_capture`, head and tail for every version probe's `raw_output`, the last head-only cut the sweep allowed.
+    "deps/checks.py": 552,
     # 1678 -> 1691 (2026-09-06): the round-15 close. `FORK_PIN` rolled to
     # `978f9b0` and the roll is documented where the constant is, because the
     # post-close step is the one this file has already watched go stale.
@@ -1487,7 +1495,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **782 -> 800 (2026-09-25)**: the up-to-date offer keeps the build under review instead of offering the approved pin over it.
     # **800 -> 810 (2026-09-28)**: the offer names each build by version, commit and
     # fork release through `ripper_standing`, and names the round testing it.
-    "deps/ripper_offer.py": 810,
+    # **810 -> 868** (2026-10-06): `_build_under_review_note`, so an up-to-date answer on one channel names the build an open round reviews on the other, and the in-app route to it.
+    "deps/ripper_offer.py": 868,
     # +4 on 2026-09-04: one KNOWN_CODES entry (`ripper.secure_rerip_verdict`)
     # and the three comment lines saying why it is not a fatal. The registry is
     # this module's point — a code declared anywhere else would defeat it.
@@ -1844,7 +1853,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1542 -> 1550** (2026-09-30): `eac_log_agreement` applies the auto-fix addendum before comparing (round 27's re-read track 3 read as a disagreement without it).
     # **1550 -> 1562** (2026-10-05, `parity-baseline-is-ours`): `parity.ParityReport.ok` now refuses a baseline that is one of our own EAC-layout exports, and `eac_log_agreement` says so, naming the line, instead of falling through to a "DISAGREE" no track showed. It is a branch of the check it serves.
     # **1562 -> 1577** (2026-10-06, ruling C1): a failed rip's notes say which pass each exit code describes, add the securing pass's when it ran, and label the command as the securing pass's when it was the last run. The phrasing lives in `rip_pass_exit.py`.
-    "rip_audit.py": 1577,
+    # **1577 -> 1582** (2026-10-06, the maintainer's narrowing of the acceptance grader): `OPEN_ROUND_WARNING`, the open-round warning's opening named once so the acceptance grader recognises it by the same words.
+    "rip_audit.py": 1582,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.
@@ -2484,7 +2494,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **915 -> 933** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the `expect-unidentified` and `expect-unknown-record` declarations; the handlers are a new mixin, `unknown_disc_verbs.py`.
     # **933 -> 953** (2026-10-06, TASKS A4 "Fold the hardware-only checks into the closing run"): the `app-log` and `sigterm-world` declarations; the handlers are a new mixin, `applog_verbs.py`.
     # **953 -> 964** (2026-10-06, TASKS D6 "The acceptance run's overall estimate"): the `run-estimate` declaration; the handler is a new mixin, `estimate_verbs.py`.
-    "uiscript/verbs.py": 964,
+    # **964 -> 966** (2026-10-06, the maintainer's narrowing of the acceptance grader): `expect-album-audit`'s help says which one warning it expects, and on which build.
+    "uiscript/verbs.py": 966,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical
@@ -2502,7 +2513,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **530 -> 531** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **531 -> 593** (2026-09-28, the Full run's track 3): `reread_supersedes`, which read of a track to keep, beside the AccurateRip predicate it is built on; most of it is the docstring giving the order and the run that set it.
     # **593 -> 613** (2026-10-05): `track_has_unverified_skips`, the shared rule for a track whose reads paranoia could not all verify and AccurateRip did not confirm (2026-10-04 rig run, track 18).
-    "verdict.py": 613,
+    # **613 -> 653** (2026-10-06, round 30's closing run): `_unconverged_clause`, so the headline names a track AccurateRip did not verify whose re-reads also did not converge; the verdict owns its wording.
+    "verdict.py": 653,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.
