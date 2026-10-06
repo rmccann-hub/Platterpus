@@ -1779,7 +1779,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **730 -> 733** (2026-10-05): `realtime_multiplier_basis` says the multiplier is always elapsed over the audio read, and when the key is absent.
     # **733 -> 747** (2026-10-05, round 30 lap 4 S43): `ComponentEntry`, `COMPONENTS.json`'s row with `version_text` beside `version`. A type beside `ComponentInventory`, the type it is a field of; its own type so the rip report's `DependencyEntry` does not change.
     # **747 -> 754** (2026-10-06, ruling C1, KDD-41): `OutcomeBlock` names `securing_pass_started` / `securing_pass_exit_code` and says `ripper_exit_code` is the album pass's (schema v31), beside the field it splits.
-    "report_types.py": 754,
+    # **754 -> 772** (2026-10-06, W6): `RipperRecordBlock`, schema v32's `outcome.ripper_record` (cyanrip's own `-j` record of the album pass), beside `OutcomeBlock`, the block it is a field of.
+    "report_types.py": 772,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1852,7 +1853,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2581 -> 2582** (2026-09-28, the `-Z` wording): the `secure_rerip_converged` comment says a hit repeat limit can follow two reads that agreed, which "without any two agreeing" denied.
     # **2668 -> 2683** (2026-10-05, the 2026-10-04 run's section I report): `build_gates` takes the launched-check ledger, so a cancelled rip whose checks began says "superseded" or "ran" rather than "not run", and applies "superseded" first; the docstring says why a cancel can start the chain.
     # **2683 -> 2705** (2026-10-06, ruling C1, KDD-41): schema v31 — `build_outcome` writes the securing pass's exit apart from the album pass's, the issue wording names the album pass, and the v31 history note sits beside the version. The keys are `rip_pass_exit.py`'s.
-    "rip_report.py": 2705,
+    # **2705 -> 2731** (2026-10-06, W6): schema v32 — `build_outcome` takes cyanrip's own record and writes `ripper_record` (built by `ripper_ending.report_block`, because this is the one place holding the status, our exit code and the record), the `ripper_record_disagrees` issue, and the v32 note.
+    "rip_report.py": 2731,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -2186,7 +2188,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4919 -> 4952** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_merge_shipped_track` moves the agreement count with the verdict it describes (the re-rip's, or nothing, never the first pass's under the re-rip's verdict), and the finish handler captures the worker's `reread_agreements`. The merge rule lives here.
     # **4952 -> 4977** (2026-10-05, the fork's round 30 lap 9 S28): the rescue and the shutdown stop read the worker's `stop_signal_reach()` where they fire and hand it over, and the rescue's docstring says why (a native cyanrip IS what the cancel signalled).
     # **4977 -> 4998** (2026-10-06, ruling C1, KDD-41): the outcome snapshot carries the securing pass's exit, a failed rip's status line names each pass's exit when a securing pass followed it, and the bundle facts say `album pass exit ok` / `securing pass exit`. The phrasing is `rip_pass_exit.py`'s.
-    "ui/main_window_rip.py": 4998,
+    # **4998 -> 5003** (2026-10-06, W6): the outcome snapshot takes the worker's `ripper_ending`, and the status line adds what cyanrip's own record says (`ripper_ending.status_suffix`, where the wording lives).
+    "ui/main_window_rip.py": 5003,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2481,7 +2484,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3990 -> 4031** (2026-10-05, the fork's round 30 lap 9 S28): `_signal_stop` records what its one SIGTERM reached, and `stop_signal_reach()` hands it to the window while that process is unreaped. The worker is the only place that knows which process it signalled.
     # **4031 -> 4066** (2026-10-05, the fork's round 30 lap 9 S28, the reap's door): `_reap_ripper` waits out `READER_TERM_GRACE_S` after our own SIGTERM and then SIGKILLs alone, instead of sending a native cyanrip its second SIGTERM 15 s after the read loop broke; the docstring says why and what it costs behind the wrapper.
     # **4066 -> 4101** (2026-10-06, ruling C1, KDD-41): the securing pass runs after an exit-1 pass that finished. The gate and the plan went to a NEW focused module, `securing_pass.py` (the old inline block, -79 lines, left); what is here is `_run_securing_pass` (records the plan, says a refusal, keeps the album pass's failure hint), one exit-code field per pass with `securing_pass_started` / `securing_pass_exit_code`, the securing pass's labelled errors, and the per-pass reset of `log_is_this_passes`.
-    "workers/rip_worker.py": 4101,
+    # **4101 -> 4125** (2026-10-06, W6): the worker keeps the last album pass's `-j` record path and reads it, on its own thread, after the log wait and on the start-failure exit, exposing `ripper_ending`. The reading itself is the new focused module `ripper_ending.py`; the worker is the only place that knows which record is the last album pass's and when it is safe to read.
+    "workers/rip_worker.py": 4125,
 }
 
 

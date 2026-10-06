@@ -1508,6 +1508,44 @@ def test_a_rip_cancelled_after_its_read_finished_says_cancelled_not_done(
     assert not any(s.startswith("Done — ") for s in statuses), statuses
 
 
+def test_the_fidelity_line_carries_a_disagreement_with_cyanrips_own_record(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """W6, on the success path that replaces the status with the fidelity line:
+    a rip we call finished whose own record says interrupted says both."""
+    from types import SimpleNamespace
+
+    from platterpus.ripper_ending import STATE_READ, RipperEnding
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False,
+        failure_hint="",
+        ripper_exit_code=0,
+        ripper_ending=RipperEnding(
+            STATE_READ, exit_code=0, interrupted=True, interrupted_by="SIGTERM"
+        ),
+    )
+    window._active_rip_params = None
+    window._rip_cancelled = False
+    window._auto_retry_done = True
+    statuses: list[str] = []
+    monkeypatch.setattr(window._rip_progress, "set_status", statuses.append)
+    log_file = tmp_path / "rip.log"
+    log_file.write_text(
+        _ROUND30_OCT04_FULL_LOG.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    window._on_rip_finished(True, str(log_file))
+    report_writer.writer().flush()  # the report write is off-thread now
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+
+    fidelity = [s for s in statuses if s.startswith("Done — ")]
+    assert fidelity, statuses  # floor: the fidelity line was composed
+    assert "⚠ Platterpus recorded the rip as finished" in fidelity[-1], fidelity
+
+
 def test_no_auto_heal_when_not_flagged(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -9177,7 +9215,8 @@ def test_a_failed_rip_followed_by_a_securing_pass_says_which_pass_exited_how(
     window._finish_rip(success=False, log_path="")
 
     status = window._rip_progress.current_status()
-    assert status.endswith("(album pass exit 1; securing pass exit 0)"), status
+    # In the sentence, ahead of what cyanrip's own record says (W6), if anything.
+    assert "(album pass exit 1; securing pass exit 0)" in status, status
     assert window._last_outcome["ripper_exit_code"] == 1
     assert window._last_outcome["securing_pass_started"] is True
     assert window._last_outcome["securing_pass_exit_code"] == 0
@@ -9193,6 +9232,54 @@ def test_a_failed_rip_with_no_securing_pass_names_no_pass(teardown_threads) -> N
     assert "pass exit" not in window._rip_progress.current_status()
     assert window._last_outcome["securing_pass_started"] is False
     assert window._last_outcome["securing_pass_exit_code"] is None
+
+
+def test_a_failed_rip_says_what_cyanrips_own_record_says(teardown_threads) -> None:
+    """W6: the status line says how cyanrip's own record says the album pass
+    ended, and the outcome snapshot carries the record, tri-state."""
+    from platterpus.ripper_ending import STATE_READ, RipperEnding
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        failure_hint="",
+        ripper_exit_code=1,
+        ripper_ending=RipperEnding(
+            STATE_READ, exit_code=1, interrupted=True, interrupted_by="SIGTERM"
+        ),
+    )
+    window._last_rip_error = None
+
+    window._finish_rip(success=False, log_path="")
+
+    status = window._rip_progress.current_status()
+    assert status.endswith("cyanrip's own record: interrupted by SIGTERM (exit 1)."), (
+        status
+    )
+    record = window._last_outcome["ripper_record"]
+    assert (record["state"], record["interrupted_by"]) == (STATE_READ, "SIGTERM")
+
+
+def test_a_finished_rip_the_record_calls_interrupted_says_both(
+    teardown_threads,
+) -> None:
+    """Where the record and our own reading disagree, both are said, marked."""
+    from platterpus.ripper_ending import STATE_READ, RipperEnding
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        failure_hint="",
+        ripper_exit_code=0,
+        ripper_ending=RipperEnding(
+            STATE_READ, exit_code=0, interrupted=True, interrupted_by="SIGINT"
+        ),
+    )
+
+    window._finish_rip(success=True, log_path="")
+
+    status = window._rip_progress.current_status()
+    assert "⚠ Platterpus recorded the rip as finished" in status, status
+    assert "interrupted by SIGINT" in status
+    assert window._last_outcome["ripper_record"]["disagreements"]
 
 
 def test_the_workers_hint_still_wins_when_it_has_one(teardown_threads) -> None:
