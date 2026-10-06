@@ -13,7 +13,7 @@
 #                               measured: 4h14m (2026-09-22, 247 steps) and
 #                               5h33m (2026-09-26, 320 steps, the sum of its
 #                               report's step times), both on the Pioneer rig;
-#                               the script is 415 steps now
+#                               the script is 430 steps now
 #                   Full rips the whole disc TWICE (once fast, once with every
 #                   track read at least three times) plus seven short partial
 #                   rips.
@@ -290,6 +290,15 @@ expect-cyanrip platterpus-fork
 expect-ripper-under-review
 expect-newest-pair
 snapshot identity
+
+# A4, TASKS "Cold-container start: two container entries at launch". The first
+# container command of a launch now runs alone (container_gate.FIRST_ENTRY), and
+# a probe that had to wait for it logs a line saying so. Whether it did is in
+# this launch's own log, from before this script started; `app-log` copies the
+# lines into the transcript (info, never a failure). No line means no probe
+# waited: the container was warm, or one command ran at a time.
+log A4 (TASKS "Cold-container start"): did a probe at launch wait for the first container command, and did one run anyway after the wait?
+app-log for the first container command
 
 # WHICH LINK IN THE RIPPER CHAIN FAILS TO EXIT — gathered, never asserted.
 #
@@ -640,6 +649,7 @@ album-artist Platterpus Acceptance
 rip
 wait-for-rip 21600
 snapshot afterfullrip
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
 screenshot afterfullrip
 # ASSERT THE RIPPER'S RECORD, NOT THE LABEL ON SCREEN.
 #
@@ -764,6 +774,7 @@ rip
 answer-dialog click=new 120 Album already ripped
 wait-for-rip 3600
 snapshot afteroverwrite
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
 screenshot afteroverwrite
 expect-rip-complete
 # Same shape as F: section I starts a rip, so H's post-rip checks are dropped
@@ -819,11 +830,28 @@ expect-status cancelled
 # What §I needs is that the RECORD survived: footer present with either verdict,
 # not truncated, and the FUN512 signature -- written from atexit, so a hard kill
 # destroys it -- present and the right shape.
+# A4, TASKS "S25 on hardware". The two steps below are the cancel half of S25:
+# cyanrip's footer, and its own -Y verdict (`ripper_log_integrity`) on the log
+# a cancel left, on the container path. The rescue and the window-close stop
+# signal the ripper through the same call with the same grace
+# (drive_control.term_unsignalled_holders, READER_TERM_GRACE_S). The other half,
+# closing the main window mid-rip, cannot be a step: closing the window ends the
+# app and this script with it, so no later step could run -Y on what it left.
+log A4 (TASKS "S25 on hardware"): the next two steps grade the footer and cyanrip -Y on a cancelled rip's log; the window-close trigger itself is not scriptable
 expect-log-well-formed
 # The fork's own verdict on the record a cancel left: `ripper_log_integrity` is
 # cyanrip -Y on this log. A cancelled rip's other checks are about a rip that
 # was not meant to finish, so only these two questions are asked here.
 expect-album-audit ripper_log_integrity argv_agreement
+# A4, TASKS "If a podman ever forwards the wrapper's SIGTERM into the container".
+# Nothing measured which world a rig is in. This cancel does: if the rescue,
+# 5 s after Cancel, still found the ripper holding the drive and the log was
+# signed afterwards, the cancel's own SIGTERM never reached it (one signal). If
+# the drive was already free, something stopped it sooner (forwarded). If the
+# rescue found it holding and the log has no footer, that is the second-signal
+# hazard. Recorded as info, never a failure, with the log lines it read.
+log A4 (TASKS "If a podman ever forwards the wrapper's SIGTERM"): which SIGTERM world this rig is in
+sigterm-world
 snapshot aftercancel
 screenshot aftercancel
 rig-check
@@ -850,6 +878,7 @@ album after cancel (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot afterrecovery
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
 screenshot afterrecovery
 expect-rip-complete
 # Same shape as F: K1 starts a rip. J's rip was the third of the three whose
@@ -1045,6 +1074,7 @@ album derived wav (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot afterwav
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
 screenshot afterwav
 expect-rip-complete
 expect-derived-output wav
@@ -1192,6 +1222,7 @@ album secure reread (run) (ripper)
 rip
 wait-for-rip 21600
 snapshot aftersecurereread
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
 screenshot aftersecurereread
 # Same verb as section F, for the same reason, and THIS is the section that paid
 # for it: on 2026-09-03 `expect-status Done` failed here on a rip that had

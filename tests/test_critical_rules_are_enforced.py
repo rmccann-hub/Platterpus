@@ -1497,7 +1497,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **538 -> 557** (2026-10-05): `running_readers()`, the reader probe the exit check asks, beside the reader names the kill path uses so the two cannot disagree (2026-10-05).
     # **557 -> 565** (2026-10-05): `free_device_holders` says why the rescue's SIGTERM is the first the reader gets (the container boundary, measured 2026-09-07 and 2026-09-09), where it said a signalled reader would have exited, which a 54 s read disproves.
     # **565 -> 834** (2026-10-05, the fork's round 30 lap 9 S28): `second_signal_refusal`, the predicate that keeps the rescue and the shutdown stop from sending a native cyanrip our cancel already reached its second SIGTERM, and `term_unsignalled_holders` / `device_holders` / `parse_fuser_pids`, which ask `fuser` who holds the drive before signalling. Beside `free_device_holders` and `stop_reader_gracefully` because it is the first step of the same kill sequence (rule #3's one scoped exception); the most of it is the docstrings saying why each path is safe.
-    "drive_control.py": 834,
+    # **834 -> 838** (2026-10-06, TASKS A4 "Fold the hardware-only checks into the closing run"): the one `term_unsignalled_holders` arm that returned with no line (no holder, after a cancel that reached a process) now logs its outcome, because `sigterm-world` reads the outcome from the log and a silent arm reads as no rescue.
+    "drive_control.py": 838,
     # **488 -> 447** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **447 -> 452** (2026-10-05): `DriveProfile.read_rate`, the drive's measured reading speed the up-front rip estimate rests on (operator, 2026-10-05).
     "drive_profiles.py": 452,
@@ -2435,7 +2436,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4787 -> 4785** (2026-10-06, ruling C1): `expect-verification`'s did-not-finish detail phrases each pass's exit through `rip_pass_exit`, two lines shorter than reading the code inline.
     # **4785 -> 4778** (2026-10-06, KDD-41 C4): lowered: `_drive_in_offset_list` moved to `offset_grading.py`, shared by `set-drive-offset` and the new `expect-offset-refusal`, whose handler is its own mixin (`offset_verbs.py`), not here.
     # **4778 -> 4780** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the import and base class of `UnknownDiscVerbsMixin`; its two handlers went to their own mixin, not here.
-    "uiscript/runner.py": 4780,
+    # **4780 -> 4782** (2026-10-06, TASKS A4 "Fold the hardware-only checks into the closing run"): the import and base class of `AppLogVerbsMixin`; its handlers went to their own mixin, not here.
+    "uiscript/runner.py": 4782,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2464,7 +2466,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **874 -> 901** (2026-10-05, section J2): three verb declarations, `set-library-scratch`, `expect-library-move` and `expect-rip-argv`, with the comment saying why the first must be a verb. The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **901 -> 915** (2026-10-06, KDD-41 C4): the `expect-offset-refusal` declaration. The table is the vocabulary's security boundary, so a verb is an entry here by design; its handler is a new mixin, `offset_verbs.py`.
     # **915 -> 933** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the `expect-unidentified` and `expect-unknown-record` declarations; the handlers are a new mixin, `unknown_disc_verbs.py`.
-    "uiscript/verbs.py": 933,
+    # **933 -> 953** (2026-10-06, TASKS A4 "Fold the hardware-only checks into the closing run"): the `app-log` and `sigterm-world` declarations; the handlers are a new mixin, `applog_verbs.py`.
+    "uiscript/verbs.py": 953,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical

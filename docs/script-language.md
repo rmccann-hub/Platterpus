@@ -101,6 +101,8 @@ text is taken verbatim as one value.
 | `expect-ripper-under-review` | 0 | ready | expect-ripper-under-review — assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first) |
 | `probe-ripper-wrapper` | 0 | ready | probe-ripper-wrapper — time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run |
 | `expect-tracks` | 1 | ready | expect-tracks <count|count+> — assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants |
+| `app-log` | 1+ (rest of line) | ready | app-log <text> — record every line this launch's log holds containing <text> (case-insensitive), as info; never fails, and says how much of the launch the log kept |
+| `sigterm-world` | 0 | ready | sigterm-world — after a cancel-rip: record whether the cancel's own SIGTERM reached the ripper in the container, from the post-cancel rescue's outcome in this launch's log and the cancelled rip's log footer (info; never fails) |
 | `tier` | 2+ (rest of line) | ready | tier <0-4> <label> — the steps after this belong to tier N, in a block named <label> that later steps can declare a dependency on |
 | `needs` | 1+ (rest of line) | ready | needs <label…> — the steps after this are PREVENTED (not skipped) if any named block already failed; the record names the prerequisite |
 | `run-size` | 1 | ready | run-size <quick|standard|full> — the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped) |
@@ -384,6 +386,7 @@ found nothing wrong*.
       "expect-album-audit",
       "track-title",
       "expect-refused",
+      "app-log",
       "tier",
       "needs",
       "cyanrip",
@@ -799,6 +802,22 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-tracks <count|count+> \u2014 assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants"
+    },
+    {
+      "name": "app-log",
+      "min_args": 1,
+      "max_args": null,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "app-log <text> \u2014 record every line this launch's log holds containing <text> (case-insensitive), as info; never fails, and says how much of the launch the log kept"
+    },
+    {
+      "name": "sigterm-world",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "sigterm-world \u2014 after a cancel-rip: record whether the cancel's own SIGTERM reached the ripper in the container, from the post-cancel rescue's outcome in this launch's log and the cancelled rip's log footer (info; never fails)"
     },
     {
       "name": "tier",
