@@ -1723,6 +1723,13 @@ each side's reading; and the closing releases named.
 - [x] **Our lap checker crashed on a UTF-16 citation** (found writing lap 16): fixed at
   `064acfe3`, sent to the fork as lap 16 S15, since their `tools/lap-statements.py`
   decodes the same way (`cyanrip@7ef9223f:tools/lap-statements.py:330-331`).
+- [x] **Our `outbound/` held 44 transport envelopes duplicating our laps** (the
+  maintainer noticed, 2026-10-06). Retired at `39a08d9c` with a provenance table in
+  `docs/handshake/README.md`; round 15 lap 15's unfiled revision kept under
+  `outbound/superseded/`; the envelope tool no longer writes in the repository; a sweep
+  refuses an envelope in the lap directories. Told to the fork in lap 16 S23.
+- [ ] **`inbound/superseded/README.md` has no row for `round-07-lap-25-as-second-sent.md`**
+  (noticed by the envelope helper, 2026-10-06).
 - [x] **`--status` printed `GO`/`GO -> OPEN` with no reason** (found on lap 15): each
   close blocker now prints as a `blocks the close:` line (`88d5f07a`).
 
