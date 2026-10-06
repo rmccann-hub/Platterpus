@@ -40,6 +40,9 @@ env/
 # pytest / coverage
 .pytest_cache/
 .coverage
+# One per process while a parallel (`-n auto`) coverage run is in flight; combined
+# into `.coverage` and deleted when it ends, so only a running or killed run leaves them.
+.coverage.*
 # Written by conftest's pytest_sessionfinish as proof the run reached the end.
 # Absent ⇒ the process died mid-run and its exit status means nothing.
 .pytest-session-complete
