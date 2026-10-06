@@ -12,6 +12,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The acceptance run expects the build under review to say it is unreleased.**
+  A fork build is tested as a beta inside its open round, and it must say *NOT a
+  released build* in every log. `expect-album-audit` failed on that sentence seven
+  times in round 30's closing run, by construction. It now counts that one warning
+  as expected only when the report shows the binary is the build under review: a
+  clean fork tag naming it, our verdict `unapproved`, and the note naming the
+  reviewing round. Any other build, round or verdict still fails, and a user
+  ripping with an unreleased build is still warned. The 2026-10-06 run stays
+  `partial`.
+
 ### Fixed
 
 - `.gitignore` covers the per-process `.coverage.*` files a parallel coverage run
