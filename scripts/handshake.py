@@ -2465,6 +2465,11 @@ PEER_VERDICT_SOURCE_FROM_PROTOCOL: Final[int] = 5
 #: counts lines ending in ``OPEN`` as open rounds.
 SOURCE_LINE_PREFIX: Final[str] = "  §5b "
 
+#: Prefix of each line naming a blocker that holds a round's close open, one per
+#: blocker per newest file (see the end of `_grade_round`). Indented two spaces
+#: by the caller, and every such line ends in ``(§5)``, never in ``OPEN``.
+BLOCKS_CLOSE_PREFIX: Final[str] = "blocks the close: "
+
 #: Printed under a round this gate reads CLOSED only because §5b step 3 resolved the
 #: PEER's closing file from a newer lap of OURS that the peer's file does not list.
 #:
@@ -3708,6 +3713,25 @@ def _grade_round(
     # Ends in ")" by construction — `protocol_refusal` ends "(§3)" — so a
     # refusal line is never itself counted as an open round by the gate.
     lines.extend(f"  refused {problem}" for problem in refused)
+    # WHAT HOLDS A CLOSE OPEN, BY FILE. `our_blockers` and `their_blockers` decide
+    # `both_go`, and until 2026-10-06 neither was printed: round 30 read
+    # `GO`/`GO -> OPEN` with no reason when the fork's lap 15 declared GO without
+    # HANDSHAKE-AGREED-CHANGES (row C44), and the only way to learn why was to
+    # call `close_blockers` by hand. Each line ends in ")" so it is never itself
+    # read as an open round by the line-ending test above.
+    for path, blockers in (
+        (ours[-1] if ours else None, our_blockers),
+        (back[-1] if back else None, their_blockers),
+    ):
+        if path is None:
+            continue
+        # A §5b resolution blocker is already printed among `v5_notes`, with its
+        # own prefix; naming it twice would read as two problems.
+        lines.extend(
+            f"  {BLOCKS_CLOSE_PREFIX}{path.parent.name}/{path.name}: {b} (§5)"
+            for b in blockers
+            if f"{SOURCE_LINE_PREFIX}{b}" not in v5_notes
+        )
     lines.extend(v5_notes)
     if state == "CLOSED" and closes_early_on is not None:
         peer_file, our_file = closes_early_on

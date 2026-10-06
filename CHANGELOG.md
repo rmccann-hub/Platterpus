@@ -36,6 +36,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The handshake gate says what holds a round open.** When both sides had declared
+  `GO`, `handshake.py --status` could still print the round OPEN with no reason:
+  the checks that refuse a closing lap's missing fields decided the state and were
+  never shown. Each one now prints as a `blocks the close:` line naming the file
+  and the rule, as it did on round 30, where the fork's lap 15 lacked
+  `HANDSHAKE-AGREED-CHANGES` (contributor-facing).
 - **The lap checker no longer crashes on a cited file that is not UTF-8.** It
   decoded every `evidence:` file as strict UTF-8, and EAC writes its logs in UTF-16,
   so the first lap to cite EAC's own log stopped the whole check with a decode
