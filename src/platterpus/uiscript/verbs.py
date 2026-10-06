@@ -756,6 +756,26 @@ _VERB_LIST: tuple[Verb, ...] = (
         "a trailing '+' means 'at least this many', which is what a script that "
         "must work on any disc actually wants",
     ),
+    # --- What this launch logged (`applog_verbs.py`, 2026-10-06) --------------
+    # For TASKS rows only a drive run settles (TASKS "Fold the hardware-only
+    # checks into the closing run"): both gather, as INFO, and never fail a run.
+    Verb(
+        "app-log",
+        1,
+        None,
+        "app-log <text> — record every line this launch's log holds containing "
+        "<text> (case-insensitive), as info; never fails, and says how much of the "
+        "launch the log kept",
+    ),
+    Verb(
+        "sigterm-world",
+        0,
+        0,
+        "sigterm-world — after a cancel-rip: record whether the cancel's own "
+        "SIGTERM reached the ripper in the container, from the post-cancel "
+        "rescue's outcome in this launch's log and the cancelled rip's log footer "
+        "(info; never fails)",
+    ),
     # --- Tiers and dependency pruning (round 18's procedure, scaffolding only) --
     #
     # A SCRIPT VERB rather than a CLI flag, per `CLAUDE.md`: the script language is

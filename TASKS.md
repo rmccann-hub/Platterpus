@@ -142,7 +142,7 @@ their beta.
     passed the relative floor alone. `tests/test_workflow_permissions.py` holds the shape;
     four reverts probed, all detected. The BOM generator now reads the pinned version
     (it had dropped gitleaks from the map when the action went).
-- [ ] **Fold the hardware-only checks into the closing run** (A4). Each needs a drive and
+- [x] **Fold the hardware-only checks into the closing run** (A4). Each needs a drive and
   the closing Full run is the next drive run, so each becomes a step there instead of a
   separate run: the S25 footer inside the grace on the container path (*S25 on
   hardware*), screenshots recording INFO where they failed (*Three screenshot steps
@@ -151,6 +151,20 @@ their beta.
   forwards the wrapper's SIGTERM*), and the 150 % text windows on KWin (*Confirm on the
   rig what headless cannot show*). Each step names its row, so the bundle closes rows
   rather than a person.
+  - *2026-10-06: DONE in script lines, four of five; the fifth cannot be a step.*
+    Each step sits beside a `log A4 (TASKS "<row>")` line naming its row, and
+    `tests/test_uiscript_applog_verbs.py` holds each in place. (1) *S25*: section I's
+    `expect-log-well-formed` and `expect-album-audit ripper_log_integrity` (cyanrip
+    `-Y`) already grade a cancelled rip's log on the container path, and the rescue
+    and the window-close stop signal through one call with one grace; the close
+    trigger itself is not scriptable (its row says why). (2) *Screenshots*: already
+    covered; the five post-rip screenshots (F, H, J, K3, N) now name the row.
+    (3) *Cold container*: section A's new `app-log for the first container command`
+    copies this launch's lines into the transcript. (4) *SIGTERM world*: section I's
+    new `sigterm-world`, read from the rescue's outcome in the log and the kept
+    log's footer; the filed 2026-10-05 run already reads ONE SIGNAL by it.
+    (5) *150 % on KWin*: not a step; its row says why. Both new verbs gather (info)
+    and never fail a run.
 - [ ] **Retire the two smallest `disallow_any_generics` opt-outs** (D2; rule 10: one per
   commit, never add one). `pyproject.toml` lists six modules: `rip_report` 67 sites,
   `rip_compare` 18, `adapters.musicbrainz_client` 10, `ui.main_window_shared` 9,
@@ -190,6 +204,13 @@ at 100 % and 150 % text, and the screenshots were looked at.
   Wayland, where a client cannot place its own window. At 150 % text, open Help →
   Check for cyanrip updates and the test console's script reference, and confirm
   the buttons are on screen.
+  - *2026-10-06 (A4): not a step, and why.* The text scale is a desktop setting a
+    script can neither set nor put the run into, so a run cannot place itself at
+    150 %. The two windows the row names are outside the script surface: *Check for
+    cyanrip updates* reads the fork's manifest and can offer an install, which no
+    verb may answer, and the script reference belongs to the console that runs the
+    script. And on native Wayland the compositor places windows, which the app
+    cannot read back to grade. It stays a by-hand check at 150 % on the rig.
 - [x] **A window exactly as wide as the screen has its frame's side border off
   it** (the release picker on a 1280 × 800 panel at 150 %; a message box carrying
   a long path on a screen up to 1024 px wide). No content is lost, only the border
@@ -918,18 +939,37 @@ Open:
   (`container_gate.FIRST_ENTRY`, claimed in `KillableCommand.run`). **Inferred, not
   reproduced:** the next cold launch on the rig is the test, and the app log says
   when a probe waited.
+  - *2026-10-06 (A4): read by the closing run.* Section A's new step `app-log for
+    the first container command` copies every such line from this launch's log
+    into the transcript (info, never a failure), with how much of the launch the
+    log kept. No line means no probe waited: a warm container, or one command at a
+    time, so only a launch on a cold container settles it.
 - [x] **The securing pass's own ripper log is always deleted with its temp folder.** On
   success the swap addendum carries what was swapped; the per-read record of a pass
   that swapped nothing was in no artifact. It is now copied beside the album's log as
   `<album>.platterpus-securing-pass.txt` (`rip_addendum.securing_pass_log_path_for`),
   whatever the pass did, footer or not; `.txt` so it is never a second candidate for
   the album's `.log`.
-- [ ] **If a podman ever forwards the wrapper's SIGTERM into the container, the
+- [~] **If a podman ever forwards the wrapper's SIGTERM into the container, the
   post-cancel rescue becomes a second signal** on any read longer than its 5 s
   countdown, and cyanrip `_exit(1)`s without its footer
   (`cyanrip@174a134:src/cyanrip_main.c` `on_quit_signal`). Nothing measures which
   world a rig is in. A kept securing-pass log (the row above) would show it: a
   cancelled pass on a slow read whose log has no footer.
+  - *2026-10-06 (A4): measured on every cancel now, not only on a slow read.*
+    Section I's new step `sigterm-world` reads the rescue's outcome out of this
+    launch's log and the cancelled rip's footer: the rescue finding the ripper still
+    holding the drive 5 s after Cancel, with the log signed afterwards, means the
+    cancel's SIGTERM never reached it (one signal); a drive already free means
+    something stopped it sooner (forwarded); holding with no footer is the hazard.
+    **The filed 2026-10-05 Full run reads ONE SIGNAL by the same predicate**:
+    `fuser -k TERM /dev/sr0 rc=0` at +4.75 s
+    (`docs/handshake/artifactsround30/round30oct05fullplatterpusapplog1.txt:22166`),
+    log signed at 22:45:02 (`round30oct05fullcancelme.log`), pinned by
+    `tests/test_uiscript_applog_verbs.py::test_the_filed_2026_10_05_cancel_reads_one_signal`.
+    One cancel on one podman version, so open until the closing run's step agrees.
+    The one rescue arm that logged no outcome (no holder, after a cancel that
+    reached a process) now logs one, or its silence would read as no rescue.
 
 ## 2026-10-05 operator requests
 
@@ -1211,6 +1251,16 @@ each side's reading; and the closing releases named.
   - *2026-10-05: 108 s.* The 2026-10-04 rig run's damaged disc took 54 s over one read
     (`docs/handshake/artifactsround30/round30oct04full.log:1501`); filed, and the floor
     follows it again.
+  - *2026-10-06 (A4): the cancel half is in the closing run; the close trigger
+    cannot be a step.* Section I now names this row beside its
+    `expect-log-well-formed` and `expect-album-audit ripper_log_integrity` (cyanrip
+    `-Y` on the kept log), which grade a cancelled rip's footer on the container
+    path. The post-cancel rescue and the window-close stop both reach the ripper
+    through `drive_control.term_unsignalled_holders` with `READER_TERM_GRACE_S`, so
+    that is the same signal and the same grace. What it cannot show is the close
+    trigger: closing the main window ends the app and the script with it, so no
+    later step can run `-Y` on what it left. That half stays a by-hand check on the
+    rig (close mid-rip, then `cyanrip -Y` on the log).
 - [x] **The acceptance test grades what each rip left, not only that it finished**
   (2026-09-30, for the next release; asked for with the round-30 Full run: *"this
   test will do all reasonable permutations… if not we need to fix or update the
@@ -1720,6 +1770,11 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     bundle's `screen lock` line now calls it the desktop's promise, not a
     measurement. Open for one thing only: a Full run on this build to show the
     steps record INFO where they failed.
+  - *2026-10-06 (A4): confirmed covered, and named in the closing run.* The
+    INFO branch is built and tested
+    (`tests/test_uiscript_rip_verbs.py::test_screenshot_renders_open_windows_when_the_display_shows_none`);
+    the five screenshots after a long or post-cancel rip (F, H, J, K3, N) each now
+    follow a `log` line naming this row, so the transcript says where to look.
 - [x] **For the maintainer, and only for runs after the decision: should a screenshot step
   be able to fail an ARCHIVAL section?** H, J and K3 each contain one, so a blank screen
   makes the run `partial` whatever the rips did. Grading is fixed in advance and never

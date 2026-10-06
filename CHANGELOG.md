@@ -25,6 +25,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   reading disagree, for example a rip Platterpus thinks finished that cyanrip
   records as interrupted, both answers are shown, marked ⚠, and the report adds
   a `ripper_record_disagrees` warning.
+- **The closing acceptance run settles or records the hardware-only checks itself.**
+  Five open checks needed a drive and had no run of their own. Four are now steps in
+  the Full run, each beside a line naming the TASKS row it closes: the cancelled
+  rip's footer and cyanrip's own `-Y` verdict (the cancel half of S25); the
+  screenshots after long rips, which record info rather than fail when the display
+  has stopped showing the app; whether a probe at launch waited for the first
+  container command (new script verb `app-log`, which copies matching lines from
+  this launch's own log); and whether a cancel's SIGTERM reaches the ripper inside
+  the container (new script verb `sigterm-world`, read from the post-cancel rescue's
+  outcome and the cancelled log's footer). Both new verbs gather and never fail a
+  run. The fifth, 150 % text on KWin, cannot be scripted and stays a check by hand.
+  One rescue path that logged no outcome now logs one.
 - **A second acceptance run, for a disc MusicBrainz does not know.** The full run
   stops when it cannot identify the disc, on purpose, so the unknown-album path had
   never run in an acceptance test. **Tools → Advanced → Run acceptance test with an

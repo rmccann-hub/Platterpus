@@ -45,6 +45,7 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QWidget
 
 from platterpus import __version__, build_info, inbound_text, rip_pass_exit
 from platterpus.uiscript import run_sizes
+from platterpus.uiscript.applog_verbs import AppLogVerbsMixin
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
 from platterpus.uiscript.offset_grading import drive_in_offset_list
 from platterpus.uiscript.offset_verbs import OffsetVerbsMixin
@@ -426,6 +427,7 @@ class ScriptRunner(
     PermutationVerbsMixin,
     OffsetVerbsMixin,
     UnknownDiscVerbsMixin,
+    AppLogVerbsMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.

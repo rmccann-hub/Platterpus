@@ -667,6 +667,10 @@ def term_unsignalled_holders(
         )
         return "not determined"
     if not holders:
+        # Logged, because `sigterm-world` reads this outcome out of the log:
+        # every other arm logs one, and an outcome no line records reads as one
+        # that never happened (`CLAUDE.md`: an absence is a fact about the logger).
+        log.info("nothing holds %s, so no process was signalled", device)
         return "nothing held it"
     signalled = refused = failed = 0
     for pid in holders:
