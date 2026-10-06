@@ -253,7 +253,6 @@ def test_it_declares_cyclonedx_1_7(committed: dict[str, object]) -> None:
     assert metadata["lifecycles"] == [{"phase": "pre-build"}]
 
 
-
 def test_it_is_valid_cyclonedx_1_7_by_the_published_schema() -> None:
     """The map passes the CycloneDX 1.7 JSON schema, strict, checked offline.
 

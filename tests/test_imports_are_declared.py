@@ -70,6 +70,14 @@ SOURCE_ROOTS: Final[tuple[str, ...]] = ("src", "tests", "scripts")
 #: rule (``beautifulsoup4`` → ``bs4`` is the classic), this sweep will fail with the
 #: module named and the file that imports it. Map it *here*, beside this note, and
 #: only for a distribution ``pyproject.toml`` actually declares.
+#:
+#: **The first such row, 2026-10-06:** ``cyclonedx-python-lib`` installs the
+#: ``cyclonedx`` package (the dev extra's schema validator, `PLANNING.md` KDD-41
+#: C7). The sweep failed on it exactly as this note says it would. A row applies
+#: only while ``pyproject.toml`` declares its distribution, and
+#: ``test_every_alias_is_needed_and_declared`` refuses a row the normalisation
+#: already covers, a row for an undeclared distribution, and ``pyyaml``.
+IMPORT_NAME_ALIASES: Final[dict[str, str]] = {"cyclonedx-python-lib": "cyclonedx"}
 
 #: First-party names that are never declared because they are ours. ``platterpus`` is
 #: the package under test; ``conftest`` is pytest's own; test modules import each
@@ -103,7 +111,9 @@ def _satisfiable_names() -> set[str]:
     dependency this project has; see the note above for the case it does not cover
     and what to do about it.
     """
-    names = {dist.replace("-", "_") for dist in _declared_distributions()}
+    declared = _declared_distributions()
+    names = {dist.replace("-", "_") for dist in declared}
+    names |= {alias for dist, alias in IMPORT_NAME_ALIASES.items() if dist in declared}
     names |= {n.lower() for n in names}
     names |= FIRST_PARTY
     names |= set(sys.stdlib_module_names)
@@ -257,3 +267,19 @@ def test_each_source_root_contributes_files(root: str) -> None:
     """
     files = [p for p in _python_files() if p.is_relative_to(REPO_ROOT / root)]
     assert files, f"no Python files found under {root}/ — the sweep is not seeing it"
+
+
+def test_every_alias_is_needed_and_declared() -> None:
+    """An alias row must change an outcome, and only for a declared distribution.
+
+    The table this file once had was all rows the hyphen rule already covered, so
+    a row is refused unless its import name differs from the normalised one. A row
+    for a distribution `pyproject.toml` does not declare would make an undeclared
+    import read as satisfiable, which is the hole this sweep closes; and `pyyaml`
+    is named because aliasing it is the specific mistake the note above warns of.
+    """
+    declared = _declared_distributions()
+    assert "pyyaml" not in IMPORT_NAME_ALIASES
+    for dist, alias in IMPORT_NAME_ALIASES.items():
+        assert alias != dist.replace("-", "_"), f"{dist} -> {alias} is the hyphen rule"
+        assert dist in declared, f"{dist} is aliased but not declared in pyproject.toml"
