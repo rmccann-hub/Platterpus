@@ -1040,4 +1040,4 @@ We are the giver here, so the ease and accuracy columns are ours.
 
 ---
 
-*Last updated for Platterpus v0.6.65.*
+*Last updated for Platterpus v0.6.66b1.*

@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.65 — out of beta, pre-1.0.** Handshake rounds **1 through 29** are closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.18` at **`51cc789`** and Platterpus **`0.6.63`**; 0.6.64 and later install that build by default. 0.6.65 also accepts the fork's `.19` (`174a134`), the build handshake round 30 is testing. The next minor, `0.7.100`, needs a Full hardware acceptance run with no failure in its archival sections, and none has passed yet ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
+> **Status: v0.6.66b1 — a beta of 0.6.66, pre-1.0.** It is a pre-release, offered only to those who tick *Offer beta (pre-release) updates*; the stable channel stays on 0.6.65. Handshake rounds **1 through 29** are closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.18` at **`51cc789`** and Platterpus **`0.6.63`**; 0.6.64 and later install that build by default. 0.6.66b1 accepts the fork's `.20` beta (`5704062`) as the build under review: round 30 closes on a Full acceptance run of the two betas together. The next minor, `0.7.100`, needs a Full hardware acceptance run with no failure in its archival sections, and none has passed yet ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
 >
 > **On the Pioneer BDR-209D, leave Overread (`-O`) off:** it hung the drive for about 23 minutes ([`docs/dependency-contracts.md`](docs/dependency-contracts.md)).
 >
@@ -1036,4 +1036,4 @@ FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full terms.
 
 ---
 
-*Last updated for Platterpus v0.6.65.*
+*Last updated for Platterpus v0.6.66b1.*
