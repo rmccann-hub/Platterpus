@@ -1735,7 +1735,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3399 -> 3428** (2026-10-05, found by the structure fuzz test): an
     # implausible `Ripping errors:` count is stored as not determined and never
     # reads as "No errors occurred" (`_plausible_count`, `_MAX_PLAUSIBLE_ERROR_COUNT`).
-    "parsers/cyanrip_log.py": 3428,
+    # **3428 -> 3431** (2026-10-06): the one-frame tally reads its round-31 label
+    # beside the current one (the fork's round 30 lap 11 S16).
+    "parsers/cyanrip_log.py": 3431,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
