@@ -26,6 +26,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The dependency check keeps the end of a tool's version answer too.** Every
+  version probe kept the first 200 characters of what the tool printed, so a long
+  answer lost its last line, where a failing tool says why. It now keeps 200 at each
+  end with the gap counted. The three places that read cyanrip's build from that text
+  now read only its first line, so a later line can never be taken for the build.
 - **Check for cyanrip updates names the build under review when your channel
   doesn't offer it.** With cyanrip updates on stable, a machine on `.19` was told it
   had the newest stable build, which was true. Nothing said that round 30 was

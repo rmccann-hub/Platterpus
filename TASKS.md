@@ -170,7 +170,7 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   not, which is why it shipped). Swept by
   `tests/test_dependency_output_is_never_cut_at_the_head.py`; fourteen more sites fixed
   with it.
-- [ ] **The version probes' `raw_output` is still cut at the head** (the sweep's
+- [x] **The version probes' `raw_output` is still cut at the head** (the sweep's
   allowance, 2026-10-06). Seven sites in `deps/checks.py` keep `output.strip()[:200]`.
   They are not widened yet because three readers take the WHOLE text for the banner
   (`build_notes.cyanrip_build_note` and `ripper_update_worker` call
@@ -178,6 +178,9 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   `fork_commit_from_banner`, which reads to the last `)`). A tail added to the capture
   could reach either parenthesis. Fix: hold those readers to the banner line first, then
   capture head and tail, then shrink the allowance to nothing.
+  - *Done 2026-10-06, in that order:* `ripper_identity.banner_line`; the build note and
+    the update worker read through it; `checks._capture` keeps 200 characters at each
+    end; the allowance's two `deps/checks.py` entries are gone. Revert-probed three ways.
 - [x] **On the stable cyanrip channel, `.19` reads as up to date while the acceptance
   run needs `.20`** (found 2026-10-06, moving the build under review). `.20` is on the
   fork's beta channel alone, so `evaluate_offer(stable, installed=174a134)` answers

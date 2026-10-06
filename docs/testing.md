@@ -2246,8 +2246,10 @@ does my stand-in do that the real thing does not?* And the rule had been applied
 where it was learned, not swept. It is now swept:
 `tests/test_dependency_output_is_never_cut_at_the_head.py` refuses a head-only
 slice as a `raw_output=` value or inside any `log.<level>()` call; fourteen more
-sites were fixed with it, and it holds the version-probe captures it could not yet fix
-in a shrink-only allowance with the reason (seven sites, one population).
+sites were fixed with it. The seven version-probe captures waited one commit in a
+shrink-only allowance, because three readers parsed the whole capture for the banner;
+once those readers were held to the banner line (`ripper_identity.banner_line`), the
+captures kept head and tail too and the allowance holds no capture at all.
 
 #### Moved from `CLAUDE.md` (2026-09-26): An ABSENCE in a log is a fact about the logger before it is a fact about the subject
 

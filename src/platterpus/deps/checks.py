@@ -29,6 +29,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 
 from platterpus import diagnostics
 from platterpus.cyanrip_cli import VERSION_FLAGS
@@ -168,8 +169,9 @@ class ProbeResult:
     - `present`: True if the dep is installed and we got a usable answer.
     - `version`: parsed version tuple, or None if we couldn't determine it.
     - `location`: where we found it (path, "(python package)", etc.) or None.
-    - `raw_output`: stdout/stderr we captured, useful for debugging. Kept
-      short — we log it but don't store gigabytes if a probe goes weird.
+    - `raw_output`: stdout/stderr we captured, useful for debugging. Bounded to
+      a head and a tail with the gap counted (`_capture`), so a probe that goes
+      weird cannot store megabytes, and a failing one keeps its last words.
     """
 
     present: bool
@@ -276,6 +278,27 @@ def _run_version_command(
     return True, combined, resolved
 
 
+#: How much of a probe's output `raw_output` keeps at each end. The head is the
+#: 200 characters it always kept, so the banner line readers take is unchanged.
+_CAPTURE_HEAD_CHARS: Final[int] = 200
+_CAPTURE_TAIL_CHARS: Final[int] = 200
+
+
+def _capture(output: str) -> str:
+    """A probe's output for `raw_output`: head and tail, the gap counted.
+
+    This was ``output.strip()[:200]``, a head-only cut: a tool's explanation of
+    a failure is the last thing it prints, and the cut dropped it while looking
+    complete (CLAUDE.md, diagnostic completeness; the sweep in
+    ``tests/test_dependency_output_is_never_cut_at_the_head.py``). Its readers
+    take the banner line through ``ripper_identity.banner_line``, so the tail
+    cannot reach them.
+    """
+    return diagnostics.bounded_chars(
+        output.strip(), head=_CAPTURE_HEAD_CHARS, tail=_CAPTURE_TAIL_CHARS
+    )
+
+
 def _summarize_output(text: str) -> str:
     """Squash captured tool output into one truncated line fit for a log record.
 
@@ -329,7 +352,7 @@ def check_cyanrip(binary_path: Path) -> ProbeResult:
                 present=True,
                 version=version,
                 location=str(binary_path),
-                raw_output=output.strip()[:200],
+                raw_output=_capture(output),
             )
     log.warning(
         "probe: %s answered none of %s — treating cyanrip as unavailable. "
@@ -367,7 +390,7 @@ def check_cdparanoia(binary_path: Path) -> ProbeResult:
         present=True,
         version=version,
         location=str(binary_path),
-        raw_output=output.strip()[:200],
+        raw_output=_capture(output),
     )
 
 
@@ -383,7 +406,7 @@ def check_metaflac(binary_name: str = "metaflac") -> ProbeResult:
         present=True,
         version=version,
         location=location,
-        raw_output=output.strip()[:200],
+        raw_output=_capture(output),
     )
 
 
@@ -404,7 +427,7 @@ def check_flac(binary_name: str = "flac") -> ProbeResult:
         present=True,
         version=version,
         location=location,
-        raw_output=output.strip()[:200],
+        raw_output=_capture(output),
     )
 
 
@@ -427,7 +450,7 @@ def check_ffmpeg(binary_name: str = "ffmpeg") -> ProbeResult:
         present=True,
         version=version,
         location=location,
-        raw_output=output.strip()[:200],
+        raw_output=_capture(output),
     )
 
 
@@ -497,7 +520,7 @@ def check_picard_flatpak() -> ProbeResult:
     # "Version:" line, and without one there is nothing trustworthy to parse.
     if "Version:" not in output:
         return ProbeResult(
-            present=False, version=None, location=None, raw_output=output[:200]
+            present=False, version=None, location=None, raw_output=_capture(output)
         )
 
     version = parse_version(output)
@@ -505,7 +528,7 @@ def check_picard_flatpak() -> ProbeResult:
         present=True,
         version=version,
         location="flatpak: org.musicbrainz.Picard",
-        raw_output=output.strip()[:200],
+        raw_output=_capture(output),
     )
 
 

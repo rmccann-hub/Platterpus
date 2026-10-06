@@ -55,19 +55,6 @@ _MIN_LOG_CALLS: Final[int] = 500
 #: unrelated edit does not churn it. A TWO-WAY ratchet: a new site fails, and an
 #: entry that no longer matches fails too, so the list can only shrink.
 _ALLOWED: Final[dict[tuple[str, str], tuple[int, str]]] = {
-    ("deps/checks.py", "output.strip()[:200]"): (
-        6,
-        "the version probes' raw_output. Their consumers read the WHOLE text "
-        "for the banner (`identify_from_banner` partitions at the first '(', "
-        "`fork_commit_from_banner` at the last ')'), so widening the capture "
-        "to head and tail first needs those readers held to the first line. "
-        "Tracked in TASKS (round 30 closing run, version-probe capture).",
-    ),
-    ("deps/checks.py", "output[:200]"): (
-        1,
-        "the same version-probe population as the entry above, on Picard's "
-        "refusal path; it moves with them.",
-    ),
     ("drive_control.py", "argv[:1]"): (
         2,
         "a LIST head: the program name of the command being skipped, not a "

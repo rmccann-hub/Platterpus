@@ -1256,7 +1256,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **522 -> 527** (2026-09-29): a version probe our cancel ended is logged as stopped,
     # not as a tool that is unavailable (`killable.was_cancelled`).
     # **527 -> 529** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): the failed-probe log line keeps head and tail with the gap counted.
-    "deps/checks.py": 529,
+    # **529 -> 552** (2026-10-06): `_capture`, head and tail for every version probe's `raw_output`, the last head-only cut the sweep allowed.
+    "deps/checks.py": 552,
     # 1678 -> 1691 (2026-09-06): the round-15 close. `FORK_PIN` rolled to
     # `978f9b0` and the roll is documented where the constant is, because the
     # post-close step is the one this file has already watched go stale.
