@@ -936,6 +936,11 @@ Open:
   is a new dependency for the maintainer to approve.
   - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* the schema validator is approved as a dev-only dependency (C7); it lands with
     its `DEPENDENCIES.md` row.
+  - *Done 2026-10-05 (this commit):* `cyclonedx-python-lib[json-validation]>=11.12,<12` in the
+    dev extra; `tests/test_bom_emitted.py::test_it_is_valid_cyclonedx_1_7_by_the_published_schema`
+    validates `bom.cdx.json` strictly against the bundled 1.7 schema, offline, and checks it
+    refuses a broken document. The committed map passed on the first run. An invented
+    field inside one component is detected (revert_probe).
 
 ## Round 30 — OPEN on `174a134` (`+platterpus.19`): the Full run on 0.6.65 with `.19`, and the operator's release-cycle question
 

@@ -98,6 +98,9 @@ dev = [
     "pytest-cov>=5",      # coverage measurement + the CI --cov-fail-under gate
     "pytest-xdist>=3.6,<4",  # parallel runs: CI and scripts/check.py pass `-n auto`
     "hypothesis>=6",      # property-based tests (tests/test_parsers_property.py)
+    # CycloneDX schema validation of bom.cdx.json, offline: the library bundles the
+    # 1.7 schema and its SPDX and JSF references (approved 2026-10-05, KDD-41 C7).
+    "cyclonedx-python-lib[json-validation]>=11.12,<12",
     # --- gating: pinned to the measured minor, bump deliberately ---
     "ruff>=0.15.22,<0.16",  # `lint` + `format --check`; 0.16 may reformat
     "mypy>=2.3,<2.4",       # `typecheck`; the strict flag set is version-dependent
