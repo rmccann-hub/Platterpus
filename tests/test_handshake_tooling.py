@@ -2696,6 +2696,9 @@ def _history_is_available() -> bool:
 #: `round09lap08platterpus.md` (`a26d381`) and `round11lap04platterpus.md`
 #: (`e0bd975`) are *envelopes*, not laps, so the `round-*.md` glob does not reach
 #: them; they are named here so the record is not silently narrower than the defect.
+#: Both envelopes were retired from the tree on 2026-10-06; `52dfe0a2` is the commit
+#: that last wrote them, and `docs/handshake/README.md` → *Retired transport
+#: envelopes* records them. The laps they carried are still in `verified/`.
 _PIN_FIELD_SENT_WRONG: frozenset[tuple[str, str]] = frozenset(
     (name, "HANDSHAKE-OUR-PIN")
     for name in (

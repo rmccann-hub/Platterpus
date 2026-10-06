@@ -453,7 +453,9 @@ SENT_LAPS: dict[str, str] = {
     # the fork's lap 8 `HANDSHAKE-INBOUND-HELD` states it filed all four "verified
     # against the envelope's own manifest on size and hash before anything was
     # read". Each value below is the per-part `sha256=` the envelope itself
-    # carries, and the tree bytes still hash to it.
+    # carries, and the tree bytes still hash to it. (That envelope was retired from
+    # the tree on 2026-10-06. `8ebabf20` last wrote it, and
+    # `docs/handshake/README.md` → *Retired transport envelopes* records it.)
     #
     # **These rows are the first round-14-or-later entries in this map, and their
     # absence was not neutral.** Our lap 7 §A1 had to tell the fork that our own
@@ -538,6 +540,12 @@ SENT_LAPS: dict[str, str] = {
     # here either — they have not yet published a hash for this lap. What ended it
     # was being told, which is the one signal the protocol says only the operator
     # has.
+    #
+    # The abandoned revision survived only inside the round 15 lap 15 envelope,
+    # which had been regenerated mid-edit and was committed in `eeaebd6d` carrying
+    # it. When envelopes were retired from the tree (2026-10-06) it was kept, byte
+    # for byte, at `outbound/superseded/round-15-lap-15-abandoned-revision.md`,
+    # out of the lap sequence. The row below is unaffected: it pins the SENT bytes.
     "outbound/round-15-lap-15.md": (
         "6f201fb75568f53a352d767cf9a1223418e735eba570df25eef2518c7b38dba4"
     ),

@@ -2622,7 +2622,12 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # too (KDD-41, C8), from one `ruff_paths` tuple both gates share.
     "scripts/check.py": 499,
     "scripts/emit_dependency_contract.py": 534,
-    "scripts/emit_envelope.py": 849,
+    # **849 -> 908** (2026-10-06): the emitter stops writing into the repository.
+    # `OUT`, a path into `docs/handshake/outbound/`, became `OUT_NAME` plus a
+    # required `--out DIR` that `refusal_for_destination` refuses inside the
+    # working tree, and `--check` verifies in memory instead of diffing a committed
+    # copy. Kept here because the guard is the emitter's own output contract.
+    "scripts/emit_envelope.py": 908,
     "scripts/emit_ripper_inventory.py": 316,
     "scripts/emit_script_language.py": 504,
     # **4365 -> 4368** (2026-10-05): `_WIRE_FIELD` rewritten greedy (linear in a

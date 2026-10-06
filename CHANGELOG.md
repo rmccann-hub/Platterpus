@@ -45,6 +45,22 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   ripping with an unreleased build is still warned. The 2026-10-06 run stays
   `partial`.
 
+### Removed
+
+- **The 44 handshake transport envelopes are gone from `docs/handshake/outbound/`.**
+  Each wrapped laps the tree already holds, so beside them it read as the same lap
+  under a second name. Laps have travelled by git since 2026-09-13, so nothing needs
+  them. Each part was split out and checked against its hash before removal, and
+  `docs/handshake/README.md` → *Retired transport envelopes* lists every one with
+  its hash, the commit that holds it and what it carried. One part was held nowhere
+  else: an abandoned revision of our round 15 lap 15, written after that lap was
+  sent and never sent itself. It is kept byte for byte in `outbound/superseded/`,
+  out of the lap sequence, and lap 15 as sent is unchanged. The envelope the round
+  digest's content rule comes from moved to `tests/fixtures/`. `emit_envelope.py`
+  now writes only with `--out DIR` outside the repository, and a test refuses an
+  envelope committed beside the laps, judged by its content. No round's status or
+  digest changed.
+
 ### Fixed
 
 - **The handshake gate says what holds a round open.** When both sides had declared
