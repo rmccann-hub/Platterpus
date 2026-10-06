@@ -12,8 +12,39 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The acceptance run expects the build under review to say it is unreleased.**
+  A fork build is tested as a beta inside its open round, and it must say *NOT a
+  released build* in every log. `expect-album-audit` failed on that sentence seven
+  times in round 30's closing run, by construction. It now counts that one warning
+  as expected only when the report shows the binary is the build under review: a
+  clean fork tag naming it, our verdict `unapproved`, and the note naming the
+  reviewing round. Any other build, round or verdict still fails, and a user
+  ripping with an unreleased build is still warned. The 2026-10-06 run stays
+  `partial`.
+
 ### Fixed
 
+- **The dependency check keeps the end of a tool's version answer too.** Every
+  version probe kept the first 200 characters of what the tool printed, so a long
+  answer lost its last line, where a failing tool says why. It now keeps 200 at each
+  end with the gap counted. The three places that read cyanrip's build from that text
+  now read only its first line, so a later line can never be taken for the build.
+- **Check for cyanrip updates names the build under review when your channel
+  doesn't offer it.** With cyanrip updates on stable, a machine on `.19` was told it
+  had the newest stable build, which was true. Nothing said that round 30 was
+  reviewing `.20` on the beta channel, the build the acceptance run will not start
+  without. The answer now says which build the round is reviewing and where it is
+  published. It also gives the route to it: *Choose a build…*, or turning on beta
+  cyanrip builds. What it offers to install is unchanged.
+- **The rip's headline names a track whose re-reads did not converge.** Round 30's
+  closing run headlined *12 of 14 verified exactly; on the other 2, only one frame
+  matched*, grouping track 3 (re-reads did not agree) with track 5 (they converged on
+  EAC's value). The table and the logs each said track 3's copy was not confirmed;
+  the headline did not. It now adds *and on track 3 the re-reads did not converge, so
+  its copy is not confirmed either*, only for tracks AccurateRip did not verify
+  exactly.
 - `.gitignore` covers the per-process `.coverage.*` files a parallel coverage run
   writes while it is in flight, so a running `scripts/check.py` no longer shows
   them as untracked files.

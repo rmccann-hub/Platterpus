@@ -188,3 +188,12 @@ def test_the_installed_line_names_the_build_beside_the_version() -> None:
 def test_the_installed_line_is_unchanged_for_deps_with_no_note() -> None:
     line = _installed_line(_spec("flac"), {"flac": (1, 5, 0)}, {})
     assert line == "flac 1.5.0"
+
+
+def test_the_build_note_reads_the_banner_line_not_the_whole_capture() -> None:
+    """The capture now keeps its tail too (2026-10-06), so a later line holding a
+    parenthesis must not become the build tag of a stock banner."""
+    note = cyanrip_build_note(
+        _probe("cyanrip 0.9.3\nbuilt with (platterpus-fork-gdeadbee) headers")
+    )
+    assert "deadbee" not in str(note)

@@ -366,6 +366,42 @@ def _shortfall_phrase(never_ripped: int, no_result: int, outcome_status: str) ->
     return "; ".join(parts) if parts else "the rip did not cover the whole disc"
 
 
+def _unconverged_clause(audio: list[object]) -> str:
+    """``"; and on track 3 the re-reads did not converge, …"``, or ``""``.
+
+    **Why the headline needs it** (round 30's closing run, 2026-10-06). Section F's
+    headline said *"12 of 14 tracks verified exactly; on the other 2, only one
+    frame matched"*. Track 5's re-reads had converged on EAC's value; track 3's
+    had not, and the table, the issues and the EAC-layout log each said its copy
+    was not confirmed. The headline put both in one group, so the one place a
+    reader looks first was the one place that did not say so. AccurateRip and
+    re-read convergence are two axes; this names the second where it fails.
+
+    Only tracks AccurateRip did not verify exactly: an exact match proves the
+    bytes whatever the re-reads did. ``secure_rerip_converged is False`` is a
+    measured negative; ``None`` (never re-read) says nothing and is not counted.
+    """
+    numbers = [
+        n
+        for t in audio
+        if getattr(t, "secure_rerip_converged", None) is False
+        and not track_accuraterip_verified(t)
+        and isinstance(n := getattr(t, "number", None), int)
+    ]
+    if not numbers:
+        return ""
+    if len(numbers) == 1:
+        return (
+            f"; and on track {numbers[0]} the re-reads did not converge, so its "
+            "copy is not confirmed either"
+        )
+    named = ", ".join(str(n) for n in numbers[:-1]) + f" and {numbers[-1]}"
+    return (
+        f"; and on tracks {named} the re-reads did not converge, so those copies "
+        "are not confirmed either"
+    )
+
+
 def accuraterip_verdict(
     rip_log: object,
     *,
@@ -444,6 +480,9 @@ def accuraterip_verdict(
             f"✓ Bit-perfect: all {total} tracks verified against AccurateRip{tail}",
             "ok",
         )
+    # Past here not every track verified exactly, so a track whose re-reads did
+    # not converge either is named in the headline (see `_unconverged_clause`).
+    unconverged = _unconverged_clause(audio)
     if verified > 0:
         if partial and verified + partial == total:
             # Every track has SOME AccurateRip finding: some exact, the rest
@@ -453,7 +492,7 @@ def accuraterip_verdict(
             return (
                 f"⚠ {verified} of {total} tracks verified exactly against "
                 f"AccurateRip; on the other {partial}, only one frame matched, so "
-                "the rest of each is unverified (see the table)",
+                f"the rest of each is unverified{unconverged} (see the table)",
                 "warn",
             )
         tail = (
@@ -463,7 +502,8 @@ def accuraterip_verdict(
         )
         return (
             f"⚠ {verified} of {total} tracks verified against AccurateRip — "
-            f"the rest aren't in the database or didn't match{tail} (see the table)",
+            f"the rest aren't in the database or didn't match{tail}{unconverged} "
+            "(see the table)",
             "warn",
         )
     # None verified exactly, but on some only one frame matched. That shows the
@@ -472,7 +512,7 @@ def accuraterip_verdict(
     if partial:
         return (
             f"⚠ AccurateRip: on {partial} of {total} tracks only one frame "
-            "matched, so none is verified — see the table",
+            f"matched, so none is verified{unconverged} — see the table",
             "warn",
         )
     # The leading "ⓘ" (like ✓/⚠ above) means the status is conveyed by symbol +

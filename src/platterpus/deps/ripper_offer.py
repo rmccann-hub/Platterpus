@@ -613,7 +613,7 @@ def evaluate_offer(
 
     newer = manifest.newer_than(channel, installed_seq)
     if newer is None:
-        return _up_to_date_offer(channel, row, installed, installed_seq)
+        return _up_to_date_offer(channel, row, installed, installed_seq, manifest)
 
     # There is something newer. Everything below is about stating the cost honestly.
     our_round, our_version = _approved_record()
@@ -722,11 +722,67 @@ def evaluate_offer(
     )
 
 
+def _build_under_review_note(
+    channel: str, manifest: RipperManifest | None, installed: str
+) -> str:
+    """A paragraph naming the build an open round reviews, or ``""``.
+
+    **The gap it closes** (found 2026-10-06, moving the build under review to
+    `.20`). With cyanrip updates on stable, a machine on `.19`, the stable head,
+    was told it had the newest stable build, which was true, and was never told
+    that round 30 was reviewing `.20` on the beta channel, the build the
+    acceptance run refuses to start without. The channel answered its own
+    question and stayed silent about the one the operator was about to hit.
+
+    Said only when a round IS reviewing a build (asked of
+    :func:`fork_source.a_round_is_reviewing_a_build`, not read off a constant),
+    that build is not installed, and this channel's own check would not name it
+    (it heads another channel, or no channel). The routes it names are the ones
+    that reach it in the app: *Choose a build…*, and the beta setting when it is
+    a beta.
+    """
+    if not fork_source.a_round_is_reviewing_a_build():
+        return ""
+    under = fork_source.PIN_UNDER_REVIEW
+    if fork_source.same_commit(installed, under):
+        return ""
+    elsewhere = ""
+    if manifest is not None:
+        for name in CHANNELS:
+            head = manifest.channel(name)
+            if head is not None and fork_source.same_commit(head.commit, under):
+                if name == channel:
+                    return ""  # this channel's own answer already names it
+                elsewhere = name
+                break
+    where = (
+        f"published on the fork's {elsewhere} channel, which a {channel}-channel "
+        "check does not offer"
+        if elsewhere
+        else "not the head of any channel the fork's manifest publishes"
+    )
+    beta_route = (
+        ", or turn on beta cyanrip builds in the same window"
+        if elsewhere == CHANNEL_BETA
+        else ""
+    )
+    # The in-app routes only. A typed command is for the one case where a person
+    # must act deliberately against a consequence (`_install_hint`), and the
+    # acceptance run's own refusal already names it for the operator who needs it.
+    return (
+        f"\n\nHandshake round {fork_source.PIN_UNDER_REVIEW_ROUND} is reviewing "
+        f"{name_known_build(under)}, {where}. The acceptance test needs that build "
+        "and will not start without it. To install it, use Tools → Setup & "
+        f"Updates… → Choose a build…{beta_route}."
+    )
+
+
 def _up_to_date_offer(
     channel: str,
     row: RipperRelease,
     installed: str,
     installed_seq: int,
+    manifest: RipperManifest | None = None,
 ) -> RipperOffer:
     """Nothing newer is published. Say so — and say whether it is the *approved* one.
 
@@ -767,12 +823,14 @@ def _up_to_date_offer(
             f", and {channel} is at "
             f"{name_build(row.version, row.commit, row.release_seq)}.{channel_note}"
         )
+    # Said on both paths below that do not already name the build under review.
+    review = _build_under_review_note(channel, manifest, installed)
     if fork_source.same_commit(installed, fork_source.FORK_PIN):
         return RipperOffer(
             verdict=OFFER_UP_TO_DATE,
             channel=channel,
             release=row,
-            detail=current,
+            detail=f"{current}{review}",
         )
     if fork_source.is_the_build_under_review(installed):
         # THE BUILD UNDER REVIEW IS INSTALLED: KEEP IT, AND OFFER NOTHING. The branch
@@ -805,6 +863,6 @@ def _up_to_date_offer(
             f"({_expected_build_sentence()}), so every rip reports its ripper as "
             "'unapproved'. That is the correct verdict, not a fault — but if you did "
             "not mean to be ahead of the handshake, Platterpus can put the approved "
-            "build back for you."
+            f"build back for you.{review}"
         ),
     )

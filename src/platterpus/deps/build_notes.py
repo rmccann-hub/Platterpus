@@ -42,7 +42,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from platterpus.deps.checks import ProbeResult
-from platterpus.ripper_identity import identify_from_banner
+from platterpus.ripper_identity import banner_line, identify_from_banner
 
 log = logging.getLogger(__name__)
 
@@ -139,7 +139,8 @@ def cyanrip_build_note(probe: ProbeResult) -> BuildNote:
     crashes because a banner was odd is strictly worse than one that says
     "could not tell".
     """
-    identity = identify_from_banner(probe.raw_output or "")
+    # The banner LINE: the capture keeps head and tail, and only line one is it.
+    identity = identify_from_banner(banner_line(probe.raw_output or ""))
     # `identity.version` is the banner head, tool name included
     # ("cyanrip 0.9.4-rc1+platterpus.5-beta.5"). Strip the name here, inside the
     # cyanrip-specific note function, so the shared dataclass never has to know

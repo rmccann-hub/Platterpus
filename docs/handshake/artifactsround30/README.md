@@ -458,9 +458,13 @@ audio file, and its manifest names each refusal.
   re-read both with `-Z 2`: track 5 converged on `E0036697`, EAC's, and replaced the
   first read; track 3 did not converge, and the first read, `329DC760`, was kept, a
   reading this drive has produced since round 7. F's whole-disc CTDB found no match
-  (102 entries). In N (the whole-disc secure re-read) every track converged; track 3 on
-  `2AC1F945`, confirmed across five re-reads, and N's whole-disc CTDB **matched one
-  entry with confidence 1**, a single submission. **Neither F's nor N's track 3 is EAC's
+  (102 entries). In N (the whole-disc secure re-read) the album pass's re-reads did not
+  converge on tracks 3 and 5 (`round30oct06fullsecurereread.log:265`, track 3: *at most 1
+  read agreed* of 5); its securing pass then converged on both, track 3 on `2AC1F945`
+  after five reads, three of them agreeing
+  (`round30oct06fullsecurerereadsecuringpass.txt:62`, `:101`), and N's whole-disc CTDB
+  **matched one entry with confidence 1**, a single submission. *(Corrected 2026-10-06:
+  this said every track in N converged, reading the EAC-layout log's merged view.)* **Neither F's nor N's track 3 is EAC's
   `59D352DD`**, which the 2026-09-30 run converged on: this drive has now converged on
   two different values for track 3, and AccurateRip holds no whole-track checksum for it
   that could choose between them. Every other track is identical in F and N and matches

@@ -154,7 +154,7 @@ class RipperUpdateWorker(QObject):
         try:
             from platterpus.deps.checks import check_cyanrip
             from platterpus.paths import CYANRIP_BINARY_DEFAULT
-            from platterpus.ripper_identity import fork_commit_from_banner
+            from platterpus.ripper_identity import banner_line, fork_commit_from_banner
 
             # Flagged around the blocking call only, and cleared in a `finally` so an
             # exception cannot leave `cancel()` permanently authorised to cancel a
@@ -166,7 +166,7 @@ class RipperUpdateWorker(QObject):
                 self._probing = False
             if not probe.present:
                 return None
-            return fork_commit_from_banner(str(probe.raw_output or ""))
+            return fork_commit_from_banner(banner_line(str(probe.raw_output or "")))
         except Exception:  # noqa: BLE001 — a probe must never fail the check
             log.warning("could not read the installed ripper banner", exc_info=True)
             return None

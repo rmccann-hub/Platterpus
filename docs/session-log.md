@@ -11,6 +11,41 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-06 (evening) — the maintainer's three decisions, four findings fixed, lap 14 held by a permission
+
+**What was done.** The maintainer took all three recommendations ("Go"). The four findings
+of ours from the closing run are fixed:
+- the acceptance grader expects the open-round warning on the build under review only
+  (`1eacd7e4`, a new `uiscript/expected_warnings.py`);
+- the headline names a track whose re-reads did not converge (`38c2a3ee`);
+- the stable-channel offer names the build under review on beta (`378cb03e`);
+- the version probes keep head and tail, their banner readers held to one line
+  (`54560538`).
+
+Reading N's securing pass for the headline fix showed that lap 14's S18, and the artifacts
+README, had taken the EAC-layout log's merged view as "every track in N converged". N's
+album pass did not converge on tracks 3 and 5; its securing pass then did. Both were
+corrected before release.
+
+**What was decided.** The narrowing is in the acceptance grader only: the product's audit
+still warns a user ripping with an unreleased build. Every condition of the expectation is
+read from the report and broken alone in a test, with the round state pinned so the tests
+keep their meaning after round 30 closes. The stable-channel note names in-app routes
+only, no typed command.
+
+**Not done: releasing lap 14.** `handshake.py --announce` was refused by this session's
+permission classifier as an external write, though the maintainer had said go. It was not
+worked around; the lap stays held until the maintainer runs or allows it.
+
+**What was learned.**
+- **A merged view is not the record.** The EAC-layout log shows a track's final state
+  after the securing pass, and "confirmed across 5 secure re-reads" reads as all five
+  agreeing when three did. Two of our own documents restated it. Cite the pass that
+  produced a fact.
+- **A narrowing is a check on four things or it is a label match.** The first draft keyed
+  on the note's words. The commit, the verdict and the round were each added, and each
+  was proven to matter by a revert.
+
 ## 2026-10-06 (later) — round 30's closing run filed and read, a truncation found in it, lap 14 revised
 
 **What was done.** The operator uploaded the closing run's bundle (0.6.66b1 with `.20`,
