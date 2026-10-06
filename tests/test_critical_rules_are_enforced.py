@@ -1941,7 +1941,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # previous one's measurement of the same box, and on the two Qt internals the
     # module docstring names, so splitting the steps would put one sizing pass in
     # several files.
-    "ui/dialogs/message_box_fit.py": 372,
+    # **372 -> 438** (2026-10-05, TASKS D4): a fit now first undoes an earlier
+    # one (`_undo_an_earlier_fit`: the title, the label's width, and the label
+    # released from the scroll area with `takeWidget`), and a watcher made for an
+    # earlier screen can be stood down. The scroll area and the fit call each
+    # other (fit -> scroll -> watcher -> fit), so the area could only move out
+    # with the fit passed in as a callback; one module reads more plainly.
+    "ui/dialogs/message_box_fit.py": 438,
     # **new at 448** (2026-09-24, #37 one home per setting): still one window's layout. It gained the two update
     # channels (they live above the checks they steer), a Drive section holding
     # the read offset's status, Set up drive… and Diagnose drive access…, and

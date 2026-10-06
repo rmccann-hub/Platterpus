@@ -949,7 +949,7 @@ Open:
   `update_check.is_prerelease_version` keeps off the stable channel and `release.yml`
   sends through the relaxed handshake gate. Nothing to build before the cut; at the cut,
   `__version__` and the CHANGELOG heading carry the `b1`.
-- [ ] **A message box shown a second time is not fitted again.** `fit_message_box`
+- [x] **A message box shown a second time is not fitted again.** `fit_message_box`
   finds Qt's label by its place in the box's grid; once a first fit has moved it into
   the scroll area, a second fit (the filter on a later Show, on another screen) logs
   "text label not in its layout" and leaves the box sized for the first screen. Found
@@ -957,6 +957,22 @@ Open:
   (PR #286, Python 3.13 leg); the harness half is fixed in `tests/conftest.py`. The
   product half needs a refit that resizes the existing area. Rare (a box re-shown on
   another screen), and it fails safe: the box is left as it was.
+  - *Done 2026-10-05:* each fit first undoes the one before it
+    (`message_box_fit._undo_an_earlier_fit`: the shortened title, the label's
+    minimum width, and the label put back in its grid cell), then fits for the
+    screen it has now; when the text still scrolls it goes back into the SAME
+    area, resized. The label has to be RELEASED with `takeWidget`, not only moved:
+    a `QScrollArea` resizes and moves a widget it still points at back to its own
+    viewport, so the moved label stayed 665 px wide in a 400-px box and every
+    measurement was stale (this was also true after Qt's own rebuilds, where the
+    refit put the label back before it mattered). A watcher made for an earlier
+    screen is stood down, and its refit, if already queued, does nothing.
+    `DialogCenterFilter` also fitted a box on its FIRST show only, so the "later
+    Show" in this row never reached the fit at all; it now fits on every Show and
+    still centres only the first time. Tests in `tests/test_ui_message_box_fit.py`
+    (second fit on a shorter, a taller and a short screen again; a rebuild after a
+    refit; a queued refit dropped; the filter refitting a re-shown box), each
+    revert-probed.
 - [x] **A full map of what Platterpus has or relies on** (operator, 2026-10-05).
   `bom.cdx.json` (CycloneDX 1.7) and the generated block in `DEPENDENCIES.md`, from
   `scripts/emit_bom.py`; `--check` and `tests/test_bom_emitted.py` hold it fresh, and a tool

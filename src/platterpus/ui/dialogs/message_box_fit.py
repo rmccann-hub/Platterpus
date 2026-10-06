@@ -13,9 +13,11 @@ text on a 1366 × 768 laptop; the dependency summary after a failed install
 second defect shared the root, and `auto_center.fit_before_centring` carries it:
 boxes were centred before Qt had sized them.
 
-**What the fit does,** once, on first show, from `DialogCenterFilter`, before
-the box is centred:
+**What the fit does,** on every show, from `DialogCenterFilter`, before the
+box is centred the first time:
 
+0. undoes any earlier fit, so it measures the box as Qt built it — the box may
+   be on another screen now (:func:`_undo_an_earlier_fit`);
 1. asks Qt to size the box now (:func:`_let_qt_size`);
 2. if a long TITLE made Qt size it wider than the screen less
    `SIDE_MARGIN_PX` on each side, shortens the title its title bar shows
@@ -131,7 +133,7 @@ def fit_message_box(box: QMessageBox, avail: QSize, margin: int) -> None:
             QT_TEXT_LABEL_NAME,
         )
         return
-    _restore_the_full_title(box)
+    _undo_an_earlier_fit(box, label)
     _let_qt_size(box)
     if _shorten_a_title_too_wide(box, avail.width() - 2 * SIDE_MARGIN_PX):
         _let_qt_size(box)
@@ -198,12 +200,61 @@ def _shorten_a_title_too_wide(box: QMessageBox, widest: int) -> bool:
     return True
 
 
-def _restore_the_full_title(box: QMessageBox) -> None:
-    """Undo :func:`_shorten_a_title_too_wide` before a fit measures the box again."""
+def _undo_an_earlier_fit(box: QMessageBox, label: QLabel) -> None:
+    """Put ``box`` back as Qt built it, so this fit measures it afresh.
+
+    **Why (TASKS, D4, 2026-10-05).** A box can be fitted more than once: shown
+    again, perhaps on another screen, and refitted whenever Qt rebuilds its
+    layout. The second fit used to find Qt's label by its cell in the box's
+    grid, and once the first fit had moved the label into the scroll area it
+    was in no cell, so the fit logged "text label not in its layout" and left
+    the box sized for the first screen. Now each fit first undoes what an
+    earlier one did — the shortened title, the label's minimum width, and the
+    move into the scroll area — and then fits for the screen it has now. When
+    the text still has to scroll, :func:`_scroll_the_text` puts it back into
+    the SAME area, resized for this screen; when it does not, the area stays
+    hidden and nothing scrolls on a screen the text fits.
+
+    **The area must let go of the label, not only lose it.** A `QScrollArea`
+    keeps a pointer to its widget and watches it, and it resizes and moves the
+    widget back to its own viewport's size whenever anything else resizes it.
+    So a label merely moved back into the grid, as Qt's own rebuild moves it,
+    stays at the area's old size whatever the grid gives it (measured: 665 px
+    wide in a box Qt had just made 400 px wide), and every measurement of it
+    is stale. ``takeWidget`` is the one call that ends the area's hold.
+    """
     full = box.property(FULL_TITLE_PROPERTY)
     if isinstance(full, str) and full:
         box.setWindowTitle(full)
         box.setProperty(FULL_TITLE_PROPERTY, None)
+    # First, before the label moves: moving it out of the area is exactly what
+    # a watcher refits on, and its refit would be for the screen it was made on.
+    for watcher in box.findChildren(_RefitWhenQtTakesTheLabelBack):
+        watcher.stand_down(label)
+    label.setMinimumWidth(0)
+    area = box.findChild(QScrollArea, SCROLL_AREA_NAME)
+    if area is None or area.widget() is not label:
+        return  # the text never scrolled
+    grid = box.layout()
+    if not isinstance(grid, QGridLayout):
+        log.warning("message box %r has no grid layout; left as it was", box)
+        return
+    # Where the text belongs: its own cell if Qt's rebuild has already put it
+    # back into the grid, otherwise the cell the area took from it.
+    in_grid = grid.indexOf(label) >= 0
+    cell = _grid_cell(grid, grid.indexOf(label if in_grid else area))
+    if cell is None:
+        # The text stays where it is; the fit then finds no cell for it and
+        # leaves the box as it was, which is safe, and says so.
+        log.warning("message box %r: its text area is not in its layout", box)
+        return
+    grid.removeWidget(area)
+    area.hide()
+    # Parentless for a moment, which also takes it out of the grid if Qt had
+    # put it there; it goes straight back into its cell.
+    area.takeWidget()
+    grid.addWidget(label, *cell)
+    label.show()  # reparenting hides a widget
 
 
 def _fits_at(box: QMessageBox, label: QLabel, width: int, max_h: int) -> bool:
@@ -245,8 +296,9 @@ def _scroll_the_text(
     icon, informative text or check box changes — the unattended crash dialog
     changes its informative text every second — and the rebuild puts the label
     straight back into the grid. :class:`_RefitWhenQtTakesTheLabelBack` hides the
-    emptied area and fits again, and the refit puts the label back into the SAME
-    area. One area for the life of the box, never a new one per rebuild: deleting
+    emptied area and fits again, and the refit (after :func:`_undo_an_earlier_fit`
+    has released the label) puts it back into the SAME area. One area for the
+    life of the box, never a new one per rebuild or per screen: deleting
     the old one would make PySide invalidate every Python handle on the label
     (it records the area as the label's owner when ``setWidget`` is called, and
     cannot see Qt moving the label away) — measured, a handle held across one
@@ -275,10 +327,14 @@ def _scroll_the_text(
         area.setAccessibleName("Message text")
         area.setFrameShape(QFrame.Shape.NoFrame)
         area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        area.setWidget(label)
-    else:
-        # The box's own area, emptied by Qt's last rebuild: the label goes back.
-        label.setParent(area.viewport())
+    elif area.widget() is not None:
+        # Not expected: `_undo_an_earlier_fit` has released the label already.
+        # Released here too, because `setWidget` does nothing for a widget the
+        # area still points at, and the label must end up inside it.
+        area.takeWidget()
+    # The box's own area — new, or reused and resized below for the screen the
+    # box is on now.
+    area.setWidget(label)
     # The area, not the label, now carries the width Qt reads; the text wraps in
     # what is left of it beside the scroll bar.
     area.setMinimumWidth(width)
@@ -286,8 +342,6 @@ def _scroll_the_text(
     grid.addWidget(area, row, column, row_span, column_span)
     area.show()
     label.show()  # reparenting hides a widget
-    # Also what makes the area lay the label out afresh after a rebuild, which
-    # left it at the size and place Qt's grid had given it.
     area.setWidgetResizable(True)
     label.installEventFilter(_RefitWhenQtTakesTheLabelBack(box, area, avail, margin))
     _let_qt_size(box)
@@ -345,6 +399,16 @@ class _RefitWhenQtTakesTheLabelBack(QObject):
         self._area: QScrollArea = area
         self._avail: QSize = QSize(avail)
         self._margin: int = margin
+        # Set by `stand_down`, and read by the refit itself, which may already
+        # be queued when a newer fit replaces this watcher.
+        self._stood_down: bool = False
+
+    def stand_down(self, label: QLabel) -> None:
+        """Stop watching: a newer fit, for the screen the box is on now, has
+        taken over, and it installs a watcher of its own if it needs one."""
+        self._stood_down = True
+        label.removeEventFilter(self)
+        self.deleteLater()
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802 — Qt API
         if (
@@ -359,6 +423,8 @@ class _RefitWhenQtTakesTheLabelBack(QObject):
         return False
 
     def _refit(self) -> None:
+        if self._stood_down:
+            return  # a newer fit owns the box; this one's screen may be stale
         # Moving a widget to a new parent HIDES it, and Qt shows the label again
         # only from a queued call of its own. Until then the layout leaves the
         # hidden label out, the box measures short, and the fit would wrongly

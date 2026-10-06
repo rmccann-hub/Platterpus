@@ -185,7 +185,8 @@ def fit_before_centring(dialog: QDialog) -> None:
 
 
 class DialogCenterFilter(QObject):
-    """Centres each top-level dialog over the active window on its first show.
+    """Fits each top-level dialog to its screen on every show, and centres it over
+    the active window on its first.
 
     Deliberately **stateless**: everything it needs to know about a dialog is
     stored on that dialog (see :data:`CENTERED_PROPERTY`). One instance is
@@ -206,5 +207,12 @@ class DialogCenterFilter(QObject):
                 # measured case that put a box's buttons below the screen.
                 fit_before_centring(obj)
                 center_on_anchor(obj)
+            elif not isinstance(obj, CenteredDialog):
+                # Shown AGAIN: fitted again, never moved. The box may be on
+                # another screen now, and a fit made for the first one (a label
+                # widened past this screen's limit, a text area sized for its
+                # height) does not fit this one (TASKS, D4, 2026-10-05). Where
+                # the user left it is still theirs to keep.
+                fit_before_centring(obj)
         # Never consume the event — we only observe it.
         return False
