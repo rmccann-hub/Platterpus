@@ -166,6 +166,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   message box with a title too long for that width shows the title shortened in
   its title bar (the window manager would have cut it anyway); a screen reader
   still reads the whole title.
+- **A message box shown again is fitted again.** A box that had to scroll its
+  text kept the size it was given the first time, so shown again on a smaller
+  screen it could run off it, and on a larger one it still scrolled. Each time a
+  box is shown it is now sized afresh for the screen it is on (it still opens
+  where you left it), and its text only scrolls if it has to there.
 - For contributors: the conformance matrix's `window_on_screen` rule now checks
   the window's frame against both side edges and fails a window wider than the
   screen less that 16-pixel margin on each side (`fit_scroll_area.SIDE_MARGIN_PX`,

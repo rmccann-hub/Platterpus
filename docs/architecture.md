@@ -261,7 +261,11 @@ Worker mechanics, all demonstrated in `workers/`:
   sizing reads (the label's minimum width, the scroll area, the title), because
   Qt sizes the box again on its own Show, after the fit, and undoes any size set
   directly; that is why a title too wide for the side margin is shortened rather
-  than the box narrowed. It runs from the app-wide `DialogCenterFilter`, so every box
+  than the box narrowed. A box is fitted again on every Show (it may be on
+  another screen), and each fit first undoes the one before it — title, label
+  width, and the label released from the scroll area with `takeWidget`, because
+  a `QScrollArea` keeps resizing a widget it still points at to its own viewport.
+  It runs from the app-wide `DialogCenterFilter`, so every box
   gets it without its call site doing anything — and it runs BEFORE the box is
   centred, because Qt delivers the Show event before it has sized the box, and
   centring the 640-px placeholder put a box that fitted half below the screen.
