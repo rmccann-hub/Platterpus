@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.6.66b1] — 2026-10-06
+
 ### Added
 
 - **The status line and the rip report say how cyanrip itself says the rip
@@ -181,6 +183,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   The key was announced to the cyanrip fork in round 30 lap 4 (S43).
 
 ### Fixed
+- For contributors: the checks of the README's status banner and of the standing
+  status block read a pre-release version (`0.6.66b1`) as itself. The banner check
+  read it as `0.6.66`, and the status check raised on it, so the first beta since
+  0.6.12 failed both; the status check's mutation test now reads its needles from
+  the block instead of assuming one point in the round's cycle.
 - For contributors: the five tests added this round that run over a generated
   list of cases (the regex rewrites, the fence cases, the timing sweep and the
   securing gate's unfinished passes) each have a minimum-count test, or a stated
@@ -17803,7 +17810,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.65...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66b1...HEAD
+[0.6.66b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.65...v0.6.66b1
 [0.6.65]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.64...v0.6.65
 [0.6.64]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.63...v0.6.64
 [0.6.63]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.62...v0.6.63
@@ -17871,4 +17879,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.65.*
+*Last updated for Platterpus v0.6.66b1.*
