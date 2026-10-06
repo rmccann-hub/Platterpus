@@ -280,6 +280,94 @@ def test_both_accurip_450_wordings_mean_the_same_thing_everywhere() -> None:
     assert old[6].startswith("Only one frame matched AccurateRip (confidence 200)")
 
 
+#: `.20`'s arm for a one-frame entry found at a confidence the threshold does not
+#: credit (the fork's round 30 lap 11 S10, `cyanrip@a081fcf:src/cyanrip_log.c:686`).
+#: Before it, the same case printed `(not found)`.
+_LINE_450_BELOW_THRESHOLD_FROM_20: str = (
+    "    Accurip 450: BF62B1DA (found in Accurip DB with a confidence of 150, not above "
+    "150, the threshold for a one-frame match; whole-track checksums not found)"
+)
+
+
+def test_the_20_below_threshold_arm_is_no_match_everywhere_and_never_not_found() -> (
+    None
+):
+    """Their S11: do we take `.20`'s below-threshold arm? Checked, not read.
+
+    It says "a confidence of 150", never "confidence 150", because we read
+    `confidence\\s+\\d+` in this parenthetical as a match, and an entry under
+    the threshold is not one. So every consumer of the parsed 450 line must read
+    it exactly as it reads `(not found)`: no confidence, no match, not verified,
+    not matched by the audit. And our EAC-compatible line must not say the
+    track is absent from the database, which is the denial their S10 removed
+    from their own log.
+    """
+    from platterpus.eac_log_export import _accuraterip_line
+    from platterpus.parsers.rip_log import (
+        accuraterip_is_match,
+        track_accuraterip_verified,
+    )
+    from platterpus.rip_audit import _ar_matched
+
+    old_line = next(
+        line for line in _MARGINAL_LOG.splitlines() if "Accurip 450:" in line
+    )
+    not_found = _MARGINAL_LOG.replace(old_line, "    Accurip 450: BF62B1DA (not found)")
+    below = _MARGINAL_LOG.replace(old_line, _LINE_450_BELOW_THRESHOLD_FROM_20)
+    assert below != _MARGINAL_LOG and not_found != _MARGINAL_LOG
+
+    readings = []
+    for text in (not_found, below):
+        track = parse_cyanrip_log(text).tracks[0]
+        offset = track.accuraterip_offset
+        assert offset is not None
+        readings.append(
+            (
+                offset.version,
+                offset.confidence,
+                offset.local_crc,
+                accuraterip_is_match(offset),
+                track_accuraterip_verified(track),
+                _ar_matched(
+                    {
+                        "result": offset.result,
+                        "confidence": offset.confidence,
+                        "local_crc": offset.local_crc,
+                    }
+                ),
+                _accuraterip_line(track),
+            )
+        )
+        if text is below:
+            # Their words are kept, so a reader of the report sees what was found.
+            assert "not above 150" in offset.result
+    assert readings[0] == readings[1]
+    assert readings[1][:6] == (450, None, "BF62B1DA", False, False, False)
+    line = readings[1][6]
+    assert line.startswith("Cannot be verified as accurate"), line
+    assert "not present" not in line and "not found" not in line, line
+
+
+def test_both_one_frame_tally_labels_are_read_as_the_same_fraction() -> None:
+    """Their S16: the tally line is renamed in round 31, after 0.6.66 reads both.
+
+    `Tracks matched on one frame only: %i/%i` replaces `Tracks ripped partially
+    accurately: %i/%i` with the same numerator and denominator
+    (`cyanrip@a081fcf:src/cyanrip_log.c:1047`). A parser that read only the old
+    label would drop the ripper's own fraction on the first build that prints the
+    new one, silently, because an unread line is not an error.
+    """
+    old = "Tracks ripped partially accurately: 2/2"
+    assert old in _MARGINAL_LOG
+    renamed = _MARGINAL_LOG.replace(old, "Tracks matched on one frame only: 2/2")
+    assert renamed != _MARGINAL_LOG
+    before = parse_cyanrip_log(_MARGINAL_LOG)
+    after = parse_cyanrip_log(renamed)
+    assert before.partially_accurate_reported == "2/2"
+    assert after.partially_accurate_reported == before.partially_accurate_reported
+    assert after.partially_accurate_summary == before.partially_accurate_summary
+
+
 def test_partial_accurate_summary_and_paranoia_counts() -> None:
     log = parse_cyanrip_log(_MARGINAL_LOG)
     # THIS FIXTURE IS DELIBERATELY SELF-INCONSISTENT: it declares `2/2` while listing

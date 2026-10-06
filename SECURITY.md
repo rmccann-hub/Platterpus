@@ -64,20 +64,25 @@ reproduce on the newest release before reporting.
   to the minor they were measured against because they gate CI, and whose
   `version-update` PRs are therefore ignored (`.github/dependabot.yml`). Security
   advisories for them still come through.
-- **Secret scanning** (`gitleaks`, gating), which covers less than the full history.
-  `gitleaks/gitleaks-action` scans a range it builds itself, `--no-merges
-  --first-parent`. A pull request's run covers that PR's own non-merge commits. A
-  push to `main` that arrives as a merge commit, which is how session-branch pull
-  requests have merged since 2026-09-26, scans nothing: the push run for `a930411b`
-  logged *"0 commits scanned"*. No CI run examines a merge commit's own changes, or
-  history that reaches `main` as a merge's second parent. The full history is what
+- **Secret scanning** (`gitleaks`, gating), over the full history on every run since
+  2026-10-05. The job installs the gitleaks CLI at a pinned version, checks the release
+  tarball against its published sha256, and scans every commit reachable from the
+  checked-out head with merge commits diffed against each parent (`--log-opts="-m
+  HEAD"`). A scan that read too little would also print "no leaks found", so the job
+  refuses three ways: a shallow clone, fewer than an absolute minimum of commits, and
+  fewer than 90 % of the commits reachable from the head. The full history is what
   matters: this repository is public and `git log` is a distribution channel, so a
   credential removed in a later commit is still published. Same reasoning the media
-  guard uses for audio. Until CI scans the full history on every run (approved on
-  2026-09-28, not yet applied), that scan is done by hand. On 2026-09-28, gitleaks
-  8.24.3 over every commit reachable from `main`, merge commits included
-  (`--log-opts="-m origin/main"`, 1,454 commits), found nothing. *Corrected
-  2026-09-28: until then this entry said the job scans the full history.*
+  guard uses for audio. *History:* until 2026-10-05 the job ran
+  `gitleaks/gitleaks-action`, which scans a range it builds itself, `--no-merges
+  --first-parent`, so a push to `main` arriving as a merge commit scanned nothing (the
+  push run for `a930411b` logged *"0 commits scanned"*). That fix was amendment A12,
+  approved 2026-09-28 and held under C3 of the operator's seam-automation proposal
+  until the maintainer lifted C3 for it on 2026-10-05 (`PLANNING.md` KDD-39, KDD-41).
+  Until then the scan was done by hand: on 2026-09-28, gitleaks 8.24.3 over every
+  commit reachable from `main`, merge commits included (1,454 commits), found nothing;
+  on 2026-10-05 the new job's own step, run locally, scanned 1,636 of 1,692 and found
+  nothing.
 - **A CycloneDX SBOM of what actually ships** (`sbom`, gating), generated on every
   push rather than only at release, with a floor that refuses an SBOM listing fewer
   than ten components — a generated artifact describing an empty room is the shape

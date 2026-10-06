@@ -253,6 +253,29 @@ def test_it_declares_cyclonedx_1_7(committed: dict[str, object]) -> None:
     assert metadata["lifecycles"] == [{"phase": "pre-build"}]
 
 
+def test_it_is_valid_cyclonedx_1_7_by_the_published_schema() -> None:
+    """The map passes the CycloneDX 1.7 JSON schema, strict, checked offline.
+
+    `test_it_declares_cyclonedx_1_7` checks what the file SAYS it is; this checks
+    that it IS, against the schema CycloneDX publishes, which
+    `cyclonedx-python-lib` bundles with the SPDX and JSF schemas it references, so
+    no network is needed. Strict mode refuses keys the schema does not define, so
+    a field our generator invents fails here instead of in a consumer's tool.
+    (Dev-only dependency, approved 2026-10-05, `PLANNING.md` KDD-41, C7.)
+    """
+    from cyclonedx.schema import SchemaVersion
+    from cyclonedx.validation.json import JsonStrictValidator
+
+    validator = JsonStrictValidator(SchemaVersion.V1_7)
+    error = validator.validate_str(_BOM.read_text(encoding="utf-8"))
+    assert error is None, f"bom.cdx.json is not valid CycloneDX 1.7: {error}"
+    # Non-triviality: the validator refuses a document that breaks the schema, so
+    # a None above is the schema's verdict, not a validator that accepts anything.
+    broken = json.loads(_BOM.read_text(encoding="utf-8"))
+    broken["components"][0]["type"] = "not-a-component-type"
+    assert validator.validate_str(json.dumps(broken)) is not None
+
+
 def test_it_names_the_version_it_describes(committed: dict[str, object]) -> None:
     """Why the generator is re-run after a version bump (CLAUDE.md step 5)."""
     from platterpus import __version__

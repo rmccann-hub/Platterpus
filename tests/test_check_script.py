@@ -120,6 +120,40 @@ def test_the_local_coverage_floor_matches_ci() -> None:
     )
 
 
+def _workflow_ruff_paths(workflow: str, subcommand: str) -> tuple[str, ...]:
+    """The paths a ci.yml `ruff <subcommand>` step reads, in order."""
+    flags = " --check" if subcommand == "format" else ""
+    found = re.findall(rf"run: ruff {subcommand}{flags} ([^\n]+)", workflow)
+    assert len(found) == 1, (
+        f"expected one `ruff {subcommand}` step in ci.yml, found {found!r}; the "
+        "comparison below needs exactly one to compare"
+    )
+    return tuple(found[0].split())
+
+
+def test_the_local_lint_paths_match_ci() -> None:
+    """`check.py` lints what CI lints: same tool, same paths, both subcommands.
+
+    The same shape as the coverage floor above, for the paths. `scripts/` and
+    `build/` joined both on 2026-10-05 (`PLANNING.md` KDD-41, C8); a local lint
+    that reads less than CI's reports green for work CI will reject, and one that
+    reads more fails for a reason CI never shows.
+    """
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    )
+    gates = {gate.name: gate.argv for gate in check._build_gates(set(), coverage=False)}
+    local_check = gates["lint (ruff check)"]
+    local_format = gates["format (ruff format --check)"]
+    ci_check = _workflow_ruff_paths(workflow, "check")
+    ci_format = _workflow_ruff_paths(workflow, "format")
+    assert tuple(local_check[local_check.index("check") + 1 :]) == ci_check
+    assert tuple(local_format[local_format.index("--check") + 1 :]) == ci_format
+    # Non-triviality: the scope this test exists to hold is actually in it.
+    for paths in (ci_check, ci_format):
+        assert {"src", "tests", "scripts", "build"} <= set(paths), paths
+
+
 def _git(*args: str) -> str | None:
     """Run git in the repo root; None on any failure (missing git, no repo, no tag)."""
     try:

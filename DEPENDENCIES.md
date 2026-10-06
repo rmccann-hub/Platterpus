@@ -24,7 +24,8 @@ The tables below are hand-kept and carry what code cannot know: licences, upstre
 | twine | **unpinned** — `pip install build twine` in `publish-pypi.yml`, where `build` is unpinned too | 7.0.0 (2026-07-27) | Apache-2.0 | Active | — (Runs `twine check` on every wheel and sdist before the PyPI upload, so a release depends on it. The upload itself goes through `pypa/gh-action-pypi-publish`. Pinning it with `build` is the configuration audit's amendment A2 (2026-09-28), approved and held under the seam-automation proposal's C3. Row added 2026-09-28: until then this file did not name it.) |
 | pip-audit | **unpinned** — `pip install -e . pip-audit` in `ci.yml`, so every run takes the newest release; `release.yml` requires the job to have passed on the commit it releases | 2.10.1 (2026-06-10) | Apache-2.0 | Active (PyPA) | — (The gating `pip-audit` job: it audits the resolved runtime graph and fails on a known vulnerability. A tool that gates CI, so Critical rule #11 applies to it, and today nothing pins it; making the rule and CI agree is amendment A5 (2026-09-28), approved and held under C3. Row added 2026-09-28.) |
 | cyclonedx-bom | `>=7,<8` (in `ci.yml`, not in `pyproject.toml`) | 7.4.0 (2026-09-15) | Apache-2.0 | Active (CycloneDX) | — (Generates the `sbom` job's CycloneDX file with `cyclonedx-py environment`. It inventories the environment it runs in, so the SBOM lists the generator's own packages too; building it from only what ships is amendment A14 (2026-09-28), approved and held under C3. Row added 2026-09-28.) |
-| gitleaks | the binary `gitleaks/gitleaks-action` downloads: **8.24.3** under the action's SHA pin (v3.0.0), read from `main`'s CI log on 2026-09-28 | (not checked from here) | MIT (the binary; the licence ships in its release tarball) | Active | — (Not a Python package: a Go binary the `gitleaks` CI job runs. The action picks the version, so a new action release can change the scanner. What the job scans is recorded in `SECURITY.md`, and scanning the full history on every run is amendment A12 (2026-09-28), approved and held under C3. Row added 2026-09-28.) |
+| cyclonedx-python-lib (`[json-validation]` extra) | `>=11.12,<12` (dev extra in `pyproject.toml`) | 11.12.0 | Apache-2.0 | Active (CycloneDX) | — (dev/test only. Validates `bom.cdx.json` against the CycloneDX 1.7 JSON schema in strict mode, offline: the library bundles the schema and the SPDX and JSF schemas it references. Its `json-validation` extra brings `jsonschema` and `referencing`. Approved by the maintainer 2026-10-05, `PLANNING.md` KDD-41, C7. Row added 2026-10-05.) |
+| gitleaks | **8.24.3**, pinned in `ci.yml` (`GITLEAKS_VERSION`) with the release tarball's sha256 (`GITLEAKS_SHA256`), checked before it runs; the same binary the action ran, read from `main`'s CI log on 2026-09-28 | (not checked from here) | MIT (the binary; the licence ships in its release tarball) | Active | — (Not a Python package: a Go binary the `gitleaks` CI job installs and runs. Since 2026-10-05 the job pins it itself instead of using `gitleaks/gitleaks-action`, so a bump is a deliberate change to the two env values, and a substituted download fails the checksum. What the job scans is recorded in `SECURITY.md`: the full history, merges included, with floors; that was amendment A12, released from C3 on 2026-10-05, `PLANNING.md` KDD-41. Row added 2026-09-28.) |
 | ruff | **`>=0.15.22,<0.16`** — pinned to the minor, deliberately | (per PyPI at first install) | MIT | Active | **A tool that gates CI must not float** (CLAUDE.md Critical rule #11): `ruff format` changes what it accepts between minors, so a routine upstream release turns CI red with no change to our code and reads as a code problem. Bumping is a deliberate commit that re-runs the gate. CI derives this spec from `pyproject.toml` rather than restating it (`ci.yml` "Install ruff (pin read from pyproject…)"), and `.github/dependabot.yml` ignores version-updates for it — a pin has to bind against whatever is allowed to change it. |
 | pytest-cov | `>=5` | (per PyPI at first install) | MIT | Active | — (dev/test only; CI runs branch coverage with `--cov-fail-under=91` (ratchets up). See [docs/testing.md](docs/testing.md).) |
 | pytest-xdist | `>=3.6,<4` | 3.8.0 (2026-09-26) | MIT | Active | — (dev/test only; approved by the maintainer 2026-09-26 to run the suite in parallel. CI and `scripts/check.py` pass `-n auto`; a bare local `pytest` stays serial. Measured on 4 CPUs: 2m08s against 7m22s serial, before the Phase 1 fixes. The session-finish hooks are controller-only under it; see `tests/conftest.py::is_xdist_worker`.) |
@@ -111,9 +112,9 @@ It is a *pre-build* BOM: the constraints the project declares, not what one inst
 | External programs Platterpus runs or offers | 29 |
 | Desktop interfaces | 1 |
 | Bundled data | 1 |
-| Python packages for development and tests (the dev extra) | 6 |
+| Python packages for development and tests (the dev extra) | 7 |
 | Python packages for building, releasing and CI | 8 |
-| GitHub Actions | 6 |
+| GitHub Actions | 5 |
 | CI and build programs | 11 |
 | CI runner images | 2 |
 | External services | 15 |
@@ -239,10 +240,11 @@ Details for `cyanrip (build under review)`:
 |---|---|---|---|---|---|
 | `AccurateRip drive offsets` | `2026-06-05` | required | A snapshot of AccurateRip's drive read-offset table, shipped in the package so offset lookup works offline. | src/platterpus/adapters/accuraterip_offsets.py | scripts/update_drive_offsets.py (regenerates it) |
 
-### Python packages for development and tests (the dev extra) (6)
+### Python packages for development and tests (the dev extra) (7)
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
+| `cyclonedx-python-lib` | `>=11.12,<12` | excluded | — | loaded by pytest as a plugin | pyproject.toml [project.optional-dependencies].dev |
 | `hypothesis` | `>=6` | excluded | Property-based tests, including the parsers' never-raises properties. | tests/ (every importer is in these directories) | pyproject.toml [project.optional-dependencies].dev |
 | `mypy` | `>=2.3,<2.4` | excluded | Strict type checking; gates CI. | .github/workflows/ci.yml, scripts/check.py | pyproject.toml [project.optional-dependencies].dev |
 | `pytest` | `>=8,<10` | excluded | The test runner. | tests/ (every importer is in these directories), .github/workflows/ci.yml, scripts/check.py | pyproject.toml [project.optional-dependencies].dev |
@@ -263,14 +265,13 @@ Details for `cyanrip (build under review)`:
 | `twine` | `unpinned` | excluded | Checks the wheel and sdist before the PyPI upload. | .github/workflows/publish-pypi.yml (publish) | .github/workflows/publish-pypi.yml (publish) |
 | `wheel` | `unpinned` | excluded | Wheel support for the build backend. | pyproject.toml [build-system].requires | pyproject.toml [build-system].requires |
 
-### GitHub Actions (6)
+### GitHub Actions (5)
 
 | Name | Version / constraint | Scope | What it is for | Used in | Pin enforced in |
 |---|---|---|---|---|---|
 | `actions/attest-build-provenance` | `v4` | excluded | Signs the release AppImage's build-provenance attestation. | .github/workflows/release.yml (build-and-release) | .github/workflows/release.yml |
 | `actions/checkout` | `v7.0.1` | excluded | Checks out the repository. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (changelog), .github/workflows/ci.yml (gitleaks), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (media-guard), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (tests-touched), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml |
 | `pypa/gh-action-pypi-publish` | `release/v1` | excluded | Publishes the wheel and sdist to PyPI. | .github/workflows/publish-pypi.yml (publish) | .github/workflows/publish-pypi.yml |
-| `gitleaks/gitleaks-action` | `v3.0.0` | excluded | Runs the gitleaks secret scan. | .github/workflows/ci.yml (gitleaks) | .github/workflows/ci.yml |
 | `actions/setup-python` | `v7.0.0` | excluded | Installs the job's Python. | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (lint), .github/workflows/ci.yml (pip-audit), .github/workflows/ci.yml (sbom), .github/workflows/ci.yml (test), .github/workflows/ci.yml (typecheck), .github/workflows/mutation.yml (sweep), .github/workflows/publish-pypi.yml (publish), .github/workflows/release.yml (build-and-release) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml, .github/workflows/publish-pypi.yml, .github/workflows/release.yml |
 | `actions/upload-artifact` | `v7.0.1` | excluded | Keeps a job's output (the SBOM, the AppImage, mutation reports). | .github/workflows/appimage.yml (build), .github/workflows/ci.yml (sbom), .github/workflows/mutation.yml (sweep) | .github/workflows/appimage.yml, .github/workflows/ci.yml, .github/workflows/mutation.yml |
 
@@ -280,7 +281,7 @@ Details for `cyanrip (build under review)`:
 |---|---|---|---|---|---|
 | `appimagetool` | unconstrained | excluded | Re-packs the AppImage to embed the zsync update information (the copy python-appimage caches, or the system's). | build/build_appimage.sh | — |
 | `gh` | unconstrained | excluded | GitHub CLI on the runner: creates the release and uploads its assets. | .github/workflows/release.yml | — |
-| `gitleaks` | unconstrained | excluded | The secret scanner the gitleaks job runs. | .github/workflows/ci.yml (gitleaks) | — |
+| `gitleaks` | `8.24.3` | excluded | The secret scanner the gitleaks job runs. | .github/workflows/ci.yml (gitleaks) | .github/workflows/ci.yml |
 | `libdbus-1-3` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
 | `libegl1` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
 | `libfontconfig1` | unconstrained | excluded | A system library PySide6 needs to run headless in CI. | .github/workflows/ci.yml (test), .github/workflows/mutation.yml (sweep) | — |
@@ -325,7 +326,6 @@ absent from the left column has dependencies Platterpus does not record.
 - `container:fedora-toolbox` → `svc:fedora-registry`
 - `container:ripping` → `container:fedora-toolbox`, `svc:fedora-repositories`, `tool-host:distrobox-export`, `tool-host:sudo`
 - `data:accuraterip-drive-offsets` → `svc:accuraterip`
-- `gha:gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e` → `ci:gitleaks`
 - `platterpus` → `data:accuraterip-drive-offsets`, `desktop:org.freedesktop.ScreenSaver`, `pypi:cryptography`, `pypi:musicbrainzngs`, `pypi:pyside6`, `pypi:sigstore`, `pypi:tomli-w`, `ripper:cyanrip-fork`, `ripper:cyanrip-fork-under-review`, `ripper:cyanrip-upstream`, `runtime:linux`, `runtime:python`, `runtime:python-appimage-bundled`, `svc:cover-art-archive`, `svc:ctdb`, `svc:fork-release-manifest`, `svc:github-release-downloads`, `svc:github-releases-api`, `tool-host:apt-get`, `tool-host:bash`, `tool-host:curl`, `tool-host:distrobox`, `tool-host:distrobox-enter`, `tool-host:dnf`, `tool-host:eject`, `tool-host:flatpak`, `tool-host:fuser`, `tool-host:gio`, `tool-host:kbuildsycoca5`, `tool-host:kbuildsycoca6`, `tool-host:pacman`, `tool-host:pgrep`, `tool-host:pkexec`, `tool-host:pkill`, `tool-host:sh`, `tool-host:systemd-inhibit`, `tool-host:update-desktop-database`, `tool-host:zypper`, `tool:cdparanoia`, `tool:ffmpeg`, `tool:flac`, `tool:metaflac`, `tool:picard`
 - `pypi:musicbrainzngs` → `svc:musicbrainz`
 - `pypi:pyside6` → `runtime:qt`

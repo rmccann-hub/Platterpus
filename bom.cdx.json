@@ -85,7 +85,7 @@
       },
       {
         "name": "platterpus:count:python-dev",
-        "value": "6"
+        "value": "7"
       },
       {
         "name": "platterpus:count:python-build",
@@ -93,7 +93,7 @@
       },
       {
         "name": "platterpus:count:ci-action",
-        "value": "6"
+        "value": "5"
       },
       {
         "name": "platterpus:count:ci-tool",
@@ -1990,6 +1990,39 @@
     },
     {
       "type": "library",
+      "bom-ref": "pypi:cyclonedx-python-lib",
+      "name": "cyclonedx-python-lib",
+      "scope": "excluded",
+      "purl": "pkg:pypi/cyclonedx-python-lib",
+      "properties": [
+        {
+          "name": "platterpus:category",
+          "value": "python-dev"
+        },
+        {
+          "name": "platterpus:used-in",
+          "value": "loaded by pytest as a plugin"
+        },
+        {
+          "name": "platterpus:pin-enforced-in",
+          "value": "pyproject.toml [project.optional-dependencies].dev"
+        },
+        {
+          "name": "platterpus:constraint",
+          "value": ">=11.12,<12"
+        },
+        {
+          "name": "platterpus:imported-by",
+          "value": "not imported directly"
+        },
+        {
+          "name": "platterpus:gates-ci",
+          "value": "no"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "pypi:hypothesis",
       "name": "hypothesis",
       "description": "Property-based tests, including the parsers' never-raises properties.",
@@ -2528,48 +2561,6 @@
     },
     {
       "type": "application",
-      "bom-ref": "gha:gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
-      "group": "gitleaks",
-      "name": "gitleaks-action",
-      "version": "v3.0.0",
-      "description": "Runs the gitleaks secret scan.",
-      "scope": "excluded",
-      "purl": "pkg:github/gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "https://github.com/gitleaks/gitleaks-action"
-        }
-      ],
-      "properties": [
-        {
-          "name": "platterpus:category",
-          "value": "ci-action"
-        },
-        {
-          "name": "platterpus:used-in",
-          "value": ".github/workflows/ci.yml (gitleaks)"
-        },
-        {
-          "name": "platterpus:pin-enforced-in",
-          "value": ".github/workflows/ci.yml"
-        },
-        {
-          "name": "platterpus:pinned-ref",
-          "value": "e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e"
-        },
-        {
-          "name": "platterpus:pinned-to-commit-sha",
-          "value": "yes"
-        },
-        {
-          "name": "platterpus:version-comment",
-          "value": "v3.0.0"
-        }
-      ]
-    },
-    {
-      "type": "application",
       "bom-ref": "gha:actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
       "group": "actions",
       "name": "setup-python",
@@ -2698,8 +2689,10 @@
       "type": "application",
       "bom-ref": "ci:gitleaks",
       "name": "gitleaks",
+      "version": "8.24.3",
       "description": "The secret scanner the gitleaks job runs.",
       "scope": "excluded",
+      "purl": "pkg:github/gitleaks/gitleaks@v8.24.3",
       "externalReferences": [
         {
           "type": "vcs",
@@ -2716,8 +2709,16 @@
           "value": ".github/workflows/ci.yml (gitleaks)"
         },
         {
+          "name": "platterpus:pin-enforced-in",
+          "value": ".github/workflows/ci.yml"
+        },
+        {
           "name": "platterpus:version-basis",
-          "value": "chosen by gitleaks/gitleaks-action at its pinned commit; not pinned in this repository"
+          "value": "pinned in the workflow, with the release tarball's sha256"
+        },
+        {
+          "name": "platterpus:tarball-sha256",
+          "value": "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c"
         }
       ]
     },
@@ -3495,12 +3496,6 @@
       "ref": "data:accuraterip-drive-offsets",
       "dependsOn": [
         "svc:accuraterip"
-      ]
-    },
-    {
-      "ref": "gha:gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
-      "dependsOn": [
-        "ci:gitleaks"
       ]
     },
     {

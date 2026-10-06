@@ -90,10 +90,10 @@ jobs:
           python -m pip install "$spec"
 
       - name: Lint (ruff check)
-        run: ruff check src tests
+        run: ruff check src tests scripts build
 
       - name: Format check (ruff format --check)
-        run: ruff format --check src tests
+        run: ruff format --check src tests scripts build
 
   # Static type-checking (added 2026-07-08). Strict def-typing is enforced
   # across the whole package (no per-module exclusions since 2026-07-19/20 —
@@ -346,24 +346,70 @@ jobs:
           # Full history. A shallow clone would make this check pass by not
           # looking, which is the failure mode this repo names most often.
           fetch-depth: 0
-      - name: Scan the full history for secrets
-        # v3.0.0, and the bump is FORCED rather than chosen: GitHub removes Node 20
-        # from hosted runners on 2026-09-16, after which v2 stops working regardless
-        # of any opt-out flag. v3 is a runtime migration only — the release notes say
-        # "no changes to inputs, outputs, or behavior", and the commit is titled
-        # "chore: migrate to Node 24 runtime (v3)".
+      - name: Install gitleaks (version pinned, checksum verified)
+        # The CLI, not `gitleaks/gitleaks-action`. The action scans a range it builds
+        # itself, `--no-merges --first-parent <first>^..<head>`, so a session-branch
+        # pull request merged with a merge commit gave `main`'s push run "0 commits
+        # scanned" and a green job, and no run ever read a merge commit's own change
+        # (the 2026-09-28 configuration audit, amendment A12, `PLANNING.md` KDD-39;
+        # released from the C3 freeze on 2026-10-05, KDD-41).
         #
-        # **Taken by hand rather than by merging Dependabot's #207, which was wrong in
-        # a way CI could not see.** That PR moved the SHA to this same commit and left
-        # the comment reading `# v2.3.9` — so the file would have run v3 while
-        # claiming v2. The SHA is what executes and the comment is the only
-        # human-readable statement of what we pin; a workflow that lies about its own
-        # version is the "map wrong by omission" failure this repo names most often,
-        # and it is invisible to a green run because a comment cannot fail a job.
-        # Verified before taking it: the commit is v3.0.0, not v2.3.9.
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        # Pinned like a gating tool (Critical rule #11): the version and the
+        # tarball's sha256 from the release's own `gitleaks_<v>_checksums.txt`, so a
+        # changed or substituted download fails here instead of scanning. 8.24.3 is
+        # the binary the action ran, read from `main`'s CI log on 2026-09-28, so this
+        # change alters what is scanned, not which scanner scans it.
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: "8.24.3"
+          GITLEAKS_SHA256: "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c"
+        run: |
+          set -euo pipefail
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL --retry 3 -o "$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
+          echo "${GITLEAKS_SHA256}  ${tarball}" | sha256sum --check --strict -
+          tar -xzf "$tarball" gitleaks
+          test "$(./gitleaks version)" = "${GITLEAKS_VERSION}"
+      - name: Scan every commit, merge commits included
+        env:
+          MIN_COMMITS_SCANNED: "1500"
+        # `-m` diffs a merge commit against EACH parent, so a merge's own change and
+        # history that reaches `main` as a merge's second parent are both read.
+        #
+        # THREE FLOORS, because a scan that reads nothing reports "no leaks found" too,
+        # which is exactly how the action passed on 0 commits:
+        # 1. the clone must not be shallow. A relative floor alone is not enough: in a
+        #    shallow clone `git rev-list` counts only the commits the clone has, so a
+        #    depth-5 clone "scanned 8 of 8" and passed when this was first tried;
+        # 2. at least MIN_COMMITS_SCANNED commits, an absolute number that a clone
+        #    which sees too little cannot follow down. History only grows here (the
+        #    proxy refuses a force push), and 1,636 were scanned on 2026-10-05;
+        # 3. at least 90 % of the commits reachable from HEAD. Not 100 %: gitleaks
+        #    counts only commits that carry a patch, and an empty commit carries none
+        #    (2026-10-05: 1,636 of 1,692, 96.7 %, no leaks).
+        run: |
+          set -euo pipefail
+          if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then
+            echo "::error::The clone is shallow, so a full-history scan cannot be one. Check out with fetch-depth: 0."
+            exit 1
+          fi
+          reachable="$(git rev-list --count HEAD)"
+          floor=$(( reachable * 90 / 100 ))
+          if [ "$floor" -lt "$MIN_COMMITS_SCANNED" ]; then floor="$MIN_COMMITS_SCANNED"; fi
+          set +e
+          ./gitleaks git --log-opts="-m HEAD" --redact --no-banner --no-color . 2>&1 | tee gitleaks.log
+          status="${PIPESTATUS[0]}"
+          set -e
+          scanned="$(sed -n 's/.* \([0-9][0-9]*\) commits scanned\..*/\1/p' gitleaks.log | tail -n 1)"
+          echo "commits reachable from HEAD: ${reachable}; scanned: ${scanned:-none}; floor: ${floor}"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::gitleaks exited ${status}. A finding is a real leak or a rule to write; see the log above (secrets redacted)."
+            exit "$status"
+          fi
+          if [ -z "$scanned" ] || [ "$scanned" -lt "$floor" ]; then
+            echo "::error::gitleaks scanned ${scanned:-no} commits of ${reachable} reachable, below the floor of ${floor}. A scan that reads too little passes by not looking, so this job refuses it."
+            exit 1
+          fi
 
   # SBOM. A machine-readable inventory of what actually ships, in CycloneDX.
   #
