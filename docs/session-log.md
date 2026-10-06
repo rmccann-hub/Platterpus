@@ -24,7 +24,7 @@ margin, the message-box refit and the track table measured with a disc (C5, D4, 
 the parser's 21 lazy patterns made greedy and the regex sweep given lead-in inputs
 (A1), fences read as CommonMark (D3), and the offset-refusal verb, the unknown-disc
 script, the hardware-only checks folded into the closing run and the run's overall
-estimate (C4, A4, D6). All nineteen commits were cherry-picked onto the session branch
+estimate (C4, A4, D6). All fifteen of their commits were cherry-picked onto the session branch
 with every cited SHA rewritten to its integrated equivalent.
 
 **What was decided.** Nothing new; every item was a KDD-41 ruling.
