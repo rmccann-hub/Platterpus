@@ -1156,16 +1156,19 @@ def pre_commit_problems(text: str, where: str) -> list[str]:
 
 
 def _unfenced_body(text: str) -> str:
-    """``text`` without the contents of fenced code blocks."""
-    out: list[str] = []
-    inside = False
-    for line in text.splitlines():
-        if re.match(r"^[ \t]{0,3}(?:```|~~~)", line):
-            inside = not inside
-            continue
-        if not inside:
-            out.append(line)
-    return "\n".join(out)
+    """``text`` without its fenced code blocks, by :func:`_fenced_lines`' rule.
+
+    It toggled on any line opening with three backticks or tildes until
+    2026-10-06, so a ```` ``` ```` line inside a ``~~~`` block, or a ```` ```text ````
+    line inside a block, flipped it out of the fence; the same rule as the wire
+    fields now decides, so a quotation is a quotation to both.
+    """
+    lines = text.splitlines()
+    return "\n".join(
+        line
+        for line, fenced in zip(lines, _fenced_lines(lines), strict=True)
+        if not fenced
+    )
 
 
 #: The maintainer's standing objective, which round 8 lap 10 §A says to carry into
@@ -1483,11 +1486,76 @@ _WIRE_FIELD = re.compile(
     re.MULTILINE,
 )
 
-#: A fenced code block (``` or ~~~), stripped BEFORE any field matching.
-_FENCE_BLOCK = re.compile(
-    r"^(?P<fence>```+|~~~+)[^\n]*\n.*?^(?P=fence)[ \t]*$\n?",
-    re.MULTILINE | re.DOTALL,
-)
+#: A line that OPENS a fenced code block, as CommonMark (0.31, §4.5) defines one:
+#: up to three spaces of indentation, then three or more backticks or tildes. A
+#: tab is not one of the three spaces (CommonMark expands it to the next multiple
+#: of four columns, which makes the line indented code, not a fence). A backtick
+#: fence's info string may not contain a backtick, so `` ```a`b `` is prose.
+#: `handshake-protocol.md` §2 rule 2 says to strip fenced blocks and does not say
+#: what a fence is, so the gate reads it the way the Markdown renderers that show
+#: a lap to its reader do.
+_FENCE_OPEN: Final[re.Pattern[str]] = re.compile(r"^ {0,3}(?P<run>`{3,}(?!.*`)|~{3,})")
+
+#: A line that CLOSES one: up to three spaces, a run of the opening character at
+#: least as long as the opening run, and nothing after it but spaces and tabs.
+_FENCE_CLOSE: Final[re.Pattern[str]] = re.compile(r"^ {0,3}(?P<run>`{3,}|~{3,})[ \t]*$")
+
+
+def _fenced_lines(lines: list[str]) -> list[bool]:
+    """For each line, whether it lies in a fenced code block, fences included.
+
+    **The one answer to "is this line quoted?"** for this module: `_strip_fences`
+    (every wire field) and `_unfenced_body` (the R6 pre-commit search) both ask it,
+    and until 2026-10-06 they answered with two different rules, neither of them
+    CommonMark's. The regex `_strip_fences` used needed a closing fence at column
+    0 of exactly the opening's length, so a field inside an UNTERMINATED fence, an
+    INDENTED one, or one closed by a longer run counted as a declaration (TASKS C6).
+
+    The CommonMark rules, applied to the document as one flat sequence of lines:
+
+    * an opening fence may be indented up to three spaces;
+    * the block ends at the first line that is a run of the SAME character, at
+      least as long as the opening run, indented up to three spaces, with nothing
+      after it but blanks (so a ```` ``` ```` line inside a ``~~~`` block is content);
+    * a block with no closing fence runs to the end of the document.
+
+    **Where it departs from CommonMark.** It does not track block quotes or list
+    items. A fence inside a block quote (a ``>``, then a fence) is not recognised,
+    but every line of such a block starts with ``>`` (a fenced block takes no lazy
+    continuation, so the first line without one ends the quote and the fence), and
+    no such line is a column-0 field: the two agree on every field. A fence
+    indented under a list item is read as a document-level fence; where CommonMark
+    would end it with the item, this strips more, which fails closed (§2 rule 4,
+    an absent field). The one shape where it strips LESS: a list item's indented
+    fence followed by a column-0 fence line, which this pairs as open-and-close
+    and CommonMark reads as the item ending and a new fence opening, so a field
+    between the second and third fence lines reads as declared here and as quoted
+    there. Checked 2026-10-06 against markdown-it-py's CommonMark parser (not a
+    project dependency, run once): 0 differences on 20,000 generated documents
+    without containers, and on the 333 filed files 11 differ, every one on a block
+    quote's fence and none on a field. A trailing carriage return is read as part
+    of the line ending, so a lap saved with CRLF endings fences as it renders.
+    """
+    fenced = [False] * len(lines)
+    opening: str | None = None  # the open block's fence run, while inside one
+    for index, raw in enumerate(lines):
+        line = raw.removesuffix("\r")
+        if opening is None:
+            match = _FENCE_OPEN.match(line)
+            if match:
+                opening = match.group("run")
+                fenced[index] = True
+            continue
+        fenced[index] = True
+        close = _FENCE_CLOSE.match(line)
+        if (
+            close is not None
+            and close.group("run")[0] == opening[0]
+            and len(close.group("run")) >= len(opening)
+        ):
+            opening = None
+    return fenced
+
 
 #: The protocol version this gate implements (`PROTOCOL.md`). A file declaring a
 #: **higher** number is refused rather than guessed at: we cannot know which of
@@ -1834,13 +1902,21 @@ def _strip_fences(text: str) -> str:
     suite even asserted the **wrong** behaviour — that a fenced field should match
     — with a confident comment about not parsing markdown. It was wrong.
 
-    Newlines are preserved so nothing that depends on line numbers shifts.
+    **What a fence is** is :func:`_fenced_lines`' answer, CommonMark's: indented up
+    to three spaces, closed only by a run of the same character at least as long,
+    and running to the end of the file when nothing closes it. Until 2026-10-06
+    this used a regex that needed a column-0 closing fence of the same length, so
+    a field in an unterminated or indented fence was read as declared (TASKS C6).
+
+    Newlines are preserved so nothing that depends on line numbers shifts: each
+    fenced line becomes an empty line. Lines are split on ``\\n`` alone, as the
+    ``re.MULTILINE`` field patterns that read the result split them.
     """
-
-    def blank(match: re.Match[str]) -> str:
-        return "\n" * match.group(0).count("\n")
-
-    return _FENCE_BLOCK.sub(blank, text)
+    lines = text.split("\n")
+    return "\n".join(
+        "" if fenced else line
+        for line, fenced in zip(lines, _fenced_lines(lines), strict=True)
+    )
 
 
 def wire_fields(text: str) -> dict[str, str]:

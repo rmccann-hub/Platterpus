@@ -204,6 +204,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   patterns above went unseen. Three patterns it finds slow are recorded with the
   reason each can wait (`_LEAD_IN_DEBT`), and an entry goes stale when its
   pattern is fixed.
+- For contributors: the handshake gate reads a fenced code block the way
+  Markdown renders it (CommonMark): a fence indented up to three spaces counts,
+  a block closes only on the same character at least as long, and a block with
+  no closing fence runs to the end of the file. A wire field inside such a block
+  is an illustration, not a declaration; before, one inside an unterminated or
+  indented fence counted, including toward protocol 7's `HANDSHAKE-NEXT-LAP`
+  check. The pre-commit search uses the same rule. No filed lap reads
+  differently.
 - **A nonsense "Ripping errors" count from cyanrip no longer reads as "No errors
   occurred".** A count far beyond anything a CD could produce is now recorded as
   "not determined", and the rip's health line repeats what cyanrip printed.
