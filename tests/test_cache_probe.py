@@ -161,6 +161,62 @@ def test_parses_the_real_bdr209d_output() -> None:
     assert result.analyzed is True
 
 
+#: The closing run's saved `cd-paranoia -A` output (round 30, 2026-10-06): REAL
+#: text from the reference drive, and exactly the 2,000 characters the old
+#: head-only cut kept, so it stops inside the seek timings.
+_CLOSING_RUN_HEAD = (
+    Path(__file__).resolve().parents[1]
+    / "docs"
+    / "handshake"
+    / "artifactsround30"
+    / "round30oct06fullcacheprobe.txt"
+)
+
+
+def _real_length_report() -> str:
+    """A report as long as the drive actually prints one: the closing run's real
+    head, then the real verdict section from the fixture. The fixture alone is
+    shorter than the real thing (it carries no seek timings), which is why the
+    2,000-character cut never showed in a test: the stand-in was safer than the
+    product."""
+    head = _CLOSING_RUN_HEAD.read_text(encoding="utf-8")
+    fixture = _REAL_A_OUTPUT.read_text(encoding="utf-8")
+    verdict = fixture[fixture.index("Analyzing cache behavior...") :]
+    return head.rstrip() + "\n\n" + verdict
+
+
+def test_the_saved_output_reaches_the_verdict_on_a_real_length_report() -> None:
+    """Regression (round 30 closing run): the verdict is the LAST thing
+    cd-paranoia prints, so a head-only cut drops exactly it. The saved text must
+    carry the figure the result was read from."""
+    text = _real_length_report()
+    # Non-triviality: the input is past the old cut, or this proves nothing.
+    assert len(text.strip()) > 2000
+    result = parse_cache_analysis(text)
+    assert result.cache_sectors == 140
+    assert "Approximate random access cache size: 140 sector(s)" in result.raw_output
+    assert "Drive tests OK with Paranoia." in result.raw_output
+    assert "CDROM sensed" in result.raw_output  # the head is kept too
+    # Under the line bound, nothing is elided: the whole report is kept.
+    assert result.raw_output == text.strip()
+
+
+def test_a_report_past_the_bound_keeps_head_and_tail_with_the_gap_counted() -> None:
+    """A drive that prints many more timings than ours: the head and the verdict
+    both survive, and the gap between them says how many lines it stands for."""
+    report = _real_length_report()
+    head, _, rest = report.partition("[50:00.00]")
+    padding = "\n".join(f"\t[{n:02d}:00.00]:   40ms seek" for n in range(500))
+    text = f"{head}\n{padding}\n[50:00.00]{rest}"
+    lines = text.strip().splitlines()
+    kept = diagnostics.OUTPUT_HEAD_LINES + diagnostics.OUTPUT_TAIL_LINES
+    assert len(lines) > kept  # past the bound, or the marker is never exercised
+    raw = parse_cache_analysis(text).raw_output
+    assert raw.splitlines()[0].startswith("cdparanoia III release")
+    assert raw.rstrip().endswith("Drive tests OK with Paranoia.")
+    assert f"[{len(lines) - kept} line(s) omitted]" in raw
+
+
 def test_backseek_flush_line_is_the_authoritative_signal() -> None:
     """cd-paranoia's specific cache-defeat statement, on its own, is enough —
     we must not depend on the generic "Drive tests OK" summary also being there."""

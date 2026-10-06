@@ -807,10 +807,16 @@ def _percent_or_none(raw: str) -> float | None:
     try:
         value = float(raw)
     except (TypeError, ValueError):
-        log.warning("unusable percentage in ripper output: %r", raw[:32])
+        log.warning(
+            "unusable percentage in ripper output: %r",
+            diagnostics.bounded_chars(raw, head=16, tail=16),
+        )
         return None
     if not math.isfinite(value):
-        log.warning("non-finite percentage in ripper output: %r", raw[:32])
+        log.warning(
+            "non-finite percentage in ripper output: %r",
+            diagnostics.bounded_chars(raw, head=16, tail=16),
+        )
         return None
     return value
 

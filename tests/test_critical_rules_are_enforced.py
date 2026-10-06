@@ -1096,7 +1096,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     "adapters/accuraterip_offsets_data.py": 388,
     # **372 -> 378** (2026-09-29): a cache probe our cancel ended returns no measurement
     # and records no tool failure (`killable.was_cancelled`).
-    "adapters/cache_probe.py": 378,
+    # **378 -> 388** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): the saved cd-paranoia output keeps head and tail (`diagnostics.bounded_output`), and the comment says why: the verdict is the last thing it prints, and the 2,000-character cut dropped it.
+    "adapters/cache_probe.py": 388,
     # **566 -> 567** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     "adapters/cover_art.py": 567,
     # **332 -> 339** (2026-09-28, the Full run's five 2-of-14 rips that said "not in CTDB"): comment only. The 404 note said partial-track rips reach this lookup; they no longer do, and it now says where they stop and why.
@@ -1247,7 +1248,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # and not a timer calling `cancel_version_probes()`: that slot is shared with other callers.
     # **522 -> 527** (2026-09-29): a version probe our cancel ended is logged as stopped,
     # not as a tool that is unavailable (`killable.was_cancelled`).
-    "deps/checks.py": 527,
+    # **527 -> 529** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): the failed-probe log line keeps head and tail with the gap counted.
+    "deps/checks.py": 529,
     # 1678 -> 1691 (2026-09-06): the round-15 close. `FORK_PIN` rolled to
     # `978f9b0` and the roll is documented where the constant is, because the
     # post-close step is the one this file has already watched go stale.
@@ -1478,7 +1480,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # marking it belongs with the report it marks (Critical rule #6), not in the UI.
     # `_record_ok` was split out of `check_all` so the loop stays readable at its new length.
     "deps/manager.py": 343,
-    "deps/ripper_manifest.py": 608,
+    # **608 -> 613** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): three refusals quote the manifest value head and tail, counted, and the import.
+    "deps/ripper_manifest.py": 613,
     # **777 -> 782 (2026-09-24)**: asks `current_test_pin()` / `retired_test_pins()`
     # instead of the raw constant, and says why in four lines (§5.bq).
     # **782 -> 800 (2026-09-25)**: the up-to-date offer keeps the build under review instead of offering the approved pin over it.
@@ -1491,7 +1494,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **685 -> 691** (2026-09-25, the property-test batches): `bounded_output` clamps its bounds and always keeps the tail.
     # **691 -> 693** (2026-09-28, the round-28 Full run): the `ripper.secure_rerip_verdict` entry says it is graded by direction and names its track.
     # **693 -> 695** (2026-09-29): `deps.command_cancelled`, a probe Platterpus stopped itself.
-    "diagnostics.py": 695,
+    # **695 -> 717** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): `bounded_chars`, the one-line form of `bounded_output`, so the fourteen head-only cuts fixed with the sweep share one helper instead of fourteen slices.
+    "diagnostics.py": 717,
     # **411 -> 423 on 2026-09-10** (log-verification race, above):
     # `FORCE_STOP_COUNTDOWN_S` moved here from the UI module that arms the
     # timer, because the rip worker's log wait must outlast it. Two
@@ -1757,7 +1761,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # which two shapes, why, and where the equivalence proof lives, plus ruff
     # wrapping five patterns that grew past 88 columns. The patterns must stay
     # here: the rule tables are what the generated consumer contract publishes.
-    "parsers/cyanrip_log.py": 3467,
+    # **3467 -> 3472** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): four log records quote a cyanrip value head and tail, counted.
+    "parsers/cyanrip_log.py": 3472,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1782,7 +1787,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # other checks, because a check that lived elsewhere would need to import
     # this module back.
     # **928 -> 957 (2026-09-28)**: `check_dependencies` passes the GUI's own deadline and names the tools a stopped check did not reach; it is the CheckResult mapping, which lives with the other checks.
-    "preflight.py": 957,
+    # **957 -> 961** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): the wrapper-answer snippet a user is shown keeps head and tail, counted.
+    "preflight.py": 961,
     # **367 -> 370** (2026-09-24): Accurip 450 is ONE frame, not a pressing. Two docstrings stated the old mechanism as fact.
     # **370 -> 373** (2026-09-28, the Full run's track 3): the retried-track copy carries `replaced_because`.
     # **370 -> 410** (2026-09-28, `-Z` that `-r` cannot satisfy): `recovery_secure_rerip_ceiling`, which caps the ladder's own fallback `-Z` (`MAX_SECURE_REREP`, defined here) at what the user's `-r` lets converge. Beside the bound it caps, and shared by the ladder and the auto-fix so they cannot disagree.
@@ -2537,7 +2543,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4101 -> 4125** (2026-10-06, W6): the worker keeps the last album pass's `-j` record path and reads it, on its own thread, after the log wait and on the start-failure exit, exposing `ripper_ending`. The reading itself is the new focused module `ripper_ending.py`; the worker is the only place that knows which record is the last album pass's and when it is safe to read.
     # **4125 -> 4128** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): `_CYANRIP_ETA_VALUE`'s blanks
     # after `m` moved inside its group (no two `\s*` side by side), and why.
-    "workers/rip_worker.py": 4128,
+    # **4128 -> 4134** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): two log records quote a ripper percentage head and tail, counted.
+    "workers/rip_worker.py": 4134,
 }
 
 

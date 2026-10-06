@@ -130,6 +130,45 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
 
 ### New rows
 
+- [ ] **The album audit's `handshake_note` check cannot pass on a beta-in-round build
+  under review** (found 2026-10-06, round 30's closing run: seven ARCHIVAL-section
+  failures, all this one check). It WARNs whenever the binary says it was built from an
+  open round, and `expect-album-audit` with no arguments needs every check at OK. Since
+  O3, the closing run's build is a beta cut inside the open round, which must say so
+  (the fork's `.20` release plan §3), so every closing run fails it seven times while
+  the two witnesses it compares agree (our verdict: `unapproved`, the build under
+  review). Proposed: the note's OPEN shape is a NOTE when the binary is the build under
+  review and a WARN otherwise, the cross-check unchanged; pinned both ways. **A re-grade
+  that makes a pass easier, so the maintainer's call** (CLAUDE.md, *a version number is a
+  claim about the field*); the 2026-10-06 run stays `partial` whatever is decided.
+- [ ] **A rip's headline verdict groups an unconverged track with a converged one**
+  (found 2026-10-06, section F). *"12 of 14 verified; on the other 2, only one frame
+  matched"* covers track 5 (re-reads converged on EAC's value) and track 3 (re-reads did
+  not agree, CTDB found no match), while the table, the issues list and the EAC-layout
+  log each say track 3's copy is not confirmed. The headline should name a track whose
+  re-reads did not converge. UX; the record itself is honest.
+- [ ] **Track 3 of the reference disc has converged on two different values on this
+  drive**: `59D352DD` (EAC's, the 2026-09-30 run) and `2AC1F945` (the 2026-10-06 secure
+  re-read, which matches one CTDB entry of confidence 1). AccurateRip holds no
+  whole-track checksum for it. The disc, not a defect; recorded so the next run on it is
+  read against both.
+- [x] **The cache probe's saved output stopped before its figure** (found 2026-10-06,
+  filing the closing run). `round30oct06fullcacheprobe.txt` is exactly 2,000 bytes and
+  holds no 137: `cache_probe.parse_cache_analysis` kept `text.strip()[:2000]` and
+  cd-paranoia prints its verdict last. *Done (this commit):* head and tail via
+  `diagnostics.bounded_output`, pinned on the closing run's real head plus the fixture's
+  verdict (revert-probed: both new tests fail on the old cut, the old fixture test does
+  not, which is why it shipped). Swept by
+  `tests/test_dependency_output_is_never_cut_at_the_head.py`; fourteen more sites fixed
+  with it.
+- [ ] **The version probes' `raw_output` is still cut at the head** (the sweep's
+  allowance, 2026-10-06). Seven sites in `deps/checks.py` keep `output.strip()[:200]`.
+  They are not widened yet because three readers take the WHOLE text for the banner
+  (`build_notes.cyanrip_build_note` and `ripper_update_worker` call
+  `identify_from_banner`, which partitions at the first `(`, and
+  `fork_commit_from_banner`, which reads to the last `)`). A tail added to the capture
+  could reach either parenthesis. Fix: hold those readers to the banner line first, then
+  capture head and tail, then shrink the allowance to nothing.
 - [ ] **On the stable cyanrip channel, `.19` reads as up to date while the acceptance
   run needs `.20`** (found 2026-10-06, moving the build under review). `.20` is on the
   fork's beta channel alone, so `evaluate_offer(stable, installed=174a134)` answers

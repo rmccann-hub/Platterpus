@@ -49,7 +49,7 @@ import logging
 import re
 from datetime import datetime
 
-from platterpus import one_frame_match
+from platterpus import diagnostics, one_frame_match
 from platterpus.parsers.cyanrip_log import (
     INTERRUPTED_MID_READ,
     INTERRUPTED_NOT_DETERMINED,
@@ -790,7 +790,7 @@ def _gap_handling(info: RippingInfo, cyanrip: bool) -> str:
             "unrecognised cyanrip gap action in %r — not one of the five in the "
             "fork's published contract (docs/handshake/inbound/); leaving EAC's Gap "
             "handling row unreported rather than guessing the policy",
-            text[:200],
+            diagnostics.bounded_chars(text, head=100, tail=100),
         )
         return _UNREPORTED
     return "Appended to previous track"

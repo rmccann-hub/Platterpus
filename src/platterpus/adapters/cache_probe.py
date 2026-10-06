@@ -134,8 +134,10 @@ class CacheProbeResult:
     - ``cache_sectors``: the drive's measured cache size in sectors, if reported.
     - ``analyzed``: ``True`` if cd-paranoia ran and produced output to parse
       (distinguishes "ran, inconclusive" from "never ran").
-    - ``raw_output``: captured stdout+stderr (trimmed) — the diagnostic evidence
-      kept in the report/log so a verdict is auditable.
+    - ``raw_output``: captured stdout+stderr — the diagnostic evidence kept in
+      the log and the run folder so a verdict is auditable. Bounded to a head
+      and a tail with the gap counted and marked, never cut at the head alone:
+      the verdict is the last thing cd-paranoia prints.
     - ``error``: a short reason the probe couldn't run (missing binary, timeout),
       "" when it ran.
     - ``exit_code``: what ``cd-paranoia -A`` exited with. **Tri-state** — ``None``
@@ -209,7 +211,15 @@ def parse_cache_analysis(output: str) -> CacheProbeResult:
             defeat=defeat,
             cache_sectors=sectors,
             analyzed=analyzed,
-            raw_output=text.strip()[:2000],
+            # HEAD AND TAIL, the gap counted. This was `text.strip()[:2000]`, a
+            # head-only cut, and on real hardware it cut exactly the part that
+            # matters: cd-paranoia prints its seek timings first and its cache
+            # verdict LAST, so round 30's closing run (2026-10-06) saved a file
+            # of exactly 2,000 bytes that stopped inside the timings and never
+            # reached the "137 sector(s)" line the transcript quoted from it. A
+            # silent truncation reads as completeness (CLAUDE.md, diagnostic
+            # completeness); `diagnostics.bounded_output` is the one helper.
+            raw_output=diagnostics.bounded_output(text.strip()),
         )
         if defeat is None and analyzed:
             # DIAGNOSABILITY (real-hardware lesson, 2026-07-26): an inconclusive

@@ -2233,6 +2233,22 @@ Three lessons, in increasing order of how much they generalise:
   it, and it pointed away from the real cause — costing a round. The rule is not
   "log more"; it is that any deliberate drop is **counted and marked**.
 
+**The fourth violation, 2026-10-06, found by reading our own filing.** Round 30's
+closing run saved `cd-paranoia -A`'s output so the transcript's *"cache 137
+sectors"* could be checked against it. The filed file is exactly 2,000 bytes and
+has no 137 in it: the adapter kept `text.strip()[:2000]`, cd-paranoia prints its
+seek timings first and its verdict last, and the cut fell inside the timings. Our
+own README then cited that file as the source of the figure, which is this
+section's lesson from the inside: the absence was a fact about the capture. Two
+things let it ship. The real-output fixture (`cdparanoia_A_bdr209d.txt`) carries
+no seek timings, so it was shorter than the cut and no test could see it: *what
+does my stand-in do that the real thing does not?* And the rule had been applied
+where it was learned, not swept. It is now swept:
+`tests/test_dependency_output_is_never_cut_at_the_head.py` refuses a head-only
+slice as a `raw_output=` value or inside any `log.<level>()` call; fourteen more
+sites were fixed with it, and it holds the version-probe captures it could not yet fix
+in a shrink-only allowance with the reason (seven sites, one population).
+
 #### Moved from `CLAUDE.md` (2026-09-26): An ABSENCE in a log is a fact about the logger before it is a fact about the subject
 
 *Verbatim from `CLAUDE.md` at `f5305a7` (section How to stop shipping the next one), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
@@ -3997,6 +4013,7 @@ that is what the section costs, not what its title implies.
 | 2026-09-30 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
 | 2026-10-04 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
 | 2026-10-05 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
+| 2026-10-06 | 0.6.66b1 | maintainer | bdr209d | bazzite | partial |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -4188,6 +4205,19 @@ a cancel and over track 18's skips; `cancel-rip` stopped an earlier step's rip;
 `pick-release` called an unidentified disc identified; and the 42 s quit grace was
 shorter than the 54 s read. Nothing it showed of the ripper breaks the pin
 (`docs/handshake/artifactsround30/README.md` → *The 2026-10-04 runs*).
+
+**The 2026-10-06 0.6.66b1 row is round 30's closing run, on `.20` and 0.6.66b1: 418 of
+426 graded steps passed (7 fail, 1 unreachable by design, plus 5 info), and `partial`.**
+The seven failures are one check on seven rips: `expect-album-audit`'s `handshake_note`
+WARN in sections F, H, J, K1, K2, K3 and N, graded ARCHIVAL before the run, on the
+sentence `.20` writes in every log because it was cut inside an open round (*NOT a
+released build*). The sentence is true and the fork's plan requires it; the check was
+written before a build under review could be an unreleased beta. Nothing here re-grades
+them. Every screenshot step passed, every rip's log verified, the app log holds no error
+for the whole run, and cyanrip's `-f` found `+667` on its first run on a drive.
+Track 3 converged on a value that is not EAC's, the disc as before
+(`docs/handshake/artifactsround30/README.md` → *The 2026-10-06 run*). **It is not a
+second witness** either: one machine, one distro, one person.
 
 **The 2026-10-05 0.6.65 row is the operator's final Full run on `.19`: 316 of 323,
 and `partial`, the same count as 2026-09-30.** The seven failures are the same seven

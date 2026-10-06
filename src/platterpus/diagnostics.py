@@ -236,6 +236,28 @@ def bounded_output(
     )
 
 
+def bounded_chars(text: object, *, head: int, tail: int) -> str:
+    """``text`` capped to ``head`` and ``tail`` characters, the gap counted.
+
+    :func:`bounded_output`'s rule for a value that is one line, or that goes into
+    a one-line log record: a snippet of a tool's answer quoted in a warning, the
+    sentence a refusal shows the user. Head AND tail for the same reason as
+    there (a tool's explanation is the last thing it prints), and the marker
+    carries the count, because ``"… (truncated)"`` says that something is missing
+    but not how much, and ``text[:200]`` says nothing at all.
+
+    Never raises; the bounds are clamped so ``tail=0`` cannot become ``[-0:]``,
+    which is the whole string.
+    """
+    value = _safe_str(text) if not isinstance(text, str) else text
+    head = max(0, head)
+    tail = max(1, tail)
+    if len(value) <= head + tail:
+        return value
+    elided = len(value) - head - tail
+    return f"{value[:head]} … [{elided} character(s) omitted] … {value[-tail:]}"
+
+
 def _coerce_argv(argv: object) -> tuple[str, ...]:
     """Best-effort argv coercion that accepts whatever a caller actually has.
 
