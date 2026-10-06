@@ -363,7 +363,7 @@ def test_the_git_stand_in_answers_the_file_read_too(tmp_path: Path) -> None:
         _check(
             tmp_path,
             _header(verdict="OPEN") + "LSL: 1\n\n"
-            "S1 FACT read: A line.\n  evidence: platterpus@1234567:README.md:3\n"
+            "S1 FACT read: A line.\n  evidence: platterpus@da766ca:README.md:3\n"
             "S2 VERDICT: OPEN\n  basis: S1\n",
         )
     assert any(a[:1] == ("show",) for a in asked), asked
