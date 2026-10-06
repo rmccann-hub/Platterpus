@@ -58,7 +58,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   so the first lap to cite EAC's own log stopped the whole check with a decode
   error. A file with a byte-order mark is now read in the encoding the mark names,
   and anything else is read with undecodable bytes replaced, so line numbers are
-  counted the way an editor shows them (contributor-facing).
+  counted the way an editor shows them. Its git calls now live in
+  `scripts/laplang/gitio.py`, and the tests' stand-in for git answers the file read
+  too, which since the decoding change it had silently stopped doing
+  (contributor-facing).
 - **The dependency check keeps the end of a tool's version answer too.** Every
   version probe kept the first 200 characters of what the tool printed, so a long
   answer lost its last line, where a failing tool says why. It now keeps 200 at each

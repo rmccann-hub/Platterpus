@@ -161,6 +161,12 @@ SENT_LAPS: dict[str, str] = {
     # taken, the operator's answer to S15; released on the maintainer's word 2026-10-06
     # ("When ready release the next lap").
     "outbound/round-30-lap-12.md": "c95d6ac212cd789d1237f225c92f51bcb56abb1c756ceffd501d2a9473b8ac0e",
+    # Our round 30 lap 14, OPEN: 0.6.66b1 released and the closing run read; released on
+    # the maintainer's word 2026-10-06 ("release") at `f5162fba`. The fork's lap 15
+    # holds it byte-identical: its HANDSHAKE-INBOUND-HELD names this sha256 and its
+    # 21,014 bytes, and `cyanrip@5e75eac:docs/handshake/inbound/round-30-lap-14.md`
+    # hashes the same.
+    "outbound/round-30-lap-14.md": "5f21d95741f49a83bfda9170900192feb4ea3c25dc5f81be5ce73b69ac496aa3",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at

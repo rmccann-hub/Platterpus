@@ -275,7 +275,7 @@ source). Every ruling is KDD-42 (W1 to W7); this is the work.
 - [ ] **A placeholder for the cover art in captures** (W5): while the walkthrough runs,
   the cover shown in the window is replaced by a neutral placeholder, so no label artwork
   enters the repository. A verb or a run setting, decided with the verb.
-- [ ] **`rig_scripts/walkthrough.txt`**: the steps below, driving the app with existing
+- [ ] **A `walkthrough.txt` rig script, to be written** (beside the acceptance scripts): the steps below, driving the app with existing
   verbs (`set-drive-offset`, `pick-release`, `rip`, `wait-for-rip`, `open`) and shooting
   with `screenshot`, `callout` and `record`. Its own run size; never counted as acceptance
   evidence.
