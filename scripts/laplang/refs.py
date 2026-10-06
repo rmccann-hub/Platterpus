@@ -24,6 +24,7 @@ tree, drew 15 refusals.)
 
 from __future__ import annotations
 
+import codecs
 import re
 import subprocess
 from dataclasses import dataclass
@@ -188,7 +189,12 @@ class Trees:
             reach = self._reachable(root, ref.side, ref.sha)
             if reach.outcome in ("refused", "unchecked"):
                 return reach
-        shown = _git(root, "show", f"{ref.sha}:{ref.path}")
+        # Read as BYTES and decoded here, not by `text=True`: a cited file is
+        # not always UTF-8. EAC writes its logs in UTF-16, and the first lap to
+        # cite one (our round 30 lap 16, EAC's own log of the reference disc)
+        # made this line raise UnicodeDecodeError and took the whole check down
+        # with it. See `decode_cited`.
+        shown = _git_bytes(root, "show", f"{ref.sha}:{ref.path}")
         if shown is None:
             return Resolution(
                 "unchecked", f"UNCHECKED {ref.side}@{ref.sha}: git did not answer"
@@ -197,7 +203,7 @@ class Trees:
             return Resolution(
                 "refused", f"{ref.path} does not exist at {ref.side}@{ref.sha}"
             )
-        return (line_count(shown.stdout), reach)
+        return (line_count(decode_cited(shown.stdout)), reach)
 
     def _commit_exists(self, root: Path, side: Side, sha: str) -> Resolution:
         result = _git(root, "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}")
@@ -299,13 +305,58 @@ def _check_lines(ref: ArtifactRef, line_count: int) -> Resolution:
     return Resolution("ok")
 
 
+#: Byte-order marks and the codec each names, longest first: UTF-32 LE's mark
+#: begins with UTF-16 LE's, so the shorter one must not be tried first.
+_BOMS: Final[tuple[tuple[bytes, str], ...]] = (
+    (codecs.BOM_UTF32_LE, "utf-32"),
+    (codecs.BOM_UTF32_BE, "utf-32"),
+    (codecs.BOM_UTF8, "utf-8-sig"),
+    (codecs.BOM_UTF16_LE, "utf-16"),
+    (codecs.BOM_UTF16_BE, "utf-16"),
+)
+
+
+def decode_cited(data: bytes) -> str:
+    """A cited file's text, whatever it was written in. Never raises.
+
+    A citation names LINES, so what matters is that the line count is the one
+    a reader of the file would see. A file with a byte-order mark is decoded by
+    the codec the mark names (EAC's logs are UTF-16 LE with a mark, so their
+    lines count as an editor shows them). Anything else is read as UTF-8 with
+    undecodable bytes replaced: a stray byte must cost a character, never the
+    check.
+    """
+    for mark, codec in _BOMS:
+        if data.startswith(mark):
+            return data.decode(codec, errors="replace")
+    return data.decode("utf-8", errors="replace")
+
+
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str] | None:
-    """Run git in `root`. None means git could not be asked, which is unchecked."""
+    """Run git in `root`. None means git could not be asked, which is unchecked.
+
+    ``errors="replace"``: git's own output (a ref name, a path) is not promised
+    to be UTF-8, and an answer we cannot decode is still an answer.
+    """
     try:
         return subprocess.run(
             ["git", "-C", str(root), *args],
             capture_output=True,
             text=True,
+            errors="replace",
+            timeout=GIT_TIMEOUT_S,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def _git_bytes(root: Path, *args: str) -> subprocess.CompletedProcess[bytes] | None:
+    """:func:`_git`, with stdout left as bytes for :func:`decode_cited`."""
+    try:
+        return subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
             timeout=GIT_TIMEOUT_S,
             check=False,
         )

@@ -36,6 +36,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **The lap checker no longer crashes on a cited file that is not UTF-8.** It
+  decoded every `evidence:` file as strict UTF-8, and EAC writes its logs in UTF-16,
+  so the first lap to cite EAC's own log stopped the whole check with a decode
+  error. A file with a byte-order mark is now read in the encoding the mark names,
+  and anything else is read with undecodable bytes replaced, so line numbers are
+  counted the way an editor shows them (contributor-facing).
 - **The dependency check keeps the end of a tool's version answer too.** Every
   version probe kept the first 200 characters of what the tool printed, so a long
   answer lost its last line, where a failing tool says why. It now keeps 200 at each

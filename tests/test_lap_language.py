@@ -1364,6 +1364,37 @@ def test_a_final_line_without_a_newline_can_be_cited(tmp_path: Path) -> None:
         assert got.outcome == outcome, (token, got)
 
 
+def test_a_cited_utf16_file_is_counted_in_its_own_lines(tmp_path: Path) -> None:
+    """EAC writes UTF-16 logs, and citing one raised UnicodeDecodeError.
+
+    Found writing our round 30 lap 16, which cites EAC's log of the reference
+    disc: `git show` was decoded as UTF-8 by `text=True`, so the first byte of
+    the byte-order mark ended the whole check. The count must be the file's own
+    lines (an editor's), and a file with bytes no codec accepts must still be
+    countable rather than raise.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    eac = "\ufeffExact Audio Copy V1.6\r\n\r\nTrack  5\r\n".encode("utf-16-le")
+    (repo / "eac.log").write_bytes(eac)
+    (repo / "noise.bin").write_bytes(b"one\n\xff\xfe\x00\xc3\ntwo\n")
+    _in(repo, "init", "-q", "-b", "main")
+    _commit(repo, "a utf-16 log and a file of stray bytes")
+    sha = _in(repo, "rev-parse", "--short=12", "HEAD").strip()
+    assert refs.line_count(refs.decode_cited(eac)) == 3
+    trees = refs.Trees({"platterpus": repo, "cyanrip": None}, {"platterpus": "main"})
+    for token, outcome in (
+        (f"platterpus@{sha}:eac.log:3", "ok"),
+        (f"platterpus@{sha}:eac.log:4", "refused"),
+        (f"platterpus@{sha}:noise.bin:3", "ok"),
+        (f"platterpus@{sha}:noise.bin:4", "refused"),
+    ):
+        ref = refs.parse_artifact(token)
+        assert ref is not None, token
+        got = trees.artifact(ref, "cyanrip")
+        assert got.outcome == outcome, (token, got)
+
+
 def _worktrees(repo: Path) -> list[str]:
     listed = _in(repo, "worktree", "list", "--porcelain")
     return [line for line in listed.splitlines() if line.startswith("worktree ")]
