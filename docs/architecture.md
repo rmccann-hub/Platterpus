@@ -248,14 +248,20 @@ Worker mechanics, all demonstrated in `workers/`:
   thirteen had not, until a 540 px logical screen cut the build picker off
   mid-sentence. The base class also refuses to be narrower than its content (a
   checkbox or button cannot wrap), and grows once more by whatever a
-  `FitScrollArea` still cannot show at the real width.
+  `FitScrollArea` still cannot show at the real width. Sideways every fit, and
+  the placement after it, keeps `fit_scroll_area.SIDE_MARGIN_PX` clear on each
+  side, so the window manager's frame stays on the screen (KDD-41, 2026-10-05).
 - **A dialog Qt sizes for us is still ours to fit** (audit, 2026-10-05). Qt
   sizes a `QMessageBox` itself: no wider than half the screen, as tall as its
   text, no ceiling, then fixed. Nothing checked it, and the long ones (the
   cyanrip offers, the dependency summary, the script reference) ran their
   buttons off small screens. `ui/dialogs/message_box_fit.py` widens a box that
   is too tall and, when no width is enough, scrolls its text with the buttons
-  kept on screen. It runs from the app-wide `DialogCenterFilter`, so every box
+  kept on screen. Its WIDTH is only ever changed through an input Qt's own
+  sizing reads (the label's minimum width, the scroll area, the title), because
+  Qt sizes the box again on its own Show, after the fit, and undoes any size set
+  directly; that is why a title too wide for the side margin is shortened rather
+  than the box narrowed. It runs from the app-wide `DialogCenterFilter`, so every box
   gets it without its call site doing anything — and it runs BEFORE the box is
   centred, because Qt delivers the Show event before it has sized the box, and
   centring the 640-px placeholder put a box that fitted half below the screen.

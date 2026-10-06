@@ -22,6 +22,27 @@ from PySide6.QtWidgets import QDialog, QFrame, QScrollArea, QWidget
 #: number because each pass only grows the window and the screen caps it.
 _UNMET_PASSES: Final[int] = 3
 
+#: Kept clear on EACH side of every window the app fits to its screen, so the
+#: window manager's frame lands on the screen too, with a visible gap beside it.
+#:
+#: **Why there is one at all (maintainer, 2026-10-05, KDD-41).** The fit used to
+#: keep a chosen width up to the WHOLE screen, so a window exactly as wide as the
+#: screen had its frame's side border off it: the release picker on a 1280 × 800
+#: panel at 150 %, and Qt's own message boxes on any screen up to 1024 px wide.
+#: Nothing was lost but the border and part of the layout margin, and the ruling
+#: was that a window should still read as a window, not as a panel.
+#:
+#: **Why 16 px.** It has to hold the frame's side border, which is a few pixels
+#: on common decorations (2 px on the offscreen platform the conformance matrix
+#: renders on), with room to spare for a heavier theme; and it should cost little
+#: on the smallest screen: 32 px is under 4 % of the narrowest one the matrix
+#: measures (853 px, a 1280 × 800 panel at 150 %). It is also the number
+#: `message_box_fit` already kept clear when it widens a box, so both kinds of
+#: window are held to one value rather than two. Horizontal only: vertically the
+#: larger `CenteredDialog.SCREEN_MARGIN_PX` already covers the title bar and the
+#: panel.
+SIDE_MARGIN_PX: Final[int] = 16
+
 
 class FitScrollArea(QScrollArea):
     """A scroll area that asks for ALL of its content, and scrolls only when the
@@ -135,7 +156,8 @@ def fit_dialog_to_screen(dialog: QDialog, avail: QSize, margin: int) -> None:
 
     **What it does**, on first show only:
 
-    * width is kept, unless it is wider than the screen — or NARROWER than
+    * width is kept, unless it is wider than the screen less
+      :data:`SIDE_MARGIN_PX` on each side — or NARROWER than
       the content can be: a checkbox or a button cannot wrap, and a dialog
       that sets its own minimum size switches off the layout's minimum, so
       Qt no longer stops it being squeezed (the uninstall dialog's checkbox,
@@ -155,12 +177,14 @@ def fit_dialog_to_screen(dialog: QDialog, avail: QSize, margin: int) -> None:
     width. `tests/test_ui_conformance.py` is the gate: every rule, every
     window, every screen shape, theme and text size.
     """
-    # The margin is VERTICAL only: it is for the taskbar and the title bar,
-    # which is where a dialog loses its buttons. Sideways a chosen width is
-    # kept unless it is wider than the screen itself — a dialog that asked
-    # for 800 px on an 800 px screen fits, and shrinking it to make room for
-    # a margin nobody needs would override a size it chose deliberately.
-    max_w = max(avail.width(), 320)
+    # `margin` is VERTICAL: it is for the taskbar and the title bar, which is
+    # where a dialog loses its buttons. Sideways the much smaller
+    # `SIDE_MARGIN_PX` is kept clear on each side, for the frame's border. This
+    # used to keep a chosen width up to the whole screen, on the grounds that
+    # shrinking a dialog to make room for a margin would override a size it
+    # chose; the maintainer ruled the other way on 2026-10-05 (KDD-41), because
+    # a window as wide as the screen has its frame off it.
+    max_w = max(avail.width() - 2 * SIDE_MARGIN_PX, 320)
     max_h = max(avail.height() - margin, 240)
     if dialog.minimumWidth() > max_w:
         dialog.setMinimumWidth(max_w)

@@ -30,6 +30,7 @@ from PySide6.QtCore import QEvent, QObject, QSize
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
 
 from platterpus.ui.dialogs.centering import CenteredDialog, center_on_anchor
+from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX
 from platterpus.ui.dialogs.message_box_fit import fit_message_box
 
 log = logging.getLogger(__name__)
@@ -133,14 +134,16 @@ def fit_plain_dialog(dialog: QDialog, avail: QSize, margin: int) -> None:
 
     A `QMessageBox` gets `message_box_fit.fit_message_box`. Anything else (the
     update's `QProgressDialog`, Qt's own file dialog) is only ever made SMALLER,
-    and only when it is bigger than the screen: these dialogs size themselves
-    well, and the one failure worth correcting is a window whose buttons are off
-    the screen.
+    and only when it is bigger than the screen allows: these dialogs size
+    themselves well, and the one failure worth correcting is a window whose
+    buttons, or whose frame, are off the screen.
     """
     if isinstance(dialog, QMessageBox):
         fit_message_box(dialog, avail, margin)
         return
-    width = min(dialog.width(), avail.width())
+    # Sideways, the same `SIDE_MARGIN_PX` every fitted window keeps clear for
+    # its frame's border (KDD-41).
+    width = min(dialog.width(), max(avail.width() - 2 * SIDE_MARGIN_PX, 120))
     height = min(dialog.height(), max(avail.height() - margin, 120))
     if (width, height) != (dialog.width(), dialog.height()):
         dialog.resize(width, height)

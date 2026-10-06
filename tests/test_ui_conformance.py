@@ -351,7 +351,7 @@ def _measure_one(window: object) -> dict[str, object]:
     )
 
     from platterpus.ui.dialogs.centering import CenteredDialog
-    from platterpus.ui.dialogs.fit_scroll_area import FitScrollArea
+    from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX, FitScrollArea
     from platterpus.ui.dialogs.message_box_fit import SCROLL_AREA_NAME
     from platterpus.ui.status_colours import contrast_ratio
 
@@ -390,24 +390,32 @@ def _measure_one(window: object) -> dict[str, object]:
     # hides its buttons just the same. Found 2026-10-05: message boxes were
     # centred while still Qt's 640-wide placeholder and then grew downward, so a
     # 480 x 420 beta prompt on a 540-px screen opened with Yes and No below the
-    # edge. Measured on the window's own rectangle (its content and buttons).
+    # edge. Vertically it is measured on the window's own rectangle (its content
+    # and buttons): that is the axis the defect above was on.
     #
-    # Sideways only, the frame's side border is tolerated. A window exactly as
-    # wide as the screen — which `fit_dialog_to_screen` allows on purpose, and
-    # which Qt itself makes a message box carrying a long path on a screen up to
-    # 1024 px wide — cannot have its frame on the screen as well, so the clamp
-    # puts the frame's left edge at the screen's and the content's last few
-    # pixels (the border's width, 2 px offscreen; layout margin, not text) past
-    # the right one. Vertically nothing is tolerated: that is the axis the
-    # defect above was on, and a title bar is tens of pixels, not a border.
+    # Sideways, on the FRAME, and with room for `SIDE_MARGIN_PX` on each side
+    # (KDD-41, 2026-10-05). This rule used to tolerate the frame's side border
+    # off the screen, because the fit kept a chosen width up to the whole
+    # screen and Qt makes a message box with a long title that wide on any
+    # screen up to 1024 px; the release picker on a 1280 x 800 panel at 150 %
+    # was one. The ruling was that a fitted window keeps a small margin on each
+    # side, so a window wider than the screen less those two margins — one that
+    # touches both edges, or would if centred — is a violation, and so is any
+    # part of the frame past either edge.
     examined["window_on_screen"] += 1
     g = w.geometry()  # type: ignore[attr-defined]  # a QWidget
     frame = w.frameGeometry()  # type: ignore[attr-defined]  # a QWidget
-    border = max(g.left() - frame.left(), frame.right() - g.right(), 0)
-    if not avail.adjusted(-border, 0, border, 0).contains(g):
-        violations["window_on_screen"].append(
-            f"{g.width()}x{g.height()} at ({g.x()},{g.y()}) on "
+    vertically = avail.top() <= g.top() and g.bottom() <= avail.bottom()
+    sideways = avail.left() <= frame.left() and frame.right() <= avail.right()
+    room = g.width() <= avail.width() - 2 * SIDE_MARGIN_PX
+    if not (vertically and sideways and room):
+        place = (
+            f"{g.width()}x{g.height()} at ({g.x()},{g.y()}), frame "
+            f"{frame.width()} wide at x={frame.x()}, on "
             f"{avail.width()}x{avail.height()}"
+        )
+        violations["window_on_screen"].append(
+            place if room else f"{place}: no room for {SIDE_MARGIN_PX}px each side"
         )
 
     # scrolls_only_when_capped — a body that scrolls although the window had room.

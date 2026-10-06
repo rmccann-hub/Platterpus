@@ -190,13 +190,28 @@ at 100 % and 150 % text, and the screenshots were looked at.
   Wayland, where a client cannot place its own window. At 150 % text, open Help →
   Check for cyanrip updates and the test console's script reference, and confirm
   the buttons are on screen.
-- [~] **A window exactly as wide as the screen has its frame's side border off
+- [x] **A window exactly as wide as the screen has its frame's side border off
   it** (the release picker on a 1280 × 800 panel at 150 %; a message box carrying
   a long path on a screen up to 1024 px wide). No content is lost, only the border
   and part of the layout margin. `fit_dialog_to_screen` keeps a chosen width up
   to the full screen on purpose, so whether to leave a side margin is the
   maintainer's call, not a fix taken here.
   - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** a small side margin. In progress.
+  - *Done 2026-10-05 (ruled yes, KDD-41):* one constant,
+    `fit_scroll_area.SIDE_MARGIN_PX` = 16, used by `fit_dialog_to_screen`,
+    `fit_message_box`, `fit_plain_dialog` and the placement clamp
+    (`centering._clamp_to`, which keeps up to that margin when a window opens
+    over an anchor near the edge, because the frame is usually unknown when a
+    window is placed). Why 16 is in its comment. The message box case was not
+    the path in its text (Qt wraps a path at its slashes) but its TITLE: Qt
+    widens a box to its title plus 50 px, up to the whole screen on one up to
+    1024 px, and applies that on the box's own Show, after our fit, so no size we
+    set survives it. The fit shortens such a title in the middle instead (the
+    window manager would cut it in a narrower box anyway), keeps the whole title
+    as the accessible name, and restores it before a later fit. The matrix's
+    `window_on_screen` now checks the FRAME against both side edges and fails a
+    window wider than the screen less the two margins; it no longer tolerates
+    the border.
 - [~] **The track table is not measured with a disc loaded.** The matrix's main
   window has no disc, so `cut_off_cells` examines none of its cells; a disc with
   long track titles is the next population to add. Not done here because the
