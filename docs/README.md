@@ -94,7 +94,7 @@ Outside this directory:
 | File | What it covers |
 |---|---|
 | [`../CLAUDE.md`](../CLAUDE.md) | Persistent rules and conventions; locked rules section; project operations |
-| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-41) |
+| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-42) |
 | [`../TASKS.md`](../TASKS.md) | Active task checklist — P0 (T01-T32), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope |
 | [`../DEPENDENCIES.md`](../DEPENDENCIES.md) | Pinned versions, last upstream release dates, retirement-review log, and *The full map*: the generated human-readable copy of [`../bom.cdx.json`](../bom.cdx.json), the CycloneDX bill of materials of everything the project has or relies on (`python3 scripts/emit_bom.py`) |
 | [`../README.md`](../README.md) | User-facing install instructions, troubleshooting, EAC comparison |
