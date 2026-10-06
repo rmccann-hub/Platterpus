@@ -1508,6 +1508,44 @@ def test_a_rip_cancelled_after_its_read_finished_says_cancelled_not_done(
     assert not any(s.startswith("Done — ") for s in statuses), statuses
 
 
+def test_the_fidelity_line_carries_a_disagreement_with_cyanrips_own_record(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """W6, on the success path that replaces the status with the fidelity line:
+    a rip we call finished whose own record says interrupted says both."""
+    from types import SimpleNamespace
+
+    from platterpus.ripper_ending import STATE_READ, RipperEnding
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False,
+        failure_hint="",
+        ripper_exit_code=0,
+        ripper_ending=RipperEnding(
+            STATE_READ, exit_code=0, interrupted=True, interrupted_by="SIGTERM"
+        ),
+    )
+    window._active_rip_params = None
+    window._rip_cancelled = False
+    window._auto_retry_done = True
+    statuses: list[str] = []
+    monkeypatch.setattr(window._rip_progress, "set_status", statuses.append)
+    log_file = tmp_path / "rip.log"
+    log_file.write_text(
+        _ROUND30_OCT04_FULL_LOG.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    window._on_rip_finished(True, str(log_file))
+    report_writer.writer().flush()  # the report write is off-thread now
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+
+    fidelity = [s for s in statuses if s.startswith("Done — ")]
+    assert fidelity, statuses  # floor: the fidelity line was composed
+    assert "⚠ Platterpus recorded the rip as finished" in fidelity[-1], fidelity
+
+
 def test_no_auto_heal_when_not_flagged(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -4182,7 +4220,13 @@ def test_the_test_tools_menu_items_live_under_tools_advanced(teardown_threads) -
     submenus = [a.menu() for a in tools.actions() if a.menu() is not None]
     assert [m.title() for m in submenus] == ["&Advanced"], direct
     inside = [a.text().replace("&", "") for a in submenus[0].actions()]
-    assert inside == ["Run test script…", "Run acceptance test…"], inside
+    assert inside == [
+        "Run test script…",
+        "Run acceptance test…",
+        # The second acceptance script, for a disc MusicBrainz does not know
+        # (KDD-41 C4 (b), 2026-10-06), beside the first.
+        "Run acceptance test with an unknown disc…",
+    ], inside
     assert not {"Run test script…", "Run acceptance test…"} & set(direct), direct
     # Uninstall stays where a user can see it — the half of D4 A that is easy to
     # lose by sweeping "the rarely used items" into the submenu together.
@@ -4190,14 +4234,15 @@ def test_the_test_tools_menu_items_live_under_tools_advanced(teardown_threads) -
 
     # Moving the acceptance item did not unhook it from the rip lock: it rips
     # discs itself, so starting one on top of a live rip is still refused.
-    acceptance = submenus[0].actions()[1]
-    assert acceptance.isEnabled()
-    window._set_rip_lock(True)
-    try:
-        assert not acceptance.isEnabled()
-    finally:
-        window._set_rip_lock(False)
-    assert acceptance.isEnabled()
+    # Both acceptance items, for the same reason.
+    for acceptance in submenus[0].actions()[1:3]:
+        assert acceptance.isEnabled()
+        window._set_rip_lock(True)
+        try:
+            assert not acceptance.isEnabled(), acceptance.text()
+        finally:
+            window._set_rip_lock(False)
+        assert acceptance.isEnabled()
 
 
 def test_uninstall_finished_offers_quit_on_success(
@@ -9155,6 +9200,95 @@ def test_a_failure_with_no_diagnosis_at_least_names_the_log(teardown_threads) ->
     assert str(LOG_PATH) in status
 
 
+def test_a_failed_rip_followed_by_a_securing_pass_says_which_pass_exited_how(
+    teardown_threads,
+) -> None:
+    """Ruling C1: a securing pass can now follow an album pass that exited 1.
+
+    The status line names the album pass's exit and the securing pass's, so the
+    securing pass's code is not read as the reason the rip failed, and the outcome
+    snapshot carries both codes apart (schema v31). The twin below shows the suffix
+    is not said when no securing pass ran.
+    """
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        failure_hint="",
+        ripper_exit_code=1,
+        securing_pass_started=True,
+        securing_pass_exit_code=0,
+    )
+    window._last_rip_error = None
+
+    window._finish_rip(success=False, log_path="")
+
+    status = window._rip_progress.current_status()
+    # In the sentence, ahead of what cyanrip's own record says (W6), if anything.
+    assert "(album pass exit 1; securing pass exit 0)" in status, status
+    assert window._last_outcome["ripper_exit_code"] == 1
+    assert window._last_outcome["securing_pass_started"] is True
+    assert window._last_outcome["securing_pass_exit_code"] == 0
+
+
+def test_a_failed_rip_with_no_securing_pass_names_no_pass(teardown_threads) -> None:
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(failure_hint="", ripper_exit_code=1)
+    window._last_rip_error = None
+
+    window._finish_rip(success=False, log_path="")
+
+    assert "pass exit" not in window._rip_progress.current_status()
+    assert window._last_outcome["securing_pass_started"] is False
+    assert window._last_outcome["securing_pass_exit_code"] is None
+
+
+def test_a_failed_rip_says_what_cyanrips_own_record_says(teardown_threads) -> None:
+    """W6: the status line says how cyanrip's own record says the album pass
+    ended, and the outcome snapshot carries the record, tri-state."""
+    from platterpus.ripper_ending import STATE_READ, RipperEnding
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        failure_hint="",
+        ripper_exit_code=1,
+        ripper_ending=RipperEnding(
+            STATE_READ, exit_code=1, interrupted=True, interrupted_by="SIGTERM"
+        ),
+    )
+    window._last_rip_error = None
+
+    window._finish_rip(success=False, log_path="")
+
+    status = window._rip_progress.current_status()
+    assert status.endswith("cyanrip's own record: interrupted by SIGTERM (exit 1)."), (
+        status
+    )
+    record = window._last_outcome["ripper_record"]
+    assert (record["state"], record["interrupted_by"]) == (STATE_READ, "SIGTERM")
+
+
+def test_a_finished_rip_the_record_calls_interrupted_says_both(
+    teardown_threads,
+) -> None:
+    """Where the record and our own reading disagree, both are said, marked."""
+    from platterpus.ripper_ending import STATE_READ, RipperEnding
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        failure_hint="",
+        ripper_exit_code=0,
+        ripper_ending=RipperEnding(
+            STATE_READ, exit_code=0, interrupted=True, interrupted_by="SIGINT"
+        ),
+    )
+
+    window._finish_rip(success=True, log_path="")
+
+    status = window._rip_progress.current_status()
+    assert "⚠ Platterpus recorded the rip as finished" in status, status
+    assert "interrupted by SIGINT" in status
+    assert window._last_outcome["ripper_record"]["disagreements"]
+
+
 def test_the_workers_hint_still_wins_when_it_has_one(teardown_threads) -> None:
     """Ordering is unchanged: a tailored hint scraped from the ripper's output
     still outranks the raw error line. This is the *fallback* that was missing, not
@@ -11729,6 +11863,26 @@ def _armed_bundle(window: MainWindow, tmp_path: Path, **kwargs: Any):
     window._arm_evidence_bundle(kwargs.get("_success", True), str(log_file))
     window._evidence_bundle_timer.stop()  # no event loop in this test
     return window._pending_evidence_bundle
+
+
+def test_the_bundle_facts_say_which_pass_each_exit_describes(
+    qapp: QApplication, teardown_threads: Any, tmp_path: Path
+) -> None:
+    """Schema v31's split, in the one-file bundle: the album pass's verdict and
+    the securing pass's exit, each under its own name."""
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        securing_pass_started=True, securing_pass_exit_code=1
+    )
+    ran = _armed_bundle(window, tmp_path, _success=False)
+    window._rip_worker = SimpleNamespace(securing_pass_started=False)
+    skipped = _armed_bundle(window, tmp_path / "second", _success=True)
+
+    assert ran.facts["album pass exit ok"] == "False"
+    assert ran.facts["securing pass exit"] == "1"
+    assert skipped.facts["album pass exit ok"] == "True"
+    assert skipped.facts["securing pass exit"] == "did not run"
+    assert "ripper exit ok" not in ran.facts  # one name per fact, not two
 
 
 def test_the_rips_diagnostics_records_reach_its_report_bundle(

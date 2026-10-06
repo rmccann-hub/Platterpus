@@ -1197,7 +1197,14 @@ def test_schema_version_is_27() -> None:
     #
     # v30 added `read_speed.retried_tracks[].replaced_because`: a re-read kept on
     # AccurateRip's word may not have converged, so the record says why.
-    assert REPORT_SCHEMA_VERSION == 30
+    #
+    # v31 made `outcome.ripper_exit_code` the ALBUM pass's and added
+    # `outcome.securing_pass_started` / `securing_pass_exit_code`: since ruling C1
+    # a securing pass follows an album pass that exited 1, so one report holds both.
+    #
+    # v32 added `outcome.ripper_record`: cyanrip's own `-j` record of how the album
+    # pass ended, tri-state, with every disagreement with our reading (W6).
+    assert REPORT_SCHEMA_VERSION == 32
 
 
 def _issue_codes(report: dict) -> set[str]:

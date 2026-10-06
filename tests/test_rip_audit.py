@@ -437,6 +437,44 @@ def test_a_never_reaped_child_reads_as_null_not_zero(tmp_path: Path) -> None:
     assert any("not reaped (null)" in f.text for f in album.findings)
 
 
+def test_a_failed_rip_says_which_pass_each_exit_code_describes(tmp_path: Path) -> None:
+    """Schema v31: the album pass's code leads, the securing pass's is beside it,
+    and the command (the LAST run) is labelled as the securing pass's."""
+    report = _healthy()
+    report["outcome"] = {
+        "status": "failed",
+        "ripper_exit_code": 1,
+        "securing_pass_started": True,
+        "securing_pass_exit_code": 0,
+        "ripper_command_display": "cyanrip -d /dev/sr0 -Z 2 -l 18",
+    }
+    album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG]))
+    texts = [f.text for f in album.findings]
+    assert "album pass ripper exit code: 1" in texts
+    assert "securing pass ripper exit code: 0" in texts
+    assert any(
+        t.startswith("command (the securing pass's, the last run): ") for t in texts
+    )
+
+
+def test_a_failed_rip_without_a_securing_pass_names_only_the_album_pass(
+    tmp_path: Path,
+) -> None:
+    report = _healthy()
+    report["outcome"] = {
+        "status": "failed",
+        "ripper_exit_code": 1,
+        "securing_pass_started": False,
+        "securing_pass_exit_code": None,
+        "ripper_command_display": "cyanrip -d /dev/sr0",
+    }
+    album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG]))
+    texts = [f.text for f in album.findings]
+    assert "album pass ripper exit code: 1" in texts
+    assert not any("securing pass" in t for t in texts)
+    assert "command: cyanrip -d /dev/sr0" in texts
+
+
 # --- multi-disc ---------------------------------------------------------------
 
 

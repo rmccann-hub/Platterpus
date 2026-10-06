@@ -56,11 +56,9 @@ from platterpus.parsers.rip_log import RereadAgreement
 from platterpus.read_speed_ladder import (
     MAX_ATTEMPTS,
     SpeedAttempt,
-    disc_in_accuraterip,
     next_step,
     read_errors_present,
     recovery_secure_rerip_ceiling,
-    tracks_failing_accuraterip,
     unstable_tracks,
 )
 from platterpus.redraw_run import RedrawRun
@@ -72,6 +70,7 @@ from platterpus.rip_addendum import (
 )
 from platterpus.rip_estimate import ReadRate
 from platterpus.rip_plan import describe_rip_plan
+from platterpus.ripper_ending import RipperEnding, read_ending
 from platterpus.ripper_log_settle import (
     NOT_SETTLED,
     LogSettle,
@@ -81,6 +80,13 @@ from platterpus.ripper_log_settle import (
 from platterpus.ripper_message_inventory import ALL_FORMATS
 from platterpus.ripper_messages import build_matcher
 from platterpus.safe_int import int_or_none
+from platterpus.securing_pass import (
+    TRIGGER_ACCURATERIP,
+    SecuringPlan,
+    first_pass_records,
+    plan_securing_pass,
+    why_no_securing_pass,
+)
 from platterpus.verdict import (
     REREAD_KEPT_FOR_ACCURATERIP,
     REREAD_KEPT_FOR_CONVERGENCE,
@@ -674,9 +680,12 @@ _REFIX_ETA_MAX_S: float = 6 * 60 * 60
 #
 # Bounded quantifiers throughout (never-unbounded rule), and every group is
 # optional so a shape we have not seen degrades to "unparseable" rather than to
-# a wrong number.
+# a wrong number. The blanks after `m` sit INSIDE its group (2026-10-06): with
+# the minutes absent, two `\s*` side by side split one run of blanks every
+# possible way, which was quadratic in a run between `h` and a stray character.
+# Same lines, same groups (`tests/test_regex_rewrites_read_the_same.py`).
 _CYANRIP_ETA_VALUE = re.compile(
-    r"^(?:(?P<h>\d{1,4})\s*h)?\s*(?:(?P<m>\d{1,4})\s*m)?\s*(?:(?P<s>\d{1,7})\s*s)?$"
+    r"^(?:(?P<h>\d{1,4})\s*h)?\s*(?:(?P<m>\d{1,4})\s*m\s*)?(?:(?P<s>\d{1,7})\s*s)?$"
 )
 
 # cyanrip appends its OWN per-op ETA to each progress redraw
@@ -997,6 +1006,11 @@ class RipWorker(QObject):
         # was diagnosed from the maintainer's uploaded files because our own
         # report did not carry the command line (2026-08-02).
         self._ripper_exit_code: int | None = None
+        # The securing pass's own exit status, kept apart from the album pass's
+        # above (ruling C1, KDD-41). `None` is "not reaped" only when
+        # `_securing_pass_started`; otherwise the pass never ran.
+        self._securing_pass_started: bool = False
+        self._securing_pass_exit_code: int | None = None
         self._ripper_argv: tuple[str, ...] = ()
         # The FIRST pass's argv, kept separately because only the first pass
         # writes the whole-disc log whose `Invoked as:` line we cross-check
@@ -1006,6 +1020,10 @@ class RipWorker(QObject):
         # stays there, in the rips root; the report bundle collects it by name
         # (`diagnostics_record` says why it is not moved).
         self._diagnostics_records: list[Path] = []
+        # The last album pass's record, and what it says about how that pass
+        # ended (`ripper_ending`, W6). None until read, at the end of the rip.
+        self._album_record: Path | None = None
+        self._ripper_ending: RipperEnding | None = None
         # Set true if the ripper aborts for lack of online metadata, so the GUI
         # can heal by retrying as an unknown-album rip. An inert pre-cyanrip seam:
         # cyanrip runs with -N and is fed the GUI's tags, so it never hits this.
@@ -1894,9 +1912,14 @@ class RipWorker(QObject):
         # cyanrip opens its log leaves the previous pass's log on disk, and the
         # ladder must not judge it by that one (see `judge_step_down`).
         logs_seen: set[str] = set()
+        log_is_this_passes = False
         attempt = 0
         while True:
             attempt += 1
+            # Whether THIS pass's log is its own: reset every pass, so a cancel
+            # that leaves the loop before judging its log never inherits the
+            # previous pass's answer (the securing pass's gate reads it after).
+            log_is_this_passes = False
             # Remember this pass's speed so ETA samples are tagged with it.
             # (`_rip_once` resets the per-pass progress state itself — it is the
             # single writer of the pass phase; see its docstring.)
@@ -1909,6 +1932,7 @@ class RipWorker(QObject):
             )
             if outcome is None:
                 # A hard start/stream error already emitted `error`; stop here.
+                self._ripper_ending = read_ending(self._album_record)
                 self.finished.emit(False, "")
                 return
             success, log_path_str = outcome
@@ -2009,118 +2033,41 @@ class RipWorker(QObject):
             log.info("%s", ladder_line)
             self.log_line.emit(ladder_line)
 
-        # Post-rip targeted secure re-rip: re-rip just the track(s) that need it
-        # (via cyanrip's -l, into a temp dir — the album's whole-disc log/cue stay
-        # intact, only an improved FLAC is copied in), keeping a re-read only if it
-        # now converges. Two triggers, decided by mode (they never overlap):
-        #   • dynamic mode → the fast first pass had no -Z, so secure the tracks
-        #     that didn't match AccurateRip, at the CONFIGURED -Z level;
-        #   • else auto_ladder → a -Z pass left an unstable track (never converged),
-        #     so re-read it HARDER (escalate to the -Z ceiling).
-        # Neither can make a track worse; skipped entirely in plain fixed mode.
+        # The securing pass: re-read just the track(s) that need it, alone, into a
+        # temp dir (the album's log and cue stay intact; only a better FLAC is
+        # copied in). Which tracks, and why, is `securing_pass.plan_securing_pass`.
         #
-        # STILL keyed on `success` (exit 0), deliberately, though the ladder above
-        # no longer is. When the ladder ends on a pass the drive could not read
-        # cleanly (exhausted, or fixed mode), cyanrip exited 1 and this is skipped,
-        # as it always was. Running it there would overwrite `_ripper_exit_code`,
-        # which the report states as THE ripper's exit, with the securing pass's
-        # own, under an outcome the window still calls failed; and whether exit 1
-        # over a finished rip should read as failed is the fork's open round 30
-        # lap 9 S13 and the maintainer's verdict. Tracked in TASKS.md (round 30).
-        if success and not self._cancelled:
-            if dynamic_secure:
-                # Dynamic mode: secure the AccurateRip-failing tracks at the user's
-                # configured -Z. The `dynamic_secure` gate already guarantees
-                # secure_rerip_matches > 0, so this is always a real -Z. Their
-                # number is the max — we never invent a harder value.
-                #
-                # BUT only when the disc is actually in the AccurateRip DB: for a
-                # disc that's NOT in the DB (a CD-R, an obscure pressing — every
-                # track "fails" AR because there's nothing to match), there's no
-                # consensus to converge toward, so a targeted re-rip can't produce
-                # a match — it would just re-rip and swap EVERY track, a full
-                # wasted second pass (the "20min → 1h" slowdown dynamic mode
-                # exists to avoid). Skip it; the fast first pass stands, flagged
-                # as not-verified. (An in-DB disc where a *few* tracks failed is
-                # the real dynamic case and still re-rips just those.)
-                self._disc_in_accuraterip = disc_in_accuraterip(parsed_log)
-                if self._disc_in_accuraterip:
-                    # With rerip_offset_variant on (the default), an
-                    # offset-variant ("partially accurate") match is NOT treated as
-                    # proven and is re-read too, so a track that offset-variant-
-                    # matches with an unstable read converges on a reproducible one
-                    # (real-hardware findings, 2026-07-23 and 2026-09-24). Off →
-                    # the offset-variant match is accepted on the fast read.
-                    to_fix = tracks_failing_accuraterip(
-                        parsed_log,
-                        include_offset_variant=self._params.rerip_offset_variant,
-                    )
-                else:
-                    to_fix = []
-                    self._secure_rerip_skipped_reason = "disc_not_in_accuraterip"
-                    self.log_line.emit(
-                        "[secure re-rip] disc is not in AccurateRip — keeping the "
-                        "fast read (a re-rip can't verify against a DB that has no "
-                        "entry for this disc)."
-                    )
-                    log.info("dynamic secure re-rip skipped: disc not in AccurateRip")
-                # Engaged only when there's actually a track to secure (every
-                # track matching AccurateRip on the fast read is already proven).
-                self._secure_rerip_engaged = bool(to_fix)
-                trigger = "accuraterip"
-                rerip_z = self._params.secure_rerip_matches
-            elif auto_ladder:
-                # Recovery: an unstable track (a -Z pass that never converged) is
-                # re-read alone HARDER. It NEEDS a -Z to converge, so use the user's
-                # configured ceiling when they set one, else the internal recovery
-                # bound (they may have left -Z at 0 while still wanting a shaky
-                # track rescued — that's what auto_ladder mode is for), capped at
-                # what their -r lets converge — the same answer the ladder gets.
-                to_fix = list(self._last_unstable_tracks)
-                trigger = "instability"
-                rerip_z = recovery_secure_rerip_ceiling(
-                    secure_rerip_matches=self._params.secure_rerip_matches,
-                    max_retries=self._params.max_retries,
-                )
-            else:
-                to_fix = []
-                trigger = ""
-                rerip_z = 0
-            if to_fix:
-                # The FIRST pass's CRC per track, captured before any swap, so the
-                # addendum can say whether a re-read confirmed the original audio
-                # or replaced it. Without this it could only assert "the improved
-                # read was swapped in" — which on the J1 rip was false: track 5
-                # came back with the CRC the album log already held (round 7).
-                first_pass_crcs = {
-                    number: crc
-                    for track in getattr(parsed_log, "tracks", ()) or ()
-                    if (number := getattr(track, "number", None)) is not None
-                    and (
-                        crc := str(
-                            getattr(track, "copy_crc", "")
-                            or getattr(track, "test_crc", "")
-                            or ""
-                        )
-                    )
-                }
-                # And the first pass's whole parsed record per track: which read
-                # to keep is decided on AccurateRip first, so the auto-fix needs
-                # to know whether the read it might replace was already verified
-                # (verdict.reread_supersedes).
-                first_pass_tracks = {
-                    number: track
-                    for track in getattr(parsed_log, "tracks", ()) or ()
-                    if (number := getattr(track, "number", None)) is not None
-                }
-                self._auto_fix_tracks(
-                    to_fix,
-                    rerip_z,
-                    trigger,
-                    album_log_path=log_path_str,
-                    first_pass_crcs=first_pass_crcs,
-                    first_pass_tracks=first_pass_tracks,
-                )
+        # It runs after a clean exit 0, as it always did, and now also after an
+        # exit 1 whose log shows the pass FINISHED (ruling C1, KDD-41): cyanrip
+        # exits 1 whenever the drive failed a read, so keying it on exit 0 alone
+        # skipped the pass whose tracks most need a second read. The gate is
+        # `why_no_securing_pass`, asked HERE, where the pass starts, and not
+        # earlier: a cancel that lands after it is still caught by `_rip_once`'s
+        # startup-window check. The album pass's exit status stays in
+        # `_ripper_exit_code`; the securing pass's goes to its own field
+        # (`_rip_once`), so the report never states one pass's code as the other's.
+        refusal = why_no_securing_pass(
+            parsed_log,
+            exit_code=self._ripper_exit_code,
+            stopped_by_us=self._we_stopped_ripper(),
+            log_is_this_passes=log_is_this_passes,
+            only_tracks=self._params.only_tracks,
+            disc_track_total=self._params.disc_track_total,
+        )
+        self._run_securing_pass(
+            plan_securing_pass(
+                parsed_log,
+                refusal=refusal,
+                dynamic=dynamic_secure,
+                auto_ladder=auto_ladder,
+                secure_rerip_matches=self._params.secure_rerip_matches,
+                max_retries=self._params.max_retries,
+                include_offset_variant=self._params.rerip_offset_variant,
+                unstable=self._last_unstable_tracks,
+            ),
+            parsed_log,
+            log_path_str,
+        )
 
         # Ask the RIPPER whether the log it wrote still matches its own checksum.
         # Deliberately the LAST thing before finishing: every step that could touch
@@ -2153,17 +2100,24 @@ class RipWorker(QObject):
         # reader would leave the other one reading a half-written file.
         settle = self._await_ripper_log(log_path_str)
         self._verify_ripper_log(log_path_str, writer_finished=settle.is_settled)
+        # cyanrip's own record of how the album pass ended (W6), read HERE, on the
+        # worker thread and after the log wait, the last moment before `finished`.
+        # On a cancel the in-container ripper may write it later still; then it
+        # reads "absent", which is "not determined", never "not interrupted".
+        self._ripper_ending = read_ending(self._album_record)
 
         if success:
             # Peg both bars at 100% so a finished rip never leaves the
             # overall bar short of full (the post-rip AccurateRip phase
             # has no reliable percentage of its own).
             self.progress.emit(100.0, 100.0)
-        # `success` is the LAST pass's exit 0, unchanged by the ladder fix: the
-        # window's outcome ("failed"), status line and report read it as the
-        # ripper's own verdict, and a ladder that ends on a pass the drive could
-        # not read cleanly reports that pass as cyanrip did. See the securing-pass
-        # gate above for why that verdict is not ours to soften here.
+        # `success` is the last ALBUM pass's exit 0, unchanged by the ladder fix
+        # and by the securing pass: the window's outcome ("failed"), status line
+        # and report read it as the ripper's own verdict on the album, and a
+        # ladder that ends on a pass the drive could not read cleanly reports that
+        # pass as cyanrip did. Whether exit 1 over a finished rip should read as
+        # failed is the fork's open round 30 lap 9 S13 and the maintainer's
+        # verdict, so it is not ours to soften here.
         self.finished.emit(success, log_path_str)
 
     def _await_ripper_log(self, log_path_str: str) -> LogSettle:
@@ -2327,6 +2281,10 @@ class RipWorker(QObject):
         is precisely the bug.
         """
         self._reset_pass_progress(kind=pass_kind, tracks=tuple(only_tracks))
+        # An error the securing pass hits says so: the window keeps the last error
+        # as the reason a FAILED rip failed, and since ruling C1 a failed album
+        # pass can be followed by a securing pass.
+        said_by = "the securing pass: " if pass_kind == _PASS_REFIX else ""
         out_dir = output_dir or self._params.output_dir
         # Only the MAIN rip passes snapshot an incremental report — never the
         # throwaway auto-fix temp rip (output_dir set). See _write_incremental_report.
@@ -2367,6 +2325,10 @@ class RipWorker(QObject):
             # had injected in transit (real-hardware false alarm, 2026-08-03).
             if not self._ripper_argv_first_pass:
                 self._ripper_argv_first_pass = self._ripper_argv
+            # The securing pass ran from here on: its process exists. Its exit
+            # status, `None` until reaped, is only meaningful beside this.
+            if pass_kind == _PASS_REFIX:
+                self._securing_pass_started = True
             # Where this pass's `-j` record goes, read off the argv as spawned and
             # the directory it ran in. Album passes only: an auto-fix pass runs in
             # a temp folder that is deleted afterwards, so its record is not
@@ -2374,6 +2336,10 @@ class RipWorker(QObject):
             record = diagnostics_record.record_path_from_argv(
                 self._ripper_argv, out_dir
             )
+            if incremental:
+                # The LAST album pass's record is the one whose ending the rip's
+                # status describes (W6); None when its argv named no record.
+                self._album_record = record
             if (
                 incremental
                 and record is not None
@@ -2395,7 +2361,7 @@ class RipWorker(QObject):
                 argv=self._ripper_argv,
                 where="workers.rip_worker.RipWorker._run_rip",
             )
-            self.error.emit(str(exc))
+            self.error.emit(f"{said_by}{exc}")
             return None
         except Exception as exc:  # noqa: BLE001 — last-resort guard
             log.exception("unexpected error starting rip")
@@ -2407,7 +2373,7 @@ class RipWorker(QObject):
                 argv=self._ripper_argv,
                 where="workers.rip_worker.RipWorker._run_rip",
             )
-            self.error.emit(f"unexpected error: {exc}")
+            self.error.emit(f"{said_by}unexpected error: {exc}")
             return None
 
         # Close the startup-window cancel race: if cancel() arrived while
@@ -2658,11 +2624,19 @@ class RipWorker(QObject):
             # abnormally, before wait()). Stop it so it doesn't keep holding the
             # drive and contend with a retry — best-effort, non-blocking.
             self._signal_stop("stdout stream error")
-            self.error.emit(f"rip stream error: {exc}")
+            self.error.emit(f"{said_by}rip stream error: {exc}")
             return None
 
         exit_code = self._reap_ripper()
-        self._ripper_exit_code = exit_code
+        # ONE FIELD PER PASS. `_ripper_exit_code` is the album pass's (the last
+        # whole-disc or `-l` pass, the one the rip's status describes); the
+        # securing pass, which since ruling C1 also follows an album pass that
+        # exited 1, has its own, so neither is reported as the other's.
+        securing = pass_kind == _PASS_REFIX
+        if securing:
+            self._securing_pass_exit_code = exit_code
+        else:
+            self._ripper_exit_code = exit_code
         success = (exit_code == 0) and not self._cancelled
         if exit_code not in (0, None) and not self._cancelled:
             # SAY WHO ENDED IT when the exit status can tell us. A ripper that is
@@ -2693,7 +2667,8 @@ class RipWorker(QObject):
                 exit_code,
                 self.captured_stdout,
                 message=(
-                    f"the ripper exited {exit_code}"
+                    f"the {'securing' if securing else 'album'} pass's ripper "
+                    f"exited {exit_code}"
                     + (f" — {self._failure_hint}" if self._failure_hint else "")
                 ),
                 where="workers.rip_worker.RipWorker._run_rip",
@@ -3031,6 +3006,64 @@ class RipWorker(QObject):
         # pass boundary in either direction.
         self._refix_rate_window = []
         self._refix_smoothed_s = None
+
+    def _run_securing_pass(
+        self, plan: SecuringPlan, album_log: object, album_log_path: str
+    ) -> None:
+        """Run the securing pass ``plan`` describes, or record why it did not run.
+
+        The plan is :func:`~platterpus.securing_pass.plan_securing_pass`'s. This
+        records its answers for the report (``secure_rerip_report``), says a
+        refusal in both logs, and runs :meth:`_auto_fix_tracks` over the tracks.
+
+        **The rip's failure hint stays the album pass's.** The hint is "first
+        error wins" across the whole worker, and the window shows it as why a rip
+        FAILED. Since ruling C1 a failed (exit 1) album pass can be followed by a
+        securing pass, whose own give-up line would otherwise be appended to the
+        album's hint and read as the reason the rip failed. What the securing pass
+        said is kept in both logs, labelled, and its diagnostics name it.
+        """
+        if not plan.applies:
+            return
+        if plan.skipped_reason is not None:
+            self._secure_rerip_skipped_reason = plan.skipped_reason
+        if plan.disc_in_accuraterip is not None:
+            self._disc_in_accuraterip = plan.disc_in_accuraterip
+        if plan.refused:
+            log.info("securing pass not run: %s", plan.refused)
+            self.log_line.emit(f"[secure re-rip] not run: {plan.refused}")
+            return
+        if plan.disc_in_accuraterip is False:
+            self.log_line.emit(
+                "[secure re-rip] disc is not in AccurateRip — keeping the "
+                "fast read (a re-rip can't verify against a DB that has no "
+                "entry for this disc)."
+            )
+            log.info("dynamic secure re-rip skipped: disc not in AccurateRip")
+        if plan.trigger == TRIGGER_ACCURATERIP:
+            # Engaged only when a track needed securing: every track matching
+            # AccurateRip on the fast read is already proven.
+            self._secure_rerip_engaged = bool(plan.tracks)
+        if not plan.tracks:
+            return
+        crcs, records = first_pass_records(album_log)
+        album_hint = self._failure_hint
+        try:
+            self._auto_fix_tracks(
+                list(plan.tracks),
+                plan.rerip_z,
+                plan.trigger,
+                album_log_path=album_log_path,
+                first_pass_crcs=crcs,
+                first_pass_tracks=records,
+            )
+        finally:
+            said = self._failure_hint
+            self._failure_hint = album_hint
+            if said != album_hint:
+                added = said.removeprefix(album_hint).lstrip(" —")
+                log.info("the securing pass said: %s", added)
+                self.log_line.emit(f"[auto-fix] the securing pass said: {added}")
 
     def _auto_fix_tracks(
         self,
@@ -3559,7 +3592,12 @@ class RipWorker(QObject):
 
     @property
     def ripper_exit_code(self) -> int | None:
-        """The ripper's exit status, or ``None`` if it was never reaped.
+        """The ALBUM pass's exit status, or ``None`` if it was never reaped.
+
+        The album pass is the last whole-disc (or ``-l``) pass, the one whose log
+        is the album's and whose result the rip's status describes. Until
+        2026-10-05 this held the LAST pass's code, so a securing pass overwrote
+        it; the securing pass's is :attr:`securing_pass_exit_code`.
 
         ``None`` is a real outcome, not a placeholder: a child wedged in a drive
         ioctl is in uninterruptible sleep where even SIGKILL does not land, and
@@ -3567,6 +3605,30 @@ class RipWorker(QObject):
         negative value is a signal number (``-9`` = we SIGKILLed the group).
         """
         return self._ripper_exit_code
+
+    @property
+    def ripper_ending(self) -> RipperEnding | None:
+        """cyanrip's own record of how the album pass ended, or ``None`` if unread.
+
+        Tri-state inside: an absent or unreadable record reads "not determined"
+        for every field (`ripper_ending`). Read on this thread before `finished`.
+        """
+        return self._ripper_ending
+
+    @property
+    def securing_pass_started(self) -> bool:
+        """Whether this rip's securing pass started (its ripper was spawned)."""
+        return self._securing_pass_started
+
+    @property
+    def securing_pass_exit_code(self) -> int | None:
+        """The securing pass's exit status: ``None`` if never reaped, or never run.
+
+        Read it beside :attr:`securing_pass_started`, which tells those two apart.
+        Kept out of :attr:`ripper_exit_code` so the report cannot state one pass's
+        exit as the other's.
+        """
+        return self._securing_pass_exit_code
 
     @property
     def ripper_argv(self) -> tuple[str, ...]:

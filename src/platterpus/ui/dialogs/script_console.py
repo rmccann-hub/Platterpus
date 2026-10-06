@@ -435,6 +435,10 @@ class ScriptConsoleDialog(CenteredDialog):
         self._run_button.setEnabled(False)
         self._stop_button.setEnabled(True)
         runner.start(steps, source=source)
+        if runner.estimate:
+            # Said before the first step's line, so whoever starts a run learns
+            # how long to leave it (TASKS D6).
+            self._append(runner.estimate)
         # ASK the runner, do not assume. `ScriptRunner.start` has its own refusal
         # ("already running"), and a `return True` here would be this method's
         # opinion of what it requested rather than a statement about what is

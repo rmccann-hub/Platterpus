@@ -12,7 +12,11 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from platterpus.ladder_trigger import judge_step_down, why_pass_incomplete
+from platterpus.ladder_trigger import (
+    judge_step_down,
+    why_pass_incomplete,
+    why_pass_unfinished,
+)
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 
 _FULL_RUN = (
@@ -211,3 +215,57 @@ def test_judge_step_down_never_raises(
         ).warranted
         is False
     )
+
+
+# --- The finished-pass check the securing pass asks of an exit-1 pass ---------
+
+
+def _unfinished(text: str, **overrides: object) -> str:
+    kwargs: dict[str, object] = {
+        "exit_code": 1,
+        "stopped_by_us": False,
+        "log_is_this_passes": True,
+    }
+    kwargs.update(overrides)
+    log = parse_cyanrip_log(text)
+    return why_pass_unfinished(log, **kwargs)  # type: ignore[arg-type]  # test kwargs
+
+
+def test_a_finished_pass_is_finished_whatever_its_exit_and_its_errors() -> None:
+    """Exit 0 and exit 1 alike, read errors or none: finishing is the question."""
+    for text in (_fork_log(), _fork_log(failed=(2,), ripping_errors="3")):
+        assert _unfinished(text, exit_code=0) == ""
+        assert _unfinished(text, exit_code=1) == ""
+
+
+def test_an_encoder_failure_does_not_make_a_pass_unfinished() -> None:
+    """Unlike the ladder: a securing re-read can mend a failed encode, never harm it."""
+    text = _fork_log(failed=(2,), ripping_errors="4").replace(
+        "Encoder errors: none; 2 tracks encoded",
+        "Encoder errors: 1 track failed (1); 1 track encoded",
+    )
+    assert _unfinished(text) == ""
+
+
+def test_the_two_questions_word_a_shared_refusal_the_same_way() -> None:
+    """The relation: both callers share one helper, so a refusal for the same
+    case is the same sentence in the ladder's log and the securing pass's."""
+    text = _fork_log(failed=(2,), ripping_errors="3")
+    cases: list[dict[str, object]] = [
+        {"stopped_by_us": True},
+        {"exit_code": None},
+        {"exit_code": 137},
+        {"log_is_this_passes": False},
+    ]
+    for case in cases:
+        warranted, reason = _judge(text, **case)  # type: ignore[arg-type]  # test kwargs
+        assert warranted is False, case
+        assert _unfinished(text, **case) == reason, case
+    # And the floor: four cases, four different sentences.
+    assert len({_unfinished(text, **case) for case in cases}) == len(cases)
+
+
+def test_an_interrupted_pass_is_unfinished_and_says_where() -> None:
+    reason = _unfinished(_fork_log(footer="no (interrupted by SIGTERM, 1 of 2 tracks)"))
+    assert reason.startswith("the pass did not finish: ")
+    assert "interrupted by SIGTERM" in reason

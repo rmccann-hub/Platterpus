@@ -124,10 +124,38 @@ _BANNER_SEARCH_LINES: Final[int] = 5
 _LEGACY_HEADER: Final[re.Pattern[str]] = re.compile(
     r"^Log created by:\s*whipper\b", re.IGNORECASE
 )
+
+# --- How a "Label:   value   " line captures its value -----------------------
+#
+# Every pattern below whose value runs to the end of the line captures it
+# GREEDILY, in one of two shapes, and never with a lazy `.*?` or `.+?` in front
+# of the trailing `\s*$`:
+#
+#   \S(?:.*\S)?            a value that starts and ends with a non-blank character
+#   \S(?:.*\S)?|[^\S\n]    the same, where the old form was `.+?`: a line whose
+#                          value is ALL blanks still captures one blank, as `.+?`
+#                          did, so nothing downstream sees a different answer
+#
+# A bounded value keeps its bound: `\S.{0,N}?` became `\S(?:.{0,N-1}\S)?`, which
+# admits the same N+1 characters (`_INVOKED_AS`, `_PREGAP_SOURCE`).
+#
+# Why (2026-10-05): a lazy capture followed by `\s*$` re-scans the whole run of
+# blanks after every character it adds, so its cost is QUADRATIC in the length of
+# a blank run inside the value. `Read stalls:` took 344 ms on one line with 8,000
+# spaces inside the value, and `inbound_text.MAX_LINE_CHARS` admits lines of
+# 65,536 characters: tens of seconds per line. `parse_rip_log_from_disk` parses
+# the saved log on the GUI thread, so that is a frozen window. The greedy shapes
+# read the same text in linear time and capture exactly what the lazy ones did
+# (same lines matched, same groups): `tests/test_cyanrip_log_reads_values_greedily.py`
+# proves it against the old forms, which it keeps as the reference, and
+# `tests/test_regex_bounded_time.py` times every pattern behind its own label.
+#
 # cyanrip 0.9.3 prints "Device model:   PIONEER …"; older and legacy-format logs use
 # "Drive used:". Accept both so the archival "which drive" field is never lost
 # (real-log bug: 0.9.3's "Device model:" didn't match, so `drive` came out null).
-_DRIVE = re.compile(r"^(?:Drive used|Device model):\s+(?P<drive>.+?)\s*$")
+_DRIVE = re.compile(
+    r"^(?:Drive used|Device model):\s+(?P<drive>\S(?:.*\S)?|[^\S\n])\s*$"
+)
 # "Offset:         +667 samples" (sign printed explicitly by cyanrip).
 _OFFSET = re.compile(r"^Offset:\s+(?P<sign>[+-])(?P<value>\d+)\s+samples")
 # "Overread mode:  read in lead-in/lead-out"              → cyanrip `-O` ON  → EAC "Yes"
@@ -151,27 +179,29 @@ _OFFSET = re.compile(r"^Offset:\s+(?P<sign>[+-])(?P<value>\d+)\s+samples")
 # it — the field would fall back to "(unknown)" for exactly those drives. The
 # *value* strings are identical in both cases (cyanrip keys them only on whether
 # it reads the lead-in/lead-out), so one pattern with both labels is enough.
-_OVERREAD_MODE = re.compile(r"^(?:Over|Under)read mode:\s+(?P<mode>.+?)\s*$")
+_OVERREAD_MODE = re.compile(
+    r"^(?:Over|Under)read mode:\s+(?P<mode>\S(?:.*\S)?|[^\S\n])\s*$"
+)
 # "DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-" (MusicBrainz Disc ID) and
 # "CDDB ID:        E20DFE0E" (freedb/CDDB Disc ID). Both are TOC-derived, so
 # they identify the SAME physical disc across re-rips — the key the re-rip
 # comparison uses. Values are opaque tokens (no spaces), so \S+ is exact.
 # EAC prints the disc as "Artist / Album" under its date line; cyanrip reports
 # the same two facts as separate start-report rows.
-_ALBUM = re.compile(r"^Album:\s+(?P<value>.+?)\s*$")
-_ALBUM_ARTIST = re.compile(r"^Album artist:\s+(?P<value>.+?)\s*$")
+_ALBUM = re.compile(r"^Album:\s+(?P<value>\S(?:.*\S)?|[^\S\n])\s*$")
+_ALBUM_ARTIST = re.compile(r"^Album artist:\s+(?P<value>\S(?:.*\S)?|[^\S\n])\s*$")
 # "C2 errors:      unsupported by drive" (BDR-209D) / "... enabled" etc. EAC's
 # "Make use of C2 pointers" row. Only an explicit positive counts as Yes — an
 # unsupported or unrecognised value is No/unknown, never an invented Yes.
-_C2 = re.compile(r"^C2 errors:\s+(?P<text>.+?)\s*$")
+_C2 = re.compile(r"^C2 errors:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # "Paranoia level: max" → EAC's "Read mode" (Secure vs Burst).
-_PARANOIA_LEVEL = re.compile(r"^Paranoia level:\s+(?P<text>.+?)\s*$")
+_PARANOIA_LEVEL = re.compile(r"^Paranoia level:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # cyanrip's "Gaps:" section, whose single indented line answers EAC's
 # "Gap handling" row ("None signalled" on the reference disc). The row was
 # rendering "(not reported)" although the ripper does report it (review
 # finding, 2026-07-28).
 _GAPS_HEADER = re.compile(r"^Gaps:\s*$")
-_GAPS_VALUE = re.compile(r"^\s+(?P<value>\S.*?)\s*$")
+_GAPS_VALUE = re.compile(r"^\s+(?P<value>\S(?:.*\S)?)\s*$")
 # Platterpus's own swap addendum, appended after cyanrip's output when the
 # per-track auto-fix replaced a track's file. Its text states that these CRCs
 # are the SHIPPED file's and supersede the values above — so a re-parse must
@@ -182,7 +212,7 @@ _GAPS_VALUE = re.compile(r"^\s+(?P<value>\S.*?)\s*$")
 _ADDENDUM_CRC = re.compile(
     r"^\s+Track (?P<number>\d+) \(.*\): CRC (?P<crc>[0-9A-Fa-f]{8})\s*$"
 )
-_OUTPUTS = re.compile(r"^Outputs:\s+(?P<value>.+?)\s*$")
+_OUTPUTS = re.compile(r"^Outputs:\s+(?P<value>\S(?:.*\S)?|[^\S\n])\s*$")
 _DISC_ID = re.compile(r"^DiscID:\s+(?P<value>\S+)")
 _CDDB_ID = re.compile(r"^CDDB ID:\s+(?P<value>\S+)")
 # "Release ID:     d14a7546-815b-43c6-8af6-35cff6cee1d0" — the MusicBrainz RELEASE
@@ -211,7 +241,7 @@ _RELEASE_ID = re.compile(r"^Release ID:\s+(?P<value>\S+)")
 # cyanrip's drive banner reports whether the drive can change read speed. When
 # it can't, cyanrip ABORTS on `-S` — so the read-speed ladder must read this and
 # skip the speed rungs (see RippingInfo.speed_changeable).
-_SPEED_CAP = re.compile(r"^Speed:\s+(?P<text>.+?)\s*$")
+_SPEED_CAP = re.compile(r"^Speed:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # A track block opens with its outcome line.
 #
 # **BOTH WORDINGS, AND THAT IS THE WHOLE POINT OF THIS PATTERN.** This line is the
@@ -492,8 +522,10 @@ _TOTAL_TIME = re.compile(
 # entirely in the difference: a wrapper script, a shell, or the Distrobox
 # host-export mangling an argument is invisible to both halves alone and
 # obvious the moment they disagree. Bounded at 4000 chars — a metadata-heavy
-# rip's argv is long, and this reaches a report.
-_INVOKED_AS = re.compile(r"^Invoked as:\s+(?P<argv>\S.{0,4000}?)\s*$")
+# rip's argv is long, and this reaches a report. (4,001 counting the first
+# character, as the lazy `\S.{0,4000}?` it replaced counted it; written greedily
+# as `\S`, up to 3,999 more, then a last `\S` — see the note above `_DRIVE`.)
+_INVOKED_AS = re.compile(r"^Invoked as:\s+(?P<argv>\S(?:.{0,3999}\S)?)\s*$")
 
 # "Rip completed:  yes (3 of 3 tracks)" — the ripper's OWN verdict on whether
 # it finished, with its own denominator.
@@ -542,7 +574,7 @@ _RIP_COMPLETED = re.compile(
 # for the populated one would be a fixture carrying our guess at their wording —
 # the mistake that put `merged` in our gap matcher for two rounds. Lap 13 asks them
 # for a populated example; the structured form waits for it.
-_READ_STALLS = re.compile(r"^Read stalls:\s+(?P<value>\S.*?)\s*$")
+_READ_STALLS = re.compile(r"^Read stalls:\s+(?P<value>\S(?:.*\S)?)\s*$")
 # The COUNT inside that value, for the shapes the fork published in round 7 lap 14
 # (D1), derived on their side from the code that prints them and each pinned with a
 # whole-string `strcmp`:
@@ -562,7 +594,7 @@ _READ_STALLS = re.compile(r"^Read stalls:\s+(?P<value>\S.*?)\s*$")
 # beside intact text, never `0`.
 _READ_STALLS_COUNT = re.compile(r"^(?P<count>\d{1,6})\s+reads?\s+exceeded\b")
 _READ_STALLS_NONE = re.compile(r"^none\b")
-_PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$")
+_PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # Absolute disc geometry, from each track's "Properties:" block. EAC's TOC table
 # is derived from exactly these (its Start and Length columns reproduce
 # bit-for-bit — verified against a real EAC log of the same disc). The
@@ -588,7 +620,9 @@ _PREGAP_LENGTH = re.compile(r"^\s{1,8}Pregap length:\s+(?P<frames>\d{1,9})\s+fra
 # Fork-only provenance. `sub-channel` is the PR #115 payoff — a gap the TOC does
 # not declare. Left as free text after the keyword so a future source name is
 # recorded rather than dropped.
-_PREGAP_SOURCE = re.compile(r"^\s{1,8}Pregap source:\s+(?P<source>\S.{0,63}?)\s*$")
+_PREGAP_SOURCE = re.compile(
+    r"^\s{1,8}Pregap source:\s+(?P<source>\S(?:.{0,62}\S)?)\s*$"
+)
 
 
 # "  EAC CRC32:     A1B2C3D4" with an optional "(after N rips)" suffix — the
@@ -622,7 +656,7 @@ _ACCURIP_CONFIDENCE = re.compile(r"confidence\s+(?P<value>\d+)")
 # that a disc nobody ever looked up rendered as "in DB, no match", which asserts
 # both that the disc is in the database and that our read disagreed with it
 # (audit, 2026-07-31).
-_TRACK_ACCURIP_STATUS = re.compile(r"^\s+Accurip:\s+(?P<status>\S.*?)\s*$")
+_TRACK_ACCURIP_STATUS = re.compile(r"^\s+Accurip:\s+(?P<status>\S(?:.*\S)?)\s*$")
 # Finish report.
 _ACCURATE_TOTAL = re.compile(
     r"^Tracks ripped accurately:\s+(?P<hit>\d+)/(?P<total>\d+)"
@@ -667,7 +701,7 @@ _RIP_ERRORS = re.compile(
 # may end `, list truncated` — and a pattern tight enough to enumerate the arms is
 # a pattern that stops matching the first time one gains a clause. Parsers of
 # external output are best-effort and never raise (`CLAUDE.md`).
-_ENCODER_ERRORS = re.compile(r"^Encoder errors:\s+(?P<value>\S.*?)\s*$")
+_ENCODER_ERRORS = re.compile(r"^Encoder errors:\s+(?P<value>\S(?:.*\S)?)\s*$")
 #: How the failure arm states its count: "2 tracks failed (2, 3)", "1 track failed
 #: (2)". Singular and plural, because their spec derives the plural from the count
 #: rather than spelling `track(s)`.
@@ -687,7 +721,7 @@ _ENCODER_FAILED_COUNT = re.compile(r"(?P<failed>\d{1,4})\s{1,4}tracks?\s{1,4}fai
 # read none of it. Captured VERBATIM rather than split into track and phase — the
 # two published forms are prose, a third is cheap for them to add, and a consumer
 # that re-derives structure from prose breaks on the third one.
-_INTERRUPTED_AT = re.compile(r"^Interrupted at:\s+(?P<where>\S.*?)\s*$")
+_INTERRUPTED_AT = re.compile(r"^Interrupted at:\s+(?P<where>\S(?:.*\S)?)\s*$")
 # The two shapes the verbatim value above can take, applied to the captured VALUE,
 # never to a line. The fork publishes exactly these two in its stable P2 section:
 # `cyanrip_log.c:1037` `Interrupted at: track %i, mid-read` and `:1040`
@@ -715,8 +749,8 @@ _INTERRUPTED_BETWEEN_TRACKS = re.compile(r"^between tracks, no read in progress$
 # 2026-09-28, when the cancelled rip of the Full run showed what dropping it cost:
 # a rip asked for 3 of 14 tracks had an EAC-compatible log that counted all 14 as
 # "never extracted", because nothing in the parsed log said only 3 were requested.
-_TRACKS_TO_RIP = re.compile(r"^Tracks to rip:\s+(?P<value>\S.*?)\s*$")
-_FINISHED_AT = re.compile(r"^Ripping finished at\s+(?P<when>.+?)\s*$")
+_TRACKS_TO_RIP = re.compile(r"^Tracks to rip:\s+(?P<value>\S(?:.*\S)?)\s*$")
+_FINISHED_AT = re.compile(r"^Ripping finished at\s+(?P<when>\S(?:.*\S)?|[^\S\n])\s*$")
 # The "Paranoia status counts:" block header, then indented "KEY:  N" lines.
 _PARANOIA_HEADER = re.compile(r"^Paranoia status counts:\s*$")
 # The SAME header, indented, inside a track block. The fork emits one per
@@ -746,14 +780,14 @@ _TRACK_PARANOIA_HEADER = re.compile(r"^\s+Paranoia status counts:\s*$")
 # The general lesson, and it belongs in `docs/seam-rules.md`: **"additive" is
 # relative to where you add.** A line appended to a document is additive; a line
 # inserted into a block whose members share a shape changes that shape.
-_TRACK_PARANOIA_SCOPE = re.compile(r"^\s+Scope:\s+(?P<text>\S.*?)\s*$")
+_TRACK_PARANOIA_SCOPE = re.compile(r"^\s+Scope:\s+(?P<text>\S(?:.*\S)?)\s*$")
 _PARANOIA_LINE = re.compile(r"^\s+(?P<key>[A-Z][A-Z_]*):\s+(?P<count>\d+)\s*$")
 # Per-track "File(s):" header; the filename is the next indented line.
 _FILES_HEADER = re.compile(r"^\s+File\(s\):\s*$")
 # ReplayGain / R128 tags cyanrip writes into the FLAC (in the Metadata block):
 #   "    REPLAYGAIN_TRACK_GAIN:         -4.10 dB" / "    R128_TRACK_GAIN:  229"
 _REPLAYGAIN = re.compile(
-    r"^\s+(?P<key>REPLAYGAIN_[A-Z_]+|R128_TRACK_GAIN):\s+(?P<val>.+?)\s*$"
+    r"^\s+(?P<key>REPLAYGAIN_[A-Z_]+|R128_TRACK_GAIN):\s+(?P<val>\S(?:.*\S)?|[^\S\n])\s*$"
 )
 # The album loudness block header (comes after the last track), then indented
 # loudness lines shared with the per-track summaries.
@@ -1171,7 +1205,9 @@ _TRACK_ELAPSED_SECONDS = re.compile(
 # the only in-block source, and it wins over a buffered value for the same track
 # (it is applied after the block opens) because a row inside the block is the one
 # form whose ownership is not in question.
-_TRACK_SECURE_VERDICT = re.compile(r"^\s+Secure re-?read(?:s)?:\s+(?P<text>\S.*?)\s*$")
+_TRACK_SECURE_VERDICT = re.compile(
+    r"^\s+Secure re-?read(?:s)?:\s+(?P<text>\S(?:.*\S)?)\s*$"
+)
 
 # --- 4. "Appended: N frames of silence" — ALREADY PRINTED by cyanrip 0.9.3 ---
 #

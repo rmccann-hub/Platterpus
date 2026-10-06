@@ -3820,6 +3820,7 @@ defect, and two of those sections are archival.
 | C | ARCHIVAL | a guard that fails to refuse writes bad data |
 | D | UX | dialogs open and close; annoying when wrong, not a claim about a disc |
 | E | ARCHIVAL | wrong release → wrong tags → a wrong archival record |
+| E2 | ARCHIVAL | the offset override off (C4, added 2026-10-06): a drive the AccurateRip list does not carry must be refused at Start, not ripped at an offset nobody chose. Archival on B's reasoning: the read offset is the calibration every rip's accuracy rests on, and a rip at no offset has a clean-looking log. On a listed drive the step is `unreachable` (N/A): not a pass and not a failure, counted as such in the RESULT line and the closing dialog |
 | F | ARCHIVAL | the rip itself |
 | G | ARCHIVAL | the seam check and the rip's own log — the log *is* the provenance record |
 | H | ARCHIVAL | the overwrite prompt; missing the collision destroys a finished master |
@@ -3841,7 +3842,7 @@ defect, and two of those sections are archival.
 
 <!-- END-ACCEPTANCE-SEVERITY-TABLE -->
 
-**19 ARCHIVAL, 4 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The four that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
+**20 ARCHIVAL, 4 UX.** Few UX rows is the honest answer for a CD archival tool: most of what it does *is* the job. The four that remain are genuinely about the program rather than the disc — dialog plumbing (`D`), where a file lands rather than whether its bytes are right (`M`, whose dangerous failure mode is a collision, which `H` catches and grades archival), and hygiene for the *next* run (`Q`, and `K4` which is the same job done mid-run). **`K4` moved from ARCHIVAL on 2026-09-14** and the way it was found is worth keeping: it was graded on its TITLE — *"back to FLAC, the archival master"* — rather than on what the section can detect or on what depends on it. A grade is a claim about a check's failure, so read the check, not the heading. The table is swept: every `log --- ` section in
 `fullacceptance.txt` must appear, so a **new** section has to be classified
 rather than defaulting to ignorable — the direction that fails safe is the one
 that makes you decide.
@@ -3864,13 +3865,43 @@ their docstrings. **J2 (2026-10-05)** rips one track with the settings no
 other rip uses: no `-r`, no `-Z` (in uniform mode, where a setting of 2 would
 send one), a fixed read speed of 0, and a scratch library folder inside the rips
 folder; `expect-library-move` grades the move and `expect-rip-argv` the argv as
-sent (`uiscript/permutation_grading.py`). **Not added, and why:** the
-offset-override-off path cannot be one script line on every drive — a drive in
-AccurateRip's list auto-applies the list offset and rips, an unknown one is
-refused with a dialog — so a line that passes on one rig fails on the other, and
-on the rig it could move the offset mid-run. A non-zero fixed read speed is the
-same shape: a drive that reports its speed unchangeable aborts the rip on `-S`.
-Both are TASKS rows until the language can branch on the drive.
+sent (`uiscript/permutation_grading.py`). **E2 (2026-10-06, ruled in KDD-41 C4)** takes the
+offset-override-off path, which no one line could take on every drive: a drive
+in AccurateRip's list auto-applies the list offset and rips, an unknown one is
+refused with a dialog. `expect-offset-refusal` asks the drive list first; on a
+listed drive it records **`unreachable`** and changes nothing (the refusal cannot
+happen there, and the auto-apply would move the offset mid-run), and on any
+other it grades the real refusal and puts the override back. **`unreachable` is
+neither a pass nor a failure**: `RunReport.ok` forgives it, as it forgives a run
+size's declines, it stays out of `GOOD`, and the RESULT line, the report's
+`unreachable_lines` and the session's closing dialog each name it, so a rig
+whose drive is listed is told what its run did not cover. Only
+`uiscript/offset_verbs.py` may emit it (`tests/test_uiscript_offset_refusal.py`
+ratchets the producers). **Not added, and why:** a non-zero fixed read speed —
+a drive that reports its speed unchangeable aborts the rip on `-S`, so it is a
+TASKS row until the language can branch on the drive.
+
+**The unknown-disc run (2026-10-06, ruled in KDD-41 C4 (b)) is a second script,**
+`rig_scripts/unknowndiscacceptance.txt`, because the full run stops at E on a disc
+MusicBrainz does not know, on purpose. It needs such a disc (a CD-R of your own
+recordings is the reliable one), starts from the full run's baseline line for line,
+accepts *Rip as unknown album*, asserts the disc was **not** identified
+(`expect-unidentified`, the mirror of `expect-identified`), rips two tracks and grades
+them with the full run's verbs plus `expect-unknown-record` (the report says
+`unknown: true`, no release id, no `tagging_failed`). Its sections are classified
+here, in advance, like the full run's:
+
+<!-- UNKNOWN-DISC-SEVERITY-TABLE: swept by tests/test_unknown_disc_acceptance.py -->
+
+| section | severity | why |
+|---|---|---|
+| A | ARCHIVAL | which binary produced the artifact, as in the full run |
+| B | ARCHIVAL | the read offset this rip reads at, as in the full run |
+| E | ARCHIVAL | an unknown disc must rip as unknown: a disc wrongly identified gets a release's tags it does not carry |
+| F | ARCHIVAL | the rip itself, its placeholder tags, and the record of which path it took |
+| Q | UX | hygiene for the next run |
+
+<!-- END-UNKNOWN-DISC-SEVERITY-TABLE -->
 
 ### Acceptance tiers — what each section costs, and what it rests on
 
@@ -3908,6 +3939,7 @@ assigns to us, and it changes nothing on their side.
 | M | 0 | m-templates | — | validator only |
 | Q | 0 | q-restore | — | settings only |
 | E | 1 | e-identify | a-identity | `rescan` + `pick-release`, no `rip` |
+| E2 | 1 | e2-offsetrefusal | e-identify | `expect-offset-refusal` — presses Start, which needs E's identified disc; on an unlisted drive the graded path is a refusal, so nothing is read, and on a listed one the step changes nothing |
 | O | 1 | o-findoffset | e-identify | `cyanrip -N -f` — a few frames around sector 450 of each track AccurateRip knows, no rip |
 | P | 1 | p-cacheprobe | e-identify | `cyanrip -N -x -I` — probe and TOC, no track read |
 | P2 | 1 | p2-c1-refusal | e-identify | `cyanrip -N -l 1` expecting **exit 1** `Offset is unset` — the graded path reads nothing; a regression that *does* read is the failure |

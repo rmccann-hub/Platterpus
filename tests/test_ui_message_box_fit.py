@@ -202,6 +202,123 @@ def test_the_scrolling_text_survives_qt_rebuilding_the_layout(qapp, shown) -> No
     )
 
 
+def _assert_fits(box: QMessageBox, avail: QSize, label: QLabel) -> None:
+    """Text and buttons inside ``avail``, with the margins every box is held to."""
+    assert box.height() <= avail.height() - MARGIN, (box.size(), avail)
+    assert box.width() <= avail.width() - 2 * fit.SIDE_MARGIN_PX, (box.size(), avail)
+    assert label.height() >= label.heightForWidth(label.width()), "text clipped"
+    for button in box.findChildren(QPushButton):
+        if button.isVisible():
+            assert box.rect().contains(button.geometry()), button.text()
+
+
+def test_a_second_fit_fits_the_second_screen(qapp, shown, caplog) -> None:
+    """TASKS D4: a box fitted once is fitted again for the screen it is on now.
+
+    The second fit used to look for Qt's label in the box's grid, find it gone
+    into the first fit's scroll area, log "text label not in its layout" and
+    leave the box sized for the first screen. Each step below is a screen of a
+    different size: shorter (the area must shrink, and be the same area), then
+    one the text fits (nothing may scroll), then short again.
+    """
+    box = _box(TOO_LONG, qapp, shown)
+    label = _text_label(box)
+    first = QSize(800, 400)
+    fit.fit_message_box(box, first, MARGIN)
+    _settle(qapp)
+    assert len(_areas(box)) == 1, "premise: the first fit scrolls the text"
+    the_area = _areas(box)[0]
+    _assert_fits(box, first, label)
+
+    shorter = QSize(800, 300)
+    fit.fit_message_box(box, shorter, MARGIN)
+    _settle(qapp)
+    _assert_fits(box, shorter, label)
+    assert _areas(box) == [the_area], "the refit must reuse the box's own area"
+    assert label.parentWidget() is the_area.viewport()
+    assert box.layout().indexOf(the_area) >= 0, "the area is not in the layout"
+
+    # Tall enough for the whole text at a width Qt allows: nothing scrolls.
+    tall = QSize(800, 6000)
+    fit.fit_message_box(box, tall, MARGIN)
+    _settle(qapp)
+    _assert_fits(box, tall, label)
+    assert _areas(box) == [], "the text scrolls on a screen it fits"
+    assert box.layout().indexOf(label) >= 0, "the text is not back in the box"
+
+    fit.fit_message_box(box, shorter, MARGIN)
+    _settle(qapp)
+    _assert_fits(box, shorter, label)
+    assert _areas(box) == [the_area]
+    assert len(box.findChildren(QScrollArea, fit.SCROLL_AREA_NAME)) == 1
+    assert "not in its layout" not in caplog.text
+
+
+def test_a_refit_survives_qt_rebuilding_the_layout_afterwards(qapp, shown) -> None:
+    """The refit replaces the first fit's watcher rather than adding to it: a
+    rebuild after the refit must end sized for the SECOND screen, not the
+    first one the old watcher remembered."""
+    box = _box(TOO_LONG, qapp, shown)
+    box.setInformativeText("This closes by itself in 30 s.")
+    _settle(qapp)
+    fit.fit_message_box(box, QSize(800, 400), MARGIN)
+    _settle(qapp)
+    second = QSize(800, 300)
+    fit.fit_message_box(box, second, MARGIN)
+    _settle(qapp)
+    box.setInformativeText("This closes by itself in 29 s.")
+    _settle(qapp)
+    _assert_fits(box, second, _text_label(box))
+    assert len(_areas(box)) == 1
+
+
+def test_a_refit_already_queued_for_the_old_screen_is_dropped(qapp, shown) -> None:
+    """A rebuild queues a refit for the screen the watcher was made on. If a
+    fit for a new screen runs before that refit does, the queued one must not
+    then size the box back for the old screen."""
+    box = _box(TOO_LONG, qapp, shown)
+    box.setInformativeText("This closes by itself in 30 s.")
+    _settle(qapp)
+    fit.fit_message_box(box, QSize(800, 400), MARGIN)
+    _settle(qapp)
+    box.setInformativeText("This closes by itself in 29 s.")  # queues a refit
+    second = QSize(800, 300)
+    fit.fit_message_box(box, second, MARGIN)  # before the queued one runs
+    _settle(qapp)
+    _assert_fits(box, second, _text_label(box))
+
+
+def test_the_filter_fits_a_box_again_each_time_it_is_shown(qapp, shown) -> None:
+    """A box shown again is fitted again (it may be on another screen now) but
+    never moved again: where the user left it is theirs to keep.
+
+    Stood in for a second screen by leaving the box in a state no fit for this
+    screen would: a label widened far past what the screen allows, as a fit for
+    a much wider screen would have left it.
+    """
+    screen = qapp.primaryScreen()
+    assert screen is not None
+    avail = screen.availableGeometry().size()
+    centring = DialogCenterFilter()
+    qapp.installEventFilter(centring)
+    try:
+        box = message_boxes.build(QMessageBox.Icon.Warning, None, "Again", PROSE)
+        box.show()
+        _settle(qapp)
+        shown.append(box)
+        label = _text_label(box)
+        _assert_fits(box, avail, label)
+        box.hide()
+        label.setMinimumWidth(avail.width() * 2)
+        box.move(5, 7)
+        box.show()
+        _settle(qapp)
+    finally:
+        qapp.removeEventFilter(centring)
+    _assert_fits(box, avail, label)
+    assert box.pos().x() == 5 and box.pos().y() == 7, "a second Show moved the box"
+
+
 def test_the_filter_sizes_a_box_before_it_places_it(qapp, shown) -> None:
     """The order that put a beta prompt's buttons below the screen.
 
@@ -246,9 +363,44 @@ def test_a_plain_dialog_is_only_ever_made_smaller(qapp) -> None:
         assert dialog.size() == QSize(300, 80)
         dialog.resize(1200, 900)
         fit_plain_dialog(dialog, QSize(800, 600), MARGIN)
-        assert dialog.width() <= 800 and dialog.height() <= 600 - MARGIN
+        assert dialog.width() <= 800 - 2 * fit.SIDE_MARGIN_PX
+        assert dialog.height() <= 600 - MARGIN
     finally:
         dialog.deleteLater()
+
+
+def test_a_box_sized_for_a_long_title_keeps_a_side_margin(qapp, shown) -> None:
+    """Qt widens a box to fit its title, up to the whole screen on one up to
+    1024 px wide, so a box titled with a long path touched both edges of every
+    small screen (KDD-41). Its title bar shows the title shortened instead; the
+    whole title stays the box's accessible name, and a fit on a wider screen
+    starts from the whole title again.
+    """
+    title = "Open " + "/home/maximilian-schwarzenegger-lindqvist/Music" * 4
+    box = message_boxes.build(QMessageBox.Icon.Information, None, title, "Short.")
+    box.show()
+    _settle(qapp)
+    shown.append(box)
+    screen = box.screen().availableGeometry().size()
+    assert screen.width() <= 1024, "premise: Qt's ceiling is the whole screen here"
+    assert box.width() > screen.width() - 2 * fit.SIDE_MARGIN_PX, (
+        "premise: Qt sized the box for its title, to the screen's edges"
+    )
+
+    fit.fit_message_box(box, screen, MARGIN)
+
+    assert box.width() <= screen.width() - 2 * fit.SIDE_MARGIN_PX
+    assert box.windowTitle() != title and "…" in box.windowTitle()
+    assert box.windowTitle().startswith("Open /home/")
+    assert box.accessibleName() == title
+    # Qt sizes the box again on every Show and layout change; the shortened
+    # title is an input to that, so the margin survives it.
+    fit._let_qt_size(box)
+    assert box.width() <= screen.width() - 2 * fit.SIDE_MARGIN_PX
+
+    # A later fit for a screen with room for the whole title gives it back.
+    fit.fit_message_box(box, QSize(4000, screen.height()), MARGIN)
+    assert box.windowTitle() == title
 
 
 def test_a_box_without_qts_label_is_left_alone(qapp, shown, caplog) -> None:

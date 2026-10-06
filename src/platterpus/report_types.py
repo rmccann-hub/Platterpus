@@ -119,6 +119,22 @@ class AutoUnknownRetryBlock(TypedDict):
     reason: str | None
 
 
+class RipperRecordBlock(TypedDict):
+    """v32 `outcome.ripper_record`: cyanrip's own `-j` record of the album pass.
+
+    Every field but `describes`, `state` and `disagreements` is `None` unless
+    `state` is `"read"`; `None` is "not determined", never false or 0.
+    """
+
+    describes: str
+    state: str
+    detail: str | None
+    exit_code: int | None
+    interrupted: bool | None
+    interrupted_by: str | None
+    disagreements: list[str]
+
+
 class OutcomeBlock(TypedDict):
     status: str
     failure_hint: str | None
@@ -127,7 +143,16 @@ class OutcomeBlock(TypedDict):
     # computed and discarded before it. `ripper_exit_code` is tri-state — `None`
     # means the child was never reaped (wedged in a drive ioctl where even
     # SIGKILL does not land) and must never be written as `0`.
+    #: v31: the ALBUM pass's exit status (the pass `status` describes). Until then
+    #: it was whichever pass ran last, so a securing pass overwrote it.
     ripper_exit_code: int | None
+    #: v31: whether a securing pass's ripper was spawned, and its own exit status
+    #: (`None` = never reaped when started, did not run otherwise). Kept apart from
+    #: the album pass's, which ruling C1 (KDD-41) made necessary.
+    securing_pass_started: bool
+    securing_pass_exit_code: int | None
+    #: v32 (W6): cyanrip's own record of how the album pass ended.
+    ripper_record: RipperRecordBlock
     ripper_argv: list[str] | None
     # The FIRST invocation's argv when the rip took more than one pass, `None`
     # when it took one. The distinction is load-bearing: the archival log's

@@ -78,7 +78,7 @@ def _verb_rows() -> list[dict[str, Any]]:
 
 def _limits() -> dict[str, Any]:
     """Every bound, read off the live constants rather than transcribed."""
-    from platterpus.uiscript import runner, script
+    from platterpus.uiscript import runner, script, script_values
 
     return {
         "max_script_lines": script.MAX_LINES,
@@ -89,7 +89,7 @@ def _limits() -> dict[str, Any]:
         "cyanrip_unreapable_grace_seconds": runner.CYANRIP_VERB_GRACE_S,
         "max_captured_output_characters": runner.MAX_TOOL_OUTPUT_CHARS,
         "step_interval_ms": runner.TICK_MS,
-        "max_track_range_span": runner._MAX_TRACK_RANGE,
+        "max_track_range_span": script_values.MAX_TRACK_RANGE,
         "max_cyanrip_arguments": 64,
         "max_cyanrip_argument_characters": 4000,
     }

@@ -91,13 +91,19 @@ text is taken verbatim as one value.
 | `cache-probe` | 0 | ready | cache-probe — run cd-paranoia -A on the selected drive and record what it measures (info; its output is saved beside the transcript) |
 | `expect-secure-rerip` | 0 | ready | expect-secure-rerip — assert the secure re-read actually RAN on this rip (at least one track block carries cyanrip's Scope: line), the graded form of rig-check's 'genuinely exercised' row |
 | `expect-identified` | 0 | ready | expect-identified — assert the disc was identified against MusicBrainz (a well-formed release MBID is held), not merely that the track table has rows, which placeholder rows also satisfy |
+| `expect-unidentified` | 0 | ready | expect-unidentified — assert the disc was NOT identified and will rip as an unknown album: no release id, placeholder rows loaded, the 'Rip as unknown album' confirmation accepted, Picard not set to launch |
+| `expect-unknown-record` | 0 | ready | expect-unknown-record — the last rip's report records an unknown-album rip with no release id and no failed tagging pass (waits for it to settle) |
 | `expect-refused` | 2+ (rest of line) | ready | expect-refused <setting> <value> — assert the validator REFUSES this value and leaves the setting unchanged (the pass condition is a refusal) |
 | `keep` | 1 | ready | keep <config-field> — leave this setting as it is for the run, on purpose, and record its value (the baseline sets or keeps every setting) |
 | `set-drive-offset` | 0 | ready | set-drive-offset — set the read offset for the drive in THIS machine: the one it is already set to, or else the AccurateRip drive list's (fails if neither is known) |
 | `expect-drive-offset` | 0 | ready | expect-drive-offset — assert the read offset is still the one set-drive-offset set, with the override on |
+| `expect-offset-refusal` | 0 | ready | expect-offset-refusal — turn the read-offset override off and press Start: a drive the AccurateRip list does not carry must be refused ('Set up your drive first') with no rip; the wizard is declined and the override put back. On a listed drive the app would apply the list's offset and rip, so the step records unreachable and changes nothing |
 | `expect-ripper-under-review` | 0 | ready | expect-ripper-under-review — assert the installed cyanrip is the build the handshake record names: the build under review while a round is open, and the approved production pin between rounds (run a `cyanrip --version` first) |
 | `probe-ripper-wrapper` | 0 | ready | probe-ripper-wrapper — time the host-exported ripper wrapper, the container entry and the in-container binary to find which one fails to exit. Records the verdict; never fails the run |
 | `expect-tracks` | 1 | ready | expect-tracks <count|count+> — assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants |
+| `app-log` | 1+ (rest of line) | ready | app-log <text> — record every line this launch's log holds containing <text> (case-insensitive), as info; never fails, and says how much of the launch the log kept |
+| `sigterm-world` | 0 | ready | sigterm-world — after a cancel-rip: record whether the cancel's own SIGTERM reached the ripper in the container, from the post-cancel rescue's outcome in this launch's log and the cancelled rip's log footer (info; never fails) |
+| `run-estimate` | 0 | ready | run-estimate — record how long the rest of this run should take: each rip from this drive's measured speed and the disc's track lengths, the other steps as measured on a filed Full run; anything unknown is named, never counted as zero (info) |
 | `tier` | 2+ (rest of line) | ready | tier <0-4> <label> — the steps after this belong to tier N, in a block named <label> that later steps can declare a dependency on |
 | `needs` | 1+ (rest of line) | ready | needs <label…> — the steps after this are PREVENTED (not skipped) if any named block already failed; the record names the prerequisite |
 | `run-size` | 1 | ready | run-size <quick|standard|full> — the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped) |
@@ -381,6 +387,7 @@ found nothing wrong*.
       "expect-album-audit",
       "track-title",
       "expect-refused",
+      "app-log",
       "tier",
       "needs",
       "cyanrip",
@@ -718,6 +725,22 @@ found nothing wrong*.
       "help": "expect-identified \u2014 assert the disc was identified against MusicBrainz (a well-formed release MBID is held), not merely that the track table has rows, which placeholder rows also satisfy"
     },
     {
+      "name": "expect-unidentified",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-unidentified \u2014 assert the disc was NOT identified and will rip as an unknown album: no release id, placeholder rows loaded, the 'Rip as unknown album' confirmation accepted, Picard not set to launch"
+    },
+    {
+      "name": "expect-unknown-record",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-unknown-record \u2014 the last rip's report records an unknown-album rip with no release id and no failed tagging pass (waits for it to settle)"
+    },
+    {
       "name": "expect-refused",
       "min_args": 2,
       "max_args": null,
@@ -750,6 +773,14 @@ found nothing wrong*.
       "help": "expect-drive-offset \u2014 assert the read offset is still the one set-drive-offset set, with the override on"
     },
     {
+      "name": "expect-offset-refusal",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-offset-refusal \u2014 turn the read-offset override off and press Start: a drive the AccurateRip list does not carry must be refused ('Set up your drive first') with no rip; the wizard is declined and the override put back. On a listed drive the app would apply the list's offset and rip, so the step records unreachable and changes nothing"
+    },
+    {
       "name": "expect-ripper-under-review",
       "min_args": 0,
       "max_args": 0,
@@ -772,6 +803,30 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-tracks <count|count+> \u2014 assert how many track rows are loaded; a trailing '+' means 'at least this many', which is what a script that must work on any disc actually wants"
+    },
+    {
+      "name": "app-log",
+      "min_args": 1,
+      "max_args": null,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "app-log <text> \u2014 record every line this launch's log holds containing <text> (case-insensitive), as info; never fails, and says how much of the launch the log kept"
+    },
+    {
+      "name": "sigterm-world",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "sigterm-world \u2014 after a cancel-rip: record whether the cancel's own SIGTERM reached the ripper in the container, from the post-cancel rescue's outcome in this launch's log and the cancelled rip's log footer (info; never fails)"
+    },
+    {
+      "name": "run-estimate",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "run-estimate \u2014 record how long the rest of this run should take: each rip from this drive's measured speed and the disc's track lengths, the other steps as measured on a filed Full run; anything unknown is named, never counted as zero (info)"
     },
     {
       "name": "tier",

@@ -713,6 +713,25 @@ def test_artist_width_is_capped_so_a_compilation_cannot_crowd_title_out() -> Non
     assert uncapped > capped, "the cap did not actually reduce anything"
 
 
+def test_the_designed_widths_are_the_fixed_columns_and_a_capped_artist() -> None:
+    """`designed_column_widths` is what the table applies and what the
+    conformance matrix reads as the design, so its composition is pinned: the
+    fixed columns as `fixed_column_widths` gives them, Artist capped at its
+    share of what THEY leave (not of the whole table), and no Title."""
+    from platterpus.ui import track_table as tt
+
+    credits = ["Wolfgang Amadeus Mozart; Academy of St Martin in the Fields"] * 2
+    widths = tt.designed_column_widths(len, credits, 300)
+    fixed = tt.fixed_column_widths(len)
+    assert {c: widths[c] for c in fixed} == fixed
+    assert tt._COL_TITLE not in widths
+    left = 300 - sum(fixed.values())
+    assert widths[tt._COL_ARTIST] == int(left * tt._ARTIST_MAX_FRACTION)
+    assert widths[tt._COL_ARTIST] < tt.artist_column_width(len, credits, 0), (
+        "premise: the credit is wider than its share, so the cap was applied"
+    )
+
+
 # --- the widget, at a real size -------------------------------------------------
 
 

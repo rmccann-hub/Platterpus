@@ -40,6 +40,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
+from platterpus import rip_pass_exit
 from platterpus.parsers.cyanrip_log import INTERRUPTED_MID_READ, interruption_point
 from platterpus.parsers.rip_log import AccurateRipResult, accuraterip_is_match
 
@@ -499,16 +500,30 @@ def _audit_completion(report: dict[str, Any], album: AlbumAudit) -> None:
     if status and status != "success":
         hint = outcome.get("failure_hint") or "no diagnosis captured"
         album.add(LEVEL_WARN, f"outcome {status}: {hint}")
-        code = outcome.get("ripper_exit_code")
-        # `null` is a real answer — a child never reaped — and reads
-        # differently from exit 0.
+        # WHICH PASS each code describes (schema v31): the album pass's is the
+        # one `status` describes; a securing pass that followed it has its own.
+        # `null` is a real answer — a child never reaped — and reads differently
+        # from exit 0. An older report does not say which pass, so it keeps the
+        # plain label rather than guessing one.
+        exits = rip_pass_exit.PassExits.from_outcome(outcome)
+        label = "album pass ripper" if exits.pass_recorded else "ripper"
         album.add(
-            LEVEL_NOTE,
-            f"ripper exit code: {'not reaped (null)' if code is None else code}",
+            LEVEL_NOTE, f"{label} exit code: {rip_pass_exit.exit_text(exits.album)}"
         )
+        if exits.securing_started:
+            album.add(
+                LEVEL_NOTE,
+                "securing pass ripper exit code: "
+                f"{rip_pass_exit.exit_text(exits.securing)}",
+            )
         argv = outcome.get("ripper_command_display")
         if argv:
-            album.add(LEVEL_NOTE, f"command: {argv}")
+            # The LAST command run, which after a securing pass is that pass's,
+            # not the album pass's whose code leads above.
+            which = (
+                " (the securing pass's, the last run)" if exits.securing_started else ""
+            )
+            album.add(LEVEL_NOTE, f"command{which}: {argv}")
 
 
 def _audit_medium(report: dict[str, Any], album: AlbumAudit) -> None:

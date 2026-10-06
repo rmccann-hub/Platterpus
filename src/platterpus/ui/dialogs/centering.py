@@ -22,12 +22,12 @@ from PySide6.QtCore import QRect, QSize
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
-from platterpus.ui.dialogs.fit_scroll_area import fit_dialog_to_screen
+from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX, fit_dialog_to_screen
 
 log = logging.getLogger(__name__)
 
 
-def _clamp_to(frame: QRect, avail: QRect) -> QRect:
+def _clamp_to(frame: QRect, avail: QRect, side_margin: int = 0) -> QRect:
     """Slide `frame` (never resize it) so it lies fully within `avail`.
 
     Pure and side-effect-free so it's unit-testable without a display. If the
@@ -37,8 +37,20 @@ def _clamp_to(frame: QRect, avail: QRect) -> QRect:
     guard that keeps a dialog centred on a window near a screen edge — or at a
     global coordinate XWayland reports oddly on a multi-monitor/scaled desktop —
     from landing partly or fully off-screen (real-user "dialog off screen").
+
+    Up to ``side_margin`` is kept clear on the left and the right too — as much
+    of it as the frame's width leaves room for, equally on both sides
+    (2026-10-05, KDD-41). The reason is the frame itself: a window is placed on
+    its first show, usually before the window manager has decorated it, so the
+    `frame` measured here is often just the window, and a window slid flush
+    against the screen's edge then has its border off it. The fit
+    (`fit_scroll_area.SIDE_MARGIN_PX`) leaves room for this margin on both
+    sides; this is what keeps a window centred on an anchor near the edge from
+    giving that room back.
     """
     r = QRect(frame)
+    inset = max(0, min(side_margin, (avail.width() - r.width()) // 2))
+    avail = avail.adjusted(inset, 0, -inset, 0)
     # QRect.right() == left + width - 1, so the largest left that still fits is
     # avail.right() - width + 1.
     if r.width() <= avail.width():
@@ -89,7 +101,7 @@ def center_on_anchor(widget: QWidget) -> None:
             or QApplication.primaryScreen()
         )
         if screen is not None:
-            frame = _clamp_to(frame, screen.availableGeometry())
+            frame = _clamp_to(frame, screen.availableGeometry(), SIDE_MARGIN_PX)
         widget.move(frame.topLeft())
         # Surface it to the FRONT and give it focus. Centring alone isn't enough:
         # a real-user report had the (correctly parented) prompt open on the main

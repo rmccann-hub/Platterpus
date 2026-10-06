@@ -365,7 +365,36 @@ def test_a_run_is_only_ok_when_everything_passed() -> None:
     # round 18's rename: the old version named one token, so the two states
     # that swapped meaning could have traded places with this still green.
     assert not _report(Outcome.PASS, Outcome.SKIPPED).ok
-    assert not _report(Outcome.PASS, Outcome.UNREACHABLE).ok
+
+
+def test_a_step_this_equipment_cannot_run_neither_fails_the_run_nor_reads_as_a_pass() -> (
+    None
+):
+    """`UNREACHABLE` is forgiven by `ok` and named by every verdict sentence.
+
+    Until 2026-10-06 nothing emitted it, and `ok` counted it as a fault. The
+    first producer is `expect-offset-refusal`, which records it on a drive the
+    AccurateRip list carries (C4, KDD-41): a step that cannot run there must not
+    fail the rig's run, and must not be counted as checked either. So `ok` is
+    True, `UNREACHABLE` stays out of `GOOD`, and the RESULT line and the JSON
+    say which steps did not run. Both halves are asserted, because either one
+    alone is the defect: a False `ok` fails every run on a listed drive, and a
+    "all checks passed" claims a refusal nobody saw.
+    """
+    rep = _report(Outcome.PASS, Outcome.UNREACHABLE)
+    assert rep.ok, "a step this equipment cannot run failed the run"
+    assert Outcome.UNREACHABLE not in report_mod.GOOD
+    assert rep.unreachable == 1
+    text = report_mod.render(rep)
+    assert "all checks passed" not in text, text
+    assert "1 step(s) cannot run on it" in text, text
+    assert rep.as_dict()["unreachable_lines"] == [2]
+    # The control: a run with none says what it always said.
+    clean = _report(Outcome.PASS, Outcome.PASS)
+    assert clean.unreachable == 0 and clean.as_dict()["unreachable_lines"] == []
+    assert "RESULT: all checks passed" in report_mod.render(clean)
+    # And it rescues nothing: a failure beside it still fails the run.
+    assert not _report(Outcome.UNREACHABLE, Outcome.FAIL).ok
 
 
 def test_a_run_that_ended_early_is_never_ok_however_its_steps_went() -> None:
