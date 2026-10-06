@@ -181,6 +181,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   The key was announced to the cyanrip fork in round 30 lap 4 (S43).
 
 ### Fixed
+- For contributors: the check that the rip report's types describe what it
+  writes now reads a key written through a named constant, not only a quoted
+  one. It had missed the two securing-pass exit fields, which the report writes
+  through the constants it shares with `rip_pass_exit`, so a key written that
+  way could have gone undeclared unnoticed; a key it cannot read now fails it.
 
 - **Tracks the drive could not read cleanly are now re-read.** The secure re-read
   after a rip (the pass that re-reads the tracks AccurateRip did not confirm) only

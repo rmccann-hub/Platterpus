@@ -40,27 +40,94 @@ _BLOCKS: dict[str, str] = {
 }
 
 
+def _module_string_constants(path: Path) -> dict[str, str]:
+    """Every module-level ``NAME = "text"`` (or ``NAME: str = "text"``) in a file."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    out: dict[str, str] = {}
+    for stmt in tree.body:
+        if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+            target, value = stmt.target.id, stmt.value
+        elif (
+            isinstance(stmt, ast.Assign)
+            and len(stmt.targets) == 1
+            and isinstance(stmt.targets[0], ast.Name)
+        ):
+            target, value = stmt.targets[0].id, stmt.value
+        else:
+            continue
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            out[target] = value.value
+    return out
+
+
+def _key_names_in_scope(tree: ast.Module) -> dict[str, str]:
+    """What a bare name used as a dict key can mean in ``rip_report``: its value.
+
+    A key may be written as a named constant rather than a literal (ruling C1 put
+    `SECURING_STARTED_KEY` in `rip_pass_exit`, so the reader and the writer share
+    one spelling). Read the constants defined in `rip_report` itself, and the ones
+    it imports by name from another `platterpus` module, out of THAT module's
+    source. Anything else stays unresolved, and `_emitted_keys` refuses it.
+    """
+    names = _module_string_constants(_REPORT)
+    package_root = _REPORT.parent
+    for stmt in tree.body:
+        if not (
+            isinstance(stmt, ast.ImportFrom)
+            and stmt.module
+            and stmt.module.startswith("platterpus.")
+        ):
+            continue
+        source = package_root.joinpath(*stmt.module.split(".")[1:]).with_suffix(".py")
+        if not source.is_file():
+            continue
+        constants = _module_string_constants(source)
+        for alias in stmt.names:
+            if alias.name in constants:
+                names[alias.asname or alias.name] = constants[alias.name]
+    return names
+
+
 def _emitted_keys(anchor: str) -> list[str]:
     """The string keys of the dict literal in ``rip_report`` containing ``anchor``.
 
     The *last* match wins: `build_report` assembles the block once, and an earlier
     partial literal mentioning the same key would otherwise shadow it.
+
+    **A key written as a NAME is resolved, never skipped** (2026-10-06). Reading
+    only literal keys made both sweeps blind to `securing_pass_started` and
+    `securing_pass_exit_code`, which `rip_report` writes through the constants it
+    shares with `rip_pass_exit`: the converse failed, and an undeclared key written
+    that way would have passed the forward sweep unseen. A key in the matched
+    literal that is neither a string nor a name this file can resolve fails here,
+    so the sweep cannot quietly read less of the block than is there.
     """
     tree = ast.parse(_REPORT.read_text(encoding="utf-8"))
+    in_scope = _key_names_in_scope(tree)
     found: list[str] | None = None
+    unreadable: list[str] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Dict):
             continue
-        keys = [
-            k.value
-            for k in node.keys
-            if isinstance(k, ast.Constant) and isinstance(k.value, str)
-        ]
+        keys: list[str] = []
+        opaque: list[str] = []
+        for k in node.keys:
+            if isinstance(k, ast.Constant) and isinstance(k.value, str):
+                keys.append(k.value)
+            elif isinstance(k, ast.Name) and k.id in in_scope:
+                keys.append(in_scope[k.id])
+            elif k is not None:  # `None` is a `**spread`, not a key
+                opaque.append(ast.unparse(k))
         if anchor in keys:
-            found = keys
+            found, unreadable = keys, opaque
     assert found is not None, (
         f"no dict literal in rip_report.py contains {anchor!r} — the anchor has "
         "moved, and this test is now measuring nothing"
+    )
+    assert not unreadable, (
+        f"the block holding {anchor!r} has keys this sweep cannot read as text: "
+        f"{unreadable}. Write them as literals or as module-level string "
+        "constants (here, or imported by name from a platterpus module)"
     )
     return found
 
@@ -395,3 +462,17 @@ def test_every_nested_block_type_describes_every_key_it_receives() -> None:
     assert not problems, "report_types.py is out of step with the report — " + (
         "; ".join(problems)
     )
+
+
+def test_a_key_written_through_a_shared_constant_is_read() -> None:
+    """The two keys ruling C1 writes through `rip_pass_exit`'s constants are seen.
+
+    Named, so the resolution that sees them cannot be lost without a test saying
+    which keys went dark (2026-10-06; both sweeps were blind to them before).
+    """
+    emitted = _emitted_keys("failure_hint")
+    assert "securing_pass_started" in emitted
+    assert "securing_pass_exit_code" in emitted
+    # The literal keys beside them are still read, so this is not the resolver
+    # standing in for the whole block.
+    assert "ripper_exit_code" in emitted and "ripper_record" in emitted
