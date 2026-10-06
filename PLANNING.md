@@ -110,7 +110,8 @@ Platterpus/
 │   ├── handshake.py                     # the bidirectional handshake gate: --emit / --check / --status /
 │   │                                    #   --release-gate. What decides whether a release may proceed.
 │   ├── round_digest.py                  # HANDSHAKE-ROUND-DIGEST, using the fork's method (round 15 lap 4)
-│   ├── emit_envelope.py                 # transport envelope — HISTORY since 2026-09-13, laps travel by git
+│   ├── emit_envelope.py                 # transport envelope — HISTORY since 2026-09-13, laps travel by git;
+│   │                                    #   writes only with --out outside the repo (2026-10-06)
 │   ├── emit_dependency_contract.py      # generates docs/cyanrip-consumer-contract.md (has --check)
 │   ├── emit_script_language.py          # generates docs/script-language.md (has --check)
 │   ├── emit_ripper_inventory.py         # regenerates the fatal-message inventory + fixture from the newest
@@ -226,6 +227,9 @@ Platterpus/
         │   ├── artifact_verbs.py       # runner mixin: the verbs that grade what a rip LEFT, once its record settles
         │   ├── artifact_grading.py     # pure graders of the rip's record: self-audit, AccurateRip, CTDB (no Qt)
         │   ├── expected_warnings.py    # the one warning a run expects, and the one build it is expected on (no Qt)
+        │   ├── walkthrough_verbs.py    # runner mixin: `callout`, the numbered mark the next screenshot draws (KDD-42)
+        │   ├── burst_verbs.py          # runner mixin: `record`, a burst of frames for the guide's GIFs (KDD-42)
+        │   ├── callout.py              # drawing a numbered callout onto a captured picture (no window)
         │   ├── tag_grading.py          # pure graders of the FLAC files: tags and cover art (no Qt)
         │   ├── probe_verbs.py          # runner mixin: the rig verbs, is this the newest pair, cyanrip -f, cd-paranoia -A
         │   ├── probe_grading.py        # pure graders for them: the newest pair (D3), cyanrip -f's offset (no Qt)
@@ -459,6 +463,9 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`uiscript/artifact_verbs.py`** — the verbs that grade what a rip left on disk (`expect-album-audit`, `expect-accuraterip`, `expect-ctdb`, `expect-tags`, `expect-cover-art`) and `track-title`, as a **mixin** `ScriptRunner` inherits, so the handlers stay reachable by name while the 4,600-line runner does not grow. Each waits for the rip's report to settle (`artifact_grading.settle_state`, the predicate `expect-verification` also uses) and then records one grade. Added 2026-09-30, when it was found that no acceptance step had ever read a report's verdicts, its self-audit, the cue or a FLAC.
 - **`uiscript/artifact_grading.py`** — the pure graders of a rip's **record** (its report and the ripper's log), each **delegating** to the product's own predicate rather than restating it: the self-audit is `rip_audit.CHECKS` re-run and attributed per check, AccurateRip is `verdict.accuraterip_state`, which rips owe a result is `rip_report.UNFINISHED_RIP_STATUSES`. Tested against the committed round-29 reports.
 - **`uiscript/expected_warnings.py`** — the warnings an acceptance run expects rather than fails, each tied to the one binary it is expected on. Today one: the handshake check's open-round warning, expected only when the report shows a clean fork tag naming the build under review (asked of `fork_source.is_the_build_under_review`), our verdict `unapproved`, and the note naming the reviewing round. The product's own audit keeps warning users; only the acceptance grader consults this (maintainer, 2026-10-06).
+- **`uiscript/walkthrough_verbs.py`** — a **mixin** on `ScriptRunner` for the getting-started guide (KDD-42, W3): `callout <n> <label…>` marks the one visible button, group box or label that reads `<label>` (exact, mnemonics and whitespace normalised, or a prefix with a trailing `*`), and the next `screenshot` draws the mark through `_render_with_callouts`, failing the picture if a mark could not be placed. Keyed on the words the user reads, so a renamed button fails the walkthrough instead of shipping a picture that points at nothing.
+- **`uiscript/burst_verbs.py`** — a **mixin** on `ScriptRunner`: `record <name> <seconds> <fps>`, a bounded burst of main-window frames on a `QTimer` (never blocking the GUI thread), with a manifest that counts every lost frame and fails the step on one. The frames become the guide's GIFs (ffmpeg, KDD-42 W4).
+- **`uiscript/callout.py`** — the drawing behind `callout`: an amber outline over a white halo and a numbered badge kept on the picture, scaled by the capture's device pixel ratio, painted onto the captured image and never onto the window. White on the amber measures 5.0:1. No window, no event loop.
 - **`uiscript/tag_grading.py`** — the pure graders of the **FLAC files**: tags compared against the track table (the user's intent, not our escaped argv), and cover art against `cover_art.plan_actions`'s answer for the mode. Split from `artifact_grading` by what it reads. Also `render_tags`, one FLAC's tags as screened text for the run folder, because the bundle carries no audio (the fork's round 30 lap 3 S24).
 - **`uiscript/probe_verbs.py`** — the verbs that ask about the rig rather than a rip, as a second **mixin** on `ScriptRunner`: `expect-newest-pair` (round 30's D3: the fork's newest release across both channels is the build this app reviews, and this app is our newest), `expect-found-offset` (the previous `cyanrip -f`'s summary against the drive's set offset) and `cache-probe` (`cd-paranoia -A` through the drive setup's adapter, INFO whatever it says, its output saved to the run folder). Every read that can take seconds runs on a daemon thread that touches no Qt; the runner's deadline polls it, and a wait that ends without its answer calls `_deadline_cancel` to kill the child. Added 2026-09-30 for round 30.
 - **`uiscript/probe_grading.py`** — the pure graders behind them. `grade_newest_pair` fails a half it cannot read, because a run on a pair not shown newest is not evidence. `parse_found_offset` reads cyanrip's own `Drive offset of … found` summary (`cyanrip@174a134:src/cyanrip_main.c:594-692`) and passes only a FINISHED search; it never raises, and has a property test saying so.
@@ -1828,6 +1835,60 @@ recommendation. The maintainer's answer, verbatim: *"Do all recommendations."*
 
 **Not decided here.** Nothing about the cyanrip seam: the fork-bound items of the same list
 travel in our next lap, and round 31's wording items wait for that round.
+
+### KDD-42 — The 0.7.100 getting-started walkthrough: stills and short loops, shot by a script (decided 2026-10-06)
+
+**Context.** The maintainer wants a *get started* guide for 0.7.100: an archival
+(EAC-parity) rip of an average disc, step by step, showing the buttons to press. A video
+was one idea, and screenshots or a few GIFs another. Asked to plan it, Claude recommended
+the shape below; the maintainer's answer, verbatim: *"i agree with all, plan for it"*.
+The plan is the `TASKS.md` section *The 0.7.100 getting-started walkthrough*.
+
+**Rulings.**
+- **W1, format:** a written step list that stands on its own (each step says what to do,
+  what to press and what you should see, with alt text on every image), illustrated by
+  still screenshots with a numbered callout on the button to press, plus three or four
+  short looping GIFs only where motion helps: disc to identified, rip progress, the
+  verdict. **No video:** it cannot be skimmed, and it goes stale the first time a button
+  moves.
+- **W2, where:** on the rig (Bazzite, Plasma 6, the BDR-209D), in a brand-new Linux user
+  account (`demo`), so the first run is genuine (no config, no container) and no real
+  name, path or library appears in a picture. One look throughout: one window size, 100 %
+  scaling, Breeze light.
+- **W3, how:** a **walkthrough script** drives the app through the steps and shoots it,
+  with the app's own `screenshot` verb (it renders each window itself, the only capture
+  that works on Wayland and headless) plus two new script verbs: `callout` (a numbered
+  highlight on the widget the next step presses) and `record` (a short burst of frames).
+  A renamed or moved button fails the script instead of shipping a stale picture.
+  Verbs, not flags (CLAUDE.md, *a new testing capability is a script verb*).
+- **W4, tools:** ffmpeg assembles the frame bursts into GIFs (already a listed
+  dependency, present on the rig; no new dependency). Spectacle, KDE's own tool, by hand
+  for the two or three steps outside the app: downloading the AppImage, allowing it to
+  run, the first double-click, the password prompt.
+- **W5, the disc:** an ordinary commercial CD that AccurateRip and CTDB know, so the guide
+  ends on *verified*. Its cover art is the label's copyright, so the capture shows a
+  placeholder in its place; the track names are MusicBrainz data, which is CC0.
+- **W6, where it lives: in the app by default, and on GitHub too** (the maintainer,
+  asked where it would be viewable: *"id prefer it be the default in the app, and an
+  option, or default in github too"*). **One source, two renderings:**
+  - the source is the guide's Markdown and its images, shipped **inside the package** as
+    help content (beside `help_content.py`, so it reaches the AppImage and the wheel);
+    it is app content, not a `docs/` document;
+  - **in the app**, Help → *Getting started* opens it in a viewer pane, offline, with the
+    stills shown and the GIFs animated, and the first run offers to open it;
+  - **on GitHub**, the *Getting started* section at the top of `README.md` is
+    **generated** from that source by a script with a `--check` mode, the way the
+    script-language page and the dependency contract already are, and a test fails if the
+    README and the source disagree. Help → User guide points to the in-app guide first and
+    names the README copy second.
+  The images are versioned in the repository under a size budget, and the budget counts
+  what the AppImage carries.
+- **W7, when:** build the two verbs and the script now; do the final shoot on the rig just
+  before 0.7.100, once the interface has settled. A re-shoot is one script run.
+
+**Not decided here.** Which disc exactly, the window size in pixels, and the size budget:
+each is settled when the script first runs on the rig. Whether the first run opens the
+guide by itself or only offers it: offered, unless the maintainer says otherwise.
 
 ---
 

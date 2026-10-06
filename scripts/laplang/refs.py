@@ -25,11 +25,11 @@ tree, drew 15 refusals.)
 from __future__ import annotations
 
 import re
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal
 
+from .gitio import decode_cited, run_git, run_git_bytes
 from .model import Side
 
 ARTIFACT_RE: Final[re.Pattern[str]] = re.compile(
@@ -41,9 +41,6 @@ STATEMENT_RE: Final[re.Pattern[str]] = re.compile(
     r"(?P<target>S\d+|§[A-Za-z0-9.]+)$"
 )
 SHA_RE: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{7,40}$")
-
-#: How long one `git` call may take. A checker that hangs is not evidence.
-GIT_TIMEOUT_S: Final[float] = 30.0
 
 
 @dataclass(frozen=True)
@@ -188,7 +185,12 @@ class Trees:
             reach = self._reachable(root, ref.side, ref.sha)
             if reach.outcome in ("refused", "unchecked"):
                 return reach
-        shown = _git(root, "show", f"{ref.sha}:{ref.path}")
+        # Read as BYTES and decoded here, not by `text=True`: a cited file is
+        # not always UTF-8. EAC writes its logs in UTF-16, and the first lap to
+        # cite one (our round 30 lap 16, EAC's own log of the reference disc)
+        # made this line raise UnicodeDecodeError and took the whole check down
+        # with it. See `gitio.decode_cited`.
+        shown = run_git_bytes(root, "show", f"{ref.sha}:{ref.path}")
         if shown is None:
             return Resolution(
                 "unchecked", f"UNCHECKED {ref.side}@{ref.sha}: git did not answer"
@@ -197,10 +199,10 @@ class Trees:
             return Resolution(
                 "refused", f"{ref.path} does not exist at {ref.side}@{ref.sha}"
             )
-        return (line_count(shown.stdout), reach)
+        return (line_count(decode_cited(shown.stdout)), reach)
 
     def _commit_exists(self, root: Path, side: Side, sha: str) -> Resolution:
-        result = _git(root, "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}")
+        result = run_git(root, "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}")
         if result is None:
             return Resolution(
                 "unchecked", f"UNCHECKED {side}@{sha}: git did not answer"
@@ -232,7 +234,7 @@ class Trees:
         warning still applies to any lap read before that merge.
         """
         at = self.at.get(side, "HEAD")
-        on_record = _git(root, "merge-base", "--is-ancestor", sha, at)
+        on_record = run_git(root, "merge-base", "--is-ancestor", sha, at)
         if on_record is None:
             return Resolution(
                 "unchecked", f"UNCHECKED {side}@{sha}: git did not answer"
@@ -243,7 +245,7 @@ class Trees:
             return Resolution(
                 "unchecked", f"UNCHECKED {side}@{sha}: {at} does not resolve"
             )
-        holders = _git(root, "branch", "-r", "--contains", sha)
+        holders = run_git(root, "branch", "-r", "--contains", sha)
         names = [
             line.strip().split(" ")[0]
             for line in (holders.stdout.splitlines() if holders is not None else [])
@@ -263,7 +265,7 @@ class Trees:
 
     def _is_shallow(self, root: Path, side: Side) -> bool:
         if side not in self._shallow:
-            result = _git(root, "rev-parse", "--is-shallow-repository")
+            result = run_git(root, "rev-parse", "--is-shallow-repository")
             self._shallow[side] = result is None or result.stdout.strip() != "false"
         return self._shallow[side]
 
@@ -299,26 +301,12 @@ def _check_lines(ref: ArtifactRef, line_count: int) -> Resolution:
     return Resolution("ok")
 
 
-def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str] | None:
-    """Run git in `root`. None means git could not be asked, which is unchecked."""
-    try:
-        return subprocess.run(
-            ["git", "-C", str(root), *args],
-            capture_output=True,
-            text=True,
-            timeout=GIT_TIMEOUT_S,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-
-
 def default_at(root: Path | None, candidates: tuple[str, ...]) -> str:
     """The first of `candidates` that resolves in `root`, else `HEAD`."""
     if root is None:
         return "HEAD"
     for name in candidates:
-        result = _git(root, "rev-parse", "--verify", "--quiet", f"{name}^{{commit}}")
+        result = run_git(root, "rev-parse", "--verify", "--quiet", f"{name}^{{commit}}")
         if result is not None and result.returncode == 0:
             return name
     return "HEAD"

@@ -9,7 +9,14 @@ is `scripts/handshake.py`.
 outbound/round-NN-lap-LL.md   what Platterpus sent    (protocol §3)
 inbound/round-NN-lap-LL.md    what the fork sent back (protocol §4)
 verified/round-NN-lap-LL.md   our verification of it  (protocol §2, step 5)
+inbound/superseded/           the fork's earlier copy of a lap it re-sent (own README)
+outbound/superseded/          a lap revision of ours that was never sent (see
+                              "The round 15 lap 15 revision" below)
 ```
+
+Neither `superseded/` directory is part of the lap sequence: every gate and digest
+globs the three directories above **non-recursively**, so a file one level down is
+never enumerated.
 
 **Three files here are NOT rounds and must never be counted as one.** Each side's
 **standing status** — what the other can assume *between* rounds, and what a fresh
@@ -41,22 +48,24 @@ lap 17, and enforced on our side by `tests/test_handshake_file_naming.py`.
 | **No amendment letters.** An amendment is a new lap | A lap number is a fact both sides can state; "the next free letter" is a fact only the filer knows |
 | Generate it with `handshake_filename(round, lap)` | Never hand-typed — a typed name is a third description |
 | Artifacts: `round-NN-lap-LL-<kind>-g<build>.<ext>` | `<build>` is the commit the artifact's **own banner** asserts, not the commit a lap file names it by. Those differ (see below), and only the banner is derivable from the artifact's content |
-| Transport envelopes: `round<NN>lap<LL>FROMplatterpusTOcyanrip.md` — **no hyphens** | A different convention on purpose; see below. *Documented here as `round<NN>lap<LL>platterpus.md` until 2026-09-13, while `emit_envelope.NAME_TEMPLATE` had carried the direction-bearing form since round 16 — this README's own rule says generate it, never hand-type it, and this README hand-typed it.* |
+| Transport envelopes: `round<NN>lap<LL>FROMplatterpusTOcyanrip.md` — **no hyphens** | A different convention on purpose; see below. *Documented here as `round<NN>lap<LL>platterpus.md` until 2026-09-13, while `emit_envelope.NAME_TEMPLATE` had carried the direction-bearing form since round 16 — this README's own rule says generate it, never hand-type it, and this README hand-typed it.* **None is committed here since 2026-10-06** — see *Retired transport envelopes* |
 
 ### Transport envelopes — `round<NN>lap<LL>FROMplatterpusTOcyanrip.md`
 
-> **SUPERSEDED AS A TRANSPORT, 2026-09-13.** Laps now travel by git: each side
-> commits to its own public repo and the other reads it (`CLAUDE.md` Critical rule
-> #12, *Laps travel by git*). The envelope existed so an operator could send one
-> attachment, and a commit carries every byte losslessly with a sha covering all of
-> them — strictly stronger than a per-part hash in a wrapper. **One is still made
-> per released lap** (`scripts/emit_envelope.py`): thirty-four are committed under
-> `outbound/`, from round 16 lap 3 to round 30 lap 6 (of our `outbound/` laps in that
-> span, only round 21 lap 4 and round 28 lap 7 lack one). The lap on `main` is the
-> record; the envelope is a convenience copy, and reading this section as history
-> would miss that the step is still taken. What has *not* moved with laps: rig
-> scripts and evidence bundles still cross by hand, so the cross-machine filename
-> rule keeps a live subject.
+> **SUPERSEDED AS A TRANSPORT, 2026-09-13, AND RETIRED FROM THIS TREE, 2026-10-06.**
+> Laps now travel by git: each side commits to its own public repo and the other
+> reads it (`CLAUDE.md` Critical rule #12, *Laps travel by git*). The envelope
+> existed so an operator could send one attachment, and a commit carries every byte
+> losslessly with a sha covering all of them — strictly stronger than a per-part
+> hash in a wrapper. Until 2026-10-06 one was still written into `outbound/` per
+> released lap, and 44 had piled up there beside the laps they carried, each
+> reading as the same lap held under a second name. They were removed, and every
+> one is listed with where its bytes are held in *Retired transport envelopes*
+> below. `scripts/emit_envelope.py` still builds one for a hand-carry, but only with
+> `--out DIR` outside the working tree, and `tests/test_handshake_file_naming.py`
+> refuses an envelope committed in `outbound/`, `inbound/` or `verified/`, judged by
+> its content. What has *not* moved with laps: rig scripts and evidence bundles
+> still cross by hand, so the cross-machine filename rule keeps a live subject.
 
 The envelope is one file wrapping several laps verbatim so the operator sends one
 attachment (*"there should only be one file moving forward, unless the second is a
@@ -107,6 +116,134 @@ used to fall back to the filename, so an ambiguous file sorted at its *named* la
 later valid file was read as the newest, and the ambiguity was never examined by the
 gate. Sorting it last makes it the file the verdict is read from, at which point the
 header check refuses it.
+
+## Retired transport envelopes (2026-10-06)
+
+**Forty-four transport envelopes were removed from `outbound/` on 2026-10-06**, and
+this table is their record. They were 34 named `round<NN>lap<LL>FROMplatterpusTOcyanrip.md`
+(round 16 lap 3 to round 30 lap 6) and 10 named `round<NN>lap<LL>platterpus.md` (rounds
+9, 11, 14 and 15), each written by `scripts/emit_envelope.py` while laps were carried by
+hand. The maintainer noticed them on 2026-10-06: beside the laps they carried, each looked
+like the same lap held under two names with differing content. `CLAUDE.md` Critical rule
+#7 says a duplicate goes, and goes without losing context, so before removal every
+carried part was split out with the envelope's own verifying reader
+(`emit_envelope.verify_split`), its hash checked, and matched against what the tree
+holds.
+
+**What the check found.** In 37 envelopes every part is byte-identical to a file still
+in the tree, a lap under `outbound/` or `verified/`. Seven carried something more, and the
+table says where each extra part is held:
+
+* **`round15lap15platterpus.md`** carried the one part held nowhere else, neither in the
+  tree nor at a path of its own in history: an abandoned revision of our round 15 lap 15.
+  It now lives byte-exact in `outbound/superseded/` (see *The round 15 lap 15 revision*
+  below).
+* **`round14lap05platterpus.md`** carried our round 14 lap 5 as drafted, which was never
+  sent and became lap 6. The draft is held at its own path in history (`5f374aa6`).
+* **Five more round 14 and 15 envelopes** carried, beside laps still in the tree, older
+  versions of the acceptance scripts `src/platterpus/rig_scripts/fullacceptance.txt` and
+  `securereread.txt`. Each version is held at its own path in the commit the table names.
+
+**`round14lap16platterpus.md` was moved, not deleted**: it is now
+`tests/fixtures/round14lap16platterpus.md`, byte-exact, because
+`tests/test_round_digest.py` derives the content rule (protocol §5a) from it and checks
+its hash against this table.
+
+**To recover any of them**, read it out of the commit in the *last written* column, which
+holds exactly these bytes, as does `86443095`, the last commit before the removal (every
+listed commit was checked to be an ancestor of it, so a plain clone of `main` has them):
+
+```
+git show <commit>:docs/handshake/outbound/<envelope> > <envelope>
+python3 scripts/emit_envelope.py --split <envelope> --into <dir>   # verifies every part
+```
+
+The *carried* column names each part by its path under `docs/handshake/`, or, for a part
+not in the tree, its sha256/16 and the commit and path that hold it.
+
+| envelope | bytes | sha256/16 | last written | carried |
+|---|---|---|---|---|
+| `round09lap08platterpus.md` | 23,212 | `4c8b604005aa4515` | `52dfe0a2` | `verified/round-09-lap-08.md` |
+| `round11lap04platterpus.md` | 15,271 | `7a82572bdb9a7d17` | `52dfe0a2` | `verified/round-11-lap-04.md`, `verified/round-08-lap-18.md` |
+| `round14lap02platterpus.md` | 55,145 | `919b515d2bb1af1b` | `5f374aa6` | `outbound/round-14-lap-02.md`; `fullacceptance.txt`, an older version of `src/platterpus/rig_scripts/fullacceptance.txt` (sha256/16 `529fe79661410e1f`), held at its then path `docs/rig-scripts/fullacceptance.txt` in `e94cf6e7` |
+| `round14lap05platterpus.md` | 44,846 | `10de24eef119f65f` | `5f374aa6` | **our round 14 lap 5 as drafted, NEVER SENT** (sha256/16 `6561d8385648c757`): renumbered to lap 6, with edits, in `b8fbd992` because the fork had filed a lap 5 of its own (`outbound/round-14-lap-06.md` opens *"Written as lap 5, never sent, renumbered"*); the draft is held at its own path, `docs/handshake/outbound/round-14-lap-05.md`, in `5f374aa6`. And `fullacceptance.txt` (sha256/16 `e635151e27ef4fcb`), held at `docs/rig-scripts/fullacceptance.txt` in `5f374aa6` |
+| `round14lap06platterpus.md` | 63,279 | `be9d566a17270810` | `37b07893` | `outbound/round-14-lap-06.md`; `fullacceptance.txt` (sha256/16 `e635151e27ef4fcb`), held at `docs/rig-scripts/fullacceptance.txt` in `5f374aa6`; `securereread.txt`, an older version of `src/platterpus/rig_scripts/securereread.txt` (sha256/16 `dac00e214ac9d0ca`), held at `docs/rig-scripts/securereread.txt` in `37b07893` |
+| `round14lap16platterpus.md` | 61,827 | `d16389176b652700` | `f3b60a0a` | `outbound/round-14-lap-16.md`; `fullacceptance.txt`, an older version of `src/platterpus/rig_scripts/fullacceptance.txt` (sha256/16 `82f3fabb65ecff1c`), held at that path in `f3b60a0a`. **Moved, not deleted**: this envelope is now `tests/fixtures/round14lap16platterpus.md`, byte-exact, because `tests/test_round_digest.py` derives the content rule from it |
+| `round15lap07platterpus.md` | 113,365 | `05879913df2f4456` | `8ebabf20` | `outbound/round-15-lap-07.md`, `-04`, `-05`, `-06` (four laps, released together); `fullacceptance.txt` (sha256/16 `82f3fabb65ecff1c`), held at `src/platterpus/rig_scripts/fullacceptance.txt` in `f3b60a0a` |
+| `round15lap13platterpus.md` | 68,788 | `6629e7b6f6263710` | `bf2b8671` | `outbound/round-15-lap-13.md`; `fullacceptance.txt`, an older version of `src/platterpus/rig_scripts/fullacceptance.txt` (sha256/16 `d3fd3cce89341764`), held at that path in `8ebabf20` |
+| `round15lap15platterpus.md` | 22,309 | `b708498b1e5933cb` | `eeaebd6d` | **a revision of our round 15 lap 15, ABANDONED mid-edit and on every record never sent** (sha256/16 `5952dd9705f65a94`, 20,660 bytes), the one part held nowhere else, in the tree or at a path of its own in history: now `outbound/superseded/round-15-lap-15-abandoned-revision.md`, byte-exact. See *The round 15 lap 15 revision* below |
+| `round15lap16platterpus.md` | 17,108 | `67102501de248c81` | `eeaebd6d` | `outbound/round-15-lap-16.md` |
+| `round16lap03FROMplatterpusTOcyanrip.md` | 37,133 | `b942304214fa12ce` | `0b59cfdb` | `outbound/round-16-lap-03.md` |
+| `round16lap05FROMplatterpusTOcyanrip.md` | 30,636 | `4ab2062971a64782` | `257b3db1` | `outbound/round-16-lap-05.md` |
+| `round16lap07FROMplatterpusTOcyanrip.md` | 22,320 | `c315a983de787473` | `5f732071` | `outbound/round-16-lap-07.md` |
+| `round16lap10FROMplatterpusTOcyanrip.md` | 46,221 | `827683a199738eba` | `45663c30` | `outbound/round-16-lap-10.md` |
+| `round16lap12FROMplatterpusTOcyanrip.md` | 25,812 | `1609238a4d50b01e` | `45663c30` | `outbound/round-16-lap-12.md` |
+| `round16lap14FROMplatterpusTOcyanrip.md` | 18,861 | `c6e1a1176e4cd80d` | `45663c30` | `outbound/round-16-lap-14.md` |
+| `round16lap16FROMplatterpusTOcyanrip.md` | 15,694 | `45a01042ff56a372` | `45663c30` | `outbound/round-16-lap-16.md` |
+| `round17lap02FROMplatterpusTOcyanrip.md` | 12,447 | `c155105daf709322` | `99965e91` | `outbound/round-17-lap-02.md` |
+| `round18lap02FROMplatterpusTOcyanrip.md` | 31,949 | `4135f0bcf1d599e6` | `3bab6e67` | `outbound/round-18-lap-02.md` |
+| `round19lap02FROMplatterpusTOcyanrip.md` | 36,905 | `1b6c20a42044bc95` | `87be5107` | `outbound/round-19-lap-02.md` |
+| `round20lap02FROMplatterpusTOcyanrip.md` | 19,145 | `eb7d06af3182d9fa` | `b0731efa` | `outbound/round-20-lap-02.md` |
+| `round21lap02FROMplatterpusTOcyanrip.md` | 21,630 | `b736ccdcf011ab22` | `5aeffe9b` | `outbound/round-21-lap-02.md` |
+| `round22lap02FROMplatterpusTOcyanrip.md` | 21,437 | `52e565ae2358d4f0` | `67aa0511` | `outbound/round-22-lap-02.md` |
+| `round22lap04FROMplatterpusTOcyanrip.md` | 16,945 | `dd262e9b4eabec07` | `267a6961` | `outbound/round-22-lap-04.md` |
+| `round23lap02FROMplatterpusTOcyanrip.md` | 20,348 | `becec07cfb8fed5e` | `48776b0c` | `outbound/round-23-lap-02.md` |
+| `round23lap04FROMplatterpusTOcyanrip.md` | 12,931 | `721a37578a886679` | `48776b0c` | `outbound/round-23-lap-04.md` |
+| `round24lap02FROMplatterpusTOcyanrip.md` | 18,576 | `f2dbee95c4366e70` | `86f05477` | `outbound/round-24-lap-02.md` |
+| `round25lap02FROMplatterpusTOcyanrip.md` | 16,704 | `513daa5c98acaf2e` | `53747294` | `outbound/round-25-lap-02.md` |
+| `round25lap04FROMplatterpusTOcyanrip.md` | 13,379 | `1b4a33591f55d65d` | `53b3c046` | `outbound/round-25-lap-04.md` |
+| `round26lap02FROMplatterpusTOcyanrip.md` | 12,813 | `3530cd2a47752de7` | `8bacf5cd` | `outbound/round-26-lap-02.md` |
+| `round26lap03FROMplatterpusTOcyanrip.md` | 13,212 | `3bc10fa1683b532d` | `629ffa28` | `outbound/round-26-lap-03.md` |
+| `round26lap05FROMplatterpusTOcyanrip.md` | 15,580 | `e1fb730b8b9e7d18` | `6c1890b4` | `outbound/round-26-lap-05.md` |
+| `round27lap02FROMplatterpusTOcyanrip.md` | 17,963 | `89f3c10a7ee7f315` | `183073bf` | `outbound/round-27-lap-02.md` |
+| `round27lap03FROMplatterpusTOcyanrip.md` | 11,466 | `d99d690f73892a90` | `88c09dd5` | `outbound/round-27-lap-03.md` |
+| `round27lap05FROMplatterpusTOcyanrip.md` | 16,771 | `7dfa07a4f0d9ca93` | `6d94c0a1` | `outbound/round-27-lap-05.md` |
+| `round28lap02FROMplatterpusTOcyanrip.md` | 13,203 | `74283774f8685360` | `a881716c` | `outbound/round-28-lap-02.md` |
+| `round28lap04FROMplatterpusTOcyanrip.md` | 15,111 | `ac5225e3f28e1cb4` | `a84a1c1f` | `outbound/round-28-lap-04.md` |
+| `round28lap06FROMplatterpusTOcyanrip.md` | 43,945 | `8e164f22beef0d2d` | `cae24d2c` | `outbound/round-28-lap-06.md`, `outbound/round-28-lap-07.md` |
+| `round28lap09FROMplatterpusTOcyanrip.md` | 16,544 | `7cf2e0872324e8ed` | `484a50a8` | `outbound/round-28-lap-09.md` |
+| `round29lap02FROMplatterpusTOcyanrip.md` | 16,308 | `17631ae448c29cf2` | `5eea3524` | `outbound/round-29-lap-02.md` |
+| `round29lap04FROMplatterpusTOcyanrip.md` | 20,634 | `2b7491123430d538` | `089252e8` | `outbound/round-29-lap-04.md` |
+| `round30lap02FROMplatterpusTOcyanrip.md` | 18,101 | `42b9eadca7720c56` | `f653a5b1` | `outbound/round-30-lap-02.md` |
+| `round30lap04FROMplatterpusTOcyanrip.md` | 27,138 | `3824d432604fbe9b` | `6d286acf` | `outbound/round-30-lap-04.md` |
+| `round30lap06FROMplatterpusTOcyanrip.md` | 19,839 | `f6f7e400eab557d1` | `ceb34c7b` | `outbound/round-30-lap-06.md` |
+
+### The round 15 lap 15 revision — `outbound/superseded/round-15-lap-15-abandoned-revision.md`
+
+20,660 bytes, sha256 `5952dd9705f65a94b262a34af4016f5e08c2b6694e68e23afea53104446ca979`,
+split byte-exact out of the retired `round15lap15platterpus.md`. **It is not our round 15
+lap 15.** That is `outbound/round-15-lap-15.md` (15,639 bytes, sha256/16
+`6f201fb75568f53a`), pinned in `SENT_LAPS` and untouched, because it is the file we sent.
+
+What happened, from the record (our lap 16 §A, the `SENT_LAPS` comment on lap 15 in
+`tests/test_sent_laps_are_immutable.py`, and `docs/session-log.md` for 2026-09-06):
+
+1. Lap 15 was committed on 2026-09-06 in `38b5c92f`, and the envelope written then
+   carried that first draft (envelope sha256/16 `ba5328f3b68cc99b`, held at `38b5c92f`).
+2. After it had been sent, we began revising it, to report a fix it had promised. The
+   revision is this file. Its §0 says *"THIS REVISES AN EARLIER LAP 15"* and names the
+   earlier one's hash, `6f201fb75568f53a`.
+3. Mid-edit, the operator said lap 15 had been sent. The lap file was restored to the sent
+   bytes and pinned, and the new material became **lap 16** (`eeaebd6d`), which says:
+   *"Lap 15 stands exactly as you received it (sha256/16 `6f201fb75568f53a`, 15,639
+   bytes)."*
+4. **The envelope was not restored.** It had been regenerated from the edited draft during
+   the edit, and `eeaebd6d` committed it carrying the revision, over the envelope that had
+   carried the first draft. That is how the revision survived, and why nowhere else holds
+   it.
+
+**Both trees agree on the first draft as the record.** The fork holds it at
+`cyanrip@7ef9223f:docs/handshake/inbound/round-15-lap-15.md` (git blob `f17154f7`, 15,639
+bytes, the same blob as ours), and its tree at that commit holds no copy of the revision
+(blob `764b70f7`; all 1,397 entries checked on 2026-10-06). No lap, digest or verdict on
+either side reads the revision. It is kept because it is the only copy of what we were
+about to say, and lap 16 names its writing as the third sent-lap edit.
+
+It sits one level below `outbound/` for the reason `inbound/superseded/README.md` gives
+for the inbound precedent: every gate and digest globs `outbound/` non-recursively, so the
+file is out of the sequence without teaching any check an exception. Its name does not use
+the `-as-first-sent` marker, which means *the earlier of two sent copies*. This file was
+the later one, and it was never sent.
 
 ## Artifacts — `artifacts-round-NN/` (round 7 and earlier) and `artifactsroundNN/` (round 8 on)
 

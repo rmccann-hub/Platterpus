@@ -33,6 +33,7 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -44,7 +45,7 @@ from hypothesis import strategies as st
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from laplang import refs, scratch  # noqa: E402 - needs the path line above
+from laplang import gitio, refs, scratch  # noqa: E402 - needs the path line above
 from laplang.cli import (  # noqa: E402
     check_path,
     main,
@@ -308,7 +309,7 @@ def test_a_commit_a_shallow_clone_cannot_see_is_unchecked_not_refused(
             return subprocess.CompletedProcess(list(args), 0, "true\n", "")
         return subprocess.CompletedProcess(list(args), 1, "", "")
 
-    monkeypatch.setattr(refs, "_git", shallow_git)
+    _patch_git(monkeypatch, shallow_git)
     lap = _check(
         tmp_path,
         _header(verdict="OPEN") + "LSL: 1\n\n"
@@ -317,6 +318,55 @@ def test_a_commit_a_shallow_clone_cannot_see_is_unchecked_not_refused(
     )
     assert lap.refused() == []
     assert any("shallow" in p.message for p in lap.problems if p.severity == "WARN")
+
+
+def _patch_git(
+    patch: pytest.MonkeyPatch,
+    stub: Callable[..., subprocess.CompletedProcess[str]],
+) -> None:
+    """Answer EVERY git call the resolver makes from one text stand-in.
+
+    The resolver reads a cited file as bytes (`gitio.run_git_bytes`, so a UTF-16
+    log decodes) and asks everything else as text (`gitio.run_git`). Patching only
+    the text route, as these tests did until 2026-10-06, left `git show` running
+    for real: the stand-in was quietly answering fewer questions than the tests
+    said, and the speed test spawned the processes its stub exists to avoid.
+    """
+
+    def as_bytes(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
+        done = stub(root, *args)
+        return subprocess.CompletedProcess(
+            done.args,
+            done.returncode,
+            str(done.stdout).encode("utf-8"),
+            str(done.stderr).encode("utf-8"),
+        )
+
+    patch.setattr(refs, "run_git", stub)
+    patch.setattr(refs, "run_git_bytes", as_bytes)
+
+
+def test_the_git_stand_in_answers_the_file_read_too(tmp_path: Path) -> None:
+    """Every git question the resolver asks goes through `_patch_git`'s stand-in.
+
+    The recorder must see a `show`: before this, the file read bypassed the
+    stand-in and only the other calls were stubbed.
+    """
+    asked: list[tuple[str, ...]] = []
+
+    def recorder(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+        asked.append(args)
+        return subprocess.CompletedProcess(list(args), 0, "line\n" * 50, "")
+
+    with pytest.MonkeyPatch.context() as patch:
+        _patch_git(patch, recorder)
+        _check(
+            tmp_path,
+            _header(verdict="OPEN") + "LSL: 1\n\n"
+            "S1 FACT read: A line.\n  evidence: platterpus@da766ca:README.md:3\n"
+            "S2 VERDICT: OPEN\n  basis: S1\n",
+        )
+    assert any(a[:1] == ("show",) for a in asked), asked
 
 
 # --- one broken lap per rule ---------------------------------------------------
@@ -545,7 +595,7 @@ def test_each_lap_rule_fires_on_the_lap_that_breaks_it(
         )  # a directory cannot be read
     elif case.branch_only_git:
         with pytest.MonkeyPatch.context() as patch:
-            patch.setattr(refs, "_git", _branch_only_git)
+            _patch_git(patch, _branch_only_git)
             lap = _check(tmp_path, case.text, amend=case.amend, root=root)
     else:
         lap = _check(tmp_path, case.text, amend=case.amend, root=root)
@@ -798,7 +848,7 @@ def test_checking_a_damaged_example_never_raises(
         line for i, line in enumerate(_FIXTURE_LINES) if i not in set(dropped)
     )
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(refs, "_git", instant_git)
+        _patch_git(patch, instant_git)
         _check(tmp_path, text, amend=ALL)
 
 
@@ -1357,6 +1407,37 @@ def test_a_final_line_without_a_newline_can_be_cited(tmp_path: Path) -> None:
         (f"platterpus@{sha}:one.txt:2", "refused"),
         (f"platterpus@{sha}:two.txt:2", "ok"),
         (f"platterpus@{sha}:two.txt:3", "refused"),
+    ):
+        ref = refs.parse_artifact(token)
+        assert ref is not None, token
+        got = trees.artifact(ref, "cyanrip")
+        assert got.outcome == outcome, (token, got)
+
+
+def test_a_cited_utf16_file_is_counted_in_its_own_lines(tmp_path: Path) -> None:
+    """EAC writes UTF-16 logs, and citing one raised UnicodeDecodeError.
+
+    Found writing our round 30 lap 16, which cites EAC's log of the reference
+    disc: `git show` was decoded as UTF-8 by `text=True`, so the first byte of
+    the byte-order mark ended the whole check. The count must be the file's own
+    lines (an editor's), and a file with bytes no codec accepts must still be
+    countable rather than raise.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    eac = "\ufeffExact Audio Copy V1.6\r\n\r\nTrack  5\r\n".encode("utf-16-le")
+    (repo / "eac.log").write_bytes(eac)
+    (repo / "noise.bin").write_bytes(b"one\n\xff\xfe\x00\xc3\ntwo\n")
+    _in(repo, "init", "-q", "-b", "main")
+    _commit(repo, "a utf-16 log and a file of stray bytes")
+    sha = _in(repo, "rev-parse", "--short=12", "HEAD").strip()
+    assert refs.line_count(gitio.decode_cited(eac)) == 3
+    trees = refs.Trees({"platterpus": repo, "cyanrip": None}, {"platterpus": "main"})
+    for token, outcome in (
+        (f"platterpus@{sha}:eac.log:3", "ok"),
+        (f"platterpus@{sha}:eac.log:4", "refused"),
+        (f"platterpus@{sha}:noise.bin:3", "ok"),
+        (f"platterpus@{sha}:noise.bin:4", "refused"),
     ):
         ref = refs.parse_artifact(token)
         assert ref is not None, token
@@ -2331,5 +2412,5 @@ def test_checking_an_arbitrary_lsl_3_body_never_raises(
         return subprocess.CompletedProcess(list(args), 0, "line\n" * 50, "")
 
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(refs, "_git", instant_git)
+        _patch_git(patch, instant_git)
         _check(tmp_path, _header() + "LSL: 3\n\n" + GOOD_FACT + body + _BODY_END)

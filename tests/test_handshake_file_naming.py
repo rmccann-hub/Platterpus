@@ -1071,7 +1071,7 @@ def test_the_envelope_name_cannot_be_read_as_a_lap_by_either_gate(
     Three assertions, because each covers a different reader: the shared glob, our
     own name parser, and the case-insensitive filesystem an operator may be on.
     """
-    name = envelope.OUT.name
+    name = envelope.OUT_NAME
     assert not fnmatch.fnmatch(name, "round-*.md"), (
         f"{name} matches round-*.md, the glob both gates use to collect laps"
     )
@@ -1079,11 +1079,11 @@ def test_the_envelope_name_cannot_be_read_as_a_lap_by_either_gate(
         f"{name} matches round-*.md once case is folded — a case-insensitive "
         "filesystem would collect it even though a case-sensitive one would not"
     )
-    assert hs.name_round_and_lap(envelope.OUT) is None, (
+    assert hs.name_round_and_lap(Path(name)) is None, (
         f"{name} parses as a canonical lap name, so `--status` would read a verdict "
         "off a container"
     )
-    assert hs.round_number(envelope.OUT) is None, (
+    assert hs.round_number(Path(name)) is None, (
         f"{name} parses as belonging to a round, so the status report would place a "
         "container among that round's laps"
     )
@@ -1112,7 +1112,7 @@ def test_the_envelope_name_is_safe_to_cross_machines(envelope: ModuleType) -> No
     on the operator's disk and `round-08-joint.txt` in the instructions written for
     them, and a path is an exact-match string.
     """
-    name = envelope.OUT.name
+    name = envelope.OUT_NAME
     stem, dot, suffix = name.partition(".")
     assert dot and suffix == "md", f"{name} must be a single-suffix .md file"
     # **Separators are the hazard; case is not.** `normalise()` strips separators
@@ -1153,8 +1153,8 @@ def test_the_envelope_name_is_generated_from_the_lap_it_carries(
     would satisfy the first assertion on a tree of one envelope.
     """
     round_, lap = envelope.lead_identity()
-    assert envelope.OUT.name == envelope.envelope_filename(round_, lap), (
-        f"{envelope.OUT.name} does not state round {round_} lap {lap}, which is what "
+    assert envelope.OUT_NAME == envelope.envelope_filename(round_, lap), (
+        f"{envelope.OUT_NAME} does not state round {round_} lap {lap}, which is what "
         f"{envelope.PARTS[0].name} declares. Regenerate rather than rename."
     )
     # **BOTH ENDS, not just the sender** (2026-09-07, maintainer: *"i need handshake
@@ -1182,34 +1182,41 @@ def test_the_envelope_name_is_generated_from_the_lap_it_carries(
     )
 
 
-def test_the_naming_sweep_reaches_the_real_envelope_and_excludes_it(
-    envelope: ModuleType,
+#: A REAL envelope we sent, kept byte-exact as a test fixture. It was committed at
+#: `docs/handshake/outbound/` until 2026-10-06, when every committed envelope was
+#: retired from the tree. `tests/test_round_digest.py` pins its hash against the
+#: provenance table in `docs/handshake/README.md`, so it is provably the artifact.
+_REAL_ENVELOPE: Path = _REPO / "tests" / "fixtures" / "round14lap16platterpus.md"
+
+
+def test_the_naming_sweep_excludes_a_real_envelope_by_its_content(
+    envelope: ModuleType, tmp_path: Path
 ) -> None:
-    """The *content* half, asserted on the file that actually exists.
+    """The *content* half, asserted on a real envelope and on a fresh one.
 
     The name checks above stop a gate resolving it as a lap; this stops the sweep in
     THIS module judging it as one. `_NOT_LAPS` is empty by design, so the exclusion is
     structural (v4 §5a — a field declared more than once is ambiguous, so the file is
     not one lap). Structural exclusions are the kind that quietly stop applying, so
-    the real file is the subject here rather than a fixture.
+    the subjects are real output: one envelope that actually travelled, and one the
+    generator builds today.
+
+    **It used to read the envelope committed in `outbound/`.** None is committed now
+    (`test_no_transport_envelope_is_committed_beside_the_laps` below refuses one), so
+    the travelled one is the fixture and today's is written to a temporary directory.
     """
-    out = envelope.OUT
-    assert out.is_file(), (
-        f"{out.name} is not in the tree — regenerate with "
-        "`python scripts/emit_envelope.py` or this test is checking nothing"
+    assert _REAL_ENVELOPE.is_file(), "the retired envelope fixture is missing"
+    assert not _is_one_lap(_REAL_ENVELOPE), (
+        f"{_REAL_ENVELOPE.name} declares each wire field at most once, so every "
+        "content-based sweep on both sides would read it as a lap"
     )
-    assert out.parent == _HANDSHAKE / "outbound", out.parent
-    raw = list((_HANDSHAKE / "outbound").glob("*.md"))
-    assert out in raw, (
-        f"{out.name} is not reached by the sweep's own glob, so its exclusion below "
-        "would pass for the wrong reason"
-    )
-    assert not _is_one_lap(out), (
-        f"{out.name} declares each wire field at most once, so every content-based "
+    fresh = tmp_path / envelope.OUT_NAME
+    fresh.write_text(envelope.render(envelope.read_parts()), encoding="utf-8")
+    assert not _is_one_lap(fresh), (
+        f"{fresh.name} declares each wire field at most once, so every content-based "
         "sweep on both sides reads it as a lap. `emit_envelope.assert_not_a_lap` is "
         "supposed to make that impossible before the file is written."
     )
-    assert out not in _lap_files_in("outbound")
 
 
 def test_a_ONE_PART_envelope_is_still_not_a_lap(envelope: ModuleType) -> None:
@@ -1249,28 +1256,155 @@ def test_the_not_a_lap_guard_actually_fires(envelope: ModuleType) -> None:
 
 
 def test_the_envelope_splits_back_into_byte_identical_parts(
-    envelope: ModuleType,
+    envelope: ModuleType, tmp_path: Path
 ) -> None:
     """The envelope's whole promise: the receiver gets the originals, provably.
 
     A merged round file would be a falsified record. This is a wrapper, so the
-    inverse must be exact — asserted on the file as published, with the published
-    reader, over every part.
+    inverse must be exact — asserted on the file as WRITTEN by the real CLI path
+    (`--out`, into a temporary directory outside the repository), with the
+    published reader, over every part. Until 2026-10-06 it read the copy committed
+    in `outbound/`; nothing is committed there now, so the file is made here.
     """
-    published = envelope.OUT.read_text(encoding="utf-8")
+    assert envelope.main(["--out", str(tmp_path)]) == 0
+    published = (tmp_path / envelope.OUT_NAME).read_text(encoding="utf-8")
     recovered = envelope.split(published)
     assert len(recovered) == len(envelope.PARTS), (
-        f"{envelope.OUT.name} splits into {sorted(recovered)}, but was packed from "
+        f"{envelope.OUT_NAME} splits into {sorted(recovered)}, but was packed from "
         f"{[p.name for p in envelope.PARTS]}"
     )
     for part in envelope.PARTS:
         assert recovered[part.name] == part.read_bytes(), (
-            f"{part.name} does not survive the round trip byte-for-byte — the "
-            "envelope is STALE against the file it carries. Regenerate it:\n"
-            "    python3 scripts/emit_envelope.py\n"
-            "This has now gone stale three times in one session, every time by "
-            "editing a carried file and rediscovering it here. The message names "
-            "the command so the next reader does not have to derive it."
+            f"{part.name} does not survive the round trip byte-for-byte, so the "
+            "writer and the reader no longer invert each other"
+        )
+
+
+# --- the envelope never lands in this repository (2026-10-06) ----------------------
+#
+# WHY. The generator wrote every envelope into `docs/handshake/outbound/`, and after
+# laps began travelling by git (2026-09-13) nobody needed one in the tree. 44 piled
+# up beside the laps they carried, and to a reader each looked like the same lap held
+# under two names with differing content. They were retired, with their provenance in
+# `docs/handshake/README.md` → *Retired transport envelopes*. Two guards keep them out:
+# the generator refuses any destination inside the working tree, and the sweep below
+# refuses one that got in anyway, by what it SAYS rather than what it is called.
+
+
+def test_the_generator_refuses_to_write_inside_the_repository(
+    envelope: ModuleType, tmp_path: Path
+) -> None:
+    """Every in-tree destination is refused, and nothing is written when it is.
+
+    Three in-tree spellings, because each one defeats a different naive check: the
+    handshake directory itself, the repository root, and a path that walks back in
+    through `..`. A symlink planted outside the tree and pointing in is the fourth,
+    which is what "resolved first" in the guard's docstring is a claim about.
+    """
+    outbound = _HANDSHAKE / "outbound"
+    for inside in (outbound, _REPO, _REPO / "tests" / ".." / "docs"):
+        assert envelope.refusal_for_destination(inside) is not None, inside
+    link = tmp_path / "looks-outside"
+    link.symlink_to(outbound, target_is_directory=True)
+    assert envelope.refusal_for_destination(link) is not None, (
+        "a symlink outside the tree that points into it was accepted"
+    )
+    # NON-TRIVIALITY: a guard that refused everything would pass every line above.
+    assert envelope.refusal_for_destination(tmp_path) is None
+
+    # And through the real CLI: refused, exit 2, and no file appears.
+    written = outbound / envelope.OUT_NAME
+    assert not written.exists(), f"{written.name} is already in the tree"
+    assert envelope.main(["--out", str(outbound)]) == 2
+    assert envelope.main([]) == 2, "writing with no --out must be refused"
+    assert not written.exists(), f"a refused write still created {written.name}"
+
+
+def test_check_mode_verifies_and_writes_nothing(envelope: ModuleType) -> None:
+    """`--check` used to compare the committed copy; with none, it must not make one."""
+    before = sorted(p.name for p in (_HANDSHAKE / "outbound").iterdir())
+    assert envelope.main(["--check"]) == 0
+    after = sorted(p.name for p in (_HANDSHAKE / "outbound").iterdir())
+    assert before == after, sorted(set(after) - set(before))
+
+
+#: Column-0 text only a transport envelope writes: its per-part delimiter, and the
+#: preamble's declaration that it is not a lap (`emit_envelope.render`). The fork's
+#: envelopes use the same delimiter, byte-compatible with ours.
+_ENVELOPE_BEGIN: str = "<<<<<<<<<< BEGIN "
+_ENVELOPE_DECLARATION: str = "HANDSHAKE-ROUND: not-a-lap"
+
+
+def _is_transport_envelope(text: str) -> bool:
+    """True when the text STATES it is an envelope — fences stripped first.
+
+    A declaration is what a file states, never what it quotes, so a lap that
+    quotes an envelope's preamble inside a fence is not an envelope. Two real
+    inbound laps do exactly that (round 14 lap 17 and round 19 lap 3).
+    """
+    stated = _FENCE.sub("", text)
+    return any(
+        line.startswith(_ENVELOPE_BEGIN) or line.startswith(_ENVELOPE_DECLARATION)
+        for line in stated.splitlines()
+    )
+
+
+def test_no_transport_envelope_is_committed_beside_the_laps() -> None:
+    """No top-level file in `outbound/`, `inbound/` or `verified/` is an envelope.
+
+    Judged by CONTENT, not by name: the envelope name convention changed twice, and
+    a check keyed on a spelling only catches the spelling someone already met.
+    `verified/` is swept as well as the two lap directories, because two of the 44
+    retired envelopes carried `verified/` laps.
+
+    **Floors per directory and in total** (measured 2026-10-06 after the
+    retirement: 69 outbound, 127 inbound, 50 verified), so a moved directory cannot
+    hide behind the other two's count and the sweep cannot pass by finding nothing.
+    """
+    floors: dict[str, int] = {"outbound": 50, "inbound": 100, "verified": 30}
+    examined: dict[str, int] = {}
+    offenders: list[str] = []
+    for directory in floors:
+        files = sorted(p for p in (_HANDSHAKE / directory).iterdir() if p.is_file())
+        examined[directory] = len(files)
+        offenders.extend(
+            f"{directory}/{path.name}"
+            for path in files
+            if _is_transport_envelope(
+                path.read_text(encoding="utf-8", errors="replace")
+            )
+        )
+    short = {d: n for d, n in examined.items() if n < floors[d]}
+    assert not short, f"examined too few files to mean anything: {short}"
+    assert sum(examined.values()) >= 200, examined
+    assert not offenders, (
+        "transport envelopes are committed beside the laps they carry, where each "
+        "reads as the same lap under a second name. Laps travel by git; write an "
+        "envelope outside the repository (`emit_envelope.py --out DIR`):\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_the_envelope_detector_is_not_blind_and_not_trigger_happy(
+    envelope: ModuleType,
+) -> None:
+    """Non-triviality for the sweep above, in both directions, on real text.
+
+    It must fire on a real envelope that travelled, on one the generator builds
+    today, and on one carrying only delimiters (the fork's shape, no preamble
+    declaration). It must NOT fire on the two real inbound laps that quote an
+    envelope's declaration inside a fence; their raw text is checked to contain
+    the line, so the pass is evidence of the fence stripping, not of absence.
+    """
+    assert _is_transport_envelope(_REAL_ENVELOPE.read_text(encoding="utf-8"))
+    assert _is_transport_envelope(envelope.render(envelope.read_parts()))
+    assert _is_transport_envelope(_envelope_of(envelope, {"theirs.md": "a lap"}))
+    for name in ("round-14-lap-17.md", "round-19-lap-03.md"):
+        text = (_HANDSHAKE / "inbound" / name).read_text(encoding="utf-8")
+        assert f"\n{_ENVELOPE_DECLARATION}" in text, f"{name} no longer quotes it"
+        assert not _is_transport_envelope(text), (
+            f"{name} quotes an envelope's declaration inside a fence and was read "
+            "as an envelope — a quotation is not a declaration"
         )
 
 

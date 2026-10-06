@@ -97,6 +97,17 @@ _EXEMPT_CORRESPONDENCE: str = "docs/handshake/"
 # is the round it re-expresses, and `tests/test_lap_language.py` checks it.
 _EXEMPT_FIXTURE_LAPS: str = "tests/fixtures/lap_language_"
 
+# Correspondence that MOVED into the fixtures (2026-10-06), exempt for the reason
+# `docs/handshake/` is: it is a record of what we sent, and a footer would make it
+# differ from those bytes. `round14lap16platterpus.md` is a transport envelope we
+# sent, moved out of `docs/handshake/outbound/` when committed envelopes were
+# retired; `tests/test_round_digest.py` pins its sha256. Exact paths, not a prefix,
+# and `test_moved_correspondence_is_still_correspondence` below holds each entry
+# to being an envelope, so this cannot become a way to skip stamping a real doc.
+_EXEMPT_MOVED_CORRESPONDENCE: frozenset[str] = frozenset(
+    {"tests/fixtures/round14lap16platterpus.md"}
+)
+
 # The SHARED files. Exempt for a stronger reason than the round files: each is
 # **the same document in both repositories and neither project owns it**, so
 # stamping one with *our* version would fork the very files whose entire purpose
@@ -167,10 +178,29 @@ def _is_exempt(rel_path: str) -> bool:
         return True
     if rel_path.startswith(_EXEMPT_FIXTURE_LAPS):
         return True
+    if rel_path in _EXEMPT_MOVED_CORRESPONDENCE:
+        return True
     if not rel_path.startswith(_EXEMPT_DIR):
         return False
     basename = rel_path.rsplit("/", 1)[-1]
     return basename.startswith(_EXEMPT_BASENAME_PREFIXES)
+
+
+def test_moved_correspondence_is_still_correspondence() -> None:
+    """Each `_EXEMPT_MOVED_CORRESPONDENCE` entry exists and is a transport envelope.
+
+    An exemption that names a missing file is stale, and one that names an
+    ordinary doc is a hole. So each entry must exist and must carry the
+    envelope's own column-0 declaration that it is not a lap.
+    """
+    assert _EXEMPT_MOVED_CORRESPONDENCE, "the exemption is empty, so it checks nothing"
+    for rel in sorted(_EXEMPT_MOVED_CORRESPONDENCE):
+        path = _REPO_ROOT / rel
+        assert path.is_file(), f"{rel} is exempt but does not exist"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert "HANDSHAKE-ROUND: not-a-lap (transport envelope)" in lines, (
+            f"{rel} is exempt as moved correspondence but is not a transport envelope"
+        )
 
 
 def test_generated_docs_are_actually_generated() -> None:

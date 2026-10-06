@@ -445,22 +445,54 @@ def test_a_lap_that_QUOTES_a_header_in_a_FENCE_is_still_one_lap() -> None:
     assert rd.counts_as_one_lap(lap)
 
 
+#: The envelope the content rule was written from, MOVED (not copied) here from
+#: `docs/handshake/outbound/` on 2026-10-06 when every committed envelope was
+#: retired from the tree. Its full sha256, as it stood there since `f3b60a0a`.
+_RULE_SOURCE_ENVELOPE: Final[Path] = (
+    _REPO_ROOT / "tests" / "fixtures" / "round14lap16platterpus.md"
+)
+_RULE_SOURCE_SHA256: Final[str] = (
+    "d16389176b652700f634118dd1449675ac74abc08090f48aef164312cbd2a498"
+)
+
+
+def _retired_envelope_sha16(name: str) -> str:
+    """The sha256/16 the provenance table in `docs/handshake/README.md` records.
+
+    Read from the record rather than restated, so the fixture is compared with
+    what the retirement wrote down (§5.u: when a committed artifact can settle a
+    question, the test reads the artifact).
+    """
+    readme = (_REPO_ROOT / "docs" / "handshake" / "README.md").read_text(
+        encoding="utf-8"
+    )
+    rows = [line for line in readme.splitlines() if line.startswith(f"| `{name}` |")]
+    assert len(rows) == 1, f"expected one provenance row for {name}, found {rows}"
+    cells = [cell.strip().strip("`") for cell in rows[0].strip("|").split("|")]
+    return cells[2]
+
+
 def test_the_REAL_transport_envelope_is_refused_by_the_CONTENT_test() -> None:
-    """Against the committed artifact, not a fixture of it (§5.u).
+    """Against the real artifact, held byte-exact as a fixture (§5.u).
 
     `round14lap16platterpus.md` is the envelope the rule was written from. It must
     be excluded by what it says, so that the filename convention is a convenience
     rather than the mechanism.
+
+    **It no longer sits in `outbound/`**: committed envelopes were retired on
+    2026-10-06 (`docs/handshake/README.md` → *Retired transport envelopes*), and
+    this one moved to `tests/fixtures/` with `git mv`, so it is still the artifact
+    rather than a fixture OF it. The two hash assertions prove that: one against
+    the value the retirement recorded, one against the full digest pinned here.
     """
     rd = _module()
-    envelope = (
-        Path(__file__).resolve().parents[1]
-        / "docs"
-        / "handshake"
-        / "outbound"
-        / "round14lap16platterpus.md"
-    )
+    envelope = _RULE_SOURCE_ENVELOPE
     assert envelope.is_file(), "the artifact this rule was derived from is gone"
+    digest = hashlib.sha256(envelope.read_bytes()).hexdigest()
+    assert digest == _RULE_SOURCE_SHA256, f"the fixture was edited: {digest}"
+    assert digest[:16] == _retired_envelope_sha16(envelope.name), (
+        "the fixture is not the envelope the provenance table recorded"
+    )
     assert not rd.counts_as_one_lap(envelope.read_text(encoding="utf-8"))
 
 

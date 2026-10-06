@@ -161,6 +161,12 @@ SENT_LAPS: dict[str, str] = {
     # taken, the operator's answer to S15; released on the maintainer's word 2026-10-06
     # ("When ready release the next lap").
     "outbound/round-30-lap-12.md": "c95d6ac212cd789d1237f225c92f51bcb56abb1c756ceffd501d2a9473b8ac0e",
+    # Our round 30 lap 14, OPEN: 0.6.66b1 released and the closing run read; released on
+    # the maintainer's word 2026-10-06 ("release") at `f5162fba`. The fork's lap 15
+    # holds it byte-identical: its HANDSHAKE-INBOUND-HELD names this sha256 and its
+    # 21,014 bytes, and `cyanrip@5e75eac:docs/handshake/inbound/round-30-lap-14.md`
+    # hashes the same.
+    "outbound/round-30-lap-14.md": "5f21d95741f49a83bfda9170900192feb4ea3c25dc5f81be5ce73b69ac496aa3",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
@@ -447,7 +453,9 @@ SENT_LAPS: dict[str, str] = {
     # the fork's lap 8 `HANDSHAKE-INBOUND-HELD` states it filed all four "verified
     # against the envelope's own manifest on size and hash before anything was
     # read". Each value below is the per-part `sha256=` the envelope itself
-    # carries, and the tree bytes still hash to it.
+    # carries, and the tree bytes still hash to it. (That envelope was retired from
+    # the tree on 2026-10-06. `8ebabf20` last wrote it, and
+    # `docs/handshake/README.md` → *Retired transport envelopes* records it.)
     #
     # **These rows are the first round-14-or-later entries in this map, and their
     # absence was not neutral.** Our lap 7 §A1 had to tell the fork that our own
@@ -532,6 +540,12 @@ SENT_LAPS: dict[str, str] = {
     # here either — they have not yet published a hash for this lap. What ended it
     # was being told, which is the one signal the protocol says only the operator
     # has.
+    #
+    # The abandoned revision survived only inside the round 15 lap 15 envelope,
+    # which had been regenerated mid-edit and was committed in `eeaebd6d` carrying
+    # it. When envelopes were retired from the tree (2026-10-06) it was kept, byte
+    # for byte, at `outbound/superseded/round-15-lap-15-abandoned-revision.md`,
+    # out of the lap sequence. The row below is unaffected: it pins the SENT bytes.
     "outbound/round-15-lap-15.md": (
         "6f201fb75568f53a352d767cf9a1223418e735eba570df25eef2518c7b38dba4"
     ),

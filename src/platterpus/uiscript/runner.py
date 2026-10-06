@@ -47,6 +47,7 @@ from platterpus import __version__, build_info, inbound_text, rip_pass_exit
 from platterpus.uiscript import run_sizes
 from platterpus.uiscript.applog_verbs import AppLogVerbsMixin
 from platterpus.uiscript.artifact_verbs import ArtifactVerbsMixin
+from platterpus.uiscript.burst_verbs import BurstVerbsMixin
 from platterpus.uiscript.estimate_verbs import EstimateVerbsMixin, estimate_for_window
 from platterpus.uiscript.offset_grading import drive_in_offset_list
 from platterpus.uiscript.offset_verbs import OffsetVerbsMixin
@@ -76,6 +77,7 @@ from platterpus.uiscript.script_values import (
 from platterpus.uiscript.tiers import PruneLedger, is_sweep, parse_tier
 from platterpus.uiscript.unknown_disc_verbs import UnknownDiscVerbsMixin
 from platterpus.uiscript.verbs import OPENABLE, VERBS
+from platterpus.uiscript.walkthrough_verbs import WalkthroughVerbsMixin
 
 if TYPE_CHECKING:  # pragma: no cover — types only
     # Imported for annotations only. The runtime imports stay lazy and
@@ -366,6 +368,8 @@ class ScriptRunner(
     UnknownDiscVerbsMixin,
     AppLogVerbsMixin,
     EstimateVerbsMixin,
+    WalkthroughVerbsMixin,
+    BurstVerbsMixin,
     QObject,
 ):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
@@ -1306,6 +1310,10 @@ class ScriptRunner(
             else _photograph_order([w for w in windows if _is_open(w)], self._window)
         )
         shown = shown or unexposed
+        # The walkthrough's numbered marks (`callout`), drawn on this picture
+        # only; a mark whose window is not photographed is named below.
+        callouts = self._take_callouts()
+        drawn: set[int] = set()
         for index, widget in enumerate(shown):
             path = directory / (
                 f"{name}.png" if index == 0 else f"{name}-{index}-{_slug(widget)}.png"
@@ -1318,7 +1326,9 @@ class ScriptRunner(
             )
             manifest.append(_window_manifest_line(widget) + f" -> {path.name}{label}")
             try:
-                if widget.grab().save(str(path), "PNG"):
+                picture = self._render_with_callouts(widget, callouts, drawn)
+                # Format from the ".png" suffix: QImage and QPixmap take it the same way.
+                if picture.save(str(path)):
                     written.append(path.name)
             except Exception as exc:  # noqa: BLE001 — evidence is best-effort
                 log.warning("screenshot of %r failed: %r", widget, exc)
@@ -1328,6 +1338,17 @@ class ScriptRunner(
             manifest.append(
                 _window_manifest_line(widget) + " -> no picture: not on screen"
             )
+        undrawn = [c for c in callouts if c.number not in drawn]
+        manifest.extend(
+            f"callout {c.number} ({c.wanted!r}) drawn"
+            for c in callouts
+            if c.number in drawn
+        )
+        manifest.extend(
+            f"callout {c.number} ({c.wanted!r}) NOT DRAWN: its widget's window was "
+            "not photographed, or the widget was hidden by then"
+            for c in undrawn
+        )
         # "examined 0 windows" is a distinct, recordable outcome — not a pass.
         if not manifest:
             self._record(step, Outcome.FAIL, "no top-level window existed to examine")
@@ -1360,7 +1381,9 @@ class ScriptRunner(
         )
         self._record(
             step,
-            Outcome.INFO if unexposed else Outcome.PASS,
+            # A picture missing the mark its step was given does not show what the
+            # walkthrough says it shows.
+            Outcome.FAIL if undrawn else (Outcome.INFO if unexposed else Outcome.PASS),
             "\n".join([headline] + manifest),
             artifact=str(directory / f"{name}.png") if written else "",
         )

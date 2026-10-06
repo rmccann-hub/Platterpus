@@ -676,12 +676,13 @@ def _generated_doc_basenames() -> frozenset[str]:
     # cyanrip-consumer-contract.md and `emit_script_language.py` ->
     # script-language.md.
     #
-    # KNOWN AND DELIBERATE EXCLUSION: `emit_envelope.py` declares `OUT`, not
-    # `OUTPUT_PATH`, and writes into `docs/handshake/outbound/` rather than
-    # `docs/`. It is out of scope for an index of top-level `docs/*.md` either
-    # way, so the narrower pattern costs nothing here — stated so the next reader
-    # does not have to re-derive that it is an omission on purpose. The
-    # import-based version this replaced also missed it, for the same reason.
+    # KNOWN AND DELIBERATE EXCLUSION: `emit_envelope.py` declares `OUT_NAME`, not
+    # `OUTPUT_PATH`, and since 2026-10-06 writes only to a `--out` directory
+    # outside the repository (it wrote into `docs/handshake/outbound/` before). It
+    # is out of scope for an index of top-level `docs/*.md` either way, so the
+    # narrower pattern costs nothing here — stated so the next reader does not
+    # have to re-derive that it is an omission on purpose. The import-based
+    # version this replaced also missed it, for the same reason.
     assert len(found) >= 2, (
         f"only found {sorted(found)} generated docs. Either a generator renamed "
         f"its OUTPUT_PATH declaration or the pattern stopped matching it — and an "

@@ -126,3 +126,20 @@ first filed manifest whose channels SPLIT: `beta` names `5704062` (`.20`,
 `174a134` (`.19`). It names `.20` as the build round 30's closing run reviews; the
 fork's round 30 lap 13 names the same commit and keeps `174a134` as the round's pin.
 Read by the same two files as the manifest above. Not edited.
+
+## round14lap16platterpus.md (moved here 2026-10-06)
+
+**A real transport envelope we sent**: one file wrapping our round 14 lap 16 and that
+day's `fullacceptance.txt` between column-0 delimiters, each part with its own sha256.
+It is the envelope protocol §5a's content rule was written from, and
+`tests/test_round_digest.py` reads it to prove that rule excludes a real envelope by
+what it says rather than by its name; `tests/test_handshake_file_naming.py` reads it
+for the same property and for its envelope detector.
+
+It was committed at `docs/handshake/outbound/` from `f3b60a0a` until 2026-10-06, when
+every committed envelope was retired from that tree (`docs/handshake/README.md` →
+*Retired transport envelopes*). It was **moved** here with `git mv`, not copied, so the
+note above about handshake artifacts does not apply: this is the only copy in the tree,
+and keeping it under `docs/handshake/` is exactly what was retired. Byte-exact: sha256
+`d1638917…`, 61,827 bytes, pinned in `tests/test_round_digest.py` against the
+provenance table. Do not edit it; it is evidence of what we sent.
