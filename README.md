@@ -779,7 +779,7 @@ It takes a commit:
 ```sh
 # ~/Applications/… if you let the app add itself to your menu (see the note at
 # the top of this section); ./platterpus-x86_64.AppImage if you declined.
-~/Applications/platterpus-x86_64.AppImage --install-ripper 174a134
+~/Applications/platterpus-x86_64.AppImage --install-ripper 5704062
 ```
 
 Without an argument it builds the pin baked into this Platterpus build. With a

@@ -1,24 +1,27 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.65        the release round 30's Full run is on, released 2026-09-30
-                           02:57Z under the operator's §6b override (our round 30 lap 2):
-                           it installs 51cc789 and accepts 174a134 as under review.
-            v0.6.64        round 29's closing release, released 2026-09-30: it
-                           installs 51cc789 by default.
-cyanrip     174a134        0.9.4-rc2+platterpus.19  (platterpus-fork-g174a134)  <- UNDER REVIEW
-                           published 2026-09-30 on round 29's authority; round 30's subject
+Platterpus  v0.6.66b1      round 30's closing-run BETA, a pre-release: offered on the
+                           Beta update channel only, never on Stable. It installs
+                           51cc789 by default and accepts 5704062 as under review.
+            v0.6.65        the release of round 30's first Full run (2026-10-05).
+cyanrip     5704062        0.9.4-rc2+platterpus.20  (platterpus-fork-g5704062)  <- UNDER REVIEW
+                           the fork's BETA channel, published 2026-10-06 inside round 30
+            174a134        0.9.4-rc2+platterpus.19  (platterpus-fork-g174a134)
+                           the fork's STABLE channel; round 30's pin; tested 2026-10-05
             51cc789        0.9.4-rc2+platterpus.18  (platterpus-fork-g51cc789)  <- PRODUCTION PIN
                            approved by round 29, for Platterpus 0.6.63, on the Full run
 drive       Pioneer BDR-209D 1.51, read offset +667
 rounds 1-29 ALL CLOSED, bilateral GO (round 29 on 2026-09-29).
-round 30    OPEN on 174a134, from the fork's lap 1 (2026-09-30); this run is its S10.
+round 30    OPEN. It closes on THIS run: betas of both applications, and a Full
+            acceptance run of both on that pair (the operator's conditions, 2026-10-05).
 ```
 
-> **Header last moved 2026-09-30**, when round 30 opened on `.19` (the fork's lap 1,
-> sha256 `6db0ed0d…`) and 0.6.65 was released for its Full run. The move before that
-> was the same day, when 0.6.64 was released to carry `51cc789`. Earlier moves are in
-> this file's git history.
+> **Header last moved 2026-10-06**, for round 30's closing run: the fork published
+> `+platterpus.20` on its beta channel at `5704062`, and Platterpus 0.6.66b1 is the beta
+> that names it as the build under review. The move before that was 2026-09-30, when
+> round 30 opened on `.19` and 0.6.65 was released for its first Full run. Earlier moves
+> are in this file's git history.
 
 **This is the one rig sheet.** It is rewritten in place when the pairing moves, never
 joined by a sibling — the header above names the pair it is written for. Superseded
@@ -28,65 +31,59 @@ originals are in [`docs/archive/`](archive/) with their audit trail intact.
 
 ## What the next run is for
 
-**Round 30's Full run — 0.6.65 with `.19` installed — started about 03:02Z on
-2026-09-30 and is in progress.** It is the round's S10. Section A expects `174a134` as
-the build under review, and every rip records its ripper as *being tested, not approved
-yet*, which is correct for this run. One run tests both sides.
+**Round 30's closing run: 0.6.66b1 with `.20` installed.** The round closes when both
+betas are released, this Full run on the pair is filed and read in both trees, and both
+closing laps declare `GO`. Section A expects `5704062` as the build under review, and
+every rip records its ripper as *being tested, not approved yet*, which is correct: `.20`
+itself logs `NOT a released build`, since round 30 is open while it runs.
 
-**What `.19` carries** over `.18`, five commits of the fork's in `src/`: the build-tag
-change (`bf50705`), the finalised checksum (`9669d84`), the repeat-limit wording
-(`fb31a2b`) and the `-Z`/`-r` refusal (`22f7aae`, `ad11743`) — the fork's round 29 lap 3
-S18.
+**What this run exercises for the first time on a drive:**
+- **Platterpus:** the secure re-read after a pass the drive could not read cleanly (it
+  used to run only after exit 0); cyanrip's own `-j` record of how a rip ended, read
+  into the report beside ours (`ripper_record`); the new section **E2** (turn the offset
+  override off; on this drive it is N/A, because AccurateRip lists the BDR-209D); the
+  hardware-only checks folded into the run (the cold-container start, how many signals a
+  cancel sent); and the run's overall estimate, stated when it starts and again after
+  section E.
+- **cyanrip `.20`:** nineteen `src/` commits over `.19` (the fork's release plan, §2):
+  paranoia skips read `with errors` and counted in `Ripping errors:`, the `-Z` spool that
+  encodes only the kept read, the cache probe scored by cd-paranoia's 6 ms, and `-f`
+  exiting 1 when it finds no offset. **`-f` has never run on a drive, and this run does
+  not exercise it.**
 
-**It is a candidate full-green pass, which the project has never had.** The
-field-evidence ledger (`docs/testing.md` §5B) has twelve rows and no `full-green` one.
-Round 29's run is `partial` because three screenshot steps, in sections graded archival
-in advance, found no window on screen. Our hypothesis is that the display blanked, so
-0.6.65 holds the screen awake for the run as well as the machine. Its first notice in
-the rip pane says whether it could: if the *Screen lock* line starts with ⚠, set the
-screen to never turn off by hand. `0.7.100` is gated on a run with **zero failures in the
-ARCHIVAL sections**; `0.9.1` needs two such runs on at least two machines and two
-distros. **Only a Full run counts as evidence**; Quick and Standard are for checking the
-setup.
-
-**What changed for the person at the rig since 0.6.62:** nothing to do differently.
-The acceptance test is under **Tools → Advanced**. A disc the drive briefly reports as
-unavailable is read again when it comes back, and a first read on a cold container is
-retried, so you should not need to open and close the drive or restart the app.
-
-**Why section F should hold this time.** In round 26, section F's whole-disc rip was
-killed 95 seconds in when the `ripping` container died underneath it. The container
-belonged to an earlier Platterpus window, which had started it and then been closed
-and replaced after an update (KDE keeps a closed app's unit alive while the container
-is inside it). From 0.6.59, a container Platterpus starts gets its own scope and
-survives any window closing. `platterpus --doctor` reports which app or terminal owns
-a container that is already running.
+**It is also a candidate full-green pass, which the project has never had.** The
+field-evidence ledger (`docs/testing.md` §5B) has no `full-green` row. `0.7.100` is
+gated on a run with **zero failures in the ARCHIVAL sections**. **Only a Full run counts
+as evidence**; Quick and Standard are for checking the setup.
 
 ## Three steps
 
-1. **Put the reference disc in the drive** (any ordinary audio CD works; the script
-   needs no album name, track count or path) and open Platterpus from the applications
-   menu.
-2. **Update Platterpus to 0.6.65 first.** Then check **Help → About Platterpus…**: the
-   *Installed* line should name `platterpus-fork-g174a134` (`0.9.4-rc2+platterpus.19`).
-   (**Tools → Setup & Updates…** always shows the *approved* build, `51cc789`; that is
-   expected.) If it names anything else, **Tools → Setup & Updates… → Check for cyanrip
-   updates** offers `.19` as the build handshake round 30 is testing, which *"the
-   acceptance test needs"*; choose **Install it anyway**. Then **Tools → Advanced → Run acceptance test…**,
-   choose **Full**, and leave it. It holds sleep and the screen off, runs every section (4–6 hours), stops in its first
-   seconds if the ripper is not the build under review, and puts your own settings back
-   when it ends. **During the run, don't close any other Platterpus window or any
-   terminal you have used distrobox in.**
+1. **Put the reference disc in the drive** and open Platterpus. Then **Tools → Setup &
+   Updates…**: under **Platterpus**, tick **Offer beta (pre-release) updates**, press
+   **Check for updates**, and take **0.6.66b1** (it restarts). A beta is never offered
+   with that box off, which is the point of it.
+2. **Install `.20`:** **Tools → Setup & Updates… → Choose a build…** and pick the one
+   labelled as the build handshake round 30 is testing, `5704062`
+   (`0.9.4-rc2+platterpus.20`). (Ticking **Offer beta (pre-release) cyanrip builds** and
+   pressing **Check for cyanrip updates** reaches the same build; with that box off,
+   `.19` reads as up to date.) **Help → About
+   Platterpus…** should then name `platterpus-fork-g5704062` on its *Installed* line.
+   Then **Tools → Advanced → Run acceptance test…**, choose **Full**, and leave it. It
+   states its estimate when it starts, holds sleep and the screen off, runs every
+   section, stops in its first seconds if the ripper is not the build under review
+   (saying what to install), and puts your settings back when it ends. **During the run,
+   don't close any other Platterpus window or any terminal you have used distrobox in.**
 3. **Upload the one `platterpusbundle….tar.gz`** from the run's session folder under
-   `~/platterpus-rig/` here, and point the cyanrip session at it too. They file it
-   under `docs/rig-<date>-<pin>/` in their repository, as they did for rounds 26 and 27.
+   `~/platterpus-rig/` here, and point the cyanrip session at it too. They file it under
+   `docs/rig-<date>-<pin>/` in their repository.
 
-**Optional, and the fork asked for it:** a disc with a known bad area would retire the
-rest of *"damaged media"*, and reach `.15`'s retry fix on a drive for the first time.
-The BDR-209D reports C2 unsupported, so C2 stays `UNREACHABLE` whatever the disc.
-Cyanrip's `-f` is also still untested on hardware, and **the acceptance run does not
-exercise it**; the reference disc could, since it is in AccurateRip and `+667` is
-known to be correct for it. That would be a separate step, not part of this run.
+**Afterwards, both beta tick-boxes can go back off.**
+
+**Optional, and the fork asked for it:** a disc with a known bad area would exercise
+`.20`'s skip counting and the new secure re-read on real damage. The BDR-209D reports C2
+unsupported, so C2 stays `UNREACHABLE` whatever the disc. A disc MusicBrainz does not
+know runs the second script, **Tools → Advanced → Run acceptance test with an unknown
+disc…**; it is separate from this run.
 
 ## Before you start
 
@@ -103,4 +100,4 @@ known to be correct for it. That would be a separate step, not part of this run.
 
 ---
 
-*Last updated for Platterpus v0.6.65.*
+*Last updated for Platterpus v0.6.66b1.*

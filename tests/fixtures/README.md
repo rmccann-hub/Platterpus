@@ -115,3 +115,14 @@ the record that named `.19` as the build under review before any handshake lap d
 same commit, and is the source now). Read by that file and by
 `tests/test_ripper_manifest.py`'s release-sequence check. Not edited: a new manifest
 is filed beside it under its own commit's name.
+
+## fork_release_manifest_b62650d.json (added 2026-10-06)
+
+The cyanrip fork's `release-manifest.json` exactly as their tree held it at
+`cyanrip@b62650d` ("Publish 0.9.4-rc2+platterpus.20 at 5704062, beta"): sha256
+`3515e79d…`, 1,135 bytes, pinned by `tests/test_handshake_pin_under_review.py`. The
+first filed manifest whose channels SPLIT: `beta` names `5704062` (`.20`,
+`release_seq` 30, `handshake_round` 30, `round_closed: false`) and `stable` still names
+`174a134` (`.19`). It names `.20` as the build round 30's closing run reviews; the
+fork's round 30 lap 13 names the same commit and keeps `174a134` as the round's pin.
+Read by the same two files as the manifest above. Not edited.

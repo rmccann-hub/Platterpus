@@ -2,9 +2,9 @@
 
 > **Read this first (2026-09-30, v0.6.65).** The intro block below was written for the
 > **v0.6.0** sheet and is kept as its record — its "this release" means v0.6.0, and its
-> list of recent releases stops at v0.5.21. What is current: Platterpus **v0.6.65**;
+> list of recent releases stops at v0.5.21. What is current: Platterpus **v0.6.66b1** (a beta);
 > cyanrip **`51cc789`** (`+platterpus.18`, approved by round 29) is installed by default
-> since 0.6.64; round 30 is reviewing **`174a134`** (`+platterpus.19`) on the Full run.
+> since 0.6.64; round 30's closing run reviews **`5704062`** (`+platterpus.20`, the fork's beta).
 > The primary hardware
 > route is now **Tools → Advanced → Run acceptance test…** inside the app, which keeps
 > everything a run makes — rips, screenshots, transcript and one `.tar.gz` — in one
@@ -82,7 +82,7 @@
 | Drive | `PIONEER  BD-RW   BDR-209D 1.51` on `/dev/sr0` |
 | Read offset | **+667** — confirmed, two independent sources agree |
 | Cache defeat | **Yes** — measured (`cd-paranoia -A`: 140-sector cache, backseek flushes) |
-| Tools | cyanrip `0.9.4-rc2+platterpus.19`, build tag `platterpus-fork-g174a134` for the current run (round 30's build under review); the default install is `0.9.4-rc2+platterpus.18`, `platterpus-fork-g51cc789` (approved by round 29, `docs/handshake/artifactsround29/`). Not stock 0.9.3; the tag identifies the build, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
+| Tools | cyanrip `0.9.4-rc2+platterpus.20`, build tag `platterpus-fork-g5704062` for the current run (round 30's build under review, the closing run); the default install is `0.9.4-rc2+platterpus.18`, `platterpus-fork-g51cc789` (approved by round 29, `docs/handshake/artifactsround29/`). Not stock 0.9.3; the tag identifies the build, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
 | Settings | Overread **off** · offset-variant re-read **on** · verify-every-track **off** · max reads 2 · max retries 5 · adaptive ladder · EAC log **on** · debug log **on** |
 
 **Test disc:** *The Police — Every Breath You Take: The Classics* — 14 tracks,
