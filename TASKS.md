@@ -64,10 +64,10 @@ artifact?* was the question to ask before answering, not after.
 
 | # | What | Why it matters for the beta | Fix | Time | Row |
 |---|---|---|---|---|---|
-| A1 | Eight parser patterns go quadratic on a long line | The parser grades every rip, and a line may reach 65,536 characters: tens of seconds a line | Rewrite as `\S(?:.*\S)?` with an equivalence property test; give the regex sweep inputs past a literal prefix; regenerate the consumer contract; a DID in our next lap | 2–3 h | *Found while integrating* (4) |
+| A1 | **Done 2026-10-06** (`5b32edfd`, `a408ca79`). Eight parser patterns go quadratic on a long line | The parser grades every rip, and a line may reach 65,536 characters: tens of seconds a line | Rewrite as `\S(?:.*\S)?` with an equivalence property test; give the regex sweep inputs past a literal prefix; regenerate the consumer contract; a DID in our next lap | 2–3 h | *Found while integrating* (4) |
 | A2 | **Done 2026-10-06.** No securing pass after a finished pass the drive could not read cleanly | The tracks AccurateRip did not confirm are not re-read when the ladder ends on such a pass, or in fixed mode | The maintainer's decision (C1); then keep the album pass's exit code apart from the securing pass's, and key the pass on `ladder_trigger.why_pass_incomplete` (the pass finished) instead of exit 0 | 4–6 h after C1 | *Should the securing pass run after a finished pass…* |
 | A3 | **Done 2026-10-06.** W6: the `-j` record's `interrupted`, `interrupted_by` and `exit_code` are unread | The 2026-10-04 runs showed our status line inferring a cancel the ripper had recorded | Read them into the status line and the report, tri-state | 3–4 h | *W6, ours to close* |
-| A4 | The hardware-only checks have no drive run of their own | The closing Full run is the only drive run before round 30 closes | Steps in the closing run's script for each; no extra rig time | 3 h | *Fold the hardware-only checks into the closing run* (new) |
+| A4 | **Done 2026-10-06** (`cec0a55b`; two checks stay by-hand, on their rows). The hardware-only checks have no drive run of their own | The closing Full run is the only drive run before round 30 closes | Steps in the closing run's script for each; no extra rig time | 3 h | *Fold the hardware-only checks into the closing run* (new) |
 | A5 | The cut | O3: our beta follows `.20` on their beta | `PIN_UNDER_REVIEW` to `.20`, `__version__` 0.6.66b1, CHANGELOG, a lap and the status block; dispatched only on the maintainer's word, since a round is open | 2 h, after `.20` | Lap 10 S35; *The beta path exists* |
 
 ### B. To send the cyanrip fork, in our next lap
@@ -78,17 +78,22 @@ artifact?* was the question to ask before answering, not after.
 | B2 | Round 31: the disc-level "No errors occurred", and the report's `issues` code, for a track with unverified skips | Proposed in our lap 8; the EAC-layout half shipped in `1e118482` | 2 h, plus the lap | *The EAC-layout log and the report for a track with unverified skips* |
 | B3 | Round 31: ReplayGain on a derived MP3 describes the FLAC | Our lap 6 S15. Recommended: re-measure on the MP3 | 3–5 h | *A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags* |
 | B4 | Their lap checker's no-final-newline fix | Accepted in their lap 1 S20, theirs to land; ask where it stands | One line | *Both lap checkers cannot cite the last line of a file with no final newline* |
-| B5 | A1's rewrite regenerates our consumer contract | The patterns are published, so the change is declared | With A1 | *Found while integrating* (4) |
-| B6 | `_strip_fences` misses unterminated and indented fences (D3 below) | The row says the shape is portable: tell the fork | With D3 | *C6.* |
+| B5 | **Regenerated 2026-10-06** (`5b32edfd`); the declaration is owed in our next lap. A1's rewrite regenerates our consumer contract | The patterns are published, so the change is declared | With A1 | *Found while integrating* (4) |
+| B6 | **Fixed here 2026-10-06** (`43a7d76d`); the question is owed in our next lap. `_strip_fences` misses unterminated and indented fences (D3 below) | The row says the shape is portable: tell the fork | With D3 | *C6.* |
+| B7 | Agent B's report changes, before 0.6.66: `outcome.ripper_exit_code` is now the album pass's (it was the last pass's); new `securing_pass_started`, `securing_pass_exit_code`, `skipped_reason` value `album_pass_unfinished`, the `outcome.ripper_record` block and the `ripper_record_disagrees` issue; bundle fact `album pass exit ok` and a new `securing pass exit`; `REPORT_SCHEMA_VERSION` 30 → 32 | A field a reader of our report keys on changed meaning; said before the beta that carries it | In the lap | `bc3b1c6f`, `816664a3` |
+| B8 | Two regex shapes, under the *could in any possible way* bar: a lazy capture before trailing blanks (`\S.*?\s*$`, `.+?\s*$`) is quadratic in a blank run, and so are adjacent repeats over the same characters (`0*\d+`, `\s*` then an optional group then `\s*`) | Their tooling reads text of the same kind; a NEXT-ROUND item with our citations | In the lap | `5b32edfd`, `a408ca79` |
+| B9 | Propose the shared protocol say what a fence is (§2 rule 2), and note both digest implementations toggle on any fence line, so a ``` line inside a ~~~ block mis-pairs; aligning the digest is a joint change | Our fence reader moved to CommonMark (D3) and theirs is unread by us; ask, do not assert | In the lap | `43a7d76d` |
 
-**Waiting on the fork, already asked in our lap 10:** their lap 11 (S30, S32, the
-pre-commit R6 asks for, S16's `seam-commands.md` text landed) and `+platterpus.20` on
-their beta.
+**Waiting on the fork, asked in our lap 12 (on `main` at `e174f5fc`):** their lap 13,
+their reading of lap 12, and `+platterpus.20` cut on beta with its commit (their S20).
+Their lap 11 arrived and was answered (2026-10-06). B7 to B9 and the open B rows go in
+our lap 14, before the 0.6.66 cut.
 
 ### C. The maintainer's decisions (each unblocks a row)
 
 **Ruled 2026-10-05: every recommendation below, as written** (*"Do all recommendations"*;
-`PLANNING.md` KDD-41). C2 and C3 close as "no change"; the others are in progress.
+`PLANNING.md` KDD-41). C2 and C3 close as "no change". Done 2026-10-06: C1 (A2),
+C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #288).
 
 | # | Question | Recommended | Then | Row |
 |---|---|---|---|---|
@@ -105,12 +110,12 @@ their beta.
 
 | # | What | Time | Row |
 |---|---|---|---|
-| D1 | `ruff` over `scripts/` and `build/` in CI and `scripts/check.py` (clean on 2026-10-05); a CI change, so after C8 | 20 min | *Found while integrating* (5) |
+| D1 | **Done 2026-10-05** (PR #288). `ruff` over `scripts/` and `build/` in CI and `scripts/check.py` (clean on 2026-10-05); a CI change, so after C8 | 20 min | *Found while integrating* (5) |
 | D2 | Retire the two smallest `disallow_any_generics` opt-outs: `workers.rip_worker` (5), `ui.main_window` (6) | Under 1 h each | *Retire the two smallest…* (new) |
-| D3 | `_strip_fences` misses unterminated and indented fences; C46 counts through it | 1 h | *C6.* |
-| D4 | A message box shown a second time is not refitted | 2 h | *A message box shown a second time is not fitted again* |
+| D3 | **Done 2026-10-06** (`43a7d76d`). `_strip_fences` misses unterminated and indented fences; C46 counts through it | 1 h | *C6.* |
+| D4 | **Done 2026-10-06** (`6c42338c`). A message box shown a second time is not refitted | 2 h | *A message box shown a second time is not fitted again* |
 | D5 | The conformance matrix is built once per xdist worker: `xdist_group` and `--dist loadgroup`; changes how CI distributes the suite, so after C8 | 1–2 h | *The conformance matrix is built once per xdist worker* |
-| D6 | The acceptance run's overall estimate (small rather than quick) | 3 h | *The acceptance run's overall estimate* |
+| D6 | **Done 2026-10-06** (`e2c021ed`). The acceptance run's overall estimate (small rather than quick) | 3 h | *The acceptance run's overall estimate* |
 
 ### E. Hard, after the beta
 
@@ -126,7 +131,7 @@ their beta.
 
 - [x] **CI scans the full history for secrets on every run** (C8; `SECURITY.md`, *Secret
   scanning*). Amendment A12, approved 2026-09-28 and held under C3 (`PLANNING.md` KDD-39,
-  KDD-40); **C3 lifted for it 2026-10-05** (KDD-41). In progress. `gitleaks/gitleaks-action` scans a range it builds itself with
+  KDD-40); **C3 lifted for it 2026-10-05** (KDD-41). `gitleaks/gitleaks-action` scans a range it builds itself with
   `--no-merges --first-parent`, so a session-branch PR merged with a merge commit gives
   `main`'s push run *"0 commits scanned"*, and no run reads a merge commit's own change.
   Until it is applied, the scan is by hand (gitleaks 8.24.3,
