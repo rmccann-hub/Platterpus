@@ -171,6 +171,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   screen it could run off it, and on a larger one it still scrolled. Each time a
   box is shown it is now sized afresh for the screen it is on (it still opens
   where you left it), and its text only scrolls if it has to there.
+- For contributors: the conformance matrix now measures the main window with a
+  disc loaded, once with track titles as long as real ones get and once with long
+  classical artist credits, so its `cut_off_cells` rule finally looks inside the
+  track table. The table is held to its own design rather than exempted: a title
+  longer than the window and a credit longer than Artist's share may be cut short
+  (rows are one line and the widths do not move during a rip), and every other
+  cell must fit, judged against `track_table.designed_column_widths`, the width
+  calculation the table itself now uses.
 - For contributors: the conformance matrix's `window_on_screen` rule now checks
   the window's frame against both side edges and fails a window wider than the
   screen less that 16-pixel margin on each side (`fit_scroll_area.SIDE_MARGIN_PX`,
