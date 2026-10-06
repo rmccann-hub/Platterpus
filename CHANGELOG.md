@@ -25,6 +25,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   reading disagree, for example a rip Platterpus thinks finished that cyanrip
   records as interrupted, both answers are shown, marked ⚠, and the report adds
   a `ripper_record_disagrees` warning.
+- **The acceptance run tests the offset-override-off path** (section E2, script verb
+  `expect-offset-refusal`). With the override off, a drive the AccurateRip list does
+  not carry must be refused at Start rather than ripped at an offset nobody chose. On
+  such a drive the step presses Start, answers the real refusal with No, checks no rip
+  started and puts the override back. On a listed drive, where the app applies the
+  list's offset and rips instead, it records the step as **N/A** (`unreachable`) and
+  changes nothing. An N/A step does not fail the run and is not counted as a pass: the
+  transcript's RESULT line, the report's new `unreachable_lines` and the session's
+  closing dialog each say how many steps this equipment could not run, where the
+  dialog used to drop such a step from its count and say "PASSED".
 - **Error messages from cyanrip `+platterpus.20` are recognised before it ships.**
   The list of cyanrip's fatal messages that Platterpus turns into a readable reason
   (instead of a bare "Rip failed.") now includes the four new `-Z` spool errors

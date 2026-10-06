@@ -1087,7 +1087,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **464 -> 469** (2026-09-27, TASKS `report.json` drops the acceptance script's source): the source cap's comment now says what it was sized against and which test holds it to the shipped scripts, replacing the claim that it "only ever fires on an accident".
     # **469 -> 462** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: `used_unsafe`, its banner and the `used_unsafe_verbs` report key went with the verbs.
     # **462 -> 489** (2026-10-05, TASKS "a run stopped by one step prints that step's whole text twice"): `StepRecord.headline`, the failed step's first line with the rest counted, which `abort-if-failed` quotes instead of the whole detail. It is a question about one step's record, so it lives on the record; most of it is the docstring giving the run that printed one failure three times.
-    "uiscript/report.py": 489,
+    # **489 -> 536** (2026-10-06, TASKS "Permutations the acceptance test still does not run" (a), KDD-41 C4): `UNREACHABLE` made understood by the verdict surfaces now that a verb emits it. `ok` forgives it as it forgives a run size's declines, `unreachable` counts it, the RESULT line and the JSON (`unreachable_lines`) name it. It is the meaning of the run's own verdict, so it lives with the verdict; most of the growth is the docstring saying why a forgiven step is not a checked one.
+    "uiscript/report.py": 536,
     # **308 -> 314** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **314 -> 322** (2026-09-26): the drive-name normaliser's separator pattern became linear, and its comment says why the lookbehind is load-bearing (docs/testing.md §5.bu).
     "adapters/accuraterip_offsets.py": 322,
@@ -2138,7 +2139,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1690 -> 1689** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the console is no longer handed `allow_unsafe`.
     # **1689 -> 1763** (2026-10-05, the same run): `_acceptance_rip_at_end` keeps the session armed until a rip still reading has stopped, bounded, and puts what it found in the bundle's facts, so settings are not restored under a rip and no bundle is packed around a log still being written.
     # **1763 -> 1769** (2026-10-05, the fork's reading of our 2026-10-04 runs: no `-j` record in any bundle): the pack asks `session_diagnostics_records` for the rips' records and hands them to `finish_session`; the scan itself lives in `test_session`.
-    "ui/main_window_provision.py": 1769,
+    # **1769 -> 1788** (2026-10-06, KDD-41 C4): the closing dialog counts steps this equipment cannot run, so "PASSED — all N" can no longer stand over an `unreachable` step; one branch beside the run headline's others.
+    "ui/main_window_provision.py": 1788,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2427,7 +2429,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4782 -> 4786** (2026-10-05, the same TASKS row): `abort-if-failed` quotes the failed step's `headline()`, not its whole detail, with the comment saying why; the cut itself lives on `StepRecord`.
     # **4786 -> 4787** (2026-10-05, TASKS "Permutations the acceptance test still does not run"): the import of `PermutationVerbsMixin`. Its three handlers (section J2) went to their own mixin, `permutation_verbs.py`, and their graders to `permutation_grading.py`, not here.
     # **4787 -> 4785** (2026-10-06, ruling C1): `expect-verification`'s did-not-finish detail phrases each pass's exit through `rip_pass_exit`, two lines shorter than reading the code inline.
-    "uiscript/runner.py": 4785,
+    # **4785 -> 4778** (2026-10-06, KDD-41 C4): lowered: `_drive_in_offset_list` moved to `offset_grading.py`, shared by `set-drive-offset` and the new `expect-offset-refusal`, whose handler is its own mixin (`offset_verbs.py`), not here.
+    "uiscript/runner.py": 4778,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2454,7 +2457,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **834 -> 863** (2026-09-30, round 30): three verb declarations, `expect-newest-pair` (D3), `expect-found-offset` and `cache-probe` (the fork's lap 3 S24). The table is the vocabulary's security boundary, so a verb is an entry here by design.
     # **863 -> 874** (2026-10-05): the `wait-for-rip` and `cancel-rip` help says a run that ends early cancels its rip, and `abort`'s no longer claims to be the only verb that ends one.
     # **874 -> 901** (2026-10-05, section J2): three verb declarations, `set-library-scratch`, `expect-library-move` and `expect-rip-argv`, with the comment saying why the first must be a verb. The table is the vocabulary's security boundary, so a verb is an entry here by design.
-    "uiscript/verbs.py": 901,
+    # **901 -> 915** (2026-10-06, KDD-41 C4): the `expect-offset-refusal` declaration. The table is the vocabulary's security boundary, so a verb is an entry here by design; its handler is a new mixin, `offset_verbs.py`.
+    "uiscript/verbs.py": 915,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical

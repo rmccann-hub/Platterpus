@@ -656,6 +656,20 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-drive-offset — assert the read offset is still the one "
         "set-drive-offset set, with the override on",
     ),
+    # The offset-override-OFF path (C4, KDD-41): a drive the AccurateRip list
+    # does not carry must be refused at Start. On a listed drive the app would
+    # apply the list's offset and rip instead, so the step records `unreachable`
+    # there and changes nothing (`offset_verbs.py`).
+    Verb(
+        "expect-offset-refusal",
+        0,
+        0,
+        "expect-offset-refusal — turn the read-offset override off and press "
+        "Start: a drive the AccurateRip list does not carry must be refused "
+        "('Set up your drive first') with no rip; the wizard is declined and the "
+        "override put back. On a listed drive the app would apply the list's "
+        "offset and rip, so the step records unreachable and changes nothing",
+    ),
     Verb(
         # `expect-ripper-under-review` — the acceptance run's own subject, named
         # ONCE, in code, rather than copied into a committed text file.
