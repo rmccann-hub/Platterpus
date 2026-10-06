@@ -1577,8 +1577,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     `\S(?:.*\S)?`, with an equivalence test against the old form (they are published
     in `docs/cyanrip-consumer-contract.md`, so this regenerates it); and give the
     sweep inputs that pass a pattern's literal prefix, so it can find the next one.
-    - [x] *Part one done 2026-10-06 in this commit (`fix(parser): read cyanrip log
-      values greedily, not lazily`):* the eight, and thirteen more of the same
+    - [x] *Part one done 2026-10-06 in 5b32edfd:* the eight, and thirteen more of the same
       shape in the same file, rewritten greedily. The thirteen are eleven
       `(?P<v>.+?)\s*$` (`_DRIVE`, `_OVERREAD_MODE`, `_ALBUM`, `_ALBUM_ARTIST`, `_C2`,
       `_PARANOIA_LEVEL`, `_OUTPUTS`, `_SPEED_CAP`, `_PREEMPHASIS`, `_FINISHED_AT`,
@@ -1596,8 +1595,7 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
       timing pin per pattern on a 20,000-space line (not `_PREGAP_SOURCE`, whose
       old form was linear). The property was shown to catch four wrong rewrites
       (`|\s`, no blank branch, `.*\S`, `\S.*`). Contract regenerated.
-    - [x] *Part two done 2026-10-06 in this commit (`fix(regex): time each pattern
-      behind its own lead-in`):* `tests/test_regex_bounded_time.py` also times every
+    - [x] *Part two done 2026-10-06 in a408ca79:* `tests/test_regex_bounded_time.py` also times every
       literal pattern on runs that start INSIDE it. For each repeat that can hold a
       run (count varies, maximum at least 500), the shortest text in front of it,
       alone and plus one character the repeat accepts, then a run of each fill the
@@ -2633,8 +2631,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
   (`handshake.py`, the fence regex needs a closing column-0 fence), so a field inside
   one counts as a declaration. Portable shape — tell the fork. TASKS@b8f89a2:2014.
   - *Merged 2026-09-30, verbatim, from the duplicate row `fuzz:scripts.handshake._strip_fences` (the property-test backlog) (it was `[ ]`):* **`fuzz:scripts.handshake._strip_fences`** (ungated, medium) — An illustrated close inside an UNTERMINATED or INDENTED fence is adopted as a real declaration — a round closes on a fabricated…
-  - [x] *Done 2026-10-06 in this commit (`fix(handshake): read fences as
-    CommonMark does`), the property-test row with it:* `handshake-protocol.md` §2
+  - [x] *Done 2026-10-06 in 43a7d76d, the property-test row with it:* `handshake-protocol.md` §2
     rule 2 says to strip fences and not what a fence is, so the gate follows
     CommonMark §4.5: an opener indented up to three spaces (a tab is four
     columns, so not a fence), closed only by the same character at least as long
