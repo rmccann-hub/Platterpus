@@ -564,7 +564,7 @@ def device_holders(device: str, runner: Runner | None = None) -> tuple[int, ...]
             "fuser says something holds %s but named no PID this parser reads "
             "(output: %r); which process holds it is NOT DETERMINED",
             device,
-            output[:200],
+            diagnostics.bounded_chars(output, head=100, tail=100),
         )
         return None
     return pids

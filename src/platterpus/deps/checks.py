@@ -30,6 +30,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from platterpus import diagnostics
 from platterpus.cyanrip_cli import VERSION_FLAGS
 from platterpus.deps.version import parse_version
 from platterpus.killable import KillableCommand, was_cancelled
@@ -286,9 +287,10 @@ def _summarize_output(text: str) -> str:
     flattened = " | ".join(line.strip() for line in text.strip().splitlines() if line)
     if not flattened:
         return "(none)"
-    if len(flattened) > _MAX_LOGGED_OUTPUT_CHARS:
-        return flattened[:_MAX_LOGGED_OUTPUT_CHARS] + "… (truncated)"
-    return flattened
+    # Head AND tail, the gap counted: a failing tool's reason is the last thing
+    # it prints, and this used to keep only the head with "… (truncated)".
+    half = _MAX_LOGGED_OUTPUT_CHARS // 2
+    return diagnostics.bounded_chars(flattened, head=half, tail=half)
 
 
 def check_cyanrip(binary_path: Path) -> ProbeResult:

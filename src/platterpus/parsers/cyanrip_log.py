@@ -70,6 +70,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Final
 
+from platterpus import diagnostics
 from platterpus.one_frame_match import count_sentence
 from platterpus.parsers.rip_log import (
     AccurateRipResult,
@@ -1258,7 +1259,8 @@ def _float_or_none(raw: str) -> float | None:
         return float(raw)
     except (TypeError, ValueError):
         log.warning(
-            "cyanrip log: unusable number %r; recording as unknown", str(raw)[:32]
+            "cyanrip log: unusable number %r; recording as unknown",
+            diagnostics.bounded_chars(raw, head=16, tail=16),
         )
         return None
 
@@ -1376,7 +1378,10 @@ def _parse_secure_verdict(text: str) -> bool | None:
         return False
     if any(phrase in lowered for phrase in _SECURE_CONVERGED):
         return True
-    log.debug("cyanrip log: unrecognised secure re-read verdict %r", text[:80])
+    log.debug(
+        "cyanrip log: unrecognised secure re-read verdict %r",
+        diagnostics.bounded_chars(text, head=40, tail=40),
+    )
     return None
 
 
@@ -2056,7 +2061,7 @@ def _take_tracks_to_rip(disc: _Disc, match: re.Match[str]) -> bool:
                 log.warning(
                     "cyanrip 'Tracks to rip:' value %r is not a list of track "
                     "numbers; kept verbatim, selection not determined",
-                    value[:200],
+                    diagnostics.bounded_chars(value, head=100, tail=100),
                 )
             return True
         numbers.append(number)
@@ -2132,7 +2137,7 @@ def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
         log.warning(
             "cyanrip's Ripping errors count %r is not a plausible count; "
             "stored as not determined",
-            match.group("count")[:40],
+            diagnostics.bounded_chars(match.group("count"), head=20, tail=20),
         )
     disc.ripping_errors = parsed
     skips = _ripping_error_skips(match)

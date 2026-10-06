@@ -1385,9 +1385,13 @@ is the decision log failing at the one thing it is for. All three were live in
   should not allow a 0.9.1."* Two passes on one rig answer *was it luck* and say
   nothing about *is it green only because of this machine*.
 
-**Status, 2026-10-05:** the ledger carries fifteen rows, every one `partial`, and
-no `full-green` row. The newest, 2026-10-05 on app 0.6.65 against `174a134` (`.19`),
-is the operator's final Full run on that pair: 316 of 323, the same seven screenshot
+**Status, 2026-10-06:** the ledger carries sixteen rows, every one `partial`, and
+no `full-green` row. The newest, 2026-10-06 on app 0.6.66b1 against `5704062` (`.20`),
+is round 30's closing run: 418 of 426, its seven failures one check (the album audit's
+warning that `.20` says it is *NOT a released build*, which a build cut inside an open
+round must say), every screenshot and every rip log passing, and cyanrip's `-f` finding
+`+667` on its first run on a drive (`docs/testing.md` §5B). Before it, 2026-10-05 on app
+0.6.65 against `174a134` (`.19`), is the operator's final Full run on that pair: 316 of 323, the same seven screenshot
 steps as 2026-09-30, with every rip's log verified (`docs/testing.md` §5B). Before it,
 2026-10-04 on the same pair ran a damaged disc for seven hours and was stopped at 252
 of 323. Before that, 2026-09-30 on the same pair, is round 30's Full run: 316 of 323, `partial` because seven screenshot steps in

@@ -14,6 +14,22 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- `.gitignore` covers the per-process `.coverage.*` files a parallel coverage run
+  writes while it is in flight, so a running `scripts/check.py` no longer shows
+  them as untracked files.
+- **The cache probe's saved output now reaches the figure it is evidence for.**
+  `cd-paranoia -A` prints its seek timings first and its cache verdict last, and
+  we kept only the first 2,000 characters, with no marker. Round 30's closing run
+  filed a file of exactly 2,000 bytes that stops inside the timings, so the
+  "137 sector(s)" line the transcript quoted was not in it. It now keeps the head
+  and the tail, with the gap counted when there is one. A new sweep
+  (`tests/test_dependency_output_is_never_cut_at_the_head.py`) refuses a
+  head-only cut of tool output anywhere it is captured or logged. Fourteen more
+  sites are fixed with it. They are the failed-probe log line, the doctor's
+  "it said" snippet, a `fuser` warning, three ripper-manifest refusals, five
+  records quoting a cyanrip log value, two quoting a ripper percentage, and
+  `safe_int`'s. All fourteen now go through one helper,
+  `diagnostics.bounded_chars`.
 - The rig sheet (`docs/rig-session.md`) said the acceptance run does not run
   cyanrip's own offset finder, `-f`. It does: section O runs it against the known
   offset and grades what it finds. The run on 0.6.66b1 is its first on a drive.

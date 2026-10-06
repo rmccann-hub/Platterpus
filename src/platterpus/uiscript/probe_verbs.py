@@ -171,8 +171,10 @@ class ProbeVerbsMixin:
         INFO whatever it says, running out of time included. It is here so a run
         measures the cache both ways, beside cyanrip's own probe in section P,
         and the fork's cache fix is to be measured against it (their round 30
-        lap 3 S25). Its whole output goes to the run folder, because a figure
-        without the text it was read from cannot be checked.
+        lap 3 S25). Its output goes to the run folder, because a figure without
+        the text it was read from cannot be checked: whole when it is short, as
+        a head and a tail with the gap counted when it is not, and never cut at
+        the head alone (the closing run's file stopped before the figure).
 
         **Refused while a rip reads the disc**, for the reason the ``cyanrip``
         verb refuses: two readers on one drive, and the rip is the one harmed.

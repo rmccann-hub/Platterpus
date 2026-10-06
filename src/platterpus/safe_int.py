@@ -33,12 +33,15 @@ from __future__ import annotations
 
 import logging
 
+from platterpus import diagnostics
+
 log = logging.getLogger(__name__)
 
 # How much of an unusable value to put in the log record. A 4301-digit run is
 # the case this module exists for, and pasting it whole into log.txt would bury
-# every other line around it — the first few characters plus the length is
-# everything a reader needs to recognise "a corrupt numeric field".
+# every other line around it — its first and last few characters, with the
+# count of what lies between, is everything a reader needs to recognise "a
+# corrupt numeric field".
 _LOGGED_CHARS: int = 32
 
 
@@ -67,10 +70,12 @@ def int_or_none(raw: object, *, field: str = "") -> int | None:
     except (TypeError, ValueError):
         text = repr(raw)
         log.warning(
-            "unusable integer%s: %s%s — recording as unknown",
+            "unusable integer%s: %s — recording as unknown",
             f" for {field}" if field else "",
-            text[:_LOGGED_CHARS],
-            f"… ({len(text)} chars)" if len(text) > _LOGGED_CHARS else "",
+            # Head and tail, the gap counted (`diagnostics.bounded_chars`).
+            diagnostics.bounded_chars(
+                text, head=_LOGGED_CHARS // 2, tail=_LOGGED_CHARS // 2
+            ),
         )
         return None
     return value

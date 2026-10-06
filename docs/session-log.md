@@ -11,6 +11,38 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-06 (later) — round 30's closing run filed and read, a truncation found in it, lap 14 revised
+
+**What was done.** The operator uploaded the closing run's bundle (0.6.66b1 with `.20`,
+01:58:21Z to 07:31:45Z, 418 pass, 7 fail, 1 unreachable, 5 info). Its 76 text members
+were filed byte for byte with a README section, an evidence-ledger row (`partial`) and
+three TASKS rows (`a8fe9b4d`). Reading the filed files to cite them turned up a defect of
+ours: the cd-paranoia output saved to back the transcript's 137-sector figure stops at
+exactly 2,000 bytes, before the figure. That was fixed and swept (`33edfddd`): head and
+tail kept, a new sweep over captured and logged tool output, and fourteen more head-only
+cuts fixed through one helper. Held lap 14 was revised to carry the reading, the
+fix and the four open findings, and stays `OPEN`.
+
+**What was decided.** Nothing re-grades the run. All seven failures are the album audit's
+`handshake_note` WARN on `.20`'s required *NOT a released build*. Whether that check
+should read NOTE for the build under review is the maintainer's to decide, and the run
+stays `partial` either way. The version probes' head-only capture went into the sweep's
+allowance rather than being widened: three readers parse the whole text for the banner,
+and a tail could reach either of the parentheses they read to.
+
+**What was learned.**
+- **Our own README cited a file for a figure the file does not contain.** The 137 came
+  from the transcript; the file it was meant to rest on was cut before it. This is
+  §5.az from the inside (an absence is a fact about the capture first), and it is
+  recorded there as the fourth violation of *a silent truncation reads as completeness*.
+- **The real-output fixture was shorter than the real output.** It carries no seek
+  timings, so it never crossed the 2,000-character cut, and the old fixture test stayed
+  green with the cut restored (revert-probed). The new test builds its input from the
+  closing run's own filed head.
+- **I said nine more cuts in the first draft of the records; it was fourteen.** The
+  count was taken from the sweep's dry run after five had already been fixed by hand.
+  Corrected before anything cited the commit.
+
 ## 2026-10-06 (night) — 0.6.66b1 released for round 30's closing run, lap 13 filed, lap 14 written
 
 **What was done.** The fork published `+platterpus.20` on its beta at `5704062`

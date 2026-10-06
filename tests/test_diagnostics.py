@@ -637,3 +637,47 @@ def test_bounded_output_never_raises_on_what_a_dependency_hands_it(
 ) -> None:
     """It runs on whatever a dependency returned, including a broken `__str__`."""
     assert isinstance(d.bounded_output(value), str)
+
+
+# --- bounded_chars: the one-line form (round 30 closing run) ------------------
+
+
+def test_bounded_chars_keeps_head_and_tail_and_counts_the_gap() -> None:
+    """The reason a tool gives is at the END; a head-only cut drops it."""
+    text = "START" + "x" * 500 + "the reason"
+    out = d.bounded_chars(text, head=5, tail=10)
+    assert out.startswith("START")
+    assert out.endswith("the reason")
+    assert f"[{len(text) - 15} character(s) omitted]" in out
+
+
+def test_bounded_chars_leaves_a_short_value_alone() -> None:
+    assert d.bounded_chars("abc", head=2, tail=2) == "abc"
+    assert d.bounded_chars("abcd", head=2, tail=2) == "abcd"
+
+
+def test_bounded_chars_never_returns_the_whole_string_after_a_marker() -> None:
+    """`tail=0` would be `value[-0:]`, the whole string, beside a count that says
+    some of it was omitted. Clamped to one character, as `bounded_output` is."""
+    out = d.bounded_chars("q" * 50 + "Z", head=3, tail=0)
+    assert out.endswith("Z")
+    assert out.count("q") == 3  # no letter q in the marker's own words
+    assert "[47 character(s) omitted]" in out
+
+
+@given(
+    st.one_of(
+        st.none(),
+        st.integers(),
+        st.text(max_size=200),
+        st.binary(max_size=40),
+        st.just(_Exploding()),
+    ),
+    st.integers(min_value=-5, max_value=50),
+    st.integers(min_value=-5, max_value=50),
+)
+def test_bounded_chars_never_raises_on_what_a_dependency_hands_it(
+    value: object, head: int, tail: int
+) -> None:
+    out = d.bounded_chars(value, head=head, tail=tail)
+    assert isinstance(out, str)
