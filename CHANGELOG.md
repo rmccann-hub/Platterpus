@@ -24,6 +24,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The handshake guide says how to check a predicted close.** A lap that says a
+  round will close on the next one is now expected to have run both gates on the
+  record as it would stand, with the method written out in
+  `docs/cyanrip-handshake.md` §7.5b. Round 30's lap 15 predicted a close that
+  neither gate grants (contributor-facing).
 - **The inbound-lap sweep's pinned misses name the rule they excuse.** A sent peer
   lap our checker refuses is pinned by its hash and excused only while that one rule
   is its only problem; the pin covered R6 alone and now names its rule, so the
