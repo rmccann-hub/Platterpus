@@ -1829,6 +1829,60 @@ recommendation. The maintainer's answer, verbatim: *"Do all recommendations."*
 **Not decided here.** Nothing about the cyanrip seam: the fork-bound items of the same list
 travel in our next lap, and round 31's wording items wait for that round.
 
+### KDD-42 — The 0.7.100 getting-started walkthrough: stills and short loops, shot by a script (decided 2026-10-06)
+
+**Context.** The maintainer wants a *get started* guide for 0.7.100: an archival
+(EAC-parity) rip of an average disc, step by step, showing the buttons to press. A video
+was one idea, and screenshots or a few GIFs another. Asked to plan it, Claude recommended
+the shape below; the maintainer's answer, verbatim: *"i agree with all, plan for it"*.
+The plan is the `TASKS.md` section *The 0.7.100 getting-started walkthrough*.
+
+**Rulings.**
+- **W1, format:** a written step list that stands on its own (each step says what to do,
+  what to press and what you should see, with alt text on every image), illustrated by
+  still screenshots with a numbered callout on the button to press, plus three or four
+  short looping GIFs only where motion helps: disc to identified, rip progress, the
+  verdict. **No video:** it cannot be skimmed, and it goes stale the first time a button
+  moves.
+- **W2, where:** on the rig (Bazzite, Plasma 6, the BDR-209D), in a brand-new Linux user
+  account (`demo`), so the first run is genuine (no config, no container) and no real
+  name, path or library appears in a picture. One look throughout: one window size, 100 %
+  scaling, Breeze light.
+- **W3, how:** a **walkthrough script** drives the app through the steps and shoots it,
+  with the app's own `screenshot` verb (it renders each window itself, the only capture
+  that works on Wayland and headless) plus two new script verbs: `callout` (a numbered
+  highlight on the widget the next step presses) and `record` (a short burst of frames).
+  A renamed or moved button fails the script instead of shipping a stale picture.
+  Verbs, not flags (CLAUDE.md, *a new testing capability is a script verb*).
+- **W4, tools:** ffmpeg assembles the frame bursts into GIFs (already a listed
+  dependency, present on the rig; no new dependency). Spectacle, KDE's own tool, by hand
+  for the two or three steps outside the app: downloading the AppImage, allowing it to
+  run, the first double-click, the password prompt.
+- **W5, the disc:** an ordinary commercial CD that AccurateRip and CTDB know, so the guide
+  ends on *verified*. Its cover art is the label's copyright, so the capture shows a
+  placeholder in its place; the track names are MusicBrainz data, which is CC0.
+- **W6, where it lives: in the app by default, and on GitHub too** (the maintainer,
+  asked where it would be viewable: *"id prefer it be the default in the app, and an
+  option, or default in github too"*). **One source, two renderings:**
+  - the source is the guide's Markdown and its images, shipped **inside the package** as
+    help content (beside `help_content.py`, so it reaches the AppImage and the wheel);
+    it is app content, not a `docs/` document;
+  - **in the app**, Help → *Getting started* opens it in a viewer pane, offline, with the
+    stills shown and the GIFs animated, and the first run offers to open it;
+  - **on GitHub**, the *Getting started* section at the top of `README.md` is
+    **generated** from that source by a script with a `--check` mode, the way the
+    script-language page and the dependency contract already are, and a test fails if the
+    README and the source disagree. Help → User guide points to the in-app guide first and
+    names the README copy second.
+  The images are versioned in the repository under a size budget, and the budget counts
+  what the AppImage carries.
+- **W7, when:** build the two verbs and the script now; do the final shoot on the rig just
+  before 0.7.100, once the interface has settled. A re-shoot is one script run.
+
+**Not decided here.** Which disc exactly, the window size in pixels, and the size budget:
+each is settled when the script first runs on the rig. Whether the first run opens the
+guide by itself or only offers it: offered, unless the maintainer says otherwise.
+
 ---
 
 *Last updated for Platterpus v0.6.66b1.*

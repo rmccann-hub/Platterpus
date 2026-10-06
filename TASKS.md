@@ -251,6 +251,65 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
 
 ---
 
+## The 0.7.100 getting-started walkthrough (planned 2026-10-06, `PLANNING.md` KDD-42)
+
+An archival (EAC-parity) rip of an average disc, step by step, for a first-time user: a
+written step list with still screenshots and three or four short GIFs, shot by a script
+on the rig. **In the app by default** (Help → Getting started, offline, offered on first
+run) **and on GitHub** (the README's *Getting started* section, generated from the same
+source). Every ruling is KDD-42 (W1 to W7); this is the work.
+
+**Build now:**
+- [ ] **`callout <target> <n>` verb.** The next `screenshot` draws a numbered highlight
+  around the named widget (the one the following step presses), from the widget's real
+  geometry. Pure overlay function, tested on a rendered fixture; the target must resolve
+  to exactly one visible widget or the step fails, so a renamed button cannot shoot a
+  picture of nothing.
+- [ ] **`record <name> <seconds> <fps>` verb.** A burst of main-window frames into the run
+  folder, numbered, with a manifest (frame count, interval, window size). Bounded (a cap
+  on seconds and fps), and a frame that fails to render is counted, not skipped silently.
+- [ ] **A placeholder for the cover art in captures** (W5): while the walkthrough runs,
+  the cover shown in the window is replaced by a neutral placeholder, so no label artwork
+  enters the repository. A verb or a run setting, decided with the verb.
+- [ ] **`rig_scripts/walkthrough.txt`**: the steps below, driving the app with existing
+  verbs (`set-drive-offset`, `pick-release`, `rip`, `wait-for-rip`, `open`) and shooting
+  with `screenshot`, `callout` and `record`. Its own run size; never counted as acceptance
+  evidence.
+- [ ] **`scripts/build_walkthrough_media.py`**: from a run folder, the stills copied under
+  their final names and each frame burst assembled into a GIF with ffmpeg (palette
+  generated, looped, size-checked). Thin over one function, per the script-verb rule.
+- [ ] **The guide's source, shipped in the package** (W6): its Markdown and images beside
+  `help_content.py`, declared as package data so the AppImage and the wheel carry them.
+- [ ] **The in-app viewer** (W6): Help → *Getting started* opens the guide in a pane,
+  offline, stills shown and GIFs animated (`QTextBrowser` for the text, `QMovie` for the
+  loops), every image with its alt text, keyboard reachable, readable in both themes; the
+  first run offers to open it. Help → User guide points to it first.
+- [ ] **`scripts/emit_getting_started.py`** (W6): writes the README's *Getting started*
+  section from the same source, with `--check`, like `emit_script_language.py`; a test
+  fails when the README and the source disagree.
+- [ ] **A test that the guide's images are present and described**: every image the source
+  references exists, has alt text, and the set stays under its size budget (counting
+  what the AppImage carries); a floor on the number of images so an empty guide cannot
+  pass.
+
+**The steps the walkthrough covers** (W1):
+1. Download the AppImage, allow it to run, open it *(Spectacle)*.
+2. First-run setup: the ripping container and the approved cyanrip build (minutes).
+3. Set up drive: the read offset from AccurateRip's drive list, or found by cyanrip.
+4. Settings: the archival defaults already on (FLAC, secure re-reads, CTDB, the
+   EAC-compatible log), shown in place, nothing to change.
+5. Insert the disc; the MusicBrainz match and the tags *(GIF)*.
+6. Rip: progress and the time estimate *(GIF)*.
+7. The verdict: AccurateRip ✓ and CTDB, each line called out *(GIF)*.
+8. What you get: FLAC, cover, cue, the EAC-compatible log, the report; what to keep.
+9. If a track shows only a one-frame match or did not converge: what it means, what to do.
+
+**Shoot before 0.7.100** (W7):
+- [ ] On the rig, in a fresh `demo` account: run the walkthrough script, take the
+  Spectacle shots, build the media, write the guide's text, regenerate the README section.
+- [ ] Decide on the day: the disc, the window size, the size budget (KDD-42, *not decided
+  here*).
+
 ## 2026-10-05 window size and readability audit
 
 The maintainer: *"double check window sizes and readability, especially on obscure
