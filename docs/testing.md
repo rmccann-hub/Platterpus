@@ -3881,6 +3881,28 @@ ratchets the producers). **Not added, and why:** a non-zero fixed read speed —
 a drive that reports its speed unchangeable aborts the rip on `-S`, so it is a
 TASKS row until the language can branch on the drive.
 
+**The unknown-disc run (2026-10-06, ruled in KDD-41 C4 (b)) is a second script,**
+`rig_scripts/unknowndiscacceptance.txt`, because the full run stops at E on a disc
+MusicBrainz does not know, on purpose. It needs such a disc (a CD-R of your own
+recordings is the reliable one), starts from the full run's baseline line for line,
+accepts *Rip as unknown album*, asserts the disc was **not** identified
+(`expect-unidentified`, the mirror of `expect-identified`), rips two tracks and grades
+them with the full run's verbs plus `expect-unknown-record` (the report says
+`unknown: true`, no release id, no `tagging_failed`). Its sections are classified
+here, in advance, like the full run's:
+
+<!-- UNKNOWN-DISC-SEVERITY-TABLE: swept by tests/test_unknown_disc_acceptance.py -->
+
+| section | severity | why |
+|---|---|---|
+| A | ARCHIVAL | which binary produced the artifact, as in the full run |
+| B | ARCHIVAL | the read offset this rip reads at, as in the full run |
+| E | ARCHIVAL | an unknown disc must rip as unknown: a disc wrongly identified gets a release's tags it does not carry |
+| F | ARCHIVAL | the rip itself, its placeholder tags, and the record of which path it took |
+| Q | UX | hygiene for the next run |
+
+<!-- END-UNKNOWN-DISC-SEVERITY-TABLE -->
+
 ### Acceptance tiers — what each section costs, and what it rests on
 
 **Round 18 fixed the tiers and round 19 lap 1 §5.4 fixed whose job this is:**

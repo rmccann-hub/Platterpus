@@ -4220,7 +4220,13 @@ def test_the_test_tools_menu_items_live_under_tools_advanced(teardown_threads) -
     submenus = [a.menu() for a in tools.actions() if a.menu() is not None]
     assert [m.title() for m in submenus] == ["&Advanced"], direct
     inside = [a.text().replace("&", "") for a in submenus[0].actions()]
-    assert inside == ["Run test script…", "Run acceptance test…"], inside
+    assert inside == [
+        "Run test script…",
+        "Run acceptance test…",
+        # The second acceptance script, for a disc MusicBrainz does not know
+        # (KDD-41 C4 (b), 2026-10-06), beside the first.
+        "Run acceptance test with an unknown disc…",
+    ], inside
     assert not {"Run test script…", "Run acceptance test…"} & set(direct), direct
     # Uninstall stays where a user can see it — the half of D4 A that is easy to
     # lose by sweeping "the rarely used items" into the submenu together.
@@ -4228,14 +4234,15 @@ def test_the_test_tools_menu_items_live_under_tools_advanced(teardown_threads) -
 
     # Moving the acceptance item did not unhook it from the rip lock: it rips
     # discs itself, so starting one on top of a live rip is still refused.
-    acceptance = submenus[0].actions()[1]
-    assert acceptance.isEnabled()
-    window._set_rip_lock(True)
-    try:
-        assert not acceptance.isEnabled()
-    finally:
-        window._set_rip_lock(False)
-    assert acceptance.isEnabled()
+    # Both acceptance items, for the same reason.
+    for acceptance in submenus[0].actions()[1:3]:
+        assert acceptance.isEnabled()
+        window._set_rip_lock(True)
+        try:
+            assert not acceptance.isEnabled(), acceptance.text()
+        finally:
+            window._set_rip_lock(False)
+        assert acceptance.isEnabled()
 
 
 def test_uninstall_finished_offers_quit_on_success(

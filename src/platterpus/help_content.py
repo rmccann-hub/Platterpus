@@ -481,6 +481,16 @@ script.
   once reading every track at least twice) plus six shorter partial rips. Leave
   it overnight.
 
+**A disc MusicBrainz does not know has a run of its own.** The full run stops
+when it cannot identify the disc, because every rip after that would be about a
+release nobody chose. Use
+**Tools → Advanced → Run acceptance test with an unknown disc…** for that path:
+put in a disc MusicBrainz does not know, with at least two tracks (a CD-R of your
+own recordings is the reliable choice), and it accepts *Rip as unknown album*,
+rips two tracks, and checks the placeholder tags and the report. About 15
+minutes, the same session folder and the same one file to send. On a disc
+MusicBrainz knows, it stops in its first minutes and says so.
+
 **Only Full counts as evidence** toward a version or a handshake close. A smaller
 run says so at the top of its transcript and marks every section it left out.
 Every size starts from the same baseline: each setting is set to its shipped

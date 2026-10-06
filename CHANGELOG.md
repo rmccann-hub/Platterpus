@@ -25,6 +25,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   reading disagree, for example a rip Platterpus thinks finished that cyanrip
   records as interrupted, both answers are shown, marked ⚠, and the report adds
   a `ripper_record_disagrees` warning.
+- **A second acceptance run, for a disc MusicBrainz does not know.** The full run
+  stops when it cannot identify the disc, on purpose, so the unknown-album path had
+  never run in an acceptance test. **Tools → Advanced → Run acceptance test with an
+  unknown disc…** runs the new packaged script `unknowndiscacceptance.txt` through
+  the same session (folder, sleep lock, settings restore, one file to send). It needs
+  a disc MusicBrainz does not know with at least two tracks, such as a CD-R of your
+  own recordings; on a disc MusicBrainz knows it stops in its first minutes and says
+  why. It accepts *Rip as unknown album* with Picard unticked, rips two tracks and
+  grades them, with two new script verbs: `expect-unidentified` (the disc was not
+  identified and will rip as unknown) and `expect-unknown-record` (the report records
+  the unknown-album path, with no release id and no failed tagging pass).
 - **The acceptance run tests the offset-override-off path** (section E2, script verb
   `expect-offset-refusal`). With the override off, a drive the AccurateRip list does
   not carry must be refused at Start rather than ripped at an offset nobody chose. On

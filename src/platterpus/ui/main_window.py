@@ -1147,6 +1147,15 @@ class MainWindow(
         # A no-argument slot, not `run_acceptance_session` itself: `triggered`
         # hands its slot a `checked` bool, which would land in `size`.
         acceptance_action.triggered.connect(self._on_run_acceptance_action)
+        # The second acceptance run, for a disc MusicBrainz does not know: the
+        # full run stops before the unknown-album path on purpose (TASKS C4 (b),
+        # KDD-41). Alt+U is free in this submenu.
+        unknown_disc_action = advanced_menu.addAction(
+            "Run acceptance test with an &unknown disc…"
+        )
+        unknown_disc_action.triggered.connect(
+            self._on_run_unknown_disc_acceptance_action
+        )
         # The dependency check lives in ONE place: Setup & Updates → Check
         # dependencies (it also runs automatically at launch). This comment used
         # to say it lived only on a Settings button, and that stopped being true
@@ -1189,6 +1198,7 @@ class MainWindow(
             # discs itself, so starting one on top of a live rip would have two
             # sessions driving one drive.
             acceptance_action,
+            unknown_disc_action,
         ]
         logs_action = help_menu.addAction("Open &logs folder…")
         logs_action.triggered.connect(self._on_open_logs_folder)

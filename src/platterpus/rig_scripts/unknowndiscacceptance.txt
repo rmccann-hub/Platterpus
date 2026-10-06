@@ -1,0 +1,195 @@
+# =============================================================================
+# UNKNOWN-DISC ACCEPTANCE RUN — the path a disc MusicBrainz does not know takes
+# =============================================================================
+#
+#   WHICH DISC IT NEEDS: an audio CD that MusicBrainz does NOT know, with at
+#                   least TWO audio tracks. A CD-R you burned yourself from
+#                   your own recordings (or from CC0 / public-domain audio) is
+#                   the reliable choice. A commercial disc is almost always in
+#                   MusicBrainz: on one, section E stops this run in its first
+#                   few minutes, before any drive time, and says so.
+#   How to run it:  Tools -> Advanced -> Run acceptance test with an unknown
+#                   disc...  (the app does the rest: session folder, sleep
+#                   lock, the run, one file to send)
+#   Where it lives: INSIDE the app. Source:
+#                   src/platterpus/rig_scripts/unknowndiscacceptance.txt
+#   What it costs:  about 15 minutes: one two-track rip, plus the checks.
+#
+# WHY A SECOND SCRIPT. fullacceptance.txt stops at its section E when the disc
+# is not identified, on purpose: every rip after it would be evidence about a
+# release nobody chose. So the unknown-album path never ran in an acceptance
+# run (TASKS "Permutations the acceptance test still does not run", (b)). The
+# maintainer ruled the route on 2026-10-05 (PLANNING.md KDD-41, C4): a second
+# script, for a disc MusicBrainz does not know. Ripping a KNOWN disc as unknown
+# (File -> Rip as Unknown Album) was the other route, and it would put the rip
+# controls in unknown mode for every rip after it in the full run.
+#
+# WHAT IT COVERS that no other script does: the "Rip as unknown album"
+# confirmation, placeholder rows, the folder built from the album fields rather
+# than from MusicBrainz, the placeholder tagging pass after the rip, and the
+# report recording the path it took. The accuracy checks (AccurateRip, CTDB,
+# the self-audit) still run: an unknown disc is still a disc.
+#
+# NOTHING IN THIS FILE NEEDS EDITING, and it is re-runnable: the album title
+# carries `(run)`, so a second run lands in a folder of its own.
+#
+# Before you start: be on the newest Platterpus and on the cyanrip build THIS
+# Platterpus expects (Tools -> Setup & Updates... -> Check for cyanrip updates,
+# and take whatever offer it makes). Section A stops the run in its first
+# seconds if the ripper is the wrong one. If the app greeted the disc with
+# "Rip as unknown album" before you started, answer it either way: section E
+# rescans and asks again.
+# -----------------------------------------------------------------------------
+
+log =============================================================
+log UNKNOWN-DISC ACCEPTANCE RUN - a disc MusicBrainz does not know
+log =============================================================
+
+# THE BASELINE, identical to fullacceptance.txt's: every user setting SET to its
+# shipped default or KEPT on purpose, so the run does not borrow yours. Your own
+# settings come back when the session ends. `tests/test_unknown_disc_acceptance.py`
+# holds this block to the full script's, line for line, so the two runs can
+# never start from different settings.
+set rip_goal fast_verified
+set track_template %A/%d/%t - %n
+set disc_template %A/%d/%d
+set track_template_unknown Unknown Artist/Unknown Album/%t - Track %t
+set disc_template_unknown Unknown Artist/Unknown Album/Unknown Album
+set auto_launch_picard off
+set auto_eject_after_rip off
+set notify_on_completion on
+set cover_art embed
+set save_additional_art on
+set max_retries 5
+set force_overread off
+set secure_rerip_matches 2
+set secure_rerip_dynamic on
+set rerip_offset_variant on
+set read_speed_mode auto_ladder
+set read_speed 0
+set ctdb_verify_after_rip on
+set verify_flac_after_rip on
+set recompress_flac_after_rip off
+set write_eac_log_after_rip off
+set output_format flac
+set mp3_vbr_quality 0
+set update_channel stable
+set ripper_channel stable
+# The session points this at its own rips folder, inside the session folder.
+keep output_dir
+# The session turns this off, so no test album is moved into your library.
+keep library_dir
+# `set-drive-offset` in section B owns these two: the drive's offset, not a typed one.
+keep read_offset
+keep override_read_offset
+# This machine's own tool path, not a test value.
+keep metaflac_path
+# The run's own machinery: the script that is running, and how it was started.
+keep test_script_path
+keep test_script_autorun
+
+# Debug logging ON for the run, as in the full script, and back off at the end.
+set debug_logging on
+expect debug_logging on
+snapshot atstart
+
+# --- A. IDENTITY: which binary is about to be graded -----------------------
+# As fullacceptance.txt's section A: every claim below is about a specific
+# build, and the pair must be the newest one (round 30's D3).
+log --- A. identity: which ripper is installed ---
+run-size quick
+cyanrip --version
+expect-exit 0
+expect-cyanrip platterpus-fork
+expect-ripper-under-review
+expect-newest-pair
+snapshot identity
+abort-if-failed the installed ripper is not the build the handshake record names, or the pair is not the newest — fix that first, the failing step above says which
+
+# --- B. THE READ OFFSET: the drive's own ------------------------------------
+# An unknown disc is still read at the drive's offset. Same two halves as the
+# full script: the number, and the override that makes cyanrip use it.
+log --- B. the read offset for this drive ---
+run-size quick
+set-drive-offset
+expect-drive-offset
+expect override_read_offset on
+abort-if-failed the read offset for this drive is not known — set the drive up once (Tools, Setup and Updates, Set up drive), then run again
+
+# --- E. THE DISC MUST NOT BE IDENTIFIED -------------------------------------
+# `rescan` re-reads the disc and asks MusicBrainz again; a scan resets
+# unknown-album mode, so the confirmation is asked for whatever happened before
+# the run. On a disc MusicBrainz does not know the app fills placeholder rows and
+# asks "Rip as unknown album"; `answer-dialog ok` accepts it, with the Picard box
+# unticked (the baseline turned Picard off), because an unattended run must not
+# start an external application. On a disc MusicBrainz DOES know, the release
+# picker opens instead: `answer-dialog` leaves it untouched, and
+# `expect-unidentified` fails naming the reason, so the run stops here.
+log --- E. disc: scan, and confirm it rips as an unknown album ---
+run-size quick
+rescan
+answer-dialog ok 180 Rip as unknown album
+expect-tracks 2+
+expect-unidentified
+snapshot discunidentified
+abort-if-failed the disc was identified, or the unknown-album confirmation was not accepted — this run needs a disc MusicBrainz does not know, such as a CD-R of your own recordings
+
+# --- F. RIP TWO TRACKS AS AN UNKNOWN ALBUM -----------------------------------
+# Two tracks: enough to tag two rows and compare them, short enough for a
+# minute or two of drive time. The album title and artist are typed into the
+# table, as a person would before an unknown rip: the folder is built from
+# them, so `(run)` keeps a second run out of the first run's folder.
+#
+# What each check reads, and why each holds on an unknown disc:
+#   expect-rip-complete    cyanrip's own log: footer, tally, no truncation.
+#   expect-verification    the post-rip checks left a result before anything
+#                          else started.
+#   expect-album-audit     the rip's self-audit, re-run against the files.
+#   expect-accuraterip     AccurateRip is looked up by the disc's TOC, not by
+#                          MusicBrainz, so an answer is due; "not in the
+#                          database" is an answer, and a self-burned disc
+#                          will give that one.
+#   expect-ctdb partial    two tracks of a longer disc: CTDB is declined.
+#   expect-tags            the placeholder tagging pass wrote what the table
+#                          shows (Track 01, Track 02, this album and artist).
+#   expect-cover-art       no release, so nothing to fetch: the FLACs must hold
+#                          no picture, which is what the cover_art setting asks
+#                          for when there is no release.
+#   expect-unknown-record  the report says it was an unknown-album rip, with no
+#                          release id and no failed tagging pass.
+log --- F. rip two tracks as an unknown album ---
+run-size quick
+select-tracks 1-2
+album unknown disc (run) (ripper)
+album-artist Platterpus Acceptance
+rip
+wait-for-rip 3600
+snapshot afterunknownrip
+screenshot afterunknownrip
+expect-rip-complete
+expect-verification
+expect-album-audit
+expect-accuraterip
+expect-ctdb partial
+expect-tags
+expect-cover-art
+expect-unknown-record
+rig-check
+
+# --- Q. LEAVE THE RIG AS WE FOUND IT ----------------------------------------
+# Debug logging back off. The read offset stays: it is this drive's own. Your
+# own settings come back after this, restored by the app.
+log --- Q. leaving the rig on the shipped defaults ---
+run-size quick
+set debug_logging off
+expect debug_logging off
+expect-drive-offset
+expect override_read_offset on
+expect-dialog none
+snapshot atend
+
+log =============================================================
+log DONE. Everything this run made is in ONE session folder under
+log ~/platterpus-rig/, with ONE .tar.gz that a dialog names when
+log the window comes back. Send that file. No audio is in it.
+log =============================================================
