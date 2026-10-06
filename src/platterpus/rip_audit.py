@@ -64,6 +64,11 @@ LEVEL_OK = "ok"
 LEVEL_NOTE = "note"
 LEVEL_WARN = "warn"
 
+#: How the handshake check's open-round warning begins. A constant because the
+#: acceptance grader recognises this one warning (on the build under review
+#: only), and a second spelling there would drift from the one here.
+OPEN_ROUND_WARNING: Final[str] = "the ripper says it was built from an OPEN round"
+
 
 @dataclass
 class Finding:
@@ -213,7 +218,7 @@ def _audit_handshake_note(report: dict[str, Any], album: AlbumAudit) -> None:
     if says_open and not says_closed:
         album.add(
             LEVEL_WARN,
-            f"the ripper says it was built from an OPEN round: {note!r} — rips from "
+            f"{OPEN_ROUND_WARNING}: {note!r} — rips from "
             f"this build carry that sentence permanently in their log",
         )
     elif says_closed and not says_open:

@@ -130,7 +130,7 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
 
 ### New rows
 
-- [ ] **The album audit's `handshake_note` check cannot pass on a beta-in-round build
+- [x] **The album audit's `handshake_note` check cannot pass on a beta-in-round build
   under review** (found 2026-10-06, round 30's closing run: seven ARCHIVAL-section
   failures, all this one check). It WARNs whenever the binary says it was built from an
   open round, and `expect-album-audit` with no arguments needs every check at OK. Since
@@ -141,6 +141,12 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   review and a WARN otherwise, the cross-check unchanged; pinned both ways. **A re-grade
   that makes a pass easier, so the maintainer's call** (CLAUDE.md, *a version number is a
   claim about the field*); the 2026-10-06 run stays `partial` whatever is decided.
+  - *Done 2026-10-06, on the maintainer's word ("Go" on the recommendation):* the
+    ACCEPTANCE grader expects the warning on the build under review only, all four
+    conditions read from the report; the product audit is unchanged. Pinned on the
+    closing run's eight finished reports and on each condition broken alone, with
+    the round state pinned so the tests do not change meaning when round 30 closes;
+    each condition revert-probed.
 - [ ] **A rip's headline verdict groups an unconverged track with a converged one**
   (found 2026-10-06, section F). *"12 of 14 verified; on the other 2, only one frame
   matched"* covers track 5 (re-reads converged on EAC's value) and track 3 (re-reads did

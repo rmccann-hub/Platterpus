@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from platterpus.uiscript import expected_warnings
+
 #: Where a rip's report stands, as the artifact verbs need to know it.
 SETTLE_ABSENT: Final[str] = "absent"  # no readable report in the folder yet
 SETTLE_PENDING: Final[str] = "pending"  # written, but its checks are still landing
@@ -109,8 +111,15 @@ def settle_state(report: Mapping[str, Any] | None) -> str:
 
 # --- expect-album-audit -------------------------------------------------------
 
+#: The handshake check's name in :data:`platterpus.rip_audit.CHECKS`.
+_HANDSHAKE_CHECK: Final[str] = "handshake_note"
 
-def grade_album_audit(path: Path, only: Sequence[str] = ()) -> Grade:
+
+def grade_album_audit(
+    path: Path,
+    only: Sequence[str] = (),
+    report: Mapping[str, Any] | None = None,
+) -> Grade:
     """Grade the report's own self-audit, re-run now against the files on disk.
 
     Passes when every check asked about (all of them when ``only`` is empty)
@@ -119,6 +128,12 @@ def grade_album_audit(path: Path, only: Sequence[str] = ()) -> Grade:
     written, no audio file was found) has not verified anything. Notes beside an
     ``ok`` are allowed: the handshake check notes an open round on every rip, and
     that is the record being accurate.
+
+    **One warning is expected rather than failed**: the handshake check's
+    open-round warning on the build under review, when ``report`` shows it is
+    that build (:func:`~platterpus.uiscript.expected_warnings.expected_open_round_warning`). It then counts as the
+    check's verified answer, since the binary's statement and our verdict were
+    compared and agree, and the passing sentence names it.
 
     Measured first: every check reached ``ok`` on each finished round-29 rip
     (``docs/handshake/artifactsround29/*report.json``), a floor already met.
@@ -138,6 +153,8 @@ def grade_album_audit(path: Path, only: Sequence[str] = ()) -> Grade:
     if not album.by_check:
         texts = "; ".join(f.text for f in album.findings) or "no finding at all"
         return Grade(False, f"the audit could not run on {path.name}: {texts}")
+    expected = expected_warnings.expected_open_round_warning(report)
+    excused: list[str] = []
     problems: list[str] = []
     for name in wanted:
         if name in album.skipped_checks or name not in album.by_check:
@@ -145,13 +162,28 @@ def grade_album_audit(path: Path, only: Sequence[str] = ()) -> Grade:
             continue
         findings = album.by_check[name]
         warned = [f.text for f in findings if f.level == rip_audit.LEVEL_WARN]
+        verified = any(f.level == rip_audit.LEVEL_OK for f in findings)
+        if name == _HANDSHAKE_CHECK and expected:
+            open_round = [
+                w for w in warned if w.startswith(rip_audit.OPEN_ROUND_WARNING)
+            ]
+            if open_round:
+                warned = [w for w in warned if w not in open_round]
+                excused.append(f"{name}'s open-round warning {expected}")
+                verified = True
         if warned:
             problems.append(f"{name} warned: {' / '.join(warned)}")
-        elif not any(f.level == rip_audit.LEVEL_OK for f in findings):
+        elif not verified:
             said = " / ".join(f.text for f in findings)
             problems.append(f"{name} verified nothing ({said})")
     if problems:
         return Grade(False, "; ".join(problems))
+    if excused:
+        return Grade(
+            True,
+            f"all {len(wanted)} audit check(s) ran and reached ok, and the only "
+            f"warning was {'; '.join(excused)} ({', '.join(wanted)})",
+        )
     return Grade(
         True,
         f"all {len(wanted)} audit check(s) ran, none warned, each reached ok "

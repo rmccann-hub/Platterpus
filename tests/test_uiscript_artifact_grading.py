@@ -20,6 +20,7 @@ import pytest
 from platterpus import rip_audit
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 from platterpus.uiscript import artifact_grading as g
+from platterpus.uiscript import expected_warnings
 
 _ROUND29 = Path(__file__).resolve().parent.parent / "docs/handshake/artifactsround29"
 
@@ -164,6 +165,130 @@ def test_an_eac_log_with_a_changed_crc_is_a_warning() -> None:
     assert (
         album.findings[0].level == "warn" and "on track(s) 1" in album.findings[0].text
     )
+
+
+# --- the open-round warning on the build under review (2026-10-06) -------------
+
+_ROUND30 = _ROUND29.parent / "artifactsround30"
+
+#: The finished rips of round 30's closing run. Each failed `expect-album-audit`
+#: on the handshake check's open-round warning alone (transcript lines 441 to
+#: 1083), so each is the real case the narrowing is for.
+_CLOSING_RUN_RIPS = (
+    "wholedisc",
+    "overwrite",
+    "derivedwav",
+    "derivedmp3",
+    "derivedwavpack",
+    "securereread",
+    "permutations",
+    "aftercancel",
+)
+
+
+def _closing_report(name: str) -> dict[str, Any]:
+    loaded = json.loads(
+        (_ROUND30 / f"round30oct06full{name}report.json").read_text("utf-8")
+    )
+    assert isinstance(loaded, dict)
+    return loaded
+
+
+@pytest.fixture
+def reviewing_5704062(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The handshake state the closing run was graded in: round 30 reviewing
+    `5704062` while `51cc789` is the approved pin. Pinned here so these tests
+    describe that run, and do not change meaning when round 30 closes."""
+    from platterpus.deps import fork_source
+
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", "5704062")
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW_ROUND", 30)
+    monkeypatch.setattr(fork_source, "FORK_PIN", "51cc789")
+
+
+@pytest.mark.usefixtures("reviewing_5704062")
+@pytest.mark.parametrize("name", _CLOSING_RUN_RIPS)
+def test_the_closing_runs_rips_fail_without_the_report_and_pass_with_it(
+    tmp_path: Path, name: str
+) -> None:
+    """Regression (round 30's closing run): the warning failed every rip by
+    construction. With the report, the grader can see the binary is the build
+    under review, and the passing sentence says why the warning was expected."""
+    report = _closing_report(name)
+    path = _album(tmp_path, report)
+    without = g.grade_album_audit(path)
+    assert not without.passed
+    assert without.detail.startswith("handshake_note warned:"), without.detail
+    assert ";" not in without.detail  # that warning, and nothing else
+    graded = g.grade_album_audit(path, (), report)
+    assert graded.passed, graded.detail
+    assert "expected on the build under review" in graded.detail
+    assert "platterpus-fork-g5704062" in graded.detail
+
+
+@pytest.mark.usefixtures("reviewing_5704062")
+def test_the_product_audit_still_warns_on_the_build_under_review(
+    tmp_path: Path,
+) -> None:
+    """Only the acceptance grader expects the warning. A user ripping with an
+    unreleased build is still told, by the product's own audit."""
+    album = rip_audit.audit_album(_album(tmp_path, _closing_report("wholedisc")))
+    warned = [
+        f.text
+        for f in album.by_check["handshake_note"]
+        if f.level == rip_audit.LEVEL_WARN
+    ]
+    assert len(warned) == 1 and warned[0].startswith(rip_audit.OPEN_ROUND_WARNING)
+
+
+@pytest.mark.usefixtures("reviewing_5704062")
+@pytest.mark.parametrize(
+    ("field", "value", "why"),
+    [
+        ("ripper_build", "platterpus-fork-g174a134", "another build"),
+        ("ripper_build", "platterpus-fork-g5704062-dirty", "a dirty build"),
+        ("ripper_build", "someone-else-g5704062", "another fork's id"),
+        ("ripper_handshake_approval", "approved", "our verdict disagrees"),
+        ("ripper_handshake_approval", "not_determined", "no verdict"),
+        (
+            "ripper_handshake_note",
+            "round 29 lap 3 OPEN, verdict OPEN -- NOT a released build",
+            "a different round",
+        ),
+    ],
+)
+def test_the_warning_is_a_failure_unless_every_condition_holds(
+    tmp_path: Path, field: str, value: str, why: str
+) -> None:
+    """Each condition, broken alone, leaves the warning a failure: a label is
+    never enough without the binary it describes."""
+    report = _closing_report("wholedisc")
+    report["rip"][field] = value
+    assert expected_warnings.expected_open_round_warning(report) == "", why
+    grade = g.grade_album_audit(_album(tmp_path, report), (), report)
+    assert not grade.passed, why
+    assert "handshake_note warned" in grade.detail
+
+
+def test_the_warning_is_a_failure_once_no_round_is_reviewing_the_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """After round 30 closes, `5704062` is the approved pin, not a build under
+    review, and a binary still calling itself unreleased is a real finding."""
+    from platterpus.deps import fork_source
+
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", "5704062")
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW_ROUND", 30)
+    monkeypatch.setattr(fork_source, "FORK_PIN", "5704062")
+    report = _closing_report("wholedisc")
+    assert expected_warnings.expected_open_round_warning(report) == ""
+    assert not g.grade_album_audit(_album(tmp_path, report), (), report).passed
+
+
+@pytest.mark.usefixtures("reviewing_5704062")
+def test_the_expectation_never_raises_on_a_malformed_report() -> None:
+    for bad in (None, {}, {"rip": None}, {"rip": {"ripper_build": 7}}, {"rip": []}):
+        assert expected_warnings.expected_open_round_warning(bad) == ""  # type: ignore[arg-type]  # malformed on purpose
 
 
 # --- expect-accuraterip ---------------------------------------------------------

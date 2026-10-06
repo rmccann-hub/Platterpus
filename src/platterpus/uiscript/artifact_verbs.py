@@ -138,7 +138,7 @@ class ArtifactVerbsMixin:
         self._grade_when_settled(
             step,
             folder,
-            lambda path, _report: grading.grade_album_audit(path, only),
+            lambda path, report: grading.grade_album_audit(path, only, report),
             grade_unfinished=bool(only),
         )
 

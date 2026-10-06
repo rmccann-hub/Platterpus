@@ -4218,6 +4218,14 @@ for the whole run, and cyanrip's `-f` found `+667` on its first run on a drive.
 Track 3 converged on a value that is not EAC's, the disc as before
 (`docs/handshake/artifactsround30/README.md` → *The 2026-10-06 run*). **It is not a
 second witness** either: one machine, one distro, one person.
+**The grader changed after this run, and the row did not.** On 2026-10-06, after
+reading it, the maintainer chose to narrow `expect-album-audit`: the open-round warning
+is expected, not failed, when the report shows the binary IS the build under review
+(clean fork tag naming `PIN_UNDER_REVIEW`, our verdict `unapproved`, the note naming
+the reviewing round). Any other build, round or verdict still fails, and the product's
+own audit still warns the user (`uiscript/artifact_grading.expected_open_round_warning`).
+It makes a pass easier, which is why it was the maintainer's call. It applies to runs
+graded after it; this row stays `partial`, and no earlier row is re-graded.
 
 **The 2026-10-05 0.6.65 row is the operator's final Full run on `.19`: 316 of 323,
 and `partial`, the same count as 2026-09-30.** The seven failures are the same seven

@@ -465,7 +465,9 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-album-audit [check…] — re-run the rip's own self-audit against the "
         "files on disk: every check (or only those named) must run, raise no "
         "warning and reach ok — among them cyanrip's -Y verdict on its own log, "
-        "the cue sheet, the EAC log's checksum and CRCs, and the audio files",
+        "the cue sheet, the EAC log's checksum and CRCs, and the audio files. One "
+        "warning is expected rather than failed: the build under review saying it "
+        "is an unreleased build, when the report shows it is that build",
     ),
     Verb(
         "expect-accuraterip",
