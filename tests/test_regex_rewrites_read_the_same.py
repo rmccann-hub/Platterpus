@@ -162,6 +162,26 @@ _IDS: list[str] = [
 ]
 
 
+def test_the_population_is_the_six_patterns_rewritten() -> None:
+    """The floor for both sweeps below, which parametrize over `_REWRITES`.
+
+    `_REWRITES` holds Hypothesis strategies, so it is built rather than written
+    out, and an emptied list would turn both sweeps into one skip each. Each
+    pattern the lead-in sweep found and that was fixed is named here (2026-10-06);
+    a seventh fix adds its name, and none can leave without this saying which.
+    """
+    assert sorted(_IDS) == sorted(
+        [
+            "cue_validate.py:_RE_REM",
+            "cue_validate.py:_RE_TITLE",
+            "cue_validate.py:_RE_PERFORMER",
+            "rip_log.py:_FIELD",
+            "rip_worker.py:_CYANRIP_ETA_VALUE",
+            "handshake.py:_SOURCE_NAMED_LAP",
+        ]
+    )
+
+
 def _shape(match: re.Match[str] | None) -> tuple[object, ...] | None:
     """Everything a caller can read off a match: the span and every group."""
     return None if match is None else (match.span(), match.groups(), match.groupdict())

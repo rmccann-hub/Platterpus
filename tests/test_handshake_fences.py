@@ -78,6 +78,26 @@ _FENCED: list[tuple[str, str]] = [
 ]
 
 
+def test_every_fence_rule_has_a_fenced_case() -> None:
+    """The floor for the sweep below, whose cases are built strings.
+
+    One case per rule the fence reader follows (CommonMark's): both fence
+    characters, an unterminated fence, an indented opening, a longer closer, the
+    three lines that do NOT close, and CRLF. Eleven when written (2026-10-06).
+    """
+    labels = [label for label, _text in _FENCED]
+    assert len(labels) == len(set(labels)) >= 11
+    for rule in (
+        "tildes",
+        "UNTERMINATED",
+        "indented",
+        "LONGER",
+        "does not close",
+        "CRLF",
+    ):
+        assert any(rule in label for label in labels), rule
+
+
 @pytest.mark.parametrize(
     ("label", "fenced"), _FENCED, ids=[label for label, _text in _FENCED]
 )

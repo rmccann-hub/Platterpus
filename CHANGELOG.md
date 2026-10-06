@@ -181,6 +181,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   The key was announced to the cyanrip fork in round 30 lap 4 (S43).
 
 ### Fixed
+- For contributors: the five tests added this round that run over a generated
+  list of cases (the regex rewrites, the fence cases, the timing sweep and the
+  securing gate's unfinished passes) each have a minimum-count test, or a stated
+  reason they need none, so none can pass by running no cases.
 - For contributors: the check that the rip report's types describe what it
   writes now reads a key written through a named constant, not only a quoted
   one. It had missed the two securing-pass exit fields, which the report writes
