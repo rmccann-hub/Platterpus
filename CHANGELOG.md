@@ -558,6 +558,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   from outside the app or from the app itself.
 
 ### Changed
+- **The build under review is now the fork's `.20` beta** (`5704062`,
+  `0.9.4-rc2+platterpus.20`), the build round 30's closing run tests. The update
+  check, the build picker, the acceptance run and every rip's report name it as the
+  build being tested. The default install is unchanged: `51cc789`, which round 29
+  approved. `.19` (`174a134`), still the fork's stable build, keeps its log-integrity
+  check.
+- For contributors: a fork build published inside a round that is still open
+  (`round_closed: false` in their manifest) is now read as THAT round's subject, not
+  the next one's.
 
 - **Two more of cyanrip `.20`'s error messages are recognised.** When the drive-offset
   search (`-f`) cannot find an offset, `.20` now says why, for example *"No track was long
