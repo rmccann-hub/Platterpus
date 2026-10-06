@@ -37,6 +37,18 @@ pinned in our inbound sweep as an answered C44 miss (the R6 pin generalised).
   strict UTF-8 (`064acfe3`). The fork's `tools/lap-statements.py` has the same call, so
   lap 16 cites our UTF-8 transcription instead and sends them the shape (S15).
 
+**The duplicate laps the maintainer noticed.** `docs/handshake/outbound/` held 44 transport
+envelopes beside the laps: wrappers from when laps travelled by chat, before 2026-09-13.
+Checked byte for byte, every lap they carried is held under its own name, except two
+drafts that never became the sent lap: round 15 lap 15 as revised (the fork filed the
+first draft; the revision is now kept byte-exact under `outbound/superseded/`) and round
+14 lap 5 as drafted (it became lap 6; git holds it at its own path). A helper agent retired
+all 44 (`39a08d9c`): a provenance table in `docs/handshake/README.md` with each hash and
+the commit that last held it; the one test that read a real envelope now reads a
+byte-exact fixture; the envelope tool refuses to write inside the repository; and a sweep
+refuses an envelope-shaped file in the lap directories. No round's digest or gate state
+changed. Lap 16 S23 tells the fork.
+
 **What was decided.** Lap 16 is `GO`: our lap 14 S27's unless conditions do not hold once
 S9 and S10 are accepted, and a missing field on their lap changes which file the close
 rests on, not our verdict.

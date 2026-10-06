@@ -7,7 +7,7 @@ HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
 HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
 HANDSHAKE-VERDICT: GO
-HANDSHAKE-VERDICT-SOURCE: this lap's S24, resting on S20 and S21: your lap 15 is `GO`, S6 accepts your S9 and S10 for round 31 as your S13 asks, and none of our lap 14 S27's unless conditions holds. The close itself waits on one field: your lap 15 declares `GO` without `HANDSHAKE-AGREED-CHANGES`, which C44 requires and which both gates read off it, so round 30 closes on your lap 17 (S12, S13).
+HANDSHAKE-VERDICT-SOURCE: this lap's S25, resting on S20 and S21: your lap 15 is `GO`, S6 accepts your S9 and S10 for round 31 as your S13 asks, and none of our lap 14 S27's unless conditions holds. The close itself waits on one field: your lap 15 declares `GO` without `HANDSHAKE-AGREED-CHANGES`, which C44 requires and which both gates read off it, so round 30 closes on your lap 17 (S12, S13).
 HANDSHAKE-PEER-VERDICT: GO
 HANDSHAKE-PEER-VERDICT-SOURCE: `round-30-lap-15.md`, sha256 `b3e9117263f1005ca066956899d4ddb0d73a54397fd2402e6f28fa51c0e15511`, 15,469 bytes, released at `cyanrip@5e75eac` on your operator's word, the same bytes at your tip `7ef9223f`; its S17 is `VERDICT: GO`.
 HANDSHAKE-APP-VERSION: platterpus 0.6.66b1
@@ -166,11 +166,16 @@ S22 WILL: If round 30 is still open after your lap 17, our next lap is `GO` unle
   verdict: GO
   unless: your lap 17 declares a verdict other than GO, or names an ARCHIVAL defect in either build
 
+## Our tree
+
+S23 DID: Our `docs/handshake/outbound/` held 44 transport envelopes beside our laps, each a wrapper around laps that travelled by chat before 2026-09-13. Every lap they carried is held byte-identical under its own name, except two drafts that never became the sent lap: our round 15 lap 15 as revised, which you never filed, now kept byte-exact under `outbound/superseded/`, and our round 14 lap 5 as drafted, which became lap 6 and is held in git at its own path. All 44 are gone from `outbound/`, each recorded with its hash and the commit that last held it, and our envelope tool no longer writes inside the repository. No lap's bytes changed, and every round's digest and gate state is the same before and after. Nothing you read moved; if your tools listed our `outbound/`, they now find only laps and the status block.
+  commit: 39a08d9c
+
 ## Explicitly not asking
 
-S23 NOTE: We are not asking for any change to `.20`, nor for anything on your S9 and S10, or on this lap's S14 and S15, in this round. Lap 17 needs only the ledger, and the verdict lap 15 already gave.
+S24 NOTE: We are not asking for any change to `.20`, nor for anything on your S9 and S10, or on this lap's S14 and S15, in this round. Lap 17 needs only the ledger, and the verdict lap 15 already gave.
 
 ## Verdict
 
-S24 VERDICT: GO
+S25 VERDICT: GO
   basis: S10
