@@ -15,7 +15,7 @@
           "type": "application",
           "group": "platterpus",
           "name": "scripts/emit_bom.py",
-          "version": "0.6.65"
+          "version": "0.6.66b1"
         }
       ]
     },
@@ -23,14 +23,14 @@
       "type": "application",
       "bom-ref": "platterpus",
       "name": "platterpus",
-      "version": "0.6.65",
+      "version": "0.6.66b1",
       "description": "A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3)",
       "licenses": [
         {
           "expression": "GPL-3.0-only"
         }
       ],
-      "purl": "pkg:pypi/platterpus@0.6.65",
+      "purl": "pkg:pypi/platterpus@0.6.66b1",
       "externalReferences": [
         {
           "type": "vcs",
@@ -547,7 +547,7 @@
         },
         {
           "name": "platterpus:pin-under-review",
-          "value": "174a134 (0.9.4-rc2+platterpus.19, round 30, published: yes)"
+          "value": "5704062 (0.9.4-rc2+platterpus.20, round 30, published: yes)"
         },
         {
           "name": "platterpus:test-pin",
@@ -564,11 +564,11 @@
       "bom-ref": "ripper:cyanrip-fork-under-review",
       "group": "rmccann-hub/platterpus-fork",
       "name": "cyanrip (build under review)",
-      "version": "0.9.4-rc2+platterpus.19",
+      "version": "0.9.4-rc2+platterpus.20",
       "isExternal": true,
       "description": "The build handshake round 30 is reviewing; installable on request, never the default.",
       "scope": "optional",
-      "purl": "pkg:github/rmccann-hub/cyanrip@174a134",
+      "purl": "pkg:github/rmccann-hub/cyanrip@5704062",
       "pedigree": {
         "ancestors": [
           {
@@ -601,7 +601,7 @@
         },
         {
           "name": "platterpus:pin",
-          "value": "174a134"
+          "value": "5704062"
         },
         {
           "name": "platterpus:round",

@@ -250,7 +250,14 @@ FORK_PIN: Final[str] = "51cc789"
 #: pin that was never a numbered release is deliberately absent: it has no sequence,
 #: and inventing one would order it against releases it was never part of.
 FORK_RELEASE_SEQ_BY_PIN: Final[dict[str, int]] = {
-    # Round 30's subject, and the fork's CURRENT published release on both channels:
+    # Round 30's closing-run subject, on the fork's BETA channel alone: `release_seq`
+    # 30, `handshake_round` 30, `round_closed: false`, version
+    # `0.9.4-rc2+platterpus.20`. Read off their `release-manifest.json` at `b62650d`
+    # ("Publish 0.9.4-rc2+platterpus.20 at 5704062, beta"), 2026-10-06, and filed
+    # byte-exact as `tests/fixtures/fork_release_manifest_b62650d.json`. Stable still
+    # names `174a134` below.
+    "5704062": 30,
+    # Round 30's subject until `.20`, and the fork's published release on both channels:
     # `release_seq` 29, `handshake_round` 29, `round_closed: true`, version
     # `0.9.4-rc2+platterpus.19`. Read off their `release-manifest.json` at `7677b3f5`
     # ("Publish 0.9.4-rc2+platterpus.19 at 174a134, stable"), unchanged at their tip
@@ -692,7 +699,20 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: `.19`'s change to `src/` is five commits past `.18` (`git log 51cc789..174a134 --
 #: src/`: `bf50705`, `9669d84`, `fb31a2b`, `22f7aae`, `ad11743`), the five their
 #: round 29 lap 3 S18 names. **`FORK_PIN` stays `51cc789`**, round 29's approval.
-PIN_UNDER_REVIEW: Final[str] = "174a134"
+#: **Moved `174a134` -> `5704062` on 2026-10-06**, on `+platterpus.20`, `release_seq`
+#: 30, published to the fork's BETA channel only (stable stays `.19`), inside round 30
+#: while it is open: the operator's close conditions of 2026-10-05 are betas of both
+#: applications and an acceptance run of both on that pair, and our round 30 lap 12's
+#: PIN-POLICY said this pin moves to `.20` in our 0.6.66 beta once `.20` is on beta.
+#: Derived from their tree, not a lap: `release-manifest.json` at `b62650d`, filed as
+#: `tests/fixtures/fork_release_manifest_b62650d.json`; `meson.build` at `5704062`
+#: declares `0.9.4-rc2+platterpus.20`; `174a134` is its ancestor, and `git log
+#: 174a134..5704062 -- src/` is the nineteen commits their release plan's §2 names.
+#: Their `PROVIDER-CONTRACT.md` at `5704062` (built at `g5fd7b1e`, whose `src/` and
+#: `meson.build` equal `5704062`'s) is byte-identical to the one filed with their
+#: round 30 lap 11 (`g8ab9a8d`) but for its `Build:` line, so the inventory and the
+#: parser read `.20` as verified then. **`FORK_PIN` stays `51cc789`.**
+PIN_UNDER_REVIEW: Final[str] = "5704062"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like
 #: :data:`FORK_TEST_PIN_ROUND`, and held to the record by
@@ -712,6 +732,8 @@ PIN_UNDER_REVIEW: Final[str] = "174a134"
 #: **30 from 2026-09-30**: `.19`, published on round 29's authority, is round 30's
 #: subject; round 30 lap 1 names it and opened before the Full run, under the
 #: operator's override of R8 point 3 (see :data:`PIN_UNDER_REVIEW`).
+#: **Still 30 for `.20` from 2026-10-06**: published inside round 30 while it is open
+#: (`round_closed: false`), so its review is round 30's closing run, not round 31's.
 PIN_UNDER_REVIEW_ROUND: Final[int] = 30
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
@@ -976,6 +998,9 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: **Still `False` for round 30, re-derived against `174a134`**: `git diff --stat
 #: 174a134 3952c03 -- src/ meson.build` is non-empty (8 files), and no round names a
 #: test pin for `.19`.
+#: **Still `False` for `.20`, re-derived against `5704062`**: `git diff --stat 5704062
+#: 3952c03 -- src/ meson.build` is non-empty (12 files), and no round names a test
+#: pin for `.20`.
 TEST_PIN_IS_SAME_PROGRAM_AS_REVIEWED: Final[bool] = False
 
 #: Test pins this round has already retired. Listed **only** so a rig that built one
@@ -1147,6 +1172,10 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
         # has the same 41 P1 flag rows as `.18`'s, byte for byte, so `-u`/`--consumer`
         # is in P1 unchanged (line 58 there).
         "platterpus-fork-g174a134",
+        # Round 30's closing-run build, `+platterpus.20`. Its `PROVIDER-CONTRACT.md`
+        # at `5704062` (built at `g5fd7b1e`, `src/` and `meson.build` equal
+        # `5704062`'s) carries `-u`/`--consumer` in P1 at line 58, unchanged.
+        "platterpus-fork-g5704062",
         # **SUPERSEDED PRODUCTION PINS STAY, and this one nearly did not.**
         # `ddf7ac3` was in this set only by way of `FORK_EXPECTED_BUILD_TAG`, so
         # rolling the pin forward at round 14's close removed it — silently, and
@@ -1265,6 +1294,13 @@ BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
         # here post-dates round 4 and `test_no_published_table_has_ever_withdrawn`
         # establishes no published table has withdrawn the flag since.
         f"{FORK_BRANCH}-g{PIN_UNDER_REVIEW}",
+        # `.19`, the build under review until 2026-10-06 and still the fork's STABLE
+        # channel while `.20` is on beta. Without this line, moving the pin to `.20`
+        # would drop it from this set, and a stable-channel rig would see its log
+        # integrity check go to `not_determined`: the 2026-08-25 defect above, moved
+        # one build along. Its `PROVIDER-CONTRACT.md` at `174a134` carries `-Y` in P1
+        # (line 104).
+        f"{FORK_BRANCH}-g174a134",
     }
 )
 
@@ -1790,7 +1826,10 @@ UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(
     # `7677b3f5` while lap 1 was held, then off their lap-1 wire header line 14:
     # `cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)`. `meson.build`
     # line 21 at `174a134` declares the same version.
-    version="0.9.4-rc2+platterpus.19",
+    # **Round 30's closing run, from their manifest's beta entry at `b62650d`**:
+    # `commit` `5704062`, `version` `0.9.4-rc2+platterpus.20`, and `meson.build` at
+    # `5704062` declares the same version.
+    version="0.9.4-rc2+platterpus.20",
     # **DERIVED, NOT ASSERTED.** This sentence used to read "round 14 is the round
     # that would [approve it], and it is open" — a hard-coded claim about round
     # state, which went false the moment round 14 closed and `PIN_UNDER_REVIEW`

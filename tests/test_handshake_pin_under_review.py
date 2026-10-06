@@ -56,6 +56,11 @@ _FILED_MANIFESTS: Final[dict[str, str]] = {
     "fork_release_manifest_7677b3f.json": (
         "604da9a7cc1ee18b41b71d90c672940ad11f0a1c463f30f223e0a1a2ed088f96"
     ),
+    # `.20` on beta alone, stable still `.19`, published inside round 30 while it
+    # is open (`round_closed: false`), 2026-10-06.
+    "fork_release_manifest_b62650d.json": (
+        "3515e79d52abb11b653baf83e692ed6e2dd73272047e73a3926195a84115a115"
+    ),
 }
 
 #: ``HANDSHAKE-PIN: <commit>`` at column 0 of a round file's wire header. Anchored
@@ -144,6 +149,16 @@ def _choose_source(
     split manifest ("nothing one entry can pair"), which would have left `.20`
     unreviewed until a lap named it. A split it cannot order, because an entry
     lacks ``release_seq``, is still refused.
+
+    **A build published inside a round that is still open is THAT round's
+    subject** (2026-10-06). `.20` went to beta with `handshake_round` 30 and
+    `round_closed: false`: round 30's close conditions include an acceptance run on
+    the betas of both, so `.20` is reviewed by round 30's closing run. Reading every
+    manifest entry as "published on the authority of a CLOSED round" credited it to
+    round 31. So the reviewing round is ``handshake_round`` when the entry says
+    ``round_closed: false``, and the next round otherwise (as `.19`'s entry,
+    `round_closed: true` on round 29, was reviewed by round 30). An entry with no
+    ``round_closed`` keeps the old reading.
     """
     assert laps, "no inbound lap declares a HANDSHAKE-PIN"
     lap_round, lap_pin, lap_path = laps[-1]
@@ -168,7 +183,8 @@ def _choose_source(
     authority = int(newest["handshake_round"])
     if named or authority < lap_round:
         return lap_source
-    return UnderReviewSource(commit, authority + 1, version, False, None, name)
+    reviewing = authority if newest.get("round_closed") is False else authority + 1
+    return UnderReviewSource(commit, reviewing, version, False, None, name)
 
 
 def _under_review_source() -> UnderReviewSource:
@@ -243,6 +259,31 @@ def test_the_source_is_the_lap_until_a_newer_release_is_published() -> None:
     }
     on_beta = _choose_source(round_30, split, "m")
     assert (on_beta.pin, on_beta.round, on_beta.version) == ("aaaa200", 31, "v20")
+    # The same beta published INSIDE round 30 while it is open (`.20`, 2026-10-06):
+    # round 30's own closing run reviews it, not round 31. Stated `true`, the next
+    # round, as before.
+    for closed, reviewing in ((False, 30), (True, 31)):
+        stated = {
+            "latest_seq": 30,
+            "channels": {
+                "beta": {
+                    "commit": "aaaa200",
+                    "version": "v20",
+                    "handshake_round": 30,
+                    "release_seq": 30,
+                    "round_closed": closed,
+                },
+                "stable": {
+                    "commit": "174a134",
+                    "version": "v19",
+                    "handshake_round": 29,
+                    "release_seq": 29,
+                    "round_closed": True,
+                },
+            },
+        }
+        got = _choose_source(round_30, stated, "m")
+        assert (got.pin, got.round) == ("aaaa200", reviewing), closed
     # The same split once a lap names the beta build: the lap.
     named_beta = [*round_30, (31, "aaaa200", Path("round-31-lap-01.md"))]
     assert _choose_source(named_beta, split, "m").lap is not None

@@ -12,6 +12,8 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.6.66b1] — 2026-10-06
+
 ### Added
 
 - **The status line and the rip report say how cyanrip itself says the rip
@@ -181,6 +183,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   The key was announced to the cyanrip fork in round 30 lap 4 (S43).
 
 ### Fixed
+- For contributors: the checks of the README's status banner and of the standing
+  status block read a pre-release version (`0.6.66b1`) as itself. The banner check
+  read it as `0.6.66`, and the status check raised on it, so the first beta since
+  0.6.12 failed both; the status check's mutation test now reads its needles from
+  the block instead of assuming one point in the round's cycle.
 - For contributors: the five tests added this round that run over a generated
   list of cases (the regex rewrites, the fence cases, the timing sweep and the
   securing gate's unfinished passes) each have a minimum-count test, or a stated
@@ -558,6 +565,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   from outside the app or from the app itself.
 
 ### Changed
+- **The build under review is now the fork's `.20` beta** (`5704062`,
+  `0.9.4-rc2+platterpus.20`), the build round 30's closing run tests. The update
+  check, the build picker, the acceptance run and every rip's report name it as the
+  build being tested. The default install is unchanged: `51cc789`, which round 29
+  approved. `.19` (`174a134`), still the fork's stable build, keeps its log-integrity
+  check.
+- For contributors: a fork build published inside a round that is still open
+  (`round_closed: false` in their manifest) is now read as THAT round's subject, not
+  the next one's.
 
 - **Two more of cyanrip `.20`'s error messages are recognised.** When the drive-offset
   search (`-f`) cannot find an offset, `.20` now says why, for example *"No track was long
@@ -17794,7 +17810,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.65...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66b1...HEAD
+[0.6.66b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.65...v0.6.66b1
 [0.6.65]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.64...v0.6.65
 [0.6.64]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.63...v0.6.64
 [0.6.63]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.62...v0.6.63
@@ -17862,4 +17879,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.65.*
+*Last updated for Platterpus v0.6.66b1.*

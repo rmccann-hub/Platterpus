@@ -311,3 +311,34 @@ def test_the_cyanrip_backend_supplies_a_build_tag() -> None:
         "reach the 'failed' verdict"
     )
     assert hasattr(cyanrip_backend.CyanripImpl, "_observed_build_tag")
+
+
+def test_every_build_the_fork_publishes_now_keeps_both_flags() -> None:
+    """A build on ANY channel of the fork's newest filed manifest is in both sets.
+
+    **Why, and the case that wrote it (2026-10-06).** `BUILD_TAGS_ACCEPTING_VERIFY_LOG`
+    reaches the build under review through `PIN_UNDER_REVIEW`, so moving that pin to
+    `.20` silently dropped `.19` from it, while `.19` was still the fork's STABLE
+    channel: every rig that stayed on stable would have had its log-integrity check
+    go to `not_determined`, the 2026-08-25 defect one build along. The rule this
+    holds is the one that would have caught it: what the fork publishes now, on
+    either channel, is a build a user can be running, so both flags must be known
+    for it. Read from the manifest itself, not from a list here.
+    """
+    import json
+
+    fixtures = Path(__file__).parent / "fixtures"
+    manifests = [
+        json.loads(p.read_text(encoding="utf-8"))
+        for p in sorted(fixtures.glob("fork_release_manifest_*.json"))
+    ]
+    assert manifests, "no filed fork release manifest to read"
+    newest = max(manifests, key=lambda m: int(m["latest_seq"]))
+    commits = {str(entry["commit"]) for entry in newest["channels"].values()}
+    # Floor: the newest manifest names at least one build, and today two (`.20` on
+    # beta, `.19` on stable), so this cannot pass by reading no channel.
+    assert commits
+    for commit in sorted(commits):
+        tag = f"{fork_source.FORK_BRANCH}-g{commit}"
+        assert fork_source.accepts_verify_log(tag) is True, tag
+        assert fork_source.accepts_consumer_flag(tag) is True, tag

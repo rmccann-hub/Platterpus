@@ -1444,7 +1444,14 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # fork's published manifest rather than a lap; its release sequence, its build tag
     # in the `--consumer` accept-set with the contract that licenses it, the
     # re-derived same-program flag, and the pairing line.
-    "deps/fork_source.py": 2527,
+    # **2527 -> 2566** (2026-10-06): `.20` (`5704062`) becomes the build under
+    # review, read off the fork's manifest with its beta channel split from stable:
+    # its release sequence, its build tag in the `--consumer` accept-set with the
+    # contract that licenses it, `.19` kept in the `-Y` set because it is still the
+    # fork's stable channel, the re-derived same-program flag and the pairing line.
+    # The derivations are the record of what licenses each value, so they stay
+    # beside the constants they license.
+    "deps/fork_source.py": 2566,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the

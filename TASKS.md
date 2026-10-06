@@ -68,7 +68,7 @@ artifact?* was the question to ask before answering, not after.
 | A2 | **Done 2026-10-06.** No securing pass after a finished pass the drive could not read cleanly | The tracks AccurateRip did not confirm are not re-read when the ladder ends on such a pass, or in fixed mode | The maintainer's decision (C1); then keep the album pass's exit code apart from the securing pass's, and key the pass on `ladder_trigger.why_pass_incomplete` (the pass finished) instead of exit 0 | 4–6 h after C1 | *Should the securing pass run after a finished pass…* |
 | A3 | **Done 2026-10-06.** W6: the `-j` record's `interrupted`, `interrupted_by` and `exit_code` are unread | The 2026-10-04 runs showed our status line inferring a cancel the ripper had recorded | Read them into the status line and the report, tri-state | 3–4 h | *W6, ours to close* |
 | A4 | **Done 2026-10-06** (`cec0a55b`; two checks stay by-hand, on their rows). The hardware-only checks have no drive run of their own | The closing Full run is the only drive run before round 30 closes | Steps in the closing run's script for each; no extra rig time | 3 h | *Fold the hardware-only checks into the closing run* (new) |
-| A5 | The cut | O3: our beta follows `.20` on their beta | `PIN_UNDER_REVIEW` to `.20`, `__version__` 0.6.66b1, CHANGELOG, a lap and the status block; dispatched only on the maintainer's word, since a round is open | 2 h, after `.20` | Lap 10 S35; *The beta path exists* |
+| A5 | **In progress 2026-10-06, on the maintainer's word** (*"Wait for .20"*: cut 0.6.66b1 pinned to `.20` once it is on beta, and dispatch). `.20` went to their beta at `5704062` (manifest `b62650d`, 01:08Z); `PIN_UNDER_REVIEW` moved to it. The cut | O3: our beta follows `.20` on their beta | `PIN_UNDER_REVIEW` to `.20`, `__version__` 0.6.66b1, CHANGELOG, a lap and the status block; dispatched only on the maintainer's word, since a round is open | 2 h, after `.20` | Lap 10 S35; *The beta path exists* |
 
 ### B. To send the cyanrip fork, in our next lap
 
@@ -129,6 +129,14 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
 
 ### New rows
 
+- [ ] **On the stable cyanrip channel, `.19` reads as up to date while the acceptance
+  run needs `.20`** (found 2026-10-06, moving the build under review). `.20` is on the
+  fork's beta channel alone, so `evaluate_offer(stable, installed=174a134)` answers
+  `up_to_date` and never names the build the run will refuse to start without. The
+  routes that reach it: *Choose a build…* (lists the build under review), the beta
+  cyanrip tick-box, and the command the run's refusal names. The rig sheet says so.
+  Fix: when the build under review is published on the other channel and is not
+  installed, the up-to-date offer says so and names the route. UX; not for the cut.
 - [x] **CI scans the full history for secrets on every run** (C8; `SECURITY.md`, *Secret
   scanning*). Amendment A12, approved 2026-09-28 and held under C3 (`PLANNING.md` KDD-39,
   KDD-40); **C3 lifted for it 2026-10-05** (KDD-41). `gitleaks/gitleaks-action` scans a range it builds itself with
@@ -8444,4 +8452,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.65.*
+*Last updated for Platterpus v0.6.66b1.*
