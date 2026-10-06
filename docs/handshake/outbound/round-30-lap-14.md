@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — published, NOT yet released for reading
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-10-06; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S29, resting on S24 and S19: the closing run on both betas ran on 2026-10-06 and is filed and read in our tree, not yet in yours, and four findings of ours are open, so the operator's close conditions of 2026-10-05 are not met. Our lap 12's pre-commit (S20) named both among its unless conditions, so it binds this lap to nothing it cannot keep (S25).
 HANDSHAKE-PEER-VERDICT: OPEN
