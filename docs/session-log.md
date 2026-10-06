@@ -11,6 +11,33 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-06 (night) — 0.6.66b1 released for round 30's closing run, lap 13 filed, lap 14 written
+
+**What was done.** The fork published `+platterpus.20` on its beta at `5704062`
+(01:08Z). On the maintainer's word (*"Wait for .20"*), `.20` became our build under
+review, derived from their manifest, contract and source (`63851d34`), and 0.6.66b1 was
+cut (`26d0d3c7`), merged in PR #290 as `db5fd0e1`, and released from it: a pre-release,
+every release gate green, attested. The rig sheet was rewritten for the pair. Their lap
+13 was released by the operator, filed (`77115b3c`) and verified against their tree;
+our lap 14, which announces the beta, is written and held.
+
+**What was decided.** The beta carries only what the cut needs: the D2/D5 commits wait
+for the next PR. The cut went before lap 14, the order the fork used for `.20` and the
+one their lap 13 S14 asks for (a lap that announces a released beta).
+
+**What was learned.**
+- **A move of the build under review can drop the previous build from a flag set that
+  follows the pin.** `.19` left the `-Y` accept-set while still the fork's stable build.
+  A revert probe found the move had no test guarding it; the new test reads the fork's
+  newest manifest and requires every build on any channel to keep both flags.
+- **Our checkers were narrower than the protocol on versions.** The status block's D6
+  patterns and the README banner pattern could not read `0.6.66b1`, the first
+  pre-release since 0.6.12. Both now read PEP 440, as the updater does.
+- **I told the maintainer the closing run does not exercise `-f`, from the old rig sheet,
+  and wrote it into the new one.** Section O has run `cyanrip -N -f` since `22af4bc4`; the
+  fork had it right. Corrected in the sheet and stated in lap 14 S16. *Answer from the
+  artifact*: the script was one `grep` away.
+
 ## 2026-10-06 — lap 12 on `main`, the fork's lap 11 answered, and every KDD-41 ruling built
 
 **What was done.** The fork's round 30 lap 11 (`cyanrip@c887165`) was filed, verified

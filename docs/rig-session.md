@@ -48,8 +48,9 @@ itself logs `NOT a released build`, since round 30 is open while it runs.
 - **cyanrip `.20`:** nineteen `src/` commits over `.19` (the fork's release plan, §2):
   paranoia skips read `with errors` and counted in `Ripping errors:`, the `-Z` spool that
   encodes only the kept read, the cache probe scored by cd-paranoia's 6 ms, and `-f`
-  exiting 1 when it finds no offset. **`-f` has never run on a drive, and this run does
-  not exercise it.**
+  exiting 1 when it finds no offset. **`-f` has never run on a drive, and this run is
+  its first:** section O runs `cyanrip -N -f` and grades the offset it finds against
+  the `+667` section B sets.
 
 **It is also a candidate full-green pass, which the project has never had.** The
 field-evidence ledger (`docs/testing.md` §5B) has no `full-green` row. `0.7.100` is
