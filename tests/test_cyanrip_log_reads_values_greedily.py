@@ -273,10 +273,28 @@ def test_a_bounded_value_keeps_its_bound(name: str, old: str, bound: int) -> Non
 _PIN_RUN: int = 20_000
 
 
+#: The timing sweep's population: every rewrite but `_PREGAP_SOURCE`, whose old
+#: form was already linear (its bound is 63), so it has no slow line to time.
+_TIMED: list[tuple[str, str]] = [
+    (name, label) for name, _old, label in _REWRITES if name != "_PREGAP_SOURCE"
+]
+
+
+def test_every_rewrite_but_the_linear_one_is_timed() -> None:
+    """The floor for the timing sweep below, which is generated from `_REWRITES`.
+
+    A generated population can empty, and pytest then reports the sweep as one
+    skip, exit 0 (`tests/test_dynamic_sweeps_declare_a_floor.py`). So the timed set
+    is held to every rewrite but the one with a stated reason, and to the 20 it
+    had when it was written (2026-10-06).
+    """
+    timed = [name for name, _label in _TIMED]
+    assert set(timed) == set(_IDS) - {"_PREGAP_SOURCE"}
+    assert len(timed) == len(set(timed)) >= 20
+
+
 @pytest.mark.parametrize(
-    ("name", "label"),
-    [(name, label) for name, _old, label in _REWRITES if name != "_PREGAP_SOURCE"],
-    ids=[name for name in _IDS if name != "_PREGAP_SOURCE"],
+    ("name", "label"), _TIMED, ids=[name for name, _label in _TIMED]
 )
 def test_each_rewrite_is_fast_on_a_long_blank_run(name: str, label: str) -> None:
     """Each pattern, by name, on the line that shows the lazy form quadratic.
