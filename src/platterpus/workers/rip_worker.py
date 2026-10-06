@@ -70,6 +70,7 @@ from platterpus.rip_addendum import (
 )
 from platterpus.rip_estimate import ReadRate
 from platterpus.rip_plan import describe_rip_plan
+from platterpus.ripper_ending import RipperEnding, read_ending
 from platterpus.ripper_log_settle import (
     NOT_SETTLED,
     LogSettle,
@@ -1016,6 +1017,10 @@ class RipWorker(QObject):
         # stays there, in the rips root; the report bundle collects it by name
         # (`diagnostics_record` says why it is not moved).
         self._diagnostics_records: list[Path] = []
+        # The last album pass's record, and what it says about how that pass
+        # ended (`ripper_ending`, W6). None until read, at the end of the rip.
+        self._album_record: Path | None = None
+        self._ripper_ending: RipperEnding | None = None
         # Set true if the ripper aborts for lack of online metadata, so the GUI
         # can heal by retrying as an unknown-album rip. An inert pre-cyanrip seam:
         # cyanrip runs with -N and is fed the GUI's tags, so it never hits this.
@@ -1924,6 +1929,7 @@ class RipWorker(QObject):
             )
             if outcome is None:
                 # A hard start/stream error already emitted `error`; stop here.
+                self._ripper_ending = read_ending(self._album_record)
                 self.finished.emit(False, "")
                 return
             success, log_path_str = outcome
@@ -2091,6 +2097,11 @@ class RipWorker(QObject):
         # reader would leave the other one reading a half-written file.
         settle = self._await_ripper_log(log_path_str)
         self._verify_ripper_log(log_path_str, writer_finished=settle.is_settled)
+        # cyanrip's own record of how the album pass ended (W6), read HERE, on the
+        # worker thread and after the log wait, the last moment before `finished`.
+        # On a cancel the in-container ripper may write it later still; then it
+        # reads "absent", which is "not determined", never "not interrupted".
+        self._ripper_ending = read_ending(self._album_record)
 
         if success:
             # Peg both bars at 100% so a finished rip never leaves the
@@ -2322,6 +2333,10 @@ class RipWorker(QObject):
             record = diagnostics_record.record_path_from_argv(
                 self._ripper_argv, out_dir
             )
+            if incremental:
+                # The LAST album pass's record is the one whose ending the rip's
+                # status describes (W6); None when its argv named no record.
+                self._album_record = record
             if (
                 incremental
                 and record is not None
@@ -3587,6 +3602,15 @@ class RipWorker(QObject):
         negative value is a signal number (``-9`` = we SIGKILLed the group).
         """
         return self._ripper_exit_code
+
+    @property
+    def ripper_ending(self) -> RipperEnding | None:
+        """cyanrip's own record of how the album pass ended, or ``None`` if unread.
+
+        Tri-state inside: an absent or unreadable record reads "not determined"
+        for every field (`ripper_ending`). Read on this thread before `finished`.
+        """
+        return self._ripper_ending
 
     @property
     def securing_pass_started(self) -> bool:

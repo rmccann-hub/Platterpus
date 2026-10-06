@@ -1364,6 +1364,70 @@ def test_only_the_album_passs_record_is_named_and_nothing_is_moved(
     )
 
 
+_FORK_RECORDS: Path = (
+    Path(__file__).resolve().parents[1] / "docs/handshake/inbound/artifacts"
+)
+_FORK_GOLDEN_RECORD = (
+    _FORK_RECORDS / "round-12-lap-03-golden-reference-diagnostics-g6a23662.json"
+)
+_FORK_INTERRUPTED_RECORD = (
+    _FORK_RECORDS / "round-12-lap-03-sample-interrupted-diagnostics-g6a23662.json"
+)
+
+
+def test_the_worker_reads_how_the_album_pass_ended_from_its_own_record(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """W6: the `-j` record reached the bundle and nothing read it. The worker now
+    reads the LAST ALBUM pass's record, not the securing pass's, whose record is
+    in a temp folder deleted with it. The album pass's record here is the fork's
+    own SIGTERM'd sample and the securing pass's says it finished, so reading the
+    wrong one cannot pass."""
+    from platterpus.ripper_ending import STATE_READ, RipperEnding
+
+    handle = _ArgvHandle(lines=["ripping"], exit_code=0)
+    backend = _FakeBackend(handle=handle)
+    write_logs = _fake_rip_writer(_PASS1_UNSTABLE, _rerip_ok_log(), True)
+    names: list[str] = []
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        name = f"cyanrip-diagnostics-2026100600000{len(names)}Z.json"
+        handle.argv = ("cyanrip", "-N", "-j", name)
+        record = _FORK_GOLDEN_RECORD if names else _FORK_INTERRUPTED_RECORD
+        names.append(name)
+        (call["output_dir"] / name).write_text(record.read_text(encoding="utf-8"))
+
+    backend.rip_side_effect = rip_side_effect
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    worker.start_rip()
+
+    assert len(names) == 2  # floor: the securing pass wrote a record of its own
+    assert worker.ripper_ending == RipperEnding(
+        STATE_READ, exit_code=1, interrupted=True, interrupted_by="SIGTERM"
+    )
+
+
+def test_a_rip_that_named_no_record_reads_as_not_requested(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Tri-state: no `-j` in the argv is "not requested", never "not interrupted"."""
+    from platterpus.ripper_ending import STATE_NOT_REQUESTED
+
+    worker = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0)),
+        _params(tmp_path),
+    )
+    worker.start_rip()
+
+    assert worker.ripper_ending is not None
+    assert worker.ripper_ending.state == STATE_NOT_REQUESTED
+    assert worker.ripper_ending.interrupted is None
+
+
 def _rerip_ok_log(*, ar_v1: str = "AAAA0001", ar_v2: str = "BBBB0002") -> str:
     """A re-rip log for track 3 that CONVERGED, with its own AccurateRip results.
 

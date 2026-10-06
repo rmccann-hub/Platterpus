@@ -14,6 +14,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **The status line and the rip report say how cyanrip itself says the rip
+  ended.** cyanrip writes its own record of every run, and Platterpus collected
+  it for the report bundle without reading it. It now reads the exit code and
+  whether the rip was interrupted, and by what, from that record. A failed or
+  cancelled rip's status line says what it records (for example "interrupted by
+  SIGTERM (exit 1)"), and the report keeps it as `outcome.ripper_record`
+  (report schema 32). When the record is missing or cannot be read, both say
+  "not determined" rather than guessing. Where the record and Platterpus's own
+  reading disagree, for example a rip Platterpus thinks finished that cyanrip
+  records as interrupted, both answers are shown, marked ⚠, and the report adds
+  a `ripper_record_disagrees` warning.
 - **Error messages from cyanrip `+platterpus.20` are recognised before it ships.**
   The list of cyanrip's fatal messages that Platterpus turns into a readable reason
   (instead of a bare "Rip failed.") now includes the four new `-Z` spool errors

@@ -66,7 +66,7 @@ artifact?* was the question to ask before answering, not after.
 |---|---|---|---|---|---|
 | A1 | Eight parser patterns go quadratic on a long line | The parser grades every rip, and a line may reach 65,536 characters: tens of seconds a line | Rewrite as `\S(?:.*\S)?` with an equivalence property test; give the regex sweep inputs past a literal prefix; regenerate the consumer contract; a DID in our next lap | 2–3 h | *Found while integrating* (4) |
 | A2 | **Done 2026-10-06.** No securing pass after a finished pass the drive could not read cleanly | The tracks AccurateRip did not confirm are not re-read when the ladder ends on such a pass, or in fixed mode | The maintainer's decision (C1); then keep the album pass's exit code apart from the securing pass's, and key the pass on `ladder_trigger.why_pass_incomplete` (the pass finished) instead of exit 0 | 4–6 h after C1 | *Should the securing pass run after a finished pass…* |
-| A3 | W6: the `-j` record's `interrupted`, `interrupted_by` and `exit_code` are unread | The 2026-10-04 runs showed our status line inferring a cancel the ripper had recorded | Read them into the status line and the report, tri-state | 3–4 h | *W6, ours to close* |
+| A3 | **Done 2026-10-06.** W6: the `-j` record's `interrupted`, `interrupted_by` and `exit_code` are unread | The 2026-10-04 runs showed our status line inferring a cancel the ripper had recorded | Read them into the status line and the report, tri-state | 3–4 h | *W6, ours to close* |
 | A4 | The hardware-only checks have no drive run of their own | The closing Full run is the only drive run before round 30 closes | Steps in the closing run's script for each; no extra rig time | 3 h | *Fold the hardware-only checks into the closing run* (new) |
 | A5 | The cut | O3: our beta follows `.20` on their beta | `PIN_UNDER_REVIEW` to `.20`, `__version__` 0.6.66b1, CHANGELOG, a lap and the status block; dispatched only on the maintainer's word, since a round is open | 2 h, after `.20` | Lap 10 S35; *The beta path exists* |
 
@@ -905,9 +905,23 @@ Open:
     of our wants, their decline of G2, their X1 to X5 and Y1 to Y3). They are in §10,
     and our lap 10 S28 records them and rates their wants, since we are the giver. W6
     stays open as its own row below.
-- [ ] **W6, ours to close: read the `-j` record's `interrupted` / `interrupted_by` /
+- [x] **W6, ours to close: read the `-j` record's `interrupted` / `interrupted_by` /
   `exit_code`** for the status line and the report. The records reach the bundle since
   `a7a631b9`; the app does not read them yet.
+  - *Done 2026-10-06, in the commit that adds this note (a commit cannot name its own
+    sha):* `ripper_ending.py` reads the three fields as the fork's provider contract
+    publishes them (`docs/handshake/inbound/artifacts/round-30-lap-09-provider-contract-
+    gce2e5a6.md`, P8b lines 1064, 1088, 1089; P8c 1141-1143; P8a's prefix rule
+    1027-1037), tri-state: absent, unreadable or unrecognised records, null fields and
+    wrong types are all "not determined". The worker reads the LAST ALBUM pass's
+    record on its own thread after the log wait; the report carries it as
+    `outcome.ripper_record` (schema v32) with every disagreement with our own reading
+    (finished vs interrupted, cancelled vs ran to the end unless a securing pass ran,
+    and the reaped exit vs the record's except on a cancel), raised as the
+    `ripper_record_disagrees` warning and said on the status line, marked ⚠. 11
+    reverts probed, all detected. Not done: the securing pass's own record (written
+    into its temp folder, deleted with it), and a record cyanrip writes after our read
+    on a cancel reads "absent". Not on hardware.
 - [x] **Ask the maintainer: should paranoia skips step the read speed down?** From `.20`
   a skipped-on track reads `with errors`. `4790a16a` keeps the ladder keyed on what it
   was keyed on under `.19` (drive-failed reads only), because a ripper upgrade must not
