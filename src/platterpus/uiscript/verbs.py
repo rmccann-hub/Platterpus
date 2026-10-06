@@ -603,6 +603,24 @@ _VERB_LIST: tuple[Verb, ...] = (
         "(a well-formed release MBID is held), not merely that the track table "
         "has rows, which placeholder rows also satisfy",
     ),
+    # The UNKNOWN-DISC path (C4 (b), KDD-41): the mirror of `expect-identified`,
+    # and the rip's own record of the path, for `unknowndiscacceptance.txt`
+    # (`unknown_disc_verbs.py`). The full script stops before this path on purpose.
+    Verb(
+        "expect-unidentified",
+        0,
+        0,
+        "expect-unidentified — assert the disc was NOT identified and will rip as "
+        "an unknown album: no release id, placeholder rows loaded, the 'Rip as "
+        "unknown album' confirmation accepted, Picard not set to launch",
+    ),
+    Verb(
+        "expect-unknown-record",
+        0,
+        0,
+        "expect-unknown-record — the last rip's report records an unknown-album "
+        "rip with no release id and no failed tagging pass (waits for it to settle)",
+    ),
     Verb(
         # `expect-refused` — the ONLY way a script can assert that validation
         # WORKED. `set` reports FAIL when the pure validator refuses a value, and
@@ -655,6 +673,20 @@ _VERB_LIST: tuple[Verb, ...] = (
         0,
         "expect-drive-offset — assert the read offset is still the one "
         "set-drive-offset set, with the override on",
+    ),
+    # The offset-override-OFF path (C4, KDD-41): a drive the AccurateRip list
+    # does not carry must be refused at Start. On a listed drive the app would
+    # apply the list's offset and rip instead, so the step records `unreachable`
+    # there and changes nothing (`offset_verbs.py`).
+    Verb(
+        "expect-offset-refusal",
+        0,
+        0,
+        "expect-offset-refusal — turn the read-offset override off and press "
+        "Start: a drive the AccurateRip list does not carry must be refused "
+        "('Set up your drive first') with no rip; the wizard is declined and the "
+        "override put back. On a listed drive the app would apply the list's "
+        "offset and rip, so the step records unreachable and changes nothing",
     ),
     Verb(
         # `expect-ripper-under-review` — the acceptance run's own subject, named
@@ -723,6 +755,37 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-tracks <count|count+> — assert how many track rows are loaded; "
         "a trailing '+' means 'at least this many', which is what a script that "
         "must work on any disc actually wants",
+    ),
+    # --- What this launch logged (`applog_verbs.py`, 2026-10-06) --------------
+    # For TASKS rows only a drive run settles (TASKS "Fold the hardware-only
+    # checks into the closing run"): both gather, as INFO, and never fail a run.
+    Verb(
+        "app-log",
+        1,
+        None,
+        "app-log <text> — record every line this launch's log holds containing "
+        "<text> (case-insensitive), as info; never fails, and says how much of the "
+        "launch the log kept",
+    ),
+    Verb(
+        "sigterm-world",
+        0,
+        0,
+        "sigterm-world — after a cancel-rip: record whether the cancel's own "
+        "SIGTERM reached the ripper in the container, from the post-cancel "
+        "rescue's outcome in this launch's log and the cancelled rip's log footer "
+        "(info; never fails)",
+    ),
+    # The run's own estimate (D6, `estimate_verbs.py`): said when a run starts
+    # and logged; this verb says it again once the disc's track lengths are known.
+    Verb(
+        "run-estimate",
+        0,
+        0,
+        "run-estimate — record how long the rest of this run should take: each rip "
+        "from this drive's measured speed and the disc's track lengths, the other "
+        "steps as measured on a filed Full run; anything unknown is named, never "
+        "counted as zero (info)",
     ),
     # --- Tiers and dependency pruning (round 18's procedure, scaffolding only) --
     #

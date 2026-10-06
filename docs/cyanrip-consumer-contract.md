@@ -53,20 +53,20 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | name | scope | pattern |
 |---|---|---|
 | `version_banner` | disc | `^cyanrip\\s+(?P<version>\\S+)(?:\\s+\\((?P<build>[^)]*)\\))?` |
-| `invoked_as` **(fork-only)** | disc | `^Invoked as:\\s+(?P<argv>\\S.{0,4000}?)\\s*$` |
-| `drive` | disc | `^(?:Drive used\|Device model):\\s+(?P<drive>.+?)\\s*$` |
+| `invoked_as` **(fork-only)** | disc | `^Invoked as:\\s+(?P<argv>\\S(?:.{0,3999}\\S)?)\\s*$` |
+| `drive` | disc | `^(?:Drive used\|Device model):\\s+(?P<drive>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `read_offset` | disc | `^Offset:\\s+(?P<sign>[+-])(?P<value>\\d+)\\s+samples` |
-| `overread_mode` | disc | `^(?:Over\|Under)read mode:\\s+(?P<mode>.+?)\\s*$` |
-| `album` | disc | `^Album:\\s+(?P<value>.+?)\\s*$` |
-| `album_artist` | disc | `^Album artist:\\s+(?P<value>.+?)\\s*$` |
-| `c2_errors` | disc | `^C2 errors:\\s+(?P<text>.+?)\\s*$` |
-| `paranoia_level` | disc | `^Paranoia level:\\s+(?P<text>.+?)\\s*$` |
-| `outputs` | disc | `^Outputs:\\s+(?P<value>.+?)\\s*$` |
-| `tracks_to_rip` | disc | `^Tracks to rip:\\s+(?P<value>\\S.*?)\\s*$` |
+| `overread_mode` | disc | `^(?:Over\|Under)read mode:\\s+(?P<mode>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `album` | disc | `^Album:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `album_artist` | disc | `^Album artist:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `c2_errors` | disc | `^C2 errors:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `paranoia_level` | disc | `^Paranoia level:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `outputs` | disc | `^Outputs:\\s+(?P<value>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
+| `tracks_to_rip` | disc | `^Tracks to rip:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `disc_id` | disc | `^DiscID:\\s+(?P<value>\\S+)` |
 | `cddb_id` | disc | `^CDDB ID:\\s+(?P<value>\\S+)` |
 | `release_id` | disc | `^Release ID:\\s+(?P<value>\\S+)` |
-| `speed_capability` | disc | `^Speed:\\s+(?P<text>.+?)\\s*$` |
+| `speed_capability` | disc | `^Speed:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `total_time` | disc | `^Total time:\\s+(?P<time>\\d{1,3}:\\d{2}(?::\\d{2})?(?:\\.\\d{1,3})?)\\s*$` |
 | `log_signature` | disc | `^Log FUN512:\\s+(?P<sig>\\S+)` |
 | `handshake_note` **(fork-only)** | disc | `^Handshake:\\s+(?P<note>\\S.*)$` |
@@ -78,11 +78,11 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^(?:Tracks ripped partially accurately\|Tracks matched on one frame only):\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)(?:\\s{1,4}\\(including\\s{1,4}(?P<skips>\\d{1,20})\\s{1,4}paranoia\\s{1,4}skips?\\))?` |
-| `encoder_errors` **(fork-only)** | disc | `^Encoder errors:\\s+(?P<value>\\S.*?)\\s*$` |
-| `interrupted_at` **(fork-only)** | disc | `^Interrupted at:\\s+(?P<where>\\S.*?)\\s*$` |
+| `encoder_errors` **(fork-only)** | disc | `^Encoder errors:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
+| `interrupted_at` **(fork-only)** | disc | `^Interrupted at:\\s+(?P<where>\\S(?:.*\\S)?)\\s*$` |
 | `rip_completed` **(fork-only)** | disc | `^Rip completed:\\s+(?P<verdict>yes\|no)(?:\\s+\\((?:(?P<reason>[^,)]{1,64}),\\s*)?(?P<done>\\d{1,4})\\s+of\\s+(?P<total>\\d{1,4})\\s+tracks?\\))?` |
-| `read_stalls` **(fork-only)** | disc | `^Read stalls:\\s+(?P<value>\\S.*?)\\s*$` |
-| `finished_at` | disc | `^Ripping finished at\\s+(?P<when>.+?)\\s*$` |
+| `read_stalls` **(fork-only)** | disc | `^Read stalls:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
+| `finished_at` | disc | `^Ripping finished at\\s+(?P<when>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `gaps_section` | section header | `^Gaps:\\s*$` |
 | `paranoia_counts_section` | section header | `^Paranoia status counts:\\s*$` |
 | `album_loudness_section` | section header | `^Album Loudness\\b` |
@@ -90,21 +90,21 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `secure_rerip_converged` **(fork-only)** | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\((?:no matches found\|repeat limit)\\b` |
 | `secure_rerip_progress` | section header | `^\\s*Repeating ripping\\s+\\((?P<matches>\\d{1,6})\\s+out of\\s+(?P<target>\\d{1,6})\\s+matches\\b` |
-| `gaps_value` | indented | `^\\s+(?P<value>\\S.*?)\\s*$` |
+| `gaps_value` | indented | `^\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `track_paranoia_counts_section` | indented | `^\\s+Paranoia status counts:\\s*$` |
-| `track_paranoia_scope` **(fork-only)** | indented | `^\\s+Scope:\\s+(?P<text>\\S.*?)\\s*$` |
+| `track_paranoia_scope` **(fork-only)** | indented | `^\\s+Scope:\\s+(?P<text>\\S(?:.*\\S)?)\\s*$` |
 | `paranoia_count` | indented | `^\\s+(?P<key>[A-Z][A-Z_]*):\\s+(?P<count>\\d+)\\s*$` |
 | `loudness_integrated` | indented | `^\\s+I:\\s+(?P<v>-?\\d+(?:\\.\\d+)?)\\s+LUFS` |
 | `loudness_range` | indented | `^\\s+LRA:\\s+(?P<v>-?\\d+(?:\\.\\d+)?)\\s+LU` |
 | `loudness_true_peak` | indented | `^\\s+Peak:\\s+(?P<v>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s+dBFS` |
 | `track_files_header` | indented | `^\\s+File\\(s\\):\\s*$` |
-| `track_replaygain` | indented | `^\\s+(?P<key>REPLAYGAIN_[A-Z_]+\|R128_TRACK_GAIN):\\s+(?P<val>.+?)\\s*$` |
+| `track_replaygain` | indented | `^\\s+(?P<key>REPLAYGAIN_[A-Z_]+\|R128_TRACK_GAIN):\\s+(?P<val>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `track_start_lsn` | indented | `^\\s+Start LSN:\\s+(?P<value>\\d+)` |
 | `track_end_lsn` | indented | `^\\s+End LSN:\\s+(?P<value>\\d+)` |
 | `track_pregap_lsn` | indented | `^\\s{1,8}Pregap LSN:\\s+(?P<value>\\d{1,9}\|none\|unknown)(?:\\s+\\((?P<reason>[^)]{0,64})\\))?` |
 | `track_pregap_length` **(fork-only)** | indented | `^\\s{1,8}Pregap length:\\s+(?P<frames>\\d{1,9})\\s+frames?\\b` |
-| `track_pregap_source` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+(?P<source>\\S.{0,63}?)\\s*$` |
-| `track_preemphasis` | indented | `^\\s+Preemphasis:\\s+(?P<text>.+?)\\s*$` |
+| `track_pregap_source` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+(?P<source>\\S(?:.{0,62}\\S)?)\\s*$` |
+| `track_preemphasis` | indented | `^\\s+Preemphasis:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `track_eac_crc` | indented | `^\\s+EAC CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\(after\\s+(?P<rips>\\d+)\\s+rips?\\))?` |
 | `track_accurip` | indented | `^\\s+Accurip v(?P<version>[12]):\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\((?P<result>[^)]*)\\))?` |
 | `track_accurip_offset` | indented | `^\\s+Accurip 450:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\((?P<result>[^)]*)\\))?` |
@@ -113,8 +113,8 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_sample_peak` **(fork-only)** | indented | `^\\s+(?:Sample peak level\|Sample peak\|Peak level):\\s+(?P<value>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s*(?P<unit>dBFS\|%)` |
 | `track_extraction_speed` **(fork-only)** | indented | `^\\s+(?:Extraction speed\|Rip speed\|Read speed\|Speed):\\s+(?P<value>\\d{1,6}(?:\\.\\d{1,3})?)\\s?[xX]\\b` |
 | `track_elapsed_seconds` **(fork-only)** | indented | `^\\s+(?:Elapsed(?: time)?\|Rip time\|Extraction time\|Time taken):\\s+(?P<s>\\d{1,7}(?:\\.\\d{1,6})?)\\s*(?:s\|sec\|secs\|seconds)\\b` |
-| `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S.*?)\\s*$` |
-| `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S.*?)\\s*$` |
+| `track_secure_verdict` **(fork-only)** | indented | `^\\s+Secure re-?read(?:s)?:\\s+(?P<text>\\S(?:.*\\S)?)\\s*$` |
+| `track_accurip_status` **(fork-only)** | indented | `^\\s+Accurip:\\s+(?P<status>\\S(?:.*\\S)?)\\s*$` |
 
 Of these, **21 exist only in the fork** and match nothing in
 stock cyanrip 0.9.3. They are the fork's specific obligation:

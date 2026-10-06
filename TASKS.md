@@ -64,10 +64,10 @@ artifact?* was the question to ask before answering, not after.
 
 | # | What | Why it matters for the beta | Fix | Time | Row |
 |---|---|---|---|---|---|
-| A1 | Eight parser patterns go quadratic on a long line | The parser grades every rip, and a line may reach 65,536 characters: tens of seconds a line | Rewrite as `\S(?:.*\S)?` with an equivalence property test; give the regex sweep inputs past a literal prefix; regenerate the consumer contract; a DID in our next lap | 2–3 h | *Found while integrating* (4) |
-| A2 | No securing pass after a finished pass the drive could not read cleanly | The tracks AccurateRip did not confirm are not re-read when the ladder ends on such a pass, or in fixed mode | The maintainer's decision (C1); then keep the album pass's exit code apart from the securing pass's, and key the pass on `ladder_trigger.why_pass_incomplete` (the pass finished) instead of exit 0 | 4–6 h after C1 | *Should the securing pass run after a finished pass…* |
-| A3 | W6: the `-j` record's `interrupted`, `interrupted_by` and `exit_code` are unread | The 2026-10-04 runs showed our status line inferring a cancel the ripper had recorded | Read them into the status line and the report, tri-state | 3–4 h | *W6, ours to close* |
-| A4 | The hardware-only checks have no drive run of their own | The closing Full run is the only drive run before round 30 closes | Steps in the closing run's script for each; no extra rig time | 3 h | *Fold the hardware-only checks into the closing run* (new) |
+| A1 | **Done 2026-10-06** (`5b32edfd`, `a408ca79`). Eight parser patterns go quadratic on a long line | The parser grades every rip, and a line may reach 65,536 characters: tens of seconds a line | Rewrite as `\S(?:.*\S)?` with an equivalence property test; give the regex sweep inputs past a literal prefix; regenerate the consumer contract; a DID in our next lap | 2–3 h | *Found while integrating* (4) |
+| A2 | **Done 2026-10-06.** No securing pass after a finished pass the drive could not read cleanly | The tracks AccurateRip did not confirm are not re-read when the ladder ends on such a pass, or in fixed mode | The maintainer's decision (C1); then keep the album pass's exit code apart from the securing pass's, and key the pass on `ladder_trigger.why_pass_incomplete` (the pass finished) instead of exit 0 | 4–6 h after C1 | *Should the securing pass run after a finished pass…* |
+| A3 | **Done 2026-10-06.** W6: the `-j` record's `interrupted`, `interrupted_by` and `exit_code` are unread | The 2026-10-04 runs showed our status line inferring a cancel the ripper had recorded | Read them into the status line and the report, tri-state | 3–4 h | *W6, ours to close* |
+| A4 | **Done 2026-10-06** (`cec0a55b`; two checks stay by-hand, on their rows). The hardware-only checks have no drive run of their own | The closing Full run is the only drive run before round 30 closes | Steps in the closing run's script for each; no extra rig time | 3 h | *Fold the hardware-only checks into the closing run* (new) |
 | A5 | The cut | O3: our beta follows `.20` on their beta | `PIN_UNDER_REVIEW` to `.20`, `__version__` 0.6.66b1, CHANGELOG, a lap and the status block; dispatched only on the maintainer's word, since a round is open | 2 h, after `.20` | Lap 10 S35; *The beta path exists* |
 
 ### B. To send the cyanrip fork, in our next lap
@@ -78,17 +78,22 @@ artifact?* was the question to ask before answering, not after.
 | B2 | Round 31: the disc-level "No errors occurred", and the report's `issues` code, for a track with unverified skips | Proposed in our lap 8; the EAC-layout half shipped in `1e118482` | 2 h, plus the lap | *The EAC-layout log and the report for a track with unverified skips* |
 | B3 | Round 31: ReplayGain on a derived MP3 describes the FLAC | Our lap 6 S15. Recommended: re-measure on the MP3 | 3–5 h | *A derived MP3 carries the FLAC's `REPLAYGAIN_*` tags* |
 | B4 | Their lap checker's no-final-newline fix | Accepted in their lap 1 S20, theirs to land; ask where it stands | One line | *Both lap checkers cannot cite the last line of a file with no final newline* |
-| B5 | A1's rewrite regenerates our consumer contract | The patterns are published, so the change is declared | With A1 | *Found while integrating* (4) |
-| B6 | `_strip_fences` misses unterminated and indented fences (D3 below) | The row says the shape is portable: tell the fork | With D3 | *C6.* |
+| B5 | **Regenerated 2026-10-06** (`5b32edfd`); the declaration is owed in our next lap. A1's rewrite regenerates our consumer contract | The patterns are published, so the change is declared | With A1 | *Found while integrating* (4) |
+| B6 | **Fixed here 2026-10-06** (`43a7d76d`); the question is owed in our next lap. `_strip_fences` misses unterminated and indented fences (D3 below) | The row says the shape is portable: tell the fork | With D3 | *C6.* |
+| B7 | Agent B's report changes, before 0.6.66: `outcome.ripper_exit_code` is now the album pass's (it was the last pass's); new `securing_pass_started`, `securing_pass_exit_code`, `skipped_reason` value `album_pass_unfinished`, the `outcome.ripper_record` block and the `ripper_record_disagrees` issue; bundle fact `album pass exit ok` and a new `securing pass exit`; `REPORT_SCHEMA_VERSION` 30 → 32 | A field a reader of our report keys on changed meaning; said before the beta that carries it | In the lap | `bc3b1c6f`, `816664a3` |
+| B8 | Two regex shapes, under the *could in any possible way* bar: a lazy capture before trailing blanks (`\S.*?\s*$`, `.+?\s*$`) is quadratic in a blank run, and so are adjacent repeats over the same characters (`0*\d+`, `\s*` then an optional group then `\s*`) | Their tooling reads text of the same kind; a NEXT-ROUND item with our citations | In the lap | `5b32edfd`, `a408ca79` |
+| B9 | Propose the shared protocol say what a fence is (§2 rule 2), and note both digest implementations toggle on any fence line, so a ``` line inside a ~~~ block mis-pairs; aligning the digest is a joint change | Our fence reader moved to CommonMark (D3) and theirs is unread by us; ask, do not assert | In the lap | `43a7d76d` |
 
-**Waiting on the fork, already asked in our lap 10:** their lap 11 (S30, S32, the
-pre-commit R6 asks for, S16's `seam-commands.md` text landed) and `+platterpus.20` on
-their beta.
+**Waiting on the fork, asked in our lap 12 (on `main` at `e174f5fc`):** their lap 13,
+their reading of lap 12, and `+platterpus.20` cut on beta with its commit (their S20).
+Their lap 11 arrived and was answered (2026-10-06). B7 to B9 and the open B rows go in
+our lap 14, before the 0.6.66 cut.
 
 ### C. The maintainer's decisions (each unblocks a row)
 
 **Ruled 2026-10-05: every recommendation below, as written** (*"Do all recommendations"*;
-`PLANNING.md` KDD-41). C2 and C3 close as "no change"; the others are in progress.
+`PLANNING.md` KDD-41). C2 and C3 close as "no change". Done 2026-10-06: C1 (A2),
+C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #288).
 
 | # | Question | Recommended | Then | Row |
 |---|---|---|---|---|
@@ -105,12 +110,12 @@ their beta.
 
 | # | What | Time | Row |
 |---|---|---|---|
-| D1 | `ruff` over `scripts/` and `build/` in CI and `scripts/check.py` (clean on 2026-10-05); a CI change, so after C8 | 20 min | *Found while integrating* (5) |
+| D1 | **Done 2026-10-05** (PR #288). `ruff` over `scripts/` and `build/` in CI and `scripts/check.py` (clean on 2026-10-05); a CI change, so after C8 | 20 min | *Found while integrating* (5) |
 | D2 | Retire the two smallest `disallow_any_generics` opt-outs: `workers.rip_worker` (5), `ui.main_window` (6) | Under 1 h each | *Retire the two smallest…* (new) |
-| D3 | `_strip_fences` misses unterminated and indented fences; C46 counts through it | 1 h | *C6.* |
-| D4 | A message box shown a second time is not refitted | 2 h | *A message box shown a second time is not fitted again* |
+| D3 | **Done 2026-10-06** (`43a7d76d`). `_strip_fences` misses unterminated and indented fences; C46 counts through it | 1 h | *C6.* |
+| D4 | **Done 2026-10-06** (`6c42338c`). A message box shown a second time is not refitted | 2 h | *A message box shown a second time is not fitted again* |
 | D5 | The conformance matrix is built once per xdist worker: `xdist_group` and `--dist loadgroup`; changes how CI distributes the suite, so after C8 | 1–2 h | *The conformance matrix is built once per xdist worker* |
-| D6 | The acceptance run's overall estimate (small rather than quick) | 3 h | *The acceptance run's overall estimate* |
+| D6 | **Done 2026-10-06** (`e2c021ed`). The acceptance run's overall estimate (small rather than quick) | 3 h | *The acceptance run's overall estimate* |
 
 ### E. Hard, after the beta
 
@@ -126,7 +131,7 @@ their beta.
 
 - [x] **CI scans the full history for secrets on every run** (C8; `SECURITY.md`, *Secret
   scanning*). Amendment A12, approved 2026-09-28 and held under C3 (`PLANNING.md` KDD-39,
-  KDD-40); **C3 lifted for it 2026-10-05** (KDD-41). In progress. `gitleaks/gitleaks-action` scans a range it builds itself with
+  KDD-40); **C3 lifted for it 2026-10-05** (KDD-41). `gitleaks/gitleaks-action` scans a range it builds itself with
   `--no-merges --first-parent`, so a session-branch PR merged with a merge commit gives
   `main`'s push run *"0 commits scanned"*, and no run reads a merge commit's own change.
   Until it is applied, the scan is by hand (gitleaks 8.24.3,
@@ -142,7 +147,7 @@ their beta.
     passed the relative floor alone. `tests/test_workflow_permissions.py` holds the shape;
     four reverts probed, all detected. The BOM generator now reads the pinned version
     (it had dropped gitleaks from the map when the action went).
-- [ ] **Fold the hardware-only checks into the closing run** (A4). Each needs a drive and
+- [x] **Fold the hardware-only checks into the closing run** (A4). Each needs a drive and
   the closing Full run is the next drive run, so each becomes a step there instead of a
   separate run: the S25 footer inside the grace on the container path (*S25 on
   hardware*), screenshots recording INFO where they failed (*Three screenshot steps
@@ -151,6 +156,21 @@ their beta.
   forwards the wrapper's SIGTERM*), and the 150 % text windows on KWin (*Confirm on the
   rig what headless cannot show*). Each step names its row, so the bundle closes rows
   rather than a person.
+  - *2026-10-06: DONE in script lines, four of five; the fifth cannot be a step.
+    Done in cec0a55b.*
+    Each step sits beside a `log A4 (TASKS "<row>")` line naming its row, and
+    `tests/test_uiscript_applog_verbs.py` holds each in place. (1) *S25*: section I's
+    `expect-log-well-formed` and `expect-album-audit ripper_log_integrity` (cyanrip
+    `-Y`) already grade a cancelled rip's log on the container path, and the rescue
+    and the window-close stop signal through one call with one grace; the close
+    trigger itself is not scriptable (its row says why). (2) *Screenshots*: already
+    covered; the five post-rip screenshots (F, H, J, K3, N) now name the row.
+    (3) *Cold container*: section A's new `app-log for the first container command`
+    copies this launch's lines into the transcript. (4) *SIGTERM world*: section I's
+    new `sigterm-world`, read from the rescue's outcome in the log and the kept
+    log's footer; the filed 2026-10-05 run already reads ONE SIGNAL by it.
+    (5) *150 % on KWin*: not a step; its row says why. Both new verbs gather (info)
+    and never fail a run.
 - [ ] **Retire the two smallest `disallow_any_generics` opt-outs** (D2; rule 10: one per
   commit, never add one). `pyproject.toml` lists six modules: `rip_report` 67 sites,
   `rip_compare` 18, `adapters.musicbrainz_client` 10, `ui.main_window_shared` 9,
@@ -190,19 +210,74 @@ at 100 % and 150 % text, and the screenshots were looked at.
   Wayland, where a client cannot place its own window. At 150 % text, open Help →
   Check for cyanrip updates and the test console's script reference, and confirm
   the buttons are on screen.
-- [~] **A window exactly as wide as the screen has its frame's side border off
+  - *2026-10-06 (A4, cec0a55b): not a step, and why.* The text scale is a desktop setting a
+    script can neither set nor put the run into, so a run cannot place itself at
+    150 %. The two windows the row names are outside the script surface: *Check for
+    cyanrip updates* reads the fork's manifest and can offer an install, which no
+    verb may answer, and the script reference belongs to the console that runs the
+    script. And on native Wayland the compositor places windows, which the app
+    cannot read back to grade. It stays a by-hand check at 150 % on the rig.
+- [x] **A window exactly as wide as the screen has its frame's side border off
   it** (the release picker on a 1280 × 800 panel at 150 %; a message box carrying
   a long path on a screen up to 1024 px wide). No content is lost, only the border
   and part of the layout margin. `fit_dialog_to_screen` keeps a chosen width up
   to the full screen on purpose, so whether to leave a side margin is the
   maintainer's call, not a fix taken here.
-  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** a small side margin. In progress.
-- [~] **The track table is not measured with a disc loaded.** The matrix's main
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** a small side margin.
+  - *Done 2026-10-05 in `92ef2fee` (ruled yes, KDD-41):* one constant,
+    `fit_scroll_area.SIDE_MARGIN_PX` = 16, used by `fit_dialog_to_screen`,
+    `fit_message_box`, `fit_plain_dialog` and the placement clamp
+    (`centering._clamp_to`, which keeps up to that margin when a window opens
+    over an anchor near the edge, because the frame is usually unknown when a
+    window is placed). Why 16 is in its comment. The message box case was not
+    the path in its text (Qt wraps a path at its slashes) but its TITLE: Qt
+    widens a box to its title plus 50 px, up to the whole screen on one up to
+    1024 px, and applies that on the box's own Show, after our fit, so no size we
+    set survives it. The fit shortens such a title in the middle instead (the
+    window manager would cut it in a narrower box anyway), keeps the whole title
+    as the accessible name, and restores it before a later fit. The matrix's
+    `window_on_screen` now checks the FRAME against both side edges and fails a
+    window wider than the screen less the two margins; it no longer tolerates
+    the border. Revert-probed with the full matrix: the fit's full-width cap and
+    the title never shortened each turn `window_on_screen` red.
+- [x] **The track table is not measured with a disc loaded.** The matrix's main
   window has no disc, so `cut_off_cells` examines none of its cells; a disc with
   long track titles is the next population to add. Not done here because the
   track table's column widths are a deliberate design (measured once per disc,
   2026-08-05) and the rule's verdict on it needs the maintainer's view first.
-  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** with a long-title disc. In progress.
+  - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes,** with a long-title disc.
+  - *Done 2026-10-05 in `5fc9c3ac` (ruled yes, KDD-41):* two populations,
+    `MainWindow[disc: long titles]` (Sufjan Stevens, *Illinois*: a 288-character
+    title) and `MainWindow[disc: long artist credits]` (a classical compilation's
+    composer-and-performer credits), loaded through `set_release` into a window
+    already shown, with two statuses on screen. **The rule and the design
+    disagreed, and the design's intent was kept.** Measured in five conditions,
+    each cut long titles short and, at 150 % text or on narrow screens, long credits
+    too: rows are one line and the widths do not move, so a title longer than
+    the window is elided, and Artist's cap ("so a compilation with long artist
+    credits cannot squeeze Title out") elides a credit longer than its share.
+    The rule now allows exactly those two cuts — Artist while it is at its cap,
+    Title while every other column is at its designed width and the table does
+    not scroll sideways — and refuses every other: `#`, Length and Status (sized
+    to the widest text they can ever hold) must fit, Artist must fit when the cap
+    did not bind, and a Title squeezed by a column past its design is a fault.
+    Judged against `track_table.designed_column_widths`, the composition the
+    table itself now applies (one calculation, two readers), allowing for the
+    vertical scroll bar arriving after the disc was measured. The allowed cuts
+    are recorded in each report, and a test requires both kinds to occur and at
+    least 200 fixed-column cells to be examined; a pure test pins the allowance,
+    including the case that motivated the Title condition. **Found on the way:**
+    a disc loaded into a table with no width yet gets no Artist cap (a credit took
+    761 px of an 805-px window, Title 100 px, the table scrolling sideways). The
+    app does not do that (a release arrives in a window on screen), so the
+    population loads after showing, and the pure test holds the rule to refusing
+    it. **Left for the maintainer:** whether a title longer than the window
+    should wrap with taller rows, as the release picker's do, or show the whole
+    text another way (it is reachable now by widening the window or editing the
+    cell, but not while a rip locks the table). Revert-probed with the full
+    matrix: dropping the population fails the population and floor tests, and
+    dropping the allowance turns `cut_off_cells` red, so the allowance is
+    load-bearing; the pure test detects each loosened condition.
 - [ ] **Qt's own file dialog and tooltips are not measured.** On the desktop the
   file dialog is usually the desktop's own, not ours to size.
 - [~] **The conformance matrix is built once per xdist worker that runs one of
@@ -870,18 +945,38 @@ Open:
   (`container_gate.FIRST_ENTRY`, claimed in `KillableCommand.run`). **Inferred, not
   reproduced:** the next cold launch on the rig is the test, and the app log says
   when a probe waited.
+  - *2026-10-06 (A4, cec0a55b): read by the closing run.* Section A's new step `app-log for
+    the first container command` copies every such line from this launch's log
+    into the transcript (info, never a failure), with how much of the launch the
+    log kept. No line means no probe waited: a warm container, or one command at a
+    time, so only a launch on a cold container settles it.
 - [x] **The securing pass's own ripper log is always deleted with its temp folder.** On
   success the swap addendum carries what was swapped; the per-read record of a pass
   that swapped nothing was in no artifact. It is now copied beside the album's log as
   `<album>.platterpus-securing-pass.txt` (`rip_addendum.securing_pass_log_path_for`),
   whatever the pass did, footer or not; `.txt` so it is never a second candidate for
   the album's `.log`.
-- [ ] **If a podman ever forwards the wrapper's SIGTERM into the container, the
+- [~] **If a podman ever forwards the wrapper's SIGTERM into the container, the
   post-cancel rescue becomes a second signal** on any read longer than its 5 s
   countdown, and cyanrip `_exit(1)`s without its footer
   (`cyanrip@174a134:src/cyanrip_main.c` `on_quit_signal`). Nothing measures which
   world a rig is in. A kept securing-pass log (the row above) would show it: a
   cancelled pass on a slow read whose log has no footer.
+  - *2026-10-06 (A4, cec0a55b): measured on every cancel now, not only on a slow
+    read.*
+    Section I's new step `sigterm-world` reads the rescue's outcome out of this
+    launch's log and the cancelled rip's footer: the rescue finding the ripper still
+    holding the drive 5 s after Cancel, with the log signed afterwards, means the
+    cancel's SIGTERM never reached it (one signal); a drive already free means
+    something stopped it sooner (forwarded); holding with no footer is the hazard.
+    **The filed 2026-10-05 Full run reads ONE SIGNAL by the same predicate**:
+    `fuser -k TERM /dev/sr0 rc=0` at +4.75 s
+    (`docs/handshake/artifactsround30/round30oct05fullplatterpusapplog1.txt:22166`),
+    log signed at 22:45:02 (`round30oct05fullcancelme.log`), pinned by
+    `tests/test_uiscript_applog_verbs.py::test_the_filed_2026_10_05_cancel_reads_one_signal`.
+    One cancel on one podman version, so open until the closing run's step agrees.
+    The one rescue arm that logged no outcome (no holder, after a cancel that
+    reached a process) now logs one, or its silence would read as no rescue.
 
 ## 2026-10-05 operator requests
 
@@ -889,9 +984,24 @@ Open:
   from the drive's own measured first reads (`DriveProfile.read_rate`), else the rig's for
   its model, else none. In the plan, as the early ETA, and beside the actual in the
   elapsed line. Held against every filed rig rip.
-- [ ] **The acceptance run's overall estimate** (the operator's first wording of the same
+- [x] **The acceptance run's overall estimate** (the operator's first wording of the same
   request): sum the estimate over the script's rip steps plus the measured non-rip
   sections. Not built; the per-rip estimate is its main input.
+  - *2026-10-06: DONE (D6); Done in e2c021ed.* `uiscript/run_estimate.py`: each rip the size runs from
+    `rip_estimate` (the drive's measured speed, the tracks selected, the settings the
+    script has set by then), each `wait` from the script, every other step from what
+    its section took on the filed 2026-10-05 Full run (a table a test re-derives from
+    the committed report), plus the runner's pause between steps. Stated when a run
+    starts, in the transcript head, the JSON (`estimate`), the console and the app
+    log; and again by the new verb `run-estimate`, which the full script runs after
+    section E, because a run usually starts before the disc is identified and no
+    track has a length until then. **Tri-state:** a rip with no figure and a section
+    no filed run had are named and make the figure "at least". **Held against both
+    filed round-30 Full runs** (2026-09-30 and 2026-10-05): the estimate of each
+    run's own script, from its whole-disc rip's sector spans and the rig's speed,
+    contains the time the run took and is within 10 % of it (2026-10-05: 18,436 s
+    estimated, 18,561 s taken). Sections E2, J2 and O were never on a filed run, so
+    today's script estimates as a floor until a Full run on it is filed.
 - [x] **The realtime multiplier means one thing** (found while reading the filed timing
   data): elapsed over the audio read, finished or not.
 
@@ -905,9 +1015,23 @@ Open:
     of our wants, their decline of G2, their X1 to X5 and Y1 to Y3). They are in §10,
     and our lap 10 S28 records them and rates their wants, since we are the giver. W6
     stays open as its own row below.
-- [ ] **W6, ours to close: read the `-j` record's `interrupted` / `interrupted_by` /
+- [x] **W6, ours to close: read the `-j` record's `interrupted` / `interrupted_by` /
   `exit_code`** for the status line and the report. The records reach the bundle since
   `a7a631b9`; the app does not read them yet.
+  - *Done 2026-10-06, in the commit that adds this note (a commit cannot name its own
+    sha):* `ripper_ending.py` reads the three fields as the fork's provider contract
+    publishes them (`docs/handshake/inbound/artifacts/round-30-lap-09-provider-contract-
+    gce2e5a6.md`, P8b lines 1064, 1088, 1089; P8c 1141-1143; P8a's prefix rule
+    1027-1037), tri-state: absent, unreadable or unrecognised records, null fields and
+    wrong types are all "not determined". The worker reads the LAST ALBUM pass's
+    record on its own thread after the log wait; the report carries it as
+    `outcome.ripper_record` (schema v32) with every disagreement with our own reading
+    (finished vs interrupted, cancelled vs ran to the end unless a securing pass ran,
+    and the reaped exit vs the record's except on a cancel), raised as the
+    `ripper_record_disagrees` warning and said on the status line, marked ⚠. 11
+    reverts probed, all detected. Not done: the securing pass's own record (written
+    into its temp folder, deleted with it), and a record cyanrip writes after our read
+    on a cancel reads "absent". Not on hardware.
 - [x] **Ask the maintainer: should paranoia skips step the read speed down?** From `.20`
   a skipped-on track reads `with errors`. `4790a16a` keeps the ladder keyed on what it
   was keyed on under `.19` (drive-failed reads only), because a ripper upgrade must not
@@ -920,7 +1044,7 @@ Open:
   `update_check.is_prerelease_version` keeps off the stable channel and `release.yml`
   sends through the relaxed handshake gate. Nothing to build before the cut; at the cut,
   `__version__` and the CHANGELOG heading carry the `b1`.
-- [ ] **A message box shown a second time is not fitted again.** `fit_message_box`
+- [x] **A message box shown a second time is not fitted again.** `fit_message_box`
   finds Qt's label by its place in the box's grid; once a first fit has moved it into
   the scroll area, a second fit (the filter on a later Show, on another screen) logs
   "text label not in its layout" and leaves the box sized for the first screen. Found
@@ -928,6 +1052,22 @@ Open:
   (PR #286, Python 3.13 leg); the harness half is fixed in `tests/conftest.py`. The
   product half needs a refit that resizes the existing area. Rare (a box re-shown on
   another screen), and it fails safe: the box is left as it was.
+  - *Done 2026-10-05 in `6c42338c`:* each fit first undoes the one before it
+    (`message_box_fit._undo_an_earlier_fit`: the shortened title, the label's
+    minimum width, and the label put back in its grid cell), then fits for the
+    screen it has now; when the text still scrolls it goes back into the SAME
+    area, resized. The label has to be RELEASED with `takeWidget`, not only moved:
+    a `QScrollArea` resizes and moves a widget it still points at back to its own
+    viewport, so the moved label stayed 665 px wide in a 400-px box and every
+    measurement was stale (this was also true after Qt's own rebuilds, where the
+    refit put the label back before it mattered). A watcher made for an earlier
+    screen is stood down, and its refit, if already queued, does nothing.
+    `DialogCenterFilter` also fitted a box on its FIRST show only, so the "later
+    Show" in this row never reached the fit at all; it now fits on every Show and
+    still centres only the first time. Tests in `tests/test_ui_message_box_fit.py`
+    (second fit on a shorter, a taller and a short screen again; a rebuild after a
+    refit; a queued refit dropped; the filter refitting a re-shown box), each
+    revert-probed.
 - [x] **A full map of what Platterpus has or relies on** (operator, 2026-10-05).
   `bom.cdx.json` (CycloneDX 1.7) and the generated block in `DEPENDENCIES.md`, from
   `scripts/emit_bom.py`; `--check` and `tests/test_bom_emitted.py` hold it fresh, and a tool
@@ -1133,6 +1273,16 @@ each side's reading; and the closing releases named.
   - *2026-10-05: 108 s.* The 2026-10-04 rig run's damaged disc took 54 s over one read
     (`docs/handshake/artifactsround30/round30oct04full.log:1501`); filed, and the floor
     follows it again.
+  - *2026-10-06 (A4, cec0a55b): the cancel half is in the closing run; the close
+    trigger cannot be a step.* Section I now names this row beside its
+    `expect-log-well-formed` and `expect-album-audit ripper_log_integrity` (cyanrip
+    `-Y` on the kept log), which grade a cancelled rip's footer on the container
+    path. The post-cancel rescue and the window-close stop both reach the ripper
+    through `drive_control.term_unsignalled_holders` with `READER_TERM_GRACE_S`, so
+    that is the same signal and the same grace. What it cannot show is the close
+    trigger: closing the main window ends the app and the script with it, so no
+    later step can run `-Y` on what it left. That half stays a by-hand check on the
+    rig (close mid-rip, then `cyanrip -Y` on the log).
 - [x] **The acceptance test grades what each rip left, not only that it finished**
   (2026-09-30, for the next release; asked for with the round-30 Full run: *"this
   test will do all reasonable permutations… if not we need to fix or update the
@@ -1186,6 +1336,37 @@ each side's reading; and the closing releases named.
     is not in `open`'s table, and accepting it puts the rip controls in unknown
     mode for every rip after it. Which route, and where it can sit without
     affecting the rips after it, is a design decision.
+  - *2026-10-06: (a) DONE in script lines, as ruled (KDD-41 C4); Done in
+    688f0cee; no hardware evidence yet.* New section **E2** (Quick size, after E, before F) runs the
+    new verb `expect-offset-refusal`: on a drive the AccurateRip list carries it
+    records **`unreachable`** (N/A) and changes nothing; on any other it turns the
+    override off, presses Start, answers the real *"Set up your drive first"*
+    refusal with No, checks no rip started and puts the override back on every
+    path (answered, a rip that started, the wait running out, the run stopped).
+    `expect-drive-offset` and `expect override_read_offset on` follow it. The
+    rig's BDR-209D is listed, so **on the rig this step records N/A**: only a run
+    on a drive the list does not carry can grade the refusal. `RunReport.ok`
+    forgives `unreachable` as it forgives a size's declines, and the RESULT line,
+    `unreachable_lines` and the closing dialog name it, so it neither fails the
+    run nor reads as a pass. Tested against the real gate
+    (`RipMixin._on_rip_requested` with its real blocking box); 6 reverts each
+    caught (`scripts/revert_probe.py`).
+  - *2026-10-06: (b) DONE as a second script, as ruled (KDD-41 C4); Done in
+    61f92ef8; no hardware evidence yet.* `rig_scripts/unknowndiscacceptance.txt`, run by the new menu
+    item **Tools → Advanced → Run acceptance test with an unknown disc…** through
+    the same session as the full run (no size question), and by `--run-script
+    unknowndiscacceptance`. Its header says which disc it needs: one MusicBrainz
+    does not know, with at least two tracks (a CD-R of your own recordings). It
+    starts from the full run's baseline line for line (a test holds the two
+    equal), checks the ripper and the offset, rescans, accepts *Rip as unknown
+    album* with Picard unticked, asserts **`expect-unidentified`** (no release id,
+    placeholder rows, unknown mode on, Picard not set to launch, no picker open),
+    aborts on a disc MusicBrainz knows, rips tracks 1-2 and grades them with the
+    full run's verbs plus **`expect-unknown-record`** (the report's `disc` block
+    says `unknown: true` with no release id, and no `tagging_failed`). Its five
+    sections are classified in advance in `docs/testing.md` (a second severity
+    table, swept). 5 reverts each caught. **Needs a run with such a disc**, which
+    the rig's usual disc is not.
   - *(e), what stays open and why.* A NON-ZERO fixed read speed sends `-S`, and a
     drive that reports its speed unchangeable makes cyanrip abort the rip on it
     (the BDR-209D, 2026-07-01): the same shape as (a). Fixed at 0 cannot tell
@@ -1333,7 +1514,7 @@ each side's reading; and the closing releases named.
   errors. **Our next lap says S28 was wrong** and points at the commit.
   - *Done in `4b657700` (the parser reads `.20`'s skip suffix) and `4aac4212` (the
     ladder asks `judge_step_down`):* 14 reverts probed, all detected.
-- [~] **Should the securing pass run after a finished pass the drive could not read
+- [x] **Should the securing pass run after a finished pass the drive could not read
   cleanly?** (follow-up to the row above; round 30 lap 9 S13.) It is still keyed on exit 0,
   so after a ladder that ends on such a pass, or in fixed mode, the tracks AccurateRip did
   not confirm are not re-read. Running it there needs the report to keep the album pass's
@@ -1342,7 +1523,23 @@ each side's reading; and the closing releases named.
   maintainer's and depends on the fork's S13.
   - *Ruled 2026-10-05, "Do all recommendations" (`PLANNING.md` KDD-41):* **yes.** The pass runs after a finished pass with drive errors; "finished" is
     `ladder_trigger.why_pass_incomplete`, and the report keeps the album pass's exit code
-    apart from the securing pass's. In progress.
+    apart from the securing pass's.
+  - *Done 2026-10-06, in the commit that adds this note (a commit cannot name its own
+    sha):* the gate is `securing_pass.why_no_securing_pass`. A clean exit 0 Platterpus
+    did not stop is secured as before (the coordinator's ruling on the brief: the
+    exit-0 path keeps its rule, since no test showed it relying on anything wrong;
+    18 existing exit-0 fixtures have neither a footer nor a disc total and are
+    secured as they were). Exit 1 is secured only when
+    `ladder_trigger.why_pass_unfinished` says the pass finished; a cancel, a signal
+    or crash exit, an unreaped exit and a stale log refuse, and the refusal is logged
+    and recorded (`skipped_reason: album_pass_unfinished`). The album pass's exit
+    code stays `ripper_exit_code`; the securing pass's is `securing_pass_exit_code`
+    beside `securing_pass_started` (schema v31), and every reader names the pass
+    (`rip_pass_exit`). Exit 1 over a finished rip still reads as failed: that is
+    S13, still open. 14 reverts probed: 13 as expected first time; the cancel gate
+    came back VACUOUS against a cancel on pass 1 (no log read yet, so nothing to
+    secure either way), so its test now cancels a ladder retry, whose stale pass-1
+    log only the gate refuses, and re-probed detected. Not on hardware.
 - [x] **Their lap 9 S28: on a native install the rescue's SIGTERM was cyanrip's second.**
   Held, read from both trees: `composition.build_backend` falls back to a `cyanrip` on
   `PATH`; the cancel killpg()s the child's group, which there is cyanrip itself; the rescue
@@ -1483,6 +1680,51 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     `\S(?:.*\S)?`, with an equivalence test against the old form (they are published
     in `docs/cyanrip-consumer-contract.md`, so this regenerates it); and give the
     sweep inputs that pass a pattern's literal prefix, so it can find the next one.
+    - [x] *Part one done 2026-10-06 in 5b32edfd:* the eight, and thirteen more of the same
+      shape in the same file, rewritten greedily. The thirteen are eleven
+      `(?P<v>.+?)\s*$` (`_DRIVE`, `_OVERREAD_MODE`, `_ALBUM`, `_ALBUM_ARTIST`, `_C2`,
+      `_PARANOIA_LEVEL`, `_OUTPUTS`, `_SPEED_CAP`, `_PREEMPHASIS`, `_FINISHED_AT`,
+      `_REPLAYGAIN`), which the lead-in inputs of part two measured equally
+      quadratic, and the two bounded ones, `_INVOKED_AS` (`\S.{0,4000}?`, quadratic
+      up to its bound) and `_PREGAP_SOURCE` (`\S.{0,63}?`, linear, rewritten so the
+      file has one shape). `\S.*?` became `\S(?:.*\S)?`; `.+?` became
+      `\S(?:.*\S)?|[^\S\n]`, whose second branch keeps `.+?`'s answer for a value
+      that is all blanks (one blank); a bound `{0,N}?` became `{0,N-1}` between two
+      `\S`. `tests/test_cyanrip_log_reads_values_greedily.py` keeps the 21 old
+      forms and holds each rewrite to them with Hypothesis over generated lines
+      (blank runs inside and after the value, every Unicode blank class, and a
+      newline): same match, span and groups by `match`, `search` and `fullmatch`.
+      Also hand-written lines with a match floor, the two bounds at N-1..N+2, and a
+      timing pin per pattern on a 20,000-space line (not `_PREGAP_SOURCE`, whose
+      old form was linear). The property was shown to catch four wrong rewrites
+      (`|\s`, no blank branch, `.*\S`, `\S.*`). Contract regenerated.
+    - [x] *Part two done 2026-10-06 in a408ca79:* `tests/test_regex_bounded_time.py` also times every
+      literal pattern on runs that start INSIDE it. For each repeat that can hold a
+      run (count varies, maximum at least 500), the shortest text in front of it,
+      alone and plus one character the repeat accepts, then a run of each fill the
+      repeat accepts, then no tail or `x`; derived by `re._parser` from the pattern,
+      with every group opened and every alternative laid out. Two new sweeps (3,248
+      inputs over 133 package patterns, 2,174 over 67 tooling ones; floors 66 and
+      33), one timing round in the screen and the full three to confirm. A proof
+      test pins the blind spot both ways (the old `_READ_STALLS` linear to the old
+      inputs, quadratic to the new). Besides the cyanrip_log patterns (part one)
+      it found nine more; six are fixed, each held to its old form by Hypothesis in
+      `tests/test_regex_rewrites_read_the_same.py` and pinned by name:
+      `cue_validate._RE_REM`, `_RE_TITLE`, `_RE_PERFORMER` (`.*\S` → `\S(?:.*\S)?`),
+      `rip_log._FIELD` (lazy value → `(?:\S(?:.*\S)?)?`),
+      `rip_worker._CYANRIP_ETA_VALUE` (the blanks after `m` inside its group), and
+      `handshake._SOURCE_NAMED_LAP` (`round-0*\d+-` → `round-\d+-`). Three are
+      ledgered in `_LEAD_IN_DEBT`, item (4a). revert_probe: 9 of 9 as expected,
+      including reverting `_READ_STALLS` to its lazy form (the lead-in sweep fails;
+      the old sweep passes, which is the blind spot, now asserted).
+  - (4a) **The lead-in debt** (`tests/test_regex_bounded_time.py::_LEAD_IN_DEBT`, may
+    shrink, never grow): three patterns the lead-in sweep finds super-linear and
+    that are not fixed. `drive_list._DRIVE_LINE` (the legacy drive list; no caller
+    outside tests; 320 ms on 2,000 spaces), `emit_ripper_inventory._ROW` (hand-run
+    over the fork's provider-contract rows; cubic, 3.7 s on one 2,000-character
+    row), and `round_digest._LAP_NAME` (file names only, NAME_MAX-bounded: 0.3 ms
+    at 255). Each needs its own equivalence proof; a fixed one's entry goes stale
+    and `test_every_lead_in_debt_entry_still_names_a_real_pattern` asks for it.
   - (5) ~~`lint` (`ruff check`, `ruff format --check`) still reads `src tests` only.
     `scripts/` and `build/` were clean under both on 2026-10-05 (0 findings, 51 files
     formatted), so adding them is a CI and `scripts/check.py` change with no fixes.~~
@@ -1550,6 +1792,11 @@ Their gate reads round 28 closed on our lap 9, so round 28 is closed on both gat
     bundle's `screen lock` line now calls it the desktop's promise, not a
     measurement. Open for one thing only: a Full run on this build to show the
     steps record INFO where they failed.
+  - *2026-10-06 (A4, cec0a55b): confirmed covered, and named in the closing run.* The
+    INFO branch is built and tested
+    (`tests/test_uiscript_rip_verbs.py::test_screenshot_renders_open_windows_when_the_display_shows_none`);
+    the five screenshots after a long or post-cancel rip (F, H, J, K3, N) each now
+    follow a `log` line naming this row, so the transcript says where to look.
 - [x] **For the maintainer, and only for runs after the decision: should a screenshot step
   be able to fail an ARCHIVAL section?** H, J and K3 each contain one, so a blank screen
   makes the run `partial` whatever the rips did. Grading is fixed in advance and never
@@ -2488,10 +2735,35 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     own verdict is `GO` is exempt, our reading, to be put to the fork). The record's
     `--check` output is byte-identical before and after. Tests:
     `tests/test_handshake_tooling.py::test_r6_*`, revert-probed 4 of 4.
-- [ ] **C6. `_strip_fences` misses unterminated and indented fences**
+- [x] **C6. `_strip_fences` misses unterminated and indented fences**
   (`handshake.py`, the fence regex needs a closing column-0 fence), so a field inside
   one counts as a declaration. Portable shape — tell the fork. TASKS@b8f89a2:2014.
   - *Merged 2026-09-30, verbatim, from the duplicate row `fuzz:scripts.handshake._strip_fences` (the property-test backlog) (it was `[ ]`):* **`fuzz:scripts.handshake._strip_fences`** (ungated, medium) — An illustrated close inside an UNTERMINATED or INDENTED fence is adopted as a real declaration — a round closes on a fabricated…
+  - [x] *Done 2026-10-06 in 43a7d76d, the property-test row with it:* `handshake-protocol.md` §2
+    rule 2 says to strip fences and not what a fence is, so the gate follows
+    CommonMark §4.5: an opener indented up to three spaces (a tab is four
+    columns, so not a fence), closed only by the same character at least as long
+    with nothing after it but blanks, an unterminated block running to the end of
+    the file, CRLF read as a line ending. One function, `_fenced_lines`, answers
+    for both `_strip_fences` (every wire field, so C46's count) and
+    `_unfenced_body` (the R6 search), which had a second, toggling rule. Not
+    tracked: block quotes and list items; the one shape where it strips less than
+    CommonMark (a list item's indented fence, then a column-0 fence line) is
+    written in the docstring. Checked against markdown-it-py once (not a
+    dependency): 0 differences on 20,000 generated flat documents; 11 of the 333
+    filed files differ, all on fences inside block quotes, none on a field. On
+    the record: every filed file's fields, C46 result, `--check` result and
+    `--status` are unchanged; three files strip more lines (indented fences in
+    `inbound/round-08-lap-07.md`, `outbound/round-2.md`,
+    `verified/round-11-lap-02.md`), none a field. Tests:
+    `tests/test_handshake_fences.py` (never raises, line count kept, idempotent,
+    the two readers agree; one case per rule; C46 both ways). revert_probe: 6 of 6.
+    **Still owed:** the NEXT-ROUND note to the fork (the shape is portable to
+    their gate; whether theirs has it was not read in their tree for this
+    change, so the note asks rather than asserts), and
+    round_digest's `_unfenced` and laplang's `_read_headers` keep toggles of their
+    own: the digest is computed by the fork's published method, so changing ours
+    alone would break agreement.
 - [~] **C7. The receiving half of the omission gate** — nothing checks that every
   artifact a lap names was filed; answering 5b.3 honestly needs it.
   - *Audit 2026-09-25: partly done.* tests/test_named_artifacts_are_filed.py (7fc3946) checks inbound|outbound/artifacts/ only. It is not in the gate, and misses docs/handshake/artifactsround26/, which laps cite.

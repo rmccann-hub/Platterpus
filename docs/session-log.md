@@ -11,6 +11,38 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-06 — lap 12 on `main`, the fork's lap 11 answered, and every KDD-41 ruling built
+
+**What was done.** The fork's round 30 lap 11 (`cyanrip@c887165`) was filed, verified
+and answered by our lap 12, which the maintainer released; PR #288 merged it as
+`e174f5fc` once all twelve checks passed, and its bytes and all 30 commits it cites
+resolve from `main`. KDD-41's eight rulings were built: C8 and C7 in PR #288 (the
+gitleaks full-history scan with floors, ruff over `scripts/` and `build/`, the
+CycloneDX schema check), and the rest by four agents in worktrees: the securing pass
+after a finished exit-1 album pass and the `-j` record's own ending (A2, A3), the side
+margin, the message-box refit and the track table measured with a disc (C5, D4, C6),
+the parser's 21 lazy patterns made greedy and the regex sweep given lead-in inputs
+(A1), fences read as CommonMark (D3), and the offset-refusal verb, the unknown-disc
+script, the hardware-only checks folded into the closing run and the run's overall
+estimate (C4, A4, D6). All fifteen of their commits were cherry-picked onto the session branch
+with every cited SHA rewritten to its integrated equivalent.
+
+**What was decided.** Nothing new; every item was a KDD-41 ruling.
+
+**What was learned.**
+- **Each agent ran its own targeted tests and none ran the whole suite, and three
+  cross-cutting gates failed only on the integrated tree:** five new computed sweeps
+  with no floor, a doc footer not restamped, and the report-types sweep blind to two
+  keys written through a shared constant. The last is the instructive one: the
+  refactor was right and the sweep was wrong, so the sweep was taught to resolve a
+  named key and to refuse one it cannot read, rather than the subject being rewritten
+  to suit it (*a refactor that trips a correctness sweep is a prompt to teach the
+  sweep*). The full suite on the integrated tree is the step that finds what lives
+  between agents' scopes, and it is not optional.
+- **A merge-commit PR keeps an integration branch's SHAs.** Basing the integration
+  branch on the PR's head, not on the merge, meant nothing needed rebasing after the
+  merge, so the SHAs rewritten into TASKS stay true.
+
 ## 2026-10-05 (night) — lap 10 on `main`, and the open list ranked for the 0.6.66 beta
 
 **What was done.** PR #287 merged as `9425a524` once all twelve checks passed; three had

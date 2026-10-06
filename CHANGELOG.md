@@ -14,6 +14,61 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Added
 
+- **The status line and the rip report say how cyanrip itself says the rip
+  ended.** cyanrip writes its own record of every run, and Platterpus collected
+  it for the report bundle without reading it. It now reads the exit code and
+  whether the rip was interrupted, and by what, from that record. A failed or
+  cancelled rip's status line says what it records (for example "interrupted by
+  SIGTERM (exit 1)"), and the report keeps it as `outcome.ripper_record`
+  (report schema 32). When the record is missing or cannot be read, both say
+  "not determined" rather than guessing. Where the record and Platterpus's own
+  reading disagree, for example a rip Platterpus thinks finished that cyanrip
+  records as interrupted, both answers are shown, marked ⚠, and the report adds
+  a `ripper_record_disagrees` warning.
+- **The acceptance run says how long it should take.** When a run starts, the
+  transcript, the script console and the app log state an estimate for the size
+  chosen: each rip from this drive's own measured reading speed and the tracks it
+  rips, at the settings the script uses for it, and the other steps as measured on
+  the filed 2026-10-05 Full run. A new script verb, `run-estimate`, says it again
+  for the rest of the run; the full script runs it after the disc is identified,
+  because before that no track has a length. Whatever cannot be counted yet (the
+  rips before the disc is identified, a drive that has finished no rip, a section
+  no filed run had) is named and makes the figure "at least", never counted as
+  zero. Against both filed round-30 Full runs, the estimate of each run's own script
+  came within 10 % of what the run took.
+- **The closing acceptance run settles or records the hardware-only checks itself.**
+  Five open checks needed a drive and had no run of their own. Four are now steps in
+  the Full run, each beside a line naming the TASKS row it closes: the cancelled
+  rip's footer and cyanrip's own `-Y` verdict (the cancel half of S25); the
+  screenshots after long rips, which record info rather than fail when the display
+  has stopped showing the app; whether a probe at launch waited for the first
+  container command (new script verb `app-log`, which copies matching lines from
+  this launch's own log); and whether a cancel's SIGTERM reaches the ripper inside
+  the container (new script verb `sigterm-world`, read from the post-cancel rescue's
+  outcome and the cancelled log's footer). Both new verbs gather and never fail a
+  run. The fifth, 150 % text on KWin, cannot be scripted and stays a check by hand.
+  One rescue path that logged no outcome now logs one.
+- **A second acceptance run, for a disc MusicBrainz does not know.** The full run
+  stops when it cannot identify the disc, on purpose, so the unknown-album path had
+  never run in an acceptance test. **Tools → Advanced → Run acceptance test with an
+  unknown disc…** runs the new packaged script `unknowndiscacceptance.txt` through
+  the same session (folder, sleep lock, settings restore, one file to send). It needs
+  a disc MusicBrainz does not know with at least two tracks, such as a CD-R of your
+  own recordings; on a disc MusicBrainz knows it stops in its first minutes and says
+  why. It accepts *Rip as unknown album* with Picard unticked, rips two tracks and
+  grades them, with two new script verbs: `expect-unidentified` (the disc was not
+  identified and will rip as unknown) and `expect-unknown-record` (the report records
+  the unknown-album path, with no release id and no failed tagging pass).
+- **The acceptance run tests the offset-override-off path** (section E2, script verb
+  `expect-offset-refusal`). With the override off, a drive the AccurateRip list does
+  not carry must be refused at Start rather than ripped at an offset nobody chose. On
+  such a drive the step presses Start, answers the real refusal with No, checks no rip
+  started and puts the override back. On a listed drive, where the app applies the
+  list's offset and rips instead, it records the step as **N/A** (`unreachable`) and
+  changes nothing. An N/A step does not fail the run and is not counted as a pass: the
+  transcript's RESULT line, the report's new `unreachable_lines` and the session's
+  closing dialog each say how many steps this equipment could not run, where the
+  dialog used to drop such a step from its count and say "PASSED".
 - **Error messages from cyanrip `+platterpus.20` are recognised before it ships.**
   The list of cyanrip's fatal messages that Platterpus turns into a readable reason
   (instead of a bare "Rip failed.") now includes the four new `-Z` spool errors
@@ -126,7 +181,90 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   The key was announced to the cyanrip fork in round 30 lap 4 (S43).
 
 ### Fixed
+- For contributors: the five tests added this round that run over a generated
+  list of cases (the regex rewrites, the fence cases, the timing sweep and the
+  securing gate's unfinished passes) each have a minimum-count test, or a stated
+  reason they need none, so none can pass by running no cases.
+- For contributors: the check that the rip report's types describe what it
+  writes now reads a key written through a named constant, not only a quoted
+  one. It had missed the two securing-pass exit fields, which the report writes
+  through the constants it shares with `rip_pass_exit`, so a key written that
+  way could have gone undeclared unnoticed; a key it cannot read now fails it.
 
+- **Tracks the drive could not read cleanly are now re-read.** The secure re-read
+  after a rip (the pass that re-reads the tracks AccurateRip did not confirm) only
+  ran when cyanrip exited 0, and cyanrip exits 1 whenever the drive failed a read.
+  So in fixed read-speed mode, or when the read-speed ladder ended on such a pass,
+  the tracks that most needed a second read never got one. It now also runs after
+  an exit-1 rip whose log shows every track was read. It still does not run after
+  a cancel, a rip killed from outside, or one whose log does not show it finished,
+  and the log says which of those stopped it. The rip's own result is unchanged:
+  a rip cyanrip exited 1 on is still reported as failed.
+- **The rip report keeps the album pass's exit code apart from the secure
+  re-read's.** `ripper_exit_code` held whichever ran last, so a re-read that
+  exited 1 made a successful rip's report say the ripper had exited 1. It is now
+  the album pass's, and `securing_pass_started` / `securing_pass_exit_code` record
+  the re-read's (report schema 31). The status line of a failed rip, the
+  `--audit-rips` notes, the rig check, the acceptance script and the report bundle
+  name which pass each exit code came from.
+- **A failed rip's reason stays the album pass's.** A message from the secure
+  re-read that followed it is shown in the live log, labelled, instead of being
+  added to the reason the rip failed.
+- **Windows keep a small gap at the sides of a small screen.** A dialog or
+  message box could be made exactly as wide as the screen, which put the
+  window's side borders off it: the release picker on a 1280 × 800 screen at
+  150 % scaling, and message boxes on screens up to 1024 pixels wide. Every
+  window Platterpus fits to the screen now leaves 16 pixels on each side, and is
+  placed so it keeps them even when it opens over a window near the edge. A
+  message box with a title too long for that width shows the title shortened in
+  its title bar (the window manager would have cut it anyway); a screen reader
+  still reads the whole title.
+- **A message box shown again is fitted again.** A box that had to scroll its
+  text kept the size it was given the first time, so shown again on a smaller
+  screen it could run off it, and on a larger one it still scrolled. Each time a
+  box is shown it is now sized afresh for the screen it is on (it still opens
+  where you left it), and its text only scrolls if it has to there.
+- For contributors: the conformance matrix now measures the main window with a
+  disc loaded, once with track titles as long as real ones get and once with long
+  classical artist credits, so its `cut_off_cells` rule finally looks inside the
+  track table. The table is held to its own design rather than exempted: a title
+  longer than the window and a credit longer than Artist's share may be cut short
+  (rows are one line and the widths do not move during a rip), and every other
+  cell must fit, judged against `track_table.designed_column_widths`, the width
+  calculation the table itself now uses.
+- For contributors: the conformance matrix's `window_on_screen` rule now checks
+  the window's frame against both side edges and fails a window wider than the
+  screen less that 16-pixel margin on each side (`fit_scroll_area.SIDE_MARGIN_PX`,
+  the one value every fit uses).
+- **A cyanrip log line with a long run of spaces inside a value no longer freezes
+  the window while the log is read.** Twenty-one of the log parser's "Label:
+  value" patterns slowed down with the square of such a run (one line with 8,000
+  spaces took a third of a second, and a line may be 65,536 characters long), and
+  the saved log is parsed on the GUI thread. They now read the same text in
+  linear time, and capture exactly what they captured before: the old patterns
+  are kept in a test as the reference, and every rewrite is checked against its
+  old form on generated lines. The patterns are published in
+  `docs/cyanrip-consumer-contract.md`, which is regenerated.
+- **Four more patterns that slowed down with the square of a long run of spaces
+  or zeros now read in linear time, with the same results:** the cue sheet
+  checker's `TITLE`, `PERFORMER` and `REM` lines, the older log format's
+  "Key: value" lines, cyanrip's ETA on a progress line, and (for contributors)
+  the handshake gate's reading of a peer-verdict source. Each is checked against
+  its old pattern in a test.
+- For contributors: the regex-timing sweep now also times every pattern on runs
+  that start inside it, past its literal label, and not only on runs of one
+  character, which never get past `Read stalls:`. That blind spot is how the
+  patterns above went unseen. Three patterns it finds slow are recorded with the
+  reason each can wait (`_LEAD_IN_DEBT`), and an entry goes stale when its
+  pattern is fixed.
+- For contributors: the handshake gate reads a fenced code block the way
+  Markdown renders it (CommonMark): a fence indented up to three spaces counts,
+  a block closes only on the same character at least as long, and a block with
+  no closing fence runs to the end of the file. A wire field inside such a block
+  is an illustration, not a declaration; before, one inside an unterminated or
+  indented fence counted, including toward protocol 7's `HANDSHAKE-NEXT-LAP`
+  check. The pre-commit search uses the same rule. No filed lap reads
+  differently.
 - **A nonsense "Ripping errors" count from cyanrip no longer reads as "No errors
   occurred".** A count far beyond anything a CD could produce is now recorded as
   "not determined", and the rip's health line repeats what cyanrip printed.

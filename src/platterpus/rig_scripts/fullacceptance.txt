@@ -13,7 +13,9 @@
 #                               measured: 4h14m (2026-09-22, 247 steps) and
 #                               5h33m (2026-09-26, 320 steps, the sum of its
 #                               report's step times), both on the Pioneer rig;
-#                               the script is 415 steps now
+#                               the script is 431 steps now. The run
+#                               states its own estimate when it starts
+#                               and again after section E (run-estimate)
 #                   Full rips the whole disc TWICE (once fast, once with every
 #                   track read at least three times) plus seven short partial
 #                   rips.
@@ -291,6 +293,15 @@ expect-ripper-under-review
 expect-newest-pair
 snapshot identity
 
+# A4, TASKS "Cold-container start: two container entries at launch". The first
+# container command of a launch now runs alone (container_gate.FIRST_ENTRY), and
+# a probe that had to wait for it logs a line saying so. Whether it did is in
+# this launch's own log, from before this script started; `app-log` copies the
+# lines into the transcript (info, never a failure). No line means no probe
+# waited: the container was warm, or one command ran at a time.
+log A4 (TASKS "Cold-container start"): did a probe at launch wait for the first container command, and did one run anyway after the wait?
+app-log for the first container command
+
 # WHICH LINK IN THE RIPPER CHAIN FAILS TO EXIT — gathered, never asserted.
 #
 # Two consecutive rig mornings (2026-08-26, 2026-08-27) produced ZERO rips and
@@ -523,6 +534,40 @@ snapshot discidentified
 # sections first.
 abort-if-failed the disc was never identified — the picker did not resolve or no tracks loaded, so every rip after this would be about an unknown release
 
+# HOW LONG THE REST WILL TAKE (TASKS "The acceptance run's overall estimate").
+# The run states its estimate when it starts, but it usually starts before the
+# disc is identified, so no track had a length and the rips had no figure. Now
+# they do: each rip from this drive's measured reading speed and the tracks it
+# selects, the other steps as measured on a filed Full run. Anything it cannot
+# count is named, never added in as zero. Info, never a failure.
+run-estimate
+
+# --- E2. THE OFFSET OVERRIDE OFF: a drive nobody knows must be refused ------
+# TASKS "Permutations the acceptance test still does not run", (a); ruled
+# 2026-10-05 (PLANNING.md KDD-41, C4). With the override off, Start goes one of
+# two ways. A drive in AccurateRip's drive list gets the list's offset and rips;
+# any other drive is REFUSED ("Set up your drive first"), so no rip starts at an
+# offset nobody chose. No one line holds on both, and on a listed drive the
+# first branch would rewrite the offset section B set, for every rip after it.
+#
+# So the verb asks the drive list first. ON A LISTED DRIVE (the Pioneer rig is
+# one, +667) it records N/A, `unreachable`, and changes nothing: the refusal
+# cannot happen on this equipment. That is NOT a pass, and it does not fail the
+# run either: the transcript's RESULT line and the closing dialog both count it
+# as a step this equipment could not run. ON ANY OTHER DRIVE it turns the
+# override off, presses Start, answers the refusal with No (the drive wizard
+# must not open in an unattended run), checks no rip started, and puts the
+# override back on every path. Seconds, no drive time.
+#
+# Here, after E, because the refusal is reached only from Start and Start needs
+# an identified disc; before F, so the two lines below prove every rip in this
+# run reads at the offset section B set.
+log --- E2. offset override off: a drive the AccurateRip list does not carry is refused ---
+run-size quick
+expect-offset-refusal
+expect-drive-offset
+expect override_read_offset on
+
 # --- F. THE MAIN EVENT: a full-disc rip ------------------------------------
 # ALL tracks, once, FLAC, fast-verified. This is the archival rip and the one
 # whose artifacts matter most.
@@ -614,6 +659,7 @@ album-artist Platterpus Acceptance
 rip
 wait-for-rip 21600
 snapshot afterfullrip
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
 screenshot afterfullrip
 # ASSERT THE RIPPER'S RECORD, NOT THE LABEL ON SCREEN.
 #
@@ -738,6 +784,7 @@ rip
 answer-dialog click=new 120 Album already ripped
 wait-for-rip 3600
 snapshot afteroverwrite
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
 screenshot afteroverwrite
 expect-rip-complete
 # Same shape as F: section I starts a rip, so H's post-rip checks are dropped
@@ -793,11 +840,28 @@ expect-status cancelled
 # What §I needs is that the RECORD survived: footer present with either verdict,
 # not truncated, and the FUN512 signature -- written from atexit, so a hard kill
 # destroys it -- present and the right shape.
+# A4, TASKS "S25 on hardware". The two steps below are the cancel half of S25:
+# cyanrip's footer, and its own -Y verdict (`ripper_log_integrity`) on the log
+# a cancel left, on the container path. The rescue and the window-close stop
+# signal the ripper through the same call with the same grace
+# (drive_control.term_unsignalled_holders, READER_TERM_GRACE_S). The other half,
+# closing the main window mid-rip, cannot be a step: closing the window ends the
+# app and this script with it, so no later step could run -Y on what it left.
+log A4 (TASKS "S25 on hardware"): the next two steps grade the footer and cyanrip -Y on a cancelled rip's log; the window-close trigger itself is not scriptable
 expect-log-well-formed
 # The fork's own verdict on the record a cancel left: `ripper_log_integrity` is
 # cyanrip -Y on this log. A cancelled rip's other checks are about a rip that
 # was not meant to finish, so only these two questions are asked here.
 expect-album-audit ripper_log_integrity argv_agreement
+# A4, TASKS "If a podman ever forwards the wrapper's SIGTERM into the container".
+# Nothing measured which world a rig is in. This cancel does: if the rescue,
+# 5 s after Cancel, still found the ripper holding the drive and the log was
+# signed afterwards, the cancel's own SIGTERM never reached it (one signal). If
+# the drive was already free, something stopped it sooner (forwarded). If the
+# rescue found it holding and the log has no footer, that is the second-signal
+# hazard. Recorded as info, never a failure, with the log lines it read.
+log A4 (TASKS "If a podman ever forwards the wrapper's SIGTERM"): which SIGTERM world this rig is in
+sigterm-world
 snapshot aftercancel
 screenshot aftercancel
 rig-check
@@ -824,6 +888,7 @@ album after cancel (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot afterrecovery
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
 screenshot afterrecovery
 expect-rip-complete
 # Same shape as F: K1 starts a rip. J's rip was the third of the three whose
@@ -1019,6 +1084,7 @@ album derived wav (run) (ripper)
 rip
 wait-for-rip 3600
 snapshot afterwav
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
 screenshot afterwav
 expect-rip-complete
 expect-derived-output wav
@@ -1166,6 +1232,7 @@ album secure reread (run) (ripper)
 rip
 wait-for-rip 21600
 snapshot aftersecurereread
+log A4 (TASKS "Three screenshot steps found no window on screen"): the next screenshot records info, not fail, if the display has stopped showing the app
 screenshot aftersecurereread
 # Same verb as section F, for the same reason, and THIS is the section that paid
 # for it: on 2026-09-03 `expect-status Done` failed here on a rip that had

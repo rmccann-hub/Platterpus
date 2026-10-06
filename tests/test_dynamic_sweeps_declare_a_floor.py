@@ -54,6 +54,29 @@ _NO_FLOOR: Final[str] = "NO FLOOR NEEDED:"
 #: genuinely cannot be floored, say why here in place of a test name — but a
 #: population that cannot state a minimum is usually one nobody has counted.
 _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
+    # Added 2026-10-06 with the greedy rewrites (TASKS *Found while integrating*
+    # item 4), the CommonMark fence reader (C6), and ruling C1's securing gate.
+    # The first four populations are built from tables (a filter over
+    # `_REWRITES`, strings joined around one quoted close, tables holding
+    # Hypothesis strategies), each floored by name. The fifth is three cases
+    # written out.
+    "test_cyanrip_log_reads_values_greedily.py::test_each_rewrite_is_fast_on_a_long_blank_run": (
+        "test_every_rewrite_but_the_linear_one_is_timed"
+    ),
+    "test_handshake_fences.py::test_a_field_inside_any_fence_is_quoted_not_declared": (
+        "test_every_fence_rule_has_a_fenced_case"
+    ),
+    "test_regex_rewrites_read_the_same.py::test_each_rewrite_agrees_on_the_inputs_written_out": (
+        "test_the_population_is_the_six_patterns_rewritten"
+    ),
+    "test_regex_rewrites_read_the_same.py::test_each_rewrite_reads_what_its_old_form_read": (
+        "test_the_population_is_the_six_patterns_rewritten"
+    ),
+    "test_rip_worker.py::test_an_album_pass_that_did_not_finish_is_not_secured": (
+        "NO FLOOR NEEDED: the population is three tuples written out in the "
+        "decorator (interrupted, killed, unfinished); the calls inside only build "
+        "each case's log text, so they can fail a case but never remove one."
+    ),
     # Added 2026-09-28 with `ui/message_boxes.py`. The first two parametrize over
     # the four kinds of stock box; their floor derives the kinds from the module's
     # own public functions, so a new kind without a case, or an emptied table,

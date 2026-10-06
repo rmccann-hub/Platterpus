@@ -1021,6 +1021,34 @@ def test_a_QUICK_run_whose_declined_sections_were_skipped_is_not_incomplete(
     assert "not evidence" in text, "a quick run must not read as evidence"
 
 
+def test_a_step_this_equipment_cannot_run_is_counted_and_is_not_a_tick(
+    window, session, process_until, shown_boxes, quick_bundle
+) -> None:
+    """`expect-offset-refusal` on a listed drive records `unreachable` (KDD-41 C4).
+
+    This dialog counted pass, fail, error, blocked and skipped and nothing else,
+    so an unreachable step vanished from the total and the run read "✓ The run
+    PASSED — all 2 step(s) passed". It is neither a failure nor a pass, and the
+    dialog now says which, with the count.
+    """
+    win = _start(window, session, process_until)
+    _finish(
+        win,
+        process_until,
+        RunReport(
+            started_at="t",
+            app_version="v",
+            steps=_steps(Outcome.PASS, Outcome.PASS, Outcome.UNREACHABLE),
+        ),
+    )
+    text = shown_boxes[-1].text()
+    assert not text.startswith("✓"), (
+        f"an unchecked step was stamped with a tick:\n{text}"
+    )
+    assert "FAILURE" not in text and "DID NOT COMPLETE" not in text, text
+    assert "2 of 3" in text and "1 step(s) cannot run on this equipment" in text, text
+
+
 def test_a_skip_that_was_NOT_declined_by_size_still_reads_as_incomplete(
     window, session, process_until, shown_boxes, quick_bundle
 ) -> None:
@@ -1870,14 +1898,50 @@ def test_the_session_hands_its_run_size_to_the_console(
 def test_the_menu_item_asks_for_the_size(window, session, process_until) -> None:
     """`triggered` passes a `checked` bool, which must not land in `size`."""
     win = window()
+    # By its exact label: a second item, "Run acceptance test with an unknown
+    # disc…", also contains the word, and a substring match picked either one.
     action = next(
         a
         for a in win.menuBar().findChildren(QAction)
-        if "acceptance" in a.text().lower()
+        if a.text() == "Run &acceptance test…"
     )
     action.trigger()
     assert process_until(lambda: bool(session.runs))
     assert session.sizes_asked == [True]
+
+
+def test_the_unknown_disc_menu_item_runs_its_own_script_without_a_size_question(
+    window, session, process_until, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Tools → Advanced → Run acceptance test with an unknown disc… (KDD-41 C4).
+
+    It must run the SECOND packaged script, through the same session as the
+    full one, and ask no size: the script is one set of sections, so every size
+    would run the same steps.
+    """
+    from platterpus.test_session import UNKNOWN_DISC_SCRIPT_NAME
+
+    unknown = session.script.parent / UNKNOWN_DISC_SCRIPT_NAME
+    unknown.write_text("log a self-check\n", encoding="utf-8")
+    asked: list[str] = []
+
+    def builtin(name: str = "fullacceptance.txt") -> tuple[Path, str]:
+        asked.append(name)
+        return unknown, f"using the acceptance script shipped in the app: {unknown}"
+
+    monkeypatch.setattr("platterpus.test_session.builtin_acceptance_script", builtin)
+    win = window()
+    action = next(
+        a
+        for a in win.menuBar().findChildren(QAction)
+        if a.text() == "Run acceptance test with an &unknown disc…"
+    )
+    action.trigger()
+    assert process_until(lambda: bool(session.runs))
+    assert asked == [UNKNOWN_DISC_SCRIPT_NAME], asked
+    assert session.sizes_asked == [], "a size question that changes nothing was asked"
+    assert win._acceptance_script == unknown
+    assert win._acceptance_run_size == "full"
 
 
 def test_cancelling_the_size_choice_starts_nothing(

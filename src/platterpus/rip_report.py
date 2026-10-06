@@ -41,6 +41,8 @@ from platterpus.report_types import (
     ReportReadSpeedBlock,
     TimingBlock,
 )
+from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
+from platterpus.ripper_ending import RipperEnding, report_block
 from platterpus.ripper_identity import RipperIdentity, identify_ripper
 from platterpus.user_settings import user_settings
 from platterpus.verdict import accuraterip_verdict
@@ -256,7 +258,18 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      converge (verdict.reread_supersedes), so `converged: false, replaced: true`
 #      is a real record and needs its reason beside it (2026-09-28 Full run,
 #      track 3).
-REPORT_SCHEMA_VERSION: int = 30
+# v31: `outcome.ripper_exit_code` is the ALBUM pass's exit status, and
+#      `outcome.securing_pass_started` / `outcome.securing_pass_exit_code` carry the
+#      securing pass's. The key held whichever pass ran last, while `status`
+#      described the album pass; since ruling C1 (KDD-41) the securing pass also
+#      follows an album pass that exited 1, so one report routinely holds both
+#      codes and has to say which is which (`rip_pass_exit`).
+# v32: `outcome.ripper_record` — cyanrip's own `-j` record of how the album pass
+#      ended (`exit_code`, `interrupted`, `interrupted_by`), tri-state, with the
+#      record's `state` and every disagreement with our own reading, and the
+#      `ripper_record_disagrees` issue. The records reached the report bundle in
+#      `a7a631b9` and nothing read them; the handshake register's W6.
+REPORT_SCHEMA_VERSION: int = 32
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -684,6 +697,9 @@ def build_outcome(
     ripper_exit_code: int | None = None,
     ripper_argv: tuple[str, ...] | list[str] | None = None,
     ripper_argv_first_pass: tuple[str, ...] | list[str] | None = None,
+    securing_pass_started: bool = False,
+    securing_pass_exit_code: int | None = None,
+    ripper_record: RipperEnding | None = None,
 ) -> dict:
     """Build the ``outcome`` block: the PROCESS result of the rip.
 
@@ -707,6 +723,14 @@ def build_outcome(
       argument defect that has killed a whole rip (``-t 17=`` on a 16-track
       disc) was diagnosed from files the maintainer uploaded, because our own
       report did not carry the command line.
+
+    ``ripper_exit_code`` is the ALBUM pass's (v31): the pass ``status`` describes.
+    The securing pass's is ``securing_pass_exit_code``, read beside
+    ``securing_pass_started`` (see :mod:`~platterpus.rip_pass_exit`).
+
+    ``ripper_record`` is cyanrip's own ``-j`` record of how the album pass ended
+    (v32, W6), compared here with ``status`` and the exit code we reaped, because
+    this is the one place that holds all three (:mod:`~platterpus.ripper_ending`).
     """
     argv = tuple(ripper_argv or ())
     # The FIRST invocation, when the rip took more than one.
@@ -737,6 +761,19 @@ def build_outcome(
         # Distinct keys rather than one nested object, because a support reader
         # greps this file and a flat key is findable.
         "ripper_exit_code": ripper_exit_code,
+        # The securing pass's own exit status, never folded into the album
+        # pass's above (v31, ruling C1). `null` with `started` false is "did not
+        # run"; with `started` true it is "never reaped".
+        SECURING_STARTED_KEY: bool(securing_pass_started),
+        SECURING_EXIT_KEY: securing_pass_exit_code,
+        # cyanrip's OWN account of how the album pass ended, tri-state, with every
+        # place it disagrees with ours said rather than one quietly preferred.
+        "ripper_record": report_block(
+            ripper_record,
+            status=status,
+            our_exit_code=ripper_exit_code,
+            securing_pass_started=securing_pass_started,
+        ),
         # A list (JSON has no tuples) of the argv as spawned. Empty argv is
         # serialized as null, not [], so "we never launched it" and "we launched
         # it with no arguments" stay distinguishable.
@@ -2436,24 +2473,35 @@ def _issues(
             )
 
     # A NON-ZERO EXIT ON A "SUCCESS". These two facts disagree, and only one of
-    # them was flagged. Tri-state: `None` (never reaped) is its own case.
+    # them was flagged. Tri-state: `None` (never reaped) is its own case. The code
+    # is the ALBUM pass's, the pass `status` describes (v31); until then it was
+    # the last pass's, so a securing pass that exited 1 raised this over a rip
+    # whose album pass exited 0.
     if outcome and outcome.get("status") == "success":
         code = outcome.get("ripper_exit_code")
         if code is None:
             add(
                 "warning",
                 "ripper_exit_unknown",
-                "the rip is recorded as successful but the ripper's exit status was "
-                "never collected — the child was not reaped, so 'success' here rests "
-                "on the log alone",
+                "the rip is recorded as successful but the album pass's exit status "
+                "was never collected — the child was not reaped, so 'success' here "
+                "rests on the log alone",
             )
         elif code != 0:
             add(
                 "warning",
                 "ripper_nonzero_exit_on_success",
-                f"the rip is recorded as successful but the ripper exited {code} — "
-                f"those two facts disagree and the exit code is the harder evidence",
+                f"the rip is recorded as successful but the album pass's ripper "
+                f"exited {code} — those two facts disagree and the exit code is the "
+                f"harder evidence",
             )
+
+    # CYANRIP'S OWN RECORD DISAGREES WITH OURS (v32, W6). Each disagreement is
+    # already a sentence naming both answers; it is raised so that a reader of
+    # `issues` alone sees it, because silently preferring either side is the bug.
+    record = outcome.get("ripper_record") if outcome else None
+    for sentence in (record or {}).get("disagreements") or ():
+        add("warning", "ripper_record_disagrees", str(sentence))
 
     # AN ARTIFACT WE COULD NOT EMBED. The report's own attachments failing is
     # exactly the case where a reader most needs to be told.

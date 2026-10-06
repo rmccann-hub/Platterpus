@@ -38,12 +38,44 @@ def test_a_dialog_that_CHOSE_a_width_keeps_it(qapp) -> None:
     widens, which is a regression wearing a fix's clothes."""
     from platterpus.ui.dialogs.centering import CenteredDialog
 
-    chosen = CenteredDialog.DEFAULT_MINIMUM_WIDTH + 240
+    # +120, not the +240 this test first used: 800 px is the offscreen screen's
+    # whole width, so it was also testing that a dialog may fill the screen,
+    # which the side margin (KDD-41) now refuses — the test below.
+    chosen = CenteredDialog.DEFAULT_MINIMUM_WIDTH + 120
     dialog = CenteredDialog(None)
     dialog.setMinimumWidth(chosen)
     dialog.show()
     try:
         assert dialog.minimumWidth() == chosen
+    finally:
+        dialog.close()
+
+
+def test_a_dialog_as_wide_as_the_screen_keeps_a_side_margin(qapp) -> None:
+    """A chosen width is kept up to the screen less a margin on each side.
+
+    The fit used to keep a width up to the WHOLE screen, so a window exactly as
+    wide as the screen had its frame's side border off it (the release picker on
+    a 1280 x 800 panel at 150 %). Ruled 2026-10-05 (KDD-41): a fitted window
+    leaves `SIDE_MARGIN_PX` on each side, and is placed so it keeps them.
+    """
+    from platterpus.ui.dialogs.centering import CenteredDialog
+    from platterpus.ui.dialogs.fit_scroll_area import SIDE_MARGIN_PX
+
+    dialog = CenteredDialog(None)
+    avail = dialog.available_screen_size()
+    dialog.setMinimumWidth(avail.width())  # asks for the whole screen
+    dialog.show()
+    try:
+        assert dialog.minimumWidth() == avail.width() - 2 * SIDE_MARGIN_PX
+        assert dialog.width() <= avail.width() - 2 * SIDE_MARGIN_PX
+        # Placed so it keeps them: the frame on the screen, the window inside
+        # the margin on both sides.
+        screen = dialog.screen().availableGeometry()
+        frame, window = dialog.frameGeometry(), dialog.geometry()
+        assert screen.left() <= frame.left() and frame.right() <= screen.right()
+        assert window.left() - screen.left() >= SIDE_MARGIN_PX, window
+        assert screen.right() - window.right() >= SIDE_MARGIN_PX, window
     finally:
         dialog.close()
 
