@@ -24,6 +24,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The inbound-lap sweep's pinned misses name the rule they excuse.** A sent peer
+  lap our checker refuses is pinned by its hash and excused only while that one rule
+  is its only problem; the pin covered R6 alone and now names its rule, so the
+  fork's round 30 lap 15, refused for C44 (a `GO` without its agreed-change
+  ledger), is pinned the same way and cannot excuse any other problem
+  (contributor-facing).
 - **The acceptance run expects the build under review to say it is unreleased.**
   A fork build is tested as a beta inside its open round, and it must say *NOT a
   released build* in every log. `expect-album-audit` failed on that sentence seven
