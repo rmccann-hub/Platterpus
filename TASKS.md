@@ -1772,11 +1772,14 @@ each side's reading; and the closing releases named.
   release … while one is open"* and the deviation policy's ask) are locked; the
   maintainer gave the word on 2026-10-07 (*"for my decisions, do what you recommend"*,
   answering our recommendation to edit them when v8 lands), so they change with v8.
-- [~] **Release a build that carries `62aa7bb0` before the fork's `.22`** ships E7 and
+- [x] **Release a build that carries `62aa7bb0` before the fork's `.22`** ships E7 and
   S27's line: every earlier release of ours misreads both (round 20's order in substance;
   lap 2 S11, S15). While round 31 is open, that release needs the maintainer's word
   until E9 lands. *2026-10-07:* the maintainer gave it; v0.7.101 goes out under the §6b
   override in our lap 2's header (lap 2 S24).
+  *Done 2026-10-07:* **released 0.7.101**, tag at `0d21b62d` (PR #304, merge commit),
+  release run 37666627759: every gate green, attested; the gate permitted it under the
+  recorded override.
 - [x] **The 2026-10-07 Full run on 0.6.66 with `.21`: the first `full-green` row**
   (425 of 426, none failed; E2 N/A on this drive, the maintainer's ruling with E2 noted
   as not covered). Filed in `docs/handshake/artifactsround31/`. Its one defect of ours,
