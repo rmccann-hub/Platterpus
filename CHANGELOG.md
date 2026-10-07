@@ -12,6 +12,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **The first acceptance run with every step passing that can run on this rig.** The
+  Full run of 2026-10-07, on 0.6.66 with the fork's `.21`, passed 425 of 426 steps
+  with none failing. The remaining step cannot run on a drive the AccurateRip list
+  carries. It is recorded as the evidence ledger's first `full-green` row, and its
+  text artifacts are in `docs/handshake/artifactsround31/`.
+
 ### Changed
 
 - **The docs no longer repeat which cyanrip build Platterpus pins, or which
