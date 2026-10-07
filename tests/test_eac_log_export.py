@@ -293,6 +293,40 @@ def test_a_track_1_only_pregap_is_not_treated_as_a_deviation() -> None:
     )
 
 
+def test_an_unknown_pregap_is_never_rendered_as_a_detection_result() -> None:
+    """Round 31 lap 1 S27: the fork will print `pregap of track N unknown (reason)`
+    for a pregap its sub-channel search could not determine. Both EAC phrases assert
+    a detection result, so an unknown on a track after the first says so instead.
+    Before this, the line matched nothing: beside measured pregaps the row said
+    "Appended to previous track", and as the only appendable gap it said
+    "Not detected", turning an unknown into a negative.
+    """
+    from platterpus.eac_log_export import _GAP_UNDETERMINED, _gap_handling
+
+    def row(detection: str) -> str:
+        return _gap_handling(RippingInfo(gap_detection=detection), True)
+
+    assert row("pregap of track 9 unknown (sub-channel read failed)") == (
+        _GAP_UNDETERMINED
+    )
+    assert (
+        row(
+            "75 frame pregap in track 2, merging into track 1; "
+            "pregap of track 9 unknown (sub-channel read failed)"
+        )
+        == _GAP_UNDETERMINED
+    )
+    # Track 1's pregap cannot be appended anywhere, so an unknown there leaves the
+    # row to the tracks that can.
+    assert (
+        row(
+            "pregap of track 1 unknown (no lead-in read); "
+            "75 frame pregap in track 2, merging into track 1"
+        )
+        == "Appended to previous track"
+    )
+
+
 def test_a_destructive_gap_action_is_never_given_an_eac_phrase() -> None:
     """``dropping`` and ``splitting off`` change what audio exists; EAC never does.
 

@@ -12,6 +12,28 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Handshake round 31: we accept the fork's proposal that a release of either
+  side need not wait for a round** (their E1 to E9), and both wordings it proposes
+  for two cyanrip log lines. Our round 31 lap 2 says so, gives our reading of the
+  2026-10-07 run, and is held until the maintainer announces it. Nothing in the app
+  changes until the shared protocol text (v8) lands in both repositories. Our laps
+  now declare protocol 7, which both sides' tools have read since round 30.
+
+### Fixed
+
+- **A released cyanrip build is no longer warned about as unreleased because it
+  was cut while a handshake round was open.** The fork's log line says both which
+  round its tree was in and whether the build was released. Our rip audit and our
+  approval cross-check read the word "open" as "not released". The fork proposes
+  (round 31) to release builds while a round is open, and those builds would have
+  been flagged in every report. Both now read the line's released part.
+- **The EAC-compatible log's Gap handling row no longer turns an unmeasured pregap
+  into a definite answer.** The fork proposes a line for a pregap cyanrip could not
+  measure. The row would have read "Appended to previous track" or "Not detected"
+  for it. It now says the pregap was undetermined.
+
 ## [0.7.100] — 2026-10-07
 
 The first minor release past 0.6.x. Its gate was a Full hardware acceptance run with no

@@ -647,6 +647,13 @@ _GAP_NONE_SIGNALLED = re.compile(r"\bnone\b", re.IGNORECASE)
 # zero frames and "unmerged". Same category error that cost v0.5.18,
 # reintroduced by a ripper wording change rather than by a code change
 # (audit, 2026-07-31).
+# The fork's proposed line for a pregap its sub-channel search could not determine
+# (round 31 lap 1 S27): `pregap of track N unknown (reason)`. "None signalled" is
+# then printed only when every search succeeded.
+_GAP_UNKNOWN = re.compile(
+    r"\bpregap\s+of\s+track\s+(?P<track>\d{1,4})\s+unknown\b", re.I
+)
+_GAP_UNDETERMINED = "(undetermined: the ripper could not measure a pregap)"
 _GAP_PER_TRACK = re.compile(
     r"(?P<frames>\d{1,9})\s+frames?\s+pregap\s+in\s+track\s+(?P<track>\d{1,4})"
     r"\s*,\s*(?P<mode>[^;]+)"
@@ -743,6 +750,20 @@ def _gap_handling(info: RippingInfo, cyanrip: bool) -> str:
     text = info.gap_detection or ""
     if not text:
         return _UNREPORTED
+    # An UNKNOWN pregap on a track that has a previous one decides the row before
+    # anything else: both EAC phrases assert a detection result, and a search that
+    # failed has none. "Not detected" would turn an unknown into a negative. Track
+    # 1's pregap cannot be appended anywhere, so an unknown there changes nothing.
+    unknown = [
+        n for n in (_safe_track_number(t) for t in _GAP_UNKNOWN.findall(text)) if n != 1
+    ]
+    if unknown:
+        log.warning(
+            "cyanrip could not measure the pregap of track(s) %s, so EAC's Gap "
+            "handling row says so rather than claiming either EAC phrase",
+            ", ".join(str(n) for n in unknown),
+        )
+        return _GAP_UNDETERMINED
     if _GAP_NONE_SIGNALLED.search(text):
         return "Not detected, thus appended to previous track"
     # The fork's per-track enumeration. Decide from the MEASURED frame counts:
