@@ -35,6 +35,9 @@ proposes", but round 31 had no lap. That sentence was `handshake_approval`'s own
 and the open-claim sweep missed its capitalised shape. Now one sentence names the round,
 and the sweep has a branch for that shape (`d14c315e`).
 
+**Released.** 0.7.100 went out at `bcd185e1` (PR #299). `main`'s CI passed first,
+and release run 37606328004 passed every gate and attested the build.
+
 **Lesson.** A build is a round's subject before the round has a lap. So "open" is false
 for part of every round, while the round's number is true throughout. Say the number.
 
