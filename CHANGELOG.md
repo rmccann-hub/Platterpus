@@ -35,6 +35,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   changes until the shared protocol text (v8) lands in both repositories. Our laps
   now declare protocol 7, which both sides' tools have read since round 30.
 
+### Removed
+
+- **The "Re-compress FLACs" setting is gone.** Settings showed it greyed out, and
+  it did nothing: cyanrip already writes every FLAC at maximum compression, so
+  there was nothing left to shrink. The setting, its box, the step behind it and
+  its entries in the rip report have been removed. Your FLAC files are exactly as
+  small as before. A settings file that still mentions the option loads normally,
+  with no warning and nothing reset. **For anyone reading reports:** the rip report
+  is now schema 33 and no longer has `settings.recompress_flac_after_rip`,
+  `verification.gates.recompress`, `verification.recompress` or the
+  `recompress_failed` issue. The "Archival Exact" goal is unchanged: it still reads
+  every track twice.
+
 ### Fixed
 
 - **An album or track title can no longer make a tracker's log checker accept our

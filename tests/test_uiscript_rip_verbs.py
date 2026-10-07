@@ -3405,6 +3405,42 @@ def test_expect_verification_cannot_pass_over_a_rip_that_checked_nothing(
     assert step.outcome is Outcome.FAIL, step.detail
 
 
+_ROUND31 = Path(__file__).resolve().parent.parent / "docs/handshake/artifactsround31"
+
+
+@pytest.mark.parametrize("keep_retired_keys", [True, False])
+def test_expect_verification_reads_a_report_with_or_without_the_recompress_keys(
+    qapp, process_until, tmp_path, keep_retired_keys: bool
+) -> None:
+    """Schema v33 removed the re-compress keys with the inert setting (2026-10-07).
+
+    A REAL report from the 2026-10-07 Full run (schema 32) carries them; the same
+    report with them deleted is what v33 writes. The verb reads the gates it
+    finds, so it must PASS both. Read from the committed artifact rather than a
+    hand-built gates dict, because a fixture would only hold the shape we believe
+    a report has.
+    """
+    report = json.loads(
+        (_ROUND31 / "round31fullwholediscreport.json").read_text(encoding="utf-8")
+    )
+    gates = report["verification"]["gates"]
+    # Floor: the committed report is the old shape, and a gate in it really ran,
+    # or the PASS below could be the verb's no-gate-ran refusal being missed.
+    assert gates["recompress"] == "disabled"
+    assert any(state == "ran" for state in gates.values())
+    if not keep_retired_keys:
+        del gates["recompress"]
+        del report["verification"]["recompress"]
+        del report["settings"]["recompress_flac_after_rip"]
+        report["settings"]["every_setting"].pop("recompress_flac_after_rip", None)
+    win = _window_after_a_rip_into(_album_with_report(tmp_path, report))
+    step = _step_outcome(
+        ScriptRunner(win), qapp, process_until, "expect-verification 5"
+    )
+    assert step.outcome is Outcome.PASS, step.detail
+    assert "left a result" in step.detail
+
+
 def test_expect_verification_fails_rather_than_passing_when_no_report_exists(
     qapp, process_until, tmp_path
 ) -> None:

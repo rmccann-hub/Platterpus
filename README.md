@@ -182,7 +182,7 @@ Mapped directly to the settings the *Archival-Grade Extraction* master guide cal
 | **Gap/Index — Detection Method A, Secure** | the Platterpus fork reads each pregap from the sub-channel (PR #115's reader, carried) and finds every pregap EAC finds on the reference disc, to the hundredth of a second; they are written into the cue as `INDEX 00` | ✅ |
 | **AccurateRip** verify | v1 + v2 (+ offset-variant) | ✅ |
 | **CTDB** verify | present — CRC hardware-validated (KDD-16) | ✅ |
-| **FLAC** `-8 -V -j` (max compression + decode-verify + threads) | cyanrip FLAC → post-rip **FLAC verify (decodes clean)** + optional max-compression recompress | ✅ |
+| **FLAC** `-8 -V -j` (max compression + decode-verify + threads) | cyanrip FLAC at maximum compression → post-rip **FLAC verify (decodes clean)** | ✅ |
 | **WAV** uncompressed baseline | WAV output (no tags — the UI warns) | ✅ |
 | **WavPack** hybrid `-c` + `-m -v` | WavPack **lossless**, encoded from the verified FLAC master. After every encode, the `.wv` and its master are decoded and their PCM compared, which is a stronger proof than `-v`. The hybrid's lossy half is what the MP3 output is for | ✅ |
 | **LAME** `-V 0 -q 4` (dodge the r6147 `noise_shaping_amp` bug) | MP3 is encoded by **ffmpeg** VBR, not `lame.exe -q 0..3` — so that LAME-specific footgun **isn't in our path** | ➖ |
@@ -687,7 +687,7 @@ The flag-by-flag detail below is about how each format is encoded.
 
 cyanrip encodes each track to FLAC through FFmpeg at **maximum compression**, and verifies the read itself via its own paranoia engine — so every track is provably bit-perfect (and confirmed afterwards against AccurateRip and CTDB). There's no compression-level knob to set: it's already at the top.
 
-**Historical context — the "Re-compress FLACs" setting.** Settings still lists a **"Re-compress FLACs"** toggle, but it is **inert and disabled** with cyanrip and does nothing: cyanrip already produces maximum-compression FLAC, so there's nothing to re-compress. (The control is kept only as a seam for a hypothetical future backend that *didn't* encode at max — for example, the previous backend relied on flac's default level 5, where a post-rip re-encode to `-8` would have shaved ~5% off file size. That no longer applies.) Don't expect flipping it to change anything.
+Earlier versions listed a greyed-out **"Re-compress FLACs"** toggle in Settings. It could never do anything with cyanrip, so it has been removed. An old settings file that still mentions it loads normally.
 
 For background: **all FLAC compression levels are lossless** — `-0` and `-8` decode to identical audio; only file size (and a little decode CPU) differ. cyanrip's max-compression output and its self-verification give you the smallest standard FLAC with the bit-perfect property already proven.
 

@@ -221,17 +221,59 @@ def test_verify_flac_defaults_on_and_round_trips(
     assert config_module.load().verify_flac_after_rip is False
 
 
-def test_recompress_flac_defaults_off_and_round_trips(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("stored", ["false", "true"])
+def test_an_old_config_carrying_the_removed_recompress_setting_loads_quietly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    stored: str,
 ) -> None:
-    _redirect_config(tmp_path, monkeypatch)
+    """`recompress_flac_after_rip` was removed on 2026-10-07 (the maintainer:
+    the "Re-compress FLACs" box was inert with cyanrip and did nothing).
 
-    cfg = config_module.load()
-    assert cfg.recompress_flac_after_rip is False  # opt-in (costs CPU/time)
+    Every config.toml saved since 2026-06-23 carries the key — `false` by default,
+    `true` for anyone who once picked the Archival goal, whose preset set it. Both
+    must load with the rest of the file read, NO warning (the key is retired, not
+    unknown) and NO reset notice: nothing about the user's real settings changed,
+    so a dialog saying "your settings were reset" would be a false alarm.
 
-    cfg.recompress_flac_after_rip = True
-    config_module.save(cfg)
-    assert config_module.load().recompress_flac_after_rip is True
+    The file is written the way an older Platterpus wrote it — the retired key
+    among real ones — rather than as a one-line fixture, so "the rest of the file
+    was read" is a claim about neighbours of the key, not about an empty file.
+    """
+    import logging
+
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text(
+        f"schema_version = {SCHEMA_VERSION}\n"
+        "verify_flac_after_rip = false\n"
+        f"recompress_flac_after_rip = {stored}\n"
+        "write_eac_log_after_rip = true\n"
+        "read_offset = 667\n",
+        encoding="utf-8",
+    )
+    assert "recompress_flac_after_rip" in config_module.RETIRED_CONFIG_KEYS
+    assert not hasattr(config_module.Config(), "recompress_flac_after_rip")
+
+    with caplog.at_level(logging.DEBUG, logger=config_module.log.name):
+        cfg = config_module.load()
+
+    # The neighbours of the retired key were read — a load that discarded the
+    # whole file (the corrupt-config path) would leave all three at default.
+    assert cfg.verify_flac_after_rip is False
+    assert cfg.write_eac_log_after_rip is True
+    assert cfg.read_offset == 667
+    assert not hasattr(cfg, "recompress_flac_after_rip")
+    # No reset notice, and nothing backed up as unreadable.
+    assert config_module.take_load_resets() == []
+    assert not config_file.with_suffix(".bad").exists()
+    warned = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert not warned, [r.getMessage() for r in warned]
+    # Named at DEBUG as a retired key, so the drop is not silent either.
+    assert any(
+        "retired" in r.getMessage() and "recompress_flac_after_rip" in r.getMessage()
+        for r in caplog.records
+    ), "the retired key was not named at DEBUG"
 
 
 def test_output_format_defaults_flac_and_round_trips(

@@ -44,7 +44,6 @@ class _FakeConfig:
     max_retries = 5
     ctdb_verify_after_rip = True
     verify_flac_after_rip = True
-    recompress_flac_after_rip = False
     rip_goal = "fast_verified"
     read_offset = 667
     override_read_offset = True
@@ -234,7 +233,6 @@ def test_verification_block_present_but_empty_by_default() -> None:
         "flac_integrity": None,
         "transcode": None,
         "derived": None,
-        "recompress": None,
     }
     assert report["checksums"] is None
 
@@ -803,37 +801,51 @@ def test_verification_gates_explain_null_subblocks() -> None:
         ctdb_enabled=True,
         flac_verify_enabled=True,
         backend_self_verifies=True,  # → not "ran"
-        recompress_enabled=False,
-        backend_maxes_compression=True,
         transcode_requested=False,
     )
     v = build_report(_sample_log(), gates=gates)["verification"]
+    # Exactly three gates since schema v33: `recompress` went with the setting.
     assert v["gates"] == {
         "ctdb": "ran",
         "flac_integrity": "backend self-verifies",
-        "recompress": "disabled",
         "derived": "flac-only",
     }
 
 
-def test_recompress_result_serialized() -> None:
-    from platterpus.adapters.flac_recompress import RecompressResult
+def test_the_report_carries_no_re_compress_keys_anywhere() -> None:
+    """Schema v33 removed every key the "Re-compress FLACs" setting produced.
+
+    Built with EVERY gate input switched on and a real `Config`, so a key that
+    came back by any route — the settings snapshot, `every_setting` (derived from
+    the dataclass), the gates, the verification block or an issue — would show.
+    """
+    from platterpus.config import Config
 
     report = build_report(
-        _sample_log(), recompress_result=RecompressResult(reencoded=14)
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+        settings=build_settings(Config()),
+        gates=build_gates(
+            ctdb_enabled=True,
+            flac_verify_enabled=True,
+            backend_self_verifies=False,
+            transcode_requested=True,
+        ),
     )
-    rc = report["verification"]["recompress"]
-    assert rc == {
-        "ran": True,
-        "ok": True,
-        "reencoded": 14,
-        "failures": [],
-        # `None`, not `[]`: this writer had no per-file details to report because
-        # nothing failed. `[]` would also be truthful here but indistinguishable
-        # from a result that predates the field, which is a different claim.
-        "failure_details": None,
-        "error": None,
+    assert report["schema_version"] == REPORT_SCHEMA_VERSION
+    assert REPORT_SCHEMA_VERSION >= 33
+    # Floor: the blocks this sweeps are really there, or "no key mentions
+    # re-compress" would pass on a report that carried nothing at all.
+    assert report["settings"]["every_setting"], "no settings were recorded"
+    assert set(report["verification"]["gates"]) == {
+        "ctdb",
+        "flac_integrity",
+        "derived",
     }
+    assert "recompress_flac_after_rip" not in report["settings"]
+    assert "recompress_flac_after_rip" not in report["settings"]["every_setting"]
+    assert "recompress" not in report["verification"]
+    assert not any("recompress" in str(i.get("code")) for i in report["issues"])
 
 
 def test_secure_rerip_block_folded_into_read_speed() -> None:
@@ -957,21 +969,6 @@ def test_issues_flags_a_success_with_a_nonzero_ripper_exit() -> None:
     )
     assert issue["severity"] == "warning"
     assert "3" in issue["message"]
-
-
-def test_issues_flags_a_recompress_failure() -> None:
-    """The step that REWRITES archival masters was not even a parameter before."""
-    from platterpus.adapters.flac_recompress import RecompressResult
-
-    report = build_report(
-        _clean_log(),
-        outcome=build_outcome(status="success", ripper_exit_code=0),
-        recompress_result=RecompressResult(reencoded=1, failures=(Path("bad.flac"),)),
-    )
-    codes = {i["code"]: i["severity"] for i in report["issues"]}
-    # `error`, not `warning`: re-compression REWRITES the archival master in place,
-    # so a failure means a file we were asked to improve may be in an unknown state.
-    assert codes["recompress_failed"] == "error"
 
 
 def test_issues_flags_a_degraded_log_parse() -> None:
@@ -1204,7 +1201,11 @@ def test_schema_version_is_27() -> None:
     #
     # v32 added `outcome.ripper_record`: cyanrip's own `-j` record of how the album
     # pass ended, tri-state, with every disagreement with our reading (W6).
-    assert REPORT_SCHEMA_VERSION == 32
+    #
+    # v33 REMOVED the re-compress keys (`settings.recompress_flac_after_rip`,
+    # `verification.gates.recompress`, `verification.recompress`, the
+    # `recompress_failed` issue) with the inert "Re-compress FLACs" setting.
+    assert REPORT_SCHEMA_VERSION == 33
 
 
 def _issue_codes(report: dict) -> set[str]:
@@ -1833,21 +1834,21 @@ def test_no_write_report_parameter_is_silently_dropped() -> None:
 
 
 def test_a_superseded_gate_replaces_only_a_gate_that_claimed_to_run() -> None:
+    # The "never scheduled" case was the `recompress` gate until schema v33
+    # removed it; FLAC integrity switched off is the same case.
     gates = build_gates(
         ctdb_enabled=True,
-        flac_verify_enabled=True,
+        flac_verify_enabled=False,  # → "disabled", and must STAY disabled
         backend_self_verifies=False,
-        recompress_enabled=False,  # → "disabled", and must STAY disabled
-        backend_maxes_compression=False,
         transcode_requested=True,
-        superseded=("ctdb", "derived", "recompress"),
+        superseded=("ctdb", "flac_integrity"),
     )
     assert gates["ctdb"] == rip_report.SUPERSEDED_GATE
-    assert gates["derived"] == rip_report.SUPERSEDED_GATE
     # Never scheduled is not the same as interrupted, and saying "superseded"
     # here would claim work that was never started.
-    assert gates["recompress"] == "disabled"
-    assert gates["flac_integrity"] == "ran"
+    assert gates["flac_integrity"] == "disabled"
+    # And a gate that ran and was NOT named stays "ran".
+    assert gates["derived"] == "ran"
 
 
 def test_a_rip_that_did_not_finish_claims_no_check_ran() -> None:
@@ -1863,16 +1864,24 @@ def test_a_rip_that_did_not_finish_claims_no_check_ran() -> None:
             ctdb_enabled=True,
             flac_verify_enabled=True,
             backend_self_verifies=False,
-            recompress_enabled=False,
-            backend_maxes_compression=False,
             transcode_requested=True,
             rip_status=status,
         )
         assert gates["ctdb"] == rip_report.RIP_DID_NOT_FINISH_GATE, status
         assert gates["flac_integrity"] == rip_report.RIP_DID_NOT_FINISH_GATE
         assert gates["derived"] == rip_report.RIP_DID_NOT_FINISH_GATE
-        # Never requested stays exactly that.
-        assert gates["recompress"] == "disabled"
+        # Never requested stays exactly that (the `recompress` gate showed this
+        # until schema v33; a switched-off CTDB check shows it now).
+        never_requested = build_gates(
+            ctdb_enabled=False,
+            flac_verify_enabled=False,
+            backend_self_verifies=False,
+            transcode_requested=False,
+            rip_status=status,
+        )
+        assert never_requested["ctdb"] == "disabled", status
+        assert never_requested["flac_integrity"] == "disabled", status
+        assert never_requested["derived"] == "flac-only", status
         # And the backstop no longer files "recorded as having run" about work
         # that was never begun: the gate now tells the truth, so there is no
         # disagreement left for it to find.
@@ -1889,8 +1898,6 @@ def test_a_rip_that_did_not_finish_claims_no_check_ran() -> None:
             ctdb_enabled=True,
             flac_verify_enabled=False,
             backend_self_verifies=False,
-            recompress_enabled=False,
-            backend_maxes_compression=False,
             transcode_requested=False,
             rip_status=status,
         )
@@ -1913,8 +1920,6 @@ def test_a_cancelled_rip_whose_checks_began_and_were_superseded_says_superseded(
         ctdb_enabled=True,
         flac_verify_enabled=True,
         backend_self_verifies=False,
-        recompress_enabled=False,
-        backend_maxes_compression=False,
         transcode_requested=True,
         superseded=("ctdb", "flac_integrity"),
         rip_status="cancelled",
@@ -1924,15 +1929,12 @@ def test_a_cancelled_rip_whose_checks_began_and_were_superseded_says_superseded(
     assert gates["flac_integrity"] == rip_report.SUPERSEDED_GATE
     # Requested and never launched: on this rip that one really did not run.
     assert gates["derived"] == rip_report.RIP_DID_NOT_FINISH_GATE
-    assert gates["recompress"] == "disabled"
     # A caller with no ledger still gets "superseded" for a check it says a
     # newer rip cut short: being superseded is itself proof the check began.
     no_ledger = build_gates(
         ctdb_enabled=True,
         flac_verify_enabled=False,
         backend_self_verifies=False,
-        recompress_enabled=False,
-        backend_maxes_compression=False,
         transcode_requested=False,
         superseded=("ctdb",),
         rip_status="cancelled",
@@ -1950,8 +1952,6 @@ def test_a_cancelled_rip_whose_checks_began_and_landed_says_they_ran() -> None:
         "ctdb_enabled": True,
         "flac_verify_enabled": True,
         "backend_self_verifies": False,
-        "recompress_enabled": False,
-        "backend_maxes_compression": False,
         "transcode_requested": False,
     }
     landed = build_gates(**common, rip_status="cancelled", launched=("ctdb",))
@@ -1967,8 +1967,6 @@ def test_a_gate_claiming_it_ran_beside_a_null_result_is_an_issue() -> None:
         ctdb_enabled=True,
         flac_verify_enabled=True,
         backend_self_verifies=False,
-        recompress_enabled=False,
-        backend_maxes_compression=False,
         transcode_requested=True,
     )
     report = build_report(
@@ -1990,8 +1988,6 @@ def test_a_superseded_check_says_so_rather_than_reading_as_missing() -> None:
         ctdb_enabled=True,
         flac_verify_enabled=False,
         backend_self_verifies=False,
-        recompress_enabled=False,
-        backend_maxes_compression=False,
         transcode_requested=True,
         superseded=("ctdb", "derived"),
     )
@@ -2012,8 +2008,6 @@ def test_a_gate_that_never_claimed_to_run_raises_nothing() -> None:
         ctdb_enabled=False,
         flac_verify_enabled=False,
         backend_self_verifies=False,
-        recompress_enabled=False,
-        backend_maxes_compression=False,
         transcode_requested=False,
     )
     report = build_report(

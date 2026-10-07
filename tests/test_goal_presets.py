@@ -27,9 +27,45 @@ def test_apply_archival_sets_the_bundle() -> None:
     out = apply_preset(Config(), GOAL_ARCHIVAL)
     assert out.output_format == "flac"
     assert out.ctdb_verify_after_rip is True
-    assert out.recompress_flac_after_rip is True
+    # The field that makes Archival a different rip (every track read twice).
+    assert out.secure_rerip_dynamic is False
     assert out.rip_goal == GOAL_ARCHIVAL
     assert detect_goal(out) == GOAL_ARCHIVAL
+
+
+def test_every_pair_of_goals_differs_in_a_field_the_rip_reads() -> None:
+    """Two presets with identical fields would be one goal under two names, and
+    `detect_goal` would always report whichever is listed first.
+
+    Asserted after `recompress_flac_after_rip` left the presets (2026-10-07):
+    it had been Archival's only difference once before, so its removal is the
+    kind of change that can quietly make two goals equal again. They are not:
+    Archival differs from Fast Verified in `secure_rerip_dynamic`, and Portable
+    from both in `output_format`.
+    """
+    from itertools import combinations
+
+    from platterpus.goal_presets import PRESETS
+
+    # Floor: three goals means three pairs; fewer and this checks less than it says.
+    assert len(PRESETS) >= 3
+    pairs = list(combinations(PRESETS.items(), 2))
+    assert len(pairs) >= 3
+    for (key_a, preset_a), (key_b, preset_b) in pairs:
+        differing = [
+            f.name
+            for f in fields(GoalPreset)
+            if getattr(preset_a, f.name) != getattr(preset_b, f.name)
+        ]
+        assert differing, f"{key_a} and {key_b} set identical fields"
+        # And each preset round-trips to itself, not to an earlier twin.
+        assert detect_goal(apply_preset(Config(), key_a)) == key_a
+        assert detect_goal(apply_preset(Config(), key_b)) == key_b
+
+
+def test_the_retired_recompress_field_is_not_a_preset_field() -> None:
+    """The setting was removed (2026-10-07); a preset must not bring it back."""
+    assert "recompress_flac_after_rip" not in {f.name for f in fields(GoalPreset)}
 
 
 def test_apply_portable_selects_mp3() -> None:

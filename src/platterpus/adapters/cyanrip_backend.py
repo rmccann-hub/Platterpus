@@ -575,13 +575,6 @@ class CyanripImpl(RipBackend):
             return ""
         return identify_from_banner(banner.split("\n", 1)[0]).build_tag
 
-    def produces_max_compression_flac(self) -> bool:
-        # cyanrip drives libavcodec at the maximum FLAC compression level for
-        # every rip (confirmed against its README and source), so a post-rip
-        # `flac -8` re-compress would only burn CPU for no size gain. Tell the
-        # GUI to skip it (and the Settings toggle to grey out) for this backend.
-        return True
-
     def native_output_formats(self) -> frozenset[str]:
         # cyanrip CAN emit WAV/MP3/WavPack (among others) natively via `-o`. We
         # advertise just the formats the GUI offers; cyanrip supports more

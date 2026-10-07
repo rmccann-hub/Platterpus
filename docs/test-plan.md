@@ -621,11 +621,10 @@ version of A1/A2/A11; do it LAST in a session, or on a sacrificial setup.)
 
 *(Was "FLAC re-compress: bit-perfect + metadata survives + smaller" — the
 opt-in re-encode existed for the previous backend's `-5` FLACs. cyanrip, the sole backend,
-already encodes at maximum compression, so the Settings toggle is permanently
-disabled and the post-rip step always skips it; the adapter is kept only as a
-seam for a future backend (unit-tested; `settings_dialog.py` tooltip explains).
-Number kept as a stable ID; the full real-binary procedure is in git history —
-resurrect it if a non-max-compression backend ever returns.)*
+already encodes at maximum compression, so the Settings toggle was permanently
+disabled and the post-rip step always skipped it. The toggle, its setting and the
+adapter were removed on 2026-10-07 on the maintainer's ruling. Number kept as a
+stable ID; the full real-binary procedure is in git history.)*
 
 ## Test 11 — [ ] Multi-format output: WavPack / MP3 / WAV (v0.3.0, KDD-22)
 

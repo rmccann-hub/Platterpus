@@ -1426,7 +1426,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": "src/platterpus/adapters/flac_recompress.py, src/platterpus/adapters/flac_verify.py, src/platterpus/ctdb/decode.py, src/platterpus/deps/checks.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/deps/registry.py"
+          "value": "src/platterpus/adapters/flac_verify.py, src/platterpus/ctdb/decode.py, src/platterpus/deps/checks.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/deps/registry.py"
         },
         {
           "name": "platterpus:pin-enforced-in",

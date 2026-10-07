@@ -522,13 +522,9 @@ mix-up came from.)*
   stored MD5. Exit 0 = clean. A missing `flac` binary → result with `ran=False`
   (reported, never raised). Bounded by a timeout.
 
-## flac — re-compression (`adapters/flac_recompress.py`, opt-in, off for cyanrip)
-
-- **`flac -8 -e -p --verify --silent -f -o <tmp> <file>`** (then an atomic `os.replace`) — maximum-effort lossless
-  re-encode. `-e` (exhaustive model search) + `-p` (qlp-coeff precision search)
-  keep LPC order at 12, so they add encode time but **no decode cost**; `--verify`
-  re-decodes to confirm bit-identity. cyanrip already maxes compression, so this
-  is skipped for it. To revert to a plain `-8`, set `_EXTRA_FLAGS = ()`.
+*(A `flac -8` re-compression adapter was listed here. It was removed on
+2026-10-07 with the "Re-compress FLACs" setting: cyanrip already writes FLAC at
+maximum compression, so we never re-encode a master after the rip.)*
 
 ## flac / metaflac — CTDB decode path (`ctdb/decode.py`)
 
@@ -758,4 +754,4 @@ SIGKILL only if the drive is still held or fuser cannot say — see
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.7.100.*

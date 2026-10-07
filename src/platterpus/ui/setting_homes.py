@@ -90,7 +90,6 @@ SETTING_HOMES: Final[dict[str, SettingHome]] = {
     "read_speed": SettingHome(SETTINGS, "_read_speed_spin"),
     "ctdb_verify_after_rip": SettingHome(SETTINGS, "_ctdb_verify_check"),
     "verify_flac_after_rip": SettingHome(SETTINGS, "_verify_flac_check"),
-    "recompress_flac_after_rip": SettingHome(SETTINGS, "_recompress_flac_check"),
     "write_eac_log_after_rip": SettingHome(SETTINGS, "_eac_log_check"),
     # --- The drive: the calibration wizard ----------------------------------
     "read_offset": SettingHome(DRIVE_SETUP, "_offset_spin"),

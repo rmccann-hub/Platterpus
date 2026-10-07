@@ -231,23 +231,27 @@ def test_verify_flac_editable(qapp: QApplication) -> None:
     assert dialog._verify_flac_check.isEnabled() is True
 
 
-def test_recompress_flac_reflects_config_and_round_trips(qapp: QApplication) -> None:
-    # Defaults OFF (opt-in) and reflects the incoming config…
+def test_settings_has_no_re_compress_row(qapp: QApplication) -> None:
+    """The inert "Re-compress FLACs" box was removed with its setting (2026-10-07).
+
+    cyanrip already writes FLAC at maximum compression, so the box could never
+    change anything. Checked on the BUILT dialog, by every label and checkbox
+    caption it shows, so a row that came back under any spelling of the name is
+    caught — not only one using the old attribute.
+    """
+    from PySide6.QtWidgets import QCheckBox, QLabel
+
     dialog = SettingsDialog(Config())
-    assert dialog._recompress_flac_check.isChecked() is False
-
-    # …and a user toggle-on survives to_config().
-    dialog2 = SettingsDialog(Config(recompress_flac_after_rip=True))
-    assert dialog2._recompress_flac_check.isChecked() is True
-    dialog2._recompress_flac_check.setChecked(False)
-    assert dialog2.to_config().recompress_flac_after_rip is False
-
-
-def test_recompress_flac_greyed_under_cyanrip(qapp: QApplication) -> None:
-    # cyanrip (the sole backend) already maxes compression, so the toggle is
-    # permanently read-only (its value is still kept).
-    dialog = SettingsDialog(Config())
-    assert dialog._recompress_flac_check.isEnabled() is False
+    assert not hasattr(dialog, "_recompress_flac_check")
+    shown = [w.text() for w in dialog.findChildren(QLabel)] + [
+        w.text() for w in dialog.findChildren(QCheckBox)
+    ]
+    # Floor: the sweep must have found the dialog's real rows, or "no row says
+    # re-compress" would pass on a dialog that showed nothing at all.
+    assert any("Verify FLAC" in text for text in shown), shown
+    assert len(shown) >= 20, f"only {len(shown)} labels/checkboxes found"
+    offenders = [t for t in shown if "compress" in t.lower()]
+    assert not offenders, f"a re-compress control is back: {offenders}"
 
 
 def test_secure_rerip_reflects_config_and_round_trips(qapp: QApplication) -> None:
@@ -320,7 +324,8 @@ def test_selecting_goal_applies_the_preset_to_controls(qapp: QApplication) -> No
     dialog._goal_combo.setCurrentIndex(idx)
     # The dependent controls snapped to the archival bundle…
     assert dialog._ctdb_verify_check.isChecked() is True
-    assert dialog._recompress_flac_check.isChecked() is True
+    # The field that makes Archival a different rip: every track read twice.
+    assert dialog._verify_every_track_check.isChecked() is True
     assert dialog._format_combo.currentData() == "flac"
     # …and to_config carries the goal + the applied fields.
     out = dialog.to_config()
@@ -620,7 +625,6 @@ def test_restore_defaults_resets_every_control_this_dialog_owns(
         read_speed=8,
         ctdb_verify_after_rip=not shipped.ctdb_verify_after_rip,
         verify_flac_after_rip=not shipped.verify_flac_after_rip,
-        recompress_flac_after_rip=not shipped.recompress_flac_after_rip,
         write_eac_log_after_rip=not shipped.write_eac_log_after_rip,
         rip_goal=GOAL_CUSTOM,
         # Homed elsewhere: must survive the reset untouched.
@@ -921,8 +925,12 @@ def test_the_dialog_can_be_made_far_shorter_than_its_content(
     )
     # Non-triviality: the CONTENT is still large. A collapsed floor achieved by
     # losing the form would pass the assertion above and be a much worse bug.
+    # 775, not 800, since 2026-10-07: removing the inert "Re-compress FLACs" row
+    # took the measured content from 818 px to 793 px (offscreen, PySide6
+    # 6.11.2). The floor keeps the same 18 px of headroom it had, so losing any
+    # further row still fails here.
     content = dialog._form_scroll.widget().sizeHint().height()
-    assert content >= 800, f"the form is only {content} px tall — did rows vanish?"
+    assert content >= 775, f"the form is only {content} px tall — did rows vanish?"
 
 
 def test_ok_and_cancel_stay_on_screen_when_the_dialog_is_constrained(

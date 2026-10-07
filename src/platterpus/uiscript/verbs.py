@@ -464,7 +464,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         0,
         1,
         "expect-verification [seconds] — assert this rip's post-rip checks (CTDB, "
-        "FLAC integrity, derived-format, re-compress) finished and left a result, "
+        "FLAC integrity, derived-format) finished and left a result, "
         "rather than being dropped when the next rip started. Waits (default 600s) "
         "because the checks run after `wait-for-rip` returns; at least one gate "
         "must have run, so the step cannot pass over a rip that checked nothing",
