@@ -1733,19 +1733,22 @@ each side's reading; and the closing releases named.
   and our readers already take them (`62aa7bb0`). Two of their claims about our code were
   wrong and are corrected in the lap: S16 (our warning would have fired on every release
   cut inside a round) and S27 (our `Gap handling` row reads the whole list, not its first
-  line). Held for the operator's word.
+  line). Released 2026-10-07 on the operator's word (sha256 `786dc0ec…`), with the §6b
+  override for v0.7.101 in its header.
 - [ ] **When their v8 drafts arrive (their lap 3):** land `PROTOCOL.md` and
   `seam-rules.md` v8 byte-identical; retire our open-round release refusal (E9: the
   `--release-gate` rule, `release.yml`'s stable-offered step, the §6b override); move
   our digest and our lap-language checker to CommonMark fences with theirs (E10; only
   our gate follows CommonMark today); check `HANDSHAKE-INBOUND-OBSERVED` on every lap
   from protocol 8 (E11). **The two `CLAUDE.md` rules E9 retires** (rule 12's *"No
-  release … while one is open"* and the deviation policy's ask) are locked: edited on
-  the maintainer's word only.
-- [ ] **Release a build that carries `62aa7bb0` before the fork's `.22`** ships E7 and
+  release … while one is open"* and the deviation policy's ask) are locked; the
+  maintainer gave the word on 2026-10-07 (*"for my decisions, do what you recommend"*,
+  answering our recommendation to edit them when v8 lands), so they change with v8.
+- [~] **Release a build that carries `62aa7bb0` before the fork's `.22`** ships E7 and
   S27's line: every earlier release of ours misreads both (round 20's order in substance;
   lap 2 S11, S15). While round 31 is open, that release needs the maintainer's word
-  until E9 lands.
+  until E9 lands. *2026-10-07:* the maintainer gave it; v0.7.101 goes out under the §6b
+  override in our lap 2's header (lap 2 S24).
 - [x] **The 2026-10-07 Full run on 0.6.66 with `.21`: the first `full-green` row**
   (425 of 426, none failed; E2 N/A on this drive, the maintainer's ruling with E2 noted
   as not covered). Filed in `docs/handshake/artifactsround31/`. Its one defect of ours,
