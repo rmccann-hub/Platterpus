@@ -1488,9 +1488,17 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # manifest at `ef34a96` builds `51cc789` with `-Ddeclare_released=true` on both
     # channels — the release path.
     #
+    # **TENTH TIME, ON THE ROLL TO `174a134` (round 30 close, 2026-10-07), AND THE
+    # ANSWER AGAIN DID NOT CHANGE.** Re-derived in an unshallowed clone of their
+    # tree: `meson_options.txt` at `174a134` hashes as at `51cc789` (sha256
+    # `0a32b1f7ac8efbde…`), 973 bytes, `git diff 51cc789 174a134 --
+    # meson_options.txt` empty, the one option still `declare_released`,
+    # `value: false`. `release-manifest.json` at `174a134` builds with
+    # `-Ddeclare_released=true` on both channels — the release path.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "51cc789", (
+    assert fork_source.PRODUCTION_TARGET.pin == "174a134", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "
@@ -1875,7 +1883,10 @@ def test_the_same_program_flag_is_redeclared_whenever_either_pin_moves() -> None
 
     #: The triple this flag was last derived for. Update ALL THREE together, and
     #: only after running the diff named in the failure message.
-    DECLARED_FOR: tuple[str, str, bool] = ("5704062", "3952c03", False)
+    # Re-derived 2026-10-07 when the pin under review moved to `.21`: `git diff
+    # ca3f3ea..3952c03 -- src/ meson.build` in an unshallowed clone of the fork is
+    # 12 files, 281 insertions, 1287 deletions. Different programs, so False.
+    DECLARED_FOR: tuple[str, str, bool] = ("ca3f3ea", "3952c03", False)
 
     reviewed, test_pin, flag = DECLARED_FOR
     assert (fork_source.PIN_UNDER_REVIEW, fork_source.FORK_TEST_PIN) == (

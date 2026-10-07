@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.66b1 — a beta of 0.6.66, pre-1.0.** It is a pre-release, offered only to those who tick *Offer beta (pre-release) updates*; the stable channel stays on 0.6.65. Handshake rounds **1 through 29** are closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.18` at **`51cc789`** and Platterpus **`0.6.63`**; 0.6.64 and later install that build by default. 0.6.66b1 accepts the fork's `.20` beta (`5704062`) as the build under review: round 30 closes on a Full acceptance run of the two betas together. The next minor, `0.7.100`, needs a Full hardware acceptance run with no failure in its archival sections, and none has passed yet ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
+> **Status: v0.6.66, pre-1.0.** Handshake rounds **1 through 30** are closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.19` at **`174a134`**, round 30's declared pin, and Platterpus **`0.6.66b1`**; 0.6.66 installs that build by default. Round 31 reviews the fork's `0.9.4-rc2+platterpus.21` at **`ca3f3ea`**, which 0.6.66 accepts as the build under review: the same source as the `.20` beta that round 30's closing run tested, published to both of the fork's channels once round 30 closed. The next minor, `0.7.100`, needs a Full hardware acceptance run with no failure in its archival sections, and none has passed yet ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
 >
 > **On the Pioneer BDR-209D, leave Overread (`-O`) off:** it hung the drive for about 23 minutes ([`docs/dependency-contracts.md`](docs/dependency-contracts.md)).
 >
@@ -267,8 +267,8 @@ You're now inside the container. The prompt should change to show you're in the 
 >
 > **Neither the script nor the manual steps below install the ripper Platterpus
 > is verified against.** Both add the `barsnick/non-fed` COPR, which ships
-> **stock cyanrip 0.9.3.1**. Platterpus pins a *fork* — currently `51cc789`,
-> `cyanrip 0.9.4-rc2+platterpus.18`, approved by handshake round 29 — and a rip
+> **stock cyanrip 0.9.3.1**. Platterpus pins a *fork* — currently `174a134`,
+> `cyanrip 0.9.4-rc2+platterpus.19`, approved by handshake round 30 — and a rip
 > made with any other build is stamped **`unapproved`** in its rip report, its
 > cyanrip log and its EAC-compatible export. That is not a warning about
 > quality: the audio is still bit-perfect and still AccurateRip-verified. It is
@@ -310,7 +310,7 @@ metaflac --version
 ```
 
 `cyanrip --version` should report
-`cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-g51cc789)`. The parenthetical is
+`cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)`. The parenthetical is
 the part that matters: it names the **fork**, which is the build Platterpus is
 verified against — and it is what `approved` versus `unapproved` in every rip
 report is keyed on.
@@ -364,7 +364,7 @@ which cyanrip
 # → /home/<you>/.local/bin/cyanrip
 
 cyanrip --version
-# → cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-g51cc789)
+# → cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)
 #   (`--version`, not `-V`. A stock build prints its own version with no
 #    `platterpus-fork` parenthetical.)
 ```
@@ -779,7 +779,7 @@ It takes a commit:
 ```sh
 # ~/Applications/… if you let the app add itself to your menu (see the note at
 # the top of this section); ./platterpus-x86_64.AppImage if you declined.
-~/Applications/platterpus-x86_64.AppImage --install-ripper 5704062
+~/Applications/platterpus-x86_64.AppImage --install-ripper ca3f3ea
 ```
 
 Without an argument it builds the pin baked into this Platterpus build. With a
@@ -1036,4 +1036,4 @@ FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full terms.
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.6.66.*
