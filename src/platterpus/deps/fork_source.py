@@ -1608,9 +1608,17 @@ def pin_under_review_reason() -> str:
 
 
 def _pin_under_review_role_clause() -> str:
-    """The clause alone, for a caller that has already named the pin."""
+    """The clause alone, for a caller that has already named the pin.
+
+    Names the round and never calls it OPEN (2026-10-07): a build is a round's
+    subject before that round's first lap, so "open" was false in every report of
+    that day's Full run on `.21`, while the round number is true throughout.
+    """
     if a_round_is_reviewing_a_build():
-        return "is the build the open handshake round is reviewing"
+        return (
+            f"is the build handshake round {PIN_UNDER_REVIEW_ROUND} reviews; no "
+            "handshake round has approved it yet"
+        )
     return (
         "is the APPROVED production pin (no handshake round is open, so there is "
         "no build under review)"

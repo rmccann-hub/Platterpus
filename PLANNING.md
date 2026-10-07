@@ -1394,37 +1394,14 @@ is the decision log failing at the one thing it is for. All three were live in
   should not allow a 0.9.1."* Two passes on one rig answer *was it luck* and say
   nothing about *is it green only because of this machine*.
 
-**Status, 2026-10-06:** the ledger carries sixteen rows, every one `partial`, and
-no `full-green` row. The newest, 2026-10-06 on app 0.6.66b1 against `5704062` (`.20`),
-is round 30's closing run: 418 of 426, its seven failures one check (the album audit's
-warning that `.20` says it is *NOT a released build*, which a build cut inside an open
-round must say), every screenshot and every rip log passing, and cyanrip's `-f` finding
-`+667` on its first run on a drive (`docs/testing.md` §5B). Before it, 2026-10-05 on app
-0.6.65 against `174a134` (`.19`), is the operator's final Full run on that pair: 316 of 323, the same seven screenshot
-steps as 2026-09-30, with every rip's log verified (`docs/testing.md` §5B). Before it,
-2026-10-04 on the same pair ran a damaged disc for seven hours and was stopped at 252
-of 323. Before that, 2026-09-30 on the same pair, is round 30's Full run: 316 of 323, `partial` because seven screenshot steps in
-ARCHIVAL sections failed, every one after the first long rip, with the app's windows
-open and the display not showing them (`docs/testing.md` §5B, the 0.6.65 row;
-`docs/handshake/artifactsround30/`). Round 29's, 2026-09-28 on app 0.6.63 against
-`51cc789` (`.18`): 320 of 323, `partial` for three steps of the same kind. Round 28's Full
-run, 2026-09-28 on app 0.6.61 against `e0471f4` (`.17`), passed 320 of 320 and is
-`partial` because its records carried two errors of ours no step could fail over. The 2026-09-26 run on app 0.6.60 against `221a1df` (`.16`) was the first Full
-run whose every archival check could fail: 320 of 320, graded `partial` by the
-maintainer for the same reason (the 2026-09-26 row). The one before, 2026-09-24 on app 0.6.55 against the round-26
-test pin `df91ae7` (258/261), lost section F's whole-disc rip when the ripper's
-container was stopped from outside the app. F is graded `ARCHIVAL` in advance,
-so the row is `partial` (`docs/testing.md` §5.br). The 2026-09-12 run (238/238, app 0.6.47 against ripper
-`fe4d2c4`) was recorded `full-green` on 2026-09-13 and re-graded `partial` on
-2026-09-15 on the maintainer's ruling — two archival sections could not fail over
-the derived-format files they exist to prove (`docs/testing.md` §5.bi). The most
-complete run since, 2026-09-22 on app 0.6.52 against `2cce60d` (247/247), is
-`partial` for the same class of reason: three of eight rips had their post-rip
-checks dropped and no step could see it (§5.bn). All thirteen rows are **one**
-machine and **one** distro, the BDR-209D on Bazzite, so even a full-green row
-would leave 0.9.1's diversity floor untouched. *(Until the 2026-09-22 document
-audit this line still reported the 2026-09-12 row as full-green — nine days past
-the re-grade that made it false.)*
+**Status, 2026-10-07:** the ledger carries seventeen rows, and one is `full-green`:
+the 2026-10-07 Full run on app 0.6.66 against `ca3f3ea` (`.21`), 425 of 426 steps
+passed, none failed, and E2 was N/A on this drive (the maintainer's ruling, with E2
+recorded as not covered). That meets `0.7.100`'s gate. Every other row is `partial`,
+and each one's reason is in `docs/testing.md` §5B. All seventeen rows are **one**
+machine and **one** distro, the BDR-209D on Bazzite, so 0.9.1's floor of two
+`full-green` rows on two machines and two distros is still one row and one machine
+short.
 
 **Why.** The implicit gate was "the tests pass", and the maintainer corrected it:
 *"we have only tested on my rig, my hardware. we need more people, more hardware,
@@ -1892,4 +1869,4 @@ guide by itself or only offers it: offered, unless the maintainer says otherwise
 
 ---
 
-*Last updated for Platterpus v0.6.66.*
+*Last updated for Platterpus v0.7.100.*

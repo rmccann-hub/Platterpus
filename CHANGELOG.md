@@ -12,6 +12,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.100] — 2026-10-07
+
+The first minor release past 0.6.x. Its gate was a Full hardware acceptance run with no
+failure in its archival sections, and the run of 2026-10-07 met it (below). The code is
+0.6.66's, plus the fixes listed here.
+
+### Added
+
+- **The first acceptance run with every step passing that can run on this rig.** The
+  Full run of 2026-10-07, on 0.6.66 with the fork's `.21`, passed 425 of 426 steps
+  with none failing. The remaining step cannot run on a drive the AccurateRip list
+  carries. It is recorded as the evidence ledger's first `full-green` row, and its
+  text artifacts are in `docs/handshake/artifactsround31/`.
+
 ### Changed
 
 - **The docs no longer repeat which cyanrip build Platterpus pins, or which
@@ -27,6 +41,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   in step are gone with them. The version in the README's status banner, the
   changelog and release checks, and the checks of the code against the handshake
   record are unchanged.
+
+### Fixed
+
+- **A rip on the cyanrip build under review no longer says a handshake round is
+  open when none is.** Every report and log on the fork's `.21` said it was "the
+  pin an OPEN handshake round proposes" and that "neither project" had approved
+  it. Neither was true on 2026-10-07: round 31 had no lap yet, and the fork had
+  published the build. The report now names the round that reviews the build and
+  says no round has approved it yet, using the same sentence as the rest of the
+  app.
 
 ## [0.6.66] — 2026-10-07
 
@@ -17948,7 +17972,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.100...HEAD
+[0.7.100]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66...v0.7.100
 [0.6.66]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66b1...v0.6.66
 [0.6.66b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.65...v0.6.66b1
 [0.6.65]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.64...v0.6.65
@@ -18018,4 +18043,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.66.*
+*Last updated for Platterpus v0.7.100.*

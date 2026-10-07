@@ -1598,7 +1598,11 @@ class TestTheRoundStatePredicate:
         while the predicate says open are both this defect.
         """
         phrase = fork_source.pin_under_review_role()
-        says_open = "open handshake round is reviewing" in phrase
+        # The reviewing branch names its round and never calls it open
+        # (2026-10-07: a round has a subject before it has a lap).
+        says_open = (
+            f"handshake round {fork_source.PIN_UNDER_REVIEW_ROUND} reviews" in phrase
+        )
         says_closed = "no handshake round is open" in phrase
         assert says_open != says_closed, (
             f"the phrase must say exactly one of the two things: {phrase!r}"
@@ -1655,11 +1659,14 @@ class TestTheRoundStatePredicate:
         nobody has run. This drives the other one.
         """
         monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", "0000000")
+        monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW_ROUND", 77)
         assert fork_source.a_round_is_reviewing_a_build() is True
         phrase = fork_source.pin_under_review_role()
-        assert "open handshake round is reviewing" in phrase, phrase
+        assert "handshake round 77 reviews" in phrase, phrase
+        assert "no handshake round has approved it yet" in phrase, phrase
         assert "0000000" in phrase, phrase
-        assert "no handshake round is open" not in phrase, phrase
+        # Never "open": the build is the round's subject before its first lap.
+        assert "open" not in phrase.casefold(), phrase
 
 
 #: Declarative assertions that a round IS OPEN. A CONDITIONAL phrasing —
@@ -1673,6 +1680,9 @@ _ROUND_IS_OPEN_CLAIM: re.Pattern[str] = re.compile(
     r"the (open )?(handshake )?round is (open|reviewing)"
     r"|the open handshake round is reviewing"
     r"|round is open and no round has approved"
+    # Shape 3 (2026-10-07): "an OPEN handshake round proposes", in capitals, from
+    # `handshake_approval`, which composed its own sentence instead of delegating.
+    r"|(?i:\ban open handshake round\b)"
     # Shape 2: a literal round NUMBER with a present-tense claim about its
     # state. This is the one `UNDER_REVIEW_TARGET.why` used — "round 14 is the
     # round that would [approve], and it is open" — and it needs its own branch
@@ -1792,6 +1802,10 @@ def test_the_round_claim_sweep_would_catch_all_three_strings_that_shipped() -> N
         '        "and it is open. A rip with this installed reports `unapproved`"',
         # Case 3: app.py's install note.
         'f"      round is open and no round has approved a test pin.\\n"',
+        # Case 4: handshake_approval's own copy, printed in every report on `.21`
+        # by the 2026-10-07 Full run while round 31 had no lap.
+        'f" That build is the pin an OPEN handshake round proposes"\n'
+        '            f" ({under_review}); it has not been approved by either project yet."',
     ]
     for i, text in enumerate(shipped_and_wrong, 1):
         assert _ROUND_IS_OPEN_CLAIM.search(_logical_text(text)), (

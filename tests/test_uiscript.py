@@ -1108,7 +1108,10 @@ def test_the_pin_role_phrase_never_claims_an_open_round_between_rounds() -> None
             f"claims a round is open while the pin equals the production pin: {phrase}"
         )
     else:
-        assert "open handshake round is reviewing" in phrase, phrase
+        assert (
+            f"handshake round {fork_source.PIN_UNDER_REVIEW_ROUND} reviews" in phrase
+        ), phrase
+        assert "open" not in phrase.casefold(), phrase
     assert fork_source.PIN_UNDER_REVIEW in phrase, (
         f"the phrase must name the pin it is talking about: {phrase}"
     )
