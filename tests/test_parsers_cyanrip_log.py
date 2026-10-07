@@ -552,6 +552,27 @@ _NEW_LIMIT_LINE = "Done; (repeat limit of 3 reads reached; at most 2 reads agree
 _OLD_LIMIT_LINE = "Done; (no matches found, but hit repeat limit of 3)"
 
 
+def test_the_round_31_last_read_clause_keeps_both_readings() -> None:
+    """Round 31 lap 1 S26: the fork proposes naming the last read when it is not
+    the kept one, as a clause after the count. Our verdict reader and our count
+    reader must both still read the line, and the count must not change."""
+    from platterpus.parsers.cyanrip_log import (
+        is_secure_rerip_verdict,
+        secure_rerip_limit_agreement,
+        secure_rerip_verdict_converged,
+    )
+
+    line = (
+        "Done; (repeat limit of 5 reads reached; at most 2 reads agreed; "
+        "last read EE58174A, not kept)"
+    )
+    assert is_secure_rerip_verdict(line)
+    assert secure_rerip_verdict_converged(line) is False
+    agreement = secure_rerip_limit_agreement(line, [])
+    assert agreement is not None
+    assert (agreement.most_reads_agreed, agreement.exact) == (2, True)
+
+
 def test_the_forks_proposed_repeat_limit_wording_is_not_convergence() -> None:
     """Both wordings -> ``False``, at any indentation; neither is ever ``True``."""
     from platterpus.parsers.cyanrip_log import (
@@ -2342,21 +2363,21 @@ def test_a_released_note_does_not_read_as_unreleased() -> None:
     against `handshake_approval`'s actual tuple rather than a copy of it, and in both
     directions so the check is discriminating.
     """
-    from platterpus.handshake_approval import _NOTE_NOT_RELEASED
+    from platterpus import handshake_note
 
     released = (
         "round 9 lap 11 closed, verdict GO -- released build "
         "(declared at build time, not verified by cyanrip)"
-    ).casefold()
-    unreleased = "round 10 lap 1 OPEN, verdict OPEN -- NOT a released build".casefold()
+    )
+    unreleased = "round 10 lap 1 OPEN, verdict OPEN -- NOT a released build"
 
-    assert not [t for t in _NOTE_NOT_RELEASED if t in released], (
+    assert handshake_note.release_state(released) == "released", (
         "a released build reads as unreleased — the folded qualifier or a token has "
         "introduced a false match"
     )
-    assert [t for t in _NOTE_NOT_RELEASED if t in unreleased], (
-        "an unreleased build no longer reads as unreleased, so the tokens have stopped "
-        "matching anything and this test proves nothing"
+    assert handshake_note.release_state(unreleased) == "unreleased", (
+        "an unreleased build no longer reads as unreleased, so the reading has "
+        "stopped matching anything and this test proves nothing"
     )
 
 

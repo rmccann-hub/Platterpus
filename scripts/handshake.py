@@ -1458,7 +1458,7 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 OUR_REPO_URL: Final[str] = "https://github.com/rmccann-hub/Platterpus"
 FORK_REPO_URL: Final[str] = "https://github.com/rmccann-hub/cyanrip"
 
-CURRENT_ROUND: Final[int] = 30
+CURRENT_ROUND: Final[int] = 31
 
 
 # --- The shared wire format (protocol §8) -----------------------------------

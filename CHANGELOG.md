@@ -12,6 +12,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **A released cyanrip build is no longer warned about as unreleased because it
+  was cut while a handshake round was open.** The fork's log line says both which
+  round its tree was in and whether the build was released. Our rip audit and our
+  approval cross-check read the word "open" as "not released". The fork proposes
+  (round 31) to release builds while a round is open, and those builds would have
+  been flagged in every report. Both now read the line's released part.
+- **The EAC-compatible log's Gap handling row no longer turns an unmeasured pregap
+  into a definite answer.** The fork proposes a line for a pregap cyanrip could not
+  measure. The row would have read "Appended to previous track" or "Not detected"
+  for it. It now says the pregap was undetermined.
+
 ## [0.7.100] — 2026-10-07
 
 The first minor release past 0.6.x. Its gate was a Full hardware acceptance run with no
