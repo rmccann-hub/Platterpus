@@ -24,7 +24,7 @@ Every row in this document is derived from the Platterpus source at the
 version named below, and describes what **that** app version parses and
 sends. It is not a claim about any other version of either side.
 
-- **Platterpus:** `0.7.101` — the build that
+- **Platterpus:** `0.7.102` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
 - **Verified against ripper build:** `cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)` — the build a
@@ -192,7 +192,7 @@ dropped.
 | `^Checking .{1,200} for cdrom\\.\\.\\.\\s*$` | libcdio image-probe chatter; the path is ours and Invoked as: records it |
 | `^Stopping, ripping incomplete!\\s*$` | abort marker; Rip completed: carries the verdict and ripper_messages surfaces this sentence |
 
-## 3. Flags we pass you (22)
+## 3. Flags we pass you (23)
 
 Obtained by calling the real argv builder with a maximal parameter set, so
 this is what the adapter emits today rather than what it was documented to
@@ -200,7 +200,7 @@ emit. Per-flag semantics and the exact contract for each are in
 `docs/dependency-contracts.md`.
 
 ```
---consumer --verify-log --version -D -F -G -N -O -S -T -U -V -Z -a -c -d -j -l -o -r -s -t
+--consumer --verify-log --version -D -F -G -N -O -S -T -U -V -W -Z -a -c -d -j -l -o -r -s -t
 ```
 
 Two of these are load-bearing beyond their own behaviour:

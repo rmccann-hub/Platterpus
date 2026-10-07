@@ -11,6 +11,30 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-07 (later still) — `-W` for 0.7.102, and our round 31 lap 3 sent ahead of theirs
+
+**What happened.** The maintainer: *"do your recommendation on next release"* (pass
+`-W`), then asked what other rippers have that we lack, for the lap, and *"release both
+at once"*. Their lap 3 had not arrived (their tip `e4b7dd55` holds lap 1 only), so ours
+went first and took number 3 (§5a); their held one, if any, becomes 4.
+
+- **`-W` on every rip** (`a1765224`, `2345733e`). Stock 0.9.3 accepts it (its getopt
+  string has `W`), and the fork's table lists it, so the input-half check passed
+  untouched. Revert-probed. No pre-emphasised disc has been ripped, so the log line and
+  `FLAGS PRE` under `-W` are read from source, not seen.
+- **The comparison with other rippers**, checked against our code first: the gaps that
+  need the fork are asked in lap 3 (offset from a disc via `-f`, CD-Text, the drive's
+  declared accurate stream, a hidden-track hint, the disc's own ISRCs); ours are in
+  TASKS (offset finder in Set up drive, CD-Text fallback, an add-disc-ID link,
+  rip-on-insert). Notification on completion and auto-eject already exist.
+- **Lap 3 also corrects** our round 30 lap 16 S1 and lap 2 S19 on track 5.
+
+**Learned (again, and it cost a commit).** The `-W` commit landed with the size ratchet
+red: pytest ran in a pipe and the commit was chained with `;`. Fixed in `2345733e`, and
+the follow-up first carried a `[skip changelog]` that would have opted the whole PR
+out of the check; amended before push. Chain a commit to a test with `&&`, and read
+the test's own exit.
+
 ## 2026-10-07 (small hours) — both pages audited line by line, and a log-checker hole found
 
 **What happened.** The maintainer: *"if needed plan to update documentation, because
@@ -10301,4 +10325,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.101.*
+*Last updated for Platterpus v0.7.102.*

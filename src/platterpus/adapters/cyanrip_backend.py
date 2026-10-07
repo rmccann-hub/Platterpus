@@ -372,6 +372,13 @@ class CyanripImpl(RipBackend):
         # with `-U` added differ by that one line, every checksum identical, and
         # art given with `-C` still loads. Declared to them in our round 30 lap 6.
         argv.append("-U")
+        # `-W` UNCONDITIONALLY, from 0.7.102 (the maintainer, 2026-10-07): keep a
+        # pre-emphasised disc's own samples. cyanrip de-emphasises any track the TOC
+        # flags unless told not to (cyanrip@ca3f3ea:src/cyanrip_main.c:1816, -W at
+        # :1910-1911), altering audio AccurateRip could then never verify; with -W
+        # the cue says FLAGS PRE instead (src/cue_writer.c:187-188). Stock 0.9.3
+        # accepts -W too, and a disc without the flag is unaffected.
+        argv.append("-W")
         # `-j`: cyanrip's own machine-readable diagnostics record, written beside
         # the rip (the child runs with `cwd=output_dir`).
         #
