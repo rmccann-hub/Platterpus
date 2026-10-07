@@ -1,12 +1,11 @@
 # Hardware test checklist
 
-> **Read this first (2026-10-07, v0.6.66b1).** The intro block below was written for the
+> **Read this first.** The intro block below was written for the
 > **v0.6.0** sheet and is kept as its record — its "this release" means v0.6.0, and its
-> list of recent releases stops at v0.5.21. What is current: Platterpus **v0.6.66**;
-> cyanrip **`174a134`** (`+platterpus.19`, approved by round 30) is installed by default from
-> 0.6.66; round 31 reviews **`ca3f3ea`**
-> (`+platterpus.21`, on both of the fork's channels, the program round 30's closing run tested).
-> The primary hardware
+> list of recent releases stops at v0.5.21. Which Platterpus you have, which cyanrip build
+> it installs by default, and any build a handshake round is testing are shown in
+> **Help → About Platterpus…**; they are not repeated here because they move with every
+> release. The primary hardware
 > route is now **Tools → Advanced → Run acceptance test…** inside the app, which keeps
 > everything a run makes — rips, screenshots, transcript and one `.tar.gz` — in one
 > session folder under `~/platterpus-rig/` (`docs/rig-scripts/README.md`,
@@ -83,7 +82,7 @@
 | Drive | `PIONEER  BD-RW   BDR-209D 1.51` on `/dev/sr0` |
 | Read offset | **+667** — confirmed, two independent sources agree |
 | Cache defeat | **Yes** — measured (`cd-paranoia -A`: 140-sector cache, backseek flushes) |
-| Tools | cyanrip `0.9.4-rc2+platterpus.21`, build tag `platterpus-fork-gca3f3ea` for the next run (round 31's build under review); the pin on `main` is `0.9.4-rc2+platterpus.19`, `platterpus-fork-g174a134` (approved by round 30, `docs/handshake/artifactsround30/`). Not stock 0.9.3; the tag identifies the build, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
+| Tools | cyanrip: the Platterpus fork — for the next run, the build a handshake round is testing when there is one (Help → About Platterpus… names it under *Build under test*, and the installed one under *Installed*). Not stock 0.9.3; the build tag (`platterpus-fork-g<commit>`) identifies the build, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
 | Settings | Overread **off** · offset-variant re-read **on** · verify-every-track **off** · max reads 2 · max retries 5 · adaptive ladder · EAC log **on** · debug log **on** |
 
 **Test disc:** *The Police — Every Breath You Take: The Classics* — 14 tracks,
@@ -1077,8 +1076,8 @@ about, and moving the ripper build is a handshake event rather than a test step.
 
 ## F — ⭐ The three things we OWE the cyanrip fork
 
-**Read this if you have a disc and half an hour.** Rounds 1–29 are closed; round 30 is open
-on `.19`, and nothing in §F gates it. Three of the items we owe them can
+**Read this if you have a disc and half an hour.** Nothing in §F gates a handshake
+round. Three of the items we owe them can
 only be produced on your rig — they are not "nice to have", they are the artifacts no fixture
 can stand in for, and the next round will ask for them. Each one below says exactly what to
 run and exactly what to send, so nothing has to be re-derived at the time.

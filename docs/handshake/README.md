@@ -29,7 +29,7 @@ a round's close conditions at lap 1, and an open round blocks both sides' releas
 Between rounds each side still needs somewhere to say where it is.
 
 ```
-outbound/platterpusstatus.md      ours   — undated; the as-of is in its heading
+outbound/platterpusstatus.md      ours   — undated; the as-of is its STATUS block
 inbound/cyanripstatus<date>.md    theirs — filed under the name they used
                                          (TWO of these on disk: 20260821, 20260913)
 ```

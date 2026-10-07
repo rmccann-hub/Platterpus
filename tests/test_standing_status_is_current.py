@@ -20,9 +20,20 @@ and nobody reviews a file for what is no longer true in it.
 **So the fix is a gate, not a rewrite.** A rewrite is correct for seventeen days.
 
 **Deliberately narrow.** This checks the handful of facts that are load-bearing
-for the reader — version, pin, approving round, rounds-closed — by deriving each
-from the code or the record and requiring the document to *state* it. It does not
-grade prose, because a check nobody can satisfy gets deleted rather than obeyed.
+for the reader — our version, the newest round and its state, and the D6 status
+block — by deriving each from the code or the record and requiring the document to
+*state* it. It does not grade prose, because a check nobody can satisfy gets
+deleted rather than obeyed.
+
+**The pin and the approving round are no longer among them (2026-10-07).** The file
+used to restate both in an *As of* table, and three tests here held that table to
+`FORK_PIN` and `handshake_approval`. The maintainer chose to stop hand-copying the
+pin and round into prose docs, so the table now points at the code, and its tests
+went with it: a check that the prose names `FORK_PIN` would, with the table gone,
+be satisfied only by the status block (which `_status_block_problems` already
+checks properly) or by a history row, which is the wrong thing. Where the pin
+crosses to the peer it does so in `STATUS-RELEASE-NEXT` and `STATUS-RUN-NEXT`,
+which are checked below.
 """
 
 from __future__ import annotations
@@ -65,92 +76,28 @@ def _status_text() -> str:
     return text
 
 
+def _names_version(text: str, version: str) -> bool:
+    """True when ``version`` appears as a whole version, not inside a longer one.
+
+    A bare substring test let ``0.6.66`` be satisfied by ``0.6.66b1``. That
+    mattered more once the *As of* table went (2026-10-07): the table named our
+    version in bold, and without it a beta named in a history row could have
+    answered for the release.
+    """
+    pattern = rf"(?<![0-9A-Za-z.]){re.escape(version)}(?![0-9A-Za-z]|\.[0-9])"
+    return re.search(pattern, text) is not None
+
+
 def test_the_standing_status_names_the_version_we_actually_ship() -> None:
     """The single most-read fact in it, and the one that decayed first."""
     from platterpus import __version__
 
     text = _status_text()
-    assert __version__ in text, (
+    assert _names_version(text, __version__), (
         f"the standing status does not mention {__version__}, the version in "
         "src/platterpus/__init__.py. The peer reads this file to learn where we "
         "are; a version it does not name is a version it is not describing. "
         "Rewrite the file in place — never add a dated sibling (§7.6)."
-    )
-
-
-def test_the_standing_status_names_the_pin_we_actually_run() -> None:
-    """A wrong pin here points the peer's whole review at the wrong build."""
-    from platterpus.deps import fork_source
-
-    text = _status_text()
-    assert fork_source.FORK_PIN in text, (
-        f"the standing status does not mention pin {fork_source.FORK_PIN!r}, which "
-        "is what deps/fork_source.py holds. This is the value the peer uses to "
-        "decide which of their builds we are talking about."
-    )
-
-
-def test_the_standing_status_names_the_round_that_approved_the_pin() -> None:
-    """Derived from the constant, which is itself derived from the record.
-
-    Chained deliberately: ``handshake_approval`` is already held to the handshake
-    files by ``tests/test_fork_source.py``, so requiring the document to agree with
-    the constant transitively requires it to agree with the record — without this
-    gate needing its own opinion about which round closed when.
-    """
-    from platterpus import handshake_approval as ha
-
-    text = _status_text()
-    assert re.search(rf"\bround\s+{ha.APPROVED_BY_ROUND}\b", text, re.IGNORECASE), (
-        f"the standing status never says 'round {ha.APPROVED_BY_ROUND}', which is "
-        "handshake_approval.APPROVED_BY_ROUND — the round whose bilateral GO "
-        "approves the pin we ship. The file was found announcing round 14 while "
-        "the constant said 18."
-    )
-
-
-def test_the_APPROVED_BY_row_itself_names_the_approval_record() -> None:
-    """The test above asks whether *"round N"* appears ANYWHERE, and on
-    2026-09-22 it passed over a table whose `approved by` row still said
-    **round 21, for Platterpus 0.6.50** — two rounds and two app versions stale —
-    because the section heading directly above it said *"round 23 CLOSED"*. A
-    heading that is current lent its round number to a row that was not.
-
-    So this reads the ROW, and requires both halves of the approval there: the
-    round and the app version it approved the pin for.
-    """
-    from platterpus import handshake_approval as ha
-
-    text = _status_text()
-    rows = [line for line in text.splitlines() if line.startswith("| approved by |")]
-    assert len(rows) == 1, (
-        f"expected exactly one '| approved by |' row in the standing status, found "
-        f"{len(rows)} — if the table was restructured, move this gate with it"
-    )
-    row = rows[0]
-    # Read the cell's DECLARED HEAD, not the whole cell. The first version of
-    # this gate searched the row and was proved vacuous by the revert probe the
-    # same day: the row's own prose says "round 23 reviewed `2cce60d`" and
-    # "not a repeat of 0.6.52's", so a head reverted to round 21 / 0.6.50 still
-    # passed — the flaw one level down from the heading that hid it before.
-    head = re.match(
-        r"^\| approved by \| \*\*round (?P<round>\d+)\*\*, for Platterpus "
-        r"\*\*(?P<version>[0-9][0-9a-z.]*)\*\*",
-        row,
-    )
-    assert head, (
-        "the 'approved by' row no longer opens with '**round N**, for Platterpus "
-        f"**X.Y.Z**', so this gate cannot read its claim: {row[:160]}"
-    )
-    assert int(head.group("round")) == ha.APPROVED_BY_ROUND, (
-        f"the standing status says the pin was approved by round "
-        f"{head.group('round')}; handshake_approval.APPROVED_BY_ROUND is "
-        f"{ha.APPROVED_BY_ROUND}"
-    )
-    assert head.group("version") == ha.APPROVED_FOR_PLATTERPUS_VERSION, (
-        f"the standing status says the approval was for Platterpus "
-        f"{head.group('version')}; handshake_approval.APPROVED_FOR_PLATTERPUS_VERSION "
-        f"is {ha.APPROVED_FOR_PLATTERPUS_VERSION}"
     )
 
 
@@ -311,7 +258,7 @@ def test_the_standing_status_says_where_the_peer_should_read_us() -> None:
 
 
 def test_the_gate_is_not_vacuous() -> None:
-    """Prove the checks above can FAIL — by mutating the text, not by forbidding words.
+    """Prove the version check can FAIL — by mutating the text, not by forbidding words.
 
     **The first version of this test forbade the stale values** (``0.6.30``,
     ``d9c058c``) anywhere in the file, and it failed on the document's own note
@@ -330,45 +277,34 @@ def test_the_gate_is_not_vacuous() -> None:
     to fail is indistinguishable from one that cannot.
     """
     from platterpus import __version__
-    from platterpus.deps import fork_source
 
     text = _status_text()
 
     # Assert the real thing passes first. Without this the mutation below could be
     # "failing" because the subject was never there — a mutation test whose subject
     # is already absent proves nothing, and reads exactly like one that works.
-    assert __version__ in text and fork_source.FORK_PIN in text, (
-        "preconditions for the mutation check are not met — see the two tests "
-        "above, which name the missing value"
+    assert _names_version(text, __version__), (
+        "precondition for the mutation check is not met — see the version test "
+        "above, which names the missing value"
+    )
+    # A longer version that merely CONTAINS ours does not count.
+    assert not _names_version(
+        f"released {__version__}b1 and {__version__}.1", __version__
     )
 
-    for subject, label in ((__version__, "version"), (fork_source.FORK_PIN, "pin")):
-        mutated = text.replace(subject, "\u2014redacted\u2014")
-        # The mutation LANDED — asserted rather than assumed, because a revert or
-        # redaction that silently did nothing is this repo's recorded way to get a
-        # passing run that proves the opposite of what it claims (four measured
-        # times, `CLAUDE.md` *prove the revert landed before believing the run*).
-        assert mutated != text, (
-            f"redacting the {label} changed nothing, so the assertion below would "
-            "hold for a reason that has nothing to do with the check"
-        )
-        # And the check the test above performs now FAILS on the mutated text.
-        assert subject not in mutated, (
-            f"the {label} survived its own redaction — it appears in a form "
-            "`str.replace` did not reach, so this proof does not cover it"
-        )
-
-    # The round check too, exercised through the same regex the real test uses so a
-    # change to that pattern cannot pass here while failing there.
-    from platterpus import handshake_approval as ha
-
-    pattern = rf"\bround\s+{ha.APPROVED_BY_ROUND}\b"
-    assert re.search(pattern, text, re.IGNORECASE), "precondition: the round is named"
-    blanked = re.sub(pattern, "round ZZ", text, flags=re.IGNORECASE)
-    assert blanked != text, "blanking the round number changed nothing"
-    assert not re.search(pattern, blanked, re.IGNORECASE), (
-        "the round number survived being blanked, so the round check is not "
-        "shown to be capable of failing"
+    mutated = text.replace(__version__, "\u2014redacted\u2014")
+    # The mutation LANDED — asserted rather than assumed, because a revert or
+    # redaction that silently did nothing is this repo's recorded way to get a
+    # passing run that proves the opposite of what it claims (four measured
+    # times, `CLAUDE.md` *prove the revert landed before believing the run*).
+    assert mutated != text, (
+        "redacting the version changed nothing, so the assertion below would "
+        "hold for a reason that has nothing to do with the check"
+    )
+    # And the check the test above performs now FAILS on the mutated text.
+    assert not _names_version(mutated, __version__), (
+        "the version survived its own redaction — it appears in a form "
+        "`str.replace` did not reach, so this proof does not cover it"
     )
 
 
