@@ -28,6 +28,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   changelog and release checks, and the checks of the code against the handshake
   record are unchanged.
 
+### Fixed
+
+- **A rip on the cyanrip build under review no longer says a handshake round is
+  open when none is.** Every report and log on the fork's `.21` said it was "the
+  pin an OPEN handshake round proposes" and that "neither project" had approved
+  it. Neither was true on 2026-10-07: round 31 had no lap yet, and the fork had
+  published the build. The report now names the round that reviews the build and
+  says no round has approved it yet, using the same sentence as the rest of the
+  app.
+
 ## [0.6.66] — 2026-10-07
 
 The stable release of the 0.6.66b1 beta: everything listed under 0.6.66b1 below is in
