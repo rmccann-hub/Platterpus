@@ -17,7 +17,7 @@ Chronological record of what each Claude Code session built, decided, and learne
 filed byte-exact and verified against both trees: their S2 (our four fixes), S4 (track 5's
 two values), S9 and S10 (their two findings, at `src/cyanrip_main.c:1227` and `1535-1536`
 in `bee49eb`), and their digest. Our lap 16 is written, `GO`, and held for the operator's
-word. It accepts S9 and S10 for round 31 (their S13), corrects our lap 14 S18 for track 5,
+word, then released on 2026-10-07 when the maintainer gave it (`--announce` first refused S6's sentence saying the lap was held, rightly, and S6 now cites the release field instead). It accepts S9 and S10 for round 31 (their S13), corrects our lap 14 S18 for track 5,
 agrees with the fork's post-close plan (0.6.66 approves `5704062`; `.21` under review for
 round 31), and carries the round's whole agreed-change ledger.
 
