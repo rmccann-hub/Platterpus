@@ -11,6 +11,40 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-07 (small hours) — both pages audited line by line, and a log-checker hole found
+
+**What happened.** The maintainer: *"if needed plan to update documentation, because
+i got all that from your repo"* — the five claims came from `main`'s README and
+`docs/eac-parity.md`. So both pages were audited in full, by three read-only helpers
+(the README; eac-parity lines 1–337; 338–982), each finding to cite the file that
+proves it. Every finding applied was re-checked against that file first.
+
+**What it found that mattered more than staleness.**
+- **Track 5 is not "the disc".** My own entry below, and its commit `fa6f5fc2`, said
+  so, from a TASKS row's premise. The 2026-10-07 secure re-read converged on
+  `C96464AB`, which AccurateRip verifies at confidence 200 — the very value EAC's own
+  log says AccurateRip returned — so EAC's `E0036697` is the unverified read.
+  Measured over all 18 committed 14-track logs: twelve tracks verified every time,
+  track 3 in 9, track 5 once, never all fourteen in one rip; equal to EAC on all
+  fourteen in 5. Corrected wherever the premise had spread (`e37f7614`).
+- **Pre-emphasis is not preserved.** cyanrip de-emphasises flagged discs by default
+  and we never pass `-W`. Docs corrected; whether to pass `-W` is the maintainer's
+  call (TASKS, recommended yes). No pre-emphasised disc has been ripped.
+- **OPS's log checker could grade our EAC-layout log as genuine** if a title carried
+  EAC's first-line phrase. Fixed by widening D16 (`5421c6a9`), pinned on the shipped
+  2026-10-07 log.
+- **Four app messages** said the logs record an unapproved ripper; only the report
+  does (`ff02e437`).
+
+Also: the Re-compress FLACs removal landed (`5940ea08`, a helper's commit, report
+schema v33); about forty eac-parity statements and thirty-eight README ones corrected.
+
+**Learned.** An audit of the docs is an audit of the claims, and a claim can be wrong
+in the code's favour or against it; three of the findings were defects, not prose. And
+a correction I wrote an hour earlier was itself wrong, because it took its premise
+from a row rather than from the logs: the rule *answer from the artifact* applies to
+the premise as much as to the number.
+
 ## 2026-10-07 (late night) — five README claims checked against the artifacts, one setting removed
 
 **What happened.** The maintainer quoted five claims from the README and
@@ -30,7 +64,8 @@ worktree.
 - **Bit-identical:** 14 of 14 equal to EAC once (2026-08-04), 13 of 14 on the latest
   run. Track 5 is the disc: EAC cannot verify it either. Track 3 is the one open gap.
   This drive read it four different ways on the latest run, and cyanrip has read EAC's
-  value on three earlier dates.
+  value on three earlier dates. *(Wrong about track 5, and "once" undercounts: see the
+  entry above.)*
 - **Overread:** the 23-minute stall was inside cyanrip's read past the disc's last
   sector, on stock 0.9.3. Platterpus only passes the flag. Whether the drive or the
   retries made it last that long is not settled. It goes to the fork in our round 31
