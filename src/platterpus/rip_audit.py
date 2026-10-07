@@ -40,7 +40,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
-from platterpus import rip_pass_exit
+from platterpus import handshake_note, rip_pass_exit
 from platterpus.parsers.cyanrip_log import INTERRUPTED_MID_READ, interruption_point
 from platterpus.parsers.rip_log import AccurateRipResult, accuraterip_is_match
 
@@ -67,7 +67,7 @@ LEVEL_WARN = "warn"
 #: How the handshake check's open-round warning begins. A constant because the
 #: acceptance grader recognises this one warning (on the build under review
 #: only), and a second spelling there would drift from the one here.
-OPEN_ROUND_WARNING: Final[str] = "the ripper says it was built from an OPEN round"
+OPEN_ROUND_WARNING: Final[str] = "the ripper says it is NOT a released build"
 
 
 @dataclass
@@ -209,37 +209,45 @@ def _audit_handshake_note(report: dict[str, Any], album: AlbumAudit) -> None:
         )
         return
 
-    # Read off the note's own words. `closed` and `OPEN` are the two shapes the fork
-    # emits; anything else is a third state we decline to interpret.
-    lowered = note.casefold()
-    says_open = "open" in lowered or "not a released build" in lowered
-    says_closed = "closed" in lowered
-
-    if says_open and not says_closed:
+    # Read off the note's own words, through the one shared reading: whether the
+    # build says it was RELEASED, which is what this warning is about. The round
+    # word is information beside it (round 31, E7: a release can be cut while a
+    # round is open, and its note then names the open round).
+    release = handshake_note.release_state(note)
+    if release == "unreleased":
         album.add(
             LEVEL_WARN,
             f"{OPEN_ROUND_WARNING}: {note!r} — rips from "
             f"this build carry that sentence permanently in their log",
         )
-    elif says_closed and not says_open:
-        album.add(LEVEL_OK, f"ripper built from a closed round: {note!r}")
+    elif release == "released":
+        built_while_open = handshake_note.round_state(note) == "open"
+        album.add(
+            LEVEL_OK,
+            f"ripper says it is a released build: {note!r}"
+            + (
+                "; it was cut while a round was open, which is information"
+                if built_while_open
+                else ""
+            ),
+        )
     else:
         album.add(LEVEL_NOTE, f"handshake note not in a shape we recognise: {note!r}")
 
     # The cross-check, which is the actual point. Our verdict and their sentence are
     # about the same binary; if they disagree, one of the two is wrong and the
     # disagreement IS the bug report.
-    if verdict == "approved" and says_open and not says_closed:
+    if verdict == "approved" and release == "unreleased":
         album.add(
             LEVEL_WARN,
             "DISAGREEMENT: we score this ripper 'approved' while the binary itself "
             "says it was built from an open round. Our pin and their compiled-in "
             "note describe the same build and cannot both be right",
         )
-    elif verdict == "unapproved" and says_closed and not says_open:
+    elif verdict == "unapproved" and release == "released":
         album.add(
             LEVEL_NOTE,
-            "the binary says it was built from a closed round, but it is not the "
+            "the binary says it is a released build, but it is not the "
             "build OUR record approved — expected when their release is ahead of "
             "our verification, and the reason the two witnesses are kept separate",
         )
