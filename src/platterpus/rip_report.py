@@ -252,6 +252,9 @@ def _atomic_write_text(target: Path, text: str) -> None:
 # v29: `disc.eac_log_signature_lines_defused` — lines of the EAC-layout log a
 #      metadata value had shaped like a log signature, as rewritten so the log
 #      cannot read as EAC-signed (D16, KDD-38), with an `info` issue beside it.
+#      Same field, same type, from 2026-10-07 also a line shaped like EAC's or
+#      XLD's first line (`EAC extraction logfile from`), which a logchecker reads
+#      to accept a log as theirs; no schema bump, as no reader's parsing changes.
 # v30: `read_speed.retried_tracks[].replaced_because` — why the auto-fix kept a
 #      re-read (`accuraterip` or `converged`), or null. A re-read is now kept when
 #      it matches AccurateRip and the first read did not, even if it did not
@@ -2049,8 +2052,9 @@ def _issues(
             "info",
             "eac_log_signature_line_defused",
             f"{len(defused)} line(s) of the EAC-layout log came from metadata shaped "
-            "like a log signature and were rewritten ('====' to '----') so the log "
-            "cannot be read as EAC-signed. The tags and file names are unchanged.",
+            "like a log signature or like EAC's own first line, and were rewritten "
+            "('====' to '----', or 'logfile' to 'log file') so the log cannot be read "
+            "as EAC's. The tags and file names are unchanged.",
         )
 
     status = (outcome or {}).get("status")

@@ -1576,7 +1576,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1873 -> 1894 (2026-10-07, round 31 lap 1 S27)**: the Gap handling row reads
     # the fork's proposed `pregap of track N unknown` line and says the pregap was
     # undetermined, instead of turning an unknown into "Appended" or "Not detected".
-    "eac_log_export.py": 1894,
+    # **1894 -> 1925 (2026-10-07, auditing eac-parity.md Part D)**: D16's guard also
+    # rewrites metadata shaped like EAC's or XLD's first line (`EAC extraction logfile
+    # from`), which OPS's checker accepts a log on, found anywhere in it.
+    "eac_log_export.py": 1925,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1912,7 +1915,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2668 -> 2683** (2026-10-05, the 2026-10-04 run's section I report): `build_gates` takes the launched-check ledger, so a cancelled rip whose checks began says "superseded" or "ran" rather than "not run", and applies "superseded" first; the docstring says why a cancel can start the chain.
     # **2683 -> 2705** (2026-10-06, ruling C1, KDD-41): schema v31 — `build_outcome` writes the securing pass's exit apart from the album pass's, the issue wording names the album pass, and the v31 history note sits beside the version. The keys are `rip_pass_exit.py`'s.
     # **2705 -> 2731** (2026-10-06, W6): schema v32 — `build_outcome` takes cyanrip's own record and writes `ripper_record` (built by `ripper_ending.report_block`, because this is the one place holding the status, our exit code and the record), the `ripper_record_disagrees` issue, and the v32 note.
-    "rip_report.py": 2731,
+    # **2731 -> 2735** (2026-10-07): the defused-lines issue names both shapes it now covers, and the v29 note says the field widened without a schema bump.
+    "rip_report.py": 2735,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -2268,7 +2272,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4952 -> 4977** (2026-10-05, the fork's round 30 lap 9 S28): the rescue and the shutdown stop read the worker's `stop_signal_reach()` where they fire and hand it over, and the rescue's docstring says why (a native cyanrip IS what the cancel signalled).
     # **4977 -> 4998** (2026-10-06, ruling C1, KDD-41): the outcome snapshot carries the securing pass's exit, a failed rip's status line names each pass's exit when a securing pass followed it, and the bundle facts say `album pass exit ok` / `securing pass exit`. The phrasing is `rip_pass_exit.py`'s.
     # **4998 -> 5003** (2026-10-06, W6): the outcome snapshot takes the worker's `ripper_ending`, and the status line adds what cyanrip's own record says (`ripper_ending.status_suffix`, where the wording lives).
-    "ui/main_window_rip.py": 5003,
+    # **5003 -> 5006** (2026-10-07): the D16 warning and comment name EAC's first-line phrase beside its signature.
+    "ui/main_window_rip.py": 5006,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
