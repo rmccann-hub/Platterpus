@@ -301,3 +301,58 @@ def test_diagnostics_before_any_check_says_not_checked() -> None:
 
     dep_manager.remember_report(None)
     assert "Installed ripper: Not checked yet." in build_diagnostics_text()
+
+
+# --- Where an unapproved ripper is recorded (found 2026-10-07, README audit) ------
+#
+# Four user-facing sentences (this module's consequence line, two in
+# `deps/ripper_offer.py`, one in the User Guide) said an unapproved ripper is
+# recorded "in the report, the log and the EAC-compatible export". Only the report
+# says so. cyanrip's log is cyanrip's and is never edited, and the EAC-compatible
+# export names the build without a verdict. Read from the 2026-10-07 Full run,
+# whose every rip was made on the build under review, so the absence is measured
+# on the case the sentence is about.
+
+_ROUND31 = (
+    __import__("pathlib").Path(__file__).resolve().parents[1]
+    / "docs"
+    / "handshake"
+    / "artifactsround31"
+)
+
+
+def test_an_unapproved_rip_is_recorded_as_such_in_its_report_and_nowhere_else() -> None:
+    report = json.loads(
+        (_ROUND31 / "round31fullwholediscreport.json").read_text(encoding="utf-8")
+    )
+    # Non-triviality: this rip really was made on an unapproved build.
+    assert report["rip"]["ripper_handshake_approval"] == "unapproved"
+    for name in ("round31fullwholedisc.log", "round31fullwholedisceac.log"):
+        text = (_ROUND31 / name).read_text(encoding="utf-8")
+        assert text.strip(), name
+        assert "approv" not in text.lower(), name
+    # The export does name the build, which is what the corrected sentences say.
+    eac = (_ROUND31 / "round31fullwholedisceac.log").read_text(encoding="utf-8")
+    assert "Ripper build: platterpus-fork-gca3f3ea" in eac
+
+
+@pytest.mark.parametrize(
+    "module",
+    [
+        "src/platterpus/ripper_standing.py",
+        "src/platterpus/deps/ripper_offer.py",
+        "src/platterpus/help_content.py",
+    ],
+)
+def test_no_sentence_says_the_logs_carry_the_unapproved_verdict(module: str) -> None:
+    import pathlib
+    import re
+
+    text = (pathlib.Path(__file__).resolve().parents[1] / module).read_text(
+        encoding="utf-8"
+    )
+    # Join wrapped string literals so a phrase split across lines is still seen.
+    joined = re.sub(r'"\s*\n\s*"', "", text)
+    joined = re.sub(r"\s+", " ", joined)
+    assert "unapproved" in joined.lower(), "floor: the module must still say it"
+    assert not re.search(r"unapproved'? in the report, the log", joined), module

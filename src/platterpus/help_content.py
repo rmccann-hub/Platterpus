@@ -363,7 +363,7 @@ Separate from the app's own update check, because it is a different
 decision. Platterpus rips with a **pinned build** of the Platterpus fork of
 cyanrip, and which build that is matters: every rip checks the ripper it
 actually ran against the build the cyanrip handshake approved, and says so
-in the rip report, the log and the EAC-compatible export.
+in the rip report (the log and the EAC-compatible export name the build).
 
 This check asks the fork which builds it has published and tells you
 whether a newer one exists. **It installs nothing without asking.** It says
