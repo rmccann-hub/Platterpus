@@ -1576,10 +1576,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1873 -> 1894 (2026-10-07, round 31 lap 1 S27)**: the Gap handling row reads
     # the fork's proposed `pregap of track N unknown` line and says the pregap was
     # undetermined, instead of turning an unknown into "Appended" or "Not detected".
-    # **1894 -> 1925 (2026-10-07, auditing eac-parity.md Part D)**: D16's guard also
+    # **1894 -> 1924 (2026-10-07, auditing eac-parity.md Part D)**: D16's guard also
     # rewrites metadata shaped like EAC's or XLD's first line (`EAC extraction logfile
     # from`), which OPS's checker accepts a log on, found anywhere in it.
-    "eac_log_export.py": 1925,
+    "eac_log_export.py": 1924,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,

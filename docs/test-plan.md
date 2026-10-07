@@ -222,6 +222,12 @@ matching CRCs. UI differences don't matter; the bytes do.
 | Read **offset** | `667` | Settings / drive setup; printed in our `.log` |
 | AccurateRip | confidence per track | our rip-log panel + `.log` |
 
+> **Status (2026-10-07):** one row of this table is not ground truth. EAC's track 5,
+> `E0036697`, is not AccurateRip's value; AccurateRip verifies `C96464AB`, which our
+> drive read once (2026-10-07). A rip that differs from this table on track 5 only
+> is not a failure until it has been checked against AccurateRip
+> (`docs/eac-parity.md` Part A, TL;DR item 1).
+
 **The per-track CRC32 baseline** (ground truth — a cyanrip rip of this disc
 must reproduce these EXACTLY; EAC's "Copy CRC" and cyanrip's "EAC CRC32" are
 the same algorithm, as was the previous backend's Test/Copy CRC historically). Disc: *The Police —
@@ -268,7 +274,8 @@ assuming a bug:
   which includes nulls — consistent.)
 - **A genuine disc defect** — e.g. our reference disc's **track 5** mismatches in
   *every* tool (CTDB: "differs in 3 samples"). A track that differs everywhere is
-  the disc, not the ripper — don't chase it.
+  the disc, not the ripper — don't chase it. *(2026-10-07: track 5 turned out not to
+  be one; a secure re-read reached AccurateRip's value. See the status note above.)*
 
 > **Known reference facts (banked from the EAC baseline):** track 3 rips *clean*
 > in EAC, so the previous backend's historical track-3 failure was its **>587-offset bug**,

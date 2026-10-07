@@ -29,14 +29,14 @@ to being accepted on merit, rather than the consolation for not being.
 
 ## Where this came from
 
-Consolidated from four separate documents so the subject has one home. Content is unchanged — each part below is the original file, whole, with its headings demoted one level.
+Consolidated from four separate documents so the subject has one home. Each part keeps its original text, with its headings demoted one level. Later changes are dated status notes and corrected rows; git history has the originals.
 
-**Parts are lettered, not numbered, on purpose:** the originals number their own sections from 0, so a numbered wrapper would make a reference like *§2.1* ambiguous. `Part A §8` reads exactly one way.
+**Parts are lettered, not numbered, on purpose:** Part D numbers its own sections from 1, so a numbered wrapper would make a reference like *§2* ambiguous. `Part D §3` reads exactly one way. Part C's two halves were called "Part A" and "Part B" in their original file, and are now *Part C §1* and *Part C §2*.
 
 | Part | Was | Written |
 |---|---|---|
 | A | the former `eac-parity-investigation.md` | 2026-06-27 |
-| B | the former `log-format-comparison.md` | 2026-06-30 |
+| B | the former `log-format-comparison.md` | 2026-05-28, rewritten for cyanrip 2026-07-01 |
 | C | the former `eac-log-and-repair-feasibility.md` | 2026-06-28 |
 | D | the former `eac-tracker-requirements-2026-07.md` | 2026-07-29 |
 
@@ -46,7 +46,10 @@ Consolidated from four separate documents so the subject has one home. Content i
 
 ## EAC parity investigation — can Platterpus output be bit-identical to EAC?
 
-**Status:** research + plan (2026-06-27). Triggered by the maintainer's goal:
+**Status:** research + plan (2026-06-27). *Status 2026-10-07: P0, P1, P2(a) and
+(c), P2(b)'s manual workflow and P4 are done; P3 is superseded by the fork; P5 is
+open. Tracks 3 and 5 are the open audio gap (item 1).* Triggered by the
+maintainer's goal:
 *"this program needs to essentially output the exact same files, bit by bit, as
 EAC."* This document marks every axis where our output can deviate from EAC,
 says whether closing the gap is **possible**, and lays out a prioritized plan.
@@ -55,42 +58,51 @@ Evidence base: a real hardware rip of **The Police — *Every Breath You Take: T
 Classics*** (cyanrip 0.9.3, Pioneer BDR-209D, +667 offset) compared against the
 EAC V1.8 baseline of the same disc. Logs/cues live in
 [`output_reference/`](../output_reference/) (`EAC_flac/` vs `cyanrip_flac/`).
+Later evidence: the fork's rip (`output_reference/cyanrip_fork_flac/`, 2026-08-04)
+and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround31/`.
 
 ### TL;DR — two very different goals
 
-1. **Bit-identical *audio* (the PCM samples) — reached once, and one track short
-   of repeatable.** This is the real meaning of "archival/EAC-quality": the
-   *samples* equal the AccurateRip consensus, proven by the per-track CRC.
-   **Status (2026-10-07), from the artifacts:**
-   - **14 of 14 equal to EAC, once:** the fork's rip of 2026-08-04
-     (`output_reference/cyanrip_fork_flac/`, asserted by
-     `tests/test_fork_rip_eac_parity.py`).
-   - **13 of 14 on the latest run:** the Full run of 2026-10-07
-     (`docs/handshake/artifactsround31/round31fullwholedisceac.log`). Every track
-     but 3 equals EAC's `Copy CRC`. Twelve match AccurateRip at confidence 200;
-     tracks 3 and 5 match it on one frame only.
-   - **Track 5 is the disc.** Its value equals EAC's (`E0036697`), but neither
-     ripper can verify it against AccurateRip; EAC also reports it *cannot be
-     verified*. Nothing in software can do better on this copy.
-   - **Track 3 is the one real gap.** EAC's value (`59D352DD`) matches
-     AccurateRip at confidence 200. Our drive reads the track differently from
-     pass to pass: on the latest run the first pass gave `1D0B4419`, and the
-     secure re-read's five reads gave `149C0991`, `418F6CF8` twice, `34D9A79A`
-     and `418F6CF8` again, so it shipped `418F6CF8`
-     (`round31fullwholediscsecuringpass.txt`, `round31fullwholediscaddendum.txt`
-     beside the log). Cyanrip has read EAC's value on this drive before: the
-     fork's reference rip of 2026-08-04, and round 26's secure re-read of
-     2026-09-24 (`docs/handshake/artifactsround26/round26securerereadeac.log`).
-     So it is reachable. It is not yet repeatable.
+1. **Bit-identical *audio* (the PCM samples) — every track has been read
+   verified, but never all fourteen in one rip.** This is the real meaning of
+   "archival/EAC-quality": the *samples* equal the AccurateRip consensus, proven by
+   the per-track CRC. Matching EAC is the usual proxy, and on this disc it is not
+   the same thing, because EAC's own track 5 is not the consensus.
+   **Status (2026-10-07), measured over every 14-track log of the reference disc in
+   the repository: 18 rips, 2026-08-04 to 2026-10-07** (`output_reference/
+   cyanrip_fork_flac/` and the `*eac.log` files under
+   `docs/handshake/artifactsround26/` to `artifactsround31/`):
+   - **Twelve tracks match AccurateRip at confidence 200 in all 18.**
+   - **Track 3.** AccurateRip verifies EAC's value, `59D352DD`. We read it in 9 of
+     the 18, and in none of the 7 since the round 30 whole-disc rip of 2026-09-30.
+     This drive reads the track differently from pass to pass: on 2026-10-07 the
+     whole-disc rip's first pass gave `1D0B4419`, and its secure re-read's five
+     reads gave `149C0991`, `418F6CF8` twice, `34D9A79A` and `418F6CF8` again
+     (`round31fullwholediscsecuringpass.txt`).
+   - **Track 5.** EAC's value, `E0036697`, is **not** the consensus: EAC's own log
+     says *"Cannot be verified as accurate … AccurateRip returned [BCF4E815]"*. The
+     2026-10-07 secure re-read converged on `C96464AB`, which AccurateRip verifies
+     (v2 `BCF4E815`, confidence 200; v1 confidence 129;
+     `round31fullsecurereread.log:437-441`). We read that value once in 18. The
+     others gave EAC's `E0036697` (10) or `6902BCF0` (7).
+   - **Equal to EAC on all 14:** 5 rips (2026-08-04, 2026-09-24, 2026-09-26 twice,
+     2026-09-28). Each of those carries EAC's unverified track 5.
+   - **AccurateRip-verified on all 14 in one rip:** none yet. Track 3's verified
+     read and track 5's have never come in the same rip.
+
+   Correction (2026-10-07): earlier text here, and in `TASKS.md`, called track 5
+   "the disc" and said no ripper could verify it. The 2026-10-07 secure re-read
+   shows otherwise.
 
    The 12/14 below is the dated stock-0.9.3 record that the analysis was written
    against.
 
    > **Outcome (2026-07, added after later hardware runs):** the v0.4.13
    > re-rip reached **13/14** — Track 3 converged partial→exact on a re-read,
-   > confirming P2(c)'s transient-near-miss prediction (see
-   > `output_reference/cyanrip_mp3/README.md` and the v0.4.13 session-log
-   > entry); Track 5 remains the disc's own defect. A still-later re-rip
+   > confirming P2(c)'s transient-near-miss prediction (see the v0.4.13
+   > session-log entry, and `output_reference/README.md` § `cyanrip_mp3/`, an
+   > earlier rip of 2026-06-27 with the same track-3 result); Track 5 remains the
+   > disc's own defect *(corrected 2026-10-07: it is not; see item 1 above)*. A still-later re-rip
    > regressed Track 3 again, refining the story to *read-instability on that
    > track* — now auto-detected by the v0.4.24 re-rip comparison. The `-Z`
    > hardware gate below is **answered** (a real `-Z` run produced per-track
@@ -101,7 +113,7 @@ EAC V1.8 baseline of the same disc. Logs/cues live in
 
 2. **Bit-identical *files* (the `.flac`/`.cue`/`.log` byte-for-byte) — NOT
    ACHIEVABLE, and not the right target.** A FLAC file's bytes are *encoder-
-   determined*: EAC pipes PCM to `flac.exe -8`; we use FFmpeg/libavcodec. Even
+   determined*: EAC writes WAV and runs `flac.exe -8 -V` on it; we use FFmpeg/libavcodec. Even
    with **identical PCM**, the two encoders choose different block sizes,
    prediction, stereo decorrelation, padding, seektable, and vendor string, so
    the `.flac` files never hash-match (Xiph FLAC format overview; Xiph FAQ). The
@@ -111,8 +123,9 @@ EAC V1.8 baseline of the same disc. Logs/cues live in
    commit CRCs, not audio).
 
 So we reframe the maintainer's goal to the one that is both meaningful and
-attainable: **match EAC's extracted PCM (AccurateRip-verified), not EAC's file
-bytes.**
+attainable: **match the AccurateRip consensus, not EAC's file bytes.** On this
+disc that is EAC's extracted PCM on 13 tracks; on track 5 EAC's own read is not
+the consensus (item 1).
 
 ### Deviation matrix (EAC ↔ our cyanrip output)
 
@@ -122,22 +135,23 @@ bytes.**
 | Drive / disc | BDR-209D | BDR-209D | ✅ | n/a |
 | TOC (track sectors) | — | — | ✅ identical (all 14) | n/a |
 | Secure / re-read | Secure | paranoia max | ✅ equivalent | n/a |
-| Gap handling **audio** | append-to-previous | default merge-to-previous | ✅ (12/14 prove it) | n/a |
-| Per-track **PCM** | baseline | **14/14 once** on the fork (2026-08-04); **13/14** on the latest run (2026-10-07) | ⚠️ track 3 not repeatable | Track 5 is the disc's (EAC cannot verify it either). Track 3 is our open gap (TL;DR, item 1) |
+| Gap handling **audio** | append-to-previous | default merge-to-previous | ✅ (14/14 on the fork, 2026-08-04, and the Gap handling row agrees) | n/a |
+| Per-track **PCM** | baseline (13 tracks AccurateRip-verified; track 5 not) | equal to EAC on all 14 in 5 of 18 rips; AccurateRip-verified on 12 every time, on track 3 in 9 of 18, on track 5 once | ⚠️ never all 14 verified in one rip | Tracks 3 and 5 (TL;DR, item 1) |
 | Overread lead-in/out | No | No: the offset needs 2 frames past the edge, and they are filled with silence, not read (`Overread mode: fill with silence in lead-in/lead-out`) | ✅ same | closed: EAC also fills with silence when overread is off; tracks 1 and 14 match EAC and AccurateRip |
-| **Pre-gap markers in cue** (`INDEX 00`) | Yes (10/14) | **Yes on the fork**: every pregap EAC finds, to the hundredth of a second | ✅ fork / ❌ stock 0.9.3 | closed on the fork (§Pregaps; `output_reference/cyanrip_fork_flac/`) |
+| **Pre-gap markers in cue** (`INDEX 00`) | Yes: 9 in the cue (its log lists 10 pre-gaps, counting track 1's lead-in) | **Yes on the fork**: every pregap EAC finds, to the hundredth of a second | ✅ fork / ❌ stock 0.9.3 | closed on the fork (§Pregaps; the 2026-10-07 cue, `docs/handshake/artifactsround31/round31fullwholedisc.cue`) |
 | FLAC **file bytes** | flac.exe `-8` | libavcodec | ❌ differ | **No** (encoder-determined) — and unnecessary |
 | Tag **values** | EAC set | cyanrip set + colon-restore | ✅ matchable | minor work if needed |
 | Tag/file **byte layout** | EAC | FFmpeg | ❌ differ | **No** — unnecessary |
-| `.log` / `.cue` format | EAC | cyanrip | ❌ differ | **No** — different tools |
+| `.log` / `.cue` format | EAC | cyanrip, plus our EAC-layout log | ⚠️ partly | Log: our EAC-layout companion has a byte-identical TOC table (`tests/test_eac_layout_parity.py`). Cue: on the fork the FILE/TRACK/INDEX lines equal EAC's (2026-10-07); REM, tag and file-name lines differ |
 | Single-file disc image+cue | optional | **unsupported** | ❌ | needs another tool |
 
 ### The two audio tracks that differ (the only real audio gap)
 
-> **Status (2026-10-07).** Track 5 now reaches EAC's value through the secure
-> re-read, which is as far as any ripper gets on this copy. Track 3 is still open:
-> it matched EAC on 2026-08-04 and missed on 2026-10-07. The analysis below is the
-> stock-0.9.3 record.
+> **Status (2026-10-07).** Both tracks are still open, and track 5 is not what the
+> analysis below says. Track 5's AccurateRip-verified value is `C96464AB`, read
+> once (2026-10-07); EAC's `E0036697` is the unverified read. Track 3's verified
+> value is EAC's `59D352DD`, read in 9 of 18 rips and in none since 2026-09-30.
+> Full numbers: TL;DR, item 1. The analysis below is the stock-0.9.3 record.
 
 - **Track 5 — a defect on this physical disc, not a ripper fault.** EAC *also*
   could not verify track 5 ("1 track could not be verified"); its CTDB pass says
@@ -162,8 +176,9 @@ bytes.**
 > stock-0.9.3 analysis that made it look hard.
 
 EAC runs a **Detect Gaps** pass that reads the disc **subchannel** to find
-index-00 pre-gaps, and records them as `INDEX 00` in its cue (10 of 14 tracks
-here). Our cyanrip cue has none — every track is plain `INDEX 01 00:00:00`.
+index-00 pre-gaps, and records them as `INDEX 00` in its cue (9 tracks here; its
+log lists 10 pre-gaps, counting track 1's two-second lead-in, which a cue does not
+mark). Our cyanrip cue has none — every track is plain `INDEX 01 00:00:00`.
 
 Findings:
 - cyanrip's cue writer (`cue_writer.c`) **can** emit `INDEX 00`, but only when a
@@ -193,16 +208,16 @@ Scoring Platterpus/cyanrip against that full list, one row per vector:
 
 | Vector | Status | Rationale |
 |---|---|---|
-| Read offset | **Present + auto-confirmed (KDD-31)** | Per-drive offset applied via cyanrip `-s`; correct on the BDR-209D (+667), confirmed byte-identical on 12/14 tracks. A rip that matches the AccurateRip global consensus now records the offset as `ACCURATERIP_CONFIRMED` and promotes its provenance to CONFIRMED/HIGH on the user's own unit — the equal-or-stronger analogue of EAC's Key-Disc check (re-confirms every matching rip). A from-scratch finder for drives *absent* from the AR list is deferred to the soft-fork roadmap. |
+| Read offset | **Present + auto-confirmed (KDD-31)** | Per-drive offset applied via cyanrip `-s`; correct on the BDR-209D (+667), confirmed byte-identical to EAC on 14/14 tracks (the fork, 2026-08-04). A rip that matches the AccurateRip global consensus records the offset as `ACCURATERIP_CONFIRMED` (medium on its own), promoted to CONFIRMED/HIGH when it agrees with the AccurateRip-list value (`drive_profiles.py`) — the equal-or-stronger analogue of EAC's Key-Disc check (re-confirms every matching rip). A from-scratch finder for drives *absent* from the AR list is deferred to the soft-fork roadmap. |
 | Cache defeat | **Measured (KDD-29)** | libcdio-paranoia attempts cache defeat every rip; cyanrip emits no verdict, so we **measure** it with `cd-paranoia -A` (libcdio's copy of that same engine) via Set up drive → Analyse cache, recorded per drive and folded into the EAC-compatible log. Still `(unknown)` (never forged) when the probe is inconclusive — the KDD-25 honesty rule holds. Hardware-tuned on the BDR-209D. |
-| Overread (into lead-in/lead-out) | **Present (opt-in)** | Surfaced 2026-07-21 as the Settings "Overread" toggle → cyanrip `-O`, off by default (EAC's baseline setting is "overread: No", and that's how the 12/14 parity proof matched). Flag-letter corrected the same day: this row previously said `-x`, which does not exist in cyanrip — `-O` verified against 0.9.3.1 + master. |
-| Subcode / pre-gap / `INDEX 00` | **Present on the fork; absent on stock 0.9.3** | Stock cyanrip 0.9.3 performs no subchannel pre-gap detection, so it emits no `INDEX 00` cue metadata — that is the `cyanrip_flac/` reference, still cited by tests. The Platterpus fork, which is the build the setup wizard installs (KDD-33), reads them from the sub-channel: the 2026-08-04 rig rip matched **all ten** of EAC's `Pre-gap length` rows to the hundredth of a second, in order, and its cue carries the `INDEX 00` markers (`output_reference/cyanrip_fork_flac/`, asserted by `tests/test_fork_rip_eac_parity.py`). The underlying *audio* was never affected either way (append/merge-to-previous matches EAC). See "Pre-gaps" above. |
+| Overread (into lead-in/lead-out) | **Present (opt-in)** | Surfaced 2026-07-21 as the Settings "Overread" toggle → cyanrip `-O`, off by default (EAC's baseline setting is "overread: No", and that's how the 14/14 fork rip matched). Flag-letter corrected the same day: this row previously said `-x`, which did not exist in cyanrip then — `-O` verified against 0.9.3.1 + master. `-x` now exists on the fork as the cache probe, not overread. **On the BDR-209D leave `-O` off:** cyanrip stalled about 23 minutes at the lead-out with it (2026-07-22, stock 0.9.3; `docs/dependency-contracts.md`). |
+| Subcode / pre-gap / `INDEX 00` | **Present on the fork; absent on stock 0.9.3** | Stock cyanrip 0.9.3 performs no subchannel pre-gap detection, so it emits no `INDEX 00` cue metadata — that is the `cyanrip_flac/` reference, still cited by tests. The Platterpus fork, which is the build the setup wizard installs (KDD-33), reads them from the sub-channel: the 2026-08-04 rig rip matched **all ten** of EAC's `Pre-gap length` rows to the hundredth of a second, in order (`output_reference/cyanrip_fork_flac/`, asserted by `tests/test_fork_rip_eac_parity.py`). That 2026-08-04 cue predates two fork cue fixes (it has four zero-length `INDEX 00` rows and one ISRC of 14); the 2026-10-07 cue (`docs/handshake/artifactsround31/round31fullwholedisc.cue`) has EAC's nine markers, on the same tracks, and all 14 ISRCs. The underlying *audio* was never affected either way (append/merge-to-previous matches EAC). See "Pre-gaps" above. |
 | HTOA (hidden track one audio) | **Absent — explicit scope note** | Not pursued: HTOA discs are rare in practice, and cyanrip (the sole backend since KDD-18) gives us no clean, low-effort path to it. Out of scope rather than a tracked gap; see `TASKS.md` "Out of scope." |
-| Pre-emphasis | **Flag-only, intentionally unused** | cyanrip's `-E` (de-emphasis) flag exists but is deliberately not passed — Platterpus preserves pre-emphasis-encoded discs as-is (an archival choice: don't alter samples) rather than actively de-emphasizing. See `docs/dependency-contracts.md`. |
+| Pre-emphasis | **⚠️ De-emphasised by default — not preserved** (corrected 2026-10-07) | This row used to say Platterpus preserves a pre-emphasised disc's samples. It does not. cyanrip de-emphasises a disc whose TOC flags pre-emphasis by default (`settings.deemphasis = 1`, cyanrip@ca3f3ea:src/cyanrip_main.c:1816), and only `-W` turns that off (:1910-1911). Platterpus never passes `-W`, so such a disc's FLAC holds altered samples, which AccurateRip cannot verify. Untested: the reference disc has no pre-emphasis. Whether to pass `-W` is open in `TASKS.md`. `-E` forces de-emphasis and is not passed either. |
 | AccurateRip v1/v2 | **Present** | Queried every rip; v1+v2 confidence parsed and rendered (KDD-12). |
 | CTDB (whole-disc verify) | **Present, validated** | `ctdb/` clean-room client (KDD-16); GUI-wired; `crc.CRC_VALIDATED=True` since 2026-07-07 (a real disc's CRC reproduced at offset 0 on hardware), so a match reads "verified". |
 | Log layout (side-by-side comparable) | **Present (2026-07-27)** | Checked against a genuine EAC V1.8 log of the same disc: the TOC table is byte-identical, and the archival header, output-format block and end-of-rip status report use EAC's rows and wording. Unreportable rows are labelled `(not reported by the ripper)`. Attribution + checksum stay deliberately distinct — layout is parity, provenance would be forgery. |
-| Accuracy comparison from logs alone | **Present (2026-07-27)** | `parity.compare_logs` pairs all 14 tracks across a real EAC log and ours with no other input. The reference rip matches EAC on **13/14** tracks once the shipped (auto-fixed) read is reported. |
+| Accuracy comparison from logs alone | **Present (2026-07-27)** | `parity.compare_logs` pairs all 14 tracks across a real EAC log and ours with no other input. The stock-0.9.3 reference rip matches EAC on **13/14** tracks once its auto-fixed read is reported; the fork's 2026-08-04 rip matches 14/14. |
 | Test & Copy (two full passes) | **Present via `-Z` convergence (KDD-30)** | No literal two-labeled-pass mode, but `-Z N` (re-read until N+1 reads are identical, so at least two) gives the same two-reads-agree guarantee. A converged track renders as an EAC-style **Test CRC == Copy CRC** pair in the EAC-compatible log; the Settings toggle "Verify every track with a second read" runs it whole-disc. Single-read tracks show only a Copy CRC — never a fabricated test read. Includes tracks the per-track auto-fix re-read *after* the whole-disc log was written: the swapped-in read's own record — CRC, AccurateRip results, convergence — is folded over the first pass (`_apply_auto_fix_results`), so the pair describes the file on disk and not the discarded read, and convergence is claimed only when the converged copy was actually swapped in (both hardware-found 2026-07-26). |
 | EAC log + checksum | **Present — our own checksum, not EAC's** | We render an EAC-*layout* log (`eac_log_export.py`) attributed to Platterpus/cyanrip, explicitly marked "not a genuine EAC log", and now footered with **our own integrity checksum: a plain SHA-256 of the text above it, equal-or-stronger than EAC's and openly verifiable** (`head -n -1 … \| sha256sum`) — never EAC's obfuscated *provenance* signature (KDD-28, refining KDD-11; open-trust choice KDD-24). |
 | Gap handling | **Audio matches; `INDEX 00` on the fork** | Same entry as "Subcode / pre-gap" above — audio placement is EAC-equivalent on either build; the cue metadata arrived with the fork. |
@@ -226,7 +241,7 @@ encoders and unnecessary. (No code.)
 We already have `platterpus.parity` + `scripts/eac_parity.py` (compares per-track
 Copy CRC, format-agnostic). Wire a documented step / optional check that runs the
 candidate rip's log against the committed EAC baseline and reports the match
-count — so "did this rip match EAC?" is one command. (Small; mostly done.)
+count — so "did this rip match EAC?" is one command. **✅ Done** (the outcome note above, and the 2026-10-05 note below).
 
 > **Running it, and what it refuses (2026-10-05).** The command is
 > `python3 scripts/eac_parity.py <baseline> <candidate.log> [more candidates]`,
@@ -269,22 +284,30 @@ count — so "did this rip match EAC?" is one command. (Small; mostly done.)
   reads),
   `config.secure_rerip_matches` → cyanrip `-Z N`; dynamic secure re-rip is
   **on by default since v0.4.9** — no opt-in checkbox; the grey-out clause for
-  the previous backend is history, that backend was removed 2026-06-30, KDD-18). **⚠ HARDWARE-GATED:** confirmed
-  to build the right argv and pass through the stack in tests, but its *effect*
-  on a marginal disc — does a `-Z 2` rip actually converge Track-3-class
-  near-misses to the AccurateRip consensus? — can only be proven on the
-  BDR-209D rig with the real disc. Re-rip the Police disc with it on and re-run
-  `scripts/eac_parity.py` against the EAC baseline to measure.
+  the previous backend is history, that backend was removed 2026-06-30, KDD-18). **Answered on
+  hardware, with mixed results:** `-Z 2` has converged track 3 to the consensus
+  (`docs/handshake/artifactsround26/round26securerereadeac.log`), converged on a
+  value AccurateRip does not know (`round31fullwholediscsecuringpass.txt`, 2026-10-07),
+  and failed to converge (`round31fullsecurereread.log`, 2026-10-07: repeat limit
+  reached). Agreement proves the reads repeat, not that they are right.
 - (b) Document the **CUETools Repair** workflow as the authoritative fix for a
   "partially accurate (450)" track, and evaluate a future in-app CTDB-repair
   step (large; CTDB verify already exists, repair does not). Evaluated in
-  [docs/eac-parity.md](eac-parity.md)
-  (repair deferred; its CRC-validation gate cleared 2026-07-07). **✅ The
+  Part C §2 below (repair deferred; its CRC-validation gate cleared 2026-07-07).
+  What did ship for this gap: the per-track auto-fix re-read, and `--compare` /
+  `--assemble-best-of` (CHANGELOG 0.4.24). **✅ The
   manual workflow is written: [`manual-ctdb-repair.md`](manual-ctdb-repair.md)
   (2026-07-21).**
 - (c) First, simply **re-rip track 3** to see if the near-miss was transient.
+  **✅ Done:** transient on some reads and not on others (the outcome note above).
 
 **P3 — Pre-gaps / `INDEX 00` in the cue (decision-gated).**
+
+> **Status: superseded.** The Platterpus fork carries PR #115 and writes `INDEX 00`
+> by default; no `-p` mode and no image mode was needed. (a) to (c) are kept as the
+> stock-0.9.3 record. One sentence in (a) held only on stock 0.9.3, which detected
+> no pregaps: once pregaps are detected, `-p` modes do move pregap audio between
+> files (cyanrip@ca3f3ea:src/cyanrip_main.c:1559-1575).
 - (a) Hardware-test cyanrip's **`-p`** modes to see if any makes it record
   `INDEX 00` for this disc; if so, pass it and we get EAC-style pre-gap markers
   for free. **Syntax note (verified upstream):** `-p` is *per-track* —
@@ -309,21 +332,23 @@ count — so "did this rip match EAC?" is one command. (Small; mostly done.)
 
 **P4 — Config alignment (minor).**
 Optionally align overread to EAC's setting; expose it. Low value (audio matched).
+**✅ Done 2026-07-21:** Settings → Overread, off by default, which is EAC's setting.
 
 **P5 — Single-file image + cue (future, large).**
 EAC's image+cue mode isn't supported by cyanrip (one FILE per track, no image
 mode). Would need a different tool or post-assembly. Only justified if users want
-a burnable disc image; revisit with KDD-18 (ripper-engine strategy).
+a burnable disc image; revisit through the fork (KDD-32). Still open.
 
 ### Bottom line
 
-- **Audio parity with EAC is met — 14/14, reached 2026-08-04 on the fork.** The
-  committed EAC baseline was matched track for track on the same disc and drive
-  (`output_reference/cyanrip_fork_flac/`, asserted by
-  `tests/test_fork_rip_eac_parity.py`). The last holdout, Track 5, converged on
-  the `-Z` secure re-rip and was swapped in by the auto-fix — P2(a)/(c), not the
-  CUETools-repair-class tooling of P2(b), which stays the power-user escape
-  hatch. The 12/14 figures above are the dated stock-0.9.3 record
+- **Audio parity with EAC has been reached, but it is not yet repeatable, and on
+  track 5 it is not the right target** (status 2026-10-07; TL;DR, item 1). 14/14
+  equal to EAC first on 2026-08-04 on the fork (`output_reference/
+  cyanrip_fork_flac/`, asserted by `tests/test_fork_rip_eac_parity.py`), and in
+  four rips since; 13/14 on the latest whole-disc run. EAC's track 5 is not the
+  AccurateRip consensus; the verified read, `C96464AB`, was reached once, by the
+  2026-10-07 secure re-read. CUETools-class repair (P2(b)) stays the power-user
+  escape hatch. The 12/14 figures above are the dated stock-0.9.3 record
   (`cyanrip_flac/`), still pinned by `tests/test_parity.py`.
 - **File-byte identity with EAC is impossible across encoders and is the wrong
   goal** — lossless audio + AccurateRip CRC is the archival standard, and we meet
@@ -331,7 +356,7 @@ a burnable disc image; revisit with KDD-18 (ripper-engine strategy).
 - **EAC-style pre-gap cue markers are a metadata nicety**, and only matter for
   disc-image use (P3/P5). On **stock cyanrip 0.9.3** they are blocked on pre-gap
   detection; the Platterpus fork detects pre-gaps and emits `INDEX 00`
-  (`output_reference/cyanrip_fork_flac/`).
+  (`docs/handshake/artifactsround31/round31fullwholedisc.cue`).
 
 ---
 
@@ -343,8 +368,19 @@ The brief promises "EAC-equivalent archival quality" — so the rip log should b
 
 **History:** this document originally compared the previous backend (the ripper Platterpus used before cyanrip, whose log is now read as the *legacy log format*) vs EAC. That backend was removed on 2026-06-30 (KDD-18) in favour of **cyanrip**, which is now the sole ripper. It was refreshed to cyanrip vs EAC in the post-0.4.5 session. The earlier comparison is preserved in git history if ever needed.
 
+> **Status (2026-10-07).** The cyanrip column below quotes **stock cyanrip 0.9.3**
+> (`output_reference/cyanrip_flac/`). The Platterpus fork's log, the one the app
+> installs, prints more (`+platterpus.21`, `docs/handshake/artifactsround31/
+> round31fullwholedisc.log`): `Handshake:`, `Consumer:`, `Invoked as:`, `Drive
+> used:`, `Encoder:`, `Retry limit:`, `Cache model:`, `CD-TEXT:`, per-track
+> `Pregap length:` / `Pregap source:`, `Extraction speed:`, `Elapsed:` and `Secure
+> re-read:`, and at the end `Encoder errors:`, `Read stalls:` and `Rip completed:`.
+> The rows corrected for the fork say so; the rest describe stock 0.9.3.
+
 ### Where the reference material lives
 
+- `output_reference/EAC_flac/eac_baseline_police_classics.log` — a **genuine** EAC V1.8 log of the reference disc (UTF-16, verbatim). The comparison baseline since 2026-06-27.
+- `output_reference/cyanrip_fork_flac/` and `docs/handshake/artifactsround*/` — real logs from the Platterpus fork, with our EAC-layout export of each beside it.
 - `rip_log_eac_reference.log` (`tests/fixtures/`) — a representative EAC v1.6 log. Hand-authored to match the format documented on the Hydrogenaudio and CueTools wikis. **Not** used by the parser; stored for reference.
 - cyanrip's exact format strings are pinned in the parser docstring and regexes at `src/platterpus/parsers/cyanrip_log.py`, verified against cyanrip master `src/cyanrip_log.c` (cyanrip 0.9.3.x). The parser tests (`tests/test_parsers_cyanrip_log.py`, plus the never-raises property test in `tests/test_parsers_property.py`) carry inline cyanrip log samples.
 
@@ -355,27 +391,27 @@ The brief promises "EAC-equivalent archival quality" — so the rip log should b
 | Field | EAC | cyanrip | Notes |
 |---|---|---|---|
 | Tool version | `Exact Audio Copy V1.6 from 23. November 2020` | `cyanrip 0.9.3.1 (...)` | Both clearly identify the ripping tool + version. **Our EAC-compatible export does not copy EAC's first line, not even its first words.** It opens `Platterpus rip log in EAC's layout, not produced by Exact Audio Copy`, then names the cyanrip build on the lines below. Platterpus 0.6.62 and earlier opened `Exact Audio Copy-compatible log generated by Platterpus`, and a tool that sniffs a log's format from its first words, as our own parser did, filed that as an EAC log (handshake round 28 lap 7 S28-S32; the fork accepted the change in round 29 lap 1 S31). Our parser still recognises both wordings as ours (`parsers/eac_log.eac_log_producer`), because users hold logs written with the old one. This is provenance, so it is one of the two places the export stays deliberately un-EAC-like; the other is the checksum footer (KDD-24, KDD-36). |
-| Date | `EAC extraction logfile from 16. October 2023, 14:30` | `Ripping finished at 2026-06-09 12:34:56` | Both stamp the rip; cyanrip records the *finish* time (Platterpus adds the real elapsed + a realtime multiplier in the JSON report — cyanrip logs neither its own run time nor an ETA). |
-| Drive identification | `Used drive  : PIONEER BD-RW BDR-209D   Adapter: 1  ID: 0` | `Device model:   PIONEER BD-RW   BDR-209D (revision 1.10)` | EAC includes adapter/ID; cyanrip includes firmware revision. **Roughly equivalent.** (cyanrip 0.9.3 prints `Device model:`; older builds printed `Drive used:` — the parser accepts both.) |
-| Extraction engine | (implicit in EAC binary) | (implicit — cyanrip drives libcdio-paranoia) | cyanrip is built on FFmpeg + libcdio-paranoia; it doesn't print the engine versions in the log. Minor parity gap vs the legacy log format (which named them). |
-| Read mode | `Read mode : Secure` | (implicit — cyanrip always reads with paranoia) | EAC offers Burst mode; cyanrip doesn't. Not a gap for archival. |
+| Date | `EAC extraction logfile from 16. October 2023, 14:30` | a timestamp line, e.g. `2026-06-27T11:18:26` (stock) or `2026-10-07T00:30:17-04:00` (fork) | Both stamp the rip. Stock cyanrip logs no run time; the fork logs each track's `Extraction speed` and `Elapsed`, which our export renders as `Extraction time`. Platterpus also puts the real elapsed and a realtime multiplier in the JSON report. |
+| Drive identification | `Used drive  : PIONEER BD-RW BDR-209D   Adapter: 1  ID: 0` | stock: `Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM`; the fork adds `Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)` | EAC includes adapter/ID; cyanrip includes firmware revision. **Roughly equivalent.** The parser accepts both lines. |
+| Extraction engine | (implicit in EAC binary) | stock: none; the fork: `Encoder: libavformat …, libavcodec … (8.1.2)` | The fork names its FFmpeg libraries; libcdio-paranoia's version is still not printed. We do not render the `Encoder:` line yet (`TASKS.md`). |
+| Read mode | `Read mode : Secure` | `Paranoia level: max` | Our export renders `max` as `Secure`, and `none` as `Burst` (`eac_log_export.py`). cyanrip can run with `-P none`; Platterpus never passes `-P`, so it is always `max`. |
 | Read offset correction | `Read offset correction : 667` | `Offset:         +667 samples` | Equivalent. cyanrip applies the offset itself (no >587 cd-paranoia bug, which the previous backend had), and prints the sign explicitly. |
 | C2 pointers | `Make use of C2 pointers : No` | `C2 errors: <text> by drive` | **Parsed since v0.5.12** (`_C2` → `RippingInfo.c2_pointers`). Note the two lines ask different questions: cyanrip reports what the *drive can do*, EAC's row what the *rip did* — so `unsupported`/`disabled` renders a truthful `No` and an affirmative capability renders as unknown rather than a fabricated `Yes`. Per-sector C2 *counts* remain unexposed — see `docs/cyanrip-fork.md Part A §8`. |
-| Gap detection | (not in EAC log) | `Gaps:` block | **cyanrip extra**, parsed to `RippingInfo.gap_detection`. |
-| Per-track pre-gap | `Pre-gap length  0:00:02.00` | `Pregap LSN: N` | Parsed to `TrackResult.pregap_sectors` and rendered in the EAC-layout export. |
+| Gap detection | `Gap handling : Appended to previous track` | `Gaps:` block | Parsed to `RippingInfo.gap_detection`, and our export renders it into EAC's `Gap handling` row. |
+| Per-track pre-gap | `Pre-gap length  0:00:02.00` | stock: `Pregap LSN: N`; the fork: `Pregap LSN: 0 (duration: 00:02.00)`, `Pregap length: 150 frames`, `Pregap source: …` | `Pregap LSN` is a position, not a length; the length comes from the fork's `Pregap length:`. Parsed to `TrackResult.pregap_sectors` and rendered in the EAC-layout export. |
 | Per-track sector range | (implicit in the TOC table) | `Start LSN:` / `End LSN:` | Parsed to `TrackResult.start_sector`/`end_sector`; they build the EAC-layout TOC table. |
-| Cache defeat | `Defeat audio cache : Yes/No` | (no equivalent line) | **No cyanrip equivalent.** cyanrip prints no cache line at all; libcdio-paranoia *attempts* cache defeat (readahead exhaustion + FUA where supported) but never asserts success. Our EAC-style log export therefore renders `(unknown)` rather than a fabricated `Yes` — but the field is no longer *usually* unknown: **KDD-29** measures the drive's real cache-defeat behaviour with `cd-paranoia -A` and folds that verdict in, so a probed drive renders a measured `Yes`/`No` (hardware-confirmed `Yes` on the BDR-209D, 2026-07-26). KDD-25's "always unknown" position is superseded; the never-fabricate rule it was protecting is not. |
+| Cache defeat | `Defeat audio cache : Yes/No` | stock: none; the fork: `Cache model: 1200 sectors (drive cache size not probed)` | **No cyanrip verdict.** The fork's `Cache model:` line is modelled, not probed, and we never fill this row from it; libcdio-paranoia *attempts* cache defeat (readahead exhaustion + FUA where supported) but never asserts success. Our EAC-style log export therefore renders `(unknown)` rather than a fabricated `Yes` — but the field is no longer *usually* unknown: **KDD-29** measures the drive's real cache-defeat behaviour with `cd-paranoia -A` and folds that verdict in, so a probed drive renders a measured `Yes`/`No` (hardware-confirmed `Yes` on the BDR-209D, 2026-07-26). KDD-25's "always unknown" position is superseded; the never-fabricate rule it was protecting is not. |
 | Paranoia status counts | (not in EAC log) | `Paranoia status counts:` block (`SKIP: N`, `READ_ERROR: N`, …) | **cyanrip extra.** A per-status tally of how hard paranoia had to work — a useful marginal-disc signal EAC doesn't surface. |
-| Disc audio duration | (implicit) | `Total time:     00:59:42.354` | cyanrip records the disc's audio length; Platterpus uses it for the honest realtime multiplier. |
+| Disc audio duration | (implicit) | `Total time:     00:59:42.354` | cyanrip records the disc's audio length. The realtime multiplier uses the audio actually extracted when known, and `Total time` only as the fallback (`rip_report.py`). |
 
 #### Per-track block
 
 | Field | EAC | cyanrip | Notes |
 |---|---|---|---|
-| Track header | `Track  1` | `Track 5 ripped and encoded successfully!` | cyanrip opens the block with the outcome line. |
+| Track header | `Track  1` | stock: `Track 5 ripped and encoded successfully!`; the fork (from `.14`): `Track 5 read successfully!` | cyanrip opens the block with the outcome line. The fork moved the encode outcome to a disc-level `Encoder errors:` line. |
 | Pre-emphasis flag | (not in EAC log) | `Preemphasis:   none detected` | cyanrip extra. Useful for archival pre-emphasis-encoded discs. |
 | Duration | `... (per-track)` | `Duration:    03:51.44` | Both capture. |
-| CRC | `Test CRC 0025D726` / `Copy CRC 0025D726` (two reads) | `EAC CRC32:     A1B2C3D4 (after 2 rips)` | **Different verification models.** EAC does a test read then a copy read and compares. cyanrip computes ONE EAC-style CRC32 per track and, with `-Z N`, re-reads until N+1 reads are identical — it records how many rips it took. Platterpus stores cyanrip's single CRC in `copy_crc` and leaves `test_crc` empty, so the fidelity summary can tell the two models apart. **In the EAC-compatible export** (KDD-30) a track whose reads *converged* is rendered as an EAC-style `Test CRC` == `Copy CRC` pair — convergence is the same two-reads-agree proof — while a track whose re-reads **hit the repeat limit** carries an explicit "not confirmed reproducible" caveat, worded by what its log proves about how many reads agreed (*The repeat-limit caveat*, below the table), and a whole-disc `Read stability :` line. A never-re-read track keeps a lone `Copy CRC`: we neither fabricate a test read nor imply doubt we didn't measure. Note the CRC is always the **shipped** file's: cyanrip's whole-disc log records the first pass, so when the auto-fix swaps in a re-read, that track's record is replaced with the re-rip's own (matching the swap addendum cyanrip's log carries — hardware-found 2026-07-26). |
+| CRC | `Test CRC 0025D726` / `Copy CRC 0025D726` (two reads) | `EAC CRC32:     A1B2C3D4 (after 2 rips)` | **Different verification models.** EAC does a test read then a copy read and compares. cyanrip computes ONE EAC-style CRC32 per track and, with `-Z N`, re-reads until N+1 reads are identical — it records how many rips it took. Platterpus stores cyanrip's single CRC in `copy_crc` and leaves `test_crc` empty, so the fidelity summary can tell the two models apart. **In the EAC-compatible export** (KDD-30) a track whose reads *converged* is rendered as an EAC-style `Test CRC` == `Copy CRC` pair — convergence is the same two-reads-agree proof — while a track whose re-reads **hit the repeat limit** carries an explicit "not confirmed reproducible" caveat, worded by what its log proves about how many reads agreed (*The repeat-limit caveat*, below the table), and a whole-disc `Read stability :` line. A never-re-read track keeps a lone `Copy CRC`: we neither fabricate a test read nor imply doubt we didn't measure. Note the CRC is always the **shipped** file's: cyanrip's whole-disc log records the first pass, so when the auto-fix swaps in a re-read, that track's record is replaced with the re-rip's own (matching the auto-fix addendum, a sidecar file `<log stem>.platterpus-addendum.txt` beside cyanrip's log, which is left byte-exact so `cyanrip --verify-log` still passes — hardware-found 2026-07-26). The fork also prints each track's own `Secure re-read:` line. |
 | AccurateRip v1 result | `Accurately ripped (confidence 14)  [95E6A189]  (AR v1)` | `Accurip v1:  12345678 (accurately ripped, confidence 3)` | Both capture the CRC + confidence; the primary bit-perfection proof on both tools. |
 | AccurateRip v2 result | `Accurately ripped (confidence 11)  [113FA733]  (AR v2)` | `Accurip v2:  9ABCDEF0 (not found, ...)` | Same structure as v1. |
 | Frame-450 ("offset-variant") match | (not distinctly labelled) | `Accurip 450: BF62B1DA (..., track is partially accurately ripped)` up to `+platterpus.16`; `(..., one frame only; whole-track checksums not found)` from `.17` (`cyanrip@ec0fe47:src/cyanrip_log.c:625`) | **cyanrip extra.** The checksum of **one frame** (frame 450, six seconds in), printed only after both whole-track checksums missed (`cyanrip@df91ae7:src/checksums.h:74-78`, `src/cyanrip_log.c:594`). It is not a pressing: a shifted pressing moves frame 450 too, and a submitted pressing matches its own whole-track entry. Surfaced as "partially accurate", never as a verified match. Our screens and report say "only one frame matched" since 2026-09-24. Our EAC-compatible log says `Only one frame matched AccurateRip (confidence N); whole-track checksums not found  [CRC]  (AR frame 450)` per track and `N track(s) matched AccurateRip on one frame only` in its summary, the words agreed with the fork in round 27 (round 7 lap 11, H4: neither side rewords this log alone). |
@@ -415,7 +451,9 @@ back through our own EAC-log reader. (2) We deliberately do **not** print a
 `Test CRC` from the reads that agreed, although the old-wording log prints their
 checksum. A `Test CRC` asserts EAC's two full passes, which never ran. On round 28's
 track 5 the kept read is the last one (the fork's round 29 lap 1 S35), and it is not
-one of the two that agreed. So the pair would print EAC's *Test ≠ Copy* state, which
+one of the two that agreed. *(From `+platterpus.20` the fork keeps the read most
+reads agreed on (cyanrip@ca3f3ea:src/cyanrip_main.c:835-845), so on current builds
+this reason is gone and the refusal rests on reason (1): EAC's two passes never ran.)* So the pair would print EAC's *Test ≠ Copy* state, which
 checkers deduct 30 per track for, about a different procedure. And the checksum
 cyanrip printed for those reads is the complement of the CRC on builds before
 `9669d84` (S34), so the number would be wrong on every older log. (3) The *at least /
@@ -468,25 +506,25 @@ reports how many skips a track had, not where they were.
 
 | Aspect | EAC | cyanrip | Notes |
 |---|---|---|---|
-| Footer | `==== Log checksum <HEX> ====` | `Log FUN512: <base64>` | Both tools sign their own log. EAC's checksum is a widely-recognised forensic signal in the archival community (its log-verify tool + CTDB accept "EAC-verified logs"); cyanrip's `Log FUN512:` is its own analogue but is **not** recognised by those third parties. Platterpus captures `Log FUN512:` in the report so the signature is preserved, but the third-party-recognition gap is real and **not actionable from the GUI side**. |
+| Footer | `==== Log checksum <HEX> ====` | `Log FUN512: <base64>` | Both tools sign their own log. EAC's checksum is a widely-recognised forensic signal in the archival community (its log-verify tool + CTDB accept "EAC-verified logs"); cyanrip's `Log FUN512:` is its own analogue but is **not** recognised by those third parties. Platterpus checks it on every rip by running `cyanrip --verify-log` (`adapters/ripper_log_verify.py`; the report's `ripper_log_verification`), and our EAC-layout log carries its own openly verifiable SHA-256 footer (KDD-28). The third-party-recognition gap is real and **not actionable from the GUI side**. |
 
 ### What Platterpus adds beside the log
 
-Platterpus never *rewrites* cyanrip's `.log`/`.cue` — those stay the EAC-parity, human-facing archival record, named after the album. It writes exactly **one** companion next to them by default (a second, optional `<Album> (EAC-compatible).log` appears when the Settings toggle `write_eac_log_after_rip` is on — off by default; `eac_log_export.py`):
+Platterpus never *rewrites* cyanrip's `.log`/`.cue` — those stay the EAC-parity, human-facing archival record, named after the album. It writes **one** companion next to them by default (a second, optional `<Album> (EAC-compatible).log` appears when the Settings toggle `write_eac_log_after_rip` is on — off by default; `eac_log_export.py`). When the auto-fix replaced a track, `<log stem>.platterpus-addendum.txt` sits beside cyanrip's log too, and a securing pass leaves `<Album>.platterpus-securing-pass.txt` (`rip_addendum.py`):
 
-- **`<Album>.platterpus.json`** — the single machine-readable / LLM-oriented rip report: the parsed verdict, per-track AccurateRip, the full post-rip verification suite (AccurateRip + CTDB + FLAC-integrity, plus derived-file verification for MP3/WavPack/WAV), per-file SHA256 digests, timing + realtime multiplier, album loudness, the read-speed-ladder history, **and this rip's embedded session log** (`debug.lines`, scoped to this album).
+- **`<Album>.platterpus.json`** — the single machine-readable / LLM-oriented rip report: the parsed verdict, per-track AccurateRip, the full post-rip verification suite (AccurateRip + CTDB + FLAC-integrity, plus derived-file verification for MP3/WavPack/WAV), per-file SHA256 digests, timing + realtime multiplier, album loudness, the read-speed-ladder history, the verbatim text of the artifacts it read (`artifacts`), the `cyanrip --verify-log` result (`ripper_log_verification`), **and this rip's embedded session log** (`debug.lines`, scoped to this album).
 
 The album folder therefore holds: the audio, the front cover, cyanrip's EAC-style `<Album>.log`/`<Album>.cue` (for humans), the `<Album>.platterpus.json` (for machines/LLMs/debugging), and — only when the toggle above is on — the optional `<Album> (EAC-compatible).log`. The *rationale* for this split — two audiences, two artifacts; why there is deliberately **no** plain-text `.platterpus.log` sidecar; how the global `~/.local/share/platterpus/log.txt` divides the work with the JSON's embedded log — is owned by [`architecture.md` §3.7](architecture.md) ("Two audiences, two artifacts"); this doc records only *what* sits beside the rip.
 
 ### Verdict on EAC-equivalence
 
-**Archival content: equivalent, and richer in places.** Every field EAC captures that bears on whether the rip is bit-perfect (drive, offset, per-track CRC, AccurateRip confidence v1+v2) is captured by cyanrip too. cyanrip *additionally* records paranoia status counts, pre-emphasis, per-track + album loudness (ReplayGain/R128), and the offset-variant match — none of which EAC logs.
+**Archival content: equivalent, and richer in places.** Every field EAC captures that bears on whether the rip is bit-perfect (drive, offset, per-track CRC, AccurateRip confidence v1+v2) is captured by cyanrip too. cyanrip *additionally* records paranoia status counts, pre-emphasis, per-track + album loudness (ReplayGain/R128), and the frame-450 one-frame match — none of which EAC logs.
 
 **Log integrity: EAC is still stronger by reputation.** Both tools sign their logs, but EAC's checksum is a trusted forensic signal to third parties (CTDB, the audiophile community) in a way cyanrip's `Log FUN512:` is not. This is a real gap but not closable from the GUI side.
 
 ### Implications for the GUI
 
-1. **The `RippingInfo` block on `RipLog` mirrors EAC's archival header** (drive/offset/etc.), so the GUI can surface it in a "Rip details" panel that gives the user EAC-level archival confidence — regardless of which tool wrote the log.
+1. **The `RippingInfo` block on `RipLog` mirrors EAC's archival header** (drive/offset/etc.), so it can feed the EAC-layout export and the report. *(No "Rip details" panel exists, as of 2026-10-07; the disc-info panel shows drive, offset and cache from the drive profile instead.)*
 2. **The per-track display** renders cyanrip's AR v1 / v2 confidence the same way EAC does, and the results pane now also surfaces the album loudness + partial-accurate count that cyanrip uniquely provides.
 3. **We offer an optional EAC-*layout* companion log (v0.4.16)** — the Settings toggle `write_eac_log_after_rip` (off by default) writes `<Album> (EAC-compatible).log` beside the rip, rendered by `eac_log_export.py`: conspicuously attributed and **never signed** as EAC (signing would forge provenance — KDD-11/KDD-24, `docs/eac-parity.md`). Linux still can't submit to AccurateRip (the brief's confirmed gap).
 
@@ -503,12 +541,13 @@ If a future cyanrip version changes its log format, update both this document an
 
 ## Feasibility: EAC-log tracker-acceptance & in-app CTDB repair
 
-**Status:** research (2026-06-28) — **decided**: Part A resolved per **KDD-24**
+**Status:** research (2026-06-28) — **decided**: §1 resolved per **KDD-24**
 (tracker acceptance out of scope by design; option 1 is the standing path,
 option 2 shipped v0.4.16, option 3 documented-not-pursued; the signing path is
-permanently closed — TASKS.md closed the signed-checksum item). Part B (repair)
-remains deferred pending maintainer appetite for the .NET dependency; its CRC
-gate cleared 2026-07-07 (KDD-16). Originally: research / decision-gated, no
+permanently closed — TASKS.md closed the signed-checksum item). §2 (repair) was
+**decided 2026-07-21 (KDD-14, "D → B")**: no bundled .NET; in-app repair waits for a
+user who needs it, and then arrives as an optional user-installed `ctdb-cli` through
+the dependency subsystem. Its CRC gate cleared 2026-07-07 (KDD-16). Originally: research / decision-gated, no
 code written. This is
 the write-up the EAC-parity brief asked for ("investigate the LOG-trust path"
 and "scope/evaluate an in-app CUETools/CTDB *repair*") so the maintainer can
@@ -518,7 +557,7 @@ plan) and answers the two questions that investigation deferred.
 
 ---
 
-### Part A — Can we make our rips *tracker-accepted* by emitting an EAC log?
+### Part C §1 — Can we make our rips *tracker-accepted* by emitting an EAC log?
 
 #### The decisive finding (added 2026-07, research session): the block is ripper identity, above the audio layer
 
@@ -537,7 +576,7 @@ ceiling** to aim for. A cyanrip log with perfect AccurateRip confidence and a
 flawless extraction still scores exactly the same as a garbage rip — zero —
 because the gate is identity, not quality. "Get closer to tracker-accepted" is
 not a spectrum we can climb by improving the rip; it's a binary allow-list we
-are not on. This reframes Part A from "how close can we get" to "this is
+are not on. This reframes §1 from "how close can we get" to "this is
 categorically out of scope by design" — see PLANNING.md **KDD-24** for the
 full record.
 
@@ -558,12 +597,15 @@ cyanrip's own FUN512 checksum — is **not** accepted.
 > **Correction (2026-07-29):** an earlier version of this paragraph said the
 > previous backend "still cannot clear RED's checksum requirement." That is wrong.
 > OPS's checker validates that backend's checksum, which is a **plain SHA-256 of
-> every line but the last** (`OPSnet/Logchecker`, `src/Check/Checksum/Whipper.php`) — the same scheme
-> Platterpus's own footer uses. The checksum wall is cleared there; what excludes
+> every line but the last** (`OPSnet/Logchecker`, `src/Check/Checksum/Whipper.php`) — the same
+> primitive as Platterpus's own footer (a plain SHA-256 of the text above it), though
+> not byte-compatible: OPS joins the lines with no trailing newline, and ours hashes
+> every byte. The checksum wall is cleared there; what excludes
 > cyanrip is *identity*, checked before any quality line is read, and Redacted's
 > rules listing only EAC and XLD is a policy limit rather than a technical one.
-> Details and the full requirement-by-requirement comparison:
-> [`eac-parity.md`](eac-parity.md). So "make the CD-archiving community fully trust our rips"
+> Details and the full requirement-by-requirement comparison: Part D below.
+
+So "make the CD-archiving community fully trust our rips"
 splits into two very different audiences:
 
 - **AccurateRip + CTDB** = the *open*, tool-agnostic trust system. Anyone can
@@ -611,7 +653,7 @@ with two of our own hard constraints:
 - The brief: *"it must reflect REAL results — never fake a log/checksum."* An
   EAC-signed cyanrip log fakes the **provenance** even when the audio is real.
 - The project ethos (see the honesty rules in `docs/ux-design-principles.md`
-  and the verdict code in `ui/rip_progress.py`): *"never claim a check that
+  and the verdict code in `verdict.py`): *"never claim a check that
   didn't run."* We never ran EAC.
 
 **Recommendation: do not forge EAC logs.** It is technically a few hundred lines
@@ -630,9 +672,10 @@ of Python and ethically a non-starter.
    correct, because it isn't an EAC rip. Low effort, no forgery.
    **✅ The building block is now implemented** (`src/platterpus/eac_log_export.py`
    `render_eac_style_log()` + the `scripts/render_eac_log.py` CLI, 2026-06-28):
-   it renders our real `RipLog` into EAC's layout with a conspicuous
-   "generated by Platterpus — NOT a genuine EAC log / not signed" header and
-   footer, never a fabricated checksum. The GUI wiring shipped in
+   it renders our real `RipLog` into EAC's layout with a conspicuous header
+   and footer saying EAC did not produce it (since 0.6.63 the first line reads
+   `Platterpus rip log in EAC's layout, not produced by Exact Audio Copy`), never
+   a fabricated EAC checksum; since KDD-28 it ends with our own SHA-256. The GUI wiring shipped in
    v0.4.16: the opt-in Settings toggle (*EAC-style log*,
    `write_eac_log_after_rip`, off by default) writes the attributed EAC-layout
    log beside each rip — option 2 is fully implemented.
@@ -647,7 +690,7 @@ pursued. No code ever proceeds on the signing path.
 
 ---
 
-### Part B — In-app CUETools / CTDB *repair*
+### Part C §2 — In-app CUETools / CTDB *repair*
 
 #### What "repair" buys us
 
@@ -687,15 +730,17 @@ samples** and bring the track back to the consensus. We already do CTDB
 #### Recommendation
 
 - **Now:** ship the lighter first line of defence — **cyanrip `-Z N` re-rip**
-  (done this session) converges most marginal tracks without any new dependency.
+  (shipped 2026-06-28, and driven automatically by the securing pass since,
+  `securing_pass.py`) converges most marginal tracks without any new dependency.
 - **Document the manual CUETools/ctdb-cli repair workflow** as the authoritative
   fix for a stubborn "partially accurate (450)" track (a power-user escape
   hatch), pointing at the tools above. **✅ Written 2026-07-21:
   [`manual-ctdb-repair.md`](manual-ctdb-repair.md)** (assembled strictly from
   this doc + the investigation record; unexecuted steps marked unverified).
 - **Gate an in-app repair** behind: (a) ~~the CTDB CRC hardware-validation~~
-  **cleared 2026-07-07 (KDD-16)**, (b) explicit maintainer appetite for the
-  .NET/Mono dependency, and (c) repair-specific validation of the
+  **cleared 2026-07-07 (KDD-16)**, (b) ~~explicit maintainer appetite for the
+  .NET/Mono dependency~~ **decided 2026-07-21 (KDD-14): no bundled .NET; an optional
+  user-installed `ctdb-cli` when a user needs it**, and (c) repair-specific validation of the
   CUETools.Parity path. Revisit alongside `docs/cyanrip-fork.md`
   (the living engine-options doc that revisits KDD-18) — if we ever bundle a
   richer engine, repair rides along more cheaply.
@@ -714,7 +759,10 @@ samples** and bring the track back to the consensus. We already do CTDB
   answer, now with a sharper reason why closing the gap by degrees was never
   on the table.
 - **Why we ship no two-pass Test&Copy, and why our log is unsigned — both are
-  the open-trust choice, not gaps.** A literal EAC-style Test&Copy (two full
+  the open-trust choice, not gaps.** *(Status 2026-10-07: still no literal two-pass
+  mode, but since KDD-30 a converged `-Z` read renders as a Test/Copy pair, with an
+  optional whole-disc pass ("Verify every track with a second read"); and since
+  KDD-28 the log carries our own SHA-256, never EAC's.)* A literal EAC-style Test&Copy (two full
   disc passes, compared) and a signed EAC checksum are both *provenance/process
   attestations* — "this ran the way EAC runs" — not audio-correctness
   mechanisms. Given tracker acceptance is out of scope by design (KDD-24), we
@@ -726,8 +774,9 @@ samples** and bring the track back to the consensus. We already do CTDB
   buy tracker-shaped credibility we've deliberately decided not to chase.
 - **In-app CTDB repair:** feasible on Linux (`ctdb-cli`/.NET or CUETools/Mono)
   but a heavy dependency that rewrites the master. The CRC-validation blocker
-  **cleared 2026-07-07 (v0.4.20, KDD-16)**; the remaining gates are maintainer
-  appetite for the .NET dependency and validation of the repair path itself.
+  **cleared 2026-07-07 (v0.4.20, KDD-16)**; shipping was decided 2026-07-21
+  (KDD-14: optional `ctdb-cli`, when a user needs it), and validation of the
+  repair path itself remains.
   `-Z N` shipped; the manual workflow is documented
   ([`manual-ctdb-repair.md`](manual-ctdb-repair.md), 2026-07-21); gate the
   integration behind maintainer sign-off + validation.
@@ -761,7 +810,7 @@ allow-list first**, quality second:
 
 | Checker | Accepts | Everything else |
 |---|---|---|
-| [OPSnet/Logchecker](https://github.com/OPSnet/Logchecker) (PHP; what OPS runs) — read at `ca565479`, 2026-05-31 | EAC, XLD, the previous backend ≥0.7.3 | `UnknownRipperException` → score **0**, "Unrecognized log file" |
+| [OPSnet/Logchecker](https://github.com/OPSnet/Logchecker) (PHP; what OPS runs) — read at `ca565479`, 2026-05-31 | EAC, XLD, the previous backend ≥0.7.3 | `UnknownRipperException` → score **0**, "Unknown log file, could not determine ripper." (`src/Logchecker.php:121-124`) |
 | [ligh7s/hey-bro-check-log](https://github.com/ligh7s/hey-bro-check-log) (Python; "aligned with Redacted standards" — **unmaintained since 2020-03-31**, read at `d3192ad2`) | EAC ≥0.99, EAC95, XLD | `UnrecognizedException` — and the version string must be in a hardcoded table |
 
 Redacted's own rules name only EAC and XLD, and treat a log from any other tool as
@@ -770,6 +819,17 @@ trumpable ([rules](https://interviewfor.red/en/rules.html),
 
 **So: cyanrip, morituri, dBpoweramp, Rubyripper, CUERipper — not accepted.** The
 previous backend is the sole non-EAC/XLD exception, and only at OPS.
+
+**Our EAC-layout log at OPS takes a different path to the same 0** (read from
+`ca565479` on 2026-10-07). OPS classes a log as EAC's if the string `Exact Audio
+Copy` appears anywhere in it, or its first line contains `EAC`
+(`src/Check/Ripper.php:18-26`). Ours does both, on purpose, to say EAC did not
+produce it. It then reaches 0, "Unrecognized log file", only because it lacks EAC's
+own line `EAC extraction logfile from` (`src/Logchecker.php:517-551`, matched
+anywhere). We write `Extraction logfile from`, without the program name, and since
+2026-10-07 a title cannot supply the phrase either (D16, widened; pinned by
+`tests/test_eac_log_export.py`). **Never add that line**: it is the one thing
+between our log and being graded as EAC's.
 
 #### Checksums are not the barrier — identity is
 
@@ -825,8 +885,9 @@ string; a non-English log.
 cyanrip flags from `_build_rip_argv`: `-d`, `-s <offset>`, `-o flac`,
 `-T <sanitize mode>` (pinned since 0.6.24 — a default is not a contract),
 `-r <retries>`, `-Z <matches>`, `-O` (only when force-overread is on),
-`-S <speed>`, `-l <tracks>`, `-N`, `-a`/`-t`, `-D`/`-F`, `-G`, and
-`--consumer <name>/<version>` on a build that accepts it. Notably **no `-p`** —
+`-S <speed>`, `-l <tracks>`, `-N`, `-c <disc>/<discs>`, `-a`/`-t`, `-D`/`-F`, `-G`,
+`-U`, `-j <record>`, and `--consumer <name>/<version>` on a build that accepts it
+(the generated list: `docs/cyanrip-consumer-contract.md`). Notably **no `-p`** —
 cyanrip's default already merges pregaps into the previous track.
 
 | Requirement | Platterpus equivalent | Status |
@@ -834,7 +895,7 @@ cyanrip's default already merges pregaps into the previous track.
 | Secure read | libcdio-paranoia always; `paranoia_level` allow-listed | **met** |
 | Defeat audio cache | *measured* via `cd-paranoia -A` (KDD-29), not asserted | **met when probed** |
 | Delete silent blocks: No | asserted for cyanrip (it writes what it reads) | **met** |
-| Null samples in CRC: Yes | asserted for cyanrip (CRCs matched a real EAC log, 12/14 tracks) | **met** |
+| Null samples in CRC: Yes | asserted for cyanrip (CRCs matched a real EAC log, 14/14 tracks on the fork, 2026-08-04) | **met** |
 | Gap handling | wording **actually** fixed 2026-07-30 (see below) — says "Not detected, thus appended to previous track" when the ripper signals none, and "Appended to previous track" when gaps are signalled (`eac_log_export.py`) | **met on the fork** (it detects pre-gaps); **wording met, detection is not** on stock cyanrip 0.9.3 |
 | Test & Copy | `-Z` convergence rendered as a Test/Copy pair; a track at the repeat limit gets no pair, and a caveat saying how many reads agreed (Part B, *The repeat-limit caveat*) | **partial** |
 | AccurateRip | parsed and rendered; `verdict.py` is the single predicate | **met** |
@@ -842,11 +903,11 @@ cyanrip's default already merges pregaps into the previous track.
 | Individual tracks (not a range rip) | cyanrip is always per-track | **met** |
 | No normalization / compression offset | never emitted | **met** |
 | Read offset correction | `-s` applied; value printed but never asserted *correct* | **partial** |
-| Fill missing offset samples with silence | derived from overread text, else unknown | **partial** |
+| Fill missing offset samples with silence | derived from cyanrip's `Overread mode:` line, which stock and fork both always print (cyanrip@ca3f3ea:src/cyanrip_log.c:889-891); reads `No` under `-O` | **met** |
 | `Make use of C2 pointers` | **`No`, measured** on a drive that reports C2 unsupported; "(not reported)" otherwise (see below) | **met on the rig; open in general** |
 | `Utilize accurate stream` | no equivalent | **open** |
 | Signed EAC log footer | plain SHA-256, self-labelled *not* EAC's | **by design** |
-| Recognised ripper name | never emitted (KDD-11/24/28) | **by design → score 0** |
+| Recognised ripper name | never emitted (KDD-11/24/28); our log names EAC only to disclaim it, and OPS refuses it for lacking EAC's first line (§1) | **by design → score 0** |
 
 #### The C2 row — earned by the ripper, not by the survey (settled 2026-07-30)
 
@@ -886,7 +947,11 @@ nothing. Both tools then *append* the gap to the previous track, so **the audio 
 unaffected** — this is a completeness gap in the archival record, not a correctness one.
 
 It is the same capability gap as KDD-32 / the `INDEX 00` work, and it is the reason the
-run sheet's cyanrip-`master` build step exists.
+run sheet's cyanrip-`master` build step existed.
+
+> **Status (2026-10-07): closed on the fork, still open on stock 0.9.3.** The fork's
+> 2026-08-04 rip matches all ten of EAC's pre-gap rows (`tests/test_fork_rip_eac_parity.py`),
+> and the hand-build step was retired: the setup wizard builds the pinned fork (KDD-33).
 
 Until 2026-07-30 our exported row echoed cyanrip's "None signalled", which hid the
 comparison entirely. It now reads EAC's own phrase for the not-detected case, so a
@@ -921,7 +986,7 @@ disagreement so nobody later "fixes" it by making the string match.
    on ethics at all and is therefore the more durable one:
 
    * The gate is `if (strpos($log, "Log created by: whipper") !== false)`
-     (`src/Check/Ripper.php:18`) — a **24-character substring**, checked before any
+     (`src/Check/Ripper.php:18`) — a **23-character substring**, checked before any
      quality rule runs. That it is trivially forgeable is precisely why doing it is
      unambiguous forgery rather than a grey area: there is no craftsmanship in
      which to hide an intention.
@@ -951,9 +1016,11 @@ Platterpus makes a *different and narrower* claim, and it is a stronger one abou
 audio itself: **provably bit-perfect, verified openly** via AccurateRip v1/v2 + CTDB
 CRCs and per-track Copy-CRC parity against the committed EAC baseline in
 `output_reference/EAC_flac/` (**14/14 on the fork** — `cyanrip_fork_flac/`,
-2026-08-04, where Track 5, the last holdout, converged on the secure re-rip
-rather than being a disc defect; the dated 12/14 stock-0.9.3 record is
-`cyanrip_flac/`).
+2026-08-04, and in four rips since; 13/14 on the latest run, 2026-10-07, where
+track 3 read differently from pass to pass. The dated 12/14 stock-0.9.3 record is
+`cyanrip_flac/`. On track 5 EAC's value is not AccurateRip's consensus, so the
+stronger claim is AccurateRip's, and that has been met on every track but never on
+all fourteen in one rip: Part A, TL;DR item 1).
 
 That is the goal to keep. "Tracker-acceptable" is not reachable and should not be
 chased.

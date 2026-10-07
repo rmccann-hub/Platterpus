@@ -168,11 +168,15 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   - *2026-10-07 (the Full run on 0.6.66 with `.21`):* track 5 shipped `E0036697`
     again, a re-read confirming the first pass. Track 3 shipped a third value,
     `418F6CF8`: first pass `1D0B4419`, then re-reads `149C0991`, `418F6CF8`,
-    `418F6CF8`, `34D9A79A`, `418F6CF8` (`round31fullwholediscsecuringpass.txt`). So
-    track 5 is settled as far as any ripper gets on this copy, and **track 3 is the one
-    open bit-identical gap**: EAC's value is AccurateRip-verified, and cyanrip has read
-    it on this drive (2026-08-04, 2026-09-24, 2026-09-30), but not on every run.
-    `docs/eac-parity.md` TL;DR item 1 says the same.
+    `418F6CF8`, `34D9A79A`, `418F6CF8` (`round31fullwholediscsecuringpass.txt`).
+  - **Correction, same day (the audit of `docs/eac-parity.md`):** the row's premise
+    is wrong. Track 5 *has* a verified value: the 2026-10-07 secure re-read converged
+    on `C96464AB`, which AccurateRip verifies (v2 `BCF4E815`, confidence 200), and
+    `BCF4E815` is what EAC's own log says AccurateRip returned. EAC's `E0036697` is
+    the unverified read. Over all 18 committed rips: track 3 verified in 9 (none
+    since 2026-09-30), track 5 in 1, never both in one rip. **Both tracks are open.**
+    Numbers and sources: `docs/eac-parity.md` TL;DR item 1. An earlier draft of this
+    entry called track 5 "settled", from this row's premise rather than from the logs.
 - [x] **The cache probe's saved output stopped before its figure** (found 2026-10-06,
   filing the closing run). `round30oct06fullcacheprobe.txt` is exactly 2,000 bytes and
   holds no 137: `cache_probe.parse_cache_analysis` kept `text.strip()[:2000]` and
@@ -1803,6 +1807,18 @@ each side's reading; and the closing releases named.
   *Done 2026-10-07 (`62aa7bb0`):* their wording is `pregap of track N unknown (reason)`;
   an unknown on any track after the first makes the row
   `(undetermined: the ripper could not measure a pregap)`, whatever else the list says.
+- [ ] **Decide: pass `-W` so a pre-emphasised disc keeps its samples?** (found
+  2026-10-07, auditing `docs/eac-parity.md`; maintainer's call.) cyanrip
+  de-emphasises any disc whose TOC flags pre-emphasis unless `-W` is passed
+  (cyanrip@ca3f3ea:src/cyanrip_main.c:1816, :1910-1911), and Platterpus never passes
+  it, though our docs said we preserve such discs. Today a pre-emphasised disc's FLAC
+  holds altered samples, which AccurateRip cannot verify. EAC does not de-emphasise.
+  Passing `-W` keeps the disc's samples, so AccurateRip can check them, and the cue
+  then carries `FLAGS PRE` for a player to act on (cyanrip@ca3f3ea:src/cue_writer.c:187-188). The cost: a player that ignores the flag
+  plays the disc as mastered, too bright. **Recommended: pass `-W`** (the archival
+  copy should be the disc's samples, verifiable), as a changed argv through the
+  chokepoint, with the seam's input-half test and a line in our next lap. Untested on
+  hardware: no pre-emphasised disc has been ripped.
 - [ ] **Round 31 lap 4: ask the fork where `-O`'s 23-minute stall comes from** (the
   maintainer, 2026-10-07: *"can we verify this is a drive issue, and not something on
   the application or programming side"*). Settled from the record: Platterpus only
@@ -7844,7 +7860,7 @@ Previously it was out of scope to modify the programs underneath us; this is the
 - **[x] CTDB verify (read-only)** — **HIGH. DONE** (library 2026-06-03, clean-room per KDD-16; GUI-wired 2026-06-17; **CRC hardware-validated 2026-07-07**). Protocol/CRC spec preserved in [docs/archive/upstream-modification-investigation.md](docs/archive/upstream-modification-investigation.md); status is canonical in **current-plan item 8**.
 - **[~] CTDB parity repair** — **HIGH; shipping DECIDED "D → B" (maintainer 2026-07-21), demand-gated.** KDD-14 Phase 2; the one genuine "beyond EAC" everyday win. Wrap `ctdb-cli verify|repair`; depends on verify. `ctdb-cli` is C#/.NET 10 (correction 2026-06-02), so the ship decision is: **D** manual workflow now ([docs/manual-ctdb-repair.md](docs/manual-ctdb-repair.md)), **B** optional dep-subsystem tool when a real user hits it — **not** an AppImage .NET bundle. See KDD-14 and the investigation doc.
   - *Audit 2026-09-25: partly done.* D shipped as docs/manual-ctdb-repair.md; B (a ctdb-cli repair tool through the dependency subsystem) is not built.
-  - *Merged 2026-09-30, verbatim, from the duplicate row item 6 of the 2026-07-21 queue (it was `[⛔]`):* **CTDB repair (Phase 2) — parked by decision (L; "D → B", maintainer 2026-07-21).** The everyday "beyond EAC" differentiator; its CRC gate cleared 2026-07-07 (KDD-16). **Shipping decided:** *not now* — the documented manual power-user workflow ([docs/manual-ctdb-repair.md](docs/manual-ctdb-repair.md)) covers the rare recovery case (D); wire `ctdb-cli` as an **optional user-installed tool** via the dependency subsystem (Picard model, B) only when a real user actually hits an uncorrectable-error rip CTDB could repair. Bundling a .NET runtime into the AppImage (A) is off the table; a pure-Python parity port (C) stays rejected. So this is no longer "maintainer-gated" — it's demand-gated. See KDD-14 and [docs/eac-parity.md](docs/eac-parity.md) Part B.
+  - *Merged 2026-09-30, verbatim, from the duplicate row item 6 of the 2026-07-21 queue (it was `[⛔]`):* **CTDB repair (Phase 2) — parked by decision (L; "D → B", maintainer 2026-07-21).** The everyday "beyond EAC" differentiator; its CRC gate cleared 2026-07-07 (KDD-16). **Shipping decided:** *not now* — the documented manual power-user workflow ([docs/manual-ctdb-repair.md](docs/manual-ctdb-repair.md)) covers the rare recovery case (D); wire `ctdb-cli` as an **optional user-installed tool** via the dependency subsystem (Picard model, B) only when a real user actually hits an uncorrectable-error rip CTDB could repair. Bundling a .NET runtime into the AppImage (A) is off the table; a pure-Python parity port (C) stays rejected. So this is no longer "maintainer-gated" — it's demand-gated. See KDD-14 and [docs/eac-parity.md](docs/eac-parity.md) Part C §2.
   - *Merged 2026-09-30, verbatim, from the duplicate row item 6 of the 2026-05-30 ranked execution order (it was `[⬜]`):* **CTDB repair (parity, wrap `ctdb-cli`, explicit trigger)** — Phase 2 of KDD-14; the headline EAC++ differentiator. Note: `ctdb-cli` is .NET 10 (not C), so AppImage bundling is heavy — bundle-vs-optional-install is undecided.
 - **[x] Upstream whipper bug fixes — CLOSED, no upstream to route to (2026-07-21).** `whipper cd info` non-zero exit on unknown discs and HTOA accuracy edge cases (issues #75/#82) were about *whipper* upstream specifically; whipper was fully removed as a backend 2026-06-30 (KDD-18), so there is no longer an upstream we're routing fixes to. Closed rather than left dangling: the cyanrip soft-fork below is the live upstream-contribution path now, and HTOA stays out of scope regardless of backend (see the explicit HTOA note under "Out of scope" below).
 - **[x] EAC-style signed log checksum — CLOSED, superseded by research (2026-07).** Re-evaluated as part of the tracker-log-acceptance research session: this item proposed literally the forgery this project's own rules reject (CLAUDE.md Critical Rule #8's spirit + the brief's "never fake a log/checksum") — signing a log as if EAC produced it. **Decision: do not build this.** The tracker-acceptance path it was aimed at is out of scope *by design*, not by degrees — see PLANNING.md **KDD-24** and `docs/eac-parity.md`. The follow-through work that actually matters for trust is already tracked separately: **CTDB CRC hardware validation** (KDD-16's remaining step — pinning the bit-exact CRC trim against a real CD and flipping `crc.CRC_VALIDATED`; see the "⭐ EAC output-parity proof matrix" section and `docs/test-plan.md` Test 1), not a signed checksum.
