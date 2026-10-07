@@ -12,6 +12,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **A getting-started guide, Help → Getting started.** Nine steps from downloading
+  Platterpus to a folder of verified FLAC files, offline in the app and, generated
+  from the same text, in the README. It is text for now; the screenshots and the
+  three short animations are shot on the reference machine by a script and added
+  later. Its text was written against the app itself, which corrected two things
+  the plan assumed: the EAC-compatible log is off by default, so the guide says to
+  tick it, and an unlisted drive's offset is typed in, since there is no Detect
+  button with cyanrip.
+
 ### Changed
 
 - **Handshake round 31: we accept the fork's proposal that a release of either
