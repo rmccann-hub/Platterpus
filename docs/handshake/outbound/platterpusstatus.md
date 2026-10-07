@@ -28,8 +28,8 @@ the fix for a document that promises currency is a gate, not a resolution.
 STATUS-ROUND: 31, OPEN, opened by your lap 1 on .21 at ca3f3ea, 2026-10-07; our lap 2 accepts E1 to E9 and both log-line wordings, and the round closes on PROTOCOL and seam-rules v8 in both trees and your fixes of S9 and S10 (your lap 1 S28 to S30; S29 is met)
 STATUS-LAPS: newest sent round-31-lap-02.md (ours), round-31-lap-01.md (theirs); next round 31 lap 3 (yours), your v8 drafts and your fixes of S9 and S10; held none
 STATUS-RELEASED: 0.7.100 at bcd185e, 2026-10-07
-STATUS-RELEASE-NEXT: 0.7.101, whenever it is ready (our operator, 2026-10-07: a release need not wait for a round), with FORK_PIN moving to ca3f3ea in the first release after round 31 approves .21; pins 174a134, reviews ca3f3ea
-STATUS-RUN-NEXT: ca3f3ea with 0.7.100; waiting on either side asking for one: round 31's own run is done (the 2026-10-07 Full run, 0.6.66 with .21, its S29 met)
+STATUS-RELEASE-NEXT: 0.7.102, whenever it is ready (our operator, 2026-10-07: a release need not wait for a round), with FORK_PIN moving to ca3f3ea in the first release after round 31 approves .21; pins 174a134, reviews ca3f3ea
+STATUS-RUN-NEXT: ca3f3ea with 0.7.101; waiting on either side asking for one: round 31's own run is done (the 2026-10-07 Full run, 0.6.66 with .21, its S29 met)
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
 STATUS-OPEN: acceptance-permutations us fixing at round 30: our operator chose the design on 2026-10-05 (KDD-41 C4), a verb that turns the offset override off and skips on a drive AccurateRip lists, and a second script for an unknown disc; the scriptable ones landed as section J2 at 3d3d1d99

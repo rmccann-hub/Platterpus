@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.7.100, pre-1.0.** Platterpus installs one pinned build of its own fork of cyanrip, and a new build becomes the default only after a *handshake round*: both projects check each other's work and both declare `GO`. Which build that is, and which round approved it, is shown in **Help → About Platterpus…** (the *Ripper* section) and in the generated map in [`DEPENDENCIES.md`](DEPENDENCIES.md#the-full-map-machine-readable-bomcdxjson). 0.7.100 is the first release with a full-green hardware acceptance run behind it (2026-10-07), made on 0.6.66, whose code 0.7.100 carries, with the fork build handshake round 31 is reviewing rather than the one 0.7.100 installs by default. 0.9.1 needs a second one, on another machine and distro ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
+> **Status: v0.7.101, pre-1.0.** Platterpus installs one pinned build of its own fork of cyanrip, and a new build becomes the default only after a *handshake round*: both projects check each other's work and both declare `GO`. Which build that is, and which round approved it, is shown in **Help → About Platterpus…** (the *Ripper* section) and in the generated map in [`DEPENDENCIES.md`](DEPENDENCIES.md#the-full-map-machine-readable-bomcdxjson). 0.7.100 is the first release with a full-green hardware acceptance run behind it (2026-10-07), made on 0.6.66, whose code 0.7.100 carries, with the fork build handshake round 31 is reviewing rather than the one 0.7.100 installs by default. 0.9.1 needs a second one, on another machine and distro ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
 >
 > **On the Pioneer BDR-209D, leave Overread (`-O`) off.** With it on, cyanrip stopped at the last track's lead-out for about 23 minutes (2026-07-22, reproduced the next day; stock cyanrip 0.9.3, before the fork). Platterpus only passes the flag: the read that stalled is cyanrip's. What is not yet settled is the split between the drive refusing to read past the end of the disc and cyanrip retrying that refused read for so long. It has not been tried on the fork's builds, and our next handshake lap asks the fork ([`docs/dependency-contracts.md`](docs/dependency-contracts.md)).
 >
@@ -1179,4 +1179,4 @@ FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full terms.
 
 ---
 
-*Last updated for Platterpus v0.7.100.*
+*Last updated for Platterpus v0.7.101.*

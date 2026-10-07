@@ -12,6 +12,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.101] — 2026-10-07
+
+Two of our readers now understand two lines the cyanrip fork proposes for its next
+build, before that build prints them, and the getting-started guide arrives as text,
+with its pictures to follow. The inert "Re-compress FLACs" setting is gone, a track
+title can no longer make a tracker's log checker take our EAC-style log for one Exact
+Audio Copy wrote, and the README and the EAC comparison were checked line by line
+against the app and the committed logs. Released while handshake round 31 is open,
+under an override the maintainer gave and our round 31 lap 2 records. The default
+ripper build is unchanged.
+
 ### Added
 
 - **A getting-started guide, Help → Getting started.** Nine steps from downloading
@@ -15823,7 +15834,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.27.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.7.101.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -18065,7 +18076,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.100...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.101...HEAD
+[0.7.101]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.100...v0.7.101
 [0.7.100]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66...v0.7.100
 [0.6.66]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66b1...v0.6.66
 [0.6.66b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.65...v0.6.66b1
@@ -18136,4 +18148,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.100.*
+*Last updated for Platterpus v0.7.101.*

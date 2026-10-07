@@ -1909,4 +1909,4 @@ The shoot itself is the `TASKS.md` section's plan.
 
 ---
 
-*Last updated for Platterpus v0.7.100.*
+*Last updated for Platterpus v0.7.101.*
