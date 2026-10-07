@@ -11,6 +11,46 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-07 (night) — the getting-started walkthrough's framework, for 0.7.101
+
+**What happened.** The maintainer asked whether this release would carry the
+walkthrough that had been planned, then: *"include as much framework as you can, then
+a plan for when we actually do that"*. The release was held so it would carry the
+framework. Everything that does not need the rig is built (KDD-42, *The framework
+landed*):
+- the shot list;
+- the guide's text;
+- the viewer, Help → Getting started;
+- the README section;
+- the rig script;
+- the media builder, built by a helper in its own worktree against the shot list;
+- the tests that hold them together.
+
+**Writing the text against the code corrected the plan twice.**
+- KDD-42's step 4 said every archival default was already on. The EAC-compatible log
+  is off by default.
+- The User Guide, and the warning shown when a rip starts without an offset, told the
+  user to click **Detect** for a drive missing from AccurateRip's list. With cyanrip
+  that button does not exist, and that warning appears only in exactly that case. A
+  test now holds the warning to it.
+
+Learned: a plan's sentence about the app is a claim about the app, and the plan was
+written from memory. Each bold label in the guide is now checked against the UI
+source, which catches the next drift of this kind.
+
+**Two judgement calls**, recorded in KDD-42 so they can be reversed.
+- W5's cover-art placeholder became a guard test. No window renders a picture but the
+  logo, so no capture can hold label art until one does.
+- The first-run offer is one sentence in the existing setup question, not a fourth
+  launch-time modal.
+
+**Found and left open** (TASKS): `counts_as_evidence` is decided by the run size alone,
+so any script run at Full claims to be evidence. Nothing was miscounted, because the
+ledger is graded by hand from `fullacceptance.txt` runs. It is the
+*completeness field derived from config* shape, not fixed on release day.
+
+---
+
 ## 2026-10-07 (evening) — round 31 lap 2: yes to E1 to E9, and two readers fixed first
 
 **What happened.** The fork released round 31 lap 1 at `cyanrip@60cc48a`. It proposes that

@@ -918,6 +918,11 @@ def test_rip_requested_blocked_when_no_read_offset(
 
     assert warnings, "a warning should be shown when no offset is configured"
     assert "offset" in (warnings[0][0] + warnings[0][1]).lower()
+    # Regression (2026-10-07): this fires only for a drive whose offset is not
+    # known, which is exactly when cyanrip offers no Detect button, so the
+    # message used to send the user to a button that does not exist.
+    assert "Detect" not in warnings[0][1]
+    assert "Save offset" in warnings[0][1]
     assert window._rip_worker is None  # the rip did not start
     assert opened == [True]  # answering Yes opened the wizard
 
@@ -3590,6 +3595,23 @@ def test_maybe_offer_host_setup_records_and_opens_on_yes(
     assert opened == [True]
 
 
+def test_the_first_run_setup_question_offers_the_getting_started_guide(
+    teardown_threads, monkeypatch
+) -> None:
+    """KDD-42 W6: the first run offers the guide. It is a sentence in the first-run
+    question, not another modal on top of the three that launch already makes."""
+    window = teardown_threads(config=Config(host_setup_prompted=False))
+    asked: list[str] = []
+
+    def question(_parent: object, _title: str, text: str, *_a: object) -> object:
+        asked.append(text)
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(message_boxes, "question", question)
+    window._maybe_offer_host_setup()
+    assert asked and "Help → Getting started…" in asked[0]
+
+
 def test_maybe_offer_host_setup_skips_when_already_prompted(
     teardown_threads, monkeypatch
 ) -> None:
@@ -4623,6 +4645,29 @@ def test_help_menu_has_about_and_user_guide(teardown_threads) -> None:
     labels = [a.text() for a in help_menus[0].actions()]
     assert any("About" in lbl for lbl in labels)
     assert any("User Guide" in lbl for lbl in labels)
+
+
+def test_help_menu_starts_with_getting_started_and_keeps_one_window(
+    teardown_threads,
+) -> None:
+    """KDD-42 W6: Getting started is where a new user begins, so it is first in
+    Help; and it is non-modal, so asking twice raises the one already open."""
+    from PySide6.QtWidgets import QMenu
+
+    from platterpus.ui.getting_started_dialog import GettingStartedDialog
+
+    window = teardown_threads()
+    help_menu = next(
+        m for m in window.menuBar().findChildren(QMenu) if m.title() == "&Help"
+    )
+    first = help_menu.actions()[0]
+    assert first.text() == "&Getting started…"
+    first.trigger()
+    dialog = window._getting_started
+    assert isinstance(dialog, GettingStartedDialog) and dialog.isVisible()
+    window._on_show_getting_started()
+    assert window._getting_started is dialog
+    dialog.hide()
 
 
 def test_help_menu_has_open_logs_folder(teardown_threads) -> None:

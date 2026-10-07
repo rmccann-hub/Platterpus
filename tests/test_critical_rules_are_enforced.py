@@ -1725,7 +1725,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **639 -> 637 (2026-09-28, 0.6.63)**: the transitional Tools entry for Set cover art from file… left, with the Guide sentence that named it.
     # **637 -> 632** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the Guide paragraph on the unsafe opt-in became one sentence saying no verb runs arbitrary code.
     # **632 -> 642** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the Guide names Tools → Advanced → Run acceptance test with an unknown disc…, which `tests/test_help_documents_the_menu.py` requires of every Tools action; it is the Guide's acceptance section, so it lives there.
-    "help_content.py": 642,
+    # **642 -> 644** (2026-10-07, KDD-42 W6): the Guide's opening points a new user to Help → Getting started first, as W6 asks of Help → User Guide.
+    "help_content.py": 644,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -2100,7 +2101,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1748 -> 1797** (2026-09-30): the confirmation before a close from outside or File -> Quit ends a rip or the acceptance test, beside the `closeEvent` it guards (the fork's round 30 S25).
     # **1797 -> 1800** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` initialised beside `_last_swapped_tracks`.
     # **1800 -> 1810** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the menu action, beside the full run's, and in the rip lock with it.
-    "ui/main_window.py": 1810,
+    # **1810 -> 1825** (2026-10-07, KDD-42 W6): Help → Getting started, first in the Help menu, its handler beside the other Help slots, and the kept non-modal window it raises rather than duplicates.
+    "ui/main_window.py": 1825,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2189,7 +2191,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1763 -> 1769** (2026-10-05, the fork's reading of our 2026-10-04 runs: no `-j` record in any bundle): the pack asks `session_diagnostics_records` for the rips' records and hands them to `finish_session`; the scan itself lives in `test_session`.
     # **1769 -> 1788** (2026-10-06, KDD-41 C4): the closing dialog counts steps this equipment cannot run, so "PASSED — all N" can no longer stand over an `unreachable` step; one branch beside the run headline's others.
     # **1788 -> 1814** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): `run_acceptance_session` takes the script to run, and the new action's slot runs the unknown-disc script with no size question; the session is the same job for both.
-    "ui/main_window_provision.py": 1814,
+    # **1814 -> 1816** (2026-10-07, KDD-42 W6): the first-run setup question names Help → Getting started, the offer W6 asks for, without a fourth launch-time modal.
+    "ui/main_window_provision.py": 1816,
     # **4225 -> 4267 on 2026-09-10** (log-verification race, above):
     # `parse_rip_log_from_disk` extracted from the finish handler so the
     # acceptance script's log graders can read the artifact through the SAME
@@ -2516,7 +2519,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **953 -> 964** (2026-10-06, TASKS D6 "The acceptance run's overall estimate"): the `run-estimate` declaration; the handler is a new mixin, `estimate_verbs.py`.
     # **964 -> 966** (2026-10-06, the maintainer's narrowing of the acceptance grader): `expect-album-audit`'s help says which one warning it expects, and on which build.
     # **966 -> 983** (2026-10-06, KDD-42 W3): the `callout` and `record` rows, the vocabulary's one home.
-    "uiscript/verbs.py": 983,
+    # **983 -> 984** (2026-10-07, KDD-42 W6): `open getting-started`, so the walkthrough script can reach the guide like any other dialog.
+    "uiscript/verbs.py": 984,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical

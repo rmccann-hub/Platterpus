@@ -58,7 +58,7 @@ text is taken verbatim as one value.
 | `snapshot` | 1 | ready | snapshot <name> — record the visible state as text in the transcript |
 | `callout` | 2+ (rest of line) | ready | callout <n> <label…> — mark the one visible button or label reading <label> with the number <n> on the next screenshot (a trailing * matches a prefix); fails unless exactly one widget reads it |
 | `record` | 3 | ready | record <name> <seconds> <fps> — a burst of main-window frames, <name>-0001.png onward, with a manifest; 0.5 to 20 s at 1 to 15 fps, and a lost frame fails the step |
-| `open` | 1 | ready | open <settings|dependencies|about|diagnostics|guide|setup|drive> — open a dialog |
+| `open` | 1 | ready | open <settings|dependencies|about|diagnostics|guide|getting-started|setup|drive> — open a dialog |
 | `ok` | 0 | ready | ok — accept the dialog on top |
 | `cancel` | 0 | ready | cancel — dismiss the dialog on top |
 | `answer-dialog` | 3+ (rest of line) | ready | answer-dialog <ok|cancel|click=<label-substring>> <seconds> <title-substring> — wait up to <seconds> for a dialog whose title contains <title-substring>, then accept it, dismiss it, or click the one button whose label contains <label-substring>; fails if a different dialog is up at the deadline, or if the named button is absent, ambiguous or disabled |
@@ -121,7 +121,7 @@ discover it. Listing it with the mark is how the gap stays visible.
 
 ## Dialogs `open` accepts
 
-`about`, `dependencies`, `diagnostics`, `drive`, `guide`, `settings`, `setup`
+`about`, `dependencies`, `diagnostics`, `drive`, `getting-started`, `guide`, `settings`, `setup`
 
 ## Limits
 
@@ -469,7 +469,7 @@ found nothing wrong*.
       "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "open <settings|dependencies|about|diagnostics|guide|setup|drive> \u2014 open a dialog"
+      "help": "open <settings|dependencies|about|diagnostics|guide|getting-started|setup|drive> \u2014 open a dialog"
     },
     {
       "name": "ok",
@@ -909,6 +909,7 @@ found nothing wrong*.
     "dependencies",
     "diagnostics",
     "drive",
+    "getting-started",
     "guide",
     "settings",
     "setup"

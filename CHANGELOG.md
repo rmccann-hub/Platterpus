@@ -15,13 +15,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 ### Added
 
 - **A getting-started guide, Help → Getting started.** Nine steps from downloading
-  Platterpus to a folder of verified FLAC files, offline in the app and, generated
-  from the same text, in the README. It is text for now; the screenshots and the
-  three short animations are shot on the reference machine by a script and added
-  later. Its text was written against the app itself, which corrected two things
-  the plan assumed: the EAC-compatible log is off by default, so the guide says to
-  tick it, and an unlisted drive's offset is typed in, since there is no Detect
-  button with cyanrip.
+  Platterpus to a folder of verified FLAC files. It opens beside the main window, so
+  you can follow it while you work. It works offline, and it is also in the README,
+  generated from the same text so the two cannot differ. The first-run setup question
+  points to it. For now it is text: the screenshots and three short animations are
+  taken on the reference machine by a script (`walkthrough`, shipped with the app) and
+  added later. The animations will have a **Pause animations** button.
+- **For contributors:** `scripts/emit_getting_started.py` writes the README section,
+  and `scripts/build_walkthrough_media.py` turns a walkthrough run's folder into the
+  guide's pictures. One shot list in `getting_started.py` names every picture, and the
+  tests hold the script, the text, the README and the pictures to it.
 
 ### Changed
 
@@ -34,6 +37,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **No message tells you to click a Detect button that does not exist.** With
+  cyanrip, an offset that is not in AccurateRip's drive list is typed in by hand,
+  and the drive window has no Detect button. But the warning shown when you start a
+  rip without an offset said to click one, and so did the User Guide. Both now say
+  to type the offset into **Read offset (samples)** and press **Save offset**.
 - **A released cyanrip build is no longer warned about as unreleased because it
   was cut while a handshake round was open.** The fork's log line says both which
   round its tree was in and whether the build was released. Our rip audit and our

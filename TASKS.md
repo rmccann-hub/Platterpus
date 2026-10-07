@@ -255,64 +255,80 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
 
 ---
 
-## The 0.7.100 getting-started walkthrough (planned 2026-10-06, `PLANNING.md` KDD-42)
+## The getting-started walkthrough (planned 2026-10-06, framework 2026-10-07, `PLANNING.md` KDD-42)
 
-An archival (EAC-parity) rip of an average disc, step by step, for a first-time user: a
-written step list with still screenshots and three or four short GIFs, shot by a script
-on the rig. **In the app by default** (Help → Getting started, offline, offered on first
-run) **and on GitHub** (the README's *Getting started* section, generated from the same
-source). Every ruling is KDD-42 (W1 to W7); this is the work.
+An archival (EAC-parity) rip of an average disc, step by step, for a first-time user:
+a written step list with still screenshots and three short GIFs, shot by a script on
+the rig. **In the app by default** (Help → Getting started, offline) **and on GitHub**
+(the README's *Getting started* section, generated from the same source). Every
+ruling is KDD-42 (W1 to W7). The framework shipped in 0.7.101; the pictures are the
+shoot below.
 
-**Build now:**
-- [x] **`callout <n> <label…>` verb** (done 2026-10-06, `uiscript/walkthrough_verbs.py`, `uiscript/callout.py`). The next `screenshot` draws a numbered highlight
-  around the named widget (the one the following step presses), from the widget's real
-  geometry. Pure overlay function, tested on a rendered fixture; the target must resolve
-  to exactly one visible widget or the step fails, so a renamed button cannot shoot a
-  picture of nothing.
-- [x] **`record <name> <seconds> <fps>` verb** (done 2026-10-06, `uiscript/burst_verbs.py`). A burst of main-window frames into the run
-  folder, numbered, with a manifest (frame count, interval, window size). Bounded (a cap
-  on seconds and fps), and a frame that fails to render is counted, not skipped silently.
-- [ ] **A placeholder for the cover art in captures** (W5): while the walkthrough runs,
-  the cover shown in the window is replaced by a neutral placeholder, so no label artwork
-  enters the repository. A verb or a run setting, decided with the verb.
-- [ ] **A `walkthrough.txt` rig script, to be written** (beside the acceptance scripts): the steps below, driving the app with existing
-  verbs (`set-drive-offset`, `pick-release`, `rip`, `wait-for-rip`, `open`) and shooting
-  with `screenshot`, `callout` and `record`. Its own run size; never counted as acceptance
-  evidence.
-- [ ] **`scripts/build_walkthrough_media.py`**: from a run folder, the stills copied under
-  their final names and each frame burst assembled into a GIF with ffmpeg (palette
-  generated, looped, size-checked). Thin over one function, per the script-verb rule.
-- [ ] **The guide's source, shipped in the package** (W6): its Markdown and images beside
-  `help_content.py`, declared as package data so the AppImage and the wheel carry them.
-- [ ] **The in-app viewer** (W6): Help → *Getting started* opens the guide in a pane,
-  offline, stills shown and GIFs animated (`QTextBrowser` for the text, `QMovie` for the
-  loops), every image with its alt text, keyboard reachable, readable in both themes; the
-  first run offers to open it. Help → User guide points to it first.
-- [ ] **`scripts/emit_getting_started.py`** (W6): writes the README's *Getting started*
-  section from the same source, with `--check`, like `emit_script_language.py`; a test
-  fails when the README and the source disagree.
-- [ ] **A test that the guide's images are present and described**: every image the source
-  references exists, has alt text, and the set stays under its size budget (counting
-  what the AppImage carries); a floor on the number of images so an empty guide cannot
-  pass.
+**Built (2026-10-06 and 2026-10-07):**
+- [x] **`callout <n> <label…>` and `record <name> <seconds> <fps>` verbs**
+  (`uiscript/walkthrough_verbs.py`, `uiscript/burst_verbs.py`, 2026-10-06).
+- [x] **The shot list, `getting_started.py`**: eleven pictures (six stills, three
+  loops, two desktop shots), each with its step and alt text. It is the one contract
+  the other parts read.
+- [x] **The guide's text**, `src/platterpus/guide/getting-started.md`, nine steps that
+  stand on their own, shipped as package data with its future `images/`. Written
+  against the code: the EAC log is off by default and there is no Detect button with
+  cyanrip, so the guide says to tick the one and type the offset for the other.
+- [x] **The viewer**, Help → Getting started (`ui/getting_started_dialog.py`).
+  - Non-modal, kept and raised.
+  - Loops animated, with a **Pause animations** button (WCAG 2.2.2).
+  - Paused while closed.
+  - In the UI conformance matrix.
+- [x] **`open getting-started`**, so a script reaches it like any other dialog.
+- [x] **The first-run offer**: a sentence in the *Set up Platterpus* question (KDD-42,
+  *The framework landed*).
+- [x] **The README section**, `scripts/emit_getting_started.py`. The test fails when the
+  README and the guide disagree.
+- [x] **The rig script**, `rig_scripts/walkthrough.txt`: shoots every `still` and
+  `loop` under its stem, ticks the EAC log, and asserts the rip finished.
+- [x] **`scripts/build_walkthrough_media.py`**: a run folder to the guide's final files.
+  - Stills are copied.
+  - Each loop's frames become a GIF with ffmpeg's two-pass palette.
+  - It refuses a burst with a lost frame.
+  - Nothing is moved into place unless every shot built.
+- [x] **The tests** (`tests/test_getting_started.py`, `tests/test_build_walkthrough_media.py`).
+  They hold each pair of parts together: shot list and script, text and labels, text
+  and README, shot list and pictures, viewer and loops. Each has a floor. Five were
+  revert-probed.
+- [x] **W5 as a guard**: no window renders a picture but the logo, so no capture holds
+  cover art; a test fails the day one does.
 
-**The steps the walkthrough covers** (W1):
-1. Download the AppImage, allow it to run, open it *(Spectacle)*.
-2. First-run setup: the ripping container and the approved cyanrip build (minutes).
-3. Set up drive: the read offset from AccurateRip's drive list, or found by cyanrip.
-4. Settings: the archival defaults already on (FLAC, secure re-reads, CTDB, the
-   EAC-compatible log), shown in place, nothing to change.
-5. Insert the disc; the MusicBrainz match and the tags *(GIF)*.
-6. Rip: progress and the time estimate *(GIF)*.
-7. The verdict: AccurateRip ✓ and CTDB, each line called out *(GIF)*.
-8. What you get: FLAC, cover, cue, the EAC-compatible log, the report; what to keep.
-9. If a track shows only a one-frame match or did not converge: what it means, what to do.
+**The shoot (the plan; KDD-42 W7).** One sitting on the rig, about an hour and a half,
+most of it the rip:
+1. **In a fresh `demo` account**, download the AppImage and allow it to run. Spectacle:
+   `01-allow-to-run.png`, its Properties → Permissions.
+2. **Double-click it** and Spectacle the *Set up Platterpus* question:
+   `02-first-run-setup.png`. Then answer **Yes** and let setup finish.
+3. **Insert the disc** and run `./platterpus-x86_64.AppImage --run-script walkthrough`.
+   It photographs steps 3 to 8 and rips the disc once.
+4. **Upload** the run folder it names at the end, with the two Spectacle PNGs.
 
-**Shoot before 0.7.100** (W7):
-- [ ] On the rig, in a fresh `demo` account: run the walkthrough script, take the
-  Spectacle shots, build the media, write the guide's text, regenerate the README section.
-- [ ] Decide on the day: the disc, the window size, the size budget (KDD-42, *not decided
-  here*).
+Then, here:
+- `scripts/build_walkthrough_media.py` builds the files;
+- the guide gains an image line for each picture;
+- the size budget is set from the real total;
+- `SHOOT_STATUS` becomes `shot`;
+- the README regenerates;
+- it ships in the next release.
+
+**Decide on the day** (KDD-42, *Not decided here*): the disc, which must be one that
+AccurateRip and CTDB both know; the window size; and the budget. One look throughout:
+Breeze light, 100 % scaling.
+
+**Open:**
+- [ ] **The shoot**, above. Needs the rig, the `demo` account and the disc.
+- [ ] **`counts_as_evidence` is decided by the run size alone**, so any script run at
+  Full says `true`: the walkthrough, `securereread.txt`, `police-rerip.txt`. The ledger
+  grades only `fullacceptance.txt` runs by hand, so nothing was miscounted. But the
+  field claims what it does not know; it should require the acceptance script. Found
+  building the walkthrough, 2026-10-07; not changed on release day.
+- [ ] **A callout can name a label on a Settings tab that is not showing**; if the shoot
+  shows it, the script opens that tab first. Only the rig can say.
 
 ## 2026-10-05 window size and readability audit
 

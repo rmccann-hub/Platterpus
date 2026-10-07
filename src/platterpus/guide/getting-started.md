@@ -115,3 +115,5 @@ Two results deserve a second look:
 
 Clean the disc and rip it again. **Help → User Guide…** explains every result in
 full, and how to compare the new rip with the last one.
+
+*Last updated for Platterpus v0.7.100.*

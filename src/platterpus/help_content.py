@@ -38,6 +38,8 @@ archival quality (EAC-equivalent), naming and tagging tracks from
 produces a lossless **FLAC** master; you can also have **WavPack**, **MP3**, or
 **WAV** derived from it (see *Output format* in Settings).
 
+**New here?** **Help → Getting started…** walks through a first rip, step by step.
+
 ## How it's wired
 
 The GUI runs on your desktop and calls the host-exported ripping tool
@@ -400,9 +402,9 @@ Sets your drive's **read offset** — the one calibration a bit-perfect rip
 depends on (without the right offset, even a clean disc won't match AccurateRip).
 For most drives the wizard already knows the right value (from
 the bundled AccurateRip drive list) and pre-fills it, so it's a single
-**Save offset** click — no disc needed. If your drive isn't in the list,
-insert a popular commercial CD and click **Detect**, or type the offset into
-**Read offset (samples)** by hand. The value is saved to the app's own settings
+**Save offset** click — no disc needed. If your drive isn't in the list, type
+its offset into **Read offset (samples)** by hand: cyanrip cannot measure it from
+a disc, so there is no Detect button. The value is saved to the app's own settings
 and applied to every rip (cyanrip's read-offset option). Do this once per drive.
 
 This window is the one place the offset is changed; Settings only shows it. Below

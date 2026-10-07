@@ -178,6 +178,7 @@ MEASURED: frozenset[str] = frozenset(
         "DiagnosticsDialog",
         "DriveSetupDialog",
         "FileViewerDialog",
+        "GettingStartedDialog",
         "HelpDialog",
         "HostSetupDialog",
         "ManualInstallDialog",
@@ -216,6 +217,7 @@ def _factories() -> dict[str, object]:
     from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
     from platterpus.ui.dialogs.setup_center import SetupCenterDialog
     from platterpus.ui.drive_setup_dialog import DriveSetupDialog
+    from platterpus.ui.getting_started_dialog import GettingStartedDialog
     from platterpus.ui.help_dialogs import AboutDialog, HelpDialog
     from platterpus.ui.host_setup_dialog import HostSetupDialog
     from platterpus.ui.release_picker import ReleasePickerDialog
@@ -235,6 +237,7 @@ def _factories() -> dict[str, object]:
         "FileViewerDialog": lambda: FileViewerDialog(
             text_file, reader=lambda _p: "a line"
         ),
+        "GettingStartedDialog": lambda: GettingStartedDialog(),
         "HelpDialog": lambda: HelpDialog(),
         "HostSetupDialog": lambda: HostSetupDialog(host_setup=_FakeHost(True)),
         "ManualInstallDialog": lambda: ManualInstallDialog(_spec(), _absent_probe()),
