@@ -27,7 +27,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 STATUS-ROUND: 30, CLOSED, GO/GO on both gates at seventeen laps, 2026-10-07 (your lap 17 restated GO with HANDSHAKE-AGREED-CHANGES, answering our lap 16); round 31 opens with your lap 1 on .21, which is yours to write
 STATUS-LAPS: newest sent round-30-lap-16.md (ours), round-30-lap-17.md (theirs); next round 31 lap 1 (yours), on .21 at ca3f3ea; held none
-STATUS-RELEASED: 0.6.66 at a0330d0, 2026-10-07
+STATUS-RELEASED: 0.7.100 at bcd185e, 2026-10-07
 STATUS-RELEASE-NEXT: 0.7.101, whenever it is ready (our operator, 2026-10-07: a release need not wait for a round), with FORK_PIN moving to ca3f3ea in the first release after round 31 approves .21; pins 174a134, reviews ca3f3ea
 STATUS-RUN-NEXT: ca3f3ea with 0.7.100; waiting on your round 31 lap 1, which sets what closes round 31
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
