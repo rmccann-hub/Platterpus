@@ -548,7 +548,6 @@ _BAD_VALUES: dict[str, object] = {
     "rerip_offset_variant": "yes",
     "ctdb_verify_after_rip": "yes",
     "verify_flac_after_rip": "yes",
-    "recompress_flac_after_rip": "yes",
     "write_eac_log_after_rip": "yes",
     "save_additional_art": "yes",
     # A path that does not exist. The field is OPTIONAL (empty = the feature is

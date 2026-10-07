@@ -54,6 +54,7 @@ from platterpus.drive_profile_store import DriveProfileStore
 from platterpus.report_types import TimingBlock
 from platterpus.ui.disc_info_panel import DiscInfoPanel
 from platterpus.ui.drive_picker import DrivePicker
+from platterpus.ui.getting_started_dialog import GettingStartedDialog
 from platterpus.ui.main_window_deps import DependencyMixin
 from platterpus.ui.main_window_drive import DriveMixin
 
@@ -249,10 +250,6 @@ class MainWindow(
     # GUI thread.
     flac_verify_done = Signal(int, object)  # (rip generation, result)
     # Emitted (from the post-rip processing daemon thread; queued to the GUI
-    # thread) with the RecompressResult, so the FLAC re-compress outcome renders
-    # on the GUI thread.
-    flac_recompress_done = Signal(int, object)  # (rip generation, result)
-    # Emitted (from the post-rip processing daemon thread; queued to the GUI
     # thread) with the TranscodeResult, so the FLAC→MP3/WavPack/WAV transcode
     # outcome renders on the GUI thread.
     transcode_done = Signal(int, object)  # (rip generation, result)
@@ -363,6 +360,9 @@ class MainWindow(
         # the next rip's front cover instead of the archive fetch. Per-disc —
         # cleared whenever the disc/drive changes. None = use the archive.
         self._manual_cover_path: str | None = None
+        # Help → Getting started, kept while open: it is non-modal (read while you
+        # work), so a second request raises this one instead of opening another.
+        self._getting_started: GettingStartedDialog | None = None
         # The disc-id of the disc currently on screen. MB lookups echo the
         # disc-id they were fired for; a returned result whose context doesn't
         # match this is stale (from a disc the user already swapped away from)
@@ -713,8 +713,6 @@ class MainWindow(
         self.ctdb_verify_done.connect(self._on_ctdb_verified)
         # FLAC encode-verify outcome (opt-in) lands in the rip log view.
         self.flac_verify_done.connect(self._on_flac_verified)
-        # FLAC re-compress outcome (opt-in, off by default) lands in the rip log.
-        self.flac_recompress_done.connect(self._on_flac_recompressed)
         # Transcode outcome (when a non-FLAC output format is selected) lands in
         # the rip log view.
         self.transcode_done.connect(self._on_transcoded)
@@ -1173,6 +1171,9 @@ class MainWindow(
         uninstall_action.triggered.connect(self.open_uninstall_dialog)
 
         help_menu = menubar.addMenu("&Help")
+        # First, because it is where a new user starts (KDD-42 W6). Alt+G.
+        started_action = help_menu.addAction("&Getting started…")
+        started_action.triggered.connect(self._on_show_getting_started)
         guide_action = help_menu.addAction("&User Guide…")
         guide_action.setShortcut(
             standard_shortcut(QKeySequence.StandardKey.HelpContents, "F1")
@@ -1765,6 +1766,14 @@ class MainWindow(
         from platterpus.ui.help_dialogs import HelpDialog
 
         HelpDialog(self).exec()
+
+    def _on_show_getting_started(self) -> None:
+        """Help → Getting started: open the guide beside the window, or raise it."""
+        if self._getting_started is None:
+            self._getting_started = GettingStartedDialog(self)
+        self._getting_started.show()
+        self._getting_started.raise_()
+        self._getting_started.activateWindow()
 
     def _on_show_about(self) -> None:
         """Help → About: version number and support-relevant info."""

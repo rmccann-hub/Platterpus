@@ -12,6 +12,31 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.101] — 2026-10-07
+
+Two of our readers now understand two lines the cyanrip fork proposes for its next
+build, before that build prints them, and the getting-started guide arrives as text,
+with its pictures to follow. The inert "Re-compress FLACs" setting is gone, a track
+title can no longer make a tracker's log checker take our EAC-style log for one Exact
+Audio Copy wrote, and the README and the EAC comparison were checked line by line
+against the app and the committed logs. Released while handshake round 31 is open,
+under an override the maintainer gave and our round 31 lap 2 records. The default
+ripper build is unchanged.
+
+### Added
+
+- **A getting-started guide, Help → Getting started.** Nine steps from downloading
+  Platterpus to a folder of verified FLAC files. It opens beside the main window, so
+  you can follow it while you work. It works offline, and it is also in the README,
+  generated from the same text so the two cannot differ. The first-run setup question
+  points to it. For now it is text: the screenshots and three short animations are
+  taken on the reference machine by a script (`walkthrough`, shipped with the app) and
+  added later. The animations will have a **Pause animations** button.
+- **For contributors:** `scripts/emit_getting_started.py` writes the README section,
+  and `scripts/build_walkthrough_media.py` turns a walkthrough run's folder into the
+  guide's pictures. One shot list in `getting_started.py` names every picture, and the
+  tests hold the script, the text, the README and the pictures to it.
+
 ### Changed
 
 - **Handshake round 31: we accept the fork's proposal that a release of either
@@ -21,8 +46,47 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   changes until the shared protocol text (v8) lands in both repositories. Our laps
   now declare protocol 7, which both sides' tools have read since round 30.
 
+### Removed
+
+- **The "Re-compress FLACs" setting is gone.** Settings showed it greyed out, and
+  it did nothing: cyanrip already writes every FLAC at maximum compression, so
+  there was nothing left to shrink. The setting, its box, the step behind it and
+  its entries in the rip report have been removed. Your FLAC files are exactly as
+  small as before. A settings file that still mentions the option loads normally,
+  with no warning and nothing reset. **For anyone reading reports:** the rip report
+  is now schema 33 and no longer has `settings.recompress_flac_after_rip`,
+  `verification.gates.recompress`, `verification.recompress` or the
+  `recompress_failed` issue. The "Archival Exact" goal is unchanged: it still reads
+  every track twice.
+
 ### Fixed
 
+- **An album or track title can no longer make a tracker's log checker accept our
+  EAC-style log as one Exact Audio Copy wrote.** OPS's checker treats a log as a
+  genuine EAC log if it finds EAC's own phrase "EAC extraction logfile from"
+  anywhere in it, and our log repeats album and track names. A title containing
+  that phrase (or XLD's) is now written with one extra space ("log file"), the
+  same way a title shaped like EAC's checksum line already was, and the rip report
+  says which lines were changed. Nothing in the tags or file names changes.
+- **Messages about an unapproved ripper say where it is recorded.** Four of them
+  (two update offers, the ripper's standing line and the User Guide) said the rip
+  report, the log and the EAC-compatible export all record it. Only the rip report
+  does; the two logs name the build that made them. And the message shown when the
+  ripper cannot be changed mid-rip now says to check again from **Tools → Setup &
+  Updates…**, not from the Help menu, where that check no longer is.
+- **The README matches the app again.** Checked line by line against the code: the
+  manual install steps (export order, so the fork is not replaced by the stock
+  build, and cd-paranoia), the "no drives found" advice (the drive list comes from
+  the host, and **Diagnose drive access…** exists), how Picard is offered, which
+  Settings rows exist and what they are called, how a frozen rip is stopped, where
+  View log opens, the FLAC section (paranoia corrects reads; AccurateRip and CTDB
+  prove them), the Fedora versions the cyanrip COPR builds for (43–45 now), and the
+  0.7.100 claim, which now says the full-green run used the build under review.
+- **No message tells you to click a Detect button that does not exist.** With
+  cyanrip, an offset that is not in AccurateRip's drive list is typed in by hand,
+  and the drive window has no Detect button. But the warning shown when you start a
+  rip without an offset said to click one, and so did the User Guide. Both now say
+  to type the offset into **Read offset (samples)** and press **Save offset**.
 - **A released cyanrip build is no longer warned about as unreleased because it
   was cut while a handshake round was open.** The fork's log line says both which
   round its tree was in and whether the build was released. Our rip audit and our
@@ -33,6 +97,24 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   into a definite answer.** The fork proposes a line for a pregap cyanrip could not
   measure. The row would have read "Appended to previous track" or "Not detected"
   for it. It now says the pregap was undetermined.
+- **The README and the EAC comparison no longer understate what the fork closed, or
+  blame the drive for a stall that happened in cyanrip.** Pre-gap detection was
+  still listed as the one remaining gap, and WavPack as only partly done, though the
+  fork finds every pregap EAC finds and every WavPack file is checked sample for
+  sample against its FLAC master. "About 90 % there" on bit-identical audio is now
+  the measured record over all 18 committed rips of the reference disc: twelve
+  tracks match AccurateRip every time, track 3 in 9 of 18, track 5 once, and never
+  all fourteen in one rip. EAC's own track 5 turned out not to be AccurateRip's
+  value, so "equal to EAC" (5 of 18 rips) is not the target on that track. The Overread warning now says the 23-minute stall
+  was inside cyanrip's read past the end of the disc, on stock 0.9.3, and that
+  whether the drive or cyanrip's retries made it last so long is not yet known.
+- **The documentation no longer says a pre-emphasised CD is kept as it is.** It is
+  not: cyanrip removes pre-emphasis by default, and Platterpus has never told it not
+  to, so such a disc's FLAC holds changed samples that AccurateRip cannot verify.
+  No disc tested so far is pre-emphasised. Whether to keep the disc's own samples
+  instead is a decision recorded in `TASKS.md`. The EAC comparison
+  (`docs/eac-parity.md`) was also checked line by line against the code and the
+  committed logs, and about forty stale or wrong statements in it are corrected.
 
 ## [0.7.100] — 2026-10-07
 
@@ -15752,7 +15834,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.27.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.7.101.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -17994,7 +18076,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.100...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.101...HEAD
+[0.7.101]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.100...v0.7.101
 [0.7.100]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66...v0.7.100
 [0.6.66]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66b1...v0.6.66
 [0.6.66b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.65...v0.6.66b1
@@ -18065,4 +18148,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.100.*
+*Last updated for Platterpus v0.7.101.*

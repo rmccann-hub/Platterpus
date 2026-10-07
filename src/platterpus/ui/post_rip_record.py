@@ -122,7 +122,6 @@ class PostRipRecord:
     flac_verify: object | None = None
     transcode: object | None = None
     derived_verify: object | None = None
-    recompress: object | None = None
     cover_art: object | None = None
     tagging: object | None = None
     checksums: dict[str, str] | None = None

@@ -2,7 +2,7 @@
 """Tests for the post-rip FLAC→MP3/WavPack/WAV transcode adapter.
 
 The `ffmpeg` subprocess is injected (a fake runner), so these run with no real
-binary. Contract (mirrors flac_recompress): never raise; distinguish "couldn't
+binary. Contract (mirrors flac_verify): never raise; distinguish "couldn't
 run at all" (error) from "a file failed" (failures); the source FLAC is always
 kept; the output is written atomically (sibling temp → os.replace).
 """

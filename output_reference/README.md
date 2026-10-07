@@ -128,6 +128,12 @@ AccurateRip confidence 200 where they verify.
 
 Two tracks differ:
 
+> **Status (2026-10-07): track 5 is not "the disc".** A later secure re-read on the
+> same drive converged on `C96464AB`, which AccurateRip verifies (v2 `BCF4E815`,
+> confidence 200, the value EAC's own log says AccurateRip returned). EAC's
+> `E0036697` is the unverified read. Measured over all 18 committed rips:
+> `docs/eac-parity.md` Part A, TL;DR item 1. The notes below are the dated record.
+
 - **Track 5 — the disc, not the ripper, and a tie.** EAC *also* could not verify
   track 5, and its CTDB pass shows track 5 "Differs in 3 samples @02:24:59".
   cyanrip rates it partially accurate via the AccurateRip offset-450 check. Both
@@ -150,7 +156,7 @@ the same verified samples. The extraction CRCs are the proof.
 - **Track 5 is genuinely unstable:** three rips, three different CRCs (EAC
   `E0036697`, cyanrip-FLAC `4065BECC`, cyanrip-MP3 `6902BCF0`), and EAC could not
   verify it either. Repair-class tooling (CUETools/CTDB) or a cleaner disc is the
-  only path to a verified track 5.
+  only path to a verified track 5. *(Not so: see the 2026-10-07 status note above.)*
 
 ### `cyanrip_wav/` — pending ⬜
 
@@ -199,4 +205,4 @@ That commit is the durable evidence the backend is bit-perfect against EAC.
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.7.101.*

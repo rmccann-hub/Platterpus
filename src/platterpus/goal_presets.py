@@ -1,7 +1,7 @@
 """Goal presets — anchor the rip settings to user *intent*.
 
 Deep-research lesson (docs/ux-design-principles.md #3): novices shouldn't have to
-reason about abstract toggles (CTDB, re-compress, format) before they understand
+reason about abstract toggles (CTDB, verify-every-track, format) before they understand
 the consequences. EAC's blunt "accurate results vs higher speed" choice worked
 because it anchored everything else to a goal. We do the same with three presets.
 
@@ -36,7 +36,6 @@ class GoalPreset:
     output_format: str
     ctdb_verify_after_rip: bool
     verify_flac_after_rip: bool
-    recompress_flac_after_rip: bool
     secure_rerip_matches: int
     # False = `-Z` on EVERY track from the first read (EAC-style Test and Copy);
     # True = rip fast, then secure-re-read only the tracks AccurateRip did not
@@ -69,12 +68,11 @@ class GoalPreset:
 #
 # **Archival Exact used to be byte-identical to Fast Verified** (found 2026-08-24
 # by an audit for capabilities that claim more than they deliver). Its one
-# differing field was `recompress_flac_after_rip=True`, and
-# `CyanripImpl.produces_max_compression_flac()` returns True unconditionally — so
-# with cyanrip as the sole backend (KDD-18) the re-compress can never run, and the
-# Settings checkbox for it is permanently greyed out with a tooltip saying as
-# much. Selecting the goal changed nothing at all while its label promised
-# "Smallest Lossless Files".
+# differing field was `recompress_flac_after_rip=True`, a post-rip `flac -8`
+# re-encode that cyanrip (the sole backend, KDD-18) made impossible: it already
+# writes FLAC at maximum compression, so the step was always skipped and its
+# Settings box was permanently greyed out. Selecting the goal changed nothing at
+# all while its label promised "Smallest Lossless Files".
 #
 # The difference is now the one an archival goal should actually have: **effort**.
 # `secure_rerip_dynamic=False` makes it EAC-style Test and Copy — every track read
@@ -91,16 +89,19 @@ class GoalPreset:
 # field that makes Archival a different rip, which `tests/test_ui_settings_dialog.py`
 # asserts rather than trusts.
 #
-# `recompress_flac_after_rip=True` stays on this preset deliberately. It is inert
-# today and correct in intent: a backend that does not max FLAC compression would
-# make it live again, and the JSON report already records
-# `recompress_gate = "backend already maxes compression"` honestly.
+# `recompress_flac_after_rip` is GONE from every preset (2026-10-07, the
+# maintainer's ruling: remove the inert setting rather than keep it). It was
+# Archival's old difference and had been inert since KDD-18, so removing it moved
+# no rip. The three goals are still pairwise distinct without it: Archival differs
+# from Fast Verified in `secure_rerip_dynamic`, and Portable differs from both in
+# `output_format`. `tests/test_goal_presets.py` asserts that rather than trusting
+# this comment, because two presets that compare equal would make `detect_goal`
+# report whichever is listed first.
 PRESETS: dict[str, GoalPreset] = {
     GOAL_FAST: GoalPreset(
         output_format="flac",
         ctdb_verify_after_rip=True,
         verify_flac_after_rip=True,
-        recompress_flac_after_rip=False,
         secure_rerip_matches=2,
         secure_rerip_dynamic=True,
         rerip_offset_variant=True,
@@ -110,7 +111,6 @@ PRESETS: dict[str, GoalPreset] = {
         output_format="flac",
         ctdb_verify_after_rip=True,
         verify_flac_after_rip=True,
-        recompress_flac_after_rip=True,
         secure_rerip_matches=2,
         secure_rerip_dynamic=False,  # -Z on every track: EAC Test and Copy
         rerip_offset_variant=True,
@@ -120,7 +120,6 @@ PRESETS: dict[str, GoalPreset] = {
         output_format="mp3",
         ctdb_verify_after_rip=True,
         verify_flac_after_rip=True,
-        recompress_flac_after_rip=False,
         secure_rerip_matches=2,
         secure_rerip_dynamic=True,
         rerip_offset_variant=True,
@@ -163,7 +162,6 @@ def apply_preset(config: Config, goal: str) -> Config:
         output_format=preset.output_format,
         ctdb_verify_after_rip=preset.ctdb_verify_after_rip,
         verify_flac_after_rip=preset.verify_flac_after_rip,
-        recompress_flac_after_rip=preset.recompress_flac_after_rip,
         secure_rerip_matches=preset.secure_rerip_matches,
         secure_rerip_dynamic=preset.secure_rerip_dynamic,
         rerip_offset_variant=preset.rerip_offset_variant,
@@ -182,7 +180,6 @@ def detect_goal(config: Config) -> str:
             config.output_format == preset.output_format
             and config.ctdb_verify_after_rip == preset.ctdb_verify_after_rip
             and config.verify_flac_after_rip == preset.verify_flac_after_rip
-            and config.recompress_flac_after_rip == preset.recompress_flac_after_rip
             and config.secure_rerip_matches == preset.secure_rerip_matches
             and config.secure_rerip_dynamic == preset.secure_rerip_dynamic
             and config.rerip_offset_variant == preset.rerip_offset_variant

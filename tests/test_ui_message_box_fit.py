@@ -36,8 +36,8 @@ MARGIN = 64
 PROSE = (
     "A newer cyanrip build is published on the beta channel, and taking it "
     "changes what your rips can claim: until a handshake round approves it, "
-    "every rip records its ripper as unapproved in the report, the log and the "
-    "EAC-compatible export. "
+    "every rip records its ripper as unapproved in its rip report, and the "
+    "cyanrip log and the EAC-compatible export name the build that made them. "
 ) * 6
 
 #: Far more than any width can show on a 400-px screen.

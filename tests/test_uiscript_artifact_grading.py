@@ -69,6 +69,46 @@ def test_the_settle_states_are_read_from_the_report_itself() -> None:
     assert g.settle_state(dropped) == g.SETTLE_PENDING
 
 
+def _without_the_retired_recompress_keys(report: dict[str, Any]) -> dict[str, Any]:
+    """`report` as schema v33 writes it: the four re-compress keys gone."""
+    stripped = copy.deepcopy(report)
+    del stripped["settings"]["recompress_flac_after_rip"]
+    stripped["settings"].get("every_setting", {}).pop("recompress_flac_after_rip", None)
+    del stripped["verification"]["gates"]["recompress"]
+    del stripped["verification"]["recompress"]
+    return stripped
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("wholedisc", g.SETTLE_SETTLED),
+        # The Archival rip: its gate read "backend already maxes compression",
+        # the one value a reader that matched on gate strings could trip over.
+        ("securereread", g.SETTLE_SETTLED),
+        ("cancelme", g.SETTLE_UNFINISHED),
+    ],
+)
+def test_settle_state_reads_a_report_the_same_with_or_without_the_recompress_keys(
+    name: str, expected: str
+) -> None:
+    """Schema v33 removed the re-compress keys (2026-10-07). Every report filed
+    before that — these committed round-29 ones among them — still carries them,
+    and the reports written from now on do not. The one predicate every artifact
+    verb asks "is this record final?" must give the same answer for both shapes.
+    """
+    old = _report(name)
+    # Floor: the committed report really is the old shape, or this would compare
+    # a report with itself.
+    assert "recompress" in old["verification"]["gates"]
+    assert "recompress" in old["verification"]
+    assert "recompress_flac_after_rip" in old["settings"]
+    new = _without_the_retired_recompress_keys(old)
+    assert "recompress" not in new["verification"]["gates"]
+    assert g.settle_state(old) == expected
+    assert g.settle_state(new) == expected
+
+
 # --- expect-album-audit ---------------------------------------------------------
 
 

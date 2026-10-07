@@ -73,13 +73,13 @@ _EXPECTED_TOP_LEVEL_KEYS: frozenset[str] = frozenset(
 )
 
 # Every verification sub-block (each present-or-null; `gates` explains the nulls).
+# `recompress` left in schema v33 (2026-10-07) with the setting it reported on.
 _EXPECTED_VERIFICATION_KEYS: frozenset[str] = frozenset(
     {
         "gates",
         "flac_integrity",
         "transcode",
         "derived",
-        "recompress",
     }
 )
 

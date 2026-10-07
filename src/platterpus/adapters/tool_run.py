@@ -2,7 +2,8 @@
 """One shape for *"we ran an external tool; here is everything it told us."*
 
 **Why this module exists.** Three adapters — ``flac_verify``, ``transcode`` and
-``flac_recompress`` — each declared their injected command seam as::
+``flac_recompress`` (removed 2026-10-07) — each declared their injected command
+seam as::
 
     Runner = Callable[[list[str]], int]
 

@@ -222,6 +222,12 @@ matching CRCs. UI differences don't matter; the bytes do.
 | Read **offset** | `667` | Settings / drive setup; printed in our `.log` |
 | AccurateRip | confidence per track | our rip-log panel + `.log` |
 
+> **Status (2026-10-07):** one row of this table is not ground truth. EAC's track 5,
+> `E0036697`, is not AccurateRip's value; AccurateRip verifies `C96464AB`, which our
+> drive read once (2026-10-07). A rip that differs from this table on track 5 only
+> is not a failure until it has been checked against AccurateRip
+> (`docs/eac-parity.md` Part A, TL;DR item 1).
+
 **The per-track CRC32 baseline** (ground truth — a cyanrip rip of this disc
 must reproduce these EXACTLY; EAC's "Copy CRC" and cyanrip's "EAC CRC32" are
 the same algorithm, as was the previous backend's Test/Copy CRC historically). Disc: *The Police —
@@ -268,7 +274,8 @@ assuming a bug:
   which includes nulls — consistent.)
 - **A genuine disc defect** — e.g. our reference disc's **track 5** mismatches in
   *every* tool (CTDB: "differs in 3 samples"). A track that differs everywhere is
-  the disc, not the ripper — don't chase it.
+  the disc, not the ripper — don't chase it. *(2026-10-07: track 5 turned out not to
+  be one; a secure re-read reached AccurateRip's value. See the status note above.)*
 
 > **Known reference facts (banked from the EAC baseline):** track 3 rips *clean*
 > in EAC, so the previous backend's historical track-3 failure was its **>587-offset bug**,
@@ -614,11 +621,10 @@ version of A1/A2/A11; do it LAST in a session, or on a sacrificial setup.)
 
 *(Was "FLAC re-compress: bit-perfect + metadata survives + smaller" — the
 opt-in re-encode existed for the previous backend's `-5` FLACs. cyanrip, the sole backend,
-already encodes at maximum compression, so the Settings toggle is permanently
-disabled and the post-rip step always skips it; the adapter is kept only as a
-seam for a future backend (unit-tested; `settings_dialog.py` tooltip explains).
-Number kept as a stable ID; the full real-binary procedure is in git history —
-resurrect it if a non-max-compression backend ever returns.)*
+already encodes at maximum compression, so the Settings toggle was permanently
+disabled and the post-rip step always skipped it. The toggle, its setting and the
+adapter were removed on 2026-10-07 on the maintainer's ruling. Number kept as a
+stable ID; the full real-binary procedure is in git history.)*
 
 ## Test 11 — [ ] Multi-format output: WavPack / MP3 / WAV (v0.3.0, KDD-22)
 
@@ -905,4 +911,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.7.100.*
+*Last updated for Platterpus v0.7.101.*

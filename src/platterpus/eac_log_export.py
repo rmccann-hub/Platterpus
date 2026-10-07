@@ -124,6 +124,29 @@ _SIGNATURE_SHAPE: re.Pattern[str] = re.compile(
 )
 _FENCE: re.Pattern[str] = re.compile(r"={2,}")
 
+#: The phrase a logchecker reads to accept a log as EAC's or XLD's own: OPS's
+#: checker refuses a log as "Unrecognized log file" unless it finds
+#: `EAC extraction logfile from` or `XLD extraction logfile from` ANYWHERE in it
+#: (OPSnet/Logchecker@ca565479 src/Logchecker.php:517-551; unanchored). Our own
+#: date line says `Extraction logfile from` with no program name in front, so
+#: this too can only come from metadata. Matched with any spacing and any case.
+_RECOGNITION_SHAPE: re.Pattern[str] = re.compile(
+    r"\b(?P<program>EAC|XLD)(?P<gap>\s+extraction\s+)log(?P<file>file)(?P<tail>\s+from)\b",
+    re.IGNORECASE,
+)
+
+
+def _break_recognition(match: re.Match[str]) -> str:
+    """``EAC extraction logfile from`` → ``EAC extraction log file from``.
+
+    One space, visible, so the line still says what the metadata said and no
+    checker's pattern for EAC's or XLD's first line can match it.
+    """
+    return (
+        f"{match.group('program')}{match.group('gap')}log "
+        f"{match.group('file')}{match.group('tail')}"
+    )
+
 
 def _defuse_signature_lines(lines: list[str]) -> tuple[list[str], list[str]]:
     """``(lines, the lines rewritten)``: no metadata may forge a signature (D16).
@@ -137,14 +160,22 @@ def _defuse_signature_lines(lines: list[str]) -> tuple[list[str], list[str]]:
     Only the fences change, `====` to `----`, so the line still says what the
     metadata said and cannot be read as a signature. The maintainer chose this
     over refusing the rip (D16, KDD-38); the report records each rewritten line.
+
+    The same holds for EAC's and XLD's first-line phrase (``_RECOGNITION_SHAPE``):
+    a title reading `EAC extraction logfile from …` would let OPS's checker grade
+    our log as a genuine EAC log rather than refuse it. That phrase gets one
+    visible space instead (found 2026-10-07, auditing `docs/eac-parity.md` Part D).
     """
     out: list[str] = []
     defused: list[str] = []
     for line in lines:
-        if _SIGNATURE_SHAPE.search(line):
-            line = _FENCE.sub(lambda match: "-" * len(match.group()), line)
-            defused.append(line)
-        out.append(line)
+        rewritten = line
+        if _SIGNATURE_SHAPE.search(rewritten):
+            rewritten = _FENCE.sub(lambda match: "-" * len(match.group()), rewritten)
+        rewritten = _RECOGNITION_SHAPE.sub(_break_recognition, rewritten)
+        if rewritten != line:
+            defused.append(rewritten)
+        out.append(rewritten)
     return out, defused
 
 
@@ -427,15 +458,14 @@ def _render(
     # value simply isn't in cyanrip's log — so it takes the not-reported wording,
     # keeping the two kinds of absence distinguishable to a reader.
     #
-    # **Deliberately NOT asserted as "No" for cyanrip**, though an EAC logchecker
-    # weighs this row heavily and a survey of libcdio-paranoia says it never uses C2
-    # error pointers. That survey is a secondary source; this project does not print
-    # a value into an archival log on the strength of one. The silent-blocks and
-    # null-samples rows below ARE asserted because each has direct evidence behind it
-    # (cyanrip writes what it reads; its CRCs matched a real EAC log on 12 of 14
-    # tracks of the reference disc). C2 has no such evidence yet — see TASKS.md for
-    # what would earn it: read libcdio's source, or measure it. Attempted and reverted
-    # 2026-07-29; the test that stopped it is doing its job.
+    # **Never asserted "No" on a survey's word**, though a logchecker weighs this row
+    # heavily and a survey says libcdio-paranoia never uses C2 pointers: a secondary
+    # source is not enough for an archival log (tried and reverted 2026-07-29). What
+    # prints "No" is first-party: cyanrip's own `C2 errors: unsupported by drive`,
+    # parsed to `c2_pointers = False` (the BDR-209D, 2026-07-30; eac-parity.md Part
+    # D, *The C2 row*); with no such line the row stays not-reported. The silent-
+    # blocks and null-samples rows below rest on direct evidence too (cyanrip writes
+    # what it reads; its CRCs matched a real EAC log, 14 of 14 tracks on the fork).
     lines.append(
         "Make use of C2 pointers : "
         + (_UNREPORTED if info.c2_pointers is None else _yes_no(info.c2_pointers))

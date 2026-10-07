@@ -379,7 +379,6 @@ _BOOL_FIELDS: tuple[str, ...] = (
     "rerip_offset_variant",
     "ctdb_verify_after_rip",
     "verify_flac_after_rip",
-    "recompress_flac_after_rip",
     "write_eac_log_after_rip",
     "save_additional_art",
     "test_script_autorun",

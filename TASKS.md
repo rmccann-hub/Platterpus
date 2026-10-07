@@ -165,6 +165,18 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   Our round 30 lap 14 S18 named track 3 alone; the fork's lap 15 S4 found track 5, and
   our lap 16 S1 corrects it. The disc, not a defect; recorded so the next run on it is
   read against both values of each.
+  - *2026-10-07 (the Full run on 0.6.66 with `.21`):* track 5 shipped `E0036697`
+    again, a re-read confirming the first pass. Track 3 shipped a third value,
+    `418F6CF8`: first pass `1D0B4419`, then re-reads `149C0991`, `418F6CF8`,
+    `418F6CF8`, `34D9A79A`, `418F6CF8` (`round31fullwholediscsecuringpass.txt`).
+  - **Correction, same day (the audit of `docs/eac-parity.md`):** the row's premise
+    is wrong. Track 5 *has* a verified value: the 2026-10-07 secure re-read converged
+    on `C96464AB`, which AccurateRip verifies (v2 `BCF4E815`, confidence 200), and
+    `BCF4E815` is what EAC's own log says AccurateRip returned. EAC's `E0036697` is
+    the unverified read. Over all 18 committed rips: track 3 verified in 9 (none
+    since 2026-09-30), track 5 in 1, never both in one rip. **Both tracks are open.**
+    Numbers and sources: `docs/eac-parity.md` TL;DR item 1. An earlier draft of this
+    entry called track 5 "settled", from this row's premise rather than from the logs.
 - [x] **The cache probe's saved output stopped before its figure** (found 2026-10-06,
   filing the closing run). `round30oct06fullcacheprobe.txt` is exactly 2,000 bytes and
   holds no 137: `cache_probe.parse_cache_analysis` kept `text.strip()[:2000]` and
@@ -255,64 +267,80 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
 
 ---
 
-## The 0.7.100 getting-started walkthrough (planned 2026-10-06, `PLANNING.md` KDD-42)
+## The getting-started walkthrough (planned 2026-10-06, framework 2026-10-07, `PLANNING.md` KDD-42)
 
-An archival (EAC-parity) rip of an average disc, step by step, for a first-time user: a
-written step list with still screenshots and three or four short GIFs, shot by a script
-on the rig. **In the app by default** (Help → Getting started, offline, offered on first
-run) **and on GitHub** (the README's *Getting started* section, generated from the same
-source). Every ruling is KDD-42 (W1 to W7); this is the work.
+An archival (EAC-parity) rip of an average disc, step by step, for a first-time user:
+a written step list with still screenshots and three short GIFs, shot by a script on
+the rig. **In the app by default** (Help → Getting started, offline) **and on GitHub**
+(the README's *Getting started* section, generated from the same source). Every
+ruling is KDD-42 (W1 to W7). The framework shipped in 0.7.101; the pictures are the
+shoot below.
 
-**Build now:**
-- [x] **`callout <n> <label…>` verb** (done 2026-10-06, `uiscript/walkthrough_verbs.py`, `uiscript/callout.py`). The next `screenshot` draws a numbered highlight
-  around the named widget (the one the following step presses), from the widget's real
-  geometry. Pure overlay function, tested on a rendered fixture; the target must resolve
-  to exactly one visible widget or the step fails, so a renamed button cannot shoot a
-  picture of nothing.
-- [x] **`record <name> <seconds> <fps>` verb** (done 2026-10-06, `uiscript/burst_verbs.py`). A burst of main-window frames into the run
-  folder, numbered, with a manifest (frame count, interval, window size). Bounded (a cap
-  on seconds and fps), and a frame that fails to render is counted, not skipped silently.
-- [ ] **A placeholder for the cover art in captures** (W5): while the walkthrough runs,
-  the cover shown in the window is replaced by a neutral placeholder, so no label artwork
-  enters the repository. A verb or a run setting, decided with the verb.
-- [ ] **A `walkthrough.txt` rig script, to be written** (beside the acceptance scripts): the steps below, driving the app with existing
-  verbs (`set-drive-offset`, `pick-release`, `rip`, `wait-for-rip`, `open`) and shooting
-  with `screenshot`, `callout` and `record`. Its own run size; never counted as acceptance
-  evidence.
-- [ ] **`scripts/build_walkthrough_media.py`**: from a run folder, the stills copied under
-  their final names and each frame burst assembled into a GIF with ffmpeg (palette
-  generated, looped, size-checked). Thin over one function, per the script-verb rule.
-- [ ] **The guide's source, shipped in the package** (W6): its Markdown and images beside
-  `help_content.py`, declared as package data so the AppImage and the wheel carry them.
-- [ ] **The in-app viewer** (W6): Help → *Getting started* opens the guide in a pane,
-  offline, stills shown and GIFs animated (`QTextBrowser` for the text, `QMovie` for the
-  loops), every image with its alt text, keyboard reachable, readable in both themes; the
-  first run offers to open it. Help → User guide points to it first.
-- [ ] **`scripts/emit_getting_started.py`** (W6): writes the README's *Getting started*
-  section from the same source, with `--check`, like `emit_script_language.py`; a test
-  fails when the README and the source disagree.
-- [ ] **A test that the guide's images are present and described**: every image the source
-  references exists, has alt text, and the set stays under its size budget (counting
-  what the AppImage carries); a floor on the number of images so an empty guide cannot
-  pass.
+**Built (2026-10-06 and 2026-10-07):**
+- [x] **`callout <n> <label…>` and `record <name> <seconds> <fps>` verbs**
+  (`uiscript/walkthrough_verbs.py`, `uiscript/burst_verbs.py`, 2026-10-06).
+- [x] **The shot list, `getting_started.py`**: eleven pictures (six stills, three
+  loops, two desktop shots), each with its step and alt text. It is the one contract
+  the other parts read.
+- [x] **The guide's text**, `src/platterpus/guide/getting-started.md`, nine steps that
+  stand on their own, shipped as package data with its future `images/`. Written
+  against the code: the EAC log is off by default and there is no Detect button with
+  cyanrip, so the guide says to tick the one and type the offset for the other.
+- [x] **The viewer**, Help → Getting started (`ui/getting_started_dialog.py`).
+  - Non-modal, kept and raised.
+  - Loops animated, with a **Pause animations** button (WCAG 2.2.2).
+  - Paused while closed.
+  - In the UI conformance matrix.
+- [x] **`open getting-started`**, so a script reaches it like any other dialog.
+- [x] **The first-run offer**: a sentence in the *Set up Platterpus* question (KDD-42,
+  *The framework landed*).
+- [x] **The README section**, `scripts/emit_getting_started.py`. The test fails when the
+  README and the guide disagree.
+- [x] **The rig script**, `rig_scripts/walkthrough.txt`: shoots every `still` and
+  `loop` under its stem, ticks the EAC log, and asserts the rip finished.
+- [x] **`scripts/build_walkthrough_media.py`**: a run folder to the guide's final files.
+  - Stills are copied.
+  - Each loop's frames become a GIF with ffmpeg's two-pass palette.
+  - It refuses a burst with a lost frame.
+  - Nothing is moved into place unless every shot built.
+- [x] **The tests** (`tests/test_getting_started.py`, `tests/test_build_walkthrough_media.py`).
+  They hold each pair of parts together: shot list and script, text and labels, text
+  and README, shot list and pictures, viewer and loops. Each has a floor. Five were
+  revert-probed.
+- [x] **W5 as a guard**: no window renders a picture but the logo, so no capture holds
+  cover art; a test fails the day one does.
 
-**The steps the walkthrough covers** (W1):
-1. Download the AppImage, allow it to run, open it *(Spectacle)*.
-2. First-run setup: the ripping container and the approved cyanrip build (minutes).
-3. Set up drive: the read offset from AccurateRip's drive list, or found by cyanrip.
-4. Settings: the archival defaults already on (FLAC, secure re-reads, CTDB, the
-   EAC-compatible log), shown in place, nothing to change.
-5. Insert the disc; the MusicBrainz match and the tags *(GIF)*.
-6. Rip: progress and the time estimate *(GIF)*.
-7. The verdict: AccurateRip ✓ and CTDB, each line called out *(GIF)*.
-8. What you get: FLAC, cover, cue, the EAC-compatible log, the report; what to keep.
-9. If a track shows only a one-frame match or did not converge: what it means, what to do.
+**The shoot (the plan; KDD-42 W7).** One sitting on the rig, about an hour and a half,
+most of it the rip:
+1. **In a fresh `demo` account**, download the AppImage and allow it to run. Spectacle:
+   `01-allow-to-run.png`, its Properties → Permissions.
+2. **Double-click it** and Spectacle the *Set up Platterpus* question:
+   `02-first-run-setup.png`. Then answer **Yes** and let setup finish.
+3. **Insert the disc** and run `./platterpus-x86_64.AppImage --run-script walkthrough`.
+   It photographs steps 3 to 8 and rips the disc once.
+4. **Upload** the run folder it names at the end, with the two Spectacle PNGs.
 
-**Shoot before 0.7.100** (W7):
-- [ ] On the rig, in a fresh `demo` account: run the walkthrough script, take the
-  Spectacle shots, build the media, write the guide's text, regenerate the README section.
-- [ ] Decide on the day: the disc, the window size, the size budget (KDD-42, *not decided
-  here*).
+Then, here:
+- `scripts/build_walkthrough_media.py` builds the files;
+- the guide gains an image line for each picture;
+- the size budget is set from the real total;
+- `SHOOT_STATUS` becomes `shot`;
+- the README regenerates;
+- it ships in the next release.
+
+**Decide on the day** (KDD-42, *Not decided here*): the disc, which must be one that
+AccurateRip and CTDB both know; the window size; and the budget. One look throughout:
+Breeze light, 100 % scaling.
+
+**Open:**
+- [ ] **The shoot**, above. Needs the rig, the `demo` account and the disc.
+- [ ] **`counts_as_evidence` is decided by the run size alone**, so any script run at
+  Full says `true`: the walkthrough, `securereread.txt`, `police-rerip.txt`. The ledger
+  grades only `fullacceptance.txt` runs by hand, so nothing was miscounted. But the
+  field claims what it does not know; it should require the acceptance script. Found
+  building the walkthrough, 2026-10-07; not changed on release day.
+- [ ] **A callout can name a label on a Settings tab that is not showing**; if the shoot
+  shows it, the script opens that tab first. Only the rig can say.
 
 ## 2026-10-05 window size and readability audit
 
@@ -1757,6 +1785,14 @@ each side's reading; and the closing releases named.
   Tag at `bcd185e1` (PR #299), release run 37606328004: every gate green, attested.
 - [ ] **E2 on a drive the AccurateRip list does not carry**: owed before 0.9.1, which
   also needs a second machine and distro.
+- [ ] **Tell the fork, as a NEXT-ROUND item, that report schema v33 drops the
+  re-compress keys** (2026-10-07; the maintainer removed the inert "Re-compress FLACs"
+  setting). A `.platterpus.json` from v33 has no `settings.recompress_flac_after_rip`,
+  no `settings.every_setting.recompress_flac_after_rip`, no
+  `verification.gates.recompress`, no `verification.recompress` and no
+  `recompress_failed` issue. Anything of theirs that reads a bundle should treat each
+  as absent, not as `false` or `"disabled"`. cyanrip already writes FLAC at maximum
+  compression, so nothing the step did is lost.
 - [x] **Released 0.6.66 on `.19`, with `.21` under review** (the maintainer, 2026-10-07:
   release now rather than hold; no round is open). Tag at `a0330d09` (PR #297), release
   run 37566180474: every gate green, attested. `FORK_PIN` rolls to `ca3f3ea` in the
@@ -1779,6 +1815,30 @@ each side's reading; and the closing releases named.
   *Done 2026-10-07 (`62aa7bb0`):* their wording is `pregap of track N unknown (reason)`;
   an unknown on any track after the first makes the row
   `(undetermined: the ripper could not measure a pregap)`, whatever else the list says.
+- [ ] **Decide: pass `-W` so a pre-emphasised disc keeps its samples?** (found
+  2026-10-07, auditing `docs/eac-parity.md`; maintainer's call.) cyanrip
+  de-emphasises any disc whose TOC flags pre-emphasis unless `-W` is passed
+  (cyanrip@ca3f3ea:src/cyanrip_main.c:1816, :1910-1911), and Platterpus never passes
+  it, though our docs said we preserve such discs. Today a pre-emphasised disc's FLAC
+  holds altered samples, which AccurateRip cannot verify. EAC does not de-emphasise.
+  Passing `-W` keeps the disc's samples, so AccurateRip can check them, and the cue
+  then carries `FLAGS PRE` for a player to act on (cyanrip@ca3f3ea:src/cue_writer.c:187-188). The cost: a player that ignores the flag
+  plays the disc as mastered, too bright. **Recommended: pass `-W`** (the archival
+  copy should be the disc's samples, verifiable), as a changed argv through the
+  chokepoint, with the seam's input-half test and a line in our next lap. Untested on
+  hardware: no pre-emphasised disc has been ripped.
+- [ ] **Round 31 lap 4: ask the fork where `-O`'s 23-minute stall comes from** (the
+  maintainer, 2026-10-07: *"can we verify this is a drive issue, and not something on
+  the application or programming side"*). Settled from the record: Platterpus only
+  passes the flag, and both stalls were inside cyanrip's read of the last track's
+  lead-out, on stock 0.9.3 (2026-07-22, reproduced 2026-07-23). `-O` makes cyanrip read
+  past the disc's last sector (`cyanrip@ca3f3ea:src/cyanrip_main.c:1484-1494`). Not
+  settled: whether the 23 minutes are the drive taking that long to refuse a read, or
+  cyanrip and libcdio-paranoia retrying a read the drive refused. Nobody has tried it
+  on the fork's builds. **Ask** what their `-O` path does with a refused lead-out read
+  (retries, timeouts), and whether it could give up quickly and fall back to the silence
+  fill. **Then a bounded rig probe:** the last track only, with and without `-O`, on the
+  fork's build, with the kernel log captured. The README's Overread line says the same.
 - [ ] **Round 31: a lap writer that refuses a v6 `GO` without the ledger, on both
   sides** (our lap 16 S14). Both gates refuse it once sent; neither side's writer stops
   it being sent.
@@ -7281,7 +7341,7 @@ The sub-sections below are ordered by current priority for picking up work:
 
 1. **P1.1 — Install / uninstall ease** is the **highest priority subset** of P1. Items here unblock new contributors at the install step; finish before anything else P1.
 2. **P1 — Release milestones** — gating actions for v0.1.0. Merging to main, flipping the repo public, tagging the first release, publishing to PyPI. Most other P1 items remove caveats from the README once these are done.
-3. **P1 — EAC bit-perfect parity gaps — ✅ closed in v0.5.8 except INDEX 00.** The old whipper-flag widgets were retired with whipper (KDD-18); the fresh cyanrip overread toggle shipped 2026-07-21 (`-O` — the doc-claimed `-x` never existed), and the gap-handling investigation closed the same day as already-satisfied (cyanrip's default = EAC's, verified upstream). **v0.5.8 closed the remaining four** on the maintainer's "equal-or-stronger rigor, honestly labelled as ours — never forge EAC" principle: an openly-verifiable SHA-256 **log checksum** (KDD-28), a **measured cache-defeat verdict** via `cd-paranoia -A` (KDD-29), **Test & Copy** CRC pairs from `-Z` convergence + a verify-every-track mode (KDD-30), and **read-offset auto-confirmation** by AccurateRip (KDD-31). The one remaining difference is the cue-metadata **`INDEX 00`** question, whose *mechanism is now decided* — build cyanrip from the soft-fork integration branch (KDD-32; `master` already emits it, and it carries PR #115). Not a blocker for the public AppImage.
+3. **P1 — EAC bit-perfect parity gaps — ✅ closed in v0.5.8 except INDEX 00.** The old whipper-flag widgets were retired with whipper (KDD-18); the fresh cyanrip overread toggle shipped 2026-07-21 (`-O` — the doc-claimed `-x` never existed), and the gap-handling investigation closed the same day as already-satisfied (cyanrip's default = EAC's, verified upstream). **v0.5.8 closed the remaining four** on the maintainer's "equal-or-stronger rigor, honestly labelled as ours — never forge EAC" principle: an openly-verifiable SHA-256 **log checksum** (KDD-28), a **measured cache-defeat verdict** via `cd-paranoia -A` (KDD-29), **Test & Copy** CRC pairs from `-Z` convergence + a verify-every-track mode (KDD-30), and **read-offset auto-confirmation** by AccurateRip (KDD-31). The one remaining difference is the cue-metadata **`INDEX 00`** question, whose *mechanism is now decided* — build cyanrip from the soft-fork integration branch (KDD-32; `master` already emits it, and it carries PR #115). Not a blocker for the public AppImage. *Closed on the fork (recorded 2026-10-07):* its rip of 2026-08-04 matches all ten of EAC's pre-gap rows to the hundredth of a second (`tests/test_fork_rip_eac_parity.py`), and the 2026-10-07 run's cue marks the same nine tracks as EAC's. HTOA stays out of scope.
 4. **P1 — UX gaps from real-user testing** — issues surfaced on Bazzite that aren't urgent but make the GUI feel less polished.
 5. **P1 — Install automation** — pre-clone host bootstrap script. Blocked on the repo flipping public.
 6. **P1 — Documentation backlog** — items that need real-system output from T32 to write authoritatively.
@@ -7459,6 +7519,7 @@ Each is independent; do them in any order. They should land before the AppImage'
 - **[x] cyanrip metadata richness (current-scope, "good everything"). Done 2026-06-23.** The MB lookup now also extracts **genre** (top folksonomy tag — musicbrainzngs 0.7.1 has no `genres` include), **disc number / total discs** (medium position/count), and **per-track ISRC** (`isrcs` include), and feeds them to cyanrip's `-a`/`-t` (FFmpeg `genre`/`disc`/`isrc`). Silent passthroughs (read from the stored MB `ReleaseDetail`, guarded by matching MBID; not editable). `RipMetadata.tracks` is now `TrackTag(number,title,artist,isrc)`; `ReleaseSummary`/`TrackSummary` gained the fields. whipper unaffected. **Composer deferred** (per-recording work→artist relationship queries = rabbit hole; revisit if a classical-heavy user asks).
 - **[x] cyanrip FLAC encode-verify (archival integrity) — SHIPPED.** cyanrip encodes FLAC via FFmpeg with no decode-verify pass (unlike whipper's `flac --verify`). Closed by `adapters/flac_verify.py`: a best-effort, never-raising post-rip `flac --test` (decodes each FLAC and checks its embedded STREAMINFO MD5 against the decoded audio), run on the cyanrip output via the `verify_flac_after_rip` Setting (default on), wired in `main_window_rip._start_flac_verify` off the GUI thread. Result surfaced in the rip report + UI. (Doing this *inside* cyanrip is a separate, lower-priority upstream idea — see the cyanrip upstream-contribution list below.)
 - **[x] FLAC compression level `-8` — whipper-only, shipped as an opt-in post-rip re-encode (2026-06-23).** whipper hardcodes flac `-5` (not exposable — KDD-13); `-8` is lossless and just smaller. **cyanrip is a no-op:** it encodes FLAC at *maximum* compression (upstream README "always uses maximum compression"; it sets libavcodec `compression_level` explicitly per format, not FFmpeg's default 5) and exposes no level flag — so there is nothing to expose or change there. Closed for whipper with an **optional post-rip re-encode** to `-8 --verify` (`adapters/flac_recompress.py`), gated on the new `WhipperBackend.produces_max_compression_flac()` capability (False=whipper→runs, True=cyanrip→skipped), surfaced as the "Re-compress FLACs" Settings toggle (off by default). Lossless + verified, atomic per-file swap-in, tags/art preserved; folded into the post-rip tag/cover thread so it runs after those. Flags (`-8 -e -p --verify --silent -f -o`) verified current against the xiph spec (2026-06-23). `-e` (exhaustive model search) and `-p` (exhaustive `qlp_coeff_precision` search) cost only *encode* time — never decode time, the one thing that mattered to the maintainer (mobile playback) — so they were added 2026-06-23 ("always fine to add encoding time if it helps") for the last fraction of a percent at zero playback cost. **Hardware validation gated:** test-plan **Test 10** (decoded-PCM MD5 identical before/after, cover art + tags survive, files smaller).
+  - *Removed 2026-10-07* (the maintainer: *"fix or remove this … it is inert and disabled with cyanrip and does nothing"*). With cyanrip the sole backend (KDD-18) the step could never run, so the setting, the Settings row, the `flac_recompress.py` adapter, the `produces_max_compression_flac()` capability and the report's re-compress keys (schema v33) went together. An old config carrying the key loads quietly (`config.RETIRED_CONFIG_KEYS`).
 
 > **CTDB verify + repair are tracked elsewhere, not here.** They are archival-verification *features*, not parity-gap Settings widgets, so they live in the **Ranked execution order** above (items 5–6) with full rationale and decisions in the [Upstream open-source modification](#p1p2--upstream-open-source-modification-for-eac-parity-investigation-2026-06-02) section and [docs/archive/upstream-modification-investigation.md](docs/archive/upstream-modification-investigation.md). See also [PLANNING.md KDD-12 / KDD-14 / KDD-16](PLANNING.md).
 
@@ -7657,6 +7718,7 @@ So: **canonical key = the `Config` field name; row label = an alias**, matched b
   - `metaflac path:` is the only lowercase-initial label; an over-eager `.title()` normaliser eats it.
   - `recompress_flac_after_rip` is **permanently disabled**; `mp3_vbr_quality` and `read_speed` are **gated** — setting a disabled widget must FAIL loudly, not no-op silently.
   - *Audit 2026-09-25: partly done.* `set` keys on Config field names (uiscript/runner.py), so the label traps no longer apply. A disabled field is not refused: recompress is disabled in Settings but settable.
+  - *2026-10-07:* `recompress_flac_after_rip` is gone (maintainer: remove the inert setting), so the permanently-disabled case no longer exists; `mp3_vbr_quality` and `read_speed` are still gated and still settable while greyed.
 - **[ ] The completeness test:** derive the editable set from the dialog and assert every one is addressable, so this audit cannot silently expire.
 
 ### P0 — The RETURN path from cyanrip is unsanitised, and Qt's default renders it as HTML (found 2026-08-06)
@@ -7808,7 +7870,7 @@ Previously it was out of scope to modify the programs underneath us; this is the
 - **[x] CTDB verify (read-only)** — **HIGH. DONE** (library 2026-06-03, clean-room per KDD-16; GUI-wired 2026-06-17; **CRC hardware-validated 2026-07-07**). Protocol/CRC spec preserved in [docs/archive/upstream-modification-investigation.md](docs/archive/upstream-modification-investigation.md); status is canonical in **current-plan item 8**.
 - **[~] CTDB parity repair** — **HIGH; shipping DECIDED "D → B" (maintainer 2026-07-21), demand-gated.** KDD-14 Phase 2; the one genuine "beyond EAC" everyday win. Wrap `ctdb-cli verify|repair`; depends on verify. `ctdb-cli` is C#/.NET 10 (correction 2026-06-02), so the ship decision is: **D** manual workflow now ([docs/manual-ctdb-repair.md](docs/manual-ctdb-repair.md)), **B** optional dep-subsystem tool when a real user hits it — **not** an AppImage .NET bundle. See KDD-14 and the investigation doc.
   - *Audit 2026-09-25: partly done.* D shipped as docs/manual-ctdb-repair.md; B (a ctdb-cli repair tool through the dependency subsystem) is not built.
-  - *Merged 2026-09-30, verbatim, from the duplicate row item 6 of the 2026-07-21 queue (it was `[⛔]`):* **CTDB repair (Phase 2) — parked by decision (L; "D → B", maintainer 2026-07-21).** The everyday "beyond EAC" differentiator; its CRC gate cleared 2026-07-07 (KDD-16). **Shipping decided:** *not now* — the documented manual power-user workflow ([docs/manual-ctdb-repair.md](docs/manual-ctdb-repair.md)) covers the rare recovery case (D); wire `ctdb-cli` as an **optional user-installed tool** via the dependency subsystem (Picard model, B) only when a real user actually hits an uncorrectable-error rip CTDB could repair. Bundling a .NET runtime into the AppImage (A) is off the table; a pure-Python parity port (C) stays rejected. So this is no longer "maintainer-gated" — it's demand-gated. See KDD-14 and [docs/eac-parity.md](docs/eac-parity.md) Part B.
+  - *Merged 2026-09-30, verbatim, from the duplicate row item 6 of the 2026-07-21 queue (it was `[⛔]`):* **CTDB repair (Phase 2) — parked by decision (L; "D → B", maintainer 2026-07-21).** The everyday "beyond EAC" differentiator; its CRC gate cleared 2026-07-07 (KDD-16). **Shipping decided:** *not now* — the documented manual power-user workflow ([docs/manual-ctdb-repair.md](docs/manual-ctdb-repair.md)) covers the rare recovery case (D); wire `ctdb-cli` as an **optional user-installed tool** via the dependency subsystem (Picard model, B) only when a real user actually hits an uncorrectable-error rip CTDB could repair. Bundling a .NET runtime into the AppImage (A) is off the table; a pure-Python parity port (C) stays rejected. So this is no longer "maintainer-gated" — it's demand-gated. See KDD-14 and [docs/eac-parity.md](docs/eac-parity.md) Part C §2.
   - *Merged 2026-09-30, verbatim, from the duplicate row item 6 of the 2026-05-30 ranked execution order (it was `[⬜]`):* **CTDB repair (parity, wrap `ctdb-cli`, explicit trigger)** — Phase 2 of KDD-14; the headline EAC++ differentiator. Note: `ctdb-cli` is .NET 10 (not C), so AppImage bundling is heavy — bundle-vs-optional-install is undecided.
 - **[x] Upstream whipper bug fixes — CLOSED, no upstream to route to (2026-07-21).** `whipper cd info` non-zero exit on unknown discs and HTOA accuracy edge cases (issues #75/#82) were about *whipper* upstream specifically; whipper was fully removed as a backend 2026-06-30 (KDD-18), so there is no longer an upstream we're routing fixes to. Closed rather than left dangling: the cyanrip soft-fork below is the live upstream-contribution path now, and HTOA stays out of scope regardless of backend (see the explicit HTOA note under "Out of scope" below).
 - **[x] EAC-style signed log checksum — CLOSED, superseded by research (2026-07).** Re-evaluated as part of the tracker-log-acceptance research session: this item proposed literally the forgery this project's own rules reject (CLAUDE.md Critical Rule #8's spirit + the brief's "never fake a log/checksum") — signing a log as if EAC produced it. **Decision: do not build this.** The tracker-acceptance path it was aimed at is out of scope *by design*, not by degrees — see PLANNING.md **KDD-24** and `docs/eac-parity.md`. The follow-through work that actually matters for trust is already tracked separately: **CTDB CRC hardware validation** (KDD-16's remaining step — pinning the bit-exact CRC trim against a real CD and flipping `crc.CRC_VALIDATED`; see the "⭐ EAC output-parity proof matrix" section and `docs/test-plan.md` Test 1), not a signed checksum.
@@ -8677,4 +8739,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.7.100.*
+*Last updated for Platterpus v0.7.101.*

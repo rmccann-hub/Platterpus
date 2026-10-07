@@ -58,7 +58,7 @@ text is taken verbatim as one value.
 | `snapshot` | 1 | ready | snapshot <name> — record the visible state as text in the transcript |
 | `callout` | 2+ (rest of line) | ready | callout <n> <label…> — mark the one visible button or label reading <label> with the number <n> on the next screenshot (a trailing * matches a prefix); fails unless exactly one widget reads it |
 | `record` | 3 | ready | record <name> <seconds> <fps> — a burst of main-window frames, <name>-0001.png onward, with a manifest; 0.5 to 20 s at 1 to 15 fps, and a lost frame fails the step |
-| `open` | 1 | ready | open <settings|dependencies|about|diagnostics|guide|setup|drive> — open a dialog |
+| `open` | 1 | ready | open <settings|dependencies|about|diagnostics|guide|getting-started|setup|drive> — open a dialog |
 | `ok` | 0 | ready | ok — accept the dialog on top |
 | `cancel` | 0 | ready | cancel — dismiss the dialog on top |
 | `answer-dialog` | 3+ (rest of line) | ready | answer-dialog <ok|cancel|click=<label-substring>> <seconds> <title-substring> — wait up to <seconds> for a dialog whose title contains <title-substring>, then accept it, dismiss it, or click the one button whose label contains <label-substring>; fails if a different dialog is up at the deadline, or if the named button is absent, ambiguous or disabled |
@@ -78,7 +78,7 @@ text is taken verbatim as one value.
 | `expect-rip-complete` | 0 | ready | expect-rip-complete — assert the last rip FINISHED, read from the ripper's own log (completion footer, track tally, no truncation) rather than from the status line; read instability is reported, not graded |
 | `expect-log-well-formed` | 0 | ready | expect-log-well-formed — assert the ripper's log is an intact, attested record (completion footer present with EITHER verdict, not truncated, FUN512 signature well-formed); use where a rip was cancelled and `expect-rip-complete` cannot state the claim |
 | `expect-derived-output` | 1–2 | ready | expect-derived-output <mp3|wavpack|wav> [seconds] — assert the derived files the chosen output format calls for exist beside the FLAC masters, one per master. Waits (default 600s) because the transcode runs after `wait-for-rip` returns; the format is named here rather than read from Settings, so the step cannot check a setting against itself |
-| `expect-verification` | 0–1 | ready | expect-verification [seconds] — assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format, re-compress) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing |
+| `expect-verification` | 0–1 | ready | expect-verification [seconds] — assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing |
 | `expect-album-audit` | 0+ (rest of line) | ready | expect-album-audit [check…] — re-run the rip's own self-audit against the files on disk: every check (or only those named) must run, raise no warning and reach ok — among them cyanrip's -Y verdict on its own log, the cue sheet, the EAC log's checksum and CRCs, and the audio files. One warning is expected rather than failed: the build under review saying it is an unreleased build, when the report shows it is that build |
 | `expect-accuraterip` | 0 | ready | expect-accuraterip — every ripped track has an AccurateRip answer (accurate, one frame, mismatch or not in the database all count; no lookup does not), and the report agrees with the log on disk |
 | `expect-ctdb` | 1 | ready | expect-ctdb <whole|partial> — CTDB reached the verdict this rip calls for: looked up and compared for a whole disc, declined for a partial one |
@@ -121,7 +121,7 @@ discover it. Listing it with the mark is how the gap stays visible.
 
 ## Dialogs `open` accepts
 
-`about`, `dependencies`, `diagnostics`, `drive`, `guide`, `settings`, `setup`
+`about`, `dependencies`, `diagnostics`, `drive`, `getting-started`, `guide`, `settings`, `setup`
 
 ## Limits
 
@@ -205,7 +205,6 @@ than the UI it stands in for.
 | `read_speed` | integer |
 | `ctdb_verify_after_rip` | boolean (on/off) |
 | `verify_flac_after_rip` | boolean (on/off) |
-| `recompress_flac_after_rip` | boolean (on/off) |
 | `write_eac_log_after_rip` | boolean (on/off) |
 | `output_format` | text |
 | `mp3_vbr_quality` | integer |
@@ -367,7 +366,7 @@ found nothing wrong*.
 {
   "language": "platterpus-uiscript",
   "grammar_version": 1,
-  "platterpus_version": "0.7.100",
+  "platterpus_version": "0.7.101",
   "syntax": {
     "one_statement_per_line": true,
     "comment_prefix": "#",
@@ -469,7 +468,7 @@ found nothing wrong*.
       "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "open <settings|dependencies|about|diagnostics|guide|setup|drive> \u2014 open a dialog"
+      "help": "open <settings|dependencies|about|diagnostics|guide|getting-started|setup|drive> \u2014 open a dialog"
     },
     {
       "name": "ok",
@@ -629,7 +628,7 @@ found nothing wrong*.
       "max_args": 1,
       "takes_paths": false,
       "implemented": true,
-      "help": "expect-verification [seconds] \u2014 assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format, re-compress) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing"
+      "help": "expect-verification [seconds] \u2014 assert this rip's post-rip checks (CTDB, FLAC integrity, derived-format) finished and left a result, rather than being dropped when the next rip started. Waits (default 600s) because the checks run after `wait-for-rip` returns; at least one gate must have run, so the step cannot pass over a rip that checked nothing"
     },
     {
       "name": "expect-album-audit",
@@ -909,6 +908,7 @@ found nothing wrong*.
     "dependencies",
     "diagnostics",
     "drive",
+    "getting-started",
     "guide",
     "settings",
     "setup"
@@ -1051,10 +1051,6 @@ found nothing wrong*.
       "type": "boolean (on/off)"
     },
     {
-      "field": "recompress_flac_after_rip",
-      "type": "boolean (on/off)"
-    },
-    {
       "field": "write_eac_log_after_rip",
       "type": "boolean (on/off)"
     },
@@ -1101,4 +1097,4 @@ found nothing wrong*.
 }
 ```
 
-*Last updated for Platterpus v0.7.100.*
+*Last updated for Platterpus v0.7.101.*

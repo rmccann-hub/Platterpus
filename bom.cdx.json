@@ -15,7 +15,7 @@
           "type": "application",
           "group": "platterpus",
           "name": "scripts/emit_bom.py",
-          "version": "0.7.100"
+          "version": "0.7.101"
         }
       ]
     },
@@ -23,14 +23,14 @@
       "type": "application",
       "bom-ref": "platterpus",
       "name": "platterpus",
-      "version": "0.7.100",
+      "version": "0.7.101",
       "description": "A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3)",
       "licenses": [
         {
           "expression": "GPL-3.0-only"
         }
       ],
-      "purl": "pkg:pypi/platterpus@0.7.100",
+      "purl": "pkg:pypi/platterpus@0.7.101",
       "externalReferences": [
         {
           "type": "vcs",
@@ -1426,7 +1426,7 @@
         },
         {
           "name": "platterpus:used-in",
-          "value": "src/platterpus/adapters/flac_recompress.py, src/platterpus/adapters/flac_verify.py, src/platterpus/ctdb/decode.py, src/platterpus/deps/checks.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/deps/registry.py"
+          "value": "src/platterpus/adapters/flac_verify.py, src/platterpus/ctdb/decode.py, src/platterpus/deps/checks.py, src/platterpus/deps/host_setup.py, src/platterpus/deps/host_teardown.py, src/platterpus/deps/registry.py"
         },
         {
           "name": "platterpus:pin-enforced-in",
