@@ -1857,14 +1857,14 @@ each side's reading; and the closing releases named.
   before listing; the parts that need the fork are asked in our round 31 lap 3 S5, S8
   to S12. Ours, most useful first:
   - **Find the offset from a disc** in Set up drive, for a drive AccurateRip's list
-    does not carry (EAC, dBpoweramp, XLD and whipper all have it). The fork's `-f`
+    does not carry (EAC, dBpoweramp and XLD all have it). The fork's `-f`
     found +667 on the rig (`round31fulltranscript.txt:1132-1160`); waits on S8 for a
     stable result to read. The guide's step 3 then gains a second route.
   - **CD-Text as fallback tags** when MusicBrainz has no match: the fork's header
     already prints the fields, and our `-I` info run already happens before the rip;
     the parser lists `CD-TEXT:` as a candidate only (`parsers/cyanrip_log.py:2574`).
   - **A link to add an unknown disc's ID to MusicBrainz** from the no-match flow, the
-    way whipper and Picard offer it; today we offer Rip as Unknown Album and Picard.
+    way other rippers and Picard offer it; today we offer Rip as Unknown Album and Picard.
   - **Rip on insert** (optional, off by default), as dBpoweramp and EAC can.
   - Already present, so not gaps: a desktop notification when a rip ends
     (`notify_on_completion`, on by default), auto-eject, Test & Copy, CTDB verify.
