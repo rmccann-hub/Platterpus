@@ -1730,6 +1730,8 @@ each side's reading; and the closing releases named.
   (425 of 426, none failed; E2 N/A on this drive, the maintainer's ruling with E2 noted
   as not covered). Filed in `docs/handshake/artifactsround31/`. Its one defect of ours,
   a report sentence calling round 31 open before it had a lap, is fixed (`d14c315e`).
+- [x] **Released 0.7.100** on the first `full-green` row (the maintainer, 2026-10-07).
+  Tag at `bcd185e1` (PR #299), release run 37606328004: every gate green, attested.
 - [ ] **E2 on a drive the AccurateRip list does not carry**: owed before 0.9.1, which
   also needs a second machine and distro.
 - [x] **Released 0.6.66 on `.19`, with `.21` under review** (the maintainer, 2026-10-07:
