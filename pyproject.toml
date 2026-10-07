@@ -136,7 +136,17 @@ where = ["src"]
 # *"i should just be able to run this with an specific script file i can use
 # with the settings window"*. A test the program cannot reach is a test the
 # operator has to assemble by hand.
-platterpus = ["resources/*.svg", "rig_session.sh", "rig_scripts/*.txt"]
+#
+# `guide/` is the getting-started guide (KDD-42 W6): its text and, once shot, its
+# pictures. It is app content the viewer opens offline, so it ships the same way.
+platterpus = [
+    "resources/*.svg",
+    "rig_session.sh",
+    "rig_scripts/*.txt",
+    "guide/*.md",
+    "guide/images/*.png",
+    "guide/images/*.gif",
+]
 
 # Single source of truth for the version: the build reads __version__ from the
 # package itself, so `pyproject.toml` never duplicates it. Everything else
