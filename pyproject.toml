@@ -103,7 +103,7 @@ dev = [
     "cyclonedx-python-lib[json-validation]>=11.12,<12",
     # --- gating: pinned to the measured minor, bump deliberately ---
     "ruff>=0.15.22,<0.16",  # `lint` + `format --check`; 0.16 may reformat
-    "mypy>=2.3,<2.4",       # `typecheck`; the strict flag set is version-dependent
+    "mypy>=2.3,<2.5",       # `typecheck`; the strict flag set is version-dependent
 ]
 
 [project.scripts]
