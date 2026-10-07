@@ -17,7 +17,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 - **Handshake round 31: we accept the fork's proposal that a release of either
   side need not wait for a round** (their E1 to E9), and both wordings it proposes
   for two cyanrip log lines. Our round 31 lap 2 says so, gives our reading of the
-  2026-10-07 run, and is held until the maintainer announces it. Nothing in the app
+  2026-10-07 run, and was released to the fork on the maintainer's word. Nothing in the app
   changes until the shared protocol text (v8) lands in both repositories. Our laps
   now declare protocol 7, which both sides' tools have read since round 30.
 

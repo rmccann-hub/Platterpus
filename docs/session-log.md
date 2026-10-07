@@ -45,6 +45,15 @@ announces it.
   release carrying `62aa7bb0`.
 - While round 31 is open, that release still needs the maintainer's word until E9 lands.
 
+**Released, with an override.** The maintainer answered *"for my decisions, do what you
+recommend, then release the lap"*. Two consequences, in an order the gates set rather
+than the sentence. The release override counts only from a lap that is already
+released, so it went into lap 2's header while lap 2 was still held. Then lap 2 was
+announced, and only after that is v0.7.101 cut. A dry run of `--release-gate --tag
+v0.7.101` passed with the override printed, and a tag the override does not name was
+still refused. The other decision, editing the two locked `CLAUDE.md` rules that E9
+retires, is approved to land with v8.
+
 ---
 
 ## 2026-10-07 (later) — the first full-green run, and 0.7.100
