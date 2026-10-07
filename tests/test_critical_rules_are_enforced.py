@@ -2666,7 +2666,11 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # `blocks the close:` line (round 30 read `GO`/`GO -> OPEN` with no reason), and
     # `BLOCKS_CLOSE_PREFIX`. The lines report the state `_grade_round` computes, so
     # they belong beside it, not in a module of their own.
-    "scripts/handshake.py": 4555,
+    # **4555 -> 4565** (2026-10-07, round 31 lap 2): `DECLARED_PROTOCOL` moves to 7,
+    # with the dated reason beside the constant, and the skeleton emits v7's
+    # `HANDSHAKE-NEXT-LAP` (row C46), without which it fails its own checker. Both
+    # belong where they are: the constant's history and the field list it governs.
+    "scripts/handshake.py": 4565,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     "scripts/laplang/lsl3.py": 433,
     # **324 -> 312** (2026-10-06): git calls and decoding a cited file moved to
