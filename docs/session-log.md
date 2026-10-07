@@ -28,6 +28,10 @@ went first and took number 3 (§5a); their held one, if any, becomes 4.
   TASKS (offset finder in Set up drive, CD-Text fallback, an add-disc-ID link,
   rip-on-insert). Notification on completion and auto-eject already exist.
 - **Lap 3 also corrects** our round 30 lap 16 S1 and lap 2 S19 on track 5.
+- **Released 0.7.102 and lap 3 together**: PR #306 merged with a merge commit at
+  `b2000117`, `main`'s own CI green on it, then `release.yml` (run 37687401510) green
+  and attested, permitted under the §6b override in lap 3's header. Lap 3 is on `main`
+  at that commit (sha256 `0fe44080…`, 13,226 bytes).
 
 **Learned (again, and it cost a commit).** The `-W` commit landed with the size ratchet
 red: pytest ran in a pipe and the commit was chained with `;`. Fixed in `2345733e`, and
