@@ -1869,4 +1869,4 @@ guide by itself or only offers it: offered, unless the maintainer says otherwise
 
 ---
 
-*Last updated for Platterpus v0.6.66.*
+*Last updated for Platterpus v0.7.100.*
