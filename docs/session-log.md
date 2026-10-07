@@ -54,6 +54,17 @@ defect a second time. `.20` is now listed explicitly, and the sweep that should 
 could not read a pre-release version, which is what round 30's record holds, so its
 pattern now accepts one. Each was found by a failing test before anything shipped.
 
+**Released and cut.** 0.6.66 was released at `a0330d09` (PR #297, main's CI green first,
+release run 37566180474 with every gate green and the build attested). After that the
+hand copies of the pin and round came out of the prose docs. README, DEPENDENCIES, the rig
+sheet, the hardware checklist, the test plan, the known-issues note and the standing
+status table now point at Help → About, `--version` and the generated map. Nine tests
+that only caught those copies going stale were deleted with them; `docs/testing.md` §5.bn
+records each one. A helper did the cut in its own worktree, and every deletion was
+checked against the copy it policed before it was taken. **One thing could not be
+fixed here:** `CLAUDE.md` rule #7 still says the rig sheet names "its pairing in its
+header". The rules section is locked, so the maintainer has to make that edit.
+
 **Lessons.**
 - **A manifest is a snapshot.** Any field in it about the round (`round_closed`) is true
   as of publication, so pair it with the round record before reading it as current.

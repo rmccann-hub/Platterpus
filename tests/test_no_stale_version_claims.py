@@ -18,9 +18,11 @@ So this file is the gate in **both** directions:
 
 * **§1 — no doc may claim a version older than the current one** (the bug
   above), and
-* **§4 — the front page's FACTS, not merely its version number**: the pin it
-  says is installed, and whether it asserts a handshake round is open. Added
-  2026-08-27 after the README was found stale with every existing gate green.
+* **§4 — the front page's FACTS, not merely its version number**: the exact
+  version in its status banner, and whether it asserts a handshake round is open.
+  Added 2026-08-27 after the README was found stale with every existing gate
+  green. (Its pin and round gates were deleted on 2026-10-07, when the docs
+  stopped copying the pin and round; the §4 note says why.)
 * **§2 — bumping `__version__` forces the release-facing docs to follow.** The
   CHANGELOG must have a section and a compare link for the new version; the
   README's status banner and SECURITY.md's supported-versions line must name
@@ -612,90 +614,19 @@ def test_the_version_gates_can_actually_fail() -> None:
 # while a round is open") is a rule and is correct; historical prose ("round 8
 # approved `ddf7ac3`") is a record and is correct. Both are common in this repo
 # and a check that fired on them would be switched off within a week.
-
-#: Pins that were once ours and are not now. Derived where it can be —
-#: `FORK_PIN` and `FORK_TEST_PIN` are read from the module — with the retired
-#: ones listed because there is nowhere else they survive. A pin joins this list
-#: when it is superseded; it never leaves.
-_RETIRED_PINS: tuple[str, ...] = (
-    "ddf7ac3",  # 0.9.4-rc1+platterpus.5, round 7/8 era
-    "2f950c8",  # round 6
-    "c4d1a00",  # the fork's stable during round 11
-    "9003e6f",  # the v0.6.4b1 test pin
-    "c455683",  # round 11's pin
-    "104f6d4",  # withdrawn
-)
-
-#: A present-tense claim that a particular ripper build is what gets installed.
-#: Anchored on the verbs the README actually uses, so it cannot fire on prose
-#: describing what a past round approved.
-#:
-#: **The window excludes only the newline, NOT the full stop.** The first version
-#: used `[^.\n]{0,120}`, which stops at the first `.` — and a cyanrip version is
-#: `0.9.4-rc2+platterpus.10`, so the capture died at "installs cyanrip `0" and the
-#: pin was never in the window. The non-triviality test below caught it against
-#: the real shipped text, which is the only reason it is not still there.
-#:
-#: **THE WINDOW HAS NOW BEEN TOO NARROW THREE TIMES, EACH TIME DIFFERENTLY.**
-#: `[^.\n]` died at the version string's first full stop. `[^\n]` died at the
-#: README's hard wrap, because the claim and its sha sit on different lines — and
-#: `scripts/revert_probe.py` reported that one VACUOUS rather than letting it
-#: pass as a guard. Both were found by a tool, not by reading the regex. The
-#: window now crosses a single newline and stops at a blank line, because a
-#: paragraph break means a different subject.
-#:
-#: **"should report" is the same class of claim and so is in the same pattern.**
-#: README line 283 told a user `cyanrip --version` *"should report something
-#: like"* a banner three pins old. It reads as an example, but a user who runs
-#: the command today sees a different string and has no way to know which of
-#: them is wrong — so it is a present-tense claim about the current build, and
-#: it is derivable from `FORK_EXPECTED_BANNER` like the rest.
-_INSTALL_CLAIM = re.compile(
-    r"(?:This build (?:still )?installs|installs cyanrip|the pin is|pinned to"
-    r"|should report(?: something like)?)\s+"
-    # Crosses a SINGLE newline but never a blank line: the README hard-wraps at
-    # ~80 columns, so a claim and its sha routinely sit on different lines, while
-    # a paragraph break means a different subject.
-    r"(?:[^\n]|\n(?!\n)){0,140}",
-    re.IGNORECASE,
-)
-
-
-def _pin_token_pattern() -> re.Pattern[str]:
-    """A short sha in either form this project actually writes it.
-
-    TWO forms, and missing the second made the guard vacuous on the very line it
-    was widened for. `(`ddf7ac3`)` is the bare-sha form used in the status
-    banner; `platterpus-fork-gddf7ac3` is the BUILD TAG form used wherever a
-    cyanrip banner is quoted — and the sha there is preceded by the branch name,
-    not by a backtick.
-
-    The branch prefix is read from `fork_source.FORK_BRANCH` rather than typed, so
-    a fork rename cannot silently switch this check off.
-    """
-    from platterpus.deps.fork_source import FORK_BRANCH
-
-    return re.compile(
-        rf"(?:{re.escape(FORK_BRANCH)}-g|[`(]{{1,2}})(?P<sha>[0-9a-f]{{7}})"
-    )
-
-
-#: Built once; the branch name is a module constant, not a runtime value.
-_PIN_TOKEN = _pin_token_pattern()
-
-
-def _claimed_install_pin(claim: str) -> str | None:
-    """The FIRST sha-looking token in an install claim — its subject.
-
-    Taking the first rather than any is what keeps this precise in both
-    directions. *"installs `d9c058c`, replacing `ddf7ac3` which round 8
-    approved"* is a correct sentence, and a check that flagged any retired sha
-    anywhere in the window would refuse it — which is how a gate earns an
-    allowlist and then stops meaning anything.
-    """
-    match = _PIN_TOKEN.search(claim)
-    return match.group("sha") if match else None
-
+#
+# **The pin and round gates that used to live here were deleted on 2026-10-07**,
+# with the copies they policed. The maintainer ruled the docs "much too formal"
+# and chose to stop hand-copying the ripper pin, its build tag, the approving round
+# and the approved app version into prose: README, `DEPENDENCIES.md`'s cyanrip row,
+# the hardware checklist, `docs/rig-session.md`'s header and the standing status now
+# point at Help → About, `deps/fork_source.py`, `handshake_approval.py` and the
+# generated map in `DEPENDENCIES.md` instead. A gate whose only job is to keep a
+# copy in step with code has nothing to check once the copy is gone, and the cheaper
+# fix for a claim that decays on every pin move is not to make it. What stays is
+# the version (the banner below) and the open-round sweep, which forbids a stale
+# claim without requiring anyone to write one. `docs/testing.md` §5.bn has the
+# history of the deleted gates.
 
 #: A DECLARATIVE assertion that a round is open right now. The lookbehinds keep
 #: conditionals out: "while a round is open" and "during an open round" state
@@ -719,11 +650,10 @@ def _user_facing_text() -> dict[str, str]:
 def test_the_status_banner_names_the_EXACT_current_version() -> None:
     """§1 compares minors, so v0.6.27 survived a bump to v0.6.30. This does not.
 
-    Patch-level drift matters on this particular line specifically because the
-    status banner carries the pin and the round state beside the number, and both
-    of those move with patch releases. A banner three patches behind is a banner
-    whose other two claims are unlikely to be right either — which is exactly
-    what was found.
+    Patch-level drift matters on this particular line because it is the first
+    thing a stranger reads, and a release test reads it too. (Until 2026-10-07 the
+    banner also carried the ripper pin and the round state, which drifted with the
+    number; it now points at Help → About for those instead of copying them.)
 
     **It must find a banner to compare (2026-09-25).** The loop used to be the
     whole test, so a banner reworded out of the pattern's reach — `**Status
@@ -741,234 +671,13 @@ def test_the_status_banner_names_the_EXACT_current_version() -> None:
             assert claimed == __version__, (
                 f"{doc}: the status banner says v{claimed} but __version__ is "
                 f"{__version__}. §1 above cannot see this — it compares minors "
-                f"only — and the banner also states the ripper pin and the round "
-                f"state, which drift with it."
+                f"only."
             )
     assert examined.get("README.md", 0) >= 1, (
         f"no status banner found in README.md (examined per doc: {examined}) — "
         "either the banner was reworded out of _STATUS_BANNER's reach or it was "
         "removed. An exact-version check over no banner cannot fail."
     )
-
-
-def test_no_user_facing_doc_claims_a_RETIRED_ripper_pin_is_installed() -> None:
-    """The README said *"This build still installs cyanrip … (`ddf7ac3`)"* three
-    pins after that stopped being true.
-
-    Checked against `fork_source.FORK_PIN` rather than a typed value, so it
-    cannot drift when the pin next moves. A mention of a retired pin in
-    HISTORICAL prose is fine and is not matched — only a present-tense install
-    claim is.
-    """
-    from platterpus.deps import fork_source
-
-    offenders: list[str] = []
-    examined = 0
-    for doc, text in _user_facing_text().items():
-        for match in _INSTALL_CLAIM.finditer(text):
-            examined += 1
-            claim = match.group(0)
-            subject = _claimed_install_pin(claim)
-            if subject is None:
-                continue  # a claim naming no sha says nothing checkable
-            if subject in _RETIRED_PINS or not fork_source.same_commit(
-                subject, fork_source.FORK_PIN
-            ):
-                line = text.count("\n", 0, match.start()) + 1
-                offenders.append(
-                    f"{doc}:{line} says the installed build is `{subject}`; the "
-                    f"production pin is {fork_source.FORK_PIN}"
-                    + (" (a RETIRED pin)" if subject in _RETIRED_PINS else "")
-                    + f": {claim[:110]!r}"
-                )
-    assert examined >= 1, (
-        "no install claim found in the user-facing docs at all — either the "
-        "wording changed (update _INSTALL_CLAIM) or the claim was removed. A "
-        "pattern that cannot match cannot fail."
-    )
-    assert not offenders, "\n  ".join(offenders)
-
-
-def test_the_install_claim_names_the_CURRENT_pin() -> None:
-    """The converse, and the half that a retired-pin blocklist cannot cover.
-
-    A blocklist only catches pins we thought to list. This asserts the positive:
-    somewhere in the user-facing docs, the pin actually being installed is named,
-    and it is `FORK_PIN`. Both halves are needed — the blocklist catches a stale
-    claim, this catches a claim that names some pin nobody has ever heard of.
-    """
-    from platterpus.deps import fork_source
-
-    corpus = "\n".join(_user_facing_text().values())
-    assert fork_source.FORK_PIN in corpus, (
-        f"no user-facing doc names the current production pin "
-        f"{fork_source.FORK_PIN}. The front page tells a user which ripper build "
-        f"they get; if it names none, or names only retired ones, that is the "
-        f"same defect as naming the wrong one."
-    )
-
-
-def test_the_dependency_table_names_the_CURRENT_ripper_pin() -> None:
-    """`DEPENDENCIES.md`'s cyanrip row is the second place a reader learns which
-    ripper build ships, and it went stale TWICE for the same reason.
-
-    The 2026-09-13 review found it naming the COPR as the package source three
-    KDDs after the fork became the backend; the 2026-09-22 audit found it naming
-    `fe4d2c4` / `+platterpus.12` / round 18 two pin-bearing rounds later. Both
-    times a careful review read the row against memory. This reads it against
-    `fork_source`, which is where the fact actually lives.
-    """
-    from platterpus.deps import fork_source
-
-    text = (_REPO_ROOT / "DEPENDENCIES.md").read_text(encoding="utf-8")
-    rows = [line for line in text.splitlines() if line.startswith("| cyanrip (")]
-    assert len(rows) == 1, (
-        f"expected exactly one cyanrip row in DEPENDENCIES.md, found {len(rows)} — "
-        "the row was renamed or duplicated; update this selector"
-    )
-    row = rows[0]
-    for fact, label in (
-        (fork_source.FORK_PIN, "FORK_PIN"),
-        (fork_source.FORK_EXPECTED_VERSION, "FORK_EXPECTED_VERSION"),
-    ):
-        assert fact in row, (
-            f"DEPENDENCIES.md's cyanrip row does not name {label} ({fact}); it "
-            "describes a ripper build that is not the one the app installs"
-        )
-
-
-def test_the_rig_sheet_header_names_the_CURRENT_pair() -> None:
-    """`docs/rig-session.md` promises, in its own first paragraph, to be
-    *"rewritten in place when the pairing moves"* and to name that pair in its
-    header. On 2026-09-22 the header named `v0.6.30` + `d9c058c` — twenty-three
-    patch versions and nine rounds stale — under a v0.6.52 footer, because a
-    stamp records when a page was edited, not whether its header was.
-
-    The pair is the app version and the production pin. Both are read from code.
-    """
-    from platterpus.deps import fork_source
-
-    text = (_REPO_ROOT / "docs" / "rig-session.md").read_text(encoding="utf-8")
-    fence = re.search(r"^```\n(?P<body>.*?)^```", text, re.S | re.M)
-    assert fence, "docs/rig-session.md has no fenced header block to read the pair from"
-    header = fence.group("body")
-    assert f"v{__version__}" in header, (
-        f"docs/rig-session.md's header does not name Platterpus v{__version__}. "
-        "The app moved and the sheet did not: rewrite it in place for the new pair "
-        "(archive the old one under docs/archive/ with a graduation-map row)."
-    )
-    assert fork_source.FORK_PIN in header, (
-        f"docs/rig-session.md's header does not name the production pin "
-        f"{fork_source.FORK_PIN}; a run against it would produce evidence about a "
-        "different build."
-    )
-    # **AND THE BUILD UNDER REVIEW, while a round is reviewing one** (2026-09-23).
-    # The two asserts above are the production pair, and during round 26 that is
-    # the WRONG subject for the next run: its close condition is the real test on
-    # `.15`, so a sheet naming only `3e01bb3` passed here while telling the operator
-    # to test `.14`. The sheet exists to name what the next run is FOR.
-    if fork_source.a_round_is_reviewing_a_build():
-        assert fork_source.PIN_UNDER_REVIEW in header, (
-            f"a round is reviewing {fork_source.PIN_UNDER_REVIEW} and "
-            "docs/rig-session.md's header does not name it; the next run is the "
-            "test of that build, and a sheet naming only the production pin sends "
-            "the operator to evidence about a different one."
-        )
-
-
-#: Ripper build tags a user-facing doc may name although they are not current,
-#: each with the reason it is historical rather than a claim. Empty today, and a
-#: ratchet: an entry is an admission that a page names a build nobody runs.
-_HISTORICAL_BUILD_TAGS: dict[str, str] = {}
-
-
-def test_every_ripper_build_tag_in_a_user_facing_doc_is_the_CURRENT_one() -> None:
-    """The gap the two pin tests above leave open, measured on 2026-09-22.
-
-    `test_no_user_facing_doc_claims_a_RETIRED_ripper_pin_is_installed` matches
-    `_INSTALL_CLAIM` — a present-tense *install* sentence. `test_the_install_
-    claim_names_the_CURRENT_pin` asks only that the right pin appear SOMEWHERE in
-    the corpus. Between them, a wrong pin in any other present-tense sentence
-    passes both: the README carried *"Platterpus pins a fork — currently
-    `fe4d2c4`, `cyanrip 0.9.4-rc2+platterpus.12`, approved by handshake round
-    18"* inside a ⚠ READ THIS BEFORE YOU RUN box, five rounds after that stopped
-    being true, while `2cce60d` appeared correctly forty lines away and satisfied
-    the positive half.
-
-    The same page also carried a `--version` example printing the stale banner,
-    under a comment explaining that this had happened before and that the line
-    *"must match the banner named earlier on this page"*. It had gone from four
-    pins stale to two pins stale in the same line. **A comment where a check
-    belongs is not a fix**, which is this repo's own rule arriving in the
-    document a stranger reads first.
-
-    So this sweeps the BANNER FORMS — `platterpus-fork-g<sha>` and
-    `+platterpus.<n>` — which are statements of identity rather than references,
-    and requires each to be the build the code actually pins. Both expected
-    values are derived (`fork_source.FORK_PIN`, `FORK_EXPECTED_VERSION`), so they
-    cannot drift when the pin next moves.
-    """
-    from platterpus.deps import fork_source
-
-    expected_tag = fork_source.FORK_EXPECTED_VERSION.split("+", 1)[1]
-    # **The build a round is REVIEWING is current too**, and only while one is.
-    # Round 26 reviews `+platterpus.15` on a drive, and the front page has to say
-    # which build the real test installs — a page forbidden from naming it would
-    # send the operator to the production pin, which is evidence about a different
-    # build. Derived from the same two constants the ripper offer and the
-    # acceptance run read, so it closes again by itself when the round ends and
-    # `PIN_UNDER_REVIEW` settles back onto `FORK_PIN`.
-    current_shas = [fork_source.FORK_PIN]
-    current_tags = {expected_tag}
-    if fork_source.a_round_is_reviewing_a_build():
-        current_shas.append(fork_source.PIN_UNDER_REVIEW)
-        current_tags.add(fork_source.UNDER_REVIEW_TARGET.version.split("+", 1)[1])
-    offenders: list[str] = []
-    examined = 0
-    for doc, text in _user_facing_text().items():
-        for match in re.finditer(
-            r"platterpus-fork-g(?P<sha>[0-9a-f]{6,40})|\+(?P<tag>platterpus\.\d+)",
-            text,
-        ):
-            examined += 1
-            found = match.group("sha") or match.group("tag")
-            if found in _HISTORICAL_BUILD_TAGS:
-                continue
-            ok = (
-                any(fork_source.same_commit(found, sha) for sha in current_shas)
-                if match.group("sha")
-                else found in current_tags
-            )
-            if not ok:
-                line = text.count("\n", 0, match.start()) + 1
-                offenders.append(
-                    f"{doc}:{line} names build `{found}`; the code pins "
-                    f"{fork_source.FORK_PIN} / +{expected_tag}"
-                    + (
-                        f" and reviews {fork_source.PIN_UNDER_REVIEW}"
-                        if len(current_shas) > 1
-                        else ""
-                    )
-                )
-
-    # NON-TRIVIALITY: a regex that stopped matching would otherwise pass here
-    # while the page said anything at all.
-    assert examined >= 3, (
-        f"only {examined} ripper build tag(s) found in the user-facing docs. The "
-        "front page states which ripper build a user gets, in more than one "
-        "place; if this pattern has stopped matching, the sweep is checking "
-        "nothing."
-    )
-
-    # THE CONVERSE: an exemption may not outlive the tag it excuses.
-    stale = sorted(
-        tag
-        for tag in _HISTORICAL_BUILD_TAGS
-        if tag not in "\n".join(_user_facing_text().values())
-    )
-    assert not stale, f"{stale} are excused but no longer appear anywhere"
-
-    assert not offenders, "\n  ".join(offenders)
 
 
 def test_the_readme_may_not_CLAIM_a_full_green_the_ledger_does_not_carry() -> None:
@@ -1109,64 +818,6 @@ def test_the_readme_section_counts_match_the_severity_table() -> None:
             )
 
 
-def test_the_readme_names_the_ROUND_and_APP_VERSION_the_approval_record_holds() -> None:
-    """The §5.bn class, fourth instance — found hours after §5.bn was written.
-
-    Round 23 closed `GO`/`GO` and moved `APPROVED_BY_ROUND` 22 -> 23 and
-    `APPROVED_FOR_PLATTERPUS_VERSION` "0.6.51" -> "0.6.52". The README went on
-    saying *"rounds 1 through 22 are all closed"*, *"Platterpus `0.6.51`"* and
-    *"approved by handshake round 22"* — three live claims about the approval
-    record, in the document a stranger reads first, and **every gate in this file
-    passed**. The sweeps added with §5.bn cover the ledger, the severity counts
-    and the build tag; none of them reads the round or the app version.
-
-    A gate whose subject is "a claim that decays" has to enumerate the claims, and
-    each one that is missed is invisible in exactly the same way. Derived from
-    `handshake_approval`, which is itself derived from the closed-round record by
-    `test_fork_source.py::test_the_approval_round_and_app_version_match_the_record`
-    — so this is two links in one chain rather than a second opinion.
-    """
-    from platterpus import handshake_approval as ha
-
-    checked = 0
-    for doc, text in _user_facing_text().items():
-        for match in re.finditer(
-            r"rounds?\s+\*\*1 through (?P<through>\d+)\*\*"
-            r"|approved by handshake round (?P<by>\d+)",
-            text,
-        ):
-            checked += 1
-            claimed = int(match.group("through") or match.group("by"))
-            line = text.count("\n", 0, match.start()) + 1
-            assert claimed == ha.APPROVED_BY_ROUND, (
-                f"{doc}:{line} names handshake round {claimed}; the approval "
-                f"record holds {ha.APPROVED_BY_ROUND}. The round number is a live "
-                f"claim about what approved the pin a user is about to install."
-            )
-        # The version may be a pre-release (round 30 approved for `0.6.66b1`, its
-        # closing-run beta). The pattern took `\d+.\d+.\d+` alone until then, so a
-        # beta in the banner stopped matching and the claim went unchecked.
-        for match in re.finditer(
-            r"approved pair is.{0,200}?Platterpus "
-            r"\*\*`(?P<ver>\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?)`\*\*",
-            text,
-        ):
-            checked += 1
-            claimed = match.group("ver")
-            line = text.count("\n", 0, match.start()) + 1
-            assert claimed == ha.APPROVED_FOR_PLATTERPUS_VERSION, (
-                f"{doc}:{line} says the approved pair names Platterpus {claimed}; "
-                f"the record holds {ha.APPROVED_FOR_PLATTERPUS_VERSION}"
-            )
-
-    # NON-TRIVIALITY: a reworded banner would otherwise silently stop being checked.
-    assert checked >= 3, (
-        f"only {checked} round/app-version claim(s) matched in the user-facing "
-        "docs. The status banner and the install box both carry one; if this "
-        "pattern has stopped matching, the sweep is checking nothing."
-    )
-
-
 def test_no_user_facing_doc_ASSERTS_an_open_round_when_none_is_open() -> None:
     """The README said *"round 14 is open"* after round 14 closed GO/GO.
 
@@ -1186,7 +837,8 @@ def test_no_user_facing_doc_ASSERTS_an_open_round_when_none_is_open() -> None:
             f"a round IS open (PIN_UNDER_REVIEW={fork_source.PIN_UNDER_REVIEW} != "
             f"FORK_PIN={fork_source.FORK_PIN}), so an open-round claim is correct "
             "here. The converse — a doc claiming CLOSED while a round is open — is "
-            "covered by the pin checks above, which would name the reviewed build."
+            "not checked: since 2026-10-07 the user-facing docs state no round at "
+            "all, and point at Help → About instead."
         )
 
     offenders: list[str] = []
@@ -1377,11 +1029,15 @@ def test_the_approved_pair_pattern_catches_the_sentence_it_exists_to_stop() -> N
     )
 
 
-def test_the_three_new_patterns_catch_the_text_that_actually_shipped() -> None:
+def test_the_banner_and_open_round_patterns_catch_the_text_that_actually_shipped() -> (
+    None
+):
     """Non-triviality, against the README's real line 9 as of 2026-08-27.
 
-    All three claims were in ONE sentence, which is why one reviewer's glance
-    missed all three. Fed verbatim so a reworded pattern cannot go quiet.
+    That sentence carried three stale claims: the version, the round state and the
+    installed pin. The pin gate went on 2026-10-07 with the copies it policed (see
+    the §4 note above); the other two patterns are still in use, so they are still
+    fed the shipped text verbatim, so a reworded pattern cannot go quiet.
     """
     shipped = (
         "> **Status: v0.6.27 — out of beta.** The ripper pairing is **jointly "
@@ -1397,47 +1053,6 @@ def test_the_three_new_patterns_catch_the_text_that_actually_shipped() -> None:
     vers = [m.group("ver") for m in _STATUS_BANNER.finditer(shipped)]
     assert vers == ["0.6.27"], vers
     assert vers[0] != __version__, "pick a different sample; 0.6.27 is now current"
-
-    installs = [m.group(0) for m in _INSTALL_CLAIM.finditer(shipped)]
-    assert installs, "the install-claim pattern misses the shipped text entirely"
-    subjects = [_claimed_install_pin(c) for c in installs]
-    assert "ddf7ac3" in subjects, (
-        f"the SUBJECT of the shipped install claim was not extracted; got "
-        f"{subjects} from {installs}. (The first version of the window was "
-        f"`[^.\\n]` and died at the first dot of the version string.)"
-    )
-
-    # THE HARD-WRAPPED SHAPE, verbatim from README line 282-283. The window was
-    # `[^\n]` when this was added and the revert probe reported the guard VACUOUS,
-    # because the sha is on the line after the verb.
-    wrapped = (
-        "`cyanrip --version` should report something like\n"
-        "`cyanrip 0.9.4-rc1+platterpus.5 (platterpus-fork-gddf7ac3)`. The parenthetical is"
-    )
-    wrapped_hits = [m.group(0) for m in _INSTALL_CLAIM.finditer(wrapped)]
-    assert wrapped_hits, "the pattern misses a claim that wraps across a line"
-    assert _claimed_install_pin(wrapped_hits[0]) == "ddf7ac3", (
-        f"the wrapped claim's subject was not extracted: {wrapped_hits}"
-    )
-
-    # And it must NOT reach across a PARAGRAPH break into a different subject.
-    across = (
-        "the pin is `d9c058c` today.\n"
-        "\n"
-        "Historically round 8 approved `ddf7ac3`, which shipped in v0.6.4."
-    )
-    across_hits = [m.group(0) for m in _INSTALL_CLAIM.finditer(across)]
-    assert across_hits and _claimed_install_pin(across_hits[0]) == "d9c058c", (
-        f"the window crossed a blank line and picked up a different subject: "
-        f"{across_hits}"
-    )
-
-    # Precision in the other direction: a sentence that names the CURRENT pin and
-    # mentions a retired one historically must resolve to the current one.
-    both = "This build installs cyanrip `d9c058c`, replacing `ddf7ac3` (round 8)."
-    assert _claimed_install_pin(next(iter(_INSTALL_CLAIM.finditer(both))).group(0)) == (
-        "d9c058c"
-    ), "subject extraction takes the wrong sha when both are present"
 
     assert _OPEN_ROUND_CLAIM.search(shipped), "the open-round pattern misses it"
 
