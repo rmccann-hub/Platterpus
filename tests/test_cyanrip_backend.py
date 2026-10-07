@@ -173,6 +173,14 @@ def test_rip_argv_known_disc_with_offset() -> None:
     # safe beside -N and -G: one log line fewer, every checksum identical (their
     # round 30 lap 5 S15).
     assert "-U" in argv, "the Cover Art DB query is back, and with it a noise line"
+    # -W IS ALWAYS SENT (0.7.102, the maintainer's call, 2026-10-07): keep a
+    # pre-emphasised disc's own samples. Without it cyanrip de-emphasises any track
+    # the TOC flags (cyanrip@ca3f3ea:src/cyanrip_main.c:1816), altering the audio
+    # so AccurateRip can never verify it; with it the cue carries FLAGS PRE
+    # instead (src/cue_writer.c:187-188). -E (force de-emphasis) must never be sent
+    # beside it: the two contradict.
+    assert "-W" in argv, "cyanrip would de-emphasise a pre-emphasised disc again"
+    assert "-E" not in argv
 
 
 def test_rip_argv_unknown_disc_disables_musicbrainz() -> None:

@@ -428,15 +428,17 @@ probe is timeout-bounded (a wedged drive can't hang the worker) and `cd-paranoia
 is already in the force-stop reader-name list (`drive_control.py`), so a hung
 probe is killable via Cancel.
 
-**Flags that exist upstream but are not passed:** cyanrip's `-E` (force
-de-emphasis) and `-W` (disable automatic de-emphasis). **Corrected 2026-10-07:**
-this paragraph used to say Platterpus leaves pre-emphasised discs as cyanrip finds
-them. It does not, because cyanrip's own default is to de-emphasise a disc whose
-TOC flags pre-emphasis (`settings.deemphasis = 1`, cyanrip@ca3f3ea:src/cyanrip_main.c:1816;
+**De-emphasis: `-W` is passed on every rip from 0.7.102; `-E` never is.**
+cyanrip's own default is to de-emphasise a disc whose TOC flags pre-emphasis
+(`settings.deemphasis = 1`, cyanrip@ca3f3ea:src/cyanrip_main.c:1816;
 `crip_deemphasis_active`, src/cyanrip_main.h:502-507), and only `-W` turns that
-off. Upstream has done this since 0.9.3 too. So today such a disc's FLAC holds
-de-emphasised samples, which AccurateRip cannot verify. Untested here: no
-pre-emphasised disc has been ripped. Whether to pass `-W` is open in `TASKS.md`. *(Overread moved out of this
+off. Up to 0.7.101 we did not pass it, so such a disc's FLAC held de-emphasised
+samples, which AccurateRip cannot verify, though this paragraph said we preserved
+them (corrected 2026-10-07). With `-W` the FLAC holds the disc's samples and the
+cue says `FLAGS PRE` (src/cue_writer.c:187-188). Stock 0.9.3 accepts `-W` too (its
+getopt string includes `W`), so no build we run refuses it. `-E` forces
+de-emphasis and contradicts `-W`; it is used only by the acceptance script's own
+probe. Untested on hardware: no pre-emphasised disc has been ripped. *(Overread moved out of this
 list 2026-07-21: it's now the opt-in Settings "Overread" toggle → `-O` in the
 table above. Note the flag-letter correction made the same day: earlier
 versions of this doc called overread `-x` rather than `-O`, but `-x` did not exist in

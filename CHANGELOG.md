@@ -12,6 +12,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **A pre-emphasised CD now keeps its own samples.** Some early CDs were mastered
+  with pre-emphasis and say so in their table of contents. cyanrip removes it by
+  default, which changes the audio, so AccurateRip can never verify such a rip, and
+  EAC does not do it. Every rip now tells cyanrip to leave the audio as it is on the
+  disc (`-W`), and the cue sheet marks the track with `FLAGS PRE` so a player can
+  apply the correction on playback. Discs without pre-emphasis, nearly all of them,
+  are unaffected.
+
 ## [0.7.101] — 2026-10-07
 
 Two of our readers now understand two lines the cyanrip fork proposes for its next
