@@ -174,7 +174,7 @@ class RipperOffer:
     #: and the user may accept it with a button rather than a command.*
     installable_with_consent: bool = False
     #: Whether this offer may be raised **unprompted** — the automatic launch-time
-    #: check — as opposed to only when the user asks from the Help menu.
+    #: check — as opposed to only when the user asks from Tools → Setup & Updates….
     #:
     #: **A separate axis from :attr:`auto_installable`, and it has to be.** That flag
     #: answers *"is this install safe"*; this one answers *"is now a reasonable moment
@@ -390,10 +390,10 @@ def _mismatch_offer(
             f"{lead}\n\n"
             f"{installed_line}\n"
             f"Expected:   {_expected_build_sentence()}\n\n"
-            "Until they match, every rip reports its ripper as 'unapproved' in the "
-            "report, the log and the EAC-compatible export. The audio is unaffected "
-            "and still bit-perfect if its own checks pass — what changes is whether "
-            "the record can say the ripper was jointly verified.\n\n"
+            "Until they match, every rip reports its ripper as 'unapproved' in its "
+            "rip report. The audio is unaffected and still bit-perfect if its own "
+            "checks pass — what changes is whether the record can say the ripper "
+            "was jointly verified.\n\n"
             "Platterpus can install the expected build for you. It takes a few "
             f"minutes and needs no commit typed in.{unsure}"
         ),
@@ -681,7 +681,7 @@ def evaluate_offer(
             f"{name_known_build(_fs.FORK_PIN)}, which handshake round {our_round} "
             f"approved. {newer.commit} is not approved yet, so until a handshake "
             "round approves it, every rip you make with it will record its ripper as "
-            "'unapproved' in the report, the log and the EAC-compatible export. The "
+            "'unapproved' in its rip report. The "
             "audio is unaffected and still bit-perfect if its own checks pass. What "
             "changes is whether the record can say both projects verified the "
             "ripper together."

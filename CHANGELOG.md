@@ -57,6 +57,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   that phrase (or XLD's) is now written with one extra space ("log file"), the
   same way a title shaped like EAC's checksum line already was, and the rip report
   says which lines were changed. Nothing in the tags or file names changes.
+- **Messages about an unapproved ripper say where it is recorded.** Four of them
+  (two update offers, the ripper's standing line and the User Guide) said the rip
+  report, the log and the EAC-compatible export all record it. Only the rip report
+  does; the two logs name the build that made them. And the message shown when the
+  ripper cannot be changed mid-rip now says to check again from **Tools → Setup &
+  Updates…**, not from the Help menu, where that check no longer is.
+- **The README matches the app again.** Checked line by line against the code: the
+  manual install steps (export order, so the fork is not replaced by the stock
+  build, and cd-paranoia), the "no drives found" advice (the drive list comes from
+  the host, and **Diagnose drive access…** exists), how Picard is offered, which
+  Settings rows exist and what they are called, how a frozen rip is stopped, where
+  View log opens, the FLAC section (paranoia corrects reads; AccurateRip and CTDB
+  prove them), the Fedora versions the cyanrip COPR builds for (43–45 now), and the
+  0.7.100 claim, which now says the full-green run used the build under review.
 - **No message tells you to click a Detect button that does not exist.** With
   cyanrip, an offset that is not in AccurateRip's drive list is typed in by hand,
   and the drive window has no Detect button. But the warning shown when you start a

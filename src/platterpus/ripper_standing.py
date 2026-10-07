@@ -236,8 +236,8 @@ def describe_installed_ripper(banner: str | None) -> RipperStanding:
     commit = fork_commit_from_banner(text) or ""
     consequence = (
         "Until a handshake round approves it, every rip records its ripper as "
-        "unapproved in the report, the log and the EAC-compatible export. The audio "
-        "is unaffected: a rip whose own checks pass is still bit-perfect."
+        "unapproved in its rip report. The audio is unaffected: a rip whose own "
+        "checks pass is still bit-perfect."
     )
     if commit and fork_source.is_the_build_under_review(commit):
         status = (
