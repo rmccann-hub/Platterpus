@@ -1772,6 +1772,8 @@ each side's reading; and the closing releases named.
   release … while one is open"* and the deviation policy's ask) are locked; the
   maintainer gave the word on 2026-10-07 (*"for my decisions, do what you recommend"*,
   answering our recommendation to edit them when v8 lands), so they change with v8.
+- [~] **Release 0.7.102 with `-W`, beside our round 31 lap 3** (the maintainer,
+  2026-10-07: *"release both at once"*), under the §6b override in lap 3's header.
 - [x] **Release a build that carries `62aa7bb0` before the fork's `.22`** ships E7 and
   S27's line: every earlier release of ours misreads both (round 20's order in substance;
   lap 2 S11, S15). While round 31 is open, that release needs the maintainer's word
@@ -1835,7 +1837,7 @@ each side's reading; and the closing releases named.
   refused beside it (revert-probed); the fork's flag table already lists `-W`, so the
   input-half check passes; declared to the fork in our round 31 lap 3. Still owed: a
   rip of a real pre-emphasised disc, to see `present (TOC)` and `FLAGS PRE`.
-- [ ] **Round 31 lap 4: ask the fork where `-O`'s 23-minute stall comes from** (the
+- [~] **Round 31 lap 4: ask the fork where `-O`'s 23-minute stall comes from** (the
   maintainer, 2026-10-07: *"can we verify this is a drive issue, and not something on
   the application or programming side"*). Settled from the record: Platterpus only
   passes the flag, and both stalls were inside cyanrip's read of the last track's
@@ -1847,6 +1849,25 @@ each side's reading; and the closing releases named.
   (retries, timeouts), and whether it could give up quickly and fall back to the silence
   fill. **Then a bounded rig probe:** the last track only, with and without `-O`, on the
   fork's build, with the kernel log captured. The README's Overread line says the same.
+  *Asked 2026-10-07 in our round 31 lap 3 S6* (sent ahead of their lap 3, so it is lap 3,
+  not 4); the probe waits for their answer.
+- [ ] **What other rippers have that we lack, our side** (the maintainer, 2026-10-07:
+  *"anything in the instructions framework that seems like we are missing something
+  that other rippers have or makes the workflow easier?"*). Checked against the code
+  before listing; the parts that need the fork are asked in our round 31 lap 3 S5, S8
+  to S12. Ours, most useful first:
+  - **Find the offset from a disc** in Set up drive, for a drive AccurateRip's list
+    does not carry (EAC, dBpoweramp, XLD and whipper all have it). The fork's `-f`
+    found +667 on the rig (`round31fulltranscript.txt:1132-1160`); waits on S8 for a
+    stable result to read. The guide's step 3 then gains a second route.
+  - **CD-Text as fallback tags** when MusicBrainz has no match: the fork's header
+    already prints the fields, and our `-I` info run already happens before the rip;
+    the parser lists `CD-TEXT:` as a candidate only (`parsers/cyanrip_log.py:2574`).
+  - **A link to add an unknown disc's ID to MusicBrainz** from the no-match flow, the
+    way whipper and Picard offer it; today we offer Rip as Unknown Album and Picard.
+  - **Rip on insert** (optional, off by default), as dBpoweramp and EAC can.
+  - Already present, so not gaps: a desktop notification when a rip ends
+    (`notify_on_completion`, on by default), auto-eject, Test & Copy, CTDB verify.
 - [ ] **Round 31: a lap writer that refuses a v6 `GO` without the ledger, on both
   sides** (our lap 16 S14). Both gates refuse it once sent; neither side's writer stops
   it being sent.
@@ -8747,4 +8768,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.7.101.*
+*Last updated for Platterpus v0.7.102.*
