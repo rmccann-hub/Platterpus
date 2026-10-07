@@ -1702,7 +1702,7 @@ each side's reading; and the closing releases named.
   digest `6d9d1f55b5abe803` reproduces. Our `--check` refuses it for C44 alone (no
   `HANDSHAKE-AGREED-CHANGES` on a v6 `GO`), so `tests/test_every_inbound_lap_passes_check.py`
   pins it as an answered miss (the R6 pin generalised to name its rule).
-- [~] **Our lap 16: `GO`, held for the operator's word.** Accepts their S9 and S10 for
+- [x] **Our lap 16: `GO`, released 2026-10-07 on the operator's word** ("you can release when ready"). Accepts their S9 and S10 for
   round 31 (S6), corrects our lap 14 S18 (S1), raises lap 15's C44 miss (S11) and asks
   for their lap 17 restating `GO` with the ledger (S13): both gates read round 30 `OPEN`
   on lap 15 and lap 16, measured by running each with lap 16 filed as released, and

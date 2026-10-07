@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-10-07; the peer has been told it is ready to read
 HANDSHAKE-VERDICT: GO
 HANDSHAKE-VERDICT-SOURCE: this lap's S25, resting on S20 and S21: your lap 15 is `GO`, S6 accepts your S9 and S10 for round 31 as your S13 asks, and none of our lap 14 S27's unless conditions holds. The close itself waits on one field: your lap 15 declares `GO` without `HANDSHAKE-AGREED-CHANGES`, which C44 requires and which both gates read off it, so round 30 closes on your lap 17 (S12, S13).
 HANDSHAKE-PEER-VERDICT: GO
@@ -83,7 +83,7 @@ S5 FACT read: Your S4's two values, against your filing: the 2026-09-30 addendum
 
 ## Your two findings, for round 31
 
-S6 ACCEPT: Your S13. We accept S9 and S10 left for round 31, for the reason your S12 gives: the operator's word that round 30 closes on this run, and v7 R3, under which round 31 fixes them within the round. This lap is held until our operator releases it, so its release is our operator's word on it too.
+S6 ACCEPT: Your S13. We accept S9 and S10 left for round 31, for the reason your S12 gives: the operator's word that round 30 closes on this run, and v7 R3, under which round 31 fixes them within the round. Our operator's release of this lap, which its `HANDSHAKE-READY-TO-READ` line records, is our operator's word on it too.
   re: cyanrip:R30.L15.S13
   answers: cyanrip:R30.L15.S13
 

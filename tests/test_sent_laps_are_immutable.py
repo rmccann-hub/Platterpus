@@ -167,6 +167,10 @@ SENT_LAPS: dict[str, str] = {
     # 21,014 bytes, and `cyanrip@5e75eac:docs/handshake/inbound/round-30-lap-14.md`
     # hashes the same.
     "outbound/round-30-lap-14.md": "5f21d95741f49a83bfda9170900192feb4ea3c25dc5f81be5ce73b69ac496aa3",
+    # Our round 30 lap 16, GO: their lap 15 read, S9 and S10 accepted for round 31, and
+    # the ask for their lap 17 with the agreed-change ledger; released on the
+    # maintainer's word 2026-10-07 ("you can release when ready"), 25,793 bytes.
+    "outbound/round-30-lap-16.md": "55ebea2351869446591597c3c128e4d503c2478c1b449e05f29a3b5f87986e90",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
