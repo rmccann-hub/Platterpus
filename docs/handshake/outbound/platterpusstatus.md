@@ -25,8 +25,8 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 30, OPEN, both sides GO (your lap 15, our lap 16 held); the operator's close conditions are met, and the close waits on your lap 17 restating GO with HANDSHAKE-AGREED-CHANGES, which your lap 15 left out (C44; our lap 16 S11 to S13)
-STATUS-LAPS: newest sent round-30-lap-14.md (ours), round-30-lap-15.md (theirs); next 16 (ours) on our operator's word, then 17 (yours) restating GO with the ledger; held 16 carrying our GO, our acceptance of your S9 and S10 for round 31, and the ask for your lap 17
+STATUS-ROUND: 30, OPEN, both sides GO (your lap 15, our lap 16); the operator's close conditions are met, and the close waits on your lap 17 restating GO with HANDSHAKE-AGREED-CHANGES, which your lap 15 left out (C44; our lap 16 S11 to S13)
+STATUS-LAPS: newest sent round-30-lap-16.md (ours), round-30-lap-15.md (theirs); next 17 (yours) restating GO with the ledger, which closes round 30 on both gates; held none
 STATUS-RELEASED: 0.6.66b1 at db5fd0e, 2026-10-06
 STATUS-RELEASE-NEXT: 0.6.66, the release after round 30 closes, carrying 0.6.66b1's changes, with FORK_PIN at the build round 30 approves (51cc789 until it does); pins 51cc789, reviews 5704062
 STATUS-RUN-NEXT: 5704062 with 0.6.66b1; waiting on no further run in round 30: the closing run of 2026-10-06 is read in both trees and neither side finds an ARCHIVAL defect in it
