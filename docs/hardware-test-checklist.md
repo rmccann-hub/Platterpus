@@ -383,9 +383,9 @@ only one that needs a deliberately messy folder to see.
 
 **What was wrong.** Six post-rip steps walked the album folder with a plain "every `.flac`
 in here" scan instead of "the files *this* rip wrote": unknown-mode tagging, the
-colon-restore pass, the FLAC re-compress, the transcode to your chosen format, and **both**
-cover-art embed loops. So when a folder held files from an *earlier* rip, this disc's
-metadata was written into them, they were re-compressed, they were **transcoded into your
+colon-restore pass, the FLAC re-compress (since removed), the transcode to your chosen
+format, and **both** cover-art embed loops. So when a folder held files from an *earlier*
+rip, this disc's metadata was written into them, they were **transcoded into your
 library**, this album's cover was embedded in them, and the count reported back to you
 ("embedded in N tracks") was inflated by the leftovers.
 

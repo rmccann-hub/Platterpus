@@ -1159,7 +1159,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1782 -> 1841** (2026-09-28, `-Z` that `-r` cannot satisfy): `assert_secure_reread_can_converge`, called from the argv chokepoint beside the range check it sits next to, and `_last_int_value`, which reads a flag the way genopt applies it (the last occurrence). The rule is `cyanrip_cli.secure_reread_problem`; this is the argv reader and its reasons.
     # **1841 -> 1839** (2026-09-30): the `-G` comment corrected (it only stops embedding; `-U` gates the cover-art lookup line) in two fewer lines.
     # **1839 -> 1852** (2026-09-30, round 30): `-U` on every rip, with the fork's measurement that it changes one log line and no checksum (their lap 5 S15); and the `-f` notes corrected: cyanrip HAS an AccurateRip offset finder (`cyanrip@174a134:src/cyanrip_main.c:594-692`), what it lacks is a measurement against a known offset, which acceptance section O now takes. The history of the scraped-0 bug stays, because it is why `find_offset` is still unimplemented.
-    "adapters/cyanrip_backend.py": 1852,
+    # **1852 -> 1845** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: `produces_max_compression_flac()` went with the step it gated.
+    "adapters/cyanrip_backend.py": 1845,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1176,7 +1177,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **663 -> 664** (2026-09-30): `supports_offset_detection` said cyanrip has no AccurateRip offset finder; it has one (`-f`), not yet proved against a known offset.
     # **664 -> 680** (2026-10-05, the fork's round 30 lap 9 S28): `RipHandle.pid`, and `terminate()` returns the process group it signalled, so the worker can record what its one SIGTERM reached; the handle is the only thing that knows which group `_kill_group` actually hit.
     # **680 -> 705** (2026-10-05, the fork's round 30 lap 9 S28, the reap's door): `RipHandle.kill`, SIGKILL alone with a bounded wait, for a ripper that already had our one SIGTERM, where `cancel()` would have sent it a second. Beside `cancel()`, whose bounded-wait shape it shares.
-    "adapters/rip_backend.py": 705,
+    # **705 -> 698** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the `produces_max_compression_flac()` capability went with the re-compress, its only reader; a two-line note says so.
+    "adapters/rip_backend.py": 698,
     # **414 -> 467 on 2026-09-10** (log-verification race, above): the
     # branch that turns an absent footer into `not_determined` when the
     # writer has not been seen to finish. Most of the growth is the comment
@@ -1238,7 +1240,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **849 -> 851** (2026-09-28, the round-28 Full run): a hand-edited value about to be reset is logged WITH the value (`log_issues(issues, cfg)`), since the reset destroys it.
     # **851 -> 853** (2026-09-28, the `-Z` wording): the `max_retries` and `secure_rerip_matches` comments say `-r` is also the whole-track read ceiling and `-Z N` is N+1 identical reads, not "the CEILING of effort" the 2026-09-21 correction missed here.
     # **853 -> 854** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): `test_script_allow_unsafe` left the dataclass and joined `RETIRED_CONFIG_KEYS` with the reason, so an old config loads without a warning; the entry's comment is one line longer than the field was.
-    "config.py": 854,
+    # **854 -> 851** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: `recompress_flac_after_rip` left the dataclass and joined `RETIRED_CONFIG_KEYS` with its reason, shorter than the field's own comment was.
+    "config.py": 851,
     # **1257 -> 1264** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): the REM, TITLE and
     # PERFORMER values read greedily (`\S(?:.*\S)?`), with the note saying why;
     # one pattern wrapped by the formatter.
@@ -1514,7 +1517,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **691 -> 693** (2026-09-28, the round-28 Full run): the `ripper.secure_rerip_verdict` entry says it is graded by direction and names its track.
     # **693 -> 695** (2026-09-29): `deps.command_cancelled`, a probe Platterpus stopped itself.
     # **695 -> 717** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): `bounded_chars`, the one-line form of `bounded_output`, so the fourteen head-only cuts fixed with the sweep share one helper instead of fourteen slices.
-    "diagnostics.py": 717,
+    # **717 -> 716** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the `flac.recompress_failed` code.
+    "diagnostics.py": 716,
     # **411 -> 423 on 2026-09-10** (log-verification race, above):
     # `FORCE_STOP_COUNTDOWN_S` moved here from the UI module that arms the
     # timer, because the rip worker's log wait must outlast it. Two
@@ -1729,7 +1733,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **637 -> 632** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the Guide paragraph on the unsafe opt-in became one sentence saying no verb runs arbitrary code.
     # **632 -> 642** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the Guide names Tools → Advanced → Run acceptance test with an unknown disc…, which `tests/test_help_documents_the_menu.py` requires of every Tools action; it is the Guide's acceptance section, so it lives there.
     # **642 -> 644** (2026-10-07, KDD-42 W6): the Guide's opening points a new user to Help → Getting started first, as W6 asks of Help → User Guide.
-    "help_content.py": 644,
+    # **644 -> 643** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the Guide's note on the disabled box became one sentence saying there is no compression setting.
+    "help_content.py": 643,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a
@@ -1837,7 +1842,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **733 -> 747** (2026-10-05, round 30 lap 4 S43): `ComponentEntry`, `COMPONENTS.json`'s row with `version_text` beside `version`. A type beside `ComponentInventory`, the type it is a field of; its own type so the rip report's `DependencyEntry` does not change.
     # **747 -> 754** (2026-10-06, ruling C1, KDD-41): `OutcomeBlock` names `securing_pass_started` / `securing_pass_exit_code` and says `ripper_exit_code` is the album pass's (schema v31), beside the field it splits.
     # **754 -> 772** (2026-10-06, W6): `RipperRecordBlock`, schema v32's `outcome.ripper_record` (cyanrip's own `-j` record of the album pass), beside `OutcomeBlock`, the block it is a field of.
-    "report_types.py": 772,
+    # **772 -> 761** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: `RecompressBlock` and the three re-compress keys (schema v33).
+    "report_types.py": 761,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1916,7 +1922,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2683 -> 2705** (2026-10-06, ruling C1, KDD-41): schema v31 — `build_outcome` writes the securing pass's exit apart from the album pass's, the issue wording names the album pass, and the v31 history note sits beside the version. The keys are `rip_pass_exit.py`'s.
     # **2705 -> 2731** (2026-10-06, W6): schema v32 — `build_outcome` takes cyanrip's own record and writes `ripper_record` (built by `ripper_ending.report_block`, because this is the one place holding the status, our exit code and the record), the `ripper_record_disagrees` issue, and the v32 note.
     # **2731 -> 2735** (2026-10-07): the defused-lines issue names both shapes it now covers, and the v29 note says the field widened without a schema bump.
-    "rip_report.py": 2735,
+    # **2735 -> 2677** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: schema v33 — the re-compress serializer, gate, settings key and two issue rows went, and the v33 note sits beside the version.
+    "rip_report.py": 2677,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -1960,7 +1967,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1033 -> 1129** (2026-09-28, Max retries vs the secure re-read): `_validate_secure_reread_ceiling`, the input-boundary half of the `-Z`/`-r` rule (the argv chokepoint is the other). It reports on both fields, says which settings actually send `-Z` and why Off is never judged, and warns on a pair with no room for one bad read. The rule itself is `cyanrip_cli.secure_reread_problem`; this is the Settings wording and the reasons.
     # **1209 -> 1233** (2026-09-30): the unsafe-verbs opt-in is refused while no unsafe verb is built, in the one module every value passes through (config file, a script's `set`).
     # **1233 -> 1208** (2026-09-30, the unsafe verbs removed on the maintainer's ruling): lowered: the unsafe-opt-in refusal went with the setting.
-    "settings_validation.py": 1208,
+    # **1208 -> 1207** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the re-compress bool in `_BOOL_FIELDS`.
+    "settings_validation.py": 1207,
     # 2026-09-25: errors="replace" on the text-mode pipe (a byte that was not UTF-8 raised and ended the read); tests/test_inbound_text.py sweeps it.
     "sleep_inhibit.py": 600,
     # **794 -> 824 on 2026-09-12** (+30): `RIG_PARENT_NAME` and `rig_parent()`,
@@ -2106,7 +2114,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1797 -> 1800** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_last_reread_agreements` initialised beside `_last_swapped_tracks`.
     # **1800 -> 1810** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the menu action, beside the full run's, and in the rip lock with it.
     # **1810 -> 1825** (2026-10-07, KDD-42 W6): Help → Getting started, first in the Help menu, its handler beside the other Help slots, and the kept non-modal window it raises rather than duplicates.
-    "ui/main_window.py": 1825,
+    # **1825 -> 1819** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the `flac_recompress_done` signal and its connection.
+    "ui/main_window.py": 1819,
     # **589 -> 686 (2026-09-21).** The floor check and its bounded deferral: a
     # dependency report that arrives inside another dialog's nested event loop
     # must wait rather than stack, and must not be dropped while it waits. Most
@@ -2273,7 +2282,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4977 -> 4998** (2026-10-06, ruling C1, KDD-41): the outcome snapshot carries the securing pass's exit, a failed rip's status line names each pass's exit when a securing pass followed it, and the bundle facts say `album pass exit ok` / `securing pass exit`. The phrasing is `rip_pass_exit.py`'s.
     # **4998 -> 5003** (2026-10-06, W6): the outcome snapshot takes the worker's `ripper_ending`, and the status line adds what cyanrip's own record says (`ripper_ending.status_suffix`, where the wording lives).
     # **5003 -> 5006** (2026-10-07): the D16 warning and comment name EAC's first-line phrase beside its signature.
-    "ui/main_window_rip.py": 5006,
+    # **5006 -> 4932** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the post-rip re-compress step, its gate inputs and its `_on_flac_recompressed` slot.
+    "ui/main_window_rip.py": 4932,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2351,7 +2361,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1362 -> 1378** (2026-09-28, Max retries vs the secure re-read): both spin boxes join the validated widgets and revalidate as they move, because two in-range spin boxes can now make an invalid pair; the banner lists a pair rule's message once.
     # **1381 -> 1382** (2026-09-28, round 29 lap 1 S37-S39: the fork's proposed repeat-limit wording, `Done; (repeat limit of %i reads reached; at most %i reads agreed)`): the secure re-read row's comment names both wordings.
     # **1382 -> 1388** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the validation banner (it quotes what was typed) and the filename preview (it renders the user's template) state PlainText.
-    "ui/settings_dialog.py": 1388,
+    # **1388 -> 1373** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the greyed-out Re-compress FLACs row, its save and its preset wiring.
+    "ui/settings_dialog.py": 1373,
     # **802 -> 832** (2026-09-25, TASKS `stateful:table-immutable-during-rip`): the belt, a locked table refuses a rewrite from code as well as an edit from the user, plus a corrected docstring.
     # **832 -> 852** (2026-09-30): `edit_track_title`, the script's `track-title`, through the model's own flags/setData so a locked table refuses it as it refuses a user.
     # **852 -> 867** (2026-10-05, TASKS C6): `designed_column_widths`, the one composition of the column widths, which the table applies and the conformance matrix reads as the design, so the two cannot disagree about which cut-off cells the design chose. Beside the parts it composes.

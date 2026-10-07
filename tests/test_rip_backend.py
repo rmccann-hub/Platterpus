@@ -424,7 +424,8 @@ def test_optional_capability_defaults() -> None:
 
     backend = _Minimal()
     assert backend.self_verifies_encode() is False
-    assert backend.produces_max_compression_flac() is False
+    # Removed 2026-10-07 with the FLAC re-compress, its only reader.
+    assert not hasattr(backend, "produces_max_compression_flac")
     assert backend.native_output_formats() == frozenset({"flac"})
     # Calibration hooks default to "not supported".
     with pytest.raises(NotImplementedError):

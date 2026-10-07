@@ -587,15 +587,8 @@ class RipBackend(ABC):
         """
         return False
 
-    def produces_max_compression_flac(self) -> bool:
-        """True if the backend already encodes FLAC at the maximum level, so a
-        post-rip re-compress (`flac -8`) would gain nothing.
-
-        Default False. cyanrip overrides to True: it drives libavcodec at the
-        maximum FLAC compression level already, so the GUI skips re-compression
-        for it (and Settings greys the toggle out).
-        """
-        return False
+    # `produces_max_compression_flac()` lived here until 2026-10-07. Its only
+    # reader was the post-rip FLAC re-compress, removed with its setting.
 
     def native_output_formats(self) -> frozenset[str]:
         """The output formats (among the ones the GUI offers) this backend can

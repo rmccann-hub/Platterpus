@@ -69,7 +69,6 @@ set read_speed_mode auto_ladder
 set read_speed 0
 set ctdb_verify_after_rip on
 set verify_flac_after_rip on
-set recompress_flac_after_rip off
 set write_eac_log_after_rip off
 set output_format flac
 set mp3_vbr_quality 0

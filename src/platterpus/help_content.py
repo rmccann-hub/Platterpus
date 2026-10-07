@@ -275,9 +275,8 @@ and the startup test script in the script console.
   whole discs, so the result says *not run* and how many tracks were ripped,
   rather than anything about the disc.
 - **Verify FLAC files after a rip** — decode each FLAC back and check it against its
-  stored checksum (on by default). (**Re-compress FLACs** is shown but disabled:
-  cyanrip already encodes FLAC at maximum compression, so there's nothing to
-  gain.)
+  stored checksum (on by default). There is no compression setting: cyanrip
+  already writes every FLAC at maximum compression.
 - **Write an EAC-compatible log** — in addition to cyanrip's own `.log`, write a
   second log beside each rip in the format Exact Audio Copy uses, for tools and
   people that expect that layout. It records the same rip, just formatted like an

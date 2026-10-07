@@ -2584,7 +2584,7 @@ def _simulate(script_text: str) -> Config:
     """Replay every `set` in the script against a real Config.
 
     Uses the REAL `apply_preset`, never a restatement of it, for the same reason
-    `runner._do_set` does: `rip_goal` is not a setting, it is a name for eight of
+    `runner._do_set` does: `rip_goal` is not a setting, it is a name for seven of
     them, and a test that treated it as one field would miss exactly the changes
     that reach a rip.
 
@@ -2682,18 +2682,21 @@ def test_the_simulation_expands_goal_presets() -> None:
     goal whose preset genuinely moves other fields, which is where a stand-in
     that is simpler than the product would show up.
     """
-    expanded = _simulate("set rip_goal archival")
+    # Starts off-preset on purpose: `output_format` is moved to mp3 FIRST, so the
+    # preset has to write it back for the second assertion below to hold.
+    expanded = _simulate("set output_format mp3\nset rip_goal archival")
     assert expanded.rip_goal == "archival"
     # Two fields the preset writes that a field-only `set` would leave alone.
     # (`rerip_offset_variant` was the second until 2026-09-24, when it became the
-    # default in every goal and so stopped being able to tell the two apart.)
+    # default in every goal, and `recompress_flac_after_rip` until 2026-10-07,
+    # when the setting was removed; neither can tell the two apart any more.)
     assert expanded.secure_rerip_dynamic is False
-    assert expanded.recompress_flac_after_rip is True
-    # Floor: prove those are not simply the defaults, or the assertions above
-    # would pass against a simulation that applied nothing at all.
+    assert expanded.output_format == "flac"
+    # Floor: prove those are not what a preset-blind replay would give, or the
+    # assertions above would pass against a simulation that applied nothing.
     fresh = Config()
     assert fresh.secure_rerip_dynamic is True
-    assert fresh.recompress_flac_after_rip is False
+    assert _simulate("set output_format mp3").output_format == "mp3"
 
 
 # --- the baseline: every user setting set or kept --------------------------

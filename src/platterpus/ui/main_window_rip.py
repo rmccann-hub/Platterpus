@@ -20,8 +20,8 @@ Contract this mixin expects from the host window (all set in
 ``_current_release_id``/``_current_release_detail``/``_ctdb_client``/``_ctdb_thread``/
 ``_flac_verify_thread``/``_derived_verify_thread``;
 the ``rip_post_processing_done``, ``cover_art_done``,
-``ctdb_verify_done``, ``flac_verify_done``, ``flac_recompress_done``,
-``transcode_done`` and ``derived_verify_done`` signals;
+``ctdb_verify_done``, ``flac_verify_done``, ``transcode_done`` and
+``derived_verify_done`` signals;
 and the cross-mixin methods
 ``self._auto_apply_known_offset`` / ``self._on_drive_setup`` (DriveMixin).
 
@@ -54,10 +54,6 @@ if TYPE_CHECKING:
 from platterpus import drive_control, exit_work, rip_addendum, rip_files, tag_hygiene
 from platterpus.adapters import cover_art
 from platterpus.adapters.derived_verify import DerivedVerifyResult
-from platterpus.adapters.flac_recompress import (
-    RecompressResult,
-    recompress_flac_files,
-)
 from platterpus.adapters.flac_verify import FlacVerifyResult
 from platterpus.adapters.rip_backend import RipMetadata, TrackTag
 from platterpus.adapters.transcode import (
@@ -195,10 +191,11 @@ class TaggingResult:
 def _rip_master_paths(rip_dir: Path, rip_log: object | None) -> list[Path]:
     """The FLAC masters **this rip** wrote, for a step that is about to change them.
 
-    Every post-rip step below (tagging, colon-restore, re-compress, transcode)
-    used to answer this with ``rip_dir.rglob("*.flac")``. Unlike the verification
-    steps — which only *read* — these four **mutate or derive from** whatever they
-    find, and "the FLACs in the album folder" is not "the FLACs this rip wrote".
+    Every post-rip step below (tagging, colon-restore, transcode, and the FLAC
+    re-compress removed on 2026-10-07) used to answer this with
+    ``rip_dir.rglob("*.flac")``. Unlike the verification steps — which only
+    *read* — these **mutate or derive from** whatever they find, and "the FLACs
+    in the album folder" is not "the FLACs this rip wrote".
     One ordinary sequence puts a stranger's file there: cancel a rip (partial
     files remain, one of them a truncated FLAC), fix a track title, re-rip and
     choose *Replace* — the new titles produce new filenames, so the new files land
@@ -686,10 +683,10 @@ class RipMixin(MainWindowShared):
         # under the schema key whose entire purpose is "is this the same audio".
         # One lifetime, because one fact.
         # v7 report snapshots (0.4.10): the PROCESS outcome, disc provenance, the
-        # effective read offset, and the cover-art / re-compress / secure-re-rip
-        # results. Reset per rip so a debounced re-write for a NEW rip can never
-        # carry the previous rip's values (the report is re-written after each
-        # async check finishes; see _schedule_rip_report_write / #20-style guard).
+        # effective read offset, and the cover-art / secure-re-rip results. Reset
+        # per rip so a debounced re-write for a NEW rip can never carry the
+        # previous rip's values (the report is re-written after each async check
+        # finishes; see _schedule_rip_report_write / #20-style guard).
         self._last_outcome = None
         self._last_disc = None
         self._last_read_offset_effective = None
@@ -721,8 +718,6 @@ class RipMixin(MainWindowShared):
             "ctdb_enabled": self._config.ctdb_verify_after_rip,
             "flac_verify_enabled": self._config.verify_flac_after_rip,
             "backend_self_verifies": self._backend.self_verifies_encode(),
-            "recompress_enabled": self._config.recompress_flac_after_rip,
-            "backend_maxes_compression": self._backend.produces_max_compression_flac(),
             "transcode_requested": self._config.output_format in TRANSCODE_FORMATS,
         }
         # Rip generation, bumped every Start. It is the identity of this album's
@@ -2069,12 +2064,12 @@ class RipMixin(MainWindowShared):
         # **No log means no known album folder, and there is NO safe fallback.** This
         # used to fall back to `params.output_dir`, which is the configured output
         # ROOT — the whole music library. Every step below walks `rip_dir`
-        # recursively, so that pointed tagging, colon-restore, recompress, transcode
-        # and the checksum manifest at every album the user had ever ripped: MP3s
-        # derived from the entire library, and a report that hashed it. The
-        # library-move step already refused this case, which is evidence the hazard
-        # was understood and simply not applied to its five siblings (audit,
-        # 2026-07-29).
+        # recursively, so that pointed tagging, colon-restore, the (since removed)
+        # FLAC re-compress, transcode and the checksum manifest at every album the
+        # user had ever ripped: MP3s derived from the entire library, and a report
+        # that hashed it. The library-move step already refused this case, which
+        # is evidence the hazard was understood and simply not applied to its five
+        # siblings (audit, 2026-07-29).
         #
         # It is reachable: `_find_log_path` filters by wall-clock mtime, so a backward
         # clock step (NTP) during a long rip drops the log it just wrote.
@@ -2139,16 +2134,6 @@ class RipMixin(MainWindowShared):
                 and (self._current_release_id or "").strip()
             ):
                 save_file = True
-            # Opt-in (off by default) FLAC re-compress — only for a backend that
-            # doesn't already max compression. The previous backend encoded at
-            # flac's default (`-5`), which `-8` could still shrink; cyanrip already
-            # maxes, so it's skipped there. Folded into the post-rip thread (it
-            # mutates the same FLACs as tag/cover, so it MUST run after them, not
-            # concurrently) — see _start_post_rip_processing.
-            recompress = (
-                self._config.recompress_flac_after_rip
-                and not self._backend.produces_max_compression_flac()
-            )
             # cyanrip can't take a literal ':' in its tag args, so we fed it the
             # ∶ lookalike; restore the real ':' in the written tags afterward
             # (KDD-22 colon handling). Only on the cyanrip path, and only when
@@ -2165,7 +2150,6 @@ class RipMixin(MainWindowShared):
                 tag
                 or embed
                 or save_file
-                or recompress
                 or transcode_fmt
                 or restore_colons
                 or local_cover
@@ -2177,7 +2161,6 @@ class RipMixin(MainWindowShared):
                     release_id=self._current_release_id,
                     embed=embed,
                     save_file=save_file,
-                    recompress=recompress,
                     transcode_fmt=transcode_fmt,
                     mp3_vbr_quality=self._config.mp3_vbr_quality,
                     restore_colons=restore_colons,
@@ -2387,7 +2370,6 @@ class RipMixin(MainWindowShared):
         release_id: str,
         embed: bool,
         save_file: bool,
-        recompress: bool = False,
         transcode_fmt: str = "",
         mp3_vbr_quality: int = 0,
         restore_colons: bool = False,
@@ -2396,8 +2378,8 @@ class RipMixin(MainWindowShared):
         local_cover_path: object | None = None,
         rip_log: object | None = None,
     ) -> None:
-        """Run unknown-mode tagging, then cover art, then FLAC re-compress, then
-        an optional transcode, on ONE daemon thread.
+        """Run unknown-mode tagging, then cover art, then an optional transcode,
+        on ONE daemon thread.
 
         ``local_cover_path`` (when set) is a user-chosen image file used as the
         front cover *instead of* fetching from the Cover Art Archive — the "load
@@ -2415,18 +2397,16 @@ class RipMixin(MainWindowShared):
         daemon must never read the Qt widgets itself.
 
         Why one thread, in this order: the first two steps shell out to
-        ``metaflac`` on the SAME FLAC files, and the re-compress step *rewrites*
-        those same files — so all three MUST run sequentially: tag first, then
-        embed/save the front cover, then re-compress. Two processes mutating one
-        FLAC at the same time race each other and corrupt or lose the tags,
-        artwork, or audio. Re-compress runs after the metaflac work so it
-        operates on the final, fully-tagged-and-arted files (``flac`` preserves
-        their tags and embedded art when it re-encodes). The transcode runs
-        **last** of all, so it reads the final FLACs (tagged, arted, and
-        possibly re-compressed) and derives the chosen output format from them;
-        it writes *sibling* files and never touches the FLAC, so it can't race
-        the earlier steps. Running them on one worker (rather than several) is
-        what guarantees the ordering.
+        ``metaflac`` on the SAME FLAC files, so they MUST run sequentially: tag
+        first, then embed/save the front cover. Two processes mutating one FLAC
+        at the same time race each other and corrupt or lose the tags or
+        artwork. The transcode runs **last**, so it reads the final FLACs
+        (tagged and arted) and derives the chosen output format from them; it
+        writes *sibling* files and never touches the FLAC, so it can't race the
+        earlier steps. Running them on one worker (rather than several) is what
+        guarantees the ordering. (A FLAC re-compress step ran between cover art
+        and the transcode until 2026-10-07; it was removed with its setting
+        because cyanrip already writes FLAC at maximum compression.)
 
         Why off the GUI thread at all: each step is a subprocess per file
         (~1-2s), so a multi-track album would freeze the event loop for tens of
@@ -2436,12 +2416,11 @@ class RipMixin(MainWindowShared):
         thread either.
 
         Best-effort end to end: tagging, ``apply_cover_art`` and
-        ``recompress_flac_files`` each guard their own failures so a stray bug
-        here can't take down the app. The cover-art and re-compress outcomes are
-        reported back through ``cover_art_done`` / ``flac_recompress_done``
-        (queued cross-thread signals, so the slots run on the GUI thread); each
-        emit is guarded because the window may have been closed while the work
-        ran.
+        ``transcode_files`` each guard their own failures so a stray bug here
+        can't take down the app. The outcomes are reported back through
+        ``tagging_done`` / ``cover_art_done`` / ``transcode_done`` (queued
+        cross-thread signals, so the slots run on the GUI thread); each emit is
+        guarded because the window may have been closed while the work ran.
 
         Not joined in ``closeEvent``: it's a daemon thread that guards its own
         emit (the same pattern the cover-art fetch always used). Tests join the
@@ -2453,10 +2432,10 @@ class RipMixin(MainWindowShared):
             """Publish a post-rip step's result, unless a newer rip has started.
 
             **This gates the EMIT. It used to gate the WORK, and those are very
-            different things.** Each of the four steps below ended with
+            different things.** Each of the steps below ended with
             ``if self._rip_generation != gen: return`` — which suppressed the
             result, correctly, and *also* skipped every remaining step, which was
-            never the point. The transcode is step 4 of 4, so it was the first
+            never the point. The transcode is the last step, so it was the first
             thing lost and the last thing anyone would notice.
 
             What that cost, measured on the 2026-09-15 acceptance run: the MP3 and
@@ -2594,19 +2573,8 @@ class RipMixin(MainWindowShared):
                 # report is current, naming a release that album never used
                 # (audit finding, 2026-07-28).
                 emit_if_current(self.cover_art_done, art_result)
-            # 3) Re-compress LAST, so it rewrites the final tagged-and-arted
-            #    FLACs (flac preserves their tags + embedded art). Best-effort;
-            #    each file is swapped in atomically, so a failure or crash leaves
-            #    the original untouched. Outcome reported via flac_recompress_done.
-            if recompress:
-                try:
-                    result = recompress_flac_files(_rip_master_paths(rip_dir, rip_log))
-                except Exception:  # noqa: BLE001 — must never crash the GUI
-                    log.exception("FLAC re-compress failed unexpectedly")
-                    result = RecompressResult(error="failed unexpectedly")
-                emit_if_current(self.flac_recompress_done, result)
-            # 4) Transcode LAST, reading the final FLACs (tagged, arted, and
-            #    possibly re-compressed) to derive the chosen non-FLAC output.
+            # 3) Transcode LAST, reading the final FLACs (tagged and arted) to
+            #    derive the chosen non-FLAC output.
             #    Writes sibling files and keeps the FLAC as the master; never
             #    raises. Outcome reported via transcode_done.
             if transcode_fmt:
@@ -2623,12 +2591,11 @@ class RipMixin(MainWindowShared):
 
         log.info(
             "post-rip processing in %s "
-            "(tag=%s, cover-art embed=%s save=%s, recompress=%s, transcode=%s)",
+            "(tag=%s, cover-art embed=%s save=%s, transcode=%s)",
             rip_dir,
             tag,
             embed,
             save_file,
-            recompress,
             transcode_fmt or "no",
         )
         thread = threading.Thread(target=work, daemon=True)
@@ -4069,8 +4036,6 @@ class RipMixin(MainWindowShared):
             "ctdb_enabled": self._config.ctdb_verify_after_rip,
             "flac_verify_enabled": self._config.verify_flac_after_rip,
             "backend_self_verifies": self._backend.self_verifies_encode(),
-            "recompress_enabled": self._config.recompress_flac_after_rip,
-            "backend_maxes_compression": self._backend.produces_max_compression_flac(),
             "transcode_requested": self._config.output_format in TRANSCODE_FORMATS,
         }
         # On a failed rip the post-rip chain never starts, so a gate that reads
@@ -4265,7 +4230,6 @@ class RipMixin(MainWindowShared):
             flac_verify_result=record.flac_verify,
             transcode_result=record.transcode,
             derived_verify_result=record.derived_verify,
-            recompress_result=record.recompress,
             cover_art_result=record.cover_art,
             # The post-rip tagging outcome. Recorded as an `issues` entry rather
             # than a block of its own — see rip_report._tagging.
@@ -4697,7 +4661,7 @@ class RipMixin(MainWindowShared):
         """Compute a SHA256 for every audio file, on a daemon thread.
 
         Runs after ``wait_for`` (the post-rip metaflac/transcode thread) so it
-        hashes the FINAL files — the tagged/re-compressed FLAC masters *and* any
+        hashes the FINAL files — the tagged FLAC masters *and* any
         derived MP3/WavPack/WAV. Hashing does real disk I/O across a whole album,
         so it must never touch the GUI thread (§3.2); the result is delivered via
         ``checksums_done`` (queued to the GUI thread), which folds it into the
@@ -4839,44 +4803,6 @@ class RipMixin(MainWindowShared):
             self._rip_progress.downgrade_verdict(
                 f"{len(result.failures)} FLAC master(s) failed the decode check"
             )
-        else:
-            log.info("%s", message)
-        self._rip_progress.append_log_line(message)
-
-    # --- Post-rip FLAC re-compress (opt-in, off by default) -----------------
-
-    def _on_flac_recompressed(self, generation: int, result: object) -> None:
-        """FLAC re-compress finished — record the outcome (runs on the GUI
-        thread).
-
-        Re-compress is lossless and ``--verify``'d, and any failed file is left
-        untouched, so a partial failure is informational rather than alarming: a
-        per-file failure is noted in the log (the original FLAC is still a valid
-        rip), while a "couldn't run at all" (e.g. ``flac`` missing) is a skip.
-        A clean pass just notes how many files shrank.
-        """
-        if not isinstance(result, RecompressResult):
-            return
-        # Record + schedule a (debounced) re-write so the re-compress outcome
-        # lands in the report's verification block (it mutates the masters, so
-        # its result belongs in the one debug file alongside the other checks).
-        self._record_post_rip_result(generation, "recompress", result)
-        if generation != self._rip_generation:
-            return
-        if result.error:
-            message = f"FLAC re-compress: skipped — {result.error}"
-        elif result.failures:
-            detail = "; ".join(result.reasons()) or ", ".join(
-                p.name for p in result.failures
-            )
-            message = (
-                f"FLAC re-compress: {result.reencoded} file(s) re-compressed; "
-                f"{len(result.failures)} left as-is (re-encode failed): {detail}"
-            )
-        else:
-            message = f"FLAC re-compress: {result.reencoded} file(s) re-compressed."
-        if result.failures:
-            log.warning("%s", message)
         else:
             log.info("%s", message)
         self._rip_progress.append_log_line(message)

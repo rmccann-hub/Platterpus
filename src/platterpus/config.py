@@ -362,16 +362,8 @@ class Config:
     # on failure).
     verify_flac_after_rip: bool = True
 
-    # --- FLAC re-compression ---
-    # After a successful rip, re-encode each output FLAC at the maximum level
-    # (`flac -8`, with `--verify`) to shrink the files. Opt-in, OFF by default:
-    # it's lossless and provably bit-identical, but it costs CPU/time and the
-    # space saved over flac's default `-5` is modest. Only meaningful for a
-    # backend that *doesn't* already max compression — cyanrip encodes at the
-    # ceiling already, so the GUI skips it there (and Settings greys it out).
-    # Best-effort, off the GUI thread; each file is swapped in atomically so a
-    # failure leaves the original untouched.
-    recompress_flac_after_rip: bool = False
+    # `recompress_flac_after_rip` (a post-rip `flac -8`) lived here until
+    # 2026-10-07; see its entry in `RETIRED_CONFIG_KEYS` for why it went.
 
     # Write an EAC-*layout* text log beside each successful rip (an honest,
     # clearly-attributed rendering — never a signed/forged EAC log, KDD-11/13).
@@ -714,6 +706,11 @@ RETIRED_CONFIG_KEYS: frozenset[str] = frozenset(
         # and never built, so it enabled nothing; the verbs, this setting and its
         # box went together. An older saved file carries it, usually as `false`.
         "test_script_allow_unsafe",
+        # Removed on 2026-10-07 (after 0.7.100), on the maintainer's ruling: the
+        # re-compress it switched on could never run, as cyanrip already writes
+        # FLAC at maximum compression. Saved configs carry it, `true` if the
+        # Archival goal was ever picked.
+        "recompress_flac_after_rip",
     }
 )
 

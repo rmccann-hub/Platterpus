@@ -304,9 +304,10 @@ class MainWindowShared(_SeamBase):
 
     # Per-rip facts captured at finish. The nine post-rip RESULT snapshots that
     # used to sit here — the CTDB and FLAC-integrity verdicts, the transcode and
-    # its verification, the re-compress, the cover art, the tagging, and the two
-    # digest maps — have moved to `ui/post_rip_record.py`, which is owned by the
-    # album rather than by the window. They were declared here so a coalesced
+    # its verification, the re-compress (removed with its setting, 2026-10-07),
+    # the cover art, the tagging, and the two digest maps — moved to
+    # `ui/post_rip_record.py`, which is owned by the album rather than by the
+    # window. They were declared here so a coalesced
     # report re-write could read every outcome regardless of completion order,
     # and that worked right up until the *next rip* started, at which point the
     # window they hung on was describing a different album and had to clear them.
@@ -380,7 +381,6 @@ class MainWindowShared(_SeamBase):
     tagging_done: Signal
     ctdb_verify_done: Signal
     flac_verify_done: Signal
-    flac_recompress_done: Signal
     transcode_done: Signal
     derived_verify_done: Signal
     evidence_bundle_done: Signal  # (evidence_bundle.BundleResult)

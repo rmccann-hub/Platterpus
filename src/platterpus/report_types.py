@@ -179,7 +179,6 @@ class SettingsBlock(TypedDict):
     max_retries: int | None
     ctdb_verify_after_rip: bool | None
     verify_flac_after_rip: bool | None
-    recompress_flac_after_rip: bool | None
     #: DERIVED from the six preset fields by `goal_presets.detect_goal`, not read
     #: back from `config.rip_goal` — the stored label is only a name for those
     #: fields and nothing kept the two in step (schema v23).
@@ -284,7 +283,6 @@ class ComponentInventory(TypedDict):
 class GatesBlock(TypedDict):
     ctdb: str
     flac_integrity: str
-    recompress: str
     derived: str
 
 
@@ -318,20 +316,11 @@ class DerivedBlock(TypedDict):
     error: str | None
 
 
-class RecompressBlock(TypedDict):
-    ran: bool
-    ok: bool
-    reencoded: int
-    failures: list[str]
-    error: str | None
-
-
 class VerificationBlock(TypedDict):
     gates: GatesBlock | None
     flac_integrity: FlacIntegrityBlock | None
     transcode: TranscodeBlock | None
     derived: DerivedBlock | None
-    recompress: RecompressBlock | None
 
 
 class CtdbBlock(TypedDict):
