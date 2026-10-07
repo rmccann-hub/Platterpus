@@ -499,9 +499,9 @@ class RipMixin(MainWindowShared):
                 "No read offset is configured for your drive, so ripping can't "
                 "start — an accurate read offset is what makes the rip "
                 "bit-perfect.\n\n"
-                "Open Tools → Setup & Updates… → Set up drive… and either accept the offset it "
-                "fills in, or insert a CD that's in the AccurateRip database and "
-                "click Detect, then Save.\n\n"
+                "Your drive is not in AccurateRip's drive list, so its offset is not "
+                "known. Open Tools → Setup & Updates… → Set up drive…, type the "
+                "offset into Read offset (samples), and click Save offset.\n\n"
                 "Open the drive-setup wizard now?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes,

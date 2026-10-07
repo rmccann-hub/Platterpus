@@ -190,6 +190,11 @@ _STEP_HEADING: Final[re.Pattern[str]] = re.compile(
     r"^## (?P<n>\d{1,2})\. \S", re.MULTILINE
 )
 _HEADING: Final[re.Pattern[str]] = re.compile(r"^(?P<hashes>#{1,5}) ", re.MULTILINE)
+#: The docs' version footer (``docs/README.md`` → *Doc version stamps*). The guide
+#: carries one like every document; the README has its own, so the copy drops it.
+_FOOTER: Final[re.Pattern[str]] = re.compile(
+    r"^\*Last updated for Platterpus v[^*\n]+\.\*$\n?", re.MULTILINE
+)
 
 #: What the viewer shows if the guide file is missing from an install, so a broken
 #: package says so instead of opening an empty window.
@@ -250,15 +255,17 @@ def step_numbers(markdown: str) -> list[int]:
 def readme_markdown(markdown: str) -> str:
     """The guide as the README's *Getting started* section shows it.
 
-    Two changes and no others, so the README cannot drift from the app's copy:
+    Three changes and no others, so the README cannot drift from the app's copy:
 
     * every heading goes one level down, because the section's own title is the
       README's ``##`` and the guide's steps become its ``###``. The guide's ``#``
       title line is dropped, since the README section supplies that title;
     * every ``images/…`` target gains the guide folder's path from the repository
-      root, so GitHub finds the same file the app does.
+      root, so GitHub finds the same file the app does;
+    * the guide's version footer is dropped, because the README carries its own and
+      a document has exactly one.
     """
-    lines = markdown.splitlines()
+    lines = _FOOTER.sub("", markdown).splitlines()
     if lines and lines[0].startswith("# "):
         lines = lines[1:]
     body = "\n".join(lines).strip("\n")

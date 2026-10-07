@@ -1,0 +1,97 @@
+# =============================================================================
+# GETTING-STARTED WALKTHROUGH — shoots the guide's pictures (KDD-42)
+# =============================================================================
+#
+#   Run it:   ./platterpus-x86_64.AppImage --run-script walkthrough
+#   Where:    the rig, in a fresh Linux account (`demo`), AFTER first-run setup,
+#             so no real name, path or library appears in a picture (KDD-42 W2).
+#   Disc:     an ordinary commercial CD that AccurateRip and CTDB both know, so
+#             the guide ends on "verified" (KDD-42 W5).
+#   Costs:    one whole-disc rip, plus about two minutes.
+#
+# THIS IS NOT ACCEPTANCE EVIDENCE. It drives the app through the guide's steps
+# and photographs them; it grades only that each picture could be taken. Its
+# report says `counts_as_evidence: true` at the default size, because that field
+# is decided by the run size alone (a known gap, tracked in TASKS.md). Read it as
+# false: the version gate counts fullacceptance.txt runs only.
+#
+# WHAT IT LEAVES: in the run folder, one PNG per `screenshot` step and one burst of
+# frames per `record` step, each named by its shot in
+# src/platterpus/getting_started.py (SHOTS). Then:
+#
+#   python3 scripts/build_walkthrough_media.py --run <run folder> --desktop <folder of
+#   Spectacle shots>
+#
+# turns them into the guide's final files. The two `desktop` shots (allowing the
+# AppImage to run, and the first-run setup) happen before this script can, and are
+# taken by hand with Spectacle under the names the shot list gives them.
+#
+# A `callout` names a label exactly as the app shows it. If a label has changed,
+# the step fails and the picture is not taken: a picture pointing at a button that
+# is no longer there is worse than no picture.
+# -----------------------------------------------------------------------------
+
+log =============================================================
+log Getting-started walkthrough: the guide's pictures (KDD-42)
+log =============================================================
+
+# The guide tells the reader to tick the EAC-compatible log (step 4), so the rip
+# this script photographs must have one for step 8 to show it.
+set write_eac_log_after_rip true
+
+# --- Step 3: Set up drive -----------------------------------------------------
+open drive
+wait 1
+callout 1 Save offset
+screenshot 03-set-up-drive
+cancel
+# The picture shows the offset; this makes sure the rip below actually uses it.
+set-drive-offset
+
+# --- Step 4: the settings, already archival -------------------------------------
+open settings
+wait 1
+callout 1 Output format:
+callout 2 CTDB:
+callout 3 EAC-style log:
+callout 4 Cover art:
+screenshot 04-settings
+cancel
+
+# --- Step 5: insert the disc, and what MusicBrainz fills in -----------------------
+# `rescan` returns at once, so the burst records the lookup as it happens.
+rescan
+record 05-disc-identified 8 10
+pick-release 1 120
+expect-identified
+callout 1 Album title:
+screenshot 05-tags
+
+# --- Step 6: rip ---------------------------------------------------------------
+callout 1 Start rip
+screenshot 06-start-rip
+rip
+# Two minutes in, so the loop shows a rip under way and a time estimate, not an
+# empty bar.
+wait 120
+record 06-rip-progress 10 8
+wait-for-rip 14400
+# A picture of a rip that stopped halfway would teach the wrong thing.
+expect-rip-complete
+
+# --- Step 7: the verdict ---------------------------------------------------------
+# The post-rip checks (CTDB, the FLAC verification) finish after the rip does, so
+# the loop records the result settling.
+record 07-verdict-appears 10 8
+expect-verification 600
+callout 1 ✓ Bit-perfect*
+callout 2 Tracks
+screenshot 07-verdict
+
+# --- Step 8: what you get --------------------------------------------------------
+callout 1 View log
+callout 2 View report
+callout 3 View cue
+screenshot 08-what-you-get
+
+log walkthrough done: build the guide's files with scripts/build_walkthrough_media.py

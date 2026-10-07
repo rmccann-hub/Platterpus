@@ -212,6 +212,8 @@ Platterpus/
         ├── drive_profiles.py            # per-drive trust ledger: fingerprint + provenance/confidence (KDD-23)
         ├── drive_profile_store.py       # JSON persistence for the drive-profile ledger (KDD-23)
         ├── help_content.py              # in-code User Guide markdown (avoids AppImage package-data)
+        ├── getting_started.py           # the getting-started guide's shot list, text loader and README rendering (KDD-42)
+        ├── guide/                       # the getting-started guide's text and, once shot, its pictures (package data)
         ├── library_move.py              # move a finished album folder into the user's library folder
         ├── appimage_integration.py      # first-run "add me to the app menu" self-integration (KDD-17a)
         ├── app_icon.py                  # locate the in-app window icon (packaged SVG; best-effort)
@@ -371,6 +373,7 @@ Platterpus/
         │   ├── ripper_picker.py        # pick a cyanrip build to install (GUI half of --install-ripper)
         │   ├── uninstall_dialog.py      # in-app Uninstaller (no-terminal uninstall.sh)
         │   ├── help_dialogs.py          # Help → About + User Guide dialogs
+        │   ├── getting_started_dialog.py # Help → Getting started: the guide, non-modal, loops playable and pausable
         │   └── dialogs/
         │       ├── __init__.py
         │       ├── centering.py         # QDialog base that centres itself on the parent window
@@ -453,6 +456,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`drive_control.py`** — host-first best-effort `eject_drive()` and `force_stop_drive()` for a runaway drive on cancel. This is the one approved exception to Critical Rule #3 (force-stop only; see CLAUDE.md).
 - **`exit_work.py`** — work the process must finish after the window has gone. Today that is one job: stopping the ripper after a quit mid-rip, so cyanrip gets its SIGTERM grace (108 s, twice the longest single read filed from the rig's drive) to write the end of its log. `closeEvent` hands the stop to `start`, the window closes at once, and `app.main` calls `wait` after `app.exec()` returns and before `hard_exit`. The join is bounded by each job's budget. It exists because a daemon thread the interpreter kills part-way leaves the reader holding the drive, and waiting on the GUI thread froze the window (the fork's round 30 lap 5 S17, 2026-09-30).
 - **`help_content.py`** — the User Guide Markdown kept *in code* (not packaged data, to dodge AppImage package-data pitfalls); rendered by the Help dialogs.
+- **`getting_started.py`** — the contract the getting-started walkthrough's parts share (KDD-42): the **shot list** (each picture's stem, kind — `still`, `loop` or `desktop` — step and alt text), the guide's text loader with a fallback for a broken package, the reader of its image references, and the README rendering `scripts/emit_getting_started.py` writes. The walkthrough script shoots under the stems, `scripts/build_walkthrough_media.py` builds the final files, the viewer and the README show them, and `tests/test_getting_started.py` holds each pair together. `SHOOT_STATUS` is `pending` until the shoot lands the pictures. Pure.
 - **`appimage_integration.py`** — first-AppImage-run self-integration (KDD-17a): one-time, dismissible offer to write the app's own `.desktop` + icon into the user's menu and set the AppImage executable. No-op for source/pipx installs (detected via `$APPIMAGE`).
 - **`app_icon.py`** — locates the packaged SVG logo for the in-app window icon; best-effort, returns `None` (caller skips the icon) if the resource or the Qt SVG plugin is missing.
 - **`option_labels.py`** — the single naming convention every *option* in Settings follows (`Name — Descriptor In Title Case [Qualifier]`) plus the pure `check_option_label()` that enforces it, and the shared `CUSTOM_LABEL` the Goal and naming-scheme combos both use. Written after the maintainer read the dialog on real hardware and found five dropdowns phrased five different ways; the checker exists rather than a style note because *a comment where a check belongs is not a fix* — `tests/test_option_labels.py` sweeps every item of every combo in the constructed dialog, so a dropdown added later is covered without anyone remembering the rule.
@@ -617,6 +621,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when the ripper is absent and from Tools → Setup & Updates… (its *Run setup…* button; the old Tools → *Set up Platterpus…* item was folded into that window 2026-09-21). Installs the cyanrip backend into the container.
 - **`uninstall_dialog.py`** — `UninstallDialog`, the in-app Uninstaller (Tools → Uninstall Platterpus…, also launched directly by `platterpus --uninstall` from the menu entry). Confirmation gate + per-piece checkboxes (container, and *leftover ripper settings from older versions* — `~/.config/whipper/`; the AppImage step appears only when running as one); drives `deps/host_teardown.py` via the shared worker; on success the main window offers to close itself (its settings no longer exist on disk).
 - **`help_dialogs.py`** — `AboutDialog` (version + Python/Qt/PySide6 versions + config/log/cyanrip-binary paths) and `HelpDialog` (renders `help_content.USER_GUIDE`).
+- **`getting_started_dialog.py`** — `GettingStartedDialog`, Help → Getting started (KDD-42 W6): the guide in a `QTextBrowser`, **non-modal** because it is read while working (the window keeps one and raises it), each `.gif` animated by a `QMovie` that puts its frames back into the page, and a **Pause animations** button for WCAG 2.2.2 that exists only when there is something to pause. The loops pause while the window is closed and resume on reopening unless the reader paused them. Reads only the packaged guide.
 - **`dialogs/centering.py`** — `CenteredDialog`, a `QDialog` base that centres itself over the parent window on first show (fixes a multi-monitor "modal on another screen looks frozen" report; best-effort, a no-op under native Wayland), and fits itself to its content and the screen: height grows to what its wrapped text needs at its real width, capped at the screen (2026-09-23 — a picker opened 360 px tall with every paragraph clipped on a 540 px logical screen).
 - **`status_colours.py`** — the one place a status colour is chosen: a light-theme and a dark-theme variant per level (ok / warn / neutral / error), picked from the widget's own window colour and each checked at ≥4.5:1 against its side's backgrounds (WCAG 2.2 AA). `SECONDARY_STYLE` de-emphasises with italics rather than dimming. Gated by `tests/test_readable_colours.py`, which also refuses a raw hex colour or `palette(mid)` in any other UI string.
 - **`dialogs/fit_scroll_area.py`** — sizing a dialog: `fit_dialog_to_screen` (what `CenteredDialog` calls on first show — the width its content needs, the height its text needs at that width, capped at the screen less `SIDE_MARGIN_PX` on each side, KDD-41) and `FitScrollArea`, the scroll area for a dialog BODY whose length is not ours to fix: its size hint carries the whole content, so the dialog sizes to the text and the body scrolls only once the screen runs out, with the buttons kept outside it. Used by the cyanrip build picker and Setup & Updates; gated by `tests/test_ui_conformance.py`.
@@ -1868,6 +1873,40 @@ The plan is the `TASKS.md` section *The 0.7.100 getting-started walkthrough*.
 **Not decided here.** Which disc exactly, the window size in pixels, and the size budget:
 each is settled when the script first runs on the rig. Whether the first run opens the
 guide by itself or only offers it: offered, unless the maintainer says otherwise.
+
+**The framework landed (2026-10-07, for 0.7.101).** 0.7.100 shipped without the guide,
+and the maintainer asked for *"as much framework as you can, then a plan for when we
+actually do that"*. Everything that does not need the rig is built:
+- `getting_started.py` is the contract every part reads: the **shot list** (eleven
+  pictures: six stills, three loops, two desktop shots) and the guide loader;
+- the guide's text in `guide/getting-started.md`, shipped as package data;
+- the viewer, Help → Getting started;
+- the README section, from `scripts/emit_getting_started.py`;
+- the walkthrough script, `rig_scripts/walkthrough.txt`;
+- `scripts/build_walkthrough_media.py`, which turns its run folder into the guide's
+  files;
+- the tests that hold each pair of parts together.
+
+The guide is text until the shoot (`SHOOT_STATUS = "pending"`).
+
+Three choices made while building, each recorded so it can be reversed:
+- **W5 became a guard, not a placeholder.** No window of the app renders a picture
+  except the logo in About, so no capture can contain a disc's cover art.
+  `tests/test_getting_started.py::test_no_window_renders_cover_art_into_a_capture`
+  fails the day that changes, so the placeholder is built when it is needed rather
+  than guessed at now.
+- **The first-run offer is a sentence, not a dialog.** The first-run *Set up
+  Platterpus* question now names Help → Getting started. The launch already makes up to
+  three offers, and a fourth modal would be the clutter W1's "stands on its own" warns
+  against.
+- **Step 4 does not say "nothing to change".** Writing the text against the code found
+  that the EAC-compatible log is off by default, so the guide says to tick it, and the
+  walkthrough script turns it on so step 8 can show one. The same reading found that
+  with cyanrip there is no Detect button for a drive missing from AccurateRip's list.
+  The guide, the User Guide and the *Set up your drive first* warning all said to click
+  it, and all three now say to type the offset in.
+
+The shoot itself is the `TASKS.md` section's plan.
 
 ---
 
