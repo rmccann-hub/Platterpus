@@ -11,6 +11,37 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-07 (late night) — five README claims checked against the artifacts, one setting removed
+
+**What happened.** The maintainer quoted five claims from the README and
+`docs/eac-parity.md` and asked whether each was true, or asked to close it: the
+Overread warning, *gap/INDEX 00 + HTOA* as the one remaining gap, the cyanrip-master
+pre-gap row, WavPack as partial, and bit-identical audio as *"~90% there"*. They also
+asked to remove the inert *Re-compress FLACs* setting, which a helper did in its own
+worktree.
+
+**What the artifacts said.**
+- **Pre-gaps: closed on the fork.** `tests/test_fork_rip_eac_parity.py` holds all ten
+  of EAC's `Pre-gap length` rows. The 2026-10-07 cue marks the same nine tracks as
+  EAC's cue; track 1's two seconds are the standard lead-in, which neither cue marks.
+- **HTOA:** out of scope, now stated as that rather than as a gap.
+- **WavPack:** lossless, and checked against its FLAC master's PCM after every encode.
+  That is a stronger proof than `-v`.
+- **Bit-identical:** 14 of 14 equal to EAC once (2026-08-04), 13 of 14 on the latest
+  run. Track 5 is the disc: EAC cannot verify it either. Track 3 is the one open gap.
+  This drive read it four different ways on the latest run, and cyanrip has read EAC's
+  value on three earlier dates.
+- **Overread:** the 23-minute stall was inside cyanrip's read past the disc's last
+  sector, on stock 0.9.3. Platterpus only passes the flag. Whether the drive or the
+  retries made it last that long is not settled. It goes to the fork in our round 31
+  lap 4, then to a bounded rig probe (TASKS).
+
+**Learned, again:** the first draft of the track 3 sentence said "five different
+checksums", from memory. The securing-pass file says four distinct values in six
+reads. "Every rip since writes INDEX 00" was one run checked. Both were corrected
+before the commit, by opening the file the sentence cites. That is CLAUDE.md's
+*answering from the artifact* question, which held because it was asked.
+
 ## 2026-10-07 (night) — the getting-started walkthrough's framework, for 0.7.101
 
 **What happened.** The maintainer asked whether this release would carry the
