@@ -1726,8 +1726,9 @@ each side's reading; and the closing releases named.
   round 30 approves is its declared pin `.19`; `.21` carries `.20`'s program to round 31.
   Their lap 17 PIN-POLICY says the approved pair is `.20` with 0.6.66b1, so this is a
   disagreement on the record to settle in round 31, with the audit measurement above.
-- [~] **Release 0.6.66 on `.19`, with `.21` under review** (the maintainer, 2026-10-07:
-  release now rather than hold; no round is open). `FORK_PIN` rolls to `ca3f3ea` in the
+- [x] **Released 0.6.66 on `.19`, with `.21` under review** (the maintainer, 2026-10-07:
+  release now rather than hold; no round is open). Tag at `a0330d09` (PR #297), release
+  run 37566180474: every gate green, attested. `FORK_PIN` rolls to `ca3f3ea` in the
   first release after round 31 approves it.
 - [x] **Cut our hand-written copies of pins and rounds** (the maintainer, 2026-10-07:
   *"much too formal … without so much paperwork that does so little"*). README,
