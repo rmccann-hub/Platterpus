@@ -36,8 +36,10 @@ half a future reader is most likely to "fix" by adding a row.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -60,6 +62,11 @@ _FILED_MANIFESTS: Final[dict[str, str]] = {
     # is open (`round_closed: false`), 2026-10-06.
     "fork_release_manifest_b62650d.json": (
         "3515e79d52abb11b653baf83e692ed6e2dd73272047e73a3926195a84115a115"
+    ),
+    # `.21` on both channels, published on round 30's authority after it closed
+    # (`round_closed: true`), 2026-10-07: round 31's subject.
+    "fork_release_manifest_edf6b2c.json": (
+        "1990c02e2a033a52764dd5cd35a6d8824bc780f2a1270e224e6fe87d5f94b82c"
     ),
 }
 
@@ -132,7 +139,10 @@ def _newest_manifest() -> dict[str, object] | None:
 
 
 def _choose_source(
-    laps: list[tuple[int, str, Path]], manifest: dict[str, object] | None, name: str
+    laps: list[tuple[int, str, Path]],
+    manifest: dict[str, object] | None,
+    name: str,
+    closed: frozenset[int] = frozenset(),
 ) -> UnderReviewSource:
     """The newest lap declaring a pin, unless the manifest publishes a newer build.
 
@@ -159,6 +169,17 @@ def _choose_source(
     ``round_closed: false``, and the next round otherwise (as `.19`'s entry,
     `round_closed: true` on round 29, was reviewed by round 30). An entry with no
     ``round_closed`` keeps the old reading.
+
+    **Once the reviewing round has closed, the entry is nobody's subject**
+    (2026-10-07). ``closed`` is the set of rounds our gate reports CLOSED, read off
+    ``handshake.round_status()`` by :func:`_under_review_source`. `.20`'s entry still
+    says ``round_closed: false`` on round 30, because a manifest records the state
+    at publication and is not rewritten when the round ends. Read without the gate,
+    it kept `.20` "under review in round 30" after round 30 had closed, and demanded
+    a ``PIN_UNDER_REVIEW`` that made the app report a round reviewing a build when
+    none was open. A closed round's own lap is the source then, and its declared
+    pin is what the round approved (R4); the next round's build becomes the subject
+    when its manifest or lap is filed.
     """
     assert laps, "no inbound lap declares a HANDSHAKE-PIN"
     lap_round, lap_pin, lap_path = laps[-1]
@@ -184,6 +205,8 @@ def _choose_source(
     if named or authority < lap_round:
         return lap_source
     reviewing = authority if newest.get("round_closed") is False else authority + 1
+    if reviewing in closed:
+        return lap_source  # the round that reviewed it has ended
     return UnderReviewSource(commit, reviewing, version, False, None, name)
 
 
@@ -203,7 +226,22 @@ def _under_review_source() -> UnderReviewSource:
         ),
         "",
     )
-    return _choose_source(laps, manifest, name)
+    return _choose_source(laps, manifest, name, _closed_rounds())
+
+
+def _closed_rounds() -> frozenset[int]:
+    """The rounds our gate reports CLOSED, read off the tooling, not re-derived."""
+    script = _REPO_ROOT / "scripts" / "handshake.py"
+    spec = importlib.util.spec_from_file_location("handshake_closed_rounds", script)
+    assert spec is not None and spec.loader is not None
+    handshake = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = handshake
+    spec.loader.exec_module(handshake)
+    return frozenset(
+        int(match.group(1))
+        for line in handshake.round_status()
+        if (match := re.match(r"round-(\d+):.*-> CLOSED", line))
+    )
 
 
 def test_every_filed_manifest_is_the_bytes_their_tree_held() -> None:
@@ -284,6 +322,13 @@ def test_the_source_is_the_lap_until_a_newer_release_is_published() -> None:
         }
         got = _choose_source(round_30, stated, "m")
         assert (got.pin, got.round) == ("aaaa200", reviewing), closed
+        # Once our gate reports the reviewing round CLOSED, the entry is nobody's
+        # subject and the lap is the source again (`.20` after round 30 closed,
+        # 2026-10-07). A closed round other than the reviewing one changes nothing.
+        ended = _choose_source(round_30, stated, "m", frozenset({reviewing}))
+        assert ended.lap is not None and ended.pin == "174a134", closed
+        other = _choose_source(round_30, stated, "m", frozenset({reviewing - 1}))
+        assert (other.pin, other.round) == ("aaaa200", reviewing), closed
     # The same split once a lap names the beta build: the lap.
     named_beta = [*round_30, (31, "aaaa200", Path("round-31-lap-01.md"))]
     assert _choose_source(named_beta, split, "m").lap is not None

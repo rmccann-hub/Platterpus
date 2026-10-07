@@ -1143,8 +1143,12 @@ def test_the_readme_names_the_ROUND_and_APP_VERSION_the_approval_record_holds() 
                 f"record holds {ha.APPROVED_BY_ROUND}. The round number is a live "
                 f"claim about what approved the pin a user is about to install."
             )
+        # The version may be a pre-release (round 30 approved for `0.6.66b1`, its
+        # closing-run beta). The pattern took `\d+.\d+.\d+` alone until then, so a
+        # beta in the banner stopped matching and the claim went unchecked.
         for match in re.finditer(
-            r"approved pair is.{0,200}?Platterpus \*\*`(?P<ver>\d+\.\d+\.\d+)`\*\*",
+            r"approved pair is.{0,200}?Platterpus "
+            r"\*\*`(?P<ver>\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?)`\*\*",
             text,
         ):
             checked += 1
