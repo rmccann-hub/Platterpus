@@ -11,7 +11,7 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-## 2026-10-07 — round 30 closed on `.19`, not `.20`; `.21` under review for round 31; 0.6.66 held
+## 2026-10-07 — round 30 closed on `.19`, not `.20`; `.21` under review for round 31; 0.6.66 released
 
 **What was done.** The fork's round 30 lap 17 (`GO` with `HANDSHAKE-AGREED-CHANGES`,
 released at `cyanrip@f422ed9`, sha256 `5d67c114…`) is filed byte-exact, and our gate reads
@@ -36,8 +36,12 @@ our error, and two things showed it.
   build`. With `.20` approved, `rip_audit` would have warned OPEN_ROUND and DISAGREEMENT
   on every approved rip.
 
-The maintainer chose to roll `main` to `.19` now and to hold 0.6.66 until round 31
-approves `.21`. `.21` has `.20`'s program and logs a closed round, so approving it ends
+The maintainer chose to roll `main` to `.19` now and at first to hold 0.6.66 until round
+31 approved `.21`. Once `.21` was published and no round was open, they chose to release
+0.6.66 on `.19` with `.21` under review instead. They also judged both repos *"much too
+formal"*: a release should not need this much paperwork. So the hand-copied pins come out
+of our docs next, and decoupling releases from rounds goes to round 31, where the fork is
+proposing it. `.21` has `.20`'s program and logs a closed round, so approving it ends
 the warnings. Our round 31 lap 2 corrects lap 16. The fork's lap 17 still names `.20` as
 the approved pair, so this disagreement is on the record and needs settling in round 31.
 
@@ -10096,4 +10100,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.6.66.*

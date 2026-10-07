@@ -12,6 +12,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.6.66] — 2026-10-07
+
+The stable release of the 0.6.66b1 beta: everything listed under 0.6.66b1 below is in
+it too, and these are the changes since that beta.
+
 ### Added
 
 - **Two script verbs for shooting the getting-started guide** (`PLANNING.md` KDD-42).
@@ -29,10 +34,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   0.6.66b1. It replaces round 29's `51cc789`. The round's closing run tested the fork's
   `.20` beta, but a closed round approves the pin it declares, and `.20`'s logs say
   they came from an open round and are not a released build: approving it would have
-  put an open-round warning and a disagreement warning on every rip. **0.6.66 is held
-  until round 31 approves `.21`** (`ca3f3ea`), which the fork published to both its
-  channels after the close with `.20`'s source unchanged. `main` now treats `.21` as
-  the build under review: a rip on it is recorded as being tested, not yet approved.
+  put an open-round warning and a disagreement warning on every rip. The fork published
+  `.21` (`ca3f3ea`) to both its channels after the close, with `.20`'s source unchanged,
+  and this release treats it as the build under review for round 31: a rip on it is
+  recorded as being tested, not yet approved. The release after round 31 approves it
+  installs it by default.
   The test that keeps the under-review pin current now knows that a beta published
   inside a round stops being under review when that round closes.
 - **The handshake guide says how to check a predicted close.** A lap that says a
@@ -17926,7 +17932,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66b1...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66...HEAD
+[0.6.66]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66b1...v0.6.66
 [0.6.66b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.65...v0.6.66b1
 [0.6.65]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.64...v0.6.65
 [0.6.64]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.63...v0.6.64
@@ -17995,4 +18002,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.6.66.*
