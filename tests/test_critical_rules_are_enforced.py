@@ -2641,6 +2641,13 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     "scripts/bommap/render.py": 359,
     "scripts/bommap/ripper_entries.py": 340,
     "scripts/bommap/tool_entries.py": 385,
+    # **472** (2026-10-07, KDD-42 W4): joined at birth, recorded with its reason
+    # rather than split to hit the number. One job, a walkthrough run folder in and
+    # the guide's images folder out, whose parts have no second caller: the burst
+    # check, the two ffmpeg passes, the all-or-nothing move and the report. If it
+    # grows, the pure burst check (`_MANIFEST`, `Manifest`, `parse_manifest`,
+    # `_frame_problem`, `_check_burst`: about 100 lines) is the part to move first.
+    "scripts/build_walkthrough_media.py": 472,
     # **498 -> 499** (2026-10-05): lint and format-check read `scripts/` and `build/`
     # too (KDD-41, C8), from one `ruff_paths` tuple both gates share.
     "scripts/check.py": 499,
