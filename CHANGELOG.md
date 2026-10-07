@@ -64,11 +64,19 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   still listed as the one remaining gap, and WavPack as only partly done, though the
   fork finds every pregap EAC finds and every WavPack file is checked sample for
   sample against its FLAC master. "About 90 % there" on bit-identical audio is now
-  the measured record: 14 of 14 tracks equal to EAC once, 13 of 14 on the latest run.
-  The one open track is track 3 of the reference disc, which this drive reads
-  differently from pass to pass. The Overread warning now says the 23-minute stall
+  the measured record over all 18 committed rips of the reference disc: twelve
+  tracks match AccurateRip every time, track 3 in 9 of 18, track 5 once, and never
+  all fourteen in one rip. EAC's own track 5 turned out not to be AccurateRip's
+  value, so "equal to EAC" (5 of 18 rips) is not the target on that track. The Overread warning now says the 23-minute stall
   was inside cyanrip's read past the end of the disc, on stock 0.9.3, and that
   whether the drive or cyanrip's retries made it last so long is not yet known.
+- **The documentation no longer says a pre-emphasised CD is kept as it is.** It is
+  not: cyanrip removes pre-emphasis by default, and Platterpus has never told it not
+  to, so such a disc's FLAC holds changed samples that AccurateRip cannot verify.
+  No disc tested so far is pre-emphasised. Whether to keep the disc's own samples
+  instead is a decision recorded in `TASKS.md`. The EAC comparison
+  (`docs/eac-parity.md`) was also checked line by line against the code and the
+  committed logs, and about forty stale or wrong statements in it are corrected.
 
 ## [0.7.100] — 2026-10-07
 

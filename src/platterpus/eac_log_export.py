@@ -458,15 +458,14 @@ def _render(
     # value simply isn't in cyanrip's log — so it takes the not-reported wording,
     # keeping the two kinds of absence distinguishable to a reader.
     #
-    # **Deliberately NOT asserted as "No" for cyanrip**, though an EAC logchecker
-    # weighs this row heavily and a survey of libcdio-paranoia says it never uses C2
-    # error pointers. That survey is a secondary source; this project does not print
-    # a value into an archival log on the strength of one. The silent-blocks and
-    # null-samples rows below ARE asserted because each has direct evidence behind it
-    # (cyanrip writes what it reads; its CRCs matched a real EAC log on 12 of 14
-    # tracks of the reference disc). C2 has no such evidence yet — see TASKS.md for
-    # what would earn it: read libcdio's source, or measure it. Attempted and reverted
-    # 2026-07-29; the test that stopped it is doing its job.
+    # **Never asserted "No" on a survey's word**, though a logchecker weighs this row
+    # heavily and a survey says libcdio-paranoia never uses C2 pointers: a secondary
+    # source is not enough for an archival log (tried and reverted 2026-07-29). What
+    # prints "No" is first-party: cyanrip's own `C2 errors: unsupported by drive`,
+    # parsed to `c2_pointers = False` (the BDR-209D, 2026-07-30; eac-parity.md Part
+    # D, *The C2 row*); with no such line the row stays not-reported. The silent-
+    # blocks and null-samples rows below rest on direct evidence too (cyanrip writes
+    # what it reads; its CRCs matched a real EAC log, 14 of 14 tracks on the fork).
     lines.append(
         "Make use of C2 pointers : "
         + (_UNREPORTED if info.c2_pointers is None else _yes_no(info.c2_pointers))
