@@ -52,6 +52,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   into a definite answer.** The fork proposes a line for a pregap cyanrip could not
   measure. The row would have read "Appended to previous track" or "Not detected"
   for it. It now says the pregap was undetermined.
+- **The README and the EAC comparison no longer understate what the fork closed, or
+  blame the drive for a stall that happened in cyanrip.** Pre-gap detection was
+  still listed as the one remaining gap, and WavPack as only partly done, though the
+  fork finds every pregap EAC finds and every WavPack file is checked sample for
+  sample against its FLAC master. "About 90 % there" on bit-identical audio is now
+  the measured record: 14 of 14 tracks equal to EAC once, 13 of 14 on the latest run.
+  The one open track is track 3 of the reference disc, which this drive reads
+  differently from pass to pass. The Overread warning now says the 23-minute stall
+  was inside cyanrip's read past the end of the disc, on stock 0.9.3, and that
+  whether the drive or cyanrip's retries made it last so long is not yet known.
 
 ## [0.7.100] — 2026-10-07
 
