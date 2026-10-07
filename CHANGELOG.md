@@ -12,6 +12,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.102] — 2026-10-07
+
+One change, to what a rip contains: a pre-emphasised CD now keeps the samples that are
+on the disc, as EAC does, so AccurateRip can verify it. Released while handshake round
+31 is open, under an override the maintainer gave and our round 31 lap 3 records. The
+default ripper build is unchanged.
+
 ### Changed
 
 - **A pre-emphasised CD now keeps its own samples.** Some early CDs were mastered
@@ -15844,7 +15851,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.7.101.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.7.102.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -18086,7 +18093,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.101...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.102...HEAD
+[0.7.102]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.101...v0.7.102
 [0.7.101]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.100...v0.7.101
 [0.7.100]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66...v0.7.100
 [0.6.66]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66b1...v0.6.66
@@ -18158,4 +18166,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.101.*
+*Last updated for Platterpus v0.7.102.*
