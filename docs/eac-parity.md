@@ -58,12 +58,33 @@ EAC V1.8 baseline of the same disc. Logs/cues live in
 
 ### TL;DR — two very different goals
 
-1. **Bit-identical *audio* (the PCM samples) — ACHIEVABLE, and ~90% there.**
-   This is the real meaning of "archival/EAC-quality": the *samples* equal the
-   AccurateRip consensus, proven by the per-track CRC. Our cyanrip rip already
-   matched EAC **byte-for-byte on 12 of 14 tracks**, with an identical TOC and
-   AccurateRip confidence 200. This is the goal worth chasing, and it's nearly
-   met.
+1. **Bit-identical *audio* (the PCM samples) — reached once, and one track short
+   of repeatable.** This is the real meaning of "archival/EAC-quality": the
+   *samples* equal the AccurateRip consensus, proven by the per-track CRC.
+   **Status (2026-10-07), from the artifacts:**
+   - **14 of 14 equal to EAC, once:** the fork's rip of 2026-08-04
+     (`output_reference/cyanrip_fork_flac/`, asserted by
+     `tests/test_fork_rip_eac_parity.py`).
+   - **13 of 14 on the latest run:** the Full run of 2026-10-07
+     (`docs/handshake/artifactsround31/round31fullwholedisceac.log`). Every track
+     but 3 equals EAC's `Copy CRC`. Twelve match AccurateRip at confidence 200;
+     tracks 3 and 5 match it on one frame only.
+   - **Track 5 is the disc.** Its value equals EAC's (`E0036697`), but neither
+     ripper can verify it against AccurateRip; EAC also reports it *cannot be
+     verified*. Nothing in software can do better on this copy.
+   - **Track 3 is the one real gap.** EAC's value (`59D352DD`) matches
+     AccurateRip at confidence 200. Our drive reads the track differently from
+     pass to pass: on the latest run the first pass gave `1D0B4419`, and the
+     secure re-read's five reads gave `149C0991`, `418F6CF8` twice, `34D9A79A`
+     and `418F6CF8` again, so it shipped `418F6CF8`
+     (`round31fullwholediscsecuringpass.txt`, `round31fullwholediscaddendum.txt`
+     beside the log). Cyanrip has read EAC's value on this drive before: the
+     fork's reference rip of 2026-08-04, and round 26's secure re-read of
+     2026-09-24 (`docs/handshake/artifactsround26/round26securerereadeac.log`).
+     So it is reachable. It is not yet repeatable.
+
+   The 12/14 below is the dated stock-0.9.3 record that the analysis was written
+   against.
 
    > **Outcome (2026-07, added after later hardware runs):** the v0.4.13
    > re-rip reached **13/14** — Track 3 converged partial→exact on a re-read,
@@ -102,9 +123,9 @@ bytes.**
 | TOC (track sectors) | — | — | ✅ identical (all 14) | n/a |
 | Secure / re-read | Secure | paranoia max | ✅ equivalent | n/a |
 | Gap handling **audio** | append-to-previous | default merge-to-previous | ✅ (12/14 prove it) | n/a |
-| Per-track **PCM** | baseline | 12/14 byte-identical | ⚠️ mostly | **Yes** — see T3/T5 |
-| Overread lead-in/out | No | +2 frames, silence-fill | ⚠️ config differs | harmless here (T1/T14 matched); alignable |
-| **Pre-gap markers in cue** (`INDEX 00`) | Yes (10/14) | **No** | ❌ deviates | **Hard** — see §Pregaps |
+| Per-track **PCM** | baseline | **14/14 once** on the fork (2026-08-04); **13/14** on the latest run (2026-10-07) | ⚠️ track 3 not repeatable | Track 5 is the disc's (EAC cannot verify it either). Track 3 is our open gap (TL;DR, item 1) |
+| Overread lead-in/out | No | No: the offset needs 2 frames past the edge, and they are filled with silence, not read (`Overread mode: fill with silence in lead-in/lead-out`) | ✅ same | closed: EAC also fills with silence when overread is off; tracks 1 and 14 match EAC and AccurateRip |
+| **Pre-gap markers in cue** (`INDEX 00`) | Yes (10/14) | **Yes on the fork**: every pregap EAC finds, to the hundredth of a second | ✅ fork / ❌ stock 0.9.3 | closed on the fork (§Pregaps; `output_reference/cyanrip_fork_flac/`) |
 | FLAC **file bytes** | flac.exe `-8` | libavcodec | ❌ differ | **No** (encoder-determined) — and unnecessary |
 | Tag **values** | EAC set | cyanrip set + colon-restore | ✅ matchable | minor work if needed |
 | Tag/file **byte layout** | EAC | FFmpeg | ❌ differ | **No** — unnecessary |
@@ -112,6 +133,11 @@ bytes.**
 | Single-file disc image+cue | optional | **unsupported** | ❌ | needs another tool |
 
 ### The two audio tracks that differ (the only real audio gap)
+
+> **Status (2026-10-07).** Track 5 now reaches EAC's value through the secure
+> re-read, which is as far as any ripper gets on this copy. Track 3 is still open:
+> it matched EAC on 2026-08-04 and missed on 2026-10-07. The analysis below is the
+> stock-0.9.3 record.
 
 - **Track 5 — a defect on this physical disc, not a ripper fault.** EAC *also*
   could not verify track 5 ("1 track could not be verified"); its CTDB pass says
@@ -125,7 +151,15 @@ bytes.**
   (may be transient) or (b) CUETools/CTDB **Repair**, which uses whole-disc
   parity to correct small errors back to the consensus (needs the full disc).
 
-### Pre-gaps in the cue (the "Detect Gaps" question) — why it's hard
+### Pre-gaps in the cue (the "Detect Gaps" question) — closed on the fork
+
+> **Status:** closed. The fork carries PR #115's sub-channel reader, and finds
+> every pregap EAC finds, in order, to the hundredth of a second, on the reference
+> disc (2026-08-04; `tests/test_fork_rip_eac_parity.py` holds all ten of EAC's
+> `Pre-gap length` rows). The fork's rips write them into the cue as `INDEX 00`: the
+> 2026-10-07 run's cue has nine, on the same nine tracks as EAC's cue (track 1's
+> two seconds are the standard lead-in, which neither cue marks). Below is the
+> stock-0.9.3 analysis that made it look hard.
 
 EAC runs a **Detect Gaps** pass that reads the disc **subchannel** to find
 index-00 pre-gaps, and records them as `INDEX 00` in its cue (10 of 14 tracks

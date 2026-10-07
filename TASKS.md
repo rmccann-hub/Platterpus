@@ -165,6 +165,14 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
   Our round 30 lap 14 S18 named track 3 alone; the fork's lap 15 S4 found track 5, and
   our lap 16 S1 corrects it. The disc, not a defect; recorded so the next run on it is
   read against both values of each.
+  - *2026-10-07 (the Full run on 0.6.66 with `.21`):* track 5 shipped `E0036697`
+    again, a re-read confirming the first pass. Track 3 shipped a third value,
+    `418F6CF8`: first pass `1D0B4419`, then re-reads `149C0991`, `418F6CF8`,
+    `418F6CF8`, `34D9A79A`, `418F6CF8` (`round31fullwholediscsecuringpass.txt`). So
+    track 5 is settled as far as any ripper gets on this copy, and **track 3 is the one
+    open bit-identical gap**: EAC's value is AccurateRip-verified, and cyanrip has read
+    it on this drive (2026-08-04, 2026-09-24, 2026-09-30), but not on every run.
+    `docs/eac-parity.md` TL;DR item 1 says the same.
 - [x] **The cache probe's saved output stopped before its figure** (found 2026-10-06,
   filing the closing run). `round30oct06fullcacheprobe.txt` is exactly 2,000 bytes and
   holds no 137: `cache_probe.parse_cache_analysis` kept `text.strip()[:2000]` and
@@ -1795,6 +1803,18 @@ each side's reading; and the closing releases named.
   *Done 2026-10-07 (`62aa7bb0`):* their wording is `pregap of track N unknown (reason)`;
   an unknown on any track after the first makes the row
   `(undetermined: the ripper could not measure a pregap)`, whatever else the list says.
+- [ ] **Round 31 lap 4: ask the fork where `-O`'s 23-minute stall comes from** (the
+  maintainer, 2026-10-07: *"can we verify this is a drive issue, and not something on
+  the application or programming side"*). Settled from the record: Platterpus only
+  passes the flag, and both stalls were inside cyanrip's read of the last track's
+  lead-out, on stock 0.9.3 (2026-07-22, reproduced 2026-07-23). `-O` makes cyanrip read
+  past the disc's last sector (`cyanrip@ca3f3ea:src/cyanrip_main.c:1484-1494`). Not
+  settled: whether the 23 minutes are the drive taking that long to refuse a read, or
+  cyanrip and libcdio-paranoia retrying a read the drive refused. Nobody has tried it
+  on the fork's builds. **Ask** what their `-O` path does with a refused lead-out read
+  (retries, timeouts), and whether it could give up quickly and fall back to the silence
+  fill. **Then a bounded rig probe:** the last track only, with and without `-O`, on the
+  fork's build, with the kernel log captured. The README's Overread line says the same.
 - [ ] **Round 31: a lap writer that refuses a v6 `GO` without the ledger, on both
   sides** (our lap 16 S14). Both gates refuse it once sent; neither side's writer stops
   it being sent.
@@ -7297,7 +7317,7 @@ The sub-sections below are ordered by current priority for picking up work:
 
 1. **P1.1 — Install / uninstall ease** is the **highest priority subset** of P1. Items here unblock new contributors at the install step; finish before anything else P1.
 2. **P1 — Release milestones** — gating actions for v0.1.0. Merging to main, flipping the repo public, tagging the first release, publishing to PyPI. Most other P1 items remove caveats from the README once these are done.
-3. **P1 — EAC bit-perfect parity gaps — ✅ closed in v0.5.8 except INDEX 00.** The old whipper-flag widgets were retired with whipper (KDD-18); the fresh cyanrip overread toggle shipped 2026-07-21 (`-O` — the doc-claimed `-x` never existed), and the gap-handling investigation closed the same day as already-satisfied (cyanrip's default = EAC's, verified upstream). **v0.5.8 closed the remaining four** on the maintainer's "equal-or-stronger rigor, honestly labelled as ours — never forge EAC" principle: an openly-verifiable SHA-256 **log checksum** (KDD-28), a **measured cache-defeat verdict** via `cd-paranoia -A` (KDD-29), **Test & Copy** CRC pairs from `-Z` convergence + a verify-every-track mode (KDD-30), and **read-offset auto-confirmation** by AccurateRip (KDD-31). The one remaining difference is the cue-metadata **`INDEX 00`** question, whose *mechanism is now decided* — build cyanrip from the soft-fork integration branch (KDD-32; `master` already emits it, and it carries PR #115). Not a blocker for the public AppImage.
+3. **P1 — EAC bit-perfect parity gaps — ✅ closed in v0.5.8 except INDEX 00.** The old whipper-flag widgets were retired with whipper (KDD-18); the fresh cyanrip overread toggle shipped 2026-07-21 (`-O` — the doc-claimed `-x` never existed), and the gap-handling investigation closed the same day as already-satisfied (cyanrip's default = EAC's, verified upstream). **v0.5.8 closed the remaining four** on the maintainer's "equal-or-stronger rigor, honestly labelled as ours — never forge EAC" principle: an openly-verifiable SHA-256 **log checksum** (KDD-28), a **measured cache-defeat verdict** via `cd-paranoia -A` (KDD-29), **Test & Copy** CRC pairs from `-Z` convergence + a verify-every-track mode (KDD-30), and **read-offset auto-confirmation** by AccurateRip (KDD-31). The one remaining difference is the cue-metadata **`INDEX 00`** question, whose *mechanism is now decided* — build cyanrip from the soft-fork integration branch (KDD-32; `master` already emits it, and it carries PR #115). Not a blocker for the public AppImage. *Closed on the fork (recorded 2026-10-07):* its rip of 2026-08-04 matches all ten of EAC's pre-gap rows to the hundredth of a second (`tests/test_fork_rip_eac_parity.py`), and the 2026-10-07 run's cue marks the same nine tracks as EAC's. HTOA stays out of scope.
 4. **P1 — UX gaps from real-user testing** — issues surfaced on Bazzite that aren't urgent but make the GUI feel less polished.
 5. **P1 — Install automation** — pre-clone host bootstrap script. Blocked on the repo flipping public.
 6. **P1 — Documentation backlog** — items that need real-system output from T32 to write authoritatively.
