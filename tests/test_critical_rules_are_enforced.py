@@ -1160,7 +1160,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1841 -> 1839** (2026-09-30): the `-G` comment corrected (it only stops embedding; `-U` gates the cover-art lookup line) in two fewer lines.
     # **1839 -> 1852** (2026-09-30, round 30): `-U` on every rip, with the fork's measurement that it changes one log line and no checksum (their lap 5 S15); and the `-f` notes corrected: cyanrip HAS an AccurateRip offset finder (`cyanrip@174a134:src/cyanrip_main.c:594-692`), what it lacks is a measurement against a known offset, which acceptance section O now takes. The history of the scraped-0 bug stays, because it is why `find_offset` is still unimplemented.
     # **1852 -> 1845** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: `produces_max_compression_flac()` went with the step it gated.
-    "adapters/cyanrip_backend.py": 1845,
+    # **1845 -> 1852** (2026-10-07, the maintainer's -W ruling): every rip passes `-W`, with the six-line why (cyanrip's default de-emphasis, the cue's FLAGS PRE, stock accepts it).
+    "adapters/cyanrip_backend.py": 1852,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its

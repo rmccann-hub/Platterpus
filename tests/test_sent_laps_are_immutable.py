@@ -171,6 +171,15 @@ SENT_LAPS: dict[str, str] = {
     # the ask for their lap 17 with the agreed-change ledger; released on the
     # maintainer's word 2026-10-07 ("you can release when ready"), 25,793 bytes.
     "outbound/round-30-lap-16.md": "55ebea2351869446591597c3c128e4d503c2478c1b449e05f29a3b5f87986e90",
+    # Our round 31 lap 2, OPEN: E1 to E9 accepted, both wordings accepted, the run read,
+    # and the §6b override for v0.7.101; released on the maintainer's word 2026-10-07
+    # ("for my decisions, do what you recommend, then release the lap"), 15,934 bytes.
+    "outbound/round-31-lap-02.md": "786dc0ecdb82ba16471ec9ffa6740223c3fc924cb158696b8e28b8d3cafb4e7e",
+    # Our round 31 lap 3, OPEN, sent ahead of theirs: -W declared, the track 5
+    # correction, the overread question and the round-32 asks, and the §6b override
+    # for v0.7.102; released on the maintainer's word 2026-10-07 ("release both at
+    # once"), 13,226 bytes.
+    "outbound/round-31-lap-03.md": "0fe4408059a3a2d885036d9f4f742486180a286fb70f18d642f9312cd6602610",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
