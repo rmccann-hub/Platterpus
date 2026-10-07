@@ -1818,7 +1818,7 @@ each side's reading; and the closing releases named.
   *Done 2026-10-07 (`62aa7bb0`):* their wording is `pregap of track N unknown (reason)`;
   an unknown on any track after the first makes the row
   `(undetermined: the ripper could not measure a pregap)`, whatever else the list says.
-- [ ] **Decide: pass `-W` so a pre-emphasised disc keeps its samples?** (found
+- [x] **Decide: pass `-W` so a pre-emphasised disc keeps its samples?** (found
   2026-10-07, auditing `docs/eac-parity.md`; maintainer's call.) cyanrip
   de-emphasises any disc whose TOC flags pre-emphasis unless `-W` is passed
   (cyanrip@ca3f3ea:src/cyanrip_main.c:1816, :1910-1911), and Platterpus never passes
@@ -1830,6 +1830,11 @@ each side's reading; and the closing releases named.
   copy should be the disc's samples, verifiable), as a changed argv through the
   chokepoint, with the seam's input-half test and a line in our next lap. Untested on
   hardware: no pre-emphasised disc has been ripped.
+  *Done 2026-10-07, for 0.7.102 (the maintainer: "do your recommendation on next
+  release"):* `-W` on every rip, pinned in `tests/test_cyanrip_backend.py` with `-E`
+  refused beside it (revert-probed); the fork's flag table already lists `-W`, so the
+  input-half check passes; declared to the fork in our round 31 lap 3. Still owed: a
+  rip of a real pre-emphasised disc, to see `present (TOC)` and `FLAGS PRE`.
 - [ ] **Round 31 lap 4: ask the fork where `-O`'s 23-minute stall comes from** (the
   maintainer, 2026-10-07: *"can we verify this is a drive issue, and not something on
   the application or programming side"*). Settled from the record: Platterpus only

@@ -372,6 +372,18 @@ class CyanripImpl(RipBackend):
         # with `-U` added differ by that one line, every checksum identical, and
         # art given with `-C` still loads. Declared to them in our round 30 lap 6.
         argv.append("-U")
+        # `-W` UNCONDITIONALLY, from 0.7.102 (the maintainer's call, 2026-10-07):
+        # keep a pre-emphasised disc's own samples. cyanrip de-emphasises any
+        # track the TOC flags as pre-emphasised unless told not to
+        # (`settings.deemphasis = 1`, cyanrip@ca3f3ea:src/cyanrip_main.c:1816;
+        # `-W` clears it, :1910-1911, :2046), which alters the samples, so
+        # AccurateRip can never verify them, and EAC does not do it. With `-W` the
+        # FLAC holds what is on the disc and the cue says `FLAGS PRE`, so a player
+        # can de-emphasise on playback (cyanrip@ca3f3ea:src/cue_writer.c:187-188).
+        # Stock 0.9.3 has the flag too (its getopt string includes `W`), so no
+        # build we can run refuses it. It changes nothing on a disc without the
+        # flag: the predicate is `deemphasis && t->preemphasis`.
+        argv.append("-W")
         # `-j`: cyanrip's own machine-readable diagnostics record, written beside
         # the rip (the child runs with `cwd=output_dir`).
         #
