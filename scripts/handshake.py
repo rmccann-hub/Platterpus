@@ -1287,6 +1287,11 @@ def emit_outbound(round_number: int) -> str:
             f"{AGREED_CHANGES_FIELD}: <every change this round agreed, and every "
             "`not landed` entry an earlier round's ledger carried: the commit that "
             "landed it, or `not landed` and whose it is — or `none`>",
+            # v7 row C46: every lap of a file declaring 7 says which lap comes
+            # next and whose. Emitted from the day DECLARED_PROTOCOL reached 7
+            # (2026-10-07), because a skeleton missing it fails its own checker.
+            # The skeleton is always lap 1, so the next lap is the peer's lap 2.
+            "HANDSHAKE-NEXT-LAP: 2 (yours): <what their lap 2 should carry>",
             "CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ <commit>",
         ]
     )
@@ -1597,7 +1602,12 @@ PROTOCOL_VERSION: int = 7
 #: Held apart from :data:`PROTOCOL_VERSION` because the two answer different
 #: questions: what this gate can read, and what we have told the other side it can
 #: read.
-DECLARED_PROTOCOL: int = 6
+#:
+#: **7 since 2026-10-07**, by v7 §15's own condition: both gates implement it and both
+#: have said so in a lap (their round 30 lap 9 S5, our round 30 lap 10 S8, which says
+#: *"round 31's laps may declare it"*). Round 30's laps kept declaring 6. Their round
+#: 31 lap 1 declares 7, so our lap 2 does, and under C29 it could not declare less.
+DECLARED_PROTOCOL: int = 7
 
 #: Sentinel for a field declared more than once with conflicting values. A real
 #: value can never equal it, and every consumer treats it as "not closed".

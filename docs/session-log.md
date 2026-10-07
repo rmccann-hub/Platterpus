@@ -11,6 +11,42 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-07 (evening) — round 31 lap 2: yes to E1 to E9, and two readers fixed first
+
+**What happened.** The fork released round 31 lap 1 at `cyanrip@60cc48a`. It proposes that
+a release of either side no longer waits for a round (E1 to E9), and asks whether we take
+its wording for two log-line fixes (S26, S27). Our lap 2 accepts all nine and both
+wordings, and gives our reading of the 2026-10-07 run. It is held until the operator
+announces it.
+
+**Their claims about our code, checked before answering.**
+- S3, S6 and S8 hold.
+- S16 did not. It said E7 would leave our warning firing only on a build nobody
+  released. But our audit and our approval cross-check both read the word `open` as
+  unreleased. So every rip of a release cut inside a round would have been warned, and
+  approving that build would then have produced a disagreement. Both now read the
+  `-- released build` arm through one shared reader, `handshake_note.py` (`62aa7bb0`).
+- S27 said our EAC `Gap handling` row reads the list's first line. It reads the whole
+  joined list. Its real gap was that a `pregap of track N unknown` line matched nothing,
+  so the row would have claimed an EAC detection result. It now says
+  `(undetermined: …)` for an unknown on any track after the first.
+
+**Checked by derivation, not memory.**
+- The eleven-versus-nine count of verified logs. The fork verified all eleven cyanrip
+  logs. Our reports verified nine: the two de-emphasis logs are direct cyanrip runs with
+  no report of ours. The lap says so instead of claiming eleven.
+- Our three fence readers. Only the gate follows CommonMark. The digest toggles on any
+  ``` or ~~~ line, and the lap-language checker on a backtick at column 0. The first
+  draft said the checker matched the gate, and grepping it disproved that.
+
+**Learned.**
+- E7 removes no string, yet our old releases would misread its output. So round 20's
+  order applies in substance as well as to string removals: their `.22` waits for our
+  release carrying `62aa7bb0`.
+- While round 31 is open, that release still needs the maintainer's word until E9 lands.
+
+---
+
 ## 2026-10-07 (later) — the first full-green run, and 0.7.100
 
 **What happened.** The operator ran the Full acceptance run on 0.6.66 with `.21`,
