@@ -127,6 +127,15 @@ first filed manifest whose channels SPLIT: `beta` names `5704062` (`.20`,
 fork's round 30 lap 13 names the same commit and keeps `174a134` as the round's pin.
 Read by the same two files as the manifest above. Not edited.
 
+## fork_release_manifest_edf6b2c.json (added 2026-10-07)
+
+The cyanrip fork's `release-manifest.json` exactly as their tree held it at
+`cyanrip@edf6b2c` ("Publish 0.9.4-rc2+platterpus.21 at ca3f3ea, stable"): sha256
+`1990c02e…`, 1,134 bytes, pinned by `tests/test_handshake_pin_under_review.py`. Both
+channels name `ca3f3ea` (`.21`, `release_seq` 31, `handshake_round` 30, `round_closed:
+true`), published after round 30 closed, so it is round 31's subject; its `src/` is
+byte-identical to `5704062`'s, the `.20` round 30's closing run tested. Not edited.
+
 ## round14lap16platterpus.md (moved here 2026-10-06)
 
 **A real transport envelope we sent**: one file wrapping our round 14 lap 16 and that

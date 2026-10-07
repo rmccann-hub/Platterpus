@@ -11,6 +11,54 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-07 — round 30 closed on `.19`, not `.20`; `.21` under review for round 31; 0.6.66 held
+
+**What was done.** The fork's round 30 lap 17 (`GO` with `HANDSHAKE-AGREED-CHANGES`,
+released at `cyanrip@f422ed9`, sha256 `5d67c114…`) is filed byte-exact, and our gate reads
+round 30 CLOSED with the release gate allowing. `FORK_PIN` rolled to `174a134` (`.19`), and
+the approval record moved to round 30 for 0.6.66b1. Hours later the fork published `.21`
+at `ca3f3ea` to both channels (`edf6b2c`). Its manifest is filed byte-exact, and
+`PIN_UNDER_REVIEW` is `ca3f3ea` for round 31. Every claim the fork made about `.21` was
+checked in an unshallowed clone of their tree, not taken from the message:
+- `git diff 5704062 ca3f3ea -- src/` is empty;
+- `meson.build` differs in its version line alone;
+- `PROVIDER-CONTRACT.md` differs in its `Build:` line alone;
+- their generator, run on a `git archive` of `ca3f3ea`, compiles the Handshake state
+  `round 30 lap 17 closed, verdict GO`.
+
+**The decision, and what forced it.** Our lap 16 (PIN-POLICY and S16) had agreed with the
+fork that round 30 approves `.20` (`5704062`), the build its closing run tested. That was
+our error, and two things showed it.
+- **Our rules say otherwise.** R4 says fixes past a round's pin "ship in the release the
+  close authorises; the next round reviews them". Our gate's rule is that a closed round
+  approves the pin it declares, and round 30 declared `174a134` on every lap.
+- **Measuring it showed the cost.** `.20` logs `round 30 lap 11 OPEN … NOT a released
+  build`. With `.20` approved, `rip_audit` would have warned OPEN_ROUND and DISAGREEMENT
+  on every approved rip.
+
+The maintainer chose to roll `main` to `.19` now and to hold 0.6.66 until round 31
+approves `.21`. `.21` has `.20`'s program and logs a closed round, so approving it ends
+the warnings. Our round 31 lap 2 corrects lap 16. The fork's lap 17 still names `.20` as
+the approved pair, so this disagreement is on the record and needs settling in round 31.
+
+**What the tests caught.** The manifest at `b62650d` still says `.20` is `round_closed:
+false` on round 30, because a manifest records the state at publication. The under-review
+test therefore kept demanding `.20` after the close, and it now reads which rounds our gate
+reports CLOSED. The verify-log flag set reached `.20` only through `PIN_UNDER_REVIEW`, so
+moving that pin dropped `.20` while beta rigs could still hold it. This is the 2026-08-25
+defect a second time. `.20` is now listed explicitly, and the sweep that should have caught it reads every filed manifest instead of only the newest. Both guards are revert-probed. The README's approved-pair check
+could not read a pre-release version, which is what round 30's record holds, so its
+pattern now accepts one. Each was found by a failing test before anything shipped.
+
+**Lessons.**
+- **A manifest is a snapshot.** Any field in it about the round (`round_closed`) is true
+  as of publication, so pair it with the round record before reading it as current.
+- **Re-read the rule before agreeing with a peer.** The `.20` slip passed through a lap of
+  ours that said "agrees". It is the *correction gets less scrutiny* failure (CLAUDE.md)
+  in its agreement form.
+
+---
+
 ## 2026-10-06 (late) — their lap 15 filed, our lap 16 written GO and held, a missing ledger that both gates read
 
 **What was done.** The fork's round 30 lap 15 (`GO`, released at `cyanrip@5e75eac`) is

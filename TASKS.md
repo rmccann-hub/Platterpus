@@ -1707,11 +1707,27 @@ each side's reading; and the closing releases named.
   for their lap 17 restating `GO` with the ledger (S13): both gates read round 30 `OPEN`
   on lap 15 and lap 16, measured by running each with lap 16 filed as released, and
   both read it closed with a lap 17 that adds the field.
-- [ ] **When our gate reads round 30 CLOSED:** roll `FORK_PIN` to `5704062` with round
-  30's approval record; cut 0.6.66 from `main` after `main`'s own CI; move
-  `PIN_UNDER_REVIEW` to `.21` when the fork's manifest names it (round 31 reviews it).
-  This is the fork's recommendation (their lap 15 S15), which our lap 16 S16 agrees
-  with: 0.6.66 approves `.20`, and `.21` is under review until round 31 checks it.
+- [x] **Round 30 CLOSED on our gate (2026-10-07)**: their lap 17 (`cyanrip@f422ed9`,
+  sha256 `5d67c114…`, 17,185 bytes, `GO` with `HANDSHAKE-AGREED-CHANGES`) filed
+  byte-exact; `--status` reads CLOSED and `--release-gate` allows. **`FORK_PIN` rolled to
+  `174a134` (`.19`), not `5704062`**, with the approval record at round 30 for 0.6.66b1.
+  Our lap 16's PIN-POLICY and S16 had agreed `.20`; that contradicted R4 ("fixes ...
+  ship in the release the close authorises; the next round reviews them") and our own
+  rule that a closed round approves the pin it declares, and measuring it showed the
+  cost: `.20`'s logs read an open round and `NOT a released build`, so `rip_audit` would
+  warn OPEN_ROUND and DISAGREEMENT on every approved rip. The maintainer chose `.19` for
+  `main` and held 0.6.66 for `.21` (2026-10-07).
+- [x] **`.21` is the build under review for round 31** (same day): the fork published
+  `ca3f3ea` to both channels (`edf6b2c`); its manifest is filed byte-exact; `src/` is
+  byte-identical to `5704062`'s, `meson.build` differs in its version line alone, and its
+  compiled Handshake state reads round 30 closed. `PIN_UNDER_REVIEW` `ca3f3ea`, round 31.
+  The under-review test learned that a closed round's in-round beta is nobody's subject.
+- [ ] **Our round 31 lap 2 corrects our lap 16's `.20`** (PIN-POLICY and S16): the pair
+  round 30 approves is its declared pin `.19`; `.21` carries `.20`'s program to round 31.
+  Their lap 17 PIN-POLICY says the approved pair is `.20` with 0.6.66b1, so this is a
+  disagreement on the record to settle in round 31, with the audit measurement above.
+- [ ] **Cut 0.6.66 once round 31 approves `.21`** (the maintainer's hold, 2026-10-07),
+  rolling `FORK_PIN` to `ca3f3ea` in the commit that releases our closing lap.
 - [ ] **Round 31: our EAC log's `Gap handling` row reads the fork's S10 fix.** The row is
   decided from cyanrip's `Gaps:` list, which leaves out a pregap its search could not
   determine (`cyanrip@bee49eb:src/cyanrip_main.c:1535-1536`). When round 31 adds a line

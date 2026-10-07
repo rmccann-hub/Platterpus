@@ -159,7 +159,14 @@ from platterpus.deps import fork_source
 #: requires: round 29 lap 3 declares `HANDSHAKE-APP-VERSION: platterpus 0.6.63`
 #: (sha256 `9c24b579…`, 22,260 bytes, `cyanrip@b89cbce4`), the release the Full run
 #: ran on. A new pin (`e0471f4` -> `51cc789`, `+platterpus.18`).
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.63"
+#: **Round 30 moves it to 0.6.66b1**, read from the peer's closing lap as the rule
+#: requires: round 30 lap 17 declares `HANDSHAKE-APP-VERSION: platterpus 0.6.66b1`
+#: (sha256 `5d67c114…`, 17,185 bytes, `cyanrip@f422ed9`) beside
+#: `HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.19`, the pair its wire header
+#: declares. A new pin (`51cc789` -> `174a134`, `+platterpus.19`, round 30's declared
+#: pin). The closing run itself ran 0.6.66b1 with `.20`; `.19`'s own Full run was on
+#: 0.6.65, and 0.6.66b1 still carries both flags `.19` needs.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.66b1"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -274,7 +281,15 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.63"
 #: `51cc789`, on a drive and on a Full run. The three failures are screenshot steps
 #: of ours, not in the pin; our reading found two record defects of ours, both fixed
 #: for 0.6.64 (our lap 4's two FINDINGs).
-APPROVED_BY_ROUND: Final[int] = 29
+#: **30 on 2026-10-07**, closed on our gate at seventeen laps — our lap 16 `GO`, their
+#: lap 17 `GO` (lap 15's, restated with the agreed-change ledger it left out) — on the
+#: operator's close conditions of 2026-10-05: betas of both applications and an
+#: acceptance run of both. It approves round 30's DECLARED pin, `174a134` (`.19`),
+#: which R4 held fixed while `.20` landed past it; `.19`'s Full run on 0.6.65 passed
+#: 316 steps, its 7 failures all screenshot steps of ours. The closing run on 0.6.66b1
+#: with `.20` (418 pass, 7 fail, one check of ours) found no ARCHIVAL defect in either
+#: build. `.21`, `.20`'s source cut from the closed tree, is round 31's to review.
+APPROVED_BY_ROUND: Final[int] = 30
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

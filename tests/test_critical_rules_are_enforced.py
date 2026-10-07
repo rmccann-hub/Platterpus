@@ -1461,7 +1461,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # fork's stable channel, the re-derived same-program flag and the pairing line.
     # The derivations are the record of what licenses each value, so they stay
     # beside the constants they license.
-    "deps/fork_source.py": 2566,
+    # **2566 -> 2596 (2026-10-07, round 30 closed on our gate)**: `FORK_PIN` rolls to
+    # `174a134`, the round's declared pin, and the comment records why it is not
+    # `5704062` (R4; `.20`'s logs say NOT a released build); the pin under review
+    # returns to the same commit, and the meson-options and same-program
+    # derivations are re-run against it. Each derivation stays beside its constant.
+    # **2596 -> 2635 (same day)**: `.21` (`ca3f3ea`) becomes the pin under review for
+    # round 31, read off the fork's manifest at `edf6b2c`, with its release
+    # sequence, flag-set entries and the re-run same-program derivation.
+    "deps/fork_source.py": 2635,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1678,7 +1686,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **693 -> 735** (2026-09-28, the round-28 Full run): the approved pair names the app version the record approved, not the running one, and `_running_app_clause` states the running version apart, tri-state; the pair line is this module's own renderer.
     # **735 -> 744 (2026-09-28, round 28 closed on our gate)**: the approval record moves to round 28 for 0.6.61, read off their closing lap as the rule requires.
     # **744 -> 754 (2026-09-29, round 29 closed on our gate)**: the approval record moves to round 29 for 0.6.63, read off their closing lap (round 29 lap 3) as the rule requires.
-    "handshake_approval.py": 754,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **754 -> 769 (2026-10-07, round 30 closed on our gate)**: the approval record moves to round 30 for 0.6.66b1, and says why the approved pin is the declared `.19` when the closing run ran `.20`.
+    "handshake_approval.py": 769,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);

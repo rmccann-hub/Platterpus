@@ -435,11 +435,11 @@
       "bom-ref": "ripper:cyanrip-fork",
       "group": "rmccann-hub/platterpus-fork",
       "name": "cyanrip",
-      "version": "0.9.4-rc2+platterpus.18",
+      "version": "0.9.4-rc2+platterpus.19",
       "isExternal": true,
       "description": "The ripping backend (KDD-18): the Platterpus fork of cyanrip, built from source at the handshake-approved pin by the setup wizard and by --install-ripper, then exported to the host.",
       "scope": "required",
-      "purl": "pkg:github/rmccann-hub/cyanrip@51cc789",
+      "purl": "pkg:github/rmccann-hub/cyanrip@174a134",
       "pedigree": {
         "ancestors": [
           {
@@ -503,15 +503,15 @@
         },
         {
           "name": "platterpus:pin",
-          "value": "51cc789"
+          "value": "174a134"
         },
         {
           "name": "platterpus:build-tag",
-          "value": "platterpus-fork-g51cc789"
+          "value": "platterpus-fork-g174a134"
         },
         {
           "name": "platterpus:banner",
-          "value": "cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-g51cc789)"
+          "value": "cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)"
         },
         {
           "name": "platterpus:branch",
@@ -519,15 +519,15 @@
         },
         {
           "name": "platterpus:release-seq",
-          "value": "28"
-        },
-        {
-          "name": "platterpus:approved-by-round",
           "value": "29"
         },
         {
+          "name": "platterpus:approved-by-round",
+          "value": "30"
+        },
+        {
           "name": "platterpus:approved-for-platterpus",
-          "value": "0.6.63"
+          "value": "0.6.66b1"
         },
         {
           "name": "platterpus:checked-minimum",
@@ -547,7 +547,7 @@
         },
         {
           "name": "platterpus:pin-under-review",
-          "value": "5704062 (0.9.4-rc2+platterpus.20, round 30, published: yes)"
+          "value": "ca3f3ea (0.9.4-rc2+platterpus.21, round 31, published: yes)"
         },
         {
           "name": "platterpus:test-pin",
@@ -564,11 +564,11 @@
       "bom-ref": "ripper:cyanrip-fork-under-review",
       "group": "rmccann-hub/platterpus-fork",
       "name": "cyanrip (build under review)",
-      "version": "0.9.4-rc2+platterpus.20",
+      "version": "0.9.4-rc2+platterpus.21",
       "isExternal": true,
-      "description": "The build handshake round 30 is reviewing; installable on request, never the default.",
+      "description": "The build handshake round 31 is reviewing; installable on request, never the default.",
       "scope": "optional",
-      "purl": "pkg:github/rmccann-hub/cyanrip@5704062",
+      "purl": "pkg:github/rmccann-hub/cyanrip@ca3f3ea",
       "pedigree": {
         "ancestors": [
           {
@@ -601,11 +601,11 @@
         },
         {
           "name": "platterpus:pin",
-          "value": "5704062"
+          "value": "ca3f3ea"
         },
         {
           "name": "platterpus:round",
-          "value": "30"
+          "value": "31"
         },
         {
           "name": "platterpus:published",
