@@ -4039,6 +4039,7 @@ that is what the section costs, not what its title implies.
 | 2026-10-04 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
 | 2026-10-05 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
 | 2026-10-06 | 0.6.66b1 | maintainer | bdr209d | bazzite | partial |
+| 2026-10-07 | 0.6.66 | maintainer | bdr209d | bazzite | full-green |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -4231,6 +4232,25 @@ a cancel and over track 18's skips; `cancel-rip` stopped an earlier step's rip;
 shorter than the 54 s read. Nothing it showed of the ripper breaks the pin
 (`docs/handshake/artifactsround30/README.md` → *The 2026-10-04 runs*).
 
+**The 2026-10-07 0.6.66 row is the first `full-green` row: the Full run on `ca3f3ea`
+(`.21`), round 31's build under review, through 0.6.66.** 425 of 426 steps passed, none
+failed or errored, and one was `unreachable`. That step is E2: it checks that the app
+refuses a drive missing from the AccurateRip list, and the BDR-209D is on that list.
+**The grade is the maintainer's ruling** (2026-10-07), because counting an N/A makes a
+version easier to reach. Zero failures in the ARCHIVAL sections is the written bar, and
+E2's own row says N/A on a listed drive is not a failure. **E2 is recorded as not
+covered**: a run on a drive the list does not carry is still owed before 0.9.1.
+
+The witnesses were checked, not assumed. K1, K2 and K3 each found two derived files
+(`.mp3`, `.wv`, `.wav`) beside two FLAC masters, the check whose absence kept the
+2026-09-15 row from counting. Every rip's cyanrip log verified, the cancelled rip's
+included. The app log holds no error. Every screenshot caught its window on screen.
+The disc behaved as before: track 3 is not reproducible, two tracks match AccurateRip
+on one frame only in the whole-disc rip, and CTDB finds no match at the standard
+alignment. One wording defect of ours, in a UX string, was fixed after the run
+(`d14c315e`). **It is not a second witness for 0.9.1**: one machine, one distro, one
+person (`docs/handshake/artifactsround31/README.md`).
+
 **The 2026-10-06 0.6.66b1 row is round 30's closing run, on `.20` and 0.6.66b1: 418 of
 426 graded steps passed (7 fail, 1 unreachable by design, plus 5 info), and `partial`.**
 The seven failures are one check on seven rips: `expect-album-audit`'s `handshake_note`
@@ -4265,11 +4285,12 @@ matches EAC in both rips. That is the disc, not a defect in either build. **It i
 second witness** either: one machine, one distro, one person, and failures in ARCHIVAL
 sections (`docs/handshake/artifactsround30/README.md` → *The 2026-10-05 run*).
 
-Every row so far is `partial`, zero `full-green`. **No full-green pass has been
-achieved**, so 0.9.1 is not reachable and the count toward it is zero. Recording
-the partials anyway matters — a ledger that held only successes would make the
-denominator invisible. The first row that earns `full-green` will be one where K1
-and K2 *could* have failed and did not.
+**One row is `full-green`, the 2026-10-07 run, and every other row is `partial`.**
+That meets `0.7.100`'s gate. 0.9.1 needs two `full-green` rows on at least two
+machines and two distros, so the count toward it is one of two, on one machine.
+Recording the partials anyway matters: a ledger that held only successes would make
+the denominator invisible. The `full-green` row is one where K1 and K2 *could* have
+failed and did not.
 
 **How a row gets produced** is `docs/test-plan.md` **Part E** — the
 failure-derived gate: the twelve defect classes that have actually bitten here,
