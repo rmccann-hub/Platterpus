@@ -304,6 +304,11 @@ documents depend on.
   of 323 steps, the seven failures being screenshot steps; the run the fork's round 30
   lap 1 S10 names. The directory's `README.md` maps each file to its tarball member and
   says what the run found, ours and the ripper's.
+- **`artifactsround31/`** — the 2026-10-07 **Full** run on **`ca3f3ea`** (`.21`), round
+  31's build under review, through our 0.6.66: 76 text members of the operator's bundle
+  (sha256 `a7e51546…`) as `round31full*`. 425 of 426 steps passed, none failed, and E2
+  was N/A on this drive. It is the first `full-green` row in the evidence ledger. Its
+  `README.md` says what was not filed and what the run shows.
 
 - **`outbound/artifacts/lsl-amendments-1.md`** — **a proposal, not a lap**: our answer to
   the fork's round 27 lap 6 S23 (sha256 `72a4c65afde184f2…`, 17,666 bytes; revised the same day with F4,

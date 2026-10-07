@@ -448,10 +448,11 @@ def _why_this_build_is_here(tag: str) -> str:
             )
     under_review = fork_source.PIN_UNDER_REVIEW
     if under_review and under_review.casefold() in lowered:
-        return (
-            f" That build is the pin an OPEN handshake round proposes"
-            f" ({under_review}); it has not been approved by either project yet."
-        )
+        # Delegated, not composed here: this sentence had its own copy, which said
+        # an OPEN round proposed the build and that neither project had approved it,
+        # both false on 2026-10-07 (round 31 had no lap, and the fork had published
+        # the build). `pin_under_review_role` is the one sentence about this pin.
+        return f" {fork_source.pin_under_review_role()}."
     return ""
 
 

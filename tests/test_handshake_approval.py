@@ -231,6 +231,28 @@ def test_the_pin_under_review_says_the_round_is_open() -> None:
     )
 
 
+def test_the_build_under_review_names_its_round_and_never_says_open(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression (2026-10-07 Full run on 0.6.66 with `.21`): every report said
+    `.21` "is the pin an OPEN handshake round proposes … it has not been approved by
+    either project yet". Round 31 had no lap, so no round was open, and the fork had
+    published `.21`. The sentence was this module's own copy; it now delegates to
+    `fork_source.pin_under_review_role`, which names the round instead.
+    """
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW", "0000000")
+    monkeypatch.setattr(fork_source, "PIN_UNDER_REVIEW_ROUND", 77)
+    assert fork_source.a_round_is_reviewing_a_build() is True
+    approval = ha.approve_ripper("cyanrip 0.9.4-rc2 (platterpus-fork-g0000000)")
+    assert approval.verdict == ha.UNAPPROVED
+    # Delegation, asserted as a relation: the report says what the one shared
+    # sentence says, so the two cannot drift apart again.
+    assert fork_source.pin_under_review_role() in approval.detail, approval.detail
+    assert "handshake round 77 reviews" in approval.detail, approval.detail
+    assert "OPEN" not in approval.detail, approval.detail
+    assert "either project" not in approval.detail, approval.detail
+
+
 def test_dirty_suffix_on_the_approved_commit_is_not_approved() -> None:
     """A `-dirty` build carries a tag for a tree that is not what was built.
 

@@ -25,7 +25,7 @@ Please allow a reasonable window before any public disclosure.
 
 ## Supported versions
 
-Platterpus is pre-1.0. Only the latest released `v0.6.x` is supported — please
+Platterpus is pre-1.0. Only the latest released `v0.7.x` is supported — please
 reproduce on the newest release before reporting.
 
 ## Known hardening items (tracked, not secret)
@@ -101,4 +101,4 @@ should be reported to those projects.
 
 ---
 
-*Last updated for Platterpus v0.6.66.*
+*Last updated for Platterpus v0.7.100.*

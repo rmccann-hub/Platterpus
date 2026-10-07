@@ -11,6 +11,35 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-07 (later) — the first full-green run, and 0.7.100
+
+**What happened.** The operator ran the Full acceptance run on 0.6.66 with `.21`,
+starting at 03:39:44 UTC, about 18 minutes after 0.6.66 was published. It passed 425 of
+426 steps with none failing. The one step that could not run is E2, which needs a drive
+missing from the AccurateRip list. The maintainer ruled that the run is `full-green`, the
+ledger's first, with E2 recorded as not covered, and that 0.7.100 is cut next.
+
+**Read, not trusted.** Before asking, I checked the things §5.bi says a green run can
+hide:
+- K1, K2 and K3 each saw their derived files;
+- every rip's cyanrip log verified;
+- the app log holds no error;
+- every screenshot caught its window on screen;
+- all 25 sections in the severity table ran, and none was declined for size.
+
+Every cyanrip log reads `round 30 lap 17 closed, verdict GO -- released build`, so our
+in-app install path declares `.21` released, as the fork said it would.
+
+**The one defect.** Every report on `.21` called it "the pin an OPEN handshake round
+proposes", but round 31 had no lap. That sentence was `handshake_approval`'s own copy,
+and the open-claim sweep missed its capitalised shape. Now one sentence names the round,
+and the sweep has a branch for that shape (`d14c315e`).
+
+**Lesson.** A build is a round's subject before the round has a lap. So "open" is false
+for part of every round, while the round's number is true throughout. Say the number.
+
+---
+
 ## 2026-10-07 — round 30 closed on `.19`, not `.20`; `.21` under review for round 31; 0.6.66 released
 
 **What was done.** The fork's round 30 lap 17 (`GO` with `HANDSHAKE-AGREED-CHANGES`,
@@ -10111,4 +10140,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.6.66.*
+*Last updated for Platterpus v0.7.100.*

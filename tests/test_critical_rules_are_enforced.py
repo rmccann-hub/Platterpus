@@ -1469,7 +1469,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2596 -> 2635 (same day)**: `.21` (`ca3f3ea`) becomes the pin under review for
     # round 31, read off the fork's manifest at `edf6b2c`, with its release
     # sequence, flag-set entries and the re-run same-program derivation.
-    "deps/fork_source.py": 2635,
+    # **2635 -> 2643 (2026-10-07, the 0.6.66 Full run)**: the build-under-review
+    # clause names its round instead of calling it open, and says so in its docstring.
+    "deps/fork_source.py": 2643,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1687,7 +1689,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **735 -> 744 (2026-09-28, round 28 closed on our gate)**: the approval record moves to round 28 for 0.6.61, read off their closing lap as the rule requires.
     # **744 -> 754 (2026-09-29, round 29 closed on our gate)**: the approval record moves to round 29 for 0.6.63, read off their closing lap (round 29 lap 3) as the rule requires.
     # **754 -> 769 (2026-10-07, round 30 closed on our gate)**: the approval record moves to round 30 for 0.6.66b1, and says why the approved pin is the declared `.19` when the closing run ran `.20`.
-    "handshake_approval.py": 769,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **769 -> 770 (2026-10-07, the 0.6.66 Full run)**: the under-review sentence delegates to `fork_source.pin_under_review_role` instead of carrying its own copy, which said an OPEN round proposed the build.
+    "handshake_approval.py": 770,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
