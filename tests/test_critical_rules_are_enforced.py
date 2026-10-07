@@ -1573,7 +1573,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # rewording. The reason belongs beside the line it explains.
     # **1779 -> 1832** (2026-10-05, TASKS.md, *Found while integrating*, item 1): `_reread_shortfall`, the Copy CRC caveat for a track at the repeat limit worded by how many reads its log proves agreed, where every such track read "re-reads did NOT agree" (false of the round-28 Full run's track 5). Most of it is the docstring: the three cases, and why no Test CRC is built from the reads that agreed. It is this document's own sentence, so it stays beside the renderer.
     # **1832 -> 1873** (2026-10-05, our round 30 lap 8 S20, accepted in the fork's lap 9 S26): `UNVERIFIED_SKIPS_VERDICT`, the per-track verdict for a track paranoia skipped on that AccurateRip did not confirm, where it printed "Copy OK" (track 18 of the 2026-10-04 run), and the precedence over the re-read verdict stated in `_status_line`. The verdict is this document's own line, so it stays beside the renderer.
-    "eac_log_export.py": 1873,
+    # **1873 -> 1894 (2026-10-07, round 31 lap 1 S27)**: the Gap handling row reads
+    # the fork's proposed `pregap of track N unknown` line and says the pregap was
+    # undetermined, instead of turning an unknown into "Appended" or "Not detected".
+    "eac_log_export.py": 1894,
     # 885 -> 905. The gzip container is now opened explicitly so its header
     # timestamp can be zeroed, and the comment above it is the reason the next
     # reader needs: a one-second reproduction window looks like a flaky test,
@@ -1690,7 +1693,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **744 -> 754 (2026-09-29, round 29 closed on our gate)**: the approval record moves to round 29 for 0.6.63, read off their closing lap (round 29 lap 3) as the rule requires.
     # **754 -> 769 (2026-10-07, round 30 closed on our gate)**: the approval record moves to round 30 for 0.6.66b1, and says why the approved pin is the declared `.19` when the closing run ran `.20`.
     # **769 -> 770 (2026-10-07, the 0.6.66 Full run)**: the under-review sentence delegates to `fork_source.pin_under_review_role` instead of carrying its own copy, which said an OPEN round proposed the build.
-    "handshake_approval.py": 770,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # **770 -> 758 (2026-10-07)**: the note-token list moved to `handshake_note`.
+    "handshake_approval.py": 758,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
@@ -1866,7 +1870,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1550 -> 1562** (2026-10-05, `parity-baseline-is-ours`): `parity.ParityReport.ok` now refuses a baseline that is one of our own EAC-layout exports, and `eac_log_agreement` says so, naming the line, instead of falling through to a "DISAGREE" no track showed. It is a branch of the check it serves.
     # **1562 -> 1577** (2026-10-06, ruling C1): a failed rip's notes say which pass each exit code describes, add the securing pass's when it ran, and label the command as the securing pass's when it was the last run. The phrasing lives in `rip_pass_exit.py`.
     # **1577 -> 1582** (2026-10-06, the maintainer's narrowing of the acceptance grader): `OPEN_ROUND_WARNING`, the open-round warning's opening named once so the acceptance grader recognises it by the same words.
-    "rip_audit.py": 1582,
+    # **1582 -> 1590 (2026-10-07, round 31 lap 1 E7)**: the handshake-note audit
+    # delegates to `handshake_note`, keys on the released arm, and says when a
+    # released build was cut while a round was open.
+    "rip_audit.py": 1590,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.
@@ -2659,7 +2666,11 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # `blocks the close:` line (round 30 read `GO`/`GO -> OPEN` with no reason), and
     # `BLOCKS_CLOSE_PREFIX`. The lines report the state `_grade_round` computes, so
     # they belong beside it, not in a module of their own.
-    "scripts/handshake.py": 4555,
+    # **4555 -> 4565** (2026-10-07, round 31 lap 2): `DECLARED_PROTOCOL` moves to 7,
+    # with the dated reason beside the constant, and the skeleton emits v7's
+    # `HANDSHAKE-NEXT-LAP` (row C46), without which it fails its own checker. Both
+    # belong where they are: the constant's history and the field list it governs.
+    "scripts/handshake.py": 4565,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     "scripts/laplang/lsl3.py": 433,
     # **324 -> 312** (2026-10-06): git calls and decoding a cited file moved to

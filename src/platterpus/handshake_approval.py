@@ -39,7 +39,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
-from platterpus import __version__
+from platterpus import __version__, handshake_note
 from platterpus.deps import fork_source
 
 #: The Platterpus version the currently-pinned ripper was approved **for**.
@@ -563,19 +563,6 @@ def approve_rip_log(rip_log: object) -> RipperApproval:
     return approve_ripper(banner)
 
 
-#: Tokens in the fork's compiled-in ``Handshake:`` line that mean *"this binary was
-#: built from a tree whose round had not closed"*. Matched case-insensitively as
-#: substrings, because the line is prose the fork writes for a human and its exact
-#: shape is not something either side has frozen — J1 of round 7 lap 10 proposes
-#: giving it a machine-readable form, and until that lands this is a best-effort
-#: read of a *self-description*, never the basis of a negative on its own.
-_NOTE_NOT_RELEASED: Final[tuple[str, ...]] = (
-    "not a released build",
-    "open",
-    "hold",
-)
-
-
 def cross_check_note(verdict: str, note: str | None) -> str:
     """Compare our verdict on the banner against the binary's own statement.
 
@@ -601,8 +588,9 @@ def cross_check_note(verdict: str, note: str | None) -> str:
     text = (note or "").strip()
     if not text:
         return ""
-    lowered = text.casefold()
-    says_unreleased = any(token in lowered for token in _NOTE_NOT_RELEASED)
+    # The one shared reading of the note (`handshake_note`): its released arm
+    # decides, and a note too old to have one falls back to its round word.
+    says_unreleased = handshake_note.release_state(text) == "unreleased"
 
     if verdict == APPROVED and says_unreleased:
         # The dangerous direction. We approved a build that states, in its own

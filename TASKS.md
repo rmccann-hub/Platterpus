@@ -1722,10 +1722,30 @@ each side's reading; and the closing releases named.
   byte-identical to `5704062`'s, `meson.build` differs in its version line alone, and its
   compiled Handshake state reads round 30 closed. `PIN_UNDER_REVIEW` `ca3f3ea`, round 31.
   The under-review test learned that a closed round's in-round beta is nobody's subject.
-- [ ] **Our round 31 lap 2 corrects our lap 16's `.20`** (PIN-POLICY and S16): the pair
+- [x] **Our round 31 lap 2 corrects our lap 16's `.20`** (PIN-POLICY and S16): the pair
   round 30 approves is its declared pin `.19`; `.21` carries `.20`'s program to round 31.
   Their lap 17 PIN-POLICY says the approved pair is `.20` with 0.6.66b1, so this is a
   disagreement on the record to settle in round 31, with the audit measurement above.
+  *Done 2026-10-07:* lap 2 S1, held. Their lap 1 S4 leaves it unargued, and E2 settles
+  the general case.
+- [x] **Round 31 lap 2: answer E1 to E9, S26 and S27, and read the run** (their lap 1,
+  released at `cyanrip@60cc48a`). Every one of E1 to E9 accepted; both wordings accepted,
+  and our readers already take them (`62aa7bb0`). Two of their claims about our code were
+  wrong and are corrected in the lap: S16 (our warning would have fired on every release
+  cut inside a round) and S27 (our `Gap handling` row reads the whole list, not its first
+  line). Held for the operator's word.
+- [ ] **When their v8 drafts arrive (their lap 3):** land `PROTOCOL.md` and
+  `seam-rules.md` v8 byte-identical; retire our open-round release refusal (E9: the
+  `--release-gate` rule, `release.yml`'s stable-offered step, the §6b override); move
+  our digest and our lap-language checker to CommonMark fences with theirs (E10; only
+  our gate follows CommonMark today); check `HANDSHAKE-INBOUND-OBSERVED` on every lap
+  from protocol 8 (E11). **The two `CLAUDE.md` rules E9 retires** (rule 12's *"No
+  release … while one is open"* and the deviation policy's ask) are locked: edited on
+  the maintainer's word only.
+- [ ] **Release a build that carries `62aa7bb0` before the fork's `.22`** ships E7 and
+  S27's line: every earlier release of ours misreads both (round 20's order in substance;
+  lap 2 S11, S15). While round 31 is open, that release needs the maintainer's word
+  until E9 lands.
 - [x] **The 2026-10-07 Full run on 0.6.66 with `.21`: the first `full-green` row**
   (425 of 426, none failed; E2 N/A on this drive, the maintainer's ruling with E2 noted
   as not covered). Filed in `docs/handshake/artifactsround31/`. Its one defect of ours,
@@ -1748,11 +1768,14 @@ each side's reading; and the closing releases named.
   known-issues file, rig sheet and standing status now point at Help → About,
   `fork_source.py` and the generated map; the nine tests that only policed the copies
   are deleted (`docs/testing.md` §5.bn names them). Release gating is untouched.
-- [ ] **Round 31: our EAC log's `Gap handling` row reads the fork's S10 fix.** The row is
+- [x] **Round 31: our EAC log's `Gap handling` row reads the fork's S10 fix.** The row is
   decided from cyanrip's `Gaps:` list, which leaves out a pregap its search could not
   determine (`cyanrip@bee49eb:src/cyanrip_main.c:1535-1536`). When round 31 adds a line
   for one, read it, and say *undetermined* rather than *not detected* when it is the only
   gap a rip could have appended (`eac_log_export.py:743`).
+  *Done 2026-10-07 (`62aa7bb0`):* their wording is `pregap of track N unknown (reason)`;
+  an unknown on any track after the first makes the row
+  `(undetermined: the ripper could not measure a pregap)`, whatever else the list says.
 - [ ] **Round 31: a lap writer that refuses a v6 `GO` without the ledger, on both
   sides** (our lap 16 S14). Both gates refuse it once sent; neither side's writer stops
   it being sent.
