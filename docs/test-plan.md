@@ -136,7 +136,7 @@ GUI thread). On a FUSE-less host, run with `APPIMAGE_EXTRACT_AND_RUN=1`.
 *Expected, in order:* (1) "Add to your applications menu?" — say **Yes**; the
 file moves to `~/Applications` and a menu entry appears. (2) The **host-setup
 wizard** — say Yes; it builds the `ripping` container, installs cyanrip/flac
-(and metaflac), then builds the pinned fork (`51cc789` at v0.6.65) over the stock
+(and metaflac), then builds the pinned fork (`FORK_PIN`: `51cc789` in v0.6.65 and v0.6.66b1, `174a134` on `main`) over the stock
 cyanrip and exports it, plus cd-paranoia. **~20–40 min** the
 first time (≈600 MB image pull); one polkit password prompt only if podman/
 distrobox needs installing (none on Bazzite/Silverblue). (3) Picard offer — your

@@ -314,7 +314,7 @@ def test_the_cyanrip_backend_supplies_a_build_tag() -> None:
 
 
 def test_every_build_the_fork_publishes_now_keeps_both_flags() -> None:
-    """A build on ANY channel of the fork's newest filed manifest is in both sets.
+    """A build on ANY channel of ANY filed fork manifest is in both sets.
 
     **Why, and the case that wrote it (2026-10-06).** `BUILD_TAGS_ACCEPTING_VERIFY_LOG`
     reaches the build under review through `PIN_UNDER_REVIEW`, so moving that pin to
@@ -333,11 +333,18 @@ def test_every_build_the_fork_publishes_now_keeps_both_flags() -> None:
         for p in sorted(fixtures.glob("fork_release_manifest_*.json"))
     ]
     assert manifests, "no filed fork release manifest to read"
-    newest = max(manifests, key=lambda m: int(m["latest_seq"]))
-    commits = {str(entry["commit"]) for entry in newest["channels"].values()}
-    # Floor: the newest manifest names at least one build, and today two (`.20` on
-    # beta, `.19` on stable), so this cannot pass by reading no channel.
-    assert commits
+    # EVERY filed manifest, not only the newest (2026-10-07). `.21` replaced `.20` on
+    # both channels, so reading the newest alone stopped covering `.20` the moment
+    # `PIN_UNDER_REVIEW` moved off it, while a rig that took the beta can still be
+    # running it. A build the fork has published is a build a user can have.
+    commits = {
+        str(entry["commit"])
+        for manifest in manifests
+        for entry in manifest["channels"].values()
+    }
+    # Floor: the filed manifests name at least three builds today (`.19`, `.20`,
+    # `.21`), so this cannot pass by reading no channel.
+    assert len(commits) >= 3, commits
     for commit in sorted(commits):
         tag = f"{fork_source.FORK_BRANCH}-g{commit}"
         assert fork_source.accepts_verify_log(tag) is True, tag

@@ -1,10 +1,11 @@
 # Hardware test checklist
 
-> **Read this first (2026-09-30, v0.6.65).** The intro block below was written for the
+> **Read this first (2026-10-07, v0.6.66b1).** The intro block below was written for the
 > **v0.6.0** sheet and is kept as its record — its "this release" means v0.6.0, and its
 > list of recent releases stops at v0.5.21. What is current: Platterpus **v0.6.66b1** (a beta);
-> cyanrip **`51cc789`** (`+platterpus.18`, approved by round 29) is installed by default
-> since 0.6.64; round 30's closing run reviews **`5704062`** (`+platterpus.20`, the fork's beta).
+> cyanrip **`174a134`** (`+platterpus.19`, approved by round 30) is the pin on `main`, and no
+> release installs it by default yet (0.6.66 waits for round 31); round 31 reviews **`ca3f3ea`**
+> (`+platterpus.21`, on both of the fork's channels, the program round 30's closing run tested).
 > The primary hardware
 > route is now **Tools → Advanced → Run acceptance test…** inside the app, which keeps
 > everything a run makes — rips, screenshots, transcript and one `.tar.gz` — in one
@@ -82,7 +83,7 @@
 | Drive | `PIONEER  BD-RW   BDR-209D 1.51` on `/dev/sr0` |
 | Read offset | **+667** — confirmed, two independent sources agree |
 | Cache defeat | **Yes** — measured (`cd-paranoia -A`: 140-sector cache, backseek flushes) |
-| Tools | cyanrip `0.9.4-rc2+platterpus.20`, build tag `platterpus-fork-g5704062` for the current run (round 30's build under review, the closing run); the default install is `0.9.4-rc2+platterpus.18`, `platterpus-fork-g51cc789` (approved by round 29, `docs/handshake/artifactsround29/`). Not stock 0.9.3; the tag identifies the build, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
+| Tools | cyanrip `0.9.4-rc2+platterpus.21`, build tag `platterpus-fork-gca3f3ea` for the next run (round 31's build under review); the pin on `main` is `0.9.4-rc2+platterpus.19`, `platterpus-fork-g174a134` (approved by round 30, `docs/handshake/artifactsround30/`). Not stock 0.9.3; the tag identifies the build, the version cannot (KDD-33) · flac/metaflac 1.5.0 · ffmpeg 8.1.2 · cd-paranoia 10.2 · Picard 2.13.3 |
 | Settings | Overread **off** · offset-variant re-read **on** · verify-every-track **off** · max reads 2 · max retries 5 · adaptive ladder · EAC log **on** · debug log **on** |
 
 **Test disc:** *The Police — Every Breath You Take: The Classics* — 14 tracks,

@@ -1218,8 +1218,10 @@ def test_the_note_is_absent_when_the_build_under_review_is_installed(
 def test_the_note_is_absent_once_no_round_is_reviewing_a_build(
     round30_reviewing_20: RipperManifest, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """After round 30 closes, `5704062` is the approved pin; the stable check must
-    not go on calling it a build under review."""
+    """Once the approved pin and the pin under review coincide, no round is
+    reviewing a build, and the stable check must not go on calling one under
+    review. (Round 30 in fact closed on `174a134`, its declared pin; the pair here
+    is constructed so the state is reached on purpose.)"""
     monkeypatch.setattr(fork_source, "FORK_PIN", "5704062")
     offer = evaluate_offer(
         round30_reviewing_20, CHANNEL_STABLE, installed_commit="174a134"

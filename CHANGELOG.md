@@ -24,6 +24,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Handshake round 30 is closed, and the ripper build on `main` is cyanrip
+  `0.9.4-rc2+platterpus.19` at `174a134`**, round 30's declared pin, approved for
+  0.6.66b1. It replaces round 29's `51cc789`. The round's closing run tested the fork's
+  `.20` beta, but a closed round approves the pin it declares, and `.20`'s logs say
+  they came from an open round and are not a released build: approving it would have
+  put an open-round warning and a disagreement warning on every rip. **0.6.66 is held
+  until round 31 approves `.21`** (`ca3f3ea`), which the fork published to both its
+  channels after the close with `.20`'s source unchanged. `main` now treats `.21` as
+  the build under review: a rip on it is recorded as being tested, not yet approved.
+  The test that keeps the under-review pin current now knows that a beta published
+  inside a round stops being under review when that round closes.
 - **The handshake guide says how to check a predicted close.** A lap that says a
   round will close on the next one is now expected to have run both gates on the
   record as it would stand, with the method written out in
