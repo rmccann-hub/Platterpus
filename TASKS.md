@@ -1772,8 +1772,11 @@ each side's reading; and the closing releases named.
   release … while one is open"* and the deviation policy's ask) are locked; the
   maintainer gave the word on 2026-10-07 (*"for my decisions, do what you recommend"*,
   answering our recommendation to edit them when v8 lands), so they change with v8.
-- [~] **Release 0.7.102 with `-W`, beside our round 31 lap 3** (the maintainer,
+- [x] **Release 0.7.102 with `-W`, beside our round 31 lap 3** (the maintainer,
   2026-10-07: *"release both at once"*), under the §6b override in lap 3's header.
+  *Done 2026-10-07:* **released 0.7.102**, tag at `b2000117` (PR #306, merge commit),
+  release run 37687401510: every gate green, attested; the gate permitted it under the
+  recorded override. Lap 3 is on `main` at the same commit, byte-exact.
 - [x] **Release a build that carries `62aa7bb0` before the fork's `.22`** ships E7 and
   S27's line: every earlier release of ours misreads both (round 20's order in substance;
   lap 2 S11, S15). While round 31 is open, that release needs the maintainer's word
