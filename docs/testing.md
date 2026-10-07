@@ -3261,6 +3261,27 @@ head, and is revert-proven against the prose that fooled its first version); the
 full-green gate now reads `PLANNING.md` too and tolerates the backticked spelling
 that kept that status line out of its pattern.
 
+**Sixth, and the end of it, 2026-10-07: the copies went instead of the gates
+growing.** The maintainer called both repos *"much too formal"* and chose to stop
+hand-copying the ripper pin, its build tag, the approving round and the approved app
+version into prose. README, `DEPENDENCIES.md`'s cyanrip row, the hardware checklist,
+`docs/test-plan.md`, `docs/cyanrip-known-issues.md`, `docs/rig-session.md`'s header
+and the standing status's *As of* table now point at Help → About,
+`deps/fork_source.py`, `handshake_approval.py` and the generated map in
+`DEPENDENCIES.md`. With nothing left to check, the gates that only kept those copies
+in step were deleted: `test_no_user_facing_doc_claims_a_RETIRED_ripper_pin_is_installed`,
+`test_the_install_claim_names_the_CURRENT_pin`,
+`test_every_ripper_build_tag_in_a_user_facing_doc_is_the_CURRENT_one`,
+`test_the_readme_names_the_ROUND_and_APP_VERSION_the_approval_record_holds`,
+`test_the_dependency_table_names_the_CURRENT_ripper_pin`,
+`test_the_rig_sheet_header_names_the_CURRENT_pair`, and in
+`test_standing_status_is_current.py` the pin, approving-round and `approved by` row
+tests. This section's lesson, taken to its end: **a claim that decays on every pin
+move is cheapest to check by not making it**, when the code that holds the fact is
+already one click away for the reader. The ledger, severity-count, version-banner
+and open-round gates stay, because what they read is not in code or forbids a stale
+claim without requiring anyone to write one.
+
 ### §5.bo — The conformance row passed and the gate did not conform; the coverage check exempted what it existed to require
 
 **2026-09-22, found by rehearsing round 24 in a scratch worktree.** Shared-spec row

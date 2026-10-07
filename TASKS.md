@@ -1729,12 +1729,16 @@ each side's reading; and the closing releases named.
 - [~] **Release 0.6.66 on `.19`, with `.21` under review** (the maintainer, 2026-10-07:
   release now rather than hold; no round is open). `FORK_PIN` rolls to `ca3f3ea` in the
   first release after round 31 approves it.
-- [ ] **Cut our hand-written copies of pins and rounds** (the maintainer, 2026-10-07:
+- [x] **Cut our hand-written copies of pins and rounds** (the maintainer, 2026-10-07:
   *"much too formal … without so much paperwork that does so little"*). README,
   DEPENDENCIES, the rig sheet, the checklists and the status table point at About,
   `--version` and the generated map instead, and the tests that only catch those copies
   going stale go with them. Releases decoupled from rounds is shared, so it is agreed in
   round 31 (the fork proposes it in their lap 1).
+  *Done 2026-10-07:* README, `DEPENDENCIES.md`, the hardware checklist, test plan,
+  known-issues file, rig sheet and standing status now point at Help → About,
+  `fork_source.py` and the generated map; the nine tests that only policed the copies
+  are deleted (`docs/testing.md` §5.bn names them). Release gating is untouched.
 - [ ] **Round 31: our EAC log's `Gap handling` row reads the fork's S10 fix.** The row is
   decided from cyanrip's `Gaps:` list, which leaves out a pregap its search could not
   determine (`cyanrip@bee49eb:src/cyanrip_main.c:1535-1536`). When round 31 adds a line
