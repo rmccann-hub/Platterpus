@@ -37,6 +37,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Fixed
 
+- **An album or track title can no longer make a tracker's log checker accept our
+  EAC-style log as one Exact Audio Copy wrote.** OPS's checker treats a log as a
+  genuine EAC log if it finds EAC's own phrase "EAC extraction logfile from"
+  anywhere in it, and our log repeats album and track names. A title containing
+  that phrase (or XLD's) is now written with one extra space ("log file"), the
+  same way a title shaped like EAC's checksum line already was, and the rip report
+  says which lines were changed. Nothing in the tags or file names changes.
 - **No message tells you to click a Detect button that does not exist.** With
   cyanrip, an offset that is not in AccurateRip's drive list is typed in by hand,
   and the drive window has no Detect button. But the warning shown when you start a

@@ -3950,12 +3950,15 @@ class RipMixin(MainWindowShared):
             )
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
             target.write_text(text, encoding="utf-8")
-            # D16: a metadata value shaped like a log signature was rewritten so
-            # the log cannot read as EAC-signed. Say so in the log and the report.
+            # D16: a metadata value shaped like a log signature, or like EAC's own
+            # first line, was rewritten so the log cannot read as EAC's. Say so in
+            # the log and the report.
             # AFTER the write, and read with getattr: this bookkeeping must never
             # be the reason the log itself is not written.
             for line in defused:
-                log.warning("EAC-layout log: rewrote a signature-shaped line: %r", line)
+                log.warning(
+                    "EAC-layout log: rewrote a line shaped like EAC's own: %r", line
+                )
             disc_block = getattr(self, "_last_disc", None)
             if isinstance(disc_block, dict):
                 disc_block["eac_log_signature_lines_defused"] = list(defused)
