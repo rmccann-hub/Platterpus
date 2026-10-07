@@ -2,9 +2,9 @@
 
 > **Read this first (2026-10-07, v0.6.66b1).** The intro block below was written for the
 > **v0.6.0** sheet and is kept as its record — its "this release" means v0.6.0, and its
-> list of recent releases stops at v0.5.21. What is current: Platterpus **v0.6.66b1** (a beta);
-> cyanrip **`174a134`** (`+platterpus.19`, approved by round 30) is the pin on `main`, and no
-> release installs it by default yet (0.6.66 waits for round 31); round 31 reviews **`ca3f3ea`**
+> list of recent releases stops at v0.5.21. What is current: Platterpus **v0.6.66**;
+> cyanrip **`174a134`** (`+platterpus.19`, approved by round 30) is installed by default from
+> 0.6.66; round 31 reviews **`ca3f3ea`**
 > (`+platterpus.21`, on both of the fork's channels, the program round 30's closing run tested).
 > The primary hardware
 > route is now **Tools → Advanced → Run acceptance test…** inside the app, which keeps
@@ -1231,4 +1231,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.6.66.*

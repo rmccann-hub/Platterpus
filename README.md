@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.66b1 — a beta of 0.6.66, pre-1.0.** It is a pre-release, offered only to those who tick *Offer beta (pre-release) updates*; the stable channel stays on 0.6.65. Handshake rounds **1 through 30** are closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.19` at **`174a134`**, round 30's declared pin, and Platterpus **`0.6.66b1`**; no release installs it by default yet, because 0.6.66 waits for round 31. Round 31 reviews the fork's `0.9.4-rc2+platterpus.21` at **`ca3f3ea`**: the same source as the `.20` beta that round 30's closing run tested, published to both of the fork's channels once round 30 closed. The next minor, `0.7.100`, needs a Full hardware acceptance run with no failure in its archival sections, and none has passed yet ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
+> **Status: v0.6.66, pre-1.0.** Handshake rounds **1 through 30** are closed with `GO` from both projects. The approved pair is cyanrip `0.9.4-rc2+platterpus.19` at **`174a134`**, round 30's declared pin, and Platterpus **`0.6.66b1`**; 0.6.66 installs that build by default. Round 31 reviews the fork's `0.9.4-rc2+platterpus.21` at **`ca3f3ea`**, which 0.6.66 accepts as the build under review: the same source as the `.20` beta that round 30's closing run tested, published to both of the fork's channels once round 30 closed. The next minor, `0.7.100`, needs a Full hardware acceptance run with no failure in its archival sections, and none has passed yet ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
 >
 > **On the Pioneer BDR-209D, leave Overread (`-O`) off:** it hung the drive for about 23 minutes ([`docs/dependency-contracts.md`](docs/dependency-contracts.md)).
 >
@@ -1036,4 +1036,4 @@ FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full terms.
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.6.66.*

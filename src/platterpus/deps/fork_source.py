@@ -236,9 +236,9 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: build*. Round 30's evidence on `.19` is its first Full run, on 0.6.65 with
 #: `174a134` installed (`docs/handshake/artifactsround30/`, prefix `round30full`):
 #: 316 pass and 7 fail, all seven screenshot steps of ours, and cyanrip verified all
-#: eight of its logs. **No release ships this constant yet**: the maintainer is holding
-#: 0.6.66 until round 31 approves `.21` (published to both channels at `ca3f3ea` the
-#: same day; see :data:`PIN_UNDER_REVIEW`).
+#: eight of its logs. The RELEASE that ships this constant is 0.6.66: the maintainer
+#: first held it for `.21` (published to both channels at `ca3f3ea` the same day; see
+#: :data:`PIN_UNDER_REVIEW`), then chose to release it on `.19` with `.21` under review.
 FORK_PIN: Final[str] = "174a134"
 
 #: **Which numbered fork release each commit we know about is**, read out of the

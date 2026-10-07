@@ -1716,7 +1716,7 @@ each side's reading; and the closing releases named.
   rule that a closed round approves the pin it declares, and measuring it showed the
   cost: `.20`'s logs read an open round and `NOT a released build`, so `rip_audit` would
   warn OPEN_ROUND and DISAGREEMENT on every approved rip. The maintainer chose `.19` for
-  `main` and held 0.6.66 for `.21` (2026-10-07).
+  `main`, at first holding 0.6.66 for `.21`, then released it on `.19` the same day.
 - [x] **`.21` is the build under review for round 31** (same day): the fork published
   `ca3f3ea` to both channels (`edf6b2c`); its manifest is filed byte-exact; `src/` is
   byte-identical to `5704062`'s, `meson.build` differs in its version line alone, and its
@@ -1726,8 +1726,15 @@ each side's reading; and the closing releases named.
   round 30 approves is its declared pin `.19`; `.21` carries `.20`'s program to round 31.
   Their lap 17 PIN-POLICY says the approved pair is `.20` with 0.6.66b1, so this is a
   disagreement on the record to settle in round 31, with the audit measurement above.
-- [ ] **Cut 0.6.66 once round 31 approves `.21`** (the maintainer's hold, 2026-10-07),
-  rolling `FORK_PIN` to `ca3f3ea` in the commit that releases our closing lap.
+- [~] **Release 0.6.66 on `.19`, with `.21` under review** (the maintainer, 2026-10-07:
+  release now rather than hold; no round is open). `FORK_PIN` rolls to `ca3f3ea` in the
+  first release after round 31 approves it.
+- [ ] **Cut our hand-written copies of pins and rounds** (the maintainer, 2026-10-07:
+  *"much too formal … without so much paperwork that does so little"*). README,
+  DEPENDENCIES, the rig sheet, the checklists and the status table point at About,
+  `--version` and the generated map instead, and the tests that only catch those copies
+  going stale go with them. Releases decoupled from rounds is shared, so it is agreed in
+  round 31 (the fork proposes it in their lap 1).
 - [ ] **Round 31: our EAC log's `Gap handling` row reads the fork's S10 fix.** The row is
   decided from cyanrip's `Gaps:` list, which leaves out a pregap its search could not
   determine (`cyanrip@bee49eb:src/cyanrip_main.c:1535-1536`). When round 31 adds a line
@@ -8631,4 +8638,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.6.66.*
