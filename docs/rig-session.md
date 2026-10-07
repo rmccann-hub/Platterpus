@@ -59,4 +59,4 @@ testing a build, a run on the default build is still useful evidence about the p
 
 ---
 
-*Last updated for Platterpus v0.6.66.*
+*Last updated for Platterpus v0.7.100.*

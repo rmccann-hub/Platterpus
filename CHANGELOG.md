@@ -12,6 +12,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.100] — 2026-10-07
+
+The first minor release past 0.6.x. Its gate was a Full hardware acceptance run with no
+failure in its archival sections, and the run of 2026-10-07 met it (below). The code is
+0.6.66's, plus the fixes listed here.
+
 ### Added
 
 - **The first acceptance run with every step passing that can run on this rig.** The
@@ -17966,7 +17972,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.100...HEAD
+[0.7.100]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66...v0.7.100
 [0.6.66]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66b1...v0.6.66
 [0.6.66b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.65...v0.6.66b1
 [0.6.65]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.64...v0.6.65
@@ -18036,4 +18043,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.66.*
+*Last updated for Platterpus v0.7.100.*

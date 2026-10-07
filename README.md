@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.66, pre-1.0.** Platterpus installs one pinned build of its own fork of cyanrip, and a new build becomes the default only after a *handshake round*: both projects check each other's work and both declare `GO`. Which build that is, and which round approved it, is shown in **Help → About Platterpus…** (the *Ripper* section) and in the generated map in [`DEPENDENCIES.md`](DEPENDENCIES.md#the-full-map-machine-readable-bomcdxjson). `0.7.100`'s gate, a Full hardware acceptance run with no failure in its archival sections, was met on 2026-10-07 ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
+> **Status: v0.7.100, pre-1.0.** Platterpus installs one pinned build of its own fork of cyanrip, and a new build becomes the default only after a *handshake round*: both projects check each other's work and both declare `GO`. Which build that is, and which round approved it, is shown in **Help → About Platterpus…** (the *Ripper* section) and in the generated map in [`DEPENDENCIES.md`](DEPENDENCIES.md#the-full-map-machine-readable-bomcdxjson). 0.7.100 is the first release with a full-green hardware acceptance run behind it (2026-10-07). 0.9.1 needs a second one, on another machine and distro ([`docs/testing.md` §5B](docs/testing.md)). What changed in each release: [`CHANGELOG.md`](CHANGELOG.md).
 >
 > **On the Pioneer BDR-209D, leave Overread (`-O`) off:** it hung the drive for about 23 minutes ([`docs/dependency-contracts.md`](docs/dependency-contracts.md)).
 >
@@ -1039,4 +1039,4 @@ FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full terms.
 
 ---
 
-*Last updated for Platterpus v0.6.66.*
+*Last updated for Platterpus v0.7.100.*
