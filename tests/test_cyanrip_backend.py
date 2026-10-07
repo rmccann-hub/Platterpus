@@ -876,12 +876,6 @@ def test_does_not_self_verify_encode() -> None:
     assert _impl().self_verifies_encode() is False
 
 
-def test_produces_max_compression_flac_true() -> None:
-    # cyanrip drives libavcodec at the maximum FLAC compression already, so a
-    # post-rip `flac -8` re-compress would gain nothing — the GUI skips it.
-    assert _impl().produces_max_compression_flac() is True
-
-
 def test_native_output_formats_includes_wav_and_mp3() -> None:
     # cyanrip CAN emit these natively via `-o`. This stays a reserved capability
     # seam (KDD-22) — the shipped feature transcodes from FLAC for both backends.

@@ -175,10 +175,10 @@ Worker mechanics, all demonstrated in `workers/`:
   a daemon `threading.Thread` that reports back via a queued signal (e.g.
   `ctdb_verify_done`); daemon threads die with the process and are never joined
   on close. The post-rip tagging/cover-art/CTDB chain runs this way. (When
-  several steps touch the *same* files — tagging, cover-art, and the optional
-  FLAC re-compress all rewrite the rip's FLACs — run them **sequentially on one
-  thread**, in a fixed order, not in parallel, to avoid a same-file race. The
-  re-compress runs **last** so it operates on the final tagged-and-arted files.)
+  several steps touch the *same* files — tagging and cover-art both rewrite the
+  rip's FLACs — run them **sequentially on one thread**, in a fixed order, not in
+  parallel, to avoid a same-file race. The transcode runs **last** so it reads
+  the final tagged-and-arted files.)
 - **Work that must finish after the window has gone → exit work** (`exit_work`,
   2026-09-30). The one case where a daemon thread dying with the process is
   wrong: stopping the ripper after a quit mid-rip. cyanrip needs up to a read's
@@ -585,12 +585,13 @@ fact and discarded it"* — which `CLAUDE.md` already calls the worse of the two
 because the artifact still **looks** complete. Three examples, in order of how
 badly they read:
 
-- `flac_verify`, `transcode` and `flac_recompress` each declared their injected
-  command seam as `Callable[[list[str]], int]`. Each one's default runner captured
-  the tool's stderr, logged a line or two, and dropped the rest. So a report could
-  say *"FLAC verify FAILED for 3 file(s): a, b, c"* and could not say **what `flac`
-  said about them**. Not an oversight at a call site — a **missing channel**, which
-  no amount of care at the call sites could have closed.
+- `flac_verify`, `transcode` and `flac_recompress` (removed 2026-10-07) each
+  declared their injected command seam as `Callable[[list[str]], int]`. Each
+  one's default runner captured the tool's stderr, logged a line or two, and
+  dropped the rest. So a report could say *"FLAC verify FAILED for 3 file(s): a,
+  b, c"* and could not say **what `flac` said about them**. Not an oversight at a
+  call site — a **missing channel**, which no amount of care at the call sites
+  could have closed.
 - `metaflac` runs on **every** rip — it is how the user's edited tags reach the FLAC
   and how the cover art is embedded — and logged nothing at all on failure. The
   argv, the exit code and the output were discarded at the point of failure; three
@@ -689,7 +690,7 @@ back to reading everything.
 
 | | Means | Example |
 |---|---|---|
-| `error` | The user experienced a failure, or a claim we make is invalidated | the ripper exited non-zero; a FLAC master failed its decode test; the re-compress step could not rewrite a master |
+| `error` | The user experienced a failure, or a claim we make is invalidated | the ripper exited non-zero; a FLAC master failed its decode test |
 | `warning` | Something degraded, was skipped, or could not be measured. The rip may be fine | CTDB unreachable; a dependency below its minimum; a non-zero *probe* exit; the library move failed (the audio is still where the rip put it) |
 | `info` | Notable, not a problem — because *"why did it choose that?"* is a real debugging question | the release genuinely has no cover art; the ripper build could not be identified (`not_determined`) |
 
@@ -1384,7 +1385,7 @@ WavPack, MP3, and WAV already ship (KDD-22); FLAC is the always-produced lossles
 the `Config.output_format` choices + the Settings combo, and round-trip it in
 `SettingsDialog.to_config()` (exposing a config field is incomplete until
 `to_config` carries it — KDD-22). The transcode runs **last** in the post-rip
-daemon thread (after tag → cover → re-compress), writing sibling files so it can't
+daemon thread (after tag → cover), writing sibling files so it can't
 race the metaflac steps. Route any new encoder binary through the dependency
 subsystem (no bespoke install code, Critical Rule #6 + #4).
 
@@ -1432,7 +1433,7 @@ a machine-readable **`<name>.platterpus.json`** rip report
 CLI) carrying the drive/rip settings, per-track CRCs + AccurateRip results, the
 shared verdict, and the CTDB result. `_on_rip_finished` writes it first
 (AccurateRip); then each async post-rip check (CTDB, FLAC-verify, transcode,
-derived-verify, re-compress, checksums) re-writes it with its result as it
+derived-verify, checksums) re-writes it with its result as it
 finishes — the re-writes coalesce onto a debounce timer
 (`_schedule_rip_report_write`), and each write passes *all* accumulated results
 so a coalesced write is never lossy. QA / re-verification / repair tooling
@@ -2072,4 +2073,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.7.101.*

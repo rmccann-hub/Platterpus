@@ -2669,7 +2669,7 @@ class ScriptRunner(
         seconds after its rip by the next section's Start.
 
         **It WAITS, because the transcode is asynchronous.** The post-rip daemon
-        runs tagging, cover art, re-compress and then the transcode, after
+        runs tagging, cover art and then the transcode, after
         `wait-for-rip` has already returned — so a step that looked once, straight
         after the rip, would be asserting that the work was *requested*. That is
         the distinction `CLAUDE.md` names (a `pick-release` step outran its own

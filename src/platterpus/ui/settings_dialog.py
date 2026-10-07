@@ -674,23 +674,11 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Verify FLACs:", self._verify_flac_check)
 
-        # --- FLAC re-compress ---
-        # Post-rip `flac -8` re-encode to shrink the output. cyanrip (the sole
-        # backend) already encodes FLAC at maximum compression, so there's
-        # nothing to gain — the post-rip step skips it for cyanrip. The toggle
-        # is shown disabled (value kept) with a tooltip saying why, rather than
-        # hidden, so the option's existence and rationale stay discoverable.
-        self._recompress_flac_check: QCheckBox = QCheckBox(
-            "Re-compress FLAC files after a rip (smaller files)", self
-        )
-        self._recompress_flac_check.setChecked(config.recompress_flac_after_rip)
-        self._recompress_flac_check.setEnabled(False)
-        self._recompress_flac_check.setToolTip(
-            "Read-only: cyanrip already encodes FLAC at maximum compression, so "
-            "re-compressing would only burn CPU for no size gain. Your value is "
-            "kept either way."
-        )
-        form.addRow("Re-compress FLACs:", self._recompress_flac_check)
+        # There is no "Re-compress FLACs" row any more (removed 2026-10-07, on the
+        # maintainer's ruling). cyanrip already writes FLAC at maximum compression,
+        # so the post-rip `flac -8` re-encode it switched on could never run, and
+        # the box sat here permanently greyed out. A control that cannot change
+        # anything is noise a user has to read past, so it went with the setting.
 
         # --- EAC-layout companion log ---
         # Write an honest, clearly-attributed EAC-*layout* text log beside each
@@ -987,7 +975,6 @@ class SettingsDialog(CenteredDialog):
             "read_speed": self._read_speed_spin.value(),
             "ctdb_verify_after_rip": self._ctdb_verify_check.isChecked(),
             "verify_flac_after_rip": self._verify_flac_check.isChecked(),
-            "recompress_flac_after_rip": self._recompress_flac_check.isChecked(),
             "write_eac_log_after_rip": self._eac_log_check.isChecked(),
             "save_additional_art": self._additional_art_check.isChecked(),
             "output_format": self._format_combo.currentData(),
@@ -1249,7 +1236,6 @@ class SettingsDialog(CenteredDialog):
         # A control changing means the user hand-tuned away from the preset.
         self._format_combo.currentIndexChanged.connect(self._on_dependent_changed)
         self._ctdb_verify_check.toggled.connect(self._on_dependent_changed)
-        self._recompress_flac_check.toggled.connect(self._on_dependent_changed)
         # Same omission in the other direction: editing this box by hand did not
         # flip the combo to Custom, so the label kept claiming a preset the
         # config no longer matched.
@@ -1289,7 +1275,6 @@ class SettingsDialog(CenteredDialog):
             # "Custom" (audit, 2026-07-28). The list here must stay in step with
             # GoalPreset's fields; that is why the dead `apply_preset` existed.
             self._verify_flac_check.setChecked(preset.verify_flac_after_rip)
-            self._recompress_flac_check.setChecked(preset.recompress_flac_after_rip)
             self._secure_rerip_spin.setValue(preset.secure_rerip_matches)
             # The checkbox is the INVERSE of the field: ticked means "verify every
             # track", which is `secure_rerip_dynamic=False`. Getting this backwards

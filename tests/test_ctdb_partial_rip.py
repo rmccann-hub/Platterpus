@@ -285,8 +285,6 @@ def _gates(*, ctdb_enabled: bool = True) -> dict[str, object]:
         ctdb_enabled=ctdb_enabled,
         flac_verify_enabled=False,
         backend_self_verifies=False,
-        recompress_enabled=False,
-        backend_maxes_compression=False,
         transcode_requested=False,
         rip_status="success",
     )

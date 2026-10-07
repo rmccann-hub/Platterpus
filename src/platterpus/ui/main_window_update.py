@@ -456,7 +456,7 @@ class UpdateMixin(MainWindowShared):
                 return
             detail = (
                 f"{detail}\n\nPlatterpus will not change the ripper while {blocker}. "
-                "Run this again from the Help menu when you are ready."
+                "Check again from Tools → Setup & Updates… when you are ready."
             )
             install_commit = ""
 

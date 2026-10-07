@@ -98,15 +98,6 @@ class _FakeBackend(RipBackend):
     def self_verifies_encode(self) -> bool:
         return self.self_verifies
 
-    # Encode FLAC at the default `-5`, not maxed (as the previous backend did)
-    # by default, so a re-compress runs when the user opts in; the cyanrip-skip
-    # test flips this to True. Re-compress defaults OFF, so this doesn't affect
-    # the generic rip tests.
-    produces_max_compression = False
-
-    def produces_max_compression_flac(self) -> bool:
-        return self.produces_max_compression
-
 
 class _FakeMb(MusicBrainzClient):
     def __init__(self) -> None:
@@ -918,6 +909,11 @@ def test_rip_requested_blocked_when_no_read_offset(
 
     assert warnings, "a warning should be shown when no offset is configured"
     assert "offset" in (warnings[0][0] + warnings[0][1]).lower()
+    # Regression (2026-10-07): this fires only for a drive whose offset is not
+    # known, which is exactly when cyanrip offers no Detect button, so the
+    # message used to send the user to a button that does not exist.
+    assert "Detect" not in warnings[0][1]
+    assert "Save offset" in warnings[0][1]
     assert window._rip_worker is None  # the rip did not start
     assert opened == [True]  # answering Yes opened the wizard
 
@@ -3590,6 +3586,23 @@ def test_maybe_offer_host_setup_records_and_opens_on_yes(
     assert opened == [True]
 
 
+def test_the_first_run_setup_question_offers_the_getting_started_guide(
+    teardown_threads, monkeypatch
+) -> None:
+    """KDD-42 W6: the first run offers the guide. It is a sentence in the first-run
+    question, not another modal on top of the three that launch already makes."""
+    window = teardown_threads(config=Config(host_setup_prompted=False))
+    asked: list[str] = []
+
+    def question(_parent: object, _title: str, text: str, *_a: object) -> object:
+        asked.append(text)
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(message_boxes, "question", question)
+    window._maybe_offer_host_setup()
+    assert asked and "Help → Getting started…" in asked[0]
+
+
 def test_maybe_offer_host_setup_skips_when_already_prompted(
     teardown_threads, monkeypatch
 ) -> None:
@@ -4623,6 +4636,29 @@ def test_help_menu_has_about_and_user_guide(teardown_threads) -> None:
     labels = [a.text() for a in help_menus[0].actions()]
     assert any("About" in lbl for lbl in labels)
     assert any("User Guide" in lbl for lbl in labels)
+
+
+def test_help_menu_starts_with_getting_started_and_keeps_one_window(
+    teardown_threads,
+) -> None:
+    """KDD-42 W6: Getting started is where a new user begins, so it is first in
+    Help; and it is non-modal, so asking twice raises the one already open."""
+    from PySide6.QtWidgets import QMenu
+
+    from platterpus.ui.getting_started_dialog import GettingStartedDialog
+
+    window = teardown_threads()
+    help_menu = next(
+        m for m in window.menuBar().findChildren(QMenu) if m.title() == "&Help"
+    )
+    first = help_menu.actions()[0]
+    assert first.text() == "&Getting started…"
+    first.trigger()
+    dialog = window._getting_started
+    assert isinstance(dialog, GettingStartedDialog) and dialog.isVisible()
+    window._on_show_getting_started()
+    assert window._getting_started is dialog
+    dialog.hide()
 
 
 def test_help_menu_has_open_logs_folder(teardown_threads) -> None:
@@ -6283,113 +6319,25 @@ def test_no_failure_report_when_rip_cancelled(teardown_threads, tmp_path: Path) 
     assert not (out_dir / "platterpus-rip-failure.platterpus.json").exists()
 
 
-# --- Post-rip FLAC re-compress (opt-in, off by default) --------------------
+# --- Post-rip FLAC re-compress: removed 2026-10-07 --------------------------
 
 
-def _stub_recompress(monkeypatch: pytest.MonkeyPatch, sink: list[list[Path]]):
-    """Replace the real flac re-compress with a recorder; return its result."""
-    from platterpus.adapters.flac_recompress import RecompressResult
+def test_the_window_has_no_re_compress_step_signal_or_slot(teardown_threads) -> None:
+    """The "Re-compress FLACs" setting was removed with the step it switched on.
 
-    def fake(paths, **_kw) -> RecompressResult:
-        sink.append(list(paths))
-        return RecompressResult(reencoded=len(list(paths)))
-
-    monkeypatch.setattr("platterpus.ui.main_window_rip.recompress_flac_files", fake)
-
-
-def test_recompress_skipped_when_disabled(
-    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    # Toggle off (the default) → re-compress never runs, even for a backend that
-    # does not max compression.
-    calls: list[list[Path]] = []
-    _stub_recompress(monkeypatch, calls)
-    window = teardown_threads(config=Config(recompress_flac_after_rip=False))
-    window._active_rip_params = _params(tmp_path, unknown=False)
-
-    window._on_rip_finished(True, "")
-
-    report_writer.writer().flush()  # the report write is off-thread now
-    if window._post_rip_thread is not None:
-        window._post_rip_thread.join(timeout=10)
-
-    assert calls == []
-
-
-def test_recompress_skipped_for_max_compression_backend(
-    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    # cyanrip already maxes compression → skip even with the toggle on.
-    calls: list[list[Path]] = []
-    _stub_recompress(monkeypatch, calls)
-    window = teardown_threads(config=Config(recompress_flac_after_rip=True))
-    window._backend.produces_max_compression = True
-    window._active_rip_params = _params(tmp_path, unknown=False)
-
-    window._on_rip_finished(True, "")
-
-    report_writer.writer().flush()  # the report write is off-thread now
-    if window._post_rip_thread is not None:
-        window._post_rip_thread.join(timeout=10)
-
-    assert calls == []
-
-
-def test_recompress_runs_for_a_non_max_backend_with_toggle_on(
-    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """A backend that does not max compression + toggle on → re-compress runs on the
-    post-rip daemon thread, over the FLACs the rip wrote (re-compress is stubbed
-    so no real flac runs)."""
-    calls: list[list[Path]] = []
-    _stub_recompress(monkeypatch, calls)
-    window = teardown_threads(config=Config(recompress_flac_after_rip=True))
-
-    album_dir = tmp_path / "Artist" / "Album"
-    album_dir.mkdir(parents=True)
-    (album_dir / "02 - B.flac").write_bytes(b"")
-    (album_dir / "01 - A.flac").write_bytes(b"")
-    log_file = album_dir / "Album.log"
-    log_file.write_text("", encoding="utf-8")
-    window._active_rip_params = _params(tmp_path, unknown=False)
-
-    window._on_rip_finished(True, str(log_file))
-
-    report_writer.writer().flush()  # the report write is off-thread now
-    assert window._post_rip_thread is not None  # folded into post-rip processing
-    window._post_rip_thread.join(timeout=10)
-
-    assert len(calls) == 1
-    assert [p.name for p in calls[0]] == ["01 - A.flac", "02 - B.flac"]  # sorted
-
-
-def test_on_flac_recompressed_logs_outcome(teardown_threads) -> None:
-    """The slot (GUI thread) notes the count on success and the failed files on
-    a partial failure, but never hijacks the status line (re-compress failures
-    are non-alarming — the original FLAC is still a valid rip)."""
-    from platterpus.adapters.flac_recompress import RecompressResult
-
+    cyanrip already writes FLAC at maximum compression, so the post-rip `flac -8`
+    re-encode could never run. Checked on the real window, because the signal,
+    its slot and the record field were the three places a half-removal would
+    leave a result with nowhere true to land.
+    """
     window = teardown_threads()
-    lines: list[str] = []
-    window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
-    window._rip_progress.set_status("Done.")
-
-    window._on_flac_recompressed(window._rip_generation, RecompressResult(reencoded=3))
-    assert any("3 file(s) re-compressed" in line for line in lines)
-
-    window._on_flac_recompressed(
-        window._rip_generation,
-        RecompressResult(reencoded=1, failures=(Path("02 - Bad.flac"),)),
-    )
-    assert any("left as-is" in line and "02 - Bad.flac" in line for line in lines)
-
-    window._on_flac_recompressed(
-        window._rip_generation, RecompressResult(error="'flac' not found")
-    )
-    assert any("skipped" in line for line in lines)
-
-    # None of these are alarming enough to replace the status line.
-    assert window._rip_progress._status_label.text().endswith("Done.")
+    assert not hasattr(window, "flac_recompress_done")
+    assert not hasattr(window, "_on_flac_recompressed")
+    record = window._open_post_rip_record()
+    assert not hasattr(record, "recompress")
+    # Floor: the siblings that replaced none of this are still there, so the
+    # three absences above are about the removed step and not a broken window.
+    assert hasattr(window, "transcode_done") and hasattr(record, "transcode")
 
 
 # --- Post-rip transcode (non-FLAC output format) --------------------------
@@ -8606,30 +8554,6 @@ def test_colon_restore_skips_a_previous_rips_leftovers(
     assert sorted(p.name for p in seen[0]) == sorted(_THIS_RIP)
 
 
-def test_flac_recompress_skips_a_previous_rips_leftovers(
-    teardown_threads, tmp_path: Path, monkeypatch, qapp
-) -> None:
-    """Regression: re-compress REWRITES each file it is given, so a leftover from
-    a cancelled rip was being re-encoded (and reported as re-encoded)."""
-    from platterpus.adapters.flac_recompress import RecompressResult
-    from platterpus.ui import main_window_rip as mwr
-
-    album, log_file = _album_with_leftovers(tmp_path)
-    seen: list[list[Path]] = []
-    monkeypatch.setattr(
-        mwr,
-        "recompress_flac_files",
-        lambda files: (seen.append(list(files)), RecompressResult(reencoded=2))[1],
-    )
-    window = teardown_threads()
-
-    _run_post_rip(window, album, log_file, recompress=True)
-    qapp.processEvents()
-
-    assert seen, "the re-compress step never ran"
-    assert sorted(p.name for p in seen[0]) == sorted(_THIS_RIP)
-
-
 def test_transcode_skips_a_previous_rips_leftovers(
     teardown_threads, tmp_path: Path, monkeypatch, qapp
 ) -> None:
@@ -9953,7 +9877,6 @@ def test_the_post_rip_result_handlers_ignore_a_payload_of_the_wrong_type(
     for handler in (
         window._on_checksums_done,
         window._on_flac_verified,
-        window._on_flac_recompressed,
         window._on_transcoded,
         window._on_derived_verified,
         window._on_tagging_done,
@@ -9968,7 +9891,6 @@ def test_the_post_rip_result_handlers_ignore_a_payload_of_the_wrong_type(
         "checksums",
         "audio_md5",
         "flac_verify",
-        "recompress",
         "transcode",
         "derived_verify",
         "tagging",
@@ -10470,28 +10392,6 @@ def test_a_slow_cover_fetch_that_lands_after_the_next_rip_is_dropped(
     )
 
 
-def test_a_recompress_crash_becomes_a_reported_result(
-    teardown_threads, tmp_path: Path, monkeypatch, qapp
-) -> None:
-    """Re-compress rewrites the archival masters, so its outcome belongs in the
-    report even (especially) when it blew up."""
-    from platterpus.ui import main_window_rip as mwr
-
-    album, log_file = _album_with_leftovers(tmp_path)
-    monkeypatch.setattr(
-        mwr,
-        "recompress_flac_files",
-        lambda files: (_ for _ in ()).throw(RuntimeError("flac exploded")),
-    )
-    window = teardown_threads()
-
-    _run_post_rip(window, album, log_file, recompress=True)
-    qapp.processEvents()
-
-    result = window._post_rip_record().recompress
-    assert result is not None and result.error == "failed unexpectedly"
-
-
 def test_a_transcode_crash_becomes_a_reported_result(
     teardown_threads, tmp_path: Path, monkeypatch, qapp
 ) -> None:
@@ -10514,45 +10414,73 @@ def test_a_transcode_crash_becomes_a_reported_result(
     assert result is not None and result.error == "failed unexpectedly"
 
 
-def test_a_stale_recompress_or_transcode_result_is_dropped(
+def test_a_stale_post_rip_result_is_dropped_and_the_later_step_still_runs(
     teardown_threads, tmp_path: Path, monkeypatch, qapp
 ) -> None:
-    """Same staleness rule as the cover fetch, for the two steps that run after
-    it: a result from album A must never be recorded against album B."""
-    from platterpus.adapters.flac_recompress import RecompressResult
+    """Same staleness rule as the cover fetch, for the step that runs after it:
+    a result from album A must never be recorded against album B.
+
+    Until 2026-10-07 the generation flipped inside the FLAC re-compress (step 3
+    of 4). That step was removed with its setting, so the flip now happens in the
+    cover-art step and the transcode, now step 3 of 3, is the later work that must
+    still be done. `save_additional_art=False` for the reason given in
+    `test_a_slow_cover_fetch_that_lands_after_the_next_rip_is_dropped`: with a
+    real release id it would otherwise make a live Cover Art Archive request.
+    """
+    from platterpus.adapters import cover_art as _ca
+    from platterpus.adapters.transcode import TranscodeResult
     from platterpus.ui import main_window_rip as mwr
 
     album, log_file = _album_with_leftovers(tmp_path)
-    window = teardown_threads()
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, save_additional_art=False)
+    )
     album_a = window._open_post_rip_record()
 
-    def _slow(files):
+    def _slow(*_a, **_k):
         window._rip_generation += 1
         window._open_post_rip_record()  # album B, exactly as Start would
-        return RecompressResult(reencoded=2)
+        return _ca.CoverArtResult(mode="embed", found=True, reason="ok", message="ok")
 
-    monkeypatch.setattr(mwr, "recompress_flac_files", _slow)
+    monkeypatch.setattr(_ca, "apply_cover_art", _slow)
     transcoded: list[object] = []
-    monkeypatch.setattr(
-        mwr, "transcode_files", lambda files, **kw: transcoded.append(files)
-    )
 
-    _run_post_rip(window, album, log_file, recompress=True, transcode_fmt="mp3")
+    def _transcode(files, **_kw):
+        transcoded.append(list(files))
+        return TranscodeResult(transcoded=2)
+
+    monkeypatch.setattr(mwr, "transcode_files", _transcode)
+
+    window._start_post_rip_processing(
+        album,
+        tag=False,
+        launch_picard=False,
+        release_id="some-mbid",
+        embed=True,
+        save_file=False,
+        transcode_fmt="mp3",
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+    assert not window._post_rip_thread.is_alive(), (
+        "the post-rip thread was still running, so nothing below would mean anything"
+    )
     qapp.processEvents()
 
-    assert window._post_rip_record().recompress is None  # album B: untouched
-    # ...AND IT LANDED ON ALBUM A, which is the other half of the same
+    # Album B: untouched by either of album A's results.
+    assert window._post_rip_record().cover_art is None
+    assert window._post_rip_record().transcode is None
+    # ...AND BOTH LANDED ON ALBUM A, which is the other half of the same
     # requirement. An assertion that only album B is clean would also pass if the
-    # result had been thrown away — and that is precisely what this code did, so
-    # the half that would have caught it has to be here.
-    assert album_a.recompress == RecompressResult(reencoded=2)
-    # ...AND THE LATER STEPS STILL RAN. This assertion used to be `transcoded == []`,
-    # with a comment approving of it: "the daemon returned at the generation check,
-    # so the LATER steps never ran against the old album's folder either." The
-    # requirement in this test's own docstring is that a result from album A is not
-    # RECORDED against album B — which the line above checks. Skipping the work as
-    # well was never part of it, and the transcode is step 4 of 4, so it was the
-    # first casualty and the least visible one.
+    # results had been thrown away — and that is precisely what this code once
+    # did, so the half that would have caught it has to be here.
+    assert album_a.cover_art is not None
+    assert album_a.transcode == TranscodeResult(transcoded=2)
+    # ...AND THE LATER STEP STILL RAN. The requirement is that a result from album
+    # A is not RECORDED against album B — which the lines above check. Skipping
+    # the work as well was never part of it, and the transcode is the last step,
+    # so it was the first casualty and the least visible one.
     #
     # What that cost, on the 2026-09-15 acceptance run: the MP3 and WavPack rips
     # were each cut short ~3 seconds after finishing and wrote **no `.mp3` and no
@@ -10563,7 +10491,7 @@ def test_a_stale_recompress_or_transcode_result_is_dropped(
     # new album's record, and that is the assertion above.
     assert transcoded != [], (
         "the transcode must still produce the user's chosen output format for the "
-        "album that was ripped — only its RESULT is dropped"
+        "album that was ripped — only its RESULT is kept off the newer album"
     )
 
 
@@ -10572,7 +10500,8 @@ def test_a_destroyed_window_does_not_break_a_late_post_rip_step(
 ) -> None:
     """Each step's emit is wrapped because Qt raises RuntimeError once the C++
     window is gone, and an exception on a daemon thread is a crash nobody can act
-    on. Pinned for all four steps at once."""
+    on. Pinned for all three steps at once (a fourth, the FLAC re-compress, was
+    removed with its setting on 2026-10-07)."""
     album, log_file = _album_with_leftovers(tmp_path)
     window = teardown_threads()
 
@@ -10586,7 +10515,6 @@ def test_a_destroyed_window_does_not_break_a_late_post_rip_step(
     for name in (
         "tagging_done",
         "cover_art_done",
-        "flac_recompress_done",
         "transcode_done",
     ):
         monkeypatch.setattr(window, name, _DeadSignal(), raising=False)
@@ -10599,7 +10527,6 @@ def test_a_destroyed_window_does_not_break_a_late_post_rip_step(
         release_id="",
         embed=False,
         save_file=False,
-        recompress=True,
         transcode_fmt="mp3",
         rip_log=_parsed_log(log_file),
     )
@@ -12568,8 +12495,6 @@ def test_a_cancelled_rips_superseded_checks_reach_the_report_as_superseded(
         "ctdb_enabled": True,
         "flac_verify_enabled": False,
         "backend_self_verifies": False,
-        "recompress_enabled": False,
-        "backend_maxes_compression": False,
         "transcode_requested": False,
     }
     record.outcome = {"status": "cancelled"}
@@ -12700,7 +12625,7 @@ def test_a_late_result_does_not_write_into_a_folder_the_next_rip_claimed(
     if late writes had simply been switched off — which would put back the data
     loss this whole change is about.
     """
-    from platterpus.adapters.flac_recompress import RecompressResult
+    from platterpus.adapters.transcode import TranscodeResult
 
     window = teardown_threads()
     shared = tmp_path / "Artist" / "Album"
@@ -12718,20 +12643,20 @@ def test_a_late_result_does_not_write_into_a_folder_the_next_rip_claimed(
     report = shared / "Album.platterpus.json"
     assert not report.exists(), "nothing should have been written yet"
 
-    # A's re-compress lands late. It belongs to A, and A's folder is now B's.
+    # A's transcode lands late. It belongs to A, and A's folder is now B's.
     window._record_post_rip_result(
-        album_a.generation, "recompress", RecompressResult(reencoded=2)
+        album_a.generation, "transcode", TranscodeResult(transcoded=2)
     )
     assert report_writer.writer().flush(), "report write timed out"
 
-    assert album_a.recompress == RecompressResult(reencoded=2), (
+    assert album_a.transcode == TranscodeResult(transcoded=2), (
         "the result still belongs to album A and must be kept on its record — "
         "declining the WRITE is not a licence to drop the RESULT"
     )
     assert not report.exists(), (
         "album A's late result overwrote the report in a folder album B now owns"
     )
-    assert album_b.recompress is None, "and it certainly must not land on album B"
+    assert album_b.transcode is None, "and it certainly must not land on album B"
 
 
 def test_a_late_result_still_writes_when_the_folder_is_still_its_own(
@@ -12743,7 +12668,7 @@ def test_a_late_result_still_writes_when_the_folder_is_still_its_own(
     late write, which passes that test and silently restores the 655 ms data loss
     the record was built to fix. Two albums, two folders, one late result.
     """
-    from platterpus.adapters.flac_recompress import RecompressResult
+    from platterpus.adapters.transcode import TranscodeResult
 
     window = teardown_threads()
     dir_a = tmp_path / "Artist" / "Album A"
@@ -12759,7 +12684,7 @@ def test_a_late_result_still_writes_when_the_folder_is_still_its_own(
     window._capture_post_rip_record(None, dir_b / "B.log")
 
     window._record_post_rip_result(
-        album_a.generation, "recompress", RecompressResult(reencoded=2)
+        album_a.generation, "transcode", TranscodeResult(transcoded=2)
     )
     assert report_writer.writer().flush(), "report write timed out"
 

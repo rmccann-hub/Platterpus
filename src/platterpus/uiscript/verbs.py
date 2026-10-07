@@ -145,8 +145,8 @@ _VERB_LIST: tuple[Verb, ...] = (
         "open",
         1,
         1,
-        "open <settings|dependencies|about|diagnostics|guide|setup|drive> "
-        "— open a dialog",
+        "open <settings|dependencies|about|diagnostics|guide|getting-started|"
+        "setup|drive> — open a dialog",
     ),
     Verb("ok", 0, 0, "ok — accept the dialog on top"),
     Verb("cancel", 0, 0, "cancel — dismiss the dialog on top"),
@@ -464,7 +464,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         0,
         1,
         "expect-verification [seconds] — assert this rip's post-rip checks (CTDB, "
-        "FLAC integrity, derived-format, re-compress) finished and left a result, "
+        "FLAC integrity, derived-format) finished and left a result, "
         "rather than being dropped when the next rip started. Waits (default 600s) "
         "because the checks run after `wait-for-rip` returns; at least one gate "
         "must have run, so the step cannot pass over a rip that checked nothing",
@@ -897,6 +897,7 @@ OPENABLE: dict[str, str] = {
     "about": "_on_show_about",
     "diagnostics": "_on_show_diagnostics",
     "guide": "_on_show_help",
+    "getting-started": "_on_show_getting_started",
     "setup": "open_host_setup_dialog",
     "drive": "_on_drive_setup",
 }

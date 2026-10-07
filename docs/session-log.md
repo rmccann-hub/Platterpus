@@ -11,6 +11,112 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-07 (small hours) — both pages audited line by line, and a log-checker hole found
+
+**What happened.** The maintainer: *"if needed plan to update documentation, because
+i got all that from your repo"* — the five claims came from `main`'s README and
+`docs/eac-parity.md`. So both pages were audited in full, by three read-only helpers
+(the README; eac-parity lines 1–337; 338–982), each finding to cite the file that
+proves it. Every finding applied was re-checked against that file first.
+
+**What it found that mattered more than staleness.**
+- **Track 5 is not "the disc".** My own entry below, and its commit `fa6f5fc2`, said
+  so, from a TASKS row's premise. The 2026-10-07 secure re-read converged on
+  `C96464AB`, which AccurateRip verifies at confidence 200 — the very value EAC's own
+  log says AccurateRip returned — so EAC's `E0036697` is the unverified read.
+  Measured over all 18 committed 14-track logs: twelve tracks verified every time,
+  track 3 in 9, track 5 once, never all fourteen in one rip; equal to EAC on all
+  fourteen in 5. Corrected wherever the premise had spread (`e37f7614`).
+- **Pre-emphasis is not preserved.** cyanrip de-emphasises flagged discs by default
+  and we never pass `-W`. Docs corrected; whether to pass `-W` is the maintainer's
+  call (TASKS, recommended yes). No pre-emphasised disc has been ripped.
+- **OPS's log checker could grade our EAC-layout log as genuine** if a title carried
+  EAC's first-line phrase. Fixed by widening D16 (`5421c6a9`), pinned on the shipped
+  2026-10-07 log.
+- **Four app messages** said the logs record an unapproved ripper; only the report
+  does (`ff02e437`).
+
+Also: the Re-compress FLACs removal landed (`5940ea08`, a helper's commit, report
+schema v33); about forty eac-parity statements and thirty-eight README ones corrected.
+
+**Learned.** An audit of the docs is an audit of the claims, and a claim can be wrong
+in the code's favour or against it; three of the findings were defects, not prose. And
+a correction I wrote an hour earlier was itself wrong, because it took its premise
+from a row rather than from the logs: the rule *answer from the artifact* applies to
+the premise as much as to the number.
+
+## 2026-10-07 (late night) — five README claims checked against the artifacts, one setting removed
+
+**What happened.** The maintainer quoted five claims from the README and
+`docs/eac-parity.md` and asked whether each was true, or asked to close it: the
+Overread warning, *gap/INDEX 00 + HTOA* as the one remaining gap, the cyanrip-master
+pre-gap row, WavPack as partial, and bit-identical audio as *"~90% there"*. They also
+asked to remove the inert *Re-compress FLACs* setting, which a helper did in its own
+worktree.
+
+**What the artifacts said.**
+- **Pre-gaps: closed on the fork.** `tests/test_fork_rip_eac_parity.py` holds all ten
+  of EAC's `Pre-gap length` rows. The 2026-10-07 cue marks the same nine tracks as
+  EAC's cue; track 1's two seconds are the standard lead-in, which neither cue marks.
+- **HTOA:** out of scope, now stated as that rather than as a gap.
+- **WavPack:** lossless, and checked against its FLAC master's PCM after every encode.
+  That is a stronger proof than `-v`.
+- **Bit-identical:** 14 of 14 equal to EAC once (2026-08-04), 13 of 14 on the latest
+  run. Track 5 is the disc: EAC cannot verify it either. Track 3 is the one open gap.
+  This drive read it four different ways on the latest run, and cyanrip has read EAC's
+  value on three earlier dates. *(Wrong about track 5, and "once" undercounts: see the
+  entry above.)*
+- **Overread:** the 23-minute stall was inside cyanrip's read past the disc's last
+  sector, on stock 0.9.3. Platterpus only passes the flag. Whether the drive or the
+  retries made it last that long is not settled. It goes to the fork in our round 31
+  lap 4, then to a bounded rig probe (TASKS).
+
+**Learned, again:** the first draft of the track 3 sentence said "five different
+checksums", from memory. The securing-pass file says four distinct values in six
+reads. "Every rip since writes INDEX 00" was one run checked. Both were corrected
+before the commit, by opening the file the sentence cites. That is CLAUDE.md's
+*answering from the artifact* question, which held because it was asked.
+
+## 2026-10-07 (night) — the getting-started walkthrough's framework, for 0.7.101
+
+**What happened.** The maintainer asked whether this release would carry the
+walkthrough that had been planned, then: *"include as much framework as you can, then
+a plan for when we actually do that"*. The release was held so it would carry the
+framework. Everything that does not need the rig is built (KDD-42, *The framework
+landed*):
+- the shot list;
+- the guide's text;
+- the viewer, Help → Getting started;
+- the README section;
+- the rig script;
+- the media builder, built by a helper in its own worktree against the shot list;
+- the tests that hold them together.
+
+**Writing the text against the code corrected the plan twice.**
+- KDD-42's step 4 said every archival default was already on. The EAC-compatible log
+  is off by default.
+- The User Guide, and the warning shown when a rip starts without an offset, told the
+  user to click **Detect** for a drive missing from AccurateRip's list. With cyanrip
+  that button does not exist, and that warning appears only in exactly that case. A
+  test now holds the warning to it.
+
+Learned: a plan's sentence about the app is a claim about the app, and the plan was
+written from memory. Each bold label in the guide is now checked against the UI
+source, which catches the next drift of this kind.
+
+**Two judgement calls**, recorded in KDD-42 so they can be reversed.
+- W5's cover-art placeholder became a guard test. No window renders a picture but the
+  logo, so no capture can hold label art until one does.
+- The first-run offer is one sentence in the existing setup question, not a fourth
+  launch-time modal.
+
+**Found and left open** (TASKS): `counts_as_evidence` is decided by the run size alone,
+so any script run at Full claims to be evidence. Nothing was miscounted, because the
+ledger is graded by hand from `fullacceptance.txt` runs. It is the
+*completeness field derived from config* shape, not fixed on release day.
+
+---
+
 ## 2026-10-07 (evening) — round 31 lap 2: yes to E1 to E9, and two readers fixed first
 
 **What happened.** The fork released round 31 lap 1 at `cyanrip@60cc48a`. It proposes that
@@ -10188,4 +10294,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.100.*
+*Last updated for Platterpus v0.7.101.*

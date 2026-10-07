@@ -41,15 +41,11 @@ SETTINGS = (
 
 #: Controls that legitimately describe no outcome, with the reason. A disabled
 #: control has no states to choose between, so demanding "ON:/OFF:" of it would
-#: force a sentence that lies. This list may shrink; adding to it needs a reason
-#: as concrete as this one.
-_NO_OUTCOME_NEEDED: dict[str, str] = {
-    "recompress_flac_after_rip": (
-        "permanently disabled — cyanrip already encodes FLAC at maximum "
-        "compression, so the control cannot change anything and its tooltip "
-        "explains that instead of describing two states"
-    ),
-}
+#: force a sentence that lies. This list may shrink; adding to it needs a
+#: concrete reason. EMPTY since 2026-10-07: its one entry, the permanently
+#: disabled "Re-compress FLACs" box, was removed with its setting, so every
+#: boolean in Settings now has to say what both of its states do.
+_NO_OUTCOME_NEEDED: dict[str, str] = {}
 
 
 def _tooltips() -> dict[str, str]:
@@ -123,7 +119,10 @@ def _saved(kind: str) -> list[tuple[str, str]]:
 def test_the_sweep_actually_finds_the_settings() -> None:
     """The floor. A regex that stopped matching would pass every case below."""
     assert len(_tooltips()) >= 25, f"only {len(_tooltips())} tooltip(s) found"
-    assert len(_saved("isChecked")) >= 12, "the boolean sweep found almost nothing"
+    # 11, not 12, since 2026-10-07: the "Re-compress FLACs" box was removed with
+    # its setting, so the dialog has one boolean fewer. The floor is the real
+    # count, so a sweep that lost even one row would still fail here.
+    assert len(_saved("isChecked")) >= 11, "the boolean sweep found almost nothing"
 
 
 def test_every_boolean_setting_names_both_outcomes() -> None:

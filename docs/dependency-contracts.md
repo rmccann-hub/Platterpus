@@ -53,7 +53,7 @@ rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
 | `-o flac` | output codec | always (FLAC is the archival master, Critical rule #4) |
 | `-r <int>` | **two limits in one flag**: libcdio-paranoia's per-frame retries (rounded up to a multiple of 5 by the fork's `crip_frame_retry_limit()`) **and** the ceiling on whole-track reads in a `-Z` secure re-read, which keeps the value as given (`cyanrip@faec4a8:src/cyanrip_main.c:1010`) | when `max_retries > 0`. For 0 **no `-r` is sent** and cyanrip applies its own default of **10** (`cyanrip@faec4a8:src/cyanrip_main.c:1593`), not zero — `cyanrip_cli.retries_flag_value` is that mapping, and everything that predicts the argv's `-r` calls it |
 | `-Z <int>` | re-read a track until one read's checksum equals **N earlier reads** — so **N+1 identical reads** (`docs/handshake/artifactsround27/round27fullsecurereread.log`, invoked `-r 3 -Z 2`: *"converged after 3 reads"* on 13 tracks) | only when `secure_rerip_matches > 0`. **`-Z N` needs `-r` > N, and the argv chokepoint refuses anything else** (`assert_secure_reread_can_converge`, rule in `cyanrip_cli.secure_reread_problem`): each whole-track read increments `total_repeats`, a read converges when it matches N earlier ones, and the loop stops at `-r` reads (`cyanrip@faec4a8:src/cyanrip_main.c:997-1012`), so with `-r` <= N no disc, however clean, can converge. With no `-r` the check uses cyanrip's default of 10; with a repeated flag it reads the last one, which is what genopt applies (`cyanrip@faec4a8:src/genopt.h:582`). `-r` == N+1 converges only if every read agrees; each read beyond N+1 is room for one that does not. The settings validator refuses the same pair at the input boundary, and the rip worker caps its own fallback recovery `-Z` below the user's `-r`. **N is the required AGREEMENT count, not a ceiling** — the fork's provider contract defines it as `--repeat-rips`, *"rip tracks until checksums match N times"*, and the ceiling is `-r` (hence cyanrip's "no matches found, but hit repeat limit of 5"). The wrong gloss here was the origin of a Settings label reading "Max reads…", corrected 2026-09-21. Dynamic mode applies it only to AccurateRip-failing tracks |
-| `-O` | overread into the lead-in/lead-out (upstream help: "may freeze if unsupported by drive") | only when the Settings "Overread" toggle (`force_overread`) is on — off by default, matching EAC's baseline "overread: No". **Flag verified against 0.9.3.1 + master (2026-07-21); `-x` did not exist in cyanrip at that date — it does now, in the fork, as the *cache probe* and not overread (see the `-x` block quote below).** **⚠ CONFIRMED to hang the Pioneer BDR-209D (real-hardware finding, 2026-07-22): 13 of 14 tracks ripped perfectly, then the drive hung ~23 min reading the last track's lead-out with the progress bar frozen near 100 %, exactly the upstream-warned failure. Overread should stay OFF on this drive; the GUI default is off.** |
+| `-O` | overread into the lead-in/lead-out (upstream help: "may freeze if unsupported by drive") | only when the Settings "Overread" toggle (`force_overread`) is on — off by default, matching EAC's baseline "overread: No". **Flag verified against 0.9.3.1 + master (2026-07-21); `-x` did not exist in cyanrip at that date — it does now, in the fork, as the *cache probe* and not overread (see the `-x` block quote below).** **⚠ CONFIRMED to stall a rip on the Pioneer BDR-209D (real-hardware finding, 2026-07-22, reproduced 2026-07-23, stock cyanrip 0.9.3): 13 of 14 tracks ripped perfectly, then cyanrip sat ~23 min reading the last track's lead-out with the progress bar frozen near 100 %, exactly the upstream-warned failure. Overread should stay OFF on this drive; the GUI default is off.** *Whose stall (2026-10-07):* not ours. Platterpus only passes the flag, and the read that stalled is cyanrip's: `-O` reads past the disc's last sector (`cyanrip@ca3f3ea:src/cyanrip_main.c:1484-1494`). Not yet settled is the split between the drive (how long it takes to refuse a read past the end) and cyanrip / libcdio-paranoia (how many times it retries a refused read). Never tried on the fork's builds; asked in our round 31 lap 4 (`TASKS.md`). |
 | `-S <int>` | cap read speed (× multiplier) | only when a positive fixed speed is requested. **⚠ ABORTS the rip (`EINVAL`) on a drive that reports speed as "unchangeable"** (the Pioneer BDR-209D does) — so the ladder parses `speed_changeable` and never sends `-S` to a speed-locked drive (real-hardware finding, 2026-07-01) |
 | `-l <n,n,…>` | rip only these 1-based track numbers | **two producers:** the user's per-track "Rip?" checkboxes (a deliberate partial rip, since v0.5.7) and the per-track auto-fix re-rip (a cheap targeted re-read). Empty = whole disc, which is also what "every track ticked" sends. |
 | `-N` | disable cyanrip's own MusicBrainz lookup | **always** (Critical rule #5 — the GUI feeds tags via `-a`/`-t`, so cyanrip stays offline and never shows its interactive prompt) |
@@ -428,11 +428,15 @@ probe is timeout-bounded (a wedged drive can't hang the worker) and `cd-paranoia
 is already in the force-stop reader-name list (`drive_control.py`), so a hung
 probe is killable via Cancel.
 
-**Flags that exist upstream but are intentionally not passed:** cyanrip's
-`-E` (force de-emphasis) exists in its CLI but Platterpus never passes it —
-emphasis handling is **flag-only preservation**: we deliberately leave
-pre-emphasis-encoded discs as cyanrip finds them (an archival choice, not an
-oversight) rather than actively de-emphasizing. *(Overread moved out of this
+**Flags that exist upstream but are not passed:** cyanrip's `-E` (force
+de-emphasis) and `-W` (disable automatic de-emphasis). **Corrected 2026-10-07:**
+this paragraph used to say Platterpus leaves pre-emphasised discs as cyanrip finds
+them. It does not, because cyanrip's own default is to de-emphasise a disc whose
+TOC flags pre-emphasis (`settings.deemphasis = 1`, cyanrip@ca3f3ea:src/cyanrip_main.c:1816;
+`crip_deemphasis_active`, src/cyanrip_main.h:502-507), and only `-W` turns that
+off. Upstream has done this since 0.9.3 too. So today such a disc's FLAC holds
+de-emphasised samples, which AccurateRip cannot verify. Untested here: no
+pre-emphasised disc has been ripped. Whether to pass `-W` is open in `TASKS.md`. *(Overread moved out of this
 list 2026-07-21: it's now the opt-in Settings "Overread" toggle → `-O` in the
 table above. Note the flag-letter correction made the same day: earlier
 versions of this doc called overread `-x` rather than `-O`, but `-x` did not exist in
@@ -518,13 +522,9 @@ mix-up came from.)*
   stored MD5. Exit 0 = clean. A missing `flac` binary → result with `ran=False`
   (reported, never raised). Bounded by a timeout.
 
-## flac — re-compression (`adapters/flac_recompress.py`, opt-in, off for cyanrip)
-
-- **`flac -8 -e -p --verify --silent -f -o <tmp> <file>`** (then an atomic `os.replace`) — maximum-effort lossless
-  re-encode. `-e` (exhaustive model search) + `-p` (qlp-coeff precision search)
-  keep LPC order at 12, so they add encode time but **no decode cost**; `--verify`
-  re-decodes to confirm bit-identity. cyanrip already maxes compression, so this
-  is skipped for it. To revert to a plain `-8`, set `_EXTRA_FLAGS = ()`.
+*(A `flac -8` re-compression adapter was listed here. It was removed on
+2026-10-07 with the "Re-compress FLACs" setting: cyanrip already writes FLAC at
+maximum compression, so we never re-encode a master after the rip.)*
 
 ## flac / metaflac — CTDB decode path (`ctdb/decode.py`)
 
@@ -754,4 +754,4 @@ SIGKILL only if the drive is still held or fuser cannot say — see
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.7.101.*

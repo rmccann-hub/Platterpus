@@ -252,6 +252,9 @@ def _atomic_write_text(target: Path, text: str) -> None:
 # v29: `disc.eac_log_signature_lines_defused` — lines of the EAC-layout log a
 #      metadata value had shaped like a log signature, as rewritten so the log
 #      cannot read as EAC-signed (D16, KDD-38), with an `info` issue beside it.
+#      Same field, same type, from 2026-10-07 also a line shaped like EAC's or
+#      XLD's first line (`EAC extraction logfile from`), which a logchecker reads
+#      to accept a log as theirs; no schema bump, as no reader's parsing changes.
 # v30: `read_speed.retried_tracks[].replaced_because` — why the auto-fix kept a
 #      re-read (`accuraterip` or `converged`), or null. A re-read is now kept when
 #      it matches AccurateRip and the first read did not, even if it did not
@@ -269,7 +272,21 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      record's `state` and every disagreement with our own reading, and the
 #      `ripper_record_disagrees` issue. The records reached the report bundle in
 #      `a7a631b9` and nothing read them; the handshake register's W6.
-REPORT_SCHEMA_VERSION: int = 32
+# v33: REMOVED, not added — `settings.recompress_flac_after_rip`,
+#      `verification.gates.recompress`, the `verification.recompress` block and
+#      the `recompress_failed` issue code. They described the "Re-compress
+#      FLACs" setting, which the maintainer ruled removed on 2026-10-07: cyanrip
+#      already writes FLAC at maximum compression, so the post-rip `flac -8`
+#      re-encode could never run, and every report since KDD-18 carried
+#      `"disabled"` or `"backend already maxes compression"` beside a null block.
+#      A shape change by this file's own rule (a key set consumers and
+#      `tests/test_rip_report_completeness.py` pin exactly lost members), so the
+#      number moves even though nothing was added. `settings.every_setting` loses
+#      the key by itself, being derived from `Config`. Readers in this repo
+#      (`uiscript/artifact_grading.settle_state`, the `expect-verification`
+#      floor) iterate the gates they find rather than naming them, so a v32
+#      report that still carries the keys reads exactly as before.
+REPORT_SCHEMA_VERSION: int = 33
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -315,7 +332,6 @@ def build_report(
     flac_verify_result: object | None = None,
     transcode_result: object | None = None,
     derived_verify_result: object | None = None,
-    recompress_result: object | None = None,
     cover_art_result: object | None = None,
     tagging_result: object | None = None,
     read_speed: ReportReadSpeedBlock | None = None,
@@ -358,8 +374,8 @@ def build_report(
     ``settings`` (:func:`build_settings`), ``disc``, ``environment``
     (defaults to :func:`build_info.environment_report` when omitted), ``gates``
     (:func:`build_gates`), ``cover_art_result``, ``secure_rerip`` (folded into
-    the ``read_speed`` block), ``recompress_result`` and ``log_parse``. The
-    ``issues`` list is derived here from the assembled blocks. Never raises.
+    the ``read_speed`` block) and ``log_parse``. The ``issues`` list is
+    derived here from the assembled blocks. Never raises.
     """
     try:
         return _build(
@@ -375,7 +391,6 @@ def build_report(
             read_speed,
             eta_trace,
             audio_md5=audio_md5,
-            recompress_result=recompress_result,
             cover_art_result=cover_art_result,
             tagging_result=tagging_result,
             secure_rerip=secure_rerip,
@@ -860,7 +875,6 @@ def build_settings(config: object, *, read_offset_effective: int | None = None) 
         "max_retries": getattr(config, "max_retries", None),
         "ctdb_verify_after_rip": getattr(config, "ctdb_verify_after_rip", None),
         "verify_flac_after_rip": getattr(config, "verify_flac_after_rip", None),
-        "recompress_flac_after_rip": getattr(config, "recompress_flac_after_rip", None),
         # DERIVED, not read back. `rip_goal` in the config file is a label for a
         # bundle of the six fields above it, and nothing keeps the two in step:
         # a hand-edited config.toml, a field changed by any path that does not go
@@ -972,8 +986,6 @@ def build_gates(
     ctdb_enabled: bool,
     flac_verify_enabled: bool,
     backend_self_verifies: bool,
-    recompress_enabled: bool,
-    backend_maxes_compression: bool,
     transcode_requested: bool,
     superseded: Collection[str] = (),
     rip_status: str | None = None,
@@ -988,7 +1000,7 @@ def build_gates(
     "didn't run" is never misread as "passed" (or "failed"). Pure; never raises.
 
     ``superseded`` names the gate keys (``"ctdb"``, ``"flac_integrity"``,
-    ``"derived"``, ``"recompress"``) whose work was dropped because a newer rip
+    ``"derived"``) whose work was dropped because a newer rip
     started. Those win over every config-derived state below, because they are a
     fact about what HAPPENED and the rest are facts about what was REQUESTED —
     and when those two disagree the second one is the one that lies.
@@ -1012,16 +1024,11 @@ def build_gates(
         flac_gate = "backend self-verifies"
     else:
         flac_gate = "ran"
-    if not recompress_enabled:
-        recompress_gate = "disabled"
-    elif backend_maxes_compression:
-        recompress_gate = "backend already maxes compression"
-    else:
-        recompress_gate = "ran"
+    # No `recompress` gate since schema v33: the setting and the step it gated
+    # were removed (see the schema history above `REPORT_SCHEMA_VERSION`).
     gates = {
         "ctdb": "ran" if ctdb_enabled else "disabled",
         "flac_integrity": flac_gate,
-        "recompress": recompress_gate,
         "derived": "ran" if transcode_requested else "flac-only",
     }
     # Only over a gate that claims the work RAN. A `disabled`/`flac-only` gate is
@@ -1165,7 +1172,6 @@ def _build(
     # argument after it — `derived_verify_result` would have arrived as `audio_md5`.
     # Past the `*` that cannot happen.
     audio_md5: dict | None = None,
-    recompress_result: object | None = None,
     cover_art_result: object | None = None,
     tagging_result: object | None = None,
     secure_rerip: dict | None = None,
@@ -1207,7 +1213,6 @@ def _build(
     flac_integrity = _flac_verify(flac_verify_result)
     transcode = _transcode(transcode_result)
     derived = _derived_verify(derived_verify_result)
-    recompress = _recompress(recompress_result)
     ctdb = _ctdb(ctdb_result)
     # The gate is built from the SETTINGS ("ran" because CTDB was switched on);
     # the verdict says whether the check actually ran. Corrected here, where both
@@ -1281,7 +1286,6 @@ def _build(
         read_speed=read_speed_block,
         heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
         log_truncated=bool(getattr(rip_log, "log_truncated", False)),
-        recompress=recompress,
         log_parse=log_parse_block,
         completeness=completeness,
         rip=rip_block,
@@ -1424,8 +1428,8 @@ def _build(
         "ctdb": ctdb,
         # The full post-rip verification suite in one place: AccurateRip lives in
         # `verdict`/`tracks`, CTDB stays at `ctdb` (back-compat), and this block
-        # adds the FLAC-integrity decode + the transcode + re-compress outcomes so
-        # a reader sees every check the master (and any derived files) passed.
+        # adds the FLAC-integrity decode + the transcode outcomes so a reader sees
+        # every check the master (and any derived files) passed.
         # `gates` says WHY each result is or isn't populated ("ran" / "disabled" /
         # "backend self-verifies" / "flac-only"), so a null is never ambiguous.
         "verification": {
@@ -1433,7 +1437,6 @@ def _build(
             "flac_integrity": flac_integrity,
             "transcode": transcode,
             "derived": derived,
-            "recompress": recompress,
         },
         # The front-cover result — hits "good cover image" directly: found / why
         # not / how many files it was embedded in. None on a FLAC-only rip with no
@@ -1845,39 +1848,6 @@ def _ctdb(result: object | None) -> dict | None:
     }
 
 
-def _recompress(result: object | None) -> dict | None:
-    """Serialize a RecompressResult (opt-in ``flac -8`` re-encode of the masters).
-
-    It mutates the archival masters, so its outcome belongs in the report. ``ok``
-    is true only when every file re-encoded (or none needed to) with no error.
-    None when re-compress wasn't run (the common case). Never raises."""
-    if result is None:
-        return None
-    failures = getattr(result, "failures", ()) or ()
-    error = getattr(result, "error", "") or None
-    # `ran` READ OFF THE RESULT, never hardcoded.
-    #
-    # This was `"ran": True`, which is a wrong answer in a real case: when `flac`
-    # is missing the step cannot run at all, `RecompressResult.error` is set, and
-    # `.ran` is False — but the report said `ran: true, ok: false`, i.e. "we
-    # re-encoded your archival masters and it went badly" instead of "we never
-    # touched them". For the one step that MUTATES the masters, that is the worst
-    # possible direction to be wrong in. Every sibling serializer here already
-    # read `.ran`; this one alone asserted it.
-    ran = bool(getattr(result, "ran", True))
-    return {
-        "ran": ran,
-        "ok": ran and (not failures) and (error is None),
-        "reencoded": getattr(result, "reencoded", 0),
-        "failures": [str(p) for p in failures],
-        # This step REWRITES the archival master, so a bare "it failed" is least
-        # acceptable here of anywhere: each entry says whether flac refused, flac
-        # claimed success and wrote nothing, or the atomic swap-in failed.
-        "failure_details": _failure_details(result),
-        "error": error,
-    }
-
-
 def _cover_art(result: object | None) -> dict | None:
     """Serialize a CoverArtResult (the front-cover fetch/embed outcome).
 
@@ -1985,7 +1955,6 @@ def _issues(
     # ADDED after an audit found each of these could be true while `issues` stayed
     # empty — i.e. the one list a triager opens first said "nothing to flag" about a
     # rip that had demonstrably gone wrong. Each is a separate `if` below.
-    recompress: dict | None = None,
     log_parse: dict | None = None,
     completeness: dict | None = None,
     rip: dict | None = None,
@@ -2049,8 +2018,9 @@ def _issues(
             "info",
             "eac_log_signature_line_defused",
             f"{len(defused)} line(s) of the EAC-layout log came from metadata shaped "
-            "like a log signature and were rewritten ('====' to '----') so the log "
-            "cannot be read as EAC-signed. The tags and file names are unchanged.",
+            "like a log signature or like EAC's own first line, and were rewritten "
+            "('====' to '----', or 'logfile' to 'log file') so the log cannot be read "
+            "as EAC's. The tags and file names are unchanged.",
         )
 
     status = (outcome or {}).get("status")
@@ -2320,33 +2290,12 @@ def _issues(
     # `issues` stayed EMPTY. An empty issues list is read as "nothing to flag", so
     # each of these was a silent failure with its evidence sitting two blocks away.
 
-    # RE-COMPRESS was not even a parameter of this function. It is the one step that
-    # MUTATES the archival masters, so a failure here is the most consequential kind
-    # there is — and it produced no issue at all.
-    if recompress and recompress.get("ran") and not recompress.get("ok"):
-        whole = recompress.get("error")
-        failed = recompress.get("failures") or []
-        detail = (
-            f"the re-compress pass failed outright ({whole})"
-            if whole
-            else f"{len(failed)} file(s) failed to re-encode: "
-            + ", ".join(str(f) for f in failed[:10])
-            + (", …" if len(failed) > 10 else "")
-        )
-        add(
-            "error",
-            "recompress_failed",
-            f"{detail} — this step re-encodes the archival masters in place, so "
-            f"verify those files before trusting them",
-        )
-
     # A VERIFICATION STEP THAT COULD NOT RUN was silent: `ran: false` skipped every
     # check above, while `verification.gates` still said "ran" (the gate is derived
     # from config, not from the result). "We did not check" is not "it passed".
     for label, block in (
         ("FLAC integrity", flac_integrity),
         ("derived-format verification", derived),
-        ("re-compress", recompress),
     ):
         if block is not None and not block.get("ran") and block.get("error"):
             add(
@@ -2374,7 +2323,6 @@ def _issues(
         ("ctdb", "the CTDB check", ctdb),
         ("flac_integrity", "FLAC integrity", flac_integrity),
         ("derived", "derived-format verification", derived),
-        ("recompress", "re-compress", recompress),
     ):
         state = (gates or {}).get(gate_key)
         if block is not None:
@@ -2590,7 +2538,6 @@ def write_report(
     flac_verify_result: object | None = None,
     transcode_result: object | None = None,
     derived_verify_result: object | None = None,
-    recompress_result: object | None = None,
     cover_art_result: object | None = None,
     tagging_result: object | None = None,
     read_speed: ReportReadSpeedBlock | None = None,
@@ -2640,7 +2587,6 @@ def write_report(
             flac_verify_result=flac_verify_result,
             transcode_result=transcode_result,
             derived_verify_result=derived_verify_result,
-            recompress_result=recompress_result,
             cover_art_result=cover_art_result,
             tagging_result=tagging_result,
             read_speed=read_speed,

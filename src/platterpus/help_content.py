@@ -38,6 +38,8 @@ archival quality (EAC-equivalent), naming and tagging tracks from
 produces a lossless **FLAC** master; you can also have **WavPack**, **MP3**, or
 **WAV** derived from it (see *Output format* in Settings).
 
+**New here?** **Help → Getting started…** walks through a first rip, step by step.
+
 ## How it's wired
 
 The GUI runs on your desktop and calls the host-exported ripping tool
@@ -273,9 +275,8 @@ and the startup test script in the script console.
   whole discs, so the result says *not run* and how many tracks were ripped,
   rather than anything about the disc.
 - **Verify FLAC files after a rip** — decode each FLAC back and check it against its
-  stored checksum (on by default). (**Re-compress FLACs** is shown but disabled:
-  cyanrip already encodes FLAC at maximum compression, so there's nothing to
-  gain.)
+  stored checksum (on by default). There is no compression setting: cyanrip
+  already writes every FLAC at maximum compression.
 - **Write an EAC-compatible log** — in addition to cyanrip's own `.log`, write a
   second log beside each rip in the format Exact Audio Copy uses, for tools and
   people that expect that layout. It records the same rip, just formatted like an
@@ -362,7 +363,7 @@ Separate from the app's own update check, because it is a different
 decision. Platterpus rips with a **pinned build** of the Platterpus fork of
 cyanrip, and which build that is matters: every rip checks the ripper it
 actually ran against the build the cyanrip handshake approved, and says so
-in the rip report, the log and the EAC-compatible export.
+in the rip report (the log and the EAC-compatible export name the build).
 
 This check asks the fork which builds it has published and tells you
 whether a newer one exists. **It installs nothing without asking.** It says
@@ -400,9 +401,9 @@ Sets your drive's **read offset** — the one calibration a bit-perfect rip
 depends on (without the right offset, even a clean disc won't match AccurateRip).
 For most drives the wizard already knows the right value (from
 the bundled AccurateRip drive list) and pre-fills it, so it's a single
-**Save offset** click — no disc needed. If your drive isn't in the list,
-insert a popular commercial CD and click **Detect**, or type the offset into
-**Read offset (samples)** by hand. The value is saved to the app's own settings
+**Save offset** click — no disc needed. If your drive isn't in the list, type
+its offset into **Read offset (samples)** by hand: cyanrip cannot measure it from
+a disc, so there is no Detect button. The value is saved to the app's own settings
 and applied to every rip (cyanrip's read-offset option). Do this once per drive.
 
 This window is the one place the offset is changed; Settings only shows it. Below

@@ -395,7 +395,9 @@ class ProvisioningMixin(MainWindowShared):
             "Set up Platterpus",
             "Platterpus needs a one-time setup to install its ripping tool "
             "(cyanrip) in a small container — no terminal required. Set it up "
-            "now?\n\nYou can also do this later from Tools → Setup & Updates… → Run setup….",
+            "now?\n\nYou can also do this later from Tools → Setup & Updates… → Run setup…."
+            "\n\nNew to Platterpus? Help → Getting started… walks through setup and "
+            "a first rip.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )

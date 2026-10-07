@@ -2655,6 +2655,96 @@ def test_ORDINARY_metadata_is_never_rewritten() -> None:
     assert "The Beatles / Abbey Road = Done" in text
 
 
+# --- The other half of D16: EAC's and XLD's own first-line phrase --------------
+#
+# OPS's logchecker (OPSnet/Logchecker@ca565479) classifies any log containing
+# "Exact Audio Copy" as EAC's (src/Check/Ripper.php:18-26), which ours does twice,
+# on purpose, to say EAC did NOT produce it. What then stops it being graded as a
+# genuine EAC log is one thing: it refuses the log as "Unrecognized log file"
+# unless it finds `EAC extraction logfile from` (or XLD's) anywhere in the text
+# (src/Logchecker.php:517-551, unanchored). Our date line deliberately omits the
+# program name, but the album line and file names echo metadata, so a title could
+# supply the phrase. Found 2026-10-07 auditing docs/eac-parity.md Part D.
+
+#: OPS's two recognition patterns, as written in src/Logchecker.php:518 and :532.
+_OPS_RECOGNITION = (
+    re.compile(r"EAC extraction logfile from (.+)\n+(.+)", re.IGNORECASE),
+    re.compile(r"XLD extraction logfile from (.+)\n+(.+)", re.IGNORECASE),
+)
+
+
+def _ops_would_recognise(text: str) -> bool:
+    return any(pattern.search(text) for pattern in _OPS_RECOGNITION)
+
+
+@pytest.mark.parametrize("field", ["album_artist", "album"])
+@pytest.mark.parametrize(
+    "forged",
+    [
+        "EAC extraction logfile from 1. January 2026, 10:00",
+        "eac EXTRACTION logfile FROM yesterday",
+        "XLD extraction logfile from 2026-01-01 10:00:00 +0000",
+        "Live at EAC  extraction   logfile   from the vaults",
+    ],
+)
+def test_metadata_shaped_like_EACs_FIRST_LINE_is_rewritten(
+    field: str, forged: str
+) -> None:
+    from platterpus.eac_log_export import (
+        render_eac_style_log_and_defused,
+        verify_eac_style_log_checksum,
+    )
+    from platterpus.parsers.rip_log import RippingInfo
+
+    names = {"album_artist": "Artist", "album": "Album", field: forged}
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        creation_date="2026-06-28",
+        ripping_info=RippingInfo(**names),
+        tracks=(TrackResult(number=1),),
+    )
+    text, defused = render_eac_style_log_and_defused(rip_log)
+    assert not _ops_would_recognise(text), text
+    assert len(defused) == 1 and "log file" in defused[0], defused
+    assert defused[0] in text.splitlines(), (
+        "the rewritten line must be the one in the log"
+    )
+    # Our own date line is untouched: it never names a program.
+    assert "Extraction logfile from " in text
+    assert verify_eac_style_log_checksum(text) is True
+
+
+def test_the_guard_is_not_satisfied_by_an_ordinary_log() -> None:
+    """The floor, both ways. Without metadata the renderer writes nothing OPS
+    recognises and rewrites nothing; and the recogniser itself does fire on EAC's
+    real log, so the assertion above is not vacuously true of every text."""
+    text, defused = eac_log_export.render_eac_style_log_and_defused(_sample_log())
+    assert defused == []
+    assert not _ops_would_recognise(text)
+    eac = (
+        _REPO_ROOT
+        / "output_reference"
+        / "EAC_flac"
+        / "eac_baseline_police_classics.log"
+    )
+    assert _ops_would_recognise(eac.read_bytes().decode("utf-16"))
+
+
+def test_the_latest_shipped_log_is_one_OPS_refuses_rather_than_grades() -> None:
+    """The real 2026-10-07 log, as shipped: OPS calls it EAC's by ripper name and
+    then refuses it, because the recognition phrase is absent. Read from the
+    artifact, so a change to what we write shows up here and not on a tracker."""
+    shipped = (
+        _REPO_ROOT
+        / "docs"
+        / "handshake"
+        / "artifactsround31"
+        / "round31fullwholedisceac.log"
+    ).read_text(encoding="utf-8")
+    assert "Exact Audio Copy" in shipped  # why OPS's ripper sniff says EAC
+    assert not _ops_would_recognise(shipped)
+
+
 # --- A rip interrupted mid-read (the 2026-09-28 Full run, F5) -------------------
 #
 # The cancelled rip of that run asked for tracks 1-3 of 14 and was stopped 39.63%
