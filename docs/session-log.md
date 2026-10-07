@@ -39,6 +39,13 @@ proves it. Every finding applied was re-checked against that file first.
 Also: the Re-compress FLACs removal landed (`5940ea08`, a helper's commit, report
 schema v33); about forty eac-parity statements and thirty-eight README ones corrected.
 
+**Released 0.7.101** after it: PR #304 merged with a merge commit at `0d21b62d`, `main`'s
+own CI green on that commit, then `release.yml` (run 37666627759) green and attested.
+The handshake gate permitted it under the §6b override in our released round 31 lap 2.
+It carries `62aa7bb0`'s two readers ahead of the fork's `.22`, the getting-started
+framework, the Re-compress removal (report schema v33), the log-checker guard and the
+audit's corrections.
+
 **Learned.** An audit of the docs is an audit of the claims, and a claim can be wrong
 in the code's favour or against it; three of the findings were defects, not prose. And
 a correction I wrote an hour earlier was itself wrong, because it took its premise
