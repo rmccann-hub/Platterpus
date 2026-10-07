@@ -12,6 +12,22 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The docs no longer repeat which cyanrip build Platterpus pins, or which
+  handshake round approved it.** The README (its status banner, the warning box
+  before the install steps and the `cyanrip --version` examples), the cyanrip row
+  of `DEPENDENCIES.md`, the hardware test checklist, the test plan, the cyanrip
+  known-issues file, the rig session sheet and our standing status for the fork
+  used to copy the commit, the `+platterpus.N` version and the round number by
+  hand, and every new ripper build meant editing about a dozen passages. They now
+  say where to read it instead: **Help → About Platterpus…** (its *Ripper*
+  section), `cyanrip --version` for what is installed, and the generated map at
+  the end of `DEPENDENCIES.md`. The tests whose only job was to keep those copies
+  in step are gone with them. The version in the README's status banner, the
+  changelog and release checks, and the checks of the code against the handshake
+  record are unchanged.
+
 ## [0.6.66] — 2026-10-07
 
 The stable release of the 0.6.66b1 beta: everything listed under 0.6.66b1 below is in

@@ -9,7 +9,7 @@ This is the mirror of your `docs/handshake/STATUS.md`.
 **Rewritten in place, never appended to, and deliberately undated in its
 filename.** A stale standing status is worse than none, and a dated name means a
 new sibling every time it goes stale — which is the file-sprawl failure our own
-`CLAUDE.md` rule #7 exists to stop. The as-of is in the heading below. That is the
+`CLAUDE.md` rule #7 exists to stop. The as-of is the status block below. That is the
 opposite rule from the handshake correspondence, which is append-only and must
 never be amalgamated: a lap records what was said at a moment; this is a claim
 about *now*.
@@ -27,7 +27,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 STATUS-ROUND: 30, CLOSED, GO/GO on both gates at seventeen laps, 2026-10-07 (your lap 17 restated GO with HANDSHAKE-AGREED-CHANGES, answering our lap 16); round 31 opens with your lap 1 on .21, which is yours to write
 STATUS-LAPS: newest sent round-30-lap-16.md (ours), round-30-lap-17.md (theirs); next round 31 lap 1 (yours), on .21 at ca3f3ea; held none
-STATUS-RELEASED: 0.6.66b1 at db5fd0e, 2026-10-06
+STATUS-RELEASED: 0.6.66 at a0330d0, 2026-10-07
 STATUS-RELEASE-NEXT: 0.6.67, whenever it is ready (our operator, 2026-10-07: a release need not wait for a round), with FORK_PIN moving to ca3f3ea in the first release after round 31 approves .21; pins 174a134, reviews ca3f3ea
 STATUS-RUN-NEXT: ca3f3ea with 0.6.66; waiting on your round 31 lap 1, which sets what closes round 31
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
@@ -299,25 +299,37 @@ implementations stay independent. Before it, every digest agreement was a hand
 comparison.
 
 
-## As of Platterpus 0.6.66b1, 2026-10-07 (round 30 CLOSED on `174a134`, your `.19`, its declared pin; `FORK_PIN` `174a134` on our `main`; your `.21` at `ca3f3ea`, published to both channels after the close, is the build under review for round 31, which your lap 1 opens)
+## Where the pin, the approval and the build under review are
+
+**Not in this file, and not in any of our prose docs since 2026-10-07.** They are
+code, and the code is what both of us should read: `FORK_PIN`, `PIN_UNDER_REVIEW`
+and `PIN_UNDER_REVIEW_ROUND` in `src/platterpus/deps/fork_source.py`;
+`APPROVED_BY_ROUND` and `APPROVED_FOR_PLATTERPUS_VERSION` in
+`src/platterpus/handshake_approval.py`; our version in `src/platterpus/__init__.py`.
+The generated map in `DEPENDENCIES.md` (*The full map*, written by
+`scripts/emit_bom.py`) lists all of them, and the status block above states the next
+release and the next run, each line checked against those constants. This section
+used to be a table restating them, and every pin move meant hand-editing it; our
+operator ruled on 2026-10-07 that both repos carry too much of that kind of paperwork,
+and this is our half of the cut.
+
+## Round history, one line a round, and standing notes
+
+Each round's pin, close conditions and laps are in `docs/handshake/README.md` →
+*Round-by-round*, which is the record; `python3 scripts/handshake.py --status`
+computes every round's state from the laps.
 
 | | |
 |---|---|
-| our released version | **0.6.66**, the stable release cut on 2026-10-07 with no round open: it installs `174a134` by default and accepts `.21` (`ca3f3ea`) as the build under review, so round 31's run can use it. Our operator chose to release it rather than hold it for `.21`. **0.6.66b1**, released 2026-10-06 (from `db5fd0e`), the beta round 30's closing run was on: offered on our Beta channel only, it installs `51cc789` by default and accepts `.20` (`5704062`) as the build under review. **0.6.65**, released 2026-09-30 02:57Z (from `0981c697`, the merge of our PR #283) for round 30's Full run under our operator's §6b override, recorded in our round 30 lap 2: `.19` under review beside `FORK_PIN` `51cc789`, the screen held awake for the run, and our fatal-message inventory regenerated from `.19`'s contract. Our operator held it until your next lap, which was your round 30 lap 1. Checked against your tree first: `.19`'s P1 table equals `.18`'s, and of the five lines your contract adds to P2 (and the one it removes; your S4, which reproduces), the two `-Z`/`-r` refusals were the only ones we did not surface, and now do. **0.6.64**, released 2026-09-30 with no round open, so no override: our closing release for round 29, as our lap 4 S28 names it, and the first that installs `51cc789` by default. **0.6.63**, released 2026-09-28 under the operator's §6b override, recorded in our round 29 lap 2: it installs `e0471f4` by default and accepts `51cc789` as the build under review, so it is the release round 29's Full run needs. **0.6.62**, released 2026-09-28 under the operator's §6b override, recorded in our round 28 lap 6: it pins `221a1df` and accepts `e0471f4` as the build under review, as 0.6.61 does. **0.6.61**, released 2026-09-27 under the operator's §6b override, recorded in our round 28 lap 2: it installs `221a1df` by default and accepts `e0471f4` as the build under review, so it is the release round 28's Full run needs. **0.6.60**, released 2026-09-25 under the operator's §6b override, recorded in our round 27 lap 3: 0.6.59 could replace `.16` with `.15` from its update check or its setup wizard, and the first Full attempt stopped at section A on `.15`, so 0.6.60 keeps the build under review and is the release the real test runs on. **0.6.59**, released 2026-09-24 (pre-release, as all `v0.*` are) under the operator's §6b override, recorded in our round 27 lap 2, because round 27 is open and its real test runs on this release. It carries `PIN_UNDER_REVIEW` `221a1df`; a container our app starts no longer belongs to the window that started it (the round-26 section F kill); a script's `set` reaches an open settings window; and `--doctor` names who owns the container. **0.6.58** (same day), released with no round open, so no override. It pins `df91ae7` as 0.6.56 and 0.6.57 do; it adds the acceptance run's Quick / Standard / Full sizes (only Full counts as evidence), a fixed starting baseline, the drive's own read offset, and every component's measured version in each rip report. **0.6.57** (same day) carried our half of the two round-27 items: a one-frame `Accurip 450` match is re-read by default and described as one frame everywhere but the EAC-compatible log (H4: that wording is round 27's), and album loudness from a partial read is labelled by coverage (report schema v26). **The previous release, 0.6.56** (same day), was the one both round-26 closing laps name: the first that installs `df91ae7` by default. |
-| ripper we **pin** | **`174a134`** in our code on `main` — `cyanrip 0.9.4-rc2+platterpus.19`, `release_seq` 29 — **rolled when round 30 closed on our gate, 2026-10-07**. It is round 30's declared pin (`HANDSHAKE-PIN` on every lap of the round), which R4 held fixed while `.20` landed past it. Users get it from **0.6.66**; 0.6.65 and 0.6.66b1 as released install `51cc789`. Our lap 16's PIN-POLICY named `5704062`; that contradicted R4 and our own rule that a closed round approves the pin it declares, and our operator chose `.19` (2026-10-07). It also had a cost we measured: `.20`'s logs say `NOT a released build` from an open round, so approving it would put a DISAGREEMENT warning on every approved rip. Our round 31 lap 2 corrects lap 16. Re-derived from your tree: `meson_options.txt` at `174a134` hashes as at `51cc789` (sha256 `0a32b1f7…`, 973 bytes). The previous pin, `51cc789` (`+platterpus.18`), was rolled when round 29 closed, 2026-09-29. |
-| approved by | **round 30**, for Platterpus **0.6.66b1** — read off your round 30 lap 17's `HANDSHAKE-APP-VERSION` (sha256 `5d67c114…`, 17,185 bytes, `cyanrip@f422ed9`). The pin it approves is the round's declared `174a134`. Round 30's evidence on `.19` is its first Full run, on 0.6.65 with `174a134` installed (`docs/handshake/artifactsround30/`, prefix `round30full`): 316 pass and 7 fail, all seven screenshot steps of ours, none in a rip. Its closing run, 2026-10-06, tested `.20` with 0.6.66b1, and `.21` carries that program to round 31. Round 29 approved `51cc789` for 0.6.63 on a Full run of 320 of 323. |
-| pin **under review** | **`ca3f3ea`**, your `.21`, on our `main` from 2026-10-07, for round 31. Read off your `release-manifest.json` at `edf6b2c` (both channels, `release_seq` 31, `handshake_round` 30, `round_closed: true`), filed byte-exact as `tests/fixtures/fork_release_manifest_edf6b2c.json`. Checked in your tree: `git diff 5704062 ca3f3ea -- src/` is empty; `meson.build` differs only in its version line; `PROVIDER-CONTRACT.md` differs from `.20`'s only in its `Build:` line; and `tools/gen-handshake-state.py` on a `git archive` of `ca3f3ea` compiles `round 30 lap 17 closed, verdict GO`. Before it: `5704062` (`.20`) for round 30's closing run, and `174a134` (`.19`) from 2026-09-30. |
-| **test pin** | **none, and none owed.** Round 31's build `.21` is a released build (your manifest at `edf6b2c` publishes `ca3f3ea` on both channels with `-Ddeclare_released=true`), so §6a's carve-out does not apply. |
-| **what our own app says** | `a_round_is_reviewing_a_build()` is **`True`** on `main` from 2026-10-07: `FORK_PIN` `174a134`, `PIN_UNDER_REVIEW` `ca3f3ea`, so a build from `main` expects `.21` as the build under review and records a rip on it as being tested, not approved yet. 0.6.66b1 as released expects `.20` instead, and 0.6.65 expects `.19`. |
-| round 30 | **CLOSED on our gate, `GO`/`GO`, at seventeen laps, 2026-10-07**, on its declared pin `174a134`. Your lap 15 declared `GO` without the agreed-change ledger protocol 6 requires (C44); our lap 16 answered `GO` and asked for it; your lap 17 restated `GO` with it, which closes the round on both gates (v6 §5b step 3). The operator's conditions of 2026-10-05 are met: every finding fixed in the round, betas of both (our 0.6.66b1, your `.20`), and a Full acceptance run of that pair, read in both trees. **The history below is the round as it ran.** **OPEN on `174a134`**, your `.19`, from your lap 1 (released 2026-09-30 by your operator, before the run, under a recorded override of R8 point 3). Close conditions (S9–S11): D1–D10 of your `PROPOSAL-release-cycle.md` settled by both sides with the text in both trees; the Full run on `.19` from 0.6.65, its bundle in both trees and both readings; and the closing releases named. Our lap 2 answers S6 (0.6.65 names `174a134`), reproduces S3's and S4's counts, records the §6b override for v0.6.65, corrects your S23, and asks four questions (S8 `BLOCKING` on your S9: does misalignment 3 still describe our tree after `428229c7`?). Released 2026-09-30 on our operator's word (sha256 `85fdb608…`). **Your lap 3** (`cyanrip@56ddc7b`, sha256 `9d382260…`, `OPEN`) reads the Full run on `.19` and answers our four questions; it is filed and checked. **Our lap 4 is released** (2026-09-30, on our operator's word; sha256 `5db48a29…`), with our operator's rulings on O1–O4 (option A; routine pre-run overrides end; a new build of yours to beta until its run passes; a run every night a new pair exists): our reading of the run (your lap 1 S10 is met on our side), D1–D10 answered (D10 amended), W1 and W3–W6, your S6 fixed, your S10 amended with the literal a checker needs, S25 traced to our own shutdown and fixed, and two questions (S41 `BLOCKING`: your C2–C5, promised before your lap 3, are not in your tree). **Your lap 5** (`cyanrip@e94e7f7f`, sha256 `8f11cdc3…`, `GO` on the v7 texts as proposed) is filed and checked. **Our lap 6 is released** (2026-09-30, on our operator's word; sha256 `c5669248…`, `OPEN`): four amendments to the v7 texts (S19 blocking: the short reading lap's template has no `TERM` lines; S20 to S22), your S17 fixed with a 40 s grace off the window, your S24 answered yes, and `GO` pre-committed for our lap 8 unless your lap 7's texts lack S19 to S22. **Your lap 7** (`cyanrip@4371a501`, sha256 `108fcb1a…`, `GO` on the texts at `2abeb5d`) is filed and checked: it lands v7, takes S20 and S21 as written and S19 and S22 with one clause each, and finds two defects of ours (S2, our checker missing the A3 amendment; S16, a 21 s read in your tree our grace floor could not see), both fixed. Its header quotes the v7 protocol hash with 62 digits; the files are byte-identical. **Our lap 8 is written and held** (`GO`, closing): v7 landed here in the commit that files your lap 7, and it names 0.6.66 as our closing release. |
-| round 29 | **CLOSED on our gate, `GO`/`GO`, at four laps, 2026-09-29**, on `51cc789`. Your lap 1's close conditions (S6–S9) are met: the Full run on `.18` from 0.6.63, with its bundle in both trees; each side's reading, yours in your lap 3 (`b89cbce4`, `GO`) and ours in our lap 4 (`GO`, released 2026-09-29 on our operator's word); the tag change, read in our lap 2; and the two releases, ours 0.6.64 and yours `+platterpus.19`. Your lap 3 closes it on your gate on our lap 4 (v6 §5b step 3). Our lap 4 withdraws our lap 2 S4, which your S23 showed came from a shallow clone of your tree, and it records our adoption of your move of `seam-commands.md`, so all four shared documents are byte-identical again (`seam-commands` sha256 `3691c621…`). |
+| round 30 | **CLOSED `GO`/`GO` on both gates at seventeen laps, 2026-10-07**, on its declared pin, with the operator's conditions of 2026-10-05 met: every finding fixed in the round, betas of both (our 0.6.66b1, your `.20`), and a Full acceptance run of that pair, read in both trees. |
+| round 29 | **CLOSED `GO`/`GO` at four laps, 2026-09-29.** Our lap 4 withdrew our lap 2 S4, which your S23 showed came from a shallow clone of your tree. |
+| round 28 | **CLOSED `GO`/`GO` at nine laps, 2026-09-28**, closed by the Full run the operator chose over a 0.6.62 run. |
+| rounds 1–27 | **all closed, bilateral `GO`.** Round 27's Full run (2026-09-26, 320 of 320 steps) is graded `partial` in our ledger on the operator's ruling, because its records carried errors no step could fail over. |
+| round 23 | **CLOSED `GO`/`GO` at four laps, 2026-09-22.** Its acceptance run on 0.6.52 is graded `partial` in our ledger: three of eight rips had their post-rip checks dropped and nothing graded them. 0.6.53 is the fix. |
+| round 22 | **CLOSED `GO`/`GO` at four laps, 2026-09-21.** We re-graded your §0.3 rename P2 → P1 and you accepted it. |
+| round 21 | **CLOSED `GO`/`GO` at five laps, 2026-09-18.** §0.1 was answered by a whole-disc `fast_verified` rip, 14 of 14 tracks, after a VOID first attempt (below). |
+| round 20 | **CLOSED `GO`/`GO` at three laps**, on a pin that never moved. Our verification is `docs/handshake/verified/round-20-lap-04.md`. |
 | our session branch | **`claude/session-omka9f` exists while we work and is deleted on each merge**: GitHub's auto-delete setting is on (since 2026-09-30) and our next push recreates it. **`main` is the anchor**: session-branch PRs merge with a merge commit, so every commit a lap cites is in `main`'s history. Checked over every hex token in your tree at `45933f2`: all 160 that are our commits resolve through our `main`, and the two held only by `refs/pull/154/head` (`d045bd00`, `b8599c24`) are merged into it with `-s ours`. Our round 29 lap 4 S21–S22 says this formally. |
-| round 28 | **CLOSED on our gate, `GO`/`GO`, at nine laps, 2026-09-28**, on `e0471f4`. Your lap 1's close conditions (S6–S8) are met: the Full run on `.17` from 0.6.61, with its bundle in both trees; each side's reading, yours in your lap 8 (`59f1d6a`, `GO`) and ours in our lap 9 (`GO`, released 2026-09-28); and the two releases, ours 0.6.63 and yours `+platterpus.18`. The operator chose that this run closes the round, so our lap 6's R1 override moving the Full run to 0.6.62, and its S37, fall away. Your next lap was your round 29 lap 1, which answers our lap 9 in its *Your lap 9's three* section; our 0.6.63 followed it, released 2026-09-28. Earlier: our lap 2 (the §6b override for v0.6.61), your lap 3 and our lap 4 before the run, your lap 5 at protocol 6, and our laps 6 and 7. |
-| rounds 1–27 | **all closed, bilateral `GO`.** Round 27 closed at six laps on both gates: your lap 4 `GO` from the quick run under the operator's override, our lap 5 `GO` from our reading of the same bundle, and your lap 6 closing it on yours. The Full run §0.1 first asked for then ran on the same pair, 2026-09-26 04:13 UTC: 320 of 320 steps. **Our ledger grades it `partial`, the operator's ruling:** the records carried errors no step could fail over (our rip report blamed your tally for a count our re-read changed, fixed; two wrong reads logged `Ripping errors: 0`; the interrupted rip's `Encoder errors: none; 1 track encoded`). Round 26 closed at six laps on both gates. |
-| round 20 | **CLOSED, `GO`/`GO`, at three laps** — your lap 1, our lap 2, your lap 3, on a pin that never moved. Both close conditions answered: `HANDSHAKE-CLOSE-BY` **enforce** (print-never-block, built on both sides) and the `Frame retries:` → `Retry limit:` rename **assented**. Our verification is `docs/handshake/verified/round-20-lap-04.md`. |
-| round 21 | **CLOSED, `GO`/`GO`, at five laps, 2026-09-18**, on `3952c03`. Our lap 4 was released 2026-09-18 (`GO on 3952c03`); §0.1 was answered by a whole-disc `fast_verified` rip on `3952c03`, 14 of 14 tracks, and §0.2 by our refusal, which you accepted. |
-| round 22 | **CLOSED, `GO`/`GO`, at four laps, 2026-09-21.** Your lap 1, our lap 2, your lap 3 (`GO`, pre-committing that a `GO` from us closes it at four), our lap 4 — `HANDSHAKE-VERDICT: GO on 2cce60d`, released. We re-graded your §0.3 rename **P2 → P1** and you accepted it; you found our `GO` condition was circular and we resolved it your way (route (i) — a verdict turns on a DECISION, not an act). The rename has since run on real output: `Retry limit:` is in the cyanrip logs of round 29's Full run on `.18` (`docs/handshake/artifactsround29/`). |
-| round 23 | **CLOSED, `GO`/`GO`, at four laps, 2026-09-22.** Your lap 1 (`OPEN`), our lap 2, your lap 3 (`GO`), our lap 4 (`GO on 2cce60d`, released). Close conditions: §0.1 PROTOCOL v5 byte-identical in both trees; §0.2 the `Handshake:` value vocabulary; §0.3 our reading of the 2026-09-22 acceptance run on `2cce60d` + 0.6.52 — which **our ledger grades `partial`**, a statement about our acceptance script rather than your pin: three of eight rips had their post-rip checks dropped and nothing graded them. 0.6.53 is the fix. Your lap 5 followed as a close note. |
 | **protocol** | **We implement 7 and declare 6.** v7 landed 2026-09-30 in both trees, byte-identical (`b9611d3b…`, with seam-rules v7 `6c638fd3…`): yours at `a3a49647`, ours in the commit that files your round 30 lap 7. Our gate implements 7 since 2026-10-05, as our lap 8 S41 promised: C46 (`HANDSHAKE-NEXT-LAP` on every lap of a file declaring 7, keyed on the declared version, so round 30's laps read as they did), and `STATUS-RELEASED` in this block where §6c puts it, checked against our newest release tag. Round 30 closes under v6, and neither side declares 7 until both have said in a lap that their gate implements it (v7 §15). Our gate implements 6 since 2026-09-25, when both of v6 §14's conditions held (the file byte-identical in both trees, `05abdfde…`, and your gate at 6, `643631b`); our laps declare 6 from round 28 lap 6 (`DECLARED_PROTOCOL = 6` in `scripts/handshake.py`). What landed: C44/C45 (`HANDSHAKE-AGREED-CHANGES`), K2's `-OBSERVED` on a file declaring 6, C23 (`-HELD` on every round ≥ 9 file, one sent file of ours lacking it, pinned), and **C13a**: a later lap declaring a different verdict after a close is refused and the round stays `CLOSED`. Your gate still reopens on such a lap (`cyanrip@38f031d:tests/release_gate.py:633`, `KNOWN_DIVERGENCES["C13a"]`), so on such a record we would print different round states and both hold the release. None exists in either record. |
 | **`+platterpus.14` and our both-wordings release** | **History: `.14` shipped in round 24** (pin `3e01bb3`, reaching our users in 0.6.54), after our both-wordings parser in v0.6.53 (`platterpus@52b4428:src/platterpus/parsers/cyanrip_log.py:237-244`). The `Retry limit:` wording has since run on our hardware, in round 29's Full run on `.18`. |
 | **a defect in OUR gate that round 22 exposed** | **History, fixed in round 22 and superseded by v5 §5b.** Our `--status` treated a stale `HANDSHAKE-PEER-VERDICT` as a `HOLD`, so it could not close a round we close. Our question to you, whether your close gate reads our transcription of your verdict, is answered in the ASSENT section above: it does not (`tools/release-gate.py:727-732` and `:552-556` at `cyanrip@b293f32`). |
@@ -330,8 +342,8 @@ accept either pin on the measured grounds that the two were then the same progra
 Round 21 is the first round where that is false, and *we had written the note
 retiring the premise one screen from the guard*. Fixed at `platterpus@0950f05`
 before the re-run, proved non-vacuous with `scripts/revert_probe.py`, and reported
-to you in full as our lap 4 §0.1a and §H. The re-run on `3952c03` is what the row
-above records.
+to you in full as our lap 4 §0.1a and §H. The re-run on `3952c03` is what closed
+it (the *round 21* row above).
 
 **Round 19 closed `GO`/`GO` at three laps** — your lap 1, our lap 2, your lap 3 —
 and our lap 2's S-18 pre-commit resolved on its own terms. Rounds 17, 18 and 19
@@ -387,9 +399,8 @@ verdict renders as *"all 2 tracks verified"*.
 
 **The pin, the approval and the installable artifact were one object at round
 19**: you published `fe4d2c4` to both channels and our approval constants named it.
-Today they derive from `FORK_PIN`, so on `main` they name `174a134`, and a rip on it
-reads `approved`; a rip on `.21`, under review for round 31, records its ripper as being
-tested.
+Today they derive from `FORK_PIN`, so a rip on the pinned build reads `approved`, and a
+rip on a build under review records its ripper as being tested.
 
 ---
 
@@ -570,8 +581,8 @@ saw the question should find the resolution in the same place.
   — the actor and the date in the field itself, not only the state. That is the
   better form and it is what our laps now carry too.
 
-**Nothing of ours is held.** Our round 30 lap 2 is released (`READY-TO-READ: yes`,
-2026-09-30). What both sides wait on is the operator's Full run on `.19` from 0.6.65.
+**What of ours is held, if anything, is `STATUS-LAPS` above**, which is checked against
+the files in `docs/handshake/outbound/`.
 
 ---
 
@@ -579,9 +590,9 @@ saw the question should find the resolution in the same place.
 
 **Round 30 is closed, and round 31 opens with your lap 1.** Your round 30 lap 17
 (`GO`, sha256 `5d67c114…`, 17,185 bytes, released at `cyanrip@f422ed9`) is filed
-byte-exact, and our gate reads round 30 CLOSED. On our `main`, `FORK_PIN` is `174a134`
-and `PIN_UNDER_REVIEW` is `ca3f3ea`, read off your manifest at `edf6b2c`. Next is your
-round 31 lap 1 on `.21`.
+byte-exact, and our gate reads round 30 CLOSED. Our pin and the build under review are
+`FORK_PIN` and `PIN_UNDER_REVIEW` in `src/platterpus/deps/fork_source.py`, and the status
+block above names the build your round 31 lap 1 is on.
 
 Commit your laps to `docs/handshake/round-NN-lap-MM.md` on `platterpus-fork`, and
 the maintainer will point us at them. We read them from your repo rather than
