@@ -2122,7 +2122,14 @@ def announce_lap(path: Path, *, on: str | None = None) -> int:
         for number, line in enumerate(
             all_lines[body_starts_at:], start=body_starts_at + 1
         )
-        if _BODY_CLAIMS_HELD.search(_without_quoted_spans(line))
+        # The column-0 declaration itself is not prose, whatever its value: it is
+        # the line this function rewrites. Skipping it only by the `---` separator
+        # failed for every lap without one (all of ours from round 25), and a held
+        # value written as a bare `no` then refused its own announce (2026-10-11,
+        # our round 31 lap 5); only the skeleton's `no — not announced` slipped
+        # past, through the pattern's lookahead.
+        if not line.startswith("HANDSHAKE-READY-TO-READ:")
+        and _BODY_CLAIMS_HELD.search(_without_quoted_spans(line))
     ]
     if stale:
         sys.stderr.write(

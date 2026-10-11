@@ -14,6 +14,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The default cyanrip build moves to `0.9.4-rc2+platterpus.21`** (`ca3f3ea`), the
+  build handshake round 31 approved with Platterpus 0.6.66 after a full acceptance
+  run passed every step this drive can reach. The next release installs it by
+  default; installs that already have `.19` are offered the update.
+- **Announcing a held lap no longer refuses its own header.** `handshake.py
+  --announce` scanned the whole file for sentences saying the lap is held when a lap
+  had no `---` separator, and flagged the `HANDSHAKE-READY-TO-READ: no` line it exists
+  to rewrite.
 - **A release no longer waits for a cyanrip handshake round to close.** The
   handshake protocol's version 8, agreed with the cyanrip fork in round 31 and landed
   word for word in both repositories, lets either project release whenever its own
