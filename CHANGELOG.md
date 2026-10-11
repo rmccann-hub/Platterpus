@@ -12,6 +12,21 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **A release no longer waits for a cyanrip handshake round to close.** The
+  handshake protocol's version 8, agreed with the cyanrip fork in round 31 and landed
+  word for word in both repositories, lets either project release whenever its own
+  full test suite passes. The release workflow now prints any open round and goes
+  ahead, where it used to refuse a release unless a recorded override let it through
+  (every release from 0.6.54 to 0.7.102 needed one). What keeps you on a ripper both
+  projects have checked is unchanged: Platterpus installs the cyanrip build the last
+  closed round approved, and that moves only when a round closes. For contributors:
+  our gate implements protocol 8, so `HANDSHAKE-INBOUND-OBSERVED` is required from a
+  lap declaring 8 (row C47), and the gate, the round digest and the lap checker now
+  read code fences by one shared CommonMark rule (rows C48 and C49). No digest on
+  record changes.
+
 ## [0.7.102] — 2026-10-07
 
 One change, to what a rip contains: a pre-emphasised CD now keeps the samples that are

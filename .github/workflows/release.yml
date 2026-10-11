@@ -58,44 +58,26 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      # THE HANDSHAKE GATE (CLAUDE.md critical rule #12 /
-      # docs/cyanrip-handshake.md §7). Platterpus and the cyanrip fork are each
-      # other's dependency, and neither releases while a round is open — both
-      # directions must be verified first, because a partly-verified pin is an
-      # unverified pin.
+      # THE HANDSHAKE RECORD, printed before every release (CLAUDE.md critical rule
+      # #12 / docs/cyanrip-handshake.md §7). Protocol v8 §6b (E1), landed
+      # 2026-10-11: either side releases, on any channel, whenever its whole suite
+      # passes on the release commit from a clean checkout, whether a handshake
+      # round is open or not, and its gate prints every open round first so a
+      # release during one is never quiet. The suite half is THE CI GATE below.
       #
-      # This step exists because the rule was written in three documents and
-      # enforced on the release path in none of them: the only check was a unit
-      # test asserting every round was closed, which blocked ordinary commits
-      # (a round is *supposed* to be open between sending and verifying) and
-      # never ran here, where releases actually happen. First, and before the
-      # build, so a blocked release costs seconds rather than a full AppImage.
-      - name: Handshake gate — refuse to release with an open round
+      # Until v8 this step REFUSED a stable release while a round was open,
+      # relaxed it for a pre-release, held every tag our updater offers on the
+      # stable channel to the stable rule (N4, 2026-09-23: every v0.* tag), and let
+      # one through only under a §6b HANDSHAKE-OVERRIDE recorded in a released lap.
+      # Every release from 0.6.54 to 0.7.102 needed such an override. E9 retired
+      # that on both sides: what keeps a user on a jointly verified ripper is
+      # FORK_PIN, which moves only when a round closes (R8 point 1, E2), not this
+      # step. `--tag` is passed so any override a lap records for it is printed
+      # (rows C31, C32). First, before the build, so the record heads the log.
+      - name: Handshake record — print every open round before releasing
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
-        # A PRE-RELEASE is permitted while a handshake round is open; a STABLE
-        # release is not. The fork named the deadlock this resolves (round 7 lap 6
-        # §1): a round cannot close without hardware evidence, that evidence needs
-        # the reviewed build installed, and installing it is forbidden while the
-        # round is open. Refusing the beta does not protect a user — it guarantees
-        # the round can never close. The gate still prints every open round, so a
-        # pre-release never looks like a clean record.
-        #
-        # **`--tag` on BOTH branches, and it overrides the shape (N4, maintainer
-        # decision 2026-09-23).** Every `v0.*` tag matches the relaxed shape, but our
-        # updater offers every `v0.*` on the STABLE channel, so the relaxation let a
-        # stable user receive a build released during an open round — not one release
-        # of the 0.x line was ever held here. The gate now asks the updater's own
-        # predicate whether this tag is offered on stable, and if it is, applies the
-        # stable rule. A release that cannot wait goes out under a recorded
-        # `HANDSHAKE-OVERRIDE` naming rule §6b and this tag, in a released lap.
-        run: |
-          case "$TAG" in
-            v0.*|*-*|*a[0-9]*|*b[0-9]*|*rc[0-9]*)
-              python scripts/handshake.py --release-gate --prerelease --tag "$TAG" ;;
-            *)
-              python scripts/handshake.py --release-gate --tag "$TAG" ;;
-          esac
+        run: python scripts/handshake.py --release-gate --tag "$TAG"
 
       # THE CI GATE. Nothing required CI to have passed before a release — found by
       # the 2026-08-18 enforcement audit. `release.yml` runs on a tag push or a
@@ -401,19 +383,12 @@ jobs:
         run: |
           # 0.x (and any tag with a pre-release suffix) ship as pre-releases.
           #
-          # **This list must be IDENTICAL to the handshake gate's list above**, and
-          # it was not: that one carries `*a[0-9]*|*b[0-9]*|*rc[0-9]*` and this one
-          # did not. The two together decide one thing — *is this build allowed to
-          # claim it is a verified release?* — and they disagreed on the project's
-          # own beta spelling. `v0.6.12b6` was covered only by the `v0.*` prefix, so
-          # the gap was invisible for the whole v0.x line and would have opened at
-          # v1.0.0: a `v1.0.1b1` tag would take the RELAXED handshake gate (it
-          # matches `*b[0-9]*`) and then publish as a STABLE GitHub release (it
-          # matched neither pattern here). A build excused from the gate, published
-          # as though it had passed it.
-          #
-          # Found 2026-08-18 by an enforcement audit, before v1.0.0 rather than
-          # after. `tests/test_handshake_tooling.py` now diffs the two lists.
+          # Until 2026-10-11 the handshake step above routed on this same list, and
+          # the two had to be identical: in 2026-08 they were not, so a `v1.0.1b1`
+          # tag would have taken the relaxed handshake gate and published as a
+          # STABLE GitHub release. Protocol v8 retired the routing (that step now
+          # prints the record for every tag), so this is the one list left.
+          # `tests/test_handshake_tooling.py` runs it against real tag shapes.
           case "$TAG" in
             v0.*|*-*|*a[0-9]*|*b[0-9]*|*rc[0-9]*) PRERELEASE="--prerelease" ;;
             *)                                    PRERELEASE="" ;;

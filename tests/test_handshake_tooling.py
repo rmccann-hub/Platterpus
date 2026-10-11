@@ -475,7 +475,7 @@ def test_status_reports_an_incomplete_round_as_open(
 
     lines = hs.round_status(tmp_path)
     assert any(ln.startswith("round-9") and ln.endswith("OPEN") for ln in lines), lines
-    assert any("do not release" in ln for ln in lines), (
+    assert any("do not switch the pin" in ln for ln in lines), (
         "an open round must say the release is blocked; that sentence IS the gate"
     )
 
@@ -495,7 +495,7 @@ def test_status_reports_a_complete_round_as_closed(
 
     lines = hs.round_status(tmp_path)
     assert any(ln.startswith("round-9") and ln.endswith("CLOSED") for ln in lines)
-    assert not any("do not release" in ln for ln in lines)
+    assert not any("do not switch the pin" in ln for ln in lines)
 
 
 def test_the_verification_is_what_closes_a_round(
@@ -649,13 +649,21 @@ def test_the_real_record_has_no_round_left_open_behind_a_closed_one(
     )
 
 
-def test_the_release_gate_blocks_a_release_while_a_round_is_open(
-    hs: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_the_release_gate_permits_and_names_every_open_round(
+    hs: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The gate itself, both ways — a checker that cannot fail is decoration.
+    """Protocol v8 §6b (E1, E9): a release is permitted with a round open, and the
+    gate prints every open round first, so the release is never quiet.
 
-    Exercised through `main(["--release-gate"])` so it is the same code path the
-    release workflow runs, not a re-implementation of it.
+    **What this replaced, and why it still has teeth.** Until 2026-10-11 this test
+    asserted the gate REFUSED in each state below. Under v8 it permits in all of
+    them, so an exit code alone would be a check that cannot fail. What can fail is
+    the PRINTING: every open state must name round 9 on stderr, and the closed
+    state must not, and must say so on stdout. Exercised through `main` so it is
+    the code path the release workflow runs.
     """
     (tmp_path / "outbound").mkdir()
     (tmp_path / "inbound").mkdir()
@@ -665,151 +673,88 @@ def test_the_release_gate_blocks_a_release_while_a_round_is_open(
     # would exercise the exemption instead of the gate.
     (tmp_path / "outbound" / "round-9.md").write_text("x", encoding="utf-8")
     monkeypatch.setattr(hs, "HANDSHAKE_DIR", tmp_path)
-    # **And pin CURRENT_ROUND to the fixture's own world.** Without this the gate
-    # enumerates every round up to the REAL current one, so opening round 10 made a
-    # round with no files in this tmp tree report OPEN and the floor below could never
-    # be reached. The scenario under test is "round 9 is the current round"; coupling
-    # it to whatever round the live record has reached made a passing test depend on
-    # the calendar.
+    # Pin CURRENT_ROUND to the fixture's own world, or the gate enumerates every
+    # round up to the REAL current one and reports rounds with no files here.
     monkeypatch.setattr(hs, "CURRENT_ROUND", 9)
 
-    # Sent, nothing back: OPEN → blocked.
-    assert hs.main(["--release-gate"]) == 1
+    def permitted_and_named_open() -> None:
+        capsys.readouterr()
+        assert hs.main(["--release-gate"]) == 0
+        captured = capsys.readouterr()
+        assert "round-9:" in captured.err and "OPEN" in captured.err, captured.err
+        assert "release allowed with a round OPEN" in captured.err, captured.err
 
-    # Their return arrives but we have not verified it. A partly-verified pin is
-    # an unverified pin, so this must STILL block.
+    # Sent, nothing back.
+    permitted_and_named_open()
+    # Their return arrives but we have not verified it.
     (tmp_path / "inbound" / "round-9.md").write_text(_closing(), encoding="utf-8")
-    assert hs.main(["--release-gate"]) == 1
-
-    # Our verification exists but declares no verdict. Still blocked: a file that
-    # does not say whether the pin may move has not answered the question.
+    permitted_and_named_open()
+    # Our verification exists but declares no verdict.
     verified = tmp_path / "verified" / "round-9.md"
     verified.write_text("x", encoding="utf-8")
-    assert hs.main(["--release-gate"]) == 1
-
-    # A verification that HOLDS is not a close. This is the round-7 case, and the
-    # reason presence-only was wrong: the file was there, the round was not done.
+    permitted_and_named_open()
+    # A verification that HOLDS is not a close (the round-7 case).
     verified.write_text(_closing(**{"HANDSHAKE-VERDICT": "HOLD"}), encoding="utf-8")
-    assert hs.main(["--release-gate"]) == 1
+    permitted_and_named_open()
 
-    # Both directions done AND BOTH verdicts are GO → allowed (protocol §8.3).
+    # Both directions done AND both verdicts GO: closed, and nothing named open.
     verified.write_text(_closing(), encoding="utf-8")
+    capsys.readouterr()
     assert hs.main(["--release-gate"]) == 0
+    captured = capsys.readouterr()
+    assert "every round is closed" in captured.out, captured.out
+    assert "round-9:" not in captured.err, captured.err
 
 
 def test_the_release_workflow_actually_calls_the_gate() -> None:
-    """The wiring, not the gate. The rule was stated in three documents and
-    enforced on the release path in none of them; grep for the call site rather
-    than believing the subcommand exists (CLAUDE.md rule 9's lesson, applied to
-    a workflow instead of a `cancel()`)."""
-    workflow = (
-        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "release.yml"
-    ).read_text(encoding="utf-8")
-    assert "handshake.py --release-gate" in workflow
-    # And before the build, so a blocked release costs seconds not an AppImage.
-    assert workflow.index("handshake.py --release-gate") < workflow.index(
-        "Build the AppImage"
-    )
-    # BOTH BRANCHES, named separately.
-    #
-    # The assertion above is a LABEL check and it can be satisfied by the wrong
-    # thing: `handshake.py --release-gate` is a *substring* of the
-    # `--release-gate --prerelease` line, so deleting the strict branch entirely
-    # leaves this test green while nothing can ever block a release. Found
-    # 2026-08-18 by an enforcement audit asking that of every gate. The label
-    # answers "did they name it"; only the pair is a check.
-    assert "--release-gate --prerelease" in workflow, "the relaxed branch is gone"
-    # N4 (2026-09-23): BOTH branches pass the tag, or the gate cannot ask the
-    # updater whether a stable user is offered this release, and the relaxed branch
-    # waves through every v0.* again.
-    assert '--release-gate --prerelease --tag "$TAG"' in workflow, (
-        "the relaxed branch no longer passes --tag, so a stable-offered v0.* release "
-        "is relaxed again during an open round"
-    )
-    assert re.search(r'--release-gate --tag "\$TAG"\s*;;', workflow), (
-        "the STRICT branch (--release-gate with no --prerelease) is not in "
-        "release.yml at all — nothing can block a release, and the substring "
-        "assertion above cannot tell you that"
-    )
+    """The wiring, not the gate: grep for the call site rather than believing the
+    subcommand runs (CLAUDE.md rule 9's lesson, applied to a workflow).
 
-
-def _case_patterns(workflow: str, marker: str) -> list[str]:
-    """The tag globs a `case "$TAG" in` block routes to ``marker``.
-
-    ``marker`` is text on the matching branch's body (``--release-gate --prerelease``
-    or ``PRERELEASE="--prerelease"``), so this reads the *shape list*, which is the
-    thing the two blocks have to agree on.
-    """
-    for block in re.finditer(r'case "\$TAG" in\n(.*?)esac', workflow, re.S):
-        # Split on `;;`, NOT on newlines: one of the two blocks puts its patterns
-        # and its body on separate lines, and a line-based reader silently found
-        # neither — which would have made this whole check pass by matching nothing
-        # if it had defaulted instead of raising.
-        for branch in block.group(1).split(";;"):
-            head, sep, body = branch.partition(")")
-            if sep and marker in body:
-                return sorted(p.strip() for p in head.strip().split("|"))
-    raise AssertionError(f'no `case "$TAG"` branch routing to {marker!r}')
-
-
-def test_the_two_prerelease_tag_lists_are_identical() -> None:
-    """**One decision, two `case` blocks — so they must carry the same globs.**
-
-    `release.yml` asks the tag shape twice: once to decide whether the handshake
-    gate is relaxed, once to decide whether GitHub publishes a pre-release. Together
-    they answer a single question — *may this build claim to be a verified release?*
-    — and they disagreed: the gate's list carried `*a[0-9]*|*b[0-9]*|*rc[0-9]*` and
-    the publish list did not.
-
-    **Invisible for the whole v0.x line, and it opens at v1.0.0.** Every tag this
-    project has cut starts `v0.`, which both lists match, so the divergence never
-    showed. A `v1.0.1b1` tag matches `*b[0-9]*` (relaxed gate) and neither publish
-    pattern (stable release) — a build excused from the gate, published as though it
-    had passed it. Getting out of beta is the current goal, so this would have
-    fired on the first tag after it.
+    **From protocol v8 the gate prints and does not refuse** (§6b, E1, E9), so
+    what refuses a release for its suite is THE CI GATE, and that is asserted here
+    too: §6b's *"whenever its whole suite passes on the release commit"* is only
+    true while that step exists and runs before the build. A wiring test that
+    checked only the printing step would pass with nothing left able to refuse.
     """
     workflow = (
         Path(__file__).resolve().parents[1] / ".github" / "workflows" / "release.yml"
     ).read_text(encoding="utf-8")
-    gate = _case_patterns(workflow, "--release-gate --prerelease")
-    publish = _case_patterns(workflow, 'PRERELEASE="--prerelease"')
-    assert gate, "the handshake gate's pre-release branch matched no tag shapes"
-    assert gate == publish, (
-        "release.yml's two tag-shape lists disagree, so a tag can take the RELAXED "
-        "handshake gate and still publish as a STABLE GitHub release:\n"
-        f"  handshake gate : {gate}\n"
-        f"  GitHub publish : {publish}\n"
-        f"  only in gate   : {sorted(set(gate) - set(publish))}\n"
-        f"  only in publish: {sorted(set(publish) - set(gate))}"
-    )
+    call = 'python scripts/handshake.py --release-gate --tag "$TAG"'
+    assert call in workflow, "the handshake record is no longer printed with the tag"
+    assert workflow.index(call) < workflow.index("Build the AppImage")
+    # The suite half of §6b: the step that asks GitHub for the release commit's own
+    # check runs and refuses a failed one.
+    assert "# THE CI GATE." in workflow, "the CI gate's step is gone from release.yml"
+    assert workflow.index("# THE CI GATE.") < workflow.index("Build the AppImage")
 
 
 @pytest.mark.parametrize(
-    ("tag", "relaxed"),
+    ("tag", "prerelease"),
     [
         ("v0.6.14", True),  # every tag in the project's history so far
         ("v0.6.14b3", True),
-        ("v1.0.0", False),  # the first tag the STRICT branch will ever see
-        ("v1.0.1b1", True),  # the shape the two lists used to disagree about
+        ("v1.0.0", False),  # the first tag that publishes as a stable release
+        ("v1.0.1b1", True),  # the shape the gate's old list once disagreed about
         ("v1.2.3-rc1", True),
         ("v10.0.0", False),  # `v1*` must not accidentally match `v0.*`
     ],
 )
-def test_the_tag_routing_is_run_not_read(tag: str, relaxed: bool) -> None:
-    """Execute the `case` statement instead of reasoning about the globs.
+def test_the_tag_routing_is_run_not_read(tag: str, prerelease: bool) -> None:
+    """Execute the publish step's `case` statement instead of reasoning about globs.
 
-    Nothing tested this block. Shell pattern matching is easy to read wrongly —
-    `v0.*` versus `v10.0.0` is one character from being a bug — and the audit's
-    finding was precisely that the branch selection had no coverage while both
-    branches did. So the block is extracted from the workflow and run by `sh`, with
-    the invocation echoed rather than executed.
+    Shell pattern matching is easy to read wrongly (`v0.*` versus `v10.0.0` is one
+    character from being a bug), so the block is extracted from the workflow and
+    run by `sh`. Until protocol v8 a second `case` block routed the handshake gate
+    on the same list and a test diffed the two; v8 retired that routing (§6b, E1),
+    so this is the one list left, and it decides whether GitHub publishes a tag
+    as a pre-release.
     """
     workflow = (
         Path(__file__).resolve().parents[1] / ".github" / "workflows" / "release.yml"
     ).read_text(encoding="utf-8")
-    block = re.search(r'(case "\$TAG" in\n.*?--release-gate.*?esac)', workflow, re.S)
-    assert block is not None, "the release-gate `case` block is gone from release.yml"
-    script = block.group(1).replace("python scripts/handshake.py", "echo CALLED")
+    block = re.search(r'(case "\$TAG" in\n.*?PRERELEASE=.*?esac)', workflow, re.S)
+    assert block is not None, "the publish step's `case` block is gone from release.yml"
+    script = block.group(1) + '\necho "PRERELEASE=[$PRERELEASE]"'
     result = subprocess.run(  # noqa: S603 — text we just read out of our own repo
         ["sh", "-c", script],
         env={"TAG": tag, "PATH": os.environ.get("PATH", "")},
@@ -819,14 +764,10 @@ def test_the_tag_routing_is_run_not_read(tag: str, relaxed: bool) -> None:
     )
     assert result.returncode == 0, result.stderr
     chosen = result.stdout.strip()
-    assert chosen.startswith("CALLED --release-gate"), (
-        f"tag {tag} selected no branch at all: {chosen!r}"
-    )
-    assert f"--tag {tag}" in chosen, f"tag {tag} reached the gate without --tag"
-    got_relaxed = "--prerelease" in chosen
-    assert got_relaxed is relaxed, (
-        f"tag {tag} routed to {chosen!r}; expected the "
-        f"{'relaxed' if relaxed else 'STRICT'} branch"
+    assert chosen in ("PRERELEASE=[--prerelease]", "PRERELEASE=[]"), chosen
+    assert (chosen == "PRERELEASE=[--prerelease]") is prerelease, (
+        f"tag {tag} published as {chosen!r}; expected "
+        f"{'a pre-release' if prerelease else 'a stable release'}"
     )
 
 
@@ -1014,12 +955,12 @@ def test_a_verification_that_holds_does_not_close_the_round(
     held = hs.round_status(tmp_path)
     assert held[0].endswith("OPEN"), held
     assert "HOLD" in held[0], "the status must say WHY it is open, not just that"
-    assert any("do not release" in ln for ln in held)
+    assert any("do not switch the pin" in ln for ln in held)
 
     verified.write_text(_closing(), encoding="utf-8")
     went = hs.round_status(tmp_path)
     assert went[0].endswith("CLOSED"), went
-    assert not any("do not release" in ln for ln in went)
+    assert not any("do not switch the pin" in ln for ln in went)
 
 
 def test_a_verification_with_no_verdict_does_not_close_a_round(
@@ -1299,7 +1240,7 @@ def test_a_fresh_round_from_them_before_we_send_ours_reads_as_unsent(
     assert "sent=NO" in lines[1] and lines[1].endswith("OPEN"), lines[1]
     # The release gate must block on it: an unanswered round of theirs is still an
     # open round, and "we did not start it" is not an exemption.
-    assert any("do not release" in ln for ln in hs.round_status(tmp_path))
+    assert any("do not switch the pin" in ln for ln in hs.round_status(tmp_path))
 
 
 def test_check_inbound_reports_the_missing_provider_contract(hs: ModuleType) -> None:
@@ -1445,7 +1386,10 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
 _BOOTSTRAP_REASON: str = ""
-#: History of this constant, newest first. **Empty again from 2026-10-05**: the gate
+#: History of this constant, newest first. **Empty again from 2026-10-11, the same day**:
+#: v8 landed byte-identical in both trees and the gate was taught 8 (E9's release rule,
+#: C19 amended, C47 to C49 with row-named tests) in the same change, as the reason it
+#: briefly held required. **Empty again from 2026-10-05**: the gate
 #: implements 7 (row C46, `HANDSHAKE-NEXT-LAP`, with a row-named test), cleared in that
 #: commit as the reason itself required. It had read: *"v7 landed 2026-09-30 in both
 #: trees as round 30's close condition S9 … v7 §15: 'Neither gate implements 7 until
@@ -1856,6 +1800,10 @@ _SHARED_FILE_PATHS: dict[str, str] = {
     # fork first, at `cyanrip@a3a49647`, then ours in the commit that files their
     # lap 7. Round 30 still closes under v6; v7 governs from round 31.
     "protocol(v7)": "docs/handshake-protocol.md",
+    # **v8, landed 2026-10-11 (round 31's close condition S28)**: the fork first, at
+    # `cyanrip@5cadca3`, then ours in the commit that files their lap 4. Round 31
+    # still closes under v7; v8 governs from round 32 (v8 §16).
+    "protocol(v8)": "docs/handshake-protocol.md",
     "seam-rules": "docs/seam-rules.md",
     "seam-commands": "docs/seam-commands.md",
     # Adopted round 14 lap 17. Same mechanism as the three above: a file NEITHER
@@ -4346,7 +4294,14 @@ def test_the_sent_round_24_lap_is_grandfathered_not_rewritten() -> None:
     assert _pin_policy_problems(hs.check_outbound_paths(lap)) == []
 
 
-# --- N4: a release our updater offers on stable is held to the stable rule --------
+# --- Recorded overrides at release: printed, and no longer waited on (v8) --------
+#
+# Until protocol v8 a release our updater offers on stable was held while a round
+# was open (N4, 2026-09-23) unless a released lap of ours recorded a §6b override
+# naming its tag. v8 retired the hold (§6b, E1, E9). Rows C31 and C32 still bind:
+# an override without -BY/-WHY, or in a held lap, is refused, and an honoured one
+# is printed every time the round's state is. These tests hold both, at the one
+# place our gate reads overrides.
 
 
 def _open_round_world(
@@ -4381,43 +4336,47 @@ def _override_lap(root: Path, **fields: str | None) -> Path:
     return path
 
 
-def test_a_stable_offered_tag_is_not_relaxed_by_prerelease(
+def test_a_stable_offered_tag_is_permitted_with_a_round_open(
     hs: ModuleType,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The N4 case: `release.yml` passes `--prerelease` for every `v0.*`, and our
-    updater offers every final `v0.*` on stable — so without the tag the gate
-    relaxed exactly what §6b's stable row forbids."""
+    """The N4 case under v8: a final `v0.*` our updater offers on stable, released
+    with round 9 open and no override, with and without `--prerelease`. Permitted,
+    and the open round is named, because v8 §6b permits any release on any channel
+    once its suite passes, and the gate no longer asks the updater."""
     _open_round_world(hs, tmp_path, monkeypatch)
-    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 1
-    assert "offered on the STABLE channel" in capsys.readouterr().err
-    # A genuine beta — one the stable channel does NOT offer — keeps §6b's
-    # relaxation, which exists so a round needing a published build can close.
-    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.7.0b1"]) == 0
-    # And the gate asks the UPDATER, not a list of its own.
-    monkeypatch.setattr(hs, "offered_on_stable_channel", lambda _tag: False)
-    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 0
+    for argv in (
+        ["--release-gate", "--tag", "v0.6.54"],
+        ["--release-gate", "--prerelease", "--tag", "v0.6.54"],
+    ):
+        capsys.readouterr()
+        assert hs.main(argv) == 0, argv
+        err = capsys.readouterr().err
+        assert "round-9:" in err and "release allowed with a round OPEN" in err, err
+    assert not hasattr(hs, "offered_on_stable_channel"), (
+        "the gate kept its copy of the stable-channel question, which v8 retired"
+    )
 
 
-def test_a_recorded_section_6b_override_releases_that_tag_and_is_printed(
+def test_a_recorded_section_6b_override_is_printed_beside_the_open_round(
     hs: ModuleType,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """§6a-ter: rule, who and why, in a released lap — honoured and printed (C32)."""
+    """C32: an honoured override is printed every time the round's state is, though
+    nothing waits on it under v8. It names ONE tag, so another release prints none."""
     root = _open_round_world(hs, tmp_path, monkeypatch)
     _override_lap(root)
     capsys.readouterr()
-    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 0
+    assert hs.main(["--release-gate", "--tag", "v0.6.54"]) == 0
     out = capsys.readouterr().out
     assert "OVERRIDE round 9" in out and "a data-loss fix" in out, out
-    assert "under a recorded operator override" in out
-    # It names ONE tag. Another release is still held.
-    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.55"]) == 1
-    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.5"]) == 1
+    for other in ("v0.6.55", "v0.6.5"):
+        assert hs.main(["--release-gate", "--tag", other]) == 0
+        assert "OVERRIDE round 9" not in capsys.readouterr().out, other
 
 
 @pytest.mark.parametrize(
@@ -4429,7 +4388,7 @@ def test_a_recorded_section_6b_override_releases_that_tag_and_is_printed(
         ({"HANDSHAKE-OVERRIDE": "R4 — release v0.6.54 while round 9 is open"}, None),
     ],
 )
-def test_an_incomplete_or_unreleased_override_does_not_release(
+def test_an_incomplete_or_unreleased_override_is_refused_and_says_why(
     hs: ModuleType,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -4437,15 +4396,19 @@ def test_an_incomplete_or_unreleased_override_does_not_release(
     fields: dict[str, str | None],
     why: str | None,
 ) -> None:
-    """An unrecorded override did not happen: missing `-BY`/`-WHY`, a held lap, or an
-    override of a different rule all leave the release blocked — and say why."""
+    """C31: an unrecorded override did not happen. Missing `-BY`/`-WHY` or a held
+    lap is printed as refused, with the reason; an override of another rule is not
+    read as one for this release at all. The release is permitted either way (v8)."""
     root = _open_round_world(hs, tmp_path, monkeypatch)
     _override_lap(root, **fields)
     capsys.readouterr()
-    assert hs.main(["--release-gate", "--prerelease", "--tag", "v0.6.54"]) == 1
-    err = capsys.readouterr().err
+    assert hs.main(["--release-gate", "--tag", "v0.6.54"]) == 0
+    captured = capsys.readouterr()
+    assert "OVERRIDE round 9" not in captured.out, captured.out
     if why is not None:
-        assert why in err, err
+        assert "refused override" in captured.err and why in captured.err, captured.err
+    else:
+        assert "refused override" not in captured.err, captured.err
 
 
 # --- K1 at release: a number the peer has already released is taken -------------

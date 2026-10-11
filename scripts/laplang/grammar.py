@@ -28,6 +28,8 @@ import re
 from pathlib import Path
 from typing import Final
 
+from round_digest import fenced_lines
+
 from .model import Field, Lap, Statement
 from .tables import LSL_VERSIONS
 
@@ -76,14 +78,15 @@ def _read_headers(lap: Lap, lines: list[str]) -> int | None:
     """Collect the wire headers; return the index of the first body line, if LSL.
 
     Header lines inside a fenced block are quotations, not headers (the protocol
-    strips fences before matching for the same reason).
+    strips fences before matching for the same reason). **What a fence is** is
+    protocol v8 §2 rule 2's answer (E10), CommonMark's, asked of the one function
+    every reader of a lap shares, ``round_digest.fenced_lines``. Until v8 this
+    toggled on a column-0 backtick line only, so a tilde fence or an indented one
+    left its contents read as headers, while the gate read them as quoted.
     """
-    fenced = False
+    mask = fenced_lines(lines)
     for i, line in enumerate(lines):
-        if line.startswith("```"):
-            fenced = not fenced
-            continue
-        if fenced:
+        if mask[i]:
             continue
         match = WIRE_RE.match(line)
         if match:
