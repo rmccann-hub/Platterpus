@@ -39,8 +39,10 @@ verified a flag table it had never diffed.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
+import sys
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parent.parent
@@ -55,12 +57,29 @@ _FIELD = re.compile(r"^(?P<key>HANDSHAKE-[A-Z-]+):[ \t]*(?P<value>.*?)[ \t]*$", 
 #: ``output_reference/cyanrip_fork_flac/``.
 _CITATION = re.compile(r"output_reference/(?P<dir>[A-Za-z0-9_.-]+)/?")
 
-_FENCE = re.compile(r"^```.*?^```", re.M | re.S)
+_ROUND_DIGEST_SCRIPT = (
+    Path(__file__).resolve().parents[1] / "scripts" / "round_digest.py"
+)
+
+
+def _strip_fences(text: str) -> str:
+    """``text`` without its fenced code blocks, by protocol v8 §2 rule 2 (E10): the
+    one CommonMark rule every reader of a lap uses, ``round_digest.fenced_lines``.
+    Until 2026-10-11 this was a backtick-only, column-0 regex of its own."""
+    spec = importlib.util.spec_from_file_location(
+        "_test_round_digest_fences", _ROUND_DIGEST_SCRIPT
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolve their module by name
+    spec.loader.exec_module(module)
+    stripped: str = module._unfenced(text)
+    return stripped
 
 
 def _declared(text: str) -> dict[str, str]:
     return {
-        m.group("key"): m.group("value") for m in _FIELD.finditer(_FENCE.sub("", text))
+        m.group("key"): m.group("value") for m in _FIELD.finditer(_strip_fences(text))
     }
 
 
@@ -68,7 +87,7 @@ def _cited_dirs(text: str) -> set[str]:
     """Artifact directories a file points at, excluding fenced examples."""
     return {
         m.group("dir")
-        for m in _CITATION.finditer(_FENCE.sub("", text))
+        for m in _CITATION.finditer(_strip_fences(text))
         if (_REFERENCE / m.group("dir")).is_dir()
     }
 

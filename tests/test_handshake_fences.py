@@ -305,3 +305,21 @@ def test_the_gate_and_the_digest_strip_the_same_lines(text: str) -> None:
     """The relation, which no test of either reader alone can state: on any text,
     the digest's unfenced text and the gate's R6 body are the same lines."""
     assert _RD._unfenced(text) == _HS._unfenced_body(text)
+
+
+def test_the_envelope_counts_declarations_by_the_same_fence_rule() -> None:
+    """`emit_envelope.py` counts a lap's identity fields (§5a), so it is a reader of a
+    lap too, and since 2026-10-11 it asks the shared rule. A tilde fence is the case
+    its old backtick-only regex read wrongly: the quoted line counted as declared."""
+    spec = importlib.util.spec_from_file_location(
+        "emit_envelope_fences", _SCRIPTS / "emit_envelope.py"
+    )
+    assert spec is not None and spec.loader is not None
+    envelope = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = envelope
+    spec.loader.exec_module(envelope)
+    text = "HANDSHAKE-LAP: 5\n\n~~~\nHANDSHAKE-LAP: 4\n~~~\n"
+    stripped = envelope._strip_fences(text)
+    assert stripped.count("HANDSHAKE-LAP:") == 1, stripped
+    for _label, fenced in _FENCED:
+        assert envelope._strip_fences(fenced) == _RD._unfenced(fenced), _label

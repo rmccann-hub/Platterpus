@@ -166,7 +166,13 @@ from platterpus.deps import fork_source
 #: declares. A new pin (`51cc789` -> `174a134`, `+platterpus.19`, round 30's declared
 #: pin). The closing run itself ran 0.6.66b1 with `.20`; `.19`'s own Full run was on
 #: 0.6.65, and 0.6.66b1 still carries both flags `.19` needs.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.66b1"
+#: **Round 31 moves it to 0.6.66**, read from the peer's closing lap as the rule
+#: requires: round 31 lap 4 declares `HANDSHAKE-APP-VERSION: platterpus 0.6.66`
+#: (sha256 `26384bfd…`, 19,785 bytes, `cyanrip@d6be7b7`) beside
+#: `HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.21`, the pair round 31
+#: reviewed and its Full run tested (2026-10-07, 425 pass, none failed, E2 the one
+#: step the drive cannot reach). A new pin (`174a134` -> `ca3f3ea`, `+platterpus.21`).
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.66"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -289,7 +295,13 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.66b1"
 #: 316 steps, its 7 failures all screenshot steps of ours. The closing run on 0.6.66b1
 #: with `.20` (418 pass, 7 fail, one check of ours) found no ARCHIVAL defect in either
 #: build. `.21`, `.20`'s source cut from the closed tree, is round 31's to review.
-APPROVED_BY_ROUND: Final[int] = 30
+#: **31 on 2026-10-11**, closed on our gate at five laps: their lap 4 `GO` (v8 landed
+#: in their tree, their lap 15 S9 and S10 fixed with the wordings our lap 2 accepted),
+#: our lap 5 `GO` (v8 landed in ours, our gate at protocol 8), released on the
+#: operator's word. It approves the pair it reviewed, `.21` (`ca3f3ea`) with 0.6.66
+#: (v8 R8 point 1, E2): the first `full-green` Full run, 425 of 426 with E2 unreachable
+#: on this drive, read by both sides. The round closes under v7; v8 governs from 32.
+APPROVED_BY_ROUND: Final[int] = 31
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.
