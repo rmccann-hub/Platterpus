@@ -1475,7 +1475,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # sequence, flag-set entries and the re-run same-program derivation.
     # **2635 -> 2643 (2026-10-07, the 0.6.66 Full run)**: the build-under-review
     # clause names its round instead of calling it open, and says so in its docstring.
-    "deps/fork_source.py": 2643,
+    # 2643 -> 2660 (2026-10-11): round 31's close, recorded beside FORK_PIN,
+    # FORK_EXPECTED_VERSION and PIN_UNDER_REVIEW as every roll before it was.
+    "deps/fork_source.py": 2660,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1702,7 +1704,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **754 -> 769 (2026-10-07, round 30 closed on our gate)**: the approval record moves to round 30 for 0.6.66b1, and says why the approved pin is the declared `.19` when the closing run ran `.20`.
     # **769 -> 770 (2026-10-07, the 0.6.66 Full run)**: the under-review sentence delegates to `fork_source.pin_under_review_role` instead of carrying its own copy, which said an OPEN round proposed the build.
     # **770 -> 758 (2026-10-07)**: the note-token list moved to `handshake_note`.
-    "handshake_approval.py": 758,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
+    # 758 -> 770 (2026-10-11): round 31's approval, read from their closing lap.
+    "handshake_approval.py": 770,  # was 638: +19 for round 23's approval, and WHY the pin stands still while the round and app version move
     # **323 lines on 2026-10-05**, crossing the ~300 heuristic with the first-entry
     # gate. Kept as one module: it is one class, the killable child slot, and the
     # growth is `run()` claiming the gate and the body it wraps (`_spawn_and_wait`);
@@ -2674,7 +2677,10 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # required `--out DIR` that `refusal_for_destination` refuses inside the
     # working tree, and `--check` verifies in memory instead of diffing a committed
     # copy. Kept here because the guard is the emitter's own output contract.
-    "scripts/emit_envelope.py": 908,
+    # **908 -> 938** (2026-10-11, protocol v8 E10): `_strip_fences` loads
+    # `round_digest.py` and asks its fence rule, replacing a regex of its own; the
+    # growth is the loader and its reason, the price of one rule for every reader.
+    "scripts/emit_envelope.py": 938,
     "scripts/emit_ripper_inventory.py": 316,
     "scripts/emit_script_language.py": 504,
     # **4365 -> 4368** (2026-10-05): `_WIRE_FIELD` rewritten greedy (linear in a
@@ -2701,7 +2707,9 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # **4565 -> 4461** (2026-10-11, protocol v8): the CommonMark fence rule moved
     # out to `round_digest.py` (E10, one rule for every reader of a lap), and the
     # release gate's refusal branches and the stable-channel hold went (E9).
-    "scripts/handshake.py": 4461,
+    # **4461 -> 4468** (2026-10-11): the announce body scan skips the
+    # field's own declaration line, with the incident beside it (our round 31 lap 5).
+    "scripts/handshake.py": 4468,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     "scripts/laplang/lsl3.py": 433,
     # **324 -> 312** (2026-10-06): git calls and decoding a cited file moved to

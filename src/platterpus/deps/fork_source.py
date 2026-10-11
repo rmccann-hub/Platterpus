@@ -239,7 +239,17 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: eight of its logs. The RELEASE that ships this constant is 0.6.66: the maintainer
 #: first held it for `.21` (published to both channels at `ca3f3ea` the same day; see
 #: :data:`PIN_UNDER_REVIEW`), then chose to release it on `.19` with `.21` under review.
-FORK_PIN: Final[str] = "174a134"
+#: **Rolled to `ca3f3ea` (`+platterpus.21`) on round 31's close on OUR gate
+#: (2026-10-11)**: our lap 5 `GO`, released on the maintainer's word ("release lap
+#: 5"), against their lap 4 `GO`. `ca3f3ea` is round 31's declared pin and the build
+#: of the pair it reviewed (v8 R8 point 1: a close approves the pair it reviewed, and
+#: the consumer's pin moves only to that pair's provider build). Its evidence is the
+#: 2026-10-07 Full run on 0.6.66 with `ca3f3ea` installed, 425 of 426 steps passing,
+#: the one left being E2, which this drive cannot reach (`docs/handshake/artifactsround31/`).
+#: `.21` was published to both of the fork's channels at `ca3f3ea` with
+#: `round_closed: true`, so its logs say *released build*. Our first release after this
+#: commit installs it by default.
+FORK_PIN: Final[str] = "ca3f3ea"
 
 #: **Which numbered fork release each commit we know about is**, read out of the
 #: fork's ``release-manifest.json`` — never guessed, never derived from the version.
@@ -527,7 +537,11 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: round 30 lap 17's `HANDSHAKE-RIPPER-VERSION`, `cyanrip 0.9.4-rc2+platterpus.19
 #: (platterpus-fork-g174a134)`, and cross-checked against `meson.build` at `174a134` in
 #: their tree (line 21), which declares the same string.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.19"
+#: **Rolled to `0.9.4-rc2+platterpus.21` on 2026-10-11, with `FORK_PIN`**, read off
+#: round 31 lap 4's `HANDSHAKE-RIPPER-VERSION`, `cyanrip 0.9.4-rc2+platterpus.21
+#: (platterpus-fork-gca3f3ea)`, and cross-checked against `meson.build` at `ca3f3ea`
+#: in their tree, which declares the same string.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc2+platterpus.21"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -754,6 +768,9 @@ FORK_RELEASE_4_COMMIT: Final[str] = "5bc654d"
 #: their round files by `tools/gen-handshake-state.py` on a `git archive` of
 #: `ca3f3ea`, is "round 30 lap 17 closed, verdict GO". **`FORK_PIN` stays
 #: `174a134`** until round 31 closes.
+#: **Round 31 closed on our gate on 2026-10-11** and `FORK_PIN` rolled to `ca3f3ea`,
+#: so the two pins coincide again and `a_round_is_reviewing_a_build()` answers False
+#: until round 32 opens and names `.22`.
 PIN_UNDER_REVIEW: Final[str] = "ca3f3ea"
 
 #: The round :data:`PIN_UNDER_REVIEW` belongs to. **Stated, like

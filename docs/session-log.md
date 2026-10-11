@@ -34,6 +34,15 @@ and S10 with the wordings our lap 2 accepted, and answers our lap 3.
   lap 1's three blocking questions to our lap 2's answers with `answers:`, which lap 2
   had written as `re:` and the A7 rule does not read.
 
+- **Lap 5 released and round 31 closed** on the maintainer's word (*"release lap 5
+  with all concerns and fears, we need to fix it all"*). Fixed first: three more
+  fence readers (`emit_envelope.py` and two test helpers), the release step run by a
+  test as written, the fork's seam check run against our `main` (IN SYNC). The lap's
+  S19 lists what is still open. `--announce` refused the lap's bare `no` because its
+  body scan read the header of a lap without `---`; fixed, probed. `FORK_PIN` moved to
+  `ca3f3ea` with round 31's approval record; the meson-options tripwire fired an
+  eleventh time and the answer did not change.
+
 **Learned.** A gate that can no longer refuse needs its tests rewritten around what it
 *prints*, or every one of them passes by construction. Each rewritten test asserts that
 the open round is named in every open state and absent once closed; the wiring test

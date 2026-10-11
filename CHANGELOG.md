@@ -14,6 +14,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The default cyanrip build moves to `0.9.4-rc2+platterpus.21`** (`ca3f3ea`), the
+  build handshake round 31 approved with Platterpus 0.6.66 after a full acceptance
+  run passed every step this drive can reach. The next release installs it by
+  default; installs that already have `.19` are offered the update.
+- **Announcing a held lap no longer refuses its own header.** `handshake.py
+  --announce` scanned the whole file for sentences saying the lap is held when a lap
+  had no `---` separator, and flagged the `HANDSHAKE-READY-TO-READ: no` line it exists
+  to rewrite.
 - **A release no longer waits for a cyanrip handshake round to close.** The
   handshake protocol's version 8, agreed with the cyanrip fork in round 31 and landed
   word for word in both repositories, lets either project release whenever its own
@@ -23,9 +31,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   projects have checked is unchanged: Platterpus installs the cyanrip build the last
   closed round approved, and that moves only when a round closes. For contributors:
   our gate implements protocol 8, so `HANDSHAKE-INBOUND-OBSERVED` is required from a
-  lap declaring 8 (row C47), and the gate, the round digest and the lap checker now
-  read code fences by one shared CommonMark rule (rows C48 and C49). No digest on
-  record changes.
+  lap declaring 8 (row C47), and the gate, the round digest, the lap checker, the
+  envelope builder and the tests that read laps now read code fences by one shared
+  CommonMark rule (rows C48 and C49). No digest on record changes. The release
+  workflow's handshake step is now run by a test exactly as the workflow writes it.
 
 ## [0.7.102] — 2026-10-07
 

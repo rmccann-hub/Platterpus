@@ -136,6 +136,34 @@ def test_announce_releases_the_very_lap_that_REPORTS_the_held_body_defect(
     assert hs.ready_to_read(lap.read_text(encoding="utf-8")) is True
 
 
+def test_announce_releases_a_lap_with_no_separator_whose_held_value_is_bare_no(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """REGRESSION (2026-10-11, our round 31 lap 5): no `---`, and the field reads `no`.
+
+    The body scan starts after a `---` separator, and our laps since round 25 have
+    none, so it scanned the header too. The skeleton's `no — not announced` slipped
+    past through the pattern's lookahead, but a bare `no` refused its own announce:
+    the guard flagged the one line `--announce` exists to rewrite. The other half
+    must still hold, or this is an exemption: a held claim in the body refuses.
+    """
+    lap = tmp_path / "outbound" / "round-31-lap-05.md"
+    lap.parent.mkdir(parents=True)
+    lap.write_text(
+        "HANDSHAKE-READY-TO-READ: no\n\n## Verdict\n\nGO.\n", encoding="utf-8"
+    )
+    assert hs.announce_lap(lap) == 0, capsys.readouterr().err
+    assert hs.ready_to_read(lap.read_text(encoding="utf-8")) is True
+
+    held = tmp_path / "outbound" / "round-31-lap-06.md"
+    held.write_text(
+        "HANDSHAKE-READY-TO-READ: no\n\n## Status\n\nThis lap is HELD until Monday.\n",
+        encoding="utf-8",
+    )
+    assert hs.announce_lap(held) == 2
+    assert "declares itself HELD" in capsys.readouterr().err
+
+
 def test_announce_still_releases_a_lap_that_only_DISCUSSES_held_laps(
     hs: ModuleType, tmp_path: Path
 ) -> None:
@@ -726,6 +754,36 @@ def test_the_release_workflow_actually_calls_the_gate() -> None:
     # check runs and refuses a failed one.
     assert "# THE CI GATE." in workflow, "the CI gate's step is gone from release.yml"
     assert workflow.index("# THE CI GATE.") < workflow.index("Build the AppImage")
+
+
+def test_the_release_workflows_handshake_step_runs_as_written(tmp_path: Path) -> None:
+    """Run the step's own `run:` line, not a paraphrase of it.
+
+    Protocol v8 made the step one call, and no release had run it when it landed
+    (2026-10-11). Executed here from the workflow text, with the workflow's `TAG`
+    variable set, so a typo in the flags, a renamed subcommand or a non-zero exit
+    on today's record fails a commit rather than a release.
+    """
+    workflow = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "release.yml"
+    ).read_text(encoding="utf-8")
+    match = re.search(
+        r"- name: Handshake record[^\n]*\n(?:\s+[^\n]*\n)*?\s+run: (?P<cmd>[^\n]+)\n",
+        workflow,
+    )
+    assert match is not None, "the handshake step or its run: line is gone"
+    command = match.group("cmd")
+    assert "--release-gate" in command, command
+    result = subprocess.run(  # noqa: S603 — a line we just read out of our own repo
+        ["sh", "-c", command.replace("python ", f"{sys.executable} ", 1)],
+        cwd=Path(__file__).resolve().parents[1],
+        env={**os.environ, "TAG": "v0.0.0-test"},
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, (result.stdout[-2000:], result.stderr[-2000:])
+    assert "handshake:" in result.stdout + result.stderr, "the step printed nothing"
 
 
 @pytest.mark.parametrize(
