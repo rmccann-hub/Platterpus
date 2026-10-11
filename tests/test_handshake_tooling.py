@@ -728,6 +728,36 @@ def test_the_release_workflow_actually_calls_the_gate() -> None:
     assert workflow.index("# THE CI GATE.") < workflow.index("Build the AppImage")
 
 
+def test_the_release_workflows_handshake_step_runs_as_written(tmp_path: Path) -> None:
+    """Run the step's own `run:` line, not a paraphrase of it.
+
+    Protocol v8 made the step one call, and no release had run it when it landed
+    (2026-10-11). Executed here from the workflow text, with the workflow's `TAG`
+    variable set, so a typo in the flags, a renamed subcommand or a non-zero exit
+    on today's record fails a commit rather than a release.
+    """
+    workflow = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "release.yml"
+    ).read_text(encoding="utf-8")
+    match = re.search(
+        r"- name: Handshake record[^\n]*\n(?:\s+[^\n]*\n)*?\s+run: (?P<cmd>[^\n]+)\n",
+        workflow,
+    )
+    assert match is not None, "the handshake step or its run: line is gone"
+    command = match.group("cmd")
+    assert "--release-gate" in command, command
+    result = subprocess.run(  # noqa: S603 — a line we just read out of our own repo
+        ["sh", "-c", command.replace("python ", f"{sys.executable} ", 1)],
+        cwd=Path(__file__).resolve().parents[1],
+        env={**os.environ, "TAG": "v0.0.0-test"},
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, (result.stdout[-2000:], result.stderr[-2000:])
+    assert "handshake:" in result.stdout + result.stderr, "the step printed nothing"
+
+
 @pytest.mark.parametrize(
     ("tag", "prerelease"),
     [

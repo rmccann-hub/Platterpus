@@ -1784,10 +1784,12 @@ each side's reading; and the closing releases named.
   regex. §2 rule 2 names the gate, the digest and the lap checker; these read our own
   laps for citations and names, and no lap of either side uses a tilde or indented
   fence today. Moving them to the shared rule is the open row below.
-- [ ] **Test helpers that read lap fields use the shared fence rule** (v8 E10's
+- [x] **Test helpers that read lap fields use the shared fence rule** (v8 E10's
   spirit, narrowed above): `tests/test_handshake_cites_the_pair_it_ran.py` and
   `tests/test_handshake_file_naming.py` strip fences with `^```.*?^```` regexes.
-  Point them at `round_digest.fenced_lines`.
+  Point them at `round_digest.fenced_lines`. *Done 2026-10-11*, with a third reader the
+  sweep for it found, `scripts/emit_envelope.py` (it counts a lap's identity fields);
+  a test holds the envelope to the shared rule on every `_FENCED` case.
 - [x] **Release 0.7.102 with `-W`, beside our round 31 lap 3** (the maintainer,
   2026-10-07: *"release both at once"*), under the §6b override in lap 3's header.
   *Done 2026-10-07:* **released 0.7.102**, tag at `b2000117` (PR #306, merge commit),
