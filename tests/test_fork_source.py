@@ -1496,9 +1496,15 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # `value: false`. `release-manifest.json` at `174a134` builds with
     # `-Ddeclare_released=true` on both channels — the release path.
     #
+    # **ELEVENTH TIME, ON THE ROLL TO `ca3f3ea` (round 31 close, 2026-10-11), AND THE
+    # ANSWER AGAIN DID NOT CHANGE.** Re-derived in the fork's tree: `git diff 174a134
+    # ca3f3ea -- meson_options.txt` empty, the file hashes as before (sha256
+    # `0a32b1f7ac8efbde…`), 973 bytes, the one option still `declare_released`,
+    # `value: false`.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "174a134", (
+    assert fork_source.PRODUCTION_TARGET.pin == "ca3f3ea", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "

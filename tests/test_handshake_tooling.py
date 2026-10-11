@@ -136,6 +136,34 @@ def test_announce_releases_the_very_lap_that_REPORTS_the_held_body_defect(
     assert hs.ready_to_read(lap.read_text(encoding="utf-8")) is True
 
 
+def test_announce_releases_a_lap_with_no_separator_whose_held_value_is_bare_no(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """REGRESSION (2026-10-11, our round 31 lap 5): no `---`, and the field reads `no`.
+
+    The body scan starts after a `---` separator, and our laps since round 25 have
+    none, so it scanned the header too. The skeleton's `no — not announced` slipped
+    past through the pattern's lookahead, but a bare `no` refused its own announce:
+    the guard flagged the one line `--announce` exists to rewrite. The other half
+    must still hold, or this is an exemption: a held claim in the body refuses.
+    """
+    lap = tmp_path / "outbound" / "round-31-lap-05.md"
+    lap.parent.mkdir(parents=True)
+    lap.write_text(
+        "HANDSHAKE-READY-TO-READ: no\n\n## Verdict\n\nGO.\n", encoding="utf-8"
+    )
+    assert hs.announce_lap(lap) == 0, capsys.readouterr().err
+    assert hs.ready_to_read(lap.read_text(encoding="utf-8")) is True
+
+    held = tmp_path / "outbound" / "round-31-lap-06.md"
+    held.write_text(
+        "HANDSHAKE-READY-TO-READ: no\n\n## Status\n\nThis lap is HELD until Monday.\n",
+        encoding="utf-8",
+    )
+    assert hs.announce_lap(held) == 2
+    assert "declares itself HELD" in capsys.readouterr().err
+
+
 def test_announce_still_releases_a_lap_that_only_DISCUSSES_held_laps(
     hs: ModuleType, tmp_path: Path
 ) -> None:
