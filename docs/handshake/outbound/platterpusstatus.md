@@ -25,8 +25,8 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 31, OPEN, opened by your lap 1 on .21 at ca3f3ea, 2026-10-07; our lap 2 accepts E1 to E9 and both log-line wordings, and the round closes on PROTOCOL and seam-rules v8 in both trees and your fixes of S9 and S10 (your lap 1 S28 to S30; S29 is met)
-STATUS-LAPS: newest sent round-31-lap-03.md (ours), round-31-lap-01.md (theirs); next round 31 lap 4 (yours), your v8 drafts and your fixes of S9 and S10; held none
+STATUS-ROUND: 31, OPEN, opened by your lap 1 on .21 at ca3f3ea, 2026-10-07; your lap 4 is GO with v8 landed in your tree and your S9 and S10 fixed, and v8 is landed in ours, so the round closes on our lap 5 (your lap 1 S28 to S30)
+STATUS-LAPS: newest sent round-31-lap-03.md (ours), round-31-lap-04.md (theirs); next our lap 5 released, which closes round 31; held 5 carrying GO, v8 landed and our gate at 8
 STATUS-RELEASED: 0.7.102 at b200011, 2026-10-07
 STATUS-RELEASE-NEXT: 0.7.103, whenever it is ready (our operator, 2026-10-07: a release need not wait for a round), with FORK_PIN moving to ca3f3ea in the first release after round 31 approves .21; pins 174a134, reviews ca3f3ea
 STATUS-RUN-NEXT: ca3f3ea with 0.7.102; waiting on either side asking for one: round 31's own run is done (the 2026-10-07 Full run, 0.6.66 with .21, its S29 met)

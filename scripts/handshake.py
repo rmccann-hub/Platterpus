@@ -1491,75 +1491,21 @@ _WIRE_FIELD = re.compile(
     re.MULTILINE,
 )
 
-#: A line that OPENS a fenced code block, as CommonMark (0.31, §4.5) defines one:
-#: up to three spaces of indentation, then three or more backticks or tildes. A
-#: tab is not one of the three spaces (CommonMark expands it to the next multiple
-#: of four columns, which makes the line indented code, not a fence). A backtick
-#: fence's info string may not contain a backtick, so `` ```a`b `` is prose.
-#: `handshake-protocol.md` §2 rule 2 says to strip fenced blocks and does not say
-#: what a fence is, so the gate reads it the way the Markdown renderers that show
-#: a lap to its reader do.
-_FENCE_OPEN: Final[re.Pattern[str]] = re.compile(r"^ {0,3}(?P<run>`{3,}(?!.*`)|~{3,})")
-
-#: A line that CLOSES one: up to three spaces, a run of the opening character at
-#: least as long as the opening run, and nothing after it but spaces and tabs.
-_FENCE_CLOSE: Final[re.Pattern[str]] = re.compile(r"^ {0,3}(?P<run>`{3,}|~{3,})[ \t]*$")
-
 
 def _fenced_lines(lines: list[str]) -> list[bool]:
     """For each line, whether it lies in a fenced code block, fences included.
 
-    **The one answer to "is this line quoted?"** for this module: `_strip_fences`
-    (every wire field) and `_unfenced_body` (the R6 pre-commit search) both ask it,
-    and until 2026-10-06 they answered with two different rules, neither of them
-    CommonMark's. The regex `_strip_fences` used needed a closing fence at column
-    0 of exactly the opening's length, so a field inside an UNTERMINATED fence, an
-    INDENTED one, or one closed by a longer run counted as a declaration (TASKS C6).
-
-    The CommonMark rules, applied to the document as one flat sequence of lines:
-
-    * an opening fence may be indented up to three spaces;
-    * the block ends at the first line that is a run of the SAME character, at
-      least as long as the opening run, indented up to three spaces, with nothing
-      after it but blanks (so a ```` ``` ```` line inside a ``~~~`` block is content);
-    * a block with no closing fence runs to the end of the document.
-
-    **Where it departs from CommonMark.** It does not track block quotes or list
-    items. A fence inside a block quote (a ``>``, then a fence) is not recognised,
-    but every line of such a block starts with ``>`` (a fenced block takes no lazy
-    continuation, so the first line without one ends the quote and the fence), and
-    no such line is a column-0 field: the two agree on every field. A fence
-    indented under a list item is read as a document-level fence; where CommonMark
-    would end it with the item, this strips more, which fails closed (§2 rule 4,
-    an absent field). The one shape where it strips LESS: a list item's indented
-    fence followed by a column-0 fence line, which this pairs as open-and-close
-    and CommonMark reads as the item ending and a new fence opening, so a field
-    between the second and third fence lines reads as declared here and as quoted
-    there. Checked 2026-10-06 against markdown-it-py's CommonMark parser (not a
-    project dependency, run once): 0 differences on 20,000 generated documents
-    without containers, and on the 333 filed files 11 differ, every one on a block
-    quote's fence and none on a field. A trailing carriage return is read as part
-    of the line ending, so a lap saved with CRLF endings fences as it renders.
+    **The one answer to "is this line quoted?"**, and since protocol v8 (E10) it is
+    one answer for every reader of a lap, not only for this gate: `_strip_fences`
+    (every wire field) and `_unfenced_body` (the R6 pre-commit search) ask it here,
+    and the round digest and the lap-language checker ask the same function. It
+    lives in ``round_digest.py`` because that file depends on nothing and this
+    module already loads it (:func:`_round_digest`); the rule, its CommonMark
+    reading and where it departs from CommonMark are documented there, on
+    ``fenced_lines``.
     """
-    fenced = [False] * len(lines)
-    opening: str | None = None  # the open block's fence run, while inside one
-    for index, raw in enumerate(lines):
-        line = raw.removesuffix("\r")
-        if opening is None:
-            match = _FENCE_OPEN.match(line)
-            if match:
-                opening = match.group("run")
-                fenced[index] = True
-            continue
-        fenced[index] = True
-        close = _FENCE_CLOSE.match(line)
-        if (
-            close is not None
-            and close.group("run")[0] == opening[0]
-            and len(close.group("run")) >= len(opening)
-        ):
-            opening = None
-    return fenced
+    result: list[bool] = _round_digest().fenced_lines(lines)
+    return result
 
 
 #: The protocol version this gate implements (`PROTOCOL.md`). A file declaring a
@@ -1588,7 +1534,18 @@ def _fenced_lines(lines: list[str]) -> list[bool]:
 #: round 30 lap 8 S41 promised this before our round 31 lap 1. Round 30's laps
 #: declare 6 and C46 is keyed on the declared version, so nothing in round 30 is
 #: read differently.
-PROTOCOL_VERSION: int = 7
+#:
+#: **8 since 2026-10-11** (v8: E9's release rule, C19 amended, C47 to C49). v8 §16's
+#: condition for *implementing* it holds: the shared file is byte-identical in both
+#: trees (sha256 ``72216c06…``, compared against
+#: ``cyanrip@5cadca3:docs/handshake/PROTOCOL.md``), landed in the commit that files
+#: their round 31 lap 4. What it changed here: ``--release-gate`` no longer refuses a
+#: release while a round is open, it prints every open round (C19 as v8 amends it,
+#: E1, E9); ``HANDSHAKE-INBOUND-OBSERVED`` is required from a declared 8, as both
+#: gates now check it (C47, E11); and every reader of a lap strips fences by one
+#: CommonMark rule (C48, C49, E10). Round 31's laps declare 7 and it closes under
+#: v7; v8 governs from round 32 (v8 §16).
+PROTOCOL_VERSION: int = 8
 
 #: The protocol version OUR laps declare, which may trail :data:`PROTOCOL_VERSION`.
 #:
@@ -2627,11 +2584,20 @@ AGREED_CHANGES_FIELD: Final[str] = "HANDSHAKE-AGREED-CHANGES"
 #: Row C23: *"`HANDSHAKE-INBOUND-HELD` absent on a round ≥ 9 file → refuse"*.
 INBOUND_HELD_FROM_ROUND: Final[int] = 9
 
-#: The first protocol version whose files owe `-OBSERVED` (K2) and, on a `GO`, the
-#: ledger (C44). Keyed on the file's DECLARED version, the C29 reasoning: a file's
-#: version is a request to be read by that version's rules, so a lap declaring 5 is
-#: not failed for a v6 field.
+#: The first protocol version whose files owe, on a `GO`, the ledger (C44). Keyed
+#: on the file's DECLARED version, the C29 reasoning: a file's version is a request
+#: to be read by that version's rules, so a lap declaring 5 is not failed for a v6
+#: field.
 V6_FIELDS_FROM_PROTOCOL: Final[int] = 6
+
+#: The first protocol version whose files owe `-OBSERVED`: **8, row C47 (v8 §5a,
+#: E11)**. Until 2026-10-11 this gate required it from 6 (v6 K2) and the fork's
+#: never read it, so a lap declaring 6 or 7 without it would have been refused here
+#: and closed there: the divergence our round 30 lap 14 S6 raised. v8 settles it as
+#: *"required on every lap of a file declaring 8 or later, and both gates check
+#: it"*, so this gate keys on 8 too. Every file on the record declaring 6 or 7
+#: carries the field anyway, so nothing filed reads differently.
+INBOUND_OBSERVED_FROM_PROTOCOL: Final[int] = 8
 
 #: Sent files that break row C23, pinned by sha256 of their exact bytes. **A ratchet:
 #: it may shrink and never grow**, and `tests/test_handshake_conformance.py` asserts
@@ -2683,14 +2649,14 @@ def inbound_field_problems(text: str, round_hint: int | None = None) -> list[str
                 "hold is the failure this field exists for"
             )
     version = declared_protocol(text)
-    if version is not None and version >= V6_FIELDS_FROM_PROTOCOL:
+    if version is not None and version >= INBOUND_OBSERVED_FROM_PROTOCOL:
         why = _declares(fields, INBOUND_OBSERVED_FIELD)
         if why is not None:
             problems.append(
                 f"{INBOUND_OBSERVED_FIELD} is {why} on a file declaring "
-                f"HANDSHAKE-PROTOCOL: {version} (v6 K2) — a peer lap you can see "
-                "but that is not released goes here, with the commit and no hash, "
-                "and `none` is written out"
+                f"HANDSHAKE-PROTOCOL: {version} (v8 §5a, row C47) — a peer lap you "
+                "can see but that is not released goes here, with the commit and no "
+                "hash, and `none` is written out"
             )
     return problems
 
@@ -3925,8 +3891,8 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         return [
             "no handshake rounds recorded under docs/handshake/ -> OPEN",
             "",
-            "An empty record is not agreement: do not release, and do not switch "
-            "the pin.",
+            "An empty record is not agreement: do not switch the pin. (A release "
+            "does not wait on a round from protocol v8, §6b.)",
         ]
     for num in sorted(rounds):
         name = f"round-{num}"
@@ -3946,12 +3912,15 @@ def round_status(root: Path | None = None, *, floor: int | None = None) -> list[
         lines.extend(terminal if terminal is not None else round_lines)
     if any(line.endswith("OPEN") for line in lines):
         lines.append("")
-        lines.append("A round is OPEN: do not release, and do not switch the pin.")
+        lines.append(
+            "A round is OPEN: do not switch the pin until it closes. A release may "
+            "go ahead (protocol v8 §6b); it claims its own side's testing only."
+        )
     elif illegal_transition_blockers(lines):
         lines.append("")
         lines.append(
-            "A closed round carries a refused later lap (row C13a): do not release "
-            "until the next round exists."
+            "A closed round carries a refused later lap (row C13a): the round stays "
+            "closed, and nothing the refused lap declares moves the pin."
         )
     return lines
 
@@ -4209,41 +4178,13 @@ def _close_by_verdict(value: str) -> str:
     return f"{value}, {remaining} day(s) remaining"
 
 
-#: The rule an operator names to release while a round is open: `handshake-protocol.md`
-#: §6b's *"stable release — permitted with a round open? no"*, overridden in writing
-#: under §6a-ter. The override must also name the tag it releases, so one recorded
-#: reason can never excuse a release it was not written for.
+#: The rule an operator named, until protocol v8, to release while a round was open:
+#: v7 §6b's *"stable release — permitted with a round open? no"*, overridden in
+#: writing under §6a-ter, naming the tag it released so one recorded reason could
+#: never excuse a release it was not written for. v8 retired that row (E1), so no
+#: release waits on one; the overrides our laps of rounds 26 to 31 recorded are still
+#: read, and printed beside an open round's state (rows C31 and C32).
 RELEASE_OVERRIDE_RULE: Final[str] = "§6b"
-
-
-def offered_on_stable_channel(tag: str) -> bool:
-    """Whether OUR UPDATER offers ``tag`` on the stable channel — asked of the updater.
-
-    **N4, the maintainer's decision, 2026-09-23 (option (a)).** `--prerelease` relaxes
-    the gate for a build that claims no joint verification (§6b), and `release.yml`
-    passes it for every `v0.*` tag because every such tag carries GitHub's pre-release
-    flag. But our updater ignores that flag and offers every `v0.*` on the STABLE
-    channel, so the relaxation let through exactly what §6b's stable row forbids: not
-    one release this project shipped was ever held by this gate. So the gate asks the
-    updater's own predicate, `update_check.offered_on_stable_channel`, rather than
-    restating it — two surfaces answering *"does a stable user get this?"* with two
-    keys is the defect `CLAUDE.md` names.
-
-    ``src/`` is put on the path because `release.yml` runs this gate before the
-    package is installed. **Fails closed**: if the updater cannot be imported the tag
-    is treated as offered on stable, so a broken import holds a release rather than
-    waving one through.
-    """
-    src = Path(__file__).resolve().parents[1] / "src"
-    if str(src) not in sys.path:
-        sys.path.insert(0, str(src))
-    try:
-        from platterpus.update_check import (  # noqa: PLC0415
-            offered_on_stable_channel as ask,
-        )
-    except ImportError:
-        return True
-    return bool(ask(tag))
 
 
 def _names_tag(text: str, tag: str) -> bool:
@@ -4307,6 +4248,89 @@ def release_overrides(
     return honoured, problems
 
 
+def release_gate(record_root: Path | None, *, tag: str | None = None) -> int:
+    """``--release-gate``: print the handshake record before a release, and permit it.
+
+    **Protocol v8 §6b (E1), and E9 on our side, from 2026-10-11.** *"Either side may
+    release, on any channel, whenever its whole suite passes on the release commit
+    from a clean checkout, whether a round is open or not. Its gate prints every open
+    round first, so a release while one is open is never quiet."* Row C19 as v8
+    amends it: a stable release requested with a round open is **allowed**, after
+    the open rounds are printed. The suite half is not here: it is `release.yml`'s CI
+    gate, which refuses a tag unless `main`'s own CI passed on that commit, from a
+    clean checkout.
+
+    **What still protects a user is the pin, not this step.** A release claims its
+    own side's testing and nothing more (§6b); joint verification is claimed by our
+    approved pin, `FORK_PIN`, which moves only when a round closes, and only to the
+    provider build of the pair that round reviewed (R8 point 1, E2). That is what
+    decides which cyanrip build a user installs by default while a round is open.
+
+    **What this replaced.** From round 7 until v8 this refused a stable release while
+    any round was open, permitted a pre-release after printing them (C20), held a
+    tag our updater offers on the stable channel to the stable rule (N4, 2026-09-23,
+    which every `v0.*` tag is), and let one through only under a `§6b`
+    ``HANDSHAKE-OVERRIDE`` recorded in a released lap of ours. Every release from
+    0.6.54 to 0.7.102 went out under such an override, which is the paperwork E9
+    retired: the operator's *"without so much paperwork that does so little"*.
+
+    What it still prints, every time (rows C32 and C42):
+
+    * every open round, on stderr so a captured stdout cannot swallow it;
+    * a closed round carrying a refused later lap (C13a), with the open ones. Under
+      v7 that held a release until the next round existed; under v8 a round can no
+      more hold a release than authorise one (§16), so it is printed, not obeyed;
+    * which peer file each close rests on (C42);
+    * any ``HANDSHAKE-OVERRIDE`` a released lap of ours records for ``tag`` in an
+      open round, honoured or refused by C31's rule. Nothing waits on one any more,
+      but an override that becomes invisible is indistinguishable from the rule
+      never having existed (C32), and those laps stay on the record.
+
+    Returns 0: no handshake state refuses a release. The release workflow's other
+    gates (CI on the commit, the changelog, the built version, the bundled verifier,
+    the attestation) are where a release is refused.
+    """
+    lines = round_status(record_root)
+    open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
+    illegal = illegal_transition_blockers(lines)
+    # ROW C42: a close resolved under §5b rests on a file in the peer's tree, so the
+    # release must say which file, every time, not only when something is wrong.
+    for line in lines:
+        if line.startswith(SOURCE_LINE_PREFIX):
+            sys.stdout.write(f"{line}\n")
+    if not open_rounds and not illegal:
+        sys.stdout.write("handshake: every round is closed — release allowed\n")
+        return 0
+    sys.stderr.write(
+        "handshake: release allowed with a round OPEN (protocol v8 §6b, E1): a "
+        "release claims its own side's testing only; joint verification is claimed "
+        "by FORK_PIN, which moves only when a round closes. Open now:\n"
+    )
+    for line in open_rounds:
+        sys.stderr.write(f"  - {line}\n")
+    if illegal:
+        sys.stderr.write(
+            "handshake: a closed round carries a refused later lap (row C13a); under "
+            "v8 it does not hold a release, and it is shown so it is not missed:\n"
+        )
+        for line in illegal:
+            sys.stderr.write(f"  - {line.strip()}\n")
+    if tag is not None and open_rounds:
+        numbers = [
+            int(m.group(1))
+            for ln in open_rounds
+            if (m := re.match(r"round-(\d+):", ln)) is not None
+        ]
+        honoured, problems = release_overrides(record_root, numbers, tag)
+        # ROW C32: printed every time, never once, beside the rounds it names.
+        for line in honoured:
+            sys.stdout.write(f"{line}\n")
+        # ROW C31: an override without -BY/-WHY, or in a held lap, is not recorded.
+        for problem in problems:
+            sys.stderr.write(f"  refused override: {problem}\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
@@ -4337,23 +4361,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--prerelease",
         action="store_true",
-        help="with --release-gate: permit a PRE-RELEASE while a round is open. A "
-        "pre-release is a test artifact, not a claim that the pair was verified "
-        "(handshake round 7 lap 6 §1 — the close-needs-hardware deadlock). A "
-        "stable release is still refused.",
+        help="with --release-gate: accepted and ignored. Until protocol v8 it "
+        "permitted a pre-release while a round was open; from v8 every release is "
+        "permitted and the open rounds are printed either way (§6b, E1). Kept so a "
+        "workflow passing it does not fail, as v8 §6b says both gates keep it.",
     )
     parser.add_argument(
         "--tag",
         default=None,
-        help="with --release-gate: the tag being released. A tag our updater offers "
-        "on the STABLE channel is held to the stable rule even with --prerelease "
-        "(maintainer decision N4, 2026-09-23), unless a released lap of ours for "
-        "each open round records a complete §6b HANDSHAKE-OVERRIDE naming this tag.",
+        help="with --release-gate: the tag being released, so any HANDSHAKE-OVERRIDE "
+        "a released lap of ours records for it in an open round is printed "
+        "(rows C31, C32). Nothing waits on one from protocol v8.",
     )
     group.add_argument(
         "--release-gate",
         action="store_true",
-        help="exit non-zero if any round is open (for the release workflow)",
+        help="print every open round, and the peer file each close rests on, before "
+        "a release (for the release workflow). From protocol v8 no round state "
+        "refuses a release (§6b, E1, E9); the workflow's CI gate is what does.",
     )
     group.add_argument(
         "--announce",
@@ -4401,136 +4426,7 @@ def main(argv: list[str] | None = None) -> int:
         held = any(ln.endswith("OPEN") for ln in status_lines)
         return 1 if held or illegal_transition_blockers(status_lines) else 0
     if args.release_gate:
-        # A PRE-RELEASE is permitted while a round is open. A stable release is not.
-        #
-        # The fork found the deadlock and named it (round 7 lap 6 §1): a round cannot
-        # close without `HANDSHAKE-TESTED` naming what ran; that evidence needs the
-        # reviewed build on the rig; installing it is forbidden while the round is
-        # open. Every step is a rule both projects hold and together they are
-        # unsatisfiable. Their fix is `HANDSHAKE-TEST-PIN` — a build designated to
-        # gather evidence, which never closes a round and never moves the production
-        # pin. This is the same fix on our side of the seam.
-        #
-        # **What the gate protects is the claim a stable release makes**: that the
-        # pair was jointly verified. A beta makes no such claim — it ships as a
-        # GitHub pre-release, its own report says `ripper_handshake_approval:
-        # not_determined` or `unapproved`, and its whole purpose is to *produce* the
-        # evidence the close requires. Refusing it does not protect a user; it
-        # guarantees the round can never close.
-        #
-        # Loud, not silent: the open rounds are printed either way, so a pre-release
-        # never looks like a clean record.
-        stable_offered = args.tag is not None and offered_on_stable_channel(args.tag)
-        if args.prerelease and stable_offered:
-            sys.stderr.write(
-                f"handshake: {args.tag} is offered on the STABLE channel by our "
-                "updater (update_check.offered_on_stable_channel), so --prerelease "
-                "does not relax this gate — a release a stable user is offered is "
-                "held to §6b's stable rule (maintainer decision N4, 2026-09-23)\n"
-            )
-        if args.prerelease and not stable_offered:
-            lines = round_status(record_root)
-            # Row C13a's refusals are listed with the open rounds: a pre-release
-            # claims no joint verification, so neither holds it, and both are shown.
-            open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
-            open_rounds += illegal_transition_blockers(lines)
-            # ROW C42 ON THE PATH THAT ACTUALLY RUNS. `release.yml` passes
-            # `--prerelease` for every `v0.*` tag, so this branch — not the strict one
-            # below — is what every release this project has shipped went through. It
-            # printed only open rounds and a one-line verdict, so a close resolved
-            # under §5b permitted a release without naming the peer file it rested
-            # on, and the round-24 note saying our gate closed one lap before the
-            # fork's (CLOSED_ONE_LAP_EARLY_NOTE) never reached the release log. The
-            # C42 test drove the strict path, which no v0 release takes: §5.bo's
-            # "test a row at the surface it describes", found one surface over.
-            for line in lines:
-                if line.startswith(SOURCE_LINE_PREFIX):
-                    sys.stdout.write(f"{line}\n")
-            if open_rounds:
-                sys.stderr.write(
-                    "handshake: PRE-RELEASE permitted with a round OPEN — this build "
-                    "is a test artifact, not a verified pair. It must ship as a "
-                    "GitHub pre-release and must not move the production pin:\n"
-                )
-                for line in open_rounds:
-                    sys.stderr.write(f"  - {line}\n")
-                sys.stderr.write(
-                    "handshake: a STABLE release is still blocked until both sides "
-                    "declare GO with both versions, both pins and HANDSHAKE-TESTED.\n"
-                )
-            else:
-                sys.stdout.write(
-                    "handshake: every round is closed — pre-release allowed\n"
-                )
-            return 0
-        # THE release gate. `--status` reports and also exits non-zero, which
-        # made it look like this already existed — but nothing on the release
-        # path ran it, and the only thing enforcing "no release while a round is
-        # open" was a unit test that reddened *every* commit the moment a round
-        # was opened. That is the wrong place twice over: it blocked ordinary
-        # work, and it did not block a release, because `release.yml` never
-        # called it. This subcommand exists so the workflow can.
-        lines = round_status(record_root)
-        open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
-        # ROW C13a. Not overridable here: an operator override is for releasing
-        # while a round is OPEN (§6b), and the round these lines name is CLOSED. The
-        # way out is the one §4a names — the next round — whose own OPEN state an
-        # override can then cover in the ordinary way.
-        illegal = illegal_transition_blockers(lines)
-        if illegal:
-            sys.stderr.write(
-                "handshake: a closed round carries a refused later lap, so this "
-                "release is blocked until the next round exists (row C13a):\n"
-            )
-            for line in illegal:
-                sys.stderr.write(f"  - {line.strip()}\n")
-            return 1
-        if not open_rounds:
-            # ROW C42: a close resolved under §5b rests on a file in the peer's tree,
-            # so the release it permits must say which file — every time, not only
-            # when something is wrong.
-            for line in lines:
-                if line.startswith(SOURCE_LINE_PREFIX):
-                    sys.stdout.write(f"{line}\n")
-            sys.stdout.write("handshake: every round is closed — release allowed\n")
-            return 0
-        override_problems: list[str] = []
-        if args.tag is not None:
-            numbers = [
-                int(m.group(1))
-                for ln in open_rounds
-                if (m := re.match(r"round-(\d+):", ln)) is not None
-            ]
-            honoured, override_problems = release_overrides(
-                record_root, numbers, args.tag
-            )
-            covered = {
-                int(m.group(1))
-                for ln in honoured
-                if (m := re.search(r"OVERRIDE round (\d+) ", ln)) is not None
-            }
-            if numbers and not override_problems and covered >= set(numbers):
-                # ROW C32: printed every time, never once. Loud, on stdout, beside
-                # every round it overrides.
-                for line in open_rounds:
-                    sys.stdout.write(f"  - {line}\n")
-                for line in honoured:
-                    sys.stdout.write(f"{line}\n")
-                sys.stdout.write(
-                    f"handshake: release {args.tag} permitted with a round OPEN under "
-                    "a recorded operator override (§6a-ter, rule §6b)\n"
-                )
-                return 0
-        sys.stderr.write(
-            "handshake: a round is OPEN, so this release is blocked "
-            "(docs/cyanrip-handshake.md §7 — both directions must be verified "
-            "before either project releases):\n"
-        )
-        for line in open_rounds:
-            sys.stderr.write(f"  - {line}\n")
-        for problem in override_problems:
-            sys.stderr.write(f"  refused override: {problem}\n")
-        return 1
+        return release_gate(record_root, tag=args.tag)
 
     label = " + ".join(str(p) for p in args.check)
     # ROUTE BY DIRECTION. Before this, `--check` ran the *inbound* spec against

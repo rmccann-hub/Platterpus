@@ -119,15 +119,18 @@ def is_prerelease_version(version: str) -> bool:
 def offered_on_stable_channel(tag: str) -> bool:
     """Whether this updater's STABLE channel would offer the release tagged ``tag``.
 
-    **One predicate, two callers — deliberately.** :func:`_parse_releases` uses it
-    to decide what a stable user is offered, and the handshake release gate
-    (``scripts/handshake.py --release-gate --tag``) asks it whether a release is one
-    a stable user will receive. Maintainer decision N4, 2026-09-23: while a
-    handshake round is open, a release our updater offers on stable is held to the
-    stable rule even though every ``v0.*`` tag carries GitHub's pre-release flag,
+    :func:`_parse_releases` uses it to decide what a stable user is offered. Every
+    ``v0.*`` final tag is offered, although each carries GitHub's pre-release flag,
     because that flag marks nothing a user of ours receives (see
-    :func:`is_prerelease_version`). Two surfaces answering *"does a stable user get
-    this?"* with two different keys is the defect this function exists to prevent.
+    :func:`is_prerelease_version`).
+
+    **It had a second caller until 2026-10-11**: the handshake release gate asked it
+    whether a release was one a stable user would receive, and held such a release
+    while a round was open (maintainer decision N4, 2026-09-23). Handshake protocol
+    v8 retired that hold (§6b, E1, E9): a release no longer waits on a round, and
+    what keeps a stable user on a jointly verified ripper is ``FORK_PIN``, which
+    moves only when a round closes. The function stays the one answer to *"does a
+    stable user get this?"*, so a future caller asks it rather than restating it.
 
     An unparseable tag is never offered, the same rule :func:`_parse_releases` has
     always applied.
