@@ -230,3 +230,78 @@ def test_the_fence_readers_never_raise_on_free_text(text: str) -> None:
     _HS._unfenced_body(text)
     _HS._fenced_lines(text.split("\n"))
     _HS.wire_fields(text)
+
+
+# --- E10: one rule for every reader of a lap (protocol v8 §2 rule 2) --------------
+#
+# v8 says what a fence is, CommonMark's, and that **every reader of a lap follows
+# it**: the gate, the round digest (§5a) and the lap-language checker. Until v8 the
+# digest toggled on any line opening with three backticks or tildes, so a ``~~~``
+# line inside a backtick block closed it, and the lap checker toggled on column-0
+# backticks only, so a tilde fence or an indented one hid nothing. Since 2026-10-11
+# all three call ``round_digest.fenced_lines``. These cases fail if either reader
+# goes back to a rule of its own.
+
+_SCRIPTS = _SCRIPT.parent
+
+
+def _load_digest() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "round_digest_fences", _SCRIPTS / "round_digest.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolve their module by name
+    spec.loader.exec_module(module)
+    return module
+
+
+_RD: ModuleType = _load_digest()
+
+#: A lap's identity, declared once; the fenced copy names another lap. If the
+#: digest reads the quotation, the file declares each field twice and stops
+#: counting as one lap (§5a).
+_IDENTITY = "HANDSHAKE-ROUND: 31\nHANDSHAKE-LAP: 5\nHANDSHAKE-FROM: platterpus\n\n"
+_QUOTED_IDENTITY = (
+    "HANDSHAKE-ROUND: 30\nHANDSHAKE-LAP: 16\nHANDSHAKE-FROM: platterpus\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("label", "fenced"), _FENCED, ids=[label for label, _text in _FENCED]
+)
+def test_the_digest_counts_a_lap_that_quotes_another_in_any_fence(
+    label: str, fenced: str
+) -> None:
+    """§5a's one-lap test reads a fence as v8 defines it, every shape of it."""
+    fence = fenced.replace(
+        _QUOTED.replace("\n", "\r\n"), _QUOTED_IDENTITY.replace("\n", "\r\n")
+    )
+    fence = fence.replace(_QUOTED, _QUOTED_IDENTITY)
+    assert _QUOTED_IDENTITY.split("\n", 1)[0] in fence.replace("\r", ""), label
+    assert _RD.counts_as_one_lap(_IDENTITY + fence), label
+
+
+@pytest.mark.parametrize(
+    ("label", "fenced"), _FENCED, ids=[label for label, _text in _FENCED]
+)
+def test_the_lap_checker_reads_no_header_inside_any_fence(
+    label: str, fenced: str
+) -> None:
+    """The lap-language checker's header reader asks the same rule."""
+    if str(_SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(_SCRIPTS))
+    from laplang.grammar import parse_lap  # noqa: PLC0415 - needs the path above
+
+    lap = parse_lap(_DECLARED + fenced + "\nLSL: 4\n", Path("round-31-lap-05.md"))
+    # The checker keys a header by its name after `HANDSHAKE-`.
+    assert lap.headers.get("VERDICT") == ["HOLD"], label
+    assert "TESTED" not in lap.headers, label
+
+
+@settings(max_examples=300)
+@given(_DOCUMENTS)
+def test_the_gate_and_the_digest_strip_the_same_lines(text: str) -> None:
+    """The relation, which no test of either reader alone can state: on any text,
+    the digest's unfenced text and the gate's R6 body are the same lines."""
+    assert _RD._unfenced(text) == _HS._unfenced_body(text)

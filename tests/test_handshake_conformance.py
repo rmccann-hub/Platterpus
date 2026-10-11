@@ -346,11 +346,14 @@ def test_C13a_a_different_verdict_after_a_close_is_refused_and_the_round_stays_C
         ln.startswith(hs.TERMINAL_NOTE_PREFIX + "round-99 reached CLOSED at lap 3")
         for ln in lines
     ), lines
-    # THE RELEASE EFFECT, which v6 leaves to v7: this gate fails closed while no later
-    # round exists — the objection has nowhere else to live yet — on both exits.
+    # THE EFFECT. `--status` fails closed while no later round exists: the objection
+    # has nowhere else to live yet. Under v7 the release gate refused too; under v8 a
+    # round can no more hold a release than authorise one (§16), so the release gate
+    # permits and PRINTS the refusal, which is the half that can still fail.
     assert hs.illegal_transition_blockers(lines) == refused
     assert hs.main(["--status", "--handshake-dir", str(root)]) == 1
-    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 1
+    capsys.readouterr()
+    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 0
     assert "row C13a" in capsys.readouterr().err
 
 
@@ -442,10 +445,14 @@ def test_C14_no_round_files_at_all_refuses(hs: ModuleType, tmp_path: Path) -> No
     # And through the gate itself, which is the surface that matters.
     import pytest as _pytest
 
+    # Since protocol v8 the release gate does not refuse (§6b, E1), so the surface
+    # that refuses an empty record is `--status`, which decides whether a round is
+    # closed and so whether the pin may move. The release gate must still NAME it.
     monkey = _pytest.MonkeyPatch()
     try:
         monkey.setattr(hs, "HANDSHAKE_DIR", tmp_path)
-        assert hs.main(["--release-gate"]) == 1
+        assert hs.main(["--status"]) == 1
+        assert hs.main(["--release-gate"]) == 0
     finally:
         monkey.undo()
 
@@ -542,8 +549,12 @@ def test_C15_the_GATE_refuses_a_higher_protocol_not_only_the_helper(
     assert any(ln.startswith("  refused inbound/round-99-lap-03.md") for ln in lines), (
         lines
     )
-    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 1
+    # `--status` is the gate's verdict on the round from protocol v8; the release
+    # gate permits (§6b, E1) and names the round it could not close.
+    assert hs.main(["--status", "--handshake-dir", str(root)]) == 1
     capsys.readouterr()
+    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 0
+    assert "round-99:" in capsys.readouterr().err
 
 
 def test_C15_the_gate_and_the_checker_give_ONE_answer(
@@ -780,9 +791,11 @@ def test_C42_a_v5_close_prints_which_lap_each_peer_verdict_came_from(
 def test_C42_holds_on_the_PRERELEASE_path_too_because_every_v0_release_takes_it(
     hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """`release.yml` runs `--release-gate --prerelease` for every `v0.*` tag, so the
-    strict path the C42 test above drives is one no release of ours has taken. The
-    source lines — and the one-lap-early note — must print on this path as well."""
+    """Until protocol v8 `release.yml` ran `--release-gate --prerelease` for every
+    `v0.*` tag, a separate path from the strict one the C42 test above drives. From
+    v8 there is one path and `--prerelease` is accepted and ignored (§6b), so this
+    holds that a workflow still passing it gets the same source lines and the same
+    one-lap-early note."""
     root = _we_spoke_first_and_they_closed(hs, tmp_path / "hs")
     capsys.readouterr()
     assert (
@@ -790,7 +803,7 @@ def test_C42_holds_on_the_PRERELEASE_path_too_because_every_v0_release_takes_it(
     )
     out = capsys.readouterr().out
     assert "resolved from inbound/round-99-lap-03.md" in out, out
-    assert "pre-release allowed" in out, out
+    assert "release allowed" in out, out
 
     early = _they_opened_and_we_closed(hs, tmp_path / "early")
     capsys.readouterr()
@@ -1103,25 +1116,35 @@ def test_C45_the_ledger_records_delivery_and_never_gates_the_close(
     assert hs.check_wire_header(root / "inbound" / "round-99-lap-03.md") == []
 
 
-def test_v6_K2_a_file_declaring_6_says_what_it_can_see_but_does_not_hold(
+def test_C47_a_file_declaring_8_without_inbound_observed_is_refused_naming_it(
     hs: ModuleType, tmp_path: Path
 ) -> None:
-    """K2 (v6 §5a): peer laps that are not released go in
-    `HANDSHAKE-INBOUND-OBSERVED`, and `none` is written out as for `-HELD`. No §8 row
-    names it; enforced on files declaring 6 because both sides have written it on
-    every lap since round 22, and a field carried by habit is what §5e says does not
-    survive a round boundary. A file declaring 5 is not failed for it."""
+    """C47 — *"a file declaring protocol 8 or later with no
+    `HANDSHAKE-INBOUND-OBSERVED` → refuse, naming the field (§5a, E11)."*
+
+    **And not below 8, which is the change.** Until 2026-10-11 our gate required the
+    field from 6 (v6 K2) while the fork's never read it, so a lap declaring 6 or 7
+    without it closed on their gate and not on ours (our round 30 lap 14 S6). v8
+    settles it at 8 for both gates, so this asserts both halves: refused at 8,
+    silent at 7 and 6. Every file on the record declaring 6 or 7 carries it anyway.
+    """
     root = _v6(hs, tmp_path / "hs", **{"HANDSHAKE-INBOUND-OBSERVED": None})
     closing = root / "inbound" / "round-99-lap-03.md"
-    problems = hs.check_wire_header(closing)
-    assert any("HANDSHAKE-INBOUND-OBSERVED" in p and "K2" in p for p in problems), (
+    text = closing.read_text(encoding="utf-8")
+    declared = f"HANDSHAKE-PROTOCOL: {hs.V6_FIELDS_FROM_PROTOCOL}\n"
+    assert declared in text, "the v6 world no longer declares 6"
+    eight = text.replace(declared, "HANDSHAKE-PROTOCOL: 8\n")
+    problems = hs.inbound_field_problems(eight, 99)
+    assert any("HANDSHAKE-INBOUND-OBSERVED" in p and "C47" in p for p in problems), (
         problems
     )
-    assert _state(hs.round_status(root)) == "OPEN"
-    five = closing.read_text(encoding="utf-8").replace(
-        f"HANDSHAKE-PROTOCOL: {hs.V6_FIELDS_FROM_PROTOCOL}\n", "HANDSHAKE-PROTOCOL: 5\n"
-    )
-    assert not any("K2" in p for p in hs.inbound_field_problems(five, 99))
+    for below in (7, 6, 5):
+        lower = text.replace(declared, f"HANDSHAKE-PROTOCOL: {below}\n")
+        assert not any(
+            "HANDSHAKE-INBOUND-OBSERVED" in p
+            for p in hs.inbound_field_problems(lower, 99)
+        ), below
+    assert hs.INBOUND_OBSERVED_FROM_PROTOCOL == 8
 
 
 #: A well-formed ``HANDSHAKE-NEXT-LAP`` for every lap of the v7 world below except
@@ -1236,6 +1259,50 @@ def test_C46_binds_a_lap_of_any_verdict(hs: ModuleType, tmp_path: Path) -> None:
     _set_next_lap(opener, None, hs.NEXT_LAP_FIELD)
     problems = hs.check_wire_header(opener)
     assert any(hs.NEXT_LAP_FIELD in p and "C46" in p for p in problems), problems
+
+
+#: C48's three shapes: a fence CommonMark recognises and a backtick-only, column-0
+#: reading does not. Each wraps the same quoted verdict, under a declared one.
+_C48_FENCES: tuple[tuple[str, str], ...] = (
+    ("a tilde fence", "~~~\nHANDSHAKE-VERDICT: GO\n~~~\n"),
+    ("a fence indented by three spaces", "   ```\nHANDSHAKE-VERDICT: GO\n   ```\n"),
+    (
+        "a backtick block a shorter backtick line does not close",
+        "````\n```\nHANDSHAKE-VERDICT: GO\n````\n",
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("label", "fence"), _C48_FENCES, ids=[a for a, _ in _C48_FENCES]
+)
+def test_C48_a_field_in_a_commonmark_fence_is_not_a_declaration(
+    hs: ModuleType, label: str, fence: str
+) -> None:
+    """C48 — *"a field line inside a fence that CommonMark recognises and a
+    backtick-only, column-0 reading does not … → not a declaration; the gate does not
+    read it and the digest does not count it (§2 rule 2, E10)."*
+
+    Both readers, because the row names both: the gate's field reader, and §5a's
+    one-lap test the digest applies (``counts_as_one_lap``, the digest's own
+    function), which a quoted identity field would disqualify."""
+    text = "HANDSHAKE-VERDICT: HOLD\n\n" + fence
+    assert hs.wire_verdict(text) == "HOLD", label
+    identity = "HANDSHAKE-ROUND: 99\nHANDSHAKE-LAP: 3\nHANDSHAKE-FROM: platterpus\n"
+    quoted = fence.replace("HANDSHAKE-VERDICT: GO", identity.rstrip("\n"))
+    assert hs.counts_as_one_lap(identity + "\n" + quoted), label
+
+
+def test_C49_a_field_after_a_fence_never_closed_is_not_a_declaration(
+    hs: ModuleType,
+) -> None:
+    """C49 — *"a field line after a fence that is never closed → not a declaration:
+    an unclosed block runs to the end of the file (§2 rule 2, E10)."* Both readers."""
+    for opener in ("```", "~~~", "  ```"):
+        text = f"HANDSHAKE-VERDICT: HOLD\n\n{opener}\nprose\n\nHANDSHAKE-VERDICT: GO\n"
+        assert hs.wire_verdict(text) == "HOLD", opener
+        identity = "HANDSHAKE-ROUND: 99\nHANDSHAKE-LAP: 3\nHANDSHAKE-FROM: platterpus\n"
+        assert hs.counts_as_one_lap(f"{identity}\n{opener}\n{identity}"), opener
 
 
 def test_C46_is_not_asked_of_a_file_declaring_6(hs: ModuleType, tmp_path: Path) -> None:
@@ -1481,22 +1548,26 @@ def _record_with_one_closed_round(root: Path) -> Path:
     return root
 
 
-def test_C19_a_stable_release_is_refused_while_any_round_is_open(
-    hs: ModuleType, tmp_path: Path
+def test_C19_a_stable_release_is_allowed_with_a_round_open_and_names_it(
+    hs: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """C19 — *"a stable release requested with any round open → refuse."*
+    """C19 as v8 amends it — *"a stable release requested with any round open →
+    allow, and print every open round first (§6b, E1); v3 to v7: refuse."*
 
-    Against a **fixture**, since 2026-08-07: round 7 closed, every round in the
-    real record is CLOSED, and this row would otherwise be asserting a property of
-    the empty set. The previous version anticipated that and left the instruction
-    in its own failure message; this is that instruction carried out.
+    Against a **fixture**: the real record's open rounds change with the calendar.
+    Allowing is the half that cannot fail, so the PRINTING is asserted: every open
+    round named on stderr, and the line saying a release was allowed with one open.
     """
+    assert hs.PROTOCOL_VERSION >= 8, "C19's v8 row binds a gate implementing 8"
     root = _record_with_one_open_round(tmp_path / "handshake")
     open_rounds = [ln for ln in hs.round_status(root) if ln.endswith("OPEN")]
     assert open_rounds, "the fixture does not present an open round"
-    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 1, (
-        "a stable release passed with a round open"
-    )
+    capsys.readouterr()
+    assert hs.main(["--release-gate", "--handshake-dir", str(root)]) == 0
+    printed = capsys.readouterr().err
+    for line in open_rounds:
+        assert line.split(":")[0] in printed, (line, printed)
+    assert "release allowed with a round OPEN" in printed, printed
 
 
 def test_C19_a_stable_release_is_allowed_when_every_round_is_closed(
@@ -1528,11 +1599,15 @@ def test_C19_the_gate_agrees_with_the_real_record(hs: ModuleType) -> None:
     gate that ignored the record entirely — the failure mode both C19 halves
     exist for — still fails here whichever way the project happens to stand.
     """
-    open_rounds = [ln for ln in hs.round_status() if ln.endswith("OPEN")]
-    expected = 1 if open_rounds else 0
-    assert hs.main(["--release-gate"]) == expected, (
-        f"the gate and the status report disagree: open rounds {open_rounds}"
+    lines = hs.round_status()
+    open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
+    # From v8 the release gate permits either way (§6b, E1); `--status` is the
+    # verdict that follows the record, and the two must agree on what is open.
+    held = 1 if open_rounds or hs.illegal_transition_blockers(lines) else 0
+    assert hs.main(["--status"]) == held, (
+        f"the status exit and the status report disagree: open rounds {open_rounds}"
     )
+    assert hs.main(["--release-gate"]) == 0
 
 
 def test_C20_a_prerelease_is_allowed_and_prints_every_open_round(
@@ -1561,9 +1636,12 @@ def test_C20_a_prerelease_is_allowed_and_prints_every_open_round(
         assert round_name in printed, (
             f"{round_name} is open and the pre-release gate did not name it: {printed}"
         )
-    # And it must still say plainly that a STABLE release remains blocked, or the
-    # output reads as approval.
-    assert "STABLE" in printed and "blocked" in printed, printed
+    # Until v8 it also had to say a STABLE release remained blocked. v8 permits
+    # both (§6b, E1), so what keeps the output from reading as approval is the
+    # line saying the release went ahead WITH a round open, and why that is safe.
+    assert "release allowed with a round OPEN" in printed and "FORK_PIN" in printed, (
+        printed
+    )
 
 
 # --- the table itself must not shrink -----------------------------------------
@@ -1849,6 +1927,7 @@ _ROWS_NAMED_HERE: frozenset[str] = frozenset(
     {f"C{n}" for n in range(1, 21)}
     | {"C13a", "C23", "C24", "C31", "C32"}
     | {f"C{n}" for n in range(37, 46)}
+    | {"C47", "C48", "C49"}
 )
 
 #: **What this counts, stated because the first two numbers here were both wrong.**

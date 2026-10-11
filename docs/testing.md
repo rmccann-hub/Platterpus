@@ -1006,7 +1006,7 @@ The fix separates the two questions:
 
 | Question | Where it belongs | How |
 |---|---|---|
-| May we release right now? | the **release workflow**, before the build | `scripts/handshake.py --release-gate`, non-zero on any open round |
+| May we release right now? | the **release workflow**, before the build | `scripts/handshake.py --release-gate`, non-zero on any open round until protocol v8; from 2026-10-11 it prints every open round and permits (v8 §6b, E1), and the workflow's CI gate is what holds a release |
 | Is the record well-formed? | the **test suite**, every commit | an open round may only be the **newest** one |
 
 That second assertion is the one with lasting value, because it is the actual bug
@@ -4498,4 +4498,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.7.100.*
+*Last updated for Platterpus v0.7.102.*

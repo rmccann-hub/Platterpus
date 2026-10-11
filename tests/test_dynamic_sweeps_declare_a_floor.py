@@ -66,6 +66,14 @@ _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
     "test_handshake_fences.py::test_a_field_inside_any_fence_is_quoted_not_declared": (
         "test_every_fence_rule_has_a_fenced_case"
     ),
+    # Protocol v8 E10 (2026-10-11): the digest and the lap checker swept over the same
+    # `_FENCED` cases, so the same floor holds them.
+    "test_handshake_fences.py::test_the_digest_counts_a_lap_that_quotes_another_in_any_fence": (
+        "test_every_fence_rule_has_a_fenced_case"
+    ),
+    "test_handshake_fences.py::test_the_lap_checker_reads_no_header_inside_any_fence": (
+        "test_every_fence_rule_has_a_fenced_case"
+    ),
     "test_regex_rewrites_read_the_same.py::test_each_rewrite_agrees_on_the_inputs_written_out": (
         "test_the_population_is_the_six_patterns_rewritten"
     ),
