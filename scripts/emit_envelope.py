@@ -46,10 +46,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
 REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
@@ -568,7 +570,7 @@ def lead_identity() -> tuple[int, int]:
     for. Reading the header rather than taking arguments is what makes the name
     unable to drift from the contents: change the parts and the name follows.
     """
-    text = _FENCE_RE.sub("", PARTS[0].read_text(encoding="utf-8"))
+    text = _strip_fences(PARTS[0].read_text(encoding="utf-8"))
     found: list[int] = []
     for field in ("HANDSHAKE-ROUND", "HANDSHAKE-LAP"):
         values = re.findall(rf"^{field}:[ \t]*(\d+)[ \t]*$", text, re.MULTILINE)
@@ -594,8 +596,36 @@ PART_RE: re.Pattern[str] = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 
-#: Fences stripped before counting declarations, per v4 §2 rule 2.
-_FENCE_RE: re.Pattern[str] = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
+#: ``round_digest.py``, loaded by path (it is a CLI, not a package) for its fence
+#: rule. Cached so a render loads it once.
+_ROUND_DIGEST_SCRIPT: Path = Path(__file__).resolve().with_name("round_digest.py")
+_round_digest_module: ModuleType | None = None
+
+
+def _strip_fences(text: str) -> str:
+    """``text`` with its fenced code blocks removed, before declarations are counted.
+
+    **Protocol v8 §2 rule 2 (E10): a fence is what CommonMark calls one, for every
+    reader of a lap.** This file counts a lap's identity fields (§5a), so it is one
+    of those readers, and it asks the same function the gate, the digest and the lap
+    checker ask, ``round_digest.fenced_lines`` (through ``_unfenced``). Until
+    2026-10-11 it used its own regex, which closed a block only on a column-0
+    backtick run, so a tilde fence or an indented one quoted nothing here while the
+    gate read it as quoted.
+    """
+    global _round_digest_module
+    if _round_digest_module is None:
+        name = "_emit_envelope_round_digest"
+        spec = importlib.util.spec_from_file_location(name, _ROUND_DIGEST_SCRIPT)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"cannot load {_ROUND_DIGEST_SCRIPT}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module  # @dataclass resolves its module by name
+        spec.loader.exec_module(module)
+        _round_digest_module = module
+    stripped: str = _round_digest_module._unfenced(text)
+    return stripped
+
 
 #: The three fields whose exactly-once presence defines a lap (v4 §5a).
 _LAP_FIELDS: tuple[str, ...] = (
@@ -606,7 +636,7 @@ _LAP_FIELDS: tuple[str, ...] = (
 
 #: The envelope's FILENAME — a name, deliberately not a path. Defined here rather
 #: than beside `NAME_TEMPLATE` only because it calls `lead_identity()`, which needs
-#: `_FENCE_RE` to exist. It was `OUT`, a path into `docs/handshake/outbound/`, until
+#: `_strip_fences` to exist. It was `OUT`, a path into `docs/handshake/outbound/`, until
 #: 2026-10-06: that default is how 44 envelopes came to be committed beside the laps.
 OUT_NAME: str = envelope_filename(*lead_identity())
 
@@ -654,7 +684,7 @@ def assert_not_a_lap(envelope: str) -> None:
     the fields too, with a value that says what the file is. That keeps the count
     at two for a one-part envelope and at N+1 for the rest.
     """
-    stripped = _FENCE_RE.sub("", envelope)
+    stripped = _strip_fences(envelope)
     for field in _LAP_FIELDS:
         count = len(re.findall(rf"^{re.escape(field)}:", stripped, re.MULTILINE))
         if count == 1:

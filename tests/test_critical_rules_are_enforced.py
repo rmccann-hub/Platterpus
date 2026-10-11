@@ -2674,7 +2674,10 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # required `--out DIR` that `refusal_for_destination` refuses inside the
     # working tree, and `--check` verifies in memory instead of diffing a committed
     # copy. Kept here because the guard is the emitter's own output contract.
-    "scripts/emit_envelope.py": 908,
+    # **908 -> 938** (2026-10-11, protocol v8 E10): `_strip_fences` loads
+    # `round_digest.py` and asks its fence rule, replacing a regex of its own; the
+    # growth is the loader and its reason, the price of one rule for every reader.
+    "scripts/emit_envelope.py": 938,
     "scripts/emit_ripper_inventory.py": 316,
     "scripts/emit_script_language.py": 504,
     # **4365 -> 4368** (2026-10-05): `_WIRE_FIELD` rewritten greedy (linear in a

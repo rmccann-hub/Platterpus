@@ -61,7 +61,24 @@ _EXPECTED_FROM: dict[str, str] = {
 _ROUND = re.compile(r"^HANDSHAKE-ROUND:\s*(\d+)\s*$", re.M)
 _LAP = re.compile(r"^HANDSHAKE-LAP:\s*(\d+)\s*$", re.M)
 _FROM = re.compile(r"^HANDSHAKE-FROM:\s*(\S+)\s*$", re.M)
-_FENCE = re.compile(r"^```.*?^```", re.M | re.S)
+_ROUND_DIGEST_SCRIPT = (
+    Path(__file__).resolve().parents[1] / "scripts" / "round_digest.py"
+)
+
+
+def _strip_fences(text: str) -> str:
+    """``text`` without its fenced code blocks, by protocol v8 §2 rule 2 (E10): the
+    one CommonMark rule every reader of a lap uses, ``round_digest.fenced_lines``.
+    Until 2026-10-11 this was a backtick-only, column-0 regex of its own."""
+    spec = importlib.util.spec_from_file_location(
+        "_test_round_digest_fences", _ROUND_DIGEST_SCRIPT
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolve their module by name
+    spec.loader.exec_module(module)
+    stripped: str = module._unfenced(text)
+    return stripped
 
 
 def _load(script_name: str, as_: str) -> ModuleType:
@@ -93,7 +110,7 @@ def _declared(path: Path) -> tuple[int | None, int | None, str]:
     A declaration is what a file *states*, never what it *quotes* — the protocol's own
     rule, and the reason the spec's own examples do not register as declarations.
     """
-    text = _FENCE.sub("", path.read_text(encoding="utf-8", errors="replace"))
+    text = _strip_fences(path.read_text(encoding="utf-8", errors="replace"))
     r, lap, sender = _ROUND.search(text), _LAP.search(text), _FROM.search(text)
     return (
         int(r.group(1)) if r else None,
@@ -139,7 +156,7 @@ def _is_one_lap(path: Path) -> bool:
     perfectly legitimate laps. Same rule, two thresholds, each matched to what its
     caller needs from it.
     """
-    text = _FENCE.sub("", path.read_text(encoding="utf-8", errors="replace"))
+    text = _strip_fences(path.read_text(encoding="utf-8", errors="replace"))
     return not any(
         len(re.findall(rf"^{field}:", text, re.MULTILINE)) > 1
         for field in ("HANDSHAKE-ROUND", "HANDSHAKE-LAP", "HANDSHAKE-FROM")
@@ -1232,7 +1249,7 @@ def test_a_ONE_PART_envelope_is_still_not_a_lap(envelope: ModuleType) -> None:
     written, documented, and never run by a test.
     """
     parts = envelope.read_parts()[:1]
-    text = envelope._FENCE_RE.sub("", envelope.render(parts))
+    text = envelope._strip_fences(envelope.render(parts))
     for field in envelope._LAP_FIELDS:
         assert len(re.findall(rf"^{field}:", text, re.MULTILINE)) == 2, (
             f"a one-part envelope declares {field} an ambiguous number of times; it "
@@ -1342,7 +1359,7 @@ def _is_transport_envelope(text: str) -> bool:
     quotes an envelope's preamble inside a fence is not an envelope. Two real
     inbound laps do exactly that (round 14 lap 17 and round 19 lap 3).
     """
-    stated = _FENCE.sub("", text)
+    stated = _strip_fences(text)
     return any(
         line.startswith(_ENVELOPE_BEGIN) or line.startswith(_ENVELOPE_DECLARATION)
         for line in stated.splitlines()

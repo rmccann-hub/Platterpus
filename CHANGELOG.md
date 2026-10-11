@@ -23,9 +23,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   projects have checked is unchanged: Platterpus installs the cyanrip build the last
   closed round approved, and that moves only when a round closes. For contributors:
   our gate implements protocol 8, so `HANDSHAKE-INBOUND-OBSERVED` is required from a
-  lap declaring 8 (row C47), and the gate, the round digest and the lap checker now
-  read code fences by one shared CommonMark rule (rows C48 and C49). No digest on
-  record changes.
+  lap declaring 8 (row C47), and the gate, the round digest, the lap checker, the
+  envelope builder and the tests that read laps now read code fences by one shared
+  CommonMark rule (rows C48 and C49). No digest on record changes. The release
+  workflow's handshake step is now run by a test exactly as the workflow writes it.
 
 ## [0.7.102] — 2026-10-07
 
