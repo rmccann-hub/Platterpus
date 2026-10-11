@@ -2698,7 +2698,10 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # with the dated reason beside the constant, and the skeleton emits v7's
     # `HANDSHAKE-NEXT-LAP` (row C46), without which it fails its own checker. Both
     # belong where they are: the constant's history and the field list it governs.
-    "scripts/handshake.py": 4565,
+    # **4565 -> 4461** (2026-10-11, protocol v8): the CommonMark fence rule moved
+    # out to `round_digest.py` (E10, one rule for every reader of a lap), and the
+    # release gate's refusal branches and the stable-channel hold went (E9).
+    "scripts/handshake.py": 4461,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     "scripts/laplang/lsl3.py": 433,
     # **324 -> 312** (2026-10-06): git calls and decoding a cited file moved to
@@ -2709,7 +2712,11 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     "scripts/mutation_sweep.py": 502,
     "scripts/probe_argv_surface.py": 423,
     "scripts/revert_probe.py": 546,
-    "scripts/round_digest.py": 544,
+    # **544 -> 618** (2026-10-11, protocol v8 E10): `fenced_lines`, the CommonMark
+    # fence rule, moved here from `handshake.py` (which shrank by more) so the gate,
+    # this digest and the lap-language checker share one function. It lives here
+    # because this file depends on nothing and the gate already loads it.
+    "scripts/round_digest.py": 618,
     "scripts/verify_log_surface.py": 362,
 }
 

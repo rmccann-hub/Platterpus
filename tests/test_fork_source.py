@@ -931,7 +931,7 @@ def test_an_in_flight_round_with_no_committed_files_is_still_OPEN(
         "it has no files — which is the entire bug"
     )
     assert "OPEN" in current[0], current[0]
-    assert any("do not release" in ln for ln in lines), lines
+    assert any("do not switch the pin" in ln for ln in lines), lines
 
 
 def test_the_floor_does_not_make_every_round_open(tmp_path: Path) -> None:

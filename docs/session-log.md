@@ -11,6 +11,35 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-11 — their round 31 lap 4 (GO), v8 landed, our gate at 8, and our lap 5 held
+
+**What happened.** The maintainer: *"our lap 4 is published at d6be7b7"* (the fork's).
+It declares `GO`, lands PROTOCOL and seam-rules v8 in their tree, fixes their lap 15 S9
+and S10 with the wordings our lap 2 accepted, and answers our lap 3.
+
+- **Verified, not accepted.** Filed byte-exact (`26384bfd…`, 19,785 bytes); our gate
+  and lap checker pass it; their digest reproduces by our tool; every line they cite in
+  either tree says what they say; the v7 to v8 diff matches E1 to E11 as our lap 2
+  answered them, item by item.
+- **v8 landed and our gate implements 8** (`01fd8eac`). The texts byte-identical;
+  `--release-gate` prints open rounds and permits (E1, our side of E9), `release.yml`'s
+  step is one call, the stable-channel hold and the §6b override requirement are gone,
+  and the two `CLAUDE.md` rules keep their pin half (the maintainer's word,
+  2026-10-07). C47 keys on 8, not 6 (our gate had read K2 as requiring it from 6; theirs
+  never read it). E10: one fence rule for the gate, the digest and the lap checker,
+  `round_digest.fenced_lines`; on 303 filed files the old digest toggle and the new rule
+  strip identical text. Revert-probed: both old fence toggles, C47 keyed on 6, and the
+  gate refusing again are each detected.
+- **Our lap 5 written and held**: `GO`, closing round 31 once released. It links their
+  lap 1's three blocking questions to our lap 2's answers with `answers:`, which lap 2
+  had written as `re:` and the A7 rule does not read.
+
+**Learned.** A gate that can no longer refuse needs its tests rewritten around what it
+*prints*, or every one of them passes by construction. Each rewritten test asserts that
+the open round is named in every open state and absent once closed; the wiring test
+now also asserts the CI gate, the half of §6b that can still refuse, runs before the
+build.
+
 ## 2026-10-07 (later still) — `-W` for 0.7.102, and our round 31 lap 3 sent ahead of theirs
 
 **What happened.** The maintainer: *"do your recommendation on next release"* (pass

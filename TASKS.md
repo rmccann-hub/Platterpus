@@ -1763,7 +1763,7 @@ each side's reading; and the closing releases named.
   cut inside a round) and S27 (our `Gap handling` row reads the whole list, not its first
   line). Released 2026-10-07 on the operator's word (sha256 `786dc0ec…`), with the §6b
   override for v0.7.101 in its header.
-- [ ] **When their v8 drafts arrive (their lap 3):** land `PROTOCOL.md` and
+- [x] **When their v8 drafts arrive (their lap 3):** land `PROTOCOL.md` and
   `seam-rules.md` v8 byte-identical; retire our open-round release refusal (E9: the
   `--release-gate` rule, `release.yml`'s stable-offered step, the §6b override); move
   our digest and our lap-language checker to CommonMark fences with theirs (E10; only
@@ -1772,6 +1772,22 @@ each side's reading; and the closing releases named.
   release … while one is open"* and the deviation policy's ask) are locked; the
   maintainer gave the word on 2026-10-07 (*"for my decisions, do what you recommend"*,
   answering our recommendation to edit them when v8 lands), so they change with v8.
+  *Done 2026-10-11*, when they arrived in their lap 4 (released at `cyanrip@d6be7b7`,
+  landed at `cyanrip@5cadca3`): both texts byte-identical (`72216c06…`, `e5489599…`);
+  our gate at protocol 8, with `--release-gate` printing open rounds instead of
+  refusing, `release.yml`'s step one call, the stable-channel hold gone, and the two
+  `CLAUDE.md` rules reworded to keep their pin half; C47 keyed on 8 (our gate had
+  required `-OBSERVED` from 6); the gate, digest and lap checker sharing
+  `round_digest.fenced_lines` (no digest on record moved). **Narrowed, not swept:**
+  two test helpers (`tests/test_handshake_cites_the_pair_it_ran.py`,
+  `tests/test_handshake_file_naming.py`) still strip fences with a backtick-only
+  regex. §2 rule 2 names the gate, the digest and the lap checker; these read our own
+  laps for citations and names, and no lap of either side uses a tilde or indented
+  fence today. Moving them to the shared rule is the open row below.
+- [ ] **Test helpers that read lap fields use the shared fence rule** (v8 E10's
+  spirit, narrowed above): `tests/test_handshake_cites_the_pair_it_ran.py` and
+  `tests/test_handshake_file_naming.py` strip fences with `^```.*?^```` regexes.
+  Point them at `round_digest.fenced_lines`.
 - [x] **Release 0.7.102 with `-W`, beside our round 31 lap 3** (the maintainer,
   2026-10-07: *"release both at once"*), under the §6b override in lap 3's header.
   *Done 2026-10-07:* **released 0.7.102**, tag at `b2000117` (PR #306, merge commit),

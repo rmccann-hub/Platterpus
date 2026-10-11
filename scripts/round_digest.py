@@ -103,25 +103,99 @@ _LAP_IDENTITY_FIELDS: Final[tuple[str, ...]] = (
     "HANDSHAKE-FROM",
 )
 
-#: A fenced block's delimiter. Stripped before the count, because a lap that
-#: QUOTES another lap's header — which the protocol's own documentation does
-#: constantly — would otherwise disqualify itself. A declaration is what a file
-#: *states*, never what it *quotes*; the same rule `handshake.py` applies to the
-#: wire header, for the same reason.
-_FENCE: Final[re.Pattern[str]] = re.compile(r"^[ \t]{0,3}(?:```|~~~)", re.MULTILINE)
+#: Why fences are stripped before the count: a lap that QUOTES another lap's
+#: header — which the protocol's own documentation does constantly — would
+#: otherwise disqualify itself. A declaration is what a file *states*, never what
+#: it *quotes*; the same rule `handshake.py` applies to the wire header, for the
+#: same reason, and since protocol v8 by the same function (below).
+#: A line that OPENS a fenced code block, as CommonMark (0.31, §4.5) defines one:
+#: up to three spaces of indentation, then three or more backticks or tildes. A
+#: tab is not one of the three spaces (CommonMark expands it to the next multiple
+#: of four columns, which makes the line indented code, not a fence). A backtick
+#: fence's info string may not contain a backtick, so `` ```a`b `` is prose.
+#: `handshake-protocol.md` §2 rule 2 says, from v8 (E10), that a fence is what
+#: CommonMark calls one, for every reader of a lap.
+_FENCE_OPEN: Final[re.Pattern[str]] = re.compile(r"^ {0,3}(?P<run>`{3,}(?!.*`)|~{3,})")
+
+#: A line that CLOSES one: up to three spaces, a run of the opening character at
+#: least as long as the opening run, and nothing after it but spaces and tabs.
+_FENCE_CLOSE: Final[re.Pattern[str]] = re.compile(r"^ {0,3}(?P<run>`{3,}|~{3,})[ \t]*$")
+
+
+def fenced_lines(lines: list[str]) -> list[bool]:
+    """For each line, whether it lies in a fenced code block, fences included.
+
+    **The one answer to "is this line quoted?" for every reader of a lap**, as
+    protocol v8 §2 rule 2 requires (E10): this digest, the gate (`handshake.py`'s
+    `_strip_fences` and `_unfenced_body` both delegate here) and the lap-language
+    checker (`laplang.grammar`). Until v8 the three toggled on different lines: this
+    digest on any line opening with three backticks or tildes, so a ``~~~`` line
+    inside a backtick block closed it; the lap checker on column-0 backticks only;
+    the gate by CommonMark. Moved here 2026-10-11 so they cannot drift again. On
+    the 303 handshake files filed that day, this rule and the digest's old toggle
+    stripped identical text from every one, so no digest on record moves.
+
+    The gate's history: until 2026-10-06 its two callers answered with two
+    different rules, neither of them CommonMark's. The regex `_strip_fences` used needed a closing fence at column
+    0 of exactly the opening's length, so a field inside an UNTERMINATED fence, an
+    INDENTED one, or one closed by a longer run counted as a declaration (TASKS C6).
+
+    The CommonMark rules, applied to the document as one flat sequence of lines:
+
+    * an opening fence may be indented up to three spaces;
+    * the block ends at the first line that is a run of the SAME character, at
+      least as long as the opening run, indented up to three spaces, with nothing
+      after it but blanks (so a ```` ``` ```` line inside a ``~~~`` block is content);
+    * a block with no closing fence runs to the end of the document.
+
+    **Where it departs from CommonMark.** It does not track block quotes or list
+    items. A fence inside a block quote (a ``>``, then a fence) is not recognised,
+    but every line of such a block starts with ``>`` (a fenced block takes no lazy
+    continuation, so the first line without one ends the quote and the fence), and
+    no such line is a column-0 field: the two agree on every field. A fence
+    indented under a list item is read as a document-level fence; where CommonMark
+    would end it with the item, this strips more, which fails closed (§2 rule 4,
+    an absent field). The one shape where it strips LESS: a list item's indented
+    fence followed by a column-0 fence line, which this pairs as open-and-close
+    and CommonMark reads as the item ending and a new fence opening, so a field
+    between the second and third fence lines reads as declared here and as quoted
+    there. Checked 2026-10-06 against markdown-it-py's CommonMark parser (not a
+    project dependency, run once): 0 differences on 20,000 generated documents
+    without containers, and on the 333 filed files 11 differ, every one on a block
+    quote's fence and none on a field. A trailing carriage return is read as part
+    of the line ending, so a lap saved with CRLF endings fences as it renders.
+    """
+    fenced = [False] * len(lines)
+    opening: str | None = None  # the open block's fence run, while inside one
+    for index, raw in enumerate(lines):
+        line = raw.removesuffix("\r")
+        if opening is None:
+            match = _FENCE_OPEN.match(line)
+            if match:
+                opening = match.group("run")
+                fenced[index] = True
+            continue
+        fenced[index] = True
+        close = _FENCE_CLOSE.match(line)
+        if (
+            close is not None
+            and close.group("run")[0] == opening[0]
+            and len(close.group("run")) >= len(opening)
+        ):
+            opening = None
+    return fenced
 
 
 def _unfenced(text: str) -> str:
-    """``text`` with the contents of fenced code blocks removed."""
-    out: list[str] = []
-    inside = False
-    for line in text.splitlines():
-        if _FENCE.match(line):
-            inside = not inside
-            continue
-        if not inside:
-            out.append(line)
-    return "\n".join(out)
+    """``text`` with its fenced code blocks removed, fences included, by
+    :func:`fenced_lines`. Lines are split by :meth:`str.splitlines`, as the digest
+    always split them, so only which lines count as fenced changed in v8."""
+    lines = text.splitlines()
+    return "\n".join(
+        line
+        for line, fenced in zip(lines, fenced_lines(lines), strict=True)
+        if not fenced
+    )
 
 
 def counts_as_one_lap(text: str) -> bool:

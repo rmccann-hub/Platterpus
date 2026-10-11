@@ -18,7 +18,7 @@ it is free.
 | **`[PLATTERPUS]`** | the GUI only | cyanrip, so they know what we promise |
 | **`[CYANRIP]`** | the ripper only | Platterpus, so we know what to expect |
 
-Format version: **7** (`SEAM-RULES-VERSION: 7`). Cite it when you claim
+Format version: **8** (`SEAM-RULES-VERSION: 8`). Cite it when you claim
 conformance.
 
 ---
@@ -223,8 +223,8 @@ is the one thing neither side will give up.
 **v7 replaces the first half of this rule**, *"a finding defaults to the next
 round"*, with `PROTOCOL.md` v7's R3 (round 30, D4): every defect a round finds
 that can be fixed without a drive, the other side's code, or the operator's
-decision is fixed and landed before that side's closing lap, and ships in the
-release the close authorises. A lap lists only what could not be fixed that
+decision is fixed and landed before that side's closing lap, and ships in
+that side's next release (v8). A lap lists only what could not be fixed that
 way, each item with why and whose it is.
 
 **The second half stays.** A fix never holds the verdict on the build that was
@@ -239,7 +239,7 @@ second half stops, and it is why the first half could change without it.
 ### `[BOTH]` S-15 — An agreed test pin does not move for the rest of the round
 
 Unless it is found unsafe. Fixes land past the pin within the round (R3, S-14)
-and ship in the release the close authorises; the next round reviews them.
+and ship in that side's next release (v8); the next round reviews them.
 
 A pin that moves whenever something is fixed guarantees that the hardware
 evidence is always about a build nobody is reviewing any more — ten test pins
@@ -372,7 +372,7 @@ last read it. Every row names a direction, a type, and what must be checked.
 State the version and which tags you implement:
 
 ```
-SEAM-RULES-VERSION: 7
+SEAM-RULES-VERSION: 8
 IMPLEMENTS: BOTH(S-1..S-18) PLATTERPUS(P-1..P-3)
 ```
 
@@ -399,5 +399,12 @@ Agreed in round 30: D4 of cyanrip's release-cycle proposal, accepted in
 Platterpus's lap 4 S21, whose `CLAUDE.md` changes in the commit that lands this
 file, and S-15 by Platterpus's lap 6 S20. Round 30's laps declare
 SEAM-RULES-VERSION 6; v7 binds from round 31, as PROTOCOL v7 §15 says.
+
+**v8 changes S-14's and S-15's sentence on where a fix ships, and nothing
+else**: *"in the release the close authorises"* becomes *"in that side's next
+release"*, to match `PROTOCOL.md` v8's R3 and R4, since from v8 a close
+authorises no release (E2, E6). Agreed in round 31: cyanrip's lap 1 E6,
+accepted in Platterpus's lap 2 S10. Round 31's laps declare
+SEAM-RULES-VERSION 7; v8 binds from round 32, as PROTOCOL v8 §16 says.
 
 ---

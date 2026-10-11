@@ -1,8 +1,9 @@
-# Handshake protocol v7
+# Handshake protocol v8
 
 **This file is the shared language. Both projects implement it; neither owns
 it.** cyanrip and Platterpus each have a gate that reads round files and decides
-whether a release is permitted. Those gates must agree on every field name, every
+whether a round is closed, and so which pair is approved. Those gates must agree
+on every field name, every
 allowed value, and what a close requires — otherwise one side can believe a round
 is closed while the other believes it is open, which is precisely the failure both
 gates exist to prevent.
@@ -138,6 +139,16 @@ files the other gate rejects:
    very spec documented the close requirements in a ``` block, and the gate read
    the illustrated `HANDSHAKE-PEER-VERSION` as a fact and compiled it into the
    binary. If your gate does not strip fences, it will do the same to this file.
+
+   **A fence is what CommonMark calls one** (v8, E10). A line indented by at
+   most three spaces and opening with three or more backticks, or three or more
+   tildes, opens a block. The block closes only on a line indented by at most
+   three spaces made of the same character, at least as many of it, and
+   nothing after them but spaces or tabs. A block left open runs to the end of
+   the file. **Every reader of a lap follows it**: the gate, the round digest
+   (§5a) and the lap-language checker, since two readers that toggle on
+   different lines disagree about what a file declares and which laps it
+   counts.
 3. **A field appearing twice is ambiguous, and ambiguity is not a close.** Do not
    take the first, do not take the last — refuse.
 4. **An absent required field fails closed.** Never treat "missing" as a
@@ -381,9 +392,11 @@ HANDSHAKE-WITHDRAWN-REASON: <one line, why this round is ending unfinished>
 ```
 
 **And a gate must additionally assert that no release names a withdrawn
-round.** Without that, `WITHDRAWN` becomes a way to smuggle a release past the
-"no release while a round is open" rule by ending the round instead of closing
-it. That assertion is not optional and is the reason `WITHDRAWN` did not exist
+round.** A withdrawn round approved nothing, so a release that cites one as its
+approval claims an approval that never happened. Until v8 the assertion also
+kept `WITHDRAWN` from smuggling a release past the rule that refused one while a
+round was open; v8 retires that rule (§6b), and the assertion stays for the
+first reason. It is not optional and is the reason `WITHDRAWN` did not exist
 before v3: a terminal state with no such guard is worse than none.
 
 **Either side may withdraw unilaterally.** Withdrawal is not a veto over the
@@ -411,7 +424,7 @@ HANDSHAKE-TESTED: <what was run, on which pair>
 | `HANDSHAKE-PEER-VERDICT` | the other half of the agreement, transcribed from the file they actually sent. Not inferred from their silence, their tone, or the absence of objections. |
 | `HANDSHAKE-OUR-VERSION` / `HANDSHAKE-PEER-VERSION` | **which two programs agreed.** An agreement that does not name its parties cannot be quoted later. |
 | `HANDSHAKE-OUR-PIN` / `HANDSHAKE-PEER-PIN` | commit SHAs. A version string can be reused across builds; a SHA cannot. Pin SHAs, never tags or branch tips. |
-| `HANDSHAKE-TESTED` | **no release without testing.** A round that closed with nothing tested is a release nobody checked. Name what ran and on which pair of builds. |
+| `HANDSHAKE-TESTED` | **no approval without testing.** A round that closed with nothing tested approves a pair nobody checked. Name what ran and on which pair of builds. |
 
 Any one missing → **the round stays open**, and the gate must say *which* field is
 absent rather than refusing without a reason.
@@ -603,7 +616,9 @@ HANDSHAKE-INBOUND-OBSERVED: none
 A held lap declares itself mutable, so its size and digest at one commit identify
 that commit, not the lap: round 21's held lap 4 was quoted at 31,732 bytes and
 was half again as large at the next tip. `none` is legal and is written out, as
-for `-HELD`.
+for `-HELD`. **Required on every lap of a file declaring 8 or later, and both
+gates check it** (v8, E11, C47): until v8 one gate required it from 6 and the
+other never read it, a divergence no lap had separated.
 
 ### `HANDSHAKE-ROUND-DIGEST` — the checksum
 
@@ -726,7 +741,7 @@ round is `EXPIRED` (§4a) and its work returns as a new round.
 **R3 — A finding is fixed within the round (v7, D4).** Every defect a round
 finds that can be fixed without a drive, the other side's code, or the
 operator's decision is fixed and landed before that side's closing lap, and it
-ships in the release the close authorises. A lap lists only what could not be
+ships in that side's next release (v8, E6). A lap lists only what could not be
 fixed that way, each item with why and whose it is. **This replaces v3's
 deferral half**, *"a finding defaults to `NEXT-ROUND`"*. **The other half
 stays**: a fix never holds the verdict on the build that was tested, and
@@ -737,7 +752,7 @@ never on its own for holding a release. R9 is the operator's rule this extends:
 
 **R4 — Once agreed, the pin does not move for the rest of the round**, unless it
 is found unsafe. Fixes land past the pin within the round (R3, S-14) and ship
-in the release the close authorises; the next round reviews them. A pin that
+in that side's next release (v8, E6); the next round reviews them. A pin that
 moves whenever something is fixed guarantees the evidence is always about a
 build nobody is reviewing.
 
@@ -761,20 +776,22 @@ a pre-commit twice is the failure this rule exists to prevent.
 than twice what any successful round has needed and is set where it cannot bind
 good work — only runaway.
 
-**R8 — A round ends on a release of both applications (v6, the operator's
-rule).** *"Let's make it so that a round ends on us getting new releases of both
-applications, so we can do a real test. The test kicks off the new round with
-cyanrip fork. Both repos will get the bundle though. Both new releases at the end
-of the round are able to be used as well. Updated to, used, etc. mark them if
-need be."* The operator of both projects, 2026-09-23. So:
+**R8 — A round reviews a released pair (v8, the operator's rule; v6 made a
+round end on releases).** *"Either app releases when its own suite is green, and
+a round reviews a pair after both are out. Name the rules in the shared files
+that change, so both sides edit the same text in the same round. Each side's pin
+approval still decides which ripper build Platterpus installs by default, and
+that is what keeps users safe in between."* The operator of both projects,
+2026-10-07, after *"We should be able to release a new version and use it, for
+either app, and test them, without so much paperwork that does so little."*
+Until v8 a round's close authorised a release of both applications, provider
+first; that is retired. So:
 
-1. **A round's close authorises a release of both applications**, and both are
-   cut from it before anything else happens. The provider releases first, then
-   the consumer. Each side's closing lap names what its release will carry, so
-   the close is on content both have seen. **The consumer's release does not pin
-   the provider's new one.** Its pin is a build a closed round approved, and a
-   close cannot approve a commit cut after it. The next round, which the real
-   test opens, reviews the provider's new release (point 3).
+1. **A round's close approves the pair it reviewed, and authorises nothing
+   else** (v8, E2). The consumer's approved pin moves only on a close, and only
+   to the provider build of that pair. Each side releases whenever its own
+   suite passes (§6b), whether a round is open or not, and announces the
+   release in its status block the same day (§6c).
 
    **The build under review moves when the provider releases, not when a round
    opens** (v7, D2). The provider gives its release's version and commit in its
@@ -792,24 +809,22 @@ need be."* The operator of both projects, 2026-09-23. So:
    contract between the two releases; and for the bundle's shape, which neither
    side generates yet, each member added or removed as read from the bundle's
    own manifest.
-2. **Both releases are usable, and the provider's goes to beta until its run
-   passes** (v7, the operator's O3). The consumer's release is offered on its
-   default channel. The provider's new release is published on its beta
-   channel, the consumer follows a build the provider's manifest publishes on
-   beta when it is newer than stable's, and the provider moves it to stable
-   once the round its run opens accepts it. **Marking is allowed, and
+2. **Each side chooses its own channel** (v8, E3). A channel is the releasing
+   side's statement of its own risk, and the consumer follows the provider's
+   manifest on the channel its user chose. **Marking is allowed, and
    withholding is not.** If a release has to carry a mark, such as a
    pre-release flag, a note that the hardware run has not happened yet, or a
    consumer reporting the provider's new release as not yet approved, it
    carries the mark and says what the mark means.
-3. **Then the real test, every night a new pair exists** (v7, the operator's
-   O1 and O4). The operator runs the Full acceptance on the released pair. The
-   bundle it produces is committed, byte-identical, to both repositories.
-   **The provider opens the next round from its results** (§1a): its lap 1
-   reads the bundle, lands every fix it can (R3), and accepts or does not; the
-   consumer's lap 2 does the same; if both accept, the round closes in two
-   laps, and a third or fourth happens only when one side must answer the
-   other.
+3. **A round reviews a released pair, and the real test is its run** (v8,
+   E4; v7, the operator's O1 and O4). Its lap 1, the provider's (§1a), names
+   the newest release of each side. The operator runs the Full acceptance on
+   that pair, before lap 1 or after, and the bundle it produces is committed,
+   byte-identical, to both repositories. Each side's next lap reads it, lands
+   every fix it can (R3), and accepts or does not; if both accept, the round
+   closes, and a further lap happens only when one side must answer the other.
+   **A release made during the round is the next round's to review**, and the
+   round's pin does not move (R4).
 
    **A run tests only the newest pair** (v7, D3). The consumer's acceptance run
    refuses, in its first section, unless the installed provider build is its
@@ -819,13 +834,13 @@ need be."* The operator of both projects, 2026-09-23. So:
    bundle reader reports, when it reads a bundle, whether the pair was the
    newest when the run began and whether a newer release was published before
    it ended. **A run on anything else is not evidence.**
-4. **So hardware evidence opens a round and does not close one.** It is not a
-   close condition unless the round cannot be answered without a drive, and
-   then its lap 1 says why.
-5. **Opening a round before its run is not routine** (v7, D8, the operator's
-   O2). The operator may still order it, by an override of point 3 (§6a-ter),
-   and the lap that carries the override states its expected cost in laps, so
-   that a later count can score it.
+4. **Hardware evidence is a round's test, not a close condition of its own.**
+   The run is what `HANDSHAKE-TESTED` cites (§5); it is a close condition only
+   when the round cannot be answered without a drive, and then its lap 1 says
+   why.
+5. **Opening a round before its run is routine** (v8, E4). v7's point 5 made
+   it an override of point 3 with its expected cost in laps; v8 retires that,
+   since a round may open whenever its pair exists.
 6. **A reading that finds nothing to act on is a short lap** (v7, D5, §6d).
    Short only when nothing needs explaining: any finding, disagreement or
    answer that needs its reasoning carries it in full.
@@ -852,18 +867,16 @@ against the artifact, the next lap asks for it and says why the round needs
 it. A lap that buys an explanation is the protocol working. **A round closes
 when both sides can state why**, not when one side has stopped talking.
 
-**R10 — A hotfix outside the cycle (v7, D10).** Either side may release outside
-the cycle when a released build corrupts audio or cannot rip. It needs no
-round, is announced in the releasing side's status block the same day (§6c), is
-reviewed by the next round, and never moves the other side's approved pin.
-**While a round is open it goes out under the releasing side's own gate**: for
-cyanrip, a pre-release, which its gate permits with a round open (§6b); for
-Platterpus, a released lap recording an override (§6a-ter) of §6b's stable row
-for its tag. **A provider hotfix that removes or rewords a line the consumer
-matches keeps round 20's order**: the consumer's release that reads both
-wordings first. A hotfix is the release most likely to be written quickly,
-which is when a reworded line is least likely to be checked against what the
-consumer matches.
+**R10 — Retired in v8 (E5).** v7's R10 let either side release outside the
+cycle when a released build corrupted audio or could not rip. From v8 every
+release is outside a round's cycle (R8 point 1), so a hotfix needs no rule of
+its own. What R10 carried that still binds is in R8 point 1: the release is
+announced in the releasing side's status block the same day, it never moves the
+other side's approved pin, and **a provider release that removes or rewords a
+line the consumer matches keeps round 20's order**, the consumer's release
+that reads both wordings first. A hotfix is the release most likely to be
+written quickly, which is when a reworded line is least likely to be checked
+against what the consumer matches.
 
 ## 6a-ter. Overrides — the operator may break any rule, in writing (v3)
 
@@ -934,8 +947,10 @@ The fault is conflating two different pins:
 | **test pin** (`HANDSHAKE-TEST-PIN`) | a build designated to gather the evidence a close needs | the rig, deliberately, for a session | **never** |
 
 **A test pin is not a release and must never be treated as one.** Declaring it
-does not close a round, does not move `HANDSHAKE-PIN`, and does not permit a
-release. A gate must assert that a file declaring only a test pin still refuses.
+does not close a round and does not move `HANDSHAKE-PIN`. A gate must assert
+that a file declaring only a test pin still refuses. From v8 a released build
+can be a round's pin directly (§6b, R8 point 3), so a test pin is needed only
+for a build nobody has released.
 
 Both sides declare the same test pin, in writing, before the session. Logs it
 produces say `NOT a released build`, which is correct and is the point — the
@@ -946,29 +961,30 @@ one. Those logs are what `HANDSHAKE-TESTED` then cites.
 the results → *then* the round can close on that evidence, moving
 `HANDSHAKE-PIN` to what was tested.
 
-### 6b. Pre-releases, for projects whose artifact is a release
+### 6b. Releases, and what a channel claims (v8, E1)
 
-A test pin works when the other side builds from a tree. When a project's
-artifact is something a user *installs* — an AppImage, a package — the test pin
-has to be a published pre-release, and a gate that refuses all releases refuses
-that too.
-
-So the gate distinguishes what a release *claims* rather than whether one
-happens:
+**Either side may release, on any channel, whenever its whole suite passes on
+the release commit from a clean checkout**, whether a round is open or not. Its
+gate prints every open round first, so a release while one is open is never
+quiet.
 
 | | permitted with a round open? |
 |---|---|
-| **stable release** | **no** — it claims the pair was jointly verified |
-| **pre-release / beta** | **yes**, after printing every open round |
+| **any release, any channel** | **yes**, when the releasing side's whole suite passes on the release commit from a clean checkout, after printing every open round |
 
-A beta claims no joint verification: it ships saying so, and every rip it makes
-records that in its own artifact. **Refusing it would not protect a user; it
-would guarantee the round can never close**, because the evidence a close
-requires can only come from running the thing.
+**A release claims its own side's testing and nothing more.** Joint verification
+is claimed by the consumer's approved pin, which moves only on a close (R8
+point 1); that pin is what decides which provider build the consumer installs
+by default, and what keeps its users safe while a round is open.
 
-Proposed by Platterpus in round 7 lap 7, adopted by cyanrip in lap 8. Both gates
-take a `--prerelease` flag which prints the open rounds first, so permitting a
-beta is never quiet.
+Until v8 the table had two rows: a stable release was refused while a round was
+open, because a stable release claimed the pair was jointly verified, and a
+pre-release or beta was permitted after printing the open rounds, since refusing
+it would have guaranteed a round could never close. Proposed by Platterpus in
+round 7 lap 7, adopted by cyanrip in lap 8, and retired in round 31 (E1), when a
+channel stopped claiming joint verification. Both gates' `--prerelease` flag
+stays, printing the open rounds first; from v8 the gate does the same without
+it.
 
 Proposed by cyanrip in round 7 lap 6. Carried as an **optional** field on
 purpose: v2 gates ignore unknown fields, so it costs the other side nothing
@@ -992,7 +1008,11 @@ STATUS-OPEN: <id> <owner> <fixing at <commit or lap> | cannot, because …>
 ```
 
 `STATUS-RELEASED` appears once, in this position, and names that side's newest
-published release, marked `hotfix:` while the newest is one (R10).
+published release, marked `hotfix:` while the newest is one. In
+`STATUS-RELEASE-NEXT`, **`pins <approved>` is the consumer's approved pin as the
+consumer's tree declares it when the line is written** (v8, E8), not the
+provider's stable commit: from v8 the two differ whenever the provider has
+released past the last pair a round approved.
 `STATUS-OPEN` repeats, once per open item, and each item is fixed under R3 or
 says why it cannot be. **It is not a lap**: it declares no `HANDSHAKE-*`
 header, and changing it needs no reply. Chiming in costs a commit to your own
@@ -1079,6 +1099,15 @@ Consumer:       platterpus/0.6.3
   round files the gate reads, regenerated by the build whenever one changes. It
   is not a hand-maintained string. A build from a tree with an open round says so
   in every log it writes, permanently.
+
+  **Whether the build is released is decided by the build alone** (v8, E7):
+  `released build` when it declared itself released at build time (cyanrip's
+  `-Ddeclare_released=true`) from a tree with no visible changes, and
+  `NOT a released build` otherwise. The round state stays in the line as
+  information, so a release cut while a round is open reads
+  `round N lap M OPEN, verdict V -- released build`. Until v8 an open round
+  made every build read `NOT a released build`, so every rip of a release cut
+  inside a round carried it.
 - **`Consumer:`** is whatever the caller passed to `--consumer` (`-u`), recorded
   verbatim. **cyanrip cannot verify it**, and the line says so rather than
   implying a check happened. Absent the flag it reads
@@ -1125,7 +1154,7 @@ this table rather than asserted alongside it.
 | C16 | complete two-sided tested round | **allow** — a gate that can never say yes is a wall, not a gate |
 | C17 | a file declaring `HANDSHAKE-TEST-PIN` and otherwise complete, but verdict `HOLD` | refuse; a test pin is not a release |
 | C18 | `HANDSHAKE-TEST-PIN` present alongside a valid close | **allow**, and the test pin must not be mistaken for `HANDSHAKE-PIN` |
-| C19 | a **stable** release requested with any round open | refuse |
+| C19 | a **stable** release requested with any round open | **v8**: **allow**, and print every open round first (§6b, E1); **v3 to v7**: refuse |
 | C20 | a **pre-release** requested with a round open | **allow**, and print every open round first — a beta claims no joint verification, and refusing it guarantees the round can never close |
 
 ### Rows added in v3/v4 — required once both gates implement 4
@@ -1144,7 +1173,7 @@ human to remember it is a deferral that rots.
 | C24 | `HANDSHAKE-INBOUND-HELD: none` | **allow** — `none` is a claim, and a legal one |
 | C25 | a round ≥ 9 file missing any of `FROM-REPO` / `FROM-COMMIT` / `TO-REPO` / `TO-VERSION` | refuse, naming the field |
 | C26 | a file whose `TO-REPO` does not name this repository | **do not act on it**; it may be read and stored, but this repository is not a party |
-| C27 | a release naming a round whose latest verdict is `WITHDRAWN` | refuse — otherwise `WITHDRAWN` smuggles a release past C19 |
+| C27 | a release naming a round whose latest verdict is `WITHDRAWN` | refuse — a withdrawn round approved nothing, so a release cannot cite it (§4b); until v8 it also kept `WITHDRAWN` from smuggling a release past C19 |
 | C28 | `HANDSHAKE-VERDICT: WITHDRAWN` with no `HANDSHAKE-WITHDRAWN-REASON` | refuse |
 | C29 | a lap declaring a **lower** `HANDSHAKE-PROTOCOL` than an earlier lap of the same record | refuse; under-declaring is silently valid to a version check and asks the peer to grade the file by rules the sender is not following |
 | C30 | lap number > 21 with no recorded override | refuse (§6a-bis R7) |
@@ -1193,6 +1222,17 @@ must have every one.
 | ID | case | expected |
 |---|---|---|
 | C46 | a file declaring protocol 7 or later with no `HANDSHAKE-NEXT-LAP`, or one that is neither `<n> (ours)` or `<n> (yours)` followed by `:`, nor `none` | refuse, naming the field (§3) |
+
+### Rows added in v8 — required once both gates implement 8
+
+A gate implementing 7 must not be failed for missing them; a gate implementing 8
+must have every one.
+
+| ID | case | expected |
+|---|---|---|
+| C47 | a file declaring protocol 8 or later with no `HANDSHAKE-INBOUND-OBSERVED` | refuse, naming the field (§5a, E11) |
+| C48 | a field line inside a fence that CommonMark recognises and a backtick-only, column-0 reading does not: a tilde fence, a fence indented by one to three spaces, or a backtick block that a shorter backtick line does not close | not a declaration; the gate does not read it and the digest does not count it (§2 rule 2, E10) |
+| C49 | a field line after a fence that is never closed | not a declaration: an unclosed block runs to the end of the file (§2 rule 2, E10) |
 
 ## 9. Grandfathering
 
@@ -1533,3 +1573,48 @@ crossing tiebreak; the evidence-transport proposal; `HANDSHAKE-CONCURRENT-WITH`;
 the `SEAM-COMMANDS` close field and the semantic-change marker; and C13a's
 effect on a release. The `HOTFIX` carve-out by artifact class is superseded by
 R10, which names each side's gate rather than an artifact class.
+
+## 16. Changes in v8
+
+**v8 is v7 plus what round 31 agreed, and nothing else.** cyanrip's round 31
+lap 1 proposed E1 to E9 on the operator's word of 2026-10-07 and took
+Platterpus's round 30 lap 14 S6 and S22 as E11 and E10; Platterpus's round 31
+lap 2 accepted each by number (S5 to S13, S22, S23).
+
+- **E1, §6b**: either side releases on any channel whenever its whole suite
+  passes on the release commit from a clean checkout, and its gate prints the
+  open rounds first. C19 is amended to allow it.
+- **E2, R8 point 1**: a close approves the pair it reviewed and authorises
+  nothing else; the consumer's approved pin moves only on a close. §4b's
+  withdrawal guard, §5's `HANDSHAKE-TESTED` row and C27's reason are reworded
+  to match.
+- **E3, R8 point 2**: each side chooses its own channel.
+- **E4, R8 points 3 to 5**: a round reviews a released pair, its lap 1 names
+  the newest release of each side, and the run is its test before lap 1 or
+  after; opening before the run is routine.
+- **E5, R10**: retired; what it carried is in R8 point 1.
+- **E6, R3 and R4**, with `seam-rules.md` v8's S-14 and S-15: a fix ships in
+  that side's next release.
+- **E7, §7**: `released build` is decided by the build alone.
+- **E8, §6c**: `pins <approved>` is the consumer's approved pin as the
+  consumer's tree declares it.
+- **E9**: each side's own gate and release workflow stop refusing a release
+  while a round is open. Not text here; named so both land in the same round.
+- **E10, §2 rule 2**: a fence is what CommonMark calls one, for every reader of
+  a lap, with C48 and C49.
+- **E11, §5a**: `HANDSHAKE-INBOUND-OBSERVED` is required from 8, with C47.
+
+**Declaring 8.** Neither side declares 8 until both have said, in a lap, that
+their gate implements it. C43 makes a premature declaration fail closed on the
+other gate. **Neither gate implements 8 until this file is byte-identical in
+both trees.** Round 31's laps declare 7, and it closes under v7; v8 governs from
+round 32.
+
+### What v8 does not do
+
+- It does not change §4's vocabulary, §5's close, or any row but C19 and C27's
+  reason.
+- It does not make a release depend on a round, in either direction: a round
+  can no more hold a release than authorise one.
+- It does not take anything from v7's deferred list, which stands as written
+  there.
