@@ -176,7 +176,7 @@ the instant CI passes.
 
 ### 7.2 Branch protection (admin, server-enforced on `main`/`release/*`)
 
-> **NOT USED IN THIS REPO, AND NOT A GAP.** Maintainer ruling, 2026-09-11: Platterpus's `main` is not branch-protected and will not be. Do not propose it, do not raise it as a finding, and do not "fix" this divergence to match the SOP below — `CLAUDE.md` → *Commit & PR hygiene* lists it as deliberate divergence (5). What protection would buy is already covered: the agent git proxy is fast-forward-only (no force-push, no branch delete, no tag push), every PR must pass nine gating CI jobs, and releases run through `release.yml` rather than a direct push. The rest of this section is retained because it is the **upstream** playbook — it applies when contributing to other people's repositories, which is what this document is for.
+> **IN THIS REPO: RULESETS, NOT CLASSIC BRANCH RULES (2026-10-12).** The owner decided on 2026-10-12 to turn on repository rulesets, replacing the 2026-09-11 decline, whose premise (that protection costs money) does not hold for a public repository on GitHub Free. `main` has a default-branch ruleset: no deletion, no force push, a pull request required with **no approvals** (one maintainer), and the CI gating jobs as required status checks. `v*` tags have a release-tag ruleset that blocks updates and deletion but not creation, because `release.yml` creates each tag. Two settings below do NOT apply here: *Require approvals* (there is one maintainer) and *Require linear history* (session branches merge with a merge commit, `CLAUDE.md` divergence (6)). `CLAUDE.md` → *Commit & PR hygiene* divergence (5) is the authority, and `PLANNING.md` KDD-43 records what the rulesets touch. The rest of this section is the **upstream** playbook, for contributing to other people's repositories.
 Settings → **Branches** → **Add rule** → branch pattern → enable: **Require a
 pull request before merging** (blocks direct `git push` to `main`), **Require
 approvals** (≥1–2; blocks self-merge), **Require review from Code Owners** (via
@@ -209,4 +209,4 @@ what order.*
 
 ---
 
-*Last updated for Platterpus v0.6.66b1.*
+*Last updated for Platterpus v0.7.103.*

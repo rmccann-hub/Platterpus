@@ -1624,7 +1624,7 @@ re-check mode from this tier instead of asking again.
   - A4: commit `build/python-appimage/requirements.lock`.
   - A5: make Critical rule #11 and CI agree on pip-audit and cyclonedx-bom. The maintainer
     chooses which way when the hold lifts.
-  - A6: make the Claude-side audio guard fail closed.
+  - A6: make the Claude-side audio guard fail closed. *Applied 2026-10-12* on the maintainer's instruction, which lifts C3 for it: `.claude/hooks/audio_guard.py` reads the command, fails closed for commits and pushes, and is tested under a failing `git diff` (`tests/test_audio_guard_hook.py`). It judges the folder the command runs in (the hook input's `cwd`, following `cd` and `git -C`), not `$CLAUDE_PROJECT_DIR`.
   - A7: split `CLAUDE.md`.
   - A10: allow the changelog opt-out only when every commit in the range is marked.
   - A12: scan the full history on every CI run.
@@ -1643,7 +1643,8 @@ re-check mode from this tier instead of asking again.
 **Do not re-propose**, carried forward with their sources:
 
 - Branch protection or rulesets on `main`: the maintainer's ruling of 2026-09-11 (`CLAUDE.md`,
-  *Deliberate divergences* (5)).
+  *Deliberate divergences* (5)). *Superseded 2026-10-12: the owner is turning rulesets on
+  (KDD-43).*
 - Arming update signing: KDD-37 D9.
 - Squash merges for session branches: `CLAUDE.md`, *Deliberate divergences* (6).
 - Tags for 0.4.0 to 0.6.3: KDD-37 D7.
@@ -1767,7 +1768,7 @@ claude-code-skills holds the standard, but shares nothing into this repository.
   that warning. *(Corrected before the merge, review finding B3: this said the preflight
   names the stale clone before anyone reads the refusal.)*
 
-**Do not re-propose**, carried forward whole: branch protection or rulesets on `main`;
+**Do not re-propose**, carried forward whole: branch protection or rulesets on `main` (*superseded 2026-10-12, KDD-43*);
 arming update signing (KDD-37 D9); squash merges for session branches; tags for 0.4.0 to
 0.6.3 (KDD-37 D7); capitalised or unprefixed commit subjects, and a hard 50-character subject
 cap (`CLAUDE.md`, *Deliberate divergences* (1) and (2)).
@@ -1907,6 +1908,71 @@ Three choices made while building, each recorded so it can be reversed:
 
 The shoot itself is the `TASKS.md` section's plan.
 
+
+### KDD-43 — Repository rulesets on `main` and on `v*` tags (decided 2026-10-12)
+
+**Context.** `CLAUDE.md` recorded a decline of branch protection (2026-09-11, *"i am not
+paying for this"*, and "do not flag it as a gap"). An outside read of 2026-10-12 found its
+premise gone: the repository is public, and on GitHub Free a public repository can have
+rulesets at no cost. The owner is turning them on, and asked for the note to record the new
+decision and for a check that nothing the sessions do breaks under it.
+
+**Decision (the owner's).**
+- A **default-branch ruleset** on `main`: deletion and force pushes blocked; a pull request
+  required, with **no approvals** (there is one maintainer); required status checks `lint`,
+  `typecheck`, `changelog`, `media-guard`, `pip-audit`, `gitleaks`, `sbom`, `tests-touched`,
+  and `test (py3.11)` to `test (py3.14)`.
+- A **release-tag ruleset** on `v*`.
+- `CLAUDE.md` divergence (5) now records this in place of the decline, and
+  `docs/github-workflow-sop.md` §7.2's banner says which of its settings do not apply here.
+
+**What was checked, in the tree and in the API, on 2026-10-12** (state at the time: the
+rulesets endpoint answered `[]` and `main` read `protected: false`, so none was live yet):
+- **Nothing pushes to `main`.** No workflow or script runs `git push` to it, writes
+  `refs/heads/main`, or commits back. Only `release.yml`'s one job holds
+  `contents: write`; `publish-pypi.yml` holds `id-token: write`, which cannot write to the
+  repository. The only `git push` in the tree is
+  `scripts/cyanrip/setup-fork.sh`, which pushes a topic branch of the fork's clone. Sessions
+  push only their `claude/…` branch, through a proxy that is fast-forward-only, and merge
+  through the pull-request API.
+- **Nothing force-pushes.** `.claude/settings.json` denies every force-push spelling and the
+  proxy refuses one. The `--force` strings in the tree are `git worktree remove` and
+  `distrobox rm`.
+- **Nothing moves or deletes a `v*` tag.** No `git tag -f`, `-d`, `push --delete`, or
+  `gh release delete` exists. **But `release.yml` CREATES the tag**: it makes a draft
+  release with `--target "$GITHUB_SHA"`, and GitHub creates the tag when the draft is
+  published, as `github-actions[bot]`. So the tag ruleset may block **updates and deletions**
+  but must **not restrict creation**, or every release fails at its last step. A re-run of
+  a failed release reuses the draft and moves nothing; the re-upload path
+  (`gh release upload --clobber`) replaces assets, not refs.
+- **Every required check reports on every pull request.** `ci.yml` runs on every
+  `pull_request` to `main` with no path filter, and each check name above is the job's
+  name exactly (the matrix is named `test (py<version>)`). A pull request opened with a
+  GitHub App token would not trigger `pull_request` (GitHub's recursion guard). Its escape
+  hatch is the workflow's `workflow_dispatch` on the branch, which attaches the same
+  checks to the head commit.
+- **Both merge methods must stay allowed.** Session branches merge with a merge commit
+  (divergence (6), which keeps cited commits reachable) and Dependabot's squash, so the
+  ruleset must not require linear history or restrict merge methods to one.
+
+**Dependabot, by design.** `changelog` exempts a Dependabot pull request, and
+`tests-touched` passes one that touches no `src/`. But **`test` fails on a Dependabot pull
+request that changes a dependency, and that is the gate working**: `bom.cdx.json` and its
+block in `DEPENDENCIES.md` are generated from `pyproject.toml`, and
+`tests/test_bom_emitted.py` refuses a stale copy, which Dependabot cannot regenerate. For
+`ruff` and `mypy`, `tests/test_gating_tools_are_pinned.py` also refuses any widened range
+(Critical rule #11). The measured case is #303 (mypy `<2.4` to `<2.5`): all four `test` legs
+red, 5 failures. Its `dependabot.yml` ignore rule names semver update types, and it did not
+stop that range-widening pull request.
+
+**How to handle it.** Treat a Dependabot pull request as a notice, not as a merge candidate:
+a session carries the bump on its own branch with the generated files regenerated and a
+CHANGELOG bullet, and that pull request merges normally, then Dependabot's is closed. Do
+not exempt Dependabot from `test`, and do not add it as a bypass actor: either would let an
+unregenerated BOM, or an unmeasured `ruff`/`mypy`, onto `main`. Separately, ignoring
+`ruff`/`mypy` in `dependabot.yml` by name, without `update-types`, would stop the pull
+requests rule #11 always refuses. That is offered, not done.
+
 ---
 
-*Last updated for Platterpus v0.7.101.*
+*Last updated for Platterpus v0.7.103.*

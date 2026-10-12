@@ -134,6 +134,7 @@ their items, these are ours to do. They join the order here, between P1 and P2:
 | A sweep over every concrete `RipBackend` default for an inherited no-op | *Sweep for inherited no-op ABC methods* |
 | Widen the `verdict.py` mutation leg past `tests/test_verdict.py` | *Widen the verdict.py leg's test selection* |
 | A gate for subsystems nothing reaches. An ad-hoc sweep on 2026-10-12 found none, so the gate would pass today | *Sweep src/ for subsystems nothing can reach* |
+| Dependabot under the rulesets (KDD-43): carry #303 (mypy `<2.4` to `<2.5`) on a session branch with the BOM regenerated, or close it, since rule #11 refuses the widened range; and ignore `ruff`/`mypy` in `dependabot.yml` by name, so those pull requests stop being opened (offered 2026-10-12, not done) | *Dependabot under the rulesets* (here) |
 | Record why `-I` is refused with `-J` and what `-F` is for: the fork answered (`docs/seam-commands.md` §7), and our columns still say "needs confirming" | *Interactions* |
 | A cancelled rip's kept tracks in the JSON report (D13 A, decided). Two rows carry it; close both together | *Record a cancelled rip's kept tracks*; *The cancelled-rip log addendum, properly* |
 | Pick two GUI screenshots for the README from the filed Full-run bundles (the maintainer's pick, D10 A) | *Add a screenshot or two* |

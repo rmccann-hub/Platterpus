@@ -55,9 +55,16 @@ true   # the loop's last test may be false; that is not a failure
 
 echo; echo "== newest rip's TEXT artifacts (no audio) =="
 NEWEST=""
+RIPS_LISTED=yes
 if [ -d ~/Music/rips ]; then
-  NEWEST=$(find ~/Music/rips -mindepth 2 -maxdepth 2 -type d -printf '%T@ %p\n' 2>/dev/null \
-           | sort -rn | head -1 | cut -d' ' -f2- || true)
+  # Listed first, sorted second: inside one pipeline a failing `find` was
+  # invisible and printed "no rip folder found", which is a different fact.
+  if RIPS=$(find ~/Music/rips -mindepth 2 -maxdepth 2 -type d -printf '%T@ %p\n'); then
+    NEWEST=$(printf '%s\n' "$RIPS" | sort -rn | head -1 | cut -d' ' -f2-)
+  else
+    echo "  COULD NOT LIST ~/Music/rips (find failed) -- the newest rip is NOT in this bundle"
+    RIPS_LISTED=no
+  fi
 fi
 if [ -n "$NEWEST" ]; then
   echo "  from: $NEWEST"
@@ -66,13 +73,21 @@ if [ -n "$NEWEST" ]; then
     \( -iname '*.log' -o -iname '*.cue' -o -iname '*.json' -o -iname '*.txt' -o -iname '*.m3u*' \) \
     -exec cp {} "$OUT/rip"/ \;
   optional ls "$OUT/rip"
-else
+elif [ "$RIPS_LISTED" = yes ]; then
   echo "  no rip folder found"
 fi
 
 echo; echo "== proving no audio slipped in =="
-AUDIO=$(find "$OUT" -type f \( -iname '*.flac' -o -iname '*.wav' -o -iname '*.mp3' \
-        -o -iname '*.wv' -o -iname '*.m4a' -o -iname '*.ape' -o -iname '*.aiff' \) || true)
+# The check that lets this script print "clean". It must SUCCEED before its
+# silence means anything: with `|| true`, a `find` that failed printed "clean -
+# no audio files in the bundle" about a bundle nobody had looked at (Critical
+# rule #8; fixed 2026-10-12). If it cannot look, nothing is packed.
+if ! AUDIO=$(find "$OUT" -type f \( -iname '*.flac' -o -iname '*.wav' -o -iname '*.mp3' \
+        -o -iname '*.wv' -o -iname '*.m4a' -o -iname '*.ape' -o -iname '*.aiff' \)); then
+  echo "  COULD NOT CHECK the bundle for audio (find failed) -- NOT packing it." >&2
+  echo "  Nothing was uploaded. Fix the error above and run this again." >&2
+  exit 1
+fi
 if [ -n "$AUDIO" ]; then
   echo "  REMOVING audio that must not be here:"; echo "$AUDIO" | sed 's/^/    /'
   echo "$AUDIO" | while read -r f; do rm -f "$f"; done

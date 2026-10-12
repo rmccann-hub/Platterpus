@@ -11,6 +11,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SETUP = REPO_ROOT / "setup-host.sh"
 
@@ -149,3 +151,42 @@ def test_flac_installed_and_exported_alongside_cyanrip(tmp_path: Path) -> None:
     assert "dnf install -y flac" in out
     assert "distrobox-export --bin /usr/bin/metaflac" in out
     assert "distrobox-export --bin /usr/bin/flac" in out
+
+
+@pytest.mark.parametrize("mode", ["fail", "big"])
+def test_a_failed_container_listing_is_not_read_as_no_container(
+    tmp_path: Path, mode: str
+) -> None:
+    """Regression (2026-10-12): a failed `distrobox list` read as "no container".
+
+    `container_exists` piped the listing into `grep -q`, so a listing that failed,
+    or one long enough for the SIGPIPE race under `set -o pipefail`, said "absent"
+    and the script went on to create a container that might already exist. It
+    now stops and says the listing failed.
+    """
+    shims = tmp_path / "shims"
+    shims.mkdir()
+    shim = shims / "distrobox"
+    if mode == "fail":
+        body = 'echo "simulated listing failure" >&2\nexit 1\n'
+    else:
+        body = 'echo "ripping"\nhead -c 2000000 /dev/zero | tr "\\0" "x" | fold -w 80\n'
+    shim.write_text("#!/bin/bash\n" + body, encoding="utf-8")
+    shim.chmod(0o755)
+    env = dict(os.environ, PATH=f"{shims}:{os.environ.get('PATH', '')}")
+    result = subprocess.run(
+        ["bash", str(SETUP), "--dry-run", "--yes", "--no-gui"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+    if mode == "fail":
+        assert result.returncode != 0, result.stdout
+        assert "Could not list Distrobox containers" in result.stderr, result.stderr
+        assert "simulated listing failure" in result.stderr
+        assert "distrobox create" not in result.stdout
+    else:
+        assert result.returncode == 0, result.stderr
+        assert "Container 'ripping' already exists" in result.stdout, result.stdout
+        assert "distrobox create" not in result.stdout
