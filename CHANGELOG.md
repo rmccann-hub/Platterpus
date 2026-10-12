@@ -44,6 +44,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Repository rulesets on `main` and on `v*` tags** (the owner's decision, 2026-10-12,
+  replacing the 2026-09-11 decline). `CLAUDE.md` divergence (5) records it, and
+  `PLANNING.md` KDD-43 records what the rulesets touch. Nothing in the tree pushes to
+  `main`, force-pushes, or moves or deletes a tag. But `release.yml` creates each `v*` tag
+  when it publishes, so the tag ruleset must not restrict creation. A Dependabot pull
+  request that changes a dependency fails `test` by design: the generated BOM goes stale,
+  and `ruff`/`mypy` are pinned. Such a bump is carried on a session branch instead.
+  SECURITY.md and `docs/architecture.md` §6.2 no longer say `main` is unprotected.
+
+### Changed
+
 - **Every open task, ranked, and the fork's share presented to the fork** (2026-10-12, on
   the maintainer's question, asked of both repositories). All 173 open rows in `TASKS.md`
   were read against the tree. 22 closed, each with a dated note giving its evidence (11
