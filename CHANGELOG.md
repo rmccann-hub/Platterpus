@@ -12,6 +12,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The 2026-10-12 Full run on 0.7.103 with `.21` is filed and graded `full-green`**, the
+  evidence ledger's second such row (the maintainer's ruling, as on 2026-10-07: E2 is N/A
+  on the BDR-209D and recorded as not covered). 424 of 425 steps passed, none failed. Its
+  74 text members are in `docs/handshake/artifactsround31/` as `v07103full*`. The derived
+  outputs, every rip log's integrity and every screenshot were checked, not assumed. It
+  moves no version gate: same machine and distro as the first row. `docs/eac-parity.md`'s
+  track 3 and 5 counts now cover 20 rips, and track 3 gave a fourth unverified value.
+  Two statements of "no full-green row" (`docs/test-plan.md`, a `TASKS.md` row) are
+  corrected.
+
 ### Fixed
 
 - **The agent-side audio guard could be talked past, and blocked its own way out**

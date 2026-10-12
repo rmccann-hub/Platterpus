@@ -4040,6 +4040,7 @@ that is what the section costs, not what its title implies.
 | 2026-10-05 | 0.6.65 | maintainer | bdr209d | bazzite | partial |
 | 2026-10-06 | 0.6.66b1 | maintainer | bdr209d | bazzite | partial |
 | 2026-10-07 | 0.6.66 | maintainer | bdr209d | bazzite | full-green |
+| 2026-10-12 | 0.7.103 | maintainer | bdr209d | bazzite | full-green |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -4231,6 +4232,18 @@ a cancel and over track 18's skips; `cancel-rip` stopped an earlier step's rip;
 `pick-release` called an unidentified disc identified; and the 42 s quit grace was
 shorter than the 54 s read. Nothing it showed of the ripper breaks the pin
 (`docs/handshake/artifactsround30/README.md` → *The 2026-10-04 runs*).
+
+**The 2026-10-12 0.7.103 row is the second `full-green` row: the Full run of the same
+`.21` through 0.7.103, the release that first installs it by default.** 424 of 425 steps
+passed, none failed or errored, and E2 was `unreachable` again on this listed drive. **The
+grade is the maintainer's ruling** (2026-10-12), the same as 2026-10-07's, with E2
+recorded as not covered. The witnesses were checked as before: K1 to K3 each found their
+derived output, all nine album audits reached ok on the ripper log's integrity, the app
+log holds no error, and every screenshot caught the window on screen. The disc behaved as
+before: tracks 3 and 5 match AccurateRip only at one frame's offset, and track 3 gave a
+fourth unverified value. **It moves no version gate**: it is the same machine, distro and
+person as the first row, so 0.9.1 still needs another machine and distro, plus E2 on a
+drive the AccurateRip list does not carry (`docs/handshake/artifactsround31/README.md`).
 
 **The 2026-10-07 0.6.66 row is the first `full-green` row: the Full run on `ca3f3ea`
 (`.21`), round 31's build under review, through 0.6.66.** 425 of 426 steps passed, none
