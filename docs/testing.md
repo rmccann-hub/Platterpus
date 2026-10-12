@@ -3765,24 +3765,31 @@ month was found on hardware by a person, with a green suite the whole time.
 
 *Verbatim from `CLAUDE.md` at `f5305a7` (Working with the maintainer, the version-number bullet), moved here when that file was trimmed to its rules and pointers. Inside it, “here” and “this file” mean `CLAUDE.md`, and “above” / “below” mean the neighbouring entries of that section.*
 
-**A version number is a claim about the field, not about CI** (maintainer ruling, 2026-08-19; KDD-35, full statement + evidence ledger in `docs/testing.md` §5B). "The suite is green" describes this repository on a CI runner; a version describes software in somebody's hands, and this project has the measurement that they differ — every defect that mattered in August was found on hardware by a person with the suite green throughout. **0.9.1** needs a complete hardware pass — *every* test green in ONE run — achieved **twice, on at least two machines and two distros** (maintainer ruling, 2026-09-13: *"me passing full tests, even if different, on the same version of linux and hardware should not allow a 0.9.1"* — a real amendment, since every diversity clause previously sat on 1.0.0 and 0.9.1 was a pure count); "the five failures were each understood" is not a pass, because on 2026-08-19 all five descended from one unknown defect. Two passes on ONE rig answer *was it luck* and say nothing about *is it green only because of this machine*; the floors are counted over the **full-green rows only**, and are deliberately below 1.0.0's so the two bars stay distinct. **1.0.0** additionally needs more than one person, machine and distro: a *coverage* bar no amount of diligence on one rig can clear. `tests/test_no_stale_version_claims.py` §3 refuses a bump the ledger does not support. **Amended 2026-08-21 (maintainer): the next minor is `0.7.100`, and it is gated on a FULL hardware pass — *"fresh start, rip, every test there is, all of them"* — so the project stays on `0.6.x` until that run exists.** The gate moved earlier than KDD-35 put it (0.9.1) and the bar is the same in kind: a complete pass in ONE run, not a set of individually-explained failures. The jump to `.100` is the maintainer's numbering, not a typo — do not "correct" it to 0.7.0. **Sharpened 2026-08-26 (maintainer): "error free" is about what a failure MEANS, not how many there are.** *"If there is something minor like a window size was wrong, then ignore. But critical passing tests for cd accuracy and provenance, etc, for archive level records, if all those pass fine. Difference between not working as intended and not actually doing the job you were built for."* So the bar is **zero failures in the ARCHIVAL sections** — accuracy, provenance, and the records that make a rip trustworthy — with UX failures recorded, triaged, and non-blocking. Same ruling: *"it might take 1 more test, it might take 10, i dont care."* **The classification is a property of the TEST, declared in advance, never a judgement made about a FAILURE after seeing it** — that distinction is the whole safety of this amendment, because "the five failures were each understood" is the exact sentence 2026-08-19 disproved, and a severity decided at results time is that sentence with a nicer name. The per-section table is `docs/testing.md` → *Acceptance severity*, swept by `tests/test_rig_scripts.py` so a NEW section must be classified rather than defaulting to ignorable. And a UX failure is only non-blocking while it is **its own** defect: if it shares a root cause with an archival one it is archival, which is the 2026-08-19 lesson kept rather than traded away. **That prohibition is DIRECTIONAL, and reading it as symmetric once cost a correct decision** (2026-09-15): it exists to stop evidence being **inflated** after the fact — a failure appears and is reclassified as ignorable so the run counts. Withdrawing credit from a pass that turns out to rest on a check which *could not have failed* is the opposite move, and it is the rule working rather than breaking. The 2026-09-12 run's `full-green` ledger row was kept-and-annotated on exactly this misreading; the maintainer's ruling was *"it does not count now"*, and re-grading it to `partial` was right. **The test is the direction: if a re-grade makes a version EASIER to reach, be suspicious of it; if harder, this rule is not the objection.** And re-grade the **field the gate reads**, not only the prose beside it — `test_no_stale_version_claims.py` counts the `result` column, so a cell saying `full-green` next to a paragraph explaining that it does not count is the §5.bi defect reproduced inside the file that records §5.bi.
+**A version number is a claim about the field, not about CI** (maintainer ruling, 2026-08-19; KDD-35, full statement + evidence ledger in `docs/testing.md` §5B). "The suite is green" describes this repository on a CI runner; a version describes software in somebody's hands, and this project has the measurement that they differ — every defect that mattered in August was found on hardware by a person with the suite green throughout. **0.8.1** (0.9.1 until 2026-10-12) needs a complete hardware pass — *every* test green in ONE run — achieved **twice, on at least two machines and two distros** (maintainer ruling, 2026-09-13: *"me passing full tests, even if different, on the same version of linux and hardware should not allow a 0.9.1"* — a real amendment, since every diversity clause previously sat on 1.0.0 and 0.9.1 was a pure count); "the five failures were each understood" is not a pass, because on 2026-08-19 all five descended from one unknown defect. Two passes on ONE rig answer *was it luck* and say nothing about *is it green only because of this machine*; the floors are counted over the **full-green rows only**, and are deliberately below 1.0.0's so the two bars stay distinct. **1.0.0** additionally needs more than one person, machine and distro: a *coverage* bar no amount of diligence on one rig can clear. `tests/test_no_stale_version_claims.py` §3 refuses a bump the ledger does not support. **Amended 2026-08-21 (maintainer): the next minor is `0.7.100`, and it is gated on a FULL hardware pass — *"fresh start, rip, every test there is, all of them"* — so the project stays on `0.6.x` until that run exists.** The gate moved earlier than KDD-35 put it (0.9.1) and the bar is the same in kind: a complete pass in ONE run, not a set of individually-explained failures. The jump to `.100` is the maintainer's numbering, not a typo — do not "correct" it to 0.7.0. **Sharpened 2026-08-26 (maintainer): "error free" is about what a failure MEANS, not how many there are.** *"If there is something minor like a window size was wrong, then ignore. But critical passing tests for cd accuracy and provenance, etc, for archive level records, if all those pass fine. Difference between not working as intended and not actually doing the job you were built for."* So the bar is **zero failures in the ARCHIVAL sections** — accuracy, provenance, and the records that make a rip trustworthy — with UX failures recorded, triaged, and non-blocking. Same ruling: *"it might take 1 more test, it might take 10, i dont care."* **The classification is a property of the TEST, declared in advance, never a judgement made about a FAILURE after seeing it** — that distinction is the whole safety of this amendment, because "the five failures were each understood" is the exact sentence 2026-08-19 disproved, and a severity decided at results time is that sentence with a nicer name. The per-section table is `docs/testing.md` → *Acceptance severity*, swept by `tests/test_rig_scripts.py` so a NEW section must be classified rather than defaulting to ignorable. And a UX failure is only non-blocking while it is **its own** defect: if it shares a root cause with an archival one it is archival, which is the 2026-08-19 lesson kept rather than traded away. **That prohibition is DIRECTIONAL, and reading it as symmetric once cost a correct decision** (2026-09-15): it exists to stop evidence being **inflated** after the fact — a failure appears and is reclassified as ignorable so the run counts. Withdrawing credit from a pass that turns out to rest on a check which *could not have failed* is the opposite move, and it is the rule working rather than breaking. The 2026-09-12 run's `full-green` ledger row was kept-and-annotated on exactly this misreading; the maintainer's ruling was *"it does not count now"*, and re-grading it to `partial` was right. **The test is the direction: if a re-grade makes a version EASIER to reach, be suspicious of it; if harder, this rule is not the objection.** And re-grade the **field the gate reads**, not only the prose beside it — `test_no_stale_version_claims.py` counts the `result` column, so a cell saying `full-green` next to a paragraph explaining that it does not count is the §5.bi defect reproduced inside the file that records §5.bi.
 
 ### The three thresholds
 
 | Version | What it claims | What that requires |
 |---|---|---|
 | **0.x** | *"Under development; expect defects."* | The suite is green. Nothing else is asserted, so nothing else is owed. |
-| **0.9.1** | *"Feature-complete and internally proven."* | **A complete hardware pass — EVERY test green in ONE run — achieved at least TWICE, on at least TWO machines and TWO distros.** Not "the failures were understood"; not "green except the known ones". One run with a full green sheet is a data point; two is the first evidence it was not luck — **but two on the same rig are the same configuration measured twice** (maintainer ruling, 2026-09-13), so they answer *was it luck?* and say nothing at all about *is it green only because of something true of this machine?* The diversity floors here are deliberately **lower** than 1.0.0's, so the two bars stay distinct. |
+| **0.8.1** | *"Feature-complete and internally proven."* | **A complete hardware pass — EVERY test green in ONE run — achieved at least TWICE, on at least TWO machines and TWO distros.** Not "the failures were understood"; not "green except the known ones". One run with a full green sheet is a data point; two is the first evidence it was not luck — **but two on the same rig are the same configuration measured twice** (maintainer ruling, 2026-09-13), so they answer *was it luck?* and say nothing at all about *is it green only because of something true of this machine?* The diversity floors here are deliberately **lower** than 1.0.0's, so the two bars stay distinct. |
 | **1.0.0** | *"Ready for people who are not us."* | Everything above, **plus independent field evidence: more than one person, more than one machine, more than one Linux distribution.** The maintainer's rig is one configuration out of every configuration a user might have, and a single-rig 1.0 is a claim the evidence cannot carry. |
 
-**The 0.9.1 bar is "all at once", and that word is the whole rule.** A run of
+**The 0.8.1 bar moved down from 0.9.1 on 2026-10-12, and only the number moved.**
+The maintainer: *"if we get a second green run on a different drive/rig, it should
+bump to 0.8.1, not 0.9.1"*. The passes, machines and distros it counts are unchanged,
+and so is everything below. Every version from 0.8.1 up now needs this bar, so no
+version became easier to reach: 0.8.1 to 0.9.0 used to need only `0.7.100`'s single
+pass. `tests/test_no_stale_version_claims.py` gates at 0.8.1.
+
+**The 0.8.1 bar is "all at once", and that word is the whole rule.** A run of
 `pass=55 fail=5` where each of the five is separately explained is *not* a pass.
 Explaining a failure is how you fix it; it is not how you count it. The reason to
 insist is measured in this project's own history: the 2026-08-19 run's five
 failures all descended from one defect nobody knew existed, and every one of them
 would have been waved through as "understood" by a looser rule.
 
-**The 0.9.1 bar gained a diversity clause on 2026-09-13, and the change was
+**The bar (then at 0.9.1) gained a diversity clause on 2026-09-13, and the change was
 real rather than a clarification.** Until that day every diversity requirement
 sat on 1.0.0 and 0.9.1 was a pure count, so two green sheets from the
 maintainer's one rig satisfied *"feature-complete and internally proven"*. The
@@ -3808,7 +3815,7 @@ seem fine.
 
 Rows are added when a run happens, by whoever ran it. `test_no_stale_version_claims.py`
 parses this table and refuses a version bump that the rows do not support — an
-empty ledger fails the 0.9.1 and 1.0.0 gates rather than passing them by finding
+empty ledger fails the 0.8.1 and 1.0.0 gates rather than passing them by finding
 nothing.
 
 `result` must be exactly `full-green` or `partial`; anything else is read as
@@ -4242,7 +4249,7 @@ derived output, all nine album audits reached ok on the ripper log's integrity, 
 log holds no error, and every screenshot caught the window on screen. The disc behaved as
 before: tracks 3 and 5 match AccurateRip only at one frame's offset, and track 3 gave a
 fourth unverified value. **It moves no version gate**: it is the same machine, distro and
-person as the first row, so 0.9.1 still needs another machine and distro, plus E2 on a
+person as the first row, so 0.8.1 still needs another machine and distro, plus E2 on a
 drive the AccurateRip list does not carry (`docs/handshake/artifactsround31/README.md`).
 
 **The 2026-10-07 0.6.66 row is the first `full-green` row: the Full run on `ca3f3ea`
@@ -4252,7 +4259,7 @@ refuses a drive missing from the AccurateRip list, and the BDR-209D is on that l
 **The grade is the maintainer's ruling** (2026-10-07), because counting an N/A makes a
 version easier to reach. Zero failures in the ARCHIVAL sections is the written bar, and
 E2's own row says N/A on a listed drive is not a failure. **E2 is recorded as not
-covered**: a run on a drive the list does not carry is still owed before 0.9.1.
+covered**: a run on a drive the list does not carry is still owed before 0.8.1.
 
 The witnesses were checked, not assumed. K1, K2 and K3 each found two derived files
 (`.mp3`, `.wv`, `.wav`) beside two FLAC masters, the check whose absence kept the
@@ -4261,7 +4268,7 @@ included. The app log holds no error. Every screenshot caught its window on scre
 The disc behaved as before: track 3 is not reproducible, two tracks match AccurateRip
 on one frame only in the whole-disc rip, and CTDB finds no match at the standard
 alignment. One wording defect of ours, in a UX string, was fixed after the run
-(`d14c315e`). **It is not a second witness for 0.9.1**: one machine, one distro, one
+(`d14c315e`). **It is not a second witness for 0.8.1** (then 0.9.1): one machine, one distro, one
 person (`docs/handshake/artifactsround31/README.md`).
 
 **The 2026-10-06 0.6.66b1 row is round 30's closing run, on `.20` and 0.6.66b1: 418 of
@@ -4299,7 +4306,7 @@ second witness** either: one machine, one distro, one person, and failures in AR
 sections (`docs/handshake/artifactsround30/README.md` → *The 2026-10-05 run*).
 
 **One row is `full-green`, the 2026-10-07 run, and every other row is `partial`.**
-That meets `0.7.100`'s gate. 0.9.1 needs two `full-green` rows on at least two
+That meets `0.7.100`'s gate. 0.8.1 needs two `full-green` rows on at least two
 machines and two distros, so the count toward it is one of two, on one machine.
 Recording the partials anyway matters: a ledger that held only successes would make
 the denominator invisible. The `full-green` row is one where K1 and K2 *could* have
