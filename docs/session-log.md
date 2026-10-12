@@ -29,6 +29,14 @@ this order:
 rewritten. HR-1 (`docs/cyanrip-handshake.md` §7.4a) is the rule both checkers follow for
 an old Platterpus ID.
 
+**Then (same day).** The fork adopted HR-1 word for word (`cyanrip@af489bab`) and
+added its reader (`cyanrip@3ffc8699`). We verified both, and wrote our round 32 lap 4,
+held for the operator's word. Running their checker against our laps first showed 13
+refusals. The cause was this session's own stale local `main`, which still pointed at the
+old history: their checker reads the maps from the local `main` first, and that ref
+held no map. A fresh clone reads the laps with 0 warnings. The lap sends it to them as a
+finding that could help.
+
 **Learned.** A rewrite that changes no file still changes every ID, so the cost is entirely
 in whatever resolves IDs. Rehearsing it on a copy and running the suite there found every
 such place in one pass, which no grep would have. The scan that checks citations also read
