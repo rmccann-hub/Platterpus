@@ -308,7 +308,9 @@ documents depend on.
   31's build under review, through our 0.6.66: 76 text members of the operator's bundle
   (sha256 `a7e51546…`) as `round31full*`. 425 of 426 steps passed, none failed, and E2
   was N/A on this drive. It is the first `full-green` row in the evidence ledger. Its
-  `README.md` says what was not filed and what the run shows.
+  `README.md` says what was not filed and what the run shows. The same folder holds the
+  2026-10-12 **Full** run of the same `.21` through our 0.7.103: 74 text members (sha256
+  `5d9e9038…`) as `v07103full*`, 424 of 425 passed, E2 N/A, the second `full-green` row.
 
 - **`outbound/artifacts/lsl-amendments-1.md`** — **a proposal, not a lap**: our answer to
   the fork's round 27 lap 6 S23 (sha256 `72a4c65afde184f2…`, 17,666 bytes; revised the same day with F4,

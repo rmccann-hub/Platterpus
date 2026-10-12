@@ -1400,14 +1400,14 @@ is the decision log failing at the one thing it is for. All three were live in
   should not allow a 0.9.1."* Two passes on one rig answer *was it luck* and say
   nothing about *is it green only because of this machine*.
 
-**Status, 2026-10-07:** the ledger carries seventeen rows, and one is `full-green`:
-the 2026-10-07 Full run on app 0.6.66 against `ca3f3ea` (`.21`), 425 of 426 steps
-passed, none failed, and E2 was N/A on this drive (the maintainer's ruling, with E2
-recorded as not covered). That meets `0.7.100`'s gate. Every other row is `partial`,
-and each one's reason is in `docs/testing.md` §5B. All seventeen rows are **one**
-machine and **one** distro, the BDR-209D on Bazzite, so 0.9.1's floor of two
-`full-green` rows on two machines and two distros is still one row and one machine
-short.
+**Status, 2026-10-12:** the ledger carries eighteen rows, and two are `full-green`:
+the 2026-10-07 Full run on app 0.6.66 and the 2026-10-12 Full run on app 0.7.103, both
+against `ca3f3ea` (`.21`), each with no failure and with E2 N/A on this drive (the
+maintainer's rulings, with E2 recorded as not covered). The first met `0.7.100`'s gate.
+Every other row is `partial`, and each one's reason is in `docs/testing.md` §5B. All
+eighteen rows are **one** machine and **one** distro, the BDR-209D on Bazzite, so 0.9.1's
+floor of two `full-green` rows on two machines and two distros is still one machine and
+one distro short.
 
 **Why.** The implicit gate was "the tests pass", and the maintainer corrected it:
 *"we have only tested on my rig, my hardware. we need more people, more hardware,
