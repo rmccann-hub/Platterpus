@@ -60,6 +60,10 @@ _FLOORED_DYNAMIC_SWEEPS: Final[dict[str, str]] = {
     # `_REWRITES`, strings joined around one quoted close, tables holding
     # Hypothesis strategies), each floored by name. The fifth is three cases
     # written out.
+    # The history rewrite (2026-10-12): the commit map's refusals, one case each.
+    "test_commit_map.py::test_a_malformed_map_is_reported_and_never_raises": (
+        "test_every_refusal_has_a_malformed_case"
+    ),
     "test_cyanrip_log_reads_values_greedily.py::test_each_rewrite_is_fast_on_a_long_blank_run": (
         "test_every_rewrite_but_the_linear_one_is_timed"
     ),

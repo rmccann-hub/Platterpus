@@ -27,7 +27,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 STATUS-ROUND: 32, OPEN, opened by your lap 1 (released 2026-10-12) on +platterpus.22 at 200530e; our PIN_UNDER_REVIEW is 200530e from 497d4dbb and our FORK_PIN stays ca3f3ea until round 32 closes; it closes on your S6 (the Full run, on .22 with 0.7.104 by our lap 2's S3) and S7
 STATUS-LAPS: newest sent round-32-lap-02.md (ours), round-32-lap-03.md (theirs); next round 32 lap 4 (ours), once 0.7.104 is cut and the Full run on .22 with it is filed; held none
-STATUS-RELEASED: 0.7.103 at 2f7855b, 2026-10-12
+STATUS-RELEASED: 0.7.103 at 370e619, 2026-10-12
 STATUS-RELEASE-NEXT: 0.7.104, HELD by our owner from 2026-10-12 until they release it: a history rewrite may come first, and our releases are now immutable, so a published release locks its tag to the commit it was cut from; our lap 2's S5 waits on that word; pins ca3f3ea, reviews 200530e
 STATUS-RUN-NEXT: 200530e with 0.7.104; waiting on our 0.7.104, held by our owner (see STATUS-RELEASE-NEXT); 0.7.103's acceptance script accepts .21 alone (our lap 2 S2)
 STATUS-OPEN: rip-identity us fixing at round 32: the disc ID our MusicBrainz lookup used is not compared with the one your log reports, so a swap our poller missed would archive one album under another's tags; our top item of 2026-10-12

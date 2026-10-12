@@ -2732,9 +2732,14 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     "scripts/laplang/lsl3.py": 433,
     # **324 -> 312** (2026-10-06): git calls and decoding a cited file moved to
     # `scripts/laplang/gitio.py` when the decoder learned UTF-16.
-    "scripts/laplang/refs.py": 312,
+    # **312 -> 331** (2026-10-12, the history rewrite): `Trees._current` looks an
+    # old commit ID up in the commit map before git is asked, at the two places
+    # an ID is resolved. Resolving a reference is this module's job.
+    "scripts/laplang/refs.py": 331,
     "scripts/laplang/rerun.py": 361,
-    "scripts/laplang/scratch.py": 345,
+    # **345 -> 348** (2026-10-12, the history rewrite): a re-run of a command at
+    # an old commit ID runs at the commit the map says replaced it.
+    "scripts/laplang/scratch.py": 348,
     "scripts/mutation_sweep.py": 502,
     "scripts/probe_argv_surface.py": 423,
     "scripts/revert_probe.py": 546,

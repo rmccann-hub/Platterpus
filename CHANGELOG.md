@@ -14,6 +14,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Old commit IDs resolve through the history rewrite's commit map.** The owner is
+  removing personal information from this repository's commit metadata, which gives
+  every commit a new ID. Laps, TASKS and the session log keep the IDs they were
+  written with, and so do the cyanrip fork's laps, so `scripts/laplang/commit_map.py`
+  reads the map `git filter-repo` leaves (`docs/handshake/commit-map-<date>.txt`) and
+  the lap checker, its re-run checkouts, `tests/test_cited_commits_are_reachable.py`
+  and the `HANDSHAKE-OUR-PIN` check look an old ID up there before asking git. The
+  reachability scan skips the map itself, which would otherwise satisfy its own
+  floor. The owner pushed the rewrite on 2026-10-12, and its map, `docs/handshake/commit-map-2026-10-12.txt`, holds 1,821 entries. The status block names 0.7.103's new commit. The rule is proposed to the fork as HR-1 (`docs/cyanrip-handshake.md` §7.4a; `PLANNING.md` KDD-44).
+
 - **CI and the release workflow now fit the owner's 2026-10-12 repository settings**
   (merge commits only, immutable releases, actions pinned to full SHAs, rulesets).
   - The `changelog` job's Dependabot exemption no longer reads the head commit's author,

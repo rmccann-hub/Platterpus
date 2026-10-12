@@ -11,6 +11,30 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-12 — the commit metadata rewritten; old IDs resolve through a map
+
+**What was done.** The owner's email address was removed from the 285 author and committer
+fields that carried it, across the whole history (`PLANNING.md` KDD-44). The work went in
+this order:
+- A read-only inventory.
+- The owner narrowed the scope to the address only.
+- A rehearsal on a scratch mirror. With the unchanged suite on the rewritten history, 32
+  tests failed, every one where we resolve our own IDs. The map lookup in
+  `scripts/laplang/commit_map.py` fixed all of them.
+- The owner ran one script on their own machine, with both rulesets off for the push.
+- The map, `docs/handshake/commit-map-2026-10-12.txt`, matched the rehearsal byte for byte.
+- PR #303 was closed first.
+
+**Decided.** The home paths and the shipped packages stay as they are. The fork is not
+rewritten. HR-1 (`docs/cyanrip-handshake.md` §7.4a) is the rule both checkers follow for
+an old Platterpus ID.
+
+**Learned.** A rewrite that changes no file still changes every ID, so the cost is entirely
+in whatever resolves IDs. Rehearsing it on a copy and running the suite there found every
+such place in one pass, which no grep would have. The scan that checks citations also read
+the map itself as citations, and that alone would have satisfied its new floor. It now
+skips the map.
+
 ## 2026-10-12 — the fork's round 32 lap 3 filed; CI fitted to the new repository settings; releases held
 
 **Built:**

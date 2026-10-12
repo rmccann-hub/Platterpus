@@ -26,13 +26,24 @@ be a fork commit, a digest prefix, or one of our commits that is gone for good.
 Only the `platterpus@<sha>` form says whose commit it is, so only that form is
 required to resolve. Bare tokens are checked for reachability when they resolve
 and ignored when they do not.
+
+**After the 2026-10-12 history rewrite every one of our commit IDs changed**, and
+the citations kept their old IDs, because a sent lap is never edited. So a token
+is first looked up in the commit map `git filter-repo` wrote
+(`docs/handshake/commit-map-<date>.txt`, read by `scripts/laplang/commit_map.py`),
+and the commit it maps to is the one that must resolve and be reachable. Old
+before new: in a clone made before the rewrite, the old ID still resolves to the
+old commit, which `HEAD` no longer reaches.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import subprocess
+import sys
 from pathlib import Path
+from types import ModuleType
 from typing import Final
 
 import pytest
@@ -56,6 +67,18 @@ EXAMPLE_SHAS: Final[dict[str, str]] = {
 #: How many cited commits the scan must find. Measured 159 on 2026-09-26. A scan
 #: that finds none reports "nothing unreachable" too, so it needs a floor.
 MIN_CITED_COMMITS: Final[int] = 150
+
+#: How many old IDs the rewrite's map must hold. The rewrite of 2026-10-12
+#: changed every commit reachable from `main` and the tags: 1,821 of them. A map
+#: that lost most of its lines would still "translate" the few citations it
+#: kept, so the size is checked as well as the shape.
+MIN_MAPPED_COMMITS: Final[int] = 1800
+
+#: How many citations must reach their commit THROUGH the map. Every citation
+#: written before the rewrite does, so a scan where none did has not read the map.
+MIN_CITATIONS_THROUGH_MAP: Final[int] = 150
+
+COMMIT_MAP_PY: Final[Path] = REPO_ROOT / "scripts" / "laplang" / "commit_map.py"
 
 GIT_TIMEOUT_S: Final[float] = 60.0
 
@@ -87,41 +110,69 @@ def _tracked_text(root: Path) -> dict[str, str]:
     return texts
 
 
-def _resolve(root: Path, tokens: list[str]) -> dict[str, str | None]:
-    """Each token's full commit SHA, or None if it names no commit here."""
+def commit_map_module() -> ModuleType:
+    """`scripts/laplang/commit_map.py`, loaded by path: it imports nothing else
+    from `laplang`, so the tests and the lap checker share one reading of a map."""
+    name = "platterpus_commit_map"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, COMMIT_MAP_PY)
+    assert spec is not None and spec.loader is not None, COMMIT_MAP_PY
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _resolve(root: Path, tokens: list[str]) -> tuple[dict[str, str | None], int]:
+    """Each token's full commit SHA, or None if it names no commit here, and how
+    many tokens were old IDs answered through the commit map."""
     if not tokens:
-        return {}
+        return {}, 0
+    cmap, _ = commit_map_module().load(root)
+    asked = [cmap.current(t) or t for t in tokens]
     out = _git(
         root,
         "cat-file",
         "--batch-check=%(objectname) %(objecttype)",
-        stdin="".join(f"{t}\n" for t in tokens),
+        stdin="".join(f"{q}\n" for q in asked),
     )
     resolved: dict[str, str | None] = {}
     for token, line in zip(tokens, out.splitlines(), strict=True):
         name, _, kind = line.partition(" ")
         resolved[token] = name if kind == "commit" else None
-    return resolved
+    through_map = sum(1 for t, q in zip(tokens, asked, strict=True) if q != t)
+    return resolved, through_map
 
 
-def cited_commits(root: Path) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+def cited_commits(
+    root: Path,
+) -> tuple[dict[str, set[str]], dict[str, set[str]], int]:
     """Scan the tree. Returns (commit SHA -> citing files, unresolved
-    `platterpus@` token -> citing files)."""
+    `platterpus@` token -> citing files, how many tokens the map answered)."""
     where: dict[str, set[str]] = {}
     prefixed: dict[str, set[str]] = {}
+    maps = commit_map_module()
     for path, text in _tracked_text(root).items():
+        # A commit map is the lookup table, not a citation. Scanned, its 3,600
+        # IDs would all "resolve", and its old IDs alone would satisfy the
+        # through-the-map floor below with no real citation read at all.
+        if path.startswith(maps.MAP_DIR + "/") and maps.MAP_NAME_RE.match(
+            path.rsplit("/", 1)[-1]
+        ):
+            continue
         for token in set(HEX_RE.findall(text)):
             where.setdefault(token, set()).add(path)
         for token in set(PREFIXED_RE.findall(text)):
             prefixed.setdefault(token, set()).add(path)
-    resolved = _resolve(root, sorted(where.keys() | prefixed.keys()))
+    resolved, through_map = _resolve(root, sorted(where.keys() | prefixed.keys()))
     commits: dict[str, set[str]] = {}
     for token, files in where.items():
         sha = resolved.get(token)
         if sha is not None:
             commits.setdefault(sha, set()).update(files)
     missing = {t: f for t, f in prefixed.items() if resolved.get(t) is None}
-    return commits, missing
+    return commits, missing, through_map
 
 
 def unreachable(root: Path, commits: dict[str, set[str]]) -> dict[str, set[str]]:
@@ -138,8 +189,11 @@ def _require_full_history(root: Path) -> None:
         )
 
 
+Scan = tuple[dict[str, set[str]], dict[str, set[str]], int]
+
+
 @pytest.fixture(scope="module")
-def scan() -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+def scan() -> Scan:
     _require_full_history(REPO_ROOT)
     return cited_commits(REPO_ROOT)
 
@@ -152,9 +206,9 @@ def _describe(found: dict[str, set[str]]) -> str:
 
 
 def test_the_scan_finds_the_citations(
-    scan: tuple[dict[str, set[str]], dict[str, set[str]]],
+    scan: Scan,
 ) -> None:
-    commits, _ = scan
+    commits, _, _ = scan
     assert len(commits) >= MIN_CITED_COMMITS, (
         f"found only {len(commits)} cited commits (floor {MIN_CITED_COMMITS}); a scan "
         "that finds nothing also finds nothing unreachable"
@@ -162,9 +216,9 @@ def test_the_scan_finds_the_citations(
 
 
 def test_every_cited_commit_is_reachable_from_head(
-    scan: tuple[dict[str, set[str]], dict[str, set[str]]],
+    scan: Scan,
 ) -> None:
-    commits, _ = scan
+    commits, _, _ = scan
     stranded = unreachable(REPO_ROOT, commits)
     assert not stranded, (
         f"{len(stranded)} cited commit(s) are not reachable from HEAD. On main this "
@@ -175,9 +229,9 @@ def test_every_cited_commit_is_reachable_from_head(
 
 
 def test_every_platterpus_citation_resolves(
-    scan: tuple[dict[str, set[str]], dict[str, set[str]]],
+    scan: Scan,
 ) -> None:
-    _, missing = scan
+    _, missing, _ = scan
     real = {t: f for t, f in missing.items() if EXAMPLE_SHAS.get(t) not in f}
     assert not real, (
         "a `platterpus@<sha>` citation names a commit this clone does not have. If "
@@ -187,15 +241,85 @@ def test_every_platterpus_citation_resolves(
 
 
 def test_the_examples_are_still_only_examples(
-    scan: tuple[dict[str, set[str]], dict[str, set[str]]],
+    scan: Scan,
 ) -> None:
     """An allowlist entry whose file no longer uses it is stale, and a stale entry
     is how a real SHA would slip through later."""
-    _, missing = scan
+    _, missing, _ = scan
     for token, path in EXAMPLE_SHAS.items():
         assert path in missing.get(token, set()), (
             f"{token} is allowlisted for {path}, which no longer cites it"
         )
+
+
+def test_the_commit_map_is_well_formed_and_complete() -> None:
+    """The map the 2026-10-12 rewrite left must read cleanly, be the size the
+    rewrite was, and name only commits this clone has.
+
+    `scripts/laplang/commit_map.py` reports a malformed map as sentences rather
+    than raising, so a checker keeps working; this is where those sentences fail.
+    """
+    _require_full_history(REPO_ROOT)
+    cmap, problems = commit_map_module().load(REPO_ROOT)
+    assert not problems, "the commit map has problems:\n  " + "\n  ".join(problems)
+    assert len(cmap.pairs) >= MIN_MAPPED_COMMITS, (
+        f"the commit maps ({cmap.sources}) hold {len(cmap.pairs)} old IDs; the "
+        f"rewrite changed at least {MIN_MAPPED_COMMITS}"
+    )
+    news = sorted(set(cmap.pairs.values()))
+    kinds = _git(
+        REPO_ROOT,
+        "cat-file",
+        "--batch-check=%(objecttype)",
+        stdin="".join(f"{n}\n" for n in news),
+    ).splitlines()
+    absent = [n[:12] for n, k in zip(news, kinds, strict=True) if k != "commit"]
+    assert not absent, (
+        f"{len(absent)} new ID(s) in the commit map name no commit here, so every "
+        f"citation that maps to them is lost: {absent[:10]}"
+    )
+
+
+def test_citations_written_before_the_rewrite_reach_their_commit_through_the_map(
+    scan: Scan,
+) -> None:
+    """Non-triviality for the scan: every citation written before the rewrite
+    names an old ID, so if none went through the map the map was not read, and
+    the reachability test above passed on whatever was left."""
+    _, _, through_map = scan
+    assert through_map >= MIN_CITATIONS_THROUGH_MAP, (
+        f"only {through_map} citation(s) resolved through the commit map "
+        f"(floor {MIN_CITATIONS_THROUGH_MAP})"
+    )
+
+
+def test_an_old_id_resolves_through_the_map_and_not_without_it(tmp_path: Path) -> None:
+    """The mechanism, in a throwaway repository: a citation of an ID that no
+    longer exists is lost without a map, and reaches its commit with one."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q", "-b", "main")
+    _git(root, "config", "user.email", "test@example.invalid")
+    _git(root, "config", "user.name", "test")
+    current = _commit(root, "base")
+    gone = "0123456789abcdef0123456789abcdef01234567"
+    (root / "lap.md").write_text(f"see platterpus@{gone[:9]}\n", encoding="utf-8")
+    _git(root, "add", "lap.md")
+    _git(root, "commit", "-q", "-m", "cite")
+
+    commits, missing, through_map = cited_commits(root)
+    assert current not in commits and gone[:9] in missing and through_map == 0
+
+    maps = root / "docs" / "handshake"
+    maps.mkdir(parents=True)
+    (maps / "commit-map-2026-10-12.txt").write_text(
+        f"old new\n{gone} {current}\n", encoding="ascii"
+    )
+    _git(root, "add", "docs")
+    _git(root, "commit", "-q", "-m", "map")
+    commits, missing, through_map = cited_commits(root)
+    assert current in commits and missing == {} and through_map == 1
+    assert unreachable(root, commits) == {}
 
 
 def _commit(root: Path, name: str) -> str:
@@ -223,7 +347,7 @@ def test_a_squash_merge_that_strands_a_citation_is_caught(tmp_path: Path) -> Non
     _git(root, "add", "lap.md")
     _git(root, "commit", "-q", "-m", "squash of topic")
 
-    commits, missing = cited_commits(root)
+    commits, missing, _ = cited_commits(root)
     assert set(unreachable(root, commits)) == {stranded}
     assert missing == {}
 

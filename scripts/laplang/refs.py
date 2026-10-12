@@ -29,6 +29,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal
 
+from .commit_map import CommitMap
+from .commit_map import load as load_commit_map
 from .gitio import decode_cited, run_git, run_git_bytes
 from .model import Side
 
@@ -139,6 +141,21 @@ class Trees:
             tuple[Side, str, str, bool], Resolution | tuple[int, Resolution]
         ] = {}
         self._shallow: dict[Side, bool] = {}
+        self._maps: dict[Path, CommitMap] = {}
+
+    def _current(self, root: Path, sha: str) -> str:
+        """`sha` as it names a commit in `root` TODAY.
+
+        A history rewrite (ours, 2026-10-12) gives every commit a new ID, and a
+        sent lap keeps the old one. The tree that was rewritten carries the map
+        (`laplang.commit_map`), so an old ID is looked up there first and the
+        commit it maps to is the one resolved. A tree with no map answers every
+        ID unchanged. A malformed map is not reported here: the lookup simply
+        finds less, and `tests/test_cited_commits_are_reachable.py` fails on it.
+        """
+        if root not in self._maps:
+            self._maps[root] = load_commit_map(root)[0]
+        return self._maps[root].current(sha) or sha
 
     def artifact(self, ref: ArtifactRef, author: Side | None) -> Resolution:
         """Resolve `ref`. It must be reachable from the author's publishing ref
@@ -169,6 +186,7 @@ class Trees:
                 "unchecked",
                 f"UNCHECKED commit {sha}: no clone of {side}'s tree was given",
             )
+        sha = self._current(root, sha)
         found = self._commit_exists(root, side, sha)
         if found.outcome != "ok":
             return found
@@ -177,12 +195,13 @@ class Trees:
     def _resolve_path(
         self, root: Path, ref: ArtifactRef, must_reach: bool
     ) -> Resolution | tuple[int, Resolution]:
-        found = self._commit_exists(root, ref.side, ref.sha)
+        sha = self._current(root, ref.sha)
+        found = self._commit_exists(root, ref.side, sha)
         if found.outcome != "ok":
             return found
         reach = Resolution("ok")
         if must_reach:
-            reach = self._reachable(root, ref.side, ref.sha)
+            reach = self._reachable(root, ref.side, sha)
             if reach.outcome in ("refused", "unchecked"):
                 return reach
         # Read as BYTES and decoded here, not by `text=True`: a cited file is
@@ -190,7 +209,7 @@ class Trees:
         # cite one (our round 30 lap 16, EAC's own log of the reference disc)
         # made this line raise UnicodeDecodeError and took the whole check down
         # with it. See `gitio.decode_cited`.
-        shown = run_git_bytes(root, "show", f"{ref.sha}:{ref.path}")
+        shown = run_git_bytes(root, "show", f"{sha}:{ref.path}")
         if shown is None:
             return Resolution(
                 "unchecked", f"UNCHECKED {ref.side}@{ref.sha}: git did not answer"
