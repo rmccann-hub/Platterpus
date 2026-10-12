@@ -662,6 +662,11 @@ def test_the_status_block_check_can_fail() -> None:
         ln for ln in text.splitlines() if ln.startswith("STATUS-RUN-NEXT: ")
     )
     provider = run_next_line.removeprefix("STATUS-RUN-NEXT: ").split(" with ", 1)[0]
+    # The open item to mutate is read from the block, not named here: the items
+    # come and go, and a named one turned this check red the day it was retired.
+    open_id, open_owner = next(
+        ln for ln in text.splitlines() if ln.startswith("STATUS-OPEN: ")
+    ).split()[1:3]
     mutations = {
         "the round": (f"STATUS-ROUND: {newest},", f"STATUS-ROUND: {newest - 1},"),
         "our newest lap": (
@@ -679,8 +684,8 @@ def test_the_status_block_check_can_fail() -> None:
             f"STATUS-RUN-NEXT: {far_build}",
         ),
         "an open item's shape": (
-            "STATUS-OPEN: screenshot-unexposed us cannot, because",
-            "STATUS-OPEN: screenshot-unexposed maybe later",
+            f"STATUS-OPEN: {open_id} {open_owner} ",
+            f"STATUS-OPEN: {open_id} maybe later ",
         ),
         "the newest release": (
             f"STATUS-RELEASED: {newest_version} at",

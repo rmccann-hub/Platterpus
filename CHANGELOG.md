@@ -12,6 +12,22 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **Every open task, ranked, and the fork's share presented to the fork** (2026-10-12, on
+  the maintainer's question, asked of both repositories). All 173 open rows in `TASKS.md`
+  were read against the tree. 22 closed, each with a dated note giving its evidence (11
+  done, 11 superseded, mostly by protocol 8), and the 151 left are ranked in a new
+  section: P1 close now, P2 close soon in order, P3 cheap and soon, and P3 fine to stay
+  open, grouped. That section replaces the 2026-10-05 ranking. The first P1 is new and
+  verified: nothing compares the disc ID the MusicBrainz lookup used with the one the
+  cyanrip log reports. The fork's share is nine asks, F1 to F9 in priority, written into
+  our standing status (`docs/handshake/outbound/platterpusstatus.md`) where they read
+  first, before they release round 32's lap 1. The status block's open items, the
+  release line (0.7.103) and *How to reply* (round 32 opens) are rewritten to match. The
+  status check's non-triviality test now reads the open item it mutates from the block,
+  instead of naming one that this change retired.
+
 ## [0.7.103] — 2026-10-12
 
 The release that installs the cyanrip build handshake round 31 approved, `.21`, by
