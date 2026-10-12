@@ -1797,8 +1797,9 @@ each side's reading; and the closing releases named.
   `main` (IN SYNC at `85dbbf9`), and every open concern written into the lap (S19).
   The announce tool refused a bare `no`; fixed with a regression test. Approval record
   to round 31 for 0.6.66.
-- [ ] **Release 0.7.103 so users get `.21`** (the first release after the pin move;
-  until then a fresh install gets `.19`). Waiting on the maintainer's word.
+- [~] **Release 0.7.103 so users get `.21`** (the first release after the pin move;
+  until then a fresh install gets `.19`). Cut 2026-10-12 on the maintainer's
+  *"continue from where you left off"*, with autonomous releases the standing rule.
 - [x] **Release 0.7.102 with `-W`, beside our round 31 lap 3** (the maintainer,
   2026-10-07: *"release both at once"*), under the §6b override in lap 3's header.
   *Done 2026-10-07:* **released 0.7.102**, tag at `b2000117` (PR #306, merge commit),
@@ -8798,4 +8799,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.7.102.*
+*Last updated for Platterpus v0.7.103.*

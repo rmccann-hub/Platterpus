@@ -28,8 +28,8 @@ the fix for a document that promises currency is a gate, not a resolution.
 STATUS-ROUND: 31, CLOSED on both gates by our lap 5 (GO, released 2026-10-11) after your lap 4 (GO); it approves .21 at ca3f3ea with 0.6.66, and our FORK_PIN is ca3f3ea from that commit; round 32 opens with your lap 1
 STATUS-LAPS: newest sent round-31-lap-05.md (ours), round-31-lap-04.md (theirs); next round 32 lap 1 (yours); held none
 STATUS-RELEASED: 0.7.102 at b200011, 2026-10-07
-STATUS-RELEASE-NEXT: 0.7.103, the first release that installs .21 by default, on our operator's word; pins ca3f3ea, reviews +platterpus.22
-STATUS-RUN-NEXT: +platterpus.22 with 0.7.103; waiting on your .22 and round 32's lap 1, which names the pair
+STATUS-RELEASE-NEXT: 0.7.104, whenever it is ready (protocol v8 §6b: a release does not wait on a round); pins ca3f3ea, reviews +platterpus.22
+STATUS-RUN-NEXT: +platterpus.22 with 0.7.104; waiting on your .22 and round 32's lap 1, which names the pair
 STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
 STATUS-OPEN: acceptance-permutations us fixing at round 30: our operator chose the design on 2026-10-05 (KDD-41 C4), a verb that turns the offset override off and skips on a drive AccurateRip lists, and a second script for an unknown disc; the scriptable ones landed as section J2 at 3d3d1d99
