@@ -139,3 +139,54 @@ def test_the_secret_scan_reads_the_whole_history_and_refuses_to_read_less() -> N
         "the absolute floor fell; history on main only grows, so it should not"
     )
     assert "commits scanned" in code and "* 90 / 100" in code
+
+
+#: `uses: <ref>` in a workflow, with an optional leading `- ` and quotes.
+_USES: Final[re.Pattern[str]] = re.compile(
+    r"^\s*(?:-\s+)?uses:\s*[\"']?(?P<ref>[^\s\"'#]+)", re.MULTILINE
+)
+#: A remote action pinned to a full commit SHA: `owner/repo[/path]@<40 hex>`.
+_PINNED: Final[re.Pattern[str]] = re.compile(
+    r"^[\w.-]+/[\w.-]+(?:/[\w./-]+)?@[0-9a-f]{40}$"
+)
+
+
+def test_every_action_is_pinned_to_a_full_commit_sha() -> None:
+    """Every `uses:` is a local `./` action or a remote one pinned to a 40-hex SHA.
+
+    The owner turned on GitHub's "require actions pinned to a full commit SHA"
+    policy on 2026-10-12, so a tag or branch ref (`@v4`, `@main`) would now fail
+    the workflow outright, and a required check that cannot start never reports.
+    `test_bom_emitted.py` already maps every SHA-pinned action into the BOM, but
+    its regex matches only SHAs, so a tag-pinned action passed it silently. This
+    is the converse, and it has a floor so finding nothing cannot pass.
+
+    The actions' own nested `uses:` were checked by hand on 2026-10-12 at the
+    pinned SHAs: `attest-build-provenance` pins `actions/attest`, and
+    `gh-action-pypi-publish` pins `actions/setup-python` plus a local `./`
+    action of its own; the other three are Node actions with none.
+    """
+    refs: list[tuple[str, str]] = []
+    for workflow in _workflow_files():
+        for match in _USES.finditer(workflow.read_text(encoding="utf-8")):
+            refs.append((workflow.name, match.group("ref")))
+    assert len(refs) >= 20, f"only {len(refs)} `uses:` found; the reader is broken"
+    unpinned = [
+        f"{name}: {ref}"
+        for name, ref in refs
+        if not ref.startswith("./") and not _PINNED.match(ref)
+    ]
+    assert not unpinned, (
+        "these actions are not pinned to a full commit SHA, which the repository's "
+        "Actions policy now refuses:\n  " + "\n  ".join(unpinned)
+    )
+
+
+def test_the_pin_check_refuses_a_tag_ref() -> None:
+    """Non-triviality: the patterns above reject the shapes they exist to reject."""
+    assert not _PINNED.match("actions/checkout@v4")
+    assert not _PINNED.match("actions/checkout@main")
+    assert not _PINNED.match("actions/checkout@3d3c42e")
+    assert _PINNED.match("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1")
+    found = _USES.search("      - uses: actions/checkout@v4 # comment\n")
+    assert found is not None and found.group("ref") == "actions/checkout@v4"

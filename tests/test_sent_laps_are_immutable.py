@@ -184,6 +184,10 @@ SENT_LAPS: dict[str, str] = {
     # fixes and the open concerns since; released on the maintainer's word
     # 2026-10-11 ("release lap 5 with all concerns and fears"), 16,730 bytes.
     "outbound/round-31-lap-05.md": "f66f696015cf8372cb02b13b265db219f935b4b3461f0b37c19273849656183b",
+    # Our round 32 lap 2, OPEN: the pair amended to 0.7.104, S10's fields and S13
+    # accepted; released on the maintainer's word 2026-10-12 ("go and then release
+    # your lap"), 18,326 bytes. Their lap 3 confirms holding it at this hash.
+    "outbound/round-32-lap-02.md": "e2833eccaaea416a31a2b8a37cfce12196d631eed5b73c9192cbd9b35c0a9222",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at

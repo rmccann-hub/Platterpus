@@ -28,8 +28,8 @@ the fix for a document that promises currency is a gate, not a resolution.
 STATUS-ROUND: 32, OPEN, opened by your lap 1 (released 2026-10-12) on +platterpus.22 at 200530e; our PIN_UNDER_REVIEW is 200530e from 497d4dbb and our FORK_PIN stays ca3f3ea until round 32 closes; it closes on your S6 (the Full run, on .22 with 0.7.104 by our lap 2's S3) and S7
 STATUS-LAPS: newest sent round-32-lap-02.md (ours), round-32-lap-03.md (theirs); next round 32 lap 4 (ours), once 0.7.104 is cut and the Full run on .22 with it is filed; held none
 STATUS-RELEASED: 0.7.103 at 2f7855b, 2026-10-12
-STATUS-RELEASE-NEXT: 0.7.104, cut from the main that carries our round 32 lap 2, so that section A accepts .22 (protocol v8 §6b: a release does not wait on a round); pins ca3f3ea, reviews 200530e
-STATUS-RUN-NEXT: 200530e with 0.7.104; waiting on our 0.7.104, the first release of ours whose acceptance script accepts .22 (0.7.103 accepts .21 alone: our lap 2 S2)
+STATUS-RELEASE-NEXT: 0.7.104, HELD by our owner from 2026-10-12 until they release it: a history rewrite may come first, and our releases are now immutable, so a published release locks its tag to the commit it was cut from; our lap 2's S5 waits on that word; pins ca3f3ea, reviews 200530e
+STATUS-RUN-NEXT: 200530e with 0.7.104; waiting on our 0.7.104, held by our owner (see STATUS-RELEASE-NEXT); 0.7.103's acceptance script accepts .21 alone (our lap 2 S2)
 STATUS-OPEN: rip-identity us fixing at round 32: the disc ID our MusicBrainz lookup used is not compared with the one your log reports, so a swap our poller missed would archive one album under another's tags; our top item of 2026-10-12
 STATUS-OPEN: unverified-skips-issues-code us fixing at round 32: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you below (F1) whether any reader of yours is affected
 STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 32 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
@@ -39,6 +39,7 @@ STATUS-OPEN: j-record-fields them fixing at round 32: your lap 1 S10's -j fields
 STATUS-OPEN: track1-pregap-base them fixing at round 32: your lap 1 S13, landed at a64d58d (your lap 3 S6), shipping in .23; no release of ours needed first (our lap 2 S11)
 STATUS-OPEN: version-field-meaning us fixing at round 32: our closing lap names 0.7.104 in OUR-VERSION, the reviewed build, by your S16 as our lap 2 S12 accepts
 STATUS-OPEN: eac-htoa-log us cannot, because we hold no EAC log of a disc with a span before track 1, so EAC's additive track-1 convention is inferred from the sectors, not measured (your lap 3 S10); a hidden-track disc ripped by EAC would settle it
+STATUS-OPEN: release-hold us cannot, because our owner holds every release from 2026-10-12 until they say otherwise (a history rewrite may come first); 0.7.104, round 32's run, and your .23 behind it wait on that word
 STATUS-OPEN: acceptance-permutations us cannot, because (a) needs a drive AccurateRip does not list and (b) a disc MusicBrainz does not know; (c) and (d) passed on the round-31 Full run
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
 STATUS-OPEN: native-install-cancel us cannot, because only a native install on hardware shows the rescue now refuses the second signal (ccb10df0, 937c86a8); no native install has been tested

@@ -397,15 +397,25 @@ jobs:
           # the assets. --generate-notes auto-summarises merged PRs since the
           # last tag; the canonical detailed notes live in CHANGELOG.md.
           if gh release view "$TAG" >/dev/null 2>&1; then
+            # RELEASES ARE IMMUTABLE ON THIS REPOSITORY (the owner's setting,
+            # 2026-10-12): once published, a release's tag cannot move and no file
+            # can be added to it or replaced. So this branch can only finish a
+            # DRAFT that a previous run left behind. Re-running the workflow for a
+            # release that is already published cannot re-upload its files: say so
+            # and stop, rather than fail inside the upload below.
+            is_draft="$(gh release view "$TAG" --json isDraft --jq .isDraft)"
+            if [ "$is_draft" != "true" ]; then
+              echo "::error::$TAG is already published, and published releases are immutable here: its files cannot be added or replaced. Cut a new version instead."
+              exit 1
+            fi
             gh release upload "$TAG" \
               platterpus-x86_64.AppImage platterpus-x86_64.AppImage.sha256 \
               platterpus-x86_64.AppImage.sigstore.json \
               platterpus-x86_64.AppImage.zsync \
               install.sh install-appimage.sh --clobber
-            # Ensure it's published, not left a draft. If a PRIOR run created the
-            # draft (below) but died before flipping it off, every retry took this
-            # branch and re-uploaded assets while the release stayed an invisible
-            # draft forever. Idempotent on an already-published release.
+            # Publish the draft a PRIOR run created (below) but died before
+            # flipping off; without this every retry re-uploaded assets while the
+            # release stayed an invisible draft forever.
             gh release edit "$TAG" --draft=false
           else
             # Create as a DRAFT first. A draft is invisible to the unauthenticated
