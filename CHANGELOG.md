@@ -42,6 +42,14 @@ waits for a round to close.
   CommonMark rule (rows C48 and C49). No digest on record changes. The release
   workflow's handshake step is now run by a test exactly as the workflow writes it.
 
+### Fixed
+
+- **A ripper message whose line begins or ends with blank characters is still
+  recognised.** The pattern for each of cyanrip's published messages was built from
+  the trimmed text, while the rip watches the line as printed, so a message printed
+  with a leading space or a control character could never match. None of the 139
+  published messages has one today; the round-trip property test found it.
+
 ## [0.7.102] — 2026-10-07
 
 One change, to what a rip contains: a pre-emphasised CD now keeps the samples that are
