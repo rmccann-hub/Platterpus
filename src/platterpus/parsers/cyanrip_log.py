@@ -2867,7 +2867,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
         # 2.00 s == 150 frames == the lead-in, on a disc whose TOC declares no
         # track-1 gap. So EAC's track-1 row IS lead-in + declared gap, i.e.
         # exactly the fork's stated figure; on the fork's fixture EAC would
-        # print 0:00:04.00. The earlier "9 of 14, track 1 not among them" was
+        # print 0:00:04.00. (That last figure is inferred from the sectors, not
+        # read from an EAC log: our one EAC log has no span before track 1, so
+        # it measures the lead-in arm alone. Their round 32 lap 3 S10.) The earlier "9 of 14, track 1 not among them" was
         # counting `INDEX 00` lines in the CUE, where track 1 cannot have one
         # (there is no addressable sector before LSN 0) — a different artifact
         # answering a different question. The log says 10 of 14, track 1

@@ -144,9 +144,8 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-          ACTOR: ${{ github.actor }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           HEAD_REF: ${{ github.head_ref }}
-          HEAD_COMMIT_AUTHOR: ${{ github.event.head_commit.author.name }}
         run: |
           set -euo pipefail
           # A manual run has no "change range" to police (no before/base sha),
@@ -154,21 +153,6 @@ jobs:
           # still runs on every push-to-main and PR.
           if [ "$EVENT" = "workflow_dispatch" ]; then
             echo "Manual dispatch; no change range to police — skipping CHANGELOG check."
-            exit 0
-          fi
-          # Dependency bumps are exempt: Dependabot can't add a CHANGELOG bullet
-          # and the bump PR is itself the record. Detect it on the PR (the actor,
-          # or the dependabot/* head branch) AND on the push-to-main merge commit
-          # (its author, which a squash merge preserves) so neither surface goes
-          # red. A human dep bump that wants an entry can still add one normally.
-          case "${HEAD_REF:-}" in
-            dependabot/*) is_dependabot=1 ;;
-            *) is_dependabot=0 ;;
-          esac
-          if [ "$ACTOR" = "dependabot[bot]" ] \
-              || [ "${HEAD_COMMIT_AUTHOR:-}" = "dependabot[bot]" ] \
-              || [ "$is_dependabot" = "1" ]; then
-            echo "Dependency bump (Dependabot); no CHANGELOG entry required — skipping."
             exit 0
           fi
           if [ "$EVENT" = "pull_request" ]; then
@@ -179,6 +163,36 @@ jobs:
           # No real base to diff against (new ref / all-zero sha) → nothing to check.
           if printf '%s' "$base" | grep -qE '^0+$'; then
             echo "New ref with no base commit; skipping CHANGELOG check."
+            exit 0
+          fi
+          # Dependency bumps are exempt: Dependabot can't add a CHANGELOG bullet
+          # and the bump PR is itself the record. On a PR it is the PR's AUTHOR or
+          # its dependabot/* head branch, never `github.actor`, which is whoever
+          # last re-ran the job. On a push to main it is the COMMITS the push
+          # brings in: every non-merge commit in the range authored by Dependabot.
+          # This used to read the head commit's author, which a squash merge kept
+          # as Dependabot; since 2026-10-12 the repository merges with merge
+          # commits only, and a merge commit's author is whoever merged, so that
+          # key would have turned main red on every Dependabot merge. The range's
+          # own commits are the same answer under either merge method. A human dep
+          # bump that wants an entry can still add one normally.
+          case "${HEAD_REF:-}" in
+            dependabot/*) is_dependabot=1 ;;
+            *) is_dependabot=0 ;;
+          esac
+          if [ "$EVENT" = "pull_request" ] && [ "${PR_AUTHOR:-}" = "dependabot[bot]" ]; then
+            is_dependabot=1
+          fi
+          if [ "$EVENT" = "push" ]; then
+            # Here-string, not a pipe: see the NB on the greps below.
+            authors="$(git log --no-merges --format='%an' "$base..$head")"
+            if [ -n "$authors" ] \
+                && ! grep -qvxF 'dependabot[bot]' <<<"$authors"; then
+              is_dependabot=1
+            fi
+          fi
+          if [ "$is_dependabot" = "1" ]; then
+            echo "Dependency bump (Dependabot); no CHANGELOG entry required — skipping."
             exit 0
           fi
           # Opt-out: "[skip changelog]" in the PR title or ANY commit in the range.

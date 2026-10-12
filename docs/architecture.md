@@ -1959,12 +1959,14 @@ withdrawn. Every step below works from a browser. Two facts decide the order:
   AppImage users get the release asset. Withdraw from both.
 
 1. **Take the GitHub release down.** Delete it from its release page (the trash-can
-   button beside Edit). The git tag stays, so `release.yml` can rebuild that release
-   later if it turns out to be fine. Deleting also removes its assets: the AppImage,
-   `.sha256`, `.sigstore.json`, `.zsync` and the release's copy of `install.sh`. To
-   keep the assets instead, turn it back into a draft with `gh release edit vX.Y.Z
-   --draft=true`, which needs the API (a session with API access can run it). Either
-   way, the updater and `install.sh` stop seeing it.
+   button beside Edit). Deleting also removes its assets: the AppImage, `.sha256`,
+   `.sigstore.json`, `.zsync` and the release's copy of `install.sh`, and the updater
+   and `install.sh` stop seeing it. **Releases on this repository are immutable since
+   2026-10-12**, and that removes two options this step used to offer. A published
+   release cannot be turned back into a draft, and once it is deleted its tag name can
+   never be used for a release again, so `release.yml` cannot rebuild that version
+   ([GitHub's immutable-releases docs](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases)).
+   The tag ruleset keeps the tag itself. The fix is always a new version (step 5).
 2. **Yank it on PyPI.** On pypi.org: *Your projects* → `platterpus` → *Manage* →
    *Releases* → the version's *Options* → *Yank*, with a reason. pip and pipx then
    skip it unless someone pins that exact version (`==X.Y.Z`), PEP 592's rule. A yank

@@ -14,6 +14,25 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **CI and the release workflow now fit the owner's 2026-10-12 repository settings**
+  (merge commits only, immutable releases, actions pinned to full SHAs, rulesets).
+  - The `changelog` job's Dependabot exemption no longer reads the head commit's author,
+    which a merge commit makes whoever merged. It reads the pull request's author or its
+    `dependabot/*` branch. On a push to `main` it reads the commits the push brings in.
+  - `release.yml`'s re-run branch finishes a leftover draft, and refuses a release that
+    is already published, saying why. A published release can no longer take new files.
+  - A new check refuses any workflow `uses:` that is not pinned to a full commit SHA or
+    is not a local action.
+  - `CLAUDE.md`, KDD-43 and `docs/architecture.md` §6.4 record the settings and the hold
+    on releases until the owner lifts it. A bad release can no longer go back to draft,
+    and its tag can never be reused.
+- **The fork's round 32 lap 3 is filed and verified** (`docs/handshake/inbound/round-32-lap-03.md`).
+  It accepts round 32's pair as `.22` with our 0.7.104 and the `cdtext` amendment. It
+  lands their `-j` fields and track 1's pregap count, which ship in `.23`, held until our
+  run on `.22` is filed. Their S10 found an overclaim in our lap 2. EAC's additive track-1
+  pregap convention (the lead-in plus a span before track 1) is inferred from the sectors,
+  not measured: our one EAC log has no such span. `tests/test_eac_pregap_convention.py`
+  and the parser comment now say so.
 - **The two-pass hardware bar now unlocks 0.8.1, not 0.9.1** (maintainer ruling,
   2026-10-12: *"if we get a second green run on a different drive/rig, it should bump to
   0.8.1, not 0.9.1"*). The bar itself is unchanged: two `full-green` runs, on at least two
