@@ -59,7 +59,7 @@ Classics*** (cyanrip 0.9.3, Pioneer BDR-209D, +667 offset) compared against the
 EAC V1.8 baseline of the same disc. Logs/cues live in
 [`output_reference/`](../output_reference/) (`EAC_flac/` vs `cyanrip_flac/`).
 Later evidence: the fork's rip (`output_reference/cyanrip_fork_flac/`, 2026-08-04)
-and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround31/`.
+and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround31/` (the 2026-10-12 run is `artifactsround31/v07103full*`).
 
 ### TL;DR — two very different goals
 
@@ -68,13 +68,15 @@ and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround31/
    "archival/EAC-quality": the *samples* equal the AccurateRip consensus, proven by
    the per-track CRC. Matching EAC is the usual proxy, and on this disc it is not
    the same thing, because EAC's own track 5 is not the consensus.
-   **Status (2026-10-07), measured over every 14-track log of the reference disc in
-   the repository: 18 rips, 2026-08-04 to 2026-10-07** (`output_reference/
+   **Status (2026-10-12), measured over every 14-track log of the reference disc in
+   the repository: 20 rips, 2026-08-04 to 2026-10-12** (`output_reference/
    cyanrip_fork_flac/` and the `*eac.log` files under
    `docs/handshake/artifactsround26/` to `artifactsround31/`):
-   - **Twelve tracks match AccurateRip at confidence 200 in all 18.**
+   - **Twelve tracks match AccurateRip at confidence 200 in all 20.**
    - **Track 3.** AccurateRip verifies EAC's value, `59D352DD`. We read it in 9 of
-     the 18, and in none of the 7 since the round 30 whole-disc rip of 2026-09-30.
+     the 20, and in none of the 9 since the round 30 whole-disc rip of 2026-09-30.
+     On 2026-10-12 the whole-disc rip gave `2AC1F945` and the secure re-read a value
+     not seen before, `029BB984` (`v07103fullsecurerereadeac.log`).
      This drive reads the track differently from pass to pass: on 2026-10-07 the
      whole-disc rip's first pass gave `1D0B4419`, and its secure re-read's five
      reads gave `149C0991`, `418F6CF8` twice, `34D9A79A` and `418F6CF8` again
@@ -83,8 +85,8 @@ and the Full runs under `docs/handshake/artifactsround26/` to `artifactsround31/
      says *"Cannot be verified as accurate … AccurateRip returned [BCF4E815]"*. The
      2026-10-07 secure re-read converged on `C96464AB`, which AccurateRip verifies
      (v2 `BCF4E815`, confidence 200; v1 confidence 129;
-     `round31fullsecurereread.log:437-441`). We read that value once in 18. The
-     others gave EAC's `E0036697` (10) or `6902BCF0` (7).
+     `round31fullsecurereread.log:437-441`). We read that value once in 20. The
+     others gave EAC's `E0036697` (12) or `6902BCF0` (7).
    - **Equal to EAC on all 14:** 5 rips (2026-08-04, 2026-09-24, 2026-09-26 twice,
      2026-09-28). Each of those carries EAC's unverified track 5.
    - **AccurateRip-verified on all 14 in one rip:** none yet. Track 3's verified
@@ -136,7 +138,7 @@ the consensus (item 1).
 | TOC (track sectors) | — | — | ✅ identical (all 14) | n/a |
 | Secure / re-read | Secure | paranoia max | ✅ equivalent | n/a |
 | Gap handling **audio** | append-to-previous | default merge-to-previous | ✅ (14/14 on the fork, 2026-08-04, and the Gap handling row agrees) | n/a |
-| Per-track **PCM** | baseline (13 tracks AccurateRip-verified; track 5 not) | equal to EAC on all 14 in 5 of 18 rips; AccurateRip-verified on 12 every time, on track 3 in 9 of 18, on track 5 once | ⚠️ never all 14 verified in one rip | Tracks 3 and 5 (TL;DR, item 1) |
+| Per-track **PCM** | baseline (13 tracks AccurateRip-verified; track 5 not) | equal to EAC on all 14 in 5 of 20 rips; AccurateRip-verified on 12 every time, on track 3 in 9 of 20, on track 5 once | ⚠️ never all 14 verified in one rip | Tracks 3 and 5 (TL;DR, item 1) |
 | Overread lead-in/out | No | No: the offset needs 2 frames past the edge, and they are filled with silence, not read (`Overread mode: fill with silence in lead-in/lead-out`) | ✅ same | closed: EAC also fills with silence when overread is off; tracks 1 and 14 match EAC and AccurateRip |
 | **Pre-gap markers in cue** (`INDEX 00`) | Yes: 9 in the cue (its log lists 10 pre-gaps, counting track 1's lead-in) | **Yes on the fork**: every pregap EAC finds, to the hundredth of a second | ✅ fork / ❌ stock 0.9.3 | closed on the fork (§Pregaps; the 2026-10-07 cue, `docs/handshake/artifactsround31/round31fullwholedisc.cue`) |
 | FLAC **file bytes** | flac.exe `-8` | libavcodec | ❌ differ | **No** (encoder-determined) — and unnecessary |
@@ -147,10 +149,10 @@ the consensus (item 1).
 
 ### The two audio tracks that differ (the only real audio gap)
 
-> **Status (2026-10-07).** Both tracks are still open, and track 5 is not what the
+> **Status (2026-10-12).** Both tracks are still open, and track 5 is not what the
 > analysis below says. Track 5's AccurateRip-verified value is `C96464AB`, read
 > once (2026-10-07); EAC's `E0036697` is the unverified read. Track 3's verified
-> value is EAC's `59D352DD`, read in 9 of 18 rips and in none since 2026-09-30.
+> value is EAC's `59D352DD`, read in 9 of 20 rips and in none since 2026-09-30.
 > Full numbers: TL;DR, item 1. The analysis below is the stock-0.9.3 record.
 
 - **Track 5 — a defect on this physical disc, not a ripper fault.** EAC *also*
@@ -1046,4 +1048,4 @@ policy limit, not a technical one.
 
 ---
 
-*Last updated for Platterpus v0.7.102.*
+*Last updated for Platterpus v0.7.103.*

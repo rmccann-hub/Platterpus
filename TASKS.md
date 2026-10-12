@@ -332,6 +332,7 @@ C4 (`688f0cee`, `61f92ef8`), C5 (`92ef2fee`), C6 (`5fc9c3ac`), C7 and C8 (PR #28
     since 2026-09-30), track 5 in 1, never both in one rip. **Both tracks are open.**
     Numbers and sources: `docs/eac-parity.md` TL;DR item 1. An earlier draft of this
     entry called track 5 "settled", from this row's premise rather than from the logs.
+  - *2026-10-12 (the Full run on 0.7.103 with `.21`):* track 3 gave a value not seen before, `029BB984`, in the secure re-read, and `2AC1F945` in the whole-disc rip, neither AccurateRip-verified. Track 5 gave EAC's unverified `E0036697` in both. Over the 20 committed rips: track 3 verified in 9 (none of the 9 since 2026-09-30), track 5 in 1 (`docs/eac-parity.md` TL;DR, item 1). Still open; still the disc.
 - [x] **The cache probe's saved output stopped before its figure** (found 2026-10-06,
   filing the closing run). `round30oct06fullcacheprobe.txt` is exactly 2,000 bytes and
   holds no 137: `cache_probe.parse_cache_analysis` kept `text.strip()[:2000]` and
@@ -3629,6 +3630,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
 - [ ] **G11. Version-gate evidence** — zero full-green rows; a second drive, machine and
   distro missing. `docs/testing.md` §5B.
   - *Audit 2026-09-25: not ours to verify.* Needs hardware runs and the maintainer: every ledger row so far is partial, none full-green.
+  - *2026-10-12:* the premise is out of date. The ledger has two `full-green` rows (2026-10-07 on 0.6.66, 2026-10-12 on 0.7.103), both on the BDR-209D on Bazzite with the maintainer. What 0.9.1 still needs: a second machine and distro, and E2 on a drive the AccurateRip list does not carry.
   - *Merged 2026-09-30, verbatim, from the duplicate row "Run fullacceptance.txt overnight" (round 14) (it was `[~]`):* **Run `fullacceptance.txt` overnight** — now **0.6.30** against `d9c058c`.
     No longer a round-14 close condition (the round closed on T1); it is the
     **0.7.100 gate** run: zero failures in the ARCHIVAL sections, UX failures

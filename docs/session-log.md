@@ -11,6 +11,27 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-12 — the Full run on 0.7.103 filed, and graded full-green on the maintainer's word
+
+**What happened.** The operator sent the bundle of a Full run on 0.7.103 with `.21`,
+started ten minutes after the release published. 424 of 425 passed, none failed, and E2
+was N/A on the listed drive. Filed byte for byte as `artifactsround31/v07103full*` (74
+members). Asked whether it counts, the maintainer ruled `full-green`, as on 2026-10-07.
+
+- **Checked, not assumed:** the derived files (K1 to K3), the ripper log's integrity in
+  all nine album audits, no error in the app log, every screenshot on screen, and the same
+  section set as the first full-green run.
+- **The eac-parity tally was re-derived, not edited.** A script over every 14-track log in
+  the repository first reproduced the published 18 / 9 / 1 without the new files, then
+  counted 20 / 9 / 1 with them. A changed number is about the run only once the method
+  reproduces the old one.
+- **Two stale claims of "no full-green row"** in `docs/test-plan.md` and a TASKS row were
+  corrected while the count was being moved.
+
+**Learned.** The grade of a run with an N/A step is the maintainer's call each time,
+because counting it makes a version easier to reach. Asking before writing the row, not
+after, kept the ledger field the gate reads from ever saying something nobody decided.
+
 ## 2026-10-12 — the audio guard rewritten, four fail-open probes fixed, rulesets decided
 
 **What happened.** An outside read reported two things, and asked for each to be verified
