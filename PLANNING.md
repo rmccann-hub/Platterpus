@@ -1369,7 +1369,7 @@ Three consequences, now standing:
 ### KDD-35 — A version number is a claim about the field, not about CI (decided 2026-08-19)
 
 **Decision.** Version thresholds are gated on *evidence from hardware in people's
-hands*, not on a green suite. **0.9.1** requires a complete hardware pass — every
+hands*, not on a green suite. **0.8.1** (0.9.1 until 2026-10-12) requires a complete hardware pass — every
 test green in one run — achieved **at least twice, on at least TWO machines and
 TWO distros**, counted over the full-green rows only. **1.0.0** additionally
 requires independent field evidence: more than one **person**, machine and Linux
@@ -1399,13 +1399,19 @@ is the decision log failing at the one thing it is for. All three were live in
   passing full tests, even if different, on the same version of linux and hardware
   should not allow a 0.9.1."* Two passes on one rig answer *was it luck* and say
   nothing about *is it green only because of this machine*.
+* **2026-10-12 — the two-pass bar moved from 0.9.1 to 0.8.1.** The maintainer: *"if
+  we get a second green run on a different drive/rig, it should bump to 0.8.1, not
+  0.9.1."* The bar itself is unchanged (two `full-green` rows, two machines, two
+  distros); the version it unlocks moved down, so it now gates every version from
+  0.8.1 up and nothing is easier to reach. `tests/test_no_stale_version_claims.py`
+  gates at 0.8.1.
 
 **Status, 2026-10-12:** the ledger carries eighteen rows, and two are `full-green`:
 the 2026-10-07 Full run on app 0.6.66 and the 2026-10-12 Full run on app 0.7.103, both
 against `ca3f3ea` (`.21`), each with no failure and with E2 N/A on this drive (the
 maintainer's rulings, with E2 recorded as not covered). The first met `0.7.100`'s gate.
 Every other row is `partial`, and each one's reason is in `docs/testing.md` §5B. All
-eighteen rows are **one** machine and **one** distro, the BDR-209D on Bazzite, so 0.9.1's
+eighteen rows are **one** machine and **one** distro, the BDR-209D on Bazzite, so 0.8.1's
 floor of two `full-green` rows on two machines and two distros is still one machine and
 one distro short.
 
@@ -1418,7 +1424,7 @@ differ — every defect that mattered in August was found on hardware by a perso
 with the suite green throughout, and three of them were in the very feature built
 the day before to make reporting easier.
 
-**Why "all at once" is the operative words in the 0.9.1 bar.** A run of
+**Why "all at once" is the operative words in the 0.8.1 bar.** A run of
 `pass=55 fail=5` whose five failures are each separately explained is not a pass.
 On 2026-08-19 those five all descended from **one** defect nobody knew existed
 (the rescan cancel-scoping bug, KDD-none, fixed same day) — so a rule that

@@ -14,6 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The two-pass hardware bar now unlocks 0.8.1, not 0.9.1** (maintainer ruling,
+  2026-10-12: *"if we get a second green run on a different drive/rig, it should bump to
+  0.8.1, not 0.9.1"*). The bar itself is unchanged: two `full-green` runs, on at least two
+  machines and two distros. It now gates every version from 0.8.1 up.
+  `tests/test_no_stale_version_claims.py`, `docs/testing.md` §5B, KDD-35, `CLAUDE.md` and
+  the README say so.
 - **Our round 32 lap 2 is written and released**
   (`docs/handshake/outbound/round-32-lap-02.md`, `OPEN`).
   - It corrects our standing status: round 32's Full run is `.22` with 0.7.104, not
