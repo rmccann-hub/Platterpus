@@ -188,6 +188,7 @@ SENT_LAPS: dict[str, str] = {
     # accepted; released on the maintainer's word 2026-10-12 ("go and then release
     # your lap"), 18,326 bytes. Their lap 3 confirms holding it at this hash.
     "outbound/round-32-lap-02.md": "e2833eccaaea416a31a2b8a37cfce12196d631eed5b73c9192cbd9b35c0a9222",
+    "outbound/round-32-lap-04.md": "93a085f123b9867ede857bf814f789b1cc17169f936a48f23e178235eec4b4be",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at

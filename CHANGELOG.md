@@ -14,6 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 32 lap 4 written and released on the operator's word.** It records HR-1 on
+  our side and our check of the fork's adoption. Their `HR-1.md` is our text byte for
+  byte, and their reader resolves our old IDs as ours does. Their lap checker reads our
+  round 31 laps 3 and 5 and our round 32 lap 2 with 0 warnings from a fresh clone. The
+  lap also answers their S10 (we hold no EAC log of a disc with a span before track 1),
+  and says 0.7.104 follows their HR-1 lap (HR-1.7 (4)). The status block says the same.
+
 - **Old commit IDs resolve through the history rewrite's commit map.** The owner is
   removing personal information from this repository's commit metadata, which gives
   every commit a new ID. Laps, TASKS and the session log keep the IDs they were
