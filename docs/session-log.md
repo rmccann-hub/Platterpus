@@ -11,6 +11,35 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-12 — 0.7.103 released; every open task ranked; the fork's share presented
+
+**What happened.** The maintainer asked both repositories the same question: compile
+every open task in priority order, present the other side's in priority, and leave the
+rest as close-soon or fine-open.
+
+- **0.7.103 released** (tag `v0.7.103` at `2f7855be`, PR #310) after `main`'s own CI
+  passed 13 of 13 on the merge SHA. The release run's first attempt failed in *Build the
+  AppImage* on a PyPI read timeout fetching `cryptography`. No tag or release existed
+  after it, so the run was re-run unchanged and passed every gate. PyPI lists 0.7.103.
+- **Every open row read against the tree** by five read-only agents plus spot checks:
+  173 open (164 checkbox rows and 9 numbered items). 22 closed with evidence, 151
+  ranked. The first extraction stopped at line 7,475 and missed 42 rows. That was
+  caught by counting all five checkbox forms before quoting a number, which is the
+  2026-10-05 note's lesson applied.
+- **Two agent calls not taken as given.** "Wrong-disc rip" was verified before it was
+  made P1: `rip_audit._audit_disc_identity` records the log's IDs and compares nothing.
+  The MP3/WAV parity row was left open, although an agent called it superseded, because
+  the 2026-09-25 audit kept it open on purpose. Closing it is the maintainer's word.
+- **The fork compiled theirs the same day** (`cyanrip@cbce64d`, their round 32 lap 1
+  held). Read against ours: their list carries our F5 and part of F8, but F1 to F4, F6,
+  F7 and the rest are not in it. That is written into our status, because S-13 fixes
+  round 32's close conditions in their lap 1. Their asks of us are R1 to R5 in the
+  ranking, answered in our lap 2.
+
+**Learned.** A non-triviality test that names a specific open item breaks the day that
+item is retired. It now reads the item from the block it mutates, the same shape as the
+other needles.
+
 ## 2026-10-11 — their round 31 lap 4 (GO), v8 landed, our gate at 8, and our lap 5 held
 
 **What happened.** The maintainer: *"our lap 4 is published at d6be7b7"* (the fork's).
