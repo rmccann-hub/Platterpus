@@ -282,6 +282,24 @@ def test_what_printf_prints_is_matched_by_the_pattern_built_from_its_format(
     assert matcher.match(line), (fmt, line)
 
 
+@pytest.mark.parametrize("printed", [" 000000", "000000  ", "\t000000\t", "\x1f000000"])
+def test_a_format_with_blanks_round_its_text_matches_its_own_output(
+    printed: str,
+) -> None:
+    """REGRESSION (2026-10-12): found by the round-trip property as ``" 000000"``.
+
+    The pattern was built from the stripped first line, so the blanks around it
+    were gone, while the rip worker matches the raw line at ``^``. Pinned here as
+    examples, so the case does not depend on Hypothesis drawing it again.
+    """
+    pattern = format_to_pattern(printed)
+    assert pattern is not None
+    assert re.fullmatch(pattern, printed), (printed, pattern)
+    matcher, unmatchable = build_matcher([printed])
+    assert unmatchable == []
+    assert matcher.match(printed), printed
+
+
 #: The three published formats carrying an interior line break, as measured at
 #: round 28 lap 3, with what cyanrip prints for each (two lines).
 _PUBLISHED_MULTILINE: Final[tuple[tuple[str, str], ...]] = (
