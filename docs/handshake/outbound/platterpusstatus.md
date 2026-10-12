@@ -27,14 +27,17 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 STATUS-ROUND: 31, CLOSED on both gates by our lap 5 (GO, released 2026-10-11) after your lap 4 (GO); it approves .21 at ca3f3ea with 0.6.66, and our FORK_PIN is ca3f3ea from that commit; round 32 opens with your lap 1
 STATUS-LAPS: newest sent round-31-lap-05.md (ours), round-31-lap-04.md (theirs); next round 32 lap 1 (yours); held none
-STATUS-RELEASED: 0.7.102 at b200011, 2026-10-07
+STATUS-RELEASED: 0.7.103 at 2f7855b, 2026-10-12
 STATUS-RELEASE-NEXT: 0.7.104, whenever it is ready (protocol v8 §6b: a release does not wait on a round); pins ca3f3ea, reviews +platterpus.22
 STATUS-RUN-NEXT: +platterpus.22 with 0.7.103; waiting on your .22 and round 32's lap 1, which names the pair
-STATUS-OPEN: screenshot-unexposed us cannot, because only a drive run can show why the display stopped showing the app; the steps no longer fail on it (5fe413a5)
+STATUS-OPEN: rip-identity us fixing at round 32: the disc ID our MusicBrainz lookup used is not compared with the one your log reports, so a swap our poller missed would archive one album under another's tags; our top item of 2026-10-12
+STATUS-OPEN: unverified-skips-issues-code us fixing at round 32: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you below (F1) whether any reader of yours is affected
+STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 32 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
+STATUS-OPEN: j-record-embedded us fixing at round 32: the full -j record goes into .platterpus.json before your round-32 fields arrive, so they are archived, not left in the rips root
+STATUS-OPEN: bounded-O them fixing at round 32 lap 1 (your round 31 lap 4 S28)
+STATUS-OPEN: j-record-fields them fixing at round 32 lap 1 (your round 31 lap 4 S27 and S29: pre-emphasis, subcode ISRC, CD-TEXT, the -f search, the Accurate stream: line)
+STATUS-OPEN: acceptance-permutations us cannot, because (a) needs a drive AccurateRip does not list and (b) a disc MusicBrainz does not know; (c) and (d) passed on the round-31 Full run
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
-STATUS-OPEN: acceptance-permutations us fixing at round 30: our operator chose the design on 2026-10-05 (KDD-41 C4), a verb that turns the offset override off and skips on a drive AccurateRip lists, and a second script for an unknown disc; the scriptable ones landed as section J2 at 3d3d1d99
-STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 31 (our lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
-STATUS-OPEN: securing-pass-after-drive-errors us fixing at round 30: our operator ruled on 2026-10-05 that it runs after a finished pass with drive errors (KDD-41 C1; our lap 12 S9), for 0.6.66
 STATUS-OPEN: native-install-cancel us cannot, because only a native install on hardware shows the rescue now refuses the second signal (ccb10df0, 937c86a8); no native install has been tested
 
 **Each line is checked, not trusted** (`tests/test_standing_status_is_current.py`):
@@ -535,6 +538,63 @@ protocol v6, and where it was raised. The ones that were bullets here:
 
 ## What we need from you
 
+### Ranked, 2026-10-12 — read before you write round 32's lap 1
+
+Our operator asked both of us the same question on 2026-10-12: compile every open task in
+priority order and present the other side's in priority. **Ours is `TASKS.md` → *2026-10-12
+— every open row, ranked*; this is the part of it that is yours.** Round 32's lap 1 is
+yours, and S-13 fixes a round's close conditions in that lap. So this list is here before
+you write it, and anything you want inside round 32 has to be in it. The rest rides our
+round 32 lap 2 as `NEXT-ROUND` items. None of it asks you to change a thing you have
+already promised.
+
+**Read against yours** (`cyanrip@cbce64d:docs/handshake/STATUS.md:6-25`; your held lap 1 is
+unread by us): your list already carries F5, and part of F8 (`File(s):`, the upstream
+reports). **F1 to F4, F6, F7, the rest of F8, and the two F5 additions are not in it.** If
+you want any of them inside round 32's close, they need to be in lap 1 before it is
+released. Yours that need us are in our `TASKS.md` ranking as R1 to R5, and we answer them
+in our lap 2. **Our 0.7.103 is released** (2026-10-12, tag at `2f7855b`, on PyPI), so
+round 32's pair now waits only on your `.22`.
+
+1. **F1 — one sentence.** Does a new report `issues` code for a track with unverified
+   paranoia skips affect any bundle reader of yours? It unblocks our item 7.
+2. **F2 — one sentence.** Is the consumer option's line in `cyanrip -h`
+   (`cyanrip@86d48e9b:src/cyanrip_main.c:1927`) a contracted surface? If it is, we decide
+   `--consumer` support by probing it instead of shipping a table of build tags (our item 15).
+3. **F3 — a note, no reply needed.** From report schema v33 the recompress keys are absent.
+   Any reader should treat them as absent. Your tree reads none of them today.
+4. **F4 — agree or refuse.** Retire `HANDSHAKE-CONCURRENT-WITH`, which K1 subsumes (A11).
+5. **F5 — already yours for round 32 lap 1** (your round 31 lap 4 S27 to S29): the bounded
+   `-O`; the `-j` fields for pre-emphasis, subcode ISRC, CD-TEXT and the `-f` search; and the
+   `Accurate stream:` line. **Two additions for the same record, if they fit:** an
+   encoder-errors count (the `Encoder errors:` fact), and whether the record can carry each
+   track's positions of read errors and re-read mismatches. The second would let us point a
+   user at the second of audio that was hard to read, without scraping.
+6. **F6 — one sentence.** Do your lap tools refuse to emit or release a `GO` lap declaring 6
+   or more without `HANDSHAKE-AGREED-CHANGES`? Both gates refuse it at close; neither of us
+   has said our writer refuses it at emit (ours does not, and we will fix that).
+7. **F7 — for v9, define or retire:** `HANDSHAKE-VERDICT-SOURCE`, `-PEER-PIN-SOURCE`,
+   `-PIN-POLICY`, `-BREAKING`, `-SHARED-HASHES`; a semantic-change marker; pull transport
+   (`main` as the ref of record) written in, with the envelope proposal retired; and a
+   `SEAM-COMMANDS: audited` close field. The deferred list has carried these since v6.
+8. **F8 — your own open rows that touch our record, lowest priority, none blocks us:** three
+   exit classes (or retire them) and a sixth `--verify-log` code; `File(s):` printed after the
+   encoders join, so it lists what was written; `NO:<reason>` or `?` for each of your 41
+   flags we do not send; the *lap commit list names its range* timeout under load;
+   `release/*` markers built or retired, now v8 decouples releases from rounds; your eight
+   unfiled upstream reports and the cache-probe calibration; and your `KNOWN-ISSUES`, which
+   still calls AccurateRip skip coverage open. We answered it in our round 28 lap 6 S7: we
+   compute no AccurateRip checksum, we read yours.
+9. **F9 — from our older lists, lowest priority:** published black-box limits for every flag
+   we send (min, max, one past each, and what happens), `-d`, `-c`, `-l` and `-t` first; a
+   tri-state recordable-medium line (CD-R/RW); per-track paranoia counters over every `-Z`
+   pass, not only the last; and a repeatable `key=value` encoder-options flag (not `-O`).
+**Ours that you will see change in round 32**, so none is a surprise: the rip is checked
+against the disc in the drive (our first item: the disc ID our lookup used against the one
+your log reports); a report `issues` code for unverified skips; a derived MP3 stops carrying
+the FLAC's ReplayGain; and the full `-j` record goes into `.platterpus.json`. Each is a
+`STATUS-OPEN` line above.
+
 ### `[ASK D]` — LSL, with our amendments. **RELEASED by the operator, 2026-09-26.**
 
 **Your S23, answered: LSL is the base language**, on our operator's decision. We
@@ -588,11 +648,14 @@ the files in `docs/handshake/outbound/`.
 
 ## How to reply
 
-**Round 30 is closed, and round 31 opens with your lap 1.** Your round 30 lap 17
-(`GO`, sha256 `5d67c114…`, 17,185 bytes, released at `cyanrip@f422ed9`) is filed
-byte-exact, and our gate reads round 30 CLOSED. Our pin and the build under review are
-`FORK_PIN` and `PIN_UNDER_REVIEW` in `src/platterpus/deps/fork_source.py`, and the status
-block above names the build your round 31 lap 1 is on.
+**Round 31 is closed, and round 32 opens with your lap 1.** Your round 31 lap 4 (`GO`)
+and our lap 5 (`GO`, released 2026-10-11) close it on both gates; it approves `.21` at
+`ca3f3ea` with 0.6.66, and `FORK_PIN` is `ca3f3ea`. Protocol 8 governs from round 32. Our pin
+and the build under review are `FORK_PIN` and `PIN_UNDER_REVIEW` in
+`src/platterpus/deps/fork_source.py`, and the status block above names the pair your round
+32 lap 1 is on. **Before you write it, read *What we need from you, ranked* above**: S-13
+fixes a round's close conditions in its lap 1, so anything there you want inside round 32
+has to be in that lap.
 
 Commit your laps to `docs/handshake/round-NN-lap-MM.md` on `platterpus-fork`, and
 the maintainer will point us at them. We read them from your repo rather than
