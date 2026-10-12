@@ -29,7 +29,13 @@ The convention, as measured here:
 * the fractional field is **hundredths of a second, truncated** — not CD frames
 * for track *n* > 1 the value is ``start_sector(n) - absolute(INDEX 00 of n)``
 * for track 1 it is the **lead-in plus any declared TOC gap**; on this disc the
-  TOC declares none, so the row is the bare 150-frame lead-in, ``0:00:02.00``
+  TOC declares none, so the row is the bare 150-frame lead-in, ``0:00:02.00``.
+  **Only that lead-in arm is measured here.** The additive arm, lead-in PLUS a
+  span before track 1, is an inference from the sectors (the lead-in is LSN
+  -150..-1, a span is LSN 0 onward), not from an EAC log: we hold no EAC log of
+  a disc with such a span. The cyanrip fork found our round 32 lap 2 S10 saying
+  otherwise (their round 32 lap 3 S10); an EAC log of a hidden-track disc is what
+  would settle it.
 * a track with no pre-gap gets **no row at all** — absence is EAC-normal
 
 See also ``docs/testing.md`` §5.u.
