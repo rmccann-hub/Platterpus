@@ -14,6 +14,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 32 is open, and `.22` (`200530e`) is the build under review.** The fork's
+  round 32 lap 1 is filed byte-exact (`docs/handshake/inbound/round-32-lap-01.md`).
+  `PIN_UNDER_REVIEW` moves to `200530e` for round 32, with `release_seq` 32 read off the
+  fork's manifest at `ca27b95`, filed as a fixture. `FORK_PIN` stays `ca3f3ea` until the
+  round closes. The acceptance run's section A now expects `.22`, which 0.7.103 cannot
+  do. `.22`'s provider contract is filed and the ripper message inventory is regenerated
+  from it. Its one new P5a row, the repeat-limit line that names a last read not kept, is
+  retained like its two sibling wordings. `.22` changes no flag.
 - **The 2026-10-12 Full run on 0.7.103 with `.21` is filed and graded `full-green`**, the
   evidence ledger's second such row (the maintainer's ruling, as on 2026-10-07: E2 is N/A
   on the BDR-209D and recorded as not covered). 424 of 425 steps passed, none failed. Its

@@ -1477,7 +1477,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # clause names its round instead of calling it open, and says so in its docstring.
     # 2643 -> 2660 (2026-10-11): round 31's close, recorded beside FORK_PIN,
     # FORK_EXPECTED_VERSION and PIN_UNDER_REVIEW as every roll before it was.
-    "deps/fork_source.py": 2660,
+    # 2660 -> 2697 (2026-10-12): round 32 opens on `.22` (`200530e`): its release
+    # sequence, the pin under review's history line, the pairing, and the consumer
+    # and verify-log entries (`.21` named in the second, ahead of FORK_PIN's roll).
+    "deps/fork_source.py": 2697,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -1955,7 +1958,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # retained `Error in encoding: %s` with its reason (`.19` and older print it).
     # **1172 -> 1184** (2026-10-06): regenerated from `.20`'s contract as of their
     # round 30 lap 11 (P5 126 -> 128: the two lines that end a failed `-f` search).
-    "ripper_message_inventory.py": 1184,
+    # **1184 -> 1202** (2026-10-12): `.22`'s contract adds one P5a row, the third
+    # repeat-limit wording (`last read %08X, not kept`), retained with its reason
+    # beside its two siblings, as `RETAINED_BEYOND_P5`'s invariant requires.
+    "ripper_message_inventory.py": 1202,
     # 879 -> 886 (2026-09-06): delegating its absolute/traversal decision to
     # naming.path_escape_reasons while keeping its own user-facing wording.
     # **886 -> 896 on 2026-09-18**: the new field validated on its own
