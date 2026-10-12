@@ -50,9 +50,10 @@ reproduce on the newest release before reporting.
   installer (`install.sh`, since 2026-09-28) makes the same two checks on the
   AppImage it downloads, the attestation only when an installed GitHub CLI can
   check it (`gh` 2.51.0 or later), and refuses a file that fails either. **What that does
-  not cover:** anyone who can push to `main` can run the release workflow, and
-  `main` is not branch-protected, so the attestation proves a build is traceable to
-  a public commit here, not that the commit was reviewed. **Offline-key signing**
+  not cover:** anyone who can push to `main` can run the release workflow. The
+  repository rulesets decided on 2026-10-12 make every change to `main` arrive through a
+  pull request that passes CI, but they require no approval, so the attestation proves a
+  build is traceable to a public commit here, not that anyone reviewed it. **Offline-key signing**
   (Ed25519, via `minisign`) is implemented but will not be armed (maintainer
   decision, 2026-09-25, `PLANNING.md` KDD-37); see
   [`docs/architecture.md` §6.2 *Release signing*](docs/architecture.md).
