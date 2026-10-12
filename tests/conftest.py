@@ -118,7 +118,13 @@ def repo_markdown_files(root: Path) -> list[Path]:
 #: (git-ignored), so a recursive walk would measure 195 package modules a second
 #: time on any machine that has built a wheel, and every gate would fail there and
 #: nowhere else.
-TOOLING_GLOBS: tuple[tuple[str, str], ...] = (("scripts", "**/*.py"), ("build", "*.py"))
+TOOLING_GLOBS: tuple[tuple[str, str], ...] = (
+    ("scripts", "**/*.py"),
+    ("build", "*.py"),
+    # The agent-side audio guard (2026-10-12): a hook script, held to the same
+    # gates as any other tooling module.
+    (".claude/hooks", "*.py"),
+)
 
 
 def maintained_tooling_modules(root: Path) -> list[Path]:

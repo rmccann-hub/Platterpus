@@ -244,7 +244,7 @@ def test_the_hook_and_the_ci_gate_share_one_extension_pattern() -> None:
     agent_text = (REPO_ROOT / ".claude" / "hooks" / "audio_guard.py").read_text(
         encoding="utf-8"
     )
-    agent_match = re.search(r'^\s*r"(\\\.\(flac[^"]*)"\s*$', agent_text, re.MULTILINE)
+    agent_match = re.search(r'^\s*r"(\\\.\(flac[^"]*)",?\s*$', agent_text, re.MULTILINE)
     agent_pattern = agent_match.group(1) if agent_match else ""
     assert hook_pattern, "no audio pattern found in the hook — this test is broken"
     assert ci_pattern, "no audio pattern found in ci.yml — this test is broken"

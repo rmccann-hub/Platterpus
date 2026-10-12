@@ -264,7 +264,7 @@ python_version = "3.11"
 # fixed in place. `tests/test_audit_regressions.py` holds this list to the
 # population the size ratchet and the regex sweep read
 # (`conftest.maintained_tooling_modules`), so it cannot quietly narrow.
-files = ["src/platterpus", "scripts", "build/*.py"]
+files = ["src/platterpus", "scripts", "build/*.py", ".claude/hooks"]
 # NOT `ignore_missing_imports = true` globally, deliberately. That flag made the
 # type gate able to collapse silently: if PySide6 ever failed to resolve (a Qt
 # bump, a stub regression, or mypy installed into an environment that lacks it —
