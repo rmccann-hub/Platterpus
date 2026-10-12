@@ -202,7 +202,15 @@ ensure_container_backend() {
 # --- Step 2: container -----------------------------------------------------
 container_exists() {
     have distrobox || return 1
-    distrobox list 2>/dev/null | grep -qw "$CONTAINER"
+    # Captured first, searched second. Piped straight into `grep -q`, a failed
+    # `distrobox list` read as "no container", and under `set -o pipefail` so
+    # could a long listing (`grep -q` exits at its first match, and the producer
+    # dies of SIGPIPE mid-write). "Could not tell" must not become "absent".
+    local listing
+    if ! listing=$(distrobox list 2>&1); then
+        die "Could not list Distrobox containers (\`distrobox list\` failed): ${listing%%$'\n'*}"
+    fi
+    grep -qw "$CONTAINER" <<<"$listing"
 }
 
 ensure_container() {

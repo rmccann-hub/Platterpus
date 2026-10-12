@@ -1624,7 +1624,7 @@ re-check mode from this tier instead of asking again.
   - A4: commit `build/python-appimage/requirements.lock`.
   - A5: make Critical rule #11 and CI agree on pip-audit and cyclonedx-bom. The maintainer
     chooses which way when the hold lifts.
-  - A6: make the Claude-side audio guard fail closed.
+  - A6: make the Claude-side audio guard fail closed. *Applied 2026-10-12* on the maintainer's instruction, which lifts C3 for it: `.claude/hooks/audio_guard.py` reads the command, fails closed for commits and pushes, and is tested under a failing `git diff` (`tests/test_audio_guard_hook.py`). It judges the folder the command runs in (the hook input's `cwd`, following `cd` and `git -C`), not `$CLAUDE_PROJECT_DIR`.
   - A7: split `CLAUDE.md`.
   - A10: allow the changelog opt-out only when every commit in the range is marked.
   - A12: scan the full history on every CI run.
@@ -1909,4 +1909,4 @@ The shoot itself is the `TASKS.md` section's plan.
 
 ---
 
-*Last updated for Platterpus v0.7.101.*
+*Last updated for Platterpus v0.7.103.*

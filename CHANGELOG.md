@@ -12,6 +12,36 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Fixed
+
+- **The agent-side audio guard could be talked past, and blocked its own way out**
+  (an outside read, 2026-10-12; the same finding as the 2026-09-28 audit's held amendment
+  A6). The `PreToolUse` hook in `.claude/settings.json` was one line. It failed open, so a
+  failing `git diff` allowed the call. It never read the command, so while audio was staged
+  it blocked every Bash call, including the `git restore --staged` its message prescribed.
+  And it checked only what was staged before the call, so `git add x.flac && git commit` got
+  through. It is now `.claude/hooks/audio_guard.py`. It reads the command. It always allows
+  `git restore`, `reset` and `rm`. It blocks a commit or push while audio is staged, and a
+  command that stages audio itself (by asking `git add --dry-run`, so `git add .` counts).
+  It fails closed: a commit or push is refused when the staged list cannot be read, and
+  everything else is allowed. `tests/test_audio_guard_hook.py` runs each case twice, once
+  with a `git` whose `diff` fails. The git pre-commit hook stays the real gate.
+- **Four more probes read "could not look" as "found nothing"**, found by sweeping the
+  repository for the same shape:
+  - **The rig collector's audio check** (`docs/rig-scripts/platterpuscollect.sh`) printed
+    "clean - no audio files in the bundle" when `find` failed, then packed the upload. It
+    now refuses to pack. A failed listing of `~/Music/rips` is no longer reported as "no rip
+    folder found".
+  - **`uninstall.sh`** reported Picard and the `ripping` container "not present" when
+    `flatpak list` or `distrobox list` failed, and left them installed. Under
+    `set -o pipefail` a long listing did the same (the producer dies of SIGPIPE when
+    `grep -q` exits early). Reproduced, then fixed: the uninstaller now says it could not
+    check, and leaves the item in place.
+  - **`setup-host.sh`** read a failed `distrobox list` as "no container". It now stops and
+    says so.
+  - **The rig session** printed "no TOC-sourced pre-gap ... a REAL RESULT" when grep could
+    not read the file. It now says it could not count.
+
 ### Changed
 
 - **Every open task, ranked, and the fork's share presented to the fork** (2026-10-12, on
