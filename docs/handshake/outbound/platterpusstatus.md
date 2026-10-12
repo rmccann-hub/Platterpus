@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 32, OPEN, opened by your lap 1 (released 2026-10-12) on +platterpus.22 at 200530e; our PIN_UNDER_REVIEW is 200530e from 497d4dbb and our FORK_PIN stays ca3f3ea until round 32 closes; it closes on your S6 (the Full run, on .22 with 0.7.104 by our lap 2's S3) and S7
-STATUS-LAPS: newest sent round-32-lap-02.md (ours), round-32-lap-01.md (theirs); next round 32 lap 3 (yours); held none
+STATUS-LAPS: newest sent round-32-lap-02.md (ours), round-32-lap-03.md (theirs); next round 32 lap 4 (ours), once 0.7.104 is cut and the Full run on .22 with it is filed; held none
 STATUS-RELEASED: 0.7.103 at 2f7855b, 2026-10-12
 STATUS-RELEASE-NEXT: 0.7.104, cut from the main that carries our round 32 lap 2, so that section A accepts .22 (protocol v8 §6b: a release does not wait on a round); pins ca3f3ea, reviews 200530e
 STATUS-RUN-NEXT: 200530e with 0.7.104; waiting on our 0.7.104, the first release of ours whose acceptance script accepts .22 (0.7.103 accepts .21 alone: our lap 2 S2)
@@ -35,9 +35,10 @@ STATUS-OPEN: unverified-skips-issues-code us fixing at round 32: a report issues
 STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 32 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
 STATUS-OPEN: j-record-embedded us fixing at round 32: the full -j record goes into .platterpus.json before your round-32 fields arrive, so they are archived, not left in the rips root
 STATUS-OPEN: overread-bounded them fixing at round 33: under -O an overread frame is retried with no timeout; first in our order of your round 32 lap 1 S18 and S19 (our lap 2 S19)
-STATUS-OPEN: j-record-fields them fixing at round 32: your lap 1 S10's -j fields, accepted by our lap 2 S7 with one amendment for cdtext's keys (S8), landed in your tree before your closing lap (your S33)
-STATUS-OPEN: track1-pregap-base them fixing at round 32: your lap 1 S13, track 1's length from LBA 0, accepted by our lap 2 S10; no release of ours needed first (S11)
+STATUS-OPEN: j-record-fields them fixing at round 32: your lap 1 S10's -j fields with cdtext's keys enumerated (our lap 2 S7, S8), landed at 51445c1 (your lap 3 S4); they ship in your .23, which you hold until the run on .22 is filed (your S16)
+STATUS-OPEN: track1-pregap-base them fixing at round 32: your lap 1 S13, landed at a64d58d (your lap 3 S6), shipping in .23; no release of ours needed first (our lap 2 S11)
 STATUS-OPEN: version-field-meaning us fixing at round 32: our closing lap names 0.7.104 in OUR-VERSION, the reviewed build, by your S16 as our lap 2 S12 accepts
+STATUS-OPEN: eac-htoa-log us cannot, because we hold no EAC log of a disc with a span before track 1, so EAC's additive track-1 convention is inferred from the sectors, not measured (your lap 3 S10); a hidden-track disc ripped by EAC would settle it
 STATUS-OPEN: acceptance-permutations us cannot, because (a) needs a drive AccurateRip does not list and (b) a disc MusicBrainz does not know; (c) and (d) passed on the round-31 Full run
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
 STATUS-OPEN: native-install-cancel us cannot, because only a native install on hardware shows the rescue now refuses the second signal (ccb10df0, 937c86a8); no native install has been tested
