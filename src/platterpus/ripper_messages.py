@@ -91,9 +91,18 @@ def _first_printed_line(fmt: str) -> str:
     from the first of those. Any later line is a separate line of output, and
     this format's pattern does not try to match it.
     """
+    return _first_raw_line(fmt).strip()
+
+
+def _first_raw_line(fmt: str) -> str:
+    """The first non-blank line of ``fmt``, NOT stripped: what the reader is given.
+
+    :func:`format_to_pattern` builds its pattern from the stripped text, so the
+    blanks around it can be put back exactly (see the comment where it does).
+    """
     for line in _LINE_BREAK.split(fmt):
         if line.strip():
-            return line.strip()
+            return line
     return ""
 
 
@@ -139,7 +148,19 @@ def format_to_pattern(fmt: str) -> str | None:
 
     if literal_chars < _MIN_LITERAL_CHARS:
         return None
-    return "".join(parts)
+    # THE WHITESPACE THE STRIP REMOVED IS STILL IN THE LINE. The pattern is built
+    # from the stripped first line, but the rip worker matches the RAW line it read
+    # (`rip_worker`, `_RIPPER_ERROR_RE.match(line)`, anchored at `^`), so a format
+    # printing `"  Error: %s"` built a pattern its own output could never match.
+    # No published format has leading or trailing blanks (0 of 139, 2026-10-12);
+    # the round-trip property found it as `" 000000"`, as it found `\r` before.
+    # Put back EXACTLY what the strip removed, escaped: `str.strip()` removes more
+    # than spaces and tabs (`"\x1f"` too, its second counterexample), so a fixed
+    # `[ \t]*` would still miss the line the format prints.
+    raw = _first_raw_line(fmt)
+    lead = raw[: len(raw) - len(raw.lstrip())]
+    trail = raw[len(raw.rstrip()) :]
+    return re.escape(lead) + "".join(parts) + re.escape(trail)
 
 
 def build_matcher(

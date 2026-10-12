@@ -12,6 +12,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.103] — 2026-10-12
+
+The release that installs the cyanrip build handshake round 31 approved, `.21`, by
+default, and the first released under handshake protocol 8, where a release no longer
+waits for a round to close.
+
 ### Changed
 
 - **The default cyanrip build moves to `0.9.4-rc2+platterpus.21`** (`ca3f3ea`), the
@@ -35,6 +41,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   envelope builder and the tests that read laps now read code fences by one shared
   CommonMark rule (rows C48 and C49). No digest on record changes. The release
   workflow's handshake step is now run by a test exactly as the workflow writes it.
+
+### Fixed
+
+- **A ripper message whose line begins or ends with blank characters is still
+  recognised.** The pattern for each of cyanrip's published messages was built from
+  the trimmed text, while the rip watches the line as printed, so a message printed
+  with a leading space or a control character could never match. None of the 139
+  published messages has one today; the round-trip property test found it.
 
 ## [0.7.102] — 2026-10-07
 
@@ -18117,7 +18131,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.102...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.103...HEAD
+[0.7.103]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.102...v0.7.103
 [0.7.102]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.101...v0.7.102
 [0.7.101]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.100...v0.7.101
 [0.7.100]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.66...v0.7.100
@@ -18190,4 +18205,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.102.*
+*Last updated for Platterpus v0.7.103.*
