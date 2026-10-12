@@ -1906,7 +1906,12 @@ def test_the_same_program_flag_is_redeclared_whenever_either_pin_moves() -> None
     # Re-derived 2026-10-07 when the pin under review moved to `.21`: `git diff
     # ca3f3ea..3952c03 -- src/ meson.build` in an unshallowed clone of the fork is
     # 12 files, 281 insertions, 1287 deletions. Different programs, so False.
-    DECLARED_FOR: tuple[str, str, bool] = ("ca3f3ea", "3952c03", False)
+    # Re-derived 2026-10-12 when the pin under review moved to `.22` (`200530e`):
+    # the fork's tree read through the GitHub contents API, since a fetch of it is
+    # refused from this environment. `src/cyanrip_log.c` and `src/cyanrip_main.c`
+    # have different blob ids at the two commits (`91c4b7da`/`d4d7ec34` at
+    # `3952c03`, `47a3a3dc`/`bbb198c3` at `200530e`). Different programs, so False.
+    DECLARED_FOR: tuple[str, str, bool] = ("200530e", "3952c03", False)
 
     reviewed, test_pin, flag = DECLARED_FOR
     assert (fork_source.PIN_UNDER_REVIEW, fork_source.FORK_TEST_PIN) == (

@@ -11,6 +11,29 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-12 — round 32 opened on `.22`; our lap 2 written and released
+
+**Built:**
+- The fork's round 32 lap 1 is filed byte-exact. Its digest reproduces, and every claim
+  it makes about either tree checks out at the lines it cites. The fork's own tree was
+  read through the GitHub API, because a git fetch of it is refused here.
+- `PIN_UNDER_REVIEW` is `200530e` (`.22`) for round 32 (`497d4dbb`).
+- `.22`'s provider contract is filed and our inventory regenerated. The one new P5a row
+  is retained.
+- Our lap 2 is written and announced on the maintainer's word.
+- The status file, the handshake README and `TASKS.md` R1 to R5 are updated.
+
+**Learned:** our standing status said round 32's run would be `.22` with 0.7.103. Every
+check passed it, but 0.7.103's section A accepts only its own build under review, `.21`.
+The status check knew our version and the fork's next build; it never asked what a
+*released* app can run. It now reads the tag's `fork_source.py`
+(`test_a_released_app_runs_only_its_own_build_under_review`). The same miss would have
+sent the operator to a run that stops at its first step. Round 32's pair is amended to
+0.7.104 in the lap (S2, S3).
+
+**Maintainer ruling, same day:** a second full-green run on a different drive or rig
+bumps the version to 0.8.1, not 0.9.1 (recorded in its own commit).
+
 ## 2026-10-12 — the Full run on 0.7.103 filed, and graded full-green on the maintainer's word
 
 **What happened.** The operator sent the bundle of a Full run on 0.7.103 with `.21`,
