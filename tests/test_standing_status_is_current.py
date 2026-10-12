@@ -415,6 +415,24 @@ def _newest_release() -> tuple[str, str, datetime.date]:
     return tag[1:], commit, stamp.astimezone(datetime.UTC).date()
 
 
+@functools.cache
+def _under_review_build_at(tag: str) -> frozenset[str]:
+    """The names a released tag's build under review answers to: its commit and
+    its ``+platterpus.N``, read from ``fork_source.py`` as that tag holds it.
+
+    Read from the tag, not imported: the module in this tree may already have
+    moved on, and the question is what the RELEASED acceptance script accepts.
+    """
+    source = _git("show", f"{tag}:src/platterpus/deps/fork_source.py")
+    pin = re.search(r'(?m)^PIN_UNDER_REVIEW: Final\[str\] = "([0-9a-f]{7,40})"', source)
+    start = source.find("UNDER_REVIEW_TARGET: Final[ForkTarget] = ForkTarget(")
+    version = re.search(r'version="[^"]*?(\+platterpus\.\d+)"', source[start:])
+    assert pin is not None and start >= 0 and version is not None, (
+        f"could not read the build under review from {tag}'s fork_source.py"
+    )
+    return frozenset({pin.group(1), version.group(1)})
+
+
 def _status_block_problems(text: str) -> list[str]:
     """Every way the block disagrees with the record, the code, or D6's shape.
 
@@ -598,6 +616,21 @@ def _status_block_problems(text: str) -> list[str]:
             problems.append(
                 f"STATUS-RUN-NEXT runs {run.group(2)}, neither ours nor the next release"
             )
+        # **A RELEASED app's acceptance script is frozen**, so the build it can run
+        # is a fact about its tag, not about this tree. On 2026-10-12 this block
+        # said `+platterpus.22 with 0.7.103` and every check above passed: `.22`
+        # was the fork's next build and 0.7.103 our version. But 0.7.103's section
+        # A accepts only its own build under review, `.21`, so that run would have
+        # stopped at its first assertion. Our round 32 lap 2 S2 corrects it.
+        if run.group(2) == newest_version:
+            frozen = _under_review_build_at(f"v{newest_version}")
+            if run.group(1) not in frozen:
+                problems.append(
+                    f"STATUS-RUN-NEXT runs {run.group(1)} with {run.group(2)}, but "
+                    f"v{run.group(2)}'s section A accepts only its build under "
+                    f"review, {' / '.join(sorted(frozen))}; a run on another build "
+                    "needs a release of ours that reviews it"
+                )
 
     ids: list[str] = []
     for item in lines["OPEN"]:
@@ -710,3 +743,24 @@ def test_the_status_block_check_can_fail() -> None:
         assert _status_block_problems(text.replace(needle, replacement, 1)), (
             f"changing {what} in the status block was not caught"
         )
+
+
+def test_a_released_app_runs_only_its_own_build_under_review() -> None:
+    """The RUN-NEXT check above can fail, and passes for the tag's own build.
+
+    Floor: the newest tag's build under review is read and non-empty, so the
+    check cannot pass by reading nothing.
+    """
+    newest_version = _newest_release()[0]
+    frozen = _under_review_build_at(f"v{newest_version}")
+    assert len(frozen) == 2, frozen
+    text = _status_text()
+    line = next(ln for ln in text.splitlines() if ln.startswith("STATUS-RUN-NEXT: "))
+    plus = next(name for name in frozen if name.startswith("+platterpus."))
+    good = f"STATUS-RUN-NEXT: {plus} with {newest_version}; ready"
+    bad = f"STATUS-RUN-NEXT: +platterpus.9999 with {newest_version}; ready"
+    marker = "section A accepts only its build under review"
+    assert not any(
+        marker in p for p in _status_block_problems(text.replace(line, good))
+    )
+    assert any(marker in p for p in _status_block_problems(text.replace(line, bad)))

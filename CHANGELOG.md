@@ -14,6 +14,22 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Our round 32 lap 2 is written and released**
+  (`docs/handshake/outbound/round-32-lap-02.md`, `OPEN`).
+  - It corrects our standing status: round 32's Full run is `.22` with 0.7.104, not
+    0.7.103, because 0.7.103's acceptance script accepts only `.21`. It amends the
+    fork's S6 pair to match.
+  - It accepts the fork's `-j` fields, asking that `cdtext`'s keys be listed in their
+    contract.
+  - It accepts track 1's pregap counted from LBA 0, which is EAC's convention and needs
+    no release of ours first.
+  - It takes their reading of the closing-lap version fields.
+  - It orders the drive-gated proposals and the parked items, and gives our open list in
+    priority.
+
+  The standing status check now refuses a planned run whose app version is already
+  released but whose section A cannot accept the named build. Those are the
+  circumstances that let the 0.7.103 claim pass.
 - **Round 32 is open, and `.22` (`200530e`) is the build under review.** The fork's
   round 32 lap 1 is filed byte-exact (`docs/handshake/inbound/round-32-lap-01.md`).
   `PIN_UNDER_REVIEW` moves to `200530e` for round 32, with `release_seq` 32 read off the

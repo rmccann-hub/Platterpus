@@ -25,17 +25,19 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 31, CLOSED on both gates by our lap 5 (GO, released 2026-10-11) after your lap 4 (GO); it approves .21 at ca3f3ea with 0.6.66, and our FORK_PIN is ca3f3ea from that commit; round 32 opens with your lap 1
-STATUS-LAPS: newest sent round-31-lap-05.md (ours), round-31-lap-04.md (theirs); next round 32 lap 1 (yours); held none
+STATUS-ROUND: 32, OPEN, opened by your lap 1 (released 2026-10-12) on +platterpus.22 at 200530e; our PIN_UNDER_REVIEW is 200530e from 497d4dbb and our FORK_PIN stays ca3f3ea until round 32 closes; it closes on your S6 (the Full run, on .22 with 0.7.104 by our lap 2's S3) and S7
+STATUS-LAPS: newest sent round-32-lap-02.md (ours), round-32-lap-01.md (theirs); next round 32 lap 3 (yours); held none
 STATUS-RELEASED: 0.7.103 at 2f7855b, 2026-10-12
-STATUS-RELEASE-NEXT: 0.7.104, whenever it is ready (protocol v8 §6b: a release does not wait on a round); pins ca3f3ea, reviews +platterpus.22
-STATUS-RUN-NEXT: +platterpus.22 with 0.7.103; waiting on your .22 and round 32's lap 1, which names the pair
+STATUS-RELEASE-NEXT: 0.7.104, cut from the main that carries our round 32 lap 2, so that section A accepts .22 (protocol v8 §6b: a release does not wait on a round); pins ca3f3ea, reviews 200530e
+STATUS-RUN-NEXT: 200530e with 0.7.104; waiting on our 0.7.104, the first release of ours whose acceptance script accepts .22 (0.7.103 accepts .21 alone: our lap 2 S2)
 STATUS-OPEN: rip-identity us fixing at round 32: the disc ID our MusicBrainz lookup used is not compared with the one your log reports, so a swap our poller missed would archive one album under another's tags; our top item of 2026-10-12
 STATUS-OPEN: unverified-skips-issues-code us fixing at round 32: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you below (F1) whether any reader of yours is affected
 STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 32 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
 STATUS-OPEN: j-record-embedded us fixing at round 32: the full -j record goes into .platterpus.json before your round-32 fields arrive, so they are archived, not left in the rips root
-STATUS-OPEN: bounded-O them fixing at round 32 lap 1 (your round 31 lap 4 S28)
-STATUS-OPEN: j-record-fields them fixing at round 32 lap 1 (your round 31 lap 4 S27 and S29: pre-emphasis, subcode ISRC, CD-TEXT, the -f search, the Accurate stream: line)
+STATUS-OPEN: overread-bounded them fixing at round 33: under -O an overread frame is retried with no timeout; first in our order of your round 32 lap 1 S18 and S19 (our lap 2 S19)
+STATUS-OPEN: j-record-fields them fixing at round 32: your lap 1 S10's -j fields, accepted by our lap 2 S7 with one amendment for cdtext's keys (S8), landed in your tree before your closing lap (your S33)
+STATUS-OPEN: track1-pregap-base them fixing at round 32: your lap 1 S13, track 1's length from LBA 0, accepted by our lap 2 S10; no release of ours needed first (S11)
+STATUS-OPEN: version-field-meaning us fixing at round 32: our closing lap names 0.7.104 in OUR-VERSION, the reviewed build, by your S16 as our lap 2 S12 accepts
 STATUS-OPEN: acceptance-permutations us cannot, because (a) needs a drive AccurateRip does not list and (b) a disc MusicBrainz does not know; (c) and (d) passed on the round-31 Full run
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path
 STATUS-OPEN: native-install-cancel us cannot, because only a native install on hardware shows the rescue now refuses the second signal (ccb10df0, 937c86a8); no native install has been tested
@@ -554,7 +556,7 @@ reports). **F1 to F4, F6, F7, the rest of F8, and the two F5 additions are not i
 you want any of them inside round 32's close, they need to be in lap 1 before it is
 released. Yours that need us are in our `TASKS.md` ranking as R1 to R5, and we answer them
 in our lap 2. **Our 0.7.103 is released** (2026-10-12, tag at `2f7855b`, on PyPI), so
-round 32's pair now waits only on your `.22`.
+round 32's pair waited only on your `.22`. *(Superseded 2026-10-12 by our round 32 lap 2 S2: 0.7.103's section A accepts `.21` alone, so round 32's pair is `.22` with our 0.7.104.)*
 
 1. **F1 — one sentence.** Does a new report `issues` code for a track with unverified
    paranoia skips affect any bundle reader of yours? It unblocks our item 7.
