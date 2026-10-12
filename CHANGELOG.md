@@ -22,7 +22,7 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the lap checker, its re-run checkouts, `tests/test_cited_commits_are_reachable.py`
   and the `HANDSHAKE-OUR-PIN` check look an old ID up there before asking git. The
   reachability scan skips the map itself, which would otherwise satisfy its own
-  floor. The map lands with the rewrite; this is agreed with the fork as HR-1.
+  floor. The owner pushed the rewrite on 2026-10-12, and its map, `docs/handshake/commit-map-2026-10-12.txt`, holds 1,821 entries. The status block names 0.7.103's new commit. The rule is proposed to the fork as HR-1 (`docs/cyanrip-handshake.md` §7.4a; `PLANNING.md` KDD-44).
 
 - **CI and the release workflow now fit the owner's 2026-10-12 repository settings**
   (merge commits only, immutable releases, actions pinned to full SHAs, rulesets).

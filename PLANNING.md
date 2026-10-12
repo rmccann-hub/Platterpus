@@ -2024,6 +2024,48 @@ requests rule #11 always refuses. That is offered, not done.
   a GitHub App token (no `pull_request` event; `workflow_dispatch` on the branch is the
   escape hatch). Both are GitHub's behaviour, not a defect here.
 
+### KDD-44 — Remove an email address from the commit metadata, and resolve old IDs through a map (decided and done 2026-10-12)
+
+**Context.** The owner asked for their personal information to be removed from this
+repository's Git history, accepting that commit IDs change, on the condition that the
+handshake with the cyanrip fork keeps working. A read-only inventory found the owner's
+email address in 285 author and committer fields and nowhere else: no message, no file, no
+release body, no PyPI metadata. It also found the owner's local username in home-folder
+paths across many committed files and in 82 PyPI versions and 70 release AppImages.
+
+**Decision (the owner's).** Rewrite the address only, with `git filter-repo --mailmap`
+(2.47.0, `--sensitive-data-removal`, `--preserve-commit-hashes`), replacing it with the
+owner's GitHub no-reply address and keeping the name. No file content, no message and no
+date changes. The home paths stay: the username is already in shipped packages that cannot
+be changed, and it begins the public handle, so rewriting files for it would cost far more
+than it removed. The cyanrip fork is not rewritten, so `FORK_PIN`, `PIN_UNDER_REVIEW`, the
+fork's release manifest and every build tag are untouched, and so is every shipped app's
+route to its ripper.
+
+**Consequences.**
+- Every commit reachable from a branch or tag got a new ID (1,821), and all 70 tags moved.
+  Releases stay attached to the same tag names. The signatures on 1,818 commits were
+  stripped, because nobody can re-sign them as the original signer. Nothing here depends
+  on them.
+- Citations keep their old IDs, because a sent lap is never edited. Old IDs resolve through
+  `docs/handshake/commit-map-2026-10-12.txt`, read by `scripts/laplang/commit_map.py`.
+  The reachability test, the `HANDSHAKE-OUR-PIN` and `FROM-COMMIT` checks, the lap checker
+  and its re-run checkouts look an old ID up there first. The fork resolves our IDs by the
+  same rule: `docs/cyanrip-handshake.md` §7.4a, HR-1.
+- No content hash moved, so no lap was re-pinned and every mirror stays byte-identical. Only
+  live records name the new IDs: the status block's `STATUS-RELEASED` is one.
+- The old commits stay reachable through GitHub's pull-request refs until GitHub Support
+  purges them. The owner sent that request after the push.
+
+**How it was run.** It was rehearsed in a scratch mirror first:
+- With the unchanged suite on the rewritten history, 32 tests failed, every one at a place
+  that resolves our IDs. With the map lookup in place the full suite passed.
+- `scripts/revert_probe.py` detected all five map lookups when each was reverted.
+
+The owner then ran one script on their own machine. It worked in a temporary folder,
+checked the result before pushing, and pushed all-or-nothing with a lease on every ref.
+Its map matched the rehearsal's, sha256 `d576bdc6…`.
+
 ---
 
 *Last updated for Platterpus v0.7.103.*
