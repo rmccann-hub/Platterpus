@@ -276,12 +276,18 @@ fi
 # appended a SECOND line and TOC_HITS became the two-line string "0\n0" — which
 # the `[ ... -gt ]` below then rejected with "integer expected" (seen on the
 # 2026-08-25 rig session). The conclusion it printed was right by luck: the
-# failed comparison fell through to the same branch. `|| true` swallows the
-# exit status without adding output, and the guard covers grep being absent.
-TOC_HITS=$(grep -c "Pregap source: TOC" "$OUT/06-pregap-sources.txt" 2>/dev/null || true)
-[ -n "$TOC_HITS" ] || TOC_HITS=0
+# failed comparison fell through to the same branch.
+#
+# grep's exit says which answer this is: 0 found, 1 found none, 2 or more could
+# not look. The old `2>/dev/null || true` swallowed all three alike, so a grep
+# that could not read the file printed "a REAL RESULT, not a gap", the one
+# conclusion it had no evidence for (fixed 2026-10-12). Only exit 1 is "none".
+TOC_STATUS=0
+TOC_HITS=$(grep -c "Pregap source: TOC" "$OUT/06-pregap-sources.txt") || TOC_STATUS=$?
 note "artifact: 06-pregap-sources.txt"
-if [ "${TOC_HITS:-0}" -gt 0 ]; then
+if [ "$TOC_STATUS" -gt 1 ]; then
+  note "** COULD NOT COUNT the TOC-sourced pre-gaps (grep exit $TOC_STATUS) — NOT a result either way"
+elif [ "${TOC_HITS:-0}" -gt 0 ]; then
   note "** A TOC-SOURCED PRE-GAP EXISTS — that is the C1 candidate. Name the disc."
 else
   note "no TOC-sourced pre-gap in the retained log — a REAL RESULT, not a gap"

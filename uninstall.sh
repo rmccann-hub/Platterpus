@@ -114,6 +114,10 @@ prompt() {
 removed() { echo "  ✓ removed: $1"; }
 skipped() { echo "  - skipped:  $1"; }
 missing() { echo "  - not present: $1"; }
+# A probe that could not run is neither "present" nor "absent". Saying "not
+# present" for it left Picard or the container installed while telling the user
+# it was gone, so it gets its own line, and the thing is left in place.
+unchecked() { echo "  ? could not check: $1"; }
 
 # --- Header ---------------------------------------------------------------
 
@@ -272,8 +276,15 @@ echo "Optional removals (Picard, container, older-version leftovers, host export
 
 # Picard
 if [ "$REMOVE_PICARD" -eq 1 ] || prompt "Remove MusicBrainz Picard (Flatpak)?"; then
-    if command -v flatpak >/dev/null 2>&1 && \
-       flatpak list --user 2>/dev/null | grep -q "org.musicbrainz.Picard"; then
+    # The listing is captured FIRST and searched second. Piping it straight into
+    # `grep -q` read a failed `flatpak list` as "not installed", and under
+    # `set -o pipefail` a long listing could read that way too: `grep -q` exits
+    # at the first match and the producer dies of SIGPIPE mid-write.
+    if ! command -v flatpak >/dev/null 2>&1; then
+        missing "Picard (Flatpak — not installed at user level)"
+    elif ! flatpak_list=$(flatpak list --user 2>&1); then
+        unchecked "Picard (Flatpak) — \`flatpak list --user\` failed: ${flatpak_list%%$'\n'*}. Left in place."
+    elif grep -q "org.musicbrainz.Picard" <<<"$flatpak_list"; then
         run flatpak uninstall --user -y org.musicbrainz.Picard
         removed "Picard (Flatpak)"
     else
@@ -285,8 +296,12 @@ fi
 
 # Distrobox 'ripping' container
 if [ "$REMOVE_CONTAINER" -eq 1 ] || prompt "Remove the 'ripping' Distrobox container?"; then
-    if command -v distrobox >/dev/null 2>&1 && \
-       distrobox list 2>/dev/null | grep -q "ripping"; then
+    # Captured first, searched second, for the reason given at Picard above.
+    if ! command -v distrobox >/dev/null 2>&1; then
+        missing "Distrobox 'ripping' container"
+    elif ! distrobox_list=$(distrobox list 2>&1); then
+        unchecked "Distrobox 'ripping' container — \`distrobox list\` failed: ${distrobox_list%%$'\n'*}. Left in place."
+    elif grep -q "ripping" <<<"$distrobox_list"; then
         run distrobox stop ripping --yes 2>/dev/null || true
         run distrobox rm ripping --force 2>/dev/null || true
         removed "Distrobox 'ripping' container"
