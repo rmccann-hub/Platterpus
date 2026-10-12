@@ -1957,9 +1957,8 @@ rulesets endpoint answered `[]` and `main` read `protected: false`, so none was 
   GitHub App token would not trigger `pull_request` (GitHub's recursion guard). Its escape
   hatch is the workflow's `workflow_dispatch` on the branch, which attaches the same
   checks to the head commit.
-- **Both merge methods must stay allowed.** Session branches merge with a merge commit
-  (divergence (6), which keeps cited commits reachable) and Dependabot's squash, so the
-  ruleset must not require linear history or restrict merge methods to one.
+- ~~**Both merge methods must stay allowed.**~~ Superseded the same day by the owner's
+  merge-method setting (below): merge commits only.
 
 **Dependabot, by design.** `changelog` exempts a Dependabot pull request, and
 `tests-touched` passes one that touches no `src/`. But **`test` fails on a Dependabot pull
@@ -1978,6 +1977,52 @@ not exempt Dependabot from `test`, and do not add it as a bypass actor: either w
 unregenerated BOM, or an unmeasured `ruff`/`mypy`, onto `main`. Separately, ignoring
 `ruff`/`mypy` in `dependabot.yml` by name, without `update-types`, would stop the pull
 requests rule #11 always refuses. That is offered, not done.
+
+**Amended the same day (2026-10-12): five more settings, and what each one changed here.**
+- **Merge commits only; squash and rebase merging are off.** Every pull request now merges
+  with a merge commit, Dependabot's included. The `changelog` job had exempted a Dependabot
+  push to `main` by the head commit's author, which only a squash kept as Dependabot; under
+  a merge commit that author is whoever merged, so `main`'s CI would have gone red on every
+  Dependabot merge, and `release.yml` refuses a `main` whose CI is red. The exemption now
+  reads the pull request's author or its `dependabot/*` branch, and on a push the commits
+  the push brings in: exempt when every non-merge commit is Dependabot's, the same answer
+  under either merge method (`tests/test_changelog_dependabot_exemption.py`, revert-probed).
+  The ruleset still must not require linear history, which would forbid the one method left.
+- **The release-tag ruleset allows creation and blocks moves and deletes.** That is the
+  shape the check above asked for; nothing in the tree moves or deletes a `v*` tag.
+- **Release immutability.** A published release is locked: its tag cannot move and no file
+  can be added or replaced. `release.yml` already created each release as a draft carrying
+  every file and published it last, which holds. Its re-run branch did not: on an existing
+  release it ran `gh release upload --clobber` and then published, so a re-run against a
+  published release would fail inside the upload with no reason given. It now finishes a
+  leftover draft and refuses a published one with a sentence naming immutability
+  (`tests/test_release_uploads_while_draft.py`, which runs the step's script against a fake
+  `gh`, revert-probed). **A re-run can no longer re-upload a published release's files**; a
+  broken release is fixed by a new version.
+- **CodeQL default setup** for Actions, C/C++ and Python, and **actions pinned to a full
+  commit SHA** by policy. All 28 `uses:` lines in the five workflows were already pinned;
+  of the five actions, `attest-build-provenance` and `gh-action-pypi-publish` are
+  composite and pin their own nested actions by SHA (read at the pinned commits), and the
+  other three are Node actions with none. The existing BOM test matched only SHA-pinned
+  refs, so a tag-pinned action passed it silently; `tests/test_workflow_permissions.py` now
+  refuses any `uses:` that is not a full SHA or a local `./` path, with a floor.
+- **No release until the owner says so.** A history rewrite may come first, and with
+  immutability on, a published release locks its tag to the commit it was cut from. The
+  0.7.104 the round 32 lap 2 promised (its S5) is held on that word; the fork holds `.23`
+  until our run on `.22`, so round 32's test waits on the owner.
+  **A rewrite has a cost to weigh first:** our laps, `TASKS.md` and the session log cite
+  `platterpus@<sha>` commits, and so do the fork's laps; `tests/test_cited_commits_are_reachable.py`
+  turns `main` red when a cited commit stops resolving, and the fork's copies of those
+  citations cannot be edited (sent laps are immutable). A rewrite strands every citation it
+  touches unless the old history stays reachable.
+- **Every required check, re-read for a way to go unreported.** None of the twelve has a
+  job-level `if:`, a `needs:`, a path filter or a skipped matrix leg; the `test` matrix is
+  four explicit versions with `fail-fast: false`, so a failing leg does not cancel the others
+  into a state the ruleset reads as missing. Two cases remain where a check never reports:
+  a pull request whose head conflicts with `main` (GitHub cannot build its merge ref, so no
+  `pull_request` run starts until the conflict is resolved), and a pull request opened with
+  a GitHub App token (no `pull_request` event; `workflow_dispatch` on the branch is the
+  escape hatch). Both are GitHub's behaviour, not a defect here.
 
 ---
 

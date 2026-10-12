@@ -11,6 +11,28 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-12 — the fork's round 32 lap 3 filed; CI fitted to the new repository settings; releases held
+
+**Built:**
+- The fork's round 32 lap 3 is filed and verified. It accepts the pair `.22` with 0.7.104
+  and lands our two accepted changes. Its S10 caught our lap 2 claiming the additive
+  track-1 EAC convention was measured; it was inferred, and the docstring now says so.
+- The owner's settings of 2026-10-12, worked through:
+  - The changelog job's Dependabot exemption now survives a merge commit.
+  - `release.yml`'s re-run branch refuses a published, immutable release.
+  - A test refuses an action that is not pinned to a full SHA.
+  - Records updated in `CLAUDE.md`, KDD-43 and architecture §6.4.
+- Point 1 of the same outside read (the audio guard) was already fixed by PR #312, and the
+  fail-open sweep finds nothing new.
+
+**Decided:** no release until the owner says so. 0.7.104 was mid-cut when the hold
+arrived. The bump was never committed and is discarded, so round 32's run, and the fork's
+`.23` behind it, wait on the owner.
+
+**Learned:** a check whose pattern matches only the good shape cannot report the bad one.
+The BOM test's `uses:` regex required a 40-hex SHA, so a tag-pinned action passed it
+silently. The fix was the converse check, with a floor.
+
 ## 2026-10-12 — round 32 opened on `.22`; our lap 2 written and released
 
 **Built:**

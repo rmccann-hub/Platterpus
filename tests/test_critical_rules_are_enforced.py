@@ -1803,7 +1803,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # wrapping five patterns that grew past 88 columns. The patterns must stay
     # here: the rule tables are what the generated consumer contract publishes.
     # **3467 -> 3472** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): four log records quote a cyanrip value head and tail, counted.
-    "parsers/cyanrip_log.py": 3472,
+    # **3472 -> 3474** (2026-10-12): the track-1 pregap comment now says the additive
+    # EAC arm is inferred from the sectors, not read from an EAC log (fork round 32 lap 3 S10).
+    "parsers/cyanrip_log.py": 3474,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
