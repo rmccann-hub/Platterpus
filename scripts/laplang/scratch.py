@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from .commit_map import load as load_commit_map
 from .model import Leftover
 from .rerun import MARKER_LINES, MARKER_RE, Plan
 
@@ -108,6 +109,8 @@ class Scratch:
         return self._trees[sha]
 
     def _add(self, sha: str) -> Path | str:
+        # An ID from before a history rewrite: run at the commit that replaced it.
+        sha = load_commit_map(self.clone)[0].current(sha) or sha
         # The commit `sha` names, resolved BEFORE anything is checked out. An
         # annotated tag's sha passes the header's shape check, and `worktree
         # add` would quietly peel it to the commit it tags, which is not the

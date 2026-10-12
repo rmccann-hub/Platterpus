@@ -2744,15 +2744,7 @@ def test_our_pin_resolves_here_and_peer_pin_does_not() -> None:
     )
     assert len(outbound) >= 5, f"only {len(outbound)} outbound laps to check"
 
-    def _resolves(sha: str) -> bool:
-        return (
-            subprocess.run(
-                ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
-                cwd=_REPO_ROOT,
-                capture_output=True,
-            ).returncode
-            == 0
-        )
+    _resolves = _resolves_in_repo
 
     enforced: dict[str, int] = {"HANDSHAKE-OUR-PIN": 0, "HANDSHAKE-PEER-PIN": 0}
     for path in outbound:
@@ -2835,7 +2827,13 @@ def test_the_sent_wrong_allowlist_is_a_ratchet_not_a_hiding_place() -> None:
 
 
 def _resolves_in_repo(sha: str) -> bool:
-    """Shared by the two tests above so they cannot disagree about 'resolves'."""
+    """Shared by the two tests above so they cannot disagree about 'resolves'.
+
+    An ID from before the 2026-10-12 history rewrite resolves through the
+    commit map (`_current_id`); a peer's ID is in no map of ours, so it is
+    asked of git unchanged and still does not resolve.
+    """
+    sha = _current_id(_REPO_ROOT, sha)
     return (
         subprocess.run(
             ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
@@ -3104,8 +3102,35 @@ def _stale_clone_hint() -> str:
     return hint
 
 
+_COMMIT_MAP_PY: Final[Path] = _REPO_ROOT / "scripts" / "laplang" / "commit_map.py"
+
+
+def _current_id(root: Path, token: str) -> str:
+    """`token` as it names a commit TODAY: through the commit map if it is an ID
+    from before the 2026-10-12 history rewrite, unchanged otherwise.
+
+    Sent laps keep the IDs they were sent with, and every one of our IDs changed
+    in that rewrite, so "does this pin resolve here" has to ask the map first.
+    The map is read by `scripts/laplang/commit_map.py`, the one module the lap
+    checker and `tests/test_cited_commits_are_reachable.py` also use, so the
+    three cannot disagree about what an old ID means.
+    """
+    name = "platterpus_commit_map"
+    module = sys.modules.get(name)
+    if module is None:
+        spec = importlib.util.spec_from_file_location(name, _COMMIT_MAP_PY)
+        assert spec is not None and spec.loader is not None, _COMMIT_MAP_PY
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    cmap, _ = module.load(root)
+    current: str | None = cmap.current(token)
+    return current or token
+
+
 def _from_commit_problem(root: Path, token: str) -> str | None:
     """Why the peer cannot fetch `token` from `root`'s origin/main, or None if it can."""
+    token = _current_id(root, token)
     resolves = (
         subprocess.run(
             ["git", "cat-file", "-e", f"{token}^{{commit}}"],
