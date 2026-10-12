@@ -30,6 +30,7 @@ fixtures are ordinary text files with audio *extensions*, written under
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -217,7 +218,7 @@ def test_the_shim_itself_is_not_what_causes_the_refusal(repo: Path) -> None:
 
 
 def test_the_hook_and_the_ci_gate_share_one_extension_pattern() -> None:
-    """Two guards, one list — so they are compared rather than trusted to match.
+    """Three guards, one list — so they are compared rather than trusted to match.
 
     `ci.yml`'s media-guard says "Same audio-extension pattern as
     .githooks/pre-commit". That sentence is not a mechanism. Two lists that must
@@ -238,10 +239,21 @@ def test_the_hook_and_the_ci_gate_share_one_extension_pattern() -> None:
 
     hook_pattern = _pattern(hook_text)
     ci_pattern = _pattern(ci_text)
+    # The third guard, the agent-side PreToolUse hook (2026-10-12), spells it as a
+    # Python raw string. Read it from its own assignment, not from a mention.
+    agent_text = (REPO_ROOT / ".claude" / "hooks" / "audio_guard.py").read_text(
+        encoding="utf-8"
+    )
+    agent_match = re.search(r'^\s*r"(\\\.\(flac[^"]*)",?\s*$', agent_text, re.MULTILINE)
+    agent_pattern = agent_match.group(1) if agent_match else ""
     assert hook_pattern, "no audio pattern found in the hook — this test is broken"
     assert ci_pattern, "no audio pattern found in ci.yml — this test is broken"
-    assert hook_pattern == ci_pattern, (
-        "the hook and the CI gate disagree about which extensions are audio, so "
-        "one of them lets a format through that the other blocks.\n"
-        f"  hook: {hook_pattern}\n  ci:   {ci_pattern}"
+    assert agent_pattern, (
+        "no AUDIO_PATTERN found in audio_guard.py — this test is broken"
+    )
+    assert hook_pattern == ci_pattern == agent_pattern, (
+        "the guards disagree about which extensions are audio, so one of them "
+        "lets a format through that another blocks.\n"
+        f"  pre-commit: {hook_pattern}\n  ci:         {ci_pattern}\n"
+        f"  agent hook: {agent_pattern}"
     )

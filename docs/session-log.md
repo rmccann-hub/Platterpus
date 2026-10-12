@@ -11,6 +11,38 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-12 — the audio guard rewritten, four fail-open probes fixed, rulesets decided
+
+**What happened.** An outside read reported two things, and asked for each to be verified
+before anything changed.
+
+- **The agent-side audio guard** had three defects, each confirmed in the file: it
+  failed open, it never read the command, and it judged only what was staged before the
+  call. It is now `.claude/hooks/audio_guard.py`, and the session's own hook picked it up
+  mid-session and blocked a probe that staged a `.flac`, which was correct.
+  `tests/test_audio_guard_hook.py` has 65 cases, each run with real git and with a git
+  whose `diff` fails. Revert-probed four ways (fail open, broken git read as "not a
+  repository", block everything, judge before the call), and all four were caught.
+- **The same shape elsewhere**, found by sweeping every hook, script and workflow: the rig
+  collector's audio check (printed "clean" when `find` failed), `uninstall.sh` (said
+  "not present" when the listing failed, and also on a long listing, through the SIGPIPE
+  race under `pipefail`, both reproduced before the fix), `setup-host.sh`'s
+  `container_exists`, and the rig session's TOC count. Each is fixed, tested, and
+  revert-probed back to its exact old code.
+- **It had been found before.** The 2026-09-28 configuration audit recorded this guard's
+  fail-open as amendment A6, which was approved and held under C3, and no `TASKS.md` row
+  carried it. KDD-39 now says A6 was applied. `pre-commit` and `ci.yml` were fixed for the
+  identical idiom on 2026-08-20, and that sweep missed this third guard.
+- **Rulesets.** `CLAUDE.md` divergence (5) now records the owner's 2026-10-12 decision.
+  KDD-43 records the compatibility check: nothing pushes to `main` or touches a tag, but
+  `release.yml` creates tags, and Dependabot pull requests fail `test` by design. The API
+  showed no ruleset live yet.
+
+**Learned.** A sweep for one idiom has to name every place the idiom lives, not the
+places the last incident was in: the 2026-08-20 fix covered two of the three audio
+guards. And a guard whose own message tells you how to recover must let that recovery
+through, which only a guard that reads the command can do.
+
 ## 2026-10-12 — 0.7.103 released; every open task ranked; the fork's share presented
 
 **What happened.** The maintainer asked both repositories the same question: compile

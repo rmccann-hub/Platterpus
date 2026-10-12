@@ -9,8 +9,8 @@
 # Only in a cloud session (`CLAUDE_CODE_REMOTE=true`): locally `dev-setup.sh` does
 # the job, and a developer's own git config is theirs to set. Idempotent, and it
 # never fails the session. A guard that cannot be set is reported, not fatal,
-# because the PreToolUse check in `.claude/settings.json` still blocks a command
-# while audio is staged.
+# because the agent-side PreToolUse hook (`.claude/hooks/audio_guard.py`) still
+# blocks a commit or push while audio is staged, and a command that stages it.
 set -euo pipefail
 
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then

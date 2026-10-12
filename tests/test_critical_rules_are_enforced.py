@@ -2655,6 +2655,14 @@ _MIN_SCRIPTS_MODULES: Final[int] = 35
 #: lines is larger than every package module but two (`ui/main_window_rip.py`
 #: and `uiscript/runner.py`, measured the same day).
 _OVERSIZE_TOOLING: Final[dict[str, int]] = {
+    # **632** (2026-10-12): joined at birth, recorded with its reason rather than
+    # split. One job, judging one Bash call against Critical rule #8, run by Claude
+    # Code as a single script; about half its lines are comments and docstrings for
+    # a reader who does not know shell or git internals. Splitting it would make a
+    # hook import a sibling module from `.claude/hooks/`. If it grows, the shell
+    # reader (`strip_heredoc_bodies` to `_parse_git_words`, about 140 lines) is the
+    # part to move first.
+    ".claude/hooks/audio_guard.py": 632,
     # **320 -> 326** (2026-10-05): `_REQUIREMENT` rewritten greedy, linear rather
     # than quadratic on a run of spaces, with the five lines saying why it is shaped so.
     "scripts/bommap/reading.py": 326,

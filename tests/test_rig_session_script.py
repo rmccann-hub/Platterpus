@@ -49,7 +49,7 @@ def _shell_harnesses() -> list[Path]:
     return [p for p in found if p.is_file()]
 
 
-def _run(tmp_path: Path) -> tuple[int, Path, str]:
+def _run(tmp_path: Path, extra_path: Path | None = None) -> tuple[int, Path, str]:
     """Run the script with a fake HOME and a non-existent app, and return the result.
 
     Every external binary it wants is absent or bogus on purpose: that is the
@@ -80,6 +80,8 @@ def _run(tmp_path: Path) -> tuple[int, Path, str]:
         "GIT_CONFIG_KEY_0": "url.file:///nonexistent/platterpus-test/.insteadOf",
         "GIT_CONFIG_VALUE_0": "https://github.com/",
     }
+    if extra_path is not None:
+        env["PATH"] = f"{extra_path}{os.pathsep}{env.get('PATH', '')}"
     proc = subprocess.run(
         ["bash", str(_SCRIPT), str(out), "/nonexistent/appimage"],
         capture_output=True,
@@ -417,3 +419,107 @@ def test_the_clone_step_runs_inside_run_and_records_its_failure(
     assert "clone failed" in block, block[:400]
     assert "13  our own gates" in summary, "the session stopped after the clone"
     assert rc == 0, output[-2000:]
+
+
+def _failing_shim(folder: Path, tool: str, when_arg: str) -> Path:
+    """A `tool` that fails (exit 2) when any argument equals `when_arg`, else is real."""
+    real = shutil.which(tool)
+    assert real is not None, f"{tool} is not on PATH"
+    folder.mkdir(exist_ok=True)
+    shim = folder / tool
+    shim.write_text(
+        "#!/bin/bash\n"
+        'for a in "$@"; do\n'
+        f'  if [ "$a" = "{when_arg}" ]; then echo "{tool}: simulated failure" >&2; exit 2; fi\n'
+        "done\n"
+        f'exec {real} "$@"\n',
+        encoding="utf-8",
+    )
+    shim.chmod(0o755)
+    return folder
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
+def test_a_grep_that_could_not_count_is_not_reported_as_a_real_result(
+    tmp_path: Path,
+) -> None:
+    """Regression (2026-10-12): `grep -c ... 2>/dev/null || true` read "could not look" as none.
+
+    grep exits 1 for "no match" and 2 for "could not look". Both used to become
+    TOC_HITS=0 and the line "no TOC-sourced pre-gap ... a REAL RESULT", the
+    one conclusion a grep that never read the file has no evidence for.
+    """
+    shims = _failing_shim(tmp_path / "shims", "grep", "Pregap source: TOC")
+    _rc, _out, output = _run(tmp_path, extra_path=shims)
+    assert "COULD NOT COUNT the TOC-sourced pre-gaps (grep exit 2)" in output, output
+    assert "a REAL RESULT, not a gap" not in output
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
+def test_an_empty_count_is_still_a_real_result(tmp_path: Path) -> None:
+    """Control for the test above: with a working grep, finding none IS a result."""
+    _rc, _out, output = _run(tmp_path)
+    assert "a REAL RESULT, not a gap" in output, output
+    assert "COULD NOT COUNT" not in output
+
+
+def _run_collect(
+    tmp_path: Path, extra_path: Path | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Run the rig collector under a throwaway HOME holding one rip folder."""
+    home = tmp_path / "home"
+    rip = home / "Music" / "rips" / "Artist" / "Album"
+    rip.mkdir(parents=True)
+    (rip / "album.log").write_text("Track 1 | CRC32 A1B2C3D4\n", encoding="utf-8")
+    env = dict(os.environ, HOME=str(home))
+    if extra_path is not None:
+        env["PATH"] = f"{extra_path}{os.pathsep}{env.get('PATH', '')}"
+    return subprocess.run(
+        ["bash", str(_REPO / "docs" / "rig-scripts" / "platterpuscollect.sh")],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        cwd=tmp_path,
+        env=env,
+        check=False,
+    )
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
+def test_the_collector_refuses_to_pack_a_bundle_it_could_not_check_for_audio(
+    tmp_path: Path,
+) -> None:
+    """Regression (2026-10-12): a failing audio check printed "clean" (Critical rule #8).
+
+    `AUDIO=$(find ... || true)` read a failed `find` as "no audio found", printed
+    "clean - no audio files in the bundle", and packed the tarball the operator
+    is told to upload. Now nothing is packed, and the reason is printed.
+    """
+    shims = _failing_shim(tmp_path / "shims", "find", "*.flac")
+    result = _run_collect(tmp_path, extra_path=shims)
+    assert result.returncode != 0, result.stdout
+    assert "COULD NOT CHECK the bundle for audio" in result.stderr, result.stderr
+    assert "clean - no audio files" not in result.stdout
+    assert not (tmp_path / "home" / "platterpusbundle.tar.gz").exists()
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
+def test_the_collector_says_when_it_could_not_list_the_rips(tmp_path: Path) -> None:
+    """A failed listing of ~/Music/rips is not "no rip folder found"."""
+    shims = _failing_shim(tmp_path / "shims", "find", "-printf")
+    result = _run_collect(tmp_path, extra_path=shims)
+    assert "COULD NOT LIST ~/Music/rips" in result.stdout, result.stdout
+    assert "no rip folder found" not in result.stdout
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
+def test_the_collector_packs_a_clean_bundle_with_a_working_find(tmp_path: Path) -> None:
+    """Control for both: the shims, not the collector, are what made them fail."""
+    result = _run_collect(tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "clean - no audio files in the bundle" in result.stdout
+    assert (
+        "album.log" in result.stdout
+        or (tmp_path / "home" / "platterpusbundle.tar.gz").exists()
+    )
+    assert (tmp_path / "home" / "platterpusbundle.tar.gz").exists()

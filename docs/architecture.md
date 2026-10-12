@@ -1825,8 +1825,9 @@ refused.
   done, and falls back to the cached root, or the one inside the `sigstore`
   package. The log names which one was used.
 - **What it does not prove.** Anyone who can push to `main` can run the release
-  workflow, and `main` is not branch-protected (a maintainer ruling), so the check
-  proves a build is traceable to a public commit here, not that anyone reviewed the
+  workflow. The repository rulesets decided on 2026-10-12 (`PLANNING.md` KDD-43) route
+  every change through a pull request that passes CI, but require no approval, so the
+  check proves a build is traceable to a public commit here, not that anyone reviewed the
   commit. It also does not stop a genuine *older* build being served under a newer
   version; the attested commit is logged, so such a mix-up is visible afterwards.
 - **The rollout.** An installed app checks the release it updates *to*, so the

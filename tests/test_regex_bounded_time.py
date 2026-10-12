@@ -724,7 +724,7 @@ def test_every_compiled_regex_in_the_tooling_is_roughly_linear() -> None:
     _assert_every_pattern_is_roughly_linear(
         _compiled_patterns(maintained_tooling_modules(_REPO_ROOT)),
         floor=_MIN_TOOLING_PATTERNS,
-        where=("scripts/", "build/"),
+        where=("scripts/", "build/", ".claude/hooks/"),
     )
 
 
@@ -815,7 +815,7 @@ def test_every_compiled_regex_in_the_tooling_is_roughly_linear_behind_its_lead_i
     _assert_every_pattern_is_roughly_linear(
         _not_ledgered(_compiled_patterns(maintained_tooling_modules(_REPO_ROOT))),
         floor=_MIN_TOOLING_PATTERNS,
-        where=("scripts/", "build/"),
+        where=("scripts/", "build/", ".claude/hooks/"),
         shapes_for=_lead_in_shapes,
         timed_floor=_MIN_TOOLING_LEAD_IN_PATTERNS,
         rounds=1,
