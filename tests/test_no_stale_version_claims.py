@@ -376,11 +376,17 @@ MIN_PEOPLE_FOR_1_0: int = 2
 MIN_MACHINES_FOR_1_0: int = 3
 MIN_DISTROS_FOR_1_0: int = 3
 
-#: Complete hardware passes a 0.9.1 claim needs. Two, because one is a data point
+#: Complete hardware passes a 0.8.1 claim needs. Two, because one is a data point
 #: and two is the first evidence it was not luck.
-MIN_FULL_GREEN_FOR_0_9_1: int = 2
+#:
+#: **0.8.1, not 0.9.1, from 2026-10-12** (maintainer ruling): *"if we get a second
+#: green run on a different drive/rig, it should bump to 0.8.1, not 0.9.1"*. The bar
+#: is unchanged; the version it unlocks moved down, so every version from 0.8.1 up
+#: now needs it. Nothing became easier to reach: 0.8.1 to 0.9.0 used to need only
+#: what 0.7.100 needed.
+MIN_FULL_GREEN_FOR_0_8_1: int = 2
 
-#: Distinct machines and distros a 0.9.1 claim ALSO needs (maintainer ruling,
+#: Distinct machines and distros a 0.8.1 claim ALSO needs (maintainer ruling,
 #: 2026-09-13): *"me passing full tests, even if different, on the same version of
 #: linux and hardware should not allow a 0.9.1"*.
 #:
@@ -395,8 +401,8 @@ MIN_FULL_GREEN_FOR_0_9_1: int = 2
 #: two bars stay distinct. Collapsing them would delete the intermediate
 #: milestone, which is the failure mode of tightening a gate by copying the next
 #: one up.
-MIN_MACHINES_FOR_0_9_1: int = 2
-MIN_DISTROS_FOR_0_9_1: int = 2
+MIN_MACHINES_FOR_0_8_1: int = 2
+MIN_DISTROS_FOR_0_8_1: int = 2
 
 
 def _version_tuple(text: str) -> tuple[int, int, int]:
@@ -464,8 +470,8 @@ def test_the_field_evidence_ledger_parses_and_is_not_empty() -> None:
     )
 
 
-def test_a_0_9_x_claim_needs_two_complete_hardware_passes() -> None:
-    """0.9.1+ asserts "internally proven", which means EVERY test green, twice.
+def test_an_0_8_1_claim_needs_two_complete_hardware_passes() -> None:
+    """0.8.1+ asserts "internally proven", which means EVERY test green, twice.
 
     "All at once" is the whole rule. A run of `pass=55 fail=5` whose five failures
     are each separately explained is not a pass — explaining a failure is how you
@@ -473,13 +479,13 @@ def test_a_0_9_x_claim_needs_two_complete_hardware_passes() -> None:
     failures all descended from ONE defect nobody knew existed, and a looser rule
     would have waved every one of them through as understood.
     """
-    if _version_tuple(__version__) < (0, 9, 1):
-        pytest.skip(f"v{__version__} makes no 0.9.x claim yet")
+    if _version_tuple(__version__) < (0, 8, 1):
+        pytest.skip(f"v{__version__} makes no 0.8.1+ claim yet")
     passes = [r for r in _read_ledger() if r["result"] == "full-green"]
     shortfalls: list[str] = []
-    if len(passes) < MIN_FULL_GREEN_FOR_0_9_1:
+    if len(passes) < MIN_FULL_GREEN_FOR_0_8_1:
         shortfalls.append(
-            f"{len(passes)} complete pass(es), need {MIN_FULL_GREEN_FOR_0_9_1}"
+            f"{len(passes)} complete pass(es), need {MIN_FULL_GREEN_FOR_0_8_1}"
         )
     # DIVERSITY IS COUNTED OVER THE FULL-GREEN ROWS, not over the whole ledger.
     #
@@ -491,17 +497,17 @@ def test_a_0_9_x_claim_needs_two_complete_hardware_passes() -> None:
     # one rig borrow coverage from a failure on another.
     machines = {r["machine"].lower() for r in passes}
     distros = {r["distro"].lower() for r in passes}
-    if len(machines) < MIN_MACHINES_FOR_0_9_1:
+    if len(machines) < MIN_MACHINES_FOR_0_8_1:
         shortfalls.append(
             f"{len(machines)} machine(s) among the passes, "
-            f"need {MIN_MACHINES_FOR_0_9_1}"
+            f"need {MIN_MACHINES_FOR_0_8_1}"
         )
-    if len(distros) < MIN_DISTROS_FOR_0_9_1:
+    if len(distros) < MIN_DISTROS_FOR_0_8_1:
         shortfalls.append(
-            f"{len(distros)} distro(s) among the passes, need {MIN_DISTROS_FOR_0_9_1}"
+            f"{len(distros)} distro(s) among the passes, need {MIN_DISTROS_FOR_0_8_1}"
         )
     assert not shortfalls, (
-        f"v{__version__} claims 0.9.1+ ('feature-complete and internally proven') "
+        f"v{__version__} claims 0.8.1+ ('feature-complete and internally proven') "
         "on " + "; ".join(shortfalls) + ". Two passes on ONE machine and ONE "
         "distro measure the same configuration twice — evidence against luck, "
         "and none against 'green because of something true only of this rig' "
@@ -550,18 +556,18 @@ def test_the_version_gates_can_actually_fail() -> None:
     """
     empty: list[dict[str, str]] = []
     assert len([r for r in empty if r["result"] == "full-green"]) < (
-        MIN_FULL_GREEN_FOR_0_9_1
-    ), "an empty ledger must not satisfy the 0.9.1 bar"
-    # THE REAL LEDGER MUST NOT ALREADY SATISFY 0.9.1 EITHER. Without this the
+        MIN_FULL_GREEN_FOR_0_8_1
+    ), "an empty ledger must not satisfy the 0.8.1 bar"
+    # THE REAL LEDGER MUST NOT ALREADY SATISFY 0.8.1 EITHER. Without this the
     # diversity clause added on 2026-09-13 could be silently vacuous: the gate
-    # skips below 0.9.1, so nothing would notice if it were satisfiable today.
+    # skips below 0.8.1, so nothing would notice if it were satisfiable today.
     real_passes = [r for r in _read_ledger() if r["result"] == "full-green"]
     assert (
-        len(real_passes) < MIN_FULL_GREEN_FOR_0_9_1
-        or len({r["machine"].lower() for r in real_passes}) < MIN_MACHINES_FOR_0_9_1
-        or len({r["distro"].lower() for r in real_passes}) < MIN_DISTROS_FOR_0_9_1
+        len(real_passes) < MIN_FULL_GREEN_FOR_0_8_1
+        or len({r["machine"].lower() for r in real_passes}) < MIN_MACHINES_FOR_0_8_1
+        or len({r["distro"].lower() for r in real_passes}) < MIN_DISTROS_FOR_0_8_1
     ), (
-        "the ledger ALREADY satisfies the 0.9.1 bar, so that gate can no longer "
+        "the ledger ALREADY satisfies the 0.8.1 bar, so that gate can no longer "
         "fail and is not testing anything. Either the bar needs raising or the "
         "version needs bumping — but it must not sit satisfied and skipped."
     )
