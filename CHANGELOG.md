@@ -25,7 +25,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   command that stages audio itself (by asking `git add --dry-run`, so `git add .` counts).
   It fails closed: a commit or push is refused when the staged list cannot be read, and
   everything else is allowed. `tests/test_audio_guard_hook.py` runs each case twice, once
-  with a `git` whose `diff` fails. The git pre-commit hook stays the real gate.
+  with a `git` whose `diff` fails. The git pre-commit hook stays the real gate. The
+  script sits under the tooling gates: the size ledger, mypy and the regex timing
+  sweep. The sweep found one of its patterns quadratic, and string operations replace it.
 - **Four more probes read "could not look" as "found nothing"**, found by sweeping the
   repository for the same shape:
   - **The rig collector's audio check** (`docs/rig-scripts/platterpuscollect.sh`) printed

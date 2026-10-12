@@ -62,10 +62,11 @@ from typing import Final
 # The same extensions, spelled the same way, as `.githooks/pre-commit` and
 # ci.yml's media-guard. `tests/test_media_guard_hook.py` compares all three, so
 # a format added to one and forgotten in another turns the suite red.
-AUDIO_PATTERN: Final[str] = (
-    r"\.(flac|wav|pcm|raw|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$"
+AUDIO: Final[re.Pattern[str]] = re.compile(
+    r"\.(flac|wav|pcm|raw|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$",
+    re.IGNORECASE,
 )
-AUDIO: Final[re.Pattern[str]] = re.compile(AUDIO_PATTERN, re.IGNORECASE)
+AUDIO_PATTERN: Final[str] = AUDIO.pattern
 
 # Exit codes Claude Code gives meaning to: 2 blocks the call, 0 allows it.
 BLOCK: Final[int] = 2
@@ -152,9 +153,19 @@ _PREFIX_COMMANDS: Final[frozenset[str]] = frozenset(
 # Shells whose `-c '<text>'` we read as a command of its own.
 _SHELLS: Final[frozenset[str]] = frozenset({"bash", "sh", "zsh", "dash"})
 
-# A heredoc operator, but not the here-string `<<<`.
+# A heredoc operator, but not the here-string `<<<`. The quote around the
+# delimiter is matched but not paired (no backreference), which keeps this a
+# pattern the regex sweep can time; a mismatched quote is not valid shell anyway.
 _HEREDOC: Final[re.Pattern[str]] = re.compile(
-    r"(?<!<)<<(-?)(?!<)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2"
+    r"(?<!<)<<(-?)(?!<)[ \t]*['\"]?([A-Za-z_][A-Za-z0-9_]*)"
+)
+
+
+# Used only when the command will not parse as shell: does it name git at all,
+# and does it name a git command that stages?
+_GIT_WORD: Final[re.Pattern[str]] = re.compile(r"\bgit\b")
+_GIT_STAGING: Final[re.Pattern[str]] = re.compile(
+    r"\bgit[ \t]+(?:add|stage|mv|commit)\b"
 )
 
 # Tokens that end one simple command and begin the next.
@@ -213,7 +224,7 @@ def strip_heredoc_bodies(text: str) -> str:
             continue
         out.append(line)
         for m in _HEREDOC.finditer(line):
-            pending.append((m.group(3), m.group(1) == "-"))
+            pending.append((m.group(2), m.group(1) == "-"))
     return "\n".join(out)
 
 
@@ -252,6 +263,16 @@ def split_simple_commands(tokens: list[str]) -> list[list[str]]:
     return commands
 
 
+def _is_assignment(word: str) -> bool:
+    """True for `NAME=value`, a shell assignment rather than the program to run.
+
+    String operations, not a regex: `[A-Za-z_][A-Za-z0-9_]*=` searched over a
+    long word with no `=` is quadratic, which the regex sweep measured.
+    """
+    name, sep, _value = word.partition("=")
+    return bool(sep) and name.isidentifier() and name.isascii()
+
+
 def find_git_calls(text: str, cwd: Path, depth: int = 0) -> Findings:
     """Read every `git` invocation out of shell text, following `cd` and `sh -c`."""
     findings = Findings()
@@ -265,8 +286,7 @@ def find_git_calls(text: str, cwd: Path, depth: int = 0) -> Findings:
         # Leading `VAR=value` assignments and prefix commands do not change what
         # runs: `GIT_DIR=x env git commit` is still a commit.
         while words and (
-            re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[0])
-            or os.path.basename(words[0]) in _PREFIX_COMMANDS
+            _is_assignment(words[0]) or os.path.basename(words[0]) in _PREFIX_COMMANDS
         ):
             words = words[1:]
             while words and words[0].startswith("-"):
@@ -481,16 +501,15 @@ def judge(command: str, cwd: Path) -> tuple[int, str]:
         # The text is not valid shell as written (an unclosed quote, say). Bash
         # will most likely refuse it too. If it mentions git, judge it by the
         # staged list alone, and by any audio name beside a staging word.
-        if not re.search(r"\bgit\b", command):
+        if not _GIT_WORD.search(command):
             return ALLOW, ""
-        if re.search(
-            r"\bgit\s+(add|stage|mv|commit)\b[^\n]*" + AUDIO_PATTERN[:-1] + r"\b",
-            command,
-            re.IGNORECASE,
-        ):
-            return BLOCK, _msg_stages(
-                ["(an audio file named in a command that did not parse)"]
-            )
+        audio_words = [
+            word
+            for word in (w.strip("'\";&|()<>") for w in command.split())
+            if AUDIO.search(word)
+        ]
+        if audio_words and _GIT_STAGING.search(command):
+            return BLOCK, _msg_stages(audio_words)
         return _check_commit_and_push(
             cwd, why_checked="it mentions git and would not parse"
         )
@@ -592,9 +611,8 @@ def main() -> int:
         # the agent's shell, so fail closed where it matters: refuse anything that
         # names a commit or a push, allow the rest, and say what broke either way.
         broke = f"the audio guard crashed ({type(exc).__name__}: {exc})"
-        if re.search(
-            r"\bgit\b[^\n]*\b(" + "|".join(sorted(COMMITTING)) + r")\b", command
-        ):
+        words = set(command.split())
+        if "git" in words and words & COMMITTING:
             print(
                 f"Blocked: {broke}, and this command commits or pushes.",
                 file=sys.stderr,
