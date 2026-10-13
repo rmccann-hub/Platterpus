@@ -766,7 +766,7 @@ and if allowed to pass then it should be scrutinized and documented."*
 Parts 0–D say **what to exercise**. This part says **what to disbelieve**, and it
 is derived from the record rather than from imagination: the numbered cases in
 [`testing.md` §5](testing.md), the `[Fixed]` entries in `CHANGELOG.md`, and the
-rig runs in the [§5B evidence ledger](testing.md) (eighteen rows on 2026-10-12, two of them
+rig runs in the [§5B evidence ledger](testing.md) (nineteen rows on 2026-10-13, three of them
 `full-green`, all on one machine). A pass on this project has
 been wrong often enough that "it passed" is the beginning of the check, not the end.
 

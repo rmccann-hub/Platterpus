@@ -14,6 +14,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 32's Full run is filed and graded `full-green`.** The operator ran 0.7.104
+  with the fork's `.22` (`200530e`) on 2026-10-13: 424 pass, 0 fail, 0 error, and E2 not
+  reachable on this AccurateRip-listed drive. The maintainer ruled it `full-green`, as
+  for the two runs before it. Its 75 text members are in
+  `docs/handshake/artifactsround32/`. Every rip sent `--diagnostics`, which `.22`
+  honoured. One finding, ours: a securing pass's own diagnostics record is never kept,
+  and the bundle does not say so (TASKS R9). The evidence ledger, PLANNING, test plan,
+  README and `docs/eac-parity.md`'s per-track counts (now 22 rips) are updated.
+
 - **The status block records 0.7.104 as released** (tag at `3577be65`, 2026-10-13),
   and round 32's run now waits only on the operator's Full run with it on `.22`.
 
