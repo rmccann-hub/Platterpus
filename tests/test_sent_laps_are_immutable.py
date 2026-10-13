@@ -189,6 +189,11 @@ SENT_LAPS: dict[str, str] = {
     # your lap"), 18,326 bytes. Their lap 3 confirms holding it at this hash.
     "outbound/round-32-lap-02.md": "e2833eccaaea416a31a2b8a37cfce12196d631eed5b73c9192cbd9b35c0a9222",
     "outbound/round-32-lap-04.md": "93a085f123b9867ede857bf814f789b1cc17169f936a48f23e178235eec4b4be",
+    # Our round 32 lap 6, OPEN: declares protocol 8 and owns lap 4's 7 (C29),
+    # asks for C29 to refuse the file not the round, reports their lap 5's C46,
+    # and lands `--diagnostics`; released on the maintainer's word 2026-10-13
+    # ("Release"), 15,365 bytes.
+    "outbound/round-32-lap-06.md": "9bf380d029f800b0cb0883c03adf9d34141e69e78593b31c4bbfc0d74663d71d",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
