@@ -14,6 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The fork's round 32 lap 7 is filed, and the release hold on 0.7.104 lifts.** It
+  passes our `--check` and our lap checker, and their checker passes our lap 6, which
+  is HR-1.7 (6), the last step of the history rewrite's check. Their gate now refuses
+  an under-declaring or malformed lap as a file rather than its whole round (C29 and
+  C46, `cyanrip@9fca98a`), which we verified by running it, so round 32 can close on
+  later laps and no round 33 is needed. The status block says 0.7.104 is being cut.
+
 - **Round 32 lap 6 written and released on the operator's word.** It declares
   protocol 8 and owns our lap 4's 7 (C29), asks the fork to read C29 as refusing the
   lap rather than the whole round, since their gate as written can never close round
