@@ -39,16 +39,16 @@ log --- 1a. -x, the drive cache probe ---
 # WHATEVER IT PRINTS IS THE FIRST DATA POINT IN EXISTENCE — a number, a refusal,
 # or an absurd number. An absurd number is a finding and a good outcome.
 #
-# NOTE: -x here is the FORK's --cache-probe. It is NOT overread. Overread is -O,
-# and -O is the flag confirmed to hang this drive for ~23 minutes. Do not
-# substitute one for the other.
-cyanrip -x -N
+# NOTE: --cache-probe (formerly -x) is the FORK's cache probe. It is NOT
+# overread. Overread is -O, and -O is the flag confirmed to hang this drive for
+# ~23 minutes. Do not substitute one for the other.
+cyanrip --cache-probe -N
 expect-cyanrip Cache probe:
 
-log --- 1b. -j, the machine-readable diagnostics record ---
+log --- 1b. --diagnostics, the machine-readable diagnostics record ---
 # Written from atexit, so it exists even for runs that open no logfile. Not
 # passed on either J1 pass, so no diagnostics record of theirs exists yet.
-cyanrip -j /tmp/platterpus-rig/diag-prerip.json -N
+cyanrip --diagnostics /tmp/platterpus-rig/diag-prerip.json -N
 
 # --- 2. Settings, stated rather than assumed -------------------------------
 # The rip's own flags are the app's call, so pin them here instead of trusting
@@ -93,6 +93,6 @@ expect-rip-complete
 # --- 5. Post-rip diagnostics ------------------------------------------------
 
 log --- 5. post-rip ---
-cyanrip -j /tmp/platterpus-rig/diag-postrip.json -N
+cyanrip --diagnostics /tmp/platterpus-rig/diag-postrip.json -N
 
 log ===== done — now run the artifact checks (see docs/rig-scripts/README.md) =====

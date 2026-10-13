@@ -383,7 +383,7 @@ def _document() -> str:
     add("|---|---|")
     add("| re-rip only the tracks that failed | `select-tracks 3,7,11-13` |")
     add(
-        "| prove a probe refuses on a disc image | `cyanrip -x -N` then `expect-cyanrip not run` |"
+        "| prove a probe refuses on a disc image | `cyanrip --cache-probe -N` then `expect-cyanrip not run` |"
     )
     add("| check a setting without changing it | `expect <field> <value>` |")
     add("| test the cancel path | `rip`, `wait 30`, `cancel-rip`, `wait-for-rip 180` |")

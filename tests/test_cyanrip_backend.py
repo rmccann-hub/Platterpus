@@ -1701,14 +1701,26 @@ def test_every_rip_asks_for_the_diagnostics_record() -> None:
     made cyanrip refuse an entire rip in two seconds.
     """
     argv = _rip_argv()
-    assert "-j" in argv, "no diagnostics record requested — see PROVIDER-CONTRACT P4"
-    assert argv.count("-j") == 1, (
-        f"the rip argv carries {argv.count('-j')} -j flags. genopt makes a "
+    flag = "--diagnostics"
+    assert flag in argv, "no diagnostics record requested — see PROVIDER-CONTRACT P4"
+    assert argv.count(flag) == 1, (
+        f"the rip argv carries {argv.count(flag)} {flag} flags. genopt makes a "
         f"repeated single-value option replace the previous one (genopt.h:582), "
         f"so a second one silently redirects the record — which is exactly what "
         f"broke the rig-check probe on 2026-09-07"
     )
-    assert argv[argv.index("-j") + 1].startswith(DIAGNOSTICS_RECORD_PREFIX)
+    assert argv[argv.index(flag) + 1].startswith(DIAGNOSTICS_RECORD_PREFIX)
+
+
+def test_the_rip_argv_carries_no_retired_short_option() -> None:
+    """The fork retired `-j`, `-k`, `-u` and `-x` for its next build, `.23`: each
+    exits 1 with `Unable to parse command line argument` (their round 32 lap 5,
+    S10). A rip argv carrying one would be refused whole on `.23`, so the long
+    forms are sent, which every build that takes the letters takes too (`.22`'s
+    PROVIDER-CONTRACT lists both forms)."""
+    argv = _rip_argv()
+    retired = {"-j", "-k", "-u", "-x"} & set(argv)
+    assert not retired, f"the rip argv sends retired short option(s) {retired}"
 
 
 def test_the_diagnostics_path_is_relative_and_UNIQUE_per_rip() -> None:
@@ -1739,7 +1751,7 @@ def test_the_diagnostics_path_is_relative_and_UNIQUE_per_rip() -> None:
     name (`diagnostics_record`, tested in `tests/test_diagnostics_record.py`).
     """
     argv = _rip_argv()
-    path = argv[argv.index("-j") + 1]
+    path = argv[argv.index("--diagnostics") + 1]
     assert not path.startswith("/"), f"{path!r} is absolute"
     assert "/" not in path, f"{path!r} should be a bare filename in the rip's cwd"
     assert path.endswith(".json")

@@ -1341,7 +1341,7 @@ expect-found-offset
 # folder, so the figure travels with the text it was read from.
 log --- P. T3: the fork's cache probe, probe-only ---
 run-size standard
-cyanrip -N -x -I
+cyanrip -N --cache-probe -I
 expect-exit 0
 expect-cyanrip Cache probe
 cache-probe

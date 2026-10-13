@@ -200,7 +200,7 @@ emit. Per-flag semantics and the exact contract for each are in
 `docs/dependency-contracts.md`.
 
 ```
---consumer --verify-log --version -D -F -G -N -O -S -T -U -V -W -Z -a -c -d -j -l -o -r -s -t
+--consumer --diagnostics --verify-log --version -D -F -G -N -O -S -T -U -V -W -Z -a -c -d -l -o -r -s -t
 ```
 
 Two of these are load-bearing beyond their own behaviour:

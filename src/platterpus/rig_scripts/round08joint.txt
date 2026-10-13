@@ -228,7 +228,7 @@ log Pair under test: read the two version lines above; both must name a build.
 log C1 the Cache probe: number is KNOWN UNTRUSTWORTHY -- method defect, round 10
 log C1 cd-paranoia -A on this drive: 137 sectors, then 140. Believe those, not ours.
 
-cyanrip -d /dev/sr0 -I -N -A -U -P 0 -x
+cyanrip -d /dev/sr0 -I -N -A -U -P 0 --cache-probe
 expect-exit 0
 
 # Two independent figures on one line, so neither can pass alone. `sector` alone

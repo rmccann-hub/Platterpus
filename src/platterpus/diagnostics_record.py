@@ -1,7 +1,7 @@
-"""cyanrip's ``-j`` diagnostics record: where it is, so the report bundle can send it.
+"""cyanrip's ``--diagnostics`` record: where it is, so the report bundle can send it.
 
 **Why this module exists.** Every rip asks cyanrip for a machine-readable record
-of the run (``-j <name>``, built in ``adapters/cyanrip_backend.py``). For one
+of the run (``--diagnostics <name>``, built in ``adapters/cyanrip_backend.py``). For one
 whole failure class it is the only evidence there is: a run cyanrip refuses
 during argument validation opens no logfile at all (the fork's provider
 contract, P4). It never reached the evidence bundle, because cyanrip runs with
@@ -31,9 +31,17 @@ from pathlib import Path
 from typing import Final
 
 #: The flag that names the record, read back off the argv AS SPAWNED so this
-#: module cannot disagree with what the ripper was told. The tests pin it
-#: against the real argv builder, the other place the flag is written.
-DIAGNOSTICS_FLAG: Final[str] = "-j"
+#: module cannot disagree with what the ripper was told. This is the ONE home of
+#: the spelling: the argv builder (`adapters/cyanrip_backend.py`) and the rig
+#: check's probe (`rig_check.py`) both import it from here.
+#:
+#: **Long form since 2026-10-13.** It was ``-j`` until the fork retired its four
+#: short options for its next release (`.23`): a retired letter exits 1 with
+#: ``Unable to parse command line argument`` (their round 32 lap 5, S10 and S11).
+#: Every build of theirs that takes ``-j`` also takes ``--diagnostics``: `.22`'s
+#: provider contract lists both forms (`cyanrip@200530e`, PROVIDER-CONTRACT
+#: lines 56-59), so the long form is safe on the pinned build too.
+DIAGNOSTICS_FLAG: Final[str] = "--diagnostics"
 
 #: Archive folder the report bundle puts the records in. Not ``album/``: the
 #: records are not in the album folder, and the member name says where from.
@@ -43,7 +51,7 @@ BUNDLE_FOLDER: Final[str] = "ripperdiagnostics"
 def record_path_from_argv(argv: Sequence[str], cwd: Path) -> Path | None:
     """Where the ripper was told to write its record, or ``None``. Pure.
 
-    The LAST ``-j`` wins, because that is what cyanrip does: genopt makes a
+    The LAST ``--diagnostics`` wins, because that is what cyanrip does: genopt makes a
     repeated single-value option replace the previous one (see
     ``rig_check.compose_probe_argv``, which cites the lines). A relative name is
     resolved against ``cwd``, the directory the ripper was run in.
