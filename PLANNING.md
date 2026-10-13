@@ -2068,4 +2068,4 @@ Its map matched the rehearsal's, sha256 `d576bdc6…`.
 
 ---
 
-*Last updated for Platterpus v0.7.103.*
+*Last updated for Platterpus v0.7.104.*

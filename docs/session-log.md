@@ -35,6 +35,13 @@ warnings.
 
 **Decided.** 0.7.104 waits on HR-1.7 (6): their lap 7 passing our `--check`.
 
+**Then (same day).** Their lap 7 (`cyanrip@afe5ca7a`) passed our `--check` and lap
+checker with 0 warnings, so HR-1.7 (6) holds and 0.7.104 was cut. Their gate fix was
+verified by running it: round 32 now reads off their lap 7, with our lap 4 and their
+lap 5 listed as refused files. Their S8 caught a slip of ours: lap 6's S10 said the
+fix was `7 (ours):`, but `(ours)`/`(yours)` are the writer's side, so their lap 5
+should have read `6 (yours):`. Our lap 8 records it under Corrections.
+
 **Learned.** A lap 6 claim (S9) first predicted what their gate would print with our
 lap in its tree. Running it showed it reads round 32 off their own newest lap, so the
 claim was rewritten to what was measured before the lap was released. The C29 miss is
@@ -10557,4 +10564,4 @@ jointly-verified records into unverified ones.
 
 ---
 
-*Last updated for Platterpus v0.7.103.*
+*Last updated for Platterpus v0.7.104.*

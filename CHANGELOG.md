@@ -12,7 +12,21 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.104] — 2026-10-13
+
+The release round 32's Full run needs: its acceptance script accepts the fork's `.22`
+(`200530e`), the build round 32 reviews, and every rip asks for the diagnostics record
+with `--diagnostics`, which the fork's next build requires. The first release after the
+history rewrite, cut once both projects' checkers passed each other's laps (HR-1.7).
+
 ### Changed
+
+- **The fork's round 32 lap 7 is filed, and the release hold on 0.7.104 lifts.** It
+  passes our `--check` and our lap checker, and their checker passes our lap 6, which
+  is HR-1.7 (6), the last step of the history rewrite's check. Their gate now refuses
+  an under-declaring or malformed lap as a file rather than its whole round (C29 and
+  C46, `cyanrip@9fca98a`), which we verified by running it, so round 32 can close on
+  later laps and no round 33 is needed. The status block says 0.7.104 is being cut.
 
 - **Round 32 lap 6 written and released on the operator's word.** It declares
   protocol 8 and owns our lap 4's 7 (C29), asks the fork to read C29 as refusing the
@@ -18295,7 +18309,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.103...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.104...HEAD
+[0.7.104]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.103...v0.7.104
 [0.7.103]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.102...v0.7.103
 [0.7.102]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.101...v0.7.102
 [0.7.101]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.100...v0.7.101
@@ -18369,4 +18384,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.103.*
+*Last updated for Platterpus v0.7.104.*
