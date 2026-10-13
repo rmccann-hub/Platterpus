@@ -12,6 +12,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **The status block records 0.7.104 as released** (tag at `3577be65`, 2026-10-13),
+  and round 32's run now waits only on the operator's Full run with it on `.22`.
+
 ## [0.7.104] — 2026-10-13
 
 The release round 32's Full run needs: its acceptance script accepts the fork's `.22`

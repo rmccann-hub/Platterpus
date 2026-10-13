@@ -40,7 +40,10 @@ checker with 0 warnings, so HR-1.7 (6) holds and 0.7.104 was cut. Their gate fix
 verified by running it: round 32 now reads off their lap 7, with our lap 4 and their
 lap 5 listed as refused files. Their S8 caught a slip of ours: lap 6's S10 said the
 fix was `7 (ours):`, but `(ours)`/`(yours)` are the writer's side, so their lap 5
-should have read `6 (yours):`. Our lap 8 records it under Corrections.
+should have read `6 (yours):`. Our lap 8 records it under Corrections. 0.7.104 was released
+the same day: PR #320 merged as `3577be65`, `main`'s own CI green on that commit, then
+`release.yml` dispatched; it published a pre-release carrying the AppImage, its
+`.sha256`, `.zsync` and Sigstore bundle, and dispatched the PyPI publish.
 
 **Learned.** A lap 6 claim (S9) first predicted what their gate would print with our
 lap in its tree. Running it showed it reads round 32 off their own newest lap, so the
