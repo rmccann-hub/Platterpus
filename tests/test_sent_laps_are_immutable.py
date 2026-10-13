@@ -194,6 +194,10 @@ SENT_LAPS: dict[str, str] = {
     # and lands `--diagnostics`; released on the maintainer's word 2026-10-13
     # ("Release"), 15,365 bytes.
     "outbound/round-32-lap-06.md": "9bf380d029f800b0cb0883c03adf9d34141e69e78593b31c4bbfc0d74663d71d",
+    # Our round 32 lap 8, GO: reads round 32's Full run (0.7.104 with .22,
+    # 424 pass, full-green) and finds nothing of the fork's to fix; released on
+    # the maintainer's word 2026-10-13 ("Release it"), 14,243 bytes.
+    "outbound/round-32-lap-08.md": "987f5d96edfe82c54413a74dea024f4484509677dbceb8a121fcf0610b8b0618",
     # **Eighteen rows graduated from `PEER_CONFIRMED_UNPINNED` on 2026-09-27**
     # (TASKS row C8). Each value is the sha256 of our copy, and each was MEASURED
     # equal to the fork's own filed copy in their committed tree, at
