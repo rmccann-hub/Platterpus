@@ -4048,6 +4048,7 @@ that is what the section costs, not what its title implies.
 | 2026-10-06 | 0.6.66b1 | maintainer | bdr209d | bazzite | partial |
 | 2026-10-07 | 0.6.66 | maintainer | bdr209d | bazzite | full-green |
 | 2026-10-12 | 0.7.103 | maintainer | bdr209d | bazzite | full-green |
+| 2026-10-13 | 0.7.104 | maintainer | bdr209d | bazzite | full-green |
 
 <!-- END-FIELD-EVIDENCE-TABLE -->
 
@@ -4239,6 +4240,16 @@ a cancel and over track 18's skips; `cancel-rip` stopped an earlier step's rip;
 `pick-release` called an unidentified disc identified; and the 42 s quit grace was
 shorter than the 54 s read. Nothing it showed of the ripper breaks the pin
 (`docs/handshake/artifactsround30/README.md` → *The 2026-10-04 runs*).
+
+**The 2026-10-13 0.7.104 row is the third `full-green` row: round 32's test, the Full run
+on `.22` (`200530e`) through 0.7.104.** 424 of 425 steps passed, none failed or errored,
+and E2 was `unreachable` on this listed drive. **The grade is the maintainer's ruling**
+(2026-10-13), the same as the two before it, with E2 recorded as not covered. Every one of
+the 430 step results equals the 2026-10-12 run's. The witnesses were checked as before (K1
+to K3, the nine audits, no error in the app log, every screenshot on screen), and every
+rip sent `--diagnostics`, which `.22` honoured. The one finding is ours: the bundle does
+not say that a securing pass's own record is not kept (TASKS R9). **It moves no version
+gate**: same machine, distro and person (`docs/handshake/artifactsround32/README.md`).
 
 **The 2026-10-12 0.7.103 row is the second `full-green` row: the Full run of the same
 `.21` through 0.7.103, the release that first installs it by default.** 424 of 425 steps

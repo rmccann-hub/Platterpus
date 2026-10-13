@@ -1406,12 +1406,13 @@ is the decision log failing at the one thing it is for. All three were live in
   0.8.1 up and nothing is easier to reach. `tests/test_no_stale_version_claims.py`
   gates at 0.8.1.
 
-**Status, 2026-10-12:** the ledger carries eighteen rows, and two are `full-green`:
+**Status, 2026-10-13:** the ledger carries nineteen rows, and three are `full-green`:
 the 2026-10-07 Full run on app 0.6.66 and the 2026-10-12 Full run on app 0.7.103, both
-against `ca3f3ea` (`.21`), each with no failure and with E2 N/A on this drive (the
+against `ca3f3ea` (`.21`), and the 2026-10-13 Full run on app 0.7.104 against `200530e`
+(`.22`), round 32's test, each with no failure and with E2 N/A on this drive (the
 maintainer's rulings, with E2 recorded as not covered). The first met `0.7.100`'s gate.
 Every other row is `partial`, and each one's reason is in `docs/testing.md` §5B. All
-eighteen rows are **one** machine and **one** distro, the BDR-209D on Bazzite, so 0.8.1's
+nineteen rows are **one** machine and **one** distro, the BDR-209D on Bazzite, so 0.8.1's
 floor of two `full-green` rows on two machines and two distros is still one machine and
 one distro short.
 

@@ -11,6 +11,24 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-13 — round 32's Full run: 0.7.104 with `.22`, full-green
+
+**What was done.** The operator's Full run of round 32's pair (11:29 to 16:49 UTC) was
+read and filed: 424 pass, 0 fail, 0 error, E2 N/A on this listed drive. All 430 step
+results equal the 2026-10-12 run's. The witnesses were checked rather than counted:
+derived files written, nine audits ok, no error in the app log, the main window on screen
+in every screenshot, every banner `g200530e`, every invocation `--diagnostics`.
+`docs/eac-parity.md`'s counts were re-derived by script, first reproducing the published
+20 / 9 / 1 and then giving 22 / 9 / 1.
+
+**Decided.** The maintainer ruled the run `full-green` (third row, same rig) and said to
+release lap 8 once it passes both checkers.
+
+**Learned.** The `Handshake:` line reading "lap 1 ... draft" is `.22`'s compiled-in
+sentence, not a reading of the round: E7's rule, applied. And two of the run's 11
+invocations left no record nobody could see was missing: a securing pass's record dies
+with its temp folder. Known in a closed row, never in an open one, now TASKS R9.
+
 ## 2026-10-13 — round 32 lap 6: protocol 8, C29 in our gate, `--diagnostics`
 
 **What was done.** The fork's round 32 lap 5 was filed byte-exact and checked. It
