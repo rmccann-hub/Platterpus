@@ -14,6 +14,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 32 lap 6 written and released on the operator's word.** It declares
+  protocol 8 and owns our lap 4's 7 (C29), asks the fork to read C29 as refusing the
+  lap rather than the whole round, since their gate as written can never close round
+  32 now, and reports that their lap 5 trips C46. It records `--diagnostics` and their
+  regenerated `seam-commands.md`, now ours byte for byte. Their lap 5 is filed, its C46
+  miss pinned as answered. The status block says 0.7.104 waits on their lap 7 passing
+  our `--check` (HR-1.7 (6)).
+
 - **Every rip asks cyanrip for its diagnostics record with `--diagnostics`, not
   `-j`.** The fork retired its four short options for its next build (`.23`): `-j`,
   `-k`, `-u` and `-x` each exit 1 there, and the long forms `--diagnostics`,

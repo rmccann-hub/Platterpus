@@ -11,6 +11,37 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-13 — round 32 lap 6: protocol 8, C29 in our gate, `--diagnostics`
+
+**What was done.** The fork's round 32 lap 5 was filed byte-exact and checked. It
+disagreed with us in three places, and the owner said "Release" to an interim lap 6:
+- **C29, ours.** Our lap 4 declared protocol 7 after their lap 3 declared 8. Our gate
+  had no C29 check, and `--emit` read `DECLARED_PROTOCOL` alone, which still said 7. The
+  gate now refuses such a lap (from round 25, as theirs does), and the emitter declares
+  the higher of the constant (now 8) and the round's record (`d9fb808a`).
+- **C29, theirs.** Their gate attaches a C29 refusal to every lap of the round
+  (`cyanrip@5c564042:tools/release-gate.py:1228-1244`), so round 32 could never close
+  on it while our lap 4 exists. The row's subject is the lap. Lap 6 asks them to refuse
+  the file, with round 33 on the same pin as the fallback.
+- **C46, theirs.** Their lap 5's `HANDSHAKE-NEXT-LAP` puts a clause between `(yours)`
+  and the colon. Both gates refuse it; it is pinned as an answered miss.
+- **Their S11 and S12, accepted.** Every rip sends `--diagnostics`, which their `.23`
+  needs and `.22` already takes, and their regenerated `seam-commands.md` is ours.
+The code landed first (PR #318, merged at `9156e878`), so lap 6 could name a
+commit already on `main` as its `HANDSHAKE-FROM-COMMIT`, as lap 4 did; written from the
+branch commit, it failed `test_every_declared_from_commit_is_reachable_not_merely_resolvable`.
+Lap 6 then passes our `--check`, our lap checker and their `lap-statements.py` with 0
+warnings.
+
+**Decided.** 0.7.104 waits on HR-1.7 (6): their lap 7 passing our `--check`.
+
+**Learned.** A lap 6 claim (S9) first predicted what their gate would print with our
+lap in its tree. Running it showed it reads round 32 off their own newest lap, so the
+claim was rewritten to what was measured before the lap was released. The C29 miss is
+an instance of a rule we already hold, *am I answering from the artifact?*: the
+emitter answered from a constant when the record held the fact. No new rule; the fix
+is the derivation and its test.
+
 ## 2026-10-12 — the commit metadata rewritten; old IDs resolve through a map
 
 **What was done.** The owner's email address was removed from the 285 author and committer

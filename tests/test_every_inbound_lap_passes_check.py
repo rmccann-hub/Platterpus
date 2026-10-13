@@ -73,6 +73,11 @@ _PRE_FORMAT_INBOUND: Final[frozenset[str]] = frozenset(
 #:   without ``HANDSHAKE-AGREED-CHANGES``. Found by this sweep on filing; raised in
 #:   our round 30 lap 16 (S11), which asks for their lap 17 with the field,
 #:   because both gates read the round's close off it.
+#: * ``round-32-lap-05.md`` (C46) — the fork's round 32 lap 5
+#:   (``cyanrip@a7fef85``), released 2026-10-13: its ``HANDSHAKE-NEXT-LAP`` reads
+#:   ``6 (yours), declaring protocol 8 (S8): …``, so the colon does not follow
+#:   ``(yours)``. Their own gate refuses it too. Found by this sweep on filing;
+#:   raised in our round 32 lap 6 with the one-character fix.
 _MISSES_ANSWERED: Final[dict[str, tuple[str, str]]] = {
     "round-30-lap-09.md": (
         "be2f763b63ef77b6989bedcaebd2e70b0d08c9754af2f2408ebe0418293cce03",
@@ -82,12 +87,20 @@ _MISSES_ANSWERED: Final[dict[str, tuple[str, str]]] = {
         "b3e9117263f1005ca066956899d4ddb0d73a54397fd2402e6f28fa51c0e15511",
         "C44",
     ),
+    "round-32-lap-05.md": (
+        "7952b240830441dd9dc925238533fbae980b0cb808e048d3faa1f5f00ab889e7",
+        "C46",
+    ),
 }
 
 #: The text ``--check`` writes in a refusal for each rule a miss may be pinned
 #: under. Read from the checker's own messages, not paraphrased: R6's refusals
-#: carry ``": R6: "`` and C44's carry ``"row C44"``.
-_RULE_TEXT: Final[dict[str, str]] = {"R6": " R6: ", "C44": "row C44"}
+#: carry ``": R6: "``, C44's carry ``"row C44"`` and C46's carry ``"row C46"``.
+_RULE_TEXT: Final[dict[str, str]] = {
+    "R6": " R6: ",
+    "C44": "row C44",
+    "C46": "row C46",
+}
 
 
 def _is_answered_miss(name: str, problems: list[str]) -> bool:
