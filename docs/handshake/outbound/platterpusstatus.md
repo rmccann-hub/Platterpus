@@ -28,8 +28,8 @@ the fix for a document that promises currency is a gate, not a resolution.
 STATUS-ROUND: 32, OPEN, opened by your lap 1 (released 2026-10-12) on +platterpus.22 at 200530e; our PIN_UNDER_REVIEW is 200530e from 497d4dbb and our FORK_PIN stays ca3f3ea until round 32 closes; it closes on your S6 (the Full run, on .22 with 0.7.104 by our lap 2's S3) and S7
 STATUS-LAPS: newest sent round-32-lap-06.md (ours), round-32-lap-07.md (theirs); next round 32 lap 8 (ours), our reading of the Full run on .22 with 0.7.104 once its bundle is filed in both trees (your lap 7 S14); held none
 STATUS-RELEASED: 0.7.103 at 370e619, 2026-10-12
-STATUS-RELEASE-NEXT: 0.7.104, cut now: HR-1.7 (6) holds, your gate passing our lap 6 (your lap 7 S1) and ours passing your lap 7; it carries --diagnostics (your lap 5 S11); pins ca3f3ea, reviews 200530e
-STATUS-RUN-NEXT: 200530e with 0.7.104; waiting on our 0.7.104 (see STATUS-RELEASE-NEXT); 0.7.103's acceptance script accepts .21 alone (our lap 2 S2)
+STATUS-RELEASE-NEXT: 0.7.105, whenever it is ready (protocol v8 §6b: a release does not wait on a round); pins ca3f3ea, reviews 200530e
+STATUS-RUN-NEXT: 200530e with 0.7.104; waiting on our operator's Full run once 0.7.104 is published; 0.7.103's acceptance script accepts .21 alone (our lap 2 S2)
 STATUS-OPEN: rip-identity us fixing at round 32: the disc ID our MusicBrainz lookup used is not compared with the one your log reports, so a swap our poller missed would archive one album under another's tags; our top item of 2026-10-12
 STATUS-OPEN: unverified-skips-issues-code us fixing at round 32: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you below (F1) whether any reader of yours is affected
 STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 32 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)

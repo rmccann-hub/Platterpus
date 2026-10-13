@@ -60,7 +60,7 @@ their items, these are ours to do. They join the order here, between P1 and P2:
 
 | # | What | Ours to | Their item |
 |---|---|---|---|
-| R1 | **Round 32's test: the Full run on `.22` with 0.7.104**, not 0.7.103 as this row first said: 0.7.103's section A accepts `.21` alone (`accepted_rig_builds()` returns `PIN_UNDER_REVIEW`, `ca3f3ea` in that release). Corrected in our round 32 lap 2 S2, which amends their S6's pair (S3). `PIN_UNDER_REVIEW` is `200530e` from `497d4dbb` | Cut 0.7.104 from the `main` that carries lap 2 (lap 2 S5); then the operator runs it on the rig and we read it in a lap | `STATUS-RUN-NEXT` |
+| R1 | **Round 32's test: the Full run on `.22` with 0.7.104**, not 0.7.103 as this row first said: 0.7.103's section A accepts `.21` alone (`accepted_rig_builds()` returns `PIN_UNDER_REVIEW`, `ca3f3ea` in that release). Corrected in our round 32 lap 2 S2, which amends their S6's pair (S3). `PIN_UNDER_REVIEW` is `200530e` from `497d4dbb` | **0.7.104 cut 2026-10-13**, once HR-1.7 (6) held (their lap 7). Next: the operator runs it on the rig, and we read the bundle in our lap 8 | `STATUS-RUN-NEXT` |
 | R2 | Their `-j` field names for pre-emphasis, subcode ISRC, CD-TEXT and the `-f` result. **Answered 2026-10-12** in our round 32 lap 2: accepted as named (S7), with one amendment, `cdtext`'s keys enumerated in their P8b (S8) | Wait for their lap 3's word on S8 and their commits; then parse the fields (P2 #9 first, so they land in the archived record) | `j-record-fields` |
 | R3 | Track 1's pregap length from LBA 0 (their S13). **Answered 2026-10-12** in our round 32 lap 2: accepted (S10), and no release of ours needed first (S11), because our reader takes `Pregap length:` as stated and EAC's convention is the lead-in plus any span | Nothing more of ours; their commit lands it | `track1-pregap-base` |
 | R4 | Which build a closing lap's version fields name. **Answered 2026-10-12** in our round 32 lap 2 S12: their S16's reading, the reviewed build in `OUR-VERSION`/`PEER-VERSION`, which is how our approval record already reads theirs | Our closing lap names 0.7.104 there, and `--emit` says so (lap 2 S26) | `version-field-meaning` |
@@ -8981,4 +8981,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.7.103.*
+*Last updated for Platterpus v0.7.104.*
