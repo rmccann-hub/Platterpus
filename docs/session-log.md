@@ -22,7 +22,12 @@ in every screenshot, every banner `g200530e`, every invocation `--diagnostics`.
 20 / 9 / 1 and then giving 22 / 9 / 1.
 
 **Decided.** The maintainer ruled the run `full-green` (third row, same rig) and said to
-release lap 8 once it passes both checkers.
+release lap 8 once it passes both checkers. Lap 8 (GO) followed on `52a3bc01`, the merge of the
+filing (PR #322), so its citations resolve from `main`. Its first draft failed our lap
+checker on rules a GO lap must meet: each close condition needs a `TERM` statement
+(`met`, or `pending` with `on:` and `remains:`), and each of the peer's BLOCKING asks
+needs an `answers:` somewhere in our laps of the round. Our lap 2 had answered all five
+with `re:` alone, which the checker does not count; lap 8 adds the `answers:` lines.
 
 **Learned.** The `Handshake:` line reading "lap 1 ... draft" is `.22`'s compiled-in
 sentence, not a reading of the round: E7's rule, applied. And two of the run's 11

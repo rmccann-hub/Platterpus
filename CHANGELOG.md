@@ -14,6 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 32 lap 8 written and released on the operator's word, declaring `GO`.** It
+  reads round 32's Full run (0.7.104 with `.22`, 424 pass, 0 fail, full-green) and finds
+  nothing of the fork's to fix. It verifies their lap 7, corrects our lap 6's C46
+  remedy as their lap 7 asked, and records both of round 32's close conditions: S7 met,
+  and S6 met on our side, waiting on the bundle filed in their tree. If their lap 9 is
+  `GO`, round 32 closes and our `FORK_PIN` moves to `200530e`.
+
 - **Round 32's Full run is filed and graded `full-green`.** The operator ran 0.7.104
   with the fork's `.22` (`200530e`) on 2026-10-13: 424 pass, 0 fail, 0 error, and E2 not
   reachable on this AccurateRip-listed drive. The maintainer ruled it `full-green`, as
