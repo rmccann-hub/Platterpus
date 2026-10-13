@@ -136,10 +136,11 @@ _INVOCATION_SHAPES: dict[str, tuple[str, str]] = {
         "cyanrip_cli.VERIFY_LOG_FLAG, run over a finished rip's own logfile",
     ),
     "the rig-check argv probe": (
-        "-j",
+        "--diagnostics",
         "rig_check.DIAGNOSTICS_FLAG, to read our command line back out of the "
         "diagnostics record; the shape that was MISSING from the contract until "
-        "2026-08-21",
+        "2026-08-21; spelled `-j` until 2026-10-13, when the fork's `.23` "
+        "retired the letter",
     ),
 }
 

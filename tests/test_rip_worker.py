@@ -1345,7 +1345,7 @@ def test_only_the_album_passs_record_is_named_and_nothing_is_moved(
         # Like cyanrip: a relative name, written in the directory the pass ran in.
         name = f"cyanrip-diagnostics-2026092700000{len(names)}Z.json"
         names.append(name)
-        handle.argv = ("cyanrip", "-N", "-j", name)
+        handle.argv = ("cyanrip", "-N", "--diagnostics", name)
         (call["output_dir"] / name).write_text(f'{{"pass": {len(names)}}}\n')
 
     backend.rip_side_effect = rip_side_effect
@@ -1393,7 +1393,7 @@ def test_the_worker_reads_how_the_album_pass_ended_from_its_own_record(
     def rip_side_effect(call: dict) -> None:
         write_logs(call)
         name = f"cyanrip-diagnostics-2026100600000{len(names)}Z.json"
-        handle.argv = ("cyanrip", "-N", "-j", name)
+        handle.argv = ("cyanrip", "-N", "--diagnostics", name)
         record = _FORK_GOLDEN_RECORD if names else _FORK_INTERRUPTED_RECORD
         names.append(name)
         (call["output_dir"] / name).write_text(record.read_text(encoding="utf-8"))

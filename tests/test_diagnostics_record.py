@@ -25,6 +25,9 @@ from platterpus.adapters.cyanrip_backend import DIAGNOSTICS_RECORD_PREFIX, Cyanr
 from platterpus.evidence_bundle import build_bundle
 
 NAME = f"{DIAGNOSTICS_RECORD_PREFIX}-20260927T010203Z.json"
+#: The spelling the argv builder sends, written out rather than imported, so a
+#: change to `dr.DIAGNOSTICS_FLAG` cannot pass these tests by moving both sides.
+FLAG = "--diagnostics"
 RECORD_GLOB = f"{DIAGNOSTICS_RECORD_PREFIX}-*.json"
 
 
@@ -34,17 +37,17 @@ RECORD_GLOB = f"{DIAGNOSTICS_RECORD_PREFIX}-*.json"
 def test_the_record_path_is_read_off_the_argv_the_ripper_was_given(
     tmp_path: Path,
 ) -> None:
-    argv = ["cyanrip", "-N", "-j", NAME, "-G"]
+    argv = ["cyanrip", "-N", FLAG, NAME, "-G"]
     assert dr.record_path_from_argv(argv, tmp_path) == tmp_path / NAME
-    assert dr.record_path_from_argv(["cyanrip", "-j", "/abs/x.json"], tmp_path) == (
+    assert dr.record_path_from_argv(["cyanrip", FLAG, "/abs/x.json"], tmp_path) == (
         Path("/abs/x.json")
     )
     # genopt: a repeated single-value option replaces the previous one.
-    assert dr.record_path_from_argv(["c", "-j", "a", "-j", "b"], tmp_path) == (
+    assert dr.record_path_from_argv(["c", FLAG, "a", FLAG, "b"], tmp_path) == (
         tmp_path / "b"
     )
     assert dr.record_path_from_argv(["cyanrip", "-N"], tmp_path) is None
-    assert dr.record_path_from_argv(["cyanrip", "-j"], tmp_path) is None
+    assert dr.record_path_from_argv(["cyanrip", FLAG], tmp_path) is None
     assert dr.record_path_from_argv([], tmp_path) is None
 
 
@@ -122,7 +125,7 @@ def test_a_record_in_the_rips_root_reaches_the_bundle_and_not_as_album_content(
 #
 # A stand-in binary that does what cyanrip does with the two paths it is given:
 # the log goes into the folder `-D` names (created relative to the cwd), and the
-# `-j` record goes to the name it was handed, relative to the cwd, as it exits.
+# `--diagnostics` record goes to the name it was handed, relative to the cwd, as it exits.
 # Nothing here tells the worker where the record is; it has to read the argv.
 
 _STAND_IN = """#!/bin/sh
@@ -130,7 +133,7 @@ case "$1" in --verify-log|--version|-V) exit 0 ;; esac
 record=""; dir="."
 while [ $# -gt 0 ]; do
   case "$1" in
-    -j) record="$2"; shift 2 ;;
+    --diagnostics) record="$2"; shift 2 ;;
     -D) dir="$2"; shift 2 ;;
     *) shift ;;
   esac

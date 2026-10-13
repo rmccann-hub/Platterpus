@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from platterpus import rip_pass_exit
+from platterpus import diagnostics_record, rip_pass_exit
 from platterpus.parsers.rip_log import RipLog, secure_rerip_tracks_scoped
 from platterpus.rip_addendum import read_log_with_addendum
 
@@ -66,7 +66,12 @@ PROBE_TIMEOUT_S: Final[float] = 120.0
 #: invocation we make is part of the argv surface"* — this is the fourth invocation
 #: shape, and the third time that exact blind spot has been recorded there. A rule
 #: stated one screen above the population it does not cover is not enforcement.
-DIAGNOSTICS_FLAG: Final[str] = "-j"
+#:
+#: Since 2026-10-13 it is not spelled here at all: it is imported from
+#: `diagnostics_record`, the one home of the spelling, which the argv builder
+#: imports too. Two copies of it is how the probe could strip one spelling and
+#: append the other, carrying two records again (the 2026-09-07 failure below).
+DIAGNOSTICS_FLAG: Final[str] = diagnostics_record.DIAGNOSTICS_FLAG
 
 
 @dataclass
@@ -732,8 +737,9 @@ def check_parsers_against_the_log(manifest: Manifest, album_dir: Path | None) ->
             cache
             or (
                 "no Cache probe: line in this log, and there never will be one — "
-                "`-x` is not in the rip argv builder at all, so no Platterpus rip "
-                "probes the cache. The probe is a separate `cyanrip -N -x -I` "
+                "`--cache-probe` is not in the rip argv builder at all, so no "
+                "Platterpus rip "
+                "probes the cache. The probe is a separate `cyanrip -N --cache-probe -I` "
                 "invocation (round 14 T3), whose exact argv, exit code and complete "
                 "output are recorded in the SCRIPT REPORT and transcript, not here. "
                 "Look there, not for an absence in this manifest."

@@ -1205,7 +1205,7 @@ def emit_outbound(round_number: int) -> str:
     header = "\n".join(
         [
             # What we DECLARE, not what we implement: v6 §14 separates the two.
-            f"HANDSHAKE-PROTOCOL: {DECLARED_PROTOCOL}",
+            f"HANDSHAKE-PROTOCOL: {protocol_to_declare(round_number)}",
             f"HANDSHAKE-ROUND: {round_number}",
             "HANDSHAKE-LAP: 1",
             "HANDSHAKE-FROM: platterpus",
@@ -1564,7 +1564,15 @@ PROTOCOL_VERSION: int = 8
 #: have said so in a lap (their round 30 lap 9 S5, our round 30 lap 10 S8, which says
 #: *"round 31's laps may declare it"*). Round 30's laps kept declaring 6. Their round
 #: 31 lap 1 declares 7, so our lap 2 does, and under C29 it could not declare less.
-DECLARED_PROTOCOL: int = 7
+#:
+#: **8 since 2026-10-13**, by v8 §16's condition: both gates implement 8 and both have
+#: said so in a lap (our round 31 lap 5 S5, their round 32 lap 1 S1). **It should have
+#: moved before our round 32 lap 4**, which declared 7 after their lap 3 declared 8,
+#: and C29 refuses that file. Nothing here stopped it: this constant was the only
+#: input to `--emit`, and our gate did not implement C29 at all. Their round 32 lap 5
+#: S7 found it. Both halves are fixed: :func:`protocol_to_declare` never emits less
+#: than the round's record holds, and :func:`c29_problem` refuses the file.
+DECLARED_PROTOCOL: int = 8
 
 #: Sentinel for a field declared more than once with conflicting values. A real
 #: value can never equal it, and every consumer treats it as "not closed".
@@ -2539,6 +2547,71 @@ def declared_protocol(text: str) -> int | None:
         return None
 
 
+def _record_files(round_number: int) -> list[Path]:
+    """Every file of round ``round_number`` in our record, in all three directories."""
+    return [
+        path
+        for directory in (OUTBOUND_DIR, INBOUND_DIR, VERIFIED_DIR)
+        for path in _round_files(directory, round_number)
+    ]
+
+
+def protocol_to_declare(round_number: int) -> int:
+    """The protocol our next lap of ``round_number`` declares: never less than the record.
+
+    Row C29 refuses a lap declaring a lower protocol than an earlier lap of the same
+    record. Our round 32 lap 4 did exactly that: `--emit` read :data:`DECLARED_PROTOCOL`
+    alone, which said 7, while the fork's lap 3 had declared 8. So the value is the
+    higher of the constant and the highest version any lap of the round declares.
+    """
+    declared = [declared_protocol(_safe_read(p)) for p in _record_files(round_number)]
+    return max([DECLARED_PROTOCOL, *(v for v in declared if v is not None)])
+
+
+#: The first round C29 binds. The fork's gate uses the same number
+#: (`cyanrip@5c564042:tools/release-gate.py:136`), and for its reason: round 8's laps
+#: 3 to 15 of the fork's declared 1 after our lap 2 declared 2, that round is
+#: closed, and a rule that reached back would rewrite it. The two gates must agree
+#: on where the rule starts or they refuse different files.
+C29_FROM_ROUND: Final[int] = 25
+
+
+def c29_problem(path: Path, text: str) -> str | None:
+    """Row C29: why this file declares less than an earlier lap of its round, or None.
+
+    **The FILE is refused, not the round.** That is the reading we proposed in our
+    round 32 lap 6: a lap that under-declares is not graded, and the round can still
+    close on later laps that declare at least the record's highest version. The
+    fork's gate, as of their round 32 lap 5, attaches the refusal to every lap of
+    the round instead, which no later lap can lift once the refused lap is
+    immutable. The two gates agree on which file is refused; the round-level
+    consequence is the open question.
+
+    Earlier means a lower declared lap number. A copy of the same lap filed in two
+    places is not "earlier" than itself.
+    """
+    number = declared_round(text)
+    mine = declared_protocol(text)
+    if number is None or mine is None or number < C29_FROM_ROUND:
+        return None
+    lap = _declared_lap(path, wire_fields(text), number)
+    highest: tuple[int, str] | None = None
+    for other in _record_files(number):
+        other_text = _safe_read(other)
+        other_lap = _declared_lap(other, wire_fields(other_text), number)
+        version = declared_protocol(other_text)
+        if version is None or other_lap >= lap:
+            continue
+        if highest is None or version > highest[0]:
+            highest = (version, other.name)
+    if highest is not None and mine < highest[0]:
+        return (
+            f"declares HANDSHAKE-PROTOCOL: {mine}, lower than {highest[1]}'s "
+            f"{highest[0]} (C29: a lap may not under-declare the rules it is read by)"
+        )
+    return None
+
+
 def is_v5_file(text: str) -> bool:
     """Whether this file asks to be graded under §5b (it declares 5 or more)."""
     version = declared_protocol(text)
@@ -2980,6 +3053,9 @@ def check_wire_header(path: Path, *, expect_from: str | None = None) -> list[str
     refusal = protocol_refusal(text)
     if refusal:
         return [f"{path.name}: {refusal}"]
+    under_declared = c29_problem(path, text)
+    if under_declared:
+        problems.append(f"{path.name}: {under_declared}")
 
     fields = wire_fields(text)
     for key in REQUIRED_WIRE_FIELDS:

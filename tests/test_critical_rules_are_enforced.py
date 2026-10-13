@@ -1161,7 +1161,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1839 -> 1852** (2026-09-30, round 30): `-U` on every rip, with the fork's measurement that it changes one log line and no checksum (their lap 5 S15); and the `-f` notes corrected: cyanrip HAS an AccurateRip offset finder (`cyanrip@174a134:src/cyanrip_main.c:594-692`), what it lacks is a measurement against a known offset, which acceptance section O now takes. The history of the scraped-0 bug stays, because it is why `find_offset` is still unimplemented.
     # **1852 -> 1845** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: `produces_max_compression_flac()` went with the step it gated.
     # **1845 -> 1852** (2026-10-07, the maintainer's -W ruling): every rip passes `-W`, with the six-line why (cyanrip's default de-emphasis, the cue's FLAGS PRE, stock accepts it).
-    "adapters/cyanrip_backend.py": 1852,
+    # **1852 -> 1857** (2026-10-13, the fork's round 32 lap 5 S11): the record flag is `DIAGNOSTICS_FLAG` from `diagnostics_record`, the one home of its spelling, now `--diagnostics` because the fork's `.23` refuses `-j`; four lines say why, beside the flag.
+    "adapters/cyanrip_backend.py": 1857,
     "adapters/musicbrainz_client.py": 524,
     # **585 -> 594 on 2026-09-10** (log-verification race, above): the same
     # keyword on the ABC, where it belongs: any ripper that writes its
@@ -1871,7 +1872,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # review and its round, where a fixed sentence said a test pin was expected.
     # **998 -> 1009** (landed 2026-09-29, written 2026-09-28 as `167e0d4c`): the reference argv's `-r`/`-Z` come from `Config()` instead of a hand-typed `-r 3 -Z 3`, a pair that can never converge and that the argv chokepoint now refuses; the comment says so.
     # **1009 -> 1012** (2026-10-06, ruling C1): `_rip_failure` phrases each pass's exit through `rip_pass_exit.PassExits`, the one phrasing every reader shares; the phrasing itself lives there.
-    "rig_check.py": 1012,
+    # **1012 -> 1018** (2026-10-13, round 32 lap 5 S11): `DIAGNOSTICS_FLAG` is imported from `diagnostics_record` rather than spelled here, with the reason (two copies could strip one spelling and append the other); the cache-probe row names `--cache-probe`.
+    "rig_check.py": 1018,
     # **493 -> 496** (2026-09-24): Accurip 450 is ONE frame, not a pressing. The label is kept (a real sidecar holds it); the comment says so.
     # **496 -> 506** (2026-09-26): the one-frame row is relabelled "frame 450", not "+450", which read as an offset; its two labels are named constants, and the column widened to fit.
     # **506 -> 511** (2026-09-30): `with_addendum` takes the addendum a caller already holds (`extra`), so the self-audit joins a report's embedded addendum through the one join.
@@ -2727,7 +2729,12 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # release gate's refusal branches and the stable-channel hold went (E9).
     # **4461 -> 4468** (2026-10-11): the announce body scan skips the
     # field's own declaration line, with the incident beside it (our round 31 lap 5).
-    "scripts/handshake.py": 4468,
+    # **4468 -> 4544** (2026-10-13, round 32 lap 6): row C29 (`c29_problem`, called
+    # from `check_wire_header`) and `protocol_to_declare`, which the emitter now
+    # reads so it cannot declare less than the round's record, as our lap 4 did.
+    # Both read `_round_files`, `wire_fields` and `_declared_lap`, and sit beside
+    # the other wire-header rows they join.
+    "scripts/handshake.py": 4544,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     "scripts/laplang/lsl3.py": 433,
     # **324 -> 312** (2026-10-06): git calls and decoding a cited file moved to

@@ -14,6 +14,25 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Every rip asks cyanrip for its diagnostics record with `--diagnostics`, not
+  `-j`.** The fork retired its four short options for its next build (`.23`): `-j`,
+  `-k`, `-u` and `-x` each exit 1 there, and the long forms `--diagnostics`,
+  `--stall-secs`, `--consumer` and `--cache-probe` take their place (their round 32
+  lap 5, S10 and S11). Every build that takes the letters takes the long forms too, so
+  this is safe on the pinned `.22`. The spelling now has one home,
+  `diagnostics_record.DIAGNOSTICS_FLAG`, which the argv builder and the rig check's
+  probe both import, so the probe cannot strip one spelling and append the other. The
+  three rig scripts that ran `-x` or `-j` use `--cache-probe` and `--diagnostics`, as
+  does the script-language recipe.
+
+- **The handshake gate refuses a lap that declares a lower protocol than an earlier lap
+  of its round (row C29), and `--emit` can no longer write one.** Our round 32 lap 4
+  declared protocol 7 after the fork's lap 3 declared 8: our gate had no C29 check,
+  and the emitter read a constant that still said 7. `--check` now refuses such a
+  file, from round 25 on as the fork's gate does, and the emitter declares the higher
+  of `DECLARED_PROTOCOL` (now 8) and the highest version any lap of the round already
+  declares. Only our lap 4 is refused across the record.
+
 - **Round 32 lap 4 written and released on the operator's word.** It records HR-1 on
   our side and our check of the fork's adoption. Their `HR-1.md` is our text byte for
   byte, and their reader resolves our old IDs as ours does. Their lap checker reads our

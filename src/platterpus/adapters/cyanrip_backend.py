@@ -55,6 +55,7 @@ from platterpus.cyanrip_cli import (
     secure_reread_problem,
     split_on_unescaped,
 )
+from platterpus.diagnostics_record import DIAGNOSTICS_FLAG
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -416,7 +417,11 @@ class CyanripImpl(RipBackend):
         # rip, and predicting it is the mistake that cost a finished 14-track rip
         # (CLAUDE.md, the `‹` substitution). What changes is that the name can no
         # longer collide: see `diagnostics_record_name`.
-        argv += ["-j", diagnostics_record_name()]
+        #
+        # Spelled `--diagnostics` since 2026-10-13, from the one home of the
+        # spelling: the fork's next build refuses `-j` outright, and every build
+        # that takes `-j` takes `--diagnostics` (see `DIAGNOSTICS_FLAG`).
+        argv += [DIAGNOSTICS_FLAG, diagnostics_record_name()]
         # Chokepoint assertion for Critical rule #5. `-N` disables cyanrip's own
         # MusicBrainz lookup, and it is not a preference: without it, a disc the
         # GUI has already resolved sends cyanrip to the network from inside the

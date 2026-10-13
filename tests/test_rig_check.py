@@ -1168,7 +1168,7 @@ def test_the_cache_probe_row_says_where_the_evidence_is_when_there_is_none(
     detail = rows[0].detail  # type: ignore[attr-defined]
     assert "never will be one" in detail, detail
     assert "SCRIPT REPORT" in detail, detail
-    assert "-x -I" in detail, detail
+    assert "--cache-probe -I" in detail, detail
 
 
 def test_no_rip_argv_platterpus_builds_ever_carries_the_cache_probe_flag() -> None:
@@ -1186,6 +1186,11 @@ def test_no_rip_argv_platterpus_builds_ever_carries_the_cache_probe_flag() -> No
         "the cyanrip argv builder now mentions -x. If a rip can probe the cache, "
         "the manifest row in rig_check saying it never can is now a lie, and -x "
         "without -I proceeds into a full rip."
+    )
+    # The long form too: `-x` is `--cache-probe` since the fork's `.23`
+    # (round 32 lap 5, S10), so a builder carrying either spelling probes.
+    assert '"--cache-probe"' not in source and "'--cache-probe'" not in source, (
+        "the cyanrip argv builder now mentions --cache-probe, -x's long form"
     )
 
 
@@ -1286,11 +1291,28 @@ def test_the_reference_argv_still_carries_a_j_for_the_probe_to_strip() -> None:
     argv = rig_check._compose_reference_argv(
         "cyanrip", "/nonexistent-platterpus-rig-check.cue", ""
     )
-    assert argv.count("-j") == 1, (
-        f"the reference rip argv no longer carries exactly one -j "
-        f"({argv.count('-j')}), so the probe has nothing to collide with and "
+    flag = rig_check.DIAGNOSTICS_FLAG
+    assert argv.count(flag) == 1, (
+        f"the reference rip argv no longer carries exactly one {flag} "
+        f"({argv.count(flag)}), so the probe has nothing to collide with and "
         f"the guard below is measuring nothing"
     )
+
+
+def test_the_probe_strips_the_SAME_spelling_the_builder_sends() -> None:
+    """**The relation, not either side.** On 2026-10-13 the builder moved from
+    `-j` to `--diagnostics` (the fork's `.23` refuses the letter). Had the probe
+    kept its own `-j`, it would strip nothing and append `-j`, carrying two
+    records again, the 2026-09-07 failure. So the composed probe must carry no
+    retired letter at all, and exactly one of the builder's spelling."""
+    argv = rig_check._compose_reference_argv(
+        "cyanrip", "/nonexistent-platterpus-rig-check.cue", ""
+    )
+    composed = rig_check.compose_probe_argv(
+        "cyanrip", Path("/tmp/probe-record.json"), argv
+    )
+    assert "-j" not in composed, composed
+    assert composed.count("--diagnostics") == 1, composed
 
 
 def test_the_probe_argv_carries_exactly_one_j_after_composition() -> None:
