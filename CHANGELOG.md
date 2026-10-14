@@ -39,6 +39,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   opens a run-evidence path instead of a fixture; the 38 readers it finds today are
   allowlisted, and step 2 of the landing converts them and empties the list.
 
+- **The `evidence` branch stays out of every fetch (HR-2 §7, §8).** The session-start hook
+  adds `^refs/heads/evidence` to each remote's fetch lines (git 2.29 or later), in every
+  session. In CI, `lint` checks out at depth 1; `changelog`, `media-guard` and
+  `tests-touched` fetch HEAD's and `main`'s history blobless; the four test legs fetch that
+  history and the `v*` tags by refspec; and `gitleaks` is the one job that fetches every
+  branch. It now also scans `evidence` for secrets and runs the manifest, branch, tag and lap
+  checks with fetch failures fatal. Before, every one of these jobs fetched the whole
+  history of every branch.
+
 - **The lap checker reads evidence citations (HR-2 §6, the v9 behaviour).** A lap may
   cite a run file that lives on a repository's `evidence` branch as
   `<repo>@<evidence commit>:<path>`. The checker finds the path's row in

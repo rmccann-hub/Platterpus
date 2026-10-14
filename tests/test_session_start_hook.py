@@ -108,3 +108,74 @@ def test_the_hook_is_registered_and_executable() -> None:
         command.endswith("/.claude/hooks/session-start.sh") for command in commands
     )
     assert os.access(HOOK, os.X_OK), "git keeps the executable bit; the hook needs it"
+
+
+def _git(cwd: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(cwd), "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+
+def _fetch_lines(repo: Path, remote: str = "origin") -> list[str]:
+    result = subprocess.run(
+        ["git", "-C", str(repo), "config", "--get-all", f"remote.{remote}.fetch"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.stdout.split()
+
+
+@pytest.mark.parametrize("remote", [True, False])
+def test_the_evidence_branch_is_kept_out_of_later_fetches(
+    tmp_path: Path, remote: bool
+) -> None:
+    """HR-2 §7: a negative refspec on each remote, in every session. Proved by a
+    real fetch: with the line in place, `evidence` does not come back."""
+    upstream = tmp_path / "upstream"
+    upstream.mkdir()
+    _git(upstream, "init", "-q", "-b", "main")
+    (upstream / "a.txt").write_text("a\n")
+    _git(upstream, "add", "a.txt")
+    _git(upstream, "commit", "-q", "-m", "main")
+    _git(upstream, "branch", "evidence")
+    repo = tmp_path / "clone"
+    subprocess.run(
+        ["git", "clone", "-q", str(upstream), str(repo)],
+        check=True,
+        capture_output=True,
+    )
+    _git(repo, "update-ref", "-d", "refs/remotes/origin/evidence")
+    result = _run(repo, remote=remote)
+    assert result.returncode == 0, result.stderr
+    assert _fetch_lines(repo) == [
+        "+refs/heads/*:refs/remotes/origin/*",
+        "^refs/heads/evidence",
+    ]
+    _git(repo, "fetch", "-q", "origin")
+    assert "origin/evidence" not in _git(repo, "branch", "-r")
+    # Non-triviality: without the line, the same fetch brings it back.
+    _git(repo, "config", "--unset", "remote.origin.fetch", r"^\^refs/heads/evidence$")
+    _git(repo, "fetch", "-q", "origin")
+    assert "origin/evidence" in _git(repo, "branch", "-r")
+
+
+def test_the_evidence_exclusion_is_added_once_and_skips_bare_remotes(
+    tmp_path: Path,
+) -> None:
+    repo = _scratch_repo(tmp_path)
+    _git(repo, "remote", "add", "origin", "https://example.invalid/x.git")
+    _git(repo, "config", "--unset-all", "remote.origin.fetch")
+    _git(repo, "remote", "add", "peer", "https://example.invalid/y.git")
+    for _ in range(2):
+        assert _run(repo, remote=True).returncode == 0
+    assert _fetch_lines(repo, "peer") == [
+        "+refs/heads/*:refs/remotes/peer/*",
+        "^refs/heads/evidence",
+    ]
+    # A remote with no fetch lines is left alone: a lone negative refspec
+    # would be the only line it had.
+    assert _fetch_lines(repo, "origin") == []
