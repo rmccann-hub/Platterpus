@@ -14,6 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 33 opened: the fork's lap 1 is filed, and our three README-less run folders have
+  one.** Their lap 1 (`cyanrip@b20eb2de`, sha256 `229615d0…`) opens round 33 with HR-2 as
+  its main task and fixes the move instant at `2026-10-14T20:00:00Z`. Before our move is
+  built, `artifacts-round-07`, `artifacts-round-07-lap-29` and `outbound/artifacts` each
+  gain a README indexing their files by bytes and SHA-256, so every folder that leaves
+  `main` keeps an index there, as the fork's four did. The temporary record's entry for
+  the fork's lap 9 is retired, since their lap 1 declares the v9 hash.
 - **Our handshake gate implements protocol 9 (HR-2 order C, 2026-10-14).** It now reads
   a lap declaring 9 instead of refusing it. v9 adds no gate row: its one lap rule, the
   exemption of an evidence citation from `HANDSHAKE-FROM-COMMIT`, is the lap checker's,

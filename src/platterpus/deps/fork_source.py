@@ -836,7 +836,9 @@ PIN_UNDER_REVIEW: Final[str] = "200530e"
 #: (`round_closed: true`), is round 31's subject.
 #: **32 from 2026-10-12**: `.22`, published on both channels under v8 §6b, is round
 #: 32's subject, and their round 32 lap 1 names it.
-PIN_UNDER_REVIEW_ROUND: Final[int] = 32
+#: **33 from 2026-10-14**: round 33 reviews `.22` again (its main task is HR-2), as
+#: their round 33 lap 1 names it, so the pin under review is unchanged.
+PIN_UNDER_REVIEW_ROUND: Final[int] = 33
 
 #: Whether the fork has PUBLISHED :data:`PIN_UNDER_REVIEW` as a numbered release.
 #:
