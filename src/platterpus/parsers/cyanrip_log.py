@@ -238,10 +238,57 @@ _CDDB_ID = re.compile(r"^CDDB ID:\s+(?P<value>\S+)")
 # artifact containing both — the fork's own golden reference runs under `-N` with no
 # `-a`, so it has the refusal and no header. Our rig logs have both, 13 lines apart.
 _RELEASE_ID = re.compile(r"^Release ID:\s+(?P<value>\S+)")
+# "AccurateRip ID: 00000672-0000130b-14000603" — the disc's AccurateRip ID, the
+# key cyanrip's AccurateRip request is made under. NEW in upstream 0.9.4-rc3 and so
+# in the fork's `+platterpus.23` (their sync analysis §3,
+# `cyanrip@aa45b975:docs/upstream/sync-2026-10-12-rc3.md`). Derived from THEIR
+# SOURCE, not from the analysis:
+#
+#     cyanrip_log(ctx, 0, "AccurateRip ID: %08x-%08x-%08x\n", ar_id1, ar_id2, ar_cddb);
+#
+# at `cyanrip@aa45b975:src/cyanrip_log.c:1007`, printed only when
+# `crip_get_accurip_ids()` succeeds (`:1006`), so a disc with no audio track has no
+# such line rather than a zero one. Lower-case hex from `%08x`; upper case is
+# accepted too, because a reader that refuses a case change would drop the whole
+# line over a formatting choice. The real line, from the fork's regenerated golden
+# reference (`cyanrip@aa45b975:docs/golden-reference.log:26`):
+#
+#     AccurateRip ID: 00000672-0000130b-14000603
+#
+# **Parsed, not ignored.** It is a disc identity like `DiscID:` and `CDDB ID:`:
+# two logs of one disc carrying different AccurateRip IDs asked the database about
+# different discs, and rc3 changed how the ID is computed for discs with data tracks
+# (their §1b), so this line is the only record of which key a rip was checked
+# under. Its third word is the CDDB ID, which the log states separately.
+#
+# Must not be confused with the ignored `AccurateRip:` status row below: that one
+# has its colon straight after the word, this one has ` ID:`.
+_ACCURATERIP_DISC_ID = re.compile(
+    r"^AccurateRip ID:\s+(?P<value>[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8})\s*$"
+)
 # "Speed:          default (unchangeable)" / "default (changeable)" / "8x".
 # cyanrip's drive banner reports whether the drive can change read speed. When
 # it can't, cyanrip ABORTS on `-S` — so the read-speed ladder must read this and
 # skip the speed rungs (see RippingInfo.speed_changeable).
+#
+# **Still our input on `+platterpus.23`, checked at their source.** Upstream rc3
+# dropped the parenthetical (`Speed:          default`, their `0be45a3`); the
+# fork KEPT its own wording through the merge (their sync analysis §3), and the
+# tip prints exactly the two arms this reads —
+# `cyanrip@aa45b975:src/cyanrip_log.c:922-926`: `%ix` when `-S` was given,
+# otherwise `default (%s)` with `changeable`/`unchangeable` from the drive's
+# capability bit. What DID change at that tip: `-S` is now tried even on a drive
+# that does not advertise speed selection, and the run aborts only if the drive
+# refuses (`cyanrip@aa45b975:src/cyanrip_main.c:336-349`). So `unchangeable` now
+# claims more than it establishes; we keep honouring it, which only forgoes a
+# speed change the drive might have accepted.
+#
+# **If upstream's wording ever arrives** (`Speed:          default`, no
+# parenthetical), `_take_speed_cap` reads neither word and leaves
+# `speed_changeable` at None, "not determined". The speed lock is then NOT engaged
+# (`rip_worker` locks only on False), so the ladder may send `-S`, and on a drive
+# that refuses it that pass aborts with `Device does not support changing speeds!`
+# (their P5). Pinned by `tests/test_cyanrip_rc3_readiness.py`.
 _SPEED_CAP = re.compile(r"^Speed:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # A track block opens with its outcome line.
 #
@@ -269,13 +316,68 @@ _SPEED_CAP = re.compile(r"^Speed:\s+(?P<text>\S(?:.*\S)?|[^\S\n])\s*$")
 # at T+1. The per-track block reports the READ; the footer reports the ENCODE
 # (`Encoder errors:`, below). We keep both spellings because logs already written
 # carry the old one and are archival records we must never stop being able to read.
+#
+# **A data track opens its block one of two ways from `+platterpus.23`** (upstream
+# rc3's data-track ripper, merged by the fork; `cyanrip@aa45b975:src/cyanrip_main.c:
+# 1292-1296`):
+#
+#     Track %i is data, skipping:     under -X (--no-data-tracks)
+#     Track %i is data:               otherwise, and the track is then COPIED
+#
+# Every earlier build printed only `is data:` (`cyanrip@200530e2:src/cyanrip_main.c:
+# 887`) and skipped the track. The `skipping` arm matters for the same reason the
+# whole pattern does: it is a block DELIMITER, and an unrecognised one leaves its
+# `Preemphasis:` / `Start LSN:` / `End LSN:` rows inside the PREVIOUS block, where a
+# trailing data track's geometry would overwrite the last audio track's. What a
+# data track's block then says about the copy is read by `_DATA_TRACK_OUTCOME` and
+# the two `_DATA_*` rows below.
 _TRACK_START = re.compile(
     r"^Track (?P<number>\d+) "
     r"(?P<what>"
     r"ripped and encoded successfully!|ripped and encoded with errors\.|"  # <= .13
     r"read successfully!|read with errors\.|"  # >= .14, their §0.3
+    r"is data, skipping:|"  # >= .23 under -X
     r"is data:"
     r")"
+)
+
+# A data track's own outcome line, inside its block (`+platterpus.23` onward):
+#
+#     Track %i ripped with errors.        cyanrip@aa45b975:src/cyanrip_main.c:1265
+#     Track %i ripped successfully!       cyanrip@aa45b975:src/cyanrip_main.c:1267
+#
+# printed by the data-track ripper AFTER `Track %i is data:` opened the block and
+# BEFORE `cyanrip_log_track_end()` prints its rows (`:1303`, `:1311`). Upstream's
+# wording, kept by the fork for data tracks while its audio says `read` (their sync
+# analysis §7b: aligning the two is the next round's). **Not a block opener**: it
+# names the data track whose block is already open, so the loop files it there
+# (`_DATA_TRACK_*` statuses). It cannot collide with the `<= .13` audio wording:
+# `ripped and encoded successfully!` has `and encoded` where this has none.
+#
+# Should the fork align it to `read successfully!`, that line would match
+# `_TRACK_START`; the loop reads a read outcome that names the data track already
+# open as that track's outcome rather than as a second track with the same number.
+_DATA_TRACK_OUTCOME = re.compile(
+    r"^Track (?P<number>\d{1,4}) (?P<what>ripped successfully!|ripped with errors\.)"
+)
+# The data-track ripper's per-sector diagnostics, at column 0 inside the data
+# track's block (each printed after a `\n`, so on a line of its own):
+#
+#     Frame read failed at LSN %i!          cyanrip@aa45b975:src/cyanrip_main.c:1215
+#     Sector EDC mismatch at LSN %i!        cyanrip@aa45b975:src/cyanrip_main.c:1225
+#     Error writing to \"%s\": %s!          cyanrip@aa45b975:src/cyanrip_main.c:1243, :1273
+#
+# All three are in their P5 inventory, so `ripper_messages` surfaces the sentence;
+# this parser's use for them is narrower: each is EVIDENCE that a copy was
+# attempted, which is how an `is data:` block with no outcome line is told apart
+# from an older build's skip (`DATA_TRACK_COPY_NOT_COMPLETED`). Their counts are
+# already in the `Sector EDC:` row and in `Ripping errors:`, which counts every one
+# of them (`total_error_count++` at `:1217` and `:1227`). Prefix-matched: the path
+# in the third is the user's, and its wording after the path is the OS's.
+_DATA_COPY_DIAGNOSTIC = re.compile(
+    r"^(?:Frame read failed at LSN -?\d{1,9}!"
+    r"|Sector EDC mismatch at LSN -?\d{1,9}!"
+    r'|Error writing to ")'
 )
 # cyanrip's secure re-read (-Z N) verdict for a track, printed on the line JUST
 # BEFORE that track's "Track N ripped…" line. Either the reads converged —
@@ -632,6 +734,21 @@ _EAC_CRC = re.compile(
     r"^\s+EAC CRC32:\s+(?P<crc>[0-9A-Fa-f]{8})"
     r"(?:\s+\(after\s+(?P<rips>\d+)\s+rips?\))?"
 )
+# A DATA track's two rows (`+platterpus.23` onward), printed in its block when its
+# sectors were copied (`t->computed_crcs`), from `cyanrip@aa45b975:src/cyanrip_log.c:
+# 539-548`:
+#
+#     "\n  CRC32:         %08X\n"
+#     "  Sector EDC:    none to check\n"
+#     "  Sector EDC:    %i of %i sectors mismatched\n"
+#     "  Sector EDC:    all %i sectors match\n"
+#
+# `CRC32:` cannot be confused with `EAC CRC32:` above: here the label follows the
+# indentation directly. The value goes to `TrackResult.data_crc32` and never to
+# `copy_crc`, which is AUDIO's EAC CRC (see the field's note). The EDC value is
+# kept verbatim; bounded at 200 characters like every free-text value here.
+_DATA_CRC32 = re.compile(r"^\s+CRC32:\s+(?P<crc>[0-9A-Fa-f]{8})\s*$")
+_DATA_SECTOR_EDC = re.compile(r"^\s+Sector EDC:\s+(?P<value>\S(?:.{0,198}\S)?)\s*$")
 # "    Accurip v1:  12345678 (accurately ripped, confidence 3)" — the
 # parenthetical varies ("not found, either a new pressing, or bad rip").
 _ACCURIP_TRACK = re.compile(
@@ -1440,6 +1557,8 @@ class _Disc:
     output_formats: str = ""
     disc_id: str = ""
     cddb_id: str = ""
+    # `AccurateRip ID:` verbatim (see `_ACCURATERIP_DISC_ID`). "" = not printed.
+    accuraterip_disc_id: str = ""
     # The MusicBrainz RELEASE id cyanrip resolved and used, from its own header
     # (see _RELEASE_ID). Not the same claim as the id we sent: this is the value
     # that survived its parse of our `-a` blob.
@@ -1562,6 +1681,40 @@ class _Disc:
             self.album_loudness[key] = value
 
 
+#: A data track's ``TrackResult.status``. Every one contains ``"data track"``,
+#: because that substring is what every consumer keys on to leave a data track out
+#: of AccurateRip, the read-speed ladder and the artifact grading
+#: (``read_speed_ladder``, ``uiscript.artifact_grading``); a new status that lost it
+#: would put a data track into the audio tallies. Four, because from
+#: ``+platterpus.23`` a data track is copied by default and the log says how that went:
+#:
+#: * ``skipped`` — ``Track N is data, skipping:`` (``-X``), or an older build's
+#:   ``Track N is data:``, which never copied anything (``cyanrip@200530e2:
+#:   src/cyanrip_main.c:886-889``). The value every earlier parse produced.
+#: * ``copied`` / ``copied with errors`` — the data ripper's own outcome line.
+#: * ``copy not completed`` — ``Track N is data:`` and no outcome, where the log
+#:   proves a copy was attempted: a per-sector diagnostic or a ``CRC32:`` /
+#:   ``Sector EDC:`` / ``File(s):`` row in the block, or ``Interrupted at: track N,
+#:   mid-read`` naming it. Without such evidence the block reads as ``skipped``,
+#:   which is what it means on every build before ``.23``. **The residue, stated:**
+#:   a ``.23`` copy that failed before printing anything of its own (it could not
+#:   open the ``.bin``, whose message is the cue writer's wording too, so it is not
+#:   claimed as evidence) also reads as ``skipped``; the footer's ``Rip completed:
+#:   no (aborted, …)`` is what says that rip failed.
+DATA_TRACK_SKIPPED: Final[str] = "data track (skipped)"
+DATA_TRACK_COPIED: Final[str] = "data track (copied)"
+DATA_TRACK_COPIED_WITH_ERRORS: Final[str] = "data track (copied with errors)"
+DATA_TRACK_COPY_NOT_COMPLETED: Final[str] = "data track (copy not completed)"
+DATA_TRACK_STATUSES: Final[frozenset[str]] = frozenset(
+    {
+        DATA_TRACK_SKIPPED,
+        DATA_TRACK_COPIED,
+        DATA_TRACK_COPIED_WITH_ERRORS,
+        DATA_TRACK_COPY_NOT_COMPLETED,
+    }
+)
+
+
 @dataclass
 class _TrackAcc:
     """The track block being read right now, before it becomes a `TrackResult`.
@@ -1620,6 +1773,14 @@ class _TrackAcc:
     extraction_speed: float | None = None
     extraction_elapsed_seconds: float | None = None
     appended_silence_frames: int | None = None
+    # A data track's block. `is_data` for any data opener; `data_awaiting_outcome`
+    # only for `Track N is data:`, whose meaning depends on what follows (see
+    # `DATA_TRACK_STATUSES`), and it is cleared by the track's outcome line.
+    is_data: bool = False
+    data_awaiting_outcome: bool = False
+    data_copy_evidence: bool = False
+    data_crc32: str = ""
+    data_sector_edc: str = ""
 
 
 # A handler takes the accumulator and the successful match, records the fact, and
@@ -1762,6 +1923,12 @@ def _take_cddb_id(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def _take_accuraterip_disc_id(disc: _Disc, match: re.Match[str]) -> bool:
+    """The disc's AccurateRip ID, verbatim and lower-cased (cyanrip prints `%08x`)."""
+    disc.accuraterip_disc_id = match.group("value").lower()
+    return True
+
+
 def _take_speed_cap(disc: _Disc, match: re.Match[str]) -> bool:
     """Whether the drive lets us change read speed (cyanrip ABORTS on `-S` if not)."""
     text = match.group("text").lower()
@@ -1893,16 +2060,31 @@ def finished_track(line: str) -> tuple[int, bool] | None:
     per-track partial report — the one record that survives a SIGKILL — was never
     written (the 2026-09-24 real test: every row still read "Ripping" under "Done —
     all 14 tracks ripped cleanly"). This module had been taught the new wording in
-    the change that introduced it; the copy had not. ``is data:`` opens a block but
-    finishes no read, so it answers ``None``. Never raises.
+    the change that introduced it; the copy had not. ``is data:`` (and from
+    ``+platterpus.23`` ``is data, skipping:``) opens a block but finishes no read,
+    so it answers ``None``.
+
+    **A data track's copy finishing is a read finishing** (``+platterpus.23``,
+    ``Track N ripped successfully!`` / ``ripped with errors.``,
+    ``cyanrip@aa45b975:src/cyanrip_main.c:1265-1267``). Without it the live row of
+    a data track stayed "Ripping" after its sectors were all copied, and its slice
+    of the progress bar never closed. Never raises.
     """
     match = _TRACK_START.match(line)
-    if match is None or match.group("what") == "is data:":
+    if match is not None:
+        if match.group("what").startswith("is data"):
+            return None
+        number = int_or_none(match.group("number"), field="finished track number")
+        if number is None:
+            return None
+        return number, match.group("what").endswith("successfully!")
+    data = _DATA_TRACK_OUTCOME.match(line)
+    if data is None:
         return None
-    number = int_or_none(match.group("number"), field="finished track number")
+    number = int_or_none(data.group("number"), field="finished data track number")
     if number is None:
         return None
-    return number, match.group("what").endswith("successfully!")
+    return number, data.group("what").endswith("successfully!")
 
 
 def partial_summary_denominator(
@@ -2279,6 +2461,14 @@ _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
     _LineRule("tracks_to_rip", _TRACKS_TO_RIP, _take_tracks_to_rip),
     _LineRule("disc_id", _DISC_ID, _take_disc_id),
     _LineRule("cddb_id", _CDDB_ID, _take_cddb_id),
+    # `+platterpus.23` / upstream rc3 onward; absent means absent on every older
+    # build. Disc-level only: it is a start-report row, never a track's.
+    _LineRule(
+        "accuraterip_disc_id",
+        _ACCURATERIP_DISC_ID,
+        _take_accuraterip_disc_id,
+        disc_level_only=True,
+    ),
     _LineRule("release_id", _RELEASE_ID, _take_release_id),
     _LineRule("speed_capability", _SPEED_CAP, _take_speed_cap),
     _LineRule("total_time", _TOTAL_TIME, _take_total_time),
@@ -2350,6 +2540,11 @@ _SECTION_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("secure_rerip_no_match", _SECURE_DONE_FAIL),
     # Read for its match count since 2026-10-05; it was on the ignored list.
     ("secure_rerip_progress", _SECURE_PROGRESS),
+    # `+platterpus.23`: a data track's outcome, and the data ripper's per-sector
+    # diagnostics. Column 0, inside the data track's block; both change what the
+    # loop records about the block that is open, which is why they are here.
+    ("data_track_outcome", _DATA_TRACK_OUTCOME),
+    ("data_track_copy_diagnostic", _DATA_COPY_DIAGNOSTIC),
 )
 
 # The INDENTED rows the loop reads inside a section or a track block, listed for
@@ -2420,6 +2615,10 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_pregap_source", _PREGAP_SOURCE),
     ("track_preemphasis", _PREEMPHASIS),
     ("track_eac_crc", _EAC_CRC),
+    # `+platterpus.23`: a data track's CRC32 and sector EDC rows, read only inside
+    # a data track's block.
+    ("track_data_crc32", _DATA_CRC32),
+    ("track_data_sector_edc", _DATA_SECTOR_EDC),
     ("track_accurip", _ACCURIP_TRACK),
     ("track_accurip_offset", _ACCURIP_OFFSET),
     # Already printed by cyanrip 0.9.3 and parsed since 2026-07-31 — it moved out
@@ -2599,6 +2798,53 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     # rows stay the signal and this line needs no parsing. No committed log covers
     # such a disc yet; a CD-R or an unlisted pressing on the rig would.
     (re.compile(r"^AccurateRip:\s"), "the indented per-track Accurip: row is read"),
+    # `AcoustID:` (upstream rc3, so `+platterpus.23`), in every shape cyanrip prints
+    # at column 0 under that label, read at their source:
+    #
+    #   start report, `cyanrip@aa45b975:src/cyanrip_log.c:1016-1020` —
+    #     `AcoustID:       unsupported (built without libchromaprint)`
+    #     `AcoustID:       disabled` (-B, --no-acoustid)
+    #     `AcoustID:       fingerprinting, submitting accurate rips`
+    #     `AcoustID:       fingerprinting, no user API key to submit with`
+    #   after the rip, `cyanrip@aa45b975:src/acoustid.c:299` and `:348` —
+    #     `AcoustID: submitted %i fingerprint%s, pending import`
+    #     `AcoustID: %i fingerprint%s saved to tags, not submitted: %s`
+    #
+    # Ignored, with the reason: nothing is ever submitted for us. Submission needs
+    # every track matched to a MusicBrainz recording and a user key
+    # (`cyanrip@aa45b975:src/acoustid.c:160-169`); we run `-N` and never send
+    # `--acoustid-key`. What a build with libchromaprint DOES do is write an
+    # `ACOUSTID_FINGERPRINT` tag into each file (`:343`), which the file itself
+    # records. The golden reference's line is the first shape
+    # (`cyanrip@aa45b975:docs/golden-reference.log:28`). A candidate for a report
+    # field if we ever want that tag stated beside the rip; the open question of
+    # whether to pass `-B` is the handshake's, not the parser's.
+    (
+        re.compile(r"^AcoustID:\s"),
+        "fingerprinting state; under -N with no --acoustid-key nothing is ever "
+        "submitted, and a build with libchromaprint writes an ACOUSTID_FINGERPRINT "
+        "tag the file itself records",
+    ),
+    # Upstream rc3's disc-ID guards (`+platterpus.23`), printed before the logfile
+    # opens and so replayed in the pre-log block at column 0:
+    #   `Disc has no audio tracks, skipping DiscID generation!`  cyanrip@aa45b975:src/discid.c:52
+    #   `Disc TOC is invalid, skipping DiscID generation!`       cyanrip@aa45b975:src/discid.c:70
+    #   `Disc has no audio tracks, skipping AccuRIP DB!`         cyanrip@aa45b975:src/accurip.c:243
+    # Ignored, not parsed: each one's consequence is a line that is then absent
+    # (`DiscID:`, `CDDB ID:`, `AccurateRip ID:`), which every reader already treats
+    # as "not reported", never as an empty ID. Listed from source before any log
+    # carries them, as `Partial files:` was, so the completeness sweep cannot trip
+    # on the first such log.
+    (
+        re.compile(r"^Disc (?:has no audio tracks|TOC is invalid), skipping DiscID"),
+        "disc-ID guard; the DiscID:/CDDB ID: lines are then absent, which reads as "
+        "not reported",
+    ),
+    (
+        re.compile(r"^Disc has no audio tracks, skipping AccuRIP DB!"),
+        "AccurateRip guard; the AccurateRip ID: line is then absent and every "
+        "per-track Accurip: row says what was looked up",
+    ),
     # Pure structure: a section marker with no value of its own.
     (re.compile(r"^Tracks:\s*$"), "section marker, no payload"),
     (re.compile(r"^Summary:\s*$"), "section marker, no payload"),
@@ -2820,6 +3066,11 @@ def parse_cyanrip_log(text: str) -> RipLog:
     # The track block currently being read; flushed into `disc.tracks` when the
     # next block (or the end of input) is reached.
     current: _TrackAcc | None = None
+    # Data tracks opened by `Track N is data:` that ended with no outcome line and
+    # no evidence of a copy, so they were filed as skipped. One more fact can
+    # still overturn that, the footer's `Interrupted at: track N, mid-read`, and it
+    # arrives after the block, so the decision is finished after the loop.
+    undecided_data_tracks: set[int] = set()
 
     def flush() -> None:
         nonlocal current
@@ -2891,6 +3142,22 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 # reported" rather than inventing the 150-sector constant — the
                 # log is a record of what the ripper measured (audit, 2026-07-31).
                 current.pregap_sectors = length if length > 0 else None
+        status = current.status
+        if current.data_awaiting_outcome:
+            # `Track N is data:` and no outcome line. Skipped on every build
+            # before `.23`; on `.23` and later, a copy that did not finish. The
+            # block itself is the only witness of which, so it is asked: any row
+            # only the data ripper prints means a copy was attempted.
+            attempted = bool(
+                current.data_copy_evidence
+                or current.data_crc32
+                or current.data_sector_edc
+                or current.filename
+            )
+            if attempted:
+                status = DATA_TRACK_COPY_NOT_COMPLETED
+            else:
+                undecided_data_tracks.add(current.number)
         disc.tracks.append(
             TrackResult(
                 number=current.number,
@@ -2901,7 +3168,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 filename=current.filename,
                 pre_emphasis=current.pre_emphasis,
                 copy_crc=current.copy_crc,
-                status=current.status,
+                status=status,
                 accuraterip_v1=current.accuraterip_v1,
                 accuraterip_v2=current.accuraterip_v2,
                 accuraterip_offset=current.accuraterip_offset,
@@ -2922,6 +3189,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 extraction_speed=current.extraction_speed,
                 extraction_elapsed_seconds=current.extraction_elapsed_seconds,
                 appended_silence_frames=current.appended_silence_frames,
+                data_crc32=current.data_crc32,
+                data_sector_edc=current.data_sector_edc,
             )
         )
         current = None
@@ -3071,18 +3340,41 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
         match = _TRACK_START.match(line)
         if match:
-            flush()
             what = match.group("what")
-            if what == "is data:":
-                status = "data track (skipped)"
+            number = (
+                int_or_none(match.group("number"), field="cyanrip track number") or 0
+            )
+            if (
+                current is not None
+                and current.data_awaiting_outcome
+                and not what.startswith("is data")
+                and number == current.number
+            ):
+                # A read outcome naming the data track whose block is open: that
+                # track's outcome in `read` wording, not a second track with the
+                # same number (see `_DATA_TRACK_OUTCOME`).
+                current.status = (
+                    DATA_TRACK_COPIED
+                    if what.endswith("successfully!")
+                    else DATA_TRACK_COPIED_WITH_ERRORS
+                )
+                current.data_awaiting_outcome = False
+                continue
+            flush()
+            if what.startswith("is data"):
+                # Provisionally skipped: true of `is data, skipping:` and of every
+                # build before `.23`; the data track's outcome line, or the
+                # evidence `flush()` looks for, revises it (`DATA_TRACK_STATUSES`).
+                status = DATA_TRACK_SKIPPED
             elif what.endswith("successfully!"):
                 status = "ripped successfully"
             else:
                 status = "ripped with errors"
             current = _TrackAcc(
-                number=int_or_none(match.group("number"), field="cyanrip track number")
-                or 0,
+                number=number,
                 status=status,
+                is_data=what.startswith("is data"),
+                data_awaiting_outcome=what == "is data:",
                 # The verdict buffered from this track's "Done; (…)" line above;
                 # consumed so the next track starts fresh (None if -Z was off).
                 secure_rerip_converged=pending_converged,
@@ -3102,7 +3394,46 @@ def parse_cyanrip_log(text: str) -> RipLog:
             peak_from_percentage = False
             continue
 
+        # A data track's own outcome (`+platterpus.23`), filed on the data track
+        # whose block is open. Anywhere else it describes no block we hold, so it
+        # is recognised and left unattributed rather than guessed onto a track.
+        match = _DATA_TRACK_OUTCOME.match(line)
+        if match:
+            outcome_of = int_or_none(match.group("number"), field="cyanrip data track")
+            if current is not None and current.is_data and outcome_of == current.number:
+                current.status = (
+                    DATA_TRACK_COPIED
+                    if match.group("what").endswith("successfully!")
+                    else DATA_TRACK_COPIED_WITH_ERRORS
+                )
+                current.data_awaiting_outcome = False
+            else:
+                log.debug(
+                    "cyanrip log: data track outcome %r outside that track's block",
+                    line[:120],
+                )
+            continue
+
+        # The data ripper's per-sector diagnostics: evidence a copy was attempted.
+        if _DATA_COPY_DIAGNOSTIC.match(line):
+            if current is not None and current.is_data:
+                current.data_copy_evidence = True
+            continue
+
         if current is not None:
+            # A data track's CRC32 and EDC rows. Read only inside a data track's
+            # block: the CRC32 of a data track is not an audio CRC, and filing it
+            # anywhere else would hand it to a track it does not describe.
+            if current.is_data:
+                match = _DATA_CRC32.match(line)
+                if match:
+                    current.data_crc32 = match.group("crc").upper()
+                    continue
+                match = _DATA_SECTOR_EDC.match(line)
+                if match:
+                    current.data_sector_edc = match.group("value")
+                    continue
+
             # The filename follows the "File(s):" header on the next indented
             # line — capture it so the per-track `filename` isn't null.
             if expect_filename:
@@ -3393,6 +3724,22 @@ def parse_cyanrip_log(text: str) -> RipLog:
         # EOF inside the block — a truncated log must not lose what it did say.
         disc.gap_detection = "; ".join(gap_lines)
     flush()
+    # The one fact about a data track that arrives after its block: the footer
+    # naming it as the track a read was in progress on. A `.23` copy cut off by a
+    # signal prints no outcome and no row of its own, and without this it would
+    # read as skipped, the claim an older build's log makes.
+    point = interruption_point(disc.interrupted_at)
+    if (
+        point is not None
+        and point.kind == INTERRUPTED_MID_READ
+        and point.track in undecided_data_tracks
+    ):
+        disc.tracks = [
+            replace(tr, status=DATA_TRACK_COPY_NOT_COMPLETED)
+            if tr.number == point.track and tr.status == DATA_TRACK_SKIPPED
+            else tr
+            for tr in disc.tracks
+        ]
     truncated, last_incomplete = _detect_truncation(text, disc.tracks)
     if unclaimed_total:
         log.debug(
@@ -3468,6 +3815,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         log_checksum=disc.log_checksum,
         disc_id=disc.disc_id,
         cddb_id=disc.cddb_id,
+        accuraterip_disc_id=disc.accuraterip_disc_id,
         release_id=disc.release_id,
         log_truncated=truncated,
         last_track_incomplete=last_incomplete,

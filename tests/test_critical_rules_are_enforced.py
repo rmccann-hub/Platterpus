@@ -1809,7 +1809,15 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **3467 -> 3472** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): four log records quote a cyanrip value head and tail, counted.
     # **3472 -> 3474** (2026-10-12): the track-1 pregap comment now says the additive
     # EAC arm is inferred from the sectors, not read from an EAC log (fork round 32 lap 3 S10).
-    "parsers/cyanrip_log.py": 3474,
+    # **3474 -> 3822** (2026-10-14, readiness for the fork's `.23`, upstream rc3): the
+    # `AccurateRip ID:` rule, the `AcoustID:` and disc-ID-guard ignore entries, and a
+    # data track's block (`is data, skipping:`, its outcome line, its per-sector
+    # diagnostics, its `CRC32:` and `Sector EDC:` rows, and the four data statuses).
+    # They must live here: the completeness sweep walks this module's regex
+    # constants and the rule tables are what the generated consumer contract
+    # publishes. Most of the growth is the citations into `cyanrip@aa45b975` that
+    # derive each shape, and why a data track's CRC is not an audio CRC.
+    "parsers/cyanrip_log.py": 3822,
     # +29 (2026-09-05): `secure_rerip_tracks_scoped`, the ONE predicate that
     # `rig_check` and the acceptance script's `expect-secure-rerip` both read.
     # It belongs beside the dataclass it interrogates; a third module for one
@@ -1825,7 +1833,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **945 -> 982** (2026-10-05, the fork's round 30 lap 9 S11/S12): `ripping_errors`, `ripping_errors_paranoia_skips`, `encoder_failed_tracks` and the `drive_read_errors` property, beside the dataclass's other footer fields, with the citations for what cyanrip's count holds.
     # **982 -> 987** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): `_FIELD`'s value read
     # greedily, `(?:\S(?:.*\S)?)?` for a lazy `.*?`, with the note saying why.
-    "parsers/rip_log.py": 987,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
+    # **987 -> 1015** (2026-10-14, the fork's `.23`): `TrackResult.data_crc32` and
+    # `data_sector_edc`, a data track's own facts, kept out of `copy_crc` on
+    # purpose, and `RipLog.accuraterip_disc_id`, each beside the dataclass it fills.
+    "parsers/rip_log.py": 1015,  # earlier +52: uniform_reread_baseline + the measured comment explaining why a fixed 3-pass floor cannot discriminate under -Z N (all 14 tracks flagged on a clean disc, 2026-09-22),
     # **903 -> 904 (2026-09-23)**: the read-offset hint names the real wizard path.
     # **904 -> 887** (2026-09-24, the sweep that retired the old ripper's name): down: the old ripper's config reader, kill pattern or reference line was removed.
     # **887 -> 928 (2026-09-24)**: the `Container owner` check, which names the

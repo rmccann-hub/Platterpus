@@ -169,6 +169,21 @@ _FRAGMENTS = st.sampled_from(
         "Checking /dev/sr0 for cdrom...",
         "--- end of pre-log output ---",
         "Stopping, ripping incomplete!",
+        # The fork's `+platterpus.23` (upstream rc3) lines, each with a near miss:
+        # two disc lines and a data track's block, read at cyanrip@aa45b975 (see
+        # `tests/test_cyanrip_rc3_readiness.py`). New branches, so new fuzz input.
+        "AccurateRip ID: 00000672-0000130b-14000603",
+        "AccurateRip ID: 00000672-0000130b",  # two words
+        "AcoustID:       unsupported (built without libchromaprint)",
+        "Track 1 is data, skipping:",
+        "Track 1 ripped successfully!",
+        "Track 1 ripped with errors.",
+        "  CRC32:         1A2B3C4D",
+        "  CRC32:         nothex!!",  # not 8 hex digits
+        "  Sector EDC:    all 150 sectors match",
+        "  Sector EDC:    1 of 150 sectors mismatched",
+        "Sector EDC mismatch at LSN 10!",
+        "Frame read failed at LSN " + "9" * 4400 + "!",  # over the digit ceiling
         # EAC log shapes (exercise the eac_log parser).
         "Exact Audio Copy V1.8 from 15. July 2024",
         # Our EAC-layout export's first line, new wording and the one 0.6.62 and
@@ -203,7 +218,16 @@ _any_text = st.one_of(st.text(max_size=2000), _noisy_text)
             "Track {} {}".format,
             st.text(max_size=8000),
             st.sampled_from(
-                ["read successfully!", "read with errors.", "is data:", "ripped"]
+                [
+                    "read successfully!",
+                    "read with errors.",
+                    "is data:",
+                    "ripped",
+                    # `+platterpus.23`: a data track's outcome and its -X opener.
+                    "ripped successfully!",
+                    "ripped with errors.",
+                    "is data, skipping:",
+                ]
             ),
         ),
     )

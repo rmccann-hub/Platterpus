@@ -315,6 +315,26 @@ class TrackResult:
     # are different answers ("measured: none" vs "not reported"), as everywhere
     # else in this dataclass.
     appended_silence_frames: int | None = None
+    # --- a DATA track's own facts (cyanrip 0.9.4-rc3 / fork `+platterpus.23`
+    # onward, which copy a data track to a `.bin` instead of skipping it).
+    #
+    # The data track's CRC32, from its `CRC32:` row
+    # (`cyanrip@aa45b975:src/cyanrip_log.c:540`). **Deliberately NOT
+    # `copy_crc`.** `copy_crc` is the EAC CRC32 of AUDIO, and every surface
+    # that reads it (the AccurateRip tally, EAC parity, the EAC-layout log's
+    # Copy CRC row) would then count a data track as an audio track with a
+    # checksum: the verdict's denominator, the parity comparison and the
+    # logchecker's view of the disc would all move. A different quantity
+    # gets a different field. "" when the log has no such row, which is every
+    # audio track and every data track an older build skipped.
+    data_crc32: str = ""
+    # The `Sector EDC:` row's value, verbatim: `all N sectors match`, `M of N
+    # sectors mismatched` or `none to check`
+    # (`cyanrip@aa45b975:src/cyanrip_log.c:541-547`). Kept as the ripper's own
+    # words rather than counts, because nothing here acts on the number yet and a
+    # structured field with no reader is dead code that reads as coverage. ""
+    # when the row is absent.
+    data_sector_edc: str = ""
 
 
 @dataclass(frozen=True)
@@ -454,6 +474,14 @@ class RipLog:
     # block. Empty for legacy-format logs / when cyanrip didn't print them.
     disc_id: str = ""
     cddb_id: str = ""
+    # The disc's AccurateRip ID, verbatim from cyanrip's `AccurateRip ID:` row:
+    # three 8-digit hex words, `id1-id2-cddb`
+    # (`cyanrip@aa45b975:src/cyanrip_log.c:1007`, format `%08x-%08x-%08x`). The
+    # key the ripper's AccurateRip request was made under, so two logs of one disc
+    # that disagree here asked the database about different discs, whatever their
+    # per-track results say. Printed from cyanrip 0.9.4-rc3 / the fork's
+    # `+platterpus.23`; "" for every earlier build and every legacy-format log.
+    accuraterip_disc_id: str = ""
     # The MusicBrainz RELEASE id the ripper resolved and USED, read off its own
     # header — NOT the id we sent, which is the point. We hand the whole tag set as
     # one colon-delimited `-a` blob, so this is the witness that its parse of that

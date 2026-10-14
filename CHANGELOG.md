@@ -12,6 +12,24 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **The cyanrip log parser reads what the fork's next build, `.23`, adds to the
+  log.** `.23` merges upstream cyanrip 0.9.4-rc3, and the fork will not release it
+  until our parser accepts rc3's output. Every shape was read in their source at
+  `aa45b975`. The new `AccurateRip ID:` line is parsed: it is the key the AccurateRip
+  lookup was made under. The new `AcoustID:` line is ignored, with the reason
+  written down: nothing is ever submitted for us. rc3 now copies a data track to a
+  `.bin` instead of skipping it. A data track's block is read as its own track and
+  never as an audio one: its status says whether it was skipped, copied, copied with
+  errors, or not finished, and its `CRC32:` and `Sector EDC:` rows go to their own
+  fields, never to the audio CRC. A data track skipped under `-X` no longer
+  overwrites the last audio track's start and end sectors. The live track list marks
+  a data track done when its copy finishes. The `Speed:` line the read-speed ladder
+  depends on is unchanged in `.23`. The argv check also reads the long-only flag
+  rows `.23`'s contract will publish. Without that, `--consumer` and
+  `--diagnostics` would have been reported missing from a table that lists both.
+
 ### Changed
 
 - **Round 32 is closed, and the default cyanrip build is now the fork's `.22`
