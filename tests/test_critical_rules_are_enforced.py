@@ -1499,7 +1499,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # 2697 -> 2714 (2026-10-14): round 32's close, recorded beside FORK_PIN,
     # FORK_EXPECTED_VERSION and PIN_UNDER_REVIEW as every roll before it was; the
     # production menu sentence, rewritten for round 32, is one line shorter.
-    "deps/fork_source.py": 2714,
+    # 2714 -> 2716 (2026-10-14): round 33 opens, reviewing `.22` again; the pin under
+    # review's round moves to 33 with its history line, as every round before it.
+    "deps/fork_source.py": 2716,
     # One job, stated as a question: *which link in the ripper chain fails to
     # exit?* The four parts — spawn one invocation under a deadline, orchestrate
     # the four invocations, decide the narrowest verdict they support, render the
@@ -2808,7 +2810,9 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # reads so it cannot declare less than the round's record, as our lap 4 did.
     # Both read `_round_files`, `wire_fields` and `_declared_lap`, and sit beside
     # the other wire-header rows they join.
-    "scripts/handshake.py": 4544,
+    # **4544 -> 4548** (2026-10-14, HR-2 order C): `PROTOCOL_VERSION` moves to 9,
+    # with its dated reason beside the constant, as 6, 7 and 8 were.
+    "scripts/handshake.py": 4548,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
     # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
     # cites at its own path in the re-run tree, before running the command.

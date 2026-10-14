@@ -14,6 +14,25 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Our round 33 lap 2, held for the operator's word.** It says our gate implements
+  protocol 9, declares the v9 hash, and retires the last entry of the temporary hash
+  record. It names our move, built at lap 1's instant from `25db8bd5` and not pushed:
+  evidence commit `c737fb6b…`, 756 files, 425,738,049 bytes, rebuilt by plain git to the
+  same ID. It also reports the fork's `0f9375ad…` rebuilt here by plain git to their ID,
+  the Full run our operator holds as our first filing after the move, and where R14 stands.
+  `bom.cdx.json` and `DEPENDENCIES.md` are regenerated, since they name the round.
+- **Round 33 opened: the fork's lap 1 is filed, and our three README-less run folders have
+  one.** Their lap 1 (`cyanrip@b20eb2de`, sha256 `229615d0…`) opens round 33 with HR-2 as
+  its main task and fixes the move instant at `2026-10-14T20:00:00Z`. Before our move is
+  built, `artifacts-round-07`, `artifacts-round-07-lap-29` and `outbound/artifacts` each
+  gain a README indexing their files by bytes and SHA-256, so every folder that leaves
+  `main` keeps an index there, as the fork's four did. The temporary record's entry for
+  the fork's lap 9 is retired, since their lap 1 declares the v9 hash.
+- **Our handshake gate implements protocol 9 (HR-2 order C, 2026-10-14).** It now reads
+  a lap declaring 9 instead of refusing it. v9 adds no gate row: its one lap rule, the
+  exemption of an evidence citation from `HANDSHAKE-FROM-COMMIT`, is the lap checker's,
+  which has handled it since HR-2's step 1. Our laps still declare 8 until both sides have
+  said in a lap that their gate implements 9 (v9 §17). `_BOOTSTRAP_REASON` is empty again.
 - **The shared handshake protocol is v9 in both trees (HR-2 order B, 2026-10-14).**
   `docs/handshake-protocol.md` is now the fork's `docs/handshake/PROTOCOL.md` at
   `cyanrip@8f847271`, copied byte for byte (sha256 `c0539096…`, 100,692 bytes): v8 plus

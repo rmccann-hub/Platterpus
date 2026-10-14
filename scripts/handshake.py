@@ -1463,7 +1463,7 @@ RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
 OUR_REPO_URL: Final[str] = "https://github.com/rmccann-hub/Platterpus"
 FORK_REPO_URL: Final[str] = "https://github.com/rmccann-hub/cyanrip"
 
-CURRENT_ROUND: Final[int] = 32
+CURRENT_ROUND: Final[int] = 33
 
 
 # --- The shared wire format (protocol §8) -----------------------------------
@@ -1545,7 +1545,11 @@ def _fenced_lines(lines: list[str]) -> list[bool]:
 #: gates now check it (C47, E11); and every reader of a lap strips fences by one
 #: CommonMark rule (C48, C49, E10). Round 31's laps declare 7 and it closes under
 #: v7; v8 governs from round 32 (v8 §16).
-PROTOCOL_VERSION: int = 8
+#:
+#: **9 since 2026-10-14** (v9, HR-2 and HR-2.1): the shared file byte-identical in
+#: both trees (``c0539096…``, ``cyanrip@8f847271``). v9 adds no gate row; its lap rule
+#: is the lap checker's, so 9 means reading a file that declares 9 (HR-2 order C).
+PROTOCOL_VERSION: int = 9
 
 #: The protocol version OUR laps declare, which may trail :data:`PROTOCOL_VERSION`.
 #:
