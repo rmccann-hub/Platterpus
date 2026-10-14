@@ -88,7 +88,16 @@ def moving_names() -> list[str]:
     manifest = REPO_ROOT / "docs" / "evidence-manifest.tsv"
     if manifest.is_file():
         rows, _ = parse_manifest(manifest.read_text(encoding="utf-8"))
-        names |= {path.rsplit("/", 1)[0] for path in rows}
+        for path in rows:
+            folder = path.rsplit("/", 1)[0]
+            left = [
+                p.name for p in (REPO_ROOT / folder).glob("*") if p.name != "README.md"
+            ]
+            # A folder that moved whole (only its README stays) is named by the
+            # folder; one that keeps other files (`outbound/artifacts` keeps
+            # lsl-amendments-1.md) by each moved file, or its name, `artifacts`,
+            # would match half the tree.
+            names.add(folder if not left else path)
     return sorted(names)
 
 
