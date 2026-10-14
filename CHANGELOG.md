@@ -14,6 +14,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **A maker for run-evidence test fixtures, for HR-2.** Round 33's first task moves the
+  run evidence (`docs/handshake/artifacts*`, about 425 MB) off `main` onto an `evidence`
+  branch. Before that, every evidence file a test reads becomes a fixture under
+  `tests/fixtures/evidence/`, at its original path: a byte-for-byte copy, or a slim
+  extract with a sidecar naming its source's SHA-256 (report JSON without `debug.lines`,
+  about 0.2 MB instead of 6; an app log without cyanrip's progress lines, about 1 MB
+  instead of 8.4). `scripts/evidence_fixtures.py` makes both kinds and checks every
+  fixture against its source, from the working tree or, after the move, from
+  `docs/evidence-manifest.tsv`. Tests reach a fixture through `tests/evidence_paths.py`,
+  naming the original path.
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.
