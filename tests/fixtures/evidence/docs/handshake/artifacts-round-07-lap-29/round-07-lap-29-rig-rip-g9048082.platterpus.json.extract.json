@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 32128,
+  "source_bytes": 4446469,
+  "source_path": "docs/handshake/artifacts-round-07-lap-29/round-07-lap-29-rig-rip-g9048082.platterpus.json",
+  "source_sha256": "ca253112abdc3a86fe18b6a084f4201b1dde6861cae0a7bd589dcfce87cd6524"
+}

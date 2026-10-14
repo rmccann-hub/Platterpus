@@ -1,0 +1,314 @@
+cyanrip 0.9.4-rc2+platterpus.11 (platterpus-fork-g978f9b0)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 3 -l 1,2,3 -N --consumer platterpus/0.6.37 -c 1/1 -a "album=cancel me 20260905t180633 platterpus-fork-g978f9b0:album_artist=Platterpus Acceptance:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=Platterpus Acceptance:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=Platterpus Acceptance:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=Platterpus Acceptance:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=Platterpus Acceptance:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=Platterpus Acceptance:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=Platterpus Acceptance:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=Platterpus Acceptance:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=Platterpus Acceptance:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=Platterpus Acceptance:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=Platterpus Acceptance:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=Platterpus Acceptance:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=Platterpus Acceptance:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=Platterpus Acceptance:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=Platterpus Acceptance:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G
+Handshake:      round 14 lap 19 closed, verdict GO -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.6.37
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Frame retries:  3
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    1
+Disc tracks:    14
+Tracks to rip:  1, 2, 3
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+CDDB ID:        E20DFE0E
+Album:          cancel me 20260905t180633 platterpus-fork-g978f9b0
+Album artist:   Platterpus Acceptance
+AccurateRip:    found
+Total time:     59:42.57
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+--- end of pre-log output ---
+Gaps:
+    160 frame pregap in track 2, merging into track 1
+    158 frame pregap in track 4, merging into track 3
+    115 frame pregap in track 5, merging into track 4
+    105 frame pregap in track 7, merging into track 6
+    85 frame pregap in track 8, merging into track 7
+    94 frame pregap in track 9, merging into track 8
+    147 frame pregap in track 10, merging into track 9
+    90 frame pregap in track 13, merging into track 12
+    117 frame pregap in track 14, merging into track 13
+
+Tracks:
+Track 1 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.9 LUFS
+    Threshold: -24.3 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -34.3 LUFS
+    LRA low:   -18.3 LUFS
+    LRA high:  -11.7 LUFS
+
+  Sample peak:
+    Peak:       -0.5 dBFS
+
+  True peak:
+    Peak:        0.3 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    03:13.12
+    Samples:     8518356
+    Frames:      14487
+    Sample peak level: 94.3% (-0.5 dBFS)
+    True peak level:   0.3 dBFS
+    Integrated loudness (R128): -13.9 LUFS
+    Loudness range (R128):      6.5 LU (-18.3 to -11.7 LUFS)
+    Extraction speed:  0.7x
+    Elapsed:            258.28 s
+    Pregap LSN:  0 (duration: 00:02.00)
+    Pregap length: 150 frames
+    Pregap source: lead-in
+    Start LSN:   0 (with offset: 1)
+    End LSN:     14486 (with offset: 14488)
+
+  EAC CRC32:     B0D122E7
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  5D3C90CB (accurately ripped, confidence 129)
+    Accurip v2:  22B9924D (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         1
+    tracktotal:                    14
+    musicbrainz_discid:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media:                         CD
+    comment:                       cyanrip 0.9.4-rc2+platterpus.11
+    totaldiscs:                    1
+    title:                         Roxanne
+    disc:                          1
+    album:                         cancel me 20260905t180633 platterpus-fork-g978f9b0
+    album_artist:                  Platterpus Acceptance
+    date:                          2003
+    musicbrainz_albumid:           65282302-368b-4ba2-953a-483bcdef2410
+    artist:                        Platterpus Acceptance
+    isrc:                          GBAAM0201086
+    creation_time:                 2026-09-05T15:02:48
+    REPLAYGAIN_TRACK_GAIN:         -4.10 dB
+    R128_TRACK_GAIN:               229
+    REPLAYGAIN_TRACK_RANGE:        6.54 dB
+    REPLAYGAIN_TRACK_PEAK:         1.029445
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          1250
+    VERIFY:        85
+    OVERLAP:       17
+
+  File(s):
+    Platterpus Acceptance/cancel me 20260905t180633 platterpus-fork-g978f9b0/01 - Roxanne.flac
+
+Track 2 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.1 LUFS
+    Threshold: -23.3 LUFS
+
+  Loudness range:
+    LRA:         6.1 LU
+    Threshold: -33.3 LUFS
+    LRA low:   -17.2 LUFS
+    LRA high:  -11.1 LUFS
+
+  Sample peak:
+    Peak:       -0.5 dBFS
+
+  True peak:
+    Peak:        0.1 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    03:01.05
+    Samples:     7985040
+    Frames:      13580
+    Sample peak level: 94.3% (-0.5 dBFS)
+    True peak level:   0.1 dBFS
+    Integrated loudness (R128): -13.1 LUFS
+    Loudness range (R128):      6.1 LU (-17.2 to -11.1 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            414.63 s
+    Pregap LSN:  14327 (duration: 00:02.10)
+    Pregap length: 160 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   14487 (with offset: 14488)
+    End LSN:     28066 (with offset: 28068)
+
+  EAC CRC32:     985AAE32
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  A3019EB3 (accurately ripped, confidence 131)
+    Accurip v2:  31C28378 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         2
+    tracktotal:                    14
+    musicbrainz_discid:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media:                         CD
+    comment:                       cyanrip 0.9.4-rc2+platterpus.11
+    totaldiscs:                    1
+    title:                         Can’t Stand Losing You
+    disc:                          1
+    album:                         cancel me 20260905t180633 platterpus-fork-g978f9b0
+    album_artist:                  Platterpus Acceptance
+    date:                          2003
+    musicbrainz_albumid:           65282302-368b-4ba2-953a-483bcdef2410
+    artist:                        Platterpus Acceptance
+    isrc:                          GBAAM0201089
+    creation_time:                 2026-09-05T15:07:06
+    REPLAYGAIN_TRACK_GAIN:         -4.88 dB
+    R128_TRACK_GAIN:               32
+    REPLAYGAIN_TRACK_RANGE:        6.07 dB
+    REPLAYGAIN_TRACK_PEAK:         1.008499
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          1105
+    VERIFY:        71
+    OVERLAP:       22
+
+  File(s):
+    Platterpus Acceptance/cancel me 20260905t180633 platterpus-fork-g978f9b0/02 - Can’t Stand Losing You.flac
+
+Track 3 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    04:51.28
+    Samples:     12849564
+    Frames:      21853
+    Sample peak level: 97.6% (-0.2 dBFS)
+    True peak level:   0.5 dBFS
+    Integrated loudness (R128): -12.4 LUFS
+    Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            668.98 s
+    Pregap LSN:  28067 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     47EF524E
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  64154984 (not found, either a new pressing, or bad rip)
+    Accurip v2:  BE684D4E (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, track is partially accurately ripped)
+
+  Metadata:
+    track:                         3
+    tracktotal:                    14
+    musicbrainz_discid:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media:                         CD
+    comment:                       cyanrip 0.9.4-rc2+platterpus.11
+    totaldiscs:                    1
+    title:                         Message in a Bottle
+    disc:                          1
+    album:                         cancel me 20260905t180633 platterpus-fork-g978f9b0
+    album_artist:                  Platterpus Acceptance
+    date:                          2003
+    musicbrainz_albumid:           65282302-368b-4ba2-953a-483bcdef2410
+    artist:                        Platterpus Acceptance
+    isrc:                          GBAAM0201170
+    creation_time:                 2026-09-05T15:14:00
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          1777
+    VERIFY:        134
+    FIXUP_ATOM:    4
+    OVERLAP:       37
+
+  File(s):
+    Platterpus Acceptance/cancel me 20260905t180633 platterpus-fork-g978f9b0/03 - Message in a Bottle.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -13.0 LUFS
+    Threshold: -23.2 LUFS
+
+  Loudness range:
+    LRA:         7.2 LU
+    Threshold: -33.2 LUFS
+    LRA low:   -17.6 LUFS
+    LRA high:  -10.5 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+Album integrated loudness (R128): -13.0 LUFS
+Album loudness range (R128):      7.2 LU (-17.6 to -10.5 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.5 dBFS
+Tracks ripped accurately: 2/14
+Tracks ripped partially accurately: 1/14
+
+Paranoia status counts:
+  READ:          4132
+  VERIFY:        290
+  FIXUP_ATOM:    4
+  OVERLAP:       76
+
+Ripping errors: 0
+Read stalls:    15 reads exceeded 10s; longest 20s (track 1, LSN 11916)
+Rip completed:  yes (3 of 14 tracks)
+Ripping finished at 2026-09-05T15:25:10
+Log FUN512: pHkZpJg.i2G_J_XKPejp.6CNSF__uXDP0RBmi3ewWfmEFRao4iNUL9qlJhVMq7U5S4hf9Px6GkICLTb7.W_MvA

@@ -7,8 +7,7 @@ regression names the condition that moved.
 
 from __future__ import annotations
 
-from pathlib import Path
-
+from evidence_paths import evidence
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -19,10 +18,9 @@ from platterpus.ladder_trigger import (
 )
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 
-_FULL_RUN = (
-    Path(__file__).resolve().parent.parent
-    / "docs/handshake/artifactsround30/round30oct04full.log"
-)
+#: Evidence moved off `main` (HR-2): named by its original path, read from its
+#: fixture when a test runs, so a missing fixture fails that test, not the import.
+_FULL_RUN: str = "docs/handshake/artifactsround30/round30oct04full.log"
 
 
 def _fork_log(
@@ -168,7 +166,7 @@ def test_stock_cyanrip_with_no_footer_is_judged_by_its_finish_report() -> None:
 
 def test_the_filed_full_run_is_complete_and_clean() -> None:
     """The real 18-track log: finished, so only its error count can step it."""
-    parsed = parse_cyanrip_log(_FULL_RUN.read_text(encoding="utf-8"))
+    parsed = parse_cyanrip_log(evidence(_FULL_RUN).read_text(encoding="utf-8"))
     assert why_pass_incomplete(parsed) == ""
     verdict = judge_step_down(
         parsed, exit_code=0, stopped_by_us=False, log_is_this_passes=True

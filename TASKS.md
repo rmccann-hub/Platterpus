@@ -3635,7 +3635,7 @@ never recorded before; the four spot-checked (A6, C9, D6, G12) held. Line number
     - *Reconciled 2026-09-30 with the v0.6.4 plan's blocker 1, which is `[x]`:* that
       tick means superseded as a v0.6.4 blocker, not run in full. The session did run
       on 2026-08-04 (`c5fb909`), and its results table
-      (`docs/handshake/artifacts-round-07/rig-session-results-c5fb909.md`) records H10/`-O`,
+      (`platterpus@4b793199:docs/handshake/artifacts-round-07/rig-session-results-c5fb909.md`) records H10/`-O`,
       the `-x` probe, `-j` and the mid-rip cancel as NOT RUN; what is still owed is
       listed in this row.
   - *Merged 2026-09-30, verbatim, from the duplicate row "Send the A7/G2/H12 forced-error corpus" (round 7) (it was `[ ]`):* **Send the A7/G2/H12 forced-error corpus.** Hardware-gated and deliberately not
@@ -8204,7 +8204,7 @@ two verdicts turning GO.
    - **[x] The rig session ran** (2026-08-04, `c5fb909`): 14/14 vs EAC, log verification
       `verified`, first hardware sightings of `Read stalls:` and `C2 errors: unsupported by
       drive`. `HANDSHAKE-TESTED` declared in lap 23. Record:
-      `docs/handshake/artifacts-round-07/rig-session-results-c5fb909.md`.
+      `platterpus@4b793199:docs/handshake/artifacts-round-07/rig-session-results-c5fb909.md`.
    - **[x] Their lap 24 answered the pin question**: promote **`e61e75a`** rather than
       `c5fb909`, because `c5fb909` carries a `dev_path` leak that had made their sanitizers
       unusable — and `e61e75a` is **observably identical** to it (log body 275 lines, cue,

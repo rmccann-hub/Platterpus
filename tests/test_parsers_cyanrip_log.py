@@ -14,6 +14,9 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
+from evidence_paths import FIXTURE_ROOT as EVIDENCE_ROOT
+from evidence_paths import evidence
+from evidence_population import with_moved_evidence
 
 from platterpus.parsers import cyanrip_log
 from platterpus.parsers.cyanrip_log import (
@@ -653,7 +656,7 @@ def test_the_old_wording_is_printed_even_when_reads_agreed() -> None:
     reads agreed — and then "no matches found". This reads the artifact rather
     than a copy of it, so the claim cannot drift from the evidence.
     """
-    path = _REPO / "docs/handshake/artifactsround28/round28fullsecurereread.log"
+    path = evidence("docs/handshake/artifactsround28/round28fullsecurereread.log")
     lines = path.read_text(encoding="utf-8").splitlines()
     # Lines 381-386 of the file, 1-based as the comment cites them.
     window = lines[380:386]
@@ -709,7 +712,7 @@ def test_each_committed_limit_hit_track_carries_what_its_log_proves() -> None:
     """
     examined = 0
     for path in sorted({name for name, _number in _LIMIT_HIT_TRACKS}):
-        log = parse_cyanrip_log((_REPO / path).read_text(encoding="utf-8"))
+        log = parse_cyanrip_log(evidence(path).read_text(encoding="utf-8"))
         assert len(log.tracks) == 14, (path, len(log.tracks))
         for track in log.tracks:
             expected = _LIMIT_HIT_TRACKS.get((path, track.number))
@@ -735,7 +738,7 @@ def test_a_floor_of_one_is_not_no_two_reads_agreed() -> None:
     Had the parser called this "no two reads agreed", the log would have said
     something the artifact disproves.
     """
-    path = _REPO / "docs/handshake/artifactsround27/round27fullsecurereread.log"
+    path = evidence("docs/handshake/artifactsround27/round27fullsecurereread.log")
     text = path.read_text(encoding="utf-8")
     assert (
         "Repeating ripping (0 out of 2 matches for current checksum A62CAD22)" in text
@@ -1731,10 +1734,14 @@ def test_every_committed_elapsed_line_is_actually_read() -> None:
     family = re.compile(
         r"^\s+(?:Elapsed(?: time)?|Rip time|Extraction time|Time taken):", re.MULTILINE
     )
+    # The handshake logs that moved to the evidence branch (HR-2) are read from
+    # their fixtures, once each, so the corpus is the size it was before the move.
     paths = [
         path
         for path in sorted(_REPO.glob("output_reference/**/*.log"))
-        + sorted(_REPO.glob("docs/handshake/**/*.log"))
+        + with_moved_evidence(
+            _REPO.glob("docs/handshake/**/*.log"), "docs/handshake/**/*.log"
+        )
         if "EACcompatible" not in path.name
     ]
     examined = 0
@@ -1746,7 +1753,10 @@ def test_every_committed_elapsed_line_is_actually_read() -> None:
             examined += 1
             if not cyanrip_log._TRACK_ELAPSED_SECONDS.match(line):
                 unread.append((path.name, line.strip()))
-    assert len(paths) >= 20, f"only {len(paths)} logs in the widened corpus"
+    # 248 logs on 2026-10-14 (HR-2), 219 of them the run evidence read from its
+    # fixtures. The floor was 20; a revert probe with the fixtures left out still
+    # passed it on the 29 logs that remain on `main`, so it now sits at the count.
+    assert len(paths) >= 248, f"only {len(paths)} logs in the widened corpus"
     assert examined >= 60, (
         f"only {examined} elapsed-family lines found in the corpus (82 on "
         f"2026-08-21) — the logs stopped carrying the row, or the family pattern "
@@ -2223,13 +2233,9 @@ def test_not_attempted_never_erases_a_measured_verdict() -> None:
 # baseline disc, committed under docs/handshake/artifacts-round-07/. It is the only
 # real log in existence carrying this tally, because the block needs an AccurateRip
 # database hit and the synthetic discs are not in the database (their §A2, measured).
-_RIG_RIP_LOG = (
-    Path(__file__).resolve().parent.parent
-    / "docs"
-    / "handshake"
-    / "artifacts-round-07"
-    / "round-07-lap-23-rig-rip-gc5fb909.log"
-)
+# That folder moved to the evidence branch (HR-2); the log is read from its
+# byte-for-byte fixture, which is the same bytes.
+_RIG_RIP_LOG = "docs/handshake/artifacts-round-07/round-07-lap-23-rig-rip-gc5fb909.log"
 
 
 def test_offset_variant_sentence_is_the_same_on_both_fork_denominators() -> None:
@@ -2254,8 +2260,8 @@ def test_offset_variant_sentence_is_the_same_on_both_fork_denominators() -> None
 
 def test_the_real_rig_log_renders_the_disc_as_the_population() -> None:
     """Read the committed artifact, not a fixture's idea of one."""
-    assert _RIG_RIP_LOG.is_file(), f"missing committed artifact: {_RIG_RIP_LOG}"
-    log = parse_cyanrip_log(_RIG_RIP_LOG.read_text(encoding="utf-8", errors="replace"))
+    rig_rip_log = evidence(_RIG_RIP_LOG)  # raises, naming the path, if it is absent
+    log = parse_cyanrip_log(rig_rip_log.read_text(encoding="utf-8", errors="replace"))
     # Floors first: a log that parsed to nothing would satisfy every assertion below.
     assert len(log.tracks) == 14, (
         f"expected the 14-track baseline disc, got {len(log.tracks)}"
@@ -2594,6 +2600,10 @@ def test_every_committed_fun512_signature_is_well_formed() -> None:
     for directory in ("tests/fixtures", "output_reference"):
         for path in sorted((root / directory).rglob("*")):
             if not path.is_file() or path.suffix not in {".log", ".json", ".txt"}:
+                continue
+            # The evidence fixtures (HR-2) stand for `docs/handshake/` run files
+            # this sweep never read; counting them would change its population.
+            if path.resolve().is_relative_to(EVIDENCE_ROOT):
                 continue
             for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
                 m = cyanrip_log._LOG_CHECKSUM.match(line.strip())
@@ -3394,10 +3404,9 @@ def test_the_filed_full_run_parses_as_it_did_with_its_skips_left_uncounted() -> 
     `.19` did not count skips, and the line has no suffix, so M is 0 and the
     drive's count is the line's: what the fork's S11 says of every such line.
     """
-    text = (
-        Path(__file__).resolve().parent.parent
-        / "docs/handshake/artifactsround30/round30oct04full.log"
-    ).read_text(encoding="utf-8")
+    text = evidence("docs/handshake/artifactsround30/round30oct04full.log").read_text(
+        encoding="utf-8"
+    )
     parsed = parse_cyanrip_log(text)
     assert parsed.paranoia_counts.get("SKIP") == 2586  # the skips are there…
     assert (parsed.ripping_errors, parsed.ripping_errors_paranoia_skips) == (0, 0)
@@ -3460,7 +3469,9 @@ def test_every_committed_tracks_to_rip_value_is_recognised() -> None:
     """
     examined = 0
     subsets = 0
-    for path in sorted(_REPO.rglob("*.log")):
+    # Logs that moved to the evidence branch (HR-2) are read from their fixtures,
+    # once each: the same population before the move and after it.
+    for path in with_moved_evidence(_REPO.rglob("*.log"), "**/*.log"):
         if any(part.startswith(".") for part in path.relative_to(_REPO).parts):
             continue
         text = path.read_text(encoding="utf-8", errors="replace")

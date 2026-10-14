@@ -8,7 +8,8 @@ ever forwards the wrapper's SIGTERM"*).
 
 **Tested against the filed run, not only against lines written here.** The
 2026-10-05 Full run's app log and its cancelled rip's log are committed
-(``docs/handshake/artifactsround30/round30oct05full*``); the predicate is run on
+(``docs/handshake/artifactsround30/round30oct05full*``, read from their fixtures
+since HR-2 moved that folder to the evidence branch); the predicate is run on
 them, and the log lines it keys on are tied to the product code that writes them.
 """
 
@@ -22,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from evidence_paths import FIXTURE_ROOT as EVIDENCE_ROOT
 from test_uiscript_rip_verbs import _run_one, _window
 
 from platterpus import container_gate, drive_control, log_buffer
@@ -31,7 +33,12 @@ from platterpus.ui.main_window_rip import RipMixin
 from platterpus.uiscript import applog_verbs as av
 from platterpus.uiscript.report import Outcome
 
-_FILED = Path(__file__).resolve().parent.parent / "docs/handshake/artifactsround30"
+#: The round-30 run folder moved to the evidence branch (HR-2). The cancelled rip's
+#: log is a byte-for-byte fixture; the app log is a slim extract, with cyanrip's
+#: `Ripping track N, progress` lines removed and counted, which the cancel, the
+#: rescue and the footer read here are none of. Joined, not checked, at import:
+#: a missing fixture fails the test that opens it, not every test in this file.
+_FILED = EVIDENCE_ROOT / "docs/handshake/artifactsround30"
 _APPLOG = _FILED / "round30oct05fullplatterpusapplog1.txt"
 _CANCELLED = _FILED / "round30oct05fullcancelme.log"
 

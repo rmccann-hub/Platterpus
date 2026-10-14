@@ -22,8 +22,9 @@ right and one wrong:
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
+
+from evidence_paths import evidence
 
 from platterpus import rip_report
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
@@ -99,9 +100,8 @@ def test_the_fatal_line_reaches_the_user_from_the_rippers_own_output() -> None:
 
 def test_the_full_runs_real_log_opens_with_the_lines_this_fixture_copies() -> None:
     """The fixture's header is not invented: the real log has the same four lines."""
-    real = (
-        Path(__file__).resolve().parents[1]
-        / "docs/handshake/artifactsround27/round27fullwholedisc.log"
+    real = evidence(
+        "docs/handshake/artifactsround27/round27fullwholedisc.log"
     ).read_text(encoding="utf-8")
     heads = [line.split(":", 1)[0] for line in real.splitlines()[1:6]]
     assert heads[:1] == ["Invoked as"] and "Handshake" in heads and "Consumer" in heads

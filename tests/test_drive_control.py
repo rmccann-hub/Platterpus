@@ -426,15 +426,19 @@ def test_the_shutdown_grace_is_twice_the_longest_read_on_record() -> None:
     (`docs/handshake/artifactsround30/round30oct04full.log`).
 
     Only `.log` files count: the `.md` laps quote the line's FORMAT with
-    invented values (`longest 187s`) taken from the fork's tests.
+    invented values (`longest 187s`) taken from the fork's tests. The run folders
+    moved to the evidence branch (HR-2), so their logs are read from their
+    byte-for-byte fixtures, once each: the same population as before the move.
     """
     import re
     from pathlib import Path
 
+    from evidence_population import with_moved_evidence
+
     docs = Path(__file__).resolve().parents[1] / "docs"
     stall = re.compile(r"^Read stalls:\s.*?longest (?P<s>\d{1,5})s\b", re.M)
     longest: list[tuple[int, str]] = []
-    for path in sorted(docs.rglob("*.log")):
+    for path in with_moved_evidence(docs.rglob("*.log"), "docs/**/*.log"):
         for match in stall.finditer(path.read_text(encoding="utf-8", errors="replace")):
             longest.append((int(match.group("s")), path.name))
     assert longest, (

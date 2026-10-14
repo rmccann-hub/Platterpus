@@ -20,6 +20,7 @@ import pytest
 # The one canonical window teardown (see its docstring — a second copy of it
 # is how CI segfaulted on 2026-07-28).
 from conftest import HardExitCalled, stop_window_threads
+from evidence_paths import evidence
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
@@ -1490,7 +1491,7 @@ def test_a_rip_cancelled_after_its_read_finished_says_cancelled_not_done(
     monkeypatch.setattr(window._rip_progress, "set_status", statuses.append)
     log_file = tmp_path / "rip.log"
     log_file.write_text(
-        _ROUND30_OCT04_FULL_LOG.read_text(encoding="utf-8"), encoding="utf-8"
+        evidence(_ROUND30_OCT04_FULL_LOG).read_text(encoding="utf-8"), encoding="utf-8"
     )
 
     window._on_rip_finished(True, str(log_file))
@@ -1529,7 +1530,7 @@ def test_the_fidelity_line_carries_a_disagreement_with_cyanrips_own_record(
     monkeypatch.setattr(window._rip_progress, "set_status", statuses.append)
     log_file = tmp_path / "rip.log"
     log_file.write_text(
-        _ROUND30_OCT04_FULL_LOG.read_text(encoding="utf-8"), encoding="utf-8"
+        evidence(_ROUND30_OCT04_FULL_LOG).read_text(encoding="utf-8"), encoding="utf-8"
     )
 
     window._on_rip_finished(True, str(log_file))
@@ -1911,13 +1912,9 @@ def test_fidelity_summary_cyanrip_clean_rip() -> None:
     assert "CRCs match" not in summary  # never claim a check that didn't run
 
 
-_ROUND30_OCT04_FULL_LOG = (
-    Path(__file__).resolve().parents[1]
-    / "docs"
-    / "handshake"
-    / "artifactsround30"
-    / "round30oct04full.log"
-)
+#: Evidence moved off `main` (HR-2): named by its original path, read from its
+#: fixture when a test runs, so a missing fixture fails that test, not the import.
+_ROUND30_OCT04_FULL_LOG: str = "docs/handshake/artifactsround30/round30oct04full.log"
 
 
 def test_fidelity_summary_does_not_call_a_track_with_unverified_skips_clean() -> None:
@@ -1928,7 +1925,9 @@ def test_fidelity_summary_does_not_call_a_track_with_unverified_skips_clean() ->
     """
     from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 
-    rip_log = parse_cyanrip_log(_ROUND30_OCT04_FULL_LOG.read_text(encoding="utf-8"))
+    rip_log = parse_cyanrip_log(
+        evidence(_ROUND30_OCT04_FULL_LOG).read_text(encoding="utf-8")
+    )
     assert rip_log.tracks[17].paranoia_counts.get("SKIP") == 2586, "floor: the subject"
     summary = _fidelity_summary(rip_log, expected_track_total=18)
     assert "ripped cleanly, no read errors" not in summary
@@ -5843,10 +5842,9 @@ def test_ctdb_verify_runs_off_the_gui_thread(
 # footer, the probe's track count. These pin that the GUI HANDS it both — read at
 # launch, not when the daemon runs, by which time they can belong to the next rip.
 
-_ROUND27_PARTIAL_LOG: Path = (
-    Path(__file__).resolve().parents[1]
-    / "docs/handshake/artifactsround27/round27fullderivedmp3.log"
-)
+#: Evidence moved off `main` (HR-2): named by its original path, read from its
+#: fixture when a test runs, so a missing fixture fails that test, not the import.
+_ROUND27_PARTIAL_LOG: str = "docs/handshake/artifactsround27/round27fullderivedmp3.log"
 
 
 def _partial_album(tmp_path: Path, *, with_log: bool) -> tuple[Path, RipLog]:
@@ -5855,7 +5853,7 @@ def _partial_album(tmp_path: Path, *, with_log: bool) -> tuple[Path, RipLog]:
     from platterpus import rip_files
     from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 
-    text = _ROUND27_PARTIAL_LOG.read_text(encoding="utf-8")
+    text = evidence(_ROUND27_PARTIAL_LOG).read_text(encoding="utf-8")
     parsed = parse_cyanrip_log(text)
     album = tmp_path / "album"
     album.mkdir()
@@ -13934,13 +13932,9 @@ def test_our_own_closes_and_idle_closes_never_ask(
 _DISC_A = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
 _DISC_B = "oMp2k.ixH0QqrdaZzsARoRS.p6c-"
 #: The 2026-10-13 run's whole-disc rip log, filed in our tree (disc A).
-_FILED_WHOLE_DISC_LOG = (
-    Path(__file__).resolve().parent.parent
-    / "docs"
-    / "handshake"
-    / "artifactsround32"
-    / "round32fullwholedisc.log"
-)
+#: Read from its byte-for-byte fixture: the folder moved to the evidence branch
+#: (HR-2).
+_FILED_WHOLE_DISC_LOG: str = "docs/handshake/artifactsround32/round32fullwholedisc.log"
 
 
 def test_start_snapshots_the_scanned_disc_id(
@@ -13990,7 +13984,7 @@ def test_a_finished_rip_of_the_wrong_disc_says_so_everywhere(
     album_dir.mkdir(parents=True)
     log_file = album_dir / "Album.log"
     log_file.write_text(
-        _FILED_WHOLE_DISC_LOG.read_text(encoding="utf-8"),
+        evidence(_FILED_WHOLE_DISC_LOG).read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     window._active_rip_params = RipParameters(

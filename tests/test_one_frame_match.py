@@ -18,9 +18,8 @@ would pass the floor.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
+from evidence_paths import evidence
 from PySide6.QtWidgets import QApplication
 
 from platterpus import one_frame_match
@@ -35,10 +34,9 @@ from platterpus.ui.main_window_helpers import _partial_accurate_clause
 from platterpus.ui.rip_progress import _ar_cell, _ar_tooltip, _eac_cell
 from platterpus.verdict import accuraterip_verdict, reconcile_ar_ctdb
 
-_SECTION_J_LOG: Path = (
-    Path(__file__).resolve().parents[1]
-    / "docs/handshake/artifactsround26/round26aftercancel.log"
-)
+#: Evidence moved off `main` (HR-2): named by its original path, read from its
+#: fixture when a test runs, so a missing fixture fails that test, not the import.
+_SECTION_J_LOG: str = "docs/handshake/artifactsround26/round26aftercancel.log"
 
 #: The old claims. Each is a CAUSE (a pressing, an offset) or a VERDICT ("fine")
 #: that a one-frame match cannot support.
@@ -54,7 +52,7 @@ _BANNED: tuple[str, ...] = (
 
 
 def _section_j() -> tuple[RipLog, TrackResult]:
-    parsed = parse_cyanrip_log(_SECTION_J_LOG.read_text(encoding="utf-8"))
+    parsed = parse_cyanrip_log(evidence(_SECTION_J_LOG).read_text(encoding="utf-8"))
     # Floors: the log must still be the case this file is about.
     assert [t.number for t in parsed.tracks] == [1, 2], parsed.tracks
     track1 = parsed.tracks[0]

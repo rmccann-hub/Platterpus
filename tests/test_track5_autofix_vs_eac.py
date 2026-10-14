@@ -27,6 +27,8 @@ the first pass — or had the swap been wired the other way round — this test 
 **It reads the committed artifacts rather than restating them** (CLAUDE.md: *when a
 committed artifact can settle a question, the test should read the artifact*), so it
 cannot drift from what those files say, and it fails if either is edited or moved.
+(The two rig files are byte-for-byte fixtures since HR-2 moved their folder to the
+evidence branch; `scripts/evidence_fixtures.py check` holds them to the originals.)
 """
 
 from __future__ import annotations
@@ -34,10 +36,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from evidence_paths import FIXTURE_ROOT as EVIDENCE_ROOT
 
 _REPO = Path(__file__).resolve().parent.parent
 _EAC_LOG = _REPO / "output_reference" / "EAC_flac" / "eac_baseline_police_classics.log"
-_ART = _REPO / "docs" / "handshake" / "artifacts-round-07"
+#: The round-07 run folder moved to the evidence branch (HR-2). Its two files are
+#: read from their byte-for-byte fixtures, at the original path under the fixture
+#: root; the floor test below still fails if either is missing or pruned.
+_ART = EVIDENCE_ROOT / "docs" / "handshake" / "artifacts-round-07"
 _CYANRIP_LOG = _ART / "round-07-lap-23-rig-rip-gc5fb909.log"
 _ADDENDUM = _ART / "round-07-lap-23-rig-rip-gc5fb909.platterpus-addendum.txt"
 

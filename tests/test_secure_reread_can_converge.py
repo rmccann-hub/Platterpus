@@ -25,6 +25,7 @@ from itertools import chain, repeat
 from pathlib import Path
 
 import pytest
+from evidence_population import with_moved_evidence
 
 from platterpus.cyanrip_cli import (
     DEFAULT_MAX_RETRIES,
@@ -39,6 +40,15 @@ from platterpus.read_speed_ladder import (
 )
 
 REPO = Path(__file__).resolve().parent.parent
+
+#: Every committed secure re-read log. Their run folders moved to the evidence
+#: branch (HR-2), so each is read from its byte-for-byte fixture, once: the same
+#: logs before the move and after it.
+_SECURE_REREAD_LOGS = "docs/handshake/artifactsround*/*securereread.log"
+
+
+def _secure_reread_logs() -> list[Path]:
+    return with_moved_evidence(REPO.glob(_SECURE_REREAD_LOGS), _SECURE_REREAD_LOGS)
 
 
 def _cyanrip_secure_reread(
@@ -144,7 +154,7 @@ def test_every_committed_hardware_log_counts_reads_the_way_the_predicate_does() 
     must say exactly Z+1 and every other one exactly `-r`. Read from the
     artifact, so this pins the ripper's behaviour and not our belief about it.
     """
-    logs = sorted(REPO.glob("docs/handshake/artifactsround*/*securereread.log"))
+    logs = _secure_reread_logs()
     assert len(logs) >= 2, f"floor: only {len(logs)} secure re-read log(s) found"
     verdicts_checked = 0
     for log in logs:
@@ -353,7 +363,7 @@ def test_the_rip_plan_names_the_read_count_the_ripper_prints() -> None:
     """
     from platterpus.rip_plan import describe_rip_plan
 
-    logs = sorted(REPO.glob("docs/handshake/artifactsround*/*securereread.log"))
+    logs = _secure_reread_logs()
     assert logs, "floor: no committed secure re-read log to compare against"
     for log in logs:
         text = log.read_text(encoding="utf-8")
