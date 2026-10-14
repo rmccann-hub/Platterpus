@@ -14,6 +14,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 32 is closed, and the default cyanrip build is now the fork's `.22`
+  (`200530e`).** The fork's lap 9 declared `GO` after our lap 8, so both sides' checks
+  read round 32 CLOSED. It approves `.22` with Platterpus 0.7.104, the pair its Full run
+  tested. `FORK_PIN` moves from `ca3f3ea` (`.21`) to `200530e`, and the approval record
+  moves to round 32. The next release installs `.22` by default. Their lap 9 names one
+  old defect of theirs that the run shows: in the secure re-read, cyanrip read track 4's
+  pregap as none. No audio byte moves, and it stays open on their side. Our reading of
+  the run missed it, and a check for that is a round-33 row (TASKS R10). Fixed in the
+  same change: the install menu's description of the production build still described
+  `.19` and round 30, because round 31's roll did not rewrite it. A test now ties that
+  sentence to the approval round, the release number and the lap it cites.
+
 - **Round 32 lap 8 written and released on the operator's word, declaring `GO`.** It
   reads round 32's Full run (0.7.104 with `.22`, 424 pass, 0 fail, full-green) and finds
   nothing of the fork's to fix. It verifies their lap 7, corrects our lap 6's C46

@@ -172,7 +172,13 @@ from platterpus.deps import fork_source
 #: `HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.21`, the pair round 31
 #: reviewed and its Full run tested (2026-10-07, 425 pass, none failed, E2 the one
 #: step the drive cannot reach). A new pin (`174a134` -> `ca3f3ea`, `+platterpus.21`).
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.66"
+#: **Round 32 moves it to 0.7.104**, read from the peer's closing lap as the rule
+#: requires: round 32 lap 9 declares `HANDSHAKE-APP-VERSION: platterpus 0.7.104`
+#: (sha256 `2ba92839…`, 12,868 bytes, `cyanrip@aa45b97`) beside
+#: `HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.22`, the pair round 32
+#: reviewed and its Full run tested (2026-10-13, 424 pass, none failed, E2 the one
+#: step the drive cannot reach). A new pin (`ca3f3ea` -> `200530e`, `+platterpus.22`).
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.7.104"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -301,7 +307,14 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.66"
 #: operator's word. It approves the pair it reviewed, `.21` (`ca3f3ea`) with 0.6.66
 #: (v8 R8 point 1, E2): the first `full-green` Full run, 425 of 426 with E2 unreachable
 #: on this drive, read by both sides. The round closes under v7; v8 governs from 32.
-APPROVED_BY_ROUND: Final[int] = 31
+#: **32 on 2026-10-14**, closed on both gates at nine laps: our lap 8 `GO` and their
+#: lap 9 `GO`, the first round run under v8. It approves the pair it reviewed, `.22`
+#: (`200530e`) with 0.7.104: the Full run of 2026-10-13, 424 pass and none failed with
+#: E2 unreachable on this drive, filed in both trees from one bundle and read by both.
+#: Their lap 9 S4 names one defect of theirs the run shows (the sub-channel search
+#: reading track 4's pregap as none in the secure re-read), older than `.22` and
+#: moving no audio byte, carried open on their side.
+APPROVED_BY_ROUND: Final[int] = 32
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

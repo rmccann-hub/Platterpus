@@ -11,6 +11,30 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-14 — round 32 closes; `FORK_PIN` to `.22` (`200530e`)
+
+**What was done.** The fork's lap 9 (`GO`, `cyanrip@aa45b97`, sha256 `2ba92839…`, 12,868
+bytes) was fetched from their branch, matched the operator's hash and size, and filed
+byte for byte. It passes `--check` and the lap checker (A1 with two TERMs, A7 with one
+blocking ask). Its round digest `9ca4ba6fb7dc1e94` over eight laps reproduces with our
+`round_digest.py`. Its S4 claim was checked against our own filing, not taken from
+the lap: the secure re-read's `Gaps:` list leaves track 4 out and its cue has no
+`INDEX 00` for it, where the whole-disc rip lists 158 frames. Our gate reads round 32
+CLOSED. `FORK_PIN` and `FORK_EXPECTED_VERSION` moved to `.22`, the approval record to
+round 32 with 0.7.104, and the meson-options tripwire was re-derived a twelfth time
+(the file is unchanged, so we still pass no option).
+
+**Learned.** (1) Round 32 is the first close where the peer said `GO` after us. Our
+closing lap transcribed their earlier `OPEN`, so no lap of ours records both verdicts
+`GO`. The install-menu sweep read only our own laps, and it reported the correct
+`approved` label for `.22` as a disagreement. It now reads the peer's laps too, still
+requiring both verdicts in one file. (2) `PRODUCTION_TARGET.why`, the menu's sentence
+for the production build, had described `.19` and round 30 since round 31's roll. It was
+hand-written at each roll and nothing compared it with the constants beside it. A test
+now ties it to `APPROVED_BY_ROUND`, the pin's release number and the lap it cites. (3)
+Their S4 is a miss in our reading: nothing in our grader compares two rips' pregap
+lists. That is TASKS R10, for round 33.
+
 ## 2026-10-13 — round 32's Full run: 0.7.104 with `.22`, full-green
 
 **What was done.** The operator's Full run of round 32's pair (11:29 to 16:49 UTC) was

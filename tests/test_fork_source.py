@@ -1502,9 +1502,16 @@ def test_our_production_pin_gets_no_meson_options() -> None:
     # `0a32b1f7ac8efbde…`), 973 bytes, the one option still `declare_released`,
     # `value: false`.
     #
+    # **TWELFTH TIME, ON THE ROLL TO `200530e` (round 32 close, 2026-10-14), AND THE
+    # ANSWER AGAIN DID NOT CHANGE.** Re-derived in the fork's tree: `git diff ca3f3ea
+    # 200530e -- meson_options.txt` empty, the file hashes as before (sha256
+    # `0a32b1f7ac8efbde…`), 973 bytes, the one option still `declare_released`,
+    # `value: false`; `release-manifest.json` at `aa45b97` builds with
+    # `-Ddeclare_released=true` on both channels, the release path.
+    #
     # Keyed on the CURRENT production pin so the next roll asks the question again.
     assert fork_source.PRODUCTION_TARGET.pin == fork_source.FORK_PIN
-    assert fork_source.PRODUCTION_TARGET.pin == "ca3f3ea", (
+    assert fork_source.PRODUCTION_TARGET.pin == "200530e", (
         "the pin moved — re-check meson_options.txt at the new pin, and re-ask "
         "whether we are entitled to any option it declares. Presence is not "
         "permission: `declare_released` is a claim about provenance, and a build "
@@ -1937,3 +1944,38 @@ def test_the_same_program_flag_is_redeclared_whenever_either_pin_moves() -> None
             "the reviewed pin and the test pin are the SAME COMMIT, so they are "
             "necessarily the same program and the flag cannot be False"
         )
+
+
+def test_the_production_menu_line_names_the_round_and_lap_that_approved_the_pin() -> (
+    None
+):
+    """`PRODUCTION_TARGET.why` describes the approval record as it stands.
+
+    **Why this exists (2026-10-14).** The line the install menu shows beside the
+    production build was hand-written at each roll, and at round 31's roll it was
+    not rewritten: 0.7.104 shipped `FORK_PIN = ca3f3ea` (`.21`, round 31) with a menu
+    line still describing `.19`, round 30 and `round-30-lap-17.md`. Every word was
+    once accurate. Nothing compared the sentence with the constants beside it, so
+    it is compared here: the round it names is `APPROVED_BY_ROUND`, the release
+    sequence it quotes is the pin's own, and the lap it cites exists in our record,
+    belongs to that round and declares `FORK_PIN` as its pin.
+    """
+    from platterpus import handshake_approval  # noqa: PLC0415
+
+    why = fork_source.PRODUCTION_TARGET.why
+    round_number = handshake_approval.APPROVED_BY_ROUND
+    assert f"round {round_number} approved" in why, why
+    assert f"release_seq {fork_source.FORK_PIN_RELEASE_SEQ}" in why, why
+    cited = re.findall(r"docs/handshake/\w+/round-(\d+)-lap-\d+\.md", why)
+    assert len(cited) == 1, f"the line should cite one lap, cites {cited}: {why}"
+    assert int(cited[0]) == round_number, why
+    path_text = re.search(r"docs/handshake/\S+\.md", why)
+    assert path_text is not None
+    lap = REPO_ROOT / path_text.group(0)
+    assert lap.is_file(), f"the cited lap {lap} does not exist"
+    pin = re.search(
+        r"^HANDSHAKE-PIN:\s*([0-9a-f]{7,40})\b", lap.read_text(encoding="utf-8"), re.M
+    )
+    assert pin is not None and fork_source.same_commit(
+        pin.group(1), fork_source.FORK_PIN
+    ), f"{lap.name} declares {pin and pin.group(1)}, not {fork_source.FORK_PIN}"
