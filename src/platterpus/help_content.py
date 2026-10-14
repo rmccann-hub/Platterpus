@@ -512,7 +512,9 @@ The archive carries the transcript, this app's log, your settings, the
 screenshots the run took, and every rip folder's text artifacts: rip logs, cue
 sheets, reports, checksums. **No audio, ever** — the filter is a list of what may
 go in, not a list of what may not, and anything excluded is named in the
-archive's `MANIFEST.txt` rather than dropped quietly.
+archive's `MANIFEST.txt` rather than dropped quietly. That file also gives every
+included file's SHA-256, so whoever receives the archive can check each file
+against the hash this app wrote.
 
 ## Running your own tests without being there
 

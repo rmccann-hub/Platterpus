@@ -60,6 +60,7 @@ from pathlib import Path
 from typing import Final
 
 from platterpus.build_info import build_fingerprint
+from platterpus.bundle_integrity import sha256_section
 
 log = logging.getLogger(__name__)
 
@@ -127,6 +128,11 @@ class BundleEntry:
     included: bool
     reason: str
     bytes_written: int = 0
+    #: SHA-256 (lowercase hex) of the bytes WRITTEN into the archive for this
+    #: member — the bytes a receiver extracts, not the file on disk. Empty for a
+    #: file that was not included. `bundle_integrity.sha256_section` says why the
+    #: hash is of the written bytes and what that means for a bounded file.
+    sha256: str = ""
 
 
 @dataclass
@@ -747,6 +753,7 @@ def _render_manifest(
             lines.append(f"  {entry.name:<52} {entry.reason}")
     else:
         lines.append("  (nothing was excluded)")
+    lines += sha256_section(included)
     # **Derived, not typed out.** The first version listed the extensions as prose
     # and was wrong within the hour: it named the strict set while the archive also
     # carried this program's own screenshots under the widened one, so the manifest
@@ -941,7 +948,20 @@ def build_bundle(
                     continue
                 _write(name, data)
                 spent += len(data)
-                entries.append(BundleEntry(name, str(source), True, note, len(data)))
+                # HASHED FROM THE SAME BYTES `_write` WAS HANDED, in the same
+                # breath. Hashing the source file instead would describe a file
+                # the archive does not contain whenever the per-file cap bounded
+                # it — a digest of something no member ever held.
+                entries.append(
+                    BundleEntry(
+                        name,
+                        str(source),
+                        True,
+                        note,
+                        len(data),
+                        hashlib.sha256(data).hexdigest(),
+                    )
+                )
                 del data  # release before the next file is read
 
             for name, text in sorted(extra_text.items()):
@@ -949,7 +969,14 @@ def build_bundle(
                 _write(name, blob)
                 spent += len(blob)
                 entries.append(
-                    BundleEntry(name, "(generated in-app)", True, "", len(blob))
+                    BundleEntry(
+                        name,
+                        "(generated in-app)",
+                        True,
+                        "",
+                        len(blob),
+                        hashlib.sha256(blob).hexdigest(),
+                    )
                 )
 
             manifest = _render_manifest(

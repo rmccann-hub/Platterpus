@@ -1310,6 +1310,15 @@ test-script run.
    conclusions from the gap. Same rule as `diagnostics.py`: *a silent truncation reads
    as completeness*, and where a file must be bounded it keeps **head and tail** with a
    counted elision, because a tool's fatal message is the last thing it prints.
+   **Every included member also carries its SHA-256** (from 2026-10-14, the fork's round
+   32 lap 9 S8), in a block of `MANIFEST.txt` lines in `sha256sum`'s own format
+   (`bundle_integrity.py`), so a
+   receiver checks a filing against the sender's hashes with
+   `grep … MANIFEST.txt | sha256sum -c` and needs no parser of ours. The hash is of the
+   bytes **written into the archive**, never of the file on disk: a bounded file is
+   hashed with its elision marker, because that is what a receiver extracts. The block
+   was added after every older block and changed none of them, so an older reader of
+   the manifest is unaffected (`tests/test_evidence_bundle_hashes.py`).
 
 4. **Off the GUI thread, and it never raises.** Gzipping a 4 MB log plus its rotations
    is not a few-milliseconds operation (§3.2), so it runs on a plain daemon thread —

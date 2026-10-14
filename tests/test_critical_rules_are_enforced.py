@@ -1641,7 +1641,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1023 -> 1020 (2026-09-24): it SHRANK.** The expected-build line asks
     # `accepted_rig_builds` instead of re-deriving it.
     # **1020 -> 1051** (2026-09-27, TASKS the `-j` rows): `files`, a single-file channel under the STRICT set, for cyanrip's `-j` record, which stays in the rips root where no album-folder walk can reach it; a named file that is not there is a manifest row. It belongs beside the other channels because `_collect`'s order is the byte budget.
-    "evidence_bundle.py": 1051,
+    # **1051 -> 1078** (2026-10-14, the fork's round 32 lap 9 S8): each included member's SHA-256, computed where its bytes are written (a `BundleEntry` field and the two constructions that fill it). The manifest block that renders the hashes went to `bundle_integrity.py` instead; the hash itself has to be taken from the bytes `_write` was handed, so it lives beside `_write`.
+    "evidence_bundle.py": 1078,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
@@ -1758,7 +1759,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **632 -> 642** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): the Guide names Tools → Advanced → Run acceptance test with an unknown disc…, which `tests/test_help_documents_the_menu.py` requires of every Tools action; it is the Guide's acceptance section, so it lives there.
     # **642 -> 644** (2026-10-07, KDD-42 W6): the Guide's opening points a new user to Help → Getting started first, as W6 asks of Help → User Guide.
     # **644 -> 643** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the Guide's note on the disabled box became one sentence saying there is no compression setting.
-    "help_content.py": 643,
+    # **643 -> 645** (2026-10-14, the fork's round 32 lap 9 S8): the Guide's acceptance section says the archive's MANIFEST.txt gives every file's SHA-256, so an operator knows the receiver can check each file.
+    "help_content.py": 645,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a

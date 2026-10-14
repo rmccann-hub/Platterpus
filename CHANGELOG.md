@@ -62,6 +62,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   fork's known variance. Fewer than two comparable logs of one disc is `blocked`, never
   "agree".
 
+- **Every file in an evidence bundle now has its SHA-256 in `MANIFEST.txt`.** The cyanrip
+  fork asked for this in round 32 lap 9 (S8). The manifest gave each file's size and no
+  hash, so a receiver could check a filing only against the archive as it reached them.
+  The new block uses `sha256sum`'s own line format, so after extracting the archive,
+  `grep -E '^\\?[0-9a-f]{64}  ' MANIFEST.txt | sha256sum -c` checks every file. The
+  hashes are of the bytes written into the archive. A file the size cap shortened is
+  hashed with its elision marker, because that is what a receiver extracts. The new
+  block comes after the existing blocks, which keep their shape. The fork's ingester does
+  not parse the manifest, so nothing of theirs reads it differently.
+
 - **Round 32 is closed, and the default cyanrip build is now the fork's `.22`
   (`200530e`).** The fork's lap 9 declared `GO` after our lap 8, so both sides' checks
   read round 32 CLOSED. It approves `.22` with Platterpus 0.7.104, the pair its Full run
