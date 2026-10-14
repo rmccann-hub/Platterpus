@@ -26,6 +26,9 @@ promise every later lap leans on. These checks are what keep it one:
   last default commit is the tree at the evidence commit, and every path the
   removal commit deletes has exactly one manifest row.
 
+``unchanged`` and ``move`` compare trees across the move and live in
+``evidence_trees.py``; they are run from here so there is one command line.
+
 Every check refuses rather than passes on nothing: a ``rows`` run with rows to
 check and none examined, or a ``move`` naming no folders, fails.
 
@@ -101,7 +104,8 @@ PREFETCH_AT: Final[int] = 20
 GIT_TIMEOUT_S: Final[int] = 300
 
 
-def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """Run git in `root`, bounded, never raising on a non-zero exit."""
     return subprocess.run(
         ["git", "-C", str(root), *args],
         capture_output=True,
@@ -111,12 +115,12 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _manifest_text(root: Path, ref: str | None) -> str | None:
+def manifest_text(root: Path, ref: str | None) -> str | None:
     """The manifest at `ref`, or in the working tree when `ref` is None."""
     if ref is None:
         path = root / MANIFEST_PATH
         return path.read_text(encoding="utf-8") if path.is_file() else None
-    shown = _git(root, "show", f"{ref}:{MANIFEST_PATH}")
+    shown = git(root, "show", f"{ref}:{MANIFEST_PATH}")
     return shown.stdout if shown.returncode == 0 else None
 
 
@@ -126,13 +130,13 @@ def evidence_ref(root: Path) -> str | None:
         f"refs/heads/{EVIDENCE_BRANCH}",
         f"refs/remotes/origin/{EVIDENCE_BRANCH}",
     ):
-        if _git(root, "rev-parse", "--verify", "--quiet", ref).returncode == 0:
+        if git(root, "rev-parse", "--verify", "--quiet", ref).returncode == 0:
             return ref
     return None
 
 
 def check_format(root: Path, base: str | None) -> list[str]:
-    text = _manifest_text(root, None)
+    text = manifest_text(root, None)
     if text is None:
         return [] if base is None else _base_rows_kept(root, base, {})
     rows, problems = parse_manifest(text)
@@ -143,7 +147,7 @@ def check_format(root: Path, base: str | None) -> list[str]:
 
 def _base_rows_kept(root: Path, base: str, rows: dict[str, Row]) -> list[str]:
     """Append-only (§4): every row `base` held is here, byte for byte."""
-    before = _manifest_text(root, base)
+    before = manifest_text(root, base)
     if before is None:
         return []
     old, _ = parse_manifest(before)
@@ -158,7 +162,7 @@ def _base_rows_kept(root: Path, base: str, rows: dict[str, Row]) -> list[str]:
 
 def check_rows(root: Path, since: str | None) -> tuple[list[str], int]:
     """Every row (added since `since`) against its file; (problems, examined)."""
-    text = _manifest_text(root, None)
+    text = manifest_text(root, None)
     if text is None:
         return [], 0
     rows, problems = parse_manifest(text)
@@ -166,7 +170,7 @@ def check_rows(root: Path, since: str | None) -> tuple[list[str], int]:
         return [f"the manifest is malformed: {p}" for p in problems], 0
     old: dict[str, Row] = {}
     if since is not None:
-        before = _manifest_text(root, since)
+        before = manifest_text(root, since)
         old = parse_manifest(before)[0] if before is not None else {}
     fetcher = Fetcher()
     examined = 0
@@ -203,7 +207,7 @@ def check_branch(root: Path) -> tuple[list[str], int]:
     ref = evidence_ref(root)
     if ref is None:
         return [], 0
-    listed = _git(root, "rev-list", "--parents", "--reverse", ref)
+    listed = git(root, "rev-list", "--parents", "--reverse", ref)
     if listed.returncode != 0:
         return [f"git could not list {ref}: {listed.stderr.strip()}"], 0
     problems: list[str] = []
@@ -217,7 +221,7 @@ def check_branch(root: Path) -> tuple[list[str], int]:
                 f"{expected or 'none (the root)'}"
             )
         if previous is not None:
-            changed = _git(
+            changed = git(
                 root,
                 "diff-tree",
                 "--no-commit-id",
@@ -238,10 +242,10 @@ def check_tags(root: Path) -> list[str]:
     ref = evidence_ref(root)
     if ref is None:
         return []
-    roots = _git(root, "rev-list", "--max-parents=0", ref).stdout.split()
+    roots = git(root, "rev-list", "--max-parents=0", ref).stdout.split()
     problems: list[str] = []
     for first in roots:
-        tagged = _git(
+        tagged = git(
             root,
             "for-each-ref",
             "--format=%(refname)",
@@ -256,112 +260,6 @@ def check_tags(root: Path) -> list[str]:
     return problems
 
 
-def check_move(root: Path, removal: str, folders: Sequence[str]) -> list[str]:
-    """HR-2 §5d, after the move commit `removal` on the default branch."""
-    if not folders:
-        return ["no folders named: a move check of nothing is not a check"]
-    text = _manifest_text(root, removal)
-    if text is None:
-        return [f"{removal} has no {MANIFEST_PATH}"]
-    rows, problems = parse_manifest(text)
-    parent = _git(root, "rev-parse", f"{removal}^").stdout.strip()
-    fetcher = Fetcher()
-    for folder in folders:
-        item = folder.rstrip("/")
-        in_folder = [
-            r for p, r in rows.items() if p == item or p.startswith(item + "/")
-        ]
-        commits = {r.evidence_commit for r in in_folder}
-        lasts = {r.last_default_commit for r in in_folder}
-        if len(commits) != 1 or len(lasts) != 1:
-            problems.append(
-                f"{folder}: its rows name {len(commits)} evidence commit(s) and "
-                f"{len(lasts)} last default commit(s), not one of each"
-            )
-            continue
-        (evidence,), (last,) = commits, lasts
-        if last != parent:
-            problems.append(
-                f"{folder}: last_default_commit {last[:12]} is not {removal}^"
-            )
-        a = fetcher.object_id(root, last, item) or ""
-        b = fetcher.object_id(root, evidence, item) or ""
-        if not a or a != b:
-            problems.append(
-                f"{folder}: tree {a or '(none)'} at {last[:12]}, "
-                f"{b or '(none)'} at {evidence[:12]}"
-            )
-    deleted = _git(
-        root,
-        "diff-tree",
-        "--no-commit-id",
-        "-r",
-        "--name-only",
-        "--diff-filter=D",
-        removal,
-    ).stdout.split("\n")
-    for path in filter(None, deleted):
-        if path not in rows:
-            problems.append(f"{path}: deleted by {removal[:12]} with no manifest row")
-        if stays_on_default(path):
-            problems.append(
-                f"{path}: deleted by {removal[:12]}, but it stays on the default "
-                "branch (HR-2 §5a, HR-2.1 a)"
-            )
-    return problems
-
-
-def moved_folder_of(path: str) -> str:
-    """The moving folder `path` was moved with, else its own folder."""
-    for folder in MOVING_FOLDERS:
-        if path.startswith(folder + "/"):
-            return folder
-    return path.rsplit("/", 1)[0]
-
-
-def check_unchanged(root: Path, ref: str) -> tuple[list[str], int]:
-    """HR-2.1 b, before the removal merges: each moved folder that `ref` (the
-    current default branch) still holds has the same tree there as at its
-    evidence commit. A difference means a file changed after the build, and the
-    removal waits until that is resolved. A folder `ref` no longer holds, or
-    holds only what stays on the default branch (its README), has been removed
-    already and is not this check's business. (problems, examined)"""
-    text = _manifest_text(root, None)
-    if text is None:
-        return [], 0
-    rows, problems = parse_manifest(text)
-    if problems:
-        return [f"the manifest is malformed: {p}" for p in problems], 0
-    folders: dict[str, set[str]] = {}
-    for row in rows.values():
-        if row.last_default_commit:  # moved from the default branch, not filed
-            folders.setdefault(moved_folder_of(row.path), set()).add(
-                row.evidence_commit
-            )
-    fetcher = Fetcher()
-    examined = 0
-    for folder, commits in sorted(folders.items()):
-        held = _git(root, "rev-parse", "--verify", "--quiet", f"{ref}:{folder}")
-        if held.returncode != 0:
-            continue
-        files = _git(root, "ls-tree", "-r", "--name-only", ref, "--", folder)
-        if all(stays_on_default(f) for f in files.stdout.split("\n") if f):
-            continue  # removed already: only what stays on the default branch is left
-        examined += 1
-        if len(commits) != 1:
-            problems.append(f"{folder}: its rows name {len(commits)} evidence commits")
-            continue
-        (evidence,) = commits
-        theirs = fetcher.object_id(root, evidence, folder)
-        if held.stdout.strip() != theirs:
-            problems.append(
-                f"{folder}: its tree on {ref} is {held.stdout.strip()[:12]}, at the "
-                f"evidence commit {evidence[:12]} it is {(theirs or '(none)')[:12]}: "
-                "a file changed after the build, so the removal waits (HR-2.1 b)"
-            )
-    return problems, examined
-
-
 #: The lap-language rule that resolves an artifact citation (`laplang.check`).
 CITATION_RULE: Final[str] = "LSL.4"
 
@@ -373,7 +271,7 @@ _CITATION: Final[re.Pattern[str]] = re.compile(
 
 def citing_laps(root: Path) -> list[Path]:
     """Every lap, in any direction, that cites a file with a manifest row."""
-    text = _manifest_text(root, None)
+    text = manifest_text(root, None)
     if text is None:
         return []
     rows, _ = parse_manifest(text)
@@ -421,6 +319,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     move.add_argument("--removal", required=True)
     move.add_argument("folders", nargs="*")
     args = parser.parse_args(argv)
+    # The two tree checks live in their own module, which builds on this one's
+    # plumbing; importing it here rather than at the top keeps that one-way.
+    import evidence_trees
+
     root: Path = args.root
     examined: int | None = None
     if args.mode == "format":
@@ -434,9 +336,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.mode == "laps":
         problems, examined = check_laps(root)
     elif args.mode == "unchanged":
-        problems, examined = check_unchanged(root, args.ref)
+        problems, examined = evidence_trees.check_unchanged(root, args.ref)
     else:
-        problems = check_move(root, args.removal, args.folders)
+        problems = evidence_trees.check_move(root, args.removal, args.folders)
     for problem in problems:
         print(f"FAIL {problem}")
     tail = f", {examined} examined" if examined is not None else ""

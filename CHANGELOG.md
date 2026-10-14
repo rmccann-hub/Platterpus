@@ -24,6 +24,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   equal its tree at the evidence commit, so a file changed after the build holds the
   removal back. The evidence commit grows from 752 to 753 files (the specification); the
   removal still deletes 744.
+  The two checks that compare trees across the move, `move` and `unchanged`, live in
+  `scripts/evidence_trees.py` and still run as `evidence_manifest.py move` / `unchanged`,
+  so `evidence_manifest.py` shrank to 350 lines instead of its recorded size going up.
 
 - **One About-dialog test asserts a banner's text without looking like a URL check.**
   CodeQL's `py/incomplete-url-substring-sanitization` read `"http://e.x" in text` in
