@@ -14,6 +14,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Our handshake gate implements protocol 9 (HR-2 order C, 2026-10-14).** It now reads
+  a lap declaring 9 instead of refusing it. v9 adds no gate row: its one lap rule, the
+  exemption of an evidence citation from `HANDSHAKE-FROM-COMMIT`, is the lap checker's,
+  which has handled it since HR-2's step 1. Our laps still declare 8 until both sides have
+  said in a lap that their gate implements 9 (v9 §17). `_BOOTSTRAP_REASON` is empty again.
 - **The shared handshake protocol is v9 in both trees (HR-2 order B, 2026-10-14).**
   `docs/handshake-protocol.md` is now the fork's `docs/handshake/PROTOCOL.md` at
   `cyanrip@8f847271`, copied byte for byte (sha256 `c0539096…`, 100,692 bytes): v8 plus

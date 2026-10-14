@@ -1443,16 +1443,14 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = (
-    "v9 (HR-2 and HR-2.1) landed 2026-10-14 in both trees, byte-identical: the fork "
-    "first, at cyanrip@8f847271 (PR #12), then ours, copied from there (HR-2 order "
-    "B). v9 §17: 'neither gate implements 9 until this file is byte-identical in "
-    "both trees', and neither side declares 9 until both have said in a lap that "
-    "their gate implements it (order C). Clear this in the commit that teaches the "
-    "gate 9 (PROTOCOL_VERSION and DECLARED_PROTOCOL), before our round 33 lap."
-)
-#: History of this constant, newest first. **2026-10-14: non-empty again**, the v9
-#: bootstrap (HR-2 order B). **Empty again from 2026-10-11, the same day**:
+_BOOTSTRAP_REASON: str = ""
+#: History of this constant, newest first. **Empty again from 2026-10-14, the same
+#: day**: the gate implements 9, in the commit after the fork's round 33 lap 1 (HR-2
+#: order C), cleared there as the reason required. It had read: *"v9 (HR-2 and
+#: HR-2.1) landed 2026-10-14 in both trees, byte-identical: the fork first, at
+#: cyanrip@8f847271 (PR #12), then ours, copied from there (HR-2 order B) … Clear
+#: this in the commit that teaches the gate 9 … before our round 33 lap."* **2026-10-14:
+#: non-empty**, the v9 bootstrap (HR-2 order B). **Empty again from 2026-10-11, the same day**:
 #: v8 landed byte-identical in both trees and the gate was taught 8 (E9's release rule,
 #: C19 amended, C47 to C49 with row-named tests) in the same change, as the reason it
 #: briefly held required. **Empty again from 2026-10-05**: the gate

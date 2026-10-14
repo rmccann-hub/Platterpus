@@ -1545,7 +1545,17 @@ def _fenced_lines(lines: list[str]) -> list[bool]:
 #: gates now check it (C47, E11); and every reader of a lap strips fences by one
 #: CommonMark rule (C48, C49, E10). Round 31's laps declare 7 and it closes under
 #: v7; v8 governs from round 32 (v8 §16).
-PROTOCOL_VERSION: int = 8
+#:
+#: **9 since 2026-10-14** (v9: HR-2 and HR-2.1, §17). v9 §17's condition for
+#: *implementing* it holds: the shared file is byte-identical in both trees (sha256
+#: ``c0539096…``, landed at ``cyanrip@8f847271`` and copied byte for byte into ours
+#: by HR-2's order B, our merge ``37826a5f``). v9 adds no conformance row and changes
+#: nothing this gate reads: its one rule for a lap, §3b's exemption of an evidence
+#: citation from ``HANDSHAKE-FROM-COMMIT``, is the lap checker's
+#: (``scripts/laplang/evidence.py``, landed with HR-2's step 1). So implementing 9
+#: here means reading a file that declares 9 instead of refusing it. Moved after the
+#: fork's round 33 lap 1, which says their gate implements 9 (HR-2 order C).
+PROTOCOL_VERSION: int = 9
 
 #: The protocol version OUR laps declare, which may trail :data:`PROTOCOL_VERSION`.
 #:
