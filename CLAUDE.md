@@ -186,6 +186,43 @@ This project is as much about building durable standards as shipping the app —
 - **Momentum with safety.** The maintainer pushes for autonomous forward progress ("proceed", "get it done") — so act on reversible, in-scope work without asking, commit in small test-green units, and report at milestones. Still stop for destructive or scope-changing decisions.
 - **Autonomous releases are expected — but HELD from 2026-10-12 until the owner says otherwise.** The owner may rewrite history first, and with release immutability on, a published release locks its tag to the commit it was cut from. Until the owner lifts the hold, prepare a release (version bump, CHANGELOG, generators) only when asked, and never dispatch `release.yml`. Otherwise: cut releases via the `workflow_dispatch` path from the cloud session (see CI/release below); don't wait for a manual tag push.
 
+## Reporting to the operator
+
+*(Operator's instruction, 2026-10-14, round 33. Laps carry the record; there are no separate report files.)*
+
+**Diagnostics in every lap.** End every lap with a "## Diagnostics" section: these eight keys, in this order, one line each, as NOTE statements in your lap-statement language. Write "none" where nothing applies. Facts carry a commit, file:line, run or command, as everywhere else.
+- D1 Instructions: anything in HR-2, HR-2.1, the protocol or an operator message that didn't match your tree or didn't work as written since your last lap, and what you did instead.
+- D2 Defects: defects found and fixed since your last lap, each with its commit, and whether a test now holds it.
+- D3 Environment: what got in the way (pushes, the git proxy, branch rules, hooks, disk, timeouts, permission prompts, the stop hook) and how you got past it.
+- D4 CI: runs since your last lap, failures, re-runs and their causes.
+- D5 Sizes: checkout MB at your default branch's tip; evidence branch commits and bytes; manifest rows.
+- D6 Time: roughly how long this lap's work took, and what it waited on.
+- D7 Versions: your git version, and the tool versions your gates ran.
+- D8 Questions: anything you need from the operator, or none.
+
+**Round summary in your last lap.** Your last lap of each round, round 33 included, carries a "## Round summary" section before its Diagnostics, short and complete, under these headings:
+1. Timeline: the round's steps, with PR, commit or lap, when, and how long each took.
+2. Instructions that were wrong or incomplete, what was true, and what you did instead.
+3. Defects found, with fixes and commits, and whether a test now holds each.
+4. Measurements, before and after, and how each was measured.
+5. Environment limits, and how you got past them.
+6. What should become a general rule, with exact wording where you have it.
+7. What you'd do differently, and what's left open, with who owns each.
+
+It's read by the claude-code-skills session, which keeps the standard and skills you work under. Keep notes as the round goes so it's quick to write.
+
+**A handoff prompt at the end of every reply.** Whenever you release a lap, push to evidence, merge a pull request the other side needs, or need something from anyone, end your reply to the operator with this block, filled in, and nothing after it. The operator copies it as-is to the other session and to the claude-code-skills session. Keep it to these lines:
+
+```
+HANDOFF from <platterpus|fork>, <UTC time>
+DONE: <one line: what happened>
+READ: <repo> <branch> <path, PR or evidence commit> at <commit>
+NEXT: <one line: what the reader should do now, or "nothing, for information">
+ASK: <a question for the operator, or none>
+```
+
+If a reply needs no handoff, end it with: HANDOFF: none
+
 ## Companion documents
 
 Read these alongside this file when picking up a session. **`docs/README.md` is

@@ -14,6 +14,24 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Our round 33 lap 2 is released, on the operator's word (2026-10-14).** Its
+  `HANDSHAKE-READY-TO-READ` is `yes`, quoting the instruction; nothing else in the lap
+  changed. The envelope now leads with it, and the status block and the round row say
+  it is sent.
+- **Laps carry the record, and CLAUDE.md says how (operator, 2026-10-14).** A new
+  section, *Reporting to the operator*, holds the three standing rules: a `## Diagnostics`
+  section ending every lap (eight keys, D1 to D8), a `## Round summary` in each round's last
+  lap, and a handoff block ending every reply that releases a lap, pushes evidence, merges
+  what the other side needs or asks for something. Both lap checkers, ours and the fork's
+  `tools/lap-statements.py`, accept both sections with no protocol change. Our round 33
+  lap 2, still held, gains its Diagnostics.
+- **Our round 33 lap 2, held for the operator's word.** It says our gate implements
+  protocol 9, declares the v9 hash, and retires the last entry of the temporary hash
+  record. It names our move, built at lap 1's instant from `25db8bd5` and not pushed:
+  evidence commit `c737fb6b…`, 756 files, 425,738,049 bytes, rebuilt by plain git to the
+  same ID. It also reports the fork's `0f9375ad…` rebuilt here by plain git to their ID,
+  the Full run our operator holds as our first filing after the move, and where R14 stands.
+  `bom.cdx.json` and `DEPENDENCIES.md` are regenerated, since they name the round.
 - **Round 33 opened: the fork's lap 1 is filed, and our three README-less run folders have
   one.** Their lap 1 (`cyanrip@b20eb2de`, sha256 `229615d0…`) opens round 33 with HR-2 as
   its main task and fixes the move instant at `2026-10-14T20:00:00Z`. Before our move is
