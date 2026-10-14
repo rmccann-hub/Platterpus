@@ -8,6 +8,8 @@ import logging
 from dataclasses import replace
 from pathlib import Path
 
+from evidence_paths import evidence
+
 from platterpus import rip_report
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
 from platterpus.deps import fork_source
@@ -2154,14 +2156,10 @@ def test_the_offset_variant_sentence_counts_the_disc_not_the_cancelled_list() ->
     the report recomputed the same sentence with `len(tracks)`, which a cancel
     empties. One rule now, and this pins that the two surfaces agree on it.
     """
-    from pathlib import Path
 
     from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 
-    log_file = (
-        Path(__file__).resolve().parents[1]
-        / "docs/handshake/artifactsround26/round26cancelme.log"
-    )
+    log_file = evidence("docs/handshake/artifactsround26/round26cancelme.log")
     rip_log = parse_cyanrip_log(log_file.read_text(encoding="utf-8"))
     assert not rip_log.tracks, "the premise: a cancel before any track block"
     summary = rip_report._final_partial_summary(rip_log)

@@ -25,6 +25,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `docs/evidence-manifest.tsv`. Tests reach a fixture through `tests/evidence_paths.py`,
   naming the original path.
 
+- **Sixteen test files read their run evidence from fixtures (HR-2).** 228 fixtures
+  under `tests/fixtures/evidence/`, 19 MB: 224 byte-for-byte copies (every rip log in
+  the ten moving run folders and the round-15 outbound logs, a cache-probe report, two
+  securing-pass logs, two addenda) and four slim extracts (three app logs, one report).
+  The loudness, cache-probe, drive-media, early-failure, ladder, one-frame, parity,
+  partial-summary, read-speed, rig-check, addendum, report, securing-pass, track-5,
+  main-window and app-log-verb tests name each file by its original path and read the
+  fixture, so they pass with the run folders gone.
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.

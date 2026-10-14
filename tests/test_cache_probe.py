@@ -13,6 +13,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from evidence_paths import evidence
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -164,13 +165,9 @@ def test_parses_the_real_bdr209d_output() -> None:
 #: The closing run's saved `cd-paranoia -A` output (round 30, 2026-10-06): REAL
 #: text from the reference drive, and exactly the 2,000 characters the old
 #: head-only cut kept, so it stops inside the seek timings.
-_CLOSING_RUN_HEAD = (
-    Path(__file__).resolve().parents[1]
-    / "docs"
-    / "handshake"
-    / "artifactsround30"
-    / "round30oct06fullcacheprobe.txt"
-)
+#: Read from its byte-for-byte fixture: the run folder moved to the evidence
+#: branch (HR-2).
+_CLOSING_RUN_HEAD = "docs/handshake/artifactsround30/round30oct06fullcacheprobe.txt"
 
 
 def _real_length_report() -> str:
@@ -179,7 +176,7 @@ def _real_length_report() -> str:
     shorter than the real thing (it carries no seek timings), which is why the
     2,000-character cut never showed in a test: the stand-in was safer than the
     product."""
-    head = _CLOSING_RUN_HEAD.read_text(encoding="utf-8")
+    head = evidence(_CLOSING_RUN_HEAD).read_text(encoding="utf-8")
     fixture = _REAL_A_OUTPUT.read_text(encoding="utf-8")
     verdict = fixture[fixture.index("Analyzing cache behavior...") :]
     return head.rstrip() + "\n\n" + verdict

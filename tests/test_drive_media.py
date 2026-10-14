@@ -3,6 +3,7 @@ the ioctl path is hardware-gated and degrades to 'unavailable')."""
 
 from __future__ import annotations
 
+from evidence_paths import evidence
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -104,12 +105,8 @@ def test_the_rig_logs_two_removals_with_no_insertion_cannot_recur() -> None:
 
 def test_the_rig_log_is_the_one_this_replays() -> None:
     """Pin the replay above to the artifact, not to my memory of it."""
-    from pathlib import Path
 
-    log = (
-        Path(__file__).resolve().parents[1]
-        / "docs/handshake/artifactsround27/round27fullplatterpusapplog1.txt"
-    )
+    log = evidence("docs/handshake/artifactsround27/round27fullplatterpusapplog1.txt")
     lines = log.read_text(encoding="utf-8").splitlines()
     events = [
         (number, line)

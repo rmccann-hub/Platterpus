@@ -8,8 +8,7 @@ own, so a regression names the rule that moved.
 
 from __future__ import annotations
 
-from pathlib import Path
-
+from evidence_paths import evidence
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -26,10 +25,9 @@ from platterpus.securing_pass import (
     why_no_securing_pass,
 )
 
-_FULL_RUN = (
-    Path(__file__).resolve().parent.parent
-    / "docs/handshake/artifactsround30/round30oct04full.log"
-)
+#: Evidence moved off `main` (HR-2): named by its original path, read from its
+#: fixture when a test runs, so a missing fixture fails that test, not the import.
+_FULL_RUN: str = "docs/handshake/artifactsround30/round30oct04full.log"
 
 
 def _fork_log(*, footer: str = "yes (2 of 2 tracks)", errors: str = "3") -> object:
@@ -80,7 +78,7 @@ def test_a_finished_exit_1_pass_is_secured() -> None:
 
 def test_the_filed_full_run_with_drive_errors_is_secured_on_exit_1() -> None:
     """The real `.19` log, rewritten as the pass the drive could not read."""
-    text = _FULL_RUN.read_text(encoding="utf-8")
+    text = evidence(_FULL_RUN).read_text(encoding="utf-8")
     assert text.count("Track 18 read successfully!\n") == 1
     rewritten = text.replace(
         "Track 18 read successfully!\n", "Track 18 read with errors.\n"
@@ -194,7 +192,7 @@ def test_a_refusal_is_recorded_with_its_reason() -> None:
 
 
 def test_dynamic_mode_secures_the_tracks_accuraterip_did_not_confirm() -> None:
-    log = parse_cyanrip_log(_FULL_RUN.read_text(encoding="utf-8"))
+    log = parse_cyanrip_log(evidence(_FULL_RUN).read_text(encoding="utf-8"))
     plan = _plan(log)
     assert plan.tracks == (12, 13, 14, 15, 17, 18)
     assert (plan.trigger, plan.rerip_z) == (TRIGGER_ACCURATERIP, 2)

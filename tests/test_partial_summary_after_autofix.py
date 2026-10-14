@@ -342,13 +342,12 @@ def test_the_real_full_run_log_agrees_with_its_own_tally() -> None:
     in full, so the report must say that, and must not say they disagree.
     """
     from dataclasses import replace
-    from pathlib import Path
+
+    from evidence_paths import evidence
 
     from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 
-    log = Path(__file__).resolve().parents[1] / (
-        "docs/handshake/artifactsround27/round27fullwholedisc.log"
-    )
+    log = evidence("docs/handshake/artifactsround27/round27fullwholedisc.log")
     parsed = parse_cyanrip_log(log.read_text(encoding="utf-8"))
     assert parsed.partially_accurate_reported == "2/14"
     assert parsed.partially_accurate_logged == 2
