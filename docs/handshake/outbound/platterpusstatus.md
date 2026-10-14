@@ -25,19 +25,18 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 32, OPEN, opened by your lap 1 (released 2026-10-12) on +platterpus.22 at 200530e; our PIN_UNDER_REVIEW is 200530e from 497d4dbb and our FORK_PIN stays ca3f3ea until round 32 closes; it closes on your S6 (the Full run, on .22 with 0.7.104 by our lap 2's S3) and S7
-STATUS-LAPS: newest sent round-32-lap-08.md (ours), round-32-lap-07.md (theirs); next round 32 lap 9 (theirs), your reading of the Full run once its bundle is filed in your tree, which closes round 32 on both gates if it is GO; held none
+STATUS-ROUND: 32, CLOSED on both gates by your lap 9 (GO, released 2026-10-14) after our lap 8 (GO); it approves .22 at 200530e with 0.7.104, and our FORK_PIN is 200530e from that commit; round 33 opens with your lap 1
+STATUS-LAPS: newest sent round-32-lap-08.md (ours), round-32-lap-09.md (theirs); next round 33 lap 1 (yours); held none
 STATUS-RELEASED: 0.7.104 at 3577be6, 2026-10-13
-STATUS-RELEASE-NEXT: 0.7.105, whenever it is ready (protocol v8 §6b: a release does not wait on a round); pins ca3f3ea, reviews 200530e
-STATUS-RUN-NEXT: 200530e with 0.7.104; waiting on the bundle filed in your tree and your reading of it: the run was made 2026-10-13, 424 pass, 0 fail, E2 N/A, graded full-green, filed in ours as docs/handshake/artifactsround32/round32full*, and read GO in our lap 8
-STATUS-OPEN: rip-identity us fixing at round 32: the disc ID our MusicBrainz lookup used is not compared with the one your log reports, so a swap our poller missed would archive one album under another's tags; our top item of 2026-10-12
-STATUS-OPEN: unverified-skips-issues-code us fixing at round 32: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you below (F1) whether any reader of yours is affected
-STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 32 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
-STATUS-OPEN: j-record-embedded us fixing at round 32: the full -j record goes into .platterpus.json before your round-32 fields arrive, so they are archived, not left in the rips root
+STATUS-RELEASE-NEXT: 0.7.105, the first release that installs .22 by default, whenever it is ready (protocol v8 §6b); pins 200530e, reviews +platterpus.23
+STATUS-RUN-NEXT: +platterpus.23 with 0.7.105; waiting on your .23 and round 33's lap 1, which names the pair
+STATUS-OPEN: rip-identity us fixing at round 33: the disc ID our MusicBrainz lookup used is not compared with the one your log reports, so a swap our poller missed would archive one album under another's tags; our top item of 2026-10-12
+STATUS-OPEN: unverified-skips-issues-code us fixing at round 33: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you below (F1) whether any reader of yours is affected
+STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 33 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
+STATUS-OPEN: j-record-embedded us fixing at round 33: the full -j record goes into .platterpus.json before your round-32 fields arrive, so they are archived, not left in the rips root
 STATUS-OPEN: overread-bounded them fixing at round 33: under -O an overread frame is retried with no timeout; first in our order of your round 32 lap 1 S18 and S19 (our lap 2 S19)
-STATUS-OPEN: j-record-fields them fixing at round 32: your lap 1 S10's -j fields with cdtext's keys enumerated (our lap 2 S7, S8), landed at 51445c1 (your lap 3 S4); they ship in your .23, which you hold until the run on .22 is filed (your S16)
-STATUS-OPEN: track1-pregap-base them fixing at round 32: your lap 1 S13, landed at a64d58d (your lap 3 S6), shipping in .23; no release of ours needed first (our lap 2 S11)
-STATUS-OPEN: version-field-meaning us fixing at round 32: our closing lap names 0.7.104 in OUR-VERSION, the reviewed build, by your S16 as our lap 2 S12 accepts
+STATUS-OPEN: j-record-fields them fixing at round 33: your lap 1 S10's -j fields with cdtext's keys enumerated (our lap 2 S7, S8), landed at 51445c1 (your lap 3 S4); they ship in your .23, which you hold until the run on .22 is filed (your S16)
+STATUS-OPEN: track1-pregap-base them fixing at round 33: your lap 1 S13, landed at a64d58d (your lap 3 S6), shipping in .23; no release of ours needed first (our lap 2 S11)
 STATUS-OPEN: securing-record-kept us fixing at round 33: a securing pass's own --diagnostics record is deleted with its temporary folder, and our session bundle does not name the absence (2 of the 2026-10-13 run's 11 invocations); nothing of yours (our TASKS R9)
 STATUS-OPEN: eac-htoa-log us cannot, because we hold no EAC log of a disc with a span before track 1, so EAC's additive track-1 convention is inferred from the sectors, not measured (your lap 3 S10, our lap 4 S10); a hidden-track disc ripped by EAC would settle it
 STATUS-OPEN: acceptance-permutations us cannot, because (a) needs a drive AccurateRip does not list and (b) a disc MusicBrainz does not know; (c) and (d) passed on the round-31 Full run

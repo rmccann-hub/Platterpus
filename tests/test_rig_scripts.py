@@ -534,10 +534,19 @@ def test_the_install_menu_offers_the_build_the_acceptance_gate_demands() -> None
     # `outbound/` too: round 14's closing GO is lap 18, an ordinary outbound lap
     # whose bytes froze when it was sent. Same population `test_fork_source.py`
     # uses, for the same reason — one question, one population.
+    #
+    # **`inbound/` too, from round 32 (2026-10-14).** Round 32 is the first closed
+    # round whose peer said `GO` AFTER we did: our closing lap 8 transcribed their
+    # lap 7's `OPEN` as its peer verdict, and its bytes froze when it was sent, so no
+    # lap of OURS records both verdicts as `GO`. Their lap 9 does, and our gate
+    # resolves our lap 8's peer verdict from it (row C42). Reading only our own laps
+    # here left the round our gate reads CLOSED with no approved pin, and the menu's
+    # correct label for `.22` read as a disagreement. The both-verdicts rule still
+    # binds every file: a peer lap counts only when it declares both `GO` itself.
     hs = DOCS / "handshake"
     verified = sorted(
         path
-        for directory in ("verified", "outbound")
+        for directory in ("verified", "outbound", "inbound")
         for path in (hs / directory).glob("round-*.md")
     )
     assert verified, "no verification files — nothing to check the label against"
