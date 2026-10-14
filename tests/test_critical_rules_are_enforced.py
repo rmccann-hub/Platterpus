@@ -1890,7 +1890,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the TypedDict it types.
     # **761 -> 768** (2026-10-14, TASKS R9): `OutcomeBlock.securing_pass_record`, schema v34, with the comment saying what each state means; its block type lives in `record_fate.py`.
     # **-> 775** (2026-10-14, integration): the two v34 changes above combined in one unreleased version.
-    "report_types.py": 775,
+    # **775 -> 782** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
+    "report_types.py": 782,
     # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
@@ -1978,7 +1979,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # the version as every bump's is.
     # **2677 -> 2701** (2026-10-14, TASKS R9): schema v34 — the history note, `build_outcome` writing `securing_pass_record` and the `securing_pass_record_missing` issue. Both delegate to `record_fate.py` (`outcome_block`, `missing_issue`); what stays is the one place that builds the outcome block and the one list of issues.
     # **-> 2721** (2026-10-14, integration): both v34 changes above landed in one unreleased schema version; the combined module is the sum of the two, with one v34 note.
-    "rip_report.py": 2721,
+    # **2721 -> 2764** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
+    "rip_report.py": 2764,
     # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
@@ -2344,7 +2346,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5003 -> 5006** (2026-10-07): the D16 warning and comment name EAC's first-line phrase beside its signature.
     # **5006 -> 4932** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the post-rip re-compress step, its gate inputs and its `_on_flac_recompressed` slot.
     # **4932 -> 4941** (2026-10-14, TASKS R9): the worker's `securing_pass_record` handed to `build_outcome`, and the rip bundle's `securing pass -j record` fact.
-    "ui/main_window_rip.py": 4958,
+    # **4958 -> 4967** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
+    "ui/main_window_rip.py": 4967,
     # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
@@ -2566,7 +2569,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4782 -> 4734** (2026-10-06, TASKS D6 "The acceptance run's overall estimate"): lowered: `_coerce_setting` and `_parse_track_spec` moved to `script_values.py`, because the estimate must read a script's settings and selections as the runner does (one reader, two callers); the start-of-run estimate call and the `estimate` property stay here, beside `start`.
     # **4734 -> 4757** (2026-10-06, KDD-42 W3): two more verb mixins in the class list, and `screenshot` drawing the walkthrough's `callout` marks (and failing a picture that misses one); the verbs themselves live in `walkthrough_verbs.py` and `burst_verbs.py`.
     # **4757 -> 4759** (2026-10-14, TASKS R10): one more verb mixin in the class list and its import; the handler lives in `pregap_verbs.py`.
-    "uiscript/runner.py": 4765,
+    # **4765 -> 4767** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
+    "uiscript/runner.py": 4767,
     # **4757 -> 4765** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb expands the identity placeholders and records what one could not send beside the argv (`_CyanripJob.note`, `_job_invocation`).
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
@@ -2603,7 +2607,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **966 -> 983** (2026-10-06, KDD-42 W3): the `callout` and `record` rows, the vocabulary's one home.
     # **983 -> 984** (2026-10-07, KDD-42 W6): `open getting-started`, so the walkthrough script can reach the guide like any other dialog.
     # **984 -> 995** (2026-10-14, TASKS R10): the `expect-pregaps-agree` declaration, the one grader that reads a whole run rather than one rip. The table is the vocabulary's security boundary, so a verb is an entry here by design.
-    "uiscript/verbs.py": 995,
+    # **995 -> 997** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
+    "uiscript/verbs.py": 997,
     # **984 -> 986** (2026-10-14, the fork's round 32 lap 9 S9): the `cyanrip` verb's description names its three placeholders, so the generated script-language page does too.
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
@@ -2667,7 +2672,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # after `m` moved inside its group (no two `\s*` side by side), and why.
     # **4128 -> 4134** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): two log records quote a ripper percentage head and tail, counted.
     # **4134 -> 4197** (2026-10-14, TASKS R9): the securing pass's record is remembered where the pass is spawned and kept before its temp folder is deleted. The copy and every reason live in `record_fate.py`; what stays is the call in the `finally` that owns the folder, the two attributes and the property the report reads.
-    "workers/rip_worker.py": 4197,
+    # **4197 -> 4203** (2026-10-14, integration): three branches raised this separately on the same base; merged, the module carries all of their changes, so the number is the sum of the growths each recorded above.
+    "workers/rip_worker.py": 4203,
     # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 

@@ -11,6 +11,28 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-14 (later) — `.23` readiness, R9 to R11, disc identity, and the HR-2 review
+
+**What was done.** Four pieces of work ran in parallel worktrees and were integrated onto
+the session branch: our parser and diagnostics reader made ready for the fork's `.23`
+(upstream rc3), TASKS R10 (a section that compares the pregap lists of every rip of one
+disc; on the round-32 logs it names tracks 4 and 9), R9 (a securing pass's own
+diagnostics record kept, a missing one named), R11 (the fork's lap 9 asks: a SHA-256 per
+bundle member, home paths replaced at export except in self-verifying logs, and
+`--consumer`/`--diagnostics` on section R16's direct rips) and P1 #1 (the disc ripped
+compared with the disc looked up, tri-state). Three branches each raised the report
+schema to 34; none had shipped, so they share one v34. Separately, the operator asked
+both sessions to review a proposed HR-2 (run evidence moved to an `evidence` branch);
+the review was read-only and its answer went to the operator in chat, not to a lap.
+
+**Learned.** (1) The move as proposed breaks 162 tests in 34 files: 343 of the moving
+files are test inputs. Measured by running the suite with an audit hook recording every
+file it opens, then again in a throwaway clone with the files gone, not by grep. (2) 85%
+of the evidence bytes are cyanrip's progress line, recorded twice (TASKS R14). (3)
+Parallel branches that each bump one schema number need one owner at integration; here
+the three bumps were merged into one unreleased version, and the size ledger was raised
+by the sum of the growths each branch recorded.
+
 ## 2026-10-14 — round 32 closes; `FORK_PIN` to `.22` (`200530e`)
 
 **What was done.** The fork's lap 9 (`GO`, `cyanrip@aa45b97`, sha256 `2ba92839…`, 12,868

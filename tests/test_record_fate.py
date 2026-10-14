@@ -117,17 +117,21 @@ def test_a_copy_that_fails_is_missing_with_the_error(tmp_path: Path) -> None:
     assert "could not be copied" in fate.detail
 
 
-@pytest.mark.parametrize(
-    ("fate", "said"),
-    [
+def test_the_bundle_fact_names_each_state() -> None:
+    """Each of the four states the bundle line can report, one assertion each.
+
+    Written as a plain list rather than a parametrize: a parametrize whose
+    cases are built by calls reads to `test_dynamic_sweeps_declare_a_floor` as
+    a computed population, and four fixed cases need no floor.
+    """
+    cases: list[tuple[object, str]] = [
         (None, "not determined"),
         (record_fate.RecordFate(), "none due"),
         (record_fate.RecordFate("kept", Path("/r/x-securingpass.json")), "kept as"),
         (record_fate.RecordFate("missing", None, "because"), "MISSING: because"),
-    ],
-)
-def test_the_bundle_fact_names_each_state(fate: object, said: str) -> None:
-    assert said in record_fate.describe_fate(fate)
+    ]
+    for fate, said in cases:
+        assert said in record_fate.describe_fate(fate), (fate, said)
 
 
 # --- The report carries it ------------------------------------------------------

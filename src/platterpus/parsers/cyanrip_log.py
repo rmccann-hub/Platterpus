@@ -3410,7 +3410,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
             else:
                 log.debug(
                     "cyanrip log: data track outcome %r outside that track's block",
-                    line[:120],
+                    diagnostics.bounded_chars(line, head=60, tail=60),
                 )
             continue
 
