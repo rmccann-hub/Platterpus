@@ -3,7 +3,8 @@ estimate").
 
 **Held against the filed runs, not against numbers typed here.** The committed
 2026-10-05 and 2026-09-30 Full runs carry their script, every step's time and the
-whole-disc rip's sector spans (``docs/handshake/artifactsround30/``). The
+whole-disc rip's sector spans (``docs/handshake/artifactsround30/``, read through
+its fixtures under ``tests/fixtures/evidence/``). The
 estimate of each run's own script, from those track lengths and the rig's
 measured speed, must contain what the run actually took; the per-section table
 is re-derived from the 2026-10-05 report.
@@ -16,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from evidence_paths import evidence, evidence_dir
 from test_uiscript_rip_verbs import _run_one, _window
 
 from platterpus import rip_estimate
@@ -26,7 +28,11 @@ from platterpus.uiscript.runner import _STRUCTURAL_VERBS, MAX_WAIT_S, TICK_MS
 from platterpus.uiscript.script import parse
 
 _REPO = Path(__file__).resolve().parent.parent
-_FILED = _REPO / "docs/handshake/artifactsround30"
+#: The filed runs, through their fixtures (HR-2 moved `artifactsround30` off
+#: `main`): slim extracts by `scripts/evidence_fixtures.py`. The script reports
+#: carry no `debug.lines`, so their extracts drop nothing; the rip reports lose
+#: only those, and this file reads their sector spans and timings.
+_FILED = evidence_dir("docs/handshake/artifactsround30")
 _ACCEPTANCE = _REPO / "src/platterpus/rig_scripts/fullacceptance.txt"
 _RIG = rip_estimate.seed_for("PIONEER BD-RW BDR-209D")
 _TICK = TICK_MS / 1000
@@ -62,8 +68,11 @@ def _estimate(source: str, size: str = "full", **kw: Any) -> est.RunEstimate:
 def test_the_measured_table_is_the_filed_runs() -> None:
     """Re-derived from the committed report: each section's steps other than
     `rip`, `wait-for-rip` and `wait`, in whole seconds."""
-    report = _load("round30oct05fullscriptreport.json")
+    # The provenance label names the filed path; the fixture standing for that
+    # path is what is read, so the label and the data cannot name different files.
     assert est.MEASURED_FROM.endswith("round30oct05fullscriptreport.json")
+    report = json.loads(evidence(est.MEASURED_FROM).read_text(encoding="utf-8"))
+    assert isinstance(report, dict)
     derived: dict[str, float] = {}
     section = ""
     for step in report["steps"]:

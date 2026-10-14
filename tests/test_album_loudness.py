@@ -9,9 +9,8 @@ tested is the line cyanrip actually wrote.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
+from evidence_paths import evidence
 
 from platterpus import album_loudness
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
@@ -19,13 +18,14 @@ from platterpus.parsers.rip_log import RipLog
 from platterpus.rip_report import build_report
 from platterpus.ui.rip_progress import loudness_summary_line
 
-_ARTIFACTS: Path = (
-    Path(__file__).resolve().parents[1] / "docs/handshake/artifactsround26"
-)
+#: The round-26 run folder. Its logs moved to the evidence branch (HR-2), so each
+#: is read from its byte-for-byte fixture, named here by its original path.
+_ARTIFACTS: str = "docs/handshake/artifactsround26"
 
 
 def _parse(name: str) -> RipLog:
-    return parse_cyanrip_log((_ARTIFACTS / name).read_text(encoding="utf-8"))
+    path = evidence(f"{_ARTIFACTS}/{name}")
+    return parse_cyanrip_log(path.read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize(

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from evidence_paths import evidence_dir
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -37,8 +38,12 @@ from platterpus.rip_audit import (
 from platterpus.rip_report import build_report
 from platterpus.verdict import accuraterip_verdict, apply_downgrades
 
-_REPO = Path(__file__).resolve().parent.parent
-_FILED = _REPO / "docs" / "handshake" / "artifactsround32"
+#: The 2026-10-13 run, through its fixtures (HR-2 moved `artifactsround32` off
+#: `main`): the cyanrip logs byte for byte, the reports as slim extracts without
+#: `debug.lines`, and the app logs as slim extracts without cyanrip's progress lines,
+#: which keep every MusicBrainz lookup line this file reads. `evidence_dir` refuses
+#: an empty folder, so the floors below still guard the population.
+_FILED = evidence_dir("docs/handshake/artifactsround32")
 #: The reference disc's ID, as cyanrip printed it on the rig.
 _REAL = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
 #: Another well-formed disc ID (a different disc of the rig's history).

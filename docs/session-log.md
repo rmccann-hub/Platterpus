@@ -11,6 +11,58 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-14 (evening) — HR-2 landing steps 1 and 2: evidence-branch support, readers converted
+
+**Merged.** Step 1 is PR #328 (merge `5139c5d3`). HR-2 §8c asks for each fetch change
+to be proved by one real pull-request run and one push run on `main`; both passed
+(`main`'s CI run 38596601265). Step 2 is on the session branch, with its own PR.
+
+**What was done.**
+- *Step 1, nothing moved:*
+  - the lap checker reads evidence citations (§6), fetching the cited commit by hash,
+    blobless, into a temporary repository;
+  - `scripts/evidence_manifest.py` (§3–§5, §8a) and `scripts/evidence_move.py` (§5b–§5d),
+    the builder, which never pushes;
+  - the session-start refspec (§7);
+  - CI fetching by refspec, with `gitleaks` as the one evidence job (§8);
+  - the agreed text, word for word, as `docs/cyanrip-handshake.md` §7.4b.
+- *Step 2:* two agents converted the readers into 394 fixtures, 47 MB (byte-for-byte copies,
+  slim report extracts without `debug.lines`, app logs without cyanrip's progress lines).
+  Integrated, then:
+  - a run-time guard (`tests/evidence_guard.py`) fails a test that opens a file at its
+    original evidence path;
+  - eight whole-tree sweeps are marked `tree_walk`, pinned by name;
+  - the one reader both agents missed, `test_uiscript_permutation_verbs`, was converted.
+
+**Measured, in a dry run and a simulated move.**
+- The builder made the same evidence commit twice: 752 files, 425,715,030 bytes.
+- All 752 rows verified from a clone that lacked the commit, in 59 s.
+- All 18 old laps that cite moved files still resolve.
+- In the simulated move (744 files removed, the READMEs kept, the real manifest committed),
+  every fixture verified against the manifest. The whole suite passed except one test that
+  reads a stale `origin/main` in the scratch clone.
+
+**Learned.**
+- *Name the dependency you check, not a proxy for it.* A sweep over string constants could
+  not tell a test that names an evidence path as provenance from one that opens it: 23
+  converted files still named one. The guard watches `open` itself, and the name sweep keeps
+  only tools, CI and product code. (Graduated: the guard's docstring and HR-2 §2's row in
+  §7.4b.)
+- *A bound sized for local git is wrong for the network.* `gitio`'s 30 s killed a 425 MB
+  fetch part way. That left `shallow.lock`, and every later fetch into the repository failed
+  with "remove the file manually". Evidence fetches now have their own 900 s bound.
+- *A folder's name is a needle only if the folder moved whole.* `outbound/artifacts` keeps
+  `lsl-amendments-1.md`, so its name matched half the tree. The simulated move found it,
+  which is what HR-2 §2 says the simulated move is for.
+
+**Still open, for the operator before step 3.**
+- The shared protocol file's v9 edit (our protocol versions stay 8).
+- §5c's instant, which is round 33 lap 1's and does not exist yet.
+- `outbound/artifacts` is a folder that only partly moves.
+- The text's example fetch should be blobless.
+- The checkout after the move is about 65 MB with fixtures, not 31.
+- "Last default commit" is ambiguous when the removal lands as a merge commit.
+
 ## 2026-10-14 (later) — `.23` readiness, R9 to R11, disc identity, and the HR-2 review
 
 **Released.** 0.7.105 on 2026-10-14: PR #325 (the work below) and #326 (the release

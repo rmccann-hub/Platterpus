@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 0,
+  "source_bytes": 186710,
+  "source_path": "docs/handshake/artifactsround30/round30oct04run1scriptreport.json",
+  "source_sha256": "b7d613c094f313d2dc10c92818ffd7cf31db498c93aa3e1c8f398b41a13259c8"
+}

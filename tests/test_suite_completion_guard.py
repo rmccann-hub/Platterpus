@@ -245,6 +245,12 @@ def test_a_parallel_run_is_vouched_for_once_by_the_controller(
         (REPO_ROOT / "tests" / "conftest.py").read_text(encoding="utf-8") + probe,
         encoding="utf-8",
     )
+    # The real conftest's HR-2 guard imports its helper beside it, and that
+    # helper reads the moving list from `scripts/` (on PYTHONPATH below).
+    (suite / "evidence_guard.py").write_text(
+        (REPO_ROOT / "tests" / "evidence_guard.py").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     failing = "assert False, 'deliberate'" if outcome == "fail" else "pass"
     (suite / "test_scratch.py").write_text(
         textwrap.dedent(
@@ -265,7 +271,7 @@ def test_a_parallel_run_is_vouched_for_once_by_the_controller(
     )
     env = {
         **__import__("os").environ,
-        "PYTHONPATH": str(REPO_ROOT / "src"),
+        "PYTHONPATH": f"{REPO_ROOT / 'src'}{__import__('os').pathsep}{REPO_ROOT / 'scripts'}",
         "QT_QPA_PLATFORM": "offscreen",
     }
     proc = subprocess.run(

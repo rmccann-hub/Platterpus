@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 0,
+  "source_bytes": 134930,
+  "source_path": "docs/handshake/outbound/artifacts/round-15-lap-13-run-report.json",
+  "source_sha256": "7075f857ee75f992bd444da1c114513139c7e3909d8792bbd781bba8a4dfb388"
+}

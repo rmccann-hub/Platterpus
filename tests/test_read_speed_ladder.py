@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
+from evidence_paths import evidence
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -355,7 +354,9 @@ def test_attempts_to_report_swallows_internal_failure(monkeypatch) -> None:
 # drive failed did. These rewrite real filed `.19`-era logs into `.20`'s arm, by
 # `.20`'s own condition, and require the ladder to decide the same way.
 
-_ARTIFACTS = Path(__file__).resolve().parent.parent / "docs" / "handshake"
+#: Read from their byte-for-byte fixtures: the run folders moved to the evidence
+#: branch (HR-2).
+_ARTIFACTS = "docs/handshake"
 _FILED = (
     "artifactsround30/round30oct04full.log",  # track 18: 2,586 paranoia skips
     "artifactsround27/round27fullsecurereread.log",  # a -Z track at the limit
@@ -383,7 +384,9 @@ def _as_written_by_20(text: str) -> tuple[str, int]:
 def test_instability_moved_into_the_errors_arm_does_not_step_the_disc_down() -> None:
     moved_total = 0
     for name in _FILED:
-        text = (_ARTIFACTS / name).read_text(encoding="utf-8", errors="replace")
+        text = evidence(f"{_ARTIFACTS}/{name}").read_text(
+            encoding="utf-8", errors="replace"
+        )
         rewritten, moved = _as_written_by_20(text)
         moved_total += moved
         before = parse_cyanrip_log(text)

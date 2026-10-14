@@ -26,6 +26,7 @@ import re
 from pathlib import Path
 
 import pytest
+from evidence_paths import evidence
 
 from platterpus import rip_addendum as ra
 
@@ -565,14 +566,18 @@ def test_the_rebuilt_block_matches_the_real_rigs_sidecar_fact_for_fact() -> None
     The rig rip shipped both a sidecar and a report. Every superseded fact the
     sidecar carried must come back out of the report alone, or retiring the file
     loses information — which is the one outcome that would make this change wrong.
+
+    Both are read from fixtures (HR-2 moved the folder to the evidence branch): the
+    sidecar byte for byte, the report as a slim extract with only `debug.lines`
+    (the embedded session log) emptied; this reads nothing but `tracks`.
     """
-    artifacts = _REPO_ROOT / "docs" / "handshake" / "artifacts-round-07-lap-29"
+    artifacts = "docs/handshake/artifacts-round-07-lap-29"
     stem = "round-07-lap-29-rig-rip-g9048082"
-    sidecar = (artifacts / f"{stem}.platterpus-addendum.txt").read_text(
+    sidecar = evidence(f"{artifacts}/{stem}.platterpus-addendum.txt").read_text(
         encoding="utf-8"
     )
     report = json.loads(
-        (artifacts / f"{stem}.platterpus.json").read_text(encoding="utf-8")
+        evidence(f"{artifacts}/{stem}.platterpus.json").read_text(encoding="utf-8")
     )
     rebuilt = ra.render_addendum(
         "accuraterip",

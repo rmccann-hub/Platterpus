@@ -10,15 +10,20 @@ from __future__ import annotations
 import json
 import statistics
 from dataclasses import dataclass
-from pathlib import Path
 
 import pytest
+from evidence_paths import evidence_dir
 
 from platterpus import rip_estimate
 from platterpus.adapters.accuraterip_offsets import normalize_drive_name
 from platterpus.rip_estimate import ReadRate
 
-_ARTIFACTS = Path(__file__).resolve().parent.parent / "docs" / "handshake"
+#: The filed reports, through their fixtures (HR-2 moved the evidence folders off
+#: `main`): slim extracts without `debug.lines`, made by
+#: `scripts/evidence_fixtures.py`. The model reads the per-track timings, the
+#: elapsed time and the read-speed block, none of which the extract removes.
+#: `evidence_dir` refuses an empty tree, and each test below keeps its own floor.
+_ARTIFACTS = evidence_dir("docs/handshake")
 
 
 @dataclass(frozen=True)

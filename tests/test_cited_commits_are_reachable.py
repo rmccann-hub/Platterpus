@@ -439,6 +439,7 @@ def unresolved_subjects(root: Path, rev: str, subjects: set[str]) -> set[str]:
     return {s for s in subjects if not any(line.startswith(s) for line in reachable)}
 
 
+@pytest.mark.tree_walk  # HR-2 §2: sweeps whatever is filed
 def test_every_lap_that_names_its_commit_by_subject_resolves_through_head() -> None:
     _require_full_history(REPO_ROOT)
     cited = by_subject_citations(REPO_ROOT)
@@ -455,6 +456,7 @@ def test_every_lap_that_names_its_commit_by_subject_resolves_through_head() -> N
     )
 
 
+@pytest.mark.tree_walk  # HR-2 §2: sweeps whatever is filed
 def test_the_paraphrased_subjects_are_still_paraphrases() -> None:
     _require_full_history(REPO_ROOT)
     cited = by_subject_citations(REPO_ROOT)

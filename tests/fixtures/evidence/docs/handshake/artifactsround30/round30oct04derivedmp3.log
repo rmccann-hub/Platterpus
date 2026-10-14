@@ -1,0 +1,248 @@
+cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2 -N --consumer platterpus/0.6.65 -c 1/4 -a "album=derived mp3 20261004t160255 platterpus-fork-g174a134:album_artist=Various Artists:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e" -t "1=title=Tennessee Mountain Fox Chase:artist=Norman Blake" -t "2=title=Banjo Picking Girl:artist=Hazel Dickens & Alice Gerrard" -t "3=title=Old Corn Liquor:artist=Joe Thompson" -t "4=title=Rain and Snow:artist=Suzanne Thomas & Dry Branch Fire Squad" -t "5=title=The Orphan Child:artist=Jody Stecher & Kate Brislin" -t "6=title=Working on a Building:artist=The Johnson Mountain Boys" -t "7=title=You Better Mind:artist=Bessie Jones:isrc=USRO27501510" -t "8=title=Dry Bones:artist=The Persuasions" -t "9=title=Did You Hear John Hurt?:artist=Dave Van Ronk" -t "10=title=One‐Dime Blues:artist=Etta Baker:isrc=USRO29111201" -t "11=title=All the Way From East St. Louis:artist=Mississippi Fred McDowell" -t "12=title=Juke Medley:artist=Robert Nighthawk & Carey Bell" -t "13=title=Black’s Ball:artist=J.B. Hutto & The New Hawks" -t "14=title=Just a Little While to Stay Here:artist=Rebirth Brass Band" -t "15=title=Iko, Iko:artist=Bo Dollis and The Wild Magnolias" -t "16=title=Mai Kai No Kauai:artist=Tau Moe Family" -t "17=title=Texas Cowboy:artist=Glenn Ohrlin" -t "18=title=Streets of Laredo:artist=Brownie Ford" -D {album_artist}/{album} -F "{track} - {title}" -G -j cyanrip-diagnostics-20261004T231415Z.json
+Handshake:      round 29 lap 3 closed, verdict GO -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.6.65
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    4
+Disc tracks:    18
+Tracks to rip:  1, 2
+DiscID:         zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+Release ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+CDDB ID:        000DAC12
+Album:          derived mp3 20261004t160255 platterpus-fork-g174a134
+Album artist:   Various Artists
+AccurateRip:    found
+Total time:     58:20.25
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+--- end of pre-log output ---
+Gaps:
+    180 frame pregap in track 2, merging into track 1
+    190 frame pregap in track 3, merging into track 2
+    185 frame pregap in track 4, merging into track 3
+    180 frame pregap in track 5, merging into track 4
+    90 frame pregap in track 6, merging into track 5
+    165 frame pregap in track 8, merging into track 7
+    158 frame pregap in track 9, merging into track 8
+    145 frame pregap in track 10, merging into track 9
+    190 frame pregap in track 11, merging into track 10
+    105 frame pregap in track 12, merging into track 11
+    143 frame pregap in track 13, merging into track 12
+    98 frame pregap in track 15, merging into track 14
+    202 frame pregap in track 16, merging into track 15
+    140 frame pregap in track 17, merging into track 16
+
+Tracks:
+Track 1 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -15.7 LUFS
+    Threshold: -25.7 LUFS
+
+  Loudness range:
+    LRA:         4.0 LU
+    Threshold: -35.7 LUFS
+    LRA low:   -17.9 LUFS
+    LRA high:  -13.9 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.2 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    02:53.60
+    Samples:     7664580
+    Frames:      13035
+    Sample peak level: 97.7% (-0.2 dBFS)
+    True peak level:   0.2 dBFS
+    Integrated loudness (R128): -15.7 LUFS
+    Loudness range (R128):      4.0 LU (-17.9 to -13.9 LUFS)
+    Extraction speed:  1.1x
+    Elapsed:            153.18 s
+    Pregap LSN:  0 (duration: 00:02.00)
+    Pregap length: 150 frames
+    Pregap source: lead-in
+    Start LSN:   0 (with offset: 1)
+    End LSN:     13034 (with offset: 13036)
+
+  EAC CRC32:     A0E382F5
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 29)
+    Accurip v1:  5ED2CE6E (accurately ripped, confidence 12)
+    Accurip v2:  0E80A467 (accurately ripped, confidence 29)
+
+  Metadata:
+    TRACK:                         1
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         Tennessee Mountain Fox Chase
+    DISC:                          1
+    ALBUM:                         derived mp3 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Norman Blake
+    CREATION_TIME:                 2026-10-04T19:14:26-04:00
+    REPLAYGAIN_TRACK_GAIN:         -2.34 dB
+    R128_TRACK_GAIN:               681
+    REPLAYGAIN_TRACK_RANGE:        4.04 dB
+    REPLAYGAIN_TRACK_PEAK:         1.022951
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1058
+    VERIFY:        71
+    OVERLAP:       13
+
+  File(s):
+    Various Artists/derived mp3 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac
+
+Track 2 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.8 LUFS
+    Threshold: -22.9 LUFS
+
+  Loudness range:
+    LRA:         4.0 LU
+    Threshold: -32.9 LUFS
+    LRA low:   -14.7 LUFS
+    LRA high:  -10.7 LUFS
+
+  Sample peak:
+    Peak:       -0.4 dBFS
+
+  True peak:
+    Peak:       -0.4 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    03:06.37
+    Samples:     8224356
+    Frames:      13987
+    Sample peak level: 95.0% (-0.4 dBFS)
+    True peak level:   -0.4 dBFS
+    Integrated loudness (R128): -12.8 LUFS
+    Loudness range (R128):      4.0 LU (-14.7 to -10.7 LUFS)
+    Extraction speed:  1.1x
+    Elapsed:            163.05 s
+    Pregap LSN:  12855 (duration: 00:02.30)
+    Pregap length: 180 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   13035 (with offset: 13036)
+    End LSN:     27021 (with offset: 27023)
+
+  EAC CRC32:     ABC106DC
+  Secure re-read:  not attempted
+  Accurip:       disc found in database (max confidence: 29)
+    Accurip v1:  45CB37DF (accurately ripped, confidence 12)
+    Accurip v2:  F383C874 (accurately ripped, confidence 29)
+
+  Metadata:
+    TRACK:                         2
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         Banjo Picking Girl
+    DISC:                          1
+    ALBUM:                         derived mp3 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Hazel Dickens & Alice Gerrard
+    CREATION_TIME:                 2026-10-04T19:17:00-04:00
+    REPLAYGAIN_TRACK_GAIN:         -5.19 dB
+    R128_TRACK_GAIN:               -48
+    REPLAYGAIN_TRACK_RANGE:        3.99 dB
+    REPLAYGAIN_TRACK_PEAK:         0.950732
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    READ:          1153
+    VERIFY:        74
+    OVERLAP:       23
+
+  File(s):
+    Various Artists/derived mp3 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -14.0 LUFS
+    Threshold: -24.0 LUFS
+
+  Loudness range:
+    LRA:         6.3 LU
+    Threshold: -34.1 LUFS
+    LRA low:   -17.4 LUFS
+    LRA high:  -11.1 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.2 dBFS
+
+Album integrated loudness (R128): -14.0 LUFS
+Album loudness range (R128):      6.3 LU (-17.4 to -11.1 LUFS)
+Album sample peak level:          -0.2 dBFS
+Album true peak level:            0.2 dBFS
+Tracks ripped accurately: 2/18
+
+Paranoia status counts:
+  READ:          2211
+  VERIFY:        145
+  OVERLAP:       36
+
+Ripping errors: 0
+Encoder errors: none; 2 tracks encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  yes (2 of 18 tracks)
+Ripping finished at 2026-10-04T19:19:43-04:00
+Log FUN512: GgJuYbu6bMg3lkoKDFqOk7o4gTr47dCLx8IHD5stawgIWNksY3sqzv7NQMe0OlYijX.zY6tdVd4RWSdEp25y4Q

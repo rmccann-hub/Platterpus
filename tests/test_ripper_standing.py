@@ -19,6 +19,7 @@ import json
 from types import SimpleNamespace as _NS
 
 import pytest
+from evidence_paths import evidence_dir
 from hypothesis import given
 from hypothesis import strategies as st
 from PySide6.QtWidgets import QApplication, QTextBrowser
@@ -229,7 +230,10 @@ def test_about_shows_the_rippers_own_text_literally(qapp: QApplication) -> None:
         html = view.toHtml()
     finally:
         dep_manager.remember_report(None)
-    assert "http://e.x" in view.toPlainText()
+    # The banner's text is shown, as text. Counted rather than tested with `in`:
+    # CodeQL's py/incomplete-url-substring-sanitization reads `"http://…" in x` as
+    # a URL check, and this is a display assertion, not a sanitiser.
+    assert view.toPlainText().count("http://e.x") >= 1, "the banner text was dropped"
     assert 'href="http://e.x"' not in html, "a banner made a link"
     assert "<b>bold" not in html.replace("&lt;b&gt;", ""), "a banner made bold text"
 
@@ -313,12 +317,9 @@ def test_diagnostics_before_any_check_says_not_checked() -> None:
 # whose every rip was made on the build under review, so the absence is measured
 # on the case the sentence is about.
 
-_ROUND31 = (
-    __import__("pathlib").Path(__file__).resolve().parents[1]
-    / "docs"
-    / "handshake"
-    / "artifactsround31"
-)
+#: Through its fixtures (HR-2 moved the folder off `main`): both logs byte for
+#: byte, the report as a slim extract without `debug.lines`, which is not read here.
+_ROUND31 = evidence_dir("docs/handshake/artifactsround31")
 
 
 def test_an_unapproved_rip_is_recorded_as_such_in_its_report_and_nowhere_else() -> None:

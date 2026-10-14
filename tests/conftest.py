@@ -1114,3 +1114,48 @@ def _non_blocking_message_boxes(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
             message_boxes, method, lambda *a, **k: QMessageBox.StandardButton.Ok
         )
+
+
+#: The marker a whole-tree walk carries (HR-2 §2): it reads whatever files are
+#: there and depends on none of them, so it reads less after the move, by design.
+TREE_WALK_MARKER = "tree_walk"
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        f"{TREE_WALK_MARKER}: a sweep over the whole tree, which may open run "
+        "evidence in passing and depends on none of it (HR-2 §2)",
+    )
+
+
+@pytest.fixture(autouse=True)
+def _no_test_opens_run_evidence(
+    request: pytest.FixtureRequest,
+) -> Generator[None, None, None]:
+    """HR-2 §2: a test reads run evidence through its fixture, never the original.
+
+    `tests/evidence_guard.py` records every open or listing of a path in a folder
+    HR-2 moves to the `evidence` branch. A test that did one fails here, naming
+    the path, while the original still exists, rather than on the day it leaves.
+    A whole-tree sweep that only reads what is there is marked `tree_walk`.
+    """
+    import evidence_guard
+
+    evidence_guard.install()
+    evidence_guard.seen.clear()
+    yield
+    opened = sorted(set(evidence_guard.seen))
+    evidence_guard.seen.clear()
+    if opened and request.node.get_closest_marker(TREE_WALK_MARKER) is None:
+        shown = "\n  ".join(opened[:10]) + (
+            f"\n  ... and {len(opened) - 10} more" if len(opened) > 10 else ""
+        )
+        pytest.fail(
+            f"this test opened {len(opened)} run-evidence path(s) at the original "
+            "location, which HR-2 moves off the default branch. Read the fixture "
+            "through tests/evidence_paths.py instead (or, for a sweep over the "
+            f"whole tree that depends on none of them, mark it "
+            f"@pytest.mark.{TREE_WALK_MARKER}):\n  {shown}",
+            pytrace=False,
+        )

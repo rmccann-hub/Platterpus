@@ -1518,7 +1518,12 @@ def _live_text_files() -> list[tuple[str, Path]]:
             continue
         if path.resolve() == Path(__file__).resolve():
             continue
-        if any(rel == d or rel.startswith(d) for d in dated):
+        # A run-evidence fixture (HR-2) is a byte-for-byte copy of a filed file,
+        # kept at `tests/fixtures/evidence/<its original path>`: judge it by the
+        # path it stands for, so a copy of the dated record stays out of scope
+        # and nothing else does.
+        original = rel.removeprefix("tests/fixtures/evidence/")
+        if any(original == d or original.startswith(d) for d in dated):
             continue
         found.append((rel, path))
     return found

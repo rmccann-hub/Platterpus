@@ -16,6 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from evidence_paths import evidence, evidence_dir
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -1328,7 +1329,11 @@ def test_the_forks_proposed_repeat_limit_wording_never_earns_the_test_copy_pair(
 # TrackResult would skip. Which case each log is, and why, is derived in
 # `tests/test_parsers_cyanrip_log.py` (the agreement section).
 
-_HANDSHAKE_ARTIFACTS = _REPO_ROOT / "docs" / "handshake"
+#: The rig logs are read through their fixtures, byte for byte (HR-2 moved the
+#: evidence folders off `main`; `scripts/evidence_fixtures.py copy`). Each name below
+#: is still the filed path under `docs/handshake/`, and `evidence()` refuses a
+#: missing one rather than letting a case read nothing.
+_HANDSHAKE = "docs/handshake"
 
 #: (rig log, track, the Copy CRC caveat that is TRUE of that track).
 _LIMIT_CASES: tuple[tuple[str, int, str], ...] = (
@@ -1361,7 +1366,9 @@ _LIMIT_CASES: tuple[tuple[str, int, str], ...] = (
 def _rendered(log_name: str, number: int) -> tuple[TrackResult, str, str]:
     """A rig log's parsed track, the rendered EAC-layout log, and its block."""
     parsed = parse_cyanrip_log(
-        (_HANDSHAKE_ARTIFACTS / log_name).read_text(encoding="utf-8", errors="replace")
+        evidence(f"{_HANDSHAKE}/{log_name}").read_text(
+            encoding="utf-8", errors="replace"
+        )
     )
     track = next(t for t in parsed.tracks if t.number == number)
     text = render_eac_style_log(parsed)
@@ -1403,8 +1410,8 @@ def test_round_28s_track_5_no_longer_says_no_two_reads_agreed() -> None:
     shows two agreeing reads (lines 381-385). Read from the artifact, so the
     claim that the old sentence was printed cannot drift from the evidence.
     """
-    shipped = (
-        _HANDSHAKE_ARTIFACTS / "artifactsround28" / "round28fullsecurerereadeac.log"
+    shipped = evidence(
+        f"{_HANDSHAKE}/artifactsround28/round28fullsecurerereadeac.log"
     ).read_text(encoding="utf-8")
     assert "Copy CRC 6902BCF0  (re-reads did NOT agree" in shipped
     _track, block = _rendered_track("artifactsround28/round28fullsecurereread.log", 5)
@@ -1521,8 +1528,8 @@ def test_round_30s_skipped_track_18_is_not_copy_ok() -> None:
     298-310) printed "Copy OK" under track 18; its rig log carries `SKIP: 2586`
     and an AccurateRip match on one frame only.
     """
-    shipped = (
-        _HANDSHAKE_ARTIFACTS / "artifactsround30" / "round30oct04fulleac.log"
+    shipped = evidence(
+        f"{_HANDSHAKE}/artifactsround30/round30oct04fulleac.log"
     ).read_text(encoding="utf-8")
     assert _block_rows(shipped, "Track 18")[-1] == "Copy OK", "the before moved"
 
@@ -2734,12 +2741,8 @@ def test_the_latest_shipped_log_is_one_OPS_refuses_rather_than_grades() -> None:
     """The real 2026-10-07 log, as shipped: OPS calls it EAC's by ripper name and
     then refuses it, because the recognition phrase is absent. Read from the
     artifact, so a change to what we write shows up here and not on a tracker."""
-    shipped = (
-        _REPO_ROOT
-        / "docs"
-        / "handshake"
-        / "artifactsround31"
-        / "round31fullwholedisceac.log"
+    shipped = evidence(
+        "docs/handshake/artifactsround31/round31fullwholedisceac.log"
     ).read_text(encoding="utf-8")
     assert "Exact Audio Copy" in shipped  # why OPS's ripper sniff says EAC
     assert not _ops_would_recognise(shipped)
@@ -2752,7 +2755,9 @@ def test_the_latest_shipped_log_is_one_OPS_refuses_rather_than_grades() -> None:
 # extracted" while quoting `Interrupted at : track 1, mid-read` in the same
 # document, and a partial FLAC of track 1 sat beside it.
 
-_ROUND28 = _REPO_ROOT / "docs" / "handshake" / "artifactsround28"
+#: Through its fixtures (HR-2): both logs byte for byte, the report as a slim
+#: extract without `debug.lines`, which this test does not read.
+_ROUND28 = evidence_dir("docs/handshake/artifactsround28")
 
 
 def _banner(text: str) -> str:

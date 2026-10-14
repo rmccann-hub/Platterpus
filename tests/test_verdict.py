@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 
 import pytest
+from evidence_paths import evidence_dir
 
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
@@ -714,7 +714,10 @@ def test_two_verdict_mutants_are_EQUIVALENT_and_here_is_the_proof() -> None:
 # a re-read only when it converged. These tests hold the decision to its order:
 # AccurateRip first, in both directions, then convergence.
 
-_ROUND28 = Path(__file__).resolve().parents[1] / "docs/handshake/artifactsround28"
+#: Through its fixtures (HR-2 moved the folder off `main`): the log byte for byte,
+#: the report as a slim extract without `debug.lines` (its embedded
+#: `artifacts.ripper_stdout`, which is read below, is kept whole).
+_ROUND28 = evidence_dir("docs/handshake/artifactsround28")
 
 
 def _read(*, verified: bool, converged: bool | None) -> TrackResult:
@@ -843,7 +846,8 @@ def test_the_full_runs_track_3_re_read_is_now_kept() -> None:
 
 # --- the headline names a track whose re-reads did not converge (2026-10-06) ---
 
-_ROUND30_F = Path(__file__).resolve().parent.parent / "docs/handshake/artifactsround30"
+#: Through its fixtures (HR-2): the log byte for byte, the report as a slim extract.
+_ROUND30_F = evidence_dir("docs/handshake/artifactsround30")
 
 
 def _section_f_as_reported() -> RipLog:

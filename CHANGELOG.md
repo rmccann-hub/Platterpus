@@ -14,6 +14,23 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **One About-dialog test asserts a banner's text without looking like a URL check.**
+  CodeQL's `py/incomplete-url-substring-sanitization` read `"http://e.x" in text` in
+  `test_ripper_standing` as a sanitiser and raised a high alert once this PR touched the
+  file. It is a display assertion (a hostile banner shows as text, never a link), now
+  written with `.count()`; what it asserts is unchanged.
+
+- **A test that opens run evidence at its original path now fails, at run time
+  (HR-2 §2).** A test names an evidence file by its original path on purpose, as its
+  provenance, and reads the fixture, so a sweep over names could not tell a reader from a
+  label. An audit hook (`tests/evidence_guard.py`, an autouse fixture in `conftest.py`)
+  sees every `open` of a file in a moving folder and fails the test that did it, naming
+  the path, while the original is still on `main`. Eight whole-tree sweeps that read
+  whatever is filed carry `@pytest.mark.tree_walk`, pinned by name. The name sweep now
+  covers tools, CI and product code, and its one entry is `run_estimate.py`'s
+  `MEASURED_FROM`, a label. The last reader, `test_uiscript_permutation_verbs`, reads its
+  round-29 reports from their extracts.
+
 - **A maker for run-evidence test fixtures, for HR-2.** Round 33's first task moves the
   run evidence (`docs/handshake/artifacts*`, about 425 MB) off `main` onto an `evidence`
   branch. Before that, every evidence file a test reads becomes a fixture under
@@ -83,6 +100,67 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   evidence file at its own path in the tree it re-runs a command in, and refuses to
   overwrite a different file there. `test_cited_commits_are_reachable` counts a
   commit on `evidence` or in the manifest as reachable.
+
+- **Sixteen test files read their run evidence from fixtures (HR-2).** 228 fixtures
+  under `tests/fixtures/evidence/`, 19 MB: 224 byte-for-byte copies (every rip log in
+  the ten moving run folders and the round-15 outbound logs, a cache-probe report, two
+  securing-pass logs, two addenda) and four slim extracts (three app logs, one report).
+  The loudness, cache-probe, drive-media, early-failure, ladder, one-frame, parity,
+  partial-summary, read-speed, rig-check, addendum, report, securing-pass, track-5,
+  main-window and app-log-verb tests name each file by its original path and read the
+  fixture, so they pass with the run folders gone.
+
+- **`tests/test_rip_worker.py` no longer reads a run log while it is imported.** A
+  parametrize built its cases from the round-30 cancelled and full-run logs at import
+  time, so with those files missing every test in the file errored at collection. The
+  cases are now built inside the test, from the logs' fixtures (HR-2), and the round-28
+  app-log check that skipped when its log was absent, and so passed on nothing, reads
+  the log's slim extract and no longer skips.
+
+- **The sweeps over every committed cyanrip log keep their population when the run
+  folders leave `main` (HR-2).** `tests/evidence_population.py` adds the evidence
+  fixtures to what a sweep globbed in the working tree, once per original path, so the
+  parser's elapsed-line and `Tracks to rip:` sweeps (248 and 255 logs), the drive-control
+  longest-read floor (242), the secure re-read sweeps (12) and the round-32 pregap tests
+  (13, now with a floor) are the same size before the move and after it. The elapsed
+  sweep's floor rises from 20 logs to its measured 248: with the fixtures left out it
+  still passed on the 29 logs that stay on `main`. The parser's
+  single-log tests read their fixtures, and its FUN512 sweep over `tests/fixtures/`
+  leaves the evidence fixtures out, so it reads the same 28 files it did.
+
+- **TASKS cites the round-7 rig-session results by commit** (HR-2). Its two mentions of
+  `docs/handshake/artifacts-round-07/rig-session-results-c5fb909.md`, a file that leaves
+  `main` with its run folder, now read `platterpus@4b793199:` before the path, naming
+  the `main` commit that holds it.
+
+- **The rig-script path sweep leaves the evidence fixtures out, as it leaves
+  `docs/handshake/` out.** `tests/fixtures/evidence/` holds copies of filed run logs
+  (HR-2); two app logs there name the AppImage's own mount path of a rig script, true
+  on the run's date, and the sweep read them as live documents naming a missing file.
+
+- **The population tests read run evidence from fixtures (HR-2).** The CTDB partial-rip
+  sweep, the rip-time estimate, the round-32 redaction, disc-identity and record-fate
+  tests now read their filed logs and reports from `tests/fixtures/evidence/` (274
+  fixtures: logs byte for byte, 118 reports as slim extracts, the three round-32 app logs
+  without progress lines), so they keep passing once the evidence folders leave `main`.
+  Every population is the same size as before, and every floor is unchanged.
+
+- **The log and report readers in six more tests read fixtures (HR-2):** the cue, EAC
+  export, outcome-vocabulary, album-audit, ripper-standing and verdict tests, with nine
+  more fixtures (EAC-compatible logs, a cue, a README and a manifest byte for byte, and
+  round 15's run report as a slim extract). The vocabulary test now also requires each
+  extract it reads to have dropped nothing, so an extract cannot hide what it checks.
+
+- **The acceptance-script tests read fixtures (HR-2):** artifact grading, the artifact
+  and rip verbs, the unknown-disc acceptance and the run estimate. The run estimate's
+  `MEASURED_FROM` still names the path where the run was filed, and its test now reads
+  the report through `evidence(MEASURED_FROM)`, so the label and the data it was derived
+  from cannot name different files.
+
+- **Two repository sweeps judge an evidence fixture by the path it stands for.** The
+  doc-footer check and the rig-script-path check skip `docs/handshake/` as dated record;
+  its byte-for-byte copies under `tests/fixtures/evidence/` now get the same treatment,
+  and nothing else does (a fixture standing for a live doc would still be checked).
 
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both

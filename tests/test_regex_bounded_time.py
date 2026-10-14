@@ -1368,6 +1368,7 @@ def test_the_rewritten_wire_field_pattern_reads_what_the_old_one_read(
     assert _finditer_shape(new, text) == _finditer_shape(old, text)
 
 
+@pytest.mark.tree_walk  # HR-2 §2: sweeps whatever is filed
 def test_the_wire_field_rewrite_agrees_on_the_lines_laps_carry() -> None:
     """The equivalence above, on real header shapes, with a floor on fields read."""
     old = re.compile(_OLD_WIRE_FIELD, re.MULTILINE)

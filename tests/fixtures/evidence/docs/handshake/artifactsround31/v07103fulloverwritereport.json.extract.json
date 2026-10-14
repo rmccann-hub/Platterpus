@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 3144,
+  "source_bytes": 489121,
+  "source_path": "docs/handshake/artifactsround31/v07103fulloverwritereport.json",
+  "source_sha256": "43c70c009c78beb960dd175c688d8f2a53b81145723eddc523a8958d53eeca20"
+}

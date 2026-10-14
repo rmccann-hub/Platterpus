@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
 from conftest import repo_markdown_files
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -590,6 +591,7 @@ def test_the_index_routes_to_the_subdirectory_indexes() -> None:
 _SECTION_ID = re.compile(r"^#{2,4}\s+§?(\d+\.[0-9a-z]+)\b", re.MULTILINE)
 
 
+@pytest.mark.tree_walk  # HR-2 §2: sweeps whatever is filed
 def test_no_doc_reuses_a_section_id() -> None:
     """A cited id that resolves to two places is a broken cross-reference.
 
@@ -722,6 +724,7 @@ _GENERATED_DOCS: frozenset[str] = _generated_doc_basenames()
 _LINE_CITATION = re.compile(r"(?P<doc>[a-z0-9-]+\.md):(?P<lines>\d[\d,\s-]*)")
 
 
+@pytest.mark.tree_walk  # HR-2 §2: sweeps whatever is filed
 def test_no_prose_cites_a_generated_document_by_line_number() -> None:
     """**Measured drift, not a style preference.**
 

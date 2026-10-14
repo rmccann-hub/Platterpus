@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from evidence_paths import evidence
 from PySide6.QtCore import QTimer
 from test_uiscript_rip_verbs import _step_outcome, _window
 
@@ -42,7 +43,10 @@ from platterpus.uiscript.script import parse
 pytest.importorskip("PySide6.QtWidgets")
 
 _REPO = Path(__file__).resolve().parent.parent
-_ROUND29 = _REPO / "docs/handshake/artifactsround29"
+#: The round-29 run folder moved to the evidence branch (HR-2); its reports are
+#: read from their slim extracts (`debug.lines` emptied, counted in a sidecar),
+#: named by the folder's original path.
+_ROUND29 = "docs/handshake/artifactsround29"
 _ACCEPTANCE = _REPO / "src/platterpus/rig_scripts/fullacceptance.txt"
 
 
@@ -54,7 +58,8 @@ def _short_waits(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _load(name: str) -> dict[str, Any]:
-    loaded = json.loads((_ROUND29 / f"round29full{name}report.json").read_text("utf-8"))
+    path = evidence(f"{_ROUND29}/round29full{name}report.json")
+    loaded = json.loads(path.read_text("utf-8"))
     assert isinstance(loaded, dict)
     return loaded
 

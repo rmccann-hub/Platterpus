@@ -29,6 +29,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
 from conftest import repo_markdown_files
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -81,6 +82,7 @@ def _relative_links(path: Path) -> list[str]:
     return targets
 
 
+@pytest.mark.tree_walk  # HR-2 §2: sweeps whatever is filed
 def test_every_relative_doc_link_resolves() -> None:
     """The gate. A link that points at nothing is worse than no link: it tells the
     reader the answer exists somewhere and then hides it."""

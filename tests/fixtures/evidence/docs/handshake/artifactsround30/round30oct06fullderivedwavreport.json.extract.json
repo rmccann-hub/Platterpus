@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 3330,
+  "source_bytes": 536535,
+  "source_path": "docs/handshake/artifactsround30/round30oct06fullderivedwavreport.json",
+  "source_sha256": "b622df51e8a632698f43c97f3ba28a35e753a74ce139e05805261db36144e809"
+}

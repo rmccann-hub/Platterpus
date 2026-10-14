@@ -1,0 +1,909 @@
+cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)
+Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -Z 2 -N --consumer platterpus/0.6.65 -c 1/4 -a "album=secure reread 20261004t160255 platterpus-fork-g174a134:album_artist=Various Artists:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e" -t "1=title=Tennessee Mountain Fox Chase:artist=Norman Blake" -t "2=title=Banjo Picking Girl:artist=Hazel Dickens & Alice Gerrard" -t "3=title=Old Corn Liquor:artist=Joe Thompson" -t "4=title=Rain and Snow:artist=Suzanne Thomas & Dry Branch Fire Squad" -t "5=title=The Orphan Child:artist=Jody Stecher & Kate Brislin" -t "6=title=Working on a Building:artist=The Johnson Mountain Boys" -t "7=title=You Better Mind:artist=Bessie Jones:isrc=USRO27501510" -t "8=title=Dry Bones:artist=The Persuasions" -t "9=title=Did You Hear John Hurt?:artist=Dave Van Ronk" -t "10=title=One‐Dime Blues:artist=Etta Baker:isrc=USRO29111201" -t "11=title=All the Way From East St. Louis:artist=Mississippi Fred McDowell" -t "12=title=Juke Medley:artist=Robert Nighthawk & Carey Bell" -t "13=title=Black’s Ball:artist=J.B. Hutto & The New Hawks" -t "14=title=Just a Little While to Stay Here:artist=Rebirth Brass Band" -t "15=title=Iko, Iko:artist=Bo Dollis and The Wild Magnolias" -t "16=title=Mai Kai No Kauai:artist=Tau Moe Family" -t "17=title=Texas Cowboy:artist=Glenn Ohrlin" -t "18=title=Streets of Laredo:artist=Brownie Ford" -D {album_artist}/{album} -F "{track} - {title}" -G -j cyanrip-diagnostics-20261004T233335Z.json
+Handshake:      round 29 lap 3 closed, verdict GO -- released build
+                (declared at build time, not verified by cyanrip)
+Consumer:       platterpus/0.6.65
+                (reported by the caller, not verified by cyanrip)
+Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+Paranoia level: max
+Retry limit:    5 (per frame, and per whole-track re-read)
+Cache model:    1200 sectors (drive cache size not probed)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc number:    1
+Total discs:    4
+Disc tracks:    18
+Tracks to rip:  all
+DiscID:         zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+Release ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+CDDB ID:        000DAC12
+Album:          secure reread 20261004t160255 platterpus-fork-g174a134
+Album artist:   Various Artists
+AccurateRip:    found
+Total time:     58:20.25
+
+--- output before this log was opened ---
+Checking /dev/sr0 for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+--- end of pre-log output ---
+Gaps:
+    180 frame pregap in track 2, merging into track 1
+    190 frame pregap in track 3, merging into track 2
+    185 frame pregap in track 4, merging into track 3
+    180 frame pregap in track 5, merging into track 4
+    90 frame pregap in track 6, merging into track 5
+    165 frame pregap in track 8, merging into track 7
+    158 frame pregap in track 9, merging into track 8
+    145 frame pregap in track 10, merging into track 9
+    190 frame pregap in track 11, merging into track 10
+    105 frame pregap in track 12, merging into track 11
+    143 frame pregap in track 13, merging into track 12
+    98 frame pregap in track 15, merging into track 14
+    202 frame pregap in track 16, merging into track 15
+    140 frame pregap in track 17, merging into track 16
+
+Tracks:
+
+Repeating ripping (0 out of 2 matches for current checksum A0E382F5)
+
+Repeating ripping (1 out of 2 matches for current checksum A0E382F5)
+
+Done; (2 out of 2 matches for current checksum A0E382F5)
+Track 1 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -15.7 LUFS
+    Threshold: -25.7 LUFS
+
+  Loudness range:
+    LRA:         4.0 LU
+    Threshold: -35.7 LUFS
+    LRA low:   -17.9 LUFS
+    LRA high:  -13.9 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.2 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    02:53.60
+    Samples:     7664580
+    Frames:      13035
+    Sample peak level: 97.7% (-0.2 dBFS)
+    True peak level:   0.2 dBFS
+    Integrated loudness (R128): -15.7 LUFS
+    Loudness range (R128):      4.0 LU (-17.9 to -13.9 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            457.60 s
+    Pregap LSN:  0 (duration: 00:02.00)
+    Pregap length: 150 frames
+    Pregap source: lead-in
+    Start LSN:   0 (with offset: 1)
+    End LSN:     13034 (with offset: 13036)
+
+  EAC CRC32:     A0E382F5 (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disc found in database (max confidence: 29)
+    Accurip v1:  5ED2CE6E (accurately ripped, confidence 12)
+    Accurip v2:  0E80A467 (accurately ripped, confidence 29)
+
+  Metadata:
+    TRACK:                         1
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         Tennessee Mountain Fox Chase
+    DISC:                          1
+    ALBUM:                         secure reread 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Norman Blake
+    CREATION_TIME:                 2026-10-04T19:33:43-04:00
+    REPLAYGAIN_TRACK_GAIN:         -2.34 dB
+    R128_TRACK_GAIN:               681
+    REPLAYGAIN_TRACK_RANGE:        4.04 dB
+    REPLAYGAIN_TRACK_PEAK:         1.022951
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    Scope:         the last of 3 reads; the disc totals below sum all of them
+    READ:          1010
+    VERIFY:        225
+    OVERLAP:       33
+
+  File(s):
+    Various Artists/secure reread 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum ABC106DC)
+
+Repeating ripping (1 out of 2 matches for current checksum ABC106DC)
+
+Done; (2 out of 2 matches for current checksum ABC106DC)
+Track 2 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.8 LUFS
+    Threshold: -22.9 LUFS
+
+  Loudness range:
+    LRA:         4.0 LU
+    Threshold: -32.9 LUFS
+    LRA low:   -14.7 LUFS
+    LRA high:  -10.7 LUFS
+
+  Sample peak:
+    Peak:       -0.4 dBFS
+
+  True peak:
+    Peak:       -0.4 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    03:06.37
+    Samples:     8224356
+    Frames:      13987
+    Sample peak level: 95.0% (-0.4 dBFS)
+    True peak level:   -0.4 dBFS
+    Integrated loudness (R128): -12.8 LUFS
+    Loudness range (R128):      4.0 LU (-14.7 to -10.7 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            487.87 s
+    Pregap LSN:  12855 (duration: 00:02.30)
+    Pregap length: 180 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   13035 (with offset: 13036)
+    End LSN:     27021 (with offset: 27023)
+
+  EAC CRC32:     ABC106DC (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disc found in database (max confidence: 29)
+    Accurip v1:  45CB37DF (accurately ripped, confidence 12)
+    Accurip v2:  F383C874 (accurately ripped, confidence 29)
+
+  Metadata:
+    TRACK:                         2
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         Banjo Picking Girl
+    DISC:                          1
+    ALBUM:                         secure reread 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Hazel Dickens & Alice Gerrard
+    CREATION_TIME:                 2026-10-04T19:41:21-04:00
+    REPLAYGAIN_TRACK_GAIN:         -5.19 dB
+    R128_TRACK_GAIN:               -48
+    REPLAYGAIN_TRACK_RANGE:        3.99 dB
+    REPLAYGAIN_TRACK_PEAK:         0.950732
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    Scope:         the last of 3 reads; the disc totals below sum all of them
+    READ:          1106
+    VERIFY:        265
+    OVERLAP:       30
+
+  File(s):
+    Various Artists/secure reread 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum 1389CBEE)
+
+Repeating ripping (1 out of 2 matches for current checksum 1389CBEE)
+
+Done; (2 out of 2 matches for current checksum 1389CBEE)
+Track 3 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.6 LUFS
+    Threshold: -23.7 LUFS
+
+  Loudness range:
+    LRA:         1.5 LU
+    Threshold: -33.7 LUFS
+    LRA low:   -14.4 LUFS
+    LRA high:  -12.9 LUFS
+
+  Sample peak:
+    Peak:       -0.9 dBFS
+
+  True peak:
+    Peak:       -0.8 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    03:25.58
+    Samples:     9074604
+    Frames:      15433
+    Sample peak level: 90.6% (-0.9 dBFS)
+    True peak level:   -0.8 dBFS
+    Integrated loudness (R128): -13.6 LUFS
+    Loudness range (R128):      1.5 LU (-14.4 to -12.9 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            531.97 s
+    Pregap LSN:  26832 (duration: 00:02.40)
+    Pregap length: 190 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   27022 (with offset: 27023)
+    End LSN:     42454 (with offset: 42456)
+
+  EAC CRC32:     1389CBEE (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disc found in database (max confidence: 29)
+    Accurip v1:  C58E05DB (accurately ripped, confidence 12)
+    Accurip v2:  181EA470 (accurately ripped, confidence 29)
+
+  Metadata:
+    TRACK:                         3
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         Old Corn Liquor
+    DISC:                          1
+    ALBUM:                         secure reread 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Joe Thompson
+    CREATION_TIME:                 2026-10-04T19:49:29-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.39 dB
+    R128_TRACK_GAIN:               157
+    REPLAYGAIN_TRACK_RANGE:        1.47 dB
+    REPLAYGAIN_TRACK_PEAK:         0.907293
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    Scope:         the last of 3 reads; the disc totals below sum all of them
+    READ:          1202
+    VERIFY:        284
+    OVERLAP:       32
+
+  File(s):
+    Various Artists/secure reread 20261004t160255 platterpus-fork-g174a134/03 - Old Corn Liquor.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum 24FE4A40)
+
+Repeating ripping (1 out of 2 matches for current checksum 24FE4A40)
+
+Done; (2 out of 2 matches for current checksum 24FE4A40)
+Track 4 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.4 LUFS
+    Threshold: -25.8 LUFS
+
+  Loudness range:
+    LRA:        14.0 LU
+    Threshold: -35.8 LUFS
+    LRA low:   -24.6 LUFS
+    LRA high:  -10.5 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:       -0.2 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    02:15.25
+    Samples:     5968200
+    Frames:      10150
+    Sample peak level: 97.7% (-0.2 dBFS)
+    True peak level:   -0.2 dBFS
+    Integrated loudness (R128): -14.4 LUFS
+    Loudness range (R128):      14.0 LU (-24.6 to -10.5 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            346.88 s
+    Pregap LSN:  42270 (duration: 00:02.35)
+    Pregap length: 185 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   42455 (with offset: 42456)
+    End LSN:     52604 (with offset: 52606)
+
+  EAC CRC32:     24FE4A40 (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disc found in database (max confidence: 29)
+    Accurip v1:  EC8A29CB (accurately ripped, confidence 12)
+    Accurip v2:  D4F7193B (accurately ripped, confidence 29)
+
+  Metadata:
+    TRACK:                         4
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         Rain and Snow
+    DISC:                          1
+    ALBUM:                         secure reread 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Suzanne Thomas & Dry Branch Fire Squad
+    CREATION_TIME:                 2026-10-04T19:58:21-04:00
+    REPLAYGAIN_TRACK_GAIN:         -3.61 dB
+    R128_TRACK_GAIN:               356
+    REPLAYGAIN_TRACK_RANGE:        14.03 dB
+    REPLAYGAIN_TRACK_PEAK:         0.979291
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    Scope:         the last of 3 reads; the disc totals below sum all of them
+    READ:          770
+    VERIFY:        145
+    OVERLAP:       13
+
+  File(s):
+    Various Artists/secure reread 20261004t160255 platterpus-fork-g174a134/04 - Rain and Snow.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum 8F45D726)
+
+Repeating ripping (1 out of 2 matches for current checksum 8F45D726)
+
+Done; (2 out of 2 matches for current checksum 8F45D726)
+Track 5 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.2 LUFS
+    Threshold: -23.4 LUFS
+
+  Loudness range:
+    LRA:         6.7 LU
+    Threshold: -33.4 LUFS
+    LRA low:   -17.0 LUFS
+    LRA high:  -10.3 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:       -0.1 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    04:04.50
+    Samples:     10789800
+    Frames:      18350
+    Sample peak level: 97.7% (-0.2 dBFS)
+    True peak level:   -0.1 dBFS
+    Integrated loudness (R128): -13.2 LUFS
+    Loudness range (R128):      6.7 LU (-17.0 to -10.3 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            625.03 s
+    Pregap LSN:  52425 (duration: 00:02.30)
+    Pregap length: 180 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   52605 (with offset: 52606)
+    End LSN:     70954 (with offset: 70956)
+
+  EAC CRC32:     8F45D726 (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disc found in database (max confidence: 29)
+    Accurip v1:  8F231F5C (accurately ripped, confidence 12)
+    Accurip v2:  DD6CF2E3 (accurately ripped, confidence 29)
+
+  Metadata:
+    TRACK:                         5
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         The Orphan Child
+    DISC:                          1
+    ALBUM:                         secure reread 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Jody Stecher & Kate Brislin
+    CREATION_TIME:                 2026-10-04T20:04:08-04:00
+    REPLAYGAIN_TRACK_GAIN:         -4.80 dB
+    R128_TRACK_GAIN:               51
+    REPLAYGAIN_TRACK_RANGE:        6.71 dB
+    REPLAYGAIN_TRACK_PEAK:         0.990117
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    Scope:         the last of 3 reads; the disc totals below sum all of them
+    READ:          1490
+    VERIFY:        310
+    OVERLAP:       38
+
+  File(s):
+    Various Artists/secure reread 20261004t160255 platterpus-fork-g174a134/05 - The Orphan Child.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum E288567D)
+
+Repeating ripping (1 out of 2 matches for current checksum E288567D)
+
+Done; (2 out of 2 matches for current checksum E288567D)
+Track 6 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -15.2 LUFS
+    Threshold: -25.4 LUFS
+
+  Loudness range:
+    LRA:         8.8 LU
+    Threshold: -35.4 LUFS
+    LRA low:   -20.8 LUFS
+    LRA high:  -11.9 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:       -0.1 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    03:18.10
+    Samples:     8737680
+    Frames:      14860
+    Sample peak level: 97.7% (-0.2 dBFS)
+    True peak level:   -0.1 dBFS
+    Integrated loudness (R128): -15.2 LUFS
+    Loudness range (R128):      8.8 LU (-20.8 to -11.9 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            504.19 s
+    Pregap LSN:  70865 (duration: 00:01.15)
+    Pregap length: 90 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   70955 (with offset: 70956)
+    End LSN:     85814 (with offset: 85816)
+
+  EAC CRC32:     E288567D (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disc found in database (max confidence: 29)
+    Accurip v1:  B3AE9A69 (accurately ripped, confidence 12)
+    Accurip v2:  07520D28 (accurately ripped, confidence 29)
+
+  Metadata:
+    TRACK:                         6
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         Working on a Building
+    DISC:                          1
+    ALBUM:                         secure reread 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        The Johnson Mountain Boys
+    CREATION_TIME:                 2026-10-04T20:14:33-04:00
+    REPLAYGAIN_TRACK_GAIN:         -2.84 dB
+    R128_TRACK_GAIN:               552
+    REPLAYGAIN_TRACK_RANGE:        8.82 dB
+    REPLAYGAIN_TRACK_PEAK:         0.992383
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    Scope:         the last of 3 reads; the disc totals below sum all of them
+    READ:          1202
+    VERIFY:        207
+    OVERLAP:       22
+
+  File(s):
+    Various Artists/secure reread 20261004t160255 platterpus-fork-g174a134/06 - Working on a Building.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum 61C7DB00)
+
+Repeating ripping (1 out of 2 matches for current checksum 61C7DB00)
+
+Done; (2 out of 2 matches for current checksum 61C7DB00)
+Track 7 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.7 LUFS
+    Threshold: -24.8 LUFS
+
+  Loudness range:
+    LRA:         5.0 LU
+    Threshold: -34.8 LUFS
+    LRA low:   -17.2 LUFS
+    LRA high:  -12.2 LUFS
+
+  Sample peak:
+    Peak:       -0.2 dBFS
+
+  True peak:
+    Peak:        0.4 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    02:50.00
+    Samples:     7497000
+    Frames:      12750
+    Sample peak level: 97.7% (-0.2 dBFS)
+    True peak level:   0.4 dBFS
+    Integrated loudness (R128): -14.7 LUFS
+    Loudness range (R128):      5.0 LU (-17.2 to -12.2 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            428.98 s
+    Pregap LSN:  85815 (duration: 00:00.00)
+    Pregap length: 0 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   85815 (with offset: 85816)
+    End LSN:     98564 (with offset: 98566)
+
+  EAC CRC32:     61C7DB00 (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disc found in database (max confidence: 29)
+    Accurip v1:  3AB1B6D4 (accurately ripped, confidence 12)
+    Accurip v2:  61D04911 (accurately ripped, confidence 29)
+
+  Metadata:
+    TRACK:                         7
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         You Better Mind
+    DISC:                          1
+    ALBUM:                         secure reread 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Bessie Jones
+    ISRC:                          USRO27501510
+    CREATION_TIME:                 2026-10-04T20:22:57-04:00
+    REPLAYGAIN_TRACK_GAIN:         -3.34 dB
+    R128_TRACK_GAIN:               425
+    REPLAYGAIN_TRACK_RANGE:        4.99 dB
+    REPLAYGAIN_TRACK_PEAK:         1.041513
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    Scope:         the last of 3 reads; the disc totals below sum all of them
+    READ:          1010
+    VERIFY:        246
+    OVERLAP:       28
+
+  File(s):
+    Various Artists/secure reread 20261004t160255 platterpus-fork-g174a134/07 - You Better Mind.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum 5F45E1CA)
+
+Repeating ripping (1 out of 2 matches for current checksum 5F45E1CA)
+
+Done; (2 out of 2 matches for current checksum 5F45E1CA)
+Track 8 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -15.1 LUFS
+    Threshold: -25.2 LUFS
+
+  Loudness range:
+    LRA:         6.4 LU
+    Threshold: -35.2 LUFS
+    LRA low:   -18.9 LUFS
+    LRA high:  -12.5 LUFS
+
+  Sample peak:
+    Peak:       -5.1 dBFS
+
+  True peak:
+    Peak:       -5.1 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    02:17.25
+    Samples:     6056400
+    Frames:      10300
+    Sample peak level: 55.4% (-5.1 dBFS)
+    True peak level:   -5.1 dBFS
+    Integrated loudness (R128): -15.1 LUFS
+    Loudness range (R128):      6.4 LU (-18.9 to -12.5 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            344.82 s
+    Pregap LSN:  98400 (duration: 00:02.15)
+    Pregap length: 165 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   98565 (with offset: 98566)
+    End LSN:     108864 (with offset: 108866)
+
+  EAC CRC32:     5F45E1CA (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disc found in database (max confidence: 29)
+    Accurip v1:  27978F9B (accurately ripped, confidence 12)
+    Accurip v2:  CC2D266D (accurately ripped, confidence 29)
+
+  Metadata:
+    TRACK:                         8
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         Dry Bones
+    DISC:                          1
+    ALBUM:                         secure reread 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        The Persuasions
+    CREATION_TIME:                 2026-10-04T20:30:06-04:00
+    REPLAYGAIN_TRACK_GAIN:         -2.95 dB
+    R128_TRACK_GAIN:               525
+    REPLAYGAIN_TRACK_RANGE:        6.40 dB
+    REPLAYGAIN_TRACK_PEAK:         0.553725
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    Scope:         the last of 3 reads; the disc totals below sum all of them
+    READ:          770
+    VERIFY:        164
+    OVERLAP:       14
+
+  File(s):
+    Various Artists/secure reread 20261004t160255 platterpus-fork-g174a134/08 - Dry Bones.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum 2C99746D)
+
+Repeating ripping (1 out of 2 matches for current checksum 2C99746D)
+
+Done; (2 out of 2 matches for current checksum 2C99746D)
+Track 9 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -17.5 LUFS
+    Threshold: -27.8 LUFS
+
+  Loudness range:
+    LRA:         9.3 LU
+    Threshold: -37.8 LUFS
+    LRA low:   -23.6 LUFS
+    LRA high:  -14.3 LUFS
+
+  Sample peak:
+    Peak:       -2.6 dBFS
+
+  True peak:
+    Peak:       -2.6 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    03:15.35
+    Samples:     8620080
+    Frames:      14660
+    Sample peak level: 74.1% (-2.6 dBFS)
+    True peak level:   -2.6 dBFS
+    Integrated loudness (R128): -17.5 LUFS
+    Loudness range (R128):      9.3 LU (-23.6 to -14.3 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            490.23 s
+    Pregap LSN:  108707 (duration: 00:02.08)
+    Pregap length: 158 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   108865 (with offset: 108866)
+    End LSN:     123524 (with offset: 123526)
+
+  EAC CRC32:     2C99746D (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disc found in database (max confidence: 28)
+    Accurip v1:  52015BEE (accurately ripped, confidence 11)
+    Accurip v2:  D498DC33 (accurately ripped, confidence 28)
+
+  Metadata:
+    TRACK:                         9
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         Did You Hear John Hurt?
+    DISC:                          1
+    ALBUM:                         secure reread 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Dave Van Ronk
+    CREATION_TIME:                 2026-10-04T20:35:51-04:00
+    REPLAYGAIN_TRACK_GAIN:         -0.48 dB
+    R128_TRACK_GAIN:               1157
+    REPLAYGAIN_TRACK_RANGE:        9.28 dB
+    REPLAYGAIN_TRACK_PEAK:         0.741168
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    Scope:         the last of 3 reads; the disc totals below sum all of them
+    READ:          1202
+    VERIFY:        286
+    OVERLAP:       34
+
+  File(s):
+    Various Artists/secure reread 20261004t160255 platterpus-fork-g174a134/09 - Did You Hear John Hurt？.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum C8871689)
+
+Repeating ripping (1 out of 2 matches for current checksum C8871689)
+
+Done; (2 out of 2 matches for current checksum C8871689)
+Track 10 read successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -16.7 LUFS
+    Threshold: -26.8 LUFS
+
+  Loudness range:
+    LRA:         6.0 LU
+    Threshold: -36.8 LUFS
+    LRA low:   -20.5 LUFS
+    LRA high:  -14.5 LUFS
+
+  Sample peak:
+    Peak:       -2.9 dBFS
+
+  True peak:
+    Peak:       -2.8 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    02:34.72
+    Samples:     6833736
+    Frames:      11622
+    Sample peak level: 71.8% (-2.9 dBFS)
+    True peak level:   -2.8 dBFS
+    Integrated loudness (R128): -16.7 LUFS
+    Loudness range (R128):      6.0 LU (-20.5 to -14.5 LUFS)
+    Extraction speed:  0.4x
+    Elapsed:            385.77 s
+    Pregap LSN:  123380 (duration: 00:01.70)
+    Pregap length: 145 frames
+    Pregap source: sub-channel (not signalled by TOC)
+    Start LSN:   123525 (with offset: 123526)
+    End LSN:     135146 (with offset: 135148)
+
+  EAC CRC32:     C8871689 (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disc found in database (max confidence: 29)
+    Accurip v1:  5B0147F4 (accurately ripped, confidence 12)
+    Accurip v2:  C6614049 (accurately ripped, confidence 29)
+
+  Metadata:
+    TRACK:                         10
+    TRACKTOTAL:                    18
+    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-
+    CDDB:                          000DAC12
+    MEDIA:                         CD
+    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19
+    TOTALDISCS:                    4
+    TITLE:                         One‐Dime Blues
+    DISC:                          1
+    ALBUM:                         secure reread 20261004t160255 platterpus-fork-g174a134
+    ALBUM_ARTIST:                  Various Artists
+    DATE:                          2001-10-09
+    CATALOGNUMBER:                 11661-0501-2
+    BARCODE:                       011661050129
+    LABEL:                         Rounder
+    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e
+    ARTIST:                        Etta Baker
+    ISRC:                          USRO29111201
+    CREATION_TIME:                 2026-10-04T20:44:01-04:00
+    REPLAYGAIN_TRACK_GAIN:         -1.32 dB
+    R128_TRACK_GAIN:               943
+    REPLAYGAIN_TRACK_RANGE:        5.97 dB
+    REPLAYGAIN_TRACK_PEAK:         0.721192
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+    DISCTOTAL:                     4
+
+  Paranoia status counts:
+    Scope:         the last of 3 reads; the disc totals below sum all of them
+    READ:          914
+    VERIFY:        189
+    OVERLAP:       26
+
+  File(s):
+    Various Artists/secure reread 20261004t160255 platterpus-fork-g174a134/10 - One‐Dime Blues.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum 2B6284EB)
+
+Repeating ripping (0 out of 2 matches for current checksum B3102CB0)
+
+Repeating ripping (0 out of 2 matches for current checksum 46CA982D)
+
+Repeating ripping (0 out of 2 matches for current checksum 10248071)

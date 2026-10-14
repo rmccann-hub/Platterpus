@@ -24,6 +24,7 @@ import json
 from pathlib import Path
 
 import pytest
+from evidence_paths import evidence
 
 from platterpus.uiscript.report import (
     CONCEPT,
@@ -189,11 +190,13 @@ def test_the_frozen_evidence_we_already_sent_is_vocabulary_one() -> None:
     'fixed' to the new spelling: they record what those runs actually reported, and
     rewriting sent evidence is the §4a violation this project has already had once.
     """
+    # Read through their fixtures (HR-2 moved these files off `main`): slim
+    # extracts by `scripts/evidence_fixtures.py`, each with a sidecar naming the
+    # original's SHA-256. `evidence()` refuses a missing one.
     frozen = [
-        _REPO_ROOT
-        / "docs/handshake/outbound/artifacts/round-15-lap-13-run-report.json",
-        _REPO_ROOT / "docs/handshake/artifactsround08/round08scriptreport.json",
-        _REPO_ROOT / "docs/handshake/artifactsround08/round08pinscriptreport.json",
+        evidence("docs/handshake/outbound/artifacts/round-15-lap-13-run-report.json"),
+        evidence("docs/handshake/artifactsround08/round08scriptreport.json"),
+        evidence("docs/handshake/artifactsround08/round08pinscriptreport.json"),
     ]
     present = [p for p in frozen if p.is_file()]
     assert len(present) >= 2, (
@@ -201,6 +204,16 @@ def test_the_frozen_evidence_we_already_sent_is_vocabulary_one() -> None:
         "check would pass by not looking. If they moved, move this list with them."
     )
     for path in present:
+        # An extract that dropped lines could hide the field in what it dropped, so
+        # this check holds only over an extract that dropped nothing. These script
+        # reports carry no `debug.lines`, so each extract is the whole report.
+        sidecar = path.with_name(path.name + ".extract.json")
+        if sidecar.is_file():
+            removed = json.loads(sidecar.read_text(encoding="utf-8"))["removed_count"]
+            assert removed == 0, (
+                f"{path.name}'s fixture dropped {removed} line(s); the check below "
+                "would not have seen them. Use a byte-for-byte copy instead."
+            )
         blob = json.loads(path.read_text(encoding="utf-8"))
         assert "outcome_vocabulary" not in json.dumps(blob), (
             f"{path.name} declares an outcome vocabulary. It predates the field, so "
