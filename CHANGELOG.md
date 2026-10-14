@@ -14,6 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **One About-dialog test asserts a banner's text without looking like a URL check.**
+  CodeQL's `py/incomplete-url-substring-sanitization` read `"http://e.x" in text` in
+  `test_ripper_standing` as a sanitiser and raised a high alert once this PR touched the
+  file. It is a display assertion (a hostile banner shows as text, never a link), now
+  written with `.count()`; what it asserts is unchanged.
+
 - **A test that opens run evidence at its original path now fails, at run time
   (HR-2 §2).** A test names an evidence file by its original path on purpose, as its
   provenance, and reads the fixture, so a sweep over names could not tell a reader from a

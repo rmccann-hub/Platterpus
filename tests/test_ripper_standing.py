@@ -230,7 +230,10 @@ def test_about_shows_the_rippers_own_text_literally(qapp: QApplication) -> None:
         html = view.toHtml()
     finally:
         dep_manager.remember_report(None)
-    assert "http://e.x" in view.toPlainText()
+    # The banner's text is shown, as text. Counted rather than tested with `in`:
+    # CodeQL's py/incomplete-url-substring-sanitization reads `"http://…" in x` as
+    # a URL check, and this is a display assertion, not a sanitiser.
+    assert view.toPlainText().count("http://e.x") >= 1, "the banner text was dropped"
     assert 'href="http://e.x"' not in html, "a banner made a link"
     assert "<b>bold" not in html.replace("&lt;b&gt;", ""), "a banner made bold text"
 
