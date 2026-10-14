@@ -31,6 +31,7 @@ from typing import Final, Literal
 
 from .commit_map import CommitMap
 from .commit_map import load as load_commit_map
+from .evidence import Fetcher, check_citation, manifest_at, on_local_evidence
 from .gitio import decode_cited, run_git, run_git_bytes
 from .model import Side
 
@@ -134,9 +135,22 @@ class Trees:
     artifact in a tree we were not given is reported unchecked, never passed.
     """
 
-    def __init__(self, roots: dict[Side, Path | None], at: dict[Side, str]) -> None:
+    def __init__(
+        self,
+        roots: dict[Side, Path | None],
+        at: dict[Side, str],
+        manifest_at: dict[Side, str] | None = None,
+    ) -> None:
         self.roots = roots
         self.at = at
+        #: The commit whose `docs/evidence-manifest.tsv` decides whether a path
+        #: is evidence (HR-2 §6b): the lap's FROM-COMMIT for its author, the ref
+        #: of record for the other side. Missing means the ref of record.
+        self.manifest_at: dict[Side, str] = dict(manifest_at or {})
+        self._fetcher = Fetcher()
+        #: The bytes of every evidence citation that resolved, so LSL B1 can
+        #: place them in the tree it re-runs a command in (HR-2 §6d).
+        self._evidence_data: dict[tuple[Side, str, str], bytes] = {}
         self._cache: dict[
             tuple[Side, str, str, bool], Resolution | tuple[int, Resolution]
         ] = {}
@@ -178,6 +192,14 @@ class Trees:
         lines = _check_lines(ref, line_count)
         return lines if lines.outcome != "ok" else reach
 
+    def evidence_bytes(self, ref: ArtifactRef) -> bytes | None:
+        """The cited file's bytes when `ref` is an evidence citation that
+        resolved (HR-2 §6), else None. Resolves it first if nothing has yet."""
+        key = (ref.side, ref.sha, ref.path)
+        if key not in self._evidence_data:
+            self.artifact(ref, None)
+        return self._evidence_data.get(key)
+
     def commit(self, side: Side, sha: str) -> Resolution:
         """Resolve a `DID` commit: it must be on `side`'s publishing ref."""
         root = self.roots.get(side)
@@ -196,6 +218,9 @@ class Trees:
         self, root: Path, ref: ArtifactRef, must_reach: bool
     ) -> Resolution | tuple[int, Resolution]:
         sha = self._current(root, ref.sha)
+        evidence = self._evidence(root, ref, sha)
+        if evidence is not None:
+            return evidence
         found = self._commit_exists(root, ref.side, sha)
         if found.outcome != "ok":
             return found
@@ -219,6 +244,48 @@ class Trees:
                 "refused", f"{ref.path} does not exist at {ref.side}@{ref.sha}"
             )
         return (line_count(decode_cited(shown.stdout)), reach)
+
+    def _evidence(
+        self, root: Path, ref: ArtifactRef, sha: str
+    ) -> Resolution | tuple[int, Resolution] | None:
+        """Resolve `ref` as an evidence citation (HR-2 §6), or None when it is not one.
+
+        A commit already on the side's ref of record keeps the old rules: every
+        citation made before the move names such a commit, and §6d says it still
+        resolves because history is kept. Otherwise the path's manifest row
+        decides. With a row, the cited file must hash to it and its commit must
+        be on the `evidence` branch (§6a); a commit only `evidence` reaches,
+        cited with no row, is refused (§6b). With neither, the ordinary rules
+        answer, unchanged.
+        """
+        record = self.at.get(ref.side, "HEAD")
+        present = run_git(root, "cat-file", "-e", f"{sha}^{{commit}}")
+        if present is not None and present.returncode == 0:
+            on_record = run_git(root, "merge-base", "--is-ancestor", sha, record)
+            if on_record is not None and on_record.returncode == 0:
+                return None
+        label = f"{ref.side}@{ref.sha}:{ref.path}"
+        at = self.manifest_at.get(ref.side) or record
+        rows = manifest_at(root, at)
+        row = rows.get(ref.path) if rows else None
+        if row is None:
+            if (
+                present is not None
+                and present.returncode == 0
+                and on_local_evidence(root, sha)
+            ):
+                return Resolution(
+                    "refused",
+                    f"{label}: {sha[:12]} is on the evidence branch, but "
+                    f"{ref.path} has no row in docs/evidence-manifest.tsv at {at} "
+                    "(HR-2 §6b: file the row before the lap that cites it)",
+                )
+            return None
+        answer = check_citation(self._fetcher, root, row, sha, label)
+        if answer.outcome == "ok" and answer.data is not None:
+            self._evidence_data[(ref.side, ref.sha, ref.path)] = answer.data
+            return (line_count(decode_cited(answer.data)), Resolution("ok"))
+        return Resolution(answer.outcome, answer.message)
 
     def _commit_exists(self, root: Path, side: Side, sha: str) -> Resolution:
         result = run_git(root, "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}")

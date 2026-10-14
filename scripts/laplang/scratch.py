@@ -165,6 +165,30 @@ class Scratch:
             return f"the worktree made for {sha} is not at {sha}"
         return path
 
+    def overlay(self, tree: Path, path: str, data: bytes) -> str | None:
+        """Place a cited evidence file at its own path in `tree` (HR-2 §6d).
+
+        After the move, a run folder is no longer in the default branch's tree,
+        so a `run:` that reads one would fail for want of a file the lap cites
+        by hash. B1 puts the cited bytes where the command expects them. A file
+        already there with other bytes is not overwritten: the tree and the
+        citation disagree, and that is the answer, not something to paper over.
+        """
+        parts = Path(path).parts
+        if not parts or Path(path).is_absolute() or ".." in parts:
+            return f"{path!r} is not a path inside the tree"
+        target = tree.joinpath(*parts)
+        if target.exists():
+            if target.is_file() and target.read_bytes() == data:
+                return None
+            return f"the tree at this commit already holds a different {path}"
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        except OSError as exc:
+            return f"{path} could not be placed in the scratch tree ({exc})"
+        return None
+
     def run(self, plan: Plan, cwd: Path) -> Ran | str:
         """Run `plan` in `cwd`, or say why it did not run to the end."""
         if self.parent is None:

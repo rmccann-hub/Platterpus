@@ -138,11 +138,41 @@ def _resolve(root: Path, tokens: list[str]) -> tuple[dict[str, str | None], int]
         stdin="".join(f"{q}\n" for q in asked),
     )
     resolved: dict[str, str | None] = {}
+    filed = evidence_commits(root)
     for token, line in zip(tokens, out.splitlines(), strict=True):
         name, _, kind = line.partition(" ")
         resolved[token] = name if kind == "commit" else None
+        if resolved[token] is None:
+            # HR-2 §6a: an evidence commit is on the `evidence` branch, which a
+            # session does not fetch (§7). The manifest on this branch names it,
+            # and CI's evidence job checks every row against the real branch.
+            matches = [sha for sha in filed if sha.startswith(token)]
+            if len(matches) == 1:
+                resolved[token] = matches[0]
     through_map = sum(1 for t, q in zip(tokens, asked, strict=True) if q != t)
     return resolved, through_map
+
+
+def evidence_commits(root: Path) -> set[str]:
+    """Every commit `docs/evidence-manifest.tsv` names as holding filed evidence,
+    plus every commit an `evidence` branch this clone holds reaches (HR-2 §6a)."""
+    found: set[str] = set()
+    manifest = root / "docs" / "evidence-manifest.tsv"
+    if manifest.is_file():
+        for line in manifest.read_text(encoding="utf-8").splitlines()[1:]:
+            cells = line.split("\t")
+            if len(cells) == 5 and len(cells[3]) == 40:
+                found.add(cells[3])
+    refs = _git(
+        root,
+        "for-each-ref",
+        "--format=%(refname)",
+        "refs/heads/evidence",
+        "refs/remotes/*/evidence",
+    ).split()
+    for ref in refs:
+        found.update(_git(root, "rev-list", ref).split())
+    return found
 
 
 def cited_commits(
@@ -177,7 +207,7 @@ def cited_commits(
 
 def unreachable(root: Path, commits: dict[str, set[str]]) -> dict[str, set[str]]:
     """The cited commits that `HEAD` does not reach."""
-    reachable = set(_git(root, "rev-list", "HEAD").split())
+    reachable = set(_git(root, "rev-list", "HEAD").split()) | evidence_commits(root)
     return {sha: files for sha, files in commits.items() if sha not in reachable}
 
 
@@ -433,3 +463,66 @@ def test_the_paraphrased_subjects_are_still_paraphrases() -> None:
     assert unresolved_subjects(REPO_ROOT, "HEAD", set(PARAPHRASED_SUBJECTS)) == set(
         PARAPHRASED_SUBJECTS
     ), "an allowlisted subject now matches a commit; take it off the list"
+
+
+def test_an_evidence_commit_counts_as_reachable_through_the_manifest(
+    tmp_path: Path,
+) -> None:
+    """HR-2 §6a: a lap cites a commit on `evidence`, which `main` never reaches
+    and a session never fetches. The manifest row on `main` is what lets this
+    check accept it; a commit neither reaches nor names is still stranded."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q", "-b", "main")
+    _git(
+        root,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
+        "main",
+    )
+    _git(root, "checkout", "-q", "--orphan", "elsewhere")
+    _git(
+        root,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
+        "evidence",
+    )
+    filed = _git(root, "rev-parse", "HEAD").strip()
+    _git(
+        root,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
+        "stray",
+    )
+    stray = _git(root, "rev-parse", "HEAD").strip()
+    _git(root, "checkout", "-q", "main")
+    _git(root, "branch", "-q", "-D", "elsewhere")
+    cited = {filed: {"lap.md"}, stray: {"lap.md"}}
+    assert set(unreachable(root, cited)) == {filed, stray}
+    (root / "docs").mkdir()
+    (root / "docs" / "evidence-manifest.tsv").write_text(
+        "path\tbytes\tsha256\tevidence_commit\tlast_default_commit\n"
+        f"docs/x.log\t1\t{'a' * 64}\t{filed}\t\n",
+        encoding="utf-8",
+    )
+    assert set(unreachable(root, cited)) == {stray}
+    resolved, _ = _resolve(root, [filed[:10], stray[:10]])
+    assert resolved[filed[:10]] == filed

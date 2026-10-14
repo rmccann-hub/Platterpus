@@ -448,6 +448,27 @@ def _live_pointer_files() -> list[Path]:
     return seen
 
 
+def filed_as_evidence(manifest_text: str | None) -> frozenset[str]:
+    """The docs-relative paths `docs/evidence-manifest.tsv` says were filed to the
+    `evidence` branch (HR-2 §4). A pointer at one of them resolves through its row,
+    as a bare path in an old lap does (HR-2 §6d): the file left the default branch
+    by design, and its bytes are kept, by hash, on `evidence`."""
+    if manifest_text is None:
+        return frozenset()
+    paths = (line.split("\t", 1)[0] for line in manifest_text.splitlines()[1:])
+    return frozenset(p.removeprefix("docs/") for p in paths if p.startswith("docs/"))
+
+
+def test_a_pointer_at_a_file_filed_as_evidence_resolves_through_its_row() -> None:
+    manifest = (
+        "path\tbytes\tsha256\tevidence_commit\tlast_default_commit\n"
+        f"docs/handshake/artifactsround99/a.log\t1\t{'a' * 64}\t{'c' * 40}\t\n"
+        f"tests/x.log\t1\t{'a' * 64}\t{'c' * 40}\t\n"
+    )
+    assert filed_as_evidence(manifest) == {"handshake/artifactsround99/a.log"}
+    assert filed_as_evidence(None) == frozenset()
+
+
 def test_every_docs_pointer_in_a_live_surface_resolves() -> None:
     """The same rule as the CLAUDE.md gate above, applied to the whole tree.
 
@@ -473,13 +494,17 @@ def test_every_docs_pointer_in_a_live_surface_resolves() -> None:
     statement about a date, and "fixing" its links would make it lie.
     """
     files = _live_pointer_files()
+    manifest = _DOCS / "evidence-manifest.tsv"
+    filed = filed_as_evidence(
+        manifest.read_text(encoding="utf-8") if manifest.is_file() else None
+    )
     dangling: list[str] = []
     examined = 0
     for path in files:
         rel_file = path.relative_to(_REPO_ROOT).as_posix()
         for rel in _docs_paths_named_in(path.read_text(encoding="utf-8")):
             examined += 1
-            if rel in _DELIBERATELY_ABSENT or (_DOCS / rel).is_file():
+            if rel in _DELIBERATELY_ABSENT or rel in filed or (_DOCS / rel).is_file():
                 continue
             dangling.append(f"{rel_file} → docs/{rel}")
 

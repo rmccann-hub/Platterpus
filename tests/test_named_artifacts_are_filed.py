@@ -28,6 +28,7 @@ theirs is a delivery failure, ours is a false statement in a document we control
 
 from __future__ import annotations
 
+import hashlib
 import re
 from pathlib import Path
 from typing import Final
@@ -48,6 +49,47 @@ _ARTIFACT_REF: Final[re.Pattern[str]] = re.compile(
     r"docs/handshake/(?P<side>inbound|outbound)/artifacts/"
     r"(?P<name>[A-Za-z0-9._-]+\.[a-z]{2,4})\b"
 )
+
+#: A file in a run folder (`docs/handshake/artifactsround32/…`), as a lap names
+#: it. HR-2 moves these folders onto the `evidence` branch, and §6d says a bare
+#: path in an earlier lap then "resolves through the manifest and is checked by
+#: SHA-256", so they are swept here beside the per-lap artifacts.
+_RUN_REF: Final[re.Pattern[str]] = re.compile(
+    r"docs/handshake/(?P<folder>artifacts-?round[-0-9a-z]*)/"
+    r"(?P<name>[A-Za-z0-9._-]+\.[a-z]{2,4})\b"
+)
+
+MANIFEST: Final[Path] = REPO_ROOT / "docs" / "evidence-manifest.tsv"
+
+
+def _filed_as_evidence() -> dict[str, str]:
+    """`docs/evidence-manifest.tsv`'s rows as {path: sha256}, empty before it exists."""
+    if not MANIFEST.is_file():
+        return {}
+    rows: dict[str, str] = {}
+    for line in MANIFEST.read_text(encoding="utf-8").splitlines()[1:]:
+        cells = line.split("\t")
+        if len(cells) == 5:
+            rows[cells[0]] = cells[2]
+    return rows
+
+
+def _resolves(rel: str, filed: dict[str, str]) -> str | None:
+    """None when `rel` is on disk or filed as evidence (HR-2 §6d), else why not.
+
+    On disk AND in the manifest, the two must agree by SHA-256: the row is a
+    promise about those bytes, and a file edited after it was filed breaks it."""
+    target = REPO_ROOT / rel
+    if target.is_file():
+        if rel in filed:
+            got = hashlib.sha256(target.read_bytes()).hexdigest()
+            if got != filed[rel]:
+                return f"on disk it hashes {got}, its manifest row says {filed[rel]}"
+        return None
+    if rel in filed:
+        return None
+    return "NOT ON DISK and no row in docs/evidence-manifest.tsv"
+
 
 #: References that were CORRECT WHEN SENT and were then invalidated by a later
 #: renaming — mapped to the file that supersedes them.
@@ -126,15 +168,16 @@ def test_there_are_laps_and_artifact_references_to_check() -> None:
 def test_every_artifact_a_lap_names_is_actually_filed() -> None:
     """The gate itself, in both directions."""
     missing: list[str] = []
+    filed = _filed_as_evidence()
     for path in _laps():
         text = path.read_text(encoding="utf-8")
         for match in _ARTIFACT_REF.finditer(text):
             name = match.group("name")
             if name in _RENAMED_SINCE_SENT:
                 continue
-            target = HANDSHAKE / match.group("side") / "artifacts" / name
-            if not target.is_file():
-                missing.append(f"{path.name} names {match.group(0)} — NOT ON DISK")
+            why = _resolves(match.group(0), filed)
+            if why is not None:
+                missing.append(f"{path.name} names {match.group(0)} — {why}")
 
     assert not missing, (
         "these laps name artifacts that were never filed:\n  "
@@ -186,3 +229,32 @@ def test_every_redirect_points_at_a_file_that_still_EXISTS() -> None:
             f"{old} redirects to {new}, which is NOT on disk. The forwarding "
             "address is now as dangling as the reference it was added for."
         )
+
+
+def test_every_run_folder_file_a_lap_names_is_filed_or_has_a_manifest_row() -> None:
+    """HR-2 §6d for the run folders: before the move each named file is on disk,
+    after it each has a manifest row, and a file that is both must agree by hash.
+    With a floor, because a pattern that stopped matching would pass on nothing."""
+    filed = _filed_as_evidence()
+    refs = {
+        (path.name, match.group(0))
+        for path in _laps()
+        for match in _RUN_REF.finditer(path.read_text(encoding="utf-8"))
+    }
+    assert len(refs) >= 20, f"only {len(refs)} run-folder reference(s) found"
+    missing = [
+        f"{lap} names {rel} — {why}"
+        for lap, rel in sorted(refs)
+        if (why := _resolves(rel, filed)) is not None
+    ]
+    assert not missing, "\n  ".join(["run-folder files our laps name:", *missing])
+
+
+def test_a_moved_file_resolves_through_its_row_and_a_drifted_one_does_not() -> None:
+    """Non-triviality of `_resolves`, without a manifest in the tree yet."""
+    rel = "docs/handshake/artifactsround99/gone.log"
+    assert _resolves(rel, {}) is not None
+    assert _resolves(rel, {rel: "a" * 64}) is None
+    here = "docs/handshake/outbound/artifacts/lsl-amendments-1.md"
+    assert _resolves(here, {}) is None
+    assert "manifest row says" in (_resolves(here, {here: "0" * 64}) or "")

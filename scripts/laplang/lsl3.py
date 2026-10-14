@@ -66,7 +66,7 @@ from typing import Final
 
 from .context import Context
 from .model import Field, RunCoverage, Statement
-from .refs import first_token, is_run
+from .refs import first_token, is_run, parse_artifact
 from .rerun import (
     Plan,
     appears,
@@ -299,6 +299,25 @@ def _rerun(ctx: Context, jobs: list[Job], coverage: RunCoverage) -> None:
             coverage.leftovers = scratch.close()
 
 
+def _place_cited_evidence(
+    ctx: Context, job: Job, scratch: Scratch, tree: Path
+) -> str | None:
+    """Put every evidence file the statement cites from the author's own
+    repository into the re-run's tree, at its own path (HR-2 §6d). None when
+    all were placed or there were none; otherwise why one could not be."""
+    for fld in job.statement.values("evidence"):
+        ref = parse_artifact(first_token(fld.value))
+        if ref is None or ref.side != ctx.lap.author:
+            continue
+        data = ctx.trees.evidence_bytes(ref)
+        if data is None:
+            continue
+        refused = scratch.overlay(tree, ref.path, data)
+        if refused is not None:
+            return refused
+    return None
+
+
 def _rerun_one(
     ctx: Context,
     job: Job,
@@ -354,6 +373,9 @@ def _rerun_one(
     tree = scratch.tree(job.commit)
     if isinstance(tree, str):
         return unchecked(tree)
+    placed = _place_cited_evidence(ctx, job, scratch, tree)
+    if placed is not None:
+        return unchecked(placed)
     ran = scratch.run(plan, tree)
     if isinstance(ran, str):
         return unchecked(ran)

@@ -2728,6 +2728,14 @@ _MIN_SCRIPTS_MODULES: Final[int] = 35
 #: lines is larger than every package module but two (`ui/main_window_rip.py`
 #: and `uiscript/runner.py`, measured the same day).
 _OVERSIZE_TOOLING: Final[dict[str, int]] = {
+    # 2026-10-14, HR-2: one manifest, its branch and every check §3-§5 and §8a
+    # ask of them (format, rows, branch shape, tags, laps, move). One subject;
+    # the subcommands share the git and manifest plumbing.
+    "scripts/evidence_manifest.py": 380,
+    # 2026-10-14, HR-2 §6-§7: the manifest's parser and the by-hash fetcher a
+    # checker reads evidence through. Splitting the fetcher from the parser
+    # would leave each needing the other's types.
+    "scripts/laplang/evidence.py": 333,
     # **632** (2026-10-12): joined at birth, recorded with its reason rather than
     # split. One job, judging one Bash call against Critical rule #8, run by Claude
     # Code as a single script; about half its lines are comments and docstrings for
@@ -2799,17 +2807,26 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # the other wire-header rows they join.
     "scripts/handshake.py": 4544,
     # 428 lines when TASKS recorded the gap, 433 by the time the ratchet reached it.
-    "scripts/laplang/lsl3.py": 433,
+    # **433 -> 455** (2026-10-14, HR-2 §6d): B1 places the evidence a statement
+    # cites at its own path in the re-run tree, before running the command.
+    # Preparing a re-run's tree is this module's job.
+    "scripts/laplang/lsl3.py": 455,
     # **324 -> 312** (2026-10-06): git calls and decoding a cited file moved to
     # `scripts/laplang/gitio.py` when the decoder learned UTF-16.
     # **312 -> 331** (2026-10-12, the history rewrite): `Trees._current` looks an
     # old commit ID up in the commit map before git is asked, at the two places
     # an ID is resolved. Resolving a reference is this module's job.
-    "scripts/laplang/refs.py": 331,
+    # **331 -> 398** (2026-10-14, HR-2 §6): `Trees._evidence` decides whether a
+    # citation is an evidence citation and resolves it through the manifest; the
+    # fetching itself lives in `laplang/evidence.py`. Resolving a reference is
+    # this module's job, and evidence is a second ref of record for it.
+    "scripts/laplang/refs.py": 398,
     "scripts/laplang/rerun.py": 361,
     # **345 -> 348** (2026-10-12, the history rewrite): a re-run of a command at
     # an old commit ID runs at the commit the map says replaced it.
-    "scripts/laplang/scratch.py": 348,
+    # **348 -> 372** (2026-10-14, HR-2 §6d): `Scratch.overlay` places a cited
+    # evidence file in a scratch tree, refusing to overwrite different bytes.
+    "scripts/laplang/scratch.py": 372,
     "scripts/mutation_sweep.py": 502,
     "scripts/probe_argv_surface.py": 423,
     "scripts/revert_probe.py": 546,

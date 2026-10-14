@@ -26,6 +26,7 @@ from .amend import check_amendments
 from .check import check_lap
 from .context import Context
 from .grammar import implemented_versions, read_lap
+from .lsl3 import lap_commit
 from .model import Lap, RunCoverage, Side
 from .record import Record
 from .refs import Trees, default_at
@@ -98,10 +99,16 @@ def check_path(
     }
     if at is not None and lap.author is not None:
         refs[lap.author] = at
+    # HR-2 §6b: an evidence citation needs a manifest row at the lap's
+    # FROM-COMMIT, so the author's manifest is read there when it names one.
+    manifest: dict[Side, str] = {}
+    from_commit = lap_commit(lap.headers.get("FROM-COMMIT", [])).commit
+    if from_commit is not None and lap.author is not None:
+        manifest[lap.author] = from_commit
     ctx = Context(
         lap,
         Record(root, checking),
-        Trees(roots, refs),
+        Trees(roots, refs, manifest),
         tables_for(amendments),
         rerun=rerun,
     )

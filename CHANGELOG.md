@@ -14,6 +14,76 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **A maker for run-evidence test fixtures, for HR-2.** Round 33's first task moves the
+  run evidence (`docs/handshake/artifacts*`, about 425 MB) off `main` onto an `evidence`
+  branch. Before that, every evidence file a test reads becomes a fixture under
+  `tests/fixtures/evidence/`, at its original path: a byte-for-byte copy, or a slim
+  extract with a sidecar naming its source's SHA-256 (report JSON without `debug.lines`,
+  about 0.2 MB instead of 6; an app log without cyanrip's progress lines, about 1 MB
+  instead of 8.4). `scripts/evidence_fixtures.py` makes both kinds and checks every
+  fixture against its source, from the working tree or, after the move, from
+  `docs/evidence-manifest.tsv`. Tests reach a fixture through `tests/evidence_paths.py`,
+  naming the original path.
+
+- **Checks that keep the evidence manifest a promise (HR-2 §3–§5, §8a).**
+  `scripts/evidence_manifest.py` checks `docs/evidence-manifest.tsv`'s format and that it is
+  append-only; every row added in a change against its file at its commit (bytes, SHA-256,
+  and that the commit is on `evidence`); the `evidence` branch's shape (one root, each
+  commit adding files and never changing or removing one); that no tag reaches it; every lap
+  that cites evidence; and, after a move, that each moved folder's tree is the same on both
+  branches and every deleted path has one row. Before the first move there is nothing to
+  check, and each mode says so. A lap's bare path to a moved file, and a doc's pointer to
+  one, now resolve through the file's manifest row (§6d); a file both on disk and in the
+  manifest must hash to its row. Our laps' run-folder paths are checked for the first time
+  (48 references, all filed). A new sweep, `test_no_new_evidence_readers`, refuses code that
+  opens a run-evidence path instead of a fixture; the 38 readers it finds today are
+  allowlisted, and step 2 of the landing converts them and empties the list.
+
+- **The `evidence` branch stays out of every fetch (HR-2 §7, §8).** The session-start hook
+  adds `^refs/heads/evidence` to each remote's fetch lines (git 2.29 or later), in every
+  session. In CI, `lint` checks out at depth 1; `changelog`, `media-guard` and
+  `tests-touched` fetch HEAD's and `main`'s history blobless; the four test legs fetch that
+  history and the `v*` tags by refspec; and `gitleaks` is the one job that fetches every
+  branch. It now also scans `evidence` for secrets and runs the manifest, branch, tag and lap
+  checks with fetch failures fatal. Before, every one of these jobs fetched the whole
+  history of every branch.
+
+- **A builder for HR-2's evidence commit (§5b–§5d), which never pushes.**
+  `scripts/evidence_move.py build --date <round 33 lap 1's instant>` makes the orphan
+  `evidence` commit from the enumerated moving list, in a depth-1 clone, as
+  `evidence <evidence@invalid>` with both dates fixed, so a rebuild gives the same ID
+  (measured on a dry run: 752 files, 425,715,030 bytes, one ID on two builds). It refuses a
+  listed entry with nothing behind it, checks the commit's files and bytes before anything
+  is pushed, and writes the manifest rows. The evidence fetcher now fetches each commit once
+  and downloads a commit whole when many of its files are checked, and the move check
+  fetches an evidence commit by hash when the clone lacks it.
+
+- **Evidence fetches get a network-sized time bound, and the evidence job judges only
+  citations.** A dry run of the 425 MB move showed the local 30 s git bound killing a whole
+  commit's fetch part way, which left `shallow.lock` behind and failed every later fetch
+  with "remove the file manually to continue". Fetches, and reads that fetch a blob, now
+  have 900 s. With it, all 752 rows of the dry run verified from a clone that lacked the
+  commit, in 59 s. `evidence_manifest.py laps` now reports citation failures only (LSL.4).
+  After the dry move, an old lap's unrelated finding had failed it, while all 18 old laps
+  citing moved files resolved.
+
+- **HR-2's agreed text is recorded word for word** in `docs/cyanrip-handshake.md` §7.4b,
+  with our landing plan and a table of where each part is implemented.
+
+- **The lap checker reads evidence citations (HR-2 §6, the v9 behaviour).** A lap may
+  cite a run file that lives on a repository's `evidence` branch as
+  `<repo>@<evidence commit>:<path>`. The checker finds the path's row in
+  `docs/evidence-manifest.tsv` at the lap's FROM-COMMIT, fetches the one commit by its
+  hash into a temporary repository (blobless, so it downloads the cited file and not
+  the whole commit, and never makes the working clone shallow), and requires the file
+  to hash to its row and the commit to be on `evidence`. A citation with no row is
+  refused; one it cannot fetch is unchecked, except under `HR2_EVIDENCE_STRICT=1`,
+  which CI's evidence job sets. A commit already on the default branch keeps the old
+  rules, so no lap written before the move reads differently. LSL B1 places a cited
+  evidence file at its own path in the tree it re-runs a command in, and refuses to
+  overwrite a different file there. `test_cited_commits_are_reachable` counts a
+  commit on `evidence` or in the manifest as reachable.
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.
