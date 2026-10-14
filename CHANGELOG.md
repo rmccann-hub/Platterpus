@@ -25,6 +25,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `docs/evidence-manifest.tsv`. Tests reach a fixture through `tests/evidence_paths.py`,
   naming the original path.
 
+- **The lap checker reads evidence citations (HR-2 §6, the v9 behaviour).** A lap may
+  cite a run file that lives on a repository's `evidence` branch as
+  `<repo>@<evidence commit>:<path>`. The checker finds the path's row in
+  `docs/evidence-manifest.tsv` at the lap's FROM-COMMIT, fetches the one commit by its
+  hash into a temporary repository (blobless, so it downloads the cited file and not
+  the whole commit, and never makes the working clone shallow), and requires the file
+  to hash to its row and the commit to be on `evidence`. A citation with no row is
+  refused; one it cannot fetch is unchecked, except under `HR2_EVIDENCE_STRICT=1`,
+  which CI's evidence job sets. A commit already on the default branch keeps the old
+  rules, so no lap written before the move reads differently. LSL B1 places a cited
+  evidence file at its own path in the tree it re-runs a command in, and refuses to
+  overwrite a different file there. `test_cited_commits_are_reachable` counts a
+  commit on `evidence` or in the manifest as reachable.
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.

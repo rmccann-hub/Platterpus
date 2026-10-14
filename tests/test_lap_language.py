@@ -2414,3 +2414,69 @@ def test_checking_an_arbitrary_lsl_3_body_never_raises(
     with pytest.MonkeyPatch.context() as patch:
         _patch_git(patch, instant_git)
         _check(tmp_path, _header() + "LSL: 3\n\n" + GOOD_FACT + body + _BODY_END)
+
+
+def test_a_rerun_reads_cited_evidence_placed_at_its_own_path(tmp_path: Path) -> None:
+    """HR-2 §6d: after the move, a run folder is not in the default branch's tree,
+    so B1 places the evidence file the statement cites, by hash, at its own path
+    in the scratch tree. Without the citation the same run cannot find the file,
+    and a tree that already holds different bytes at that path is not overwritten."""
+    run_file = "docs/handshake/artifactsround99/round99full.log"
+    data = b"track 1 ok\n"
+    digest = hashlib.sha256(data).hexdigest()
+    repo, _ = _git_repo(tmp_path, {"README.md": "main\n"})
+    _in(repo, "checkout", "-q", "--orphan", "evidence")
+    _in(repo, "rm", "-q", "-r", "--cached", ".")
+    (repo / "README.md").unlink()
+    (repo / run_file).parent.mkdir(parents=True)
+    (repo / run_file).write_bytes(data)
+    _commit(repo, "evidence: one run")
+    evidence = _in(repo, "rev-parse", "HEAD").strip()
+    _in(repo, "checkout", "-q", "-f", "main")
+    (repo / "docs").mkdir(exist_ok=True)
+    (repo / "docs" / "evidence-manifest.tsv").write_text(
+        "path\tbytes\tsha256\tevidence_commit\tlast_default_commit\n"
+        f"{run_file}\t{len(data)}\t{digest}\t{evidence}\t\n",
+        encoding="utf-8",
+    )
+    assert not (repo / run_file).exists()
+    _commit(repo, "manifest")
+    head = _in(repo, "rev-parse", "--short=12", "HEAD").strip()
+    run = f'sha256sum {run_file} => "{digest}"'
+    cited = (
+        f"S1 FACT measured: It printed what the lap says.\n"
+        f"  evidence: run: {run}\n"
+        f"  evidence: platterpus@{evidence[:12]}:{run_file}\n"
+        f"  at: {head}\n"
+        "  holds: platterpus 0.6.61\n  examined: 1 run, closed\n"
+    )
+    header = f"HANDSHAKE-FROM-COMMIT: {head}\n"
+    path = tmp_path / "lap.md"
+    path.write_text(_lsl3(_numbered(cited), extra_header=header), encoding="utf-8")
+    lap = check_path(path, root=repo, rerun=True)
+    assert lap.runs is not None and lap.runs.matched == 1, [
+        (p.rule, p.message) for p in lap.problems
+    ]
+    assert lap.problems == []
+    # Non-triviality: the same run, without the evidence citation, has no file.
+    path.write_text(
+        _lsl3(_numbered(_measured(1, run, at=head)), extra_header=header),
+        encoding="utf-8",
+    )
+    bare = check_path(path, root=repo, rerun=True)
+    assert bare.runs is not None and bare.runs.matched == 0
+    # And a tree that holds other bytes at the path is the answer, not overwritten.
+    (repo / run_file).parent.mkdir(parents=True, exist_ok=True)
+    (repo / run_file).write_bytes(b"something else\n")
+    _commit(repo, "a different file at the evidence path")
+    other = _in(repo, "rev-parse", "--short=12", "HEAD").strip()
+    path.write_text(
+        _lsl3(
+            _numbered(cited.replace(f"at: {head}", f"at: {other}")), extra_header=header
+        ),
+        encoding="utf-8",
+    )
+    clash = check_path(path, root=repo, rerun=True)
+    assert any("already holds a different" in p.message for p in clash.problems), [
+        (p.rule, p.message) for p in clash.problems
+    ]
