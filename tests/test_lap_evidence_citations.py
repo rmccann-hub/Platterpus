@@ -264,3 +264,32 @@ def test_an_old_citation_of_a_moved_file_still_resolves_at_its_default_commit(
     _git(clone, "pull", "-q", "--ff-only")
     outcome, message = _resolve(clone, f"platterpus@{before_move[:12]}:{RUN}:1-3")
     assert outcome == "ok", message
+
+
+def test_the_fetcher_fetches_a_commit_once_and_reads_trees_it_lacks(
+    tmp_path: Path,
+) -> None:
+    """A second file of one commit costs a `git show`, not a second fetch; and
+    §5d's tree comparison works on a commit only the remote holds."""
+    from laplang.evidence import Fetcher
+
+    world = _world(tmp_path)
+    clone = world["clone"]
+    assert isinstance(clone, Path)
+    sha = str(world["evidence"])
+    fetcher = Fetcher()
+    assert fetcher.read(clone, sha, RUN) == LOG
+    remote_url = _git(clone, "remote", "get-url", "origin")
+    assert fetcher._fetched == {(remote_url, sha)}
+    # With the remote gone, the cached commit still answers; a new one cannot.
+    _git(clone, "remote", "set-url", "origin", f"file://{tmp_path}/nowhere")
+    fetcher._temps[f"file://{tmp_path}/nowhere"] = fetcher._temps[remote_url]
+    fetcher._fetched.add((f"file://{tmp_path}/nowhere", sha))
+    assert fetcher.read(clone, sha, RUN) == LOG
+    folder = RUN.rsplit("/", 1)[0]
+    remote = world["remote"]
+    assert isinstance(remote, Path)
+    assert fetcher.object_id(clone, sha, folder) == _git(
+        remote, "rev-parse", f"{sha}:{folder}"
+    )
+    assert fetcher.object_id(clone, "f" * 40, folder) is None

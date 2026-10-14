@@ -48,6 +48,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   checks with fetch failures fatal. Before, every one of these jobs fetched the whole
   history of every branch.
 
+- **A builder for HR-2's evidence commit (§5b–§5d), which never pushes.**
+  `scripts/evidence_move.py build --date <round 33 lap 1's instant>` makes the orphan
+  `evidence` commit from the enumerated moving list, in a depth-1 clone, as
+  `evidence <evidence@invalid>` with both dates fixed, so a rebuild gives the same ID
+  (measured on a dry run: 752 files, 425,715,030 bytes, one ID on two builds). It refuses a
+  listed entry with nothing behind it, checks the commit's files and bytes before anything
+  is pushed, and writes the manifest rows. The evidence fetcher now fetches each commit once
+  and downloads a commit whole when many of its files are checked, and the move check
+  fetches an evidence commit by hash when the clone lacks it.
+
 - **HR-2's agreed text is recorded word for word** in `docs/cyanrip-handshake.md` §7.4b,
   with our landing plan and a table of where each part is implemented.
 

@@ -86,6 +86,9 @@ MOVING_FILES: Final[tuple[str, ...]] = tuple(
         "secure-reread-g978f9b0.log",
     )
 )
+#: Rows of one commit at which `rows` downloads the whole commit once rather
+#: than each file's blob lazily, one round trip apiece.
+PREFETCH_AT: Final[int] = 20
 #: Generous: a blobless fetch of one commit over the network.
 GIT_TIMEOUT_S: Final[int] = 300
 
@@ -159,9 +162,17 @@ def check_rows(root: Path, since: str | None) -> tuple[list[str], int]:
         old = parse_manifest(before)[0] if before is not None else {}
     fetcher = Fetcher()
     examined = 0
-    for path, row in rows.items():
-        if old.get(path) == row:
-            continue
+    added = [row for path, row in rows.items() if old.get(path) != row]
+    by_commit: dict[str, int] = {}
+    for row in added:
+        by_commit[row.evidence_commit] = by_commit.get(row.evidence_commit, 0) + 1
+    for commit, count in by_commit.items():
+        if count >= PREFETCH_AT:
+            why = fetcher.prefetch(root, commit)
+            if why is not None:
+                problems.append(why)
+    for row in added:
+        path = row.path
         examined += 1
         data = fetcher.read(root, row.evidence_commit, path)
         if isinstance(data, str):
@@ -246,9 +257,11 @@ def check_move(root: Path, removal: str, folders: Sequence[str]) -> list[str]:
         return [f"{removal} has no {MANIFEST_PATH}"]
     rows, problems = parse_manifest(text)
     parent = _git(root, "rev-parse", f"{removal}^").stdout.strip()
+    fetcher = Fetcher()
     for folder in folders:
+        item = folder.rstrip("/")
         in_folder = [
-            r for p, r in rows.items() if p.startswith(folder.rstrip("/") + "/")
+            r for p, r in rows.items() if p == item or p.startswith(item + "/")
         ]
         commits = {r.evidence_commit for r in in_folder}
         lasts = {r.last_default_commit for r in in_folder}
@@ -263,8 +276,8 @@ def check_move(root: Path, removal: str, folders: Sequence[str]) -> list[str]:
             problems.append(
                 f"{folder}: last_default_commit {last[:12]} is not {removal}^"
             )
-        a = _git(root, "rev-parse", f"{last}:{folder}").stdout.strip()
-        b = _git(root, "rev-parse", f"{evidence}:{folder}").stdout.strip()
+        a = fetcher.object_id(root, last, item) or ""
+        b = fetcher.object_id(root, evidence, item) or ""
         if not a or a != b:
             problems.append(
                 f"{folder}: tree {a or '(none)'} at {last[:12]}, "

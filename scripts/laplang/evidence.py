@@ -163,6 +163,9 @@ class Fetcher:
     def __init__(self) -> None:
         self._temps: dict[str, Path] = {}
         self._evidence_fetched: dict[str, bool] = {}
+        #: Commits already fetched into a temporary repository, per URL, so a
+        #: second file of one commit costs a `git show`, not another fetch.
+        self._fetched: set[tuple[str, str]] = set()
 
     def _remote_url(self, root: Path) -> str | None:
         got = run_git(root, "remote", "get-url", "origin")
@@ -200,16 +203,61 @@ class Fetcher:
         temp = self._temp_for(url)
         if isinstance(temp, str):
             return temp
-        fetched = run_git(
-            temp, "fetch", "-q", "--depth", "1", "--filter=blob:none", "origin", sha
-        )
-        if fetched is None or fetched.returncode != 0:
-            said = (fetched.stderr.strip().splitlines() or [""])[-1] if fetched else ""
-            return f"could not fetch {sha} from {url} ({said or 'no answer'})"
+        why = self._fetch(temp, url, sha, blobless=True)
+        if why is not None:
+            return why
         shown = run_git_bytes(temp, "show", f"{sha}:{path}")
         if shown is None or shown.returncode != 0:
             return f"{path} does not exist at {sha}"
         return shown.stdout
+
+    def _fetch(self, temp: Path, url: str, sha: str, *, blobless: bool) -> str | None:
+        """Fetch `sha` at depth 1 into `temp`, once; None, or why it failed."""
+        if (url, sha) in self._fetched:
+            return None
+        args = ["fetch", "-q", "--depth", "1"]
+        if blobless:
+            args.append("--filter=blob:none")
+        fetched = run_git(temp, *args, "origin", sha)
+        if fetched is None or fetched.returncode != 0:
+            said = (fetched.stderr.strip().splitlines() or [""])[-1] if fetched else ""
+            return f"could not fetch {sha} from {url} ({said or 'no answer'})"
+        self._fetched.add((url, sha))
+        return None
+
+    def prefetch(self, root: Path, sha: str) -> str | None:
+        """Fetch a whole commit, blobs included, when many of its files will be
+        read: one download instead of one lazy round trip per file. A no-op when
+        this clone already holds it. None, or why it failed."""
+        local = run_git(root, "cat-file", "-e", f"{sha}^{{commit}}")
+        if local is not None and local.returncode == 0:
+            return None
+        url = self._remote_url(root)
+        if url is None:
+            return f"{sha} is not in this clone and it has no origin to fetch from"
+        temp = self._temp_for(url)
+        if isinstance(temp, str):
+            return temp
+        return self._fetch(temp, url, sha, blobless=False)
+
+    def object_id(self, root: Path, sha: str, path: str) -> str | None:
+        """The id of `path` (a tree or a blob) at `sha`, fetching the commit by
+        hash when this clone lacks it; None when it cannot be told."""
+        local = run_git(root, "rev-parse", "--verify", "--quiet", f"{sha}:{path}")
+        if local is not None and local.returncode == 0:
+            return local.stdout.strip()
+        url = self._remote_url(root)
+        if url is None:
+            return None
+        temp = self._temp_for(url)
+        if isinstance(temp, str):
+            return None
+        if self._fetch(temp, url, sha, blobless=True) is not None:
+            return None
+        there = run_git(temp, "rev-parse", "--verify", "--quiet", f"{sha}:{path}")
+        if there is None or there.returncode != 0:
+            return None
+        return there.stdout.strip()
 
     def reachable_from_evidence(self, root: Path, sha: str) -> bool | str:
         """Is `sha` on the cited repository's `evidence` branch? True, False, or
