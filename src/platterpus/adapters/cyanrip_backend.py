@@ -323,8 +323,7 @@ class CyanripImpl(RipBackend):
         # capability lives in `fork_source.accepts_consumer_flag`, keyed on the
         # BUILD TAG rather than the version string — the fork's version is
         # deliberately upstream's plus build metadata, so it cannot be ordered.
-        if consumer_tag_for_build(ripper_build_tag):
-            argv += ["--consumer", consumer_tag()]
+        argv += consumer_args_for_build(ripper_build_tag)
         # Checked once: `-c` and the %N/%M template tokens below read the same
         # position, so a folder name cannot disagree with the disc tags.
         position = _disc_position(metadata)
@@ -421,7 +420,7 @@ class CyanripImpl(RipBackend):
         # Spelled `--diagnostics` since 2026-10-13, from the one home of the
         # spelling: the fork's next build refuses `-j` outright, and every build
         # that takes `-j` takes `--diagnostics` (see `DIAGNOSTICS_FLAG`).
-        argv += [DIAGNOSTICS_FLAG, diagnostics_record_name()]
+        argv += diagnostics_args()
         # Chokepoint assertion for Critical rule #5. `-N` disables cyanrip's own
         # MusicBrainz lookup, and it is not a preference: without it, a disc the
         # GUI has already resolved sends cyanrip to the network from inside the
@@ -1586,6 +1585,27 @@ def consumer_tag_for_build(build_tag: str) -> str:
     from platterpus.deps import fork_source  # noqa: PLC0415
 
     return consumer_tag() if fork_source.accepts_consumer_flag(build_tag) else ""
+
+
+def consumer_args_for_build(build_tag: str) -> list[str]:
+    """``["--consumer", <tag>]`` for a build that accepts it, else ``[]``.
+
+    The argv words themselves, so every route to the ripper — the rip argv builder
+    and a script's ``(consumer)`` placeholder — sends the SAME words under the SAME
+    gate, rather than each spelling the flag and re-deciding when it is safe.
+    """
+    tag = consumer_tag_for_build(build_tag)
+    return ["--consumer", tag] if tag else []
+
+
+def diagnostics_args(moment: datetime | None = None) -> list[str]:
+    """``[<diagnostics flag>, <unique record name>]``, the words every rip sends.
+
+    One home for the pair, for the reason :func:`consumer_args_for_build` gives:
+    the rip argv builder and a script's ``(diagnostics)`` placeholder must not be
+    able to spell the flag, or name the record, two different ways.
+    """
+    return [DIAGNOSTICS_FLAG, diagnostics_record_name(moment)]
 
 
 def consumer_tag() -> str:

@@ -62,6 +62,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   fork's known variance. Fewer than two comparable logs of one disc is `blocked`, never
   "agree".
 
+- **The acceptance script's two pre-emphasis rips now name their caller and write a
+  record, like every app rip.** The cyanrip fork asked for this in round 32 lap 9 (S9).
+  Section R16 calls cyanrip directly. On 2026-10-13 its two logs read `Consumer: not
+  identified (no --consumer given)` and wrote no `--diagnostics` record. A `cyanrip`
+  script line now accepts two placeholders. `(consumer)` expands to `--consumer
+  platterpus/<version>` and `(diagnostics)` to `--diagnostics
+  cyanrip-diagnostics-<stamp>.json`. Both come from the same functions the app's own rip
+  argument builder now calls, so a script cannot send different words from an app rip.
+  The consumer flag goes only to a build known to accept it, as for an app rip. When it
+  is left out, the step's record says why. The line still goes through the same `-N`
+  check as before. The fork's `.22` build accepts both flags.
+
 - **An evidence bundle no longer carries your home folder's path, except inside signed
   logs.** The cyanrip fork asked for this in round 32 lap 9 (S10): when they filed the
   2026-10-13 bundle they had to replace home paths in nine files by hand. Every text file

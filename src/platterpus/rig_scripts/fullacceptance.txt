@@ -1509,16 +1509,26 @@ snapshot afterc1
 # unattended run is how a run is lost to its own instrumentation. It is filed in
 # `TASKS.md` instead, which is the honest place for a capability we have not
 # built.
+#
+# EVERY LOG OF A RUN NAMES ITS CALLER AND HAS A RECORD (the fork's round 32
+# lap 9 S9, their data register's X8). These two rips call cyanrip directly, so
+# on 2026-10-13 their logs read `Consumer: not identified (no --consumer
+# given)` and they wrote no `--diagnostics` record, unlike every app rip.
+# `(consumer)` and `(diagnostics)` expand to the words an app rip sends, from
+# the functions its argv builder calls (`expand_identity`): `--consumer
+# platterpus/<this version>` on a build known to accept it, and `--diagnostics
+# cyanrip-diagnostics-<stamp>.json`, written in the rips folder where the
+# session bundle collects every record.
 
 log --- P3. R16 CC2: -H -E (forced de-emphasis) ---
 run-size full
-cyanrip -N -s (offset) -l 1 -H -E -D r16deemphon
+cyanrip -N -s (offset) -l 1 -H -E -D r16deemphon (consumer) (diagnostics)
 expect-exit 0
 snapshot afterdeemphon
 
 log --- P3. R16 CC2: -H -W (de-emphasis disabled), the control ---
 run-size full
-cyanrip -N -s (offset) -l 1 -H -W -D r16deemphoff
+cyanrip -N -s (offset) -l 1 -H -W -D r16deemphoff (consumer) (diagnostics)
 expect-exit 0
 snapshot afterdeemphoff
 

@@ -110,7 +110,7 @@ text is taken verbatim as one value.
 | `tier` | 2+ (rest of line) | ready | tier <0-4> <label> — the steps after this belong to tier N, in a block named <label> that later steps can declare a dependency on |
 | `needs` | 1+ (rest of line) | ready | needs <label…> — the steps after this are PREVENTED (not skipped) if any named block already failed; the record names the prerequisite |
 | `run-size` | 1 | ready | run-size <quick|standard|full> — the steps after this run in that size and every larger one; a smaller run DECLINES them (recorded, never dropped) |
-| `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output |
+| `cyanrip` | 1+ (rest of line) | ready | cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends |
 | `expect-cyanrip` | 1+ (rest of line) | ready | expect-cyanrip <text> — assert the last cyanrip output contains text |
 | `expect-exit` | 1 | ready | expect-exit <code> — assert the last cyanrip exit code |
 | `rig-check` | 0+ (rest of line) | ready | rig-check [album-folder] — run the seam check the cyanrip fork asked for: compose a real rip's argv, read it back out of the ripper's own -j record, classify the build, and parse the album's log. Read-only |
@@ -885,7 +885,7 @@ found nothing wrong*.
       "max_args": null,
       "takes_paths": true,
       "implemented": true,
-      "help": "cyanrip <args\u2026> \u2014 run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output"
+      "help": "cyanrip <args\u2026> \u2014 run the host-exported ripper for real, IN THE RIPS FOLDER (the output directory; an acceptance session's own rips folder), so a relative -D lands beside the app's rips; capture its exit code, exact argv, that folder and complete output. (offset) expands to the drive's read offset; (consumer) and (diagnostics) to the --consumer and --diagnostics words an app rip sends"
     },
     {
       "name": "expect-cyanrip",
