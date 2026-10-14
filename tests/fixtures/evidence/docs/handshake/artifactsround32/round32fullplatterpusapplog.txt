@@ -1,0 +1,564 @@
+──── Platterpus 0.7.104 (build 3577be6) ────
+2026-10-13 11:47:37,523 DEBUG platterpus.workers.rip_worker: cyanrip │ Repeating ripping (0 out of 2 matches for current checksum D78CEAEF)
+2026-10-13 11:47:38,633 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:47:38,638 INFO platterpus.workers.rip_worker: track 12 is being re-read to verify it (pass 2) — its progress restarted at 0%; the album bar cannot advance during a re-read, so the ETA holds instead of projecting from a frozen fraction
+2026-10-13 11:51:55,312 DEBUG platterpus.workers.rip_worker: cyanrip │ Repeating ripping (1 out of 2 matches for current checksum D78CEAEF)
+2026-10-13 11:51:56,416 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:51:56,422 INFO platterpus.workers.rip_worker: track 12 is being re-read to verify it (pass 3) — its progress restarted at 0%; the album bar cannot advance during a re-read, so the ETA holds instead of projecting from a frozen fraction
+2026-10-13 11:56:12,701 DEBUG platterpus.workers.rip_worker: cyanrip │ Done; (2 out of 2 matches for current checksum D78CEAEF)
+2026-10-13 11:56:12,702 INFO platterpus.diagnostics: platterpus-diagnostic [info] ripper.secure_rerip_verdict: Done; (2 out of 2 matches for current checksum D78CEAEF)
+  tool: cyanrip
+  track: 12
+  where: workers.rip_worker.RipWorker._run_rip
+2026-10-13 11:56:14,563 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:14,563 DEBUG platterpus.workers.rip_worker: cyanrip │ Flushing encoders...
+2026-10-13 11:56:14,564 DEBUG platterpus.workers.rip_worker: cyanrip │ Track 12 read successfully!
+2026-10-13 11:56:14,595 DEBUG platterpus.workers.rip_worker: cyanrip │ Summary:
+2026-10-13 11:56:14,596 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:14,596 DEBUG platterpus.workers.rip_worker: cyanrip │   Integrated loudness:
+2026-10-13 11:56:14,596 DEBUG platterpus.workers.rip_worker: cyanrip │     I:         -16.7 LUFS
+2026-10-13 11:56:14,596 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -27.2 LUFS
+2026-10-13 11:56:14,596 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:14,597 DEBUG platterpus.workers.rip_worker: cyanrip │   Loudness range:
+2026-10-13 11:56:14,597 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA:         9.0 LU
+2026-10-13 11:56:14,597 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -37.1 LUFS
+2026-10-13 11:56:14,597 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA low:   -21.8 LUFS
+2026-10-13 11:56:14,597 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA high:  -12.8 LUFS
+2026-10-13 11:56:14,597 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:14,597 DEBUG platterpus.workers.rip_worker: cyanrip │   Sample peak:
+2026-10-13 11:56:14,599 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:       -0.1 dBFS
+2026-10-13 11:56:14,599 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:14,600 DEBUG platterpus.workers.rip_worker: cyanrip │   True peak:
+2026-10-13 11:56:14,600 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:        0.3 dBFS
+2026-10-13 11:56:14,600 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:14,600 DEBUG platterpus.workers.rip_worker: cyanrip │   Preemphasis:   none detected
+2026-10-13 11:56:14,600 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:14,600 DEBUG platterpus.workers.rip_worker: cyanrip │   Properties:
+2026-10-13 11:56:14,600 DEBUG platterpus.workers.rip_worker: cyanrip │     Duration:    05:15.23
+2026-10-13 11:56:14,600 DEBUG platterpus.workers.rip_worker: cyanrip │     Samples:     13905024
+2026-10-13 11:56:14,600 DEBUG platterpus.workers.rip_worker: cyanrip │     Frames:      23648
+2026-10-13 11:56:14,602 DEBUG platterpus.workers.rip_worker: cyanrip │     Sample peak level: 98.9% (-0.1 dBFS)
+2026-10-13 11:56:14,603 DEBUG platterpus.workers.rip_worker: cyanrip │     True peak level:   0.3 dBFS
+2026-10-13 11:56:14,603 DEBUG platterpus.workers.rip_worker: cyanrip │     Integrated loudness (R128): -16.7 LUFS
+2026-10-13 11:56:14,603 DEBUG platterpus.workers.rip_worker: cyanrip │     Loudness range (R128):      9.0 LU (-21.8 to -12.8 LUFS)
+2026-10-13 11:56:14,603 DEBUG platterpus.workers.rip_worker: cyanrip │     Extraction speed:  0.41x
+2026-10-13 11:56:14,603 DEBUG platterpus.workers.rip_worker: cyanrip │     Elapsed:            775.60 s
+2026-10-13 11:56:14,603 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap LSN:  200862 (duration: 00:00.00)
+2026-10-13 11:56:14,603 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap length: 0 frames
+2026-10-13 11:56:14,603 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap source: sub-channel (not signalled by TOC)
+2026-10-13 11:56:14,604 DEBUG platterpus.workers.rip_worker: cyanrip │     Start LSN:   200862 (with offset: 200863)
+2026-10-13 11:56:14,604 DEBUG platterpus.workers.rip_worker: cyanrip │     End LSN:     224509 (with offset: 224511)
+2026-10-13 11:56:14,604 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:14,604 DEBUG platterpus.workers.rip_worker: cyanrip │   EAC CRC32:     D78CEAEF (after 3 rips)
+2026-10-13 11:56:14,604 DEBUG platterpus.workers.rip_worker: cyanrip │   Secure re-read:  converged after 3 reads
+2026-10-13 11:56:14,606 DEBUG platterpus.workers.rip_worker: cyanrip │   Accurip:       disc found in database (max confidence: 200)
+2026-10-13 11:56:14,607 DEBUG platterpus.workers.rip_worker: cyanrip │     Accurip v1:  C09D4787 (accurately ripped, confidence 127)
+2026-10-13 11:56:14,607 DEBUG platterpus.workers.rip_worker: cyanrip │     Accurip v2:  FDA33730 (accurately ripped, confidence 200)
+2026-10-13 11:56:14,607 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:14,607 DEBUG platterpus.workers.rip_worker: cyanrip │   Metadata:
+2026-10-13 11:56:14,607 DEBUG platterpus.workers.rip_worker: cyanrip │     TRACK:                         12
+2026-10-13 11:56:14,607 DEBUG platterpus.workers.rip_worker: cyanrip │     TRACKTOTAL:                    14
+2026-10-13 11:56:14,607 DEBUG platterpus.workers.rip_worker: cyanrip │     MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+2026-10-13 11:56:14,607 DEBUG platterpus.workers.rip_worker: cyanrip │     CDDB:                          E20DFE0E
+2026-10-13 11:56:14,607 DEBUG platterpus.workers.rip_worker: cyanrip │     MEDIA:                         CD
+2026-10-13 11:56:14,607 DEBUG platterpus.workers.rip_worker: cyanrip │     COMMENT:                       cyanrip 0.9.4-rc2+platterpus.22
+2026-10-13 11:56:14,610 DEBUG platterpus.workers.rip_worker: cyanrip │     TOTALDISCS:                    1
+2026-10-13 11:56:14,610 DEBUG platterpus.workers.rip_worker: cyanrip │     TITLE:                         Wrapped Around Your Finger
+2026-10-13 11:56:14,610 DEBUG platterpus.workers.rip_worker: cyanrip │     DISC:                          1
+2026-10-13 11:56:14,610 DEBUG platterpus.workers.rip_worker: cyanrip │     ALBUM:                         secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 11:56:14,610 DEBUG platterpus.workers.rip_worker: cyanrip │     ALBUM_ARTIST:                  The Police
+2026-10-13 11:56:14,610 DEBUG platterpus.workers.rip_worker: cyanrip │     DATE:                          2003
+2026-10-13 11:56:14,610 DEBUG platterpus.workers.rip_worker: cyanrip │     MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+2026-10-13 11:56:14,610 DEBUG platterpus.workers.rip_worker: cyanrip │     ARTIST:                        The Police
+2026-10-13 11:56:14,611 DEBUG platterpus.workers.rip_worker: cyanrip │     ISRC:                          GBAAM0201112
+2026-10-13 11:56:14,611 DEBUG platterpus.workers.rip_worker: cyanrip │     CREATION_TIME:                 2026-10-13T11:43:18-04:00
+2026-10-13 11:56:14,612 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_GAIN:         -1.30 dB
+2026-10-13 11:56:14,612 DEBUG platterpus.workers.rip_worker: cyanrip │     R128_TRACK_GAIN:               946
+2026-10-13 11:56:14,612 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_RANGE:        9.00 dB
+2026-10-13 11:56:14,613 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_PEAK:         1.030028
+2026-10-13 11:56:14,613 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+2026-10-13 11:56:14,613 DEBUG platterpus.workers.rip_worker: cyanrip │     DISCTOTAL:                     1
+2026-10-13 11:56:14,613 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:14,613 DEBUG platterpus.workers.rip_worker: cyanrip │   Paranoia status counts:
+2026-10-13 11:56:14,613 DEBUG platterpus.workers.rip_worker: cyanrip │     Scope:         the last of 3 reads; the disc totals below sum all of them
+2026-10-13 11:56:14,615 DEBUG platterpus.workers.rip_worker: cyanrip │     READ:          1826
+2026-10-13 11:56:14,615 DEBUG platterpus.workers.rip_worker: cyanrip │     VERIFY:        354
+2026-10-13 11:56:14,615 DEBUG platterpus.workers.rip_worker: cyanrip │     OVERLAP:       35
+2026-10-13 11:56:14,615 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:14,615 DEBUG platterpus.workers.rip_worker: cyanrip │   File(s):
+2026-10-13 11:56:14,615 DEBUG platterpus.workers.rip_worker: cyanrip │     The Police/secure reread 20261013t112919 platterpus-fork-g200530e/12 - Wrapped Around Your Finger.flac
+2026-10-13 11:56:14,616 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 11:56:15,159 INFO platterpus.workers.rip_worker: secure re-read of track 12 finished after 2 extra pass(es); resuming the album ETA on a fresh rate window
+2026-10-13 12:00:15,222 DEBUG platterpus.workers.rip_worker: cyanrip │ Repeating ripping (0 out of 2 matches for current checksum DA6A4DAF)
+2026-10-13 12:00:16,284 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:00:16,289 INFO platterpus.workers.rip_worker: track 13 is being re-read to verify it (pass 2) — its progress restarted at 0%; the album bar cannot advance during a re-read, so the ETA holds instead of projecting from a frozen fraction
+2026-10-13 12:04:15,581 DEBUG platterpus.workers.rip_worker: cyanrip │ Repeating ripping (1 out of 2 matches for current checksum DA6A4DAF)
+2026-10-13 12:04:16,669 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:04:16,675 INFO platterpus.workers.rip_worker: track 13 is being re-read to verify it (pass 3) — its progress restarted at 0%; the album bar cannot advance during a re-read, so the ETA holds instead of projecting from a frozen fraction
+2026-10-13 12:08:15,032 DEBUG platterpus.workers.rip_worker: cyanrip │ Done; (2 out of 2 matches for current checksum DA6A4DAF)
+2026-10-13 12:08:15,033 INFO platterpus.diagnostics: platterpus-diagnostic [info] ripper.secure_rerip_verdict: Done; (2 out of 2 matches for current checksum DA6A4DAF)
+  tool: cyanrip
+  track: 13
+  where: workers.rip_worker.RipWorker._run_rip
+2026-10-13 12:08:16,779 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:16,779 DEBUG platterpus.workers.rip_worker: cyanrip │ Flushing encoders...
+2026-10-13 12:08:16,780 DEBUG platterpus.workers.rip_worker: cyanrip │ Track 13 read successfully!
+2026-10-13 12:08:16,815 DEBUG platterpus.workers.rip_worker: cyanrip │ Summary:
+2026-10-13 12:08:16,815 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:16,816 DEBUG platterpus.workers.rip_worker: cyanrip │   Integrated loudness:
+2026-10-13 12:08:16,816 DEBUG platterpus.workers.rip_worker: cyanrip │     I:         -13.1 LUFS
+2026-10-13 12:08:16,816 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -23.3 LUFS
+2026-10-13 12:08:16,816 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:16,816 DEBUG platterpus.workers.rip_worker: cyanrip │   Loudness range:
+2026-10-13 12:08:16,816 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA:         5.6 LU
+2026-10-13 12:08:16,816 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -33.3 LUFS
+2026-10-13 12:08:16,817 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA low:   -16.2 LUFS
+2026-10-13 12:08:16,817 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA high:  -10.6 LUFS
+2026-10-13 12:08:16,818 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:16,818 DEBUG platterpus.workers.rip_worker: cyanrip │   Sample peak:
+2026-10-13 12:08:16,819 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:       -0.1 dBFS
+2026-10-13 12:08:16,819 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:16,819 DEBUG platterpus.workers.rip_worker: cyanrip │   True peak:
+2026-10-13 12:08:16,819 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:        0.4 dBFS
+2026-10-13 12:08:16,819 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:16,819 DEBUG platterpus.workers.rip_worker: cyanrip │   Preemphasis:   none detected
+2026-10-13 12:08:16,820 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:16,820 DEBUG platterpus.workers.rip_worker: cyanrip │   Properties:
+2026-10-13 12:08:16,820 DEBUG platterpus.workers.rip_worker: cyanrip │     Duration:    04:53.42
+2026-10-13 12:08:16,820 DEBUG platterpus.workers.rip_worker: cyanrip │     Samples:     12945996
+2026-10-13 12:08:16,821 DEBUG platterpus.workers.rip_worker: cyanrip │     Frames:      22017
+2026-10-13 12:08:16,821 DEBUG platterpus.workers.rip_worker: cyanrip │     Sample peak level: 98.9% (-0.1 dBFS)
+2026-10-13 12:08:16,821 DEBUG platterpus.workers.rip_worker: cyanrip │     True peak level:   0.4 dBFS
+2026-10-13 12:08:16,821 DEBUG platterpus.workers.rip_worker: cyanrip │     Integrated loudness (R128): -13.1 LUFS
+2026-10-13 12:08:16,821 DEBUG platterpus.workers.rip_worker: cyanrip │     Loudness range (R128):      5.6 LU (-16.2 to -10.6 LUFS)
+2026-10-13 12:08:16,821 DEBUG platterpus.workers.rip_worker: cyanrip │     Extraction speed:  0.41x
+2026-10-13 12:08:16,821 DEBUG platterpus.workers.rip_worker: cyanrip │     Elapsed:            722.21 s
+2026-10-13 12:08:16,823 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap LSN:  224420 (duration: 00:01.15)
+2026-10-13 12:08:16,823 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap length: 90 frames
+2026-10-13 12:08:16,823 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap source: sub-channel (not signalled by TOC)
+2026-10-13 12:08:16,823 DEBUG platterpus.workers.rip_worker: cyanrip │     Start LSN:   224510 (with offset: 224511)
+2026-10-13 12:08:16,823 DEBUG platterpus.workers.rip_worker: cyanrip │     End LSN:     246526 (with offset: 246528)
+2026-10-13 12:08:16,823 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:16,823 DEBUG platterpus.workers.rip_worker: cyanrip │   EAC CRC32:     DA6A4DAF (after 3 rips)
+2026-10-13 12:08:16,823 DEBUG platterpus.workers.rip_worker: cyanrip │   Secure re-read:  converged after 3 reads
+2026-10-13 12:08:16,823 DEBUG platterpus.workers.rip_worker: cyanrip │   Accurip:       disc found in database (max confidence: 200)
+2026-10-13 12:08:16,824 DEBUG platterpus.workers.rip_worker: cyanrip │     Accurip v1:  FD6FBEB2 (accurately ripped, confidence 122)
+2026-10-13 12:08:16,824 DEBUG platterpus.workers.rip_worker: cyanrip │     Accurip v2:  4FDBEAA8 (accurately ripped, confidence 200)
+2026-10-13 12:08:16,825 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:16,826 DEBUG platterpus.workers.rip_worker: cyanrip │   Metadata:
+2026-10-13 12:08:16,826 DEBUG platterpus.workers.rip_worker: cyanrip │     TRACK:                         13
+2026-10-13 12:08:16,826 DEBUG platterpus.workers.rip_worker: cyanrip │     TRACKTOTAL:                    14
+2026-10-13 12:08:16,826 DEBUG platterpus.workers.rip_worker: cyanrip │     MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+2026-10-13 12:08:16,826 DEBUG platterpus.workers.rip_worker: cyanrip │     CDDB:                          E20DFE0E
+2026-10-13 12:08:16,826 DEBUG platterpus.workers.rip_worker: cyanrip │     MEDIA:                         CD
+2026-10-13 12:08:16,826 DEBUG platterpus.workers.rip_worker: cyanrip │     COMMENT:                       cyanrip 0.9.4-rc2+platterpus.22
+2026-10-13 12:08:16,826 DEBUG platterpus.workers.rip_worker: cyanrip │     TOTALDISCS:                    1
+2026-10-13 12:08:16,826 DEBUG platterpus.workers.rip_worker: cyanrip │     TITLE:                         Don’t Stand So Close to Me ’86
+2026-10-13 12:08:16,827 DEBUG platterpus.workers.rip_worker: cyanrip │     DISC:                          1
+2026-10-13 12:08:16,827 DEBUG platterpus.workers.rip_worker: cyanrip │     ALBUM:                         secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 12:08:16,827 DEBUG platterpus.workers.rip_worker: cyanrip │     ALBUM_ARTIST:                  The Police
+2026-10-13 12:08:16,827 DEBUG platterpus.workers.rip_worker: cyanrip │     DATE:                          2003
+2026-10-13 12:08:16,830 DEBUG platterpus.workers.rip_worker: cyanrip │     MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+2026-10-13 12:08:16,830 DEBUG platterpus.workers.rip_worker: cyanrip │     ARTIST:                        The Police
+2026-10-13 12:08:16,830 DEBUG platterpus.workers.rip_worker: cyanrip │     ISRC:                          GBAAM0201252
+2026-10-13 12:08:16,830 DEBUG platterpus.workers.rip_worker: cyanrip │     CREATION_TIME:                 2026-10-13T11:56:14-04:00
+2026-10-13 12:08:16,830 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_GAIN:         -4.87 dB
+2026-10-13 12:08:16,830 DEBUG platterpus.workers.rip_worker: cyanrip │     R128_TRACK_GAIN:               33
+2026-10-13 12:08:16,830 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_RANGE:        5.56 dB
+2026-10-13 12:08:16,830 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_PEAK:         1.042388
+2026-10-13 12:08:16,830 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+2026-10-13 12:08:16,831 DEBUG platterpus.workers.rip_worker: cyanrip │     DISCTOTAL:                     1
+2026-10-13 12:08:16,831 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:16,831 DEBUG platterpus.workers.rip_worker: cyanrip │   Paranoia status counts:
+2026-10-13 12:08:16,831 DEBUG platterpus.workers.rip_worker: cyanrip │     Scope:         the last of 3 reads; the disc totals below sum all of them
+2026-10-13 12:08:16,831 DEBUG platterpus.workers.rip_worker: cyanrip │     READ:          1730
+2026-10-13 12:08:16,833 DEBUG platterpus.workers.rip_worker: cyanrip │     VERIFY:        335
+2026-10-13 12:08:16,834 DEBUG platterpus.workers.rip_worker: cyanrip │     OVERLAP:       37
+2026-10-13 12:08:16,834 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:16,834 DEBUG platterpus.workers.rip_worker: cyanrip │   File(s):
+2026-10-13 12:08:16,834 DEBUG platterpus.workers.rip_worker: cyanrip │     The Police/secure reread 20261013t112919 platterpus-fork-g200530e/13 - Don’t Stand So Close to Me ’86.flac
+2026-10-13 12:08:16,834 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:08:17,342 INFO platterpus.workers.rip_worker: secure re-read of track 13 finished after 2 extra pass(es); resuming the album ETA on a fresh rate window
+2026-10-13 12:12:17,548 DEBUG platterpus.workers.rip_worker: cyanrip │ Repeating ripping (0 out of 2 matches for current checksum 787BA2D6)
+2026-10-13 12:12:18,570 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:12:18,576 INFO platterpus.workers.rip_worker: track 14 is being re-read to verify it (pass 2) — its progress restarted at 0%; the album bar cannot advance during a re-read, so the ETA holds instead of projecting from a frozen fraction
+2026-10-13 12:16:19,216 DEBUG platterpus.workers.rip_worker: cyanrip │ Repeating ripping (1 out of 2 matches for current checksum 787BA2D6)
+2026-10-13 12:16:20,227 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:16:20,233 INFO platterpus.workers.rip_worker: track 14 is being re-read to verify it (pass 3) — its progress restarted at 0%; the album bar cannot advance during a re-read, so the ETA holds instead of projecting from a frozen fraction
+2026-10-13 12:20:20,593 DEBUG platterpus.workers.rip_worker: cyanrip │ Done; (2 out of 2 matches for current checksum 787BA2D6)
+2026-10-13 12:20:20,593 INFO platterpus.diagnostics: platterpus-diagnostic [info] ripper.secure_rerip_verdict: Done; (2 out of 2 matches for current checksum 787BA2D6)
+  tool: cyanrip
+  track: 14
+  where: workers.rip_worker.RipWorker._run_rip
+2026-10-13 12:20:22,334 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,335 DEBUG platterpus.workers.rip_worker: cyanrip │ Flushing encoders...
+2026-10-13 12:20:22,335 DEBUG platterpus.workers.rip_worker: cyanrip │ Track 14 read successfully!
+2026-10-13 12:20:22,391 DEBUG platterpus.workers.rip_worker: cyanrip │ Summary:
+2026-10-13 12:20:22,391 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,391 DEBUG platterpus.workers.rip_worker: cyanrip │   Integrated loudness:
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │     I:         -12.4 LUFS
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -22.7 LUFS
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │   Loudness range:
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA:         3.4 LU
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -32.7 LUFS
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA low:   -14.2 LUFS
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA high:  -10.8 LUFS
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │   Sample peak:
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:       -0.3 dBFS
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,392 DEBUG platterpus.workers.rip_worker: cyanrip │   True peak:
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:        0.8 dBFS
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │   Preemphasis:   none detected
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │   Properties:
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │     Duration:    04:55.55
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │     Samples:     13041840
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │     Frames:      22180
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │     Sample peak level: 96.6% (-0.3 dBFS)
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │     True peak level:   0.8 dBFS
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │     Integrated loudness (R128): -12.4 LUFS
+2026-10-13 12:20:22,393 DEBUG platterpus.workers.rip_worker: cyanrip │     Loudness range (R128):      3.4 LU (-14.2 to -10.8 LUFS)
+2026-10-13 12:20:22,406 DEBUG platterpus.workers.rip_worker: cyanrip │     Extraction speed:  0.41x
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │     Elapsed:            725.55 s
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap LSN:  246410 (duration: 00:01.42)
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap length: 117 frames
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap source: sub-channel (not signalled by TOC)
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │     Start LSN:   246527 (with offset: 246528)
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │     End LSN:     268706
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │     Appended:    2 frames of silence
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │   EAC CRC32:     787BA2D6 (after 3 rips)
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │   Secure re-read:  converged after 3 reads
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │   Accurip:       disc found in database (max confidence: 200)
+2026-10-13 12:20:22,407 DEBUG platterpus.workers.rip_worker: cyanrip │     Accurip v1:  3B2FCF8E (accurately ripped, confidence 117)
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     Accurip v2:  A5AB0AE9 (accurately ripped, confidence 200)
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │   Metadata:
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     TRACK:                         14
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     TRACKTOTAL:                    14
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     CDDB:                          E20DFE0E
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     MEDIA:                         CD
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     COMMENT:                       cyanrip 0.9.4-rc2+platterpus.22
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     TOTALDISCS:                    1
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     TITLE:                         Message in a Bottle (new classic rock mix)
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     DISC:                          1
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     ALBUM:                         secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 12:20:22,408 DEBUG platterpus.workers.rip_worker: cyanrip │     ALBUM_ARTIST:                  The Police
+2026-10-13 12:20:22,409 DEBUG platterpus.workers.rip_worker: cyanrip │     DATE:                          2003
+2026-10-13 12:20:22,409 DEBUG platterpus.workers.rip_worker: cyanrip │     MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+2026-10-13 12:20:22,409 DEBUG platterpus.workers.rip_worker: cyanrip │     ARTIST:                        The Police
+2026-10-13 12:20:22,409 DEBUG platterpus.workers.rip_worker: cyanrip │     ISRC:                          GBAAM0201253
+2026-10-13 12:20:22,409 DEBUG platterpus.workers.rip_worker: cyanrip │     CREATION_TIME:                 2026-10-13T12:08:16-04:00
+2026-10-13 12:20:22,409 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_GAIN:         -5.56 dB
+2026-10-13 12:20:22,409 DEBUG platterpus.workers.rip_worker: cyanrip │     R128_TRACK_GAIN:               -143
+2026-10-13 12:20:22,414 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_RANGE:        3.42 dB
+2026-10-13 12:20:22,421 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_PEAK:         1.097464
+2026-10-13 12:20:22,422 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+2026-10-13 12:20:22,422 DEBUG platterpus.workers.rip_worker: cyanrip │     DISCTOTAL:                     1
+2026-10-13 12:20:22,422 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,422 DEBUG platterpus.workers.rip_worker: cyanrip │   Paranoia status counts:
+2026-10-13 12:20:22,422 DEBUG platterpus.workers.rip_worker: cyanrip │     Scope:         the last of 3 reads; the disc totals below sum all of them
+2026-10-13 12:20:22,422 DEBUG platterpus.workers.rip_worker: cyanrip │     READ:          1828
+2026-10-13 12:20:22,422 DEBUG platterpus.workers.rip_worker: cyanrip │     VERIFY:        184
+2026-10-13 12:20:22,422 DEBUG platterpus.workers.rip_worker: cyanrip │     OVERLAP:       46
+2026-10-13 12:20:22,423 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,423 DEBUG platterpus.workers.rip_worker: cyanrip │   File(s):
+2026-10-13 12:20:22,423 DEBUG platterpus.workers.rip_worker: cyanrip │     The Police/secure reread 20261013t112919 platterpus-fork-g200530e/14 - Message in a Bottle (new classic rock mix).flac
+2026-10-13 12:20:22,423 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,423 DEBUG platterpus.workers.rip_worker: cyanrip │ Album Loudness Summary:
+2026-10-13 12:20:22,423 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │   Integrated loudness:
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │     I:         -13.9 LUFS
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -24.2 LUFS
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │   Loudness range:
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA:         8.9 LU
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -34.3 LUFS
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA low:   -19.9 LUFS
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA high:  -11.0 LUFS
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │   Sample peak:
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:       -0.1 dBFS
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,424 DEBUG platterpus.workers.rip_worker: cyanrip │   True peak:
+2026-10-13 12:20:22,425 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:        0.8 dBFS
+2026-10-13 12:20:22,425 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,425 DEBUG platterpus.workers.rip_worker: cyanrip │ Album integrated loudness (R128): -13.9 LUFS
+2026-10-13 12:20:22,425 DEBUG platterpus.workers.rip_worker: cyanrip │ Album loudness range (R128):      8.9 LU (-19.9 to -11.0 LUFS)
+2026-10-13 12:20:22,425 DEBUG platterpus.workers.rip_worker: cyanrip │ Album sample peak level:          -0.1 dBFS
+2026-10-13 12:20:22,425 DEBUG platterpus.workers.rip_worker: cyanrip │ Album true peak level:            0.8 dBFS
+2026-10-13 12:20:22,625 DEBUG platterpus.workers.rip_worker: cyanrip │ Tracks ripped accurately: 12/14
+2026-10-13 12:20:22,625 DEBUG platterpus.workers.rip_worker: cyanrip │ Tracks matched on one frame only: 2/14
+2026-10-13 12:20:22,626 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,626 DEBUG platterpus.workers.rip_worker: cyanrip │ Paranoia status counts:
+2026-10-13 12:20:22,626 DEBUG platterpus.workers.rip_worker: cyanrip │   READ:          72620
+2026-10-13 12:20:22,626 DEBUG platterpus.workers.rip_worker: cyanrip │   VERIFY:        11199
+2026-10-13 12:20:22,626 DEBUG platterpus.workers.rip_worker: cyanrip │   FIXUP_ATOM:    200
+2026-10-13 12:20:22,626 DEBUG platterpus.workers.rip_worker: cyanrip │   OVERLAP:       1677
+2026-10-13 12:20:22,626 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:22,627 DEBUG platterpus.workers.rip_worker: cyanrip │ Ripping errors: 0
+2026-10-13 12:20:22,627 DEBUG platterpus.workers.rip_worker: cyanrip │ Encoder errors: none; 14 tracks encoded
+2026-10-13 12:20:22,627 DEBUG platterpus.workers.rip_worker: cyanrip │ Read stalls:    none (no read exceeded 10s)
+2026-10-13 12:20:22,627 DEBUG platterpus.workers.rip_worker: cyanrip │ Rip completed:  yes (14 of 14 tracks)
+2026-10-13 12:20:22,629 DEBUG platterpus.workers.rip_worker: cyanrip │ Ripping finished at 2026-10-13T12:20:22-04:00
+2026-10-13 12:20:22,689 INFO platterpus.workers.rip_worker: read-speed ladder: no step after pass 1: the drive reported no read errors
+2026-10-13 12:20:22,689 DEBUG platterpus.adapters.rip_backend: cyanrip: /home/rmccann/.local/bin/cyanrip -V (cwd=inherited)
+2026-10-13 12:20:22,979 INFO platterpus.adapters.cyanrip_backend: cyanrip rip starting: /home/rmccann/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -Z 2 -l 3 -N --consumer platterpus/0.7.104 -c 1/1 -a album=secure reread 20261013t112919 platterpus-fork-g200530e:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -U -W --diagnostics cyanrip-diagnostics-20261013T162022Z.json (cwd=/tmp/platterpus-refix-2fzw2by8)
+2026-10-13 12:20:23,268 DEBUG platterpus.workers.rip_worker: cyanrip │ Checking /dev/sr0 for cdrom...
+2026-10-13 12:20:23,269 DEBUG platterpus.workers.rip_worker: cyanrip │ 		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+2026-10-13 12:20:23,269 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:23,269 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:23,269 DEBUG platterpus.workers.rip_worker: cyanrip │ Opening drive...
+2026-10-13 12:20:28,052 DEBUG platterpus.workers.rip_worker: cyanrip │ cyanrip 0.9.4-rc2+platterpus.22 (platterpus-fork-g200530e)
+2026-10-13 12:20:28,053 DEBUG platterpus.workers.rip_worker: cyanrip │ Invoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -Z 2 -l 3 -N --consumer platterpus/0.7.104 -c 1/1 -a "album=secure reread 20261013t112919 platterpus-fork-g200530e:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410" -t "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086" -t "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089" -t "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170" -t "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175" -t "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148" -t "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154" -t "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127" -t "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128" -t "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126" -t "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110" -t "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111" -t "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112" -t "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252" -t "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253" -D {album_artist}/{album} -F "{track} - {title}" -G -U -W --diagnostics cyanrip-diagnostics-20261013T162022Z.json
+2026-10-13 12:20:28,053 DEBUG platterpus.workers.rip_worker: cyanrip │ Handshake:      round 32 lap 1 OPEN, verdict OPEN (draft — lap not released for reading) -- released build
+2026-10-13 12:20:28,053 DEBUG platterpus.workers.rip_worker: cyanrip │                 (declared at build time, not verified by cyanrip)
+2026-10-13 12:20:28,053 DEBUG platterpus.workers.rip_worker: cyanrip │ Consumer:       platterpus/0.7.104
+2026-10-13 12:20:28,053 DEBUG platterpus.workers.rip_worker: cyanrip │                 (reported by the caller, not verified by cyanrip)
+2026-10-13 12:20:28,055 DEBUG platterpus.workers.rip_worker: cyanrip │ Drive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)
+2026-10-13 12:20:28,055 DEBUG platterpus.workers.rip_worker: cyanrip │ System device:  /dev/sr0
+2026-10-13 12:20:28,055 DEBUG platterpus.workers.rip_worker: cyanrip │ Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+2026-10-13 12:20:28,055 DEBUG platterpus.workers.rip_worker: cyanrip │ Offset:         +667 samples
+2026-10-13 12:20:28,055 DEBUG platterpus.workers.rip_worker: cyanrip │ Overread:       +2 frames
+2026-10-13 12:20:28,055 DEBUG platterpus.workers.rip_worker: cyanrip │ Overread mode:  fill with silence in lead-in/lead-out
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ Speed:          default (unchangeable)
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ C2 errors:      unsupported by drive
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ Encoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ Paranoia level: max
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ Retry limit:    5 (per frame, and per whole-track re-read)
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ Cache model:    1200 sectors (drive cache size not probed)
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ HDCD decoding:  disabled
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ Album Art:      none
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ Outputs:        flac
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ Disc number:    1
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ Total discs:    1
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ Disc tracks:    14
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ Tracks to rip:  3
+2026-10-13 12:20:28,056 DEBUG platterpus.workers.rip_worker: cyanrip │ DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+2026-10-13 12:20:28,057 DEBUG platterpus.workers.rip_worker: cyanrip │ Release ID:     65282302-368b-4ba2-953a-483bcdef2410
+2026-10-13 12:20:28,061 DEBUG platterpus.workers.rip_worker: cyanrip │ CDDB ID:        E20DFE0E
+2026-10-13 12:20:28,061 DEBUG platterpus.workers.rip_worker: cyanrip │ Album:          secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 12:20:28,061 DEBUG platterpus.workers.rip_worker: cyanrip │ Album artist:   The Police
+2026-10-13 12:20:28,061 DEBUG platterpus.workers.rip_worker: cyanrip │ AccurateRip:    found
+2026-10-13 12:20:28,061 DEBUG platterpus.workers.rip_worker: cyanrip │ Total time:     59:42.57
+2026-10-13 12:20:28,061 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:28,062 DEBUG platterpus.workers.rip_worker: cyanrip │ Gaps:
+2026-10-13 12:20:28,062 DEBUG platterpus.workers.rip_worker: cyanrip │     160 frame pregap in track 2, merging into track 1
+2026-10-13 12:20:28,062 DEBUG platterpus.workers.rip_worker: cyanrip │     158 frame pregap in track 4, merging into track 3
+2026-10-13 12:20:28,062 DEBUG platterpus.workers.rip_worker: cyanrip │     115 frame pregap in track 5, merging into track 4
+2026-10-13 12:20:28,062 DEBUG platterpus.workers.rip_worker: cyanrip │     105 frame pregap in track 7, merging into track 6
+2026-10-13 12:20:28,062 DEBUG platterpus.workers.rip_worker: cyanrip │     85 frame pregap in track 8, merging into track 7
+2026-10-13 12:20:28,065 DEBUG platterpus.workers.rip_worker: cyanrip │     95 frame pregap in track 9, merging into track 8
+2026-10-13 12:20:28,065 DEBUG platterpus.workers.rip_worker: cyanrip │     147 frame pregap in track 10, merging into track 9
+2026-10-13 12:20:28,065 DEBUG platterpus.workers.rip_worker: cyanrip │     90 frame pregap in track 13, merging into track 12
+2026-10-13 12:20:28,065 DEBUG platterpus.workers.rip_worker: cyanrip │     117 frame pregap in track 14, merging into track 13
+2026-10-13 12:20:28,065 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:20:28,065 DEBUG platterpus.workers.rip_worker: cyanrip │ Tracks:
+2026-10-13 12:20:29,974 WARNING platterpus.workers.rip_worker: securing pass: computed 41580s remaining for the current read, outside the 0-21600s sanity range — showing no estimate rather than a number the user cannot tell from a bug (read at 0.00%, window dt=0.0s dpct=0.00)
+2026-10-13 12:24:38,415 DEBUG platterpus.workers.rip_worker: cyanrip │ Repeating ripping (0 out of 2 matches for current checksum 3D440786)
+2026-10-13 12:24:40,192 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:24:40,197 INFO platterpus.workers.rip_worker: track 3 is being re-read to verify it (pass 2) — its progress restarted at 0%; the album bar cannot advance during a re-read, so the ETA holds instead of projecting from a frozen fraction
+2026-10-13 12:28:48,422 DEBUG platterpus.workers.rip_worker: cyanrip │ Repeating ripping (0 out of 2 matches for current checksum 61461BA9)
+2026-10-13 12:28:50,157 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:28:50,162 INFO platterpus.workers.rip_worker: track 3 is being re-read to verify it (pass 3) — its progress restarted at 0%; the album bar cannot advance during a re-read, so the ETA holds instead of projecting from a frozen fraction
+2026-10-13 12:32:59,395 DEBUG platterpus.workers.rip_worker: cyanrip │ Repeating ripping (0 out of 2 matches for current checksum 3A5E33D9)
+2026-10-13 12:33:01,189 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:33:01,194 INFO platterpus.workers.rip_worker: track 3 is being re-read to verify it (pass 4) — its progress restarted at 0%; the album bar cannot advance during a re-read, so the ETA holds instead of projecting from a frozen fraction
+2026-10-13 12:37:09,062 DEBUG platterpus.workers.rip_worker: cyanrip │ Repeating ripping (0 out of 2 matches for current checksum 660CECDF)
+2026-10-13 12:37:10,789 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:37:10,794 INFO platterpus.workers.rip_worker: track 3 is being re-read to verify it (pass 5) — its progress restarted at 0%; the album bar cannot advance during a re-read, so the ETA holds instead of projecting from a frozen fraction
+2026-10-13 12:41:18,708 DEBUG platterpus.workers.rip_worker: cyanrip │ Done; (repeat limit of 5 reads reached; at most 1 read agreed)
+2026-10-13 12:41:18,709 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] ripper.secure_rerip_verdict: Done; (repeat limit of 5 reads reached; at most 1 read agreed)
+  tool: cyanrip
+  track: 3
+  where: workers.rip_worker.RipWorker._run_rip
+2026-10-13 12:41:20,420 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,420 DEBUG platterpus.workers.rip_worker: cyanrip │ Flushing encoders...
+2026-10-13 12:41:20,421 DEBUG platterpus.workers.rip_worker: cyanrip │ Track 3 read with errors.
+2026-10-13 12:41:20,461 DEBUG platterpus.workers.rip_worker: cyanrip │ Summary:
+2026-10-13 12:41:20,461 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,461 DEBUG platterpus.workers.rip_worker: cyanrip │   Integrated loudness:
+2026-10-13 12:41:20,462 DEBUG platterpus.workers.rip_worker: cyanrip │     I:         -12.4 LUFS
+2026-10-13 12:41:20,462 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -22.6 LUFS
+2026-10-13 12:41:20,462 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,462 DEBUG platterpus.workers.rip_worker: cyanrip │   Loudness range:
+2026-10-13 12:41:20,462 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA:         6.5 LU
+2026-10-13 12:41:20,462 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -32.6 LUFS
+2026-10-13 12:41:20,462 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA low:   -16.7 LUFS
+2026-10-13 12:41:20,463 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA high:  -10.2 LUFS
+2026-10-13 12:41:20,464 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,465 DEBUG platterpus.workers.rip_worker: cyanrip │   Sample peak:
+2026-10-13 12:41:20,465 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:       -0.2 dBFS
+2026-10-13 12:41:20,465 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,465 DEBUG platterpus.workers.rip_worker: cyanrip │   True peak:
+2026-10-13 12:41:20,465 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:        0.5 dBFS
+2026-10-13 12:41:20,465 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,465 DEBUG platterpus.workers.rip_worker: cyanrip │   Preemphasis:   none detected
+2026-10-13 12:41:20,465 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,465 DEBUG platterpus.workers.rip_worker: cyanrip │   Properties:
+2026-10-13 12:41:20,465 DEBUG platterpus.workers.rip_worker: cyanrip │     Duration:    04:51.28
+2026-10-13 12:41:20,465 DEBUG platterpus.workers.rip_worker: cyanrip │     Samples:     12849564
+2026-10-13 12:41:20,467 DEBUG platterpus.workers.rip_worker: cyanrip │     Frames:      21853
+2026-10-13 12:41:20,468 DEBUG platterpus.workers.rip_worker: cyanrip │     Sample peak level: 97.6% (-0.2 dBFS)
+2026-10-13 12:41:20,468 DEBUG platterpus.workers.rip_worker: cyanrip │     True peak level:   0.5 dBFS
+2026-10-13 12:41:20,468 DEBUG platterpus.workers.rip_worker: cyanrip │     Integrated loudness (R128): -12.4 LUFS
+2026-10-13 12:41:20,468 DEBUG platterpus.workers.rip_worker: cyanrip │     Loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+2026-10-13 12:41:20,468 DEBUG platterpus.workers.rip_worker: cyanrip │     Extraction speed:  0.23x
+2026-10-13 12:41:20,468 DEBUG platterpus.workers.rip_worker: cyanrip │     Elapsed:            1252.40 s
+2026-10-13 12:41:20,468 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap LSN:  28067 (duration: 00:00.00)
+2026-10-13 12:41:20,468 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap length: 0 frames
+2026-10-13 12:41:20,468 DEBUG platterpus.workers.rip_worker: cyanrip │     Pregap source: sub-channel (not signalled by TOC)
+2026-10-13 12:41:20,468 DEBUG platterpus.workers.rip_worker: cyanrip │     Start LSN:   28067 (with offset: 28068)
+2026-10-13 12:41:20,468 DEBUG platterpus.workers.rip_worker: cyanrip │     End LSN:     49919 (with offset: 49921)
+2026-10-13 12:41:20,470 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,471 DEBUG platterpus.workers.rip_worker: cyanrip │   EAC CRC32:     D14EC23B (after 5 rips)
+2026-10-13 12:41:20,471 DEBUG platterpus.workers.rip_worker: cyanrip │   Secure re-read:  did NOT converge after 5 reads (repeat limit hit)
+2026-10-13 12:41:20,471 DEBUG platterpus.workers.rip_worker: cyanrip │   Accurip:       disc found in database (max confidence: 200)
+2026-10-13 12:41:20,471 DEBUG platterpus.workers.rip_worker: cyanrip │     Accurip v1:  7D24502B (not found, either a new pressing, or bad rip)
+2026-10-13 12:41:20,471 DEBUG platterpus.workers.rip_worker: cyanrip │     Accurip v2:  D777A2CC (not found, either a new pressing, or bad rip)
+2026-10-13 12:41:20,471 DEBUG platterpus.workers.rip_worker: cyanrip │     Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, one frame only; whole-track checksums not found)
+2026-10-13 12:41:20,471 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,471 DEBUG platterpus.workers.rip_worker: cyanrip │   Metadata:
+2026-10-13 12:41:20,471 DEBUG platterpus.workers.rip_worker: cyanrip │     TRACK:                         3
+2026-10-13 12:41:20,471 DEBUG platterpus.workers.rip_worker: cyanrip │     TRACKTOTAL:                    14
+2026-10-13 12:41:20,475 DEBUG platterpus.workers.rip_worker: cyanrip │     MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-
+2026-10-13 12:41:20,475 DEBUG platterpus.workers.rip_worker: cyanrip │     CDDB:                          E20DFE0E
+2026-10-13 12:41:20,475 DEBUG platterpus.workers.rip_worker: cyanrip │     MEDIA:                         CD
+2026-10-13 12:41:20,475 DEBUG platterpus.workers.rip_worker: cyanrip │     COMMENT:                       cyanrip 0.9.4-rc2+platterpus.22
+2026-10-13 12:41:20,475 DEBUG platterpus.workers.rip_worker: cyanrip │     TOTALDISCS:                    1
+2026-10-13 12:41:20,475 DEBUG platterpus.workers.rip_worker: cyanrip │     TITLE:                         Message in a Bottle
+2026-10-13 12:41:20,475 DEBUG platterpus.workers.rip_worker: cyanrip │     DISC:                          1
+2026-10-13 12:41:20,475 DEBUG platterpus.workers.rip_worker: cyanrip │     ALBUM:                         secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 12:41:20,475 DEBUG platterpus.workers.rip_worker: cyanrip │     ALBUM_ARTIST:                  The Police
+2026-10-13 12:41:20,476 DEBUG platterpus.workers.rip_worker: cyanrip │     DATE:                          2003
+2026-10-13 12:41:20,476 DEBUG platterpus.workers.rip_worker: cyanrip │     MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410
+2026-10-13 12:41:20,477 DEBUG platterpus.workers.rip_worker: cyanrip │     ARTIST:                        The Police
+2026-10-13 12:41:20,478 DEBUG platterpus.workers.rip_worker: cyanrip │     ISRC:                          GBAAM0201170
+2026-10-13 12:41:20,478 DEBUG platterpus.workers.rip_worker: cyanrip │     CREATION_TIME:                 2026-10-13T12:20:28-04:00
+2026-10-13 12:41:20,478 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+2026-10-13 12:41:20,478 DEBUG platterpus.workers.rip_worker: cyanrip │     R128_TRACK_GAIN:               -159
+2026-10-13 12:41:20,478 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_RANGE:        6.47 dB
+2026-10-13 12:41:20,478 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_TRACK_PEAK:         1.058175
+2026-10-13 12:41:20,478 DEBUG platterpus.workers.rip_worker: cyanrip │     REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+2026-10-13 12:41:20,478 DEBUG platterpus.workers.rip_worker: cyanrip │     DISCTOTAL:                     1
+2026-10-13 12:41:20,478 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,480 DEBUG platterpus.workers.rip_worker: cyanrip │   Paranoia status counts:
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │     Scope:         the last of 5 reads; the disc totals below sum all of them
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │     READ:          1778
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │     VERIFY:        467
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │     FIXUP_ATOM:    26
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │     OVERLAP:       39
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │   File(s):
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │     The Police/secure reread 20261013t112919 platterpus-fork-g200530e/03 - Message in a Bottle.flac
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │ Album Loudness Summary:
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │   Integrated loudness:
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │     I:         -12.4 LUFS
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -22.6 LUFS
+2026-10-13 12:41:20,481 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,482 DEBUG platterpus.workers.rip_worker: cyanrip │   Loudness range:
+2026-10-13 12:41:20,482 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA:         6.5 LU
+2026-10-13 12:41:20,482 DEBUG platterpus.workers.rip_worker: cyanrip │     Threshold: -32.6 LUFS
+2026-10-13 12:41:20,482 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA low:   -16.7 LUFS
+2026-10-13 12:41:20,482 DEBUG platterpus.workers.rip_worker: cyanrip │     LRA high:  -10.2 LUFS
+2026-10-13 12:41:20,482 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,482 DEBUG platterpus.workers.rip_worker: cyanrip │   Sample peak:
+2026-10-13 12:41:20,482 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:       -0.2 dBFS
+2026-10-13 12:41:20,486 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,486 DEBUG platterpus.workers.rip_worker: cyanrip │   True peak:
+2026-10-13 12:41:20,486 DEBUG platterpus.workers.rip_worker: cyanrip │     Peak:        0.5 dBFS
+2026-10-13 12:41:20,486 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,486 DEBUG platterpus.workers.rip_worker: cyanrip │ Album integrated loudness (R128): -12.4 LUFS
+2026-10-13 12:41:20,486 DEBUG platterpus.workers.rip_worker: cyanrip │ Album loudness range (R128):      6.5 LU (-16.7 to -10.2 LUFS)
+2026-10-13 12:41:20,486 DEBUG platterpus.workers.rip_worker: cyanrip │ Album sample peak level:          -0.2 dBFS
+2026-10-13 12:41:20,486 DEBUG platterpus.workers.rip_worker: cyanrip │ Album true peak level:            0.5 dBFS
+2026-10-13 12:41:20,646 DEBUG platterpus.workers.rip_worker: cyanrip │ Tracks ripped accurately: 0/14
+2026-10-13 12:41:20,646 DEBUG platterpus.workers.rip_worker: cyanrip │ Tracks matched on one frame only: 1/14
+2026-10-13 12:41:20,647 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,647 DEBUG platterpus.workers.rip_worker: cyanrip │ Paranoia status counts:
+2026-10-13 12:41:20,647 DEBUG platterpus.workers.rip_worker: cyanrip │   READ:          8986
+2026-10-13 12:41:20,647 DEBUG platterpus.workers.rip_worker: cyanrip │   VERIFY:        1541
+2026-10-13 12:41:20,647 DEBUG platterpus.workers.rip_worker: cyanrip │   FIXUP_ATOM:    136
+2026-10-13 12:41:20,647 DEBUG platterpus.workers.rip_worker: cyanrip │   OVERLAP:       186
+2026-10-13 12:41:20,647 DEBUG platterpus.workers.rip_worker: cyanrip │ 
+2026-10-13 12:41:20,647 DEBUG platterpus.workers.rip_worker: cyanrip │ Ripping errors: 0
+2026-10-13 12:41:20,649 DEBUG platterpus.workers.rip_worker: cyanrip │ Encoder errors: none; 1 track encoded
+2026-10-13 12:41:20,649 DEBUG platterpus.workers.rip_worker: cyanrip │ Read stalls:    none (no read exceeded 10s)
+2026-10-13 12:41:20,649 DEBUG platterpus.workers.rip_worker: cyanrip │ Rip completed:  yes (1 of 14 tracks)
+2026-10-13 12:41:20,649 DEBUG platterpus.workers.rip_worker: cyanrip │ Ripping finished at 2026-10-13T12:41:20-04:00
+2026-10-13 12:41:20,693 DEBUG platterpus.adapters.rip_backend: cyanrip: /home/rmccann/.local/bin/cyanrip -V (cwd=inherited)
+2026-10-13 12:41:21,221 INFO platterpus.ui.main_window_rip: rip finished: success=True log=/home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e/secure reread 20261013t112919 platterpus-fork-g200530e.log
+2026-10-13 12:41:21,222 INFO platterpus.ui.main_window_rip: rip elapsed (actual): 3h 7m 59s; estimated before it began: 3h 7m 29s
+2026-10-13 12:41:21,246 DEBUG platterpus.drive_profile_store: drive profiles saved to /home/rmccann/.config/platterpus/drive_profiles.json
+2026-10-13 12:41:21,249 DEBUG platterpus.drive_profile_store: drive profiles saved to /home/rmccann/.config/platterpus/drive_profiles.json
+2026-10-13 12:41:21,296 INFO platterpus.ui.main_window_rip: wrote EAC-layout companion log: /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e/secure reread 20261013t112919 platterpus-fork-g200530e (EAC-compatible).log
+2026-10-13 12:41:21,296 WARNING platterpus.ui.main_window_rip: ⚠ Read stability: track 3 still didn't read identically even after an automatic re-rip — the album keeps the whole-disc pass's read, which may not be bit-perfect. Clean the disc and try again for a verified copy. See the report.
+2026-10-13 12:41:21,313 INFO platterpus.ui.main_window_rip: completion notification posted: Platterpus — rip complete — ⚠ Read stability: track 3 still didn't read identically even after an automatic re-rip — the album keeps the whole-disc pass's read, which may not be bit-perfect. Clean the disc and try again for a verified copy. See the report.
+2026-10-13 12:41:21,314 INFO platterpus.ui.main_window_rip: post-rip processing in /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e (tag=False, cover-art embed=True save=False, transcode=no)
+2026-10-13 12:41:21,314 INFO platterpus.ui.main_window_rip: starting CTDB verify for /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 12:41:21,330 INFO platterpus.ui.main_window_rip: starting FLAC verify for /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 12:41:21,351 INFO platterpus.ui.main_window_rip: computing SHA256 digests for /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 12:41:21,684 INFO platterpus.ui.main_window_rip: re-rip comparison: 2 track(s) identical; this rip has track(s) 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 the previous rip didn't.
+2026-10-13 12:41:23,314 INFO platterpus.rip_files: verifying 14 file(s) this rip wrote in /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 12:41:31,043 INFO platterpus.ui.main_window_rip: Cover art: embedded in 14 track(s).
+2026-10-13 12:41:31,044 INFO platterpus.rip_files: verifying 14 file(s) this rip wrote in /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 12:41:31,113 DEBUG platterpus.rip_files: rip file list taken from /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e/secure reread 20261013t112919 platterpus-fork-g200530e.log (14 files)
+2026-10-13 12:41:31,116 DEBUG platterpus.rip_files: rip file list taken from /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e/secure reread 20261013t112919 platterpus-fork-g200530e.log (14 files)
+2026-10-13 12:41:31,117 INFO platterpus.rip_files: verifying 14 file(s) this rip wrote in /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 12:41:31,117 INFO platterpus.rip_files: verifying 14 file(s) this rip wrote in /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips/The Police/secure reread 20261013t112919 platterpus-fork-g200530e
+2026-10-13 12:41:31,474 INFO platterpus.ui.main_window_rip: digests: 14 file(s) hashed (SHA256), 14 FLAC audio MD5(s) read
+2026-10-13 12:41:34,293 INFO platterpus.adapters.ctdb_client: CTDB lookup: http://db.cuetools.net/lookup2.php?version=3&ctdb=1&fuzzy=0&metadata=none&toc=0%3A14487%3A28067%3A49920%3A72570%3A90642%3A109175%3A128757%3A145662%3A159237%3A178332%3A200862%3A224510%3A246527%3A268707
+2026-10-13 12:41:38,168 INFO platterpus.ui.main_window_rip: FLAC verify: all 14 file(s) decode cleanly.
+2026-10-13 12:41:44,338 INFO platterpus.ui.main_window_rip: CTDB verify verdict: no_match
+2026-10-13 12:41:46,371 INFO platterpus.evidence_bundle: evidence bundle written: /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/ripbundles/platterpusbundle20261013t164121z.tar.gz (14 file(s) in, 18 excluded, 3679979 bytes)
+2026-10-13 12:41:46,748 DEBUG platterpus.config: config carries setting(s) this version retired, ignored: ['recompress_flac_after_rip', 'test_script_allow_unsafe']
+2026-10-13 12:41:47,747 DEBUG platterpus.adapters.rip_backend: cyanrip: /home/rmccann/.local/bin/cyanrip -N -f (cwd=/home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips)
+2026-10-13 12:42:22,223 DEBUG platterpus.adapters.rip_backend: cyanrip: /home/rmccann/.local/bin/cyanrip -N --cache-probe -I (cwd=/home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips)
+2026-10-13 12:43:41,671 INFO platterpus.adapters.cache_probe: cache probe on /dev/sr0: defeat=True cache_sectors=144 exit=0
+2026-10-13 12:43:41,774 WARNING platterpus.uiscript.runner: ui script L1347 info: cd-paranoia -A: cache 144 sectors, defeated, exit 0; output in cacheprobe1347.txt
+2026-10-13 12:43:42,273 DEBUG platterpus.adapters.rip_backend: cyanrip: /home/rmccann/.local/bin/cyanrip -N -l 1 (cwd=/home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips)
+2026-10-13 12:43:47,090 WARNING platterpus.diagnostics: platterpus-diagnostic [warning] deps.command_failed: cyanrip exited 1
+  tool: cyanrip
+  exit code: 1
+  argv: /home/rmccann/.local/bin/cyanrip -N -l 1
+  where: adapters.rip_backend.run_capture
+  detail:
+Checking /dev/cdrom for cdrom...
+		CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+
+Opening drive...
+Offset is unset! To continue with an offset of 0, run with -s 0!
+Paranoia status counts:
+  none
+
+Ripping errors: 0
+Encoder errors: not applicable; no track was encoded
+Read stalls:    none (no read exceeded 10s)
+Rip completed:  no (aborted, 0 of 14 tracks)
+Ripping finished at 2026-10-13T12:43:47-04:00
+2026-10-13 12:43:47,898 DEBUG platterpus.adapters.rip_backend: cyanrip: /home/rmccann/.local/bin/cyanrip -N -s 667 -l 1 -H -E -D r16deemphon (cwd=/home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips)
+2026-10-13 12:46:45,648 DEBUG platterpus.adapters.rip_backend: cyanrip: /home/rmccann/.local/bin/cyanrip -N -s 667 -l 1 -H -W -D r16deemphoff (cwd=/home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/rips)
+2026-10-13 12:49:43,938 DEBUG platterpus.config: config saved to /home/rmccann/.config/platterpus/config.toml
+2026-10-13 12:49:44,303 DEBUG platterpus.config: config saved to /home/rmccann/.config/platterpus/config.toml
+2026-10-13 12:49:44,554 DEBUG platterpus.config: config saved to /home/rmccann/.config/platterpus/config.toml
+2026-10-13 12:49:44,678 DEBUG platterpus.config: config saved to /home/rmccann/.config/platterpus/config.toml
+2026-10-13 12:49:44,803 DEBUG platterpus.config: config saved to /home/rmccann/.config/platterpus/config.toml
+2026-10-13 12:49:45,050 DEBUG platterpus.config: config saved to /home/rmccann/.config/platterpus/config.toml
+2026-10-13 12:49:45,304 DEBUG platterpus.config: config saved to /home/rmccann/.config/platterpus/config.toml
+2026-10-13 12:49:47,672 INFO platterpus.uiscript.runner: ui script run finished: {'pass': 424, 'fail': 0, 'error': 0, 'skipped': 0, 'blocked': 0, 'unreachable': 1, 'info': 5}
+2026-10-13 12:49:47,680 INFO platterpus.uiscript.runner: ui script run saved to /home/rmccann/platterpus-rig/platterpustestsession20261013t112919z/evidence/run
+2026-10-13 12:49:47,685 INFO platterpus.screen_inhibit: screen inhibitor: the screen hold has been released
+2026-10-13 12:49:47,687 INFO platterpus.sleep_inhibit: sleep inhibitor: lock released (child terminated)
+2026-10-13 12:49:47,687 INFO platterpus.ui.main_window_provision: acceptance session: the sleep lock has been released
+2026-10-13 12:49:47,687 INFO platterpus.logging_setup: debug logging ENABLED
+2026-10-13 12:49:47,695 DEBUG platterpus.config: config saved to /home/rmccann/.config/platterpus/config.toml
+2026-10-13 12:49:47,695 INFO platterpus.ui.main_window_provision: acceptance session: restored your settings (the run had changed output_dir, auto_launch_picard, debug_logging, force_overread, secure_rerip_dynamic, write_eac_log_after_rip, rip_goal, update_channel, ripper_channel)
+[evidence extract: 28005 cyanrip progress line(s) removed from docs/handshake/artifactsround32/round32fullplatterpusapplog.txt]

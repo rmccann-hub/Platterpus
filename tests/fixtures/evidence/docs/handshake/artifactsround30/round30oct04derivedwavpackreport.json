@@ -1,0 +1,1271 @@
+{
+  "schema_version": 30,
+  "generator": {
+    "name": "platterpus",
+    "version": "0.6.65",
+    "build_fingerprint": "0981c69"
+  },
+  "generated_at": "2026-10-04T19:26:59-04:00",
+  "self_check": {
+    "schema": 1,
+    "checks_run": [
+      "ripper_build",
+      "completion",
+      "handshake_note",
+      "checksum_inventory",
+      "medium",
+      "pregap",
+      "audio_files",
+      "argv_agreement",
+      "our_log_integrity",
+      "ripper_log_integrity",
+      "cue_integrity",
+      "disc_identity"
+    ],
+    "checks_skipped": [],
+    "worst": "note",
+    "findings": [
+      {
+        "level": "ok",
+        "text": "ripped by the Platterpus fork (platterpus-fork-g174a134)"
+      },
+      {
+        "level": "ok",
+        "text": "rip completed (2 of 18 tracks, the 2 asked for, no errors)"
+      },
+      {
+        "level": "ok",
+        "text": "ripper built from a closed round: 'round 29 lap 3 closed, verdict GO -- released build (declared at build time, not verified by cyanrip)'"
+      },
+      {
+        "level": "note",
+        "text": "the binary says it was built from a closed round, but it is not the build OUR record approved — expected when their release is ahead of our verification, and the reason the two witnesses are kept separate"
+      },
+      {
+        "level": "ok",
+        "text": "checksum inventory: 2/2 tracks carry a copy CRC"
+      },
+      {
+        "level": "ok",
+        "text": "AccurateRip inventory complete: 4/4 (2 tracks × 2, plus 0 where both v1 and v2 missed and a 450 line could appear)"
+      },
+      {
+        "level": "ok",
+        "text": "disc identified by disc-id"
+      },
+      {
+        "level": "ok",
+        "text": "pre-gap provenance across 2 track(s): lead-in, sub-channel (not signalled by TOC)"
+      },
+      {
+        "level": "ok",
+        "text": "2 audio files, all with content"
+      },
+      {
+        "level": "ok",
+        "text": "the ripper received the 15 flags we sent on the whole-disc pass"
+      },
+      {
+        "level": "ok",
+        "text": "the EAC-style log matches its own SHA-256 footer"
+      },
+      {
+        "level": "ok",
+        "text": "the ripper verified derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.log against its own FUN512 checksum — the log is a faithful, unmodified record of this rip"
+      },
+      {
+        "level": "ok",
+        "text": "cue sheet — well formed: 2 track(s), numbered 1..N in order, each with an INDEX 01"
+      },
+      {
+        "level": "note",
+        "text": "cue sheet — ISRC round-trip not determined: this rip recorded no ISRCs sent to the ripper for any track it ripped, so there is nothing to check the cue against (an unknown-disc rip, or a report from before the argv was recorded)"
+      },
+      {
+        "level": "ok",
+        "text": "cue sheet — INDEX 00 markers agree with the measured pre-gap lengths on all 1 track(s) checked (track 1's lead-in pre-gap is never marked, by design)"
+      },
+      {
+        "level": "ok",
+        "text": "cue sheet — all 1 INDEX 00 pre-gap marker(s) are nested under the previous track's own file, and none sits past the end of it"
+      },
+      {
+        "level": "ok",
+        "text": "cue sheet — 3 title(s) match the text we handed the ripper exactly, and no metadata value carries the U+2236 colon substitute (checked 18 value(s))"
+      },
+      {
+        "level": "ok",
+        "text": "disc identity — MusicBrainz zxtbw2JgJ.kZBiyIcKOQvn2ZTUM- / CDDB 000DAC12"
+      }
+    ]
+  },
+  "outcome": {
+    "status": "success",
+    "failure_hint": null,
+    "auto_unknown_retry": {
+      "fired": false,
+      "reason": null
+    },
+    "ripper_exit_code": 0,
+    "ripper_argv": [
+      "/home/rmccann/.local/bin/cyanrip",
+      "-d",
+      "/dev/sr0",
+      "-s",
+      "667",
+      "-o",
+      "flac",
+      "-T",
+      "unicode",
+      "-r",
+      "5",
+      "-l",
+      "1,2",
+      "-N",
+      "--consumer",
+      "platterpus/0.6.65",
+      "-c",
+      "1/4",
+      "-a",
+      "album=derived wavpack 20261004t160255 platterpus-fork-g174a134:album_artist=Various Artists:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e",
+      "-t",
+      "1=title=Tennessee Mountain Fox Chase:artist=Norman Blake",
+      "-t",
+      "2=title=Banjo Picking Girl:artist=Hazel Dickens & Alice Gerrard",
+      "-t",
+      "3=title=Old Corn Liquor:artist=Joe Thompson",
+      "-t",
+      "4=title=Rain and Snow:artist=Suzanne Thomas & Dry Branch Fire Squad",
+      "-t",
+      "5=title=The Orphan Child:artist=Jody Stecher & Kate Brislin",
+      "-t",
+      "6=title=Working on a Building:artist=The Johnson Mountain Boys",
+      "-t",
+      "7=title=You Better Mind:artist=Bessie Jones:isrc=USRO27501510",
+      "-t",
+      "8=title=Dry Bones:artist=The Persuasions",
+      "-t",
+      "9=title=Did You Hear John Hurt?:artist=Dave Van Ronk",
+      "-t",
+      "10=title=One‐Dime Blues:artist=Etta Baker:isrc=USRO29111201",
+      "-t",
+      "11=title=All the Way From East St. Louis:artist=Mississippi Fred McDowell",
+      "-t",
+      "12=title=Juke Medley:artist=Robert Nighthawk & Carey Bell",
+      "-t",
+      "13=title=Black’s Ball:artist=J.B. Hutto & The New Hawks",
+      "-t",
+      "14=title=Just a Little While to Stay Here:artist=Rebirth Brass Band",
+      "-t",
+      "15=title=Iko, Iko:artist=Bo Dollis and The Wild Magnolias",
+      "-t",
+      "16=title=Mai Kai No Kauai:artist=Tau Moe Family",
+      "-t",
+      "17=title=Texas Cowboy:artist=Glenn Ohrlin",
+      "-t",
+      "18=title=Streets of Laredo:artist=Brownie Ford",
+      "-D",
+      "{album_artist}/{album}",
+      "-F",
+      "{track} - {title}",
+      "-G",
+      "-j",
+      "cyanrip-diagnostics-20261004T232038Z.json"
+    ],
+    "ripper_argv_first_pass": [
+      "/home/rmccann/.local/bin/cyanrip",
+      "-d",
+      "/dev/sr0",
+      "-s",
+      "667",
+      "-o",
+      "flac",
+      "-T",
+      "unicode",
+      "-r",
+      "5",
+      "-l",
+      "1,2",
+      "-N",
+      "--consumer",
+      "platterpus/0.6.65",
+      "-c",
+      "1/4",
+      "-a",
+      "album=derived wavpack 20261004t160255 platterpus-fork-g174a134:album_artist=Various Artists:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e",
+      "-t",
+      "1=title=Tennessee Mountain Fox Chase:artist=Norman Blake",
+      "-t",
+      "2=title=Banjo Picking Girl:artist=Hazel Dickens & Alice Gerrard",
+      "-t",
+      "3=title=Old Corn Liquor:artist=Joe Thompson",
+      "-t",
+      "4=title=Rain and Snow:artist=Suzanne Thomas & Dry Branch Fire Squad",
+      "-t",
+      "5=title=The Orphan Child:artist=Jody Stecher & Kate Brislin",
+      "-t",
+      "6=title=Working on a Building:artist=The Johnson Mountain Boys",
+      "-t",
+      "7=title=You Better Mind:artist=Bessie Jones:isrc=USRO27501510",
+      "-t",
+      "8=title=Dry Bones:artist=The Persuasions",
+      "-t",
+      "9=title=Did You Hear John Hurt?:artist=Dave Van Ronk",
+      "-t",
+      "10=title=One‐Dime Blues:artist=Etta Baker:isrc=USRO29111201",
+      "-t",
+      "11=title=All the Way From East St. Louis:artist=Mississippi Fred McDowell",
+      "-t",
+      "12=title=Juke Medley:artist=Robert Nighthawk & Carey Bell",
+      "-t",
+      "13=title=Black’s Ball:artist=J.B. Hutto & The New Hawks",
+      "-t",
+      "14=title=Just a Little While to Stay Here:artist=Rebirth Brass Band",
+      "-t",
+      "15=title=Iko, Iko:artist=Bo Dollis and The Wild Magnolias",
+      "-t",
+      "16=title=Mai Kai No Kauai:artist=Tau Moe Family",
+      "-t",
+      "17=title=Texas Cowboy:artist=Glenn Ohrlin",
+      "-t",
+      "18=title=Streets of Laredo:artist=Brownie Ford",
+      "-D",
+      "{album_artist}/{album}",
+      "-F",
+      "{track} - {title}",
+      "-G",
+      "-j",
+      "cyanrip-diagnostics-20261004T232038Z.json"
+    ],
+    "ripper_command_display": "/home/rmccann/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2 -N --consumer platterpus/0.6.65 -c 1/4 -a album=derived wavpack 20261004t160255 platterpus-fork-g174a134:album_artist=Various Artists:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e -t 1=title=Tennessee Mountain Fox Chase:artist=Norman Blake -t 2=title=Banjo Picking Girl:artist=Hazel Dickens & Alice Gerrard -t 3=title=Old Corn Liquor:artist=Joe Thompson -t 4=title=Rain and Snow:artist=Suzanne Thomas & Dry Branch Fire Squad -t 5=title=The Orphan Child:artist=Jody Stecher & Kate Brislin -t 6=title=Working on a Building:artist=The Johnson Mountain Boys -t 7=title=You Better Mind:artist=Bessie Jones:isrc=USRO27501510 -t 8=title=Dry Bones:artist=The Persuasions -t 9=title=Did You Hear John Hurt?:artist=Dave Van Ronk -t 10=title=One‐Dime Blues:artist=Etta Baker:isrc=USRO29111201 -t 11=title=All the Way From East St. Louis:artist=Mississippi Fred McDowell -t 12=title=Juke Medley:artist=Robert Nighthawk & Carey Bell -t 13=title=Black’s Ball:artist=J.B. Hutto & The New Hawks -t 14=title=Just a Little While to Stay Here:artist=Rebirth Brass Band -t 15=title=Iko, Iko:artist=Bo Dollis and The Wild Magnolias -t 16=title=Mai Kai No Kauai:artist=Tau Moe Family -t 17=title=Texas Cowboy:artist=Glenn Ohrlin -t 18=title=Streets of Laredo:artist=Brownie Ford -D {album_artist}/{album} -F {track} - {title} -G -j cyanrip-diagnostics-20261004T232038Z.json"
+  },
+  "verdict": {
+    "level": "ok",
+    "message": "✓ Bit-perfect: all 2 tracks verified against AccurateRip (confidence 12+)"
+  },
+  "completeness": {
+    "tracks_expected": 2,
+    "tracks_in_report": 2,
+    "complete": true,
+    "note": "tracks_expected is what the rip was ASKED for — the disc's track count, or fewer when the user ticked a subset in the Rip? column. null means it wasn't known to this writer (an in-progress write, or a log parsed offline); it is NOT a claim that the rip was whole."
+  },
+  "diagnostics": {
+    "error_count": 0,
+    "warning_count": 5,
+    "info_count": 0,
+    "worst_severity": "warning",
+    "codes": [
+      "ripper.secure_rerip_verdict"
+    ],
+    "scope": "process session (not only this rip)",
+    "truncated": false,
+    "dropped_count": 0,
+    "log_grep_hint": "grep 'platterpus-diagnostic' /home/rmccann/.local/share/platterpus/log.txt",
+    "items": [
+      {
+        "severity": "warning",
+        "code": "ripper.secure_rerip_verdict",
+        "subsystem": "ripper",
+        "message": "Done; (repeat limit of 5 reads reached; at most 1 read agreed)",
+        "detail": null,
+        "tool": "cyanrip",
+        "argv": null,
+        "exit_code": null,
+        "at": "2026-10-04T19:14:46+00:00",
+        "where": "workers.rip_worker.RipWorker._run_rip",
+        "track": 12
+      },
+      {
+        "severity": "warning",
+        "code": "ripper.secure_rerip_verdict",
+        "subsystem": "ripper",
+        "message": "Done; (repeat limit of 5 reads reached; at most 1 read agreed)",
+        "detail": null,
+        "tool": "cyanrip",
+        "argv": null,
+        "exit_code": null,
+        "at": "2026-10-04T19:28:09+00:00",
+        "where": "workers.rip_worker.RipWorker._run_rip",
+        "track": 13
+      },
+      {
+        "severity": "warning",
+        "code": "ripper.secure_rerip_verdict",
+        "subsystem": "ripper",
+        "message": "Done; (repeat limit of 5 reads reached; at most 1 read agreed)",
+        "detail": null,
+        "tool": "cyanrip",
+        "argv": null,
+        "exit_code": null,
+        "at": "2026-10-04T19:55:28+00:00",
+        "where": "workers.rip_worker.RipWorker._run_rip",
+        "track": 14
+      },
+      {
+        "severity": "warning",
+        "code": "ripper.secure_rerip_verdict",
+        "subsystem": "ripper",
+        "message": "Done; (repeat limit of 5 reads reached; at most 1 read agreed)",
+        "detail": null,
+        "tool": "cyanrip",
+        "argv": null,
+        "exit_code": null,
+        "at": "2026-10-04T20:13:20+00:00",
+        "where": "workers.rip_worker.RipWorker._run_rip",
+        "track": 15
+      },
+      {
+        "severity": "warning",
+        "code": "ripper.secure_rerip_verdict",
+        "subsystem": "ripper",
+        "message": "Done; (repeat limit of 5 reads reached; at most 1 read agreed)",
+        "detail": null,
+        "tool": "cyanrip",
+        "argv": null,
+        "exit_code": null,
+        "at": "2026-10-04T20:33:49+00:00",
+        "where": "workers.rip_worker.RipWorker._run_rip",
+        "track": 17
+      }
+    ]
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "ripper_handshake_unapproved",
+      "message": "the ripper that produced this rip is unapproved: ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet."
+    }
+  ],
+  "health_status": "No errors occurred",
+  "accuraterip_summary": "2/18 tracks ripped accurately (AccurateRip)",
+  "partially_accurate_summary": null,
+  "partially_accurate_reported": null,
+  "ripper_log_verification": {
+    "verdict": "verified",
+    "detail": "the ripper verified derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.log against its own FUN512 checksum — the log is a faithful, unmodified record of this rip",
+    "log": "/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.log",
+    "exit_code": 0,
+    "argv": [
+      "/home/rmccann/.local/bin/cyanrip",
+      "--verify-log",
+      "/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.log"
+    ],
+    "output": "Log \"/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.log\" checksum valid."
+  },
+  "timing": {
+    "elapsed_seconds": 328,
+    "elapsed_human": "5m 28s",
+    "started_at": "2026-10-04T19:20:38-04:00",
+    "finished_at": "2026-10-04T19:26:06-04:00",
+    "disc_seconds": 3500,
+    "realtime_multiplier": 0.09
+  },
+  "environment": {
+    "python": "3.12.14",
+    "platform": "Linux-7.2.7-ogc1.1.fc44.x86_64-x86_64-with-glibc2.43",
+    "pyside6": "6.11.2",
+    "install_channel": "appimage",
+    "dependencies": {
+      "cyanrip": {
+        "present": true,
+        "version": "0.9.4",
+        "location": "/home/rmccann/.local/bin/cyanrip",
+        "min_version_met": true
+      },
+      "metaflac": {
+        "present": true,
+        "version": "1.5.0",
+        "location": "/home/rmccann/.local/bin/metaflac",
+        "min_version_met": true
+      },
+      "picard": {
+        "present": true,
+        "version": "2.13.3",
+        "location": "flatpak: org.musicbrainz.Picard",
+        "min_version_met": true
+      },
+      "musicbrainzngs": {
+        "present": true,
+        "version": "0.7.1",
+        "location": "python: musicbrainzngs",
+        "min_version_met": true
+      },
+      "flac": {
+        "present": true,
+        "version": "1.5.0",
+        "location": "/home/rmccann/.local/bin/flac",
+        "min_version_met": true
+      },
+      "ffmpeg": {
+        "present": true,
+        "version": "8.1.3",
+        "location": "/usr/bin/ffmpeg",
+        "min_version_met": true
+      },
+      "cdparanoia": {
+        "present": true,
+        "version": "10.2",
+        "location": "/home/rmccann/.local/bin/cd-paranoia",
+        "min_version_met": true
+      }
+    },
+    "dependencies_measured_at": "2026-10-04T16:03:08+00:00"
+  },
+  "settings": {
+    "output_format": "wavpack",
+    "cover_art": "embed",
+    "read_speed_mode": "auto_ladder",
+    "read_speed": 0,
+    "secure_rerip_dynamic": true,
+    "secure_rerip_matches": 2,
+    "max_retries": 5,
+    "ctdb_verify_after_rip": true,
+    "verify_flac_after_rip": true,
+    "recompress_flac_after_rip": false,
+    "rip_goal": "custom",
+    "rip_goal_stored": "fast_verified",
+    "read_offset": {
+      "configured": 667,
+      "applied": true,
+      "effective": 667
+    },
+    "every_setting": {
+      "output_dir": "/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips",
+      "track_template": "%A/%d/%t - %n",
+      "disc_template": "%A/%d/%d",
+      "track_template_unknown": "Unknown Artist/Unknown Album/%t - Track %t",
+      "disc_template_unknown": "Unknown Artist/Unknown Album/Unknown Album",
+      "metaflac_path": "metaflac",
+      "read_offset": 667,
+      "override_read_offset": true,
+      "auto_launch_picard": false,
+      "auto_eject_after_rip": false,
+      "notify_on_completion": true,
+      "library_dir": "",
+      "debug_logging": true,
+      "cover_art": "embed",
+      "save_additional_art": true,
+      "max_retries": 5,
+      "force_overread": false,
+      "secure_rerip_matches": 2,
+      "secure_rerip_dynamic": true,
+      "rerip_offset_variant": true,
+      "read_speed_mode": "auto_ladder",
+      "read_speed": 0,
+      "ctdb_verify_after_rip": true,
+      "verify_flac_after_rip": true,
+      "recompress_flac_after_rip": false,
+      "write_eac_log_after_rip": true,
+      "output_format": "wavpack",
+      "mp3_vbr_quality": 2,
+      "rip_goal": "fast_verified",
+      "update_channel": "stable",
+      "ripper_channel": "beta",
+      "test_script_path": "",
+      "test_script_autorun": false,
+      "test_script_allow_unsafe": false
+    }
+  },
+  "disc": {
+    "unknown": false,
+    "musicbrainz_release_id": "53d0f596-95a3-4e60-b4aa-09f5f7532b1e",
+    "catalog_number": "11661-0501-2",
+    "barcode": "011661050129",
+    "label": "Rounder",
+    "medium_basis": "disc-id",
+    "medium_detail": "Matched by MusicBrainz disc ID: this disc is medium 1 of 4.",
+    "medium_undetermined": false,
+    "tag_control_characters_replaced": [],
+    "eac_log_signature_lines_defused": []
+  },
+  "log_creator": "cyanrip 0.9.4-rc2+platterpus.19",
+  "rip": {
+    "drive": "PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM",
+    "extraction_engine": "cyanrip 0.9.4-rc2+platterpus.19",
+    "read_offset_correction": 667,
+    "defeat_audio_cache": true,
+    "overread_lead_out": false,
+    "gap_detection": "180 frame pregap in track 2, merging into track 1; 190 frame pregap in track 3, merging into track 2; 185 frame pregap in track 4, merging into track 3; 180 frame pregap in track 5, merging into track 4; 90 frame pregap in track 6, merging into track 5; 165 frame pregap in track 8, merging into track 7; 158 frame pregap in track 9, merging into track 8; 145 frame pregap in track 10, merging into track 9; 190 frame pregap in track 11, merging into track 10; 105 frame pregap in track 12, merging into track 11; 143 frame pregap in track 13, merging into track 12; 98 frame pregap in track 15, merging into track 14; 264 frame pregap in track 16, merging into track 15; 140 frame pregap in track 17, merging into track 16",
+    "cd_r_detected": null,
+    "speed_changeable": false,
+    "c2_pointers": false,
+    "paranoia_level": "max",
+    "overread_mode": "fill with silence in lead-in/lead-out",
+    "ripper_build": "platterpus-fork-g174a134",
+    "rip_completed": true,
+    "interrupted_at": null,
+    "rip_completed_tracks": 2,
+    "rip_completed_total": 18,
+    "rip_completed_reason": null,
+    "invoked_as": "/usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2 -N --consumer platterpus/0.6.65 -c 1/4 -a \"album=derived wavpack 20261004t160255 platterpus-fork-g174a134:album_artist=Various Artists:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e\" -t \"1=title=Tennessee Mountain Fox Chase:artist=Norman Blake\" -t \"2=title=Banjo Picking Girl:artist=Hazel Dickens & Alice Gerrard\" -t \"3=title=Old Corn Liquor:artist=Joe Thompson\" -t \"4=title=Rain and Snow:artist=Suzanne Thomas & Dry Branch Fire Squad\" -t \"5=title=The Orphan Child:artist=Jody Stecher & Kate Brislin\" -t \"6=title=Working on a Building:artist=The Johnson Mountain Boys\" -t \"7=title=You Better Mind:artist=Bessie Jones:isrc=USRO27501510\" -t \"8=title=Dry Bones:artist=The Persuasions\" -t \"9=title=Did You Hear John Hurt?:artist=Dave Van Ronk\" -t \"10=title=One‐Dime Blues:artist=Etta Baker:isrc=USRO29111201\" -t \"11=title=All the Way From East St. Louis:artist=Mississippi Fred McDowell\" -t \"12=title=Juke Medley:artist=Robert Nighthawk & Carey Bell\" -t \"13=title=Black’s Ball:artist=J.B. Hutto & The New Hawks\" -t \"14=title=Just a Little While to Stay Here:artist=Rebirth Brass Band\" -t \"15=title=Iko, Iko:artist=Bo Dollis and The Wild Magnolias\" -t \"16=title=Mai Kai No Kauai:artist=Tau Moe Family\" -t \"17=title=Texas Cowboy:artist=Glenn Ohrlin\" -t \"18=title=Streets of Laredo:artist=Brownie Ford\" -D {album_artist}/{album} -F \"{track} - {title}\" -G -j cyanrip-diagnostics-20261004T232038Z.json",
+    "read_stalls": "none (no read exceeded 10s)",
+    "read_stalls_count": 0,
+    "ripper_handshake_note": "round 29 lap 3 closed, verdict GO -- released build (declared at build time, not verified by cyanrip)",
+    "ripper_consumer": "platterpus/0.6.65 (reported by the caller, not verified by cyanrip)",
+    "ripper_is_platterpus_fork": true,
+    "ripper_identity": "fork",
+    "ripper_identity_detail": "Ripped by the Platterpus fork of cyanrip (build tag 'platterpus-fork-g174a134'). The fork reports per-track pre-gap length and provenance, sample peak, extraction speed and elapsed time, which stock cyanrip does not.",
+    "ripper_handshake_approval": "unapproved",
+    "ripper_handshake_approval_detail": "ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet.",
+    "ripper_handshake_approved_build": "cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-g51cc789)",
+    "ripper_handshake_approved_for_platterpus": "0.6.63",
+    "ripper_handshake_approved_by_round": 29,
+    "creation_date": "2026-10-04T19:26:05-04:00",
+    "musicbrainz_disc_id": "zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-",
+    "cddb_id": "000DAC12",
+    "ripper_release_id": "53d0f596-95a3-4e60-b4aa-09f5f7532b1e"
+  },
+  "disc_duration": "58:20.25",
+  "paranoia_counts": {
+    "READ": 2211,
+    "VERIFY": 145,
+    "OVERLAP": 36
+  },
+  "read_speed": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "speed": 0,
+        "speed_label": "max speed",
+        "secure_rerip_matches": 0,
+        "clean": true
+      }
+    ],
+    "final_speed": 0,
+    "final_speed_label": "max speed",
+    "final_secure_rerip_matches": 0,
+    "escalated": false,
+    "unresolved": false,
+    "unstable_tracks": [],
+    "retried_tracks": [],
+    "secure_rerip": {
+      "mode": "dynamic",
+      "engaged": false,
+      "disc_in_accuraterip": true,
+      "skipped_reason": null,
+      "interrupted": false
+    }
+  },
+  "album_loudness": {
+    "integrated_lufs": "-14.0",
+    "lra_lu": "6.3",
+    "sample_peak_dbfs": "-0.2",
+    "true_peak_dbfs": "0.2"
+  },
+  "album_loudness_covers": {
+    "state": "part_of_disc",
+    "tracks_finished": 2,
+    "disc_tracks": 18,
+    "interrupted_at": null
+  },
+  "sha256_hash": null,
+  "log_checksum": "bvjhoBc8pRRvnO_.PdzebGqNScwXNDP2_RJXK9TIW9AbGpTxf_JE9d0Ilm6CHCks2vrD8b1I51kAM6DpcQX1Bg",
+  "log_parse": {
+    "ok": true,
+    "note": null
+  },
+  "tracks": [
+    {
+      "number": 1,
+      "filename": "Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac",
+      "test_crc": null,
+      "copy_crc": "A0E382F5",
+      "status": "ripped successfully",
+      "rip_count": null,
+      "secure_rerip_converged": null,
+      "extraction_speed": 1.1,
+      "extraction_quality": null,
+      "pre_emphasis": false,
+      "peak_level": 0.977,
+      "extraction_elapsed_seconds": 153.22,
+      "appended_silence_frames": null,
+      "start_sector": 0,
+      "end_sector": 13034,
+      "pregap_sectors": 150,
+      "pregap_start_lsn": 0,
+      "pregap_state": "known",
+      "pregap_unknown_reason": null,
+      "pregap_length_frames": 150,
+      "pregap_source": "lead-in",
+      "replaygain": {
+        "REPLAYGAIN_TRACK_GAIN": "-2.34 dB",
+        "R128_TRACK_GAIN": "681",
+        "REPLAYGAIN_TRACK_RANGE": "4.04 dB",
+        "REPLAYGAIN_TRACK_PEAK": "1.022951",
+        "REPLAYGAIN_REFERENCE_LOUDNESS": "-18.00 LUFS"
+      },
+      "accuraterip_verified": true,
+      "accuraterip_lookup": "disc found in database (max confidence: 29)",
+      "paranoia_counts": {
+        "READ": 1058,
+        "VERIFY": 71,
+        "OVERLAP": 13
+      },
+      "accuraterip": {
+        "v1": {
+          "result": "accurately ripped, confidence 12",
+          "confidence": 12,
+          "local_crc": "5ED2CE6E",
+          "remote_crc": null
+        },
+        "v2": {
+          "result": "accurately ripped, confidence 29",
+          "confidence": 29,
+          "local_crc": "0E80A467",
+          "remote_crc": null
+        },
+        "offset_450": null
+      }
+    },
+    {
+      "number": 2,
+      "filename": "Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.flac",
+      "test_crc": null,
+      "copy_crc": "ABC106DC",
+      "status": "ripped successfully",
+      "rip_count": null,
+      "secure_rerip_converged": null,
+      "extraction_speed": 1.1,
+      "extraction_quality": null,
+      "pre_emphasis": false,
+      "peak_level": 0.95,
+      "extraction_elapsed_seconds": 163.03,
+      "appended_silence_frames": null,
+      "start_sector": 13035,
+      "end_sector": 27021,
+      "pregap_sectors": 180,
+      "pregap_start_lsn": 12855,
+      "pregap_state": "known",
+      "pregap_unknown_reason": null,
+      "pregap_length_frames": 180,
+      "pregap_source": "sub-channel (not signalled by TOC)",
+      "replaygain": {
+        "REPLAYGAIN_TRACK_GAIN": "-5.19 dB",
+        "R128_TRACK_GAIN": "-48",
+        "REPLAYGAIN_TRACK_RANGE": "3.99 dB",
+        "REPLAYGAIN_TRACK_PEAK": "0.950732",
+        "REPLAYGAIN_REFERENCE_LOUDNESS": "-18.00 LUFS"
+      },
+      "accuraterip_verified": true,
+      "accuraterip_lookup": "disc found in database (max confidence: 29)",
+      "paranoia_counts": {
+        "READ": 1153,
+        "VERIFY": 74,
+        "OVERLAP": 23
+      },
+      "accuraterip": {
+        "v1": {
+          "result": "accurately ripped, confidence 12",
+          "confidence": 12,
+          "local_crc": "45CB37DF",
+          "remote_crc": null
+        },
+        "v2": {
+          "result": "accurately ripped, confidence 29",
+          "confidence": 29,
+          "local_crc": "F383C874",
+          "remote_crc": null
+        },
+        "offset_450": null
+      }
+    }
+  ],
+  "ctdb": {
+    "verdict": "not_whole_disc",
+    "confidence": 0,
+    "trustworthy": null,
+    "crc_validated": true,
+    "our_crc": null,
+    "matched_crc": null,
+    "entry_count": 0,
+    "db_crcs": [],
+    "message": "not run — CTDB verifies whole discs, and this rip has 2 of the disc's 18 tracks"
+  },
+  "verification": {
+    "gates": {
+      "ctdb": "not run — CTDB verifies whole discs, and this rip is not the whole disc",
+      "flac_integrity": "ran",
+      "recompress": "disabled",
+      "derived": "ran"
+    },
+    "flac_integrity": {
+      "ran": true,
+      "ok": true,
+      "checked": 2,
+      "failures": [],
+      "failure_details": null,
+      "error": null
+    },
+    "transcode": {
+      "ran": true,
+      "ok": true,
+      "transcoded": 2,
+      "failures": [],
+      "failure_details": null,
+      "error": null
+    },
+    "derived": {
+      "format": "wavpack",
+      "lossless": true,
+      "proof": "bit-identical PCM vs FLAC master",
+      "ran": true,
+      "ok": true,
+      "complete": true,
+      "checked": 2,
+      "expected": 2,
+      "failures": [],
+      "mismatches": [],
+      "error": null
+    },
+    "recompress": null
+  },
+  "cover_art": {
+    "mode": "embed",
+    "found": true,
+    "reason": "ok",
+    "embedded_count": 2,
+    "saved_as": "cover.png",
+    "release_id": "53d0f596-95a3-4e60-b4aa-09f5f7532b1e",
+    "bytes": 4826942,
+    "format": "png",
+    "error": null,
+    "additional_saved": [
+      "booklet-01.png",
+      "booklet-02.png",
+      "booklet-03.png",
+      "booklet-04.png",
+      "booklet-05.png",
+      "booklet-06.png",
+      "booklet-07.png",
+      "booklet-08.png",
+      "booklet-09.png",
+      "booklet-10.png",
+      "booklet-11.png",
+      "booklet-12.png",
+      "booklet-13.png",
+      "booklet-14.png",
+      "booklet-15.png",
+      "booklet-16.png",
+      "booklet-17.png",
+      "booklet-18.png",
+      "booklet-19.png",
+      "booklet-20.png",
+      "booklet-21.png",
+      "booklet-22.png",
+      "booklet-23.png",
+      "booklet-24.png",
+      "booklet-25.png"
+    ]
+  },
+  "checksums": {
+    "01 - Tennessee Mountain Fox Chase.flac": "e978d4d1db685c134c39d4329d52acd6f9c3d9ffb09db2b12b5ee6133ee6494d",
+    "01 - Tennessee Mountain Fox Chase.wv": "481b4d610421ee662f0bf954ffd7be851ddb0c27f6692f97ae1231186380472b",
+    "02 - Banjo Picking Girl.flac": "9c98caada1530fa87239c09c9a9db83d150401c868ea9c6ddec13c6cf9e77188",
+    "02 - Banjo Picking Girl.wv": "8a327120d8d394876dd90815ecf36329c374e32156dadaeb2342620917f828e9"
+  },
+  "audio_md5": {
+    "01 - Tennessee Mountain Fox Chase.flac": "3ae3b83c65250fd99e08f45bc121fec5",
+    "02 - Banjo Picking Girl.flac": "050e91b3c14f55a071588ee1c13bdc16"
+  },
+  "eta_trace": {
+    "note": "Per-sample ETA record for analysis, not display. 'our_eta_seconds' is Platterpus's smoothed album estimate; 'actual_remaining_seconds' is what really remained (finish − 'at') so estimate-vs-actual is directly visible; 'cyanrip_eta' is cyanrip's own per-op estimate (untrusted); 'read_speed' is the -S value in effect (0 = drive max); 'track'/'activity' are the event context for a jump; 'at' is the PC wall-clock time. 'state' names the branch that produced the sample — computed (a fresh rate measurement), held_no_rate / held_over_ceiling (the previous estimate re-shown), rereading (a secure re-read has the album bar pinned) or stalled (neither liveness signal moved) — so a held value is never mistaken for a measurement; 'reread_pass' counts restarts of the current track's read (0 = first read). Compare against 'timing'.",
+    "samples": [
+      {
+        "at": "2026-10-04T19:20:51-04:00",
+        "elapsed_seconds": 13,
+        "overall_percent": 5.0,
+        "read_speed": 0,
+        "our_eta_seconds": 240,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "15h 51m",
+        "track": 1,
+        "activity": null,
+        "actual_remaining_seconds": 315
+      },
+      {
+        "at": "2026-10-04T19:21:01-04:00",
+        "elapsed_seconds": 23,
+        "overall_percent": 5.34,
+        "read_speed": 0,
+        "our_eta_seconds": 2760,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "5m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 8% · about 46m 0s left",
+        "actual_remaining_seconds": 305
+      },
+      {
+        "at": "2026-10-04T19:21:11-04:00",
+        "elapsed_seconds": 33,
+        "overall_percent": 5.61,
+        "read_speed": 0,
+        "our_eta_seconds": 3060,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "5m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 14% · about 51m 0s left",
+        "actual_remaining_seconds": 295
+      },
+      {
+        "at": "2026-10-04T19:21:21-04:00",
+        "elapsed_seconds": 43,
+        "overall_percent": 5.88,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "5m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 20% · about 53m 0s left",
+        "actual_remaining_seconds": 285
+      },
+      {
+        "at": "2026-10-04T19:21:31-04:00",
+        "elapsed_seconds": 53,
+        "overall_percent": 6.2,
+        "read_speed": 0,
+        "our_eta_seconds": 3060,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "4m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 27% · about 51m 0s left",
+        "actual_remaining_seconds": 275
+      },
+      {
+        "at": "2026-10-04T19:21:41-04:00",
+        "elapsed_seconds": 63,
+        "overall_percent": 6.51,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "4m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 34% · about 52m 0s left",
+        "actual_remaining_seconds": 265
+      },
+      {
+        "at": "2026-10-04T19:21:51-04:00",
+        "elapsed_seconds": 73,
+        "overall_percent": 6.78,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "4m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 40% · about 53m 0s left",
+        "actual_remaining_seconds": 255
+      },
+      {
+        "at": "2026-10-04T19:22:01-04:00",
+        "elapsed_seconds": 83,
+        "overall_percent": 7.05,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "4m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 46% · about 53m 0s left",
+        "actual_remaining_seconds": 245
+      },
+      {
+        "at": "2026-10-04T19:22:11-04:00",
+        "elapsed_seconds": 93,
+        "overall_percent": 7.39,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 54% · about 52m 0s left",
+        "actual_remaining_seconds": 235
+      },
+      {
+        "at": "2026-10-04T19:22:21-04:00",
+        "elapsed_seconds": 103,
+        "overall_percent": 7.67,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 60% · about 52m 0s left",
+        "actual_remaining_seconds": 225
+      },
+      {
+        "at": "2026-10-04T19:22:31-04:00",
+        "elapsed_seconds": 113,
+        "overall_percent": 7.94,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 66% · about 53m 0s left",
+        "actual_remaining_seconds": 215
+      },
+      {
+        "at": "2026-10-04T19:22:41-04:00",
+        "elapsed_seconds": 124,
+        "overall_percent": 8.25,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 73% · about 52m 0s left",
+        "actual_remaining_seconds": 205
+      },
+      {
+        "at": "2026-10-04T19:22:51-04:00",
+        "elapsed_seconds": 134,
+        "overall_percent": 8.56,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 80% · about 52m 0s left",
+        "actual_remaining_seconds": 195
+      },
+      {
+        "at": "2026-10-04T19:23:01-04:00",
+        "elapsed_seconds": 144,
+        "overall_percent": 8.84,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 86% · about 52m 0s left",
+        "actual_remaining_seconds": 185
+      },
+      {
+        "at": "2026-10-04T19:23:11-04:00",
+        "elapsed_seconds": 154,
+        "overall_percent": 9.11,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 92% · about 53m 0s left",
+        "actual_remaining_seconds": 175
+      },
+      {
+        "at": "2026-10-04T19:23:21-04:00",
+        "elapsed_seconds": 164,
+        "overall_percent": 9.45,
+        "read_speed": 0,
+        "our_eta_seconds": 3060,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 1,
+        "activity": "Ripping track 1 of 18… 100% · about 51m 0s left",
+        "actual_remaining_seconds": 165
+      },
+      {
+        "at": "2026-10-04T19:23:31-04:00",
+        "elapsed_seconds": 174,
+        "overall_percent": 9.73,
+        "read_speed": 0,
+        "our_eta_seconds": 3060,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 5% · about 51m 0s left",
+        "actual_remaining_seconds": 155
+      },
+      {
+        "at": "2026-10-04T19:23:41-04:00",
+        "elapsed_seconds": 184,
+        "overall_percent": 10.0,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 11% · about 52m 0s left",
+        "actual_remaining_seconds": 145
+      },
+      {
+        "at": "2026-10-04T19:23:51-04:00",
+        "elapsed_seconds": 194,
+        "overall_percent": 10.31,
+        "read_speed": 0,
+        "our_eta_seconds": 3060,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 18% · about 51m 0s left",
+        "actual_remaining_seconds": 135
+      },
+      {
+        "at": "2026-10-04T19:24:01-04:00",
+        "elapsed_seconds": 204,
+        "overall_percent": 10.62,
+        "read_speed": 0,
+        "our_eta_seconds": 3000,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 24% · about 50m 0s left",
+        "actual_remaining_seconds": 125
+      },
+      {
+        "at": "2026-10-04T19:24:11-04:00",
+        "elapsed_seconds": 214,
+        "overall_percent": 10.9,
+        "read_speed": 0,
+        "our_eta_seconds": 3060,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 30% · about 51m 0s left",
+        "actual_remaining_seconds": 115
+      },
+      {
+        "at": "2026-10-04T19:24:21-04:00",
+        "elapsed_seconds": 224,
+        "overall_percent": 11.18,
+        "read_speed": 0,
+        "our_eta_seconds": 3060,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 36% · about 51m 0s left",
+        "actual_remaining_seconds": 105
+      },
+      {
+        "at": "2026-10-04T19:24:32-04:00",
+        "elapsed_seconds": 234,
+        "overall_percent": 11.52,
+        "read_speed": 0,
+        "our_eta_seconds": 3000,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 43% · about 50m 0s left",
+        "actual_remaining_seconds": 94
+      },
+      {
+        "at": "2026-10-04T19:24:42-04:00",
+        "elapsed_seconds": 244,
+        "overall_percent": 11.83,
+        "read_speed": 0,
+        "our_eta_seconds": 2940,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 49% · about 49m 0s left",
+        "actual_remaining_seconds": 84
+      },
+      {
+        "at": "2026-10-04T19:24:52-04:00",
+        "elapsed_seconds": 254,
+        "overall_percent": 12.1,
+        "read_speed": 0,
+        "our_eta_seconds": 3000,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 55% · about 50m 0s left",
+        "actual_remaining_seconds": 74
+      },
+      {
+        "at": "2026-10-04T19:25:02-04:00",
+        "elapsed_seconds": 264,
+        "overall_percent": 12.38,
+        "read_speed": 0,
+        "our_eta_seconds": 3000,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 61% · about 50m 0s left",
+        "actual_remaining_seconds": 64
+      },
+      {
+        "at": "2026-10-04T19:25:12-04:00",
+        "elapsed_seconds": 274,
+        "overall_percent": 12.72,
+        "read_speed": 0,
+        "our_eta_seconds": 2940,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "52s",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 68% · about 49m 0s left",
+        "actual_remaining_seconds": 54
+      },
+      {
+        "at": "2026-10-04T19:25:22-04:00",
+        "elapsed_seconds": 284,
+        "overall_percent": 13.0,
+        "read_speed": 0,
+        "our_eta_seconds": 2940,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "43s",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 74% · about 49m 0s left",
+        "actual_remaining_seconds": 44
+      },
+      {
+        "at": "2026-10-04T19:25:32-04:00",
+        "elapsed_seconds": 294,
+        "overall_percent": 13.28,
+        "read_speed": 0,
+        "our_eta_seconds": 3000,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "34s",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 79% · about 50m 0s left",
+        "actual_remaining_seconds": 34
+      },
+      {
+        "at": "2026-10-04T19:25:42-04:00",
+        "elapsed_seconds": 304,
+        "overall_percent": 13.59,
+        "read_speed": 0,
+        "our_eta_seconds": 2940,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "23s",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 86% · about 49m 0s left",
+        "actual_remaining_seconds": 24
+      },
+      {
+        "at": "2026-10-04T19:25:52-04:00",
+        "elapsed_seconds": 314,
+        "overall_percent": 13.9,
+        "read_speed": 0,
+        "our_eta_seconds": 2880,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "12s",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 92% · about 48m 0s left",
+        "actual_remaining_seconds": 14
+      },
+      {
+        "at": "2026-10-04T19:26:02-04:00",
+        "elapsed_seconds": 324,
+        "overall_percent": 14.18,
+        "read_speed": 0,
+        "our_eta_seconds": 2880,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3s",
+        "track": 2,
+        "activity": "Ripping track 2 of 18… 98% · about 48m 0s left",
+        "actual_remaining_seconds": 4
+      }
+    ]
+  },
+  "artifacts": {
+    "note": "Verbatim text of the files written beside this report, so this one file is enough to diagnose a rip without asking for the others. Text only — never audio (see CLAUDE.md critical rule #8).",
+    "rip_log": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.log",
+      "exists": true,
+      "bytes": 9916,
+      "sha256": "e558d7634a56b42b0a3b51fef64ddd4cd30d25074a8b334d2a8199ba5b60339f",
+      "truncated": false,
+      "text": "cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)\nInvoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2 -N --consumer platterpus/0.6.65 -c 1/4 -a \"album=derived wavpack 20261004t160255 platterpus-fork-g174a134:album_artist=Various Artists:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e\" -t \"1=title=Tennessee Mountain Fox Chase:artist=Norman Blake\" -t \"2=title=Banjo Picking Girl:artist=Hazel Dickens & Alice Gerrard\" -t \"3=title=Old Corn Liquor:artist=Joe Thompson\" -t \"4=title=Rain and Snow:artist=Suzanne Thomas & Dry Branch Fire Squad\" -t \"5=title=The Orphan Child:artist=Jody Stecher & Kate Brislin\" -t \"6=title=Working on a Building:artist=The Johnson Mountain Boys\" -t \"7=title=You Better Mind:artist=Bessie Jones:isrc=USRO27501510\" -t \"8=title=Dry Bones:artist=The Persuasions\" -t \"9=title=Did You Hear John Hurt?:artist=Dave Van Ronk\" -t \"10=title=One‐Dime Blues:artist=Etta Baker:isrc=USRO29111201\" -t \"11=title=All the Way From East St. Louis:artist=Mississippi Fred McDowell\" -t \"12=title=Juke Medley:artist=Robert Nighthawk & Carey Bell\" -t \"13=title=Black’s Ball:artist=J.B. Hutto & The New Hawks\" -t \"14=title=Just a Little While to Stay Here:artist=Rebirth Brass Band\" -t \"15=title=Iko, Iko:artist=Bo Dollis and The Wild Magnolias\" -t \"16=title=Mai Kai No Kauai:artist=Tau Moe Family\" -t \"17=title=Texas Cowboy:artist=Glenn Ohrlin\" -t \"18=title=Streets of Laredo:artist=Brownie Ford\" -D {album_artist}/{album} -F \"{track} - {title}\" -G -j cyanrip-diagnostics-20261004T232038Z.json\nHandshake:      round 29 lap 3 closed, verdict GO -- released build\n                (declared at build time, not verified by cyanrip)\nConsumer:       platterpus/0.6.65\n                (reported by the caller, not verified by cyanrip)\nDrive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)\nSystem device:  /dev/sr0\nDevice model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\nOffset:         +667 samples\nOverread:       +2 frames\nOverread mode:  fill with silence in lead-in/lead-out\nSpeed:          default (unchangeable)\nC2 errors:      unsupported by drive\nCD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)\nEncoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)\nParanoia level: max\nRetry limit:    5 (per frame, and per whole-track re-read)\nCache model:    1200 sectors (drive cache size not probed)\nHDCD decoding:  disabled\nAlbum Art:      none\nOutputs:        flac\nDisc number:    1\nTotal discs:    4\nDisc tracks:    18\nTracks to rip:  1, 2\nDiscID:         zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-\nRelease ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e\nCDDB ID:        000DAC12\nAlbum:          derived wavpack 20261004t160255 platterpus-fork-g174a134\nAlbum artist:   Various Artists\nAccurateRip:    found\nTotal time:     58:20.25\n\n--- output before this log was opened ---\nChecking /dev/sr0 for cdrom...\n\t\tCDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\n\nOpening drive...\nNo MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!\n--- end of pre-log output ---\nGaps:\n    180 frame pregap in track 2, merging into track 1\n    190 frame pregap in track 3, merging into track 2\n    185 frame pregap in track 4, merging into track 3\n    180 frame pregap in track 5, merging into track 4\n    90 frame pregap in track 6, merging into track 5\n    165 frame pregap in track 8, merging into track 7\n    158 frame pregap in track 9, merging into track 8\n    145 frame pregap in track 10, merging into track 9\n    190 frame pregap in track 11, merging into track 10\n    105 frame pregap in track 12, merging into track 11\n    143 frame pregap in track 13, merging into track 12\n    98 frame pregap in track 15, merging into track 14\n    264 frame pregap in track 16, merging into track 15\n    140 frame pregap in track 17, merging into track 16\n\nTracks:\nTrack 1 read successfully!\nSummary:\n\n  Integrated loudness:\n    I:         -15.7 LUFS\n    Threshold: -25.7 LUFS\n\n  Loudness range:\n    LRA:         4.0 LU\n    Threshold: -35.7 LUFS\n    LRA low:   -17.9 LUFS\n    LRA high:  -13.9 LUFS\n\n  Sample peak:\n    Peak:       -0.2 dBFS\n\n  True peak:\n    Peak:        0.2 dBFS\n\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    02:53.60\n    Samples:     7664580\n    Frames:      13035\n    Sample peak level: 97.7% (-0.2 dBFS)\n    True peak level:   0.2 dBFS\n    Integrated loudness (R128): -15.7 LUFS\n    Loudness range (R128):      4.0 LU (-17.9 to -13.9 LUFS)\n    Extraction speed:  1.1x\n    Elapsed:            153.22 s\n    Pregap LSN:  0 (duration: 00:02.00)\n    Pregap length: 150 frames\n    Pregap source: lead-in\n    Start LSN:   0 (with offset: 1)\n    End LSN:     13034 (with offset: 13036)\n\n  EAC CRC32:     A0E382F5\n  Secure re-read:  not attempted\n  Accurip:       disc found in database (max confidence: 29)\n    Accurip v1:  5ED2CE6E (accurately ripped, confidence 12)\n    Accurip v2:  0E80A467 (accurately ripped, confidence 29)\n\n  Metadata:\n    TRACK:                         1\n    TRACKTOTAL:                    18\n    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-\n    CDDB:                          000DAC12\n    MEDIA:                         CD\n    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19\n    TOTALDISCS:                    4\n    TITLE:                         Tennessee Mountain Fox Chase\n    DISC:                          1\n    ALBUM:                         derived wavpack 20261004t160255 platterpus-fork-g174a134\n    ALBUM_ARTIST:                  Various Artists\n    DATE:                          2001-10-09\n    CATALOGNUMBER:                 11661-0501-2\n    BARCODE:                       011661050129\n    LABEL:                         Rounder\n    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e\n    ARTIST:                        Norman Blake\n    CREATION_TIME:                 2026-10-04T19:20:49-04:00\n    REPLAYGAIN_TRACK_GAIN:         -2.34 dB\n    R128_TRACK_GAIN:               681\n    REPLAYGAIN_TRACK_RANGE:        4.04 dB\n    REPLAYGAIN_TRACK_PEAK:         1.022951\n    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS\n    DISCTOTAL:                     4\n\n  Paranoia status counts:\n    READ:          1058\n    VERIFY:        71\n    OVERLAP:       13\n\n  File(s):\n    Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac\n\nTrack 2 read successfully!\nSummary:\n\n  Integrated loudness:\n    I:         -12.8 LUFS\n    Threshold: -22.9 LUFS\n\n  Loudness range:\n    LRA:         4.0 LU\n    Threshold: -32.9 LUFS\n    LRA low:   -14.7 LUFS\n    LRA high:  -10.7 LUFS\n\n  Sample peak:\n    Peak:       -0.4 dBFS\n\n  True peak:\n    Peak:       -0.4 dBFS\n\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    03:06.37\n    Samples:     8224356\n    Frames:      13987\n    Sample peak level: 95.0% (-0.4 dBFS)\n    True peak level:   -0.4 dBFS\n    Integrated loudness (R128): -12.8 LUFS\n    Loudness range (R128):      4.0 LU (-14.7 to -10.7 LUFS)\n    Extraction speed:  1.1x\n    Elapsed:            163.03 s\n    Pregap LSN:  12855 (duration: 00:02.30)\n    Pregap length: 180 frames\n    Pregap source: sub-channel (not signalled by TOC)\n    Start LSN:   13035 (with offset: 13036)\n    End LSN:     27021 (with offset: 27023)\n\n  EAC CRC32:     ABC106DC\n  Secure re-read:  not attempted\n  Accurip:       disc found in database (max confidence: 29)\n    Accurip v1:  45CB37DF (accurately ripped, confidence 12)\n    Accurip v2:  F383C874 (accurately ripped, confidence 29)\n\n  Metadata:\n    TRACK:                         2\n    TRACKTOTAL:                    18\n    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-\n    CDDB:                          000DAC12\n    MEDIA:                         CD\n    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19\n    TOTALDISCS:                    4\n    TITLE:                         Banjo Picking Girl\n    DISC:                          1\n    ALBUM:                         derived wavpack 20261004t160255 platterpus-fork-g174a134\n    ALBUM_ARTIST:                  Various Artists\n    DATE:                          2001-10-09\n    CATALOGNUMBER:                 11661-0501-2\n    BARCODE:                       011661050129\n    LABEL:                         Rounder\n    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e\n    ARTIST:                        Hazel Dickens & Alice Gerrard\n    CREATION_TIME:                 2026-10-04T19:23:22-04:00\n    REPLAYGAIN_TRACK_GAIN:         -5.19 dB\n    R128_TRACK_GAIN:               -48\n    REPLAYGAIN_TRACK_RANGE:        3.99 dB\n    REPLAYGAIN_TRACK_PEAK:         0.950732\n    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS\n    DISCTOTAL:                     4\n\n  Paranoia status counts:\n    READ:          1153\n    VERIFY:        74\n    OVERLAP:       23\n\n  File(s):\n    Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.flac\n\nAlbum Loudness Summary:\n\n  Integrated loudness:\n    I:         -14.0 LUFS\n    Threshold: -24.0 LUFS\n\n  Loudness range:\n    LRA:         6.3 LU\n    Threshold: -34.1 LUFS\n    LRA low:   -17.4 LUFS\n    LRA high:  -11.1 LUFS\n\n  Sample peak:\n    Peak:       -0.2 dBFS\n\n  True peak:\n    Peak:        0.2 dBFS\n\nAlbum integrated loudness (R128): -14.0 LUFS\nAlbum loudness range (R128):      6.3 LU (-17.4 to -11.1 LUFS)\nAlbum sample peak level:          -0.2 dBFS\nAlbum true peak level:            0.2 dBFS\nTracks ripped accurately: 2/18\n\nParanoia status counts:\n  READ:          2211\n  VERIFY:        145\n  OVERLAP:       36\n\nRipping errors: 0\nEncoder errors: none; 2 tracks encoded\nRead stalls:    none (no read exceeded 10s)\nRip completed:  yes (2 of 18 tracks)\nRipping finished at 2026-10-04T19:26:05-04:00\nLog FUN512: bvjhoBc8pRRvnO_.PdzebGqNScwXNDP2_RJXK9TIW9AbGpTxf_JE9d0Ilm6CHCks2vrD8b1I51kAM6DpcQX1Bg\n"
+    },
+    "ripper_stdout": {
+      "path": null,
+      "exists": true,
+      "source": "captured from the ripper's stdout (progress redraws excluded); complete even when the ripper was killed",
+      "bytes": 9732,
+      "sha256": "367e333f0db8eb0eb26b1e4fba7a73c91744acb31d8702ee1f556304a17408ec",
+      "truncated": false,
+      "text": "Checking /dev/sr0 for cdrom...\n\t\tCDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\n\nOpening drive...\nNo MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!\ncyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)\nInvoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2 -N --consumer platterpus/0.6.65 -c 1/4 -a \"album=derived wavpack 20261004t160255 platterpus-fork-g174a134:album_artist=Various Artists:date=2001-10-09:catalognumber=11661-0501-2:barcode=011661050129:label=Rounder:musicbrainz_albumid=53d0f596-95a3-4e60-b4aa-09f5f7532b1e\" -t \"1=title=Tennessee Mountain Fox Chase:artist=Norman Blake\" -t \"2=title=Banjo Picking Girl:artist=Hazel Dickens & Alice Gerrard\" -t \"3=title=Old Corn Liquor:artist=Joe Thompson\" -t \"4=title=Rain and Snow:artist=Suzanne Thomas & Dry Branch Fire Squad\" -t \"5=title=The Orphan Child:artist=Jody Stecher & Kate Brislin\" -t \"6=title=Working on a Building:artist=The Johnson Mountain Boys\" -t \"7=title=You Better Mind:artist=Bessie Jones:isrc=USRO27501510\" -t \"8=title=Dry Bones:artist=The Persuasions\" -t \"9=title=Did You Hear John Hurt?:artist=Dave Van Ronk\" -t \"10=title=One‐Dime Blues:artist=Etta Baker:isrc=USRO29111201\" -t \"11=title=All the Way From East St. Louis:artist=Mississippi Fred McDowell\" -t \"12=title=Juke Medley:artist=Robert Nighthawk & Carey Bell\" -t \"13=title=Black’s Ball:artist=J.B. Hutto & The New Hawks\" -t \"14=title=Just a Little While to Stay Here:artist=Rebirth Brass Band\" -t \"15=title=Iko, Iko:artist=Bo Dollis and The Wild Magnolias\" -t \"16=title=Mai Kai No Kauai:artist=Tau Moe Family\" -t \"17=title=Texas Cowboy:artist=Glenn Ohrlin\" -t \"18=title=Streets of Laredo:artist=Brownie Ford\" -D {album_artist}/{album} -F \"{track} - {title}\" -G -j cyanrip-diagnostics-20261004T232038Z.json\nHandshake:      round 29 lap 3 closed, verdict GO -- released build\n                (declared at build time, not verified by cyanrip)\nConsumer:       platterpus/0.6.65\n                (reported by the caller, not verified by cyanrip)\nDrive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)\nSystem device:  /dev/sr0\nDevice model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\nOffset:         +667 samples\nOverread:       +2 frames\nOverread mode:  fill with silence in lead-in/lead-out\nSpeed:          default (unchangeable)\nC2 errors:      unsupported by drive\nCD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)\nEncoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)\nParanoia level: max\nRetry limit:    5 (per frame, and per whole-track re-read)\nCache model:    1200 sectors (drive cache size not probed)\nHDCD decoding:  disabled\nAlbum Art:      none\nOutputs:        flac\nDisc number:    1\nTotal discs:    4\nDisc tracks:    18\nTracks to rip:  1, 2\nDiscID:         zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-\nRelease ID:     53d0f596-95a3-4e60-b4aa-09f5f7532b1e\nCDDB ID:        000DAC12\nAlbum:          derived wavpack 20261004t160255 platterpus-fork-g174a134\nAlbum artist:   Various Artists\nAccurateRip:    found\nTotal time:     58:20.25\n\nGaps:\n    180 frame pregap in track 2, merging into track 1\n    190 frame pregap in track 3, merging into track 2\n    185 frame pregap in track 4, merging into track 3\n    180 frame pregap in track 5, merging into track 4\n    90 frame pregap in track 6, merging into track 5\n    165 frame pregap in track 8, merging into track 7\n    158 frame pregap in track 9, merging into track 8\n    145 frame pregap in track 10, merging into track 9\n    190 frame pregap in track 11, merging into track 10\n    105 frame pregap in track 12, merging into track 11\n    143 frame pregap in track 13, merging into track 12\n    98 frame pregap in track 15, merging into track 14\n    264 frame pregap in track 16, merging into track 15\n    140 frame pregap in track 17, merging into track 16\n\nTracks:\nFlushing encoders...\nSummary:\n\n  Integrated loudness:\n    I:         -15.7 LUFS\n    Threshold: -25.7 LUFS\n\n  Loudness range:\n    LRA:         4.0 LU\n    Threshold: -35.7 LUFS\n    LRA low:   -17.9 LUFS\n    LRA high:  -13.9 LUFS\n\n  Sample peak:\n    Peak:       -0.2 dBFS\n\n  True peak:\n    Peak:        0.2 dBFS\n\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    02:53.60\n    Samples:     7664580\n    Frames:      13035\n    Sample peak level: 97.7% (-0.2 dBFS)\n    True peak level:   0.2 dBFS\n    Integrated loudness (R128): -15.7 LUFS\n    Loudness range (R128):      4.0 LU (-17.9 to -13.9 LUFS)\n    Extraction speed:  1.1x\n    Elapsed:            153.22 s\n    Pregap LSN:  0 (duration: 00:02.00)\n    Pregap length: 150 frames\n    Pregap source: lead-in\n    Start LSN:   0 (with offset: 1)\n    End LSN:     13034 (with offset: 13036)\n\n  EAC CRC32:     A0E382F5\n  Secure re-read:  not attempted\n  Accurip:       disc found in database (max confidence: 29)\n    Accurip v1:  5ED2CE6E (accurately ripped, confidence 12)\n    Accurip v2:  0E80A467 (accurately ripped, confidence 29)\n\n  Metadata:\n    TRACK:                         1\n    TRACKTOTAL:                    18\n    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-\n    CDDB:                          000DAC12\n    MEDIA:                         CD\n    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19\n    TOTALDISCS:                    4\n    TITLE:                         Tennessee Mountain Fox Chase\n    DISC:                          1\n    ALBUM:                         derived wavpack 20261004t160255 platterpus-fork-g174a134\n    ALBUM_ARTIST:                  Various Artists\n    DATE:                          2001-10-09\n    CATALOGNUMBER:                 11661-0501-2\n    BARCODE:                       011661050129\n    LABEL:                         Rounder\n    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e\n    ARTIST:                        Norman Blake\n    CREATION_TIME:                 2026-10-04T19:20:49-04:00\n    REPLAYGAIN_TRACK_GAIN:         -2.34 dB\n    R128_TRACK_GAIN:               681\n    REPLAYGAIN_TRACK_RANGE:        4.04 dB\n    REPLAYGAIN_TRACK_PEAK:         1.022951\n    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS\n    DISCTOTAL:                     4\n\n  Paranoia status counts:\n    READ:          1058\n    VERIFY:        71\n    OVERLAP:       13\n\n  File(s):\n    Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac\n\nFlushing encoders...\nSummary:\n\n  Integrated loudness:\n    I:         -12.8 LUFS\n    Threshold: -22.9 LUFS\n\n  Loudness range:\n    LRA:         4.0 LU\n    Threshold: -32.9 LUFS\n    LRA low:   -14.7 LUFS\n    LRA high:  -10.7 LUFS\n\n  Sample peak:\n    Peak:       -0.4 dBFS\n\n  True peak:\n    Peak:       -0.4 dBFS\n\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    03:06.37\n    Samples:     8224356\n    Frames:      13987\n    Sample peak level: 95.0% (-0.4 dBFS)\n    True peak level:   -0.4 dBFS\n    Integrated loudness (R128): -12.8 LUFS\n    Loudness range (R128):      4.0 LU (-14.7 to -10.7 LUFS)\n    Extraction speed:  1.1x\n    Elapsed:            163.03 s\n    Pregap LSN:  12855 (duration: 00:02.30)\n    Pregap length: 180 frames\n    Pregap source: sub-channel (not signalled by TOC)\n    Start LSN:   13035 (with offset: 13036)\n    End LSN:     27021 (with offset: 27023)\n\n  EAC CRC32:     ABC106DC\n  Secure re-read:  not attempted\n  Accurip:       disc found in database (max confidence: 29)\n    Accurip v1:  45CB37DF (accurately ripped, confidence 12)\n    Accurip v2:  F383C874 (accurately ripped, confidence 29)\n\n  Metadata:\n    TRACK:                         2\n    TRACKTOTAL:                    18\n    MUSICBRAINZ_DISCID:            zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-\n    CDDB:                          000DAC12\n    MEDIA:                         CD\n    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19\n    TOTALDISCS:                    4\n    TITLE:                         Banjo Picking Girl\n    DISC:                          1\n    ALBUM:                         derived wavpack 20261004t160255 platterpus-fork-g174a134\n    ALBUM_ARTIST:                  Various Artists\n    DATE:                          2001-10-09\n    CATALOGNUMBER:                 11661-0501-2\n    BARCODE:                       011661050129\n    LABEL:                         Rounder\n    MUSICBRAINZ_ALBUMID:           53d0f596-95a3-4e60-b4aa-09f5f7532b1e\n    ARTIST:                        Hazel Dickens & Alice Gerrard\n    CREATION_TIME:                 2026-10-04T19:23:22-04:00\n    REPLAYGAIN_TRACK_GAIN:         -5.19 dB\n    R128_TRACK_GAIN:               -48\n    REPLAYGAIN_TRACK_RANGE:        3.99 dB\n    REPLAYGAIN_TRACK_PEAK:         0.950732\n    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS\n    DISCTOTAL:                     4\n\n  Paranoia status counts:\n    READ:          1153\n    VERIFY:        74\n    OVERLAP:       23\n\n  File(s):\n    Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.flac\n\nAlbum Loudness Summary:\n\n  Integrated loudness:\n    I:         -14.0 LUFS\n    Threshold: -24.0 LUFS\n\n  Loudness range:\n    LRA:         6.3 LU\n    Threshold: -34.1 LUFS\n    LRA low:   -17.4 LUFS\n    LRA high:  -11.1 LUFS\n\n  Sample peak:\n    Peak:       -0.2 dBFS\n\n  True peak:\n    Peak:        0.2 dBFS\n\nAlbum integrated loudness (R128): -14.0 LUFS\nAlbum loudness range (R128):      6.3 LU (-17.4 to -11.1 LUFS)\nAlbum sample peak level:          -0.2 dBFS\nAlbum true peak level:            0.2 dBFS\nTracks ripped accurately: 2/18\n\nParanoia status counts:\n  READ:          2211\n  VERIFY:        145\n  OVERLAP:       36\n\nRipping errors: 0\nEncoder errors: none; 2 tracks encoded\nRead stalls:    none (no read exceeded 10s)\nRip completed:  yes (2 of 18 tracks)\nRipping finished at 2026-10-04T19:26:05-04:00"
+    },
+    "eac_log": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1 (EAC-compatible).log",
+      "exists": true,
+      "bytes": 3430,
+      "sha256": "bf27a3ca0229fbd720cfa541db4a9693acc30b9d5d15e2062454b33389dbc063",
+      "truncated": false,
+      "text": "Platterpus rip log in EAC's layout, not produced by Exact Audio Copy\n  Rendered from a rip by cyanrip 0.9.4-rc2+platterpus.19.\n  Ripper build: platterpus-fork-g174a134 — the Platterpus fork of cyanrip. Pre-gap, sample-peak and per-track timing rows below come from fork-only output.\n  Generated by Platterpus 0.6.65 (build 0981c69).\n  FLAC encoder: flac 1.5.0, metaflac 1.5.0.\n  Derived-format encoder: ffmpeg 8.1.3.\n  This is NOT a genuine EAC log, carries no EAC log checksum, and must\n  not be presented as an EAC rip. It mirrors EAC's layout — section\n  order, row wording and column alignment — so the two can be compared\n  directly. Rows the ripper does not report say so instead of guessing.\n\nExtraction logfile from 4. October 2026, 19:26 (UTC-04:00)\n\nVarious Artists / derived wavpack 20261004t160255 platterpus-fork-g174a134\n\nUsed drive  : PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\nRead mode               : Secure\nUtilize accurate stream : (not reported by the ripper)\nDefeat audio cache      : Yes  (measured for this drive with cd-paranoia -A, not asserted from the ripper's log)\nMake use of C2 pointers : No\n\nRead offset correction                      : 667\nOverread into Lead-In and Lead-Out          : No\nFill up missing offset samples with silence : Yes\nDelete leading and trailing silent blocks   : No\nNull samples used in CRC calculations       : Yes\nUsed interface                              : Native Linux SCSI/MMC (libcdio-paranoia)\nGap handling                                : Appended to previous track\n\nUsed output format              : FLAC\nSelected bitrate                : (n/a — lossless)\nQuality                         : (n/a — lossless)\nAdd ID3 tag                     : No\nCommand line compressor         : (none — cyanrip encodes in-process via libavcodec)\nAdditional command line options : (none — no external compressor is invoked)\n\n\nTOC of the extracted CD  (partial — 2 of 18 disc tracks were selected for this rip)\n\n     Track |   Start  |  Length  | Start sector | End sector \n    ---------------------------------------------------------\n        1  |  0:00.00 |  2:53.60 |         0    |    13034   \n        2  |  2:53.60 |  3:06.37 |     13035    |    27021   \n\n\nTrack  1\n\n     Filename Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac\n\n     Pre-gap length  0:00:02.00\n\n     Peak level 97.7 %\n     Extraction speed 1.1 X\n     Extraction time 0:02:33\n     Track quality (not reported by the ripper)\n     Copy CRC A0E382F5\n     Accurately ripped (confidence 29)  [0E80A467]  (AR v2)\n     Copy OK\n\nTrack  2\n\n     Filename Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.flac\n\n     Pre-gap length  0:00:02.40\n\n     Peak level 95.0 %\n     Extraction speed 1.1 X\n     Extraction time 0:02:43\n     Track quality (not reported by the ripper)\n     Copy CRC ABC106DC\n     Accurately ripped (confidence 29)  [F383C874]  (AR v2)\n     Copy OK\n\n\n 2 track(s) accurately ripped\n\nAll ripped tracks accurately ripped — this log covers 2 of 18 disc tracks\n\nNo errors occurred\n\nRipper's own completion record : yes\n\nEnd of status report\n\n==== This log was generated by Platterpus and is NOT signed by Exact Audio Copy ====\n==== Platterpus log checksum (SHA-256 of the text above; NOT an EAC checksum): d60b6821a53270a12db05546954e88bf7036e27ced9cf826e325c7a6db9a43e6 ====\n"
+    },
+    "cue": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.cue",
+      "exists": true,
+      "bytes": 791,
+      "sha256": "c04ae2052f37b71911c8823ca7be19f65b9db8648859b7d958392a22d8c13a50",
+      "truncated": false,
+      "text": "REM MUSICBRAINZ_ID \"zxtbw2JgJ.kZBiyIcKOQvn2ZTUM-\"\nREM DISCID \"000DAC12\"\nREM MEDIA \"CD\"\nREM COMMENT \"cyanrip 0.9.4-rc2+platterpus.19\"\nREM TOTALDISCS \"4\"\nREM DISC \"1\"\nREM DATE \"2001-10-09\"\nREM CATALOGNUMBER \"11661-0501-2\"\nREM BARCODE \"011661050129\"\nREM LABEL \"Rounder\"\nREM MUSICBRAINZ_ALBUMID \"53d0f596-95a3-4e60-b4aa-09f5f7532b1e\"\nREM ARTIST \"Various Artists\"\nPERFORMER \"Various Artists\"\nTITLE \"derived wavpack 20261004t160255 platterpus-fork-g174a134\"\nFILE \"01 - Tennessee Mountain Fox Chase.flac\" WAVE\n  TRACK 01 AUDIO\n    TITLE \"Tennessee Mountain Fox Chase\"\n    PERFORMER \"Norman Blake\"\n    INDEX 01 00:00:00\n  TRACK 02 AUDIO\n    TITLE \"Banjo Picking Girl\"\n    PERFORMER \"Hazel Dickens & Alice Gerrard\"\n    INDEX 00 02:51:30\nFILE \"02 - Banjo Picking Girl.flac\" WAVE\n    INDEX 01 00:00:00\n"
+    },
+    "addendum": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.platterpus-addendum.txt",
+      "exists": false,
+      "error": "[Errno 2] No such file or directory: '/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.platterpus-addendum.txt'",
+      "missing": true
+    }
+  },
+  "debug": {
+    "scope": "this session since launch, excluding other albums' rips — INCOMPLETE: missing 31486 line(s) of the session, logged between 2026-10-04 12:12:38 (UTC-0400) and 2026-10-04 15:22:52 (UTC-0400), which the in-memory log dropped to bound its size. Each gap is marked in place in `lines` with its count; log.txt has every line",
+    "truncated": true,
+    "lines": [],
+    "lines_removed_by_extract": 3270
+  }
+}

@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from evidence_paths import evidence
 from test_uiscript_rip_verbs import _run_one, _window
 
 from platterpus import test_session
@@ -38,8 +39,10 @@ _REPO = Path(__file__).resolve().parent.parent
 _SCRIPTS = _REPO / "src" / "platterpus" / "rig_scripts"
 _UNKNOWN = _SCRIPTS / test_session.UNKNOWN_DISC_SCRIPT_NAME
 _FULL = _SCRIPTS / test_session.ACCEPTANCE_SCRIPT_NAME
-_REPORT = (
-    _REPO / "docs/handshake/artifactsround30/round30oct05fullderivedmp3report.json"
+#: A real filed report, through its fixture (HR-2 moved the folder off `main`): a
+#: slim extract without `debug.lines`, which no grader here reads.
+_REPORT = evidence(
+    "docs/handshake/artifactsround30/round30oct05fullderivedmp3report.json"
 )
 _MBID = "e0b2b3c4-1111-2222-3333-444455556666"
 

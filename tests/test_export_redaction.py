@@ -8,7 +8,8 @@ signed (a cyanrip log, our EAC-compatible log) is written byte for byte, because
 genuine log that fails its own check is worse evidence than one naming a folder.
 
 The real data is the floor: our own filing of that run, under
-``docs/handshake/artifactsround32/``, still carries the home paths, so the
+``docs/handshake/artifactsround32/`` (read here through its fixtures in
+``tests/fixtures/evidence/``), still carries the home paths, so the
 redaction is run over it and must both find them and leave every signed log
 verifiable.
 """
@@ -19,6 +20,7 @@ import hashlib
 import tarfile
 from pathlib import Path
 
+from evidence_paths import evidence_dir
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -33,8 +35,13 @@ from platterpus.export_redaction import (
     redact_text,
 )
 
-_REPO = Path(__file__).resolve().parent.parent
-_FILED = _REPO / "docs" / "handshake" / "artifactsround32"
+#: Our filing of the run, through its fixtures (HR-2 moved `artifactsround32` off
+#: `main`). Every one of its 76 files has one: logs, cues, the manifest and the
+#: settings byte for byte, the reports as slim extracts without `debug.lines` and
+#: the app logs without cyanrip's progress lines (`scripts/evidence_fixtures.py`).
+#: The extracts still name home paths, just fewer of them (the reports' debug
+#: lines held most), so the floors below are unchanged.
+_FILED = evidence_dir("docs/handshake/artifactsround32")
 
 # A synthetic signed cyanrip log: the banner, a path, and the signature line.
 _SIGNED_LOG = (
@@ -155,6 +162,9 @@ def test_a_home_path_is_never_left_behind_in_an_unsigned_line(
 
 # --- the real filed run ---------------------------------------------------------
 
+#: The suffix `scripts/evidence_fixtures.py` gives an extract's provenance record.
+_SIDECAR = ".extract.json"
+
 
 def test_the_filed_round_32_run_is_redacted_and_its_signed_logs_stay_verifiable() -> (
     None
@@ -166,7 +176,11 @@ def test_the_filed_round_32_run_is_redacted_and_its_signed_logs_stay_verifiable(
     recognised by their footer and STILL verifying after the export, and home
     paths actually found and replaced in the unsigned members.
     """
-    members = sorted(p for p in _FILED.iterdir() if p.is_file())
+    # An extract's sidecar records where the fixture came from; it was never part
+    # of the filed run, so it is not a member.
+    members = sorted(
+        p for p in _FILED.iterdir() if p.is_file() and not p.name.endswith(_SIDECAR)
+    )
     assert len(members) >= 70, f"the filed run shrank: {len(members)} files"
     signed_cyanrip = 0
     eac_still_verifies = 0

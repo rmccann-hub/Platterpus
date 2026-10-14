@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "cyanrip progress lines",
+  "removed_count": 67668,
+  "source_bytes": 8388580,
+  "source_path": "docs/handshake/artifactsround32/round32fullplatterpusapplog1.txt",
+  "source_sha256": "00cd85b00599c80d4cf203c3fb1f27a788e00a1bc58e90f4c0c4daf8dd954f97"
+}

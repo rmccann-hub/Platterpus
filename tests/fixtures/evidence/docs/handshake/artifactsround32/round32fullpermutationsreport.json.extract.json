@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 1883,
+  "source_bytes": 342997,
+  "source_path": "docs/handshake/artifactsround32/round32fullpermutationsreport.json",
+  "source_sha256": "6892edc4576516276223ee6cc9e0ecdb4b0a93f3f15dfd52d2779863bf2605a2"
+}

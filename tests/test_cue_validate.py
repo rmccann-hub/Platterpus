@@ -40,6 +40,7 @@ import re
 from pathlib import Path
 
 import pytest
+from evidence_paths import evidence
 
 from platterpus import cue_validate, rip_audit, tag_hygiene
 from platterpus.adapters.cyanrip_backend import CyanripImpl, _metadata_args
@@ -1354,11 +1355,11 @@ def test_the_substitute_still_wins_over_the_title_comparison() -> None:
 # the numbers are re-derived from the cue and the report every run, and the
 # derivation is asserted before it is used.
 
-_RIG = (
-    Path(__file__).resolve().parent.parent / "docs" / "handshake" / "artifactsround08"
-)
-_RIG_CUE_PATH = _RIG / "round08pinripcue.cue"
-_RIG_REPORT_PATH = _RIG / "round08pinripreport.json"
+# Both read through their fixtures (HR-2 moved `artifactsround08` off `main`): the
+# cue byte for byte, the report as a slim extract without its `debug.lines`, which
+# nothing here reads. `evidence()` names the filed path and refuses a missing one.
+_RIG_CUE_PATH = evidence("docs/handshake/artifactsround08/round08pinripcue.cue")
+_RIG_REPORT_PATH = evidence("docs/handshake/artifactsround08/round08pinripreport.json")
 
 
 def _rig_cue() -> str:

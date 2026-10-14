@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 826,
+  "source_bytes": 166572,
+  "source_path": "docs/handshake/artifactsround28/round28full062cancelmereport.json",
+  "source_sha256": "82c89e58615febb568d8ad1d82c10690f4cf044d130ed8763b09ca79e3a0176c"
+}

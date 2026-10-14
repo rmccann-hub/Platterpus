@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from evidence_paths import evidence_dir
 
 from platterpus.config import Config
 from platterpus.uiscript.report import Outcome
@@ -3405,7 +3406,9 @@ def test_expect_verification_cannot_pass_over_a_rip_that_checked_nothing(
     assert step.outcome is Outcome.FAIL, step.detail
 
 
-_ROUND31 = Path(__file__).resolve().parent.parent / "docs/handshake/artifactsround31"
+#: Through its fixture (HR-2 moved the folder off `main`): a slim extract without
+#: `debug.lines`, which `expect-verification` does not read.
+_ROUND31 = evidence_dir("docs/handshake/artifactsround31")
 
 
 @pytest.mark.parametrize("keep_retired_keys", [True, False])

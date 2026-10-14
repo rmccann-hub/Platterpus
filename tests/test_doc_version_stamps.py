@@ -108,6 +108,14 @@ _EXEMPT_MOVED_CORRESPONDENCE: frozenset[str] = frozenset(
     {"tests/fixtures/round14lap16platterpus.md"}
 )
 
+# Run-evidence fixtures (HR-2, 2026-10-14): `scripts/evidence_fixtures.py` keeps a
+# filed file at `tests/fixtures/evidence/<its original path>`, byte for byte, and
+# `evidence_fixtures.py check` refuses a copy whose bytes differ from the source. So
+# a fixture is judged by the path it stands for: exempt exactly when that path is
+# (a filed round README is correspondence under `docs/handshake/`), and held to the
+# footer rule when it is not.
+_EVIDENCE_FIXTURES: str = "tests/fixtures/evidence/"
+
 # The SHARED files. Exempt for a stronger reason than the round files: each is
 # **the same document in both repositories and neither project owns it**, so
 # stamping one with *our* version would fork the very files whose entire purpose
@@ -170,6 +178,8 @@ def test_the_two_shared_file_lists_agree() -> None:
 
 def _is_exempt(rel_path: str) -> bool:
     """True for docs that deliberately carry no footer."""
+    if rel_path.startswith(_EVIDENCE_FIXTURES):
+        return _is_exempt(rel_path[len(_EVIDENCE_FIXTURES) :])
     if rel_path in _EXEMPT_SHARED_FILES:
         return True
     if rel_path in _EXEMPT_GENERATED:
@@ -184,6 +194,22 @@ def _is_exempt(rel_path: str) -> bool:
         return False
     basename = rel_path.rsplit("/", 1)[-1]
     return basename.startswith(_EXEMPT_BASENAME_PREFIXES)
+
+
+def test_an_evidence_fixture_is_exempt_exactly_when_its_original_is() -> None:
+    """The fixture rule borrows the original's verdict and adds none of its own.
+
+    A filed round README is correspondence, so its fixture is exempt; a fixture
+    standing for a live doc would not be, so the prefix cannot become a way to
+    keep a real doc unstamped. Both directions, on the real committed fixture.
+    """
+    filed = "docs/handshake/artifactsround28/README.md"
+    assert (_REPO_ROOT / _EVIDENCE_FIXTURES / filed).is_file(), "fixture moved"
+    assert _is_exempt(_EVIDENCE_FIXTURES + filed)
+    assert not _is_exempt(_EVIDENCE_FIXTURES + "docs/testing.md")
+    assert _is_exempt(_EVIDENCE_FIXTURES + "docs/testing.md") == _is_exempt(
+        "docs/testing.md"
+    )
 
 
 def test_moved_correspondence_is_still_correspondence() -> None:

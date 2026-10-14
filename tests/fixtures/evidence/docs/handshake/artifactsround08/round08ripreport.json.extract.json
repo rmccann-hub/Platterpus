@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 9448,
+  "source_bytes": 1379578,
+  "source_path": "docs/handshake/artifactsround08/round08ripreport.json",
+  "source_sha256": "a674a4f737f7a58e9cd293ea1e9d3f79e937c861fca7df5ea30e22e31291a828"
+}

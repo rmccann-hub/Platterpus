@@ -20,12 +20,15 @@ import shutil
 from pathlib import Path
 
 import pytest
+from evidence_paths import evidence_dir
 
 from platterpus import record_fate
 from platterpus.rip_report import build_outcome
 
-_REPO = Path(__file__).resolve().parent.parent
-_ROUND32 = _REPO / "docs/handshake/artifactsround32"
+#: The round-32 reports as filed, through their fixtures (HR-2 moved the folder
+#: off `main`): slim extracts without `debug.lines`, which `record_absences` does
+#: not read, and the `--diagnostics` records byte for byte.
+_ROUND32 = evidence_dir("docs/handshake/artifactsround32")
 _REPORT_GLOB = "*.platterpus.json"
 
 

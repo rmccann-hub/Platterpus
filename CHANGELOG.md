@@ -121,6 +121,30 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   (HR-2); two app logs there name the AppImage's own mount path of a rig script, true
   on the run's date, and the sweep read them as live documents naming a missing file.
 
+- **The population tests read run evidence from fixtures (HR-2).** The CTDB partial-rip
+  sweep, the rip-time estimate, the round-32 redaction, disc-identity and record-fate
+  tests now read their filed logs and reports from `tests/fixtures/evidence/` (274
+  fixtures: logs byte for byte, 118 reports as slim extracts, the three round-32 app logs
+  without progress lines), so they keep passing once the evidence folders leave `main`.
+  Every population is the same size as before, and every floor is unchanged.
+
+- **The log and report readers in six more tests read fixtures (HR-2):** the cue, EAC
+  export, outcome-vocabulary, album-audit, ripper-standing and verdict tests, with nine
+  more fixtures (EAC-compatible logs, a cue, a README and a manifest byte for byte, and
+  round 15's run report as a slim extract). The vocabulary test now also requires each
+  extract it reads to have dropped nothing, so an extract cannot hide what it checks.
+
+- **The acceptance-script tests read fixtures (HR-2):** artifact grading, the artifact
+  and rip verbs, the unknown-disc acceptance and the run estimate. The run estimate's
+  `MEASURED_FROM` still names the path where the run was filed, and its test now reads
+  the report through `evidence(MEASURED_FROM)`, so the label and the data it was derived
+  from cannot name different files.
+
+- **Two repository sweeps judge an evidence fixture by the path it stands for.** The
+  doc-footer check and the rig-script-path check skip `docs/handshake/` as dated record;
+  its byte-for-byte copies under `tests/fixtures/evidence/` now get the same treatment,
+  and nothing else does (a fixture standing for a live doc would still be checked).
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.
