@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import NotRequired, TypedDict
 
+from platterpus.record_fate import SecuringRecordBlock
+
 
 class GeneratorBlock(TypedDict):
     name: str
@@ -156,6 +158,11 @@ class OutcomeBlock(TypedDict):
     securing_pass_exit_code: int | None
     #: v32 (W6): cyanrip's own record of how the album pass ended.
     ripper_record: RipperRecordBlock
+    #: v34 (TASKS R9): what became of the securing pass's own `--diagnostics`
+    #: record, which runs in a temporary folder deleted afterwards: `kept` (copied
+    #: into the rips root, `path` names the copy), `missing` (`detail` says why)
+    #: or `not_run` (no securing pass ripper was spawned, so none was due).
+    securing_pass_record: SecuringRecordBlock
     ripper_argv: list[str] | None
     # The FIRST invocation's argv when the rip took more than one pass, `None`
     # when it took one. The distinction is load-bearing: the archival log's

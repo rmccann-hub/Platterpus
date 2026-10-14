@@ -34,6 +34,7 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
+from platterpus.record_fate import RecordFate, missing_issue, outcome_block
 from platterpus.report_types import (
     ArtifactsBlock,
     DebugBlock,
@@ -296,7 +297,16 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      data track is copied to a `.bin` from `.23`, and its CRC32 and sector-EDC
 #      verdict (`:539-548`) are its own fields, never `copy_crc`, which is
 #      audio's EAC CRC and feeds the AccurateRip tally. All three are null on
-#      every earlier build and every legacy-format log. Additions only.
+#      every earlier build and every legacy-format log. Also
+#      `outcome.securing_pass_record` — what became of the securing pass's own
+#      `--diagnostics` record (`state` kept / missing / not_run, `path`, `detail`),
+#      and the `securing_pass_record_missing` info issue. The pass runs in a
+#      temporary folder deleted when it ends, and until this version its record
+#      went with it unsaid: two of the 2026-10-13 Full run's eleven invocations
+#      left none and the bundle's MANIFEST was silent (TASKS R9). The worker now
+#      copies it into the rips root, and this block is how the session bundle,
+#      which reads reports rather than the worker, names any that is missing.
+#      Both sets of keys landed in the same unreleased version. Additions only.
 REPORT_SCHEMA_VERSION: int = 34
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
@@ -726,6 +736,7 @@ def build_outcome(
     securing_pass_started: bool = False,
     securing_pass_exit_code: int | None = None,
     ripper_record: RipperEnding | None = None,
+    securing_pass_record: RecordFate | None = None,
 ) -> dict:
     """Build the ``outcome`` block: the PROCESS result of the rip.
 
@@ -757,6 +768,9 @@ def build_outcome(
     ``ripper_record`` is cyanrip's own ``-j`` record of how the album pass ended
     (v32, W6), compared here with ``status`` and the exit code we reaped, because
     this is the one place that holds all three (:mod:`~platterpus.ripper_ending`).
+
+    ``securing_pass_record`` is what became of the securing pass's own record
+    (v34, TASKS R9), written by :func:`~platterpus.record_fate.outcome_block`.
     """
     argv = tuple(ripper_argv or ())
     # The FIRST invocation, when the rip took more than one.
@@ -799,6 +813,11 @@ def build_outcome(
             status=status,
             our_exit_code=ripper_exit_code,
             securing_pass_started=securing_pass_started,
+        ),
+        # The securing pass's own record, kept or missing and why (v34, R9): its
+        # temp folder is deleted, so without this a missing one was silent.
+        "securing_pass_record": outcome_block(
+            securing_pass_record, started=securing_pass_started
         ),
         # A list (JSON has no tuples) of the argv as spawned. Empty argv is
         # serialized as null, not [], so "we never launched it" and "we launched
@@ -2469,6 +2488,12 @@ def _issues(
     record = outcome.get("ripper_record") if outcome else None
     for sentence in (record or {}).get("disagreements") or ():
         add("warning", "ripper_record_disagrees", str(sentence))
+
+    # THE SECURING PASS'S RECORD IS MISSING (v34, R9). Info, not a warning: the
+    # audio is unaffected, and what is lost is evidence about how that pass ended.
+    lost = missing_issue(outcome.get("securing_pass_record") if outcome else None)
+    if lost:
+        add("info", "securing_pass_record_missing", lost)
 
     # AN ARTIFACT WE COULD NOT EMBED. The report's own attachments failing is
     # exactly the case where a reader most needs to be told.

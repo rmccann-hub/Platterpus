@@ -39,6 +39,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **A securing pass's own diagnostics record is now kept, and a missing one is
+  named** (TASKS R9). The securing pass re-reads selected tracks in a temporary
+  folder that is deleted when it ends, and its `--diagnostics` record went with it:
+  two of the 2026-10-13 Full run's eleven ripper invocations left no record, and
+  the session bundle's MANIFEST did not say so. The rip now copies the record into
+  the rips folder beside the album pass's, named `…-securingpass.json`, before the
+  folder goes, and the rip's bundle carries it. When it cannot, the report says
+  why in a new `outcome.securing_pass_record` block (report schema 34) with an
+  `info` issue, and the session MANIFEST's `ripper -j records missing` line names
+  every pass whose record is missing, with the reason.
+
 - **The acceptance run now compares the pregap lists of every rip of one disc** (TASKS
   R10). Every grader read one rip at a time, so on the 2026-10-13 Full run nothing of
   ours noticed that the secure re-read's log left out track 4's 158-frame pregap, which

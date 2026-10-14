@@ -1032,6 +1032,63 @@ def test_a_session_whose_rips_left_no_record_says_so(tmp_path: Path) -> None:
     )
 
 
+def test_the_manifest_names_a_securing_pass_whose_record_is_missing(
+    tmp_path: Path,
+) -> None:
+    """TASKS R9: two of the 2026-10-13 run's eleven invocations left no record and
+    the MANIFEST said nothing. The rip's report says what became of the securing
+    pass's record, and the MANIFEST now names a missing one with that reason; the
+    kept one of another rip, found by the scan, is not named."""
+    import json
+
+    _, layout = _prepared(tmp_path)
+    out = tmp_path / "out"
+    kept = _record(out, "20261013T150000Z-securingpass", mtime=3_000.0)
+    lost = _rip(out, "secure reread", mtime=3_000.0)
+    (lost / "disc.platterpus.json").write_text(
+        json.dumps(
+            {
+                "outcome": {
+                    "securing_pass_started": True,
+                    "securing_pass_record": {
+                        "state": "missing",
+                        "path": "/tmp/platterpus-refix-x/cyanrip-diagnostics-1.json",
+                        "detail": "the rip was cancelled, and cyanrip writes it late",
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    fine = _rip(out, "whole disc", mtime=3_000.0)
+    (fine / "disc.platterpus.json").write_text(
+        json.dumps(
+            {
+                "outcome": {
+                    "securing_pass_started": True,
+                    "securing_pass_record": {
+                        "state": "kept",
+                        "path": str(kept),
+                        "detail": None,
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = finish_session(
+        layout, sources=[], album_dirs=[lost, fine], record_files=[kept]
+    )
+    assert result.ok and result.path is not None, result.error
+    manifest = _member_text(result.path, "MANIFEST.txt")
+    assert "ripper -j records missing" in manifest, manifest
+    assert "1 named by 2 rip report(s)" in manifest, manifest
+    assert "secure reread: securing pass: the rip was cancelled" in manifest
+    assert "whole disc: securing pass" not in manifest
+    assert f"ripperdiagnostics/{kept.name}" in _members(result.path)
+
+
 def test_the_record_cap_keeps_the_newest_and_counts_the_rest(tmp_path: Path) -> None:
     out = tmp_path / "out"
     stamps = [f"2026100{n}T000000Z" for n in range(1, 5)]

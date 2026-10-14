@@ -21,6 +21,15 @@ ripper was actually spawned with and the directory it ran in: the same two facts
 cyanrip itself resolves the name against. Predicting the album folder is what
 once cost a finished 14-track rip over one character (``CLAUDE.md``).
 
+**The securing pass's record is kept beside them (2026-10-14, TASKS R9).** The
+securing pass runs in a temporary folder that is deleted when it ends, so its
+record went with it, and nothing said so: two of the 2026-10-13 Full run's
+eleven invocations left no record and the bundle's MANIFEST was silent about
+both. The worker now copies that record into the rips root, beside the album
+passes' records, under a name that says which pass wrote it,
+and when it cannot, it says why. That lives in :mod:`platterpus.record_fate`,
+because it touches the disk and this module does not.
+
 Pure and Qt-free: no filesystem access, so nothing here can fail a rip.
 """
 

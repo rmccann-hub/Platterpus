@@ -66,7 +66,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Final
 
-from platterpus import __version__, diagnostics_record
+from platterpus import __version__, diagnostics_record, record_fate
 from platterpus.evidence_bundle import BundleResult, build_bundle, bundle_filename
 from platterpus.uiscript.find_script import PACKAGED_SCRIPT_DIR_NAME
 
@@ -1024,7 +1024,14 @@ def _record_facts(
             "for one (-j), and cyanrip writes it as it exits, so each ripper "
             "either exited before writing it or wrote it outside these folders"
         )
-    return {"ripper -j records": said}
+    return {
+        "ripper -j records": said,
+        # Every invocation whose record is missing, named with the reason its
+        # rip's report gives (TASKS R9): the scan above cannot name an absence.
+        "ripper -j records missing": record_fate.record_absences(
+            album_dirs, records, report_glob=RIP_REPORT_GLOB
+        ),
+    }
 
 
 # --- A run's rip does not outlive the session (2026-10-04) -----------------------

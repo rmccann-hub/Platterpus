@@ -11812,6 +11812,32 @@ def test_the_bundle_facts_say_which_pass_each_exit_describes(
     assert "ripper exit ok" not in ran.facts  # one name per fact, not two
 
 
+def test_the_bundle_facts_say_what_became_of_the_securing_passs_record(
+    qapp: QApplication, teardown_threads: Any, tmp_path: Path
+) -> None:
+    """TASKS R9, in the one-file rip bundle: kept and where, or MISSING and why.
+
+    A stand-in worker without the attribute (an older worker, a test double)
+    reads as "not determined", never as "none due", which would claim a fact.
+    """
+    from platterpus import record_fate
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        securing_pass_started=True,
+        securing_pass_exit_code=0,
+        securing_pass_record=record_fate.RecordFate(
+            record_fate.STATE_MISSING, None, "the rip was cancelled"
+        ),
+    )
+    missing = _armed_bundle(window, tmp_path, _success=True)
+    window._rip_worker = SimpleNamespace(securing_pass_started=False)
+    unknown = _armed_bundle(window, tmp_path / "second", _success=True)
+
+    assert missing.facts["securing pass -j record"] == "MISSING: the rip was cancelled"
+    assert unknown.facts["securing pass -j record"].startswith("not determined")
+
+
 def test_the_rips_diagnostics_records_reach_its_report_bundle(
     qapp: QApplication,
     teardown_threads: Any,

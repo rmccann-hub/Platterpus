@@ -1808,6 +1808,10 @@ class RipMixin(MainWindowShared):
             ),
             # cyanrip's own record of how the album pass ended (v32, W6).
             ripper_record=getattr(self._rip_worker, "ripper_ending", None),
+            # What became of the securing pass's own record (v34, TASKS R9).
+            securing_pass_record=getattr(
+                self._rip_worker, "securing_pass_record", None
+            ),
         )
         _meta = params.metadata if params is not None else None
         # The release summary this rip's tags came from, for the medium
@@ -2877,7 +2881,7 @@ class RipMixin(MainWindowShared):
         means (`CLAUDE.md`: two surfaces answering one question by different keys
         will disagree).
         """
-        from platterpus import __version__, diagnostics_record
+        from platterpus import __version__, diagnostics_record, record_fate
 
         # Everything Qt-touching is read HERE, on the GUI thread. The daemon
         # below closes over plain values only — a worker that reaches back into a
@@ -2957,6 +2961,11 @@ class RipMixin(MainWindowShared):
                 "securing pass exit": securing_fact(
                     bool(getattr(self._rip_worker, "securing_pass_started", False)),
                     getattr(self._rip_worker, "securing_pass_exit_code", None),
+                ),
+                # The securing pass's record is copied out of its temp folder
+                # into the rips root, or is named missing here with why (R9).
+                "securing pass -j record": record_fate.describe_fate(
+                    getattr(self._rip_worker, "securing_pass_record", None)
                 ),
                 "cancel requested": str(cancelled),
                 "ripper log parsed": str(parsed_a_log),

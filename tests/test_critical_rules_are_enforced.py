@@ -1068,6 +1068,13 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # expects. The rule deciding WHEN that warning is expected is a separate
     # concern and went to its own module (`uiscript/expected_warnings.py`) instead.
     "uiscript/artifact_grading.py": 331,
+    # 352 lines on arrival (2026-10-14, TASKS R9). **One job, kept as one module**:
+    # what became of each ripper invocation's `--diagnostics` record. Its two
+    # halves are one fact seen from two places: the worker keeping the securing
+    # pass's record (or saying why not) and the session bundle reading that
+    # answer back out of the reports. Split, the states and the sentences a
+    # reader sees would live in one file and the code that writes them in another.
+    "record_fate.py": 352,
     # 333 lines on arrival (2026-10-14, TASKS R10). **One job, kept as one module**:
     # read each cyanrip log's `Gaps:` block and compare the rips of one disc. The
     # parse, the comparison and the one sentence that names each differing track
@@ -1876,7 +1883,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **761 -> 768** (2026-10-14, schema v34): `RipBlock.accuraterip_disc_id` and
     # `TrackBlock.data_crc32` / `data_sector_edc`, the fork's `.23` facts, each in
     # the TypedDict it types.
-    "report_types.py": 768,
+    # **761 -> 768** (2026-10-14, TASKS R9): `OutcomeBlock.securing_pass_record`, schema v34, with the comment saying what each state means; its block type lives in `record_fate.py`.
+    # **-> 775** (2026-10-14, integration): the two v34 changes above combined in one unreleased version.
+    "report_types.py": 775,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1960,7 +1969,9 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2677 -> 2696** (2026-10-14, schema v34): the disc's AccurateRip ID and a
     # data track's CRC32 / sector-EDC verdict serialized, with the v34 note beside
     # the version as every bump's is.
-    "rip_report.py": 2696,
+    # **2677 -> 2701** (2026-10-14, TASKS R9): schema v34 — the history note, `build_outcome` writing `securing_pass_record` and the `securing_pass_record_missing` issue. Both delegate to `record_fate.py` (`outcome_block`, `missing_issue`); what stays is the one place that builds the outcome block and the one list of issues.
+    # **-> 2721** (2026-10-14, integration): both v34 changes above landed in one unreleased schema version; the combined module is the sum of the two, with one v34 note.
+    "rip_report.py": 2721,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -2042,7 +2053,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **932 -> 974** (2026-10-05, the 2026-10-04 run's bundle packed around a live rip): how long a finished session waits for its rip to stop (`rip_wait_s`, derived from the app's own wait for a cancelled rip's log) and the ripper processes the host sees as the bundle is packed (`ripper_processes_fact`), Qt-free here beside the facts they join.
     # **974 -> 1053** (2026-10-05, the same reading): `session_diagnostics_records` and `_record_facts`, so the session bundle carries every rip's `-j` record through the strict single-file route and names their absence when rips landed and none did. The album scan's sibling: the same "discovered, not remembered" job over the same roots, so it lives beside it.
     # **1053 -> 1069** (2026-10-06, KDD-41 C4 (b), the unknown-disc acceptance script): `UNKNOWN_DISC_SCRIPT_NAME`, `ACCEPTANCE_SCRIPT_NAMES` and a `name` on the two packaged-script lookups, so both scripts have their one name in the one place the session reads it.
-    "test_session.py": 1069,
+    # **1069 -> 1076** (2026-10-14, TASKS R9): the MANIFEST's `ripper -j records missing` line, delegated to `record_fate.record_absences` with the session's own report glob.
+    "test_session.py": 1076,
     # **419 -> 422** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the per-row status label, which shows the installer's own error, states PlainText, with the comment saying why.
     "ui/dialogs/pending_installs.py": 422,
     # **new at 372** (2026-10-05, KDD-41, the side margin): crossed ~300 with the
@@ -2323,7 +2335,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4998 -> 5003** (2026-10-06, W6): the outcome snapshot takes the worker's `ripper_ending`, and the status line adds what cyanrip's own record says (`ripper_ending.status_suffix`, where the wording lives).
     # **5003 -> 5006** (2026-10-07): the D16 warning and comment name EAC's first-line phrase beside its signature.
     # **5006 -> 4932** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the post-rip re-compress step, its gate inputs and its `_on_flac_recompressed` slot.
-    "ui/main_window_rip.py": 4932,
+    # **4932 -> 4941** (2026-10-14, TASKS R9): the worker's `securing_pass_record` handed to `build_outcome`, and the rip bundle's `securing pass -j record` fact.
+    "ui/main_window_rip.py": 4941,
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2639,7 +2652,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4125 -> 4128** (2026-10-06, the lead-in sweep's finding, TASKS *Found while integrating* item 4): `_CYANRIP_ETA_VALUE`'s blanks
     # after `m` moved inside its group (no two `\s*` side by side), and why.
     # **4128 -> 4134** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): two log records quote a ripper percentage head and tail, counted.
-    "workers/rip_worker.py": 4134,
+    # **4134 -> 4197** (2026-10-14, TASKS R9): the securing pass's record is remembered where the pass is spawned and kept before its temp folder is deleted. The copy and every reason live in `record_fate.py`; what stays is the call in the `finally` that owns the folder, the two attributes and the property the report reads.
+    "workers/rip_worker.py": 4197,
 }
 
 

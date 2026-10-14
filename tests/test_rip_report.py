@@ -1209,6 +1209,8 @@ def test_schema_version_is_27() -> None:
     # v34 added `rip.accuraterip_disc_id` and, per track, `data_crc32` and
     # `data_sector_edc`: what the fork's `.23` (upstream rc3) prints about the
     # disc's AccurateRip key and a copied data track.
+    # v34 added `outcome.securing_pass_record`: what became of the securing pass's
+    # own `--diagnostics` record, kept or missing and why (TASKS R9).
     assert REPORT_SCHEMA_VERSION == 34
 
 
