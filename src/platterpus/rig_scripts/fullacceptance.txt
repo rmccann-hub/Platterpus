@@ -1522,6 +1522,27 @@ cyanrip -N -s (offset) -l 1 -H -W -D r16deemphoff
 expect-exit 0
 snapshot afterdeemphoff
 
+# --- P4. EVERY RIP OF THIS DISC: DO THEIR PREGAP LISTS AGREE? (TASKS R10) ---
+# Every section above reads ONE rip. This one reads every cyanrip log the run
+# wrote - each album's, each securing pass's, P3's - and compares their Gaps:
+# lists, disc by disc, naming each track where two rips of one disc disagree.
+# On the 2026-10-13 Full run the secure re-read (N) left out track 4's
+# 158-frame pregap that the whole-disc rip (F) listed, and track 9 read 94
+# frames in some rips and 95 in others; the fork found it, and nothing of ours
+# could have, because nothing compared two rips.
+#
+# INFO EITHER WAY, BY DECLARATION (docs/testing.md, Acceptance severity, P4).
+# A disagreement is the fork's known detector variance, it moves no sample (a
+# merged pregap stays at the end of the previous track), and no log can say
+# which reading is right; it is gathered for the fork with every track named.
+# BLOCKED when fewer than two logs of one disc could be compared: a check that
+# passed on finding nothing would be decoration, and a run whose rips left no
+# two comparable logs has lost its provenance record. `standard`, because a
+# Quick run rips once and could only ever be blocked here.
+log --- P4. every rip of this disc: do their pregap lists agree? ---
+run-size standard
+expect-pregaps-agree
+
 # --- Q. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
 # Restoring is not tidiness. Uniform secure re-read doubles every future rip on
 # this machine, MP3 would make the next rip lossy, and a setting a test left

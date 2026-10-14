@@ -52,6 +52,7 @@ from platterpus.uiscript.estimate_verbs import EstimateVerbsMixin, estimate_for_
 from platterpus.uiscript.offset_grading import drive_in_offset_list
 from platterpus.uiscript.offset_verbs import OffsetVerbsMixin
 from platterpus.uiscript.permutation_verbs import PermutationVerbsMixin
+from platterpus.uiscript.pregap_verbs import PregapVerbsMixin
 from platterpus.uiscript.probe_verbs import ProbeVerbsMixin
 from platterpus.uiscript.report import (
     CONCEPT,
@@ -364,6 +365,7 @@ class ScriptRunner(
     ArtifactVerbsMixin,
     ProbeVerbsMixin,
     PermutationVerbsMixin,
+    PregapVerbsMixin,
     OffsetVerbsMixin,
     UnknownDiscVerbsMixin,
     AppLogVerbsMixin,

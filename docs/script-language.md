@@ -88,6 +88,7 @@ text is taken verbatim as one value.
 | `set-library-scratch` | 0 | ready | set-library-scratch — point library_dir at a scratch folder inside the rips folder (the output directory), so a finished rip is filed there and never in your library; `set library_dir ""` turns the move off again |
 | `expect-library-move` | 0 | ready | expect-library-move — the last rip's album folder was filed in the library folder, with its log and report, and nothing left behind; waits (600s), because a rip is filed only after its post-rip checks finish |
 | `expect-rip-argv` | 2 | ready | expect-rip-argv <with|without> <flag> — the last rip's whole-disc pass sent this cyanrip flag, or left it out, read from the argv as spawned |
+| `expect-pregaps-agree` | 0 | ready | expect-pregaps-agree — every rip of one disc in this run lists the same pregaps (cyanrip's Gaps: block), naming each track that differs; info either way, blocked when fewer than two logs of one disc could be compared |
 | `expect-newest-pair` | 0 | ready | expect-newest-pair — the build this app reviews is the fork's newest release and this app is our newest release; a pair that cannot be shown newest fails too (D3; `expect-ripper-under-review` checks the installed ripper is that build) |
 | `expect-found-offset` | 0 | ready | expect-found-offset — the previous `cyanrip -f` found the offset set-drive-offset set for this drive |
 | `cache-probe` | 0 | ready | cache-probe — run cd-paranoia -A on the selected drive and record what it measures (info; its output is saved beside the transcript) |
@@ -701,6 +702,14 @@ found nothing wrong*.
       "takes_paths": false,
       "implemented": true,
       "help": "expect-rip-argv <with|without> <flag> \u2014 the last rip's whole-disc pass sent this cyanrip flag, or left it out, read from the argv as spawned"
+    },
+    {
+      "name": "expect-pregaps-agree",
+      "min_args": 0,
+      "max_args": 0,
+      "takes_paths": false,
+      "implemented": true,
+      "help": "expect-pregaps-agree \u2014 every rip of one disc in this run lists the same pregaps (cyanrip's Gaps: block), naming each track that differs; info either way, blocked when fewer than two logs of one disc could be compared"
     },
     {
       "name": "expect-newest-pair",

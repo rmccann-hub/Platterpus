@@ -39,6 +39,18 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The acceptance run now compares the pregap lists of every rip of one disc** (TASKS
+  R10). Every grader read one rip at a time, so on the 2026-10-13 Full run nothing of
+  ours noticed that the secure re-read's log left out track 4's 158-frame pregap, which
+  the whole-disc rip of the same disc listed; the fork found it. A new verb,
+  `expect-pregaps-agree`, run by a new section P4, reads the `Gaps:` block of every
+  cyanrip log the run wrote, groups them by Disc ID and names each track where two rips
+  disagree, with which logs said what. On the filed round-32 logs it names exactly
+  tracks 4 and 9 (94 frames against 95). A disagreement is recorded as `info`, declared
+  in advance: it moves no sample, no log can say which reading is right, and it is the
+  fork's known variance. Fewer than two comparable logs of one disc is `blocked`, never
+  "agree".
+
 - **Round 32 is closed, and the default cyanrip build is now the fork's `.22`
   (`200530e`).** The fork's lap 9 declared `GO` after our lap 8, so both sides' checks
   read round 32 CLOSED. It approves `.22` with Platterpus 0.7.104, the pair its Full run

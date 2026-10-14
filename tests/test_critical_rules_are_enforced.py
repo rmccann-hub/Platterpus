@@ -1068,6 +1068,12 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # expects. The rule deciding WHEN that warning is expected is a separate
     # concern and went to its own module (`uiscript/expected_warnings.py`) instead.
     "uiscript/artifact_grading.py": 331,
+    # 333 lines on arrival (2026-10-14, TASKS R10). **One job, kept as one module**:
+    # read each cyanrip log's `Gaps:` block and compare the rips of one disc. The
+    # parse, the comparison and the one sentence that names each differing track
+    # belong together; most of the length is the docstring saying why the answer
+    # is gathered rather than graded and what the floor refuses.
+    "uiscript/pregap_grading.py": 333,
     # 356 lines on 2026-09-14, crossing the ~300 heuristic with round 18's rename.
     # **Kept as one module deliberately.** The heuristic asks whether a file is
     # doing more than one job, and this one is not: it is the script run report —
@@ -2536,7 +2542,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4780 -> 4782** (2026-10-06, TASKS A4 "Fold the hardware-only checks into the closing run"): the import and base class of `AppLogVerbsMixin`; its handlers went to their own mixin, not here.
     # **4782 -> 4734** (2026-10-06, TASKS D6 "The acceptance run's overall estimate"): lowered: `_coerce_setting` and `_parse_track_spec` moved to `script_values.py`, because the estimate must read a script's settings and selections as the runner does (one reader, two callers); the start-of-run estimate call and the `estimate` property stay here, beside `start`.
     # **4734 -> 4757** (2026-10-06, KDD-42 W3): two more verb mixins in the class list, and `screenshot` drawing the walkthrough's `callout` marks (and failing a picture that misses one); the verbs themselves live in `walkthrough_verbs.py` and `burst_verbs.py`.
-    "uiscript/runner.py": 4757,
+    # **4757 -> 4759** (2026-10-14, TASKS R10): one more verb mixin in the class list and its import; the handler lives in `pregap_verbs.py`.
+    "uiscript/runner.py": 4759,
     # **318 -> 339** (2026-09-24): `(offset)` and the one preflight view of it, shared by the runner and the committed-script sweeps.
     # **339 -> 345** (2026-09-25): the passthrough sanitiser refuses every line break, via the shared definition.
     # **345 -> 348** (2026-09-25, the property-test batches): `raw_tail` is cut from the source text, so a quoted verb cannot corrupt it.
@@ -2570,7 +2577,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **964 -> 966** (2026-10-06, the maintainer's narrowing of the acceptance grader): `expect-album-audit`'s help says which one warning it expects, and on which build.
     # **966 -> 983** (2026-10-06, KDD-42 W3): the `callout` and `record` rows, the vocabulary's one home.
     # **983 -> 984** (2026-10-07, KDD-42 W6): `open getting-started`, so the walkthrough script can reach the guide like any other dialog.
-    "uiscript/verbs.py": 984,
+    # **984 -> 995** (2026-10-14, TASKS R10): the `expect-pregaps-agree` declaration, the one grader that reads a whole run rather than one rip. The table is the vocabulary's security boundary, so a verb is an entry here by design.
+    "uiscript/verbs.py": 995,
     # 316 lines on arrival (2026-09-25). **One job, kept as one module**: decide
     # whether a release's attestation proves the download was built by our
     # release workflow. It is the only module that imports `sigstore` (Critical
