@@ -60,7 +60,13 @@ from pathlib import Path
 from typing import Final
 
 from platterpus.build_info import build_fingerprint
-from platterpus.bundle_integrity import sha256_section
+from platterpus.bundle_integrity import home_folders_section, sha256_section
+from platterpus.export_redaction import (
+    Redaction,
+    redact_member,
+    redact_text,
+    this_machines_homes,
+)
 
 log = logging.getLogger(__name__)
 
@@ -133,6 +139,19 @@ class BundleEntry:
     #: file that was not included. `bundle_integrity.sha256_section` says why the
     #: hash is of the written bytes and what that means for a bounded file.
     sha256: str = ""
+    #: Home-folder paths replaced with ``~`` as this member was written (S10).
+    home_paths_replaced: int = 0
+    #: SHA-256 of the member BEFORE the replacement, so a receiver holding the
+    #: original (the rig, or the report's own ``artifacts.<x>.sha256``) can still
+    #: match it. Empty when nothing was replaced, because then it equals ``sha256``.
+    sha256_before_replacement: str = ""
+    #: Non-empty when the member was deliberately written byte for byte although
+    #: it names a home folder; the sentence says why (its bytes are signed).
+    kept_as_written: str = ""
+    #: Home-folder paths left in a member kept as written.
+    home_paths_left: int = 0
+    #: ``HANDSHAKE-`` wire lines copied unchanged although they named a home.
+    wire_lines_kept: int = 0
 
 
 @dataclass
@@ -663,6 +682,21 @@ def _album_folder_lines(
     return lines
 
 
+#: Image types admitted only from a caller's own run folder — binary, so never
+#: examined for paths. Derived from the two allowlists rather than typed out, so
+#: a type added to either cannot be missed here.
+_BINARY_SUFFIXES: Final[frozenset[str]] = EXTRA_DIR_SUFFIXES - ALLOWED_SUFFIXES
+
+
+def _is_text_member(name: str) -> bool:
+    """Whether a member is text, and so is examined for home paths.
+
+    Everything the strict allowlist admits is text (`ALLOWED_SUFFIXES`), and a
+    rotated `log.txt.N` is text too; only the widened set's images are not.
+    """
+    return Path(name).suffix.lower() not in _BINARY_SUFFIXES
+
+
 def _render_manifest(
     *,
     stamp: str,
@@ -672,6 +706,7 @@ def _render_manifest(
     album_dirs: Sequence[Path],
     missing_album_dirs: Sequence[Path] = (),
     entries: Sequence[BundleEntry],
+    manifest_replacements: int = 0,
 ) -> str:
     """The human-readable index, and the honest one.
 
@@ -754,6 +789,7 @@ def _render_manifest(
     else:
         lines.append("  (nothing was excluded)")
     lines += sha256_section(included)
+    lines += home_folders_section(included, manifest_replacements=manifest_replacements)
     # **Derived, not typed out.** The first version listed the extensions as prose
     # and was wrong within the hour: it named the strict set while the archive also
     # carried this program's own screenshots under the widened one, so the manifest
@@ -802,6 +838,7 @@ def build_bundle(
     extra_dirs: Mapping[str, Path] | None = None,
     extra_text: Mapping[str, str] | None = None,
     files: Mapping[str, Path] | None = None,
+    homes: Sequence[str] | None = None,
 ) -> BundleResult:
     """Write one `.tar.gz` of every text artifact worth sending. Never raises.
 
@@ -828,10 +865,50 @@ def build_bundle(
     album folder. It is for evidence that is not in any folder the bundle walks:
     cyanrip's `-j` record, which stays in the rips root. A named file that is
     not there is a manifest row, never a silent gap.
+
+    `homes` are the home folders replaced EXACTLY, beside the shape-based
+    replacement every text member gets (:mod:`platterpus.export_redaction`).
+    ``None`` means this machine's (:func:`this_machines_homes`); a test passes its
+    own so it never depends on where the machine running it keeps its home.
     """
     result = BundleResult()
     facts = dict(facts or {})
     extra_text = dict(extra_text or {})
+    known_homes: list[str] = list(this_machines_homes() if homes is None else homes)
+
+    def _redacted(name: str, data: bytes) -> Redaction:
+        # Text only: a screenshot's bytes are not text, and "replacing a path"
+        # inside a PNG would corrupt an image, not hide a folder.
+        if not _is_text_member(name):
+            return Redaction(data=data)
+        return redact_member(data, homes=known_homes)
+
+    def _entry(
+        name: str, source: str, note: str, original: bytes, done: Redaction
+    ) -> BundleEntry:
+        # One constructor for both routes a member arrives by, so a field added
+        # for one cannot be forgotten on the other — which is how a manifest ends
+        # up hashing one channel and not the next.
+        return BundleEntry(
+            name,
+            source,
+            True,
+            note,
+            len(done.data),
+            hashlib.sha256(done.data).hexdigest(),
+            home_paths_replaced=done.replaced,
+            sha256_before_replacement=(
+                hashlib.sha256(original).hexdigest() if done.replaced else ""
+            ),
+            # Listed when it matters: a signed member that names no home folder
+            # needed no exception, but one never examined is always named.
+            kept_as_written=(
+                done.kept_reason if done.left_in_place or not done.examined else ""
+            ),
+            home_paths_left=done.left_in_place,
+            wire_lines_kept=done.wire_lines_kept,
+        )
+
     # One list from here down, so nothing below has to ask which spelling the
     # caller used. Order is preserved (it decides the disambiguating index) and
     # duplicates are dropped, because passing the same folder twice would
@@ -933,7 +1010,12 @@ def build_bundle(
                     )
                     del data
                     continue
-                if spent + len(data) > MAX_TOTAL_BYTES:
+                # HOME FOLDERS REPLACED BEFORE THE BUDGET, THE WRITE AND THE
+                # HASH, in that order, so all three describe the same bytes: the
+                # ones a receiver extracts. Hashing before the replacement would
+                # make every S8 hash of a changed member wrong by construction.
+                done = _redacted(name, data)
+                if spent + len(done.data) > MAX_TOTAL_BYTES:
                     entries.append(
                         BundleEntry(
                             name,
@@ -941,53 +1023,54 @@ def build_bundle(
                             False,
                             f"excluded: the bundle's {MAX_TOTAL_BYTES}-byte total "
                             f"budget was already spent ({spent} bytes) and this "
-                            f"file is {len(data)} bytes. Nothing is dropped "
+                            f"file is {len(done.data)} bytes. Nothing is dropped "
                             "silently — this line IS the record that it was.",
                         )
                     )
                     continue
-                _write(name, data)
-                spent += len(data)
+                _write(name, done.data)
+                spent += len(done.data)
                 # HASHED FROM THE SAME BYTES `_write` WAS HANDED, in the same
                 # breath. Hashing the source file instead would describe a file
                 # the archive does not contain whenever the per-file cap bounded
                 # it — a digest of something no member ever held.
-                entries.append(
-                    BundleEntry(
-                        name,
-                        str(source),
-                        True,
-                        note,
-                        len(data),
-                        hashlib.sha256(data).hexdigest(),
-                    )
-                )
-                del data  # release before the next file is read
+                entries.append(_entry(name, str(source), note, data, done))
+                del data, done  # release before the next file is read
 
             for name, text in sorted(extra_text.items()):
                 blob = text.encode("utf-8", errors="replace")
-                _write(name, blob)
-                spent += len(blob)
-                entries.append(
-                    BundleEntry(
-                        name,
-                        "(generated in-app)",
-                        True,
-                        "",
-                        len(blob),
-                        hashlib.sha256(blob).hexdigest(),
-                    )
+                done = _redacted(name, blob)
+                _write(name, done.data)
+                spent += len(done.data)
+                entries.append(_entry(name, "(generated in-app)", "", blob, done))
+
+            # THE MANIFEST IS REPLACED TOO, and counts itself. It names every
+            # album folder and the session folder in full, so it carries more home
+            # paths than most members. Rendered twice: once to count what its own
+            # text holds, once with that count written in. The count line is
+            # digits, so writing it in cannot change the count.
+            def _manifest(own: int) -> str:
+                return _render_manifest(
+                    stamp=stamp,
+                    app_version=app_version,
+                    outcome=outcome,
+                    facts=facts,
+                    album_dirs=albums,
+                    missing_album_dirs=plan.missing_album_dirs,
+                    entries=entries,
+                    manifest_replacements=own,
                 )
 
-            manifest = _render_manifest(
-                stamp=stamp,
-                app_version=app_version,
-                outcome=outcome,
-                facts=facts,
-                album_dirs=albums,
-                missing_album_dirs=plan.missing_album_dirs,
-                entries=entries,
-            )
+            own = redact_text(_manifest(0), homes=known_homes)[1]
+            manifest, own_again, _ = redact_text(_manifest(own), homes=known_homes)
+            if own_again != own:
+                # Unreachable by the argument above; logged rather than asserted,
+                # because a bundle must still be written.
+                log.warning(
+                    "the manifest counted %d home path(s) in itself and then %d",
+                    own,
+                    own_again,
+                )
             _write("MANIFEST.txt", manifest.encode("utf-8"))
 
         result.path = archive_path

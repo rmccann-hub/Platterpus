@@ -62,6 +62,23 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   fork's known variance. Fewer than two comparable logs of one disc is `blocked`, never
   "agree".
 
+- **An evidence bundle no longer carries your home folder's path, except inside signed
+  logs.** The cyanrip fork asked for this in round 32 lap 9 (S10): when they filed the
+  2026-10-13 bundle they had to replace home paths in nine files by hand. Every text file
+  is now written with `/home/<name>`, `/var/home/<name>`, `/Users/<name>`,
+  `C:\Users\<name>` and this machine's own home replaced by `~`, using the same pattern
+  as the fork's own tool. The manifest replaces them in its own text too. Nothing changes
+  silently: `MANIFEST.txt` names each changed file with its count and its SHA-256 from
+  before the change, and the S8 hashes are of the replaced bytes, which are the bytes a
+  receiver extracts. Two kinds of file are written exactly as they were: cyanrip's logs,
+  which are signed (`--verify-log` checks every byte), and our EAC-compatible logs, which
+  end in our own checksum. Replacing a path in either would make a genuine log fail its
+  own check. The manifest names them with the number of home paths still in them, and the
+  fork's ingester verifies them first and replaces the paths afterwards. In our filing of
+  the 2026-10-13 run, the 22 signed logs contain no home paths, because cyanrip is given
+  relative paths. The other files contained 1,985. Hostnames and names are not
+  replaced, and the manifest says so.
+
 - **Every file in an evidence bundle now has its SHA-256 in `MANIFEST.txt`.** The cyanrip
   fork asked for this in round 32 lap 9 (S8). The manifest gave each file's size and no
   hash, so a receiver could check a filing only against the archive as it reached them.

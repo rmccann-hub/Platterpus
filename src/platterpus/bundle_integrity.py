@@ -3,7 +3,9 @@
 `evidence_bundle` decides what goes into a bundle and writes it. This module
 renders the part of its ``MANIFEST.txt`` that lets a receiver check the bytes
 they extracted against the bytes we wrote: one SHA-256 per member, in
-``sha256sum``'s own format (the cyanrip fork's round 32 lap 9 S8).
+``sha256sum``'s own format (the cyanrip fork's round 32 lap 9 S8), and the record
+of what the export changed in them: every home-folder path replaced with ``~``,
+and every member kept byte for byte although it names one (their S10).
 
 **Why it is its own module.** `evidence_bundle` is far past the ~300-line
 cohesion heuristic and is held there by a ratchet
@@ -94,5 +96,59 @@ def sha256_section(included: Sequence[BundleEntry]) -> list[str]:
         lines.append(
             f"  {unhashed} included member(s) carry NO hash — this list is "
             "incomplete, and that is itself a finding"
+        )
+    return lines
+
+
+#: The heading of the manifest's home-folder block. A constant for the same
+#: reason as :data:`SHA256_HEADING`.
+HOME_FOLDERS_HEADING: Final[str] = "HOME FOLDERS REPLACED WITH ~"
+
+
+def home_folders_section(
+    included: Sequence[BundleEntry], *, manifest_replacements: int
+) -> list[str]:
+    """The manifest's record of every home path replaced, and every one kept.
+
+    **Why it exists** (the cyanrip fork's round 32 lap 9 S10, their data
+    register's X9): their filing of the 2026-10-13 bundle replaced home paths in
+    nine files by hand. The export now does it (`export_redaction`), and a change
+    made to evidence is never a silent one: each member that changed is named
+    with its count and its hash BEFORE the change, so the rig's copy (or the
+    report's own ``artifacts.<x>.sha256``) can still be matched, and each member
+    NOT changed although it names a home folder is named with the reason. Zero is
+    printed as zero, so "nothing replaced" is a statement, not a missing block.
+    """
+    changed = [e for e in included if e.home_paths_replaced]
+    kept = [e for e in included if e.kept_as_written]
+    wire = sum(e.wire_lines_kept for e in included)
+    total = sum(e.home_paths_replaced for e in changed)
+    lines = [
+        "",
+        HOME_FOLDERS_HEADING,
+        "-" * 40,
+        "  Home-folder paths (/home/<name>, /var/home/<name>, /Users/<name>,",
+        "  C:\\Users\\<name>, and this machine's own home) in every text member",
+        "  were replaced with ~ as it was written, so the hashes above are of the",
+        "  replaced bytes. Hostnames and names are NOT replaced.",
+        f"  replaced: {total} in {len(changed)} member(s), and "
+        f"{manifest_replacements} in this manifest's own text",
+    ]
+    lines += [
+        f"  {e.name:<52} {e.home_paths_replaced} replaced; sha256 before "
+        f"replacement {e.sha256_before_replacement}"
+        for e in changed
+    ]
+    lines.append(
+        f"  kept as written: {len(kept)} member(s), "
+        f"{sum(e.home_paths_left for e in kept)} home path(s) left in them"
+    )
+    lines += [
+        f"  {e.name:<52} {e.home_paths_left} left; {e.kept_as_written}" for e in kept
+    ]
+    if wire:
+        lines.append(
+            f"  {wire} HANDSHAKE- line(s) named a home folder and were left as they "
+            "are (wire values of the shared protocol)"
         )
     return lines

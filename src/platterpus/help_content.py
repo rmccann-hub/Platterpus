@@ -514,7 +514,8 @@ sheets, reports, checksums. **No audio, ever** — the filter is a list of what 
 go in, not a list of what may not, and anything excluded is named in the
 archive's `MANIFEST.txt` rather than dropped quietly. That file also gives every
 included file's SHA-256, so whoever receives the archive can check each file
-against the hash this app wrote.
+against the hash this app wrote. Your home folder's path is written as `~` in
+the text files, except in signed rip logs, which stay exactly as written.
 
 ## Running your own tests without being there
 

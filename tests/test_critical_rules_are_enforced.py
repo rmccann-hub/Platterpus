@@ -1642,7 +1642,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # `accepted_rig_builds` instead of re-deriving it.
     # **1020 -> 1051** (2026-09-27, TASKS the `-j` rows): `files`, a single-file channel under the STRICT set, for cyanrip's `-j` record, which stays in the rips root where no album-folder walk can reach it; a named file that is not there is a manifest row. It belongs beside the other channels because `_collect`'s order is the byte budget.
     # **1051 -> 1078** (2026-10-14, the fork's round 32 lap 9 S8): each included member's SHA-256, computed where its bytes are written (a `BundleEntry` field and the two constructions that fill it). The manifest block that renders the hashes went to `bundle_integrity.py` instead; the hash itself has to be taken from the bytes `_write` was handed, so it lives beside `_write`.
-    "evidence_bundle.py": 1078,
+    # **1078 -> 1161** (2026-10-14, the fork's round 32 lap 9 S10): home-folder paths replaced at export. The replacement and its manifest block live in `export_redaction.py` and `bundle_integrity.py`; what stays here is what must sit where a member is written: the five `BundleEntry` fields that record what changed, the one constructor both routes share, the replacement placed before the budget, the write and the hash, and the manifest rendered twice so it can count its own paths.
+    "evidence_bundle.py": 1161,
     # +22 on 2026-09-04: the measurement behind the relabelled pair line. The
     # line is one f-string; the rest is the docstring recording that the
     # 2026-09-03 diagnostics header named the approved build for a session that
@@ -1760,7 +1761,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **642 -> 644** (2026-10-07, KDD-42 W6): the Guide's opening points a new user to Help → Getting started first, as W6 asks of Help → User Guide.
     # **644 -> 643** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the Guide's note on the disabled box became one sentence saying there is no compression setting.
     # **643 -> 645** (2026-10-14, the fork's round 32 lap 9 S8): the Guide's acceptance section says the archive's MANIFEST.txt gives every file's SHA-256, so an operator knows the receiver can check each file.
-    "help_content.py": 645,
+    # **645 -> 646** (2026-10-14, the fork's round 32 lap 9 S10): the Guide says home-folder paths are written as ~, except in signed rip logs.
+    "help_content.py": 646,
     # 315 -> 359 (2026-09-06): path_escape_reasons, the ONE decision the
     # Settings validator and the argv chokepoint now share. Placed here because
     # settings_validation already imports naming and the question is about a

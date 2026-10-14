@@ -1319,6 +1319,17 @@ test-script run.
    hashed with its elision marker, because that is what a receiver extracts. The block
    was added after every older block and changed none of them, so an older reader of
    the manifest is unaffected (`tests/test_evidence_bundle_hashes.py`).
+   **Home-folder paths become `~` as each text member is written** (from 2026-10-14,
+   their S10, `export_redaction.py`), and the replacement comes before the budget, the
+   write and the hash, so all three describe the bytes a receiver extracts. A change
+   made to evidence is never silent: the manifest names each changed member with its
+   count and its hash *before* the change, so the rig's copy still matches. **A member
+   whose bytes are signed is the exception, judged by content:** a cyanrip log (its
+   `Log FUN512:` line) and our EAC-compatible log (its checksum footer) are written
+   byte for byte and named with the paths they still carry, because replacing a path
+   would make a genuine log fail its own check. The receiver can verify first and
+   replace after, which is what the fork's ingester does
+   (`tests/test_export_redaction.py`, run over our own filing of the round 32 run).
 
 4. **Off the GUI thread, and it never raises.** Gzipping a 4 MB log plus its rotations
    is not a few-milliseconds operation (§3.2), so it runs on a plain daemon thread —
