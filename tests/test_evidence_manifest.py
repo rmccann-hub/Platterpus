@@ -274,3 +274,46 @@ def test_laps_reports_citation_failures_and_nothing_else(
     found.append(P("LSL.4", "REFUSED", 1, "hashes differently"))
     problems, examined = em.check_laps(root)
     assert examined == 1 and len(problems) == 1 and "hashes differently" in problems[0]
+
+
+def test_unchanged_holds_before_the_removal_and_says_when_a_file_drifted(
+    moved: dict[str, str | Path],
+) -> None:
+    """HR-2.1 b: before the removal merges, each moved folder on the default
+    branch must equal its tree at the evidence commit. Run against the commit
+    the evidence was built from (`last`), then against one that changed a file."""
+    root = _root(moved)
+    code, out = _run(root, "unchanged", "--ref", str(moved["last"]))
+    assert code == 0 and "1 examined" in out, out
+    _git(root, "checkout", "-q", "-b", "drift", str(moved["last"]))
+    (root / FOLDER / "full.log").write_bytes(b"edited after the build\n")
+    _git(root, "commit", "-q", "-am", "a file changed after the build")
+    _git(root, "checkout", "-q", "-f", str(moved["removal"]))
+    code, out = _run(root, "unchanged", "--ref", "drift")
+    assert code == 1 and "changed after the build" in out, out
+
+
+def test_unchanged_skips_a_folder_already_removed(moved: dict[str, str | Path]) -> None:
+    """After the removal merges only the README is left, and the check is over:
+    it examines nothing rather than failing every later push."""
+    code, out = _run(_root(moved), "unchanged", "--ref", str(moved["removal"]))
+    assert code == 0 and "0 examined" in out, out
+
+
+def test_a_removal_that_deletes_a_file_that_stays_fails_the_move(
+    moved: dict[str, str | Path],
+) -> None:
+    root = _root(moved)
+    _git(root, "rm", "-q", f"{FOLDER}/README.md")
+    _git(root, "commit", "-q", "-m", "the README went too")
+    code, out = _run(root, "move", "--removal", "HEAD", FOLDER)
+    assert code == 1 and "stays on the default branch" in out, out
+
+
+def test_what_stays_on_the_default_branch() -> None:
+    assert em.stays_on_default("docs/handshake/artifactsround32/README.md")
+    assert em.stays_on_default("docs/handshake/outbound/artifacts/lsl-amendments-1.md")
+    assert not em.stays_on_default(
+        "docs/handshake/outbound/artifacts/round-15-lap-13-run-report.json"
+    )
+    assert "docs/handshake/outbound/artifacts" in em.MOVING_FOLDERS

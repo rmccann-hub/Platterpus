@@ -20,6 +20,8 @@ promise every later lap leans on. These checks are what keep it one:
 * ``laps``     -- every lap citing a file with a manifest row passes the lap
   checker; run with ``HR2_EVIDENCE_STRICT=1`` in CI, so an evidence citation that
   cannot be fetched fails instead of going unchecked (§6b).
+* ``unchanged`` -- HR-2.1 b, before the removal merges: every moved folder the
+  default branch still holds has the same tree there as at its evidence commit.
 * ``move``     -- HR-2 §5d, after a move: for every moved folder, its tree at the
   last default commit is the tree at the evidence commit, and every path the
   removal commit deletes has exactly one manifest row.
@@ -31,6 +33,7 @@ check and none examined, or a ``move`` naming no folders, fails.
     python3 scripts/evidence_manifest.py rows --since origin/main
     python3 scripts/evidence_manifest.py branch
     python3 scripts/evidence_manifest.py tags
+    python3 scripts/evidence_manifest.py unchanged --ref origin/main
     python3 scripts/evidence_manifest.py move --removal <commit> <folder>...
 
 Exit 0 when every check held, 1 when one did not, 2 when it could not be run.
@@ -60,9 +63,11 @@ REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 
 #: What HR-2's first move takes off the default branch, as an ENUMERATED list
 #: (§5b: never a pattern, because `git ls-tree` reads `docs/rig-*` literally,
-#: prints nothing and exits 0). Whole run folders, each keeping its README on the
-#: default branch; and six round-15 logs whose folder also holds a specification
-#: a lap checker implements (`lsl-amendments-1.md`), which stays (§1).
+#: prints nothing and exits 0). Whole run folders: the evidence commit holds each
+#: one entire, and the default branch keeps only the files `stays_on_default`
+#: names (HR-2 §5a and HR-2.1 a). `outbound/artifacts` is one of them since
+#: HR-2.1 a: its six round-15 logs move, and `lsl-amendments-1.md`, a
+#: specification the lap checker implements, stays on both branches.
 MOVING_FOLDERS: Final[tuple[str, ...]] = (
     "docs/handshake/artifacts-round-07",
     "docs/handshake/artifacts-round-07-lap-29",
@@ -74,18 +79,21 @@ MOVING_FOLDERS: Final[tuple[str, ...]] = (
     "docs/handshake/artifactsround30",
     "docs/handshake/artifactsround31",
     "docs/handshake/artifactsround32",
+    "docs/handshake/outbound/artifacts",
 )
-MOVING_FILES: Final[tuple[str, ...]] = tuple(
-    f"docs/handshake/outbound/artifacts/round-15-lap-13-{name}"
-    for name in (
-        "cancelled-rip-g978f9b0.log",
-        "rig-check-manifest.txt",
-        "run-report.json",
-        "run-transcript.txt",
-        "secure-reread-eac-g978f9b0.log",
-        "secure-reread-g978f9b0.log",
-    )
+#: Files in a moving folder that the default branch keeps, besides every README
+#: (HR-2.1 a: "a specification like outbound/artifacts/lsl-amendments-1.md").
+STAYS: Final[frozenset[str]] = frozenset(
+    {"docs/handshake/outbound/artifacts/lsl-amendments-1.md"}
 )
+
+
+def stays_on_default(path: str) -> bool:
+    """Does `path`, inside a moving folder, stay on the default branch too?
+    A folder's README is its index (HR-2 §5a); `STAYS` holds the rest."""
+    return path.rsplit("/", 1)[-1] == "README.md" or path in STAYS
+
+
 #: Rows of one commit at which `rows` downloads the whole commit once rather
 #: than each file's blob lazily, one round trip apiece.
 PREFETCH_AT: Final[int] = 20
@@ -295,7 +303,63 @@ def check_move(root: Path, removal: str, folders: Sequence[str]) -> list[str]:
     for path in filter(None, deleted):
         if path not in rows:
             problems.append(f"{path}: deleted by {removal[:12]} with no manifest row")
+        if stays_on_default(path):
+            problems.append(
+                f"{path}: deleted by {removal[:12]}, but it stays on the default "
+                "branch (HR-2 §5a, HR-2.1 a)"
+            )
     return problems
+
+
+def moved_folder_of(path: str) -> str:
+    """The moving folder `path` was moved with, else its own folder."""
+    for folder in MOVING_FOLDERS:
+        if path.startswith(folder + "/"):
+            return folder
+    return path.rsplit("/", 1)[0]
+
+
+def check_unchanged(root: Path, ref: str) -> tuple[list[str], int]:
+    """HR-2.1 b, before the removal merges: each moved folder that `ref` (the
+    current default branch) still holds has the same tree there as at its
+    evidence commit. A difference means a file changed after the build, and the
+    removal waits until that is resolved. A folder `ref` no longer holds, or
+    holds only what stays on the default branch (its README), has been removed
+    already and is not this check's business. (problems, examined)"""
+    text = _manifest_text(root, None)
+    if text is None:
+        return [], 0
+    rows, problems = parse_manifest(text)
+    if problems:
+        return [f"the manifest is malformed: {p}" for p in problems], 0
+    folders: dict[str, set[str]] = {}
+    for row in rows.values():
+        if row.last_default_commit:  # moved from the default branch, not filed
+            folders.setdefault(moved_folder_of(row.path), set()).add(
+                row.evidence_commit
+            )
+    fetcher = Fetcher()
+    examined = 0
+    for folder, commits in sorted(folders.items()):
+        held = _git(root, "rev-parse", "--verify", "--quiet", f"{ref}:{folder}")
+        if held.returncode != 0:
+            continue
+        files = _git(root, "ls-tree", "-r", "--name-only", ref, "--", folder)
+        if all(stays_on_default(f) for f in files.stdout.split("\n") if f):
+            continue  # removed already: only what stays on the default branch is left
+        examined += 1
+        if len(commits) != 1:
+            problems.append(f"{folder}: its rows name {len(commits)} evidence commits")
+            continue
+        (evidence,) = commits
+        theirs = fetcher.object_id(root, evidence, folder)
+        if held.stdout.strip() != theirs:
+            problems.append(
+                f"{folder}: its tree on {ref} is {held.stdout.strip()[:12]}, at the "
+                f"evidence commit {evidence[:12]} it is {(theirs or '(none)')[:12]}: "
+                "a file changed after the build, so the removal waits (HR-2.1 b)"
+            )
+    return problems, examined
 
 
 #: The lap-language rule that resolves an artifact citation (`laplang.check`).
@@ -351,6 +415,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub.add_parser("branch")
     sub.add_parser("tags")
     sub.add_parser("laps")
+    unchanged = sub.add_parser("unchanged")
+    unchanged.add_argument("--ref", default="origin/main")
     move = sub.add_parser("move")
     move.add_argument("--removal", required=True)
     move.add_argument("folders", nargs="*")
@@ -367,6 +433,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         problems = check_tags(root)
     elif args.mode == "laps":
         problems, examined = check_laps(root)
+    elif args.mode == "unchanged":
+        problems, examined = check_unchanged(root, args.ref)
     else:
         problems = check_move(root, args.removal, args.folders)
     for problem in problems:

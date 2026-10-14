@@ -325,11 +325,13 @@ behaviour it asks of a checker is keyed on evidence citations, which no lap uses
 |---|---|
 | §2 readers, fixtures | `scripts/evidence_fixtures.py` (copy, slim extract, check), `tests/evidence_paths.py`; the sweep `tests/test_no_new_evidence_readers.py`, whose allowlist step 2 empties |
 | §3, §4, §5d, §8a checks | `scripts/evidence_manifest.py` (`format`, `rows`, `branch`, `tags`, `laps`, `move`) |
-| §5b enumerated list | `scripts/evidence_manifest.py::MOVING_FOLDERS`, `MOVING_FILES` |
+| §5b enumerated list | `scripts/evidence_manifest.py::MOVING_FOLDERS` (eleven folders, `outbound/artifacts` among them since HR-2.1 a) |
+| HR-2.1 a, what stays | `evidence_manifest.stays_on_default`: every README and `STAYS` (`lsl-amendments-1.md`), used by the builder, `evidence_move.py removal`, the move check and the test guard |
+| HR-2.1 b, the pull-request check | `evidence_manifest.py unchanged`, in the `gitleaks` job: a moved folder still on `main` equals its tree at the evidence commit |
 | §6a, §6b citations | `scripts/laplang/evidence.py`, read by `scripts/laplang/refs.py::Trees._evidence` |
 | §6d old laps | `Trees._evidence` keeps the old rules for a commit on the ref of record; bare paths: `tests/test_named_artifacts_are_filed.py`, `tests/test_doc_index_completeness.py`; B1: `scripts/laplang/scratch.py::Scratch.overlay` |
 | §7 fetching | `.claude/hooks/session-start.sh`; `laplang.evidence.Fetcher` fetches by hash into a temporary bare repository, **blobless**: the text's `fetch --depth 1 <url> <commit>` without `--filter=blob:none` would download every file the evidence commit holds |
-| §8 CI | `.github/workflows/ci.yml`: `gitleaks` is the evidence job; the others fetch by refspec |
+| §8 CI | `.github/workflows/ci.yml`: `gitleaks` is the evidence job; the others fetch by refspec. HR-2.1 d: GitHub's secret scanning and push protection, on for every branch, are the scan of record; our `gitleaks` pass over `evidence` stays as a second one |
 
 ```text
 HR-2 (protocol v9, with the lap-statement language amended to match)

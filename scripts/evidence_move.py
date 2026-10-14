@@ -5,8 +5,8 @@
 folders off the default branch onto the orphan `evidence` branch. §5 fixes how,
 so that either side can rebuild the other's commit and compare IDs:
 
-* **b.** from an ENUMERATED list (`evidence_manifest.MOVING_FOLDERS` and
-  `MOVING_FILES`), never a pattern; each entry must yield at least one file, so
+* **b.** from an ENUMERATED list (`evidence_manifest.MOVING_FOLDERS`), never a
+  pattern; each entry must yield at least one file, so
   a misspelt folder fails here instead of moving nothing. It is built in a
   temporary clone made with ``git clone --depth 1 --single-branch``: the files'
   blobs are already on the remote, in the default branch's history, so a push
@@ -24,6 +24,7 @@ act under the operator's standing permission (adding commits only; never
 delete, force-push or tag it), done from the temporary clone this leaves behind:
 
     python3 scripts/evidence_move.py build --date 2026-10-15T12:00:00Z --out /tmp/ev
+    python3 scripts/evidence_move.py removal --base <the build's base>
     git -C /tmp/ev/clone push origin <commit>:refs/heads/evidence
 
 The rows land in ``<out>/manifest-rows.tsv``; the removal pull request merges
@@ -80,7 +81,7 @@ def _git(
 
 
 def moving_list() -> list[str]:
-    return list(evidence_manifest.MOVING_FOLDERS) + list(evidence_manifest.MOVING_FILES)
+    return list(evidence_manifest.MOVING_FOLDERS)
 
 
 def entries_at(root: Path, base: str, listed: Sequence[str]) -> list[Entry]:
@@ -177,9 +178,20 @@ def rows(clone: Path, commit: str, base: str, entries: Sequence[Entry]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def removal(root: Path, base: str) -> list[str]:
+    """What the removal pull request deletes (HR-2 §5a, HR-2.1 a): every file of
+    every moving folder at `base`, except those that stay on the default branch.
+    The same enumerated list and the same predicate the builder and the move
+    check use, so the three cannot disagree about what moved."""
+    entries = entries_at(root, base, moving_list())
+    return [e.path for e in entries if not evidence_manifest.stays_on_default(e.path)]
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     sub = parser.add_subparsers(dest="mode", required=True)
+    r = sub.add_parser("removal", help="print the paths the removal deletes")
+    r.add_argument("--base", default="HEAD")
     b = sub.add_parser("build")
     b.add_argument("--date", required=True, help="round 33 lap 1's instant (§5c)")
     b.add_argument("--base", default="origin/main")
@@ -187,6 +199,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     b.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     base = _git(REPO_ROOT, "rev-parse", "--verify", f"{args.base}^{{commit}}").strip()
+    if args.mode == "removal":
+        for path in removal(REPO_ROOT, base):
+            print(path)
+        return 0
     url = args.url or _git(REPO_ROOT, "remote", "get-url", "origin").strip()
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=False)

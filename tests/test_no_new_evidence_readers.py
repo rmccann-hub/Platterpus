@@ -83,31 +83,33 @@ _FRAGMENT: Final[re.Pattern[str]] = re.compile(r"artifacts-?round-?(?:$|[*?\[{])
 
 
 def moving_names() -> list[str]:
-    """What moves, as the names a reader would write: each folder and file."""
-    names = set(evidence_manifest.MOVING_FOLDERS) | set(evidence_manifest.MOVING_FILES)
+    """What moves, as the names a reader would write: each folder, plus every
+    folder the manifest names once it exists."""
+    names = set(evidence_manifest.MOVING_FOLDERS)
     manifest = REPO_ROOT / "docs" / "evidence-manifest.tsv"
     if manifest.is_file():
         rows, _ = parse_manifest(manifest.read_text(encoding="utf-8"))
-        for path in rows:
-            folder = path.rsplit("/", 1)[0]
-            left = [
-                p.name for p in (REPO_ROOT / folder).glob("*") if p.name != "README.md"
-            ]
-            # A folder that moved whole (only its README stays) is named by the
-            # folder; one that keeps other files (`outbound/artifacts` keeps
-            # lsl-amendments-1.md) by each moved file, or its name, `artifacts`,
-            # would match half the tree.
-            names.add(folder if not left else path)
+        names |= {path.rsplit("/", 1)[0] for path in rows}
     return sorted(names)
 
 
 def _needles() -> list[str]:
-    """The distinctive tail of each name: a reader may join the path in parts."""
-    return sorted({name.rsplit("/", 1)[-1] for name in moving_names()})
+    """What to look for: a run folder by its distinctive name (a reader may join
+    the path in parts), any other folder by its whole path. `outbound/artifacts`
+    moves too (HR-2.1 a), and a needle of `artifacts` would match half the tree."""
+    needles: set[str] = set()
+    for name in moving_names():
+        tail = name.rsplit("/", 1)[-1]
+        needles.add(tail if "round" in tail else name + "/")
+    return sorted(needles)
 
 
 def names_evidence(text: str, needles: list[str]) -> bool:
     if any(ch.isspace() for ch in text):
+        return False
+    # A file that stays on the default branch is not evidence, wherever it sits
+    # (HR-2 §5a, HR-2.1 a): the lap checker reads lsl-amendments-1.md by path.
+    if any(text.endswith(stay) for stay in evidence_manifest.STAYS):
         return False
     return bool(_FRAGMENT.search(text)) or any(n in text for n in needles)
 
@@ -195,7 +197,7 @@ def readers() -> dict[str, list[tuple[int, str]]]:
 def test_the_sweep_scans_the_tree_and_knows_what_moves() -> None:
     """Floors: a sweep over no files, or with nothing to look for, passes on nothing."""
     assert len(scanned()) >= 250  # 291 on 2026-10-14: src, scripts, build, workflows
-    assert len(moving_names()) >= 16
+    assert len(moving_names()) >= 11
     for name in moving_names():
         assert (REPO_ROOT / name).exists() or (
             REPO_ROOT / "docs" / "evidence-manifest.tsv"
@@ -252,17 +254,22 @@ def test_the_run_time_guard_sees_an_open_of_an_original_and_nothing_else() -> No
     recorded; its fixture, a run folder's README and an unrelated file are not."""
     import evidence_guard
 
-    moving = REPO_ROOT / evidence_manifest.MOVING_FILES[0]
-    folder = REPO_ROOT / evidence_manifest.MOVING_FOLDERS[-1]
+    moving = (
+        REPO_ROOT
+        / "docs/handshake/outbound/artifacts/round-15-lap-13-run-transcript.txt"
+    )
+    folder = REPO_ROOT / evidence_manifest.MOVING_FOLDERS[0]
     assert evidence_guard.evidence_path(moving) == str(moving)
     assert evidence_guard.evidence_path(folder / "x.log") == str(folder / "x.log")
     assert evidence_guard.evidence_path(folder / "README.md") is None
+    spec = REPO_ROOT / sorted(evidence_manifest.STAYS)[0]
+    assert evidence_guard.evidence_path(spec) is None  # HR-2.1 a: it stays
     fixture = (
         REPO_ROOT
         / "tests"
         / "fixtures"
         / "evidence"
-        / evidence_manifest.MOVING_FILES[0]
+        / "docs/handshake/outbound/artifacts/round-15-lap-13-run-transcript.txt"
     )
     assert evidence_guard.evidence_path(fixture) is None
     assert evidence_guard.evidence_path(REPO_ROOT / "CHANGELOG.md") is None

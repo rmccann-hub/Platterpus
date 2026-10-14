@@ -14,6 +14,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **HR-2.1 a and b (the operator's clarifications, 2026-10-14).** `outbound/artifacts`
+  now moves as a whole folder: the evidence commit holds all of it, and `main` keeps
+  `lsl-amendments-1.md` beside each folder's README. One predicate,
+  `evidence_manifest.stays_on_default`, decides what stays, for the builder, the new
+  `evidence_move.py removal` list, the move check (which now refuses a removal that deletes
+  a file that stays) and the test guard. A new `evidence_manifest.py unchanged` check runs in
+  CI's evidence job: before the removal merges, every moved folder still on `main` must
+  equal its tree at the evidence commit, so a file changed after the build holds the
+  removal back. The evidence commit grows from 752 to 753 files (the specification); the
+  removal still deletes 744.
+
 - **One About-dialog test asserts a banner's text without looking like a URL check.**
   CodeQL's `py/incomplete-url-substring-sanitization` read `"http://e.x" in text` in
   `test_ripper_standing` as a sanitiser and raised a high alert once this PR touched the
