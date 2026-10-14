@@ -14,6 +14,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The shared handshake protocol is v9 in both trees (HR-2 order B, 2026-10-14).**
+  `docs/handshake-protocol.md` is now the fork's `docs/handshake/PROTOCOL.md` at
+  `cyanrip@8f847271`, copied byte for byte (sha256 `c0539096…`, 100,692 bytes): v8 plus
+  HR-2 and HR-2.1 in a new §17, and a §3b bullet exempting an evidence citation from
+  `HANDSHAKE-FROM-COMMIT`. Our gate still implements and declares 8 until order C, as v9
+  §17 requires, with the window recorded in `_BOOTSTRAP_REASON`. Both sides' newest laps
+  still declare the v8 hash, so a new record, `_LANDED_AFTER_THE_LAP`, names each one
+  with the landed hash; it holds only while our file still hashes to that value, and the
+  next lap on either side retires its entry.
 - **HR-2.1 a and b (the operator's clarifications, 2026-10-14).** `outbound/artifacts`
   now moves as a whole folder: the evidence commit holds all of it, and `main` keeps
   `lsl-amendments-1.md` beside each folder's README. One predicate,
