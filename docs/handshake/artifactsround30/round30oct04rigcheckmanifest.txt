@@ -1,0 +1,72 @@
+INFO  album/discovery  newest rip found: /var/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134
+INFO  platterpus/version  0.6.65 (build 0981c69)
+INFO  ripper/version  cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)  [ripper-version.txt]
+INFO  ripper/handshake  unapproved — ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet.
+INFO  ripper/pin  this Platterpus pins 51cc789, and accepts 174a134, the build under review (round 30); the installed banner is above.
+OK    argv/integrity  all 16 flag token(s) we composed arrived intact (--consumer -F -G -N -T -Z -a -c -d -j -l -o -r -s -t) in the binary's own record of the 30 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+INFO  handshake/note  closed: Handshake:      round 29 lap 3 closed, verdict GO -- released build
+INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 679673; the disc block totals 679673. Scope: line present on 0 of 18 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: FIXUP_ATOM, FIXUP_EDGE, OVERLAP, SKIP, VERIFY (they do not scale with the passes)
+INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+OK    parser/log  parsed 18 track(s) from full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134 CD1.log
+INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `-x` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N -x -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+SKIP  device  no --device given
+INFO  album/discovery  newest rip found: /var/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134
+INFO  platterpus/version  0.6.65 (build 0981c69)
+INFO  ripper/version  cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)  [ripper-version.txt]
+INFO  ripper/handshake  unapproved — ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet.
+INFO  ripper/pin  this Platterpus pins 51cc789, and accepts 174a134, the build under review (round 30); the installed banner is above.
+OK    argv/integrity  all 16 flag token(s) we composed arrived intact (--consumer -F -G -N -T -Z -a -c -d -j -l -o -r -s -t) in the binary's own record of the 30 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+INFO  handshake/note  closed: Handshake:      round 29 lap 3 closed, verdict GO -- released build
+INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 679673; the disc block totals 679673. Scope: line present on 0 of 18 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: FIXUP_ATOM, FIXUP_EDGE, OVERLAP, SKIP, VERIFY (they do not scale with the passes)
+INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+OK    parser/log  parsed 18 track(s) from full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134 CD1.log
+INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `-x` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N -x -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+SKIP  device  no --device given
+INFO  album/discovery  newest rip found: /var/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/after cancel 20261004t160255 platterpus-fork-g174a134
+INFO  platterpus/version  0.6.65 (build 0981c69)
+INFO  ripper/version  cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)  [ripper-version.txt]
+INFO  ripper/handshake  unapproved — ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet.
+INFO  ripper/pin  this Platterpus pins 51cc789, and accepts 174a134, the build under review (round 30); the installed banner is above.
+OK    argv/integrity  all 16 flag token(s) we composed arrived intact (--consumer -F -G -N -T -Z -a -c -d -j -l -o -r -s -t) in the binary's own record of the 30 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+INFO  handshake/note  closed: Handshake:      round 29 lap 3 closed, verdict GO -- released build
+INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 2211; the disc block totals 2211. Scope: line present on 0 of 2 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: OVERLAP, VERIFY (they do not scale with the passes)
+INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+OK    parser/log  parsed 2 track(s) from after cancel 20261004t160255 platterpus-fork-g174a134 CD1.log
+INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `-x` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N -x -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+SKIP  device  no --device given
+INFO  album/discovery  newest rip found: /var/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived mp3 20261004t160255 platterpus-fork-g174a134
+INFO  platterpus/version  0.6.65 (build 0981c69)
+INFO  ripper/version  cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)  [ripper-version.txt]
+INFO  ripper/handshake  unapproved — ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet.
+INFO  ripper/pin  this Platterpus pins 51cc789, and accepts 174a134, the build under review (round 30); the installed banner is above.
+OK    argv/integrity  all 16 flag token(s) we composed arrived intact (--consumer -F -G -N -T -Z -a -c -d -j -l -o -r -s -t) in the binary's own record of the 30 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+INFO  handshake/note  closed: Handshake:      round 29 lap 3 closed, verdict GO -- released build
+INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 2211; the disc block totals 2211. Scope: line present on 0 of 2 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: OVERLAP, VERIFY (they do not scale with the passes)
+INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+OK    parser/log  parsed 2 track(s) from derived mp3 20261004t160255 platterpus-fork-g174a134 CD1.log
+INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `-x` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N -x -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+SKIP  device  no --device given
+INFO  album/discovery  newest rip found: /var/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134
+INFO  platterpus/version  0.6.65 (build 0981c69)
+INFO  ripper/version  cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)  [ripper-version.txt]
+INFO  ripper/handshake  unapproved — ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet.
+INFO  ripper/pin  this Platterpus pins 51cc789, and accepts 174a134, the build under review (round 30); the installed banner is above.
+OK    argv/integrity  all 16 flag token(s) we composed arrived intact (--consumer -F -G -N -T -Z -a -c -d -j -l -o -r -s -t) in the binary's own record of the 30 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+INFO  handshake/note  closed: Handshake:      round 29 lap 3 closed, verdict GO -- released build
+INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 2211; the disc block totals 2211. Scope: line present on 0 of 2 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: OVERLAP, VERIFY (they do not scale with the passes)
+INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+OK    parser/log  parsed 2 track(s) from derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.log
+INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `-x` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N -x -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+SKIP  device  no --device given
+INFO  album/discovery  newest rip found: /var/home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wav 20261004t160255 platterpus-fork-g174a134
+INFO  platterpus/version  0.6.65 (build 0981c69)
+INFO  ripper/version  cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)  [ripper-version.txt]
+INFO  ripper/handshake  unapproved — ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet.
+INFO  ripper/pin  this Platterpus pins 51cc789, and accepts 174a134, the build under review (round 30); the installed banner is above.
+OK    argv/integrity  all 16 flag token(s) we composed arrived intact (--consumer -F -G -N -T -Z -a -c -d -j -l -o -r -s -t) in the binary's own record of the 30 args we sent. Flag tokens are compared, not values: a value may be re-quoted in their rendering, a flag may not change  [argv-probe-output.txt]
+INFO  handshake/note  closed: Handshake:      round 29 lap 3 closed, verdict GO -- released build
+INFO  parser/paranoia  READ (the re-read witness): per-track counters sum to 2211; the disc block totals 2211. Scope: line present on 0 of 2 track(s) — secure re-read genuinely exercised: no. Also bound-checked, not summed in: OVERLAP, VERIFY (they do not scale with the passes)
+INFO  parser/interrupted  no 'Interrupted at:' line in this log (rip_completed=True) — expected for a rip that ran to the end; only a cancelled or killed rip produces one
+OK    parser/log  parsed 2 track(s) from derived wav 20261004t160255 platterpus-fork-g174a134 CD1.log
+INFO  parser/cache-probe  no Cache probe: line in this log, and there never will be one — `-x` is not in the rip argv builder at all, so no Platterpus rip probes the cache. The probe is a separate `cyanrip -N -x -I` invocation (round 14 T3), whose exact argv, exit code and complete output are recorded in the SCRIPT REPORT and transcript, not here. Look there, not for an absence in this manifest.
+SKIP  device  no --device given

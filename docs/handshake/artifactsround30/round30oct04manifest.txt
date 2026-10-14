@@ -1,0 +1,292 @@
+PLATTERPUS EVIDENCE BUNDLE
+==========================
+
+created            20261004T160255Z
+platterpus         0.6.65
+build              0981c69
+rip outcome        acceptance test session
+ripper build wanted platterpus-fork-g174a134 ONLY — the build under review
+album folders      6, each archived under album/ unless marked otherwise:
+  secure reread 20261004t160255 platterpus-fork-g174a134 /home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/secure reread 20261004t160255 platterpus-fork-g174a134
+  derived wav 20261004t160255 platterpus-fork-g174a134 /home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wav 20261004t160255 platterpus-fork-g174a134
+  derived wavpack 20261004t160255 platterpus-fork-g174a134 /home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived wavpack 20261004t160255 platterpus-fork-g174a134
+  derived mp3 20261004t160255 platterpus-fork-g174a134 /home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/derived mp3 20261004t160255 platterpus-fork-g174a134
+  after cancel 20261004t160255 platterpus-fork-g174a134 /home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Various Artists/after cancel 20261004t160255 platterpus-fork-g174a134
+  full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134 /home/rmccann/platterpus-rig/platterpustestsession20261004t160255z/rips/Platterpus Acceptance/full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134
+
+Raw facts this outcome was derived from (a label can be wrong; these
+are what it was computed from):
+  acceptance script      /tmp/.mount_platteAcfOPf/opt/python3.12/lib/python3.12/site-packages/platterpus/rig_scripts/fullacceptance.txt
+  album folders          6
+  album folders dropped  0
+  album folders examined 6
+  run ended              stopped from the console
+  run outcome            ⚠ The run DID NOT COMPLETE — stopped from the console. 252 of 323 step(s) passed, 71 failed, 0 never ran. The steps after the stop measured nothing.
+  run size               full
+  run verdict            pass 252, fail 10, error 0, skipped 0, blocked 61, unreachable 0, info 1
+  screen lock            ✓ Screen lock: held (screensaver (no blanking, no lock)) — The screen is held on, with no blanking and no lock, for this run. It is released when the run ends, or if Platterpus exits.
+  session folder         /home/rmccann/platterpus-rig/platterpustestsession20261004t160255z
+  sleep lock             ✓ Sleep lock: held (idle:sleep:handle-lid-switch) — Idle, sleep and lid suspend are held off for this run (idle:sleep:handle-lid-switch). The lock is released automatically when the run ends — there is nothing to undo.
+  sources absent         0
+  sources collected      10
+  sources failed         0
+  your settings          restored after the run; it had changed output_dir, auto_launch_picard, force_overread, mp3_vbr_quality, update_channel
+
+INCLUDED (65 file(s))
+----------------------------------------
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/secure reread 20261004t160255 platterpus-fork-g174a134 CD1.cue       2133 B
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/secure reread 20261004t160255 platterpus-fork-g174a134 CD1.log      32719 B
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/secure reread 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json     225045 B
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/derived wav 20261004t160255 platterpus-fork-g174a134 CD1 (EAC-compatible).log       3418 B
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/derived wav 20261004t160255 platterpus-fork-g174a134 CD1.cue        787 B
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/derived wav 20261004t160255 platterpus-fork-g174a134 CD1.log       9892 B
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/derived wav 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json     525530 B
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1 (EAC-compatible).log       3430 B
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.cue        791 B
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.log       9916 B
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/derived wavpack 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json     517195 B
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/derived mp3 20261004t160255 platterpus-fork-g174a134 CD1 (EAC-compatible).log       3418 B
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/derived mp3 20261004t160255 platterpus-fork-g174a134 CD1.cue        787 B
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/derived mp3 20261004t160255 platterpus-fork-g174a134 CD1.log       9892 B
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/derived mp3 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json     510644 B
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/after cancel 20261004t160255 platterpus-fork-g174a134 CD1 (EAC-compatible).log       3381 B
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/after cancel 20261004t160255 platterpus-fork-g174a134 CD1.cue        788 B
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/after cancel 20261004t160255 platterpus-fork-g174a134 CD1.log       9954 B
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/after cancel 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json     505136 B
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134 CD1 (EAC-compatible).log      11806 B
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134 CD1.cue       3519 B
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134 CD1.log      53020 B
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/full acceptance∶ angle‹bracket 20261004t160255 platterpus-fork-g174a134 CD1.platterpus.json    7308860 B
+  session/artifacts/02platterpus/log.txt                  4857449 B
+  session/artifacts/08platterpus/config.toml                 1141 B
+  session/run/aftercancel-1-Run-test-script.png            137110 B
+  session/run/aftercancel.png                              150358 B
+  session/run/afterfullrip-1-Run-test-script.png           135176 B
+  session/run/afterfullrip.png                             129877 B
+  session/run/aftermp3-1-Run-test-script.png               137533 B
+  session/run/aftermp3.png                                 142218 B
+  session/run/afteroverwrite-1-Run-test-script.png         135176 B
+  session/run/afteroverwrite.png                           134990 B
+  session/run/afterrecovery-1-Run-test-script.png          137533 B
+  session/run/afterrecovery.png                            141641 B
+  session/run/afterwav-1-Run-test-script.png               137533 B
+  session/run/afterwav.png                                 142477 B
+  session/run/dialogdependencies-1-Dependency-check-complete.png      28341 B
+  session/run/dialogdependencies-2-Run-test-script.png     132520 B
+  session/run/dialogdependencies.png                        99469 B
+  session/run/dialogdiagnostics-1-Diagnostics.png           90269 B
+  session/run/dialogdiagnostics-2-Run-test-script.png      120651 B
+  session/run/dialogdiagnostics.png                         99469 B
+  session/run/dialogdrive-1-Set-up-drive.png                66542 B
+  session/run/dialogdrive-2-Run-test-script.png            124519 B
+  session/run/dialogdrive.png                               99229 B
+  session/run/dialogsettings-1-Settings.png                162609 B
+  session/run/dialogsettings-2-Run-test-script.png         126531 B
+  session/run/dialogsettings.png                            99229 B
+  session/run/report.json                                  225948 B
+  session/run/rig-check/MANIFEST.txt                        13884 B
+  session/run/rig-check/argv-probe-output.txt                 484 B
+  session/run/rig-check/argv-probe.json                      1628 B
+  session/run/rig-check/ripper-version.txt                     58 B
+  session/run/transcript.txt                                74919 B
+  session/transcript.txt                                    74919 B
+  session/zz-applog-rotations/03platterpus/log.txt.1      8388572 B
+  session/zz-applog-rotations/04platterpus/log.txt.2      8388557 B
+  session/zz-applog-rotations/05platterpus/log.txt.3      8388508 B
+  session/zz-applog-rotations/06platterpus/log.txt.4      8388516 B
+  session/zz-applog-rotations/07platterpus/log.txt.5      8388586 B
+  COMPONENTS.json                                            1339 B
+  DIAGNOSTICS.txt                                            4897 B
+  SETTINGS.json                                              2623 B
+  SOURCES.txt                                                1979 B
+
+NOT INCLUDED (170 file(s))
+----------------------------------------
+  Listed so an absence is visible. A bundle quietly missing an artifact
+  looks exactly like a complete one.
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/03 - Old Corn Liquor.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/04 - Rain and Snow.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/05 - The Orphan Child.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/06 - Working on a Building.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/07 - You Better Mind.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/08 - Dry Bones.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/09 - Did You Hear John Hurt？.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/10 - One‐Dime Blues.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/secure reread 20261004t160255 platterpus-fork-g174a134/11 - All the Way From East St. Louis.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.wav excluded: '.wav' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.wav excluded: '.wav' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-01.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-02.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-03.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-04.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-05.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-06.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-07.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-08.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-09.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-10.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-11.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-12.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-13.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-14.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-15.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-16.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-17.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-18.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-19.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-20.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-21.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-22.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-23.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-24.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/booklet-25.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wav 20261004t160255 platterpus-fork-g174a134/cover.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.wv excluded: '.wv' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.wv excluded: '.wv' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-01.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-02.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-03.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-04.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-05.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-06.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-07.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-08.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-09.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-10.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-11.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-12.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-13.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-14.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-15.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-16.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-17.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-18.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-19.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-20.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-21.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-22.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-23.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-24.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/booklet-25.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived wavpack 20261004t160255 platterpus-fork-g174a134/cover.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.mp3 excluded: '.mp3' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.mp3 excluded: '.mp3' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-01.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-02.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-03.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-04.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-05.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-06.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-07.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-08.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-09.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-10.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-11.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-12.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-13.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-14.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-15.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-16.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-17.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-18.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-19.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-20.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-21.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-22.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-23.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-24.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/derived mp3 20261004t160255 platterpus-fork-g174a134/booklet-25.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/02 - Banjo Picking Girl.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-01.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-02.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-03.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-04.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-05.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-06.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-07.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-08.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-09.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-10.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-11.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-12.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-13.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-14.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-15.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-16.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-17.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-18.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-19.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-20.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-21.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-22.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-23.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-24.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/after cancel 20261004t160255 platterpus-fork-g174a134/booklet-25.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/01 - Tennessee Mountain Fox Chase.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/02 - Banjo Picking Girl.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/03 - Old Corn Liquor.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/04 - Rain and Snow.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/05 - The Orphan Child.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/06 - Working on a Building.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/07 - You Better Mind.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/08 - Dry Bones.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/09 - Did You Hear John Hurt？.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/10 - One‐Dime Blues.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/11 - All the Way From East St. Louis.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/12 - Juke Medley.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/13 - Black’s Ball.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/14 - Just a Little While to Stay Here.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/15 - Iko, Iko.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/16 - Mai Kai No Kauai.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/17 - Texas Cowboy.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/18 - Streets of Laredo.flac excluded: '.flac' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-01.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-02.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-03.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-04.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-05.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-06.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-07.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-08.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-09.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-10.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-11.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-12.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-13.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-14.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-15.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-16.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-17.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-18.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-19.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-20.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-21.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-22.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-23.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-24.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+  album/full acceptance_ angle_bracket 20261004t16__terpus-fork-g174a134/booklet-25.png excluded: '.png' is not one of the types this part of the bundle may contain (audio and everything else is refused by allowlist — Critical rule #8)
+
+NO AUDIO IS PRESENT — no file of any audio type can enter this archive.
+Everything here passed an allowlist: .cue .json .log .md .md5 .sha256 .toml .txt
+Plus, from this program's own run folder ONLY: .png
+A name is not a guarantee, so two more checks run on every file: its
+first bytes are compared against 14 audio-container
+signatures, and a symbolic link is judged by the name of the file it
+points at as well as by its own.
+(those are screenshots Platterpus took of its own window. An album folder
+is never judged by that wider rule, because its images are record-label
+artwork.) The per-track CRCs in the logs prove bit-perfection without the
+audio.
+
+Caps in force: 16777216 B per file (head+tail kept, elision
+marked inline), 67108864 B across the whole payload, and the
+newest 20 bundles are kept in the bundles folder.
