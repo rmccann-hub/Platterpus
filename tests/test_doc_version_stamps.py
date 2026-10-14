@@ -560,6 +560,7 @@ _KDD_HEADING: re.Pattern[str] = re.compile(r"^### KDD-(\d+)", re.MULTILINE)
 _KDD_RANGE: re.Pattern[str] = re.compile(r"KDD-0*1\s*(?:through|…|-|–|to)\s*KDD-(\d+)")
 
 
+@pytest.mark.tree_walk  # HR-2 §2: sweeps whatever is filed
 def test_every_documented_kdd_range_ends_at_the_last_real_kdd() -> None:
     planning = (_REPO_ROOT / "PLANNING.md").read_text(encoding="utf-8")
     numbers = [int(n) for n in _KDD_HEADING.findall(planning)]

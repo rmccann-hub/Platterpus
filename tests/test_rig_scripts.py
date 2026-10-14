@@ -1506,16 +1506,7 @@ def _live_text_files() -> list[tuple[str, Path]]:
     defining its own examples.
     """
     root = Path(__file__).resolve().parents[1]
-    # `tests/fixtures/evidence/` holds copies and extracts of `docs/handshake/` run
-    # files (HR-2), at their original paths: the same dated record, moved, so it is
-    # left out for the same reason the originals are.
-    dated = (
-        "CHANGELOG.md",
-        "docs/session-log.md",
-        "docs/handshake/",
-        "docs/archive/",
-        "tests/fixtures/evidence/",
-    )
+    dated = ("CHANGELOG.md", "docs/session-log.md", "docs/handshake/", "docs/archive/")
     found: list[tuple[str, Path]] = []
     for path in sorted(root.rglob("*")):
         if path.suffix.lower() not in {".md", ".py", ".sh", ".txt", ".toml", ".yml"}:

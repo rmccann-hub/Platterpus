@@ -14,6 +14,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **A test that opens run evidence at its original path now fails, at run time
+  (HR-2 §2).** A test names an evidence file by its original path on purpose, as its
+  provenance, and reads the fixture, so a sweep over names could not tell a reader from a
+  label. An audit hook (`tests/evidence_guard.py`, an autouse fixture in `conftest.py`)
+  sees every `open` of a file in a moving folder and fails the test that did it, naming
+  the path, while the original is still on `main`. Eight whole-tree sweeps that read
+  whatever is filed carry `@pytest.mark.tree_walk`, pinned by name. The name sweep now
+  covers tools, CI and product code, and its one entry is `run_estimate.py`'s
+  `MEASURED_FROM`, a label. The last reader, `test_uiscript_permutation_verbs`, reads its
+  round-29 reports from their extracts.
+
 - **A maker for run-evidence test fixtures, for HR-2.** Round 33's first task moves the
   run evidence (`docs/handshake/artifacts*`, about 425 MB) off `main` onto an `evidence`
   branch. Before that, every evidence file a test reads becomes a fixture under

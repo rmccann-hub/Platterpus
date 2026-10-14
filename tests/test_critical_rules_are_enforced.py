@@ -67,6 +67,7 @@ import subprocess
 from pathlib import Path
 from typing import Final, NamedTuple
 
+import pytest
 from conftest import maintained_tooling_modules
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
@@ -3194,6 +3195,7 @@ _CONFLICT_SKIP_DIRS: frozenset[str] = frozenset(
 )
 
 
+@pytest.mark.tree_walk  # HR-2 §2: sweeps whatever is filed
 def test_no_file_carries_an_unresolved_conflict_marker() -> None:
     """A `<<<<<<<` / `>>>>>>>` pair anywhere in the tree fails the build.
 
