@@ -25,6 +25,20 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `docs/evidence-manifest.tsv`. Tests reach a fixture through `tests/evidence_paths.py`,
   naming the original path.
 
+- **Checks that keep the evidence manifest a promise (HR-2 §3–§5, §8a).**
+  `scripts/evidence_manifest.py` checks `docs/evidence-manifest.tsv`'s format and that it is
+  append-only; every row added in a change against its file at its commit (bytes, SHA-256,
+  and that the commit is on `evidence`); the `evidence` branch's shape (one root, each
+  commit adding files and never changing or removing one); that no tag reaches it; every lap
+  that cites evidence; and, after a move, that each moved folder's tree is the same on both
+  branches and every deleted path has one row. Before the first move there is nothing to
+  check, and each mode says so. A lap's bare path to a moved file, and a doc's pointer to
+  one, now resolve through the file's manifest row (§6d); a file both on disk and in the
+  manifest must hash to its row. Our laps' run-folder paths are checked for the first time
+  (48 references, all filed). A new sweep, `test_no_new_evidence_readers`, refuses code that
+  opens a run-evidence path instead of a fixture; the 38 readers it finds today are
+  allowlisted, and step 2 of the landing converts them and empties the list.
+
 - **The lap checker reads evidence citations (HR-2 §6, the v9 behaviour).** A lap may
   cite a run file that lives on a repository's `evidence` branch as
   `<repo>@<evidence commit>:<path>`. The checker finds the path's row in
