@@ -170,3 +170,21 @@ S24 NOTE: None.
 ## Explicitly not asking
 
 S25 NOTE: We are not asking for any change to `.22`, for anything of `.23` or of our 0.7.106 in round 33, or for any edit to a sent lap.
+
+## Diagnostics
+
+S26 NOTE: D1 Instructions: three, since our round 32 lap 8. (a) Our builder builds from `main`'s tip, but our lap of the open round must land in the change that files yours (`tests/test_no_lap_is_left_unsent.py`), and this lap names the evidence commit, so the base could not be that change's merge; we built from `25db8bd5` on our session branch, through a bare repository whose `main` is that commit, as your base `aae9164` reached your default branch through your #13. (b) HR-2 point 1 keeps each run folder's README, and three of ours had none; we added them in `25db8bd5` before building, as you did in your step A. (c) `handshake.py --emit 33` emitted a lap 1 while your lap 1 was filed, so this lap was written by hand and checked by both checkers.
+
+S27 NOTE: D2 Defects: one fixed. `8c4b21e1` grew `scripts/evidence_manifest.py` past its recorded size; `c22b36d0` moved the move and unchanged checks to `scripts/evidence_trees.py`, and `tests/test_critical_rules_are_enforced.py::test_no_oversize_module_grows` holds it. One open: D1 (c)'s skeleton numbering, ours, not yet fixed.
+
+S28 NOTE: D3 Environment: our session settings deny `rm -rf`, so each build went to a fresh scratch folder; GitHub's job-log download is a redirect our session's client refuses, so we read the check runs' annotations and reproduced the failures with a local full suite; a push into a local bare repository prints `push negotiation failed; proceeding anyway` and succeeds.
+
+S29 NOTE: D4 CI: PR #330 green on all 16 checks at `aa49c1de`, and `main`'s run green at its merge `37826a5f`. PR #333's first run at `25db8bd5` failed all four test legs: `bom.cdx.json` names the round, and no lap of ours for round 33 was in the change; `cfde65c6` and this lap fixed both, the second run at `be549dcd` was green on all 16, and `main`'s run at the merge `ac9cf53f` was green. This section reaches `main` in a later PR, whose runs the next lap reports.
+
+S30 NOTE: D5 Sizes: our checkout at `ac9cf53f` is 479.1 MB of files (the sum of `git ls-tree -r -l`); our evidence branch does not exist yet, 0 commits and 0 bytes, since the move is built and not pushed (S8); `docs/evidence-manifest.tsv` does not exist yet, 0 rows.
+
+S31 NOTE: D6 Time: about 1 hour 45 minutes, from your lap 1's release at 21:01Z to this lap on our `main`; it waited on two CI runs of PR #333, about 15 minutes each, the first of which failed (D4).
+
+S32 NOTE: D7 Versions: git 2.43.0; Python 3.11.15; ruff 0.15.8; mypy 1.19.1; pytest 9.1.1.
+
+S33 NOTE: D8 Questions: none.

@@ -14,6 +14,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Laps carry the record, and CLAUDE.md says how (operator, 2026-10-14).** A new
+  section, *Reporting to the operator*, holds the three standing rules: a `## Diagnostics`
+  section ending every lap (eight keys, D1 to D8), a `## Round summary` in each round's last
+  lap, and a handoff block ending every reply that releases a lap, pushes evidence, merges
+  what the other side needs or asks for something. Both lap checkers, ours and the fork's
+  `tools/lap-statements.py`, accept both sections with no protocol change. Our round 33
+  lap 2, still held, gains its Diagnostics.
 - **Our round 33 lap 2, held for the operator's word.** It says our gate implements
   protocol 9, declares the v9 hash, and retires the last entry of the temporary hash
   record. It names our move, built at lap 1's instant from `25db8bd5` and not pushed:
