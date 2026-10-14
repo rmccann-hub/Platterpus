@@ -13,6 +13,12 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ## 2026-10-14 (later) — `.23` readiness, R9 to R11, disc identity, and the HR-2 review
 
+**Released.** 0.7.105 on 2026-10-14: PR #325 (the work below) and #326 (the release
+commit) merged with merge commits; `main`'s own CI passed on `b33b90d4` before
+`release.yml` was dispatched (run 38508995393); the release published as an immutable
+pre-release with all six assets, and the PyPI publish succeeded. It is the first release
+that installs `.22` by default.
+
 **What was done.** Four pieces of work ran in parallel worktrees and were integrated onto
 the session branch: our parser and diagnostics reader made ready for the fork's `.23`
 (upstream rc3), TASKS R10 (a section that compares the pregap lists of every rip of one

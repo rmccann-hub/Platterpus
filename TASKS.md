@@ -61,7 +61,8 @@ their items, these are ours to do. They join the order here, between P1 and P2:
 **Round 32 CLOSED on both gates 2026-10-14** (their lap 9 `GO` after our lap 8 `GO`): it
 approves `.22` (`200530e`) with 0.7.104, and `FORK_PIN` rolled to `200530e` the same day,
 with the approval record moved to round 32. 0.7.105 is the first release that installs
-`.22` by default. Rows still open below carry to round 33.
+`.22` by default: **released 2026-10-14** (tag at `b33b90d4`, PR #326, release run
+38508995393, PyPI published). Rows still open below carry to round 33.
 
 | # | What | Ours to | Their item |
 |---|---|---|---|

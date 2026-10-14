@@ -12,6 +12,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Changed
+
+- **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
+  TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
+  channels, the first release that installs the fork's `.22` by default.
+
 ## [0.7.105] — 2026-10-14
 
 The first release that installs the fork's `.22` (`200530e`) by default: round 32
