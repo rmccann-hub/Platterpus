@@ -6,7 +6,8 @@ of its `Gaps:` list while the whole-disc rip of the same disc listed it, and tra
 lap 9 S4); nothing of ours compared two rips of one disc, so nothing could have.
 
 **The real-log test is the one that matters**: it reads the logs as filed in
-`docs/handshake/artifactsround32/` and requires EXACTLY tracks 4 and 9, with the
+`docs/handshake/artifactsround32/` (from their fixtures since HR-2 moved that folder
+to the evidence branch) and requires EXACTLY tracks 4 and 9, with the
 secure re-read as the one log reading track 4 as none. A grader that found
 nothing, or found everything, fails it. The synthetic cases pin the floor
 (fewer than two logs of one disc is never "agree") and the edges of the grammar.
@@ -27,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from evidence_paths import FIXTURE_ROOT as EVIDENCE_ROOT
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -36,7 +38,13 @@ from platterpus.uiscript import pregap_verbs
 from platterpus.uiscript.report import Outcome
 
 _REPO = Path(__file__).resolve().parent.parent
-_ROUND32 = _REPO / "docs/handshake/artifactsround32"
+#: The run folder moved to the evidence branch (HR-2); its logs and the two
+#: securing passes' logs are read from their byte-for-byte fixtures.
+_ROUND32 = EVIDENCE_ROOT / "docs/handshake/artifactsround32"
+#: The run filed 11 album logs and 2 securing-pass logs (13). Several tests size
+#: themselves from `_round32_logs()`, so an empty glob would let them agree with
+#: nothing; the floor makes a missing folder fail instead.
+_ROUND32_FLOOR = 13
 _ACCEPTANCE = _REPO / "src/platterpus/rig_scripts/fullacceptance.txt"
 
 #: The secure re-read's log: the one rip of the run that read track 4 as none.
@@ -52,6 +60,9 @@ def _round32_logs() -> list[Path]:
         if not path.name.endswith("eac.log")
     ]
     logs += sorted(_ROUND32.glob("round32full*securingpass.txt"))
+    assert len(logs) >= _ROUND32_FLOOR, (
+        f"only {len(logs)} round-32 logs under {_ROUND32}"
+    )
     return logs
 
 

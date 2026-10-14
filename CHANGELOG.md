@@ -41,6 +41,17 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   app-log check that skipped when its log was absent, and so passed on nothing, reads
   the log's slim extract and no longer skips.
 
+- **The sweeps over every committed cyanrip log keep their population when the run
+  folders leave `main` (HR-2).** `tests/evidence_population.py` adds the evidence
+  fixtures to what a sweep globbed in the working tree, once per original path, so the
+  parser's elapsed-line and `Tracks to rip:` sweeps (248 and 255 logs), the drive-control
+  longest-read floor (242), the secure re-read sweeps (12) and the round-32 pregap tests
+  (13, now with a floor) are the same size before the move and after it. The elapsed
+  sweep's floor rises from 20 logs to its measured 248: with the fixtures left out it
+  still passed on the 29 logs that stay on `main`. The parser's
+  single-log tests read their fixtures, and its FUN512 sweep over `tests/fixtures/`
+  leaves the evidence fixtures out, so it reads the same 28 files it did.
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.
