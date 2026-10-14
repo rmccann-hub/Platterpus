@@ -12,6 +12,16 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+## [0.7.105] — 2026-10-14
+
+The first release that installs the fork's `.22` (`200530e`) by default: round 32
+approved it with 0.7.104 on 2026-10-14, after a full-green Full run on that pair. It also
+carries our side of the fork's next build, `.23` (upstream cyanrip 0.9.4-rc3): the parser
+reads its new lines and data-track blocks. And it adds a check that the disc ripped is the
+disc the tags were looked up for, a pregap comparison across rips of one disc, the
+securing pass's own diagnostics record, and the bundle changes the fork asked for
+(per-member SHA-256, home paths replaced). The report schema is now 34, additions only.
+
 ### Added
 
 - **The cyanrip log parser reads what the fork's next build, `.23`, adds to the
@@ -18446,7 +18456,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.104...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.105...HEAD
+[0.7.105]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.104...v0.7.105
 [0.7.104]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.103...v0.7.104
 [0.7.103]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.102...v0.7.103
 [0.7.102]: https://github.com/rmccann-hub/Platterpus/compare/v0.7.101...v0.7.102
@@ -18521,4 +18532,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.7.104.*
+*Last updated for Platterpus v0.7.105.*
