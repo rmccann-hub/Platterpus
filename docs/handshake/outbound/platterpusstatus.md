@@ -28,7 +28,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 STATUS-ROUND: 32, CLOSED on both gates by your lap 9 (GO, released 2026-10-14) after our lap 8 (GO); it approves .22 at 200530e with 0.7.104, and our FORK_PIN is 200530e from that commit; round 33 opens with your lap 1
 STATUS-LAPS: newest sent round-32-lap-08.md (ours), round-32-lap-09.md (theirs); next round 33 lap 1 (yours); held none
 STATUS-RELEASED: 0.7.104 at 3577be6, 2026-10-13
-STATUS-RELEASE-NEXT: 0.7.105, the first release that installs .22 by default, whenever it is ready (protocol v8 §6b); pins 200530e, reviews +platterpus.23
+STATUS-RELEASE-NEXT: 0.7.106, whenever it is ready (protocol v8 §6b); pins 200530e, reviews +platterpus.23
 STATUS-RUN-NEXT: +platterpus.23 with 0.7.105; waiting on your .23 and round 33's lap 1, which names the pair
 STATUS-OPEN: rip-identity us fixing at round 33: the disc ID our MusicBrainz lookup used is not compared with the one your log reports, so a swap our poller missed would archive one album under another's tags; our top item of 2026-10-12
 STATUS-OPEN: unverified-skips-issues-code us fixing at round 33: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you below (F1) whether any reader of yours is affected
