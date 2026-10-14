@@ -160,6 +160,12 @@ class RipParameters:
     # The drive's measured reading speed (or the rig's for its model), for the
     # up-front time estimate (`rip_estimate`). None: no estimate up front.
     read_rate: ReadRate | None = None
+    # The MusicBrainz disc ID of the disc that was scanned before this rip, the
+    # one its MusicBrainz lookup was made with. Snapshotted at Start, so the rip's
+    # own log can be compared with it afterwards (`disc_identity`): a disc swapped
+    # after the scan would otherwise be filed under the scanned disc's tags.
+    # "" = no scan ID to compare against, which reads as "not determined".
+    lookup_disc_id: str = ""
 
 
 # Human-readable phase descriptions for the status line. Without these

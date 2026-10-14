@@ -25,6 +25,7 @@ from typing import Final
 from platterpus import __version__, album_loudness, build_info, diagnostics
 from platterpus.atomic_write import atomic_write_text
 from platterpus.ctdb.coverage import NOT_WHOLE_DISC_VERDICT
+from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.handshake_approval import (
     RipperApproval,
     approve_rip_log,
@@ -46,7 +47,7 @@ from platterpus.rip_pass_exit import SECURING_EXIT_KEY, SECURING_STARTED_KEY
 from platterpus.ripper_ending import RipperEnding, report_block
 from platterpus.ripper_identity import RipperIdentity, identify_ripper
 from platterpus.user_settings import user_settings
-from platterpus.verdict import accuraterip_verdict
+from platterpus.verdict import accuraterip_verdict, apply_downgrades
 
 log = logging.getLogger(__name__)
 
@@ -306,7 +307,16 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      left none and the bundle's MANIFEST was silent (TASKS R9). The worker now
 #      copies it into the rips root, and this block is how the session bundle,
 #      which reads reports rather than the worker, names any that is missing.
-#      Both sets of keys landed in the same unreleased version. Additions only.
+#      Also `disc.lookup_disc_id` — the disc ID the tags were looked up for (the
+#      pre-rip scan's, the one the MusicBrainz lookup used) — and
+#      `disc.identity_check` ({status, expected, ripped, detail}), comparing it
+#      with the rip log's `rip.musicbrainz_disc_id` (`disc_identity`), tri-state:
+#      `match`, `mismatch` or `not_determined`. On a mismatch the `verdict` is
+#      downgraded with the reason and the `disc_identity_mismatch` issue (error)
+#      is raised; a scan ID with no comparable log ID raises
+#      `disc_identity_not_determined` (info). TASKS P1 #1: a disc swapped after
+#      the scan was archived under the scanned disc's tags with nothing saying so.
+#      All three sets of keys landed in the same unreleased version. Additions only.
 REPORT_SCHEMA_VERSION: int = 34
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
@@ -1304,6 +1314,21 @@ def _build(
     # returned dict below by name, never rebuilt.
     log_parse_block = _log_parse(rip_log, log_parse)
     rip_block = _rip_block(rip_log, info)
+    # WAS THE DISC RIPPED THE DISC THE TAGS WERE LOOKED UP FOR (v34)? Written into
+    # the `disc` block, which `issues` then reads, so the list and the block it
+    # summarises cannot disagree. Only when a disc block was supplied: a report
+    # with no record of what was looked up has nothing to compare with.
+    identity = check_disc_identity(
+        (disc or {}).get("lookup_disc_id"), rip_block.get("musicbrainz_disc_id")
+    )
+    if disc is not None:
+        disc = {**disc, "identity_check": identity.block()}
+    # The AccurateRip verdict with any downgrade applied, by the SAME assembly the
+    # window's banner uses. Kept apart from `level`, which `issues` reads, so a
+    # wrong disc does not also read as "not bit-perfect".
+    verdict_message, verdict_level = apply_downgrades(
+        message, level, [identity.downgrade_reason]
+    )
     issues = _issues(
         outcome=outcome,
         verdict_level=level,
@@ -1385,7 +1410,9 @@ def _build(
         # Provenance: unknown-mode + the MusicBrainz release id this rip used.
         "disc": disc,
         "log_creator": getattr(rip_log, "log_creator", "") or None,
-        "verdict": {"level": level, "message": message or None},
+        # The AccurateRip verdict with any downgrade applied (`verdict_level`,
+        # assembled above as the window's banner assembles it).
+        "verdict": {"level": verdict_level, "message": verdict_message or None},
         # Immediately after the verdict, because it is the verdict's denominator
         # — the number the sentence above is measured against, in machine-readable
         # form so no consumer has to re-derive it from `len(tracks)`.
@@ -2128,6 +2155,22 @@ def _issues(
     #   * we sent nothing, ripper reports one -> it ran its OWN lookup, so `-N` did not
     #     take. That is Critical rule #5, checked at the artifact rather than trusted.
     #   * both present and different -> the tags on disk may describe another release.
+    # THE DISC RIPPED AGAINST THE DISC THE TAGS WERE LOOKED UP FOR (v34). The
+    # comparison was made once, into `disc.identity_check`; this reads it. A
+    # mismatch is an error: one album's audio filed under another's tags.
+    identity_check = (disc or {}).get("identity_check") or {}
+    if identity_check.get("status") == IDENTITY_MISMATCH:
+        add("error", "disc_identity_mismatch", str(identity_check.get("detail")))
+    elif (
+        identity_check.get("status") is not None
+        and identity_check.get("expected")
+        and not identity_check.get("ripped")
+    ):
+        # A scan ID with nothing comparable in the log: the check could not run.
+        # Info, not a warning — the rip may be right — but said, because a
+        # `not_determined` nobody sees reads as a pass.
+        add("info", "disc_identity_not_determined", str(identity_check.get("detail")))
+
     theirs = (rip or {}).get("ripper_release_id")
     ours = (disc or {}).get("musicbrainz_release_id")
     if theirs and not ours:

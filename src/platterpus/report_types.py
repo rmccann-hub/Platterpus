@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import NotRequired, TypedDict
 
+from platterpus.disc_identity import DiscIdentityBlock
 from platterpus.record_fate import SecuringRecordBlock
 
 
@@ -232,6 +233,12 @@ class DiscBlock(TypedDict):
     #: signature, as rewritten (`====` to `----`) so the log cannot read as
     #: EAC-signed (D16, KDD-38). Empty on almost every rip; v29.
     eac_log_signature_lines_defused: list[str]
+    #: v34: the disc ID the tags were looked up for — the pre-rip scan's, the one
+    #: the MusicBrainz lookup used. None when the scan gave none.
+    lookup_disc_id: NotRequired[str | None]
+    #: v34: that ID compared with the rip log's own (`disc_identity`), tri-state.
+    #: Written by the report builder, so absent from the block the window hands it.
+    identity_check: NotRequired[DiscIdentityBlock]
 
 
 class DependencyEntry(TypedDict):

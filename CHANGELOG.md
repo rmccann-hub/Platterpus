@@ -62,6 +62,23 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   fork's known variance. Fewer than two comparable logs of one disc is `blocked`, never
   "agree".
 
+- **A rip is now checked against the disc its tags were looked up for.** Until now
+  nothing compared the disc ID the MusicBrainz release was found by with the disc ID
+  the rip's own log reports. A disc swapped after the scan, one the drive poller
+  missed, would put one album's audio under another album's tags, and AccurateRip
+  cannot catch that because it checks the disc that was actually read. The disc ID is
+  now saved when you press Start. Both IDs are MusicBrainz disc IDs that cyanrip
+  computes from the disc's table of contents. When the rip ends, the two are compared
+  and there are three possible results. *Match*. *Mismatch*. *Not determined*, when
+  either ID is missing or not shaped like a disc ID. Not determined is never a pass
+  and never a mismatch. On a mismatch, the result screen's verdict turns amber and
+  says the tags may name another album, and the status line and the app log say the
+  same. The report (schema v34, `disc.lookup_disc_id` and `disc.identity_check`) gets
+  a downgraded verdict and an `error` issue, and the album audit gets a warning.
+  Nothing is deleted or moved, because the audio may be a perfect rip of the disc
+  that was really in the drive. On our filing of the 2026-10-13 run, the disc ID of
+  every MusicBrainz lookup matches the disc ID in each of the 11 cyanrip logs.
+
 - **The acceptance script's two pre-emphasis rips now name their caller and write a
   record, like every app rip.** The cyanrip fork asked for this in round 32 lap 9 (S9).
   Section R16 calls cyanrip directly. On 2026-10-13 its two logs read `Consumer: not

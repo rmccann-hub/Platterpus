@@ -1891,6 +1891,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **761 -> 768** (2026-10-14, TASKS R9): `OutcomeBlock.securing_pass_record`, schema v34, with the comment saying what each state means; its block type lives in `record_fate.py`.
     # **-> 775** (2026-10-14, integration): the two v34 changes above combined in one unreleased version.
     "report_types.py": 775,
+    # **761 -> 769** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `DiscBlock.lookup_disc_id` and `identity_check` (v34), each with its provenance, in the one place the report's shape is declared.
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1931,7 +1932,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1582 -> 1590 (2026-10-07, round 31 lap 1 E7)**: the handshake-note audit
     # delegates to `handshake_note`, keys on the released arm, and says when a
     # released build was cut while a round was open.
-    "rip_audit.py": 1590,
+    # **1590 -> 1613** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `_audit_disc_identity` asks whether the disc ripped is the disc looked up, of the same predicate the report used, on the report's own fields. The comparison itself lives in `disc_identity.py`.
+    "rip_audit.py": 1613,
     # **1404 -> 1405** (2026-09-24): Accurip 450 is ONE frame, not a pressing. `_describe_status` says 'a match on one frame only'.
     "rip_compare.py": 1405,
     # **422 -> 437** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): `RipFileSet.rip_log`, the parsed log that named the files, so the CTDB verify reads the disc's track count from the SAME record that scoped the files rather than a second parse that could pick another log. The helper that walks the logs returns it beside the names; the count itself lives in `ctdb/coverage.py`.
@@ -1977,6 +1979,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2677 -> 2701** (2026-10-14, TASKS R9): schema v34 — the history note, `build_outcome` writing `securing_pass_record` and the `securing_pass_record_missing` issue. Both delegate to `record_fate.py` (`outcome_block`, `missing_issue`); what stays is the one place that builds the outcome block and the one list of issues.
     # **-> 2721** (2026-10-14, integration): both v34 changes above landed in one unreleased schema version; the combined module is the sum of the two, with one v34 note.
     "rip_report.py": 2721,
+    # **2677 -> 2720** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the v34 schema note, the comparison written into `disc` before `issues` reads it, the downgraded verdict kept apart from the AR level `issues` reads, and the two issue codes. The comparison lives in `disc_identity.py`.
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED
@@ -2341,7 +2344,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **5003 -> 5006** (2026-10-07): the D16 warning and comment name EAC's first-line phrase beside its signature.
     # **5006 -> 4932** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: the post-rip re-compress step, its gate inputs and its `_on_flac_recompressed` slot.
     # **4932 -> 4941** (2026-10-14, TASKS R9): the worker's `securing_pass_record` handed to `build_outcome`, and the rip bundle's `securing pass -j record` fact.
-    "ui/main_window_rip.py": 4941,
+    "ui/main_window_rip.py": 4958,
+    # **4932 -> 4958** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): the scanned disc ID snapshotted at Start, carried into `_last_disc`, and the comparison shown on the banner, the status line and the log when the rip ends.
     # **392 -> 414 on 2026-09-15**: four declarations — the settings snapshot, the
     # gate inputs, and the two post-rip ledgers — with the measurement that made
     # them necessary. This file is the single source of truth for the shared
@@ -2384,7 +2388,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **1658 -> 1659** (2026-09-24, the sweep that retired the old ripper's name): comments now name the old ripper by its role rather than its name, which reflowed a few lines.
     # **1659 -> 1667** (2026-09-28, the 2026-09-28 Full run's five 2-of-14 rips that said "not in CTDB"): the Details-tab line for a partial rip shows the verdict's own "not run" sentence and can never fall through to "this disc isn't in the database".
     # **1667 -> 1681** (2026-10-05, every label given its text by `setText` states its format, tests/test_labels_given_text_later_state_their_format.py): the eight labels given a value later (status, stall notice, verdict banner, read effort, comparison, CTDB, reconciliation, loudness) state PlainText; the status line's comment says it shows cyanrip's own fatal sentence.
-    "ui/rip_progress.py": 1681,
+    # **1681 -> 1676** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): lowered: the downgrade assembly moved to `verdict.apply_downgrades`.
+    "ui/rip_progress.py": 1676,
     # **1303 -> 1304 on 2026-09-18**: one line: the new field preserved alongside its sibling, since Settings not modelling a field is exactly how it would get silently reset.
     # **1304 -> 1319 (2026-09-21).** Corrected the secure-re-read label and
     # tooltip, which called an AGREEMENT COUNT a ceiling, and the Picard checkbox,
@@ -2618,7 +2623,8 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **531 -> 593** (2026-09-28, the Full run's track 3): `reread_supersedes`, which read of a track to keep, beside the AccurateRip predicate it is built on; most of it is the docstring giving the order and the run that set it.
     # **593 -> 613** (2026-10-05): `track_has_unverified_skips`, the shared rule for a track whose reads paranoia could not all verify and AccurateRip did not confirm (2026-10-04 rig run, track 18).
     # **613 -> 653** (2026-10-06, round 30's closing run): `_unconverged_clause`, so the headline names a track AccurateRip did not verify whose re-reads also did not converge; the verdict owns its wording.
-    "verdict.py": 653,
+    # **653 -> 674** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `apply_downgrades`, the ONE assembly of a downgraded trust headline, which the window's banner and the report's verdict both call (it was inline in `rip_progress`, which shrank by the same amount).
+    "verdict.py": 674,
     # +24 on 2026-09-04: the secure-re-read branch that defers to the parser,
     # plus the comment recording the bundle measurement that produced it. The
     # line-classification loop is one cohesive read of the ripper's output.
@@ -2662,6 +2668,7 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **4128 -> 4134** (2026-10-06, round 30's closing run: a head-only cut of a tool's output, swept): two log records quote a ripper percentage head and tail, counted.
     # **4134 -> 4197** (2026-10-14, TASKS R9): the securing pass's record is remembered where the pass is spawned and kept before its temp folder is deleted. The copy and every reason live in `record_fate.py`; what stays is the call in the `finally` that owns the folder, the two attributes and the property the report reads.
     "workers/rip_worker.py": 4197,
+    # **4134 -> 4140** (2026-10-14, TASKS P1 #1, the disc ripped against the disc looked up): `RipParameters.lookup_disc_id`, the scanned disc ID carried with the rip.
 }
 
 

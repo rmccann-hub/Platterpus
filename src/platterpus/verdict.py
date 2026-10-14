@@ -529,6 +529,27 @@ def accuraterip_verdict(
     )
 
 
+def apply_downgrades(
+    message: str, level: str, reasons: Sequence[str]
+) -> tuple[str, str]:
+    """The trust headline with every downgrade reason applied: ``(text, level)``.
+
+    One assembly for every surface that downgrades: the window's banner
+    (``RipProgressWidget._render_verdict_banner``) and the report's ``verdict``,
+    which gains a reason when the disc ripped is not the disc the tags were
+    looked up for (``disc_identity``). Two assemblies of one sentence are two
+    sentences, and the window and the report would describe the same rip
+    differently. With no reasons, ``message`` and ``level`` come back unchanged.
+    A leading ``✓`` is dropped, because the tick is a claim the reasons withdraw.
+    """
+    kept = [reason for reason in reasons if reason]
+    if not kept:
+        return message, level
+    headline = message.lstrip("✓ ").strip() if message.startswith("✓") else message
+    joined = "; ".join(kept)
+    return (f"⚠ {headline} — {joined}" if headline else f"⚠ {joined}"), "warn"
+
+
 def reconcile_ar_ctdb(rip_log: object, ctdb_result: object) -> str | None:
     """Explain an AccurateRip-vs-CTDB result that *looks* contradictory.
 
