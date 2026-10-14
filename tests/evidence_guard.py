@@ -30,15 +30,10 @@ REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import evidence_manifest  # noqa: E402 - needs the path line above
 
-#: Absolute originals: each folder with a trailing separator, each file exact.
+#: Absolute originals: each moving folder, with a trailing separator.
 FOLDERS: Final[tuple[str, ...]] = tuple(
     str(REPO_ROOT / f) + os.sep for f in evidence_manifest.MOVING_FOLDERS
 )
-FILES: Final[frozenset[str]] = frozenset(
-    str(REPO_ROOT / f) for f in evidence_manifest.MOVING_FILES
-)
-#: A folder's README stays on the default branch (HR-2 §5a), so reading it is fine.
-README: Final[str] = "README.md"
 #: Only `open`: a read of a file's bytes is the dependency HR-2 §2 is about. A
 #: listing that walks past a moving folder (a sweep that then reads each file
 #: from its fixture) is not, and one that depends on a folder's contents still
@@ -57,13 +52,13 @@ def evidence_path(raw: object) -> str | None:
         path = os.path.abspath(os.fsdecode(raw))  # type: ignore[arg-type]  # PathLike[str] | str | bytes
     except (TypeError, ValueError):
         return None
-    if path in FILES:
-        return path
     folder = path + os.sep
-    if any(folder == f or path.startswith(f) for f in FOLDERS):
-        if os.path.basename(path) == README:
-            return None
-        return path
+    for moving in FOLDERS:
+        if folder == moving or path.startswith(moving):
+            # A README, or a specification such as lsl-amendments-1.md, stays on
+            # the default branch too (HR-2 §5a, HR-2.1 a): reading it is fine.
+            rel = os.path.relpath(path, REPO_ROOT).replace(os.sep, "/")
+            return None if evidence_manifest.stays_on_default(rel) else path
     return None
 
 

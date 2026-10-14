@@ -1443,8 +1443,16 @@ def test_the_grandfather_sets_are_pinned_and_may_only_shrink(hs: ModuleType) -> 
 #: non-empty reason whenever the two numbers differ — so this cannot become
 #: permanent by nobody noticing. Clear it in the same commit the gate reaches the
 #: spec's version.
-_BOOTSTRAP_REASON: str = ""
-#: History of this constant, newest first. **Empty again from 2026-10-11, the same day**:
+_BOOTSTRAP_REASON: str = (
+    "v9 (HR-2 and HR-2.1) landed 2026-10-14 in both trees, byte-identical: the fork "
+    "first, at cyanrip@8f847271 (PR #12), then ours, copied from there (HR-2 order "
+    "B). v9 §17: 'neither gate implements 9 until this file is byte-identical in "
+    "both trees', and neither side declares 9 until both have said in a lap that "
+    "their gate implements it (order C). Clear this in the commit that teaches the "
+    "gate 9 (PROTOCOL_VERSION and DECLARED_PROTOCOL), before our round 33 lap."
+)
+#: History of this constant, newest first. **2026-10-14: non-empty again**, the v9
+#: bootstrap (HR-2 order B). **Empty again from 2026-10-11, the same day**:
 #: v8 landed byte-identical in both trees and the gate was taught 8 (E9's release rule,
 #: C19 amended, C47 to C49 with row-named tests) in the same change, as the reason it
 #: briefly held required. **Empty again from 2026-10-05**: the gate
@@ -1862,6 +1870,9 @@ _SHARED_FILE_PATHS: dict[str, str] = {
     # `cyanrip@5cadca3`, then ours in the commit that files their lap 4. Round 31
     # still closes under v7; v8 governs from round 32 (v8 §16).
     "protocol(v8)": "docs/handshake-protocol.md",
+    # **v9, landed 2026-10-14 (HR-2 order B)**: the fork first, at
+    # `cyanrip@8f847271`, then ours, copied byte for byte from there.
+    "protocol(v9)": "docs/handshake-protocol.md",
     "seam-rules": "docs/seam-rules.md",
     "seam-commands": "docs/seam-commands.md",
     # Adopted round 14 lap 17. Same mechanism as the three above: a file NEITHER
@@ -1942,6 +1953,70 @@ def test_no_shared_file_carries_a_platterpus_version_stamp() -> None:
     )
 
 
+#: Laps, on EITHER side, whose shared-hash declaration both trees are correctly
+#: ahead of because a shared text landed in both after the lap was sent, and before
+#: either side's next lap. Keyed by ``(lap, declared name)``; the value is the hash
+#: the landed file has in BOTH trees.
+#:
+#: **Why this is not ``_PEER_HASHES_SUPERSEDED_BY_OUR_LANDING``.** That one covers a
+#: landing that OUR newest lap declares, so it can check our side against our own
+#: lap. HR-2's order puts the copy (order B) before either side's next lap (order
+#: C): the fork lands v9 in its tree and reports it, we copy it byte for byte, and
+#: only then does their round 33 lap 1 open the round. In that window NEITHER newest
+#: lap declares the new bytes, so the evidence that both trees agree is the fork's
+#: tree itself, read at the commit named below, not a lap.
+#:
+#: **Bounded three ways.** An entry is honoured only while our file still hashes to
+#: the recorded value, so a later divergence fails. It names a lap that must still
+#: be its side's newest declaring lap (:func:`test_the_landing_record_is_not_stale`),
+#: so the next lap on either side retires it. And the next lap must then declare
+#: the landed hash, which the two checks compare normally.
+_LANDED_AFTER_THE_LAP: dict[tuple[str, str], str] = {
+    # v9, 2026-10-14. `sha256sum` of `docs/handshake/PROTOCOL.md` at
+    # `cyanrip@8f847271` (PR #12, 100,692 bytes) and of our
+    # `docs/handshake-protocol.md` copied from it: both c0539096…. The other three
+    # shared files are unchanged and equal at that commit.
+    ("round-32-lap-08.md", "protocol(v8)"): (
+        "c0539096e99a1ce5bd5a76860a4505c32acb17b4f0d1fc62b9e8b0938e3ef276"
+    ),
+    ("round-32-lap-09.md", "protocol(v8)"): (
+        "c0539096e99a1ce5bd5a76860a4505c32acb17b4f0d1fc62b9e8b0938e3ef276"
+    ),
+}
+
+
+def _landed_since(lap: str, name: str, actual: str) -> bool:
+    """`name`'s declaration in `lap` is superseded by a recorded landing.
+
+    True only when the record names this pair AND our file still hashes to the
+    landed value, so a record cannot excuse a file that has moved on again.
+    """
+    return _LANDED_AFTER_THE_LAP.get((lap, name)) == actual
+
+
+def test_the_landing_record_is_not_stale() -> None:
+    """Each entry names its side's NEWEST declaring lap; a newer lap retires it."""
+    ours = _latest_lap_with_shared_hashes()
+    theirs = _latest_inbound_with_shared_hashes()
+    assert ours is not None and theirs is not None
+    newest = {ours[0].name, theirs[0].name}
+    stale = sorted(lap for lap, _ in _LANDED_AFTER_THE_LAP if lap not in newest)
+    assert not stale, (
+        f"{stale} are no longer a side's newest declaring lap (ours "
+        f"{ours[0].name}, theirs {theirs[0].name}); the newer lap is compared "
+        "normally now, so remove the entry from _LANDED_AFTER_THE_LAP"
+    )
+    for (lap, name), landed in _LANDED_AFTER_THE_LAP.items():
+        assert re.fullmatch(r"[0-9a-f]{64}", landed), (lap, name, landed)
+        rel = _SHARED_FILE_PATHS.get(name)
+        assert rel is not None, (lap, name)
+        actual = hashlib.sha256((_REPO_ROOT / rel).read_bytes()).hexdigest()
+        assert actual == landed, (
+            f"{rel} hashes to {actual}, not the landed {landed} recorded for "
+            f"{lap}: the file has moved on, so the record no longer describes it"
+        )
+
+
 def test_the_declared_shared_hashes_match_the_files_on_disk() -> None:
     """A declared hash nobody recomputes is a second description of a fact.
 
@@ -1970,6 +2045,8 @@ def test_the_declared_shared_hashes_match_the_files_on_disk() -> None:
             "_SHARED_FILE_PATHS or fix the declaration"
         )
         actual = hashlib.sha256((_REPO_ROOT / rel).read_bytes()).hexdigest()
+        if actual != claimed and _landed_since(lap.name, name, actual):
+            continue  # recorded in _LANDED_AFTER_THE_LAP, with its evidence
         assert actual == claimed, (
             f"{lap.name} declares {name}={claimed} but {rel} hashes to {actual} — a "
             "declared hash that does not match the file is worse than none"
@@ -2177,6 +2254,8 @@ def test_the_PEERS_declared_shared_hashes_match_our_copies() -> None:
                 "dropped: the files have diverged, or the record is wrong"
             )
             continue
+        if actual != claimed and _landed_since(lap.name, name, actual):
+            continue  # recorded in _LANDED_AFTER_THE_LAP, with its evidence
         if actual != claimed:
             ahead[name] = actual
             mismatches.append(

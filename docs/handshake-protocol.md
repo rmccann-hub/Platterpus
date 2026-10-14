@@ -1,4 +1,4 @@
-# Handshake protocol v8
+# Handshake protocol v9
 
 **This file is the shared language. Both projects implement it; neither owns
 it.** cyanrip and Platterpus each have a gate that reads round files and decides
@@ -298,6 +298,11 @@ third commit.
   satisfies it whenever the cited evidence is on that branch. Evidence that is
   only on an unpublished branch satisfies neither, and is cited by content hash
   instead. `HANDSHAKE-FROM-COMMIT-SOURCE`, optional, says how the sender chose it.
+- **An evidence citation is exempt from `HANDSHAKE-FROM-COMMIT`** (v9, HR-2 6a).
+  From a side's move of its run evidence to its `evidence` branch, a lap cites
+  a file there as `<repo>@<evidence commit>:<path>` with its SHA-256, and the
+  citation resolves at the commit it names, which must be reachable from that
+  repository's `refs/heads/evidence` (§17).
 
 ## 4. Verdict vocabulary — closed set
 
@@ -1618,3 +1623,134 @@ round 32.
   can no more hold a release than authorise one.
 - It does not take anything from v7's deferred list, which stands as written
   there.
+
+## 17. Changes in v9
+
+**v9 is v8 plus HR-2 and its clarifications HR-2.1, and nothing else.** The
+operator gave both sides HR-2's agreed text on 2026-10-14, built from both
+sides' reviews, as round 33's first task, and HR-2.1 later the same day. HR-2
+moves run evidence off each default branch onto an `evidence` branch, and says
+how laps cite it, how checkers resolve it and how CI fetches it. Both texts
+follow, word for word, and are normative; the rest of this file is unchanged
+except §3b's last bullet, which points here.
+
+```text
+HR-2 (protocol v9, with the lap-statement language amended to match)
+
+1. Evidence is what a run, a rig session or the other side produced that nothing on the default
+   branch reads: no build, test, tool, checker, CI step or SETTLED check. It includes application
+   logs, report JSON, rip logs, cues, captures, screenshots, transcripts, diagnostics records,
+   and the copies a lap cites of them. These stay on the default branch: laps; the other side's
+   standing statuses; the shared seam files and any specification a lap checker implements
+   (such as lsl-amendments-1.md); the release ledger, the manifest and the release-suite records
+   (docs/release-evidence/); provider contracts, golden references and sample diagnostics; each
+   run folder's README, as its index; and every fixture.
+2. Readers. Before the move, each side runs its whole suite and every check in a scratch clone
+   with the moving files absent. Every moving file that anything opens is copied byte for byte
+   to a fixture path, or replaced by a slim extract that names its source's path and SHA-256,
+   and its reader is pointed there. From the move on, a check refuses any new test, tool or
+   check that opens an evidence path. A test that passes on nothing when its input is missing
+   is a defect, fixed on sight.
+3. Each repository keeps an orphan branch named `evidence`. Each commit after the first has the
+   previous tip as its only parent and adds files without changing or removing any. It is never
+   merged, rebased, force-pushed, deleted or tagged, and a ruleset blocks deletion and
+   non-fast-forward updates.
+4. The default branch keeps docs/evidence-manifest.tsv, append-only: UTF-8, tab-separated, one
+   header line `path	bytes	sha256	evidence_commit	last_default_commit`, sorted by path, one row
+   per file. evidence_commit is the full 40-character commit that added the file;
+   last_default_commit is the last default-branch commit that held it, empty if it was filed
+   straight to evidence. A path containing a tab or a newline isn't filed.
+5. The move.
+   a. It moves whole run folders, byte for byte, at their current paths. A folder's README is on
+      both branches: evidence holds the whole folder, and the default branch keeps the README.
+      No file is changed in the move. Files already committed keep their bytes, because laps
+      cite them by hash.
+   b. The commit is built from an enumerated list of folders, never a pattern (git ls-tree
+      treats `docs/rig-*` literally, prints nothing and exits 0). It is built in a temporary
+      clone made with `git clone --depth 1 --single-branch`, so the push sends only trees and
+      one commit, never the files themselves.
+   c. Its author and committer are `evidence <evidence@invalid>`, with both dates set to the
+      instant round 33's lap 1 fixes, given in all six GIT_AUTHOR_* and GIT_COMMITTER_*
+      variables. Either side can then rebuild the other's commit from its list and compare IDs.
+   d. Before the push, its file count and bytes match the manifest rows. After it: for every
+      moved folder, `git rev-parse <last default commit>:<folder>` equals
+      `git rev-parse <evidence commit>:<folder>`; and every path the removal commit deletes has
+      exactly one manifest row.
+6. Citations.
+   a. From the move on, a lap cites evidence as `<repo>@<evidence commit>:<path>` with its
+      SHA-256. Such a citation is exempt from FROM-COMMIT (PROTOCOL §3b) and the lap-statement
+      language's one-branch-per-side rule. It resolves at the commit it names, which must be
+      reachable from that repository's refs/heads/evidence.
+   b. Each lap checker treats evidence as a second ref of record, for evidence citations only.
+      It refuses one with no manifest row at the lap's FROM-COMMIT. It fetches a missing commit
+      by its hash into a temporary repository. It reports one it can't fetch as unchecked,
+      except in CI's evidence job, which fails instead.
+   c. Holding. "A cited document must be one our repository holds: committed on our default
+      branch, or on our evidence branch with a manifest row giving its SHA-256." A copy of the
+      other side's evidence goes on your own evidence branch, byte for byte.
+   d. Old laps. A citation by commit made before the move still resolves, because history is
+      kept. A bare path in an earlier lap resolves through the manifest and is checked by
+      SHA-256. A link at a branch name stops resolving and isn't edited. LSL B1 re-runs a run:
+      command with the cited evidence placed at its own paths in the FROM-COMMIT tree.
+7. Fetching. A committed SessionStart hook adds `^refs/heads/evidence` to each remote's fetch
+   refspec (git 2.29 or later), and the context file tells sessions to run the same lines where
+   hooks don't run. It limits later fetches. It cannot change the clone a session makes before
+   hooks run, so it shrinks the checkout, not the first download. A tool reads evidence by
+   fetching into a temporary bare repository (`git init --bare <tmp>`, then
+   `git -C <tmp> fetch --depth 1 <url> <commit>`), never into the working clone, because a
+   --depth fetch makes a full clone shallow.
+8. CI.
+   a. Exactly one job fetches evidence. It checks every added manifest row against its file at
+      its commit, fails if any tag points at or reaches an evidence commit, runs every check
+      that reads evidence, and runs the secret scan over evidence.
+   b. Other jobs fetch only what they read, by explicit refspec. A job that needs no history
+      uses depth 1. A range-only job may use a blobless clone (`filter: blob:none`).
+   c. Each fetch change is proved by one real run on a pull request and one on a push to the
+      default branch.
+9. New evidence. Before evidence is first committed, the side that produced it replaces home
+   folders with ~ and the hostname with `host`, and leaves out the owner's real name, through
+   its filing tool, counting each replacement in the bundle's manifest. A log that verifies its
+   own bytes (a cyanrip log checked with -Y, an EAC log's checksum) is verified first, and the
+   result and both hashes are recorded.
+10. Filing, in this order:
+    a. Build the evidence commit in a temporary depth-1 clone of evidence, with the previous
+       tip as its parent, and push it.
+    b. Open a pull request on the default branch adding the manifest rows. CI checks each row
+       against the fetched commit, then it merges.
+    c. Write the lap from a FROM-COMMIT that already has the rows, and publish it.
+    6b's refusal of a citation with no manifest row is what enforces this order.
+11. Laps never move.
+12. Order and proof. Both sides first land this text and v9 checker support with nothing moved.
+    Each side moves when its suite passes in a scratch clone with its move simulated. Either
+    side may go first. After a move, the other side's checker verifies it with 5d's checks,
+    fetching by hash. Then each side sends one lap citing one file on its own evidence branch,
+    and the other side's checker must pass it with only the default branch and the cited commit
+    fetched. Only after that do laps use the new form.
+```
+
+```text
+HR-2.1 (clarifications, part of v9; added to PROTOCOL §17 after HR-2's text, word for word)
+a. (5a) A file that must stay on the default branch but sits in a folder that moves, such as a
+   README or a specification like outbound/artifacts/lsl-amendments-1.md, is on both branches:
+   evidence holds the whole folder, and the default branch keeps that file. Run files outside
+   any folder stay on the default branch.
+b. (4, 5d) last_default_commit is the default-branch commit the evidence commit was built from.
+   The removal pull request's first commit has it as its parent. Before that pull request
+   merges, CI checks that each moved folder's tree on the current default branch still equals
+   its tree at the evidence commit. If it doesn't, a file changed after the build, and the
+   removal waits until that's resolved.
+c. (7) The temporary repository's fetch may add `--filter=blob:none`, so it downloads only the
+   files it reads.
+d. (8a) Where GitHub's secret scanning and push protection are both enabled for the repository,
+   they are the secret scan over evidence. A side may also run its own scanner.
+```
+
+**Declaring 9.** As for 8: neither side declares 9 until both have said, in a
+lap, that their gate implements it, and **neither gate implements 9 until this
+file is byte-identical in both trees.** HR-2's own order is its point 12, and
+its citation rules bind from each side's move.
+
+### What v9 does not do
+
+- It does not change §4's vocabulary, §5's close, or any conformance row.
+- It does not move a lap (HR-2 point 11), and it edits no file already sent.

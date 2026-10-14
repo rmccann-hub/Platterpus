@@ -487,6 +487,9 @@ jobs:
           python3 scripts/evidence_manifest.py branch
           python3 scripts/evidence_manifest.py tags
           python3 scripts/evidence_manifest.py laps
+          # HR-2.1 b: before the removal merges, each moved folder still on the
+          # default branch must equal its tree at the evidence commit.
+          python3 scripts/evidence_manifest.py unchanged --ref origin/main
 
   # SBOM. A machine-readable inventory of what actually ships, in CycloneDX.
   #

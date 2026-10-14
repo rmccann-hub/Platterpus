@@ -14,6 +14,29 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The shared handshake protocol is v9 in both trees (HR-2 order B, 2026-10-14).**
+  `docs/handshake-protocol.md` is now the fork's `docs/handshake/PROTOCOL.md` at
+  `cyanrip@8f847271`, copied byte for byte (sha256 `c0539096…`, 100,692 bytes): v8 plus
+  HR-2 and HR-2.1 in a new §17, and a §3b bullet exempting an evidence citation from
+  `HANDSHAKE-FROM-COMMIT`. Our gate still implements and declares 8 until order C, as v9
+  §17 requires, with the window recorded in `_BOOTSTRAP_REASON`. Both sides' newest laps
+  still declare the v8 hash, so a new record, `_LANDED_AFTER_THE_LAP`, names each one
+  with the landed hash; it holds only while our file still hashes to that value, and the
+  next lap on either side retires its entry.
+- **HR-2.1 a and b (the operator's clarifications, 2026-10-14).** `outbound/artifacts`
+  now moves as a whole folder: the evidence commit holds all of it, and `main` keeps
+  `lsl-amendments-1.md` beside each folder's README. One predicate,
+  `evidence_manifest.stays_on_default`, decides what stays, for the builder, the new
+  `evidence_move.py removal` list, the move check (which now refuses a removal that deletes
+  a file that stays) and the test guard. A new `evidence_manifest.py unchanged` check runs in
+  CI's evidence job: before the removal merges, every moved folder still on `main` must
+  equal its tree at the evidence commit, so a file changed after the build holds the
+  removal back. The evidence commit grows from 752 to 753 files (the specification); the
+  removal still deletes 744.
+  The two checks that compare trees across the move, `move` and `unchanged`, live in
+  `scripts/evidence_trees.py` and still run as `evidence_manifest.py move` / `unchanged`,
+  so `evidence_manifest.py` shrank to 350 lines instead of its recorded size going up.
+
 - **One About-dialog test asserts a banner's text without looking like a URL check.**
   CodeQL's `py/incomplete-url-substring-sanitization` read `"http://e.x" in text` in
   `test_ripper_standing` as a sanitiser and raised a high alert once this PR touched the

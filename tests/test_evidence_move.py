@@ -144,3 +144,15 @@ def test_a_commit_missing_a_file_fails_the_pre_push_check(
     assert any(
         "missing.log" in p for p in em.check_built(clone, commit, [*entries, extra])
     )
+
+
+def test_the_removal_keeps_what_stays_and_deletes_the_rest(
+    source: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """HR-2 §5a, HR-2.1 a: the removal deletes every file of a moving folder but
+    the README and the files `STAYS` names, by the same predicate as the check."""
+    repo, base = source
+    monkeypatch.setattr(em, "moving_list", lambda: list(LISTED))
+    monkeypatch.setattr(em.evidence_manifest, "STAYS", frozenset({"ev/out/one.log"}))
+    gone = em.removal(repo, base)
+    assert gone == ["ev/runs/round99/full.log", "ev/runs/round99/sub/report.json"]

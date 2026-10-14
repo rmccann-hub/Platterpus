@@ -2731,8 +2731,10 @@ _MIN_SCRIPTS_MODULES: Final[int] = 35
 _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # 2026-10-14, HR-2: one manifest, its branch and every check §3-§5 and §8a
     # ask of them (format, rows, branch shape, tags, laps, move). One subject;
-    # the subcommands share the git and manifest plumbing.
-    "scripts/evidence_manifest.py": 380,
+    # the subcommands share the git and manifest plumbing. 350 since HR-2.1
+    # (2026-10-14): the two tree checks, `move` and `unchanged`, went to
+    # `scripts/evidence_trees.py` rather than this number going up.
+    "scripts/evidence_manifest.py": 350,
     # 2026-10-14, HR-2 §6-§7: the manifest's parser and the by-hash fetcher a
     # checker reads evidence through. Splitting the fetcher from the parser
     # would leave each needing the other's types.
