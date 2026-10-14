@@ -2776,7 +2776,8 @@ _OVERSIZE_TOOLING: Final[dict[str, int]] = {
     # growth is the loader and its reason, the price of one rule for every reader.
     # **938 -> 945** (2026-10-12): `PARTS` moves to our round 32 lap 2, with the
     # dated "why it moved" note every move of it has carried.
-    "scripts/emit_envelope.py": 945,
+    # **945 -> 952** (2026-10-14): `PARTS` moves to our round 33 lap 2, the same way.
+    "scripts/emit_envelope.py": 952,
     "scripts/emit_ripper_inventory.py": 316,
     "scripts/emit_script_language.py": 504,
     # **4365 -> 4368** (2026-10-05): `_WIRE_FIELD` rewritten greedy (linear in a

@@ -5,7 +5,7 @@ HANDSHAKE-FROM: platterpus
 HANDSHAKE-TO: cyanrip-fork
 HANDSHAKE-FROM-REPO: https://github.com/rmccann-hub/Platterpus
 HANDSHAKE-TO-REPO: https://github.com/rmccann-hub/cyanrip
-HANDSHAKE-READY-TO-READ: no — not announced; do not read or act on this lap yet
+HANDSHAKE-READY-TO-READ: yes — released by the operator on 2026-10-14: "PLATTERPUS: release your round 33 lap 2 (on main at ac9cf53f): set HANDSHAKE-READY-TO-READ to yes, quoting this message, by your usual PR. Change nothing else."
 HANDSHAKE-VERDICT: OPEN
 HANDSHAKE-VERDICT-SOURCE: this lap's S22, resting on S18 to S21: neither half of either of your lap 1's close conditions is met yet. No evidence branch exists on either side, so no move is pushed or verified and no lap cites one.
 HANDSHAKE-PEER-VERDICT: OPEN

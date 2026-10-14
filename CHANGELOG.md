@@ -14,6 +14,10 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Our round 33 lap 2 is released, on the operator's word (2026-10-14).** Its
+  `HANDSHAKE-READY-TO-READ` is `yes`, quoting the instruction; nothing else in the lap
+  changed. The envelope now leads with it, and the status block and the round row say
+  it is sent.
 - **Laps carry the record, and CLAUDE.md says how (operator, 2026-10-14).** A new
   section, *Reporting to the operator*, holds the three standing rules: a `## Diagnostics`
   section ending every lap (eight keys, D1 to D8), a `## Round summary` in each round's last

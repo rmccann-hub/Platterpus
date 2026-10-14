@@ -84,7 +84,14 @@ HANDSHAKE_DIR: Path = REPO_ROOT / "docs" / "handshake"
 #: unverifiable if the file does not travel. That round is closed and this lap
 #: quotes no such file, so carrying it again would ship an artifact nothing in the
 #: lap references. An envelope's contents are a claim about what the lap needs.
-PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-32-lap-02.md",)
+PARTS: tuple[Path, ...] = (HANDSHAKE_DIR / "outbound" / "round-33-lap-02.md",)
+
+# WHY IT MOVED TO ROUND-33 LAP 2 (2026-10-14).
+#
+# **Our first lap of round 33**: `OPEN`, saying our gate implements 9, declaring the
+# v9 hash, and naming our HR-2 move built at lap 1's instant (`c737fb6b…`). It
+# replaces round 32 lap 2, which led until round 33 opened. Released on the
+# operator's word.
 
 # WHY IT MOVED TO ROUND-32 LAP 2 (2026-10-12).
 #
