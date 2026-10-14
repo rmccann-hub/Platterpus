@@ -15,11 +15,12 @@ import logging
 import re
 import subprocess
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from evidence_paths import evidence
 from PySide6.QtWidgets import QApplication
 
 from platterpus import diagnostics, record_fate
@@ -499,14 +500,11 @@ def test_auto_ladder_speed_locked_drive_escalates_z_never_sends_S(
 # exit code cyanrip would give, because the real ripper does both; a fake that
 # exits 0 over three read errors is the stand-in that hid this.
 
-_FILED_FULL_RUN = (
-    Path(__file__).resolve().parent.parent
-    / "docs"
-    / "handshake"
-    / "artifactsround30"
-    / "round30oct04full.log"
-)
-_FILED_CANCELLED = _FILED_FULL_RUN.with_name("round30fullcancelme.log")
+#: Both read from their byte-for-byte fixtures (the run folder moved to the
+#: evidence branch, HR-2), and only when a test runs: a parametrize below used to
+#: read one while the module was imported, so a missing file errored every test here.
+_FILED_FULL_RUN = "docs/handshake/artifactsround30/round30oct04full.log"
+_FILED_CANCELLED = "docs/handshake/artifactsround30/round30fullcancelme.log"
 
 
 def _rewrite(text: str, old: str, new: str) -> str:
@@ -523,7 +521,7 @@ def _filed_full_run(
     speed_changeable: bool = False,
 ) -> str:
     """The real `.19` log, with track 18's outcome and the footer rewritten."""
-    text = _FILED_FULL_RUN.read_text(encoding="utf-8")
+    text = evidence(_FILED_FULL_RUN).read_text(encoding="utf-8")
     text = _rewrite(text, "Track 18 read successfully!\n", f"Track 18 {track18}\n")
     text = _rewrite(
         text, "\nRipping errors: 0\n", f"\nRipping errors: {ripping_errors}\n"
@@ -676,7 +674,7 @@ def test_a_pass_stopped_by_a_signal_does_not_step_the_disc_down(
     beside `Ripping errors: 1` (the interrupted track). Nothing here cancelled it,
     so only the log can say the pass did not finish.
     """
-    text = _FILED_CANCELLED.read_text(encoding="utf-8")
+    text = evidence(_FILED_CANCELLED).read_text(encoding="utf-8")
     assert "Rip completed:  no (interrupted by SIGTERM" in text
     assert "\nRipping errors: 1\n" in text
     backend = _per_pass_backend(tmp_path, [(text, 1)])
@@ -916,15 +914,15 @@ def test_a_ladder_that_ends_on_a_pass_the_drive_could_not_read_is_secured(
         # The filed SIGTERM'd rip: exit 1, footer `no (interrupted by SIGTERM …)`.
         (
             "interrupted",
-            [(_FILED_CANCELLED.read_text(encoding="utf-8"), 1)],
+            lambda: [(evidence(_FILED_CANCELLED).read_text(encoding="utf-8"), 1)],
             "interrupted by SIGTERM",
         ),
         # A signal or crash exit, whatever the log on disk says.
-        ("killed", [(_drive_failed_full_run(), 137)], "cyanrip exited 137"),
+        ("killed", lambda: [(_drive_failed_full_run(), 137)], "cyanrip exited 137"),
         # An exit-1 pass whose own footer says it did not finish.
         (
             "unfinished",
-            [
+            lambda: [
                 (
                     _rewrite(
                         _drive_failed_full_run(),
@@ -943,11 +941,15 @@ def test_an_album_pass_that_did_not_finish_is_not_secured(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
     case: str,
-    passes: list[tuple[str | None, int]],
+    passes: Callable[[], list[tuple[str | None, int]]],
     reason: str,
 ) -> None:
-    """Exit 1 covers an interrupted or aborted run too, so the log decides."""
-    backend = _album_then_securing_backend(tmp_path, passes)
+    """Exit 1 covers an interrupted or aborted run too, so the log decides.
+
+    Each case's passes are BUILT here, not when the module is imported: they read
+    a filed log, and a read at import time takes every test in the file down with
+    it when that one file is missing."""
+    backend = _album_then_securing_backend(tmp_path, passes())
     worker = RipWorker(backend, _dynamic(tmp_path))
     sigs = _Signals()
     sigs.attach(worker)
@@ -2134,10 +2136,9 @@ def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
 #: (``cyanrip@df91ae7:src/checksums.h:74-78``). Track 2 matched exactly. The real
 #: log, not a fixture, because what matters is that the worker's decision is made
 #: on the line cyanrip actually wrote.
-_SECTION_J_LOG: Path = (
-    Path(__file__).resolve().parents[1]
-    / "docs/handshake/artifactsround26/round26aftercancel.log"
-)
+#: Evidence moved off `main` (HR-2): named by its original path, read from its
+#: fixture when a test runs, so a missing fixture fails that test, not the import.
+_SECTION_J_LOG: str = "docs/handshake/artifactsround26/round26aftercancel.log"
 _SECTION_J_ALBUM: tuple[str, str] = (
     "The Police",
     "after cancel 20260924t011421 platterpus-fork-gdf91ae7",
@@ -2148,7 +2149,7 @@ def _section_j_rip(
     tmp_path: Path, **overrides: object
 ) -> tuple[RipWorker, _FakeBackend]:
     """Run the worker over section J's real pass-1 log; a re-read converges."""
-    pass1 = _SECTION_J_LOG.read_text(encoding="utf-8")
+    pass1 = evidence(_SECTION_J_LOG).read_text(encoding="utf-8")
     rerip = (
         "cyanrip 0.9.3 (release)\n"
         "Disc tracks:    14\n"
@@ -2195,7 +2196,7 @@ def test_a_one_frame_offset_variant_match_is_re_read_by_default(
 
     # Floor: the log really is the case — track 1 offset-variant only, track 2
     # exact — so a re-read of track 1 alone is a decision, not a coincidence.
-    text = _SECTION_J_LOG.read_text(encoding="utf-8")
+    text = evidence(_SECTION_J_LOG).read_text(encoding="utf-8")
     assert "0E91CD1A" in text
     assert "track is partially accurately ripped" in text
 
@@ -5610,18 +5611,15 @@ def test_the_forks_proposed_repeat_limit_wording_is_graded_like_the_old_one(
 def test_the_round28_fixture_is_the_artifacts_own_text() -> None:
     """The streams above are copied from the committed app log; hold them to it.
 
-    Skips where the artifact is not in the tree (it was filed on the session branch
-    this fix lands on), and says so — but where it is present, every line of both
-    streams must appear in it, as the rip worker's own `cyanrip │` record, in order.
+    Every line of both streams must appear in it, as the rip worker's own
+    `cyanrip │` record, in order. It used to skip where the artifact was not in the
+    tree, which passed on nothing; the app log now travels as a slim extract (HR-2:
+    cyanrip's `Ripping track N, progress` lines removed and counted, a kind of line
+    neither stream holds), so it is always here and the skip is gone.
     """
-    source = (
-        Path(__file__).resolve().parent.parent
-        / "docs/handshake/artifactsround28/round28fullplatterpusapplog1.txt"
+    source = evidence(
+        "docs/handshake/artifactsround28/round28fullplatterpusapplog1.txt"
     )
-    if not source.is_file():
-        pytest.skip(
-            f"{source.name} is not in this tree; the fixture is uncheckable here"
-        )
     recorded = [
         line.split(" cyanrip │ ", 1)[1]
         for line in source.read_text(encoding="utf-8").splitlines()

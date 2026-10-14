@@ -34,6 +34,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   main-window and app-log-verb tests name each file by its original path and read the
   fixture, so they pass with the run folders gone.
 
+- **`tests/test_rip_worker.py` no longer reads a run log while it is imported.** A
+  parametrize built its cases from the round-30 cancelled and full-run logs at import
+  time, so with those files missing every test in the file errored at collection. The
+  cases are now built inside the test, from the logs' fixtures (HR-2), and the round-28
+  app-log check that skipped when its log was absent, and so passed on nothing, reads
+  the log's slim extract and no longer skips.
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.
