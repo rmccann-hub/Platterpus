@@ -309,6 +309,145 @@ the intended end state.
 they are, and each release page stays attached to the same tag name. The fork's own
 branches are the fork's to decide.
 
+### 7.4b HR-2: run evidence moves to an `evidence` branch
+
+**Agreed 2026-10-14** (the operator's message to both sessions, "HR-2, agreed text and
+landing plan", round 33's first task, after each side reviewed a draft twice). Like HR-1
+it is landed here, word for word, and not in the shared `docs/handshake-protocol.md`:
+the text says "protocol v9", and moving `PROTOCOL_VERSION` / `DECLARED_PROTOCOL` past 8
+waits for a v9 edit of that shared file that both sides hold byte-identical (§7.7a). The
+behaviour it asks of a checker is keyed on evidence citations, which no lap uses until
+§12's proof, so landing it changes how no existing lap reads.
+
+**Where each part lives, as landed (step 1, 2026-10-14).**
+
+| HR-2 | Platterpus |
+|---|---|
+| §2 readers, fixtures | `scripts/evidence_fixtures.py` (copy, slim extract, check), `tests/evidence_paths.py`; the sweep `tests/test_no_new_evidence_readers.py`, whose allowlist step 2 empties |
+| §3, §4, §5d, §8a checks | `scripts/evidence_manifest.py` (`format`, `rows`, `branch`, `tags`, `laps`, `move`) |
+| §5b enumerated list | `scripts/evidence_manifest.py::MOVING_FOLDERS`, `MOVING_FILES` |
+| §6a, §6b citations | `scripts/laplang/evidence.py`, read by `scripts/laplang/refs.py::Trees._evidence` |
+| §6d old laps | `Trees._evidence` keeps the old rules for a commit on the ref of record; bare paths: `tests/test_named_artifacts_are_filed.py`, `tests/test_doc_index_completeness.py`; B1: `scripts/laplang/scratch.py::Scratch.overlay` |
+| §7 fetching | `.claude/hooks/session-start.sh`; `laplang.evidence.Fetcher` fetches by hash into a temporary bare repository, **blobless**: the text's `fetch --depth 1 <url> <commit>` without `--filter=blob:none` would download every file the evidence commit holds |
+| §8 CI | `.github/workflows/ci.yml`: `gitleaks` is the evidence job; the others fetch by refspec |
+
+```text
+HR-2 (protocol v9, with the lap-statement language amended to match)
+
+1. Evidence is what a run, a rig session or the other side produced that nothing on the default
+   branch reads: no build, test, tool, checker, CI step or SETTLED check. It includes application
+   logs, report JSON, rip logs, cues, captures, screenshots, transcripts, diagnostics records,
+   and the copies a lap cites of them. These stay on the default branch: laps; the other side's
+   standing statuses; the shared seam files and any specification a lap checker implements
+   (such as lsl-amendments-1.md); the release ledger, the manifest and the release-suite records
+   (docs/release-evidence/); provider contracts, golden references and sample diagnostics; each
+   run folder's README, as its index; and every fixture.
+2. Readers. Before the move, each side runs its whole suite and every check in a scratch clone
+   with the moving files absent. Every moving file that anything opens is copied byte for byte
+   to a fixture path, or replaced by a slim extract that names its source's path and SHA-256,
+   and its reader is pointed there. From the move on, a check refuses any new test, tool or
+   check that opens an evidence path. A test that passes on nothing when its input is missing
+   is a defect, fixed on sight.
+3. Each repository keeps an orphan branch named `evidence`. Each commit after the first has the
+   previous tip as its only parent and adds files without changing or removing any. It is never
+   merged, rebased, force-pushed, deleted or tagged, and a ruleset blocks deletion and
+   non-fast-forward updates.
+4. The default branch keeps docs/evidence-manifest.tsv, append-only: UTF-8, tab-separated, one
+   header line `path	bytes	sha256	evidence_commit	last_default_commit`, sorted by path, one row
+   per file. evidence_commit is the full 40-character commit that added the file;
+   last_default_commit is the last default-branch commit that held it, empty if it was filed
+   straight to evidence. A path containing a tab or a newline isn't filed.
+5. The move.
+   a. It moves whole run folders, byte for byte, at their current paths. A folder's README is on
+      both branches: evidence holds the whole folder, and the default branch keeps the README.
+      No file is changed in the move. Files already committed keep their bytes, because laps
+      cite them by hash.
+   b. The commit is built from an enumerated list of folders, never a pattern (git ls-tree
+      treats `docs/rig-*` literally, prints nothing and exits 0). It is built in a temporary
+      clone made with `git clone --depth 1 --single-branch`, so the push sends only trees and
+      one commit, never the files themselves.
+   c. Its author and committer are `evidence <evidence@invalid>`, with both dates set to the
+      instant round 33's lap 1 fixes, given in all six GIT_AUTHOR_* and GIT_COMMITTER_*
+      variables. Either side can then rebuild the other's commit from its list and compare IDs.
+   d. Before the push, its file count and bytes match the manifest rows. After it: for every
+      moved folder, `git rev-parse <last default commit>:<folder>` equals
+      `git rev-parse <evidence commit>:<folder>`; and every path the removal commit deletes has
+      exactly one manifest row.
+6. Citations.
+   a. From the move on, a lap cites evidence as `<repo>@<evidence commit>:<path>` with its
+      SHA-256. Such a citation is exempt from FROM-COMMIT (PROTOCOL §3b) and the lap-statement
+      language's one-branch-per-side rule. It resolves at the commit it names, which must be
+      reachable from that repository's refs/heads/evidence.
+   b. Each lap checker treats evidence as a second ref of record, for evidence citations only.
+      It refuses one with no manifest row at the lap's FROM-COMMIT. It fetches a missing commit
+      by its hash into a temporary repository. It reports one it can't fetch as unchecked,
+      except in CI's evidence job, which fails instead.
+   c. Holding. "A cited document must be one our repository holds: committed on our default
+      branch, or on our evidence branch with a manifest row giving its SHA-256." A copy of the
+      other side's evidence goes on your own evidence branch, byte for byte.
+   d. Old laps. A citation by commit made before the move still resolves, because history is
+      kept. A bare path in an earlier lap resolves through the manifest and is checked by
+      SHA-256. A link at a branch name stops resolving and isn't edited. LSL B1 re-runs a run:
+      command with the cited evidence placed at its own paths in the FROM-COMMIT tree.
+7. Fetching. A committed SessionStart hook adds `^refs/heads/evidence` to each remote's fetch
+   refspec (git 2.29 or later), and the context file tells sessions to run the same lines where
+   hooks don't run. It limits later fetches. It cannot change the clone a session makes before
+   hooks run, so it shrinks the checkout, not the first download. A tool reads evidence by
+   fetching into a temporary bare repository (`git init --bare <tmp>`, then
+   `git -C <tmp> fetch --depth 1 <url> <commit>`), never into the working clone, because a
+   --depth fetch makes a full clone shallow.
+8. CI.
+   a. Exactly one job fetches evidence. It checks every added manifest row against its file at
+      its commit, fails if any tag points at or reaches an evidence commit, runs every check
+      that reads evidence, and runs the secret scan over evidence.
+   b. Other jobs fetch only what they read, by explicit refspec. A job that needs no history
+      uses depth 1. A range-only job may use a blobless clone (`filter: blob:none`).
+   c. Each fetch change is proved by one real run on a pull request and one on a push to the
+      default branch.
+9. New evidence. Before evidence is first committed, the side that produced it replaces home
+   folders with ~ and the hostname with `host`, and leaves out the owner's real name, through
+   its filing tool, counting each replacement in the bundle's manifest. A log that verifies its
+   own bytes (a cyanrip log checked with -Y, an EAC log's checksum) is verified first, and the
+   result and both hashes are recorded.
+10. Filing, in this order:
+    a. Build the evidence commit in a temporary depth-1 clone of evidence, with the previous
+       tip as its parent, and push it.
+    b. Open a pull request on the default branch adding the manifest rows. CI checks each row
+       against the fetched commit, then it merges.
+    c. Write the lap from a FROM-COMMIT that already has the rows, and publish it.
+    6b's refusal of a citation with no manifest row is what enforces this order.
+11. Laps never move.
+12. Order and proof. Both sides first land this text and v9 checker support with nothing moved.
+    Each side moves when its suite passes in a scratch clone with its move simulated. Either
+    side may go first. After a move, the other side's checker verifies it with 5d's checks,
+    fetching by hash. Then each side sends one lap citing one file on its own evidence branch,
+    and the other side's checker must pass it with only the default branch and the cited commit
+    fetched. Only after that do laps use the new form.
+```
+
+```text
+LANDING, PLATTERPUS
+1. One pull request, nothing moved:
+   - v9 checker support: refs.py treats evidence as a second ref of record for evidence
+     citations; test_cited_commits_are_reachable accepts evidence; the LSL B1 overlay; the
+     manifest check; the sweep that refuses new readers of evidence paths;
+   - the hook line in .claude/hooks/session-start.sh;
+   - CI: lint at depth 1; changelog, media-guard and tests-touched blobless; the four test legs
+     on main plus v* tags by refspec; gitleaks as the one job that fetches evidence.
+2. Convert the readers:
+   - the 39 test files, plus test_rip_worker's read at import time;
+   - slim extracts, without debug.lines, for the 118 report JSONs; extracts for the 5 app logs;
+   - a fixture for run_estimate.py:42's MEASURED_FROM;
+   - keep the 8 run-folder READMEs. outbound/artifacts/lsl-amendments-1.md stays; its six
+     round-15 logs move.
+   Re-run the simulated move until it's green. Re-run load flakes alone and report them
+   separately.
+3. Build and push the evidence commit per 5b to 5d. Then a pull request removes the folders
+   (keeping the READMEs) and adds the manifest.
+4. Separately, as product work this round: collapse the progress lines (TASKS R14), after
+   checking whether rip_estimate takes its timing from them.
+```
+
 ### 7.5 A verification declares a verdict, and the verdict is what closes the round
 
 Every verification file from round 4 on opens with a bolded declaration at the start of a

@@ -48,6 +48,9 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   checks with fetch failures fatal. Before, every one of these jobs fetched the whole
   history of every branch.
 
+- **HR-2's agreed text is recorded word for word** in `docs/cyanrip-handshake.md` §7.4b,
+  with our landing plan and a table of where each part is implemented.
+
 - **The lap checker reads evidence citations (HR-2 §6, the v9 behaviour).** A lap may
   cite a run file that lives on a repository's `evidence` branch as
   `<repo>@<evidence commit>:<path>`. The checker finds the path's row in
