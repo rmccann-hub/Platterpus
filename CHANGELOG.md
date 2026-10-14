@@ -52,6 +52,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   single-log tests read their fixtures, and its FUN512 sweep over `tests/fixtures/`
   leaves the evidence fixtures out, so it reads the same 28 files it did.
 
+- **TASKS cites the round-7 rig-session results by commit** (HR-2). Its two mentions of
+  `docs/handshake/artifacts-round-07/rig-session-results-c5fb909.md`, a file that leaves
+  `main` with its run folder, now read `platterpus@4b793199:` before the path, naming
+  the `main` commit that holds it.
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.
