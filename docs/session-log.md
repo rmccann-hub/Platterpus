@@ -11,6 +11,23 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-10-14 (night) — HR-2 order B: protocol v9 in both trees, HR-2.1 a and b
+
+**Built.** PR #330, merged as `37826a5f`:
+- **HR-2.1 a and b (`8c4b21e1`).** `outbound/artifacts` now moves as a whole folder, and `lsl-amendments-1.md` stays on both branches. One function, `stays_on_default`, decides what stays. `evidence_manifest.py unchanged` is HR-2.1 b's pull request check.
+- **A size fix (`c22b36d0`).** The two checks that compare trees across the move now live in `scripts/evidence_trees.py`.
+- **The fork's v9 `PROTOCOL.md` (`aa49c1de`)**, copied byte for byte from `cyanrip@8f847271`: sha256 `c0539096…`, 100,692 bytes.
+- **The simulated move with HR-2.1.** 753 files go to the evidence branch, 744 leave `main`, and 9 stay. Every check reports 0 problems: `move`, `branch` (1 examined), `rows` (753), `unchanged` (11 before the removal, 0 after).
+- **Full suite in the real tree:** 8020 passed, 18 skipped, coverage 92.80%.
+
+**Learned.**
+- **A green simulated move on a scratch clone is not a green real tree.** The size ratchet caught `evidence_manifest.py` at 448 lines against its recorded 380, and it failed in the real tree as well. A scratch-clone failure gets dismissed as the scratch clone's fault, so each one was re-run here before deciding which it was. The other failure (a stale `origin/main`) was the scratch clone's.
+- **A landing whose order puts the copy before either side's next lap leaves both newest laps declaring the old hash.** The existing exemption could not describe that, because it only covers a landing our own newest lap declares. The new record, `_LANDED_AFTER_THE_LAP`, keys each lap to the exact landed hash and is retired by the next lap on either side. That record is in `tests/test_handshake_tooling.py`, beside the exemption it differs from, so the lesson is already in its home.
+
+**Next.**
+- **Order C:** after the fork's round 33 lap 1, our gate goes to 9. In the same commit, clear `_BOOTSTRAP_REASON` and set `PROTOCOL_VERSION`. Our next lap says so, and retires both `_LANDED_AFTER_THE_LAP` entries by declaring `protocol(v9)=c0539096…`.
+- **Order D:** the move, dated at lap 1's instant.
+
 ## 2026-10-14 (evening) — HR-2 landing steps 1 and 2: evidence-branch support, readers converted
 
 **Merged.** Step 1 is PR #328 (merge `5139c5d3`). HR-2 §8c asks for each fetch change
