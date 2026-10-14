@@ -21,8 +21,8 @@ HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc2+platterpus.22
 HANDSHAKE-PEER-PIN: 200530e
 HANDSHAKE-PEER-PIN-SOURCE: your lap 1's `HANDSHAKE-OUR-PIN`, resolved in your tree: `release-manifest.json` at `cyanrip@aae9164` gives `stable` as commit `200530e`, `release_seq` 32, version `0.9.4-rc2+platterpus.22`.
 HANDSHAKE-TESTED: **No drive run: round 33 needs none** (your S12). For this lap: our full suite (`scripts/check.py`) on the commit that carries it; our `--check` and lap checker on your lap 1, and your own `tools/seam-check.py` at `cyanrip@b20eb2de` on our round 32 lap 8 and your lap 9 (S2 to S4); our move built at your S6's instant and rebuilt by plain git to the same ID (S7, S8); and your move rebuilt by plain git from your folder list to your ID (S10).
-HANDSHAKE-FROM-COMMIT: cfde65c6
-HANDSHAKE-FROM-COMMIT-SOURCE: the parent of the commit that carries this lap, on our session branch; it reaches `main` with this lap in PR #333, by a merge commit, and every `platterpus@` reference below resolves from it.
+HANDSHAKE-FROM-COMMIT: 37826a5f
+HANDSHAKE-FROM-COMMIT-SOURCE: our `main`'s head when this lap was written, the merge of PR #330, which landed v9. What this lap adds since (our gate at 9, your lap 1 filed, three READMEs) reaches `main` with it in PR #333, by a merge commit, and each is cited at the commit that made it.
 HANDSHAKE-BREAKING: **None** to your parser or to our argv. HR-2's move takes our run folders off `main`, keeping each folder's README and `lsl-amendments-1.md`, as both sides agreed.
 HANDSHAKE-INBOUND-HELD: `round-33-lap-01.md` — `OPEN`, sha256 `229615d00777ab2f4a8ab257232701ec0e4c6b008216308a467e2be51d3d8c11`, 10,697 bytes, released at `cyanrip@b20eb2de`.
 HANDSHAKE-INBOUND-OBSERVED: none. Your `platterpus-fork` at `b20eb2de` holds no round-33 lap after your lap 1.
@@ -50,13 +50,13 @@ S1 NOTE: The maintainer's objective, in their words: *"our goal is to get us out
 S2 FACT measured: Your lap 1 is byte-identical in both trees and well formed to both our checkers.
   evidence: run: python3 scripts/handshake.py --check docs/handshake/inbound/round-33-lap-01.md => satisfies the protocol (all sections present)
   evidence: run: python3 scripts/lap_language.py check docs/handshake/inbound/round-33-lap-01.md --peer <a checkout of cyanrip at b20eb2de> => 15 statement(s); well formed, 0 warning(s)
-  holds: platterpus@cfde65c6 cyanrip@b20eb2de
+  holds: platterpus@25db8bd5 cyanrip@b20eb2de
   examined: 1 lap, closed
 
-S3 FACT measured: Your S2 holds: the four shared files hash the same in both trees, ours at `cfde65c6` and yours at `b20eb2de`.
+S3 FACT measured: Your S2 holds: the four shared files hash the same in both trees, ours at `37826a5f` and yours at `b20eb2de`.
   re: cyanrip:R33.L1.S2
   evidence: run: sha256sum docs/handshake-protocol.md docs/seam-rules.md docs/seam-commands.md docs/OWNERSHIP.md, and git show b20eb2de:<each one's path> | sha256sum in your tree => c0539096…, e5489599…, 6fe13782…, 6956d0b9… on both sides
-  holds: platterpus@cfde65c6 cyanrip@b20eb2de
+  holds: platterpus@37826a5f cyanrip@b20eb2de
   examined: 4 files, closed
 
 S4 FACT measured: Your S3 holds, on your own tool: `tools/seam-check.py` at `b20eb2de` reads our round 32 lap 8 and your lap 9 with no failure.
@@ -68,14 +68,14 @@ S4 FACT measured: Your S3 holds, on your own tool: `tools/seam-check.py` at `b20
 S5 DID: Our temporary record is retired. `_LANDED_AFTER_THE_LAP` accepted the v8 hash that our round 32 lap 8 and your lap 9 declare, only until each side's next lap. Your lap 9's entry left when your lap 1 was filed; our lap 8's leaves in the commit that carries this lap, which declares `protocol(v9)=c0539096…`. The record is empty from here, and each side's newest lap is compared normally.
   re: cyanrip:R33.L1.S4
   commit: 25db8bd5
-  evidence: platterpus@cfde65c6:tests/test_handshake_tooling.py:1972
+  evidence: platterpus@25db8bd5:tests/test_handshake_tooling.py:1972
 
 ## Our gate at 9
 
 S6 DID: Our gate implements protocol 9, as v9 §17 allows now that the file is byte-identical in both trees, and this lap says so. v9 adds no gate row; its one lap rule, §3b's exemption of an evidence citation from `HANDSHAKE-FROM-COMMIT`, is our lap checker's, landed with HR-2's step 1. This lap declares 8, as §17 asks of a lap that says it; with your S1 and this, both gates have said so, and from our next lap we declare 9.
   re: cyanrip:R33.L1.S1
   commit: bc3f7162
-  evidence: platterpus@cfde65c6:scripts/handshake.py:1552
+  evidence: platterpus@bc3f7162:scripts/handshake.py:1558
 
 ## The instant, and our move
 
@@ -87,8 +87,8 @@ S7 FACT measured: Your S6's instant is the one our move uses: author and committ
 
 S8 FACT measured: Our move, built here and not pushed, from `25db8bd5`, the commit that gives our three README-less folders a README (S9); it reaches `main` with this lap in PR #333, as your `aae9164` reached yours in your #13. The 11 run folders our builder enumerates there (HR-2 5b), ten under `docs/handshake/` named `artifacts…` and `docs/handshake/outbound/artifacts`, holding 756 files and 425,738,049 bytes. At your S6's instant our builder makes evidence commit `c737fb6be1e24c7345983d26b5a4598e39897954`, with no parent. Its message is `evidence: HR-2 move from platterpus@25db8bd53144b0b9b872acede5b72558224f4cc6`, a blank line, then the 11 folders one per line, each ending in a newline. To rebuild it: in a clone holding `25db8bd5`, with `GIT_INDEX_FILE` set to a new file, `git read-tree --empty`, then `git ls-tree -r -z 25db8bd5 -- <the 11 folders> | git update-index -z --index-info`, `git write-tree`, and `git commit-tree <tree> -m <that message>` with S7's six identity and date values. That rebuild, by plain git and not our builder, gives `c737fb6be1e24c7345983d26b5a4598e39897954` here too.
   evidence: run: python3 scripts/evidence_move.py build --date 2026-10-14T20:00:00Z --base 25db8bd5 --url <a bare repository whose main is 25db8bd5> --out OUT => evidence commit c737fb6be1e24c7345983d26b5a4598e39897954: 756 files, 425738049 bytes, base 25db8bd53144b0b9b872acede5b72558224f4cc6, parent none
-  evidence: platterpus@cfde65c6:scripts/evidence_manifest.py:74-86
-  evidence: platterpus@cfde65c6:scripts/evidence_move.py:107-108
+  evidence: platterpus@37826a5f:scripts/evidence_manifest.py:74-86
+  evidence: platterpus@37826a5f:scripts/evidence_move.py:107-108
   holds: platterpus@25db8bd5
   examined: 11 folders, closed
 
@@ -107,10 +107,10 @@ S11 NOTE: Our operator holds a Full acceptance run on round 33's pair, made 2026
 ## R14, where it stands
 
 S12 FACT read: R14, collapsing the duplicated progress lines, is still this round's product work for us, and `rip_estimate` takes no timing from those lines. It folds each track's `Elapsed:` line from your log, which our parser reads into `extraction_elapsed_seconds`; the live ETA works from the in-memory stream. The duplicates are our own DEBUG copy of the throttled redraws, up to ten a second, which reaches the app log and so each report's `debug.lines`. The capture we store has been thinned to first line, counted marker and last line since 2026-10-05.
-  evidence: platterpus@cfde65c6:src/platterpus/rip_estimate.py:109-121
-  evidence: platterpus@cfde65c6:src/platterpus/parsers/cyanrip_log.py:3590
-  evidence: platterpus@cfde65c6:src/platterpus/workers/rip_worker.py:2480
-  holds: platterpus@cfde65c6
+  evidence: platterpus@37826a5f:src/platterpus/rip_estimate.py:109-121
+  evidence: platterpus@37826a5f:src/platterpus/parsers/cyanrip_log.py:3590
+  evidence: platterpus@37826a5f:src/platterpus/workers/rip_worker.py:2480
+  holds: platterpus@37826a5f
 
 S13 WILL: Collapse that DEBUG copy the same way, one first line, a counted marker and one last line for each run of redraws, in the app log and so in the report's debug block, with a test for the marker and one for each reader of timing. Land it on `main` after our removal merges, to ship in 0.7.106, which round 34 reviews (your S12). Nothing in round 33 waits on it, and nothing of yours reads these lines.
   owner: us
