@@ -38,6 +38,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   round 15's run report as a slim extract). The vocabulary test now also requires each
   extract it reads to have dropped nothing, so an extract cannot hide what it checks.
 
+- **The acceptance-script tests read fixtures (HR-2):** artifact grading, the artifact
+  and rip verbs, the unknown-disc acceptance and the run estimate. The run estimate's
+  `MEASURED_FROM` still names the path where the run was filed, and its test now reads
+  the report through `evidence(MEASURED_FROM)`, so the label and the data it was derived
+  from cannot name different files.
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.

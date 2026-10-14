@@ -37,7 +37,10 @@ from platterpus.uiscript.script import Step
 from platterpus.uiscript.script_values import coerce_setting, parse_track_spec
 from platterpus.user_settings import with_values
 
-#: The filed run the non-rip figures come from, and its date.
+#: The filed run the non-rip figures come from, and its date. A provenance label:
+#: the path where the run was filed. Since HR-2 that file lives on the `evidence`
+#: branch, and its fixture at ``tests/fixtures/evidence/<this path>`` is what
+#: ``tests/test_uiscript_run_estimate.py`` re-derives the table below from.
 MEASURED_FROM: Final[str] = (
     "docs/handshake/artifactsround30/round30oct05fullscriptreport.json"
 )

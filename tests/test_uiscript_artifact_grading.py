@@ -1,8 +1,9 @@
 """The acceptance script's graders, against the rip reports we actually have.
 
 Every "passes" case below is a COMMITTED round-29 Full-run report
-(`docs/handshake/artifactsround29/`), because `CLAUDE.md` says a test should read
-the artifact when one can settle the question: a fixture shaped like a report is
+(`docs/handshake/artifactsround29/`, read through its fixtures under
+`tests/fixtures/evidence/`), because `CLAUDE.md` says a test should read the
+artifact when one can settle the question: a fixture shaped like a report is
 our belief about a report. The "fails" cases are those same reports with one
 field changed, so each failure is the only difference from a real pass.
 """
@@ -16,13 +17,18 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from evidence_paths import evidence, evidence_dir
 
 from platterpus import rip_audit
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 from platterpus.uiscript import artifact_grading as g
 from platterpus.uiscript import expected_warnings
 
-_ROUND29 = Path(__file__).resolve().parent.parent / "docs/handshake/artifactsround29"
+#: Through its fixtures (HR-2 moved the evidence folders off `main`): the reports
+#: as slim extracts without `debug.lines`, which grading does not read (it grades
+#: the embedded artifacts, outcome and blocks, all kept). `evidence_dir` refuses
+#: an empty folder, and the last test below keeps the population's floor.
+_ROUND29 = evidence_dir("docs/handshake/artifactsround29")
 
 
 def _report(name: str) -> dict[str, Any]:
@@ -185,8 +191,8 @@ def test_an_auto_fixed_rip_agrees_once_its_addendum_is_applied() -> None:
     one, and the EAC-style log was rendered from the kept one. Compared without
     the addendum, track 3 disagrees."""
     loaded = json.loads(
-        (
-            _ROUND29.parent / "artifactsround27/round27fullwholediscreport.json"
+        evidence(
+            "docs/handshake/artifactsround27/round27fullwholediscreport.json"
         ).read_text("utf-8")
     )
     assert loaded["artifacts"]["addendum"]["text"], "the fixture lost its addendum"
@@ -209,7 +215,7 @@ def test_an_eac_log_with_a_changed_crc_is_a_warning() -> None:
 
 # --- the open-round warning on the build under review (2026-10-06) -------------
 
-_ROUND30 = _ROUND29.parent / "artifactsround30"
+_ROUND30 = evidence_dir("docs/handshake/artifactsround30")
 
 #: The finished rips of round 30's closing run. Each failed `expect-album-audit`
 #: on the handshake check's open-round warning alone (transcript lines 441 to

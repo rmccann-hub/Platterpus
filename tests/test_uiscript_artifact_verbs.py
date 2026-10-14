@@ -1,7 +1,7 @@
 """The artifact verbs, end to end through the real runner.
 
 Each test builds an album folder the way a rip leaves one — the committed round-29
-report, the ripper's log it embeds, and one header-only FLAC per ripped track
+report (through its fixture), the ripper's log it embeds, and one header-only FLAC per ripped track
 (synthetic, no audio, never committed: Critical rule #8) — and a window whose
 track table is the REAL `TrackTable`, so `expect-tags` compares against the
 same widget a user edits and `track-title` goes through the same edit path.
@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from evidence_paths import evidence_dir
 from test_flac_metadata import build_flac, picture_payload
 from test_uiscript_rip_verbs import _step_outcome, _window
 
@@ -27,7 +28,9 @@ from platterpus.uiscript.runner import ScriptRunner
 
 pytest.importorskip("PySide6.QtWidgets")
 
-_ROUND29 = Path(__file__).resolve().parent.parent / "docs/handshake/artifactsround29"
+#: Through its fixtures (HR-2 moved the folder off `main`): slim extracts without
+#: `debug.lines`, which no verb here reads.
+_ROUND29 = evidence_dir("docs/handshake/artifactsround29")
 _ALBUM = "full acceptance: angle<bracket"
 _ARTIST = "Platterpus Acceptance"
 _TITLES = {1: "Roxanne", 2: "Can’t Stand Losing You"}
