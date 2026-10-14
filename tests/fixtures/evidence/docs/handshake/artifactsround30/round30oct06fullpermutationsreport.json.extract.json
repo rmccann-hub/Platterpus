@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 1841,
+  "source_bytes": 320753,
+  "source_path": "docs/handshake/artifactsround30/round30oct06fullpermutationsreport.json",
+  "source_sha256": "349aec1c896b9636906944500213cbc6c2c97a6755c84075695b2f352f222e40"
+}

@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 3039,
+  "source_bytes": 481268,
+  "source_path": "docs/handshake/artifactsround26/round26fullacceptanceanglebracket2report.json",
+  "source_sha256": "b79bb91f0f71c013d1507e730316d4d11c4dc339ddfe6bb0901dcaefe4032af5"
+}

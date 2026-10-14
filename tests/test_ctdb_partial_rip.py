@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """A partial rip makes no CTDB claim about the whole disc — read off the filed runs.
 
-**The defect** (the 2026-09-28 Full run, ``docs/handshake/artifactsround28/``): five
+**The defect** (the 2026-09-28 Full run, ``docs/handshake/artifactsround28/``, read
+here through its fixtures under ``tests/fixtures/evidence/``): five
 reports of 2-track rips said CTDB ``not_in_db``, *"this disc is not in CTDB"*,
 ``trustworthy: true``, ``gates.ctdb: "ran"``. The whole-disc rips of the same disc,
 in the same run, found it with 102 entries. The CTDB TOC is built from the files
@@ -28,6 +29,7 @@ from pathlib import Path
 from typing import NoReturn
 
 import pytest
+from evidence_paths import evidence_dir
 
 from platterpus import album_loudness, rip_files, rip_report
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbLookupResult
@@ -43,7 +45,12 @@ from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip
 from platterpus.parsers.rip_log import RipLog
 from platterpus.workers.ctdb_worker import verify_rip_dir
 
-_HANDSHAKE: Path = Path(__file__).resolve().parents[1] / "docs" / "handshake"
+#: The filed runs, as their fixtures (HR-2 moved the evidence folders off `main`;
+#: `scripts/evidence_fixtures.py` keeps each log byte for byte and each report as a
+#: slim extract, whose sidecar names the original's SHA-256). The fixture tree
+#: mirrors `docs/handshake/`, so every key below is still the filed path, and
+#: `evidence_dir` refuses an empty folder rather than letting the glob find nothing.
+_HANDSHAKE: Path = evidence_dir("docs/handshake")
 
 #: The rounds filed BEFORE the fix. Each of their finished partial rips reported
 #: `not_in_db`; a round filed after it should not, so the "as filed" assertion is

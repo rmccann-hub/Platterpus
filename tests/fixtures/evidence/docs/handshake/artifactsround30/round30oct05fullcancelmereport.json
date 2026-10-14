@@ -1,0 +1,715 @@
+{
+  "schema_version": 30,
+  "generator": {
+    "name": "platterpus",
+    "version": "0.6.65",
+    "build_fingerprint": "0981c69"
+  },
+  "generated_at": "2026-10-04T22:45:37-04:00",
+  "self_check": {
+    "schema": 1,
+    "checks_run": [
+      "ripper_build",
+      "completion",
+      "handshake_note",
+      "checksum_inventory",
+      "medium",
+      "pregap",
+      "audio_files",
+      "argv_agreement",
+      "our_log_integrity",
+      "ripper_log_integrity",
+      "cue_integrity",
+      "disc_identity"
+    ],
+    "checks_skipped": [],
+    "worst": "warn",
+    "findings": [
+      {
+        "level": "ok",
+        "text": "ripped by the Platterpus fork (platterpus-fork-g174a134)"
+      },
+      {
+        "level": "warn",
+        "text": "rip did NOT complete: 0 of 14 tracks — interrupted by SIGTERM"
+      },
+      {
+        "level": "warn",
+        "text": "outcome cancelled: no diagnosis captured"
+      },
+      {
+        "level": "note",
+        "text": "ripper exit code: 1"
+      },
+      {
+        "level": "note",
+        "text": "command: /home/rmccann/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2,3 -N --consumer platterpus/0.6.65 -c 1/1 -a album=cancel me 20261005t010835 platterpus-fork-g174a134:album_artist=Platterpus Acceptance:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=Platterpus Acceptance:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=Platterpus Acceptance:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=Platterpus Acceptance:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=Platterpus Acceptance:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=Platterpus Acceptance:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=Platterpus Acceptance:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=Platterpus Acceptance:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=Platterpus Acceptance:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=Platterpus Acceptance:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=Platterpus Acceptance:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=Platterpus Acceptance:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=Platterpus Acceptance:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=Platterpus Acceptance:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=Platterpus Acceptance:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -j cyanrip-diagnostics-20261005T024326Z.json"
+      },
+      {
+        "level": "ok",
+        "text": "ripper built from a closed round: 'round 29 lap 3 closed, verdict GO -- released build (declared at build time, not verified by cyanrip)'"
+      },
+      {
+        "level": "note",
+        "text": "the binary says it was built from a closed round, but it is not the build OUR record approved — expected when their release is ahead of our verification, and the reason the two witnesses are kept separate"
+      },
+      {
+        "level": "note",
+        "text": "no track list in the report — checksum inventory not determined"
+      },
+      {
+        "level": "ok",
+        "text": "disc identified by disc-id"
+      },
+      {
+        "level": "note",
+        "text": "no pre-gap provenance recorded for any of 0 track(s) — pre-gap length and source are fork-only rows, so a rip made with unmodified upstream cyanrip cannot report them"
+      },
+      {
+        "level": "note",
+        "text": "1 audio file(s) the ripper's log does not account for: 01 - Roxanne.flac (11938950 B). The rip stopped while reading track 1 (the ripper records \"Interrupted at: track 1, mid-read\"), so a partial file of that track is expected here: treat it as incomplete, not as a finished track of this rip"
+      },
+      {
+        "level": "ok",
+        "text": "the ripper received the 15 flags we sent on the whole-disc pass"
+      },
+      {
+        "level": "ok",
+        "text": "the EAC-style log matches its own SHA-256 footer"
+      },
+      {
+        "level": "ok",
+        "text": "the ripper verified cancel me 20261005t010835 platterpus-fork-g174a134.log against its own FUN512 checksum — the log is a faithful, unmodified record of this rip"
+      },
+      {
+        "level": "warn",
+        "text": "cue sheet — the file parses as a cue (11 recognised line(s)) but declares no TRACK at all, so nothing can reconstruct the disc from it"
+      },
+      {
+        "level": "warn",
+        "text": "cue sheet — 3 track(s) we sent an ISRC for do not appear in the cue at all: 1, 2, 3"
+      },
+      {
+        "level": "note",
+        "text": "cue sheet — pre-gap markers not determined: no measured pre-gap length was recorded for any track (pre-gap rows are fork-only, so a rip made with unmodified upstream cyanrip cannot report them)"
+      },
+      {
+        "level": "note",
+        "text": "cue sheet — INDEX 00 placement not determined: this cue carries no pre-gap marker on any track after track 1, and no measured pre-gap length says whether one was due"
+      },
+      {
+        "level": "ok",
+        "text": "cue sheet — 1 title(s) match the text we handed the ripper exactly, and no metadata value carries the U+2236 colon substitute (checked 11 value(s))"
+      },
+      {
+        "level": "ok",
+        "text": "disc identity — MusicBrainz pNtImOkdBm9RMBIalzx0w9cfsYY- / CDDB E20DFE0E"
+      }
+    ]
+  },
+  "outcome": {
+    "status": "cancelled",
+    "failure_hint": null,
+    "auto_unknown_retry": {
+      "fired": false,
+      "reason": null
+    },
+    "ripper_exit_code": 1,
+    "ripper_argv": [
+      "/home/rmccann/.local/bin/cyanrip",
+      "-d",
+      "/dev/sr0",
+      "-s",
+      "667",
+      "-o",
+      "flac",
+      "-T",
+      "unicode",
+      "-r",
+      "5",
+      "-l",
+      "1,2,3",
+      "-N",
+      "--consumer",
+      "platterpus/0.6.65",
+      "-c",
+      "1/1",
+      "-a",
+      "album=cancel me 20261005t010835 platterpus-fork-g174a134:album_artist=Platterpus Acceptance:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410",
+      "-t",
+      "1=title=Roxanne:artist=Platterpus Acceptance:isrc=GBAAM0201086",
+      "-t",
+      "2=title=Can’t Stand Losing You:artist=Platterpus Acceptance:isrc=GBAAM0201089",
+      "-t",
+      "3=title=Message in a Bottle:artist=Platterpus Acceptance:isrc=GBAAM0201170",
+      "-t",
+      "4=title=Walking on the Moon:artist=Platterpus Acceptance:isrc=GBAAM0201175",
+      "-t",
+      "5=title=Don’t Stand So Close to Me:artist=Platterpus Acceptance:isrc=GBAAM0201148",
+      "-t",
+      "6=title=De Do Do Do, De Da Da Da:artist=Platterpus Acceptance:isrc=GBAAM0201154",
+      "-t",
+      "7=title=Every Little Thing She Does Is Magic:artist=Platterpus Acceptance:isrc=GBAAM0201127",
+      "-t",
+      "8=title=Invisible Sun:artist=Platterpus Acceptance:isrc=GBAAM0201128",
+      "-t",
+      "9=title=Spirits in the Material World:artist=Platterpus Acceptance:isrc=GBAAM0201126",
+      "-t",
+      "10=title=Every Breath You Take:artist=Platterpus Acceptance:isrc=GBAAM0201110",
+      "-t",
+      "11=title=King of Pain:artist=Platterpus Acceptance:isrc=GBAAM0201111",
+      "-t",
+      "12=title=Wrapped Around Your Finger:artist=Platterpus Acceptance:isrc=GBAAM0201112",
+      "-t",
+      "13=title=Don’t Stand So Close to Me ’86:artist=Platterpus Acceptance:isrc=GBAAM0201252",
+      "-t",
+      "14=title=Message in a Bottle (new classic rock mix):artist=Platterpus Acceptance:isrc=GBAAM0201253",
+      "-D",
+      "{album_artist}/{album}",
+      "-F",
+      "{track} - {title}",
+      "-G",
+      "-j",
+      "cyanrip-diagnostics-20261005T024326Z.json"
+    ],
+    "ripper_argv_first_pass": [
+      "/home/rmccann/.local/bin/cyanrip",
+      "-d",
+      "/dev/sr0",
+      "-s",
+      "667",
+      "-o",
+      "flac",
+      "-T",
+      "unicode",
+      "-r",
+      "5",
+      "-l",
+      "1,2,3",
+      "-N",
+      "--consumer",
+      "platterpus/0.6.65",
+      "-c",
+      "1/1",
+      "-a",
+      "album=cancel me 20261005t010835 platterpus-fork-g174a134:album_artist=Platterpus Acceptance:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410",
+      "-t",
+      "1=title=Roxanne:artist=Platterpus Acceptance:isrc=GBAAM0201086",
+      "-t",
+      "2=title=Can’t Stand Losing You:artist=Platterpus Acceptance:isrc=GBAAM0201089",
+      "-t",
+      "3=title=Message in a Bottle:artist=Platterpus Acceptance:isrc=GBAAM0201170",
+      "-t",
+      "4=title=Walking on the Moon:artist=Platterpus Acceptance:isrc=GBAAM0201175",
+      "-t",
+      "5=title=Don’t Stand So Close to Me:artist=Platterpus Acceptance:isrc=GBAAM0201148",
+      "-t",
+      "6=title=De Do Do Do, De Da Da Da:artist=Platterpus Acceptance:isrc=GBAAM0201154",
+      "-t",
+      "7=title=Every Little Thing She Does Is Magic:artist=Platterpus Acceptance:isrc=GBAAM0201127",
+      "-t",
+      "8=title=Invisible Sun:artist=Platterpus Acceptance:isrc=GBAAM0201128",
+      "-t",
+      "9=title=Spirits in the Material World:artist=Platterpus Acceptance:isrc=GBAAM0201126",
+      "-t",
+      "10=title=Every Breath You Take:artist=Platterpus Acceptance:isrc=GBAAM0201110",
+      "-t",
+      "11=title=King of Pain:artist=Platterpus Acceptance:isrc=GBAAM0201111",
+      "-t",
+      "12=title=Wrapped Around Your Finger:artist=Platterpus Acceptance:isrc=GBAAM0201112",
+      "-t",
+      "13=title=Don’t Stand So Close to Me ’86:artist=Platterpus Acceptance:isrc=GBAAM0201252",
+      "-t",
+      "14=title=Message in a Bottle (new classic rock mix):artist=Platterpus Acceptance:isrc=GBAAM0201253",
+      "-D",
+      "{album_artist}/{album}",
+      "-F",
+      "{track} - {title}",
+      "-G",
+      "-j",
+      "cyanrip-diagnostics-20261005T024326Z.json"
+    ],
+    "ripper_command_display": "/home/rmccann/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2,3 -N --consumer platterpus/0.6.65 -c 1/1 -a album=cancel me 20261005t010835 platterpus-fork-g174a134:album_artist=Platterpus Acceptance:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=Platterpus Acceptance:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=Platterpus Acceptance:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=Platterpus Acceptance:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=Platterpus Acceptance:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=Platterpus Acceptance:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=Platterpus Acceptance:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=Platterpus Acceptance:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=Platterpus Acceptance:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=Platterpus Acceptance:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=Platterpus Acceptance:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=Platterpus Acceptance:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=Platterpus Acceptance:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=Platterpus Acceptance:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=Platterpus Acceptance:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -j cyanrip-diagnostics-20261005T024326Z.json"
+  },
+  "verdict": {
+    "level": "neutral",
+    "message": null
+  },
+  "completeness": {
+    "tracks_expected": 3,
+    "tracks_in_report": 0,
+    "complete": false,
+    "note": "tracks_expected is what the rip was ASKED for — the disc's track count, or fewer when the user ticked a subset in the Rip? column. null means it wasn't known to this writer (an in-progress write, or a log parsed offline); it is NOT a claim that the rip was whole."
+  },
+  "diagnostics": {
+    "error_count": 0,
+    "warning_count": 2,
+    "info_count": 0,
+    "worst_severity": "warning",
+    "codes": [
+      "ripper.secure_rerip_verdict"
+    ],
+    "scope": "process session (not only this rip)",
+    "truncated": false,
+    "dropped_count": 0,
+    "log_grep_hint": "grep 'platterpus-diagnostic' /home/rmccann/.local/share/platterpus/log.txt",
+    "items": [
+      {
+        "severity": "warning",
+        "code": "ripper.secure_rerip_verdict",
+        "subsystem": "ripper",
+        "message": "Done; (repeat limit of 5 reads reached; at most 1 read agreed)",
+        "detail": null,
+        "tool": "cyanrip",
+        "argv": null,
+        "exit_code": null,
+        "at": "2026-10-05T02:20:09+00:00",
+        "where": "workers.rip_worker.RipWorker._run_rip",
+        "track": 3
+      },
+      {
+        "severity": "warning",
+        "code": "ripper.secure_rerip_verdict",
+        "subsystem": "ripper",
+        "message": "Done; (repeat limit of 5 reads reached; at most 2 reads agreed)",
+        "detail": null,
+        "tool": "cyanrip",
+        "argv": null,
+        "exit_code": null,
+        "at": "2026-10-05T02:37:07+00:00",
+        "where": "workers.rip_worker.RipWorker._run_rip",
+        "track": 5
+      }
+    ]
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "rip_cancelled",
+      "message": "the rip was cancelled before it finished"
+    },
+    {
+      "severity": "info",
+      "code": "unverified",
+      "message": "the ripper's log records no ripped track, so nothing was checked against AccurateRip"
+    },
+    {
+      "severity": "warning",
+      "code": "track_count_mismatch",
+      "message": "this report describes 0 track(s) but the rip was asked for 3 — it is not a complete account of the request"
+    },
+    {
+      "severity": "warning",
+      "code": "ripper_handshake_unapproved",
+      "message": "the ripper that produced this rip is unapproved: ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet."
+    }
+  ],
+  "health_status": "1 ripping errors",
+  "accuraterip_summary": "0/14 tracks ripped accurately (AccurateRip)",
+  "partially_accurate_summary": null,
+  "partially_accurate_reported": null,
+  "ripper_log_verification": {
+    "verdict": "verified",
+    "detail": "the ripper verified cancel me 20261005t010835 platterpus-fork-g174a134.log against its own FUN512 checksum — the log is a faithful, unmodified record of this rip",
+    "log": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/Platterpus Acceptance/cancel me 20261005t010835 platterpus-fork-g174a134/cancel me 20261005t010835 platterpus-fork-g174a134.log",
+    "exit_code": 0,
+    "argv": [
+      "/home/rmccann/.local/bin/cyanrip",
+      "--verify-log",
+      "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/Platterpus Acceptance/cancel me 20261005t010835 platterpus-fork-g174a134/cancel me 20261005t010835 platterpus-fork-g174a134.log"
+    ],
+    "output": "Log \"/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/Platterpus Acceptance/cancel me 20261005t010835 platterpus-fork-g174a134/cancel me 20261005t010835 platterpus-fork-g174a134.log\" checksum valid."
+  },
+  "timing": {
+    "elapsed_seconds": 96,
+    "elapsed_human": "1m 36s",
+    "started_at": "2026-10-04T22:43:26-04:00",
+    "finished_at": "2026-10-04T22:45:02-04:00",
+    "disc_seconds": 3583,
+    "realtime_multiplier": null,
+    "realtime_multiplier_basis": "not computed — the rip did not finish, so elapsed over the disc's length would be the fraction covered, not a rate"
+  },
+  "environment": {
+    "python": "3.12.14",
+    "platform": "Linux-7.2.7-ogc1.1.fc44.x86_64-x86_64-with-glibc2.43",
+    "pyside6": "6.11.2",
+    "install_channel": "appimage",
+    "dependencies": {
+      "cyanrip": {
+        "present": true,
+        "version": "0.9.4",
+        "location": "/home/rmccann/.local/bin/cyanrip",
+        "min_version_met": true
+      },
+      "metaflac": {
+        "present": true,
+        "version": "1.5.0",
+        "location": "/home/rmccann/.local/bin/metaflac",
+        "min_version_met": true
+      },
+      "picard": {
+        "present": true,
+        "version": "2.13.3",
+        "location": "flatpak: org.musicbrainz.Picard",
+        "min_version_met": true
+      },
+      "musicbrainzngs": {
+        "present": true,
+        "version": "0.7.1",
+        "location": "python: musicbrainzngs",
+        "min_version_met": true
+      },
+      "flac": {
+        "present": true,
+        "version": "1.5.0",
+        "location": "/home/rmccann/.local/bin/flac",
+        "min_version_met": true
+      },
+      "ffmpeg": {
+        "present": true,
+        "version": "8.1.3",
+        "location": "/usr/bin/ffmpeg",
+        "min_version_met": true
+      },
+      "cdparanoia": {
+        "present": true,
+        "version": "10.2",
+        "location": "/home/rmccann/.local/bin/cd-paranoia",
+        "min_version_met": true
+      }
+    },
+    "dependencies_measured_at": "2026-10-05T01:08:49+00:00"
+  },
+  "settings": {
+    "output_format": "flac",
+    "cover_art": "embed",
+    "read_speed_mode": "auto_ladder",
+    "read_speed": 0,
+    "secure_rerip_dynamic": true,
+    "secure_rerip_matches": 2,
+    "max_retries": 5,
+    "ctdb_verify_after_rip": true,
+    "verify_flac_after_rip": true,
+    "recompress_flac_after_rip": false,
+    "rip_goal": "fast_verified",
+    "read_offset": {
+      "configured": 667,
+      "applied": true,
+      "effective": 667
+    },
+    "every_setting": {
+      "output_dir": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips",
+      "track_template": "%A/%d/%t - %n",
+      "disc_template": "%A/%d/%d",
+      "track_template_unknown": "Unknown Artist/Unknown Album/%t - Track %t",
+      "disc_template_unknown": "Unknown Artist/Unknown Album/Unknown Album",
+      "metaflac_path": "metaflac",
+      "read_offset": 667,
+      "override_read_offset": true,
+      "auto_launch_picard": false,
+      "auto_eject_after_rip": false,
+      "notify_on_completion": true,
+      "library_dir": "",
+      "debug_logging": true,
+      "cover_art": "embed",
+      "save_additional_art": true,
+      "max_retries": 5,
+      "force_overread": false,
+      "secure_rerip_matches": 2,
+      "secure_rerip_dynamic": true,
+      "rerip_offset_variant": true,
+      "read_speed_mode": "auto_ladder",
+      "read_speed": 0,
+      "ctdb_verify_after_rip": true,
+      "verify_flac_after_rip": true,
+      "recompress_flac_after_rip": false,
+      "write_eac_log_after_rip": true,
+      "output_format": "flac",
+      "mp3_vbr_quality": 0,
+      "rip_goal": "fast_verified",
+      "update_channel": "stable",
+      "ripper_channel": "beta",
+      "test_script_path": "",
+      "test_script_autorun": false,
+      "test_script_allow_unsafe": false
+    }
+  },
+  "disc": {
+    "unknown": false,
+    "musicbrainz_release_id": "65282302-368b-4ba2-953a-483bcdef2410",
+    "catalog_number": null,
+    "barcode": null,
+    "label": null,
+    "medium_basis": "disc-id",
+    "medium_detail": "Matched by MusicBrainz disc ID: this disc is medium 1 of 1.",
+    "medium_undetermined": false,
+    "tag_control_characters_replaced": [],
+    "eac_log_signature_lines_defused": []
+  },
+  "log_creator": "cyanrip 0.9.4-rc2+platterpus.19",
+  "rip": {
+    "drive": "PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM",
+    "extraction_engine": "cyanrip 0.9.4-rc2+platterpus.19",
+    "read_offset_correction": 667,
+    "defeat_audio_cache": true,
+    "overread_lead_out": false,
+    "gap_detection": "160 frame pregap in track 2, merging into track 1; 158 frame pregap in track 4, merging into track 3; 115 frame pregap in track 5, merging into track 4; 105 frame pregap in track 7, merging into track 6; 85 frame pregap in track 8, merging into track 7; 95 frame pregap in track 9, merging into track 8; 147 frame pregap in track 10, merging into track 9; 90 frame pregap in track 13, merging into track 12; 117 frame pregap in track 14, merging into track 13",
+    "cd_r_detected": null,
+    "speed_changeable": false,
+    "c2_pointers": false,
+    "paranoia_level": "max",
+    "overread_mode": "fill with silence in lead-in/lead-out",
+    "ripper_build": "platterpus-fork-g174a134",
+    "rip_completed": false,
+    "interrupted_at": "track 1, mid-read",
+    "rip_completed_tracks": 0,
+    "rip_completed_total": 14,
+    "rip_completed_reason": "interrupted by SIGTERM",
+    "invoked_as": "/usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2,3 -N --consumer platterpus/0.6.65 -c 1/1 -a \"album=cancel me 20261005t010835 platterpus-fork-g174a134:album_artist=Platterpus Acceptance:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410\" -t \"1=title=Roxanne:artist=Platterpus Acceptance:isrc=GBAAM0201086\" -t \"2=title=Can’t Stand Losing You:artist=Platterpus Acceptance:isrc=GBAAM0201089\" -t \"3=title=Message in a Bottle:artist=Platterpus Acceptance:isrc=GBAAM0201170\" -t \"4=title=Walking on the Moon:artist=Platterpus Acceptance:isrc=GBAAM0201175\" -t \"5=title=Don’t Stand So Close to Me:artist=Platterpus Acceptance:isrc=GBAAM0201148\" -t \"6=title=De Do Do Do, De Da Da Da:artist=Platterpus Acceptance:isrc=GBAAM0201154\" -t \"7=title=Every Little Thing She Does Is Magic:artist=Platterpus Acceptance:isrc=GBAAM0201127\" -t \"8=title=Invisible Sun:artist=Platterpus Acceptance:isrc=GBAAM0201128\" -t \"9=title=Spirits in the Material World:artist=Platterpus Acceptance:isrc=GBAAM0201126\" -t \"10=title=Every Breath You Take:artist=Platterpus Acceptance:isrc=GBAAM0201110\" -t \"11=title=King of Pain:artist=Platterpus Acceptance:isrc=GBAAM0201111\" -t \"12=title=Wrapped Around Your Finger:artist=Platterpus Acceptance:isrc=GBAAM0201112\" -t \"13=title=Don’t Stand So Close to Me ’86:artist=Platterpus Acceptance:isrc=GBAAM0201252\" -t \"14=title=Message in a Bottle (new classic rock mix):artist=Platterpus Acceptance:isrc=GBAAM0201253\" -D {album_artist}/{album} -F \"{track} - {title}\" -G -j cyanrip-diagnostics-20261005T024326Z.json",
+    "read_stalls": "none (no read exceeded 10s)",
+    "read_stalls_count": 0,
+    "ripper_handshake_note": "round 29 lap 3 closed, verdict GO -- released build (declared at build time, not verified by cyanrip)",
+    "ripper_consumer": "platterpus/0.6.65 (reported by the caller, not verified by cyanrip)",
+    "ripper_is_platterpus_fork": true,
+    "ripper_identity": "fork",
+    "ripper_identity_detail": "Ripped by the Platterpus fork of cyanrip (build tag 'platterpus-fork-g174a134'). The fork reports per-track pre-gap length and provenance, sample peak, extraction speed and elapsed time, which stock cyanrip does not.",
+    "ripper_handshake_approval": "unapproved",
+    "ripper_handshake_approval_detail": "ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet.",
+    "ripper_handshake_approved_build": "cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-g51cc789)",
+    "ripper_handshake_approved_for_platterpus": "0.6.63",
+    "ripper_handshake_approved_by_round": 29,
+    "creation_date": "2026-10-04T22:45:02-04:00",
+    "musicbrainz_disc_id": "pNtImOkdBm9RMBIalzx0w9cfsYY-",
+    "cddb_id": "E20DFE0E",
+    "ripper_release_id": "65282302-368b-4ba2-953a-483bcdef2410"
+  },
+  "disc_duration": "59:42.57",
+  "paranoia_counts": {
+    "READ": 674,
+    "VERIFY": 43,
+    "OVERLAP": 5
+  },
+  "read_speed": {
+    "secure_rerip": {
+      "mode": "dynamic",
+      "engaged": false,
+      "disc_in_accuraterip": null,
+      "skipped_reason": null,
+      "interrupted": false
+    }
+  },
+  "album_loudness": {
+    "integrated_lufs": "-14.5",
+    "lra_lu": "6.6",
+    "sample_peak_dbfs": "-0.5",
+    "true_peak_dbfs": "0.1"
+  },
+  "album_loudness_covers": {
+    "state": "part_of_disc",
+    "tracks_finished": 0,
+    "disc_tracks": 14,
+    "interrupted_at": "track 1, mid-read"
+  },
+  "sha256_hash": null,
+  "log_checksum": "VKE8tKRb8o5rqbv2PjOJouPzV.i4WZ9P2Ia1lR_xWjb9VCYcwp1ofGbj92CiWWW5FYQHpujncO9BWLg8A5S0SA",
+  "log_parse": {
+    "ok": true,
+    "note": null
+  },
+  "tracks": [],
+  "ctdb": null,
+  "verification": {
+    "gates": {
+      "ctdb": "not run — the rip did not finish, and post-rip checks only run on a finished rip",
+      "flac_integrity": "not run — the rip did not finish, and post-rip checks only run on a finished rip",
+      "recompress": "disabled",
+      "derived": "flac-only"
+    },
+    "flac_integrity": null,
+    "transcode": null,
+    "derived": null,
+    "recompress": null
+  },
+  "cover_art": null,
+  "checksums": null,
+  "audio_md5": null,
+  "eta_trace": {
+    "note": "Per-sample ETA record for analysis, not display. 'our_eta_seconds' is Platterpus's smoothed album estimate; 'actual_remaining_seconds' is what really remained (finish − 'at') so estimate-vs-actual is directly visible; 'cyanrip_eta' is cyanrip's own per-op estimate (untrusted); 'read_speed' is the -S value in effect (0 = drive max); 'track'/'activity' are the event context for a jump; 'at' is the PC wall-clock time. 'state' names the branch that produced the sample — computed (a fresh rate measurement), held_no_rate / held_over_ceiling (the previous estimate re-shown), rereading (a secure re-read has the album bar pinned) or stalled (neither liveness signal moved) — so a held value is never mistaken for a measurement; 'reread_pass' counts restarts of the current track's read (0 = first read). Compare against 'timing'.",
+    "samples": [
+      {
+        "at": "2026-10-04T22:43:34-04:00",
+        "elapsed_seconds": 8,
+        "overall_percent": 5.02,
+        "read_speed": 0,
+        "our_eta_seconds": 150,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "35m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 0%",
+        "actual_remaining_seconds": 88
+      },
+      {
+        "at": "2026-10-04T22:43:44-04:00",
+        "elapsed_seconds": 18,
+        "overall_percent": 5.36,
+        "read_speed": 0,
+        "our_eta_seconds": 2820,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "9m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 7% · about 47m 0s left",
+        "actual_remaining_seconds": 78
+      },
+      {
+        "at": "2026-10-04T22:43:54-04:00",
+        "elapsed_seconds": 28,
+        "overall_percent": 5.62,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "9m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 13% · about 52m 0s left",
+        "actual_remaining_seconds": 68
+      },
+      {
+        "at": "2026-10-04T22:44:04-04:00",
+        "elapsed_seconds": 38,
+        "overall_percent": 5.89,
+        "read_speed": 0,
+        "our_eta_seconds": 3240,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "9m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 18% · about 54m 0s left",
+        "actual_remaining_seconds": 58
+      },
+      {
+        "at": "2026-10-04T22:44:15-04:00",
+        "elapsed_seconds": 49,
+        "overall_percent": 6.18,
+        "read_speed": 0,
+        "our_eta_seconds": 3240,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "9m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 24% · about 54m 0s left",
+        "actual_remaining_seconds": 47
+      },
+      {
+        "at": "2026-10-04T22:44:25-04:00",
+        "elapsed_seconds": 59,
+        "overall_percent": 6.51,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "8m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 31% · about 53m 0s left",
+        "actual_remaining_seconds": 37
+      },
+      {
+        "at": "2026-10-04T22:44:35-04:00",
+        "elapsed_seconds": 69,
+        "overall_percent": 6.78,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "8m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 37% · about 53m 0s left",
+        "actual_remaining_seconds": 27
+      },
+      {
+        "at": "2026-10-04T22:44:45-04:00",
+        "elapsed_seconds": 79,
+        "overall_percent": 7.04,
+        "read_speed": 0,
+        "our_eta_seconds": 3240,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "8m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 42% · about 54m 0s left",
+        "actual_remaining_seconds": 17
+      },
+      {
+        "at": "2026-10-04T22:44:55-04:00",
+        "elapsed_seconds": 89,
+        "overall_percent": 7.37,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "8m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 49% · about 53m 0s left",
+        "actual_remaining_seconds": 7
+      }
+    ]
+  },
+  "artifacts": {
+    "note": "Verbatim text of the files written beside this report, so this one file is enough to diagnose a rip without asking for the others. Text only — never audio (see CLAUDE.md critical rule #8).",
+    "rip_log": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/Platterpus Acceptance/cancel me 20261005t010835 platterpus-fork-g174a134/cancel me 20261005t010835 platterpus-fork-g174a134.log",
+      "exists": true,
+      "bytes": 4750,
+      "sha256": "0fa6fd204bf7edbea5bc5a6a16941aa31cdcd00e2a2d6b1b483a3725445f0802",
+      "truncated": false,
+      "text": "cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)\nInvoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2,3 -N --consumer platterpus/0.6.65 -c 1/1 -a \"album=cancel me 20261005t010835 platterpus-fork-g174a134:album_artist=Platterpus Acceptance:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410\" -t \"1=title=Roxanne:artist=Platterpus Acceptance:isrc=GBAAM0201086\" -t \"2=title=Can’t Stand Losing You:artist=Platterpus Acceptance:isrc=GBAAM0201089\" -t \"3=title=Message in a Bottle:artist=Platterpus Acceptance:isrc=GBAAM0201170\" -t \"4=title=Walking on the Moon:artist=Platterpus Acceptance:isrc=GBAAM0201175\" -t \"5=title=Don’t Stand So Close to Me:artist=Platterpus Acceptance:isrc=GBAAM0201148\" -t \"6=title=De Do Do Do, De Da Da Da:artist=Platterpus Acceptance:isrc=GBAAM0201154\" -t \"7=title=Every Little Thing She Does Is Magic:artist=Platterpus Acceptance:isrc=GBAAM0201127\" -t \"8=title=Invisible Sun:artist=Platterpus Acceptance:isrc=GBAAM0201128\" -t \"9=title=Spirits in the Material World:artist=Platterpus Acceptance:isrc=GBAAM0201126\" -t \"10=title=Every Breath You Take:artist=Platterpus Acceptance:isrc=GBAAM0201110\" -t \"11=title=King of Pain:artist=Platterpus Acceptance:isrc=GBAAM0201111\" -t \"12=title=Wrapped Around Your Finger:artist=Platterpus Acceptance:isrc=GBAAM0201112\" -t \"13=title=Don’t Stand So Close to Me ’86:artist=Platterpus Acceptance:isrc=GBAAM0201252\" -t \"14=title=Message in a Bottle (new classic rock mix):artist=Platterpus Acceptance:isrc=GBAAM0201253\" -D {album_artist}/{album} -F \"{track} - {title}\" -G -j cyanrip-diagnostics-20261005T024326Z.json\nHandshake:      round 29 lap 3 closed, verdict GO -- released build\n                (declared at build time, not verified by cyanrip)\nConsumer:       platterpus/0.6.65\n                (reported by the caller, not verified by cyanrip)\nDrive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)\nSystem device:  /dev/sr0\nDevice model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\nOffset:         +667 samples\nOverread:       +2 frames\nOverread mode:  fill with silence in lead-in/lead-out\nSpeed:          default (unchangeable)\nC2 errors:      unsupported by drive\nCD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)\nEncoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)\nParanoia level: max\nRetry limit:    5 (per frame, and per whole-track re-read)\nCache model:    1200 sectors (drive cache size not probed)\nHDCD decoding:  disabled\nAlbum Art:      none\nOutputs:        flac\nDisc number:    1\nTotal discs:    1\nDisc tracks:    14\nTracks to rip:  1, 2, 3\nDiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-\nRelease ID:     65282302-368b-4ba2-953a-483bcdef2410\nCDDB ID:        E20DFE0E\nAlbum:          cancel me 20261005t010835 platterpus-fork-g174a134\nAlbum artist:   Platterpus Acceptance\nAccurateRip:    found\nTotal time:     59:42.57\n\n--- output before this log was opened ---\nChecking /dev/sr0 for cdrom...\n\t\tCDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\n\nOpening drive...\nNo MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!\n--- end of pre-log output ---\nGaps:\n    160 frame pregap in track 2, merging into track 1\n    158 frame pregap in track 4, merging into track 3\n    115 frame pregap in track 5, merging into track 4\n    105 frame pregap in track 7, merging into track 6\n    85 frame pregap in track 8, merging into track 7\n    95 frame pregap in track 9, merging into track 8\n    147 frame pregap in track 10, merging into track 9\n    90 frame pregap in track 13, merging into track 12\n    117 frame pregap in track 14, merging into track 13\n\nTracks:\n\nStopping, ripping incomplete!\nAlbum Loudness Summary:\n\n  Integrated loudness:\n    I:         -14.5 LUFS\n    Threshold: -24.7 LUFS\n\n  Loudness range:\n    LRA:         6.6 LU\n    Threshold: -34.7 LUFS\n    LRA low:   -18.3 LUFS\n    LRA high:  -11.7 LUFS\n\n  Sample peak:\n    Peak:       -0.5 dBFS\n\n  True peak:\n    Peak:        0.1 dBFS\n\nAlbum integrated loudness (R128): -14.5 LUFS\nAlbum loudness range (R128):      6.6 LU (-18.3 to -11.7 LUFS)\nAlbum sample peak level:          -0.5 dBFS\nAlbum true peak level:            0.1 dBFS\nTracks ripped accurately: 0/14\n\nParanoia status counts:\n  READ:          674\n  VERIFY:        43\n  OVERLAP:       5\n\nRipping errors: 1\nEncoder errors: not applicable; no whole track was encoded\nPartial files:  1 track (1), read not completed; encoder failures: none\nRead stalls:    none (no read exceeded 10s)\nRip completed:  no (interrupted by SIGTERM, 0 of 14 tracks)\nInterrupted at: track 1, mid-read\nRipping finished at 2026-10-04T22:45:02-04:00\nLog FUN512: VKE8tKRb8o5rqbv2PjOJouPzV.i4WZ9P2Ia1lR_xWjb9VCYcwp1ofGbj92CiWWW5FYQHpujncO9BWLg8A5S0SA\n"
+    },
+    "ripper_stdout": {
+      "path": null,
+      "exists": true,
+      "source": "captured from the ripper's stdout (progress redraws excluded); complete even when the ripper was killed",
+      "bytes": 3660,
+      "sha256": "37df70e6a9b478629994f9d868ac19467837ed127459f777fd87001006b5224a",
+      "truncated": false,
+      "text": "Checking /dev/sr0 for cdrom...\n\t\tCDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\n\nOpening drive...\nNo MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!\ncyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)\nInvoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2,3 -N --consumer platterpus/0.6.65 -c 1/1 -a \"album=cancel me 20261005t010835 platterpus-fork-g174a134:album_artist=Platterpus Acceptance:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410\" -t \"1=title=Roxanne:artist=Platterpus Acceptance:isrc=GBAAM0201086\" -t \"2=title=Can’t Stand Losing You:artist=Platterpus Acceptance:isrc=GBAAM0201089\" -t \"3=title=Message in a Bottle:artist=Platterpus Acceptance:isrc=GBAAM0201170\" -t \"4=title=Walking on the Moon:artist=Platterpus Acceptance:isrc=GBAAM0201175\" -t \"5=title=Don’t Stand So Close to Me:artist=Platterpus Acceptance:isrc=GBAAM0201148\" -t \"6=title=De Do Do Do, De Da Da Da:artist=Platterpus Acceptance:isrc=GBAAM0201154\" -t \"7=title=Every Little Thing She Does Is Magic:artist=Platterpus Acceptance:isrc=GBAAM0201127\" -t \"8=title=Invisible Sun:artist=Platterpus Acceptance:isrc=GBAAM0201128\" -t \"9=title=Spirits in the Material World:artist=Platterpus Acceptance:isrc=GBAAM0201126\" -t \"10=title=Every Breath You Take:artist=Platterpus Acceptance:isrc=GBAAM0201110\" -t \"11=title=King of Pain:artist=Platterpus Acceptance:isrc=GBAAM0201111\" -t \"12=title=Wrapped Around Your Finger:artist=Platterpus Acceptance:isrc=GBAAM0201112\" -t \"13=title=Don’t Stand So Close to Me ’86:artist=Platterpus Acceptance:isrc=GBAAM0201252\" -t \"14=title=Message in a Bottle (new classic rock mix):artist=Platterpus Acceptance:isrc=GBAAM0201253\" -D {album_artist}/{album} -F \"{track} - {title}\" -G -j cyanrip-diagnostics-20261005T024326Z.json\nHandshake:      round 29 lap 3 closed, verdict GO -- released build\n                (declared at build time, not verified by cyanrip)\nConsumer:       platterpus/0.6.65\n                (reported by the caller, not verified by cyanrip)\nDrive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)\nSystem device:  /dev/sr0\nDevice model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\nOffset:         +667 samples\nOverread:       +2 frames\nOverread mode:  fill with silence in lead-in/lead-out\nSpeed:          default (unchangeable)\nC2 errors:      unsupported by drive\nCD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)\nEncoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)\nParanoia level: max\nRetry limit:    5 (per frame, and per whole-track re-read)\nCache model:    1200 sectors (drive cache size not probed)\nHDCD decoding:  disabled\nAlbum Art:      none\nOutputs:        flac\nDisc number:    1\nTotal discs:    1\nDisc tracks:    14\nTracks to rip:  1, 2, 3\nDiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-\nRelease ID:     65282302-368b-4ba2-953a-483bcdef2410\nCDDB ID:        E20DFE0E\nAlbum:          cancel me 20261005t010835 platterpus-fork-g174a134\nAlbum artist:   Platterpus Acceptance\nAccurateRip:    found\nTotal time:     59:42.57\n\nGaps:\n    160 frame pregap in track 2, merging into track 1\n    158 frame pregap in track 4, merging into track 3\n    115 frame pregap in track 5, merging into track 4\n    105 frame pregap in track 7, merging into track 6\n    85 frame pregap in track 8, merging into track 7\n    95 frame pregap in track 9, merging into track 8\n    147 frame pregap in track 10, merging into track 9\n    90 frame pregap in track 13, merging into track 12\n    117 frame pregap in track 14, merging into track 13\n\nTracks:\nRipping and encoding track 1, progress - 49.17%, ETA - 8m    "
+    },
+    "eac_log": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/Platterpus Acceptance/cancel me 20261005t010835 platterpus-fork-g174a134/cancel me 20261005t010835 platterpus-fork-g174a134 (EAC-compatible).log",
+      "exists": true,
+      "bytes": 2588,
+      "sha256": "ec9ef63c45255469888da42e0062add71809fbe8fb8f150264e6cc3daa34ba25",
+      "truncated": false,
+      "text": "Platterpus rip log in EAC's layout, not produced by Exact Audio Copy\n  Rendered from a rip by cyanrip 0.9.4-rc2+platterpus.19.\n  Ripper build: platterpus-fork-g174a134 — the Platterpus fork of cyanrip. Pre-gap, sample-peak and per-track timing rows below come from fork-only output.\n  Generated by Platterpus 0.6.65 (build 0981c69).\n  FLAC encoder: flac 1.5.0, metaflac 1.5.0.\n  This is NOT a genuine EAC log, carries no EAC log checksum, and must\n  not be presented as an EAC rip. It mirrors EAC's layout — section\n  order, row wording and column alignment — so the two can be compared\n  directly. Rows the ripper does not report say so instead of guessing.\n\n*** INCOMPLETE RIP (cancelled) — this log covers 0 of 14 disc tracks. The rip was asked for 3 track(s): 1, 2, 3. Track 1 was being read when the rip stopped (the ripper records \"Interrupted at: track 1, mid-read\"), so it was only partly read: its file is incomplete, and it is absent below. The remaining 2 track(s) were never extracted and are absent below. ***\n\nExtraction logfile from 4. October 2026, 22:45 (UTC-04:00)\n\nPlatterpus Acceptance / cancel me 20261005t010835 platterpus-fork-g174a134\n\nUsed drive  : PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\nRead mode               : Secure\nUtilize accurate stream : (not reported by the ripper)\nDefeat audio cache      : Yes  (measured for this drive with cd-paranoia -A, not asserted from the ripper's log)\nMake use of C2 pointers : No\n\nRead offset correction                      : 667\nOverread into Lead-In and Lead-Out          : No\nFill up missing offset samples with silence : Yes\nDelete leading and trailing silent blocks   : No\nNull samples used in CRC calculations       : Yes\nUsed interface                              : Native Linux SCSI/MMC (libcdio-paranoia)\nGap handling                                : Appended to previous track\n\nUsed output format              : FLAC\nSelected bitrate                : (n/a — lossless)\nQuality                         : (n/a — lossless)\nAdd ID3 tag                     : No\nCommand line compressor         : (none — cyanrip encodes in-process via libavcodec)\nAdditional command line options : (none — no external compressor is invoked)\n\n\n\n1 ripping errors\n\nRipper's own completion record : no (interrupted by SIGTERM)\nInterrupted at : track 1, mid-read\n\nEnd of status report\n\n==== This log was generated by Platterpus and is NOT signed by Exact Audio Copy ====\n==== Platterpus log checksum (SHA-256 of the text above; NOT an EAC checksum): 130964bbe80da32d3c05c35a5dc314fa3a8ab0fd81b9d1431dc22ce0c5830b1d ====\n"
+    },
+    "cue": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/Platterpus Acceptance/cancel me 20261005t010835 platterpus-fork-g174a134/cancel me 20261005t010835 platterpus-fork-g174a134.cue",
+      "exists": true,
+      "bytes": 372,
+      "sha256": "78adc14cf99511a99cd1f136715da21bf28404ce988ce3166a85eebadf17f622",
+      "truncated": false,
+      "text": "REM MUSICBRAINZ_ID \"pNtImOkdBm9RMBIalzx0w9cfsYY-\"\nREM DISCID \"E20DFE0E\"\nREM MEDIA \"CD\"\nREM COMMENT \"cyanrip 0.9.4-rc2+platterpus.19\"\nREM TOTALDISCS \"1\"\nREM DISC \"1\"\nREM DATE \"2003\"\nREM MUSICBRAINZ_ALBUMID \"65282302-368b-4ba2-953a-483bcdef2410\"\nREM ARTIST \"Platterpus Acceptance\"\nPERFORMER \"Platterpus Acceptance\"\nTITLE \"cancel me 20261005t010835 platterpus-fork-g174a134\"\n"
+    },
+    "addendum": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/Platterpus Acceptance/cancel me 20261005t010835 platterpus-fork-g174a134/cancel me 20261005t010835 platterpus-fork-g174a134.platterpus-addendum.txt",
+      "exists": false,
+      "error": "[Errno 2] No such file or directory: '/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/Platterpus Acceptance/cancel me 20261005t010835 platterpus-fork-g174a134/cancel me 20261005t010835 platterpus-fork-g174a134.platterpus-addendum.txt'",
+      "missing": true
+    }
+  },
+  "debug": {
+    "scope": "this session since launch, excluding other albums' rips",
+    "truncated": false,
+    "lines": [],
+    "lines_removed_by_extract": 941
+  }
+}

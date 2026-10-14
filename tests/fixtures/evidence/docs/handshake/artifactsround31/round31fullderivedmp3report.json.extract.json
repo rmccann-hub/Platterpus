@@ -1,0 +1,8 @@
+{
+  "made_by": "scripts/evidence_fixtures.py",
+  "removed": "debug.lines",
+  "removed_count": 3288,
+  "source_bytes": 542213,
+  "source_path": "docs/handshake/artifactsround31/round31fullderivedmp3report.json",
+  "source_sha256": "89313b9a4db1587efb7a53fa18ecdc6a0245924eb57195f0a4af997eeed2a29a"
+}

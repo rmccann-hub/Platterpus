@@ -25,6 +25,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `docs/evidence-manifest.tsv`. Tests reach a fixture through `tests/evidence_paths.py`,
   naming the original path.
 
+- **The population tests read run evidence from fixtures (HR-2).** The CTDB partial-rip
+  sweep, the rip-time estimate, the round-32 redaction, disc-identity and record-fate
+  tests now read their filed logs and reports from `tests/fixtures/evidence/` (274
+  fixtures: logs byte for byte, 118 reports as slim extracts, the three round-32 app logs
+  without progress lines), so they keep passing once the evidence folders leave `main`.
+  Every population is the same size as before, and every floor is unchanged.
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.

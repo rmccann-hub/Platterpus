@@ -1,0 +1,1204 @@
+{
+  "schema_version": 30,
+  "generator": {
+    "name": "platterpus",
+    "version": "0.6.65",
+    "build_fingerprint": "0981c69"
+  },
+  "generated_at": "2026-10-04T23:02:48-04:00",
+  "self_check": {
+    "schema": 1,
+    "checks_run": [
+      "ripper_build",
+      "completion",
+      "handshake_note",
+      "checksum_inventory",
+      "medium",
+      "pregap",
+      "audio_files",
+      "argv_agreement",
+      "our_log_integrity",
+      "ripper_log_integrity",
+      "cue_integrity",
+      "disc_identity"
+    ],
+    "checks_skipped": [],
+    "worst": "note",
+    "findings": [
+      {
+        "level": "ok",
+        "text": "ripped by the Platterpus fork (platterpus-fork-g174a134)"
+      },
+      {
+        "level": "ok",
+        "text": "rip completed (2 of 14 tracks, the 2 asked for, no errors)"
+      },
+      {
+        "level": "ok",
+        "text": "ripper built from a closed round: 'round 29 lap 3 closed, verdict GO -- released build (declared at build time, not verified by cyanrip)'"
+      },
+      {
+        "level": "note",
+        "text": "the binary says it was built from a closed round, but it is not the build OUR record approved — expected when their release is ahead of our verification, and the reason the two witnesses are kept separate"
+      },
+      {
+        "level": "ok",
+        "text": "checksum inventory: 2/2 tracks carry a copy CRC"
+      },
+      {
+        "level": "ok",
+        "text": "AccurateRip inventory complete: 4/4 (2 tracks × 2, plus 0 where both v1 and v2 missed and a 450 line could appear)"
+      },
+      {
+        "level": "ok",
+        "text": "disc identified by disc-id"
+      },
+      {
+        "level": "ok",
+        "text": "pre-gap provenance across 2 track(s): lead-in, sub-channel (not signalled by TOC)"
+      },
+      {
+        "level": "ok",
+        "text": "2 audio files, all with content"
+      },
+      {
+        "level": "ok",
+        "text": "the ripper received the 15 flags we sent on the whole-disc pass"
+      },
+      {
+        "level": "ok",
+        "text": "the EAC-style log matches its own SHA-256 footer"
+      },
+      {
+        "level": "ok",
+        "text": "the ripper verified derived wavpack 20261005t010835 platterpus-fork-g174a134.log against its own FUN512 checksum — the log is a faithful, unmodified record of this rip"
+      },
+      {
+        "level": "ok",
+        "text": "cue sheet — well formed: 2 track(s), numbered 1..N in order, each with an INDEX 01"
+      },
+      {
+        "level": "ok",
+        "text": "cue sheet — all 2 ISRC(s) we sent round-tripped into the cue"
+      },
+      {
+        "level": "ok",
+        "text": "cue sheet — INDEX 00 markers agree with the measured pre-gap lengths on all 1 track(s) checked (track 1's lead-in pre-gap is never marked, by design)"
+      },
+      {
+        "level": "ok",
+        "text": "cue sheet — all 1 INDEX 00 pre-gap marker(s) are nested under the previous track's own file, and none sits past the end of it"
+      },
+      {
+        "level": "ok",
+        "text": "cue sheet — 3 title(s) match the text we handed the ripper exactly, and no metadata value carries the U+2236 colon substitute (checked 15 value(s))"
+      },
+      {
+        "level": "ok",
+        "text": "disc identity — MusicBrainz pNtImOkdBm9RMBIalzx0w9cfsYY- / CDDB E20DFE0E"
+      }
+    ]
+  },
+  "outcome": {
+    "status": "success",
+    "failure_hint": null,
+    "auto_unknown_retry": {
+      "fired": false,
+      "reason": null
+    },
+    "ripper_exit_code": 0,
+    "ripper_argv": [
+      "/home/rmccann/.local/bin/cyanrip",
+      "-d",
+      "/dev/sr0",
+      "-s",
+      "667",
+      "-o",
+      "flac",
+      "-T",
+      "unicode",
+      "-r",
+      "5",
+      "-l",
+      "1,2",
+      "-N",
+      "--consumer",
+      "platterpus/0.6.65",
+      "-c",
+      "1/1",
+      "-a",
+      "album=derived wavpack 20261005t010835 platterpus-fork-g174a134:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410",
+      "-t",
+      "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086",
+      "-t",
+      "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089",
+      "-t",
+      "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170",
+      "-t",
+      "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175",
+      "-t",
+      "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148",
+      "-t",
+      "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154",
+      "-t",
+      "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127",
+      "-t",
+      "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128",
+      "-t",
+      "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126",
+      "-t",
+      "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110",
+      "-t",
+      "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111",
+      "-t",
+      "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112",
+      "-t",
+      "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252",
+      "-t",
+      "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253",
+      "-D",
+      "{album_artist}/{album}",
+      "-F",
+      "{track} - {title}",
+      "-G",
+      "-j",
+      "cyanrip-diagnostics-20261005T025708Z.json"
+    ],
+    "ripper_argv_first_pass": [
+      "/home/rmccann/.local/bin/cyanrip",
+      "-d",
+      "/dev/sr0",
+      "-s",
+      "667",
+      "-o",
+      "flac",
+      "-T",
+      "unicode",
+      "-r",
+      "5",
+      "-l",
+      "1,2",
+      "-N",
+      "--consumer",
+      "platterpus/0.6.65",
+      "-c",
+      "1/1",
+      "-a",
+      "album=derived wavpack 20261005t010835 platterpus-fork-g174a134:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410",
+      "-t",
+      "1=title=Roxanne:artist=The Police:isrc=GBAAM0201086",
+      "-t",
+      "2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089",
+      "-t",
+      "3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170",
+      "-t",
+      "4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175",
+      "-t",
+      "5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148",
+      "-t",
+      "6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154",
+      "-t",
+      "7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127",
+      "-t",
+      "8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128",
+      "-t",
+      "9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126",
+      "-t",
+      "10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110",
+      "-t",
+      "11=title=King of Pain:artist=The Police:isrc=GBAAM0201111",
+      "-t",
+      "12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112",
+      "-t",
+      "13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252",
+      "-t",
+      "14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253",
+      "-D",
+      "{album_artist}/{album}",
+      "-F",
+      "{track} - {title}",
+      "-G",
+      "-j",
+      "cyanrip-diagnostics-20261005T025708Z.json"
+    ],
+    "ripper_command_display": "/home/rmccann/.local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2 -N --consumer platterpus/0.6.65 -c 1/1 -a album=derived wavpack 20261005t010835 platterpus-fork-g174a134:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410 -t 1=title=Roxanne:artist=The Police:isrc=GBAAM0201086 -t 2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089 -t 3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170 -t 4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175 -t 5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148 -t 6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154 -t 7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127 -t 8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128 -t 9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126 -t 10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110 -t 11=title=King of Pain:artist=The Police:isrc=GBAAM0201111 -t 12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112 -t 13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252 -t 14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253 -D {album_artist}/{album} -F {track} - {title} -G -j cyanrip-diagnostics-20261005T025708Z.json"
+  },
+  "verdict": {
+    "level": "ok",
+    "message": "✓ Bit-perfect: all 2 tracks verified against AccurateRip (confidence 129+)"
+  },
+  "completeness": {
+    "tracks_expected": 2,
+    "tracks_in_report": 2,
+    "complete": true,
+    "note": "tracks_expected is what the rip was ASKED for — the disc's track count, or fewer when the user ticked a subset in the Rip? column. null means it wasn't known to this writer (an in-progress write, or a log parsed offline); it is NOT a claim that the rip was whole."
+  },
+  "diagnostics": {
+    "error_count": 0,
+    "warning_count": 2,
+    "info_count": 0,
+    "worst_severity": "warning",
+    "codes": [
+      "ripper.secure_rerip_verdict"
+    ],
+    "scope": "process session (not only this rip)",
+    "truncated": false,
+    "dropped_count": 0,
+    "log_grep_hint": "grep 'platterpus-diagnostic' /home/rmccann/.local/share/platterpus/log.txt",
+    "items": [
+      {
+        "severity": "warning",
+        "code": "ripper.secure_rerip_verdict",
+        "subsystem": "ripper",
+        "message": "Done; (repeat limit of 5 reads reached; at most 1 read agreed)",
+        "detail": null,
+        "tool": "cyanrip",
+        "argv": null,
+        "exit_code": null,
+        "at": "2026-10-05T02:20:09+00:00",
+        "where": "workers.rip_worker.RipWorker._run_rip",
+        "track": 3
+      },
+      {
+        "severity": "warning",
+        "code": "ripper.secure_rerip_verdict",
+        "subsystem": "ripper",
+        "message": "Done; (repeat limit of 5 reads reached; at most 2 reads agreed)",
+        "detail": null,
+        "tool": "cyanrip",
+        "argv": null,
+        "exit_code": null,
+        "at": "2026-10-05T02:37:07+00:00",
+        "where": "workers.rip_worker.RipWorker._run_rip",
+        "track": 5
+      }
+    ]
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "ripper_handshake_unapproved",
+      "message": "the ripper that produced this rip is unapproved: ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet."
+    }
+  ],
+  "health_status": "No errors occurred",
+  "accuraterip_summary": "2/14 tracks ripped accurately (AccurateRip)",
+  "partially_accurate_summary": null,
+  "partially_accurate_reported": null,
+  "ripper_log_verification": {
+    "verdict": "verified",
+    "detail": "the ripper verified derived wavpack 20261005t010835 platterpus-fork-g174a134.log against its own FUN512 checksum — the log is a faithful, unmodified record of this rip",
+    "log": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/derived wavpack 20261005t010835 platterpus-fork-g174a134.log",
+    "exit_code": 0,
+    "argv": [
+      "/home/rmccann/.local/bin/cyanrip",
+      "--verify-log",
+      "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/derived wavpack 20261005t010835 platterpus-fork-g174a134.log"
+    ],
+    "output": "Log \"/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/derived wavpack 20261005t010835 platterpus-fork-g174a134.log\" checksum valid."
+  },
+  "timing": {
+    "elapsed_seconds": 333,
+    "elapsed_human": "5m 33s",
+    "started_at": "2026-10-04T22:57:07-04:00",
+    "finished_at": "2026-10-04T23:02:40-04:00",
+    "disc_seconds": 3583,
+    "realtime_multiplier": 0.09
+  },
+  "environment": {
+    "python": "3.12.14",
+    "platform": "Linux-7.2.7-ogc1.1.fc44.x86_64-x86_64-with-glibc2.43",
+    "pyside6": "6.11.2",
+    "install_channel": "appimage",
+    "dependencies": {
+      "cyanrip": {
+        "present": true,
+        "version": "0.9.4",
+        "location": "/home/rmccann/.local/bin/cyanrip",
+        "min_version_met": true
+      },
+      "metaflac": {
+        "present": true,
+        "version": "1.5.0",
+        "location": "/home/rmccann/.local/bin/metaflac",
+        "min_version_met": true
+      },
+      "picard": {
+        "present": true,
+        "version": "2.13.3",
+        "location": "flatpak: org.musicbrainz.Picard",
+        "min_version_met": true
+      },
+      "musicbrainzngs": {
+        "present": true,
+        "version": "0.7.1",
+        "location": "python: musicbrainzngs",
+        "min_version_met": true
+      },
+      "flac": {
+        "present": true,
+        "version": "1.5.0",
+        "location": "/home/rmccann/.local/bin/flac",
+        "min_version_met": true
+      },
+      "ffmpeg": {
+        "present": true,
+        "version": "8.1.3",
+        "location": "/usr/bin/ffmpeg",
+        "min_version_met": true
+      },
+      "cdparanoia": {
+        "present": true,
+        "version": "10.2",
+        "location": "/home/rmccann/.local/bin/cd-paranoia",
+        "min_version_met": true
+      }
+    },
+    "dependencies_measured_at": "2026-10-05T01:08:49+00:00"
+  },
+  "settings": {
+    "output_format": "wavpack",
+    "cover_art": "embed",
+    "read_speed_mode": "auto_ladder",
+    "read_speed": 0,
+    "secure_rerip_dynamic": true,
+    "secure_rerip_matches": 2,
+    "max_retries": 5,
+    "ctdb_verify_after_rip": true,
+    "verify_flac_after_rip": true,
+    "recompress_flac_after_rip": false,
+    "rip_goal": "custom",
+    "rip_goal_stored": "fast_verified",
+    "read_offset": {
+      "configured": 667,
+      "applied": true,
+      "effective": 667
+    },
+    "every_setting": {
+      "output_dir": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips",
+      "track_template": "%A/%d/%t - %n",
+      "disc_template": "%A/%d/%d",
+      "track_template_unknown": "Unknown Artist/Unknown Album/%t - Track %t",
+      "disc_template_unknown": "Unknown Artist/Unknown Album/Unknown Album",
+      "metaflac_path": "metaflac",
+      "read_offset": 667,
+      "override_read_offset": true,
+      "auto_launch_picard": false,
+      "auto_eject_after_rip": false,
+      "notify_on_completion": true,
+      "library_dir": "",
+      "debug_logging": true,
+      "cover_art": "embed",
+      "save_additional_art": true,
+      "max_retries": 5,
+      "force_overread": false,
+      "secure_rerip_matches": 2,
+      "secure_rerip_dynamic": true,
+      "rerip_offset_variant": true,
+      "read_speed_mode": "auto_ladder",
+      "read_speed": 0,
+      "ctdb_verify_after_rip": true,
+      "verify_flac_after_rip": true,
+      "recompress_flac_after_rip": false,
+      "write_eac_log_after_rip": true,
+      "output_format": "wavpack",
+      "mp3_vbr_quality": 2,
+      "rip_goal": "fast_verified",
+      "update_channel": "stable",
+      "ripper_channel": "beta",
+      "test_script_path": "",
+      "test_script_autorun": false,
+      "test_script_allow_unsafe": false
+    }
+  },
+  "disc": {
+    "unknown": false,
+    "musicbrainz_release_id": "65282302-368b-4ba2-953a-483bcdef2410",
+    "catalog_number": null,
+    "barcode": null,
+    "label": null,
+    "medium_basis": "disc-id",
+    "medium_detail": "Matched by MusicBrainz disc ID: this disc is medium 1 of 1.",
+    "medium_undetermined": false,
+    "tag_control_characters_replaced": [],
+    "eac_log_signature_lines_defused": []
+  },
+  "log_creator": "cyanrip 0.9.4-rc2+platterpus.19",
+  "rip": {
+    "drive": "PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM",
+    "extraction_engine": "cyanrip 0.9.4-rc2+platterpus.19",
+    "read_offset_correction": 667,
+    "defeat_audio_cache": true,
+    "overread_lead_out": false,
+    "gap_detection": "160 frame pregap in track 2, merging into track 1; 158 frame pregap in track 4, merging into track 3; 115 frame pregap in track 5, merging into track 4; 105 frame pregap in track 7, merging into track 6; 85 frame pregap in track 8, merging into track 7; 95 frame pregap in track 9, merging into track 8; 147 frame pregap in track 10, merging into track 9; 90 frame pregap in track 13, merging into track 12; 117 frame pregap in track 14, merging into track 13",
+    "cd_r_detected": null,
+    "speed_changeable": false,
+    "c2_pointers": false,
+    "paranoia_level": "max",
+    "overread_mode": "fill with silence in lead-in/lead-out",
+    "ripper_build": "platterpus-fork-g174a134",
+    "rip_completed": true,
+    "interrupted_at": null,
+    "rip_completed_tracks": 2,
+    "rip_completed_total": 14,
+    "rip_completed_reason": null,
+    "invoked_as": "/usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2 -N --consumer platterpus/0.6.65 -c 1/1 -a \"album=derived wavpack 20261005t010835 platterpus-fork-g174a134:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410\" -t \"1=title=Roxanne:artist=The Police:isrc=GBAAM0201086\" -t \"2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089\" -t \"3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170\" -t \"4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175\" -t \"5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148\" -t \"6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154\" -t \"7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127\" -t \"8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128\" -t \"9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126\" -t \"10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110\" -t \"11=title=King of Pain:artist=The Police:isrc=GBAAM0201111\" -t \"12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112\" -t \"13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252\" -t \"14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253\" -D {album_artist}/{album} -F \"{track} - {title}\" -G -j cyanrip-diagnostics-20261005T025708Z.json",
+    "read_stalls": "none (no read exceeded 10s)",
+    "read_stalls_count": 0,
+    "ripper_handshake_note": "round 29 lap 3 closed, verdict GO -- released build (declared at build time, not verified by cyanrip)",
+    "ripper_consumer": "platterpus/0.6.65 (reported by the caller, not verified by cyanrip)",
+    "ripper_is_platterpus_fork": true,
+    "ripper_identity": "fork",
+    "ripper_identity_detail": "Ripped by the Platterpus fork of cyanrip (build tag 'platterpus-fork-g174a134'). The fork reports per-track pre-gap length and provenance, sample peak, extraction speed and elapsed time, which stock cyanrip does not.",
+    "ripper_handshake_approval": "unapproved",
+    "ripper_handshake_approval_detail": "ripper build platterpus-fork-g174a134 is NOT the build this Platterpus was verified against (platterpus-fork-g51cc789, approved by handshake round 29). The rip is still bit-perfect if its own checks passed — but it was not produced by a jointly-verified ripper. That build is the pin an OPEN handshake round proposes (174a134); it has not been approved by either project yet.",
+    "ripper_handshake_approved_build": "cyanrip 0.9.4-rc2+platterpus.18 (platterpus-fork-g51cc789)",
+    "ripper_handshake_approved_for_platterpus": "0.6.63",
+    "ripper_handshake_approved_by_round": 29,
+    "creation_date": "2026-10-04T23:02:40-04:00",
+    "musicbrainz_disc_id": "pNtImOkdBm9RMBIalzx0w9cfsYY-",
+    "cddb_id": "E20DFE0E",
+    "ripper_release_id": "65282302-368b-4ba2-953a-483bcdef2410"
+  },
+  "disc_duration": "59:42.57",
+  "paranoia_counts": {
+    "READ": 2355,
+    "VERIFY": 156,
+    "OVERLAP": 39
+  },
+  "read_speed": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "speed": 0,
+        "speed_label": "max speed",
+        "secure_rerip_matches": 0,
+        "clean": true
+      }
+    ],
+    "final_speed": 0,
+    "final_speed_label": "max speed",
+    "final_secure_rerip_matches": 0,
+    "escalated": false,
+    "unresolved": false,
+    "unstable_tracks": [],
+    "retried_tracks": [],
+    "secure_rerip": {
+      "mode": "dynamic",
+      "engaged": false,
+      "disc_in_accuraterip": true,
+      "skipped_reason": null,
+      "interrupted": false
+    }
+  },
+  "album_loudness": {
+    "integrated_lufs": "-13.5",
+    "lra_lu": "6.6",
+    "sample_peak_dbfs": "-0.5",
+    "true_peak_dbfs": "0.3"
+  },
+  "album_loudness_covers": {
+    "state": "part_of_disc",
+    "tracks_finished": 2,
+    "disc_tracks": 14,
+    "interrupted_at": null
+  },
+  "sha256_hash": null,
+  "log_checksum": "dFOCCvtN6VprNex5W3PIjd0RATx3QoTP_0Q7VWdaBSUgJM4NyCEvpr8wOrmGb8VlI3GNgcflhKfGyO7TSinRJA",
+  "log_parse": {
+    "ok": true,
+    "note": null
+  },
+  "tracks": [
+    {
+      "number": 1,
+      "filename": "The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/01 - Roxanne.flac",
+      "test_crc": null,
+      "copy_crc": "B0D122E7",
+      "status": "ripped successfully",
+      "rip_count": null,
+      "secure_rerip_converged": null,
+      "extraction_speed": 1.1,
+      "extraction_quality": null,
+      "pre_emphasis": false,
+      "peak_level": 0.943,
+      "extraction_elapsed_seconds": 170.48,
+      "appended_silence_frames": null,
+      "start_sector": 0,
+      "end_sector": 14486,
+      "pregap_sectors": 150,
+      "pregap_start_lsn": 0,
+      "pregap_state": "known",
+      "pregap_unknown_reason": null,
+      "pregap_length_frames": 150,
+      "pregap_source": "lead-in",
+      "replaygain": {
+        "REPLAYGAIN_TRACK_GAIN": "-4.10 dB",
+        "R128_TRACK_GAIN": "229",
+        "REPLAYGAIN_TRACK_RANGE": "6.54 dB",
+        "REPLAYGAIN_TRACK_PEAK": "1.029445",
+        "REPLAYGAIN_REFERENCE_LOUDNESS": "-18.00 LUFS"
+      },
+      "accuraterip_verified": true,
+      "accuraterip_lookup": "disc found in database (max confidence: 200)",
+      "paranoia_counts": {
+        "READ": 1250,
+        "VERIFY": 85,
+        "OVERLAP": 17
+      },
+      "accuraterip": {
+        "v1": {
+          "result": "accurately ripped, confidence 129",
+          "confidence": 129,
+          "local_crc": "5D3C90CB",
+          "remote_crc": null
+        },
+        "v2": {
+          "result": "accurately ripped, confidence 200",
+          "confidence": 200,
+          "local_crc": "22B9924D",
+          "remote_crc": null
+        },
+        "offset_450": null
+      }
+    },
+    {
+      "number": 2,
+      "filename": "The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/02 - Can’t Stand Losing You.flac",
+      "test_crc": null,
+      "copy_crc": "985AAE32",
+      "status": "ripped successfully",
+      "rip_count": null,
+      "secure_rerip_converged": null,
+      "extraction_speed": 1.2,
+      "extraction_quality": null,
+      "pre_emphasis": false,
+      "peak_level": 0.943,
+      "extraction_elapsed_seconds": 156.59,
+      "appended_silence_frames": null,
+      "start_sector": 14487,
+      "end_sector": 28066,
+      "pregap_sectors": 160,
+      "pregap_start_lsn": 14327,
+      "pregap_state": "known",
+      "pregap_unknown_reason": null,
+      "pregap_length_frames": 160,
+      "pregap_source": "sub-channel (not signalled by TOC)",
+      "replaygain": {
+        "REPLAYGAIN_TRACK_GAIN": "-4.88 dB",
+        "R128_TRACK_GAIN": "32",
+        "REPLAYGAIN_TRACK_RANGE": "6.07 dB",
+        "REPLAYGAIN_TRACK_PEAK": "1.008499",
+        "REPLAYGAIN_REFERENCE_LOUDNESS": "-18.00 LUFS"
+      },
+      "accuraterip_verified": true,
+      "accuraterip_lookup": "disc found in database (max confidence: 200)",
+      "paranoia_counts": {
+        "READ": 1105,
+        "VERIFY": 71,
+        "OVERLAP": 22
+      },
+      "accuraterip": {
+        "v1": {
+          "result": "accurately ripped, confidence 131",
+          "confidence": 131,
+          "local_crc": "A3019EB3",
+          "remote_crc": null
+        },
+        "v2": {
+          "result": "accurately ripped, confidence 200",
+          "confidence": 200,
+          "local_crc": "31C28378",
+          "remote_crc": null
+        },
+        "offset_450": null
+      }
+    }
+  ],
+  "ctdb": {
+    "verdict": "not_whole_disc",
+    "confidence": 0,
+    "trustworthy": null,
+    "crc_validated": true,
+    "our_crc": null,
+    "matched_crc": null,
+    "entry_count": 0,
+    "db_crcs": [],
+    "message": "not run — CTDB verifies whole discs, and this rip has 2 of the disc's 14 tracks"
+  },
+  "verification": {
+    "gates": {
+      "ctdb": "not run — CTDB verifies whole discs, and this rip is not the whole disc",
+      "flac_integrity": "ran",
+      "recompress": "disabled",
+      "derived": "ran"
+    },
+    "flac_integrity": {
+      "ran": true,
+      "ok": true,
+      "checked": 2,
+      "failures": [],
+      "failure_details": null,
+      "error": null
+    },
+    "transcode": {
+      "ran": true,
+      "ok": true,
+      "transcoded": 2,
+      "failures": [],
+      "failure_details": null,
+      "error": null
+    },
+    "derived": {
+      "format": "wavpack",
+      "lossless": true,
+      "proof": "bit-identical PCM vs FLAC master",
+      "ran": true,
+      "ok": true,
+      "complete": true,
+      "checked": 2,
+      "expected": 2,
+      "failures": [],
+      "mismatches": [],
+      "error": null
+    },
+    "recompress": null
+  },
+  "cover_art": {
+    "mode": "embed",
+    "found": true,
+    "reason": "ok",
+    "embedded_count": 2,
+    "saved_as": "cover.jpg",
+    "release_id": "65282302-368b-4ba2-953a-483bcdef2410",
+    "bytes": 72415,
+    "format": "jpg",
+    "error": null,
+    "additional_saved": null
+  },
+  "checksums": {
+    "01 - Roxanne.flac": "3b743f41eab228fb552afbfddc3ec9ecca42ff81e8e30c5cb30e734216f7d543",
+    "01 - Roxanne.wv": "e2b51f7188c6f8cb58bf5d95d029f40bbec6c29df92a976b62f1794c1863995c",
+    "02 - Can’t Stand Losing You.flac": "e2c574e562b255031c5f3408a88fa694fcbbd7268517ead787060ec1f9b4f9bc",
+    "02 - Can’t Stand Losing You.wv": "d0da9a9e711fe57aa1b57ac536305f0322a49898227cdddfb0040f1e5300cbdc"
+  },
+  "audio_md5": {
+    "01 - Roxanne.flac": "a459a2f19a890ec0b210e7e2272a6710",
+    "02 - Can’t Stand Losing You.flac": "63f8d40c12fc5a5c2ae1cdeb291f92ad"
+  },
+  "eta_trace": {
+    "note": "Per-sample ETA record for analysis, not display. 'our_eta_seconds' is Platterpus's smoothed album estimate; 'actual_remaining_seconds' is what really remained (finish − 'at') so estimate-vs-actual is directly visible; 'cyanrip_eta' is cyanrip's own per-op estimate (untrusted); 'read_speed' is the -S value in effect (0 = drive max); 'track'/'activity' are the event context for a jump; 'at' is the PC wall-clock time. 'state' names the branch that produced the sample — computed (a fresh rate measurement), held_no_rate / held_over_ceiling (the previous estimate re-shown), rereading (a secure re-read has the album bar pinned) or stalled (neither liveness signal moved) — so a held value is never mistaken for a measurement; 'reread_pass' counts restarts of the current track's read (0 = first read). Compare against 'timing'.",
+    "samples": [
+      {
+        "at": "2026-10-04T22:57:15-04:00",
+        "elapsed_seconds": 8,
+        "overall_percent": 5.02,
+        "read_speed": 0,
+        "our_eta_seconds": 150,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "21m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 0%",
+        "actual_remaining_seconds": 325
+      },
+      {
+        "at": "2026-10-04T22:57:25-04:00",
+        "elapsed_seconds": 18,
+        "overall_percent": 5.35,
+        "read_speed": 0,
+        "our_eta_seconds": 2820,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "5m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 7% · about 47m 0s left",
+        "actual_remaining_seconds": 315
+      },
+      {
+        "at": "2026-10-04T22:57:35-04:00",
+        "elapsed_seconds": 28,
+        "overall_percent": 5.62,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "5m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 13% · about 52m 0s left",
+        "actual_remaining_seconds": 305
+      },
+      {
+        "at": "2026-10-04T22:57:45-04:00",
+        "elapsed_seconds": 38,
+        "overall_percent": 5.89,
+        "read_speed": 0,
+        "our_eta_seconds": 3240,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "5m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 18% · about 54m 0s left",
+        "actual_remaining_seconds": 295
+      },
+      {
+        "at": "2026-10-04T22:57:56-04:00",
+        "elapsed_seconds": 49,
+        "overall_percent": 6.18,
+        "read_speed": 0,
+        "our_eta_seconds": 3240,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "4m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 24% · about 54m 0s left",
+        "actual_remaining_seconds": 284
+      },
+      {
+        "at": "2026-10-04T22:58:06-04:00",
+        "elapsed_seconds": 59,
+        "overall_percent": 6.51,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "4m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 31% · about 53m 0s left",
+        "actual_remaining_seconds": 274
+      },
+      {
+        "at": "2026-10-04T22:58:16-04:00",
+        "elapsed_seconds": 69,
+        "overall_percent": 6.78,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "4m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 37% · about 53m 0s left",
+        "actual_remaining_seconds": 264
+      },
+      {
+        "at": "2026-10-04T22:58:26-04:00",
+        "elapsed_seconds": 79,
+        "overall_percent": 7.04,
+        "read_speed": 0,
+        "our_eta_seconds": 3240,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "4m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 42% · about 54m 0s left",
+        "actual_remaining_seconds": 254
+      },
+      {
+        "at": "2026-10-04T22:58:37-04:00",
+        "elapsed_seconds": 89,
+        "overall_percent": 7.37,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "4m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 49% · about 53m 0s left",
+        "actual_remaining_seconds": 243
+      },
+      {
+        "at": "2026-10-04T22:58:47-04:00",
+        "elapsed_seconds": 99,
+        "overall_percent": 7.67,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 55% · about 53m 0s left",
+        "actual_remaining_seconds": 233
+      },
+      {
+        "at": "2026-10-04T22:58:57-04:00",
+        "elapsed_seconds": 109,
+        "overall_percent": 7.94,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 61% · about 53m 0s left",
+        "actual_remaining_seconds": 223
+      },
+      {
+        "at": "2026-10-04T22:59:07-04:00",
+        "elapsed_seconds": 119,
+        "overall_percent": 8.21,
+        "read_speed": 0,
+        "our_eta_seconds": 3240,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 66% · about 54m 0s left",
+        "actual_remaining_seconds": 213
+      },
+      {
+        "at": "2026-10-04T22:59:17-04:00",
+        "elapsed_seconds": 129,
+        "overall_percent": 8.55,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 73% · about 53m 0s left",
+        "actual_remaining_seconds": 203
+      },
+      {
+        "at": "2026-10-04T22:59:27-04:00",
+        "elapsed_seconds": 140,
+        "overall_percent": 8.82,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 79% · about 52m 0s left",
+        "actual_remaining_seconds": 193
+      },
+      {
+        "at": "2026-10-04T22:59:37-04:00",
+        "elapsed_seconds": 150,
+        "overall_percent": 9.09,
+        "read_speed": 0,
+        "our_eta_seconds": 3240,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "3m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 84% · about 54m 0s left",
+        "actual_remaining_seconds": 183
+      },
+      {
+        "at": "2026-10-04T22:59:48-04:00",
+        "elapsed_seconds": 160,
+        "overall_percent": 9.38,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 90% · about 53m 0s left",
+        "actual_remaining_seconds": 172
+      },
+      {
+        "at": "2026-10-04T22:59:58-04:00",
+        "elapsed_seconds": 170,
+        "overall_percent": 9.72,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 1,
+        "activity": "Ripping track 1 of 14… 97% · about 52m 0s left",
+        "actual_remaining_seconds": 162
+      },
+      {
+        "at": "2026-10-04T23:00:08-04:00",
+        "elapsed_seconds": 180,
+        "overall_percent": 9.96,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 3% · about 52m 0s left",
+        "actual_remaining_seconds": 152
+      },
+      {
+        "at": "2026-10-04T23:00:18-04:00",
+        "elapsed_seconds": 190,
+        "overall_percent": 10.24,
+        "read_speed": 0,
+        "our_eta_seconds": 3180,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 9% · about 52m 0s left",
+        "actual_remaining_seconds": 142
+      },
+      {
+        "at": "2026-10-04T23:00:28-04:00",
+        "elapsed_seconds": 200,
+        "overall_percent": 10.57,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 16% · about 52m 0s left",
+        "actual_remaining_seconds": 132
+      },
+      {
+        "at": "2026-10-04T23:00:38-04:00",
+        "elapsed_seconds": 210,
+        "overall_percent": 10.85,
+        "read_speed": 0,
+        "our_eta_seconds": 3060,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2m",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 22% · about 51m 0s left",
+        "actual_remaining_seconds": 122
+      },
+      {
+        "at": "2026-10-04T23:00:48-04:00",
+        "elapsed_seconds": 220,
+        "overall_percent": 11.12,
+        "read_speed": 0,
+        "our_eta_seconds": 3120,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 28% · about 52m 0s left",
+        "actual_remaining_seconds": 112
+      },
+      {
+        "at": "2026-10-04T23:00:58-04:00",
+        "elapsed_seconds": 230,
+        "overall_percent": 11.43,
+        "read_speed": 0,
+        "our_eta_seconds": 3060,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 35% · about 51m 0s left",
+        "actual_remaining_seconds": 102
+      },
+      {
+        "at": "2026-10-04T23:01:08-04:00",
+        "elapsed_seconds": 240,
+        "overall_percent": 11.73,
+        "read_speed": 0,
+        "our_eta_seconds": 3060,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 41% · about 51m 0s left",
+        "actual_remaining_seconds": 92
+      },
+      {
+        "at": "2026-10-04T23:01:18-04:00",
+        "elapsed_seconds": 250,
+        "overall_percent": 12.01,
+        "read_speed": 0,
+        "our_eta_seconds": 3000,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 47% · about 50m 0s left",
+        "actual_remaining_seconds": 82
+      },
+      {
+        "at": "2026-10-04T23:01:28-04:00",
+        "elapsed_seconds": 260,
+        "overall_percent": 12.29,
+        "read_speed": 0,
+        "our_eta_seconds": 3060,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 53% · about 51m 0s left",
+        "actual_remaining_seconds": 72
+      },
+      {
+        "at": "2026-10-04T23:01:38-04:00",
+        "elapsed_seconds": 271,
+        "overall_percent": 12.6,
+        "read_speed": 0,
+        "our_eta_seconds": 2940,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "1m",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 60% · about 49m 0s left",
+        "actual_remaining_seconds": 62
+      },
+      {
+        "at": "2026-10-04T23:01:48-04:00",
+        "elapsed_seconds": 281,
+        "overall_percent": 12.91,
+        "read_speed": 0,
+        "our_eta_seconds": 2940,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "51s",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 67% · about 49m 0s left",
+        "actual_remaining_seconds": 52
+      },
+      {
+        "at": "2026-10-04T23:01:58-04:00",
+        "elapsed_seconds": 291,
+        "overall_percent": 13.19,
+        "read_speed": 0,
+        "our_eta_seconds": 3000,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "42s",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 73% · about 50m 0s left",
+        "actual_remaining_seconds": 42
+      },
+      {
+        "at": "2026-10-04T23:02:08-04:00",
+        "elapsed_seconds": 301,
+        "overall_percent": 13.47,
+        "read_speed": 0,
+        "our_eta_seconds": 3000,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "33s",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 79% · about 50m 0s left",
+        "actual_remaining_seconds": 32
+      },
+      {
+        "at": "2026-10-04T23:02:18-04:00",
+        "elapsed_seconds": 311,
+        "overall_percent": 13.8,
+        "read_speed": 0,
+        "our_eta_seconds": 2940,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "21s",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 87% · about 49m 0s left",
+        "actual_remaining_seconds": 22
+      },
+      {
+        "at": "2026-10-04T23:02:28-04:00",
+        "elapsed_seconds": 321,
+        "overall_percent": 14.08,
+        "read_speed": 0,
+        "our_eta_seconds": 2940,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "11s",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 93% · about 49m 0s left",
+        "actual_remaining_seconds": 12
+      },
+      {
+        "at": "2026-10-04T23:02:38-04:00",
+        "elapsed_seconds": 331,
+        "overall_percent": 14.36,
+        "read_speed": 0,
+        "our_eta_seconds": 2940,
+        "state": "computed",
+        "pass_kind": "album",
+        "reread_pass": 0,
+        "cyanrip_eta": "2s",
+        "track": 2,
+        "activity": "Ripping track 2 of 14… 99% · about 49m 0s left",
+        "actual_remaining_seconds": 2
+      }
+    ]
+  },
+  "artifacts": {
+    "note": "Verbatim text of the files written beside this report, so this one file is enough to diagnose a rip without asking for the others. Text only — never audio (see CLAUDE.md critical rule #8).",
+    "rip_log": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/derived wavpack 20261005t010835 platterpus-fork-g174a134.log",
+      "exists": true,
+      "bytes": 9220,
+      "sha256": "90609ca107d58e1e1a4364328488bfb816041e58de78cbd7facc204dd07db97f",
+      "truncated": false,
+      "text": "cyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)\nInvoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2 -N --consumer platterpus/0.6.65 -c 1/1 -a \"album=derived wavpack 20261005t010835 platterpus-fork-g174a134:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410\" -t \"1=title=Roxanne:artist=The Police:isrc=GBAAM0201086\" -t \"2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089\" -t \"3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170\" -t \"4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175\" -t \"5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148\" -t \"6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154\" -t \"7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127\" -t \"8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128\" -t \"9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126\" -t \"10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110\" -t \"11=title=King of Pain:artist=The Police:isrc=GBAAM0201111\" -t \"12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112\" -t \"13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252\" -t \"14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253\" -D {album_artist}/{album} -F \"{track} - {title}\" -G -j cyanrip-diagnostics-20261005T025708Z.json\nHandshake:      round 29 lap 3 closed, verdict GO -- released build\n                (declared at build time, not verified by cyanrip)\nConsumer:       platterpus/0.6.65\n                (reported by the caller, not verified by cyanrip)\nDrive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)\nSystem device:  /dev/sr0\nDevice model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\nOffset:         +667 samples\nOverread:       +2 frames\nOverread mode:  fill with silence in lead-in/lead-out\nSpeed:          default (unchangeable)\nC2 errors:      unsupported by drive\nCD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)\nEncoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)\nParanoia level: max\nRetry limit:    5 (per frame, and per whole-track re-read)\nCache model:    1200 sectors (drive cache size not probed)\nHDCD decoding:  disabled\nAlbum Art:      none\nOutputs:        flac\nDisc number:    1\nTotal discs:    1\nDisc tracks:    14\nTracks to rip:  1, 2\nDiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-\nRelease ID:     65282302-368b-4ba2-953a-483bcdef2410\nCDDB ID:        E20DFE0E\nAlbum:          derived wavpack 20261005t010835 platterpus-fork-g174a134\nAlbum artist:   The Police\nAccurateRip:    found\nTotal time:     59:42.57\n\n--- output before this log was opened ---\nChecking /dev/sr0 for cdrom...\n\t\tCDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\n\nOpening drive...\nNo MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!\n--- end of pre-log output ---\nGaps:\n    160 frame pregap in track 2, merging into track 1\n    158 frame pregap in track 4, merging into track 3\n    115 frame pregap in track 5, merging into track 4\n    105 frame pregap in track 7, merging into track 6\n    85 frame pregap in track 8, merging into track 7\n    95 frame pregap in track 9, merging into track 8\n    147 frame pregap in track 10, merging into track 9\n    90 frame pregap in track 13, merging into track 12\n    117 frame pregap in track 14, merging into track 13\n\nTracks:\nTrack 1 read successfully!\nSummary:\n\n  Integrated loudness:\n    I:         -13.9 LUFS\n    Threshold: -24.3 LUFS\n\n  Loudness range:\n    LRA:         6.5 LU\n    Threshold: -34.3 LUFS\n    LRA low:   -18.3 LUFS\n    LRA high:  -11.7 LUFS\n\n  Sample peak:\n    Peak:       -0.5 dBFS\n\n  True peak:\n    Peak:        0.3 dBFS\n\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    03:13.12\n    Samples:     8518356\n    Frames:      14487\n    Sample peak level: 94.3% (-0.5 dBFS)\n    True peak level:   0.3 dBFS\n    Integrated loudness (R128): -13.9 LUFS\n    Loudness range (R128):      6.5 LU (-18.3 to -11.7 LUFS)\n    Extraction speed:  1.1x\n    Elapsed:            170.48 s\n    Pregap LSN:  0 (duration: 00:02.00)\n    Pregap length: 150 frames\n    Pregap source: lead-in\n    Start LSN:   0 (with offset: 1)\n    End LSN:     14486 (with offset: 14488)\n\n  EAC CRC32:     B0D122E7\n  Secure re-read:  not attempted\n  Accurip:       disc found in database (max confidence: 200)\n    Accurip v1:  5D3C90CB (accurately ripped, confidence 129)\n    Accurip v2:  22B9924D (accurately ripped, confidence 200)\n\n  Metadata:\n    TRACK:                         1\n    TRACKTOTAL:                    14\n    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-\n    CDDB:                          E20DFE0E\n    MEDIA:                         CD\n    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19\n    TOTALDISCS:                    1\n    TITLE:                         Roxanne\n    DISC:                          1\n    ALBUM:                         derived wavpack 20261005t010835 platterpus-fork-g174a134\n    ALBUM_ARTIST:                  The Police\n    DATE:                          2003\n    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410\n    ARTIST:                        The Police\n    ISRC:                          GBAAM0201086\n    CREATION_TIME:                 2026-10-04T22:57:13-04:00\n    REPLAYGAIN_TRACK_GAIN:         -4.10 dB\n    R128_TRACK_GAIN:               229\n    REPLAYGAIN_TRACK_RANGE:        6.54 dB\n    REPLAYGAIN_TRACK_PEAK:         1.029445\n    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS\n    DISCTOTAL:                     1\n\n  Paranoia status counts:\n    READ:          1250\n    VERIFY:        85\n    OVERLAP:       17\n\n  File(s):\n    The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/01 - Roxanne.flac\n\nTrack 2 read successfully!\nSummary:\n\n  Integrated loudness:\n    I:         -13.1 LUFS\n    Threshold: -23.3 LUFS\n\n  Loudness range:\n    LRA:         6.1 LU\n    Threshold: -33.3 LUFS\n    LRA low:   -17.2 LUFS\n    LRA high:  -11.1 LUFS\n\n  Sample peak:\n    Peak:       -0.5 dBFS\n\n  True peak:\n    Peak:        0.1 dBFS\n\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    03:01.05\n    Samples:     7985040\n    Frames:      13580\n    Sample peak level: 94.3% (-0.5 dBFS)\n    True peak level:   0.1 dBFS\n    Integrated loudness (R128): -13.1 LUFS\n    Loudness range (R128):      6.1 LU (-17.2 to -11.1 LUFS)\n    Extraction speed:  1.2x\n    Elapsed:            156.59 s\n    Pregap LSN:  14327 (duration: 00:02.10)\n    Pregap length: 160 frames\n    Pregap source: sub-channel (not signalled by TOC)\n    Start LSN:   14487 (with offset: 14488)\n    End LSN:     28066 (with offset: 28068)\n\n  EAC CRC32:     985AAE32\n  Secure re-read:  not attempted\n  Accurip:       disc found in database (max confidence: 200)\n    Accurip v1:  A3019EB3 (accurately ripped, confidence 131)\n    Accurip v2:  31C28378 (accurately ripped, confidence 200)\n\n  Metadata:\n    TRACK:                         2\n    TRACKTOTAL:                    14\n    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-\n    CDDB:                          E20DFE0E\n    MEDIA:                         CD\n    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19\n    TOTALDISCS:                    1\n    TITLE:                         Can’t Stand Losing You\n    DISC:                          1\n    ALBUM:                         derived wavpack 20261005t010835 platterpus-fork-g174a134\n    ALBUM_ARTIST:                  The Police\n    DATE:                          2003\n    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410\n    ARTIST:                        The Police\n    ISRC:                          GBAAM0201089\n    CREATION_TIME:                 2026-10-04T23:00:03-04:00\n    REPLAYGAIN_TRACK_GAIN:         -4.88 dB\n    R128_TRACK_GAIN:               32\n    REPLAYGAIN_TRACK_RANGE:        6.07 dB\n    REPLAYGAIN_TRACK_PEAK:         1.008499\n    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS\n    DISCTOTAL:                     1\n\n  Paranoia status counts:\n    READ:          1105\n    VERIFY:        71\n    OVERLAP:       22\n\n  File(s):\n    The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/02 - Can’t Stand Losing You.flac\n\nAlbum Loudness Summary:\n\n  Integrated loudness:\n    I:         -13.5 LUFS\n    Threshold: -23.8 LUFS\n\n  Loudness range:\n    LRA:         6.6 LU\n    Threshold: -33.8 LUFS\n    LRA low:   -17.8 LUFS\n    LRA high:  -11.3 LUFS\n\n  Sample peak:\n    Peak:       -0.5 dBFS\n\n  True peak:\n    Peak:        0.3 dBFS\n\nAlbum integrated loudness (R128): -13.5 LUFS\nAlbum loudness range (R128):      6.6 LU (-17.8 to -11.3 LUFS)\nAlbum sample peak level:          -0.5 dBFS\nAlbum true peak level:            0.3 dBFS\nTracks ripped accurately: 2/14\n\nParanoia status counts:\n  READ:          2355\n  VERIFY:        156\n  OVERLAP:       39\n\nRipping errors: 0\nEncoder errors: none; 2 tracks encoded\nRead stalls:    none (no read exceeded 10s)\nRip completed:  yes (2 of 14 tracks)\nRipping finished at 2026-10-04T23:02:40-04:00\nLog FUN512: dFOCCvtN6VprNex5W3PIjd0RATx3QoTP_0Q7VWdaBSUgJM4NyCEvpr8wOrmGb8VlI3GNgcflhKfGyO7TSinRJA\n"
+    },
+    "ripper_stdout": {
+      "path": null,
+      "exists": true,
+      "source": "captured from the ripper's stdout (progress redraws excluded); complete even when the ripper was killed",
+      "bytes": 9036,
+      "sha256": "79a97e5d1cabcd3e5a719eab01d9b4c05030dd2b144289df318b424b47926b80",
+      "truncated": false,
+      "text": "Checking /dev/sr0 for cdrom...\n\t\tCDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\n\nOpening drive...\nNo MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!\ncyanrip 0.9.4-rc2+platterpus.19 (platterpus-fork-g174a134)\nInvoked as:     /usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -T unicode -r 5 -l 1,2 -N --consumer platterpus/0.6.65 -c 1/1 -a \"album=derived wavpack 20261005t010835 platterpus-fork-g174a134:album_artist=The Police:date=2003:musicbrainz_albumid=65282302-368b-4ba2-953a-483bcdef2410\" -t \"1=title=Roxanne:artist=The Police:isrc=GBAAM0201086\" -t \"2=title=Can’t Stand Losing You:artist=The Police:isrc=GBAAM0201089\" -t \"3=title=Message in a Bottle:artist=The Police:isrc=GBAAM0201170\" -t \"4=title=Walking on the Moon:artist=The Police:isrc=GBAAM0201175\" -t \"5=title=Don’t Stand So Close to Me:artist=The Police:isrc=GBAAM0201148\" -t \"6=title=De Do Do Do, De Da Da Da:artist=The Police:isrc=GBAAM0201154\" -t \"7=title=Every Little Thing She Does Is Magic:artist=The Police:isrc=GBAAM0201127\" -t \"8=title=Invisible Sun:artist=The Police:isrc=GBAAM0201128\" -t \"9=title=Spirits in the Material World:artist=The Police:isrc=GBAAM0201126\" -t \"10=title=Every Breath You Take:artist=The Police:isrc=GBAAM0201110\" -t \"11=title=King of Pain:artist=The Police:isrc=GBAAM0201111\" -t \"12=title=Wrapped Around Your Finger:artist=The Police:isrc=GBAAM0201112\" -t \"13=title=Don’t Stand So Close to Me ’86:artist=The Police:isrc=GBAAM0201252\" -t \"14=title=Message in a Bottle (new classic rock mix):artist=The Police:isrc=GBAAM0201253\" -D {album_artist}/{album} -F \"{track} - {title}\" -G -j cyanrip-diagnostics-20261005T025708Z.json\nHandshake:      round 29 lap 3 closed, verdict GO -- released build\n                (declared at build time, not verified by cyanrip)\nConsumer:       platterpus/0.6.65\n                (reported by the caller, not verified by cyanrip)\nDrive used:     PIONEER  BD-RW   BDR-209D (revision 1.51)\nSystem device:  /dev/sr0\nDevice model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\nOffset:         +667 samples\nOverread:       +2 frames\nOverread mode:  fill with silence in lead-in/lead-out\nSpeed:          default (unchangeable)\nC2 errors:      unsupported by drive\nCD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)\nEncoder:        libavformat 62.12.102, libavcodec 62.28.102 (8.1.2)\nParanoia level: max\nRetry limit:    5 (per frame, and per whole-track re-read)\nCache model:    1200 sectors (drive cache size not probed)\nHDCD decoding:  disabled\nAlbum Art:      none\nOutputs:        flac\nDisc number:    1\nTotal discs:    1\nDisc tracks:    14\nTracks to rip:  1, 2\nDiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-\nRelease ID:     65282302-368b-4ba2-953a-483bcdef2410\nCDDB ID:        E20DFE0E\nAlbum:          derived wavpack 20261005t010835 platterpus-fork-g174a134\nAlbum artist:   The Police\nAccurateRip:    found\nTotal time:     59:42.57\n\nGaps:\n    160 frame pregap in track 2, merging into track 1\n    158 frame pregap in track 4, merging into track 3\n    115 frame pregap in track 5, merging into track 4\n    105 frame pregap in track 7, merging into track 6\n    85 frame pregap in track 8, merging into track 7\n    95 frame pregap in track 9, merging into track 8\n    147 frame pregap in track 10, merging into track 9\n    90 frame pregap in track 13, merging into track 12\n    117 frame pregap in track 14, merging into track 13\n\nTracks:\nFlushing encoders...\nSummary:\n\n  Integrated loudness:\n    I:         -13.9 LUFS\n    Threshold: -24.3 LUFS\n\n  Loudness range:\n    LRA:         6.5 LU\n    Threshold: -34.3 LUFS\n    LRA low:   -18.3 LUFS\n    LRA high:  -11.7 LUFS\n\n  Sample peak:\n    Peak:       -0.5 dBFS\n\n  True peak:\n    Peak:        0.3 dBFS\n\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    03:13.12\n    Samples:     8518356\n    Frames:      14487\n    Sample peak level: 94.3% (-0.5 dBFS)\n    True peak level:   0.3 dBFS\n    Integrated loudness (R128): -13.9 LUFS\n    Loudness range (R128):      6.5 LU (-18.3 to -11.7 LUFS)\n    Extraction speed:  1.1x\n    Elapsed:            170.48 s\n    Pregap LSN:  0 (duration: 00:02.00)\n    Pregap length: 150 frames\n    Pregap source: lead-in\n    Start LSN:   0 (with offset: 1)\n    End LSN:     14486 (with offset: 14488)\n\n  EAC CRC32:     B0D122E7\n  Secure re-read:  not attempted\n  Accurip:       disc found in database (max confidence: 200)\n    Accurip v1:  5D3C90CB (accurately ripped, confidence 129)\n    Accurip v2:  22B9924D (accurately ripped, confidence 200)\n\n  Metadata:\n    TRACK:                         1\n    TRACKTOTAL:                    14\n    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-\n    CDDB:                          E20DFE0E\n    MEDIA:                         CD\n    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19\n    TOTALDISCS:                    1\n    TITLE:                         Roxanne\n    DISC:                          1\n    ALBUM:                         derived wavpack 20261005t010835 platterpus-fork-g174a134\n    ALBUM_ARTIST:                  The Police\n    DATE:                          2003\n    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410\n    ARTIST:                        The Police\n    ISRC:                          GBAAM0201086\n    CREATION_TIME:                 2026-10-04T22:57:13-04:00\n    REPLAYGAIN_TRACK_GAIN:         -4.10 dB\n    R128_TRACK_GAIN:               229\n    REPLAYGAIN_TRACK_RANGE:        6.54 dB\n    REPLAYGAIN_TRACK_PEAK:         1.029445\n    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS\n    DISCTOTAL:                     1\n\n  Paranoia status counts:\n    READ:          1250\n    VERIFY:        85\n    OVERLAP:       17\n\n  File(s):\n    The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/01 - Roxanne.flac\n\nFlushing encoders...\nSummary:\n\n  Integrated loudness:\n    I:         -13.1 LUFS\n    Threshold: -23.3 LUFS\n\n  Loudness range:\n    LRA:         6.1 LU\n    Threshold: -33.3 LUFS\n    LRA low:   -17.2 LUFS\n    LRA high:  -11.1 LUFS\n\n  Sample peak:\n    Peak:       -0.5 dBFS\n\n  True peak:\n    Peak:        0.1 dBFS\n\n  Preemphasis:   none detected\n\n  Properties:\n    Duration:    03:01.05\n    Samples:     7985040\n    Frames:      13580\n    Sample peak level: 94.3% (-0.5 dBFS)\n    True peak level:   0.1 dBFS\n    Integrated loudness (R128): -13.1 LUFS\n    Loudness range (R128):      6.1 LU (-17.2 to -11.1 LUFS)\n    Extraction speed:  1.2x\n    Elapsed:            156.59 s\n    Pregap LSN:  14327 (duration: 00:02.10)\n    Pregap length: 160 frames\n    Pregap source: sub-channel (not signalled by TOC)\n    Start LSN:   14487 (with offset: 14488)\n    End LSN:     28066 (with offset: 28068)\n\n  EAC CRC32:     985AAE32\n  Secure re-read:  not attempted\n  Accurip:       disc found in database (max confidence: 200)\n    Accurip v1:  A3019EB3 (accurately ripped, confidence 131)\n    Accurip v2:  31C28378 (accurately ripped, confidence 200)\n\n  Metadata:\n    TRACK:                         2\n    TRACKTOTAL:                    14\n    MUSICBRAINZ_DISCID:            pNtImOkdBm9RMBIalzx0w9cfsYY-\n    CDDB:                          E20DFE0E\n    MEDIA:                         CD\n    COMMENT:                       cyanrip 0.9.4-rc2+platterpus.19\n    TOTALDISCS:                    1\n    TITLE:                         Can’t Stand Losing You\n    DISC:                          1\n    ALBUM:                         derived wavpack 20261005t010835 platterpus-fork-g174a134\n    ALBUM_ARTIST:                  The Police\n    DATE:                          2003\n    MUSICBRAINZ_ALBUMID:           65282302-368b-4ba2-953a-483bcdef2410\n    ARTIST:                        The Police\n    ISRC:                          GBAAM0201089\n    CREATION_TIME:                 2026-10-04T23:00:03-04:00\n    REPLAYGAIN_TRACK_GAIN:         -4.88 dB\n    R128_TRACK_GAIN:               32\n    REPLAYGAIN_TRACK_RANGE:        6.07 dB\n    REPLAYGAIN_TRACK_PEAK:         1.008499\n    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS\n    DISCTOTAL:                     1\n\n  Paranoia status counts:\n    READ:          1105\n    VERIFY:        71\n    OVERLAP:       22\n\n  File(s):\n    The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/02 - Can’t Stand Losing You.flac\n\nAlbum Loudness Summary:\n\n  Integrated loudness:\n    I:         -13.5 LUFS\n    Threshold: -23.8 LUFS\n\n  Loudness range:\n    LRA:         6.6 LU\n    Threshold: -33.8 LUFS\n    LRA low:   -17.8 LUFS\n    LRA high:  -11.3 LUFS\n\n  Sample peak:\n    Peak:       -0.5 dBFS\n\n  True peak:\n    Peak:        0.3 dBFS\n\nAlbum integrated loudness (R128): -13.5 LUFS\nAlbum loudness range (R128):      6.6 LU (-17.8 to -11.3 LUFS)\nAlbum sample peak level:          -0.5 dBFS\nAlbum true peak level:            0.3 dBFS\nTracks ripped accurately: 2/14\n\nParanoia status counts:\n  READ:          2355\n  VERIFY:        156\n  OVERLAP:       39\n\nRipping errors: 0\nEncoder errors: none; 2 tracks encoded\nRead stalls:    none (no read exceeded 10s)\nRip completed:  yes (2 of 14 tracks)\nRipping finished at 2026-10-04T23:02:40-04:00"
+    },
+    "eac_log": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/derived wavpack 20261005t010835 platterpus-fork-g174a134 (EAC-compatible).log",
+      "exists": true,
+      "bytes": 3402,
+      "sha256": "0b9f78c63f91048480e7db560243a735c610c7f0bbce52c6f802e17cdec78f85",
+      "truncated": false,
+      "text": "Platterpus rip log in EAC's layout, not produced by Exact Audio Copy\n  Rendered from a rip by cyanrip 0.9.4-rc2+platterpus.19.\n  Ripper build: platterpus-fork-g174a134 — the Platterpus fork of cyanrip. Pre-gap, sample-peak and per-track timing rows below come from fork-only output.\n  Generated by Platterpus 0.6.65 (build 0981c69).\n  FLAC encoder: flac 1.5.0, metaflac 1.5.0.\n  Derived-format encoder: ffmpeg 8.1.3.\n  This is NOT a genuine EAC log, carries no EAC log checksum, and must\n  not be presented as an EAC rip. It mirrors EAC's layout — section\n  order, row wording and column alignment — so the two can be compared\n  directly. Rows the ripper does not report say so instead of guessing.\n\nExtraction logfile from 4. October 2026, 23:02 (UTC-04:00)\n\nThe Police / derived wavpack 20261005t010835 platterpus-fork-g174a134\n\nUsed drive  : PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n\nRead mode               : Secure\nUtilize accurate stream : (not reported by the ripper)\nDefeat audio cache      : Yes  (measured for this drive with cd-paranoia -A, not asserted from the ripper's log)\nMake use of C2 pointers : No\n\nRead offset correction                      : 667\nOverread into Lead-In and Lead-Out          : No\nFill up missing offset samples with silence : Yes\nDelete leading and trailing silent blocks   : No\nNull samples used in CRC calculations       : Yes\nUsed interface                              : Native Linux SCSI/MMC (libcdio-paranoia)\nGap handling                                : Appended to previous track\n\nUsed output format              : FLAC\nSelected bitrate                : (n/a — lossless)\nQuality                         : (n/a — lossless)\nAdd ID3 tag                     : No\nCommand line compressor         : (none — cyanrip encodes in-process via libavcodec)\nAdditional command line options : (none — no external compressor is invoked)\n\n\nTOC of the extracted CD  (partial — 2 of 14 disc tracks were selected for this rip)\n\n     Track |   Start  |  Length  | Start sector | End sector \n    ---------------------------------------------------------\n        1  |  0:00.00 |  3:13.12 |         0    |    14486   \n        2  |  3:13.12 |  3:01.05 |     14487    |    28066   \n\n\nTrack  1\n\n     Filename The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/01 - Roxanne.flac\n\n     Pre-gap length  0:00:02.00\n\n     Peak level 94.3 %\n     Extraction speed 1.1 X\n     Extraction time 0:02:50\n     Track quality (not reported by the ripper)\n     Copy CRC B0D122E7\n     Accurately ripped (confidence 200)  [22B9924D]  (AR v2)\n     Copy OK\n\nTrack  2\n\n     Filename The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/02 - Can’t Stand Losing You.flac\n\n     Pre-gap length  0:00:02.13\n\n     Peak level 94.3 %\n     Extraction speed 1.2 X\n     Extraction time 0:02:36\n     Track quality (not reported by the ripper)\n     Copy CRC 985AAE32\n     Accurately ripped (confidence 200)  [31C28378]  (AR v2)\n     Copy OK\n\n\n 2 track(s) accurately ripped\n\nAll ripped tracks accurately ripped — this log covers 2 of 14 disc tracks\n\nNo errors occurred\n\nRipper's own completion record : yes\n\nEnd of status report\n\n==== This log was generated by Platterpus and is NOT signed by Exact Audio Copy ====\n==== Platterpus log checksum (SHA-256 of the text above; NOT an EAC checksum): 1094e7780531f75f36c191528028c8698b2808e5ef278895dae554004f9d6121 ====\n"
+    },
+    "cue": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/derived wavpack 20261005t010835 platterpus-fork-g174a134.cue",
+      "exists": true,
+      "bytes": 688,
+      "sha256": "8f760467b909daef1a482a510d74bc6e5a3f8de9060a07cd87cfc1a61e1c2d7e",
+      "truncated": false,
+      "text": "REM MUSICBRAINZ_ID \"pNtImOkdBm9RMBIalzx0w9cfsYY-\"\nREM DISCID \"E20DFE0E\"\nREM MEDIA \"CD\"\nREM COMMENT \"cyanrip 0.9.4-rc2+platterpus.19\"\nREM TOTALDISCS \"1\"\nREM DISC \"1\"\nREM DATE \"2003\"\nREM MUSICBRAINZ_ALBUMID \"65282302-368b-4ba2-953a-483bcdef2410\"\nREM ARTIST \"The Police\"\nPERFORMER \"The Police\"\nTITLE \"derived wavpack 20261005t010835 platterpus-fork-g174a134\"\nFILE \"01 - Roxanne.flac\" WAVE\n  TRACK 01 AUDIO\n    TITLE \"Roxanne\"\n    PERFORMER \"The Police\"\n    ISRC GBAAM0201086\n    INDEX 01 00:00:00\n  TRACK 02 AUDIO\n    TITLE \"Can’t Stand Losing You\"\n    PERFORMER \"The Police\"\n    ISRC GBAAM0201089\n    INDEX 00 03:11:02\nFILE \"02 - Can’t Stand Losing You.flac\" WAVE\n    INDEX 01 00:00:00\n"
+    },
+    "addendum": {
+      "path": "/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/derived wavpack 20261005t010835 platterpus-fork-g174a134.platterpus-addendum.txt",
+      "exists": false,
+      "error": "[Errno 2] No such file or directory: '/home/rmccann/platterpus-rig/platterpustestsession20261005t010835z/rips/The Police/derived wavpack 20261005t010835 platterpus-fork-g174a134/derived wavpack 20261005t010835 platterpus-fork-g174a134.platterpus-addendum.txt'",
+      "missing": true
+    }
+  },
+  "debug": {
+    "scope": "this session since launch, excluding other albums' rips — INCOMPLETE: missing 8832 line(s) of the session, logged between 2026-10-04 21:18:41 (UTC-0400) and 2026-10-04 21:35:16 (UTC-0400), which the in-memory log dropped to bound its size. Each gap is marked in place in `lines` with its count; log.txt has every line",
+    "truncated": true,
+    "lines": [],
+    "lines_removed_by_extract": 3198
+  }
+}
