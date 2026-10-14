@@ -1867,7 +1867,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **747 -> 754** (2026-10-06, ruling C1, KDD-41): `OutcomeBlock` names `securing_pass_started` / `securing_pass_exit_code` and says `ripper_exit_code` is the album pass's (schema v31), beside the field it splits.
     # **754 -> 772** (2026-10-06, W6): `RipperRecordBlock`, schema v32's `outcome.ripper_record` (cyanrip's own `-j` record of the album pass), beside `OutcomeBlock`, the block it is a field of.
     # **772 -> 761** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: `RecompressBlock` and the three re-compress keys (schema v33).
-    "report_types.py": 761,
+    # **761 -> 768** (2026-10-14, schema v34): `RipBlock.accuraterip_disc_id` and
+    # `TrackBlock.data_crc32` / `data_sector_edc`, the fork's `.23` facts, each in
+    # the TypedDict it types.
+    "report_types.py": 768,
     # +23 on 2026-09-04: two SKIPs promoted to FAIL, with the reasoning that
     # separates them from the SKIP one branch up. "Nothing was given to look
     # at" and "a folder was given and holds no log" are different facts, and
@@ -1948,7 +1951,10 @@ _OVERSIZE_MODULES: Final[dict[str, int]] = {
     # **2705 -> 2731** (2026-10-06, W6): schema v32 — `build_outcome` takes cyanrip's own record and writes `ripper_record` (built by `ripper_ending.report_block`, because this is the one place holding the status, our exit code and the record), the `ripper_record_disagrees` issue, and the v32 note.
     # **2731 -> 2735** (2026-10-07): the defused-lines issue names both shapes it now covers, and the v29 note says the field widened without a schema bump.
     # **2735 -> 2677** (2026-10-07, the inert Re-compress FLACs setting removed on the maintainer's ruling): lowered: schema v33 — the re-compress serializer, gate, settings key and two issue rows went, and the v33 note sits beside the version.
-    "rip_report.py": 2677,
+    # **2677 -> 2696** (2026-10-14, schema v34): the disc's AccurateRip ID and a
+    # data track's CRC32 / sector-EDC verdict serialized, with the v34 note beside
+    # the version as every bump's is.
+    "rip_report.py": 2696,
     # +68 on 2026-09-04: round 15 split their P5 into P5 (121) and P5a (7,
     # "strings this document does NOT classify"). The addition is the two
     # decision lists — RETAINED_BEYOND_P5 gained five rows and P5A_NOT_RETAINED

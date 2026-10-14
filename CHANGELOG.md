@@ -29,6 +29,13 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   depends on is unchanged in `.23`. The argv check also reads the long-only flag
   rows `.23`'s contract will publish. Without that, `--consumer` and
   `--diagnostics` would have been reported missing from a table that lists both.
+- **The rip report records the disc's AccurateRip ID and a data track's own facts
+  (report schema v34).** `rip.accuraterip_disc_id` is the key the ripper's AccurateRip
+  lookup was made under. Upstream rc3 changed how it is computed for a disc with a
+  data track, so two reports of one disc can only be compared on AccurateRip if each
+  says which key it used. Each track gains `data_crc32` and `data_sector_edc`: a
+  copied data track's checksum and sector check. They are kept out of `copy_crc`,
+  which is an audio track's checksum. All three are null for builds before `.23`.
 
 ### Changed
 

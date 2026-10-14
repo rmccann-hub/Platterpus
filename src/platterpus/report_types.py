@@ -40,6 +40,9 @@ class RipBlock(TypedDict):
     # different claim from the argv it received. `issues` compares it against
     # `disc.musicbrainz_release_id`.
     ripper_release_id: str | None
+    #: v34: the disc's AccurateRip ID verbatim (`id1-id2-cddb`, lower-case hex),
+    #: from the ripper's `AccurateRip ID:` line. None before the fork's `.23`.
+    accuraterip_disc_id: str | None
     # v14: the ripper's own completion footer, tri-state. `rip_completed` is
     # `None` when the log was cut off or predates the fork pin — which is a
     # different fact from `False`, and must not render as one.
@@ -386,6 +389,10 @@ class TrackBlock(TypedDict):
     peak_level: float | None
     extraction_elapsed_seconds: float | None
     appended_silence_frames: int | None
+    #: v34: a data track's CRC32 and `Sector EDC:` verdict, verbatim (`.23`+).
+    #: Kept apart from `copy_crc`, which is an audio track's EAC CRC.
+    data_crc32: str | None
+    data_sector_edc: str | None
     start_sector: int | None
     end_sector: int | None
     pregap_sectors: int | None

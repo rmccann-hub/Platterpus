@@ -1205,7 +1205,11 @@ def test_schema_version_is_27() -> None:
     # v33 REMOVED the re-compress keys (`settings.recompress_flac_after_rip`,
     # `verification.gates.recompress`, `verification.recompress`, the
     # `recompress_failed` issue) with the inert "Re-compress FLACs" setting.
-    assert REPORT_SCHEMA_VERSION == 33
+    #
+    # v34 added `rip.accuraterip_disc_id` and, per track, `data_crc32` and
+    # `data_sector_edc`: what the fork's `.23` (upstream rc3) prints about the
+    # disc's AccurateRip key and a copied data track.
+    assert REPORT_SCHEMA_VERSION == 34
 
 
 def _issue_codes(report: dict) -> set[str]:

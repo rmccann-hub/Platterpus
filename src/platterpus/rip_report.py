@@ -286,7 +286,18 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #      (`uiscript/artifact_grading.settle_state`, the `expect-verification`
 #      floor) iterate the gates they find rather than naming them, so a v32
 #      report that still carries the keys reads exactly as before.
-REPORT_SCHEMA_VERSION: int = 33
+# v34: `rip.accuraterip_disc_id` and, per track, `data_crc32` and
+#      `data_sector_edc` — three facts the cyanrip fork's `.23` (upstream
+#      0.9.4-rc3) prints and the parser now reads. The disc's AccurateRip ID is
+#      the key its AccurateRip lookup was made under (`AccurateRip ID:`,
+#      `cyanrip@aa45b975:src/cyanrip_log.c:1007`), and rc3 changed how it is
+#      computed for a disc with a data track, so two reports of one disc can
+#      only be compared on AccurateRip if each says which key it asked under. A
+#      data track is copied to a `.bin` from `.23`, and its CRC32 and sector-EDC
+#      verdict (`:539-548`) are its own fields, never `copy_crc`, which is
+#      audio's EAC CRC and feeds the AccurateRip tally. All three are null on
+#      every earlier build and every legacy-format log. Additions only.
+REPORT_SCHEMA_VERSION: int = 34
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -1616,6 +1627,9 @@ def _rip_block(rip_log: object, info: object) -> dict:
         # release id where we meant it to. `outcome.ripper_argv` shows what it
         # received; only this shows what it used. `issues` compares the two.
         "ripper_release_id": getattr(rip_log, "release_id", "") or None,
+        # v34: the disc's AccurateRip ID as the ripper printed it (`.23`+), the
+        # key its AccurateRip lookup was made under. None on any earlier build.
+        "accuraterip_disc_id": getattr(rip_log, "accuraterip_disc_id", "") or None,
     }
 
 
@@ -1662,6 +1676,11 @@ def _track(track: object) -> dict:
         # disc audio, which is the most archival-relevant per-track fact we hold,
         # and it reached the EAC-layout log but never the JSON.
         "appended_silence_frames": getattr(track, "appended_silence_frames", None),
+        # v34: a DATA track's own CRC32 and sector-EDC verdict (`.23`+, which
+        # copies a data track to a `.bin`). Never in `copy_crc`, which is audio's
+        # EAC CRC and what the AccurateRip tally counts. None on audio tracks.
+        "data_crc32": getattr(track, "data_crc32", "") or None,
+        "data_sector_edc": getattr(track, "data_sector_edc", "") or None,
         # Absolute disc geometry (sectors). EAC's "TOC of the extracted CD" is
         # derived from these exactly, so without them the JSON could not
         # reconstruct a table the .log already shows.

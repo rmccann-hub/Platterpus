@@ -617,3 +617,35 @@ def test_the_rc3_shapes_never_raise_and_data_statuses_stay_closed(
         assert isinstance(track.data_crc32, str)
         assert isinstance(track.data_sector_edc, str)
     assert isinstance(parsed.accuraterip_disc_id, str)
+
+
+# --- 5. the report (schema v34) ------------------------------------------------
+
+
+def test_the_report_carries_the_accuraterip_id_and_a_data_tracks_own_facts() -> None:
+    """The three `.23` facts reach the JSON, and a data track's CRC stays its own.
+
+    A field the parser reads and the report drops is the hole the report exists to
+    close; and the data track's CRC must not surface as a `copy_crc`, which is the
+    key every reader of the report treats as an audio checksum.
+    """
+    from platterpus.rip_report import build_report
+
+    report = build_report(parse_cyanrip_log(_mixed_disc()), disc_track_total=3)
+    assert report["rip"]["accuraterip_disc_id"] == "00000672-0000130b-14000603"
+    data, audio, _ = report["tracks"]
+    assert data["data_crc32"] == "1A2B3C4D"
+    assert data["data_sector_edc"] == "all 150 sectors match"
+    assert data["copy_crc"] is None
+    assert data["status"] == DATA_TRACK_COPIED
+    assert audio["data_crc32"] is None and audio["data_sector_edc"] is None
+    assert audio["copy_crc"] == "00000002"
+
+
+def test_an_older_builds_report_carries_nulls_not_empty_strings() -> None:
+    """Absent means null in the JSON, as everywhere else in the report."""
+    from platterpus.rip_report import build_report
+
+    report = build_report(parse_cyanrip_log(_trailing_disc("Track 3 is data:")))
+    assert report["rip"]["accuraterip_disc_id"] is None
+    assert all(t["data_crc32"] is None for t in report["tracks"])
