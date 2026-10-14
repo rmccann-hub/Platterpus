@@ -238,3 +238,39 @@ def test_before_the_move_there_is_nothing_to_check_and_it_says_so(
         code, out = _run(root, mode)
         assert code == 0, (mode, out)
     assert "0 examined" in _run(root, "rows")[1]
+
+
+def test_laps_reports_citation_failures_and_nothing_else(
+    moved: dict[str, str | Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`laps` re-checks citations (LSL.4). An old lap's other findings were its
+    own round's business, so a REFUSED A3 must not fail the evidence job, and a
+    REFUSED LSL.4 must."""
+    from dataclasses import dataclass
+
+    from laplang import cli
+
+    root = _root(moved)
+    lap = root / "docs" / "handshake" / "outbound" / "round-99-lap-01.md"
+    lap.parent.mkdir(parents=True, exist_ok=True)
+    lap.write_text(
+        f"evidence: platterpus@{str(moved['evidence'])[:12]}:{FOLDER}/full.log\n"
+    )
+
+    @dataclass
+    class P:
+        rule: str
+        severity: str
+        line: int
+        message: str
+
+    @dataclass
+    class L:
+        problems: list[P]
+
+    found = [P("A3", "REFUSED", 3, "not about evidence")]
+    monkeypatch.setattr(cli, "check_path", lambda path, root: L(found))
+    assert em.check_laps(root) == ([], 1)
+    found.append(P("LSL.4", "REFUSED", 1, "hashes differently"))
+    problems, examined = em.check_laps(root)
+    assert examined == 1 and len(problems) == 1 and "hashes differently" in problems[0]

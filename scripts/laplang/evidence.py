@@ -45,6 +45,13 @@ MANIFEST_PATH: Final[str] = "docs/evidence-manifest.tsv"
 HEADER: Final[str] = "path\tbytes\tsha256\tevidence_commit\tlast_default_commit"
 EVIDENCE_BRANCH: Final[str] = "evidence"
 STRICT_ENV: Final[str] = "HR2_EVIDENCE_STRICT"
+#: The bound on anything that talks to a remote: a fetch, and a `show` in a
+#: blobless repository, which fetches the blob it reads. Not the local 30 s: a
+#: whole evidence commit is hundreds of MB, and a fetch killed part way leaves
+#: `shallow.lock` behind, so every later fetch into that repository fails with
+#: "remove the file manually to continue" (measured 2026-10-14, a dry run of
+#: the 425 MB move).
+NETWORK_TIMEOUT_S: Final[float] = 900.0
 
 _SHA40: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{40}$")
 _SHA256: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{64}$")
@@ -206,7 +213,7 @@ class Fetcher:
         why = self._fetch(temp, url, sha, blobless=True)
         if why is not None:
             return why
-        shown = run_git_bytes(temp, "show", f"{sha}:{path}")
+        shown = run_git_bytes(temp, "show", f"{sha}:{path}", timeout=NETWORK_TIMEOUT_S)
         if shown is None or shown.returncode != 0:
             return f"{path} does not exist at {sha}"
         return shown.stdout
@@ -218,10 +225,15 @@ class Fetcher:
         args = ["fetch", "-q", "--depth", "1"]
         if blobless:
             args.append("--filter=blob:none")
-        fetched = run_git(temp, *args, "origin", sha)
-        if fetched is None or fetched.returncode != 0:
-            said = (fetched.stderr.strip().splitlines() or [""])[-1] if fetched else ""
-            return f"could not fetch {sha} from {url} ({said or 'no answer'})"
+        fetched = run_git(temp, *args, "origin", sha, timeout=NETWORK_TIMEOUT_S)
+        if fetched is None:
+            return (
+                f"could not fetch {sha} from {url} (no answer within "
+                f"{NETWORK_TIMEOUT_S:.0f} s)"
+            )
+        if fetched.returncode != 0:
+            said = (fetched.stderr.strip().splitlines() or [""])[-1]
+            return f"could not fetch {sha} from {url} ({said or 'no message'})"
         self._fetched.add((url, sha))
         return None
 
@@ -278,6 +290,7 @@ class Fetcher:
                 "--filter=blob:none",
                 "origin",
                 f"+refs/heads/{EVIDENCE_BRANCH}:refs/heads/{EVIDENCE_BRANCH}",
+                timeout=NETWORK_TIMEOUT_S,
             )
             if fetched is None or fetched.returncode != 0:
                 return f"could not fetch the {EVIDENCE_BRANCH} branch from {url}"

@@ -22,7 +22,7 @@ import evidence_move as em  # noqa: E402 - needs the path line above
 from laplang.evidence import parse_manifest  # noqa: E402
 
 DATE = "2026-10-15T12:00:00Z"
-LISTED = ["docs/runs/round99", "docs/out/one.log"]
+LISTED = ["ev/runs/round99", "ev/out/one.log"]
 
 
 def _git(cwd: Path, *args: str) -> str:
@@ -38,11 +38,11 @@ def _git(cwd: Path, *args: str) -> str:
 def source(tmp_path: Path) -> tuple[Path, str]:
     repo = tmp_path / "repo"
     files = {
-        "docs/runs/round99/README.md": "# round 99\n",
-        "docs/runs/round99/full.log": "track 1 ok\n",
-        "docs/runs/round99/sub/report.json": '{"ok": true}\n',
-        "docs/out/one.log": "one\n",
-        "docs/out/spec.md": "stays\n",
+        "ev/runs/round99/README.md": "# round 99\n",
+        "ev/runs/round99/full.log": "track 1 ok\n",
+        "ev/runs/round99/sub/report.json": '{"ok": true}\n',
+        "ev/out/one.log": "one\n",
+        "ev/out/spec.md": "stays\n",
         "src/app.py": "print('not evidence')\n",
     }
     for path, text in files.items():
@@ -91,16 +91,16 @@ def test_a_rebuild_gives_the_same_commit_with_the_agreed_identity(
     assert "\nparent " not in header  # the first evidence commit is an orphan
     held = _git(clone, "ls-tree", "-r", "--name-only", first).split("\n")
     assert held == [
-        "docs/out/one.log",
-        "docs/runs/round99/README.md",
-        "docs/runs/round99/full.log",
-        "docs/runs/round99/sub/report.json",
+        "ev/out/one.log",
+        "ev/runs/round99/README.md",
+        "ev/runs/round99/full.log",
+        "ev/runs/round99/sub/report.json",
     ]
     assert [e.path for e in entries] == held
     assert em.check_built(clone, first, entries) == []
     # §5d: the folder's tree is the same object on both branches.
-    assert _git(clone, "rev-parse", f"{first}:docs/runs/round99") == _git(
-        repo, "rev-parse", f"{base}:docs/runs/round99"
+    assert _git(clone, "rev-parse", f"{first}:ev/runs/round99") == _git(
+        repo, "rev-parse", f"{base}:ev/runs/round99"
     )
 
 
@@ -112,7 +112,7 @@ def test_the_rows_parse_as_the_manifest_and_name_the_commit_and_base(
     rows, problems = parse_manifest(em.rows(clone, commit, base, entries))
     assert problems == []
     assert sorted(rows) == [e.path for e in entries]
-    row = rows["docs/runs/round99/full.log"]
+    row = rows["ev/runs/round99/full.log"]
     assert (row.size, row.evidence_commit, row.last_default_commit) == (
         11,
         commit,
@@ -124,7 +124,7 @@ def test_a_listed_entry_with_nothing_behind_it_is_refused(
     tmp_path: Path, source: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repo, base = source
-    monkeypatch.setattr(em, "moving_list", lambda: [*LISTED, "docs/runs/round98"])
+    monkeypatch.setattr(em, "moving_list", lambda: [*LISTED, "ev/runs/round98"])
     clone = tmp_path / "c"
     subprocess.run(
         ["git", "clone", "-q", "--depth", "1", f"file://{repo}", str(clone)],
@@ -140,7 +140,7 @@ def test_a_commit_missing_a_file_fails_the_pre_push_check(
 ) -> None:
     repo, base = source
     clone, commit, entries = _build(tmp_path, repo, base, "a", monkeypatch)
-    extra = em.Entry("docs/runs/round99/missing.log", "100644", "0" * 40, 5)
+    extra = em.Entry("ev/runs/round99/missing.log", "100644", "0" * 40, 5)
     assert any(
         "missing.log" in p for p in em.check_built(clone, commit, [*entries, extra])
     )

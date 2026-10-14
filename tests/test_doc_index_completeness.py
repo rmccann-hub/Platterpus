@@ -462,10 +462,10 @@ def filed_as_evidence(manifest_text: str | None) -> frozenset[str]:
 def test_a_pointer_at_a_file_filed_as_evidence_resolves_through_its_row() -> None:
     manifest = (
         "path\tbytes\tsha256\tevidence_commit\tlast_default_commit\n"
-        f"docs/handshake/artifactsround30/a.log\t1\t{'a' * 64}\t{'c' * 40}\t\n"
+        f"docs/handshake/artifactsround99/a.log\t1\t{'a' * 64}\t{'c' * 40}\t\n"
         f"tests/x.log\t1\t{'a' * 64}\t{'c' * 40}\t\n"
     )
-    assert filed_as_evidence(manifest) == {"handshake/artifactsround30/a.log"}
+    assert filed_as_evidence(manifest) == {"handshake/artifactsround99/a.log"}
     assert filed_as_evidence(None) == frozenset()
 
 

@@ -298,6 +298,9 @@ def check_move(root: Path, removal: str, folders: Sequence[str]) -> list[str]:
     return problems
 
 
+#: The lap-language rule that resolves an artifact citation (`laplang.check`).
+CITATION_RULE: Final[str] = "LSL.4"
+
 #: An evidence citation as a lap writes it: `platterpus@<commit>:<path>`.
 _CITATION: Final[re.Pattern[str]] = re.compile(
     r"\bplatterpus@(?P<sha>[0-9a-f]{7,40}):(?P<path>[A-Za-z0-9._/-]+)"
@@ -329,7 +332,10 @@ def check_laps(root: Path) -> tuple[list[str], int]:
     for lap in laps:
         checked = check_path(lap, root=root)
         for p in checked.problems:
-            if p.severity in ("REFUSED", "CANNOT"):
+            # Citation resolution only. A lap's other findings are its own
+            # round's business, judged when it was sent; re-trying old laps on
+            # every rule here would fail this job for something it is not about.
+            if p.rule == CITATION_RULE and p.severity in ("REFUSED", "CANNOT"):
                 problems.append(f"{lap.name}:{p.line} [{p.rule}] {p.message}")
     return problems, len(laps)
 

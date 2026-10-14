@@ -58,6 +58,15 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   and downloads a commit whole when many of its files are checked, and the move check
   fetches an evidence commit by hash when the clone lacks it.
 
+- **Evidence fetches get a network-sized time bound, and the evidence job judges only
+  citations.** A dry run of the 425 MB move showed the local 30 s git bound killing a whole
+  commit's fetch part way, which left `shallow.lock` behind and failed every later fetch
+  with "remove the file manually to continue". Fetches, and reads that fetch a blob, now
+  have 900 s. With it, all 752 rows of the dry run verified from a clone that lacked the
+  commit, in 59 s. `evidence_manifest.py laps` now reports citation failures only (LSL.4).
+  After the dry move, an old lap's unrelated finding had failed it, while all 18 old laps
+  citing moved files resolved.
+
 - **HR-2's agreed text is recorded word for word** in `docs/cyanrip-handshake.md` §7.4b,
   with our landing plan and a table of where each part is implemented.
 

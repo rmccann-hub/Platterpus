@@ -44,7 +44,9 @@ def decode_cited(data: bytes) -> str:
     return data.decode("utf-8", errors="replace")
 
 
-def run_git(root: Path, *args: str) -> subprocess.CompletedProcess[str] | None:
+def run_git(
+    root: Path, *args: str, timeout: float = GIT_TIMEOUT_S
+) -> subprocess.CompletedProcess[str] | None:
     """Run git in `root`. None means git could not be asked, which is unchecked.
 
     ``errors="replace"``: git's own output (a ref name, a path) is not promised
@@ -56,20 +58,22 @@ def run_git(root: Path, *args: str) -> subprocess.CompletedProcess[str] | None:
             capture_output=True,
             text=True,
             errors="replace",
-            timeout=GIT_TIMEOUT_S,
+            timeout=timeout,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
 
 
-def run_git_bytes(root: Path, *args: str) -> subprocess.CompletedProcess[bytes] | None:
+def run_git_bytes(
+    root: Path, *args: str, timeout: float = GIT_TIMEOUT_S
+) -> subprocess.CompletedProcess[bytes] | None:
     """:func:`run_git`, with stdout left as bytes for :func:`decode_cited`."""
     try:
         return subprocess.run(
             ["git", "-C", str(root), *args],
             capture_output=True,
-            timeout=GIT_TIMEOUT_S,
+            timeout=timeout,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
