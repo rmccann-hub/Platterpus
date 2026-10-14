@@ -57,6 +57,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   `main` with its run folder, now read `platterpus@4b793199:` before the path, naming
   the `main` commit that holds it.
 
+- **The rig-script path sweep leaves the evidence fixtures out, as it leaves
+  `docs/handshake/` out.** `tests/fixtures/evidence/` holds copies of filed run logs
+  (HR-2); two app logs there name the AppImage's own mount path of a rig script, true
+  on the run's date, and the sweep read them as live documents naming a missing file.
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.
