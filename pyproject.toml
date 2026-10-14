@@ -54,7 +54,7 @@ dependencies = [
     # green), while a MINOR bump becomes a deliberate commit that re-runs the gate.
     # `build/python-appimage/requirements.txt` must express the same range — it is
     # what actually ships — and a test asserts the two agree.
-    "PySide6>=6.11.1,<6.12",
+    "PySide6>=6.11.1,<6.13",
     "musicbrainzngs==0.7.1",
     "tomli-w>=1.0,<2",
     # Ed25519 verification of a release's minisign signature (the in-app
