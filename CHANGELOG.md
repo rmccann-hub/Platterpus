@@ -14,6 +14,14 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **HR-2's move: our run evidence is off `main` (round 33, step D).** The evidence commit
+  `c737fb6be1e24c7345983d26b5a4598e39897954` (756 files, 425,738,049 bytes, built at round
+  33 lap 1's instant from `25db8bd5`) is pushed to a new `evidence` branch. This removal
+  deletes the 744 files of the 11 moved run folders from `main`, keeps each folder's README
+  and `lsl-amendments-1.md` (HR-2.1 a), and adds `docs/evidence-manifest.tsv` with one row
+  per evidence file: path, bytes, SHA-256, evidence commit and the commit it was built from.
+  A lap cites one of those files as `platterpus@c737fb6b…:<path>` with its SHA-256, and a
+  tool reads it by fetching that commit by hash.
 - **Our round 33 lap 2 is released, on the operator's word (2026-10-14).** Its
   `HANDSHAKE-READY-TO-READ` is `yes`, quoting the instruction; nothing else in the lap
   changed. The envelope now leads with it, and the status block and the round row say
