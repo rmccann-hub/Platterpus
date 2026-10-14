@@ -12,7 +12,111 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ## [Unreleased]
 
+### Added
+
+- **The cyanrip log parser reads what the fork's next build, `.23`, adds to the
+  log.** `.23` merges upstream cyanrip 0.9.4-rc3, and the fork will not release it
+  until our parser accepts rc3's output. Every shape was read in their source at
+  `aa45b975`. The new `AccurateRip ID:` line is parsed: it is the key the AccurateRip
+  lookup was made under. The new `AcoustID:` line is ignored, with the reason
+  written down: nothing is ever submitted for us. rc3 now copies a data track to a
+  `.bin` instead of skipping it. A data track's block is read as its own track and
+  never as an audio one: its status says whether it was skipped, copied, copied with
+  errors, or not finished, and its `CRC32:` and `Sector EDC:` rows go to their own
+  fields, never to the audio CRC. A data track skipped under `-X` no longer
+  overwrites the last audio track's start and end sectors. The live track list marks
+  a data track done when its copy finishes. The `Speed:` line the read-speed ladder
+  depends on is unchanged in `.23`. The argv check also reads the long-only flag
+  rows `.23`'s contract will publish. Without that, `--consumer` and
+  `--diagnostics` would have been reported missing from a table that lists both.
+- **The rip report records the disc's AccurateRip ID and a data track's own facts
+  (report schema v34).** `rip.accuraterip_disc_id` is the key the ripper's AccurateRip
+  lookup was made under. Upstream rc3 changed how it is computed for a disc with a
+  data track, so two reports of one disc can only be compared on AccurateRip if each
+  says which key it used. Each track gains `data_crc32` and `data_sector_edc`: a
+  copied data track's checksum and sector check. They are kept out of `copy_crc`,
+  which is an audio track's checksum. All three are null for builds before `.23`.
+
 ### Changed
+
+- **A securing pass's own diagnostics record is now kept, and a missing one is
+  named** (TASKS R9). The securing pass re-reads selected tracks in a temporary
+  folder that is deleted when it ends, and its `--diagnostics` record went with it:
+  two of the 2026-10-13 Full run's eleven ripper invocations left no record, and
+  the session bundle's MANIFEST did not say so. The rip now copies the record into
+  the rips folder beside the album pass's, named `…-securingpass.json`, before the
+  folder goes, and the rip's bundle carries it. When it cannot, the report says
+  why in a new `outcome.securing_pass_record` block (report schema 34) with an
+  `info` issue, and the session MANIFEST's `ripper -j records missing` line names
+  every pass whose record is missing, with the reason.
+
+- **The acceptance run now compares the pregap lists of every rip of one disc** (TASKS
+  R10). Every grader read one rip at a time, so on the 2026-10-13 Full run nothing of
+  ours noticed that the secure re-read's log left out track 4's 158-frame pregap, which
+  the whole-disc rip of the same disc listed; the fork found it. A new verb,
+  `expect-pregaps-agree`, run by a new section P4, reads the `Gaps:` block of every
+  cyanrip log the run wrote, groups them by Disc ID and names each track where two rips
+  disagree, with which logs said what. On the filed round-32 logs it names exactly
+  tracks 4 and 9 (94 frames against 95). A disagreement is recorded as `info`, declared
+  in advance: it moves no sample, no log can say which reading is right, and it is the
+  fork's known variance. Fewer than two comparable logs of one disc is `blocked`, never
+  "agree".
+
+- **A rip is now checked against the disc its tags were looked up for.** Until now
+  nothing compared the disc ID the MusicBrainz release was found by with the disc ID
+  the rip's own log reports. A disc swapped after the scan, one the drive poller
+  missed, would put one album's audio under another album's tags, and AccurateRip
+  cannot catch that because it checks the disc that was actually read. The disc ID is
+  now saved when you press Start. Both IDs are MusicBrainz disc IDs that cyanrip
+  computes from the disc's table of contents. When the rip ends, the two are compared
+  and there are three possible results. *Match*. *Mismatch*. *Not determined*, when
+  either ID is missing or not shaped like a disc ID. Not determined is never a pass
+  and never a mismatch. On a mismatch, the result screen's verdict turns amber and
+  says the tags may name another album, and the status line and the app log say the
+  same. The report (schema v34, `disc.lookup_disc_id` and `disc.identity_check`) gets
+  a downgraded verdict and an `error` issue, and the album audit gets a warning.
+  Nothing is deleted or moved, because the audio may be a perfect rip of the disc
+  that was really in the drive. On our filing of the 2026-10-13 run, the disc ID of
+  every MusicBrainz lookup matches the disc ID in each of the 11 cyanrip logs.
+
+- **The acceptance script's two pre-emphasis rips now name their caller and write a
+  record, like every app rip.** The cyanrip fork asked for this in round 32 lap 9 (S9).
+  Section R16 calls cyanrip directly. On 2026-10-13 its two logs read `Consumer: not
+  identified (no --consumer given)` and wrote no `--diagnostics` record. A `cyanrip`
+  script line now accepts two placeholders. `(consumer)` expands to `--consumer
+  platterpus/<version>` and `(diagnostics)` to `--diagnostics
+  cyanrip-diagnostics-<stamp>.json`. Both come from the same functions the app's own rip
+  argument builder now calls, so a script cannot send different words from an app rip.
+  The consumer flag goes only to a build known to accept it, as for an app rip. When it
+  is left out, the step's record says why. The line still goes through the same `-N`
+  check as before. The fork's `.22` build accepts both flags.
+
+- **An evidence bundle no longer carries your home folder's path, except inside signed
+  logs.** The cyanrip fork asked for this in round 32 lap 9 (S10): when they filed the
+  2026-10-13 bundle they had to replace home paths in nine files by hand. Every text file
+  is now written with `/home/<name>`, `/var/home/<name>`, `/Users/<name>`,
+  `C:\Users\<name>` and this machine's own home replaced by `~`, using the same pattern
+  as the fork's own tool. The manifest replaces them in its own text too. Nothing changes
+  silently: `MANIFEST.txt` names each changed file with its count and its SHA-256 from
+  before the change, and the S8 hashes are of the replaced bytes, which are the bytes a
+  receiver extracts. Two kinds of file are written exactly as they were: cyanrip's logs,
+  which are signed (`--verify-log` checks every byte), and our EAC-compatible logs, which
+  end in our own checksum. Replacing a path in either would make a genuine log fail its
+  own check. The manifest names them with the number of home paths still in them, and the
+  fork's ingester verifies them first and replaces the paths afterwards. In our filing of
+  the 2026-10-13 run, the 22 signed logs contain no home paths, because cyanrip is given
+  relative paths. The other files contained 1,985. Hostnames and names are not
+  replaced, and the manifest says so.
+
+- **Every file in an evidence bundle now has its SHA-256 in `MANIFEST.txt`.** The cyanrip
+  fork asked for this in round 32 lap 9 (S8). The manifest gave each file's size and no
+  hash, so a receiver could check a filing only against the archive as it reached them.
+  The new block uses `sha256sum`'s own line format, so after extracting the archive,
+  `grep -E '^\\?[0-9a-f]{64}  ' MANIFEST.txt | sha256sum -c` checks every file. The
+  hashes are of the bytes written into the archive. A file the size cap shortened is
+  hashed with its elision marker, because that is what a receiver extracts. The new
+  block comes after the existing blocks, which keep their shape. The fork's ingester does
+  not parse the manifest, so nothing of theirs reads it differently.
 
 - **Round 32 is closed, and the default cyanrip build is now the fork's `.22`
   (`200530e`).** The fork's lap 9 declared `GO` after our lap 8, so both sides' checks

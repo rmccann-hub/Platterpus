@@ -1310,6 +1310,26 @@ test-script run.
    conclusions from the gap. Same rule as `diagnostics.py`: *a silent truncation reads
    as completeness*, and where a file must be bounded it keeps **head and tail** with a
    counted elision, because a tool's fatal message is the last thing it prints.
+   **Every included member also carries its SHA-256** (from 2026-10-14, the fork's round
+   32 lap 9 S8), in a block of `MANIFEST.txt` lines in `sha256sum`'s own format
+   (`bundle_integrity.py`), so a
+   receiver checks a filing against the sender's hashes with
+   `grep … MANIFEST.txt | sha256sum -c` and needs no parser of ours. The hash is of the
+   bytes **written into the archive**, never of the file on disk: a bounded file is
+   hashed with its elision marker, because that is what a receiver extracts. The block
+   was added after every older block and changed none of them, so an older reader of
+   the manifest is unaffected (`tests/test_evidence_bundle_hashes.py`).
+   **Home-folder paths become `~` as each text member is written** (from 2026-10-14,
+   their S10, `export_redaction.py`), and the replacement comes before the budget, the
+   write and the hash, so all three describe the bytes a receiver extracts. A change
+   made to evidence is never silent: the manifest names each changed member with its
+   count and its hash *before* the change, so the rig's copy still matches. **A member
+   whose bytes are signed is the exception, judged by content:** a cyanrip log (its
+   `Log FUN512:` line) and our EAC-compatible log (its checksum footer) are written
+   byte for byte and named with the paths they still carry, because replacing a path
+   would make a genuine log fail its own check. The receiver can verify first and
+   replace after, which is what the fork's ingester does
+   (`tests/test_export_redaction.py`, run over our own filing of the round 32 run).
 
 4. **Off the GUI thread, and it never raises.** Gzipping a 4 MB log plus its rotations
    is not a few-milliseconds operation (§3.2), so it runs on a plain daemon thread —

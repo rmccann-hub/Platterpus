@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from platterpus import diagnostics
+from platterpus import diagnostics, record_fate
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -1324,21 +1324,27 @@ class _ArgvHandle(_FakeHandle):
     argv: tuple[str, ...] = ()
 
 
-def test_only_the_album_passs_record_is_named_and_nothing_is_moved(
+def test_the_album_passs_record_stays_put_and_the_securing_passs_is_kept_beside_it(
     qapp: QApplication, tmp_path: Path
 ) -> None:
-    """TASKS, the `-j` rows: records are collected where cyanrip writes them.
+    """TASKS R9: both records end up in the rips root, and neither in the album.
 
     The album pass writes its record in the rips root, and the worker names it
-    for the report bundle. It is not moved: a rip leaves only its .log, .cue and
+    for the report bundle without moving it: a rip leaves only its .log, .cue and
     .platterpus.json in the album folder (the maintainer, 2026-09-27). The
-    auto-fix re-rip runs in a temp folder that is deleted when it finishes, as it
-    always was, so its record is not named for a bundle that would find it gone.
+    securing pass runs in a temp folder deleted when it ends, and until
+    2026-10-14 its record was deleted with it, unsaid (two of the 2026-10-13 Full
+    run's eleven invocations). It is now copied into the rips root under a name
+    that says which pass wrote it, before the folder goes, and named too.
+
+    The stand-in writes each record where cyanrip would: a relative name in the
+    folder the pass ran in, which for the securing pass is the temp folder.
     """
     handle = _ArgvHandle(lines=["ripping"], exit_code=0)
     backend = _FakeBackend(handle=handle)
     write_logs = _fake_rip_writer(_PASS1_UNSTABLE, _rerip_ok_log(), True)
     names: list[str] = []
+    temp_folders: list[Path] = []
 
     def rip_side_effect(call: dict) -> None:
         write_logs(call)
@@ -1347,6 +1353,47 @@ def test_only_the_album_passs_record_is_named_and_nothing_is_moved(
         names.append(name)
         handle.argv = ("cyanrip", "-N", "--diagnostics", name)
         (call["output_dir"] / name).write_text(f'{{"pass": {len(names)}}}\n')
+        if call["only_tracks"]:
+            temp_folders.append(call["output_dir"])
+
+    backend.rip_side_effect = rip_side_effect
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    lines: list[str] = []
+    worker.log_line.connect(lines.append)
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 2 and backend.rip_calls[1]["only_tracks"]
+    kept = tmp_path / "cyanrip-diagnostics-20260927000001Z-securingpass.json"
+    assert worker.diagnostics_records == (tmp_path / names[0], kept)
+    assert (tmp_path / names[0]).read_text() == '{"pass": 1}\n', "it was moved"
+    assert kept.read_text() == '{"pass": 2}\n', "the copy is not the pass's record"
+    assert temp_folders and not temp_folders[0].exists(), "the temp folder stayed"
+    fate = worker.securing_pass_record
+    assert (fate.state, fate.path) == (record_fate.STATE_KEPT, kept)
+    assert any(kept.name in line for line in lines), lines
+    album = tmp_path / "Artist" / "Album"
+    assert not list(album.glob("cyanrip-diagnostics-*.json")), (
+        "a diagnostics record is in the album folder"
+    )
+
+
+def test_a_securing_pass_that_wrote_no_record_is_named_missing_with_why(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """R9's other half: a pass ran, its record is not there, and that is said."""
+    handle = _ArgvHandle(lines=["ripping"], exit_code=0)
+    backend = _FakeBackend(handle=handle)
+    write_logs = _fake_rip_writer(_PASS1_UNSTABLE, _rerip_ok_log(), True)
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        name = "cyanrip-diagnostics-20261013T162022Z.json"
+        handle.argv = ("cyanrip", "-N", "--diagnostics", name)
+        if not call["only_tracks"]:
+            (call["output_dir"] / name).write_text("{}\n")  # the album pass's only
 
     backend.rip_side_effect = rip_side_effect
     worker = RipWorker(
@@ -1355,13 +1402,62 @@ def test_only_the_album_passs_record_is_named_and_nothing_is_moved(
     )
     worker.start_rip()
 
-    assert len(backend.rip_calls) == 2 and backend.rip_calls[1]["only_tracks"]
-    assert worker.diagnostics_records == (tmp_path / names[0],)
-    assert (tmp_path / names[0]).read_text() == '{"pass": 1}\n', "it was moved"
-    album = tmp_path / "Artist" / "Album"
-    assert not list(album.glob("cyanrip-diagnostics-*.json")), (
-        "a diagnostics record is in the album folder"
+    assert len(backend.rip_calls) == 2, "floor: the securing pass never ran"
+    fate = worker.securing_pass_record
+    assert fate.state == record_fate.STATE_MISSING
+    assert fate.path is not None and fate.path.name == (
+        "cyanrip-diagnostics-20261013T162022Z.json"
     )
+    assert "was not there when the securing pass ended" in fate.detail
+    assert worker.diagnostics_records == (
+        tmp_path / "cyanrip-diagnostics-20261013T162022Z.json",
+    ), "a missing record must not be named as if it were there"
+    assert not list(tmp_path.glob("*securingpass*"))
+
+
+def test_a_cancelled_securing_pass_names_its_missing_record_as_a_cancel(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Cancelled mid-pass: cyanrip writes the record as it exits, after we look.
+
+    The reason says so, rather than reading like a crash, and the pass is not
+    called ``not_run``: it ran, and its record is missing.
+    """
+    handle = _ArgvHandle(lines=["ripping"], exit_code=0)
+    backend = _FakeBackend(handle=handle)
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+    write_logs = _fake_rip_writer(
+        _PASS1_TWO_UNSTABLE, _REFIX_STOPPED_DURING_TRACK_3, True
+    )
+
+    def rip_side_effect(call: dict) -> None:
+        write_logs(call)
+        handle.argv = ("cyanrip", "-N", "--diagnostics", "rec.json")
+        if call["only_tracks"]:
+            worker.cancel()
+            worker.abandon_log_wait()
+
+    backend.rip_side_effect = rip_side_effect
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 2, "floor: the securing pass never ran"
+    fate = worker.securing_pass_record
+    assert fate.state == record_fate.STATE_MISSING, fate
+    assert "the rip was cancelled" in fate.detail, fate.detail
+
+
+def test_a_rip_with_no_securing_pass_has_no_record_due(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """``not_run`` is only for a pass that never started, so nothing is missing."""
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(backend, _params(tmp_path))
+    worker.start_rip()
+    assert len(backend.rip_calls) == 1, "floor: a securing pass ran after all"
+    assert worker.securing_pass_record.state == record_fate.STATE_NOT_RUN
 
 
 _FORK_RECORDS: Path = (

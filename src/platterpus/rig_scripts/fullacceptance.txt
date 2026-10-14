@@ -1509,18 +1509,49 @@ snapshot afterc1
 # unattended run is how a run is lost to its own instrumentation. It is filed in
 # `TASKS.md` instead, which is the honest place for a capability we have not
 # built.
+#
+# EVERY LOG OF A RUN NAMES ITS CALLER AND HAS A RECORD (the fork's round 32
+# lap 9 S9, their data register's X8). These two rips call cyanrip directly, so
+# on 2026-10-13 their logs read `Consumer: not identified (no --consumer
+# given)` and they wrote no `--diagnostics` record, unlike every app rip.
+# `(consumer)` and `(diagnostics)` expand to the words an app rip sends, from
+# the functions its argv builder calls (`expand_identity`): `--consumer
+# platterpus/<this version>` on a build known to accept it, and `--diagnostics
+# cyanrip-diagnostics-<stamp>.json`, written in the rips folder where the
+# session bundle collects every record.
 
 log --- P3. R16 CC2: -H -E (forced de-emphasis) ---
 run-size full
-cyanrip -N -s (offset) -l 1 -H -E -D r16deemphon
+cyanrip -N -s (offset) -l 1 -H -E -D r16deemphon (consumer) (diagnostics)
 expect-exit 0
 snapshot afterdeemphon
 
 log --- P3. R16 CC2: -H -W (de-emphasis disabled), the control ---
 run-size full
-cyanrip -N -s (offset) -l 1 -H -W -D r16deemphoff
+cyanrip -N -s (offset) -l 1 -H -W -D r16deemphoff (consumer) (diagnostics)
 expect-exit 0
 snapshot afterdeemphoff
+
+# --- P4. EVERY RIP OF THIS DISC: DO THEIR PREGAP LISTS AGREE? (TASKS R10) ---
+# Every section above reads ONE rip. This one reads every cyanrip log the run
+# wrote - each album's, each securing pass's, P3's - and compares their Gaps:
+# lists, disc by disc, naming each track where two rips of one disc disagree.
+# On the 2026-10-13 Full run the secure re-read (N) left out track 4's
+# 158-frame pregap that the whole-disc rip (F) listed, and track 9 read 94
+# frames in some rips and 95 in others; the fork found it, and nothing of ours
+# could have, because nothing compared two rips.
+#
+# INFO EITHER WAY, BY DECLARATION (docs/testing.md, Acceptance severity, P4).
+# A disagreement is the fork's known detector variance, it moves no sample (a
+# merged pregap stays at the end of the previous track), and no log can say
+# which reading is right; it is gathered for the fork with every track named.
+# BLOCKED when fewer than two logs of one disc could be compared: a check that
+# passed on finding nothing would be decoration, and a run whose rips left no
+# two comparable logs has lost its provenance record. `standard`, because a
+# Quick run rips once and could only ever be blocked here.
+log --- P4. every rip of this disc: do their pregap lists agree? ---
+run-size standard
+expect-pregaps-agree
 
 # --- Q. LEAVE THE RIG AS WE FOUND IT ---------------------------------------
 # Restoring is not tidiness. Uniform secure re-read doubles every future rip on

@@ -240,6 +240,56 @@ def expand_offset(args: list[str], offset: int) -> list[str]:
     return [arg.replace(OFFSET_PLACEHOLDER, str(offset)) for arg in args]
 
 
+#: In a ``cyanrip`` step, a WHOLE argument that expands to the two words every app
+#: rip sends to name its caller: ``--consumer platterpus/<version>``. Whole-word,
+#: because it can expand to nothing (a build that does not accept the flag).
+CONSUMER_PLACEHOLDER: str = "(consumer)"
+#: In a ``cyanrip`` step, a whole argument that expands to the two words every app
+#: rip sends for cyanrip's machine-readable record: ``--diagnostics <unique>.json``.
+DIAGNOSTICS_PLACEHOLDER: str = "(diagnostics)"
+
+
+def expand_identity(args: list[str], *, build_tag: str) -> tuple[list[str], list[str]]:
+    """``args`` with the two identity placeholders expanded, and a note per gap.
+
+    **Why placeholders and not typed flags** (the fork's round 32 lap 9 S9: the
+    acceptance script's pre-emphasis rips called cyanrip directly, so their logs
+    read ``Consumer: not identified`` and they wrote no record). A script cannot
+    type ``platterpus/0.7.104``: the version moves every release, and a stale one
+    would be recorded in an archival log as the program that made it. So the words
+    come from the SAME functions the app's rip argv builder calls
+    (``consumer_args_for_build``, ``diagnostics_args``), under the same gate, and
+    a script line cannot send what an app rip would not.
+
+    ``build_tag`` is the ripper build the run has seen. An unknown or older build
+    gets no ``--consumer`` — the app's fail-safe direction, since cyanrip exits
+    non-zero on an option it does not know — and the returned note says so, so
+    the omission is recorded beside the step rather than silent.
+    """
+    from platterpus.adapters.cyanrip_backend import (
+        consumer_args_for_build,
+        diagnostics_args,
+    )
+
+    out: list[str] = []
+    notes: list[str] = []
+    for arg in args:
+        if arg == CONSUMER_PLACEHOLDER:
+            words = consumer_args_for_build(build_tag)
+            if not words:
+                notes.append(
+                    f"{CONSUMER_PLACEHOLDER} sent nothing: the ripper build "
+                    f"{build_tag or '(not determined)'} is not one known to accept "
+                    "--consumer, so this log will not name its caller"
+                )
+            out += words
+        elif arg == DIAGNOSTICS_PLACEHOLDER:
+            out += diagnostics_args()
+        else:
+            out.append(arg)
+    return out, notes
+
+
 def args_as_preflight_sees_them(args: list[str]) -> list[str]:
     """The argv the sanitiser judges BEFORE the run, when no offset is known yet.
 
@@ -247,8 +297,13 @@ def args_as_preflight_sees_them(args: list[str]) -> list[str]:
     still checked; the real value is range-checked when the step runs, by the same
     sanitiser, on the expanded argv. One function, so the runner's preflight and
     the committed-script sweep cannot judge a line two different ways.
+
+    The identity placeholders expand as they would for the production build, so
+    the consumer tag itself is judged by the chokepoint before the run too.
     """
-    return expand_offset(args, 0)
+    from platterpus.deps.fork_source import FORK_EXPECTED_BUILD_TAG
+
+    return expand_identity(expand_offset(args, 0), build_tag=FORK_EXPECTED_BUILD_TAG)[0]
 
 
 def sanitise_cyanrip_args(args: list[str]) -> str | None:

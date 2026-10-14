@@ -549,6 +549,17 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-rip-argv <with|without> <flag> — the last rip's whole-disc pass "
         "sent this cyanrip flag, or left it out, read from the argv as spawned",
     ),
+    # The one grader that reads a whole RUN rather than one rip (TASKS R10,
+    # `pregap_verbs.py`): the fork found a pregap one rip of a disc omitted and
+    # another listed, and nothing of ours compared two rips of one disc.
+    Verb(
+        "expect-pregaps-agree",
+        0,
+        0,
+        "expect-pregaps-agree — every rip of one disc in this run lists the same "
+        "pregaps (cyanrip's Gaps: block), naming each track that differs; info "
+        "either way, blocked when fewer than two logs of one disc could be compared",
+    ),
     # The rig verbs (`probe_verbs.py`), from round 30. `expect-newest-pair` is
     # D3, agreed with the fork and ruled by our operator (option A): a run tests
     # only the newest pair. The other two are the fork's round 30 lap 3 S24:
@@ -844,7 +855,9 @@ _VERB_LIST: tuple[Verb, ...] = (
         "cyanrip <args…> — run the host-exported ripper for real, IN THE RIPS "
         "FOLDER (the output directory; an acceptance session's own rips folder), "
         "so a relative -D lands beside the app's rips; capture its exit code, "
-        "exact argv, that folder and complete output",
+        "exact argv, that folder and complete output. (offset) expands to the "
+        "drive's read offset; (consumer) and (diagnostics) to the --consumer and "
+        "--diagnostics words an app rip sends",
         takes_paths=True,
     ),
     Verb(

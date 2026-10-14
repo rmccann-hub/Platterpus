@@ -84,6 +84,7 @@ from platterpus.verdict import (
     accuraterip_db_max_confidence,
     accuraterip_state,
     accuraterip_verdict,
+    apply_downgrades,
     reconcile_ar_ctdb,
 )
 
@@ -945,15 +946,9 @@ class RipProgress(QWidget):
         if not base and not self._verdict_downgrades:
             self._verdict_banner.setVisible(False)
             return
-        if self._verdict_downgrades:
-            # Drop a leading "✓" — the tick is a claim this text no longer
-            # supports. With no base verdict at all the reasons stand alone.
-            headline = base.lstrip("✓ ").strip() if base.startswith("✓") else base
-            joined = "; ".join(self._verdict_downgrades)
-            text = f"⚠ {headline} — {joined}" if headline else f"⚠ {joined}"
-            level = "warn"
-        else:
-            text = base
+        # One assembly, shared with the report's verdict (`apply_downgrades`), so
+        # the window and the record cannot word the same downgrade two ways.
+        text, level = apply_downgrades(base, level, self._verdict_downgrades)
         self._verdict_banner.setText(text)
         self._verdict_banner.setStyleSheet(status_style(level, self._verdict_banner))
         self._verdict_banner.setVisible(True)

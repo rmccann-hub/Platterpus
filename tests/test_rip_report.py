@@ -776,6 +776,10 @@ def test_disc_block_carries_provenance() -> None:
         _sample_log(),
         disc={"unknown": False, "musicbrainz_release_id": "release-123"},
     )
+    # v34: the builder adds the identity comparison; with no lookup ID supplied it
+    # is `not_determined`, never a pass.
+    identity = report["disc"].pop("identity_check")
+    assert identity["status"] == "not_determined", identity
     assert report["disc"] == {
         "unknown": False,
         "musicbrainz_release_id": "release-123",
@@ -1205,7 +1209,15 @@ def test_schema_version_is_27() -> None:
     # v33 REMOVED the re-compress keys (`settings.recompress_flac_after_rip`,
     # `verification.gates.recompress`, `verification.recompress`, the
     # `recompress_failed` issue) with the inert "Re-compress FLACs" setting.
-    assert REPORT_SCHEMA_VERSION == 33
+    #
+    # v34 added `rip.accuraterip_disc_id` and, per track, `data_crc32` and
+    # `data_sector_edc`: what the fork's `.23` (upstream rc3) prints about the
+    # disc's AccurateRip key and a copied data track.
+    # v34 added `outcome.securing_pass_record`: what became of the securing pass's
+    # own `--diagnostics` record, kept or missing and why (TASKS R9).
+    # v34 added `disc.lookup_disc_id` and `disc.identity_check`: the disc ID the
+    # tags were looked up for, compared with the rip log's (TASKS P1 #1).
+    assert REPORT_SCHEMA_VERSION == 34
 
 
 def _issue_codes(report: dict) -> set[str]:

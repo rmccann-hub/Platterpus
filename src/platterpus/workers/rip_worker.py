@@ -38,6 +38,7 @@ from platterpus import (
     diagnostics_record,
     drive_control,
     inbound_text,
+    record_fate,
     rip_estimate,
     ripper_exit,
 )
@@ -159,6 +160,12 @@ class RipParameters:
     # The drive's measured reading speed (or the rig's for its model), for the
     # up-front time estimate (`rip_estimate`). None: no estimate up front.
     read_rate: ReadRate | None = None
+    # The MusicBrainz disc ID of the disc that was scanned before this rip, the
+    # one its MusicBrainz lookup was made with. Snapshotted at Start, so the rip's
+    # own log can be compared with it afterwards (`disc_identity`): a disc swapped
+    # after the scan would otherwise be filed under the scanned disc's tags.
+    # "" = no scan ID to compare against, which reads as "not determined".
+    lookup_disc_id: str = ""
 
 
 # Human-readable phase descriptions for the status line. Without these
@@ -1026,6 +1033,12 @@ class RipWorker(QObject):
         # stays there, in the rips root; the report bundle collects it by name
         # (`diagnostics_record` says why it is not moved).
         self._diagnostics_records: list[Path] = []
+        # The securing pass's record: where its argv told cyanrip to write it
+        # (inside the pass's temp folder; None until that pass is spawned, and
+        # None if its argv named none), and what became of it once the folder
+        # was cleared (TASKS R9). `not_run` until a securing pass is spawned.
+        self._securing_record_source: Path | None = None
+        self._securing_record: record_fate.RecordFate = record_fate.RecordFate()
         # The last album pass's record, and what it says about how that pass
         # ended (`ripper_ending`, W6). None until read, at the end of the rip.
         self._album_record: Path | None = None
@@ -2336,12 +2349,16 @@ class RipWorker(QObject):
             if pass_kind == _PASS_REFIX:
                 self._securing_pass_started = True
             # Where this pass's `-j` record goes, read off the argv as spawned and
-            # the directory it ran in. Album passes only: an auto-fix pass runs in
-            # a temp folder that is deleted afterwards, so its record is not
-            # named for a bundle that would find it gone.
+            # the directory it ran in. An album pass's stays where cyanrip wrote
+            # it, in the rips root, and is named for the bundle below. The
+            # securing pass runs in a temp folder deleted afterwards, so its
+            # record is only REMEMBERED here; `_keep_securing_pass_record` copies
+            # it into the rips root before that folder goes (TASKS R9).
             record = diagnostics_record.record_path_from_argv(
                 self._ripper_argv, out_dir
             )
+            if pass_kind == _PASS_REFIX:
+                self._securing_record_source = record
             if incremental:
                 # The LAST album pass's record is the one whose ending the rip's
                 # status describes (W6); None when its argv named no record.
@@ -3283,7 +3300,49 @@ class RipWorker(QObject):
         finally:
             if tmp_root is not None:
                 self._keep_securing_pass_log(tmp_root, album_log_path)
+                # Before the folder goes, on every path out of here: swapped,
+                # nothing swapped, stopped, or failed (TASKS R9).
+                self._keep_securing_pass_record()
                 shutil.rmtree(tmp_root, ignore_errors=True)
+
+    def _keep_securing_pass_record(self) -> None:
+        """Keep the securing pass's ``--diagnostics`` record, or say why not.
+
+        Called from :meth:`_auto_fix_tracks`'s ``finally``, before the pass's
+        temporary folder is deleted; until 2026-10-14 the record went with it,
+        unsaid (TASKS R9). The copy goes into the rips root beside the album
+        passes' records, never the album folder (a rip leaves only its log, cue
+        and report there), and joins :attr:`diagnostics_records` so the rip's
+        bundle carries it. What became of it is :attr:`securing_pass_record`,
+        which the report writes and the session bundle reads back
+        (:mod:`platterpus.record_fate`). Never raises.
+        """
+        try:
+            fate = record_fate.keep_securing_record(
+                self._securing_record_source,
+                Path(self._params.output_dir),
+                started=self._securing_pass_started,
+                cancelled=self._cancelled,
+            )
+        except Exception:  # noqa: BLE001 — runs in a `finally`; must not abort the rip
+            log.exception("could not keep the securing pass's -j record")
+            fate = record_fate.RecordFate(
+                record_fate.STATE_MISSING,
+                self._securing_record_source,
+                "an unexpected error stopped the copy; the app log has the traceback",
+            )
+        self._securing_record = fate
+        if fate.state == record_fate.STATE_KEPT and fate.path is not None:
+            if fate.path not in self._diagnostics_records:
+                self._diagnostics_records.append(fate.path)
+            self.log_line.emit(
+                f"[auto-fix] the securing pass's own -j record is kept as "
+                f"{fate.path.name}"
+            )
+        elif fate.state == record_fate.STATE_MISSING:
+            self.log_line.emit(
+                f"[auto-fix] no securing-pass record kept: {fate.detail}"
+            )
 
     def _keep_securing_pass_log(self, tmp_root: Path, album_log_path: str) -> None:
         """Keep the securing pass's own ripper log beside the album's. Never raises.
@@ -3661,8 +3720,18 @@ class RipWorker(QObject):
         return self._ripper_argv_first_pass
 
     @property
+    def securing_pass_record(self) -> record_fate.RecordFate:
+        """What became of the securing pass's own ``--diagnostics`` record (R9).
+
+        ``not_run`` when no securing pass ripper was spawned; otherwise ``kept``
+        (copied into the rips root) or ``missing`` with the reason.
+        """
+        return self._securing_record
+
+    @property
     def diagnostics_records(self) -> tuple[Path, ...]:
-        """Where each album pass's `-j` record is, for the report bundle.
+        """Where each album pass's `-j` record is, and the securing pass's kept
+        copy (R9), for the report bundle.
 
         Where cyanrip was TOLD to write it, not proof that it did: a refused or
         cancelled run may leave nothing there, and the bundle names that absence

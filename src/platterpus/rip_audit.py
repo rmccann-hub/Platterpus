@@ -41,6 +41,11 @@ from pathlib import Path
 from typing import Any, Final
 
 from platterpus import handshake_note, rip_pass_exit
+from platterpus.disc_identity import (
+    IDENTITY_MATCH,
+    IDENTITY_MISMATCH,
+    check_disc_identity,
+)
 from platterpus.parsers.cyanrip_log import INTERRUPTED_MID_READ, interruption_point
 from platterpus.parsers.rip_log import AccurateRipResult, accuraterip_is_match
 
@@ -1254,15 +1259,26 @@ def _audit_cue_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
 
 
 def _audit_disc_identity(report: dict[str, Any], album: AlbumAudit) -> None:
-    """Record the TOC-derived disc identity, so two rips can be compared.
+    """Record the TOC-derived disc identity, and whether it is the disc looked up.
 
     The MusicBrainz Disc ID and CDDB ID are computed from the physical TOC, so
     they identify the same *pressing* across re-rips independently of any
     metadata edit. Without them in the audit, "is this the same disc as last
     time?" needs the JSON opened by hand — which is the thing this command
     exists to avoid.
+
+    **And whether it is the disc the tags were looked up for** (TASKS P1 #1).
+    Recording the ripped disc's ID only said which disc was READ; nothing asked
+    whether it was the disc whose MusicBrainz release supplied the tags, so a
+    disc swapped after the scan archived one album's audio under another's tags
+    with a clean audit. Asked of the same predicate the report used
+    (`disc_identity.check_disc_identity`), on the report's own two fields, so the
+    audit of an old report re-derives the answer rather than trusting a block a
+    later version wrote. A mismatch is ``warn``, the audit's strongest level; not
+    determined is a ``note``, because it is not a pass.
     """
     rip = report.get("rip") or {}
+    disc = report.get("disc") or {}
     disc_id = rip.get("musicbrainz_disc_id")
     cddb = rip.get("cddb_id")
     if disc_id or cddb:
@@ -1280,6 +1296,13 @@ def _audit_disc_identity(report: dict[str, Any], album: AlbumAudit) -> None:
             "no TOC-derived disc identity recorded, so this rip cannot be "
             "matched to the same physical pressing later",
         )
+    identity = check_disc_identity(disc.get("lookup_disc_id"), disc_id)
+    if identity.status == IDENTITY_MATCH:
+        album.add(LEVEL_OK, identity.detail)
+    elif identity.status == IDENTITY_MISMATCH:
+        album.add(LEVEL_WARN, identity.detail)
+    else:
+        album.add(LEVEL_NOTE, identity.detail)
 
 
 @dataclass(frozen=True)

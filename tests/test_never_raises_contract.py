@@ -267,6 +267,10 @@ _PARSER_MODULES: tuple[str, ...] = (
     # post-cancel rescue may signal, and a raise there would leave the rescue
     # thread dead with nothing logged. Rostered with the parser, not after it.
     "drive_control.py",
+    # Added 2026-10-14 with `pregap_grading` (TASKS R10): it reads the `Gaps:`
+    # block of every cyanrip log an acceptance run wrote, and a raise there would
+    # lose that step's answer to a traceback. Rostered with the parser.
+    "uiscript/pregap_grading.py",
 )
 
 # Exceptions that make an `int()` call safe to leave bare inside a `try`.

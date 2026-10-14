@@ -52,6 +52,7 @@ from platterpus.uiscript.estimate_verbs import EstimateVerbsMixin, estimate_for_
 from platterpus.uiscript.offset_grading import drive_in_offset_list
 from platterpus.uiscript.offset_verbs import OffsetVerbsMixin
 from platterpus.uiscript.permutation_verbs import PermutationVerbsMixin
+from platterpus.uiscript.pregap_verbs import PregapVerbsMixin
 from platterpus.uiscript.probe_verbs import ProbeVerbsMixin
 from platterpus.uiscript.report import (
     CONCEPT,
@@ -65,6 +66,7 @@ from platterpus.uiscript.script import (
     OFFSET_PLACEHOLDER,
     Step,
     args_as_preflight_sees_them,
+    expand_identity,
     expand_offset,
     sanitise_cyanrip_args,
 )
@@ -264,6 +266,8 @@ class _CyanripJob:
     #: The folder the ripper ran in, recorded beside the argv: a relative `-D`
     #: in the argv means nothing without it. ``None`` only for a job a test builds.
     cwd: Path | None = None
+    #: What a placeholder could not send (`expand_identity`), recorded with the argv.
+    note: str = ""
 
 
 @dataclass
@@ -364,6 +368,7 @@ class ScriptRunner(
     ArtifactVerbsMixin,
     ProbeVerbsMixin,
     PermutationVerbsMixin,
+    PregapVerbsMixin,
     OffsetVerbsMixin,
     UnknownDiscVerbsMixin,
     AppLogVerbsMixin,
@@ -1757,6 +1762,9 @@ class ScriptRunner(
                 )
                 return
             args = expand_offset(args, self._drive_offset)
+        # `(consumer)` / `(diagnostics)`: the words an app rip sends, from the
+        # functions its argv builder calls, gated on the build this run has seen.
+        args, identity_notes = expand_identity(args, build_tag=self._ripper_build_tag)
         # NOT WHILE A RIP IS READING THE DISC.
         #
         # **Measured, 2026-08-24:** `cyanrip -N -x -I` opened /dev/sr0 **1.2
@@ -1827,6 +1835,7 @@ class ScriptRunner(
             started=time.monotonic(),
             done=threading.Event(),
             cwd=workdir,
+            note="; ".join(identity_notes),
         )
 
         def _work() -> None:
@@ -4358,7 +4367,8 @@ def _job_invocation(job: _CyanripJob) -> str:
     diagnostic completeness). An unrecorded folder is said, never left blank.
     """
     where = str(job.cwd) if job.cwd is not None else "(not recorded)"
-    return f"argv: {' '.join(job.argv)}\ncwd: {where}"
+    note = f"\nnote: {job.note}" if job.note else ""
+    return f"argv: {' '.join(job.argv)}\ncwd: {where}{note}"
 
 
 def _is_section_header(step: Step) -> bool:

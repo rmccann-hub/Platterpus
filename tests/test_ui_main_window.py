@@ -6225,9 +6225,14 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
         "applied": True,
         "effective": 667,
     }
+    # v34: no disc was scanned in this fixture, so there is no lookup ID and the
+    # comparison is `not_determined` — said, and not a pass.
+    identity = report["disc"].pop("identity_check")
+    assert identity["status"] == "not_determined", identity
     assert report["disc"] == {
         "unknown": False,
         "musicbrainz_release_id": "release-xyz",
+        "lookup_disc_id": None,
         "catalog_number": None,
         "barcode": None,
         "label": None,
@@ -11812,6 +11817,32 @@ def test_the_bundle_facts_say_which_pass_each_exit_describes(
     assert "ripper exit ok" not in ran.facts  # one name per fact, not two
 
 
+def test_the_bundle_facts_say_what_became_of_the_securing_passs_record(
+    qapp: QApplication, teardown_threads: Any, tmp_path: Path
+) -> None:
+    """TASKS R9, in the one-file rip bundle: kept and where, or MISSING and why.
+
+    A stand-in worker without the attribute (an older worker, a test double)
+    reads as "not determined", never as "none due", which would claim a fact.
+    """
+    from platterpus import record_fate
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        securing_pass_started=True,
+        securing_pass_exit_code=0,
+        securing_pass_record=record_fate.RecordFate(
+            record_fate.STATE_MISSING, None, "the rip was cancelled"
+        ),
+    )
+    missing = _armed_bundle(window, tmp_path, _success=True)
+    window._rip_worker = SimpleNamespace(securing_pass_started=False)
+    unknown = _armed_bundle(window, tmp_path / "second", _success=True)
+
+    assert missing.facts["securing pass -j record"] == "MISSING: the rip was cancelled"
+    assert unknown.facts["securing pass -j record"].startswith("not determined")
+
+
 def test_the_rips_diagnostics_records_reach_its_report_bundle(
     qapp: QApplication,
     teardown_threads: Any,
@@ -13891,3 +13922,93 @@ def test_our_own_closes_and_idle_closes_never_ask(
     assert asked == []
     window._unattended = False
     window._rip_thread = None
+
+
+# --- TASKS P1 #1: the disc ripped against the disc the tags were looked up for ---
+#
+# The pure comparison, the report and the audit are tested in
+# tests/test_disc_identity.py; these two drive the WINDOW, where the ID is
+# snapshotted at Start and the answer is shown at the end.
+
+#: The reference disc's ID as cyanrip printed it on the rig, and another disc's.
+_DISC_A = "pNtImOkdBm9RMBIalzx0w9cfsYY-"
+_DISC_B = "oMp2k.ixH0QqrdaZzsARoRS.p6c-"
+#: The 2026-10-13 run's whole-disc rip log, filed in our tree (disc A).
+_FILED_WHOLE_DISC_LOG = (
+    Path(__file__).resolve().parent.parent
+    / "docs"
+    / "handshake"
+    / "artifactsround32"
+    / "round32fullwholedisc.log"
+)
+
+
+def test_start_snapshots_the_scanned_disc_id(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The ID is taken when Start is pressed, so a later scan cannot rewrite it."""
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _override: True
+    )
+    started: list[RipParameters] = []
+    monkeypatch.setattr(window, "_start_rip_worker", started.append)
+    window._current_disc_id = _DISC_A
+    window._on_rip_requested(
+        RipParameters(
+            drive="/dev/sr0",
+            release_id="",
+            output_dir=Path("/tmp/unused"),
+            track_template="t",
+            disc_template="d",
+            unknown=True,
+        )
+    )
+    assert [p.lookup_disc_id for p in started] == [_DISC_A]
+
+
+def test_a_finished_rip_of_the_wrong_disc_says_so_everywhere(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The real log of disc A, finished by a rip whose tags were looked up for B."""
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+            cover_art="",
+            override_read_offset=True,
+            read_offset=667,
+        )
+    )
+    album_dir = tmp_path / "Artist" / "Album"
+    album_dir.mkdir(parents=True)
+    log_file = album_dir / "Album.log"
+    log_file.write_text(
+        _FILED_WHOLE_DISC_LOG.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=tmp_path,
+        track_template="t",
+        disc_template="d",
+        read_offset_override=667,
+        lookup_disc_id=_DISC_B,
+    )
+
+    window._on_rip_finished(True, str(log_file))
+    report_writer.writer().flush()
+
+    banner = window._rip_progress._verdict_banner.text()
+    assert banner.startswith("⚠") and "NOT the disc" in banner, banner
+    report = json.loads((album_dir / "Album.platterpus.json").read_text())
+    assert report["disc"]["lookup_disc_id"] == _DISC_B
+    assert report["disc"]["identity_check"]["status"] == "mismatch"
+    assert "disc_identity_mismatch" in {i["code"] for i in report["issues"]}

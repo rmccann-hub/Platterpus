@@ -43,7 +43,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (63)
+## 1. Log lines we parse (68)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -65,6 +65,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `tracks_to_rip` | disc | `^Tracks to rip:\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `disc_id` | disc | `^DiscID:\\s+(?P<value>\\S+)` |
 | `cddb_id` | disc | `^CDDB ID:\\s+(?P<value>\\S+)` |
+| `accuraterip_disc_id` | disc | `^AccurateRip ID:\\s+(?P<value>[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8})\\s*$` |
 | `release_id` | disc | `^Release ID:\\s+(?P<value>\\S+)` |
 | `speed_capability` | disc | `^Speed:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `total_time` | disc | `^Total time:\\s+(?P<time>\\d{1,3}:\\d{2}(?::\\d{2})?(?:\\.\\d{1,3})?)\\s*$` |
@@ -86,10 +87,12 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `gaps_section` | section header | `^Gaps:\\s*$` |
 | `paranoia_counts_section` | section header | `^Paranoia status counts:\\s*$` |
 | `album_loudness_section` | section header | `^Album Loudness\\b` |
-| `track_block_start` | section header | `^Track (?P<number>\\d+) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|read successfully!\|read with errors\\.\|is data:)` |
+| `track_block_start` | section header | `^Track (?P<number>\\d+) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|read successfully!\|read with errors\\.\|is data, skipping:\|is data:)` |
 | `secure_rerip_converged` **(fork-only)** | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\((?:no matches found\|repeat limit)\\b` |
 | `secure_rerip_progress` | section header | `^\\s*Repeating ripping\\s+\\((?P<matches>\\d{1,6})\\s+out of\\s+(?P<target>\\d{1,6})\\s+matches\\b` |
+| `data_track_outcome` | section header | `^Track (?P<number>\\d{1,4}) (?P<what>ripped successfully!\|ripped with errors\\.)` |
+| `data_track_copy_diagnostic` | section header | `^(?:Frame read failed at LSN -?\\d{1,9}!\|Sector EDC mismatch at LSN -?\\d{1,9}!\|Error writing to ")` |
 | `gaps_value` | indented | `^\\s+(?P<value>\\S(?:.*\\S)?)\\s*$` |
 | `track_paranoia_counts_section` | indented | `^\\s+Paranoia status counts:\\s*$` |
 | `track_paranoia_scope` **(fork-only)** | indented | `^\\s+Scope:\\s+(?P<text>\\S(?:.*\\S)?)\\s*$` |
@@ -106,6 +109,8 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_pregap_source` **(fork-only)** | indented | `^\\s{1,8}Pregap source:\\s+(?P<source>\\S(?:.{0,62}\\S)?)\\s*$` |
 | `track_preemphasis` | indented | `^\\s+Preemphasis:\\s+(?P<text>\\S(?:.*\\S)?\|[^\\S\\n])\\s*$` |
 | `track_eac_crc` | indented | `^\\s+EAC CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\(after\\s+(?P<rips>\\d+)\\s+rips?\\))?` |
+| `track_data_crc32` | indented | `^\\s+CRC32:\\s+(?P<crc>[0-9A-Fa-f]{8})\\s*$` |
+| `track_data_sector_edc` | indented | `^\\s+Sector EDC:\\s+(?P<value>\\S(?:.{0,198}\\S)?)\\s*$` |
 | `track_accurip` | indented | `^\\s+Accurip v(?P<version>[12]):\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\((?P<result>[^)]*)\\))?` |
 | `track_accurip_offset` | indented | `^\\s+Accurip 450:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\((?P<result>[^)]*)\\))?` |
 | `track_appended_silence` | indented | `^\\s+Appended:\\s+(?P<frames>\\d{1,9})\\s+frames? of silence` |
@@ -160,7 +165,7 @@ the log **and** its addendum (`rip_addendum.with_addendum`), because the
 addendum is the only statement in the folder about which bytes actually
 shipped after an auto-fix re-rip.
 
-## 2. Log lines we knowingly ignore (22)
+## 2. Log lines we knowingly ignore (25)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -184,6 +189,9 @@ dropped.
 | `^Album Art:\\s` | candidate: cover-art presence |
 | `^Disc tracks:\\s` | candidate: total tracks on the disc |
 | `^AccurateRip:\\s` | the indented per-track Accurip: row is read |
+| `^AcoustID:\\s` | fingerprinting state; under -N with no --acoustid-key nothing is ever submitted, and a build with libchromaprint writes an ACOUSTID_FINGERPRINT tag the file itself records |
+| `^Disc (?:has no audio tracks\|TOC is invalid), skipping DiscID` | disc-ID guard; the DiscID:/CDDB ID: lines are then absent, which reads as not reported |
+| `^Disc has no audio tracks, skipping AccuRIP DB!` | AccurateRip guard; the AccurateRip ID: line is then absent and every per-track Accurip: row says what was looked up |
 | `^Tracks:\\s*$` | section marker, no payload |
 | `^Summary:\\s*$` | section marker, no payload |
 | `^--- output before this log was opened ---\\s*$` | delimiter of the replayed pre-logfile buffer; no payload |

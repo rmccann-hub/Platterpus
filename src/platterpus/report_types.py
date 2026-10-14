@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from typing import NotRequired, TypedDict
 
+from platterpus.disc_identity import DiscIdentityBlock
+from platterpus.record_fate import SecuringRecordBlock
+
 
 class GeneratorBlock(TypedDict):
     name: str
@@ -40,6 +43,9 @@ class RipBlock(TypedDict):
     # different claim from the argv it received. `issues` compares it against
     # `disc.musicbrainz_release_id`.
     ripper_release_id: str | None
+    #: v34: the disc's AccurateRip ID verbatim (`id1-id2-cddb`, lower-case hex),
+    #: from the ripper's `AccurateRip ID:` line. None before the fork's `.23`.
+    accuraterip_disc_id: str | None
     # v14: the ripper's own completion footer, tri-state. `rip_completed` is
     # `None` when the log was cut off or predates the fork pin — which is a
     # different fact from `False`, and must not render as one.
@@ -153,6 +159,11 @@ class OutcomeBlock(TypedDict):
     securing_pass_exit_code: int | None
     #: v32 (W6): cyanrip's own record of how the album pass ended.
     ripper_record: RipperRecordBlock
+    #: v34 (TASKS R9): what became of the securing pass's own `--diagnostics`
+    #: record, which runs in a temporary folder deleted afterwards: `kept` (copied
+    #: into the rips root, `path` names the copy), `missing` (`detail` says why)
+    #: or `not_run` (no securing pass ripper was spawned, so none was due).
+    securing_pass_record: SecuringRecordBlock
     ripper_argv: list[str] | None
     # The FIRST invocation's argv when the rip took more than one pass, `None`
     # when it took one. The distinction is load-bearing: the archival log's
@@ -222,6 +233,12 @@ class DiscBlock(TypedDict):
     #: signature, as rewritten (`====` to `----`) so the log cannot read as
     #: EAC-signed (D16, KDD-38). Empty on almost every rip; v29.
     eac_log_signature_lines_defused: list[str]
+    #: v34: the disc ID the tags were looked up for — the pre-rip scan's, the one
+    #: the MusicBrainz lookup used. None when the scan gave none.
+    lookup_disc_id: NotRequired[str | None]
+    #: v34: that ID compared with the rip log's own (`disc_identity`), tri-state.
+    #: Written by the report builder, so absent from the block the window hands it.
+    identity_check: NotRequired[DiscIdentityBlock]
 
 
 class DependencyEntry(TypedDict):
@@ -386,6 +403,10 @@ class TrackBlock(TypedDict):
     peak_level: float | None
     extraction_elapsed_seconds: float | None
     appended_silence_frames: int | None
+    #: v34: a data track's CRC32 and `Sector EDC:` verdict, verbatim (`.23`+).
+    #: Kept apart from `copy_crc`, which is an audio track's EAC CRC.
+    data_crc32: str | None
+    data_sector_edc: str | None
     start_sector: int | None
     end_sector: int | None
     pregap_sectors: int | None

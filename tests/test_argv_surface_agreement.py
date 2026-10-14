@@ -63,8 +63,20 @@ CONSUMER_CONTRACT = REPO_ROOT / "docs" / "cyanrip-consumer-contract.md"
 
 #: A P1 row: ``| `-d` | `--device` | Set device path … |``. The long column is
 #: optional because older rounds published short flags only.
+#:
+#: **And the short column is optional, as the word ``none``, from the fork's
+#: ``+platterpus.23`` contract on.** Round 32 retired their four short options
+#: (``-j -k -u -x``) and upstream rc3 added a long-only ``--acoustid-key``, so the
+#: table now carries rows like ``| none | `--diagnostics` | … |``
+#: (``cyanrip@aa45b975:PROVIDER-CONTRACT.md:56-59`` and ``:96``). The old pattern
+#: required a backticked short flag and matched none of those rows, so the first
+#: round to file that contract would have reported ``--consumer`` and
+#: ``--diagnostics``, two flags we send on every rip, as absent from a table that
+#: lists them. Measured against that file: 44 rows and 83 spellings with the
+#: ``none`` arm, and those two flags missing without it.
 _P1_ROW = re.compile(
-    r"^\|\s*`(?P<short>-[A-Za-z])`\s*\|(?:\s*`(?P<long>--[a-z-]+)`\s*\|)?", re.M
+    r"^\|\s*(?:`(?P<short>-[A-Za-z])`|none)\s*\|(?:\s*`(?P<long>--[a-z-]+)`\s*\|)?",
+    re.M,
 )
 
 #: Below this many flags, a document is not publishing a flag table — it is
@@ -514,7 +526,8 @@ def _their_flags(text: str) -> set[str]:
     """Every flag spelling the provider contract publishes, short and long."""
     flags: set[str] = set()
     for m in _P1_ROW.finditer(text):
-        flags.add(m.group("short"))
+        if m.group("short"):
+            flags.add(m.group("short"))
         if m.group("long"):
             flags.add(m.group("long"))
     return flags
@@ -676,6 +689,41 @@ def test_the_sweep_can_actually_fail() -> None:
     parsed = _their_flags(p1_without_V)
     assert parsed == {"-h", "--help", "-v", "--version", "-d", "--device"}
     assert "-V" not in parsed, "the parser is case-insensitive — it would miss this"
+
+
+def test_a_long_only_row_is_read_as_its_long_flag() -> None:
+    """The ``.23`` table's long-only rows, verbatim, must yield their long flag.
+
+    The rows are copied from ``cyanrip@aa45b975:PROVIDER-CONTRACT.md:56-59``,
+    ``:67`` and ``:96``, the contract the fork generated for ``0.9.4-rc3+platterpus.23``. A
+    ``none`` short column contributes nothing, and the word itself is not read as a
+    flag. The last row keeps the old shape honest: a backticked short flag still
+    yields both spellings.
+    """
+    rows = (
+        "| none | `--stall-secs` | Seconds a frame read must stall before reporting "
+        "liveness (0 disables) (default: 10) |\n"
+        "| none | `--cache-probe` | Measure the drive's readback cache before "
+        "ripping (costs seconds; with -I to measure without ripping) (default: "
+        "false) |\n"
+        "| none | `--consumer` | Identify the calling program in the log (recorded "
+        "verbatim, not verified) |\n"
+        "| none | `--diagnostics` | Write a machine-readable diagnostics record to "
+        "this path (JSON) |\n"
+        "| none | `--acoustid-key` | AcoustID user API key, to submit fingerprints "
+        "of verified rips |\n"
+        "| `-X` | `--no-data-tracks` | Skip data tracks instead of ripping them to "
+        "raw binaries (default: false) |\n"
+    )
+    assert _their_flags(rows) == {
+        "--stall-secs",
+        "--cache-probe",
+        "--consumer",
+        "--diagnostics",
+        "--acoustid-key",
+        "-X",
+        "--no-data-tracks",
+    }
 
 
 @pytest.mark.parametrize("flag", sorted(_our_rip_flags()))

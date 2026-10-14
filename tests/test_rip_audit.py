@@ -115,7 +115,12 @@ def _healthy(**over: object) -> dict:
                 "album=Healthy",
             ],
         },
-        "disc": {"medium_basis": "disc-id"},
+        # `lookup_disc_id` (v34) equal to the log's disc ID below, so the
+        # disc-identity check confirms the disc looked up is the disc ripped.
+        "disc": {
+            "medium_basis": "disc-id",
+            "lookup_disc_id": "pNtImOkdBm9RMBIalzx0w9cfsYY-",
+        },
         # The TOC-derived pressing identity, so the disc-identity check has
         # something to confirm rather than something to miss.
         # `pregap_state: "known"` is not decoration — it is the tri-state the
@@ -492,7 +497,11 @@ def test_an_undetermined_medium_warns_that_titles_may_be_wrong(tmp_path: Path) -
 
 def test_a_resolved_medium_does_not_warn(tmp_path: Path) -> None:
     report = _healthy()
-    report["disc"] = {"medium_basis": "disc-id", "medium_undetermined": False}
+    report["disc"] = {
+        "medium_basis": "disc-id",
+        "medium_undetermined": False,
+        "lookup_disc_id": report["rip"]["musicbrainz_disc_id"],
+    }
     album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG]))
     assert album.worst == LEVEL_OK
 

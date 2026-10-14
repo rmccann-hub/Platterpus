@@ -64,6 +64,7 @@ from platterpus.adapters.transcode import (
 from platterpus.adapters.transcode import (
     SUPPORTED_FORMATS as TRANSCODE_FORMATS,
 )
+from platterpus.disc_identity import IDENTITY_MISMATCH, check_disc_identity
 from platterpus.drive_profiles import OffsetSource
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
@@ -593,6 +594,13 @@ class RipMixin(MainWindowShared):
         )
         # The drive's measured reading speed, for the up-front time estimate.
         params = replace(params, read_rate=self._read_rate_for_current_drive())
+        # WHICH DISC THE TAGS BELONG TO, snapshotted now: the disc ID the scan read
+        # and the MusicBrainz lookup used. Compared with the rip log's own disc ID
+        # when the rip ends (`disc_identity`), because a swap the poller missed
+        # would otherwise archive one album's audio under another's tags.
+        params = replace(
+            params, lookup_disc_id=getattr(self, "_current_disc_id", "") or ""
+        )
 
         # Only validate the track table for non-unknown rips — placeholder
         # tags will be applied after the fact in unknown mode.
@@ -1808,6 +1816,10 @@ class RipMixin(MainWindowShared):
             ),
             # cyanrip's own record of how the album pass ended (v32, W6).
             ripper_record=getattr(self._rip_worker, "ripper_ending", None),
+            # What became of the securing pass's own record (v34, TASKS R9).
+            securing_pass_record=getattr(
+                self._rip_worker, "securing_pass_record", None
+            ),
         )
         _meta = params.metadata if params is not None else None
         # The release summary this rip's tags came from, for the medium
@@ -1821,6 +1833,9 @@ class RipMixin(MainWindowShared):
         self._last_disc = {
             "unknown": bool(params.unknown) if params is not None else None,
             "musicbrainz_release_id": (self._current_release_id or None),
+            # The disc ID the tags were looked up for (v34); the report compares
+            # it with the log's own (`disc.identity_check`).
+            "lookup_disc_id": (params.lookup_disc_id or None) if params else None,
             # Release identifiers written as tags this rip (Picard-style), echoed
             # into the report so the one-file record carries the disc's canonical
             # IDs. None when MB had none / an unknown-album rip.
@@ -1987,6 +2002,21 @@ class RipMixin(MainWindowShared):
                     # stronger analogue of EAC's Key-Disc offset check). Record
                     # that so the offset's provenance is promoted to CONFIRMED.
                     self._confirm_offset_from_accuraterip(rip_log)
+                # WAS THIS THE DISC THE TAGS WERE LOOKED UP FOR? Asked of the one
+                # predicate the report and the audit use (`disc_identity`), and
+                # said on every surface a user reads: the banner, the status line
+                # and the log. Last, so no later status line hides it.
+                identity = check_disc_identity(
+                    params.lookup_disc_id if params is not None else "",
+                    getattr(rip_log, "disc_id", ""),
+                )
+                if identity.status == IDENTITY_MISMATCH:
+                    log.error("%s", identity.detail)
+                    self._rip_progress.downgrade_verdict(identity.downgrade_reason)
+                    self._rip_progress.set_status(f"⚠ {identity.detail}")
+                    self._rip_progress.append_log_line(f"⚠ {identity.detail}")
+                else:
+                    log.info("disc identity: %s", identity.detail)
                 # Write the machine-readable JSON rip report beside the log
                 # (the "two outputs every time" rule, docs/ux-design-principles
                 # #2). Kept for the CTDB handler to re-write with the CTDB
@@ -2877,7 +2907,7 @@ class RipMixin(MainWindowShared):
         means (`CLAUDE.md`: two surfaces answering one question by different keys
         will disagree).
         """
-        from platterpus import __version__, diagnostics_record
+        from platterpus import __version__, diagnostics_record, record_fate
 
         # Everything Qt-touching is read HERE, on the GUI thread. The daemon
         # below closes over plain values only — a worker that reaches back into a
@@ -2957,6 +2987,11 @@ class RipMixin(MainWindowShared):
                 "securing pass exit": securing_fact(
                     bool(getattr(self._rip_worker, "securing_pass_started", False)),
                     getattr(self._rip_worker, "securing_pass_exit_code", None),
+                ),
+                # The securing pass's record is copied out of its temp folder
+                # into the rips root, or is named missing here with why (R9).
+                "securing pass -j record": record_fate.describe_fate(
+                    getattr(self._rip_worker, "securing_pass_record", None)
                 ),
                 "cancel requested": str(cancelled),
                 "ripper log parsed": str(parsed_a_log),

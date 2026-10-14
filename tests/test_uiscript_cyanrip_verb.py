@@ -648,3 +648,112 @@ class TestItRunsInTheRipsFolder:
         assert any(m.endswith("Unknown disc.cue") for m in members), members
         assert not [m for m in members if m.endswith(".flac")], members
         assert "01 - Unknown track.flac" in manifest, "the refused audio is not named"
+
+
+class TestEveryScriptedRipNamesItsCallerAndHasARecord:
+    """The fork's round 32 lap 9 S9 (their data register's X8).
+
+    Section R16's pre-emphasis rips call cyanrip directly, so on 2026-10-13 their
+    logs read ``Consumer: not identified`` and wrote no ``--diagnostics`` record —
+    the two logs of the run that did not name their caller. ``(consumer)`` and
+    ``(diagnostics)`` expand to the words an APP rip sends, and these tests compare
+    them with the real rip argv builder's output, not with a restatement of it.
+    """
+
+    _R16 = "cyanrip -N -l 1 -H -E -D r16deemphon (consumer) (diagnostics)"
+
+    @staticmethod
+    def _app_rip_argv(build_tag: str) -> list[str]:
+        from platterpus.adapters.cyanrip_backend import CyanripImpl
+
+        return CyanripImpl(binary_path="cyanrip")._build_rip_argv(
+            "/dev/sr0",
+            unknown=False,
+            cover_art="embed",
+            max_retries=3,
+            read_offset_override=6,
+            ripper_build_tag=build_tag,
+        )
+
+    def test_the_placeholders_send_what_an_app_rip_sends(
+        self, window: QWidget, fake_capture: _FakeCapture
+    ) -> None:
+        import re
+
+        from platterpus.deps.fork_source import FORK_EXPECTED_BUILD_TAG
+        from platterpus.diagnostics_record import DIAGNOSTICS_FLAG
+
+        fake_capture.released.set()
+        run = runner_mod.ScriptRunner(window)
+        run._ripper_build_tag = (
+            FORK_EXPECTED_BUILD_TAG  # as `cyanrip --version` latches it
+        )
+        run.start(_steps(self._R16))
+        _pump(run)
+        [record] = run._report.steps
+        assert record.outcome is Outcome.PASS, record.detail
+        [argv] = fake_capture.calls
+        app = self._app_rip_argv(FORK_EXPECTED_BUILD_TAG)
+        # The SAME consumer words as the app's own rip of this build.
+        sent = argv[argv.index("--consumer") : argv.index("--consumer") + 2]
+        assert sent == app[app.index("--consumer") : app.index("--consumer") + 2]
+        # The same diagnostics flag, and a record name of the same unique shape.
+        assert DIAGNOSTICS_FLAG in app and DIAGNOSTICS_FLAG in argv, argv
+        name = argv[argv.index(DIAGNOSTICS_FLAG) + 1]
+        app_name = app[app.index(DIAGNOSTICS_FLAG) + 1]
+        shape = r"cyanrip-diagnostics-\d{8}T\d{6}Z\.json"
+        assert re.fullmatch(shape, name) and re.fullmatch(shape, app_name), argv
+        # No placeholder reached the ripper.
+        assert not [a for a in argv if a.startswith("(")], argv
+        # The transcript's record shows the expanded argv.
+        assert "--consumer platterpus/" in record.detail, record.detail
+
+    def test_a_build_not_known_to_accept_consumer_gets_none_and_says_so(
+        self, window: QWidget, fake_capture: _FakeCapture
+    ) -> None:
+        """The app's fail-safe direction, and the omission is written down."""
+        fake_capture.released.set()
+        run = runner_mod.ScriptRunner(window)
+        run._ripper_build_tag = ""  # no `cyanrip --version` has run
+        run.start(_steps(self._R16))
+        _pump(run)
+        [record] = run._report.steps
+        [argv] = fake_capture.calls
+        assert "--consumer" not in argv, argv
+        # The app would not have sent it either, for the same unknown build.
+        assert "--consumer" not in self._app_rip_argv(""), "the gate moved"
+        assert "--diagnostics" in argv, argv
+        assert "note: (consumer) sent nothing" in record.detail, record.detail
+
+    def test_section_R16_of_the_committed_script_uses_both(self) -> None:
+        """The script carries them, and the preflight judges the expanded line.
+
+        Floor: exactly the two R16 rips are found, so "every R16 rip has both" is
+        not satisfied by finding none.
+        """
+        from importlib import resources
+
+        from platterpus.uiscript.script import (
+            CONSUMER_PLACEHOLDER,
+            DIAGNOSTICS_PLACEHOLDER,
+            args_as_preflight_sees_them,
+            sanitise_cyanrip_args,
+        )
+
+        text = (
+            resources.files("platterpus")
+            .joinpath("rig_scripts/fullacceptance.txt")
+            .read_text(encoding="utf-8")
+        )
+        r16 = [
+            s
+            for s in parse(text)
+            if s.verb == "cyanrip" and "-H" in s.args and "-D" in s.args
+        ]
+        assert len(r16) == 2, [s.source for s in r16]
+        for step in r16:
+            assert CONSUMER_PLACEHOLDER in step.args, step.source
+            assert DIAGNOSTICS_PLACEHOLDER in step.args, step.source
+            seen = args_as_preflight_sees_them(list(step.args))
+            assert "--consumer" in seen and "--diagnostics" in seen, seen
+            assert sanitise_cyanrip_args(seen) is None, seen
