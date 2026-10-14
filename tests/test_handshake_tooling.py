@@ -1974,9 +1974,9 @@ _LANDED_AFTER_THE_LAP: dict[tuple[str, str], str] = {
     # `cyanrip@8f847271` (PR #12, 100,692 bytes) and of our
     # `docs/handshake-protocol.md` copied from it: both c0539096…. The other three
     # shared files are unchanged and equal at that commit.
-    ("round-32-lap-08.md", "protocol(v8)"): (
-        "c0539096e99a1ce5bd5a76860a4505c32acb17b4f0d1fc62b9e8b0938e3ef276"
-    ),
+    # Our lap 8's entry left with our round 33 lap 2, which declares
+    # protocol(v9)=c0539096… (its S5). EMPTY from 2026-10-14: each side's newest lap
+    # is compared normally.
     # The fork's lap 9 entry left on 2026-10-14 with the filing of their round 33
     # lap 1, which declares protocol(v9)=c0539096… and is their newest.
 }
