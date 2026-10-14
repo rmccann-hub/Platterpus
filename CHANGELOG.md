@@ -44,6 +44,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   the report through `evidence(MEASURED_FROM)`, so the label and the data it was derived
   from cannot name different files.
 
+- **Two repository sweeps judge an evidence fixture by the path it stands for.** The
+  doc-footer check and the rig-script-path check skip `docs/handshake/` as dated record;
+  its byte-for-byte copies under `tests/fixtures/evidence/` now get the same treatment,
+  and nothing else does (a fixture standing for a live doc would still be checked).
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.
