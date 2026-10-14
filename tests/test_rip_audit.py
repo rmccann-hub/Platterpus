@@ -20,6 +20,7 @@ import re
 from pathlib import Path
 
 import pytest
+from evidence_paths import evidence, evidence_dir
 
 from platterpus import rip_audit
 from platterpus.rip_audit import (
@@ -1380,8 +1381,9 @@ def test_the_inventory_on_real_reports_is_unchanged_by_the_rule(
     v1 and v2 line there is either "accurately ripped, confidence N" or "not
     found" with no confidence, and the two rules agree on both.
     """
-    root = Path(__file__).resolve().parents[1]
-    data = json.loads((root / "docs" / "handshake" / report).read_text("utf-8"))
+    # Through the report's fixture (HR-2): a slim extract without `debug.lines`,
+    # which the inventory does not read.
+    data = json.loads(evidence(f"docs/handshake/{report}").read_text("utf-8"))
     album = rip_audit.AlbumAudit(folder=Path("x"))
     rip_audit._audit_checksum_inventory(data, album)
     texts = [f.text for f in album.findings if "AccurateRip inventory" in f.text]
@@ -1395,9 +1397,9 @@ def test_the_inventory_on_real_reports_is_unchanged_by_the_rule(
 # track, its report's track list is empty, and the folder held one file, the partial
 # read of track 1. The self-check said "1 audio files, all with content" at OK.
 
-_ROUND28 = (
-    Path(__file__).resolve().parents[1] / "docs" / "handshake" / "artifactsround28"
-)
+#: Through its fixtures (HR-2 moved the folder off `main`): the README and the
+#: MANIFEST byte for byte, the reports as slim extracts without `debug.lines`.
+_ROUND28 = evidence_dir("docs/handshake/artifactsround28")
 
 
 def _round28_albums() -> dict[str, tuple[dict, list[str]]]:
@@ -1632,9 +1634,9 @@ def test_a_complete_rip_keeps_its_exact_audio_file_finding(tmp_path: Path) -> No
 # that read "the EAC-style log's copy CRCs match the ripper's log on all 14
 # track(s)" at OK (`parity-baseline-is-ours`, 2026-10-05). Real round-29 files.
 
-_R29 = Path(__file__).resolve().parents[1] / "docs" / "handshake" / "artifactsround29"
-_R29_EXPORT = _R29 / "round29fullwholedisceac.log"
-_R29_RIPPER_LOG = _R29 / "round29fullwholedisc.log"
+#: Both logs byte for byte, through their fixtures (HR-2).
+_R29_EXPORT = evidence("docs/handshake/artifactsround29/round29fullwholedisceac.log")
+_R29_RIPPER_LOG = evidence("docs/handshake/artifactsround29/round29fullwholedisc.log")
 _R29_BANNER = "Platterpus rip log in EAC's layout, not produced by Exact Audio Copy"
 
 

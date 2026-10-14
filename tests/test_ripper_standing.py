@@ -19,6 +19,7 @@ import json
 from types import SimpleNamespace as _NS
 
 import pytest
+from evidence_paths import evidence_dir
 from hypothesis import given
 from hypothesis import strategies as st
 from PySide6.QtWidgets import QApplication, QTextBrowser
@@ -313,12 +314,9 @@ def test_diagnostics_before_any_check_says_not_checked() -> None:
 # whose every rip was made on the build under review, so the absence is measured
 # on the case the sentence is about.
 
-_ROUND31 = (
-    __import__("pathlib").Path(__file__).resolve().parents[1]
-    / "docs"
-    / "handshake"
-    / "artifactsround31"
-)
+#: Through its fixtures (HR-2 moved the folder off `main`): both logs byte for
+#: byte, the report as a slim extract without `debug.lines`, which is not read here.
+_ROUND31 = evidence_dir("docs/handshake/artifactsround31")
 
 
 def test_an_unapproved_rip_is_recorded_as_such_in_its_report_and_nowhere_else() -> None:

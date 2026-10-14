@@ -32,6 +32,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
   without progress lines), so they keep passing once the evidence folders leave `main`.
   Every population is the same size as before, and every floor is unchanged.
 
+- **The log and report readers in six more tests read fixtures (HR-2):** the cue, EAC
+  export, outcome-vocabulary, album-audit, ripper-standing and verdict tests, with nine
+  more fixtures (EAC-compatible logs, a cue, a README and a manifest byte for byte, and
+  round 15's run report as a slim extract). The vocabulary test now also requires each
+  extract it reads to have dropped nothing, so an extract cannot hide what it checks.
+
 - **0.7.105 is recorded as released** in the standing status block (`STATUS-RELEASED`),
   TASKS and the session log: tagged at `b33b90d4` on 2026-10-14, published to both
   channels, the first release that installs the fork's `.22` by default.
