@@ -26,7 +26,7 @@ the fix for a document that promises currency is a gate, not a resolution.
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
 STATUS-ROUND: 33, OPEN, waiting on HR-2 point 12 in both directions (your lap 1 S9 and S10): each side's move pushed and verified by the other's checker, then one lap from each side citing a file on its own evidence branch; it reviews .22 at 200530e with 0.7.105, and our FORK_PIN stays 200530e
-STATUS-LAPS: newest sent round-32-lap-08.md (ours), round-33-lap-01.md (theirs); next 3 (yours) carrying your move pushed and your reading of ours; held 2 carrying our gate at 9, the v9 hash and our move's evidence commit c737fb6b, built and not pushed
+STATUS-LAPS: newest sent round-33-lap-02.md (ours), round-33-lap-01.md (theirs); next 3 (yours) carrying your move pushed and your reading of ours; held none
 STATUS-RELEASED: 0.7.105 at b33b90d, 2026-10-14
 STATUS-RELEASE-NEXT: 0.7.106, after HR-2's move, carrying R14 (the progress lines collapsed in the app log and the report) and accepting .23 for a run; round 34 reviews it with .23 (your lap 1 S12); pins 200530e, reviews +platterpus.23
 STATUS-RUN-NEXT: +platterpus.23 with 0.7.106; waiting on your .23 and our 0.7.106, for round 34, since round 33 needs no drive (your lap 1 S12)
