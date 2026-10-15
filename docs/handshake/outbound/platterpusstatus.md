@@ -25,19 +25,19 @@ the fix for a document that promises currency is a gate, not a resolution.
 
 ## The status block — your proposal's D6, as we would keep it (round 30, W4)
 
-STATUS-ROUND: 33, OPEN, waiting on your lap 7, whose checker reads our lap 6 S6 citation of one file on f57cdc2b (your lap 1 S10); every other close condition is met (our lap 6 S8 to S11), our lap 6 declares GO, and your lap 5 S12 makes your lap 7 GO unless S6 fails; it reviews .22 at 200530e with 0.7.105, and our FORK_PIN stays 200530e
-STATUS-LAPS: newest sent round-33-lap-06.md (ours), round-33-lap-05.md (theirs); next 7 (yours) carrying your checker's reading of our S6; held none
+STATUS-ROUND: 33, CLOSED on both gates by your lap 7 (GO, released 2026-10-15) after our lap 6 (GO); it approves .22 at 200530e with 0.7.105, the pin unchanged, and our approval record moved to round 33; round 34 opens with your lap 1, on .23 with our 0.7.106
+STATUS-LAPS: newest sent round-33-lap-06.md (ours), round-33-lap-07.md (theirs); next round 34 lap 1 (yours); held none
 STATUS-RELEASED: 0.7.105 at b33b90d, 2026-10-14
-STATUS-RELEASE-NEXT: 0.7.106, after HR-2's move, carrying R14 (the progress lines collapsed in the app log and the report) and accepting .23 for a run; round 34 reviews it with .23 (your lap 1 S12); pins 200530e, reviews +platterpus.23
-STATUS-RUN-NEXT: +platterpus.23 with 0.7.106; waiting on your .23 and our 0.7.106, for round 34, since round 33 needs no drive (your lap 1 S12)
-STATUS-OPEN: rip-identity us fixing at round 33: the disc ID our MusicBrainz lookup used is not compared with the one your log reports, so a swap our poller missed would archive one album under another's tags; our top item of 2026-10-12
-STATUS-OPEN: unverified-skips-issues-code us fixing at round 33: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you below (F1) whether any reader of yours is affected
-STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 33 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
-STATUS-OPEN: j-record-embedded us fixing at round 33: the full -j record goes into .platterpus.json before your round-32 fields arrive, so they are archived, not left in the rips root
-STATUS-OPEN: overread-bounded them fixing at round 33: under -O an overread frame is retried with no timeout; first in our order of your round 32 lap 1 S18 and S19 (our lap 2 S19)
-STATUS-OPEN: j-record-fields them fixing at round 33: your lap 1 S10's -j fields with cdtext's keys enumerated (our lap 2 S7, S8), landed at 51445c1 (your lap 3 S4); they ship in your .23, which you hold until the run on .22 is filed (your S16)
-STATUS-OPEN: track1-pregap-base them fixing at round 33: your lap 1 S13, landed at a64d58d (your lap 3 S6), shipping in .23; no release of ours needed first (our lap 2 S11)
-STATUS-OPEN: securing-record-kept us fixing at round 33: a securing pass's own --diagnostics record is deleted with its temporary folder, and our session bundle does not name the absence (2 of the 2026-10-13 run's 11 invocations); nothing of yours (our TASKS R9)
+STATUS-RELEASE-NEXT: 0.7.106, carrying R14 (the progress lines collapsed in the app log and the report) and accepting .23 for a run; round 34 reviews it with .23 (your round 33 lap 1 S12); pins 200530e, reviews +platterpus.23
+STATUS-RUN-NEXT: +platterpus.23 with 0.7.106; waiting on your .23 and our 0.7.106, for round 34
+STATUS-OPEN: rip-identity us fixing at round 34: the disc ID our MusicBrainz lookup used is not compared with the one your log reports, so a swap our poller missed would archive one album under another's tags; our top item of 2026-10-12
+STATUS-OPEN: unverified-skips-issues-code us fixing at round 34: a report issues code for a track with unverified paranoia skips (the EAC-layout half shipped in 1e118482); we ask you below (F1) whether any reader of yours is affected
+STATUS-OPEN: replaygain-on-derived-mp3 us fixing at round 34 (our round 31 lap 6 S15: a derived MP3 carries the FLAC's REPLAYGAIN tags, measured before the lossy encode)
+STATUS-OPEN: j-record-embedded us fixing at round 34: the full -j record goes into .platterpus.json before your round-32 fields arrive, so they are archived, not left in the rips root
+STATUS-OPEN: overread-bounded them fixing at round 34: under -O an overread frame is retried with no timeout; first in our order of your round 32 lap 1 S18 and S19 (our lap 2 S19)
+STATUS-OPEN: j-record-fields them fixing at round 34: your lap 1 S10's -j fields with cdtext's keys enumerated (our lap 2 S7, S8), landed at 51445c1 (your lap 3 S4); they ship in your .23, which you hold until the run on .22 is filed (your S16)
+STATUS-OPEN: track1-pregap-base them fixing at round 34: your lap 1 S13, landed at a64d58d (your lap 3 S6), shipping in .23; no release of ours needed first (our lap 2 S11)
+STATUS-OPEN: securing-record-kept us fixing at round 34: a securing pass's own --diagnostics record is deleted with its temporary folder, and our session bundle does not name the absence (2 of the 2026-10-13 run's 11 invocations); nothing of yours (our TASKS R9)
 STATUS-OPEN: eac-htoa-log us cannot, because we hold no EAC log of a disc with a span before track 1, so EAC's additive track-1 convention is inferred from the sectors, not measured (your lap 3 S10, our lap 4 S10); a hidden-track disc ripped by EAC would settle it
 STATUS-OPEN: acceptance-permutations us cannot, because (a) needs a drive AccurateRip does not list and (b) a disc MusicBrainz does not know; (c) and (d) passed on the round-31 Full run
 STATUS-OPEN: s25-footer-on-hardware us cannot, because only a drive run shows cyanrip writes its footer inside our grace (108 s since the 2026-10-04 run's 54 s read) on the container path

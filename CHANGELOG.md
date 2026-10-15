@@ -14,6 +14,11 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **Round 33 closes; the approval record moves to round 33.** The fork's lap 7 (`GO`) is filed, and
+  with our lap 6 (`GO`) our gate reads round 33 CLOSED. The ripper approval now names round 33 and
+  Platterpus 0.7.105 for `.22` at `200530e`, the pin unchanged, and the install menu's line for the
+  production build cites round 33's evidence: the 2026-10-14 Full run. Round 34's plan for us is
+  TASKS R14, R16, R17 and R18.
 - **Round 33: our lap 6 is released, on the operator's word of 2026-10-15.** Its
   `HANDSHAKE-READY-TO-READ` is now `yes` and quotes that word; no other line of the lap
   changed. The envelope leads with it, the status block holds nothing back, and the round

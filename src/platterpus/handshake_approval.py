@@ -178,7 +178,14 @@ from platterpus.deps import fork_source
 #: `HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.22`, the pair round 32
 #: reviewed and its Full run tested (2026-10-13, 424 pass, none failed, E2 the one
 #: step the drive cannot reach). A new pin (`ca3f3ea` -> `200530e`, `+platterpus.22`).
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.7.104"
+#: **Round 33 moves it to 0.7.105**, read from the peer's closing lap as the rule
+#: requires: round 33 lap 7 declares `HANDSHAKE-APP-VERSION: platterpus 0.7.105`
+#: (sha256 `51ca0a6d…`, 21,918 bytes, `cyanrip@9aee54a`) beside
+#: `HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc2+platterpus.22`, the pair round 33
+#: reviewed and its Full run tested (2026-10-14, 425 pass, none failed, one step
+#: blocked by the Cover Art Archive's HTTP 500, E2 unreachable on this drive). The
+#: pin does not move (`200530e`, `+platterpus.22`): round 33 was HR-2's round.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.7.105"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
 #:
@@ -314,7 +321,12 @@ APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.7.104"
 #: Their lap 9 S4 names one defect of theirs the run shows (the sub-channel search
 #: reading track 4's pregap as none in the secure re-read), older than `.22` and
 #: moving no audio byte, carried open on their side.
-APPROVED_BY_ROUND: Final[int] = 32
+#: **33 on 2026-10-15**, closed on both gates at seven laps: our lap 6 `GO` and their
+#: lap 7 `GO`, the first round under protocol v9. Its task was HR-2, run evidence
+#: moved to each side's `evidence` branch, and it re-approves the same pin, `.22`
+#: (`200530e`), with 0.7.105: the Full run of 2026-10-14, filed on our evidence
+#: branch at `f57cdc2b` and cited by our lap 6 S6, which their checker passed.
+APPROVED_BY_ROUND: Final[int] = 33
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.
