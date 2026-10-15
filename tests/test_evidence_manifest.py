@@ -51,12 +51,12 @@ def _rows(evidence: str, last: str, files: dict[str, bytes]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _moved(tmp_path: Path) -> dict[str, str | Path]:
+def _moved(tmp_path: Path, files: dict[str, bytes] = FILES) -> dict[str, str | Path]:
     """A repository after a move: (root, evidence commit, last default, removal)."""
     root = tmp_path / "repo"
     root.mkdir()
     _git(root, "init", "-q", "-b", "main")
-    for path, data in FILES.items():
+    for path, data in files.items():
         (root / path).parent.mkdir(parents=True, exist_ok=True)
         (root / path).write_bytes(data)
     _git(root, "add", "-A")
@@ -68,10 +68,10 @@ def _moved(tmp_path: Path) -> dict[str, str | Path]:
     _git(root, "commit", "-q", "-m", "evidence: round 99")
     evidence = _git(root, "rev-parse", "HEAD")
     _git(root, "checkout", "-q", "-f", "main")
-    for path in FILES:
+    for path in files:
         if not path.endswith("README.md"):
             _git(root, "rm", "-q", path)
-    (root / "docs" / "evidence-manifest.tsv").write_text(_rows(evidence, last, FILES))
+    (root / "docs" / "evidence-manifest.tsv").write_text(_rows(evidence, last, files))
     _git(root, "add", "docs/evidence-manifest.tsv")
     _git(root, "commit", "-q", "-m", "the move")
     removal = _git(root, "rev-parse", "HEAD")
@@ -317,3 +317,24 @@ def test_what_stays_on_the_default_branch() -> None:
         "docs/handshake/outbound/artifacts/round-15-lap-13-run-report.json"
     )
     assert "docs/handshake/outbound/artifacts" in em.MOVING_FOLDERS
+
+
+#: A run file named the way the fork's 2026-10-13 run names its album folders,
+#: with a ratio colon and a single angle quote. git quotes such a path unless asked
+#: for `-z`, and the quoted form matches no manifest row.
+NON_ASCII: dict[str, bytes] = {
+    **FILES,
+    f"{FOLDER}/full acceptance\u2236 angle\u2039bracket.log": b"track 3 ok\n",
+}
+
+
+def test_a_moved_path_with_non_ascii_bytes_matches_its_row(tmp_path: Path) -> None:
+    """Found verifying the fork's move (round 33): 29 of its 997 deleted paths hold
+    non-ASCII bytes, and the move check read each one in git's quoted form, so it
+    reported a missing manifest row the manifest has."""
+    moved = _moved(tmp_path, NON_ASCII)
+    root = _root(moved)
+    code, out = _run(root, "move", "--removal", str(moved["removal"]), FOLDER)
+    assert code == 0, out
+    code, out = _run(root, "rows")
+    assert code == 0 and "4 examined" in out, out

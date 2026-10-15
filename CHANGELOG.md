@@ -14,6 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The move check reads a non-ASCII path the way the manifest writes it.** Verifying the
+  fork's move by HR-2 5d's checks, `evidence_manifest.py move` reported 29 deleted paths
+  with no manifest row. Every one held non-ASCII bytes, which git prints quoted unless asked
+  for `-z`, so the quoted form matched no row. With `-z` in `scripts/evidence_trees.py`'s
+  `diff-tree` and `ls-tree`, the fork's removal reads 0 problems: 997 deletions, each with
+  one row. A test with such a filename holds it. Our own move had no such path.
 - **HR-2's move: our run evidence is off `main` (round 33, step D).** The evidence commit
   `c737fb6be1e24c7345983d26b5a4598e39897954` (756 files, 425,738,049 bytes, built at round
   33 lap 1's instant from `25db8bd5`) is pushed to a new `evidence` branch. This removal
