@@ -293,3 +293,65 @@ def test_the_fetcher_fetches_a_commit_once_and_reads_trees_it_lacks(
         remote, "rev-parse", f"{sha}:{folder}"
     )
     assert fetcher.object_id(clone, "f" * 40, folder) is None
+
+
+def _lap_citing(tmp_path: Path, clone: Path, citation: str) -> list[str]:
+    """Check a one-statement lap whose evidence is `citation`; the LSL.4 refusals."""
+    from laplang.cli import check_path
+
+    lap = tmp_path / "round-99-lap-02.md"
+    lap.write_text(
+        "HANDSHAKE-PROTOCOL: 9\nHANDSHAKE-ROUND: 99\nHANDSHAKE-LAP: 2\n"
+        "HANDSHAKE-FROM: platterpus\nHANDSHAKE-VERDICT: OPEN\n\nLSL: 1\n\n"
+        "S1 FACT measured: The run is filed.\n"
+        f"  evidence: {citation}\n",
+        encoding="utf-8",
+    )
+    checked = check_path(lap, root=clone, amendments=frozenset())
+    return [
+        p.message
+        for p in checked.problems
+        if p.severity == "REFUSED" and p.rule == "LSL.4"
+    ]
+
+
+def test_the_sha256_a_lap_writes_beside_a_citation_is_checked(tmp_path: Path) -> None:
+    """HR-2 §6a cites evidence "with its SHA-256". Until 2026-10-15 the checker
+    compared the file with its manifest row and never read the hash the lap
+    wrote, so one wrong hex digit passed (round 33 lap 6 D2)."""
+    world = _world(tmp_path)
+    clone = world["clone"]
+    assert isinstance(clone, Path)
+    good = hashlib.sha256(LOG).hexdigest()
+    bad = good[:-1] + ("0" if good[-1] != "0" else "1")
+    cite = f"platterpus@{world['evidence']}:{RUN}"
+    assert _lap_citing(tmp_path, clone, f"{cite} sha256 {good}") == []
+    refused = _lap_citing(tmp_path, clone, f"{cite} sha256 {bad}")
+    assert len(refused) == 1, refused
+    assert f"the lap quotes {bad}" in refused[0], refused
+    assert f"the file hashes {good}" in refused[0], refused
+
+
+def test_a_quoted_value_that_is_not_a_sha256_is_refused(tmp_path: Path) -> None:
+    world = _world(tmp_path)
+    clone = world["clone"]
+    assert isinstance(clone, Path)
+    refused = _lap_citing(
+        tmp_path, clone, f"platterpus@{world['evidence']}:{RUN} sha256 e8e1d9c7"
+    )
+    assert any("is not a SHA-256" in m for m in refused), refused
+
+
+def test_a_quoted_sha256_on_an_ordinary_citation_is_checked_too(tmp_path: Path) -> None:
+    """Not only evidence: a file on the default branch, cited with a hash, must
+    hash to it as well."""
+    world = _world(tmp_path)
+    clone = world["clone"]
+    assert isinstance(clone, Path)
+    head = _git(clone, "rev-parse", "HEAD")
+    right = hashlib.sha256(b"main\n").hexdigest()
+    cite = f"platterpus@{head}:README.md"
+    assert _lap_citing(tmp_path, clone, f"{cite} sha256 {right}") == []
+    wrong = "0" * 64
+    refused = _lap_citing(tmp_path, clone, f"{cite} sha256 {wrong}")
+    assert any(f"the lap quotes {wrong}" in m for m in refused), refused

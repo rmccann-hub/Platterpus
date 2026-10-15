@@ -14,6 +14,12 @@ version that has no tag on GitHub; see *Earlier versions* near the end. (Design 
 
 ### Changed
 
+- **The lap checker now checks the SHA-256 a lap writes beside a citation.** HR-2 §6a cites
+  evidence as `<repo>@<commit>:<path>` with its SHA-256; until now `lap_language.py check`
+  compared the cited file with its manifest row and never read the hash the lap wrote, so a
+  lap quoting a wrong hash passed. `sha256 <hex>` straight after a citation must now be the
+  file's SHA-256 (refused otherwise, as is a value that is not a SHA-256), for evidence and
+  ordinary citations alike. Found while checking the fork's round 33 lap 5, now filed.
 - **Round 33: the 2026-10-14 Full run (0.7.105 with `.22`) is the first run filed straight to the
   `evidence` branch.** HR-2 point 10a: commit `f57cdc2b`, parent `c737fb6b`, 79 files under
   `docs/handshake/artifactsround33/`, verified before filing (point 9: all 20 signed logs check,
